@@ -1,6 +1,6 @@
 {
   "tc": "tc1-long-chain-research",
-  "collected_at_utc": "2026-11-04T13:50:53.619590+00:00",
+  "collected_at_utc": "2026-11-04T13:58:42.022989+00:00",
   "harness": "in-process pytest, ScriptedChatModel（假模型，非真模型质量证据）",
   "scenario": "长链综合调研（≥5 步、≥2 次子代理委托）",
   "dimensions": [

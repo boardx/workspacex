@@ -1,6 +1,6 @@
 {
   "tc": "tc7-interjection-replan-sync",
-  "collected_at_utc": "2026-11-04T13:51:05.007514+00:00",
+  "collected_at_utc": "2026-11-04T13:58:48.571294+00:00",
   "harness": "in-process pytest, ScriptedChatModel（假模型，非真模型质量证据）",
   "scenario": "configurable.interjection → HumanMessage 注入 + 确定性强制 write_todos（同步 graph.invoke()）",
   "issue": "#2755",

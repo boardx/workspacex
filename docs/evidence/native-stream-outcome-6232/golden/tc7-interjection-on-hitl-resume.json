@@ -1,6 +1,6 @@
 {
   "tc": "tc7-interjection-on-hitl-resume",
-  "collected_at_utc": "2026-11-04T13:51:05.138723+00:00",
+  "collected_at_utc": "2026-11-04T13:58:48.684639+00:00",
   "harness": "in-process pytest, ScriptedChatModel（假模型，非真模型质量证据）",
   "scenario": "HITL 中断 → resume 携带 configurable.interjection → 工具先执行、插话落在其后、随后强制 write_todos",
   "issue": "#2755",

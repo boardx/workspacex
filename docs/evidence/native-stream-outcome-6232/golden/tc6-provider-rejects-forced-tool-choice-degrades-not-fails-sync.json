@@ -1,6 +1,6 @@
 {
   "tc": "tc6-provider-rejects-forced-tool-choice-degrades-not-fails-sync",
-  "collected_at_utc": "2026-11-04T13:51:04.885899+00:00",
+  "collected_at_utc": "2026-11-04T13:58:48.460905+00:00",
   "harness": "in-process pytest, ScriptedChatModel（假模型，非真模型质量证据）",
   "scenario": "provider 拒绝具名 tool_choice 强制调用时（同步 wrap_model_call），退回不强制重试一次，run 正常收尾",
   "dimensions": [

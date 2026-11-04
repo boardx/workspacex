@@ -36,3 +36,17 @@ one HTTP byte chunk. Added actual SDK sync/async counterexamples:
 `review-cr-red.txt` has 2 failed / 34 passed. CR, LF and fragmented CRLF now
 share event boundaries; `review-cr-green.txt` has 123 passed and
 `review-cr-full-suite-pg.txt` has 912 passed / 45 skipped / 2 existing warnings.
+
+Final boundary review reproduced independent LF-only chunks after CR
+(`review-fragment-red.txt`, 2 failed / 36 passed). Consuming the paired LF
+now immediately clears its one-shot flag. Also reproduced invalid UTF-8 in
+an SSE comment before DONE (`review-utf8-red.txt`, 2 failed / 38 passed);
+all SSE lines are now UTF-8 validated, as in the installed SDK.
+The first fragment regression assertion mistakenly expected total-only usage
+although its fixture also reports prompt/completion. That test-only assertion
+was corrected; the intermediate output is retained in
+`fragment-fixture-full-suite.txt` and `review-fragment-green.txt` (both have
+2 fixture assertion failures, not acceptance results).
+Final acceptance: `final-focused-green.txt` **127 passed**;
+`final-full-suite-pg.txt` **916 passed / 45 skipped / 2 existing warnings**.
+The standard script released its owned golden compose stack.

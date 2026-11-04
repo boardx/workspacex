@@ -493,6 +493,7 @@ class UsageParser:
         # SSE accepts CR, LF, and CRLF, including CRLF split across reads.
         if self._skip_lf and chunk.startswith(b"\n"):
             chunk = chunk[1:]
+            self._skip_lf = False
         if not chunk:
             return
         self._skip_lf = False
@@ -508,6 +509,12 @@ class UsageParser:
                 self.completed = False
             if piece.endswith((b"\n", b"\r")):
                 line = self.buffer.rstrip(b"\r\n")
+                try:
+                    line.decode("utf-8")
+                except UnicodeDecodeError:
+                    # The SDK decodes every SSE line, including comments.
+                    self._invalid_event = True
+                    self.completed = False
                 if not line:
                     # SSE data belongs to the complete event, including embedded
                     # newlines. The SDK closes at DONE without draining HTTP EOF.
