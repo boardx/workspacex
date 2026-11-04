@@ -1,3 +1,4 @@
+import { SurveyMarkdownProposalSchema } from "@repo/contracts/survey-markdown-proposal";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { SurveyDraftInputSchema, SurveyRuntimeSchema } from "@repo/contracts/survey-runtime";
@@ -40,7 +41,7 @@ it("renders a typed project-link permission failure without exposing its interna
   const title = "原项目导入 {count}", markdown = "# 原模型标题\n\n## feedback [open]\n原项目问题 {name}\n";
   let created: ReturnType<typeof SurveyRuntimeSchema.parse> | undefined;
   request.mockImplementation(async (path: string, options?: { method?: string; body?: unknown }) => {
-    if (path === "/surveys/markdown-proposals") return { markdown, execution: { id: "85f6e172-8b43-4a75-a917-0e91742d1e8c", provider: "configured", modelId: "raw-model", generatedAt: "2026-11-04T00:00:00.000Z" }, source: { kind: "text", sha256: "a".repeat(64) } };
+    if (path === "/surveys/markdown-proposals") return SurveyMarkdownProposalSchema.parse({ markdown, execution: { id: "85f6e172-8b43-4a75-a917-0e91742d1e8c", provider: "configured", modelId: "raw-model", generatedAt: "2026-11-04T00:00:00.000Z" }, source: { kind: "text", sha256: "a".repeat(64) } });
     if (path === "/surveys" && options?.method === "POST") { created = SurveyRuntimeSchema.parse({ ...SurveyDraftInputSchema.parse(options.body), id: "80fad4fd-88f7-4e26-a58b-0bc1b14d9ad7", version: 1, status: "draft", anonymity: "anonymous", answerRevision: 0, updatedAt: "2026-11-04T00:00:00.000Z", responses: [], publication: null, report: null, reportBasisVersion: null, reportBasisAnswerRevision: null, reportGeneratedAt: null }); return created; }
     if (created && path === `/surveys/${created.id}/source` && options?.method === "PUT") return SurveyRuntimeSchema.parse({ ...created, version: 2 });
     throw Error(`Unexpected boundary: ${path}`);

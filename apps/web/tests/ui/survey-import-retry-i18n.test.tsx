@@ -1,3 +1,4 @@
+import { SurveyMarkdownProposalSchema } from "@repo/contracts/survey-markdown-proposal";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { SurveyDraftInputSchema, SurveyRuntimeSchema, SurveySourceSaveCommandSchema, type SurveyRuntime, type SurveySourceSaveCommand } from "@repo/contracts/survey-runtime";
@@ -21,7 +22,7 @@ it("retries a failed source save in another locale using the already-created ent
   let created: SurveyRuntime | undefined, creates = 0, reads = 0;
   function persisted() { if (!created) throw Error("Expected the real created-response shape first"); return created; }
   request.mockImplementation(async (path: string, options?: { method?: string; body?: unknown }) => {
-    if (path === "/surveys/markdown-proposals") return { markdown, execution: { id: "85f6e172-8b43-4a75-a917-0e91742d1e8c", provider: "configured", modelId: "raw-model", generatedAt: "2026-11-04T00:00:00.000Z" }, source: { kind: "text", sha256: "a".repeat(64) } };
+    if (path === "/surveys/markdown-proposals") return SurveyMarkdownProposalSchema.parse({ markdown, execution: { id: "85f6e172-8b43-4a75-a917-0e91742d1e8c", provider: "configured", modelId: "raw-model", generatedAt: "2026-11-04T00:00:00.000Z" }, source: { kind: "text", sha256: "a".repeat(64) } });
     if (path === "/surveys" && options?.method === "POST") { creates++; const input = SurveyDraftInputSchema.parse(options.body); created = SurveyRuntimeSchema.parse({ ...input, id: "37e1afe2-9abd-48ad-90ae-ecdb5f7ce8aa", version: 1, status: "draft", anonymity: "anonymous", answerRevision: 0, updatedAt: "2026-11-04T00:00:00.000Z", responses: [], publication: null, report: null, reportBasisVersion: null, reportBasisAnswerRevision: null, reportGeneratedAt: null }); return created; }
     if (path === `/surveys/${persisted().id}` && !options?.method) { reads++; return persisted(); }
     if (path === `/surveys/${persisted().id}/source` && options?.method === "PUT") { sourceBodies.push(SurveySourceSaveCommandSchema.parse(options.body)); if (sourceBodies.length === 1) throw new SurveySystemError(surveyRuntimeMessages.network, { cause: new ApiError(403, "CONTROLLED_SOURCE_PERMISSION", {}) }); return SurveyRuntimeSchema.parse({ ...persisted(), version: 2 }); }
