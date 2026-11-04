@@ -1,0 +1,13 @@
+{
+  "worker": "30b88836e2f86a0617e07f85f94c3dcb4a16da5c",
+  "upstream": "8f115aec5b693f93f8621ba23bcb94bbea3a156e",
+  "base": "323b9f0769d18a5517ee6704aeb68b05400903ad",
+  "merged": "062a2726748dee3d555dca530ed832ef350a5866",
+  "acceptedPullRequest": 6229,
+  "actualMergedAt": "2026-11-04T10:54:47Z",
+  "workerModeBlobPreserved": 120,
+  "upstreamModeBlobPreserved": 25,
+  "unchangedModeBlobPreserved": 23705,
+  "overlap": 0,
+  "scope": "Normal merge of actually delivered develop commit; complete worker/upstream changed-path mode/blob union preserved. Does not rerun unchanged Task6 suites or prove billing behavior."
+}

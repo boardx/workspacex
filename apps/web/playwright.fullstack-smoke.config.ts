@@ -342,6 +342,7 @@ export default defineConfig({
         "i18n-research-entry.spec.ts",
         "i18n-interview-journey.spec.ts",
         "i18n-recording-journey.spec.ts",
+        "i18n-survey-journey.spec.ts",
         // Trust-console preview is deterministic, but keeping it in a CI-reachable project
         // prevents the browser acceptance contract from silently becoming local-only.
         "guided-research-trust-console.spec.ts",
