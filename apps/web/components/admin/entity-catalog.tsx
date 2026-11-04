@@ -202,7 +202,7 @@ export function EntityCatalog<T>({
             data-testid={`${prefix}-refresh`}
           >
             <RefreshCw aria-hidden className="h-3.5 w-3.5" />
-            {loading ? t("catalog.loading") : t("catalog.refresh")}
+            {loading ? t("catalog.loading") : t("common.refresh")}
           </Button>
         </div>
       </header>
@@ -254,7 +254,7 @@ export function EntityCatalog<T>({
             {t("catalog.failed", { title, message: status.message })}
           </p>
           <Button size="sm" variant="outline" onClick={onRefresh} data-testid={`${prefix}-retry`}>
-            {t("catalog.retry")}
+            {t("adminCommon.retry")}
           </Button>
         </div>
       )}

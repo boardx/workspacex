@@ -75,7 +75,7 @@ export function DisableDialog({
             disabled={!canConfirm}
             onClick={() => onConfirm(mode)}
             data-testid={`${testid}-confirm`}
-            title={canConfirm ? undefined : t("disable.guard")}
+            title={canConfirm ? undefined : t("controls.reasonBeforeConfirm")}
           >
             {t("disable.confirm", { mode: t(active.label), verb })}
           </Button>
@@ -138,7 +138,7 @@ export function DisableDialog({
 
         {/* 强制填理由（写审计，与后台其它危险动作一致）*/}
         <div className="flex flex-col gap-1.5">
-          <label htmlFor={`${testid}-reason`} className="text-12 font-medium">{t("disable.reason")}</label>
+          <label htmlFor={`${testid}-reason`} className="text-12 font-medium">{t("controls.auditReason")}</label>
           <textarea
             id={`${testid}-reason`}
             rows={2}

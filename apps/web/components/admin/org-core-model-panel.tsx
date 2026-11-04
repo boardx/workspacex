@@ -88,7 +88,7 @@ export function OrgCoreModelPanel({orgId}:{orgId:string}) {
    </fieldset>
    {modelId&&<p className="break-words text-13">{t("core.draft",{name:selectedCandidate?.displayName??modelId})}{!selectedCandidate?.available?t("core.draftUnavailable"):""}</p>}
    <div className="space-y-2"><Label htmlFor={reasonId}>{t("core.reason")}</Label><Textarea id={reasonId} value={reason} maxLength={500} disabled={busy||loading} onChange={event=>{setReason(event.target.value);setSaved(false);}} placeholder={t("core.reasonPlaceholder")}/></div>
-   <Button disabled={!canSave} onClick={()=>void save()}>{t(busy?"core.saving":"core.save")}</Button>
+   <Button disabled={!canSave} onClick={()=>void save()}>{t(busy?"common.saving":"core.save")}</Button>
   </>}
  </section>;
 }
