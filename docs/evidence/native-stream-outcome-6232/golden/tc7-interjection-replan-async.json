@@ -1,0 +1,15 @@
+{
+  "tc": "tc7-interjection-replan-async",
+  "collected_at_utc": "2026-11-04T13:25:33.484137+00:00",
+  "harness": "in-process pytest, ScriptedChatModel（假模型，非真模型质量证据）",
+  "scenario": "同上，异步 asyncio.run(graph.ainvoke(...))——生产 langgraph dev 的实际调用方式",
+  "issue": "#2755",
+  "model_call_tool_choices": [
+    "write_todos",
+    null,
+    "any"
+  ],
+  "tool_call_names_in_transcript": [
+    "write_todos"
+  ]
+}

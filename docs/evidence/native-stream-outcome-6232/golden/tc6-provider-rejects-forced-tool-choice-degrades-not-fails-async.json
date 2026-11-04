@@ -1,0 +1,18 @@
+{
+  "tc": "tc6-provider-rejects-forced-tool-choice-degrades-not-fails-async",
+  "collected_at_utc": "2026-11-04T13:25:33.001744+00:00",
+  "harness": "in-process pytest, ScriptedChatModel（假模型，非真模型质量证据）",
+  "scenario": "provider 拒绝具名 tool_choice 强制调用时（异步 awrap_model_call，asyncio.run(graph.ainvoke(...))），退回不强制重试一次，run 正常收尾",
+  "dimensions": [
+    "D1"
+  ],
+  "not_covered_here": [
+    "真实 DashScope/qwen-plus 端点是否真的拒绝具名 tool_choice（issue #2417 排查已确认这不是那次生产事故的直接根因，见 harness.py 头注）"
+  ],
+  "task_mode_marker": "请先给出计划，经确认后再执行",
+  "model_call_tool_choices": [
+    "write_todos",
+    null
+  ],
+  "tool_call_names_in_transcript": []
+}

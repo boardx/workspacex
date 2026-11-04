@@ -1,0 +1,21 @@
+{
+  "tc": "tc6-task-mode-plan-first-forced-write-todos-sync",
+  "collected_at_utc": "2026-11-04T13:25:32.104296+00:00",
+  "harness": "in-process pytest, ScriptedChatModel（假模型，非真模型质量证据）",
+  "scenario": "任务模式标记 + 不合作假模型 → 确定性强制 write_todos（同步 graph.invoke()）",
+  "dimensions": [
+    "D1"
+  ],
+  "not_covered_here": [
+    "真实模型在方案 A 提示词下的实际服从率（需 devapp 多轮实测）"
+  ],
+  "task_mode_marker": "请先给出计划，经确认后再执行",
+  "model_call_tool_choices": [
+    "write_todos",
+    null,
+    "any"
+  ],
+  "tool_call_names_in_transcript": [
+    "write_todos"
+  ]
+}

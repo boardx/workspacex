@@ -456,8 +456,14 @@ class UsageParser:
         self.buffer = b""
         self.overflow = False
         self.usage = {}
+        self.completed = False
+        self._done_event = False
+        self._invalid_event = False
 
     def read(self, value):
+        if isinstance(value, dict) and "error" in value:
+            self._invalid_event = True
+            self.completed = False
         if not isinstance(value, dict) or not isinstance(value.get("usage"), dict):
             return
         raw = value["usage"]
@@ -487,12 +493,29 @@ class UsageParser:
                 self.buffer += piece
             else:
                 self.buffer = b""; self.overflow = True
+                self._invalid_event = True
+                self.completed = False
             if piece.endswith(b"\n"):
-                if not self.overflow and self.buffer.startswith(b"data:"):
+                line = self.buffer.rstrip(b"\r\n")
+                if not line:
+                    # The SDK stops at [DONE] and closes without draining HTTP EOF.
+                    # Only a complete SSE event proves that close was normal.
+                    self.completed = self.completed or (self._done_event and not self._invalid_event)
+                    self._done_event = False
+                elif not self.overflow and line.startswith(b"data:"):
+                    data = line[5:].strip()
+                    self._done_event = data == b"[DONE]"
+                    if self._done_event:
+                        self.buffer = b""; self.overflow = False
+                        continue
                     try:
-                        self.read(json.loads(self.buffer[5:].strip()))
+                        self.read(json.loads(data))
                     except (ValueError, TypeError, AttributeError):
-                        pass
+                        self._invalid_event = True
+                        self.completed = False
+                elif line.startswith(b"event:") and line[6:].strip() == b"error":
+                    self._invalid_event = True
+                    self.completed = False
                 self.buffer = b""; self.overflow = False
 
     def finish(self):
@@ -592,6 +615,7 @@ def apply_admitted_dispatch(request, start, acknowledgement):
 
 def terminal(start: dict, parser: UsageParser, success: bool):
     parser.finish()
+    success = success and (not parser.sse or parser.completed)
     return {k: start[k] for k in ("orgId", "attemptId", "leaseEpoch", "requestId") if k in start} | {"endedAt": now(), "outcome": "succeeded" if success else "failed", "usage": parser.usage}
 
 
@@ -642,7 +666,7 @@ class AccountedSyncStream(httpx.SyncByteStream):
         try:
             self.stream.close()
         finally:
-            self.finish(False)
+            self.finish(self.success and self.parser.completed)
 
 
 class AccountedAsyncStream(httpx.AsyncByteStream):
@@ -692,7 +716,7 @@ class AccountedAsyncStream(httpx.AsyncByteStream):
         try:
             await self.stream.aclose()
         finally:
-            await self.finish(False)
+            await self.finish(self.success and self.parser.completed)
 
 
 def receipt_requested():
