@@ -41,7 +41,7 @@ it("keeps a bulk option draft and stable option IDs while localizing its control
   expect(field).toHaveValue("用户选项 {count}\nSecond raw option"); expect(changed).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Apply options" }));
   expect(changed).toHaveBeenCalledTimes(1);
-  expect(changed.mock.calls[0][0]).toMatchObject({ options: ["用户选项 {count}", "Second raw option"], config: { optionIds: ["raw-a", "raw-b"] } });
+  expect(changed.mock.calls[0]![0]).toMatchObject({ options: ["用户选项 {count}", "Second raw option"], config: { optionIds: ["raw-a", "raw-b"] } });
 });
 
 it("keeps raw matrix labels and adds only a new current-language row on explicit action", () => {
@@ -51,7 +51,7 @@ it("keeps raw matrix labels and adds only a new current-language row on explicit
   const field = screen.getByRole("textbox", { name: "矩阵行 1" }); language("en");
   expect(screen.getByRole("textbox", { name: "Matrix row 1" })).toBe(field); expect(field).toHaveValue("原矩阵行 {count}");
   expect(changed).not.toHaveBeenCalled(); fireEvent.click(screen.getByRole("button", { name: "Add matrix row" }));
-  expect(changed.mock.calls[0][0].config.rows).toEqual([{ id: "row-raw", label: "原矩阵行 {count}", required: true }, { id: "00000000-0000-4000-8000-000000000001", label: "New matrix row", required: true }]);
+  expect(changed.mock.calls[0]![0].config.rows).toEqual([{ id: "row-raw", label: "原矩阵行 {count}", required: true }, { id: "00000000-0000-4000-8000-000000000001", label: "New matrix row", required: true }]);
   language("zh-CN"); expect(changed).toHaveBeenCalledTimes(1);
 });
 
@@ -70,7 +70,7 @@ it("localizes rule operators without changing raw references, answers or jump en
   expect(screen.getByRole("combobox", { name: "Jump target 1" })).toHaveValue("raw-after");
   expect(changed).not.toHaveBeenCalled();
   fireEvent.change(screen.getByRole("combobox", { name: "Condition operator 1" }), { target: { value: "includes" } });
-  expect(changed.mock.calls[0][0].config).toMatchObject({ visibleWhen: [{ questionId: "raw-before", operator: "includes", value: "before-a" }], jumpTo: [{ optionId: "raw-a", targetId: "raw-after" }] });
+  expect(changed.mock.calls[0]![0].config).toMatchObject({ visibleWhen: [{ questionId: "raw-before", operator: "includes", value: "before-a" }], jumpTo: [{ optionId: "raw-a", targetId: "raw-after" }] });
 });
 
 it("retains raw image URL/alt and upload-format choices when only chrome changes", () => {
@@ -126,11 +126,11 @@ it.each(invalidConfigurations)("renders canonical configuration diagnostics in t
 
 it("localizes Other chrome while submitting the original reserved choice ID and raw explanation", () => {
   const changed = vi.fn(); show(<Answer initial={question({ config: { optionIds: ["raw-a", "raw-b"], other: true } })} changed={changed} />, "en");
-  fireEvent.click(screen.getByRole("radio", { name: "Other", exact: true }));
+  fireEvent.click(screen.getByRole("radio", { name: "Other" }));
   fireEvent.change(screen.getByRole("textbox", { name: "原题 {count}: Other details" }), { target: { value: "原始补充 {name}" } }); language("zh-CN");
   expect(screen.getByRole("textbox", { name: "原题 {count}：其他说明" })).toHaveValue("原始补充 {name}");
   expect(changed).toHaveBeenCalledTimes(2);
-  expect(changed.mock.calls[1][0]).toEqual({ selected: "__other__", other: "原始补充 {name}" });
+  expect(changed.mock.calls[1]![0]).toEqual({ selected: "__other__", other: "原始补充 {name}" });
 });
 
 it("retains structured raw row labels, answers and field DOM across language changes", () => {
@@ -139,7 +139,7 @@ it("retains structured raw row labels, answers and field DOM across language cha
   fireEvent.change(field, { target: { value: "原答案 {count}" } }); language("en");
   expect(screen.getByRole("textbox", { name: "原题 {count}: 原行 {name}" })).toBe(field);
   expect(field).toHaveValue("原答案 {count}"); expect(changed).toHaveBeenCalledTimes(1);
-  expect(changed.mock.calls[0][0]).toEqual({ "raw-row": "原答案 {count}" });
+  expect(changed.mock.calls[0]![0]).toEqual({ "raw-row": "原答案 {count}" });
 });
 
 it("localizes cascade level controls while keeping the authored path values", () => {
@@ -147,7 +147,7 @@ it("localizes cascade level controls while keeping the authored path values", ()
   fireEvent.change(screen.getByRole("combobox", { name: "原题 {count}：第 1 级" }), { target: { value: "原地区 {count}" } }); language("en");
   expect(screen.getByRole("combobox", { name: "原题 {count}: Level 1" })).toHaveValue("原地区 {count}");
   fireEvent.change(screen.getByRole("combobox", { name: "原题 {count}: Level 2" }), { target: { value: "原城市 {name}" } });
-  expect(changed.mock.calls[1][0]).toEqual(["原地区 {count}", "原城市 {name}"]);
+  expect(changed.mock.calls[1]![0]).toEqual(["原地区 {count}", "原城市 {name}"]);
 });
 
 it("localizes star labels without changing numeric answer strings or raw endpoints", () => {

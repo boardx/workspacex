@@ -102,7 +102,7 @@ it("retains AI creation fields and mode, then navigates with raw metadata withou
   expect(screen.getByRole("radio", { name: /Create with AI/ })).toBeChecked();
   fireEvent.click(screen.getByRole("button", { name: "Next" }));
   await waitFor(() => expect(push).toHaveBeenCalledTimes(1));
-  const url = new URL(push.mock.calls[0][0], "http://localhost");
+  const url = new URL(push.mock.calls[0]![0], "http://localhost");
   expect(url.pathname).toBe("/studio/survey/new/import");
   expect(url.searchParams.get("projectId")).toBe("raw/project");
   expect(JSON.parse(url.searchParams.get("draft")!)).toEqual({ name: rawName, tags: [rawTag] });
@@ -121,7 +121,7 @@ it("creates once with a current-language report default while preserving a pendi
   language("en");
   fireEvent.click(screen.getByRole("button", { name: "Next" }));
   expect(request).toHaveBeenCalledTimes(1);
-  expect(request.mock.calls[0][1].body).toMatchObject({ title: rawName, tags: [rawTag], questions: [], template: { title: "原始 survey {count} analysis report", sections: [] } });
+  expect(request.mock.calls[0]![1].body).toMatchObject({ title: rawName, tags: [rawTag], questions: [], template: { title: "原始 survey {count} analysis report", sections: [] } });
   language("zh-CN"); language("en");
   expect(input).toHaveValue(rawName);
   expect(screen.getByRole("button", { name: "Creating…" })).toBeDisabled();
@@ -165,7 +165,7 @@ it("retains a selected authored template and copies its report instead of applyi
   expect(request).toHaveBeenCalledTimes(1);
   fireEvent.click(screen.getByRole("button", { name: "Next" }));
   await waitFor(() => expect(created).toHaveBeenCalledWith("survey-raw", "template"));
-  expect(request.mock.calls[1][1].body).toMatchObject({
+  expect(request.mock.calls[1]![1].body).toMatchObject({
     title: rawName,
     questions: [{ id: "q1", title: rawQuestion, provenance: { source: "template", sourceId: "template-raw" } }],
     template: { id: "template-report", title: "原报告 {count}", sections: [] },

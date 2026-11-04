@@ -1,0 +1,17 @@
+{
+  "name": "type-first",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "typecheck"
+  ],
+  "source": "84231f9471e3ae2c3b650a10523bb194823017de",
+  "exitCode": 2,
+  "seconds": 51.167,
+  "rawLogSha256": "39a00aae0bee3869579637cac81d78a3334d90528c0e1379a46635b29243f079",
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "classification": "Only own survey UI test TypeScript errors: noUncheckedIndexedAccess on already-asserted calls/added question; unsupported exact property on getByRole (string names already match exactly). No product source errors reported."
+}

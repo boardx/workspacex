@@ -82,31 +82,32 @@ it.each(types)("translates %s metadata and creates only its new defaults without
   expect(changed).not.toHaveBeenCalled();
   fireEvent.click(add);
   expect(changed).toHaveBeenCalledTimes(1);
-  const questions = changed.mock.calls[0][0] as SurveyWorkflowQuestion[];
+  const questions = changed.mock.calls[0]![0] as SurveyWorkflowQuestion[];
+  expect(questions).toHaveLength(2);
   expect(questions[0]).toMatchObject({ id: "raw-q", type: "single", title: rawTitle, chapterId: rawChapter, options: ["原选项 {count}", "Other 原选项"] });
   expect(questions[1]).toMatchObject({ id: nextId, type, title: label, order: 2 });
   if (type === "single") {
-    expect(questions[1].options).toEqual(["Option 1", "Option 2"]);
-    expect(questions[1].config?.optionIds).toEqual([`${nextId}-option-1`, `${nextId}-option-2`]);
+    expect(questions[1]!.options).toEqual(["Option 1", "Option 2"]);
+    expect(questions[1]!.config?.optionIds).toEqual([`${nextId}-option-1`, `${nextId}-option-2`]);
   }
-  if (type === "matrix_single") expect(questions[1].config?.rows).toEqual([{ id: `${nextId}-row-1`, label: "Item 1" }, { id: `${nextId}-row-2`, label: "Item 2" }]);
-  if (type === "address") expect(questions[1].config?.fields?.map(field => field.label)).toEqual(["Province/region", "City", "Street address"]);
-  if (type === "cascade") expect(questions[1].config?.cascadePaths).toEqual([["Region 1", "City 1"], ["Region 1", "City 2"], ["Region 2", "City 3"]]);
-  if (type === "scale") expect(questions[1].options).toEqual(["1", "2", "3", "4", "5"]);
+  if (type === "matrix_single") expect(questions[1]!.config?.rows).toEqual([{ id: `${nextId}-row-1`, label: "Item 1" }, { id: `${nextId}-row-2`, label: "Item 2" }]);
+  if (type === "address") expect(questions[1]!.config?.fields?.map(field => field.label)).toEqual(["Province/region", "City", "Street address"]);
+  if (type === "cascade") expect(questions[1]!.config?.cascadePaths).toEqual([["Region 1", "City 1"], ["Region 1", "City 2"], ["Region 2", "City 3"]]);
+  if (type === "scale") expect(questions[1]!.options).toEqual(["1", "2", "3", "4", "5"]);
   language("zh-CN");
   expect(changed).toHaveBeenCalledTimes(1);
-  expect(questions[1].title).toBe(label);
+  expect(questions[1]!.title).toBe(label);
 });
 
 it("retains an English type query and canonical category when switching back to Chinese", () => {
   const changed = vi.fn(); show(<ControlledEditor changed={changed} />);
   fireEvent.click(screen.getByRole("button", { name: "新增题目" })); language("en");
-  fireEvent.click(screen.getByRole("button", { name: "Rating", exact: true }));
+  fireEvent.click(screen.getByRole("button", { name: "Rating" }));
   const input = screen.getByRole("textbox", { name: "Search question types" });
   fireEvent.change(input, { target: { value: "slider" } }); language("zh-CN");
   expect(screen.getByRole("textbox", { name: "搜索题型" })).toBe(input);
   expect(input).toHaveValue("slider");
-  expect(screen.getByRole("button", { name: "评分", exact: true })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("button", { name: "评分" })).toHaveAttribute("aria-pressed", "true");
   expect(screen.getByTestId("add-question-slider")).toBeVisible();
   expect(changed).not.toHaveBeenCalled();
 });
@@ -122,7 +123,7 @@ it("keeps the authored title editor, selection and canonical type/chapter across
   expect(screen.getByRole("combobox", { name: "Question type" })).toHaveValue("single");
   expect(screen.getByRole("textbox", { name: "Chapter" })).toHaveValue(rawChapter);
   expect(changed).toHaveBeenCalledTimes(1);
-  expect(changed.mock.calls[0][0][0].config).toEqual({ optionIds: ["raw-a", "raw-b"], description: rawDescription });
+  expect(changed.mock.calls[0]![0][0].config).toEqual({ optionIds: ["raw-a", "raw-b"], description: rawDescription });
 });
 
 it("keeps a pending type confirmation and only changes canonical data after explicit confirmation", () => {
@@ -138,7 +139,7 @@ it("keeps a pending type confirmation and only changes canonical data after expl
   fireEvent.change(screen.getByRole("combobox", { name: "Question type" }), { target: { value: "rating" } });
   fireEvent.click(screen.getByRole("button", { name: "Confirm change" }));
   expect(changed).toHaveBeenCalledTimes(1);
-  expect(changed.mock.calls[0][0][0]).toMatchObject({ id: "raw-q", type: "rating", title: rawTitle, chapterId: rawChapter, options: [], config: { description: rawDescription, min: 1, max: 5, step: 1 } });
+  expect(changed.mock.calls[0]![0][0]).toMatchObject({ id: "raw-q", type: "rating", title: rawTitle, chapterId: rawChapter, options: [], config: { description: rawDescription, min: 1, max: 5, step: 1 } });
 });
 
 it("keeps trial answers and pagination without emitting any question save across locales", () => {
@@ -175,7 +176,7 @@ it("retains device choice and undo history through locale changes", () => {
   expect(changed).toHaveBeenCalledTimes(1);
   fireEvent.click(screen.getByRole("button", { name: "Undo last change" }));
   expect(changed).toHaveBeenCalledTimes(2);
-  expect(changed.mock.calls[1][0][0].title).toBe(rawTitle);
+  expect(changed.mock.calls[1]![0][0].title).toBe(rawTitle);
 });
 
 it("localizes overview controls while keeping authored content literal", () => {

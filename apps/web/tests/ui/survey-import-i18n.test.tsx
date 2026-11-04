@@ -66,9 +66,9 @@ it("preserves a pending proposal request, then rejects its cancelled late result
   expect(input).toBeDisabled();
   expect(screen.getByRole("button", { name: "Generating…" })).toBeDisabled();
   expect(request).toHaveBeenCalledTimes(1);
-  expect(request.mock.calls[0][0]).toBe("/surveys/markdown-proposals");
-  expect(request.mock.calls[0][1].body).toEqual({ text: rawText });
-  const signal = request.mock.calls[0][1].signal as AbortSignal;
+  expect(request.mock.calls[0]![0]).toBe("/surveys/markdown-proposals");
+  expect(request.mock.calls[0]![1].body).toEqual({ text: rawText });
+  const signal = request.mock.calls[0]![1].signal as AbortSignal;
   fireEvent.click(screen.getByRole("button", { name: "Cancel generation" }));
   expect(signal.aborted).toBe(true);
   await act(async () => finish(proposal));
@@ -112,7 +112,7 @@ it("retains an uploaded file and original demand across locale changes and remov
   expect(screen.getByRole("button", { name: "Add file" })).toHaveAttribute("title", "Markdown, TXT, PDF and DOCX, up to 256 KB");
   fireEvent.click(screen.getByRole("button", { name: "Remove file 原文件 {count}.txt" }));
   fireEvent.click(screen.getByRole("button", { name: "Generate survey" }));
-  expect(request.mock.calls[0][1].body).toEqual({ text: rawText });
+  expect(request.mock.calls[0]![1].body).toEqual({ text: rawText });
 });
 
 it("keeps an idle saved recording selected by raw name without reloading it on locale change", async () => {
@@ -125,7 +125,7 @@ it("keeps an idle saved recording selected by raw name without reloading it on l
   expect(screen.getByText("原录音 {count}")).toBeVisible();
   expect(recordings).toHaveBeenCalledTimes(1);
   fireEvent.click(screen.getByRole("button", { name: "Generate survey" }));
-  expect(request.mock.calls[0][1].body).toEqual({ text: "", transcriptionId: "voice-raw" });
+  expect(request.mock.calls[0]![1].body).toEqual({ text: "", transcriptionId: "voice-raw" });
 });
 
 it("retranslates an existing local file-limit error without reading or submitting the file", () => {
