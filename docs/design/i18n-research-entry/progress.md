@@ -1,4 +1,4 @@
-> Current state (2026-11-04): research PR #6205 now includes interview PR #6213, which merged into its feature base, not develop. Normal latest-develop merge source is `902da4b5a9d4faaac425b41d4d58c6cdca169939`; static dictionary/blob proofs pass, integrated runtime verification and push remain pending. See [stack-integration.md](stack-integration.md). Earlier sections below are historical receipts, including superseded stash/PR status.
+> Current state (2026-11-04): research PR #6205 now includes interview PR #6213, which merged into its feature base, not develop. Normal latest-develop merge source is `902da4b5a9d4faaac425b41d4d58c6cdca169939`; static dictionary/blob proofs, integrated web/API types,54file538UI/resource cases,43API cases and init/static gates pass; independent integration review is clean. Normal push, remote CI and develop merge remain pending. See [stack-integration.md](stack-integration.md). Earlier sections below are historical receipts, including superseded stash/PR status.
 
 # Progress — complete research journey #6198
 

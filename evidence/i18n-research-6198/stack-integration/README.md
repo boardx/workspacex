@@ -16,3 +16,9 @@ node evidence/i18n-research-6198/stack-integration/dictionary-proof.cjs baf5eb97
 ```
 
 Prior research ten-image and interview twenty-two-image browser evidence remains evidence for its recorded source only. No new browser, current integration typecheck, focused regression, init, push, CI or develop merge is claimed by these static proofs. Those gates remain pending at this point.
+
+## Actual current integration verification
+
+All gates ran against evidence-only head8e865198778985cb53965f6b72d2d36e0c4538fe, whose runtime is exactly902da4b5a. Full web type0/60.059s; 54 explicit UI/resource files538/538PASS/106.933s with one worker; professional/loopback API3files43/43PASS/3.736s; full API type0/45.457s. Scoped104web-file ESLint, standard init, testid, route wiring, Vitest config reachability and full spec-gate all exit0. Each original command, source, actual exit, duration and raw hash is indexed in validation.json. Text receipts normalize only trailing blank EOF; their separate hashes are recorded. No new timeout, retry, guard exemption or browser run was introduced.
+
+Independent review of exact902da is archived in independent-review-902da.md. It reuses prior unchanged-source reviews, independently recomputes blob/mode and dictionary proofs, and hashes all32 historical PNGs without claiming new visual inspection. browser-source-boundary.json records the exact historical/runtime relationship. No own service stack was created by these checks. Normal push, remote CI and actual develop integration remain pending.
