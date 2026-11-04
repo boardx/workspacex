@@ -173,7 +173,7 @@ describe("platform members complete localization", () => {
     expect(error).toHaveTextContent(/only.*platform superuser/i);
     switchTo("zh-CN"); expect(error).toHaveTextContent(/只有平台超管/);
     expect(Boolean(screen.queryByTestId("admin-platform-member-target-admin-badge"))).toBe(method === "DELETE");
-    expect(requests()[1].method).toBe(method); expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(requests()[1]?.method).toBe(method); expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("describes a removed account separately from a removed organization membership", async () => {
