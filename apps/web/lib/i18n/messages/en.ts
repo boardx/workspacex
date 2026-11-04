@@ -1,6 +1,7 @@
 import { surveyDesignEn } from "../namespaces/survey-design";
 import { surveyLibraryEn } from "../namespaces/survey-library";
 import { recordingProjectEn } from "../namespaces/recording-project";
+import { workflowGrantsEn } from "../namespaces/workflow-grants";
 import { orgHomeConfigEn } from "../namespaces/org-home-config";
 import { orgProfileEn } from "../namespaces/org-profile";
 import { adminNavigationEn } from "../namespaces/admin-navigation";
@@ -25,6 +26,7 @@ import { invitationEntryEn } from "../namespaces/invitation-entry";
 export const en: Record<keyof typeof zhCN, string> = {
   ...surveyLibraryEn,
   ...surveyDesignEn,
+  ...workflowGrantsEn,
   ...orgHomeConfigEn,
   ...orgProfileEn,
   ...brainViewsEn,
@@ -248,6 +250,7 @@ export const en: Record<keyof typeof zhCN, string> = {
   "home.error.UNSUPPORTED_CONTENT_TYPE": "Only PNG, JPEG, and WebP images are supported.",
   "common.error.network": "Could not connect to the server. Check your connection and try again.",
   "common.http.auth": "Your session has expired. Refresh the page and sign in again.",
+  "common.http.forbidden": "You do not have permission to perform this action. Contact your administrator if you need access.",
   "common.http.notFound": "The requested item is no longer available.",
   "common.http.rateLimit": "Too many requests. Wait a moment and try again.",
   "common.http.server": "The server encountered an error. Please try again later.",

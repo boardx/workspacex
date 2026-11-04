@@ -1,0 +1,13 @@
+{
+  "head": "bf3d9de11ca7f4e5afb73c36cb1668c42e5838e0",
+  "gate": "focused",
+  "exit": 0,
+  "seconds": 8.042,
+  "rawPrivate": true,
+  "logSha256": "d55b330aa1ef618f50a447157af6704f7edc999893dc1507f770a8dc14b6cfe4",
+  "summary": [
+    "Test Files  3 passed (3)",
+    "Tests  30 passed (30)",
+    "Duration  6.06s (transform 781ms, setup 452ms, collect 1.62s, tests 1.47s, environment 1.80s, prepare 176ms)"
+  ]
+}

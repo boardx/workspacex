@@ -1,0 +1,20 @@
+{
+  "name": "threshold",
+  "command": [
+    "pnpm",
+    "--filter",
+    "@repo/contracts",
+    "exec",
+    "vitest",
+    "run",
+    "tests/pending-thresholds.test.ts",
+    "--maxWorkers=1",
+    "--minWorkers=1"
+  ],
+  "source": "8ac95585fcb760b05d36a592673027fbd7ee9538",
+  "exitCode": 0,
+  "seconds": 1.763,
+  "rawLogSha256": "1ab739c944a5d376810403bd6b17f814c4ec94599cf2bfdebd06710c5dc8ef45",
+  "environment": {},
+  "passed": 7
+}
