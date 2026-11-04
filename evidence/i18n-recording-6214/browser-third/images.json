@@ -1,0 +1,338 @@
+[
+  {
+    "name": "stopped-en-1280.png",
+    "sha256": "d43f2a4a98f1840b5cc35774788b3a509540adf9debbadb5fbcf159d299a7ba8",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "transcript-edit-en-375.png",
+    "sha256": "079a6a0355dd894bfaeee9f4cd004c5850a27108706109d161057aff34c39476",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "delete-en-1280.png",
+    "sha256": "38741fc10719beaa02eea9deec61a7a5a03db5920e11365e4d33763398156cc9",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "create-en-1280.png",
+    "sha256": "cf1f8dc36ce1afcf645fd9b151d8a23b4e6fdcdf9193eac0362f4beda7b38aa6",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "metadata-en-1280.png",
+    "sha256": "4e249c65dd39088d3e4d86bfaf4b0d3290535e66eab3e3b697ddc54a7d9330c1",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "reloaded-en-375.png",
+    "sha256": "a3e5494873cc7ec0fcfb9a2b66320144fd497a50276d5c6b8a426850cebc1be1",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "metadata-en-375.png",
+    "sha256": "1651e27007d585cab674f0e0331adb684dd72263f9827eb23a2c662992646710",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "stopped-en-375.png",
+    "sha256": "41828824af0489d27649d59852178309eda7e8944bb1300ddaadad92496b6929",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "rename-en-375.png",
+    "sha256": "e4fc262c61c431eca37441263570b66eae58ab51f9895435cb2c7b258baa283f",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "workspace-empty-en-375.png",
+    "sha256": "fba8208c319faab29c8e9756e94ea900fdc1212e00be35af23cb310b3e34ca7e",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "reloaded-en-1280.png",
+    "sha256": "1599e291463bb6bceb59c9cb090258fdbd97ac1c0263c8665c68d0edef345647",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "create-en-375.png",
+    "sha256": "e3977ad15cd86bb45890367c87675442fbfebbf9245f220b09dd08a4843e9469",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "delete-en-375.png",
+    "sha256": "43f6f687344bae2623e9064bbbce92ade5e601aeacafb25f800022516ab67ca4",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "transcript-edit-en-1280.png",
+    "sha256": "04bed40c941254ff30159ba3b0a47352c3f890a7d21481bc97cb089383d8b4a7",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "deleted-en-375.png",
+    "sha256": "c748520b5e7b6ed5c73102da93ca4278bcd5796aa2bdc8de4139be85a531e989",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "devices-en-1280.png",
+    "sha256": "4daf6425a3ab6bf5c79b95aa3a9df08279802644a791d1e320c327700961336e",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "workspace-empty-en-1280.png",
+    "sha256": "f1958dfbed2acd26a2b6f88440033d1312133b648b7c513ac98a3a768524f457",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "devices-en-375.png",
+    "sha256": "79db3bf6b10446cc414d9108176d9433aac582cc701f562dff2f57d287902f78",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "recording-active-en-375.png",
+    "sha256": "810c55e412a8173133c2894e923e0f506411c0030b6a9d6307af2a9fb23fa15a",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "deleted-en-1280.png",
+    "sha256": "130a4e02a94cb976914a78b7311226525b543c5ec2e6669aee90f73661876520",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "recording-active-en-1280.png",
+    "sha256": "ab8d843f726ab785242efe7217a428782ed011dc37d83d6f902654d52e76bf44",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "rename-en-1280.png",
+    "sha256": "f5fa03b6057ead62545b1416ae0f839f0eebbab17a786faf0afdaecbb2fb7487",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "project-live-footer-en-375.png",
+    "sha256": "5c9a219d610432408c1b748f6fdf1530846887a64efc23db40c0c7725f6071ac",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "project-assign-footer-en-375.png",
+    "sha256": "1ceb32dd4d859717e7167d91e4cb4b067f0254753eb3161d1f6152b6ebe93be2",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "project-live-en-1280.png",
+    "sha256": "7f231e654a3dc28de2861718907eaa13465c2a3c9a4f9fc87deeff1cc63c0457",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "project-assign-en-375.png",
+    "sha256": "0b1515f9c92a0026dd0efa33b328f91576be12cb0035fdf1889ad010c8dc106b",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "project-verify-footer-en-375.png",
+    "sha256": "abeb6cd4cf9ab0e71c1571e26e04c4f05f7e7639f724b2f6481531a3b323667d",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "project-verify-en-1280.png",
+    "sha256": "e55498ad0191b725cfa6a83df37639766474eeb1d3f09d507775431df876d467",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "project-process-en-1280.png",
+    "sha256": "fc1bc1695dea0e825de8da737509315ea7f8950280164b07d73c2c5c31c04208",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "project-retention-footer-en-375.png",
+    "sha256": "caf21569998722a1d6117541ce246bd19cd7079923815049bb0e0ec93976bba7",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "project-process-en-375.png",
+    "sha256": "984feb0313934a11b45b443690e79e97412686c3b84ab8d204a283b78e5b12c6",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "project-annotate-footer-en-375.png",
+    "sha256": "68f3a988a4322be1772c86ae12eebf95610cdce0a99ffe3891fbe93a8a31dffb",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "project-live-footer-en-1280.png",
+    "sha256": "df2ef6a8ddac3bbc4593342229b9236fdca1b6e1c3261ed5b5ded9bf906e1a9a",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "project-interviewee-consent-en-375.png",
+    "sha256": "ea06e77845e272f0829a543a6b9e137edc7f2a70f29b506290c2f8407b2c878e",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "project-annotate-en-375.png",
+    "sha256": "f684ed2a8293f982f36e8fc8d6a9490b7bfa04459a13bc64d7f8e3981079b6d4",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "project-interviewee-withdraw-en-375.png",
+    "sha256": "21130fe15ce3e1515897997f02b37e6ecd745f46facdf6fff935bd802a12cbdf",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "project-prep-en-375.png",
+    "sha256": "427cb497933a0c814ddbe5b92546ef1866ad6d4cfea5241d1d17d513c5222ec9",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "project-retention-en-1280.png",
+    "sha256": "6ae991e57178bf8215caf63459f92800412f4b92c4f4b8a314b19979383861b7",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "project-interviewee-consent-en-1280.png",
+    "sha256": "a71473ea33af5804170d171aa636d90cd88db4fb20d43ce476023bba30fdbb40",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "project-prep-en-1280.png",
+    "sha256": "40b76a58c4459bc056bc14b8215e79dd09bbc879baecf57a9805a5543b9aa980",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "project-verify-en-375.png",
+    "sha256": "68c71fc135845fb647e02ad38ddcdff0e49e0e3a5522b68ae28b1161e401145a",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "project-prep-footer-en-375.png",
+    "sha256": "ce2982624114c1ea0ca3888401adb850f600f73a2799fb12758fa0866555ff99",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "project-retention-en-375.png",
+    "sha256": "ae2a360a165d02dd28c0e49f21f4c2b9f9de8cf0ed9dc94c50cf518c24cde713",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "project-retention-footer-en-1280.png",
+    "sha256": "d6811fc862996184b74c6b82248671fc8ca63e2aa58e1711b8e6029c9ad61364",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "project-live-en-375.png",
+    "sha256": "f1a34ab58cdcd903fb2a2bcc3331ff8aca35fca7f443d63a28ce7dc7f8a63b08",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "project-annotate-en-1280.png",
+    "sha256": "bc2cc4defa5a5b70795ae05ef3a9c39ca08e04b320f4e9e478da0305072a2199",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "project-assign-en-1280.png",
+    "sha256": "f056ff0a0906ba5beab22a472c1baeb30627d77caecac24a40df3d45a4e53d0e",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  },
+  {
+    "name": "project-interviewee-withdraw-en-1280.png",
+    "sha256": "a71473ea33af5804170d171aa636d90cd88db4fb20d43ce476023bba30fdbb40",
+    "authorViewed": true,
+    "result": "PASS",
+    "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61"
+  }
+]

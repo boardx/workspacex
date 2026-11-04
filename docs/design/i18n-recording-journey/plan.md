@@ -1,4 +1,4 @@
-当前状态（2026-11-04）：源码026d已正常合入新父2df，17文件stash哈希/模式完整恢复；当前webtype、15文件208用例、数据旧值等值、init/static与精确2case discovery通过，全32源码文件独立静态审查CLEAN。下一步首次真实browser及全量实际截图QA，随后PR/CI/develop交付；以下旧状态保留为历史记录。
+当前状态（2026-11-04）：冻结视觉源码f8dfac711已通过33针对用例、完整webtype、数据旧值等值及全部剩余静态门。第三轮原2case browser实际0/237.830s，48张375/1280截图逐张QA通过；此前真实移动端问题已修复，录音回执和动态scope清理0已保存安全证据。源码与增量独立静态审查CLEAN；安全证据终审、正常push、Draft stack PR及CI/实际develop交付待完成。研究父PR6205候选实际失败，仍Draft，不把feature-base合并计交付。以下旧状态保留为历史记录。
 
 理解与边界：按用户 B5 交办，完整覆盖个人录音/转录历史、新建、实时采音/停止收尾、逐字稿改名编辑保存刷新、设备/错误/权限及项目模式各子界面。保留原音频、ASR/逐字稿/私有与模型内容、协议枚举、状态机、停止与重连 Promise、缓存/会话身份和编辑草稿。项目示意 UI 与真实 ASR 验收分开。
 
@@ -14,7 +14,8 @@ flowchart LR
  class A done
  class B tested
  class C tested
- class D,E pending
+ class D tested
+ class E active
 ```
 
 重验证与其他两期串行，先 RED 再修改。录音协议只读审计；仅翻译呈现层，所有错误码和机器字段保持原值。
