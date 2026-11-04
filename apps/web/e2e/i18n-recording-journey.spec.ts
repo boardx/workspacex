@@ -117,8 +117,17 @@ test("recording locale preserves real capture, final persistence, edits and hist
   await page.getByTestId("rec-live-back").click(); await expect(page.getByTestId(`rec-history-card-${sessionId}`)).toContainText(renamed);
   await page.getByTestId(`rec-history-more-${sessionId}`).click(); await page.getByTestId(`rec-history-edit-${sessionId}`).click(); await capture("metadata-en"); await page.keyboard.press("Escape");
   await page.getByTestId(`rec-history-more-${sessionId}`).click(); await page.getByTestId(`rec-history-delete-${sessionId}`).click(); await capture("delete-en"); await page.keyboard.press("Escape");
-  expect((await read()).content).toBe(edited); expect(errors).toEqual([]);
-  await test.info().attach("recording-receipt.json", { body: JSON.stringify({ sessionId, projectId: F.projectId, contentSha256: hash, rawName: name, renamed, rawTag, sockets, controlFrames: frames, writes, durationMs: saved.durationMs }, null, 2), contentType: "application/json" });
+  expect((await read()).content).toBe(edited);
+  await page.getByTestId(`rec-history-more-${sessionId}`).click(); await page.getByTestId(`rec-history-delete-${sessionId}`).click();
+  const deletion = page.waitForResponse(response => response.request().method() === "DELETE" && pathOf(response.url()) === `/recording/realtime-asr/sessions/${sessionId}`);
+  await page.getByTestId("rec-delete-confirm").click(); expect((await deletion).ok()).toBe(true);
+  await expect(page.getByTestId(`rec-history-card-${sessionId}`)).toHaveCount(0); await expect(page.getByTestId("saved")).toContainText(`Permanently deleted “${renamed}”`);
+  const afterDeletionWrites = writes.length; await language("zh-CN"); await language("en"); expect(writes).toHaveLength(afterDeletionWrites);
+  await expect(page.getByTestId("saved")).toContainText(renamed); await capture("deleted-en");
+  await page.reload(); await expect(page.getByTestId("rec-history-page")).toBeVisible(); await expect(page.getByTestId(`rec-history-card-${sessionId}`)).toHaveCount(0);
+  const deletedRead = await page.request.get(`/__fullstack_api/recording/realtime-asr/sessions/${sessionId}`, { headers }); expect(deletedRead.status()).toBe(404);
+  expect(errors).toEqual([]);
+  await test.info().attach("recording-receipt.json", { body: JSON.stringify({ sessionId, projectId: F.projectId, contentSha256: hash, rawName: name, renamed, rawTag, sockets, controlFrames: frames, writes, durationMs: saved.durationMs, deleted: true, deletedReadStatus: deletedRead.status() }, null, 2), contentType: "application/json" });
 });
 
 test("recording project previews retain routing and edited controls in both locales", async ({ page, context }) => {
@@ -138,9 +147,34 @@ test("recording project previews retain routing and edited controls in both loca
     for (const width of [375, 1280]) {
       await page.setViewportSize({ width, height: 900 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-      const heading = page.getByRole("heading", { level: 1 }); const box = await heading.boundingBox(); expect(box).not.toBeNull(); expect(box!.x).toBeGreaterThanOrEqual(0); expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+      const heading = page.getByRole("heading", { level: 1 }); await heading.scrollIntoViewIfNeeded(); const box = await heading.boundingBox(); expect(box).not.toBeNull(); expect(box!.x).toBeGreaterThanOrEqual(0); expect(box!.x + box!.width).toBeLessThanOrEqual(width);
       expect(await heading.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
       await page.screenshot({ path: test.info().outputPath(`project-${screen}-en-${width}.png`), fullPage: true });
+      const footerIds = { prep: "rec-prep-footnote", verify: "rec-verify-evidence-note", live: "rec-file-first", assign: "rec-pending-segments", annotate: "rec-aimoment-aim-3", retention: "rec-consent-snapshot" } as const;
+      if (screen !== "process") {
+        const footer = page.getByTestId(footerIds[screen]); await expect(footer).toHaveCount(1);
+        const footerBox = await footer.boundingBox(); expect(footerBox).not.toBeNull();
+        if (footerBox!.y < 0 || footerBox!.y + footerBox!.height > 900) {
+          await footer.scrollIntoViewIfNeeded();
+          const visibleBox = await footer.boundingBox(); expect(visibleBox).not.toBeNull(); expect(visibleBox!.x).toBeGreaterThanOrEqual(0); expect(visibleBox!.x + visibleBox!.width).toBeLessThanOrEqual(width);
+          expect(await footer.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+          await page.screenshot({ path: test.info().outputPath(`project-${screen}-footer-en-${width}.png`), fullPage: true });
+        }
+      }
     }
+  }
+  await page.goto(`/rec?mode=project&carrier=interview&as=interviewee&projectId=${F.projectId}&screen=retention`);
+  await expect(page.getByRole("heading", { name: "Your consent notice", exact: true })).toBeVisible();
+  const canonicalNotice = await page.getByTestId("rec-interviewee-consent-text").textContent();
+  const consentChoices = await page.getByTestId("rec-interviewee-consent-items").getByRole("checkbox").evaluateAll(elements => elements.map(element => ({ id: element.getAttribute("data-testid"), checked: (element as HTMLInputElement).checked, disabled: (element as HTMLInputElement).disabled })));
+  await change("zh-CN"); await change("en"); await expect(page.getByTestId("rec-interviewee-consent-text")).toHaveText(canonicalNotice!);
+  expect(await page.getByTestId("rec-interviewee-consent-items").getByRole("checkbox").evaluateAll(elements => elements.map(element => ({ id: element.getAttribute("data-testid"), checked: (element as HTMLInputElement).checked, disabled: (element as HTMLInputElement).disabled })))).toEqual(consentChoices);
+  await page.getByTestId("rec-interviewee-withdraw-open").click(); await expect(page.getByTestId("rec-interviewee-withdraw-flow").locator("li")).toHaveCount(5);
+  for (const width of [375, 1280]) {
+    await page.setViewportSize({ width, height: 900 }); await page.getByRole("heading", { name: "Your consent notice", exact: true }).scrollIntoViewIfNeeded();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: test.info().outputPath(`project-interviewee-consent-en-${width}.png`), fullPage: true });
+    await page.getByTestId("rec-interviewee-withdraw-flow").scrollIntoViewIfNeeded();
+    await page.screenshot({ path: test.info().outputPath(`project-interviewee-withdraw-en-${width}.png`), fullPage: true });
   }
 });

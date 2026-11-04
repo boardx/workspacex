@@ -284,5 +284,21 @@
     "receiptPath": "evidence/i18n-recording-6214/copy-type.txt",
     "receiptSha256": "0c5a30db434921a74904cbf6abfd7fc8e3c7035ea8429827cc2091f723747c6a",
     "receiptNormalization": "Trailing blank output lines removed where present. rawLogSha256 remains the unmodified local command output."
+  },
+  "spec-increment-lint": {
+    "exitCode": 0,
+    "note": "Test-only browser contract extension eslint0; browser execution/type-on-increment not yet run",
+    "rawLogLocalPath": "/tmp/6214-spec-increment-lint.log",
+    "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "receiptPath": "evidence/i18n-recording-6214/spec-increment-lint.txt",
+    "receiptSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "spec-increment-testids": {
+    "exitCode": 0,
+    "note": "5478 e2e references declared, same21 exemptions",
+    "rawLogLocalPath": "/tmp/6214-spec-increment-testids.log",
+    "rawLogSha256": "db12014dc3b147c3bc2200120724cd6d98f77ed290d7a25d023fda39bc282677",
+    "receiptPath": "evidence/i18n-recording-6214/spec-increment-testids.txt",
+    "receiptSha256": "db12014dc3b147c3bc2200120724cd6d98f77ed290d7a25d023fda39bc282677"
   }
 }
