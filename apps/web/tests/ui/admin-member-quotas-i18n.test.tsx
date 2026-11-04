@@ -74,6 +74,15 @@ it("renders English quota cards, preserves raw names and distinguishes unallocat
   const row = screen.getByTestId("admin-member-card-user-raw"); expect(row).toHaveTextContent(rawName); expect(row).toHaveTextContent("Consultant"); expect(row).toHaveTextContent("No quota allocated");
   expect(within(row).queryByRole("progressbar")).toBeNull(); toggle(); expect(row).toHaveTextContent("未分配额度"); toggle(); expect(api.getTokenQuotas).toHaveBeenCalledTimes(1);
 });
+it.each([400_000, null])("separates the English used and available budget sentences in quota editing help (%s)", async unallocated => {
+  api.getTokenQuotas.mockResolvedValue(quotas({ unallocated }));
+  render(<MemberQuotaTab />, { wrapper: Locale });
+  fireEvent.click(await screen.findByTestId("admin-member-quota-user-raw"));
+  const modal = screen.getByTestId("admin-member-quota-modal");
+  expect(modal).toHaveTextContent(unallocated === null
+    ? /Used this month: 100 tokens\.\s+No organization budget is set; usage is currently unlimited\./
+    : /Used this month: 100 tokens\.\s+Unallocated organization budget: 400,000 tokens\./);
+});
 it("retains an edited member draft across locale switches and submits the original truncated numeric payload", async () => {
   api.setMemberTokenQuota.mockResolvedValue({}); render(<MemberQuotaTab />, { wrapper: Locale });
   fireEvent.click(await screen.findByTestId("admin-member-quota-user-raw")); const modal = screen.getByTestId("admin-member-quota-modal");

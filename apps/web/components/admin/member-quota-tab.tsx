@@ -335,6 +335,7 @@ export function MemberQuotaTab() {
           />
           <p className="text-11 text-muted-foreground">
             {t("adminMemberQuotas.used", { amount: fmtTokens(editing.usedTokens) })}
+            {locale === "en" ? " " : ""}
             {data.unallocated === null
               ? t("adminMemberQuotas.unlimitedSentence")
               : t("adminMemberQuotas.available", { amount: fmtTokens(data.unallocated) })}
