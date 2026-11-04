@@ -30,6 +30,10 @@ const panelBody = readFileSync(
   resolve(__dirname, "../../components/chat/copilotkit-v2-panel-body.tsx"),
   "utf8",
 );
+const panelView = readFileSync(
+  resolve(__dirname, "../../components/chat/copilotkit-v2-panel-view.tsx"),
+  "utf8",
+);
 const globalsCss = readFileSync(resolve(__dirname, "../../app/globals.css"), "utf8");
 const harness = readFileSync(
   resolve(__dirname, "../../.run-progress-butterfly-animation/harness.tsx"),
@@ -144,7 +148,11 @@ describe("RunProgressButterfly（issue #2785）", () => {
     expect(panelBody).not.toContain("<RunProgressCard");
     expect(panelBody).not.toContain('data-testid="copilotkit-v2-thinking-stage"');
     expect(panelBody).toContain("useCopilotKitV2RunProgress(agent, agent.isRunning)");
-    expect(panelBody).toContain('className="sr-only" role="status" data-testid="copilotkit-v2-running-indicator"');
+    expect(panelBody).toContain('import { CopilotKitV2PanelView } from "./copilotkit-v2-panel-view"');
+    expect(panelBody).toContain("<CopilotKitV2PanelView {...useCopilotKitV2PanelController(props)} />");
+    expect(panelView).not.toContain("<RunProgressCard");
+    expect(panelView).not.toContain('data-testid="copilotkit-v2-thinking-stage"');
+    expect(panelView).toContain('className="sr-only" role="status" data-testid="copilotkit-v2-running-indicator"');
     expect(harness).toContain("<RunProgressCard");
   });
 });
