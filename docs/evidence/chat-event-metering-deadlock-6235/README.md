@@ -81,3 +81,16 @@ body. This establishes exclusion through commit without blocking token FKs.
 Knowledge feedback records the implicit-guard tracing requirement in
 mod-org-identity; the initial review omission and lease-red regression are
 the observed baseline failure. The final review must inspect that full path.
+
+## Mechanical authority premise
+
+Normal push of 380eaae17 was rejected by the permission linter because its
+existing exact SQL premise still required FOR UPDATE. No hook was bypassed.
+Both source/AST guards now share one exact NO KEY UPDATE SQL premise; org,
+run id, epoch, expiry, id-only projection and rejection checks remain strict.
+Missing or weaker locks, removed predicates and SKIP LOCKED remain rejected.
+The existing current-source checks reproduced 2 failures / 128 passes before
+this premise update (`guard-red.txt`); all **130 pass** after it
+(`guard-green.txt`), including new mutation counterexamples. This static
+alignment supplements the real PG exclusion proof; it does not replace it.
+The stale executor comment is updated to the actual mode.
