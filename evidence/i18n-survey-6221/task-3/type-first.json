@@ -1,0 +1,16 @@
+{
+  "name": "type-first",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "type-check"
+  ],
+  "source": "54e80ec708a3475660e06f98a890bd834dd7900d",
+  "exitCode": 0,
+  "seconds": 1.016,
+  "rawLogSha256": "180a2e96d48e24d781156f8164baef8c17aa50e8b94edbe8c70919ce388dff3c",
+  "environment": {},
+  "validTypecheck": false,
+  "classification": "Wrong script name type-check; package defines typecheck. pnpm returned zero without running tsc. Not a typecheck PASS."
+}

@@ -1,0 +1,61 @@
+{
+  "base": "f2819a791e004f1c7dfd35c74c20ede1dd3a0f61",
+  "head": "ed4418160cb8319ec0db37b31c8a75ba430f3937",
+  "workspaceLifecycleIdentityEqual": true,
+  "dependencies": [
+    {
+      "name": "React.useCallback",
+      "deps": "[]"
+    },
+    {
+      "name": "React.useCallback",
+      "deps": "[setDraft]"
+    },
+    {
+      "name": "React.useEffect",
+      "deps": "[initialStep]"
+    },
+    {
+      "name": "React.useEffect",
+      "deps": "[surveyId, accept, setDraft]"
+    },
+    {
+      "name": "React.useMemo",
+      "deps": "[runtime?.collectionBatches, runtime?.publication]"
+    },
+    {
+      "name": "React.useEffect",
+      "deps": "[collectionBoundaries, collectionClock]"
+    },
+    {
+      "name": "React.useEffect",
+      "deps": "[runtime?.publication?.token]"
+    },
+    {
+      "name": "React.useMemo",
+      "deps": "[draft, runtime?.responses]"
+    },
+    {
+      "name": "React.useMemo",
+      "deps": "[draft, blockers]"
+    },
+    {
+      "name": "React.useMemo",
+      "deps": "[draft?.questions, designBlockers]"
+    },
+    {
+      "name": "React.useEffect",
+      "deps": "[surveyId]"
+    }
+  ],
+  "autosave": [
+    "autosaveEligible ? JSON.stringify([runtime?.version, markdown, draft?.template]) : null"
+  ],
+  "modeBlobOrTreeUnchanged": {
+    "apps/api": true,
+    "packages/contracts": true,
+    "apps/web/components/survey/live/use-survey-autosave.ts": true,
+    "apps/web/lib/survey/paths.ts": true
+  },
+  "scope": "Static source/tree comparison only; not runtime or CI acceptance."
+}

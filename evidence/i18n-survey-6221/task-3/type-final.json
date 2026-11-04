@@ -1,0 +1,15 @@
+{
+  "name": "type-final",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "typecheck"
+  ],
+  "source": "429294f1e997d831279361c985060af31c1abb1a",
+  "exitCode": 0,
+  "seconds": 12.946,
+  "rawLogSha256": "cd5788cc155241ad0932956ca7dd287ae173e2f213993b615bdafdcb93bc7ce4",
+  "environment": {},
+  "realTscCommandObserved": true
+}

@@ -34,9 +34,9 @@ flowchart LR
  classDef pending fill:#f3f4f6,stroke:#9ca3af
  class A done
  class B tested
- class C tested
- class D active
- class E,F,G pending
+ class C,D tested
+ class E active
+ class F,G pending
 ```
 
 ### Task 1: Live library, creation and input
@@ -67,9 +67,9 @@ flowchart LR
 
 - [x] Write RED for fixed workflow/publish/blocker/loading/empty/error/recovery copy and current-language async notices; same draft/step/template/schedule/selection and no re-fetch/write on locale. Assert immutable publication/source version/batch/anonymity values and old token routing unchanged.
 - [x] Add unsaved navigation RED: change locale with pending approval/expiry; original listeners and approval survive, next confirmation uses new fixed copy; explicit custom message remains raw.
-- [ ] Run new tests; Expected: meaningful missing English/continuity failures. Implement semantic rendered keys, locale-only date display and latest-message ref preserving lifecycle. Do not translate exported/canonical Markdown.
-- [ ] Run new suites plus survey-live-workspace, survey-live-publishing, survey-collection-settings, survey-share-code, survey-draft-copy, survey-unsaved-navigation and runtime-client; Expected: all PASS.
-- [ ] Commit and task-done affected suite.
+- [x] Run new tests; Expected: meaningful missing English/continuity failures. Implement semantic rendered keys, locale-only date display and latest-message ref preserving lifecycle. Do not translate exported/canonical Markdown.
+- [x] Run new suites plus survey-live-workspace, survey-live-publishing, survey-collection-settings, survey-share-code, survey-draft-copy, survey-unsaved-navigation and runtime-client; Expected: all PASS.
+- [x] Commit and task-done affected suite.
 
 ### Task 4: Anonymous form, validation and uploads
 
