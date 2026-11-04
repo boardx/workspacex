@@ -1,4 +1,6 @@
 export const controlsZhCN = {
+  "common.save": "保存",
+  "common.saving": "保存中…",
   "common.close": "关闭",
   "common.cancel": "取消",
   "common.refresh": "刷新",
@@ -34,6 +36,8 @@ export const controlsZhCN = {
   "tags.selected.other": "已选 {count} 个标签",
 } as const;
 export const controlsEn: Record<keyof typeof controlsZhCN, string> = {
+  "common.save": "Save",
+  "common.saving": "Saving…",
   "common.close": "Close",
   "common.cancel": "Cancel",
   "common.refresh": "Refresh",

@@ -1,0 +1,21 @@
+FAIL  tests/ui/org-profile-i18n.test.tsx > translates the full profile while keeping raw drafts and all three reads stable
+TestingLibraryElementError: Unable to find an accessible element with the role "heading" and name "Organization profile"
+ FAIL  tests/ui/org-profile-i18n.test.tsx > retranslates visible name validation without submitting or resetting the invalid form
+TestingLibraryElementError: Unable to find an element with the text: Organization name is required. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+ FAIL  tests/ui/org-profile-i18n.test.tsx > keeps the exact save payload and re-renders saved feedback in the current locale
+TestingLibraryElementError: Unable to find an element with the text: Saved. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+ FAIL  tests/ui/org-profile-i18n.test.tsx > retranslates the server avatar rejection without another upload or profile read
+Error: expect(element).toHaveTextContent()
+ FAIL  tests/ui/org-profile-i18n.test.tsx > keeps raw tool and approver identifiers while translating dates and stale-revoke feedback
+TestingLibraryElementError: Unable to find an element with the text: /Approved by user-\{who\}/. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+ FAIL  tests/ui/org-profile-i18n.test.tsx > translates deployment incapability without changing the stored organization setting
+TestingLibraryElementError: Unable to find role="switch" and name "Enable memory extraction for this organization"
+ FAIL  tests/ui/org-profile-i18n.test.tsx > preserves the admin toggle boolean and re-renders a server403 without reconnecting on locale
+TestingLibraryElementError: Unable to find role="switch" and name "Enable memory extraction for this organization"
+ FAIL  tests/ui/org-profile-i18n.test.tsx > keeps non-admin profile and grants denied but extraction readable and disabled
+TestingLibraryElementError: Unable to find role="switch" and name "Enable memory extraction for this organization"
+ Test Files  1 failed (1)
+      Tests  8 failed (8)
+   Start at  01:19:41
+   Duration  7.30s (transform 1.00s, setup 165ms, collect 1.58s, tests 4.33s, environment 767ms, prepare 47ms)
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/org-profile-i18n.test.tsx --maxWorkers=1 --minWorkers=1

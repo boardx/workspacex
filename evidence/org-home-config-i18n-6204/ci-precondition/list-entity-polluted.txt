@@ -1,0 +1,16 @@
+[heavy-e2e-lock] 排到了，等了 0s
+[stack-admission] load1=2.85 cores=10 perCore=0.29 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw1hajvr-7fd1179d-c5fbf87c2476 db=wsx_c5fbf87c247676b89f71 compose=wsx-c5fbf87c247676b89f71 pg=20700 redis=21700 api=24700 web=25700 sandbox=26700 model=27700 deep-agent=28700 asr=29700 vision=30700 loopback-sandbox=31700 mail=19700
+Listing tests:
+  [entity-localization] › entity-localization.spec.ts:144:5 › admin authors display copy; members switch language; clearing keeps original execution bytes
+  [entity-localization] › entity-localization.spec.ts:225:5 › an installed organization explicitly updates authored titles without changing execution or manual copy
+  [entity-localization] › entity-localization.spec.ts:435:5 › organization home configuration preserves drafts, real previews and recommendation snapshots across locales
+Total: 3 tests in 1 file
+[timing] pnpm --filter web exec playwright test --config playwright.entity-localization.config.ts --list -g admin authors display copy; members switch language; clearing keeps original execution bytes|an installed organization explicitly updates authored titles without changing execution or manual copy|organization home configuration preserves
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1s
+  清理：0s
+  总计：1s

@@ -160,11 +160,12 @@ export function OrgInvitesScreen() {
 
 /** `/org-admin/profile` —— 组织资料，与 `/admin`（总览）平级；仅组织 admin 能读到内容。 */
 export function OrgProfileScreen() {
+  const { t } = useI18n();
   const { session, identity } = useSession();
   const orgId = session?.currentOrgId ?? null;
   const isAdmin = identity?.orgRole === "admin";
   return (
-    <OrgAdminShell active="org-profile" icon={Settings} title="组织资料">
+    <OrgAdminShell active="org-profile" icon={Settings} title={t("adminNavigation.item.org-profile")}>
       {orgId ? <OrgProfileTab orgId={orgId} /> : <LoadingSkeleton rows={4} />}
       {/* issue #3068 —— 「以后都允许」此前无任何撤销路径，卡片文案却承诺"下次弹出改选
           拒绝以撤销"（那个弹层再也不会出现）。这里是那句文案现在指向的真实入口；
@@ -1183,15 +1184,16 @@ const DESCRIPTION_MAX = 500;
  */
 
 function OrgProfileTab({ orgId }: { orgId: string }) {
+  const { t } = useI18n();
   const { updateOrgName } = useSession();
   const [state, setState] = React.useState<UiState>("loading");
-  const [failureMessage, setFailureMessage] = React.useState<string | null>(null);
+  const [failureMessage, setFailureMessage] = React.useState<Feedback | null>(null);
   const [profile, setProfile] = React.useState<UpdateOrganizationOut | null>(null);
   const [name, setName] = React.useState("");
   const [description, setDescription] = React.useState("");
-  const [invalidFields, setInvalidFields] = React.useState<Record<string, string>>({});
+  const [invalidFields, setInvalidFields] = React.useState<Record<string, Feedback>>({});
   const [avatarUploading, setAvatarUploading] = React.useState(false);
-  const [avatarError, setAvatarError] = React.useState<string | null>(null);
+  const [avatarError, setAvatarError] = React.useState<Feedback | null>(null);
   const [avatarSavedNotice, setAvatarSavedNotice] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -1216,7 +1218,7 @@ function OrgProfileTab({ orgId }: { orgId: string }) {
         setState("denied");
         return;
       }
-      setFailureMessage(describeFailureFor(err, "组织不存在", "当前身份无权编辑组织资料"));
+      setFailureMessage(() => (currentT: Translator) => describeFailureFor(err, currentT("orgProfile.notFound"), currentT("orgProfile.forbidden"), currentT));
       setState("dep-failed");
     }
   }, [orgId]);
@@ -1232,9 +1234,9 @@ function OrgProfileTab({ orgId }: { orgId: string }) {
     const trimmed = name.trim();
     // D4：只收当次真正违反的字段——不是无条件把两条校验文案都传给 StateShell，
     // 否则简介明明合规也会跟着弹出「简介不能超过 500 字」（实测：44/500 字也弹）。
-    const violations: Record<string, string> = {};
-    if (trimmed.length === 0) violations.name = "组织名称不能为空";
-    if (description.length > DESCRIPTION_MAX) violations.description = `简介不能超过 ${DESCRIPTION_MAX} 字`;
+    const violations: Record<string, Feedback> = {};
+    if (trimmed.length === 0) violations.name = (currentT) => currentT("orgProfile.nameRequired");
+    if (description.length > DESCRIPTION_MAX) violations.description = (currentT) => currentT("orgProfile.descriptionLimit", { max: DESCRIPTION_MAX });
     if (Object.keys(violations).length > 0) {
       setInvalidFields(violations);
       setState("invalid");
@@ -1252,7 +1254,7 @@ function OrgProfileTab({ orgId }: { orgId: string }) {
       // （同一份 session-provider 机制：`updateDisplayName` 改自己姓名时的先例）。
       updateOrgName(orgId, out.name);
     } catch (err) {
-      setFailureMessage(describeFailureFor(err, "组织不存在", "当前身份无权编辑组织资料"));
+      setFailureMessage(() => (currentT: Translator) => describeFailureFor(err, currentT("orgProfile.notFound"), currentT("orgProfile.forbidden"), currentT));
       setState("dep-failed");
     }
   }
@@ -1277,15 +1279,15 @@ function OrgProfileTab({ orgId }: { orgId: string }) {
       window.setTimeout(() => setAvatarSavedNotice(false), 2500);
     } catch (err) {
       if (err instanceof ApiError) {
-        if (err.reasonCode === "FILE_TOO_LARGE") setAvatarError("图片超过 5MB 上限，服务端已拒绝，未上传。");
-        else if (err.reasonCode === "UNSUPPORTED_CONTENT_TYPE") setAvatarError("文件内容与声明的图片格式不符（服务端按真实字节校验），未上传。");
-        else setAvatarError(`上传失败：${err.reasonCode ?? err.status}`);
+        if (err.reasonCode === "FILE_TOO_LARGE") setAvatarError(() => (currentT: Translator) => currentT("orgProfile.avatarTooLarge"));
+        else if (err.reasonCode === "UNSUPPORTED_CONTENT_TYPE") setAvatarError(() => (currentT: Translator) => currentT("orgProfile.avatarType"));
+        else setAvatarError(() => (currentT: Translator) => currentT("orgProfile.avatarApiFailed", { reason: err.reasonCode ?? err.status }));
       } else if (err instanceof DOMException && (err.name === "TimeoutError" || err.name === "AbortError")) {
         // 2026-08-11 devapp 实测：请求可能永远不返回（见 live-org-admin.ts 的硬超时）。
         // 超时必须给出明确反馈，不许停在「上传中…」。
-        setAvatarError("上传超时，请重试。");
+        setAvatarError(() => (currentT: Translator) => currentT("orgProfile.avatarTimeout"));
       } else {
-        setAvatarError("上传失败，请稍后重试。");
+        setAvatarError(() => (currentT: Translator) => currentT("orgProfile.avatarFailed"));
       }
     } finally {
       setAvatarUploading(false);
@@ -1304,10 +1306,10 @@ function OrgProfileTab({ orgId }: { orgId: string }) {
       <StateShell
         state={state}
         skeletonRows={4}
-        errors={invalidFields}
-        depFailure={{ what: failureMessage ?? "组织资料服务暂时不可用", retry: load }}
-        denial={{ layer: "organization", reason: "组织资料编辑仅组织管理员可进；你在本组织不是管理员。" }}
-        successMessage="已保存"
+        errors={Object.fromEntries(Object.entries(invalidFields).map(([field, message]) => [field, message(t)]))}
+        depFailure={{ what: failureMessage ? failureMessage(t) : t("orgProfile.unavailable"), retry: load }}
+        denial={{ layer: "organization", reason: t("orgProfile.denied") }}
+        successMessage={t("state.saved")}
       >
         <div className="flex flex-col gap-6">
           <div className="flex items-center gap-3 rounded-lg border border-border bg-panel p-3" data-testid="org-admin-avatar-block">
@@ -1315,12 +1317,12 @@ function OrgProfileTab({ orgId }: { orgId: string }) {
               // eslint-disable-next-line @next/next/no-img-element -- 组织头像来自后端 object store，非 Next 静态资源
               <img
                 src={avatarSrc}
-                alt={`${profile?.name ?? "组织"} 头像`}
+                alt={t("orgProfile.avatarAlt", { name: profile?.name ?? t("ui.organization") })}
                 className="h-9 w-9 rounded-full object-cover"
                 data-testid="org-admin-avatar-image"
               />
             ) : (
-              <Avatar initials={(profile?.name ?? "组").slice(0, 1)} size="lg" />
+              <Avatar initials={(profile?.name ?? t("ui.organization")).slice(0, 1)} size="lg" />
             )}
             <div className="flex flex-col gap-1">
               <input
@@ -1340,17 +1342,17 @@ function OrgProfileTab({ orgId }: { orgId: string }) {
                 data-testid="org-admin-avatar-upload"
               >
                 <Camera aria-hidden className="h-3 w-3" />
-                {avatarUploading ? "上传中…" : "更换头像"}
+                {avatarUploading ? t("orgProfile.avatarUploading") : t("orgProfile.changeAvatar")}
               </Button>
-              <p className="text-10 text-muted-foreground">PNG / JPEG / WebP，最大 5MB。</p>
+              <p className="text-10 text-muted-foreground">{t("orgProfile.avatarHelp")}</p>
               {avatarSavedNotice && (
                 <p role="status" data-testid="org-admin-avatar-saved" className="text-10 text-success">
-                  已上传
+                  {t("orgProfile.avatarSaved")}
                 </p>
               )}
               {avatarError && (
                 <p role="alert" data-testid="org-admin-avatar-error" className="text-10 text-destructive">
-                  {avatarError}
+                  {avatarError(t)}
                 </p>
               )}
             </div>
@@ -1358,7 +1360,7 @@ function OrgProfileTab({ orgId }: { orgId: string }) {
 
           <form className="flex flex-col gap-4" onSubmit={handleSave} data-testid="org-admin-profile-form">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="org-admin-name">组织名称</Label>
+              <Label htmlFor="org-admin-name">{t("orgProfile.name")}</Label>
               <Input
                 id="org-admin-name"
                 value={name}
@@ -1373,7 +1375,7 @@ function OrgProfileTab({ orgId }: { orgId: string }) {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="org-admin-description">组织简介</Label>
+              <Label htmlFor="org-admin-description">{t("orgProfile.description")}</Label>
               <Textarea
                 id="org-admin-description"
                 value={description}
@@ -1387,7 +1389,7 @@ function OrgProfileTab({ orgId }: { orgId: string }) {
                 aria-invalid={state === "invalid" && description.length > DESCRIPTION_MAX}
               />
               <p className="text-10 text-muted-foreground">
-                纯文本，不支持 markdown（{description.length}/{DESCRIPTION_MAX}）。
+                {t("orgProfile.descriptionHelp", { count: description.length, max: DESCRIPTION_MAX })}
               </p>
             </div>
 
@@ -1399,7 +1401,7 @@ function OrgProfileTab({ orgId }: { orgId: string }) {
                 disabled={state === "loading" || !dirty}
                 data-testid="org-admin-profile-save"
               >
-                {state === "loading" ? "保存中…" : "保存"}
+                {state === "loading" ? t("common.saving") : t("common.save")}
               </Button>
             </div>
           </form>
