@@ -1,0 +1,235 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/ui/i18n-chat-knowledge-promotion.test.tsx (2 tests) 343ms
+ ❯ tests/ui/i18n-chat-knowledge-menu-time.test.tsx (4 tests | 4 failed) 220ms
+   × keeps the real conflict menu open and permissions blocked on locale without choosing an action 204ms
+     → Unable to find an accessible element with the role "button" and name "More"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "更多":
+  [36m<button[39m
+    [33maria-expanded[39m=[32m"false"[39m
+    [33maria-haspopup[39m=[32m"menu"[39m
+    [33maria-label[39m=[32m"更多"[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"[39m
+    [33mdata-state[39m=[32m"closed"[39m
+    [33mdata-testid[39m=[32m"kg-claim-edit-trigger-raw-claim"[39m
+    [33mid[39m=[32m"radix-:r0:"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button[39m
+      [33maria-expanded[39m=[32m"false"[39m
+      [33maria-haspopup[39m=[32m"menu"[39m
+      [33maria-label[39m=[32m"更多"[39m
+      [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"[39m
+      [33mdata-state[39m=[32m"closed"[39m
+      [33mdata-testid[39m=[32m"kg-claim-edit-trigger-raw-claim"[39m
+      [33mid[39m=[32m"radix-:r0:"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-ellipsis h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<circle[39m
+          [33mcx[39m=[32m"12"[39m
+          [33mcy[39m=[32m"12"[39m
+          [33mr[39m=[32m"1"[39m
+        [36m/>[39m
+        [36m<circle[39m
+          [33mcx[39m=[32m"19"[39m
+          [33mcy[39m=[32m"12"[39m
+          [33mr[39m=[32m"1"[39m
+        [36m/>[39m
+        [36m<circle[39m
+          [33mcx[39m=[32m"5"[39m
+          [33mcy[39m=[32m"12"[39m
+          [33mr[39m=[32m"1"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × renders canonical 'open' time badges without replacing the same node on locale 8ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Open
+Received:
+  还没做
+   × renders canonical 'done' time badges without replacing the same node on locale 4ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Done
+Received:
+  做完了
+   × renders canonical 'dropped' time badges without replacing the same node on locale 3ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Dropped
+Received:
+  不做了
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/i18n-chat-knowledge-menu-time.test.tsx > keeps the real conflict menu open and permissions blocked on locale without choosing an action
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "More"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "更多":
+  [36m<button[39m
+    [33maria-expanded[39m=[32m"false"[39m
+    [33maria-haspopup[39m=[32m"menu"[39m
+    [33maria-label[39m=[32m"更多"[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"[39m
+    [33mdata-state[39m=[32m"closed"[39m
+    [33mdata-testid[39m=[32m"kg-claim-edit-trigger-raw-claim"[39m
+    [33mid[39m=[32m"radix-:r0:"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button[39m
+      [33maria-expanded[39m=[32m"false"[39m
+      [33maria-haspopup[39m=[32m"menu"[39m
+      [33maria-label[39m=[32m"更多"[39m
+      [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"[39m
+      [33mdata-state[39m=[32m"closed"[39m
+      [33mdata-testid[39m=[32m"kg-claim-edit-trigger-raw-claim"[39m
+      [33mid[39m=[32m"radix-:r0:"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-ellipsis h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<circle[39m
+          [33mcx[39m=[32m"12"[39m
+          [33mcy[39m=[32m"12"[39m
+          [33mr[39m=[32m"1"[39m
+        [36m/>[39m
+        [36m<circle[39m
+          [33mcx[39m=[32m"19"[39m
+          [33mcy[39m=[32m"12"[39m
+          [33mr[39m=[32m"1"[39m
+        [36m/>[39m
+        [36m<circle[39m
+          [33mcx[39m=[32m"5"[39m
+          [33mcy[39m=[32m"12"[39m
+          [33mr[39m=[32m"1"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-knowledge-menu-time.test.tsx:17:26
+     15|   const confirm = vi.fn(); const promote = vi.fn(); const open = vi.fn…
+     16|   render(<I18nProvider initialLocale="en"><Driver /><ClaimEditMenu cla…
+     17|   const trigger = screen.getByRole("button", { name: "More" });
+       |                          ^
+     18|   fireEvent.keyDown(trigger, { key: "ArrowDown" });
+     19|   const menu = await screen.findByRole("menu");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  tests/ui/i18n-chat-knowledge-menu-time.test.tsx > renders canonical 'open' time badges without replacing the same node on locale
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Open
+Received:
+  还没做
+ ❯ tests/ui/i18n-chat-knowledge-menu-time.test.tsx:35:79
+     33| ])("renders canonical $status time badges without replacing the same n…
+     34|   render(<I18nProvider initialLocale="en"><Driver /><ClaimTimeBadges c…
+     35|   const badge = screen.getByTestId(`kg-todo-status-${status}`); expect…
+       |                                                                               ^
+     36|   act(() => changeLocale()); expect(screen.getByTestId(`kg-todo-status…
+     37| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  tests/ui/i18n-chat-knowledge-menu-time.test.tsx > renders canonical 'done' time badges without replacing the same node on locale
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Done
+Received:
+  做完了
+ ❯ tests/ui/i18n-chat-knowledge-menu-time.test.tsx:35:79
+     33| ])("renders canonical $status time badges without replacing the same n…
+     34|   render(<I18nProvider initialLocale="en"><Driver /><ClaimTimeBadges c…
+     35|   const badge = screen.getByTestId(`kg-todo-status-${status}`); expect…
+       |                                                                               ^
+     36|   act(() => changeLocale()); expect(screen.getByTestId(`kg-todo-status…
+     37| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  tests/ui/i18n-chat-knowledge-menu-time.test.tsx > renders canonical 'dropped' time badges without replacing the same node on locale
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Dropped
+Received:
+  不做了
+ ❯ tests/ui/i18n-chat-knowledge-menu-time.test.tsx:35:79
+     33| ])("renders canonical $status time badges without replacing the same n…
+     34|   render(<I18nProvider initialLocale="en"><Driver /><ClaimTimeBadges c…
+     35|   const badge = screen.getByTestId(`kg-todo-status-${status}`); expect…
+       |                                                                               ^
+     36|   act(() => changeLocale()); expect(screen.getByTestId(`kg-todo-status…
+     37| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  4 failed | 2 passed (6)
+   Start at  13:07:41
+   Duration  6.07s (transform 602ms, setup 500ms, collect 1.38s, tests 563ms, environment 2.32s, prepare 211ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/i18n-chat-knowledge-promotion.test.tsx tests/ui/i18n-chat-knowledge-menu-time.test.tsx --maxWorkers=1 --minWorkers=1

@@ -1,5 +1,7 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
+import type { chatInspectorZhCN } from "@/lib/i18n/namespaces/chat-inspector";
 import { ListChecks, FolderOpen, Package, Settings2, Users, Brain, PanelRightClose, PanelRightOpen } from "lucide-react";
 import { PanelResizeHandle } from "@/components/shell/panel-resize-handle";
 import { PANEL_WIDTH_DEFAULT, readPanelWidth, writePanelWidth } from "@/lib/chat-workbench/panel-width";
@@ -158,15 +160,16 @@ export interface ChatTaskInspectorProps {
   readonly showKnowledge?: boolean;
 }
 
-const TAB_META: Record<InspectorTab, { label: string; Icon: typeof ListChecks }> = {
-  materials: { label: "材料", Icon: FolderOpen },
-  artifacts: { label: "产物", Icon: Package },
-  roster: { label: "编制", Icon: Users },
-  memory: { label: "记忆", Icon: Brain },
-  "run-details": { label: "运行详情", Icon: Settings2 },
+const TAB_META: Record<InspectorTab, { labelKey: keyof typeof chatInspectorZhCN; Icon: typeof ListChecks }> = {
+  materials: { labelKey: "chatInspector.materials", Icon: FolderOpen },
+  artifacts: { labelKey: "chatInspector.artifacts", Icon: Package },
+  roster: { labelKey: "chatInspector.roster", Icon: Users },
+  memory: { labelKey: "chatInspector.memory", Icon: Brain },
+  "run-details": { labelKey: "chatInspector.run-details", Icon: Settings2 },
 };
 
 export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
+  const { t } = useI18n();
   const mobile = React.useSyncExternalStore(subscribeViewport, mobileSnapshot, desktopSnapshot);
   const {
     hasSelection, threadId, artifacts, materials, loading,
@@ -376,8 +379,8 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
    * 要接住：`onFiles` 走"说明为什么不能上传"的分支，不是静默丢弃。
    */
   const canUpload = attachUploadPort !== null && uploadDisabledReason === null;
-  const [uploadNotice, setUploadNotice] = React.useState<string | null>(null);
-  const showMaterials = React.useCallback((notice: string | null) => {
+  const [uploadNotice, setUploadNotice] = React.useState<{ readonly text: string } | { readonly key: "chatInspector.drop.nonFile" | "chatInspector.drop.unavailable" } | null>(null);
+  const showMaterials = React.useCallback((notice: { readonly text: string } | { readonly key: "chatInspector.drop.nonFile" | "chatInspector.drop.unavailable" } | null) => {
     setUploadNotice(notice);
     selectTab("materials"); // 复用既有的"切页签并展开"，不在这里重写一遍
   }, [selectTab]);
@@ -386,13 +389,11 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
   const { dragActive, dragHandlers } = useFileDropSurface({
     enabled: attachUploadPort !== null,
     onFiles: (files) => {
-      if (!canUpload) { showMaterials(uploadDisabledReason ?? "当前无法上传。"); return; }
+      if (!canUpload) { showMaterials(uploadDisabledReason !== null ? { text: uploadDisabledReason } : { key: "chatInspector.drop.unavailable" }); return; }
       showMaterials(null);
       attachUploadPort.pickFiles(files);
     },
-    onNonFile: () => showMaterials(
-      "只支持拖入文件。拖进来的是文字、链接或文件夹（浏览器不把文件夹当文件交给网页），没有上传任何东西。",
-    ),
+    onNonFile: () => showMaterials({ key: "chatInspector.drop.nonFile" }),
   });
   /** 拖拽高亮只在真的能接的时候亮——只读态亮一个"松开即上传"是骗人。 */
   const dropActive = dragActive && canUpload;
@@ -428,7 +429,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
       data-collapsed={collapsed ? "true" : "false"}
       data-active-tab={activeTab}
       data-drop-active={dropActive ? "true" : "false"}
-      aria-label="任务检查器"
+      aria-label={t("chatInspector.label")}
     >
       {/* 遮罩是 `pointer-events-none` 的纯视觉层，drag 事件继续落在挂了 handlers 的
           这个 `aside` 上（同 `ChatFullSurfaceDropOverlay` 的做法）。`relative` 在
@@ -440,7 +441,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
           edge="left"
           width={width}
           onWidthChange={applyWidth}
-          label="调整任务检查器宽度"
+          label={t("chatInspector.resize")}
           testId="chat-task-workbench-inspector-resize"
         />
       )}
@@ -448,14 +449,15 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
       <div
         role="tablist"
         aria-orientation={collapsed ? "vertical" : "horizontal"}
-        aria-label="任务检查器页签"
+        aria-label={t("chatInspector.tabs")}
         className={cn(
           "flex shrink-0 items-center border-b border-border-subtle",
           collapsed ? "flex-col gap-1 py-2" : "flex-row justify-center gap-1 px-2 py-2.5",
         )}
       >
         {visibleTabs.map((tab) => {
-          const { label, Icon } = TAB_META[tab];
+          const { labelKey, Icon } = TAB_META[tab];
+          const label = t(labelKey);
           const selected = tab === activeTab && !collapsed;
           return (
             <button
@@ -495,7 +497,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
                 <span
                   className="pointer-events-none absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-pill border border-border-subtle bg-card px-1 text-9 font-medium tabular-nums text-muted-foreground"
                   data-testid="chat-task-workbench-inspector-tab-memory-count"
-                  aria-label={`${String(knowledgeCount)} 条记忆`}
+                  aria-label={t("chatInspector.memoryCount", { count: knowledgeCount })}
                 >
                   {knowledgeCount}
                 </span>
@@ -506,9 +508,9 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
         {collapsed ? null : (
           <button
             type="button"
-            aria-label="收起任务检查器"
+            aria-label={t("chatInspector.collapse")}
             aria-expanded
-            title="收起任务检查器"
+            title={t("chatInspector.collapse")}
             data-testid="chat-task-workbench-inspector-collapse"
             onClick={() => setOverride("collapsed")}
             className="ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40"
@@ -522,9 +524,9 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
         <div className="flex flex-1 items-start justify-center pt-1">
           <button
             type="button"
-            aria-label="展开任务检查器"
+            aria-label={t("chatInspector.expand")}
             aria-expanded={false}
-            title="展开任务检查器"
+            title={t("chatInspector.expand")}
             data-testid="chat-task-workbench-inspector-expand"
             onClick={() => setOverride("expanded")}
             className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -535,7 +537,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
       ) : (
         <div
           role="tabpanel"
-          aria-label={TAB_META[activeTab].label}
+          aria-label={t(TAB_META[activeTab].labelKey)}
           className="flex min-h-0 flex-1 flex-col overflow-y-auto"
         >
           {activeTab === "materials" ? (
@@ -547,7 +549,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
               error={materialsError}
               onRetry={onRetry}
               uploadCtl={attachUploadPort}
-              uploadNotice={uploadNotice}
+              uploadNotice={uploadNotice === null ? null : "key" in uploadNotice ? t(uploadNotice.key) : uploadNotice.text}
               readOnlyReason={uploadDisabledReason}
               pendingCount={pendingMaterialsCount}
               uploadingCount={uploadingMaterialsCount}
@@ -627,7 +629,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
         <button
           type="button"
           data-testid="chat-task-workbench-mobile-open"
-          aria-label="打开任务进度与成果"
+          aria-label={t("chatInspector.openMobile")}
           className="flex h-10 w-10 shrink-0 items-center justify-center self-start rounded-container text-muted-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <PanelRightOpen aria-hidden className="h-4 w-4" />
@@ -638,7 +640,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
         aria-describedby={undefined}
         className="left-auto right-0 top-0 h-dvh max-h-dvh w-[min(92vw,24rem)] max-w-none translate-x-0 translate-y-0 gap-0 rounded-none p-0"
       >
-        <DialogTitle className="sr-only">任务进度与成果</DialogTitle>
+        <DialogTitle className="sr-only">{t("chatInspector.mobileTitle")}</DialogTitle>
         {inspector}
       </DialogContent>
     </Dialog>
@@ -668,17 +670,19 @@ function RunDetailsTab({
   runElapsedSeconds: number | null;
   recoveryDiagnostic?: string | null;
 }) {
-  const rows: readonly (readonly [string, string])[] = [
-    ["对话标识", threadId ?? "尚未创建"],
-    ["运行状态", isRunning ? "运行中" : "空闲"],
-    ["当前阶段", runPhaseLabel ?? "—"],
-    ["本轮已用", runElapsedSeconds !== null ? `${runElapsedSeconds} 秒` : "—"],
-    ...(recoveryDiagnostic ? [["恢复状态", recoveryDiagnostic] as const] : []),
+  const { t } = useI18n();
+  const rows: readonly (readonly [string, string, string])[] = [
+    ["thread", t("chatInspector.threadId"), threadId ?? t("chatInspector.notCreated")],
+    ["status", t("chatInspector.status"), t(isRunning ? "chatInspector.running" : "chatInspector.idle")],
+    ["phase", t("chatInspector.phase"), runPhaseLabel ?? "—"],
+    ["elapsed", t("chatInspector.elapsed"), runElapsedSeconds !== null
+      ? t(runElapsedSeconds === 1 ? "chatInspector.seconds.one" : "chatInspector.seconds", { count: runElapsedSeconds }) : "—"],
+    ...(recoveryDiagnostic ? [["recovery", t("chatInspector.recovery"), recoveryDiagnostic] as const] : []),
   ];
   return (
     <dl className="flex flex-col gap-1.5 p-3 text-11" data-testid="chat-task-workbench-inspector-run-details">
-      {rows.map(([label, value]) => (
-        <div key={label} className="flex min-w-0 items-baseline justify-between gap-2">
+      {rows.map(([id, label, value]) => (
+        <div key={id} className="flex min-w-0 items-baseline justify-between gap-2">
           <dt className="shrink-0 text-muted-foreground">{label}</dt>
           <dd className="min-w-0 truncate text-right text-card-foreground">{value}</dd>
         </div>
@@ -715,6 +719,7 @@ function ArtifactDetail({
    * 「复制」比没有这颗按钮更糟（#2099 同一条纪律）。
    */
   /** 工具结果的正文一送进来就在手上；产物要等取源回来（`onLoaded`）。 */
+  const { t: translate } = useI18n();
   const [loaded, setLoaded] = React.useState<LoadedArtifact | null>(null);
   const doc: LoadedArtifact | null = tab.kind === "result"
     ? { markdown: tab.text, version: null, savedAt: "" }
@@ -764,7 +769,7 @@ function ArtifactDetail({
           className="flex items-center gap-1 rounded px-1.5 py-1 text-12 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground"
         >
           <ArrowLeft className="size-3.5" aria-hidden />
-          产物
+          {translate("chatInspector.artifacts")}
         </button>
         <span className="min-w-0 flex-1 truncate text-12 font-medium text-card-foreground" title={tab.title}>
           {tab.title}
@@ -772,7 +777,7 @@ function ArtifactDetail({
         <button
           type="button" onClick={copy} disabled={doc === null}
           data-testid="chat-inspector-artifact-copy"
-          aria-label={copied ? "已复制" : "复制全文"} title={copied ? "已复制" : "复制全文"}
+          aria-label={translate(copied ? "chatInspector.copied" : "chatInspector.copy")} title={translate(copied ? "chatInspector.copied" : "chatInspector.copy")}
           className={actionClass}
         >
           {copied
@@ -782,7 +787,7 @@ function ArtifactDetail({
         <button
           type="button" onClick={download} disabled={doc === null}
           data-testid="chat-inspector-artifact-download"
-          aria-label="下载" title="下载" className={actionClass}
+          aria-label={translate("chatInspector.download")} title={translate("chatInspector.download")} className={actionClass}
         >
           <Download className="size-3.5" aria-hidden />
         </button>
@@ -791,8 +796,8 @@ function ArtifactDetail({
             type="button"
             onClick={onEnlarge}
             data-testid="chat-inspector-artifact-enlarge"
-            aria-label="放大查看"
-            title="放大查看"
+            aria-label={translate("chatInspector.enlarge")}
+            title={translate("chatInspector.enlarge")}
             className={actionClass}
           >
             <Maximize2 className="size-3.5" aria-hidden />
@@ -805,7 +810,7 @@ function ArtifactDetail({
           当前这份落到哪）在 lib/chat-workbench/artifact-tabs.ts，不写成内联三元。 */}
       {tabs.tabs.length > 1 ? (
         <div
-          role="tablist" aria-label="已打开的结果"
+          role="tablist" aria-label={translate("chatInspector.opened")}
           data-testid="chat-inspector-artifact-tabs"
           className="flex min-w-0 gap-0.5 overflow-x-auto border-b border-border px-1.5 py-1"
         >
@@ -829,7 +834,7 @@ function ArtifactDetail({
                 <button
                   type="button"
                   data-testid="chat-inspector-artifact-tab-close"
-                  aria-label={`关闭 ${t.title}`}
+                  aria-label={translate("chatInspector.closeTitle", { title: t.title })}
                   onClick={() => { onClose(t.id); }}
                   className="shrink-0 rounded text-muted-foreground transition-colors duration-fast hover:text-card-foreground"
                 ><X className="size-3" aria-hidden /></button>
@@ -923,6 +928,7 @@ function ResultSourceLine({ url }: { readonly url: string | null }): React.JSX.E
  * 不是「出处有哪些」。不在文案上暗示后者。
  */
 function ArtifactSourceLine({ item }: { readonly item: ArtifactItem }): React.JSX.Element {
+  const { t } = useI18n();
   const [missing, setMissing] = React.useState(false);
   const messageId: unknown = (item as { messageId?: unknown }).messageId;
   const canJump = typeof messageId === "string" && messageId !== "";
@@ -932,7 +938,7 @@ function ArtifactSourceLine({ item }: { readonly item: ArtifactItem }): React.JS
       data-testid="chat-task-workbench-artifact-sources"
       className="flex items-center gap-2 border-b border-border-subtle px-3 py-1 text-10 text-muted-foreground"
     >
-      <span>{item.hasSource ? "已挂出处" : "未挂出处"}</span>
+      <span>{t(item.hasSource ? "chatInspector.artifacts.source" : "chatInspector.artifacts.noSource")}</span>
       {canJump ? (
         <button
           type="button"
@@ -941,12 +947,12 @@ function ArtifactSourceLine({ item }: { readonly item: ArtifactItem }): React.JS
           className="inline-flex items-center gap-0.5 rounded px-1 text-primary transition-colors duration-fast hover:bg-muted"
         >
           <CornerUpLeft className="size-3" aria-hidden />
-          跳到原消息
+          {t("chatInspector.jumpSource")}
         </button>
       ) : null}
       {/* 找不到就说出来。静默失败会让用户以为这颗按钮坏了——原消息可能只是还没加载
           进当前这一页（对话列表是分页的），那是两件不同的事。 */}
-      {missing ? <span data-testid="chat-inspector-artifact-source-missing">原消息不在当前视图里</span> : null}
+      {missing ? <span data-testid="chat-inspector-artifact-source-missing">{t("chatInspector.missingSource")}</span> : null}
     </p>
   );
 }

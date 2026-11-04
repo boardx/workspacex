@@ -1,3 +1,5 @@
+import type { Locale } from "@/lib/i18n/locale";
+import { translate } from "@/lib/i18n/messages";
 /**
  * S7（#4364）—— 回答下的引用 chip：「依据你 9/20 的决定」、展开、跳回原消息。
  *
@@ -28,9 +30,9 @@ function monthDay(iso: string | null): string | null {
  * chip 上「依据你 9/20 的」那半句（后面紧跟类型：决定 / 目标 …）。长期记忆里的条目日期已经在「来自你 {M/D} 的对话」
  * 徽标上，这里不重复日期；没有时间 ⇒「依据你的」。
  */
-export function citationBasisPrefix(m: Pick<KgRecalledMemory, "scope" | "saidAt">): string {
+export function citationBasisPrefix(m: Pick<KgRecalledMemory, "scope" | "saidAt">, locale: Locale = "zh-CN"): string {
   const day = m.scope === "personal" ? null : monthDay(m.saidAt);
-  return day === null ? "依据你的" : `依据你 ${day} 的`;
+  return day === null ? translate(locale, "chatKnowledge.citation.basis") : translate(locale, "chatKnowledge.citation.basisDated", { date: day });
 }
 
 /**

@@ -147,3 +147,388 @@ Main-authorized6199normaldevelopsync published newb90f591eca6ae929be9d57d2bc245e
 Latest cumulative Chat typecheck on dependency-synceda886 actualexit0/39.108s, no diagnostics; all40Task3 source hashes unchanged since focusedTDD. Main clarified scheduling seconds are estimates, not new validation timeouts; upcoming whole-task run uses original command budgets and informs peers if normal duration exceeds estimate. Source checkpoint is being committed before mechanical final46suite; Task3 completion/Task4start still pending that actual run. TDDlogs ANSI/whitespace normalized with private original-byte backup, not erased or relabelled.
 
 Task3 mechanically COMPLETE on actual801af69771c04c5e4c7e7209f7f05aa932f088a9:46explicit imported suites227/227PASS78.43s (wrapper80.038s), one worker/original test timeouts. task-done actualexit0 wrote originalBASE9e91..801af; full log and ledger copied to repository. Latest cumulativeChat type0/39.108s is currentdependencybase; one EOF-only formatting adjustment afterwards recorded, no parsedcode change. This current full round replaces partial137/18 aggregation claims without erasing those failures. Task3 source checkpoint stays private/unpushed, not wholeChat/browser/CI acceptance. Next Task4 actual inspector/knowledge/material/artifact/feedback/gatedfooter/preview overlays starts immediately; no request to pause between tasks.
+
+Task4: Inspector first two actual provider counterexamples fail at missing English tab names (2/2 RED, 4.32s); no collect/import failure. Minimal tab/header/mobile chrome and stable semantic run-detail row IDs now implemented, not yet GREEN/type/lint. Additional material/artifact list three cases written UNRUN; no production edits to those panels before RED. FIRST research WEBTYPE currently owns the heavy window; this worker is light only.
+
+Additional Task4 light counterexample preparation: capability edition footer 2, FeedbackProvider persisted receipt 1, KnowledgePanel visibility/permission 2, ProducedFile image/PDF overlays 2 cases written UNRUN. All these production components remain unchanged before real RED. FIRST research API43+type0 completed; its static gate has next priority, so no local heavy started here.
+
+Task4 exact two-suite short window: Inspector2/2 GREEN plus materials/artifacts3/3 genuine missing-English RED, single round 5.96s (not five GREEN). Inspector row/timer/collapse continuity is now observed. Lists minimal display-only headings/counts/status/source/version/retry/loading implemented after RED, but latest source has no GREEN/type/lint yet. Original filenames/titles/error/read-only reasons/server IDs/event payloads remain raw; upload/open/retry callbacks unchanged. FIRST normalpush priority next, then ROOT quota gates/browser, this worker remains light.
+
+Latest Task4 exact two-suite round is now 5/5 GREEN5.91s (Inspector2 + lists3), replacing the earlier 2GREEN/3RED boundary for those same five cases only. No cumulative type/scopedlint or complete overlay/browser proof yet. ArtifactDetail2 and ChatArtifactView loading/persisted structured failure2 counterexamples additionally prepared UNRUN, production unchanged. ROOT quota corrected canonical list then first actual browser has priority; worker has no heavy/services. Main separately requested complete recording static review BASE2dfcf827d..026d8dcac:32actualapps/packages files,88totalpaths incl evidence, not72source; reused reviewer read-only without tests. Latest recording parenttype/browser still unrun, historical206/25notcurrentgreen.
+
+Main-delegated recording review finished readonly STATIC CLEAN/no actionableP1/P2 on2dfcf827d..026d8dcac:actual88paths=32apps/web+docs2+evidence54; reused independent reviewer checked full scope/extraction, not just oldc9ad limited scope. Sent exact report /tmp/recording6214-review-026d.md to main/FIRST. No tests/type/browser run; latest recording parent-integrated validation still pending. Task4 also prepared material-drop notice2 and roster2 UNRUN (15 new cases beyond the five GREEN), those production paths unchanged pendingRED. ROOT quota first realbrowser currently owns local heavy; no local services/heavy here.
+
+Task4 overlay batch actual8suite15cases:14missing-English RED /1caller-owned raw readonly guard GREEN12.75s, no collect/import failure. After actual exit and same-cell release, minimal display implementation written for these14 gaps (artifact detail/source, produced image/PDF, persisted receipt, roster chrome/raw names, semantic material-drop notice, knowledge header/visibility/permission, edition footer). Latest source is not yet GREEN/type/lint; earlier5GREEN is not acceptance of this increment. Raw source failure is now retained to render; original request dependencies/permission/IDs/payloads unchanged. Capability Chinese names project contract constants, no second label fact; missing filter/edition logic unchanged. FIRST recording windows and ROOT real quota failure remain prioritized.
+
+Task4 first GREEN attempt actual8suites15cases13PASS2FAIL12.87s. Both remaining failures are produced-file test-driver boundaries: the outer createPortal marker is empty because Radix DialogContent portals separately, and the shell locale button is correctly aria-hidden while modal is open. Actual output confirms accessible English dialog/Preview labels; no product workaround was added. Minimal tests now query the actual dialog and drive the real provider setter as a cross-tab locale update (explicit()=>void driver), preserving focus trap/accessible queries/same DOM/authorized bytes assertions. Await targeted recheck; do not combine13+future2 into15 single-run GREEN.
+
+Produced-file fixture correction targeted2/2 actualGREEN2.92s (real Radix DialogContent + actual provider cross-tab update), no product workaround or focus-trap bypass. Earlier13PASS and this2PASS are not relabelled as one15-case round. Feedback actual compose/pending-submit/error next3 counterexamples preparedUNRUN, production unchanged. PR6199 actualmergedAt2026-11-04T01:48:36Z/sourceb90/commit3644/candidate57SUCCESS15SKIP, shell/header/tabs/subnav/access only; fullprojectTabs/wizard/workflow still ahead. Proceeding with protected normaldevelopsync, not copying pending FIRST Mic source.
+
+Normal actualdevelop3644 integration complete without source copy/cherry-pick: Chat HEAD66120e5ad595bea5fdac4ebf956b0a7ee0d9ea51, originalTask4BASE23db retained. Scoped --all stash51f55698adcbbd804d154351c9ce77a0d4ea5708 protected31WIPfiles+6ignoredunitlogs; apply restored all37 SHA256/modes exactly before this new receipt/metadata. Backup retained, olderstashes untouched. New en/zh root auto-merge includes publishedprojectWorkbench and privateChat namespaces, no unmergedFIRSTMic source copied. Integration evidence JSON records protected names/hashes only, not rawcredentials. CurrentTask4 latesttype/scopedlint/wholeoverlay/browser remains pending.
+
+Main-delegated recording increment e953..c54..bf6 reviewer found actual P1 in unpublished evidence: browser-first/trace.zip network entry contains authorization/bearer/credential-shaped value (booleans only, no values copied). Exactbf6 integration/spec otherwise no actionableP1/P2; whole evidence review HOLD. Main/FIRST notified to preserve raw privately and remove from unpublished history before publish/newSHA incremental check. This is separate from alreadymerged6199 and does not change Chat source; no heavy run here.
+
+Recording safety follow-up complete on newclean969bfd76f8affc0bbb679eecbfd69b0f374f743e: same reviewer independently verified c54→625e→969 new chain, unsafe dda/bf6 non-ancestors, five actual rawblob OIDs absent from107902reachableobjects, apps/packages byteequalbf6, no rawtrace/command/context in either newcommit, no Bearer/JWT values in12newtextfiles. P1ADDRESSED for this exact newhistory/textscope; owner6PNG QA not independently repeated, latesttype/lint/browser2/CI still unrun. Four exact6205 contexts privately checked: no actualBearer/JWT/storage credential assignment; storage source references only, not a publishedcredential finding. Reported main/FIRST without any credential values; no heavyweight commands or otherWT edits.
+
+Main formally cleared only recording P1 evidenceHOLD for exact969 after independent incremental safety review; normal current validation/browser2/QA/cleanup/CI remain required. Full sanitized limited report archived at /tmp/recording6214-increment-safety-969-review.md and sent FIRST/main, no secret values. Chat continuesTask4/5; project6199 monitoring is finished, overall i18n heartbeat stays active.
+
+Heartbeat continuation: ownTask4 source stillWIP/unpushed, no newheavy while ROOT6203 HOME real scenarios own the machine. FeedbackDialog counterexamples now4 UNRUN (added explicit authored-template insertion preserves existing rawprefix and remains unchanged acrosslocale; strengthened known-error Englishreason assertion), production unchanged. KnowledgePanel→actual sourceDrawer pending/read-error/retry-close late-reply2 counterexamples preparedUNRUN, production unchanged. Shared TagInput remains FIRST6205-owned and unmerged into currentdevelop3644; wrapper-only display changes will reuse it after actualnormalintegration, not duplicate it.
+
+
+### Feedback dialog first semantic RED (2026-11-04)
+
+One actual FeedbackDialog suite ran with its four new provider cases: 4/4 missing-English failures, duration3.29s, exit1 (`task4-feedback-dialog-red.log`). Failures reached the actual dialog, persistent-submit notice, and explicit template control; no collect/import failure. The exclusive slot actually exited and was released to both peers. Knowledge sources2 remained UNRUN.
+
+The subsequent unverified display-only implementation localizes the dialog accessible name/template control, retains raw submit cause until render for locale-aware existing failure formatting, and projects the existing STRUCTURED_FIELDS labels only for explicit local template insertion. Default structuredToText/composeReviewDetail and raw request bodies remain unchanged. Locale is added only to the local apply-template callback, not POST/voice/request effects. Latest source has NOT been verified GREEN/type/lint. The remaining FeedbackDialog owned copy still needs completion; this narrow pass is not full dialog or Task4 delivery.
+
+
+### Priority interruption: exact 6205 candidate Chat reload failure
+
+Main assigned Chat domain diagnosis for candidate46a689a0137140d89c8408c363132189b112c01b, run41756732362/attempt1/job126335093672. The original simple-chat case passed persisted human/agent marker and same-run assertions, then failed after reload with an empty message region at the original30s limit. Private trace confirms both persisted messages, succeeded run, unchanged canonical URL and three equal identity responses. After reload the actual message read remained pending; the concurrent PDF clarification case also showed slow/pending reads across multiple endpoints. Screenshot showed skeleton/permissions unresolved. This evidence does not establish a history-algorithm bug, fixture contamination, or flakiness. No product/test assertions or timeouts changed.
+
+Artifacts, native traces, response bodies and contexts remain only under private `/tmp/chat6205-46a-private` (directories0700/files0600); only allowlist facts are recorded here. Main received the proposed next diagnostic: direct API vs same-origin probes and read-only PG activity/locks around the original paired registered cases. Any independent maintenance branch must first protect this Task4 WIP by hash. Task4 validation pauses behind this real failure; no new heavy job is ready or running in this worker.
+
+
+### Task4 restored after bounded issue6218 diagnosis
+
+Main stopped further diagnostic reruns after the original shard exited0 with64 passes and4 pre-existing fixme/expected skips. This did not identify or fix a root cause and is not a green CI candidate. No diagnostic product PR is being created. Temporary diagnostic source and safe receipts are backed up separately in stash dcc561188e1a89469f0b7292e1690eb72338297b; raw artifacts stay private.
+
+Returned to worker/i18n-chat-workspace-6200 at unchanged66120 and applied latest protected stash c374f45c4a85b0639035b248fac146c221c6bcde:53 files including7 ignored Task4 logs verified SHA256 and mode equal before appending this metadata. No diagnostic fixture or raw log mixed into Chat. Task4 BASE23db remains active; Feedback4 implementation is still awaiting GREEN and Knowledge sources2 remain UNRUN. Restore receipt: evidence/i18n-chat-workspace-6200/task4-after-6218-restore.json.
+
+
+### Restored Task4 focused result: Feedback3GREEN/1fixtureFAIL, Knowledge sources2RED
+
+The actual two-file run exited1 with3 passes/3 failures in5.49s (`task4-feedback-green-knowledge-source-red.log`). Feedback's compose/draft/locale/Escape, persistent503 error and explicit template cases passed. Its pending-submit case reached successful submit and the actual My feedback empty state, then failed because the test's subsequent GET returned an empty list while it expected the just-submitted row; it also expected a raw ID inside a badge that only displays the submitted label. This was a fixture/assertion-target defect, not evidence of product persistence failure. Corrected the test to return a complete typed canonical saved item after POST completion and check its stable ID row, badge, raw title/detail and selected My feedback tab, preserving exact6 POST fields and exactly-once semantics. No product behavior changed for this correction.
+
+Knowledge sources2 reached actual missing-English assertions (drawer accessible name and persisted403 reason), with no collect/import failure. Subsequent minimal implementation is UNVERIFIED: actual drawer chrome/ARIA and source counts/stance/page/provenance actor labels at render; raw statement/excerpt/action/IDs/versions unchanged. The existing drawer hook now retains raw cause/semantic no-loader state and formats only at render under the current provider. Request generation guards and load callback dependencies remain unchanged; locale does not reload/retry. Existing defaultZH is preserved. Full6case GREEN, old adjacency/type/lint and all remaining Task4 nested dialogs/graph/version UI still pending.
+
+
+### Focused6 GREEN and single-label-fact convergence
+
+The corrected Feedback4 + actual Knowledge sources2 ran together and passed6/6 in4.14s (`task4-feedback-knowledge-source-green.log`). The old fixture failure and both valid missing-English source failures remain retained. Request/body/raw-content/late-close guards passed; this is not the entire Task4.
+
+Subsequently, the newly added structured field display labels were converged to the dictionary as one fact: the existing STRUCTURED_FIELDS metadata derives its fixedZH label and typed key from its canonical field key, rather than duplicating Chinese labels in metadata and namespace. Default structuredToText/composeReviewDetail remain unchanged. Added one UNRUN exact golden guard for all7 legacy Chinese headings/order/raw values under EN→ZH provider, while explicit apply-template remains display-locale authored insertion. Latest source after this convergence has not yet run GREEN/type/lint; Feedback now5 cases, combined7. Next gate includes the two old Feedback/Knowledge neighbor suites, then cumulative type separately by fresh window.
+
+
+### Four-suite neighboring regression GREEN (2026-11-04)
+
+After the single-label-fact convergence, four explicit suites ran together: old FeedbackDialog36, old KnowledgePanel27, new Feedback5 (including fixedZH/raw serialization golden guard), new actual Knowledge sources2. Actual70/70PASS9.70s, exit0, log `task4-feedback-source-neighbors.log`. No type/browser or unrelated test scope was run; the window actually exited and was released. This proves the new field-label projection preserves default reviewed-body headings/order/raw values and the focused/old request guards; it is not cumulative Task4 type/lint, whole Task4 acceptance or browser coverage.
+
+
+### Latest cumulative type check — two fixture diagnostics
+
+`pnpm --filter web typecheck` actually exited2 after the70-case neighboring green. Both diagnostics are owned by `i18n-chat-inspector-lists.test.tsx`: its general ChatAttachment annotation lacked the canonical material row's required messageId, and unavailable uploader props were omitted rather than explicitnull. Corrected only the fixture to the actual ListThreadAttachmentsOut item type with raw messageId and explicit uploadCtl=null in both render paths. No casts, optional production props, tsconfig or contract weakening. The exact type-red output remains `task4-type-after-feedback-source.log`; latest type after this minimal correction remains UNVERIFIED.
+
+
+### Latest cumulative type GREEN after fixture-only correction
+
+`pnpm --filter web typecheck` actually exited0 with the original configuration after the two lists-fixture shape corrections. No diagnostics (`task4-type-after-fixture-fix.log`). The type-red output is retained; no contract/production optionality or tsconfig weakening. Latest70-case neighboring round remains its own evidence, not the entire Task4. Scoped lint and remaining graph/dialog/version/Feedback states still pending.
+
+
+### Next graph counterexamples prepared, UNRUN
+
+Three real-canvas-provider cases now exist in `i18n-chat-knowledge-graph.test.tsx`: actual nodeTypes.kg/edgeTypes.kg rendering and raw author/model content with focused relation/ARIA continuity; expanded manual placement using the library's real pure applyNodeChanges with same node/dialog DOM and no locale reset/extra fitView/source action; canonical graph limit/cluster labels and explicit expansion retention. Only the external ReactFlow layout/context boundary is bridged; unlike the old capability-only stub, this bridge invokes the real registered KG renderers. This is not real browser geometry/drag acceptance. Graph production remains unchanged before actual semantic RED. Latest type0 preceded this new test file; no current graph/type success claim.
+
+
+### Graph actual RED and subsequent unverified render projection
+
+`i18n-chat-knowledge-graph.test.tsx` actually ran3/3 missing-English RED in1.97s: real registered KG node accessible-kind label, actual expand control, canonical oversize copy; no collect/import fault. Thin external layout/context bridge invokes real node/edge renderers and the library pure applyNodeChanges, not the old capability-only stub. Log `task4-knowledge-graph-red.log` retained.
+
+After RED, render-only implementation written but not GREEN/type/lint: canonical data-kind/relation lookup projects localized node/edge labels and ARIA at render; default layout/initial/placed and reset dependencies remain unchanged, manual positions/focus stay local state. Icon identity consumes canonical person metadata, not a translated label. Graph tools/dialog/cluster/loading chrome is translated, original forceExpand and callback/IDs remain. Claim/tri labels reuse aboutMemory keys; object labels project contract constants. The unchanged12-entry Chinese relation table moved to a dependency-free fact module and is re-exported from the old recall module, so dictionary projection cannot create a messages↔recall import cycle and model/default recall strings stay unchanged. Latest type0 preceded these graph changes; no current Graph success claim.
+
+
+### Graph first neighboring round: 26PASS/1 locale-driver failure
+
+The three explicit suites actually exited1: Graph3 + original layout5 + original answer/citation19, total26PASS/1FAIL in4.22s (`task4-knowledge-graph-green-attempt.log`). The sole failure occurred after the expanded graph had correctly switched to Chinese, retained its actual node/dialog DOM and manual351/217 position, and preserved callback/fitView counts: the test still queried English Close although the shared Dialog correctly rendered Chinese 关闭. Corrected only that precise current-language close query; no product or graph-state change. Latest corrected Graph has not yet rerun GREEN/type/lint. This is not one27-green round or browser drag evidence. The slot actually exited and was released to both peers.
+
+
+### Next write-dialog counterexamples prepared, UNRUN
+
+Six parameterized actual ClaimActionDialog provider cases are now prepared for revise/revoke/contest/merge/split/rename. They retain raw draft/object names/claim IDs, exact canonical action payload, same dialog/control DOM and selection across locale, no submit/close on locale, exactly-once explicit submit with rejected result keeping the dialog open, and explicit cancellation. No dialog production change before semantic RED. `i18n-chat-knowledge-actions.test.tsx` is UNRUN; its English titles are proposed assertions, not evidence. Graph's corrected Chinese close query also remains unverified; latest type0 preceded both new test files/graph source.
+
+
+### Knowledge list counterexamples prepared (UNRUN)
+
+Three additional real KnowledgeList/KnowledgeEmpty provider tests are prepared, without production changes: grouped kind/evidence and expanded correction-row DOM with raw source value/exact revoke payload; readonly selected checkbox preserves its raw claim ID/checked state across locale with no edit controls or write; empty organize action runs only on explicit click. These are not added to the currently requested two-file Graph/actions gate and have not run RED/type. The pending Graph/actions window remains bounded to the two files already requested.
+
+
+### Actual Graph GREEN and six write-dialog missing-English RED
+
+The bounded two-file command actually exited1 with Graph3PASS and ClaimActionDialog6missing-English failures in3.33s (`task4-graph-green-actions-red.log`). All six failures reached real accessible dialogs with original Chinese titles, not collect/import errors. Graph now has its own3/3GREEN after the precise close-language driver correction; the earlier26/27 round remains retained, and no27-green aggregate is claimed.
+
+After RED, minimal dialog display implementation is written, unverified: titles/descriptions/labels/cancel/busy/object-kind hints translated at render under real provider; canonical enum/payload, original submit/busy handler, action filtering, current selection/draft state, max lengths, Enter/IME handling, disabled checks and callbacks remain unchanged. Object names/claim statements remain raw; stable object IDs still key options. The 5-minute consequence retains its original value and Chinese rendered spacing. No locale effect/request dependency added. Next GREEN plus old action suite/type/lint need fresh windows. List3 counterexamples remain UNRUN and no list production was changed.
+
+
+### Promotion/nomination counterexamples prepared, UNRUN
+
+New two-case provider file `i18n-chat-knowledge-promotion.test.tsx` exercises actual NominationCard unchecked state, raw model rationale/claim label, locale no-write and explicit selected canonical IDs; all five canonical PromotionResultList outcomes, locale-preserved choice button/raw model labels and explicit coexist enum. Production for these components remains unchanged before RED. These tests are not included in the next reserved actions/list two-file slot.
+
+Further source audit: usePromotionFlow currently formats caught failures to a Chinese string before onError, so a persisted failure cannot follow a later display locale merely by adding locale to renderer. Need a real panel/provider rejected-request counterexample before addressing this state boundary. Preserve run busyRef, exact mergeResults replacement semantics, choice payload and callback dependencies; do not add locale to run/request dependencies. KnowledgePanel still owns quick-add, pending/settled ingestion and batch-selection chrome to finish under actual render tests.
+
+
+### Actions six GREEN, list three actual RED
+
+The explicitly reserved two-file round actually exited1 with ClaimActionDialog6/6PASS and KnowledgeList3/3missing-English RED in3.28s (`task4-actions-green-list-red.log`). All six canonical action payload/draft/selection/sameDOM/no-locale-write/cancel guards passed after render-only implementation. The three list failures reached actual grouped Chinese fact label, Chinese raw-statement selection ARIA, and Chinese empty organize action; no collect/import error.
+
+After list RED, minimal render implementation written but not GREEN/type/lint: group kind reuses existing official aboutMemory label through pure helper; selection ARIA/evidence/opposition/inline correction/forget consequence/empty chrome localized; raw claim statement and callback payloads remain unchanged. Explicit locale passed to existing tri badge. Stable claim/group keys, openWrong state, readonly/no-editor rendering and existing handlers remain byte-equivalent in logic; no locale request dependency. Menus/time badges and full KnowledgePanel flows remain separate remaining work. Next list3GREEN + nomination/results2 first RED requires a fresh two-file slot, not an expansion of this exited command.
+
+
+### Edit-menu/time counterexamples prepared, UNRUN
+
+New separate four-case provider suite targets actual Radix ClaimEditMenu open/locale/Escape with conflict and missing-object disabled controls preserved/no action, plus canonical open/done/dropped time badge display with same DOM and defaultZH contract-label checks. No menu/time production change. This file is not part of the next list3/promotion2 two-file reservation; it still needs actual semantic RED and does not claim browser geometry or timing behavior.
+
+
+### Panel action-state counterexamples prepared, UNRUN
+
+Separate actual KnowledgePanel provider3 cases now prepared for pending ingestion/quick-add raw draft and existing remember event; persisted edit403 render-only locale update/no repeated apply; pending personal promotion selection/once request/typed raw claim IDs and stored scope-rejection through ZH→EN with no re-promotion. The existing external flow boundary only is stubbed, requests are action props, and the real panel/hook/list render. Canonical test IDs were checked against source before any run. Production panel/hook failure handling remains unchanged before semantic RED. This new file is excluded from the currently queued list/promotion two-file slot.
+
+
+### List three GREEN and nomination/results two actual RED
+
+The reserved two-file round actually exited1: KnowledgeList3/3PASS and real NominationCard/PromotionResultList2/2missing-English RED in2.94s (`task4-list-green-promotion-red.log`). Failures reached actual Chinese nomination title and promoted-result copy, no collect/import fault.
+
+After RED, minimal render projection written but not GREEN/type/lint: nomination title/hint/dismiss/checkbox/action/count and all five result outcomes/choice prompts/buttons translate at render; model claim labels/rationale remain raw, selected canonical IDs and existing busy guards/callback enums unchanged. The existing three-code describePromotionReject gains optionalLocale with defaultZH preserved, its former literals become the sole namespace fact and a typed code→key map. No state, request, filter or hook dependencies changed. Original defaultZH and partial-success semantics still need focused/old regressions. Menu/time4 and panel-actions3 remain UNRUN, production unchanged. Latest cumulative type0 precedes all these edits.
+
+
+### Feedback full chrome/history counterexamples prepared, UNRUN
+
+Separate actual FeedbackDialog provider four-case file `i18n-chat-feedback-chrome.test.tsx` now targets compose fullscreen/tabs/raw target/draft continuity; reviewed canonical kind selection while raw model title/body and one structure request remain; actual My feedback status/kind display while saved title/detail/statusReason remain raw/no locale fetch; stored mine-load503 remains a failure (not empty), translates at render, retries only explicitly and does not disclose internal detail. Only API boundary and router are mocked as in existing tests; no feedback production change before RED. This file remains excluded from the next promotion2/menu4 reserved short gate.
+
+Resource update: ROOT actually started its original one-case17-image quota browser on exact freeze312688/source4639 after both fresh confirmations; SECOND has no heavy/services and is restricted to light work until actual exit/own cleanup. No background CI green or browser completion inferred.
+
+
+### Canonical under-message memory and welcome briefing audit, new counterexamples UNRUN
+
+Source trace confirms canonical v2 user-message imports ExtractionFeedbackChip, panel-view welcome embeds SessionBriefing, and actual TurnMemoryLine renders ConflictPromptCard/SupersedeNoticeLine. These authored display surfaces remain in the whole Chat scope even though prior Task3's limited named suites passed. Their server/user statements, server resumePrompt and execution instructions must remain raw. No browser coverage inferred.
+
+Prepared separate ConflictPromptCard4 provider cases for keep-both raw applicability drafts/exact enum, pending possible-change once, readonly no-controls/raw old-new statements, and unknown caller Error.message raw through locale. Prepared SessionBriefing3 for same DOM/one GET+shown event, explicit raw server resumePrompt/claim-ID citation, persistent read failure and explicit dismiss failure with no locale write/retry. Both files UNRUN; corresponding production unchanged. They are not added to the next six-case promotion/menu reservation.
+
+
+### Nomination/results GREEN and menu/time four actual RED
+
+The reserved two-file round actually exited1 with nomination/results2/2PASS and edit-menu/time4/4missing-English RED in6.07s (`task4-promotion-green-menu-time-red.log`). The menu reached its Chinese More accessible label; all three canonical TODO badges reached original Chinese labels. No collect/import fault; all processes actually exited and the slot was released.
+
+Subsequent minimal render implementation is unverified: actual menu chrome/action labels translated under provider with original canEdit/isConflict/isConfirmed/hasObjects disabled gates and callback enums unchanged; time badges consume provider only at render, fixed semantic keys/TODO_TONE/date calculations unchanged, defaultZH labels project contract single source. Added the client boundary for the now-provider-consuming badge; no server callers of exported date helper were found (only client KnowledgeList/PersonalMemory and tests). Latest GREEN/type/lint/whole Task4 remain pending.
+
+
+### Menu/time four GREEN and actual whole-panel action three RED
+
+The reserved two-file round actually exited1 with actual menu/time4/4PASS and KnowledgePanel actions3/3missing-English RED in3.10s (`task4-menu-time-green-panel-actions-red.log`). All panel failures reached actual busy-ingestion copy, stored edit403 and selected-batch save control, not collection/import/testID errors. The slot actually exited and was released to FIRST's frozen B6 RED.
+
+After RED, minimal display implementation is written but unverified: quick-add, ingestion, tri-counts, batch controls and summary chrome translated. Panel error state now retains typed human/promotion raw cause and formats at render; existing usePromotionFlow onError carries typed raw failure rather than frozen Chinese text, with unchanged callback dependency list, busyRef/once, pending/result/mergeResults and payload logic. Existing failure helpers gain optionalLocale/defaultZH and reuse existing aboutMemory human-error keys; promotion-specific fallback/limits move to single namespace with canonical batch-limit parameter. Unknown security failures keep existing safe generic behavior; no locale in request dependencies, no new writes/retries. Current GREEN/type/lint/old neighbor suites still pending.
+
+
+### Actual panel-action three GREEN and Feedback chrome/history four RED
+
+The reserved two-file command actually exited1 with KnowledgePanel actions3/3PASS and Feedback chrome/history4/4missing-English RED in5.44s (`task4-panel-actions-green-feedback-chrome-red.log`). The latter reached real Submit tab, reviewed canonical kind control, saved-status badge and persisted503 My feedback failure; no collect/import/testID fault. All processes exited; slot released to FIRST's corrected B6 RED.
+
+After RED, minimal proven-surface display implementation written but unverified: dialog target/header/tabs/fullscreen/review kind/title/detail/placeholder chrome, My feedback loading/empty/retry/status/kind/processing prefix. Chinese wire kind/status display projects contract enum values as the singleZH fact; canonical wire enums, target IDs, raw model/user title/detail/statusReason unchanged. MyFeedbackList stores raw cause and formats existing failure helper at render with current locale; original load callback[]/one GET/retry behavior unchanged. No locale request deps, no submit/voice/upload logic change. Remaining attachments/draft/voice/structure-failure/structured-fields chrome still pending actual counterexamples and implementation. Latest GREEN/type/lint and cumulative Task4 still pending.
+
+
+### Feedback chrome/history four GREEN and conflict four actual RED
+
+The reserved two-file round actually exited1 with Feedback chrome/history4/4PASS and ConflictPromptCard4/4missing-English RED in7.50s (`task4-feedback-chrome-green-conflict-red.log`). Real compose/review/fullscreen/canonical kinds/My feedback status+stored failure/no-refetch guards passed. All conflict failures reached real button/explanation copy, not collection/import errors. Slot actually exited and was released.
+
+After conflict RED, minimal display implementation written but unverified: both conflict/possible-change prompts, labels, applicability placeholders, terminal notes and owned generic fallback use provider translation. Raw old/new statements, raw applicability drafts, exact resolution/conditions callbacks, busy/readonly/once state and unknown caller Error.message remain unchanged. The generic fallback is semantic state formatted at render; arbitrary supplied Error.message and ConflictPromptGoneError.message remain raw. Known API failures already preformatted by TurnMemoryLine remain a separate render-state audit gap; this pass does not claim that API-path language continuity is proved. No callback dependencies or request behavior changed.
+
+
+### Remaining actual MemoryCard/overview counterexamples prepared, UNRUN
+
+A separate12-case actual MemoryCard provider file now covers edited remember text and one pending acceptance; selected raw forget-ID subset; readonly overview raw statements/source titles/canonical links; stale/dismissed/undone terminal chrome without reactivation; four server-based undo outcomes with distinct neutral/retained/not-undoable semantics; unknown caller error raw; readonly no editor/decisions. This is not a model/API integration claim. Existing card/overview production remains unchanged before real RED. This file is not added to the currently reserved conflict4/briefing3 slot.
+
+
+### Actual API-formatting boundary counterexamples prepared, UNRUN
+
+A separate two-case actual TurnMemoryLine→ConflictPromptCard provider file now exercises KnowledgeGraphError403 and prompt404 through the real revision-read/CAS action callback. It requires current display-locale text after the real parent path, exact raw prompt ID/resolution/revision13, one action/read/turn-fetch across locale, and gone-card behavior. This targets the known preformatted-Chinese error gap, not an invented metadata-only class fixture. Only API boundary functions are mocked; snapshot ownership and real controller/card run. The controller/error transport production remains unchanged before valid RED. Excluded from the next conflict4/briefing3 reserved window.
+
+
+### Public progress reconciliation
+
+Issue6200 actual current progress/remaining boundaries posted at comment6623465903. Per main's request, issue6133 top/B5 stale parent/recording facts were narrowed to actual6205 merge and recording f998 source readiness, preserving B8/other lines. A subsequent own-B3 three-row refresh actually wrote/read back equal (changed lines14/29/97 only; SHA2565af4e3fa3d188fb0e9d6c41a6d52b5e904b6dd8379b75d115b995717bee5392e). An initial local Python source-encoding error stopped at parsing and made no external write; the ASCII-JSON payload retry succeeded. No Git source head refresh for documentation. This is progress evidence, not Task4 completion or candidate green.
+
+
+### Conflict four GREEN and session briefing three actual RED
+
+The reserved two-file round actually exited1 with ConflictPromptCard4/4PASS and SessionBriefing3/3missing-English RED in15.40s (`task4-conflict-green-session-briefing-red.log`), exceeding the estimate with original budget unchanged and normal completion. All three failures reached actual title/read-failure/dismiss labels, no collect/import fault. The slot actually exited and was released to FIRST's necessary type/affected-tests window.
+
+After RED, minimal SessionBriefing display implementation written but unverified: real provider chrome, section/kind/origin/citation/goal/counterpart/error labels; pure helper optionalLocale/defaultZH compatibility with sectionZH projected from contract and existing personalOriginLabel optionalLocale reused. Original fetch effect[], 8s read deadline, items memo[state], shownRef/events[items], raw server resumePrompt/statement/goal/counterpart, href and canonical event IDs remain unchanged. No locale fetch/event/preference write, no automatic send. Next intended gate is only briefing3GREEN + memory-card12firstRED in a fresh reserved window; type/lint/wholeTask4 remain pending.
+
+
+### Task4 briefing and memory cards checkpoint
+Actual two-file round: SessionBriefing 3 PASS, MemoryCard/overview 12 missing-English RED, total 3 PASS/12 FAIL in 4.76s (task4-session-briefing-green-memory-cards-red.log). No collect/import failures. Command actually exited1 and resource window was released to both owners before light implementation. MemoryCard/overview now render owned chrome through the typed namespace; undo outcome remains canonical, checkbox/raw draft/IDs/callbacks remain unchanged. Unknown caller Error.message is stored as raw content; only the owned generic fallback is translated at render. Latest production is UNVERIFIED: no new GREEN/type/lint/browser claim. Next request is MemoryCard12 GREEN and actual TurnMemoryLine known-API-failure2 first RED, excluding notices/type/browser/push.
+
+
+### Task4 memory API boundary checkpoint
+Two-file actual round: MemoryCard/overview 12/12 PASS; actual TurnMemoryLine known-API failures 2/2 valid missing-English RED, total 12 PASS/2 FAIL in 4.80s, task4-memory-cards-green-api-red.log. Both errors showed the existing Chinese approved text under English; no fixture/import failure. Released immediately after actualexit1. Minimal owned UI failure carrier now retains raw cause until ConflictPromptCard render; legacy Chinese Error.message/default constructor remain compatible, arbitrary caller messages stay raw. Only resolveConflict catch display wrapping changed; CAS payload/reload/once/locale-free callback dependencies unchanged. This latest carrier production is UNVERIFIED, no new GREEN/type/lint claim. Memory notices4 remain UNRUN.
+
+
+### Task4 actual API GREEN and notices RED
+Fresh reserved two-file round actually exited1: known TurnMemoryLine API failures2/2 PASS, Supersede/Extraction notices4/4 valid missing-English RED, total2PASS4FAIL16.76s (task4-memory-api-green-notices-red.log). Estimate exceeded with original budget unchanged and natural completion. No collect/import faults. Release broadcast immediately after actualexit. Minimal notices display implementation now written, UNVERIFIED: canonical raw statements/IDs remain interpolation values, extracted kind uses existing official display helper, raw API cause stored until render; finite read effect/deps, personal-copy undo then revision-based revoke and explicit remember event unchanged. Latest cumulative type/lint/wholeTask4/browser still pending.
+
+
+### Task4 notices and original neighbors GREEN
+Actual fresh four-file round exited0: new notices4 + original MemoryCard29 + ExtractionFeedback26 + SupersedeNotice7 = 66/66 PASS in24.82s (task4-memory-notices-neighbors-green.log). Original budgets unchanged; resource window released immediately after actual exit. This proves original neighbor behavior and the four new provider cases together; not a whole Task4/Chat/browser verdict. New feedback-attachments4 counterexamples are written UNRUN; production not changed for those new paths. They cover rejected raw filename/no upload, pending identical File/no locale upload, persisted upload failure/explicit retry, and structure failure/raw transcript body preserved. Latest cumulative type/lint pending.
+
+
+### Fresh resource priority
+FIRST6220 actual candidate failure maintenance takes precedence: original contracts counterexample actually failed; exact89745 is pending original contracts full-package verification. SECOND has no heavy/service. Existing reviewer reused for bounded readonly f998→89745 two-file comment/literal relocation review only, no new reviewer/test/browser and no Chat source change. New Feedback attachments/structure four cases remain UNRUN awaiting a fresh window after FIRST actual release.
+
+
+### Feedback attachments four actual RED
+Actual single-file round reached all four valid missing-English assertions and exited1 in14.54s, task4-feedback-attachments-red.log. No collect/import faults. Release broadcast before light implementation. Minimal production now translates add/drop/rejected/removal/retry chrome and preserves raw selected File/filename; upload and structure failures retain raw cause until render using existing describeFailure(locale). runUpload[]/voice effect/request deps, original limits/allowlist/mime/File/retry and default model-authored serialization are unchanged. Source is UNVERIFIED after this implementation. Remaining draft/quota/full-history previews/voice copy still require coverage; latest cumulative type/lint/Task4/browser not complete.
+
+
+### Post-neighbor display wording note
+After the66-case round, two English MemoryCard count sentences were made count-neutral (Restored memory entries: {count}; Forgotten memory entries: {count}) so1/2 share correct wording; Chinese text/canonical values unchanged. This tiny latest namespace delta has not been reverified and is included in upcoming final adjacency/type gates. Latest public checkpoint is issue6200 comment6624054963; complete Task4 is still unverified.
+
+
+### Feedback attachments GREEN
+Original new four cases passed in one fresh round10.74s (task4-feedback-attachments-green-attempt.log), actualexit0 and immediate dual release. Raw rejected filename, original pending File, no locale upload/write, persistent upload cause changing only at render, explicit retry of identical File, and exact original structure transcript body all reached assertions. No latest cumulative type/lint/wholeTask4/browser claim; requested a separate fresh cumulative webtype window.
+
+
+### Latest cumulative type actual RED and minimal fixture fixes
+The fresh canonical pnpm --filter web typecheck actually exited2, task4-type-after-memory-feedback.log, exactly3 own test diagnostics: FeedbackDialog required targetLabel missing, one parsed nomination index possiblyundefined, and second parsed MemoryCard item possiblyundefined. No production diagnostics. Added targetLabel=null and explicit required-fixture guards, preserving assertions/data and not changing contract/tsconfig. Latest source/type is NOT green until a fresh rerun. Actual process exited/released to FIRST's normal publication window; no services spawned.
+
+
+### Public B3 authoritative progress refresh
+After both BODY owners explicitly released locks, refreshed only own three B3 repeated rows of issue6133, zero-based13/28/96. Fresh read matched immediately before mutation; readback exactly equaled proposed BODY. All other rows including B8/top/B5 byte-preserved, SHA2560ff940d8583417e30687a600ff7e114f5bf69d914b23b6b1474398018c31fd1e. Updated actual memory/66-neighbor/Feedback4 evidence, latest three test-only type diagnostics and pending rerun, and issue6200 receipt6624054963. Lock released to both owners; no source-head refresh or full-completion claim.
+
+
+### Latest cumulative type GREEN after fixture fixes
+Fresh exact canonical typecheck actually exited0, no diagnostics, real9.38s/user13.43/sys1.70: task4-type-after-memory-feedback-fixture-fix.log. The preceding three own fixture diagnostics remain in the RED log; required targetLabel=null and explicit parsed fixture guards resolved them without source/contract/tsconfig changes. Actual process exited and both owners received release immediately. Latest scoped ESLint of all66 dirty/untracked TS/TSX files is prepared but UNRUN and separately requested. Task4 completion/whole adjacency/browser still pending.
+
+
+### Task4 full scoped lint actual result
+All66 current dirty/untracked TS/TSX files: ESLint actualexit0/3.629s, zeroerrors/oneownwarning in artifact-detail mock effect (task4-scoped-eslint-current.log). Resource window exited/released. Minimal test-only destructuring now binds artifactId/onLoaded outside the mock effect and keeps the same two dependency values; product unchanged. Need targeted lint and the affected original artifact-detail provider cases in a fresh window; do not report zero warnings or claim the post-fix fixture already verified.
+
+
+### Artifact mock warning closure
+Fresh targeted original artifact-detail provider suite2/2PASS4.47s plus same-file ESLint0warnings/0errors, combinedactualexit0/7.914s (task4-artifact-fixture-warning-fix.log). The only change since full66-file lint is that mock's destructuring of artifactId/onLoaded; same dependency values and loaded-version bytes/copy/download/collapse/locale assertions retained. Earlier full66-file ESLint was exit0/0errors/1warning and remains recorded, not rewritten as a single warning-free whole round. Actual processes exited/released, SECOND no heavy/services. Latest cumulative canonical type previously0/9.38s; completeTask4 and realChatbrowser/CI still pending.
+
+
+### Task4 next Feedback draft/context/quota counterexamples prepared
+Four actual FeedbackDialog/provider cases written UNRUN in i18n-chat-feedback-draft-quota.test.tsx; production untouched: persistent503 draft failure/raw body and no locale retry; pending exact canonical POST payload/version/raw returned draftID once; actual context disclosure/rawroute/build and stable workbench link; contract upload maximum+one rejected extra with original Files/no locale upload. Explicit raw NEXT_PUBLIC_APP_VERSION fixture is restored after each test. Await FIRST726e Task2 type/214 actual release then both fresh resource confirmations before first RED. Latest previous type0/lint gates precede this new test file; no new GREEN claimed.
+
+
+### Feedback draft/context/quota actual RED and render implementation
+The reserved four-case single-file round actually reached4/4 missing-English RED3.80s, task4-feedback-draft-quota-red.log; actualexit1 and immediate dual release, no collect/import fault. Minimal display implementation now written UNVERIFIED: draft error stores rawcause until render; quota stores accepted/extra numeric facts until render; all maxima still contract-derived. Save button/context/workbench/limit chrome translated; raw target/draft/route/build/returnedID/payload and original save/upload request callbacks preserved without locale dependencies. Next fresh window should only this4GREEN + hostvoice7firstRED if newly explicitly reserved, not borrow old window. Hostvoice7 production remains unchanged.
+
+
+### Draft GREEN and Feedback host voice seven actual RED
+Fresh two-file round actually4PASS7missing-English RED4.63s (task4-feedback-draft-green-voice-red.log), no collect/import fault; release immediately after actualexit1. Draft/quota/context four GREEN reached exact raw payload/build/route/IDs and one pending save, no locale submit/retry; voice seven reached owned host titles/states. After RED, only host render copy changed: reuse existing chatComposer keys for connecting/listening/silence/paused/stopping/actions/error helper explicitlocale, Feedback-specific Details hint and AI-organizing keys. No ASR/session hook, request/effect/memo dependencies, stop/pause/finish/onceguard or raw transcript changes. New voice production UNVERIFIED. Actual history PDF/image/failedpreview three tests prepared UNRUN, production unchanged there, not included in this round. Existing real voice-session/ASR adjacency and Task5 browser still required; seven controlled-port host cases are not live mic evidence.
+
+
+### Feedback host voice GREEN and history preview actual RED
+Fresh two-file round actually7PASS3missing-English RED5.64s (task4-feedback-voice-green-history-red.log): all seven host voice/state/provider cases GREEN; history PDF/image/load-failure3 reached actual owned labels/titles RED, no collect/import faults. Actualexit1 and dual release before light implementation. History children now only consume provider at render for button/tooltip/modal/iframe-title chrome; MIME badge, original objectURL/source URL/download port, lazy observer, cancellation and revoke effect dependencies remain unchanged. History latest production UNVERIFIED. No live ASR or fresh browser claim, no current cumulative type/lint after these new tests/source.
+
+
+### Bounded independent observer maintenance interruption
+Main approved an independent opt-in6218 diagnostic-maintenance preparation after the repeated6223/186a failure. Read-only artifact comparison is complete, root cause remains UNPROVEN; no new paired/fullshard run or product change. Concrete source/CI provenance plan is public at6218#6625216591. Chat local8-case history3GREEN/finalchrome5RED reservation is withdrawn, both owners informed. Before switching the same worktree for the independent source, protect ALL current dirty/untracked Task4 files plus ignored task4 logs/ledger using a new scoped stash and SHA/mode manifest; never reapply oldc374 over this newer WIP. Preparation is bounded to design/diff/unit/default-off/independent review, no candidate or browser, then safely retain maintenance state and restore Chat with exact hash/mode comparison. Chat Task4 remains active/unverified and will resume.
+
+
+### Observer preparation retained privately; Task4 restored
+Main's bounded independent observer preparation is private branch worker/chat-reload-observer-6218 exactdf2f432305b3d867c21c445eed8a86fdea1b2b46, with37/37 unitGREEN, canonical maintenancetype0/seven-filelint0/specbody+workflowparity0; existing reviewer exactSHA review pending. No observer-enabled network/PG/browser/candidate run or root-cause fix. Main explicitly directed no push/PR/vars/candidate now that6223 actually mergedb0; retain preparation only and prioritize Chat. Disposition posted6218#6626347989.
+Original Chat66120 and latest113files were restored from scopedstash8b9f68ab1ccf625080bbc5ff549b4263abf2e958, every SHA256+originalmode0differences before any metadata append. Maintenance changes are committed separately, not mixed into Chat. Restore proof task4-after-observer-restore.json; private byte backup/manifest retained, all stashes retained. Fresh main/develop fetch actual0. Task4 resumes: historypreview3 production unverified after prior3RED; finalchrome5 UNRUN/production unchanged. Next fresh gate only those8, not old mechanical verification or maintenancetype borrowed as ChatGREEN. WholeTask4/Task5 remain incomplete.
+
+Observer exactdf2f independent readonly review completed STATIC CLEAN/no actionable Critical/Important(P1/P2), report /tmp/chat-observer-maintenance-6218-review-df2f.md. Reviewer did not run heavy/services or independently exercise enabled HTTP/PG/shard. Issue6218#6626387080 records that limit and main's unchanged private-only/no-publish disposition; no further observer work blocks Task4.
+
+
+### Feedback history GREEN; final chrome actual RED and minimal display implementation
+Restored Chat's reserved8-case round reached actualhistory3PASS/finalchrome5missing-EnglishRED8.18s (task4-feedback-history-green-final-red.log), no collect/import fault; all processes exited with immediate dual release. The five actual provider paths exposed initial voice guidance/Next/final buttons, saved-but-inbox-navigation failure, local image preview label, persisted template-refusal text and structured read-only headings. Minimal production now written UNVERIFIED: fixed chrome namespace keys; raw savedID/URL/payload and File/bytes kept; numeric template deficit stored until render, heading hint derives existing STRUCTURED_FIELDS/labelKey single fact; FeedbackStructuredView unconditional provider hook renders reviewed field labels while rawmodel/default serialization stay unchanged. No request/voice/effect dependencies added. Latest cumulative Chat type/lint/wholeTask4 remain pending; no unit green claimed for these new edits.
+
+
+### Feedback final chrome/history single-round8GREEN; parent-memory five UNRUN
+The same two explicit files actually passed8/8 in8.26s, exit0 (task4-feedback-final-chrome-green.log), then immediate dual release/noheavy/services. This closes all five valid REDs and the prior three history cases in one round: original File/URL/bytes/rawID/route/model text/draft preserved, same DOM under locale, no duplicate POST/download/upload; template refusal remains no insertion, default model/body serialization remains untouched. It does not replace oldFeedback/voice-session neighbors or wholeTask4 type/lint/browser.
+Added actual TurnMemoryLine parent-memory5 counterexamples UNRUN in i18n-chat-memory-parent-errors.test.tsx (remember/forget accept, dismiss, remember undo and forget undo with known403). Production for these paths remains unchanged; it still preformats owned causes into defaultZH strings. Preserve canonical API decision/subset IDs/CAS/current revision/reload/once and unknowncallerraw while moving only owned display causes after semantic RED. These five were excluded from the eight-case gate.
+
+
+### Actual parent memory five RED; owned cause rendering prepared
+The single actual-parent suite reached5/5missing-EnglishRED12.24s, exit1 (task4-memory-parent-errors-red.log), no collect/import error. All processes exited and the window was immediately released; estimate8s was not used as a deadline. The affected accept/dismiss/remember-undo/forget-undo UI paths had already formatted known API403 to Chinese before MemoryCard received it.
+After RED, minimal production written UNVERIFIED: MemoryCardDisplayError carries rawcause with unchanged default Chinese Error.message; existing describeMemoryCardFailure gains optionallocale/defaultZH and maps its five old messages to one namespace fact. MemoryCard retains only these owned card/human carrier objects until render; arbitrary caller Error.message stays raw. TurnMemoryLine wraps only the actually measured actOnCard/undoRemember/undoForget failures; original decision/subsetIDs/CAS/read-current-revision/reload/finally/once/requestdeps unchanged. No new parent GREEN/type/lint claim.
+New i18n-chat-answer-memory-line.test.tsx4 actual provider/parent counterexamples are UNRUN: pending line, canonical onView/readonly gate, pending undo/rawcaller preservation, captured-parent403 exactrevoke. AnswerMemoryLine/AnswerKnowledgeFooter/CitationDetail production remains unchanged pending their own semantic REDs; do not sneak these four into the prior parent5-only window.
+
+Resource checkpoint: FIRST actual type/native owns the current window; ROOT publication exact3d9d56f9eae8fece1b4d7e452e5a349c4650b6f8 is genuinely ready and goes next after actual release, then SECOND's reserved parent5GREEN/AnswerMemory4RED needs both fresh confirmations. SECOND noheavy/services0; no test/type/browser/push reservation has started. Publication estimates are not timeouts.
+
+
+### Parent-memory5 GREEN and actual AnswerMemoryLine4 RED
+The reserved two-file9-case round actually reached5PASS/4missing-EnglishRED5.77s, exit1 (task4-memory-parent-green-answer-red.log): all five actual card parent API/error payload/caret/locale cases GREEN, AnswerMemoryLine pending/count/busy/captured-parent403 reached semantic RED, no collect/import issue. Actual release immediately followed. Minimal AnswerMemoryLine render implementation now written UNVERIFIED: unconditional provider, pending/count/view/busy/owned error render projection, only captured-parent undo catch uses existingHumanActionDisplayError; CAS/loop/missing-claim tolerance/reload/callbackdeps retained. Raw callerError.message remains raw, readonly/onView/once unchanged.
+A fifth successful-terminal undo provider test is newlyUNRUN, and that terminal production text remains unchanged before its semanticRED. New Footer3+Citation7 remainUNRUN/production unchanged. Next fresh explicit gate may be threefiles15case: priorAnswer4GREEN + terminal1firstRED + Footer3/Citation7firstRED, not a borrowed extension of the completed nine-case window. Latest Chat cumulative type/lint and complete Task4 remain pending.
+
+
+### Answer/footer/citation fifteen GREEN after eleven valid REDs
+The explicitly reserved3-file15-case round first reached4PASS11missing-EnglishRED8.22s (task4-answer-memory-green-citations-red.log), no collect/import faults, then the same3files passed15/15 in10.18s (task4-answer-citations-green.log). Both commands actually exited and released immediately. This proves terminal turn undo, actual captured/citation parent403 render causes, canonical cited filtering/source callbacks, same expanded reason/path DOM, raw statements/names/IDs/drafts, original correction payloads, and raw caller-error preservation across locale.
+Minimal source: turn terminal key; Footer explicitlocale to existing reviewed kind/tri/origin and optional display helpers; canonical reason+index React key fixes translated-label remount risk. CitationDetail owns semantic jump notices, rawcaller/ownedhuman error variants, outcome-key render, original mode/trim/decision/maxlen/busy/scope guards. Parent correctCitation catch only wraps existing human action cause; requests/IDs/reload/finally/deps unchanged. DefaultZH channel labels relocated byte-for-byte to dependency-free knowledge-graph-labels, compat reexport kept; reasonZH derives contract FILTER_ACTIONS, relationZH stays existing table, shared personalZH derives contract function. Default helper outputs/engine callers remainZH by default; locale is explicit only at render. Latest cumulative Chat type/lint/oldneighbors still pending, not borrowed from old gates or observer maintenance.
+Resource: real published6227 CI test403 red is ROOT priority; SECOND15actual退/noheavy/services0, no nextheavy started. Continue onlylight audit before necessary old-neighbor/type gates or remaining actual Supersede parent errors/artifact versions.
+
+
+### Original citation/recall neighbors GREEN, actual Supersede parent RED
+Fresh threefile round actual34PASS2FAIL15.09s (task4-citation-neighbors-supersede-red.log): original AnswerMemoryCitations19 and CitationCorrection14 allGREEN; Supersede new3 has unknownraw baselineGREEN and both real parent403/409missing-EnglishRED. No collect/import error, actualexit1/dualrelease. Afterwards minimal parent undoSupersede catch now wraps existingHumanActionDisplayError; SupersedeNoticeLine retains ownedcause to render while rawcaller and generic fallback stay separate. KG_PROMPT_NOT_FOUND reload branch, CAS/currentrevision/read/reload/deps unchanged. This latest source is UNVERIFIED.
+Source audit additionally found a real default-compatibility edge: original contract sharedFromPersonalLabelZh trims names and substitutes unnamed project member, while the new translated placeholder bypasses that normalization. New pure chat-recall-legacy-name-i18n.test.ts3 counterexamples are UNRUN for empty/padded defaultZH and unnamedEN; helper implementation remains unchanged before actualRED. Next fresh gate can be Supersede3GREEN+these3firstRED, not borrow old36case window.
+
+
+### Supersede3 GREEN; real share-label compatibility RED and minimal fix
+The next reserved2file6case round actually exited1 in7.50s: Supersede parent3/3PASS, pure share-label3/3RED (task4-supersede-green-legacy-name-red.log). DefaultZH regressions are real: translated placeholder bypassed the contract's trim/unnamed fallback; English unnamed actor was blank. No test/import faults. After actual release, fixed only projectOriginLabel defaultZH by delegating to original sharedFromPersonalLabelZh; English unnamed actor uses a semantic key whose ZH fact also derives the same contract helper, and named English caller text stays raw. Latest fix UNVERIFIED; do not borrow old19+14 or preceding15GREEN.
+
+
+### Supersede and share-label six GREEN
+The same2files actually passed6/6 in15.70s, exit0 (task4-supersede-legacy-name-green.log); originalbudget retained despite10s estimate, actualexit/dualrelease/noheavy/services0. The original contract now directly handles defaultZH trim/empty member fallback; namedEN caller remains raw and unnamedEN uses ownedcopy, no underlying stored data rewrite. Both realSupersede403/409 cause rendering and unknowncallerraw passed. This is not a new complete36-case or15-case round; all original REDs remain. Latest cumulative Chat canonicaltype/scopedlint after memory/citation changes remains pending and genuinelynecessary. ArtifactVersionsPanel remains an actual unfinished surface, production unchanged; continue its realprovider REDs and all Task4 scope before mechanicaldone.
+
+Current required next gate is canonical Chat typecheck plus explicit80dirtyTS/TSX lint (/tmp/chat6200-task4-scope-eslint-current.json), not yet run. Resource priority: FIRSTprivacy3 shortRED as already agreed, ROOT6227 published controlplane ratchet baseline fix (6decreases only/scanner unchanged+4negative tests actualGREEN, publication73d5 trulyready) before this type. SECOND noheavy/services0; do not start by estimate. Artifact-version source remains unchanged pending full actual-provider tests.
+
+
+### Current canonical type actual RED, test-only exact-name fix
+Canonical pnpm --filter web typecheck actually exited2 after source-scope80 validation. Exactly two own test diagnostics TS2769: TestingLibrary ByRoleOptions has no exact option in answer-memory-line and feedback-final-chrome. No business-source diagnostics. Replaced unsupported options with explicitly anchored same-name /^View$/ and /^Cancel$/ matchers; no assertion weakening, contract/tsconfig/product change. Original type output/80source hashes retained in task4-type-after-answer-citations.log and task4-answer-type-lint-receipt.json. The chained80file ESLint did NOT run because type failed; latest correction remains UNVERIFIED. Actualexit immediately dualreleased to ROOT normalpush network retry, then FIRST57; next type/lint needs fresh window, never borrow preceding old0.
+
+
+### Current canonical Chat type and eighty-file lint GREEN
+After only the two unsupported ByRoleOptions.exact fixtures were replaced by same-name anchored regexes, fresh canonical pnpm --filter web typecheck actually exited0 in8.689s with no diagnostics. The explicit unchanged80dirtyTS/TSX scope then ESLint exited0 in3.044s, zero warnings/errors. Both completed naturally and dualreleased, SECOND noheavy/services0. Logs task4-type-after-answer-citations-green.log/task4-lint-after-answer-citations-green.log and80-sourceSHA receipt task4-answer-type-lint-green-receipt.json retain this exact currentWIP snapshot; original type2RED48.478s remains intact. No contract/tsconfig/production weakening, no borrowed observer or older Chat gate.
+This current bundle is type/lintGREEN, not completeTask4/Chat. Actual AgentArtifactVersionsPanel is still unchanged/unlocalized and needs real-provider cases plus display implementation; final wholeTask4 neighbor/mechanicaltaskdone/sourcecommit and Task5 realbrowser/CI/merge remain pending. Do not rerun oldTask1–3 mechanical verification. Latest actual developer dependency323b can be normally integrated only after fresh protecting all now-updatedWIP.
+
+
+### Actual artifact-version surface: first provider counterexamples prepared
+The current canonical type0/8.689s and explicit80-TS/TSX lint0/3.044s snapshot is preserved. Added one new UNRUN test file, i18n-chat-artifact-versions.test.tsx, with three real AgentArtifactVersionsPanel/provider cases: actual Radix version radio selection plus raw editable instruction/idempotent explicit retry; actual text diff and raw downloaded filename; pending content request/locale continuity and explicit preview retry. The existing detail test mocks this entire child and is not evidence for it. No production version-panel change was made before actual RED. This new test file is outside the preceding80-file type/lint receipt. Resource window is separately requested after ROOT corrected4 actual exit, awaiting FIRST fresh confirmation; no validation started.
+6133 B3 only lines13/28/96 have been fresh-compared, written and read back equal; all other lines retained byte-for-byte, SHA a577deaa77284be8ed29ac965d3bb8ee3fb352b5c88d17a336484844b825218a. Both owner mutexes released. Older B5 duplicates were reported to their owner rather than edited under this B3 lock.
+
+
+### Actual artifact-version three valid REDs and minimal display implementation
+Fresh-reserved single-file3case run actually exited1/4.36s: all three are semantic missing-English failures, not collection/import errors. Actual Radix keyboard selection reached oldversion1 before failing the English edit label; actual text comparison rendered raw diff before failing Added ARIA; real pending content rendered its Chinese loading text. Original output task4-artifact-versions-red.log retained. All processes exited and dualreleased/noheavy/services0.
+Only after these REDs, implemented render projection for version/base/edit captions, semantic owned request-unconfirmed carrier, preview pending/failure/retry, compare and diff ARIA. Existing raw error strings in other yet-uncovered states remain for subsequent actual counterexamples. Request signature/UUID reuse, rawinstruction/name/changeNote/content, original async callbacks/effect dependencies/poll1500, version semantic key and Blob/objectURL behavior are unchanged. Latest source is UNVERIFIED: neither3GREEN nor currenttype/lint has run. Same-file3GREEN requested separately; no stealing the previous RED window. Runstatus/media/empty/list errors/bounds still need actual provider counterexamples and implementation.
+
+
+### First real artifact-version three GREEN
+Fresh-reserved same-file3case verification actually exited0/3.67s, all3PASS (task4-artifact-versions-green-attempt.log). No import/collection issue; real Radix oldversion, raw editable instruction with exact idempotent retry args, raw textdiff/download filename, and pending request locale continuity plus explicit preview retry all passed. Natural exit/dualrelease/noheavy/services0. This is only the first three actual child-component cases, not fullversion-panel coverage or currenttype/lint: title/list/empty/loading/error, continuation success/progress/terminal/poll, media and clippedpreview/compare remain unlocalized and need next actual REDs. Latest prior canonicaltype80/lint80 snapshot predates the added test/source/namespace. Original3validRED retained; no wholeTask4 complete claim or sourcecommit.
+
+
+### Next actual version progress counterexamples prepared, not run
+New separate i18n-chat-artifact-version-progress.test.tsx has six UNRUN canonical status cases (running/paused/awaiting_tool_permission/succeeded/failed/cancelled), each enters the actual continue/poll path with contract-parsed AgentRunView; raw instruction, exact callbacks, sameDOM and no locale-triggered submit/poll are asserted. Those runNotice/status production strings remain unchanged pending valid RED. Do not expand the preceding3-case GREEN window. FIRST Task6 ready20-case RED is explicitly prior; SECOND remains light/noheavy/services0, next six need both fresh owners after its actual exit. Task4 still active and wholeTask4/Chat acceptance incomplete.
+
+
+### Six real artifact progress semantic REDs; implementation pending verification
+Separate six canonical status provider cases actually ran and all6 failed for missing English, exit1/9.51s (task4-artifact-version-progress-red.log). Each reached real continuation and contract-parsed getAgentRun response, no collection/import/schema failures; no timeouts or budgets changed. Natural exit/dualrelease/noheavy/services0, handed ROOT its ready one-case server503 counterexample. Only afterward changed the six settled/live run notices into typed semantic carriers resolved at render, original ZH strings single-owned namespace; default other yet-uncovered accepted/error text remains unchanged. Original status enums, poll1500, terminal branch effects/reload/reset and request dependencies stay untouched. Latest six-key implementation has NOT run GREEN/type/lint; next same6 verification requires fresh window. First version3 prior GREEN is not evidence for latest progress source.
+
+
+### Six canonical artifact progress GREEN; next thirteen unrun surfaces
+The same6-case progress file actually passed6/6, exit0/3.59s (task4-artifact-version-progress-green.log), after its original6 semanticRED9.51s. Originalpoll1500/terminal effects/deps untouched, actualcontinuation rawinstruction/exactcallback/sameDOM/no localePOST or poll assertions passed. Both peers received natural-exit/noheavy/services0 release, FIRST's next mixed23 gate has priority. Do not combine this6 with the preceding3 into a latest9-round or claim wholeTask4/type/lint.
+New separate i18n-chat-artifact-version-surfaces.test.tsx has13 UNRUN cases for listloading/failure/empty, actualPNG/PDF/unsupported media and rawdownload, bytepreview/linecompare clipping with originalbytes retained, accepted/pollfailure, editable guidance/pendingPOST/terminalrecovery. Those production paths remain unchanged pendingactualRED. Requested separately after FIRST23; no current service or heavy process. Safe focusedreceipt binds these local files/hashes, remainingUNRUN and currenttype/lint boundary.
+
+
+### Remaining thirteen actual version-surface REDs; minimal implementation unverified
+Single-file13-case run actually reached all13 distinct UI paths and failed missing-English assertions, exit1/3.71s: listloading/error/empty, PNG/PDF/unsupported media, bytepreview/linecompare clipping, accepted/pollfailure, guidance/pendingPOST/terminalrecovery. No import/collection/schema failures. Original output task4-artifact-version-surfaces-red.log retained. Natural exit/dualrelease handed FIRST its standardtype window; SECOND noheavy/services0.
+Only after this RED, translated those owned render states and stored remaining load/progress/terminal failure/accepted notices as typed semantic carriers. DefaultZH copy retained; rawfile/title/changeNote/instruction/Blob/IDs/URLdownload untouched. Extracted existing diff default600 to exported ARTIFACT_DIFF_LINE_LIMIT for the UI limit caption, no algorithm change; existing256KiB preview guard feeds caption directly. Read-only source parity confirms existing effect-dependency arrays byte-same and helper algorithm byte-same after reversing only constant extraction (safe receipt task4-artifact-version-dependency-parity.json). Not a dynamic acceptance gate. Latest13 implementation has not run GREEN/type/lint; requested separately after FIRSTtype actualexit. Need wholeversion/oldadjacency/currenttype and completeTask4 mechanical verification, not just accumulating local passes.
+
+
+### Remaining thirteen version surfaces GREEN, no whole-task claim
+Same single-file13 cases actually passed13/13, exit0/11.40s after valid13RED3.71s (task4-artifact-version-surfaces-green.log). Natural exit/dualrelease/noheavy/services0; originalestimate10s was not a timeout. Actual media attributes/rawdownload identity, list/pending/error continuity, original byte/line clipping and fullBlob retention, accepted/pollfailure, raw editable draft/pendingPOST/terminalrecovery all reached assertions. Other first3 and progress6 are prior separate rounds, not a combined22 latest run. Current source has no new cumulativetype/lint or five-file version/oldhelper adjacent regression yet; old80type/lint snapshot remains earlier. Safe focusedreceipt updated sourcehashes and13GREEN; next resource gates separate.
+Prepared explicit latestTS scope86 and fullTask4 draft74files (38new +36old adjacency) in /tmp, neither was executed; names are selection planning only, not testsPASS/taskdone. Next focus: new3 version files +original versions panel+artifact diff, then canonicaltype/scopedlint and wholeTask4 mechanical verification after safe sourcecommit. Task5 full realChat browser/CI/merge still pending; allWIP privateHEAD66120 retained.
+
+
+### Version whole adjacent round thirty GREEN
+Fresh-reserved explicit5file command actually passed5/5files30/30cases, exit0/9.73s: all22new cases plus originalversions-panel5 and originaldiff3 in one round (task4-artifact-version-neighbors-green.log). Original defaults, old Chinese no-provider expectations, uncertainrequest ID reuse, late-thread guard, read-only and diff helpers passed alongside realRadix/newprovider cases. Naturalexit/dualrelease/noheavy/services0. This latest complete version-neighbor round replaces separate3/6/13 only for these five files, not allTask4. Cumulativecanonicaltype86/scopedlint and fullTask4draft74 stillUNRUN. Resource next ROOT/FIRST alreadyready necessary gates, then our currenttype/lint separatefresh.
+
+
+### Resource incident boundary: no SECOND process started
+ROOT reports its required scanner/selftest/type window actual running, FIRST reported a crossing native13 launch and then precisely interrupted only its own runner/6children; actualexit254/child-2, all7PIDs gone, no test verdict. SECOND's type86/lint has never started and no services exist. Hold new gates until both actual exits and a new explicit unique handoff; never borrow an old release or estimate, never terminate another owner's process. ROOTinit is separately held by its owner. Version5file30PASS9.73s remains our prior actual result, unrelated to the interrupted FIRST command. No source/test budget changes were made here.
+
+
+### Current whole dirty-source type and lint GREEN after artifact versions
+Explicit source scope rechecked equal86files at HEAD66120, canonical pnpm --filter web typecheck actually exited0/60.388s with no diagnostics, then exact86TS/TSX ESLint exited0/3.852s with no warnings/errors. Originalestimate60s was not a timeout; all processes naturally exited and release explicitly handed ROOT its next type/init gate. SourceSHA86/commands/output/timings bind current snapshot in task4-version-final-type-lint-receipt.json, logs task4-version-final-{type,lint}.log. No later production/test change. This supersedes the earlier80type/lint snapshot for currentWIP, but does not replace unexecuted74file wholeTask4 mechanicaldone, sourcecommit, dependency integration or Task5 fullbrowser/CI. No Git commit while peerinit may install sharedhooks.

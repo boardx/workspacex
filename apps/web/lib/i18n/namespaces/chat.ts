@@ -1,3 +1,9 @@
+import { artifactVersionsEn, artifactVersionsZhCN } from "./artifact-versions";
+import { capabilityEditionEn, capabilityEditionZhCN } from "./capability-edition";
+import { chatKnowledgeEn, chatKnowledgeZhCN } from "./chat-knowledge";
+import { chatRosterEn, chatRosterZhCN } from "./chat-roster";
+import { feedbackOverlayEn, feedbackOverlayZhCN } from "./feedback-overlay";
+import { chatInspectorEn, chatInspectorZhCN } from "./chat-inspector";
 import { chatLandingEn, chatLandingZhCN } from "./chat-landing";
 import { chatEscalationEn, chatEscalationZhCN } from "./chat-escalation";
 import { chatRunsEn, chatRunsZhCN } from "./chat-runs";
@@ -22,6 +28,12 @@ import { chatInteractionsEn, chatInteractionsZhCN } from "./chat-interactions";
 import { chatPermissionsEn, chatPermissionsZhCN } from "./chat-permissions";
 
 export const chatZhCN = {
+  ...artifactVersionsZhCN,
+  ...capabilityEditionZhCN,
+  ...chatKnowledgeZhCN,
+  ...chatRosterZhCN,
+  ...feedbackOverlayZhCN,
+  ...chatInspectorZhCN,
   ...chatEntryZhCN,
   ...chatErrorsZhCN,
   ...chatComposerZhCN,
@@ -41,6 +53,12 @@ export const chatZhCN = {
   ...chatLandingZhCN,
 } as const;
 export const chatEn: Record<keyof typeof chatZhCN, string> = {
+  ...artifactVersionsEn,
+  ...capabilityEditionEn,
+  ...chatKnowledgeEn,
+  ...chatRosterEn,
+  ...feedbackOverlayEn,
+  ...chatInspectorEn,
   ...chatEntryEn,
   ...chatErrorsEn,
   ...chatComposerEn,

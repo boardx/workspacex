@@ -56,7 +56,7 @@
 ### Task 4: Inspector, settings, details, knowledge andpreviewoverlays
 
 **Files:** chat-task-inspector,roster/material/artifact/attachmentpreview/dialog,knowledge/*actualrenderedexports andsharedownedchrome; chat-knowledge/detail namespace.
-- [ ] Finalizeactualexport/renderreachabilityrows beforecopyedits; inheritedlocalizedSharingnotduplicated.
+- [x] Finalizeactualexport/renderreachabilityrows beforecopyedits; inheritedlocalizedSharingnotduplicated. See task4-entry-audit.md; canonical shell, nested previews, feedback and gated edition ownership confirmed. This check records source reachability, not runtime acceptance.
 - [ ] Writeoverlayopen/close/reject/late-response/locale/rawpayload REDcases.
 - [ ] Implementdisplay-only allreachableoverlaystates; coordinateanysharedB4/B7underlyingwidgetfirst.
 - [ ] Runfocusedandadjacentsuites; updateinventoryonlywithactualevidence.

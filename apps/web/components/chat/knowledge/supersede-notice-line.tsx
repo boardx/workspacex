@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
+import { HumanActionDisplayError, describeHumanActionFailure } from "@/lib/knowledge-graph-failure";
 import { ArrowRightLeft } from "lucide-react";
 import type { KgSupersedeNotice } from "@repo/contracts/chat-knowledge-graph";
 
@@ -20,9 +22,10 @@ export function SupersedeNoticeLine({
   notice: KgSupersedeNotice;
   onUndo?: () => Promise<void>;
 }) {
+  const { t, locale } = useI18n();
   const [undone, setUndone] = React.useState(notice.state === "undone");
   const [undoing, setUndoing] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<{ owned: HumanActionDisplayError } | { raw: string } | { fallback: true } | null>(null);
 
   const runUndo = () => {
     if (!onUndo || undoing) return;
@@ -30,14 +33,14 @@ export function SupersedeNoticeLine({
     setError(null);
     onUndo().then(
       () => { setUndoing(false); setUndone(true); },
-      (e: unknown) => { setUndoing(false); setError(e instanceof Error ? e.message : "没能撤销，请稍后重试。"); },
+      (e: unknown) => { setUndoing(false); setError(e instanceof HumanActionDisplayError ? { owned: e } : e instanceof Error ? { raw: e.message } : { fallback: true }); },
     );
   };
 
   if (undone) {
     return (
       <p className="mt-2 text-10 text-muted-foreground" data-testid="kg-supersede-undone">
-        已撤销：〈{notice.olderClaim.statement}〉恢复为生效
+        {t("chatKnowledge.notice.restored", { older: notice.olderClaim.statement })}
       </p>
     );
   }
@@ -47,7 +50,7 @@ export function SupersedeNoticeLine({
       <p className="flex flex-wrap items-center gap-1 text-10 text-muted-foreground">
         <ArrowRightLeft aria-hidden className="h-3 w-3" />
         <span data-testid="kg-supersede-text">
-          已用〈{notice.newerClaim.statement}〉取代〈{notice.olderClaim.statement}〉
+          {t("chatKnowledge.notice.replaced", { newer: notice.newerClaim.statement, older: notice.olderClaim.statement })}
         </span>
         {onUndo ? (
           <>
@@ -59,13 +62,13 @@ export function SupersedeNoticeLine({
               disabled={undoing}
               onClick={runUndo}
             >
-              {undoing ? "撤销中…" : "撤销"}
+              {undoing ? t("chatKnowledge.notice.undoing") : t("chatKnowledge.memory.undo")}
             </button>
           </>
         ) : null}
       </p>
       {error !== null ? (
-        <p role="alert" className="text-10 text-destructive" data-testid="kg-supersede-undo-error">{error}</p>
+        <p role="alert" className="text-10 text-destructive" data-testid="kg-supersede-undo-error">{"owned" in error ? describeHumanActionFailure(error.owned.failure, locale) : "raw" in error ? error.raw : t("chatKnowledge.notice.undoFailed")}</p>
       ) : null}
     </div>
   );

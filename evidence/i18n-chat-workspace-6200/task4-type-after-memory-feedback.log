@@ -1,0 +1,10 @@
+
+> web@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+> tsc --noEmit
+
+tests/ui/i18n-chat-feedback-attachments.test.tsx(14,69): error TS2741: Property 'targetLabel' is missing in type '{ target: { kind: "product"; }; onClose: Mock<Procedure>; }' but required in type '{ afterSubmit?: "inbox" | undefined; onSubmitted?: ((feedbackId: string) => void) | undefined; target: { kind: "product"; } | { kind: "agent"; agentId: string; } | { kind: "skill"; skillId: string; }; targetLabel: string | null; onClose: () => void; onDraftSaved?: ((draftId: string) => void) | undefined; }'.
+tests/ui/i18n-chat-knowledge-promotion.test.tsx(24,73): error TS2532: Object is possibly 'undefined'.
+tests/ui/i18n-chat-memory-cards.test.tsx(27,67): error TS2532: Object is possibly 'undefined'.
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  web@0.1.0 typecheck: `tsc --noEmit`
+Exit status 2

@@ -12,7 +12,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { KG_OBJECT_KIND_LABEL_ZH } from "@/lib/knowledge-graph-view";
+import { useI18n } from "@/lib/i18n/provider";
+import type { Locale } from "@/lib/i18n/locale";
+import { graphObjectKindLabel } from "@/lib/knowledge-graph-copy";
 import { claimTriState, type KgClaim, type KgHumanAction, type KgObject } from "@repo/contracts/chat-knowledge-graph";
 
 export type ClaimDialogKind = "revise" | "revoke" | "contest" | "merge" | "split" | "rename";
@@ -92,10 +94,11 @@ function Footer({
   onCancel: () => void;
   testPrefix: string;
 }) {
+  const { t } = useI18n();
   return (
     <DialogFooter>
       <Button variant="outline" size="sm" onClick={onCancel} data-testid={`kg-${testPrefix}-cancel-${id}`}>
-        取消
+        {t("common.cancel")}
       </Button>
       <Button
         variant={destructive ? "destructive" : "primary"}
@@ -104,7 +107,7 @@ function Footer({
         onClick={onSubmit}
         data-testid={testPrefix === "delete" ? `kg-delete-confirm-btn-${id}` : `kg-${testPrefix}-submit-${id}`}
       >
-        {busy ? "保存中…" : label}
+        {busy ? t("chatKnowledge.action.saving") : label}
       </Button>
     </DialogFooter>
   );
@@ -142,26 +145,28 @@ function ChoiceList<T extends string>({
   );
 }
 
-const objectOption = (o: KgObject) => ({ value: o.id, label: o.name, hint: KG_OBJECT_KIND_LABEL_ZH[o.kind] });
+const objectOption = (o: KgObject, locale: Locale) => ({ value: o.id, label: o.name, hint: graphObjectKindLabel(o.kind, locale) });
 
 function NoObjects() {
-  return <p className="text-11 text-muted-foreground">这一条没有关联到人和事。</p>;
+  const { t } = useI18n();
+  return <p className="text-11 text-muted-foreground">{t("chatKnowledge.action.noObjects")}</p>;
 }
 
 function ReviseBody({ claim, busy, onSubmit, onCancel }: BodyProps) {
+  const { t } = useI18n();
   const [text, setText] = React.useState(claim.statement);
   const next = text.trim();
   return (
     <>
       <DialogHeader>
-        <DialogTitle>改写这条记忆</DialogTitle>
-        <DialogDescription>改写后旧的说法会被新的取代，之后的回答用新的说法。</DialogDescription>
+        <DialogTitle>{t("chatKnowledge.action.reviseTitle")}</DialogTitle>
+        <DialogDescription>{t("chatKnowledge.action.reviseHint")}</DialogDescription>
       </DialogHeader>
       <Textarea
         value={text}
         maxLength={2000}
         rows={4}
-        aria-label="新的说法"
+        aria-label={t("chatKnowledge.action.newStatement")}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {
           // 回车就是「保存」（06-UX R3-4：改一条 ≤ 2 次点击——不对、改写，然后打字回车）；Shift+回车换行，输入法组字中不算。
@@ -172,7 +177,7 @@ function ReviseBody({ claim, busy, onSubmit, onCancel }: BodyProps) {
         data-testid={`kg-revise-input-${claim.id}`}
       />
       <Footer
-        id={claim.id} busy={busy} testPrefix="revise" label="保存"
+        id={claim.id} busy={busy} testPrefix="revise" label={t("chatKnowledge.action.save")}
         disabled={next === "" || next === claim.statement}
         onSubmit={() => void onSubmit({ type: "reviseClaim", claimId: claim.id, statement: next })}
         onCancel={onCancel}
@@ -182,20 +187,20 @@ function ReviseBody({ claim, busy, onSubmit, onCancel }: BodyProps) {
 }
 
 function RevokeBody({ claim, busy, onSubmit, onCancel }: BodyProps) {
+  const { t } = useI18n();
   return (
     <>
       <DialogHeader>
-        <DialogTitle>忘掉这条记忆？</DialogTitle>
+        <DialogTitle>{t("chatKnowledge.action.revokeTitle")}</DialogTitle>
         <DialogDescription>
-          忘掉不是彻底抹除：这条会退出关系图和之后的召回，反对它的证据仍留在记录里。
-          你记到长期记忆里的副本会同时失效。此操作会在 5 分钟内影响之后的回答。
+          {t("chatKnowledge.action.revokeHint")}
         </DialogDescription>
       </DialogHeader>
       <p className="rounded-md bg-muted p-2 text-11 text-muted-foreground" data-testid={`kg-delete-impact-${claim.id}`}>
         「{claim.statement}」
       </p>
       <Footer
-        id={claim.id} busy={busy} testPrefix="delete" label="忘掉这条" destructive disabled={false}
+        id={claim.id} busy={busy} testPrefix="delete" label={t("chatKnowledge.action.revoke")} destructive disabled={false}
         onSubmit={() => void onSubmit({ type: "revokeClaim", claimId: claim.id })}
         onCancel={onCancel}
       />
@@ -204,16 +209,17 @@ function RevokeBody({ claim, busy, onSubmit, onCancel }: BodyProps) {
 }
 
 function ContestBody({ claim, claims, busy, onSubmit, onCancel }: BodyProps & { claims: readonly KgClaim[] }) {
+  const { t } = useI18n();
   const others = claims.filter((c) => c.id !== claim.id && claimTriState(c.status) !== null);
   const [other, setOther] = React.useState<string | null>(null);
   return (
     <>
       <DialogHeader>
-        <DialogTitle>和哪一条有矛盾？</DialogTitle>
-        <DialogDescription>两条都会标成「有矛盾」，之后由你决定保留哪条。</DialogDescription>
+        <DialogTitle>{t("chatKnowledge.action.contestTitle")}</DialogTitle>
+        <DialogDescription>{t("chatKnowledge.action.contestHint")}</DialogDescription>
       </DialogHeader>
       {others.length === 0 ? (
-        <p className="text-11 text-muted-foreground">本会话没有别的记忆可以对照。</p>
+        <p className="text-11 text-muted-foreground">{t("chatKnowledge.action.noOtherClaims")}</p>
       ) : (
         <ChoiceList
           name={`contest-${claim.id}`}
@@ -224,7 +230,7 @@ function ContestBody({ claim, claims, busy, onSubmit, onCancel }: BodyProps & { 
         />
       )}
       <Footer
-        id={claim.id} busy={busy} testPrefix="contest" label="标为有矛盾" disabled={other === null}
+        id={claim.id} busy={busy} testPrefix="contest" label={t("chatKnowledge.action.contest")} disabled={other === null}
         onSubmit={() => { if (other) void onSubmit({ type: "markContested", claimIds: [claim.id, other] }); }}
         onCancel={onCancel}
       />
@@ -235,6 +241,7 @@ function ContestBody({ claim, claims, busy, onSubmit, onCancel }: BodyProps & { 
 function MergeBody({
   claim, about, objects, busy, onSubmit, onCancel,
 }: BodyProps & { about: readonly KgObject[]; objects: readonly KgObject[] }) {
+  const { t, locale } = useI18n();
   const [keep, setKeep] = React.useState<string | null>(about[0]?.id ?? null);
   const [merge, setMerge] = React.useState<string | null>(null);
   const keepObj = objects.find((o) => o.id === keep);
@@ -242,23 +249,23 @@ function MergeBody({
   return (
     <>
       <DialogHeader>
-        <DialogTitle>合并两个人和事</DialogTitle>
-        <DialogDescription>把重复的那个并进保留的这个，提到它的记忆都会改指向保留的这个。</DialogDescription>
+        <DialogTitle>{t("chatKnowledge.action.mergeTitle")}</DialogTitle>
+        <DialogDescription>{t("chatKnowledge.action.mergeHint")}</DialogDescription>
       </DialogHeader>
       {about.length === 0 ? <NoObjects /> : (
         <>
-          <p className="text-11 font-medium text-muted-foreground">保留</p>
+          <p className="text-11 font-medium text-muted-foreground">{t("chatKnowledge.action.keep")}</p>
           <ChoiceList
             name={`merge-keep-${claim.id}`}
-            options={about.map(objectOption)}
+            options={about.map(o => objectOption(o, locale))}
             value={keep}
             onChange={(v) => { setKeep(v); if (merge === v) setMerge(null); }}
             testPrefix={`kg-merge-keep-${claim.id}`}
           />
-          <p className="text-11 font-medium text-muted-foreground">并入{keepObj ? `「${keepObj.name}」` : ""}的是</p>
+          <p className="text-11 font-medium text-muted-foreground">{t("chatKnowledge.action.mergeInto", { name: keepObj ? `「${keepObj.name}」` : "" })}</p>
           <ChoiceList
             name={`merge-other-${claim.id}`}
-            options={candidates.map(objectOption)}
+            options={candidates.map(o => objectOption(o, locale))}
             value={merge}
             onChange={setMerge}
             testPrefix={`kg-merge-other-${claim.id}`}
@@ -266,7 +273,7 @@ function MergeBody({
         </>
       )}
       <Footer
-        id={claim.id} busy={busy} testPrefix="merge" label="合并" disabled={keep === null || merge === null}
+        id={claim.id} busy={busy} testPrefix="merge" label={t("chatKnowledge.action.merge")} disabled={keep === null || merge === null}
         onSubmit={() => {
           if (keep && merge) void onSubmit({ type: "mergeObjects", keepObjectId: keep, mergeObjectId: merge });
         }}
@@ -279,6 +286,7 @@ function MergeBody({
 function SplitBody({
   claim, about, claims, busy, onSubmit, onCancel,
 }: BodyProps & { about: readonly KgObject[]; claims: readonly KgClaim[] }) {
+  const { t, locale } = useI18n();
   const [objectId, setObjectId] = React.useState<string | null>(about[0]?.id ?? null);
   const [name, setName] = React.useState("");
   const [moved, setMoved] = React.useState<Record<string, boolean>>({ [claim.id]: true });
@@ -287,14 +295,14 @@ function SplitBody({
   return (
     <>
       <DialogHeader>
-        <DialogTitle>拆分人和事</DialogTitle>
-        <DialogDescription>其实是两个不同的人或事时，拆出一个新的，并选哪些记忆跟着新的走。</DialogDescription>
+        <DialogTitle>{t("chatKnowledge.action.splitTitle")}</DialogTitle>
+        <DialogDescription>{t("chatKnowledge.action.splitHint")}</DialogDescription>
       </DialogHeader>
       {about.length === 0 ? <NoObjects /> : (
         <>
           <ChoiceList
             name={`split-object-${claim.id}`}
-            options={about.map(objectOption)}
+            options={about.map(o => objectOption(o, locale))}
             value={objectId}
             onChange={(v) => { setObjectId(v); setMoved({ [claim.id]: true }); }}
             testPrefix={`kg-split-object-${claim.id}`}
@@ -302,12 +310,12 @@ function SplitBody({
           <Input
             value={name}
             maxLength={200}
-            placeholder="新的名字"
-            aria-label="新的名字"
+            placeholder={t("chatKnowledge.action.newName")}
+            aria-label={t("chatKnowledge.action.newName")}
             onChange={(e) => setName(e.target.value)}
             data-testid={`kg-split-name-${claim.id}`}
           />
-          <p className="text-11 font-medium text-muted-foreground">跟着新的走的记忆</p>
+          <p className="text-11 font-medium text-muted-foreground">{t("chatKnowledge.action.moveMemories")}</p>
           <div className="flex max-h-40 flex-col gap-1 overflow-y-auto">
             {related.map((c) => (
               <label key={c.id} className="flex items-center gap-2 text-12">
@@ -324,7 +332,7 @@ function SplitBody({
         </>
       )}
       <Footer
-        id={claim.id} busy={busy} testPrefix="split" label="拆分"
+        id={claim.id} busy={busy} testPrefix="split" label={t("chatKnowledge.action.split")}
         disabled={objectId === null || name.trim() === "" || moveClaimIds.length === 0}
         onSubmit={() => {
           if (objectId) void onSubmit({ type: "splitObject", objectId, newName: name.trim(), moveClaimIds });
@@ -336,6 +344,7 @@ function SplitBody({
 }
 
 function RenameBody({ claim, about, busy, onSubmit, onCancel }: BodyProps & { about: readonly KgObject[] }) {
+  const { t, locale } = useI18n();
   const [objectId, setObjectId] = React.useState<string | null>(about[0]?.id ?? null);
   const current = about.find((o) => o.id === objectId);
   const [name, setName] = React.useState(current?.name ?? "");
@@ -343,14 +352,14 @@ function RenameBody({ claim, about, busy, onSubmit, onCancel }: BodyProps & { ab
   return (
     <>
       <DialogHeader>
-        <DialogTitle>改名</DialogTitle>
-        <DialogDescription>改的是人和事的名字，提到它的记忆会一起跟着改。</DialogDescription>
+        <DialogTitle>{t("chatKnowledge.action.renameTitle")}</DialogTitle>
+        <DialogDescription>{t("chatKnowledge.action.renameHint")}</DialogDescription>
       </DialogHeader>
       {about.length === 0 ? <NoObjects /> : (
         <>
           <ChoiceList
             name={`rename-object-${claim.id}`}
-            options={about.map(objectOption)}
+            options={about.map(o => objectOption(o, locale))}
             value={objectId}
             onChange={(v) => { setObjectId(v); setName(about.find((o) => o.id === v)?.name ?? ""); }}
             testPrefix={`kg-rename-object-${claim.id}`}
@@ -358,14 +367,14 @@ function RenameBody({ claim, about, busy, onSubmit, onCancel }: BodyProps & { ab
           <Input
             value={name}
             maxLength={200}
-            aria-label="新的名字"
+            aria-label={t("chatKnowledge.action.newName")}
             onChange={(e) => setName(e.target.value)}
             data-testid={`kg-rename-input-${claim.id}`}
           />
         </>
       )}
       <Footer
-        id={claim.id} busy={busy} testPrefix="rename" label="保存"
+        id={claim.id} busy={busy} testPrefix="rename" label={t("chatKnowledge.action.save")}
         disabled={objectId === null || next === "" || next === current?.name}
         onSubmit={() => { if (objectId) void onSubmit({ type: "renameObject", objectId, name: next }); }}
         onCancel={onCancel}

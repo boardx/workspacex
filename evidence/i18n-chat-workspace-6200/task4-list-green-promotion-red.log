@@ -1,0 +1,65 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/ui/i18n-chat-knowledge-list.test.tsx (3 tests) 194ms
+ ❯ tests/ui/i18n-chat-knowledge-promotion.test.tsx (2 tests | 2 failed) 50ms
+   × keeps nomination selections and model rationale raw, promoting only explicit canonical IDs 41ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Worth remembering
+Received:
+  这些值得记住由 AI 提名 · 你点了才会记模型记忆 raw-one {count} const raw = '{locale}';模型理由 {name} 保留原文记下模型记忆 raw-two {count} const raw = '{locale}';另一模型理由 {count}记下记下后即视为你确认过记到我的长期记忆（2）
+   × renders all canonical outcomes without translating model labels or making a choice on locale 8ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Saved to your long-term memory
+Received:
+  模型记忆 one {count} const raw = '{locale}';已记到你的长期记忆
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/i18n-chat-knowledge-promotion.test.tsx > keeps nomination selections and model rationale raw, promoting only explicit canonical IDs
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Worth remembering
+Received:
+  这些值得记住由 AI 提名 · 你点了才会记模型记忆 raw-one {count} const raw = '{locale}';模型理由 {name} 保留原文记下模型记忆 raw-two {count} const raw = '{locale}';另一模型理由 {count}记下记下后即视为你确认过记到我的长期记忆（2）
+ ❯ tests/ui/i18n-chat-knowledge-promotion.test.tsx:20:52
+     18|   ] });
+     19|   render(<I18nProvider initialLocale="en"><Driver /><NominationCard da…
+     20|   expect(screen.getByTestId("kg-nomination-card")).toHaveTextContent("…
+       |                                                    ^
+     21|   const checkbox = screen.getByRole("checkbox", { name: `Select ${rawL…
+     22|   fireEvent.click(checkbox); expect(checkbox).not.toBeChecked();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/ui/i18n-chat-knowledge-promotion.test.tsx > renders all canonical outcomes without translating model labels or making a choice on locale
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Saved to your long-term memory
+Received:
+  模型记忆 one {count} const raw = '{locale}';已记到你的长期记忆
+ ❯ tests/ui/i18n-chat-knowledge-promotion.test.tsx:40:46
+     38|   ] });
+     39|   render(<I18nProvider initialLocale="en"><Driver /><PromotionResultLi…
+     40|   expect(screen.getByTestId("kg-promo-one")).toHaveTextContent("Saved …
+       |                                              ^
+     41|   expect(screen.getByTestId("kg-promo-two")).toHaveTextContent("Merged…
+     42|   expect(screen.getByTestId("kg-promo-three")).toHaveTextContent("Kept…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  2 failed | 3 passed (5)
+   Start at  12:52:29
+   Duration  2.94s (transform 391ms, setup 250ms, collect 867ms, tests 244ms, environment 1.21s, prepare 97ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/i18n-chat-knowledge-list.test.tsx tests/ui/i18n-chat-knowledge-promotion.test.tsx --maxWorkers=1 --minWorkers=1

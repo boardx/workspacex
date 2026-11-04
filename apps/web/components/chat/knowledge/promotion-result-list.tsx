@@ -4,6 +4,7 @@ import * as React from "react";
 import { CheckCircle2, GitMerge, Copy, HelpCircle, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { PromotionChoice, PromotionResults } from "@/lib/knowledge-graph-api";
+import { useI18n } from "@/lib/i18n/provider";
 import { describePromotionReject } from "@/lib/knowledge-graph-failure";
 
 /**
@@ -24,6 +25,7 @@ export function PromotionResultList({
   onChoice?: (claimId: string, choice: PromotionChoice["choice"]) => void;
   busy?: boolean;
 }) {
+  const { t, locale } = useI18n();
   return (
     <div className="flex flex-col gap-2" data-testid="kg-promotion-results">
       {data.results.map((r) => {
@@ -31,37 +33,37 @@ export function PromotionResultList({
         switch (r.outcome) {
           case "promoted":
             return (
-              <ResultRow key={r.claimId} testid={`kg-promo-${r.claimId}`} tone="success" icon={<CheckCircle2 className="h-3.5 w-3.5" />} label={label} note="已记到你的长期记忆" />
+              <ResultRow key={r.claimId} testid={`kg-promo-${r.claimId}`} tone="success" icon={<CheckCircle2 className="h-3.5 w-3.5" />} label={label} note={t("chatKnowledge.promotion.promoted")} />
             );
           case "merged_into_existing":
             return (
-              <ResultRow key={r.claimId} testid={`kg-promo-${r.claimId}`} tone="muted" icon={<GitMerge className="h-3.5 w-3.5" />} label={label} note="已并入长期记忆里同样的一条" />
+              <ResultRow key={r.claimId} testid={`kg-promo-${r.claimId}`} tone="muted" icon={<GitMerge className="h-3.5 w-3.5" />} label={label} note={t("chatKnowledge.promotion.merged")} />
             );
           case "coexisting":
             return (
-              <ResultRow key={r.claimId} testid={`kg-promo-${r.claimId}`} tone="muted" icon={<Copy className="h-3.5 w-3.5" />} label={label} note="和已有的一条并存（标了适用差异）" />
+              <ResultRow key={r.claimId} testid={`kg-promo-${r.claimId}`} tone="muted" icon={<Copy className="h-3.5 w-3.5" />} label={label} note={t("chatKnowledge.promotion.coexisting")} />
             );
           case "needs_choice":
             return (
               <div
                 key={r.claimId}
                 role="group"
-                aria-label="长期记忆里已有同样的一条"
+                aria-label={t("chatKnowledge.promotion.choiceTitle")}
                 data-testid={`kg-promo-${r.claimId}`}
                 className="rounded-md border border-warning bg-warning-tint p-2"
               >
                 <div className="mb-1.5 flex items-start gap-1.5">
                   <HelpCircle aria-hidden className="mt-0.5 h-3.5 w-3.5 text-warning-foreground" />
                   <p className="text-11 text-warning-tint-foreground">
-                    长期记忆里已有同样的一条：「{label}」——合并还是两条都留？
+                    {t("chatKnowledge.promotion.choicePrompt", { label })}
                   </p>
                 </div>
                 <div className="flex gap-1.5">
                   <Button size="xs" variant="secondary" disabled={busy} data-testid={`kg-choice-merge-${r.claimId}`} onClick={() => onChoice?.(r.claimId, "merge")}>
-                    合并到已有的那条
+                    {t("chatKnowledge.promotion.choiceMerge")}
                   </Button>
                   <Button size="xs" variant="outline" disabled={busy} data-testid={`kg-choice-coexist-${r.claimId}`} onClick={() => onChoice?.(r.claimId, "coexist")}>
-                    两条都保留
+                    {t("chatKnowledge.promotion.choiceCoexist")}
                   </Button>
                 </div>
               </div>
@@ -74,7 +76,7 @@ export function PromotionResultList({
                   <div className="flex flex-col">
                     <span className="text-11 text-background-foreground">{label}</span>
                     <span className="text-10 text-destructive" data-testid={`kg-promo-reject-reason-${r.claimId}`}>
-                      {describePromotionReject(r.code)}
+                      {describePromotionReject(r.code, locale)}
                     </span>
                   </div>
                 </div>

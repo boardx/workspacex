@@ -1,0 +1,675 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ❯ tests/ui/i18n-chat-inspector-lists.test.tsx (3 tests | 3 failed) 165ms
+   × keeps material row identity, shared pending counts and explicit open payload across locale 135ms
+     → Unable to find an accessible element with the role "heading" and name "Materials (1)"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  [36m<button />[39m
+
+  Name "用户文件 {count}.pdf1 KB":
+  [36m<button[39m
+    [33mclass[39m=[32m"flex items-center gap-2 rounded-md border border-border-subtle p-2 text-left transition-colors duration-base hover:border-primary/50 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"chat-material-raw-row"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "材料（1）":
+  [36m<h2[39m
+    [33mclass[39m=[32m"flex-1 text-12 font-medium"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"flex items-center gap-1.5 px-3 pt-2 text-10 text-muted-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-materials-uploading-count"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"px-3 pt-2 text-10 text-muted-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-materials-pending-count"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mswitch language[0m
+    [36m</button>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col"[39m
+      [33mdata-drop-active[39m=[32m"false"[39m
+      [33mdata-testid[39m=[32m"chat-materials-panel"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle p-3"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-file-text h-4 w-4 text-muted-foreground"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M14 2v4a2 2 0 0 0 2 2h4"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M10 9H8"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M16 13H8"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M16 17H8"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+        [36m<h2[39m
+          [33mclass[39m=[32m"flex-1 text-12 font-medium"[39m
+        [36m>[39m
+          [0m材料[0m
+          [0m（1）[0m
+        [36m</h2>[39m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"flex items-center gap-1.5 px-3 pt-2 text-10 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"chat-materials-uploading-count"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-refresh-cw h-3 w-3 animate-spin"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M21 3v5h-5"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M8 16H3v5"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+        [0m正在上传 1 个文件…[0m
+      [36m</p>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"px-3 pt-2 text-10 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"chat-materials-pending-count"[39m
+      [36m>[39m
+        [0m已加入下一条消息的附件：[0m
+        [0m2[0m
+        [0m 个（发送后进入下面的列表）[0m
+      [36m</p>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-col gap-2 p-3"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"flex items-center gap-2 rounded-md border border-border-subtle p-2 text-left transition-colors duration-base hover:border-primary/50 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+          [33mdata-testid[39m=[32m"chat-material-raw-row"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"grid h-6 w-6 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mclass[39m=[32m"lucide lucide-file-text h-3.5 w-3.5"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M14 2v4a2 2 0 0 0 2 2h4"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M10 9H8"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M16 13H8"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M16 17H8"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+          [36m</span>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"min-w-0 flex-1 truncate text-11 font-medium"[39m
+            [33mtitle[39m=[32m"用户文件 {count}.pdf"[39m
+          [36m>[39m
+            [0m用户文件 {count}.pdf[0m
+          [36m</span>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"shrink-0 text-10 text-muted-foreground"[39m
+          [36m>[39m
+            [0m1 KB[0m
+          [36m</span>[39m
+        [36m</button>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × renders selection, loading and retry chrome without changing caller-owned failure text 5ms
+     → expected '还没有选择对话。在左侧选一条对话，这里会列出随消息发出的文件。' to contain 'Select a conversation'
+   × keeps artifact source/version and exact explicit-open identity while translating list chrome 24ms
+     → Unable to find an accessible element with the role "heading" and name "Artifact preview (1)"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  [36m<button />[39m
+
+  Name "模型产物 {title} 实时关联 已挂出处 · 版本 2":
+  [36m<button[39m
+    [33mclass[39m=[32m"rounded-md border border-border-subtle p-2 text-left transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"chat-artifact-raw-artifact"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "产物预览（1）":
+  [36m<h2[39m
+    [33mclass[39m=[32m"min-w-0 flex-1 text-12 font-medium"[39m
+    [33mdata-testid[39m=[32m"chat-artifacts-panel-title"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"min-w-0 flex-1 truncate text-11 font-medium"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"mt-1 text-10 text-muted-foreground"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mswitch language[0m
+    [36m</button>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col"[39m
+      [33mdata-testid[39m=[32m"chat-artifacts-panel"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle px-3 py-2"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-package h-4 w-4 text-muted-foreground"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M12 22V12"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"m3.3 7 7.703 4.734a2 2 0 0 0 1.994 0L20.7 7"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"m7.5 4.27 9 5.15"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+        [36m<h2[39m
+          [33mclass[39m=[32m"min-w-0 flex-1 text-12 font-medium"[39m
+          [33mdata-testid[39m=[32m"chat-artifacts-panel-title"[39m
+        [36m>[39m
+          [0m产物预览[0m
+          [0m（1）[0m
+        [36m</h2>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-col gap-2 p-3"[39m
+        [33mdata-testid[39m=[32m"chat-artifacts-list"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"rounded-md border border-border-subtle p-2 text-left transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+          [33mdata-testid[39m=[32m"chat-artifact-raw-artifact"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex items-center justify-between gap-2"[39m
+          [36m>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 truncate text-11 font-medium"[39m
+            [36m>[39m
+              [0m模型产物 {title}[0m
+            [36m</p>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-muted text-muted-foreground"[39m
+            [36m>[39m
+              [0m实时关联[0m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"mt-1 text-10 text-muted-foreground"[39m
+          [36m>[39m
+            [0m已挂出处[0m
+            [0m · 版本 2[0m
+          [36m</p>[39m
+        [36m</button>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ✓ tests/ui/i18n-chat-inspector.test.tsx (2 tests) 193ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/i18n-chat-inspector-lists.test.tsx > keeps material row identity, shared pending counts and explicit open payload across locale
+TestingLibraryElementError: Unable to find an accessible element with the role "heading" and name "Materials (1)"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  [36m<button />[39m
+
+  Name "用户文件 {count}.pdf1 KB":
+  [36m<button[39m
+    [33mclass[39m=[32m"flex items-center gap-2 rounded-md border border-border-subtle p-2 text-left transition-colors duration-base hover:border-primary/50 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"chat-material-raw-row"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "材料（1）":
+  [36m<h2[39m
+    [33mclass[39m=[32m"flex-1 text-12 font-medium"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"flex items-center gap-1.5 px-3 pt-2 text-10 text-muted-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-materials-uploading-count"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"px-3 pt-2 text-10 text-muted-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-materials-pending-count"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mswitch language[0m
+    [36m</button>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col"[39m
+      [33mdata-drop-active[39m=[32m"false"[39m
+      [33mdata-testid[39m=[32m"chat-materials-panel"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle p-3"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-file-text h-4 w-4 text-muted-foreground"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M14 2v4a2 2 0 0 0 2 2h4"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M10 9H8"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M16 13H8"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M16 17H8"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+        [36m<h2[39m
+          [33mclass[39m=[32m"flex-1 text-12 font-medium"[39m
+        [36m>[39m
+          [0m材料[0m
+          [0m（1）[0m
+        [36m</h2>[39m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"flex items-center gap-1.5 px-3 pt-2 text-10 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"chat-materials-uploading-count"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-refresh-cw h-3 w-3 animate-spin"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M21 3v5h-5"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M8 16H3v5"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+        [0m正在上传 1 个文件…[0m
+      [36m</p>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"px-3 pt-2 text-10 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"chat-materials-pending-count"[39m
+      [36m>[39m
+        [0m已加入下一条消息的附件：[0m
+        [0m2[0m
+        [0m 个（发送后进入下面的列表）[0m
+      [36m</p>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-col gap-2 p-3"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"flex items-center gap-2 rounded-md border border-border-subtle p-2 text-left transition-colors duration-base hover:border-primary/50 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+          [33mdata-testid[39m=[32m"chat-material-raw-row"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"grid h-6 w-6 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mclass[39m=[32m"lucide lucide-file-text h-3.5 w-3.5"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M14 2v4a2 2 0 0 0 2 2h4"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M10 9H8"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M16 13H8"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M16 17H8"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+          [36m</span>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"min-w-0 flex-1 truncate text-11 font-medium"[39m
+            [33mtitle[39m=[32m"用户文件 {count}.pdf"[39m
+          [36m>[39m
+            [0m用户文件 {count}.pdf[0m
+          [36m</span>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"shrink-0 text-10 text-muted-foreground"[39m
+          [36m>[39m
+            [0m1 KB[0m
+          [36m</span>[39m
+        [36m</button>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-inspector-lists.test.tsx:17:19
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  tests/ui/i18n-chat-inspector-lists.test.tsx > renders selection, loading and retry chrome without changing caller-owned failure text
+AssertionError: expected '还没有选择对话。在左侧选一条对话，这里会列出随消息发出的文件。' to contain 'Select a conversation'
+
+Expected: "Select a conversation"
+Received: "还没有选择对话。在左侧选一条对话，这里会列出随消息发出的文件。"
+
+ ❯ tests/ui/i18n-chat-inspector-lists.test.tsx:32:73
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  tests/ui/i18n-chat-inspector-lists.test.tsx > keeps artifact source/version and exact explicit-open identity while translating list chrome
+TestingLibraryElementError: Unable to find an accessible element with the role "heading" and name "Artifact preview (1)"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  [36m<button />[39m
+
+  Name "模型产物 {title} 实时关联 已挂出处 · 版本 2":
+  [36m<button[39m
+    [33mclass[39m=[32m"rounded-md border border-border-subtle p-2 text-left transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"chat-artifact-raw-artifact"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "产物预览（1）":
+  [36m<h2[39m
+    [33mclass[39m=[32m"min-w-0 flex-1 text-12 font-medium"[39m
+    [33mdata-testid[39m=[32m"chat-artifacts-panel-title"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"min-w-0 flex-1 truncate text-11 font-medium"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"mt-1 text-10 text-muted-foreground"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mswitch language[0m
+    [36m</button>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col"[39m
+      [33mdata-testid[39m=[32m"chat-artifacts-panel"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle px-3 py-2"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-package h-4 w-4 text-muted-foreground"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M12 22V12"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"m3.3 7 7.703 4.734a2 2 0 0 0 1.994 0L20.7 7"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"m7.5 4.27 9 5.15"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+        [36m<h2[39m
+          [33mclass[39m=[32m"min-w-0 flex-1 text-12 font-medium"[39m
+          [33mdata-testid[39m=[32m"chat-artifacts-panel-title"[39m
+        [36m>[39m
+          [0m产物预览[0m
+          [0m（1）[0m
+        [36m</h2>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-col gap-2 p-3"[39m
+        [33mdata-testid[39m=[32m"chat-artifacts-list"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"rounded-md border border-border-subtle p-2 text-left transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+          [33mdata-testid[39m=[32m"chat-artifact-raw-artifact"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex items-center justify-between gap-2"[39m
+          [36m>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"min-w-0 flex-1 truncate text-11 font-medium"[39m
+            [36m>[39m
+              [0m模型产物 {title}[0m
+            [36m</p>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-muted text-muted-foreground"[39m
+            [36m>[39m
+              [0m实时关联[0m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"mt-1 text-10 text-muted-foreground"[39m
+          [36m>[39m
+            [0m已挂出处[0m
+            [0m · 版本 2[0m
+          [36m</p>[39m
+        [36m</button>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-inspector-lists.test.tsx:43:17
+     41|   render(<I18nProvider initialLocale="en"><LocaleControl /><ChatArtifa…
+     42|   const row = screen.getByTestId("chat-artifact-raw-artifact");
+     43|   expect(screen.getByRole("heading", { name: "Artifact preview (1)" })…
+       |                 ^
+     44|   expect(within(row).getByText("Live")).toBeTruthy(); expect(row.textC…
+     45|   expect(row.textContent).toContain(item.title);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  3 failed | 2 passed (5)
+   Start at  09:17:37
+   Duration  5.96s (transform 1.64s, setup 263ms, collect 3.46s, tests 358ms, environment 1.27s, prepare 91ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/i18n-chat-inspector.test.tsx tests/ui/i18n-chat-inspector-lists.test.tsx --maxWorkers=1 --minWorkers=1

@@ -1,0 +1,54 @@
+{
+  "head": "66120e5ad595bea5fdac4ebf956b0a7ee0d9ea51",
+  "task4Base": "23db2c194",
+  "artifactVersions": {
+    "initialRed": {
+      "cases": 3,
+      "exit": 1,
+      "seconds": 4.36
+    },
+    "firstGreen": {
+      "cases": 3,
+      "exit": 0,
+      "seconds": 3.67
+    },
+    "progressRed": {
+      "cases": 6,
+      "exit": 1,
+      "seconds": 9.51
+    },
+    "progressGreen": {
+      "cases": 6,
+      "exit": 0,
+      "seconds": 3.59
+    },
+    "remainingSurfaces": {
+      "cases": 13,
+      "exit": 0,
+      "seconds": 11.4,
+      "status": "GREEN after actual13RED3.71s",
+      "notCombinedWithOtherRounds": true
+    }
+  },
+  "notWholeTask4": true,
+  "latestTypeLintPredatesVersionSources": true,
+  "sha256": {
+    "apps/web/components/chat/workbench/agent-artifact-versions-panel.tsx": "51715128433c6a280e3499d270185e0cfc9eaddeafd91a409c3208dda1200a07",
+    "apps/web/lib/i18n/namespaces/artifact-versions.ts": "95ba824b9bca0c80639f9e4d992c4551a5b9ac4ab7a5cb953deb20ce14576e6c",
+    "apps/web/lib/i18n/namespaces/chat.ts": "2c24e7b9715f583a3049ad92313ab060ce0341fb6d7ae181b773fa0761998cc4",
+    "apps/web/tests/ui/i18n-chat-artifact-versions.test.tsx": "b98c15c11635271e59acc0ef6cd155a5a3bbc58def13c219e4ba378497526c3c",
+    "apps/web/tests/ui/i18n-chat-artifact-version-progress.test.tsx": "7e71ad501314827359c0677c461fd0ee741bd1b0cb362b1add464e402528e043",
+    "apps/web/tests/ui/i18n-chat-artifact-version-surfaces.test.tsx": "93065e0d53f8e38555c07eb759a365c1794981e2cbcdf26b9784086acca0b4e6",
+    "apps/web/lib/chat-workbench/agent-artifacts.ts": "c5094b0951bae1fc3216cf2223a984ba88a2885b53c0c4d622eeaf8a4053f0bd"
+  },
+  "versionWholeAdjacentRound": {
+    "files": 5,
+    "cases": 30,
+    "newCases": 22,
+    "oldPanel": 5,
+    "oldDiff": 3,
+    "exit": 0,
+    "seconds": 9.73,
+    "log": "task4-artifact-version-neighbors-green.log"
+  }
+}

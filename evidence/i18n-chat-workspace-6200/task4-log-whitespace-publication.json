@@ -1,0 +1,117 @@
+{
+  "reason": "staged diff-check rejects original Vitest blank EOF / code-frame trailing spaces",
+  "transformation": "rstrip each output line and keep one final newline; no non-whitespace token altered",
+  "originalBytesPreservedPrivate0700_0600": true,
+  "records": [
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task4-answer-citations-green.log",
+      "originalSha256": "b0205b33b19e3e3e0f319f3842700c9628a7e71f48e830e6e240fdabd5de0bc7",
+      "publishedSha256": "20d71c4734b979d16c8dc266676c680a71bc64873cd0814deb01d38a85ea818f",
+      "originalPrivatePath": "/tmp/chat6200-task4-commit-rawlogs-private/task4-answer-citations-green.log"
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task4-artifact-version-neighbors-green.log",
+      "originalSha256": "f7bc40e028c5ad39f110ebdb4f8a935eb5bf93605fe2be9201efb1a087dbd11d",
+      "publishedSha256": "3ca6f25b713a64826e6b6acfea7fa92832bd48b35891b115d26bb71425d0d8ad",
+      "originalPrivatePath": "/tmp/chat6200-task4-commit-rawlogs-private/task4-artifact-version-neighbors-green.log"
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task4-artifact-version-progress-green.log",
+      "originalSha256": "dc41fae1f54f7de0ad8fd5e762b36503922f7ac0d6e77d1fec6ca767477bb74d",
+      "publishedSha256": "7d6ec4b06c86a427297debc21d84577a7b10d35b40d21edb7d0dd30a4529ac3e",
+      "originalPrivatePath": "/tmp/chat6200-task4-commit-rawlogs-private/task4-artifact-version-progress-green.log"
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task4-artifact-version-surfaces-green.log",
+      "originalSha256": "356c0f001916ab33a248049845bc0c7389b3f4c69df96d1b407084cfa09b4278",
+      "publishedSha256": "647b43cbc72e2e8a5f9b5283c68e9b07781fb1ad72b9d08ba095bca2e57775a8",
+      "originalPrivatePath": "/tmp/chat6200-task4-commit-rawlogs-private/task4-artifact-version-surfaces-green.log"
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task4-artifact-versions-green-attempt.log",
+      "originalSha256": "761514bb1ed1d5494bb2b331b73c2c9619704d21895ce7a1331fd4b765a0f14e",
+      "publishedSha256": "6aa80886d881fbc9e76135a51e3483811863f583f12fa408f70ca5de5924c54e",
+      "originalPrivatePath": "/tmp/chat6200-task4-commit-rawlogs-private/task4-artifact-versions-green-attempt.log"
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task4-feedback-attachments-green-attempt.log",
+      "originalSha256": "f86374ab09cf5e84fafd68472eedccaf95934e4c56141c677ca28e9dcbab7862",
+      "publishedSha256": "2ab5c3f602765d0fc8ce9a6f3ad6dd3ab9828428802282037cd521d0ef8cd5a7",
+      "originalPrivatePath": "/tmp/chat6200-task4-commit-rawlogs-private/task4-feedback-attachments-green-attempt.log"
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task4-feedback-attachments-red.log",
+      "originalSha256": "2938515054f7e6cbb94585e1818b8ed6ecde396e59513cf88fa0f2d7cba602b0",
+      "publishedSha256": "ff12f3dae19f163d988999e4fc43f28096d9f157bcaa74aae6ccb525634fbfea",
+      "originalPrivatePath": "/tmp/chat6200-task4-commit-rawlogs-private/task4-feedback-attachments-red.log"
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task4-feedback-final-chrome-green.log",
+      "originalSha256": "ae11373bb1d492c527f7b5cc9227c713edb3e90bf0209864fa92a7451524fbd9",
+      "publishedSha256": "7657fb99b75acfcba5cd9a07ab0f9194c870987889f3a18571a58d29dcd23e6d",
+      "originalPrivatePath": "/tmp/chat6200-task4-commit-rawlogs-private/task4-feedback-final-chrome-green.log"
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task4-feedback-knowledge-source-green.log",
+      "originalSha256": "9f7bc8418496664ab11fc3855ceef5602fc77904f91a0c96377cde722688493a",
+      "publishedSha256": "70a6a2799cbaa1a1a3f8f413155d45b72c9d9b30de41b3d5aae39bf793a62aa3",
+      "originalPrivatePath": "/tmp/chat6200-task4-commit-rawlogs-private/task4-feedback-knowledge-source-green.log"
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task4-feedback-source-neighbors.log",
+      "originalSha256": "068ee38d4d10a9b5d98ec8cbc77fbd74fb82f0820f5d548a9635651c21c2f86c",
+      "publishedSha256": "e30b87a8be9a0bd21cbc35fded27f7b1613a99df13aaba7e49e7fbe0fae08da7",
+      "originalPrivatePath": "/tmp/chat6200-task4-commit-rawlogs-private/task4-feedback-source-neighbors.log"
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task4-inspector-lists-green.log",
+      "originalSha256": "82f15522f672da4be4bd5ee4d68c526cad33dba98bbd59252fa73f915ca32c38",
+      "publishedSha256": "0f66b6d4ad76960284bdad4a40df49df27a64a0f84e6f5cad9d13068a309f24e",
+      "originalPrivatePath": "/tmp/chat6200-task4-commit-rawlogs-private/task4-inspector-lists-green.log"
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task4-knowledge-graph-green-attempt.log",
+      "originalSha256": "4a13d93663c0e1bc89145657d5d3fbccd47e5f7598e3c74b9fe3893e0ec9b3af",
+      "publishedSha256": "6c3fab00e731b618cf3a8d4adfc4d11d041608abf1afcea9ce927fe3c005fe99",
+      "originalPrivatePath": "/tmp/chat6200-task4-commit-rawlogs-private/task4-knowledge-graph-green-attempt.log"
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task4-memory-notices-neighbors-green.log",
+      "originalSha256": "d1a0946a37e424df3fad51d453730e149f3c0ceb24108dcf195afe6bfac56117",
+      "publishedSha256": "cbf9f48ad8ad68e5b96584238a8958f44dc1e09a96dd27f1a2fe078422c45c82",
+      "originalPrivatePath": "/tmp/chat6200-task4-commit-rawlogs-private/task4-memory-notices-neighbors-green.log"
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task4-produced-file-driver-green.log",
+      "originalSha256": "bfb7b260aa06166f5465ea15dc8529e588f6774bd9a3fddfad191cc38e9e0e32",
+      "publishedSha256": "45a18f7b450ee81ef7914407b1741bb467dcbec6169f5f17d5ebe516ce76d5be",
+      "originalPrivatePath": "/tmp/chat6200-task4-commit-rawlogs-private/task4-produced-file-driver-green.log"
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task4-supersede-legacy-name-green.log",
+      "originalSha256": "629a68a16f61255188428188ace56efa9597c575f8cd5ab1e26e1840e3e15806",
+      "publishedSha256": "3bb98af6cd584f19c0bbe92535db27558135281ef3e14f104296f51e7afa1b4c",
+      "originalPrivatePath": "/tmp/chat6200-task4-commit-rawlogs-private/task4-supersede-legacy-name-green.log"
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task4-type-after-answer-citations-green.log",
+      "originalSha256": "e9b019d37db080d36b121892b06e0818b37e0b4f08f68f45cd0110befa237e7e",
+      "publishedSha256": "62543be5fd5bf1824e1a01ed8931f0607450a06735a9cb2ac84b1fb88de5122d",
+      "originalPrivatePath": "/tmp/chat6200-task4-commit-rawlogs-private/task4-type-after-answer-citations-green.log"
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task4-type-after-fixture-fix.log",
+      "originalSha256": "e9b019d37db080d36b121892b06e0818b37e0b4f08f68f45cd0110befa237e7e",
+      "publishedSha256": "62543be5fd5bf1824e1a01ed8931f0607450a06735a9cb2ac84b1fb88de5122d",
+      "originalPrivatePath": "/tmp/chat6200-task4-commit-rawlogs-private/task4-type-after-fixture-fix.log"
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task4-version-final-type.log",
+      "originalSha256": "e9b019d37db080d36b121892b06e0818b37e0b4f08f68f45cd0110befa237e7e",
+      "publishedSha256": "62543be5fd5bf1824e1a01ed8931f0607450a06735a9cb2ac84b1fb88de5122d",
+      "originalPrivatePath": "/tmp/chat6200-task4-commit-rawlogs-private/task4-version-final-type.log"
+    }
+  ],
+  "testVerdictsAndFailureBodiesRetained": true,
+  "sourceTypeLintSnapshotUnchanged": true
+}

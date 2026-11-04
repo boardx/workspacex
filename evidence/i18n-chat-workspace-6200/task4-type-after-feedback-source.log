@@ -1,0 +1,9 @@
+
+> web@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+> tsc --noEmit
+
+tests/ui/i18n-chat-inspector-lists.test.tsx(15,138): error TS2741: Property 'messageId' is missing in type '{ id: string; createdAt: string; mime: string; filename: string; bytes: number; extractionStatus?: "pending" | "failed" | "unsupported" | "extracted" | undefined; extractionError?: "credit_required" | "credit_accounting_unavailable" | "extraction_failed" | null | undefined; }' but required in type '{ id: string; createdAt: string; messageId: string; mime: string; filename: string; bytes: number; extractionStatus?: "pending" | "failed" | "unsupported" | "extracted" | undefined; extractionError?: "credit_required" | ... 3 more ... | undefined; }'.
+tests/ui/i18n-chat-inspector-lists.test.tsx(30,116): error TS2741: Property 'uploadCtl' is missing in type '{ hasSelection: boolean; threadId: null; materials: null; loading: boolean; error: string | null; onRetry: Mock<Procedure>; }' but required in type '{ hasSelection: boolean; threadId: string | null; materials: { items: { id: string; createdAt: string; messageId: string; mime: string; filename: string; bytes: number; extractionStatus?: "pending" | "failed" | "unsupported" | "extracted" | undefined; extractionError?: "credit_required" | ... 3 more ... | undefined;...'.
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  web@0.1.0 typecheck: `tsc --noEmit`
+Exit status 2

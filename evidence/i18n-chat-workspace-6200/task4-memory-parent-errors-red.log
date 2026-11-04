@@ -1,0 +1,78 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ❯ tests/ui/i18n-chat-memory-parent-errors.test.tsx (5 tests | 5 failed) 416ms
+   × renders actual parent 'remember accept' rejection in the current locale without another decision 209ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Only the conversation creator can manage memories.
+Received:
+  只有对话创建者能管理记忆。
+   × renders actual parent 'forget accept' rejection in the current locale without another decision 69ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Only the conversation creator can manage memories.
+Received:
+  只有对话创建者能管理记忆。
+   × renders actual parent 'remember dismiss' rejection in the current locale without another decision 59ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Only the conversation creator can manage memories.
+Received:
+  只有对话创建者能管理记忆。
+   × renders actual parent 'undo remember' rejection in the current locale without another decision 35ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Only the conversation creator can edit its memories.
+Received:
+  只有对话的创建者可以修改这里的记忆。
+   × renders actual parent 'undo forget' rejection in the current locale without another decision 41ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Only the conversation creator can manage memories.
+Received:
+  只有对话创建者能管理记忆。
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/i18n-chat-memory-parent-errors.test.tsx > renders actual parent 'remember accept' rejection in the current locale without another decision
+ FAIL  tests/ui/i18n-chat-memory-parent-errors.test.tsx > renders actual parent 'forget accept' rejection in the current locale without another decision
+ FAIL  tests/ui/i18n-chat-memory-parent-errors.test.tsx > renders actual parent 'remember dismiss' rejection in the current locale without another decision
+ FAIL  tests/ui/i18n-chat-memory-parent-errors.test.tsx > renders actual parent 'undo forget' rejection in the current locale without another decision
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Only the conversation creator can manage memories.
+Received:
+  只有对话创建者能管理记忆。
+ ❯ tests/ui/i18n-chat-memory-parent-errors.test.tsx:33:17
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  tests/ui/i18n-chat-memory-parent-errors.test.tsx > renders actual parent 'undo remember' rejection in the current locale without another decision
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Only the conversation creator can edit its memories.
+Received:
+  只有对话的创建者可以修改这里的记忆。
+ ❯ tests/ui/i18n-chat-memory-parent-errors.test.tsx:33:17
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ Test Files  1 failed (1)
+      Tests  5 failed (5)
+   Start at  16:49:41
+   Duration  12.24s (transform 4.45s, setup 404ms, collect 7.63s, tests 416ms, environment 2.31s, prepare 186ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/i18n-chat-memory-parent-errors.test.tsx --maxWorkers=1 --minWorkers=1
