@@ -1,0 +1,25 @@
+[stack-admission] load1=3.19 cores=10 perCore=0.32 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw1xyea4-c7ac0ae4-9a89de7717a7 db=wsx_9a89de7717a76f78dd37 compose=wsx-9a89de7717a76f78dd37 pg=20647 redis=21647 api=24647 web=25647 sandbox=26647 model=27647 deep-agent=28647 asr=29647 vision=30647 loopback-sandbox=31647 mail=19647
+
+ RUN  v2.1.9 <checkout>/apps/api
+
+[db-isolation] db=wsx_9a89de7717a76f78dd37 capacity=100 current=6 required=32
+ ✓ tests/model/pg-platform-model-test-repository.test.ts (21 tests) 46ms
+ ✓ tests/billing/credit-payer-fallback-pg.test.ts (10 tests) 28599ms
+   ✓ falls back from exhausted Team and never changes the persisted payer after it is funded 308ms
+   ✓ settles personal fallback concurrently with same-org admission without lock inversion 355ms
+
+ Test Files  2 passed (2)
+      Tests  31 passed (31)
+   Start at  17:55:43
+   Duration  34.95s (transform 1.43s, setup 20ms, collect 2.42s, tests 28.65s, environment 1ms, prepare 212ms)
+
+[db-isolation] db=wsx_9a89de7717a76f78dd37 peak_connections=4
+[timing] pnpm --filter @repo/api exec vitest run tests/model/pg-platform-model-test-repository.test.ts tests/billing/credit-payer-fallback-pg.test.ts --maxWorkers=1 --minWorkers=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：36s
+  清理：1s
+  总计：37s

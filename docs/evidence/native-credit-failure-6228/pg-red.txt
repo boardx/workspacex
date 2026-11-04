@@ -1,0 +1,100 @@
+[stack-admission] load1=3.58 cores=10 perCore=0.36 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw1wu9sn-b69fd7f3-033dc38c395b db=wsx_033dc38c395b90dab73a compose=wsx-033dc38c395b90dab73a pg=20404 redis=21404 api=24404 web=25404 sandbox=26404 model=27404 deep-agent=28404 asr=29404 vision=30404 loopback-sandbox=31404 mail=19404
+
+ RUN  v2.1.9 <checkout>/apps/api
+
+[db-isolation] db=wsx_033dc38c395b90dab73a capacity=100 current=6 required=32
+ ❯ tests/billing/credit-payer-fallback-pg.test.ts (6 tests | 4 failed) 21444ms
+   × uses the authenticated initiator's personal wallet when the organization has no license or wallet 33ms
+     → team_subscription_required
+   × falls back from exhausted Team and never changes the persisted payer after it is funded 100ms
+     → expected { owner_type: 'team', …(2) } to match object { owner_type: 'user', …(1) }
+(1 matching property omitted from actual)
+   × allows personal zero and in-flight completion, then refuses the next request when both cannot pay 31ms
+     → team_subscription_required
+   × serializes two organizations sharing one personal wallet and rejects foreign replay 24ms
+     → team_subscription_required
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/credit-payer-fallback-pg.test.ts > uses the authenticated initiator's personal wallet when the organization has no license or wallet
+CreditConsumptionError: team_subscription_required
+ ❯ PgCreditConsumption.error src/infrastructure/billing/pg-credit-consumption.ts:25:134
+     23|   return isLocalOrg(row.kind)?{ownerType:"user",ownerId:userId}:{owner…
+     24|  }
+     25|  private error(p:Payer,message:string,code:"credit_required"|"credit_a…
+       |                                                                                                                                      ^
+     26|  async reserveInSession(s:TenantSession,orgId:OrgId,input:Start):Promi…
+     27|   const p=await this.payer(s,orgId,input.userId),at=this.clock();
+ ❯ PgCreditConsumption.reserveInSession src/infrastructure/billing/pg-credit-consumption.ts:40:63
+ ❯ PgDatabase.inTx src/infrastructure/db/pg-database.ts:74:19
+ ❯ tests/billing/credit-payer-fallback-pg.test.ts:35:2
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  tests/billing/credit-payer-fallback-pg.test.ts > falls back from exhausted Team and never changes the persisted payer after it is funded
+AssertionError: expected { owner_type: 'team', …(2) } to match object { owner_type: 'user', …(1) }
+(1 matching property omitted from actual)
+
+- Expected
++ Received
+
+  Object {
+-   "owner_id": "fallback-3c70331d-user",
+-   "owner_type": "user",
++   "owner_id": "fallback-3c70331d-team",
++   "owner_type": "team",
+  }
+
+ ❯ tests/billing/credit-payer-fallback-pg.test.ts:44:40
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  tests/billing/credit-payer-fallback-pg.test.ts > allows personal zero and in-flight completion, then refuses the next request when both cannot pay
+CreditConsumptionError: team_subscription_required
+ ❯ PgCreditConsumption.error src/infrastructure/billing/pg-credit-consumption.ts:25:134
+     23|   return isLocalOrg(row.kind)?{ownerType:"user",ownerId:userId}:{owner…
+     24|  }
+     25|  private error(p:Payer,message:string,code:"credit_required"|"credit_a…
+       |                                                                                                                                      ^
+     26|  async reserveInSession(s:TenantSession,orgId:OrgId,input:Start):Promi…
+     27|   const p=await this.payer(s,orgId,input.userId),at=this.clock();
+ ❯ PgCreditConsumption.reserveInSession src/infrastructure/billing/pg-credit-consumption.ts:40:63
+ ❯ PgDatabase.inTx src/infrastructure/db/pg-database.ts:74:19
+ ❯ tests/billing/credit-payer-fallback-pg.test.ts:50:114
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  tests/billing/credit-payer-fallback-pg.test.ts > serializes two organizations sharing one personal wallet and rejects foreign replay
+CreditConsumptionError: team_subscription_required
+ ❯ PgCreditConsumption.error src/infrastructure/billing/pg-credit-consumption.ts:25:134
+     23|   return isLocalOrg(row.kind)?{ownerType:"user",ownerId:userId}:{owner…
+     24|  }
+     25|  private error(p:Payer,message:string,code:"credit_required"|"credit_a…
+       |                                                                                                                                      ^
+     26|  async reserveInSession(s:TenantSession,orgId:OrgId,input:Start):Promi…
+     27|   const p=await this.payer(s,orgId,input.userId),at=this.clock();
+ ❯ PgCreditConsumption.reserveInSession src/infrastructure/billing/pg-credit-consumption.ts:40:63
+ ❯ PgDatabase.inTx src/infrastructure/db/pg-database.ts:74:19
+ ❯ tests/billing/credit-payer-fallback-pg.test.ts:53:2
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 2 passed (6)
+   Start at  17:24:32
+   Duration  30.09s (transform 2.32s, setup 23ms, collect 3.57s, tests 21.44s, environment 0ms, prepare 105ms)
+
+[db-isolation] db=wsx_033dc38c395b90dab73a peak_connections=3
+undefined
+<checkout>/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/credit-payer-fallback-pg.test.ts --maxWorkers=1 --minWorkers=1
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/credit-payer-fallback-pg.test.ts --maxWorkers=1 --minWorkers=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：31s
+  清理：1s
+  总计：32s

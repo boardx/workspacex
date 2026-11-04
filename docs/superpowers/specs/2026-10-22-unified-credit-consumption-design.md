@@ -31,11 +31,11 @@ No model execution is allowed to use an anonymous or client-selected payer. An o
 ## Payer resolution
 
 - Personal workspace activity bills the authenticated user’s personal wallet.
-- Organization activity bills that organization’s wallet; the initiating user is retained as attribution.
+- Organization activity resolves its payer under the human revision below; the initiating user is always retained as attribution.
 - Resolve organization/personal workspace kind and membership from persisted identity. Do not infer account kind from ID prefixes or from whether a wallet exists.
 - Background jobs persist the initiating user, organization and payer when queued and revalidate that provenance when executed.
 - Run, subtask, tool and private-runtime calls derive ownership from the persisted root execution and lease. Child/model arguments cannot choose another account.
-- No fallback from an organization wallet to a user wallet, or the reverse, after an insufficient-credit decision.
+- Human revision (2026-11-04, issue #6228): with the new billing generation activated, at new physical-request admission a licensed funded organization pays first. An organization without Team entitlement or with exhausted ordinary Team credits falls back to the authenticated initiating user’s personal wallet. A current-generation Enterprise retains its organization payer and overdraft rights. Personal balance zero permits admission; negative balance refuses new requests. Unknown or corrupt accounting facts fail closed. Once admitted, the persisted request fixes one payer for all retries, replay and settlement; it never switches wallets or splits a charge. The NULL legacy epoch retains its existing compatibility behavior; this revision does not activate or migrate legacy environments.
 
 ## Precision and wallet invariants
 
