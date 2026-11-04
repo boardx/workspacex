@@ -1,0 +1,51 @@
+{
+  "sourceSha": "3829bc44cb367deaa22cc9a334eaf1537a1d70cd",
+  "unit": {
+    "files": 9,
+    "passed": 48,
+    "seconds": 13.81
+  },
+  "webTypecheck": 0,
+  "apiTypecheck": 0,
+  "eslint": 0,
+  "specGate": 0,
+  "initQuick": 0,
+  "seedReplay": {
+    "sameDatabase": true,
+    "runs": [
+      0,
+      0
+    ],
+    "totalSeconds": 36,
+    "cleanupSeconds": 1,
+    "scope": "wsx-86ed8d2a6ee60195c48d",
+    "remainingContainers": 0
+  },
+  "browser": {
+    "passed": 1,
+    "caseSeconds": 5.1,
+    "totalSeconds": 242,
+    "cleanupSeconds": 1,
+    "scope": "wsx-6e155bc0d29e14734da1",
+    "remainingContainers": 0,
+    "realApiAndPostgres": true,
+    "interception": false,
+    "deploymentCapabilityForced": false,
+    "memoryBranchObserved": {
+      "deploymentCapable": true,
+      "orgEnabledBefore": false,
+      "orgEnabledAfter": true
+    },
+    "branchEvidence": "executed conditional assertions and initial-off/final-on screenshots; local list reporter does not persist testInfo JSON attachment"
+  },
+  "navDependencyPr": 6201,
+  "prPublication": "pending coordinated normal push; source CI and native candidate remain separate",
+  "navIntegration": {
+    "actualMergedAt": "2026-11-03T18:33:10Z",
+    "actualMergeCommit": "c49fee15b89f2621d8ceaa582ef6a9c0f6c931cc",
+    "developIntegratedCommit": "6cd502308ce5b5aed6f16839263889a359e2bd7b",
+    "fetchedMainAndDevelop": true,
+    "webApiByteComparisonToVerifiedTreeExit": 0,
+    "inheritedNavFilesInPrDiff": []
+  }
+}
