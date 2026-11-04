@@ -1,0 +1,12 @@
+{
+  "source": "820072a38959887f2520c90f096e06ceac18eb03",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "run",
+    "typecheck"
+  ],
+  "exit": 0,
+  "seconds": 37.56
+}
