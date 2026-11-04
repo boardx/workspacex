@@ -39,7 +39,7 @@ Own `apps/web/components/admin/platform-members-screen.tsx`, a small page-owned 
 
 ### Task 2: Canonical real-role browser acceptance and delivery
 
-Own canonical entity-localization fixture, API fixture seed, fullstack env mappings and existing entity-localization browser chain. Use dedicated synthetic superuser and prerequisite memberships only; preserve old actor privilege and all existing cases. Finalize the proposed16-image matrix against actual controls and route before implementation. Root owns all commands/Git/resources/evidence.
+Own canonical entity-localization fixture, API fixture seed, fullstack env mappings and existing entity-localization browser chain. Use dedicated synthetic superuser plus dedicated target and two private organizations per verification-design.md; preserve every old actor credential/membership/login context and all existing cases. Finalize the proposed16-image matrix against actual controls and route before implementation. Root owns all commands/Git/resources/evidence.
 
 - [ ] Add fixture prerequisites only, wire synthetic email to actual API superuser env setting, never seed expected platform_admin mutation outcomes.
 - [ ] Add real case: locale continuity; exact PATCH/readback/reload; actual LAST_ADMIN409 and unchanged state; UI grant/readback; operator role mutation allowed, protected POST/DELETE403; UI revoke/readback, revoked GET403; ordinary-admin page denial. Parse strict canonical response schemas and use independent readbacks.
