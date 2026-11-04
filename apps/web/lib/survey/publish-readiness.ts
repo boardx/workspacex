@@ -20,7 +20,7 @@ const PENALTY: Record<SurveyPublishBlocker["code"], number> = {
   LOGIC_INVALID: 30,
 };
 
-const LABEL: Record<SurveyPublishBlocker["code"], string> = {
+export const SURVEY_PUBLISH_RECOMMENDATIONS: Record<SurveyPublishBlocker["code"], string> = {
   QUESTIONS_EMPTY: "添加至少一道可回答的问题",
   QUESTION_CONFIG_INVALID: "修复题目配置",
   QUESTION_OPTIONS_EMPTY: "为选项题补充可选择的答案",
@@ -44,7 +44,7 @@ export function assessPublishReadiness({
       predictedCompletionRate: null,
       recommendations: blockers.map((blocker) => ({
         ...blocker,
-        label: LABEL[blocker.code],
+        label: SURVEY_PUBLISH_RECOMMENDATIONS[blocker.code],
       })),
     };
   }
@@ -54,6 +54,6 @@ export function assessPublishReadiness({
     qualityScore,
     estimatedSeconds: answerable.reduce((total, question) => total + (question.type.startsWith("matrix_") ? 45 : question.type === "ranking" || question.type === "allocation" ? 35 : 20), 0),
     predictedCompletionRate: Math.max(0, Math.min(100, qualityScore + 20)),
-    recommendations: blockers.map((blocker) => ({ ...blocker, label: LABEL[blocker.code] })),
+    recommendations: blockers.map((blocker) => ({ ...blocker, label: SURVEY_PUBLISH_RECOMMENDATIONS[blocker.code] })),
   };
 }

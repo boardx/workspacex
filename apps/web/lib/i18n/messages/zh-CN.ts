@@ -1,3 +1,5 @@
+import { surveyWorkspaceZhCN } from "../namespaces/survey-workspace";
+import { surveyRuntimeErrorsZhCN } from "../namespaces/survey-runtime-errors";
 import { surveyDesignZhCN } from "../namespaces/survey-design";
 import { surveyLibraryZhCN } from "../namespaces/survey-library";
 import { recordingProjectZhCN } from "../namespaces/recording-project";
@@ -23,6 +25,8 @@ import { stateZhCN } from "../namespaces/state";
 import { accountEntryZhCN } from "../namespaces/account-entry";
 import { invitationEntryZhCN } from "../namespaces/invitation-entry";
 export const zhCN = {
+  ...surveyWorkspaceZhCN,
+  ...surveyRuntimeErrorsZhCN,
   ...surveyLibraryZhCN,
   ...surveyDesignZhCN,
   ...recordingProjectZhCN,

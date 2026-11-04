@@ -1,0 +1,29 @@
+{
+  "name": "red-workspace",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/survey-workspace-i18n.test.tsx",
+    "tests/ui/survey-unsaved-navigation-i18n.test.tsx",
+    "tests/ui/survey-runtime-client.test.ts"
+  ],
+  "source": "f2819a791e004f1c7dfd35c74c20ede1dd3a0f61",
+  "exitCode": 1,
+  "seconds": 28.87,
+  "rawLogSha256": "bfe0dc23da628570d160fda806ba278a4f2387d5b06cf059b7ceb42e9726870a",
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "testFiles": 3,
+  "tests": 36,
+  "failed": 31,
+  "passed": 5,
+  "collectionErrors": 0,
+  "warnings": 0,
+  "unhandled": 0,
+  "classification": "30 UI missing-current-locale expectations and 1 missing wrapped-403 cause; all six original blocker fixtures passed their canonical guards. Four original client cases and one authored custom-prompt case passed."
+}
