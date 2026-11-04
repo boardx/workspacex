@@ -225,11 +225,16 @@ it("keeps reviewed Markdown and applies only after the explicit current-language
   expect(screen.getByRole("textbox", { name: "Survey Markdown" })).toHaveValue(edited);
 });
 
-it("translates canonical parser diagnostics while retaining an unsupported raw type and blocking application", () => {
+it.each([
+  ["# 原题\n\n## raw [constructor]\n原问题\n", "不支持的题型：constructor", "Unsupported question type: constructor"],
+  ["# 原题\n\n## same [open]\n原问题一\n\n## same [open]\n原问题二\n", "题目编号重复：same", "Duplicate question ID: same"],
+])("translates canonical parser diagnostic while retaining raw identifiers and blocking application: %s", (source, canonical, translated) => {
   const changed = vi.fn(), preview = vi.fn();
-  show(<Markdown initial="# 原题\n\n## raw [constructor]\n原问题\n" changed={changed} preview={preview} />);
-  fireEvent.click(screen.getByRole("button", { name: "校对并预览题目" })); language("en");
-  expect(within(screen.getByRole("dialog")).getByRole("alert")).toHaveTextContent("Unsupported question type: constructor");
+  show(<Markdown initial={source} changed={changed} preview={preview} />);
+  fireEvent.click(screen.getByRole("button", { name: "校对并预览题目" }));
+  const alert = within(screen.getByRole("dialog")).getByRole("alert");
+  expect(alert).toHaveTextContent(canonical); language("en");
+  expect(alert).toHaveTextContent(translated);
   expect(screen.getByRole("button", { name: "Apply to survey" })).toBeDisabled();
   expect(changed).not.toHaveBeenCalled(); expect(preview).not.toHaveBeenCalled();
 });

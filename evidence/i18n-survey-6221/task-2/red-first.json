@@ -18,8 +18,9 @@
     "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
   },
   "tests": 81,
-  "validMissingEnglishFailures": 80,
-  "invalidFixtureFailures": 1,
+  "validMissingEnglishFailures": 79,
+  "invalidFixtureFailures": 2,
   "collectionErrors": 0,
-  "unhandledErrors": 0
+  "unhandledErrors": 0,
+  "auditCorrection": "The unsupported-type JSX attribute contained literal backslash-n, so no question heading was parsed. See README and later corrected parser RED."
 }
