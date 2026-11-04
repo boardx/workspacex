@@ -245,6 +245,7 @@ export const en: Record<keyof typeof zhCN, string> = {
   "home.error.UNSUPPORTED_CONTENT_TYPE": "Only PNG, JPEG, and WebP images are supported.",
   "common.error.network": "Could not connect to the server. Check your connection and try again.",
   "common.http.auth": "Your session has expired. Refresh the page and sign in again.",
+  "common.http.forbidden": "You do not have permission to perform this action. Contact your administrator if you need access.",
   "common.http.notFound": "The requested item is no longer available.",
   "common.http.rateLimit": "Too many requests. Wait a moment and try again.",
   "common.http.server": "The server encountered an error. Please try again later.",

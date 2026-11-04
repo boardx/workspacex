@@ -1,0 +1,56 @@
+apps/web/lib/workflow-capability-grant-copy.ts:11:import { httpFailureText } from "@/lib/http-failure-text";
+apps/web/lib/workflow-capability-grant-copy.ts:67:    return httpFailureText(err.status);
+apps/web/tests/ui/project-evidence-list.test.tsx:6: * 空态 / 403 NO_PROJECT_ROLE 如实显示且不露内部码 / 500 走 httpFailureText。只 mock 网络边界（`fetch`）与路由。
+apps/web/tests/ui/project-evidence-list.test.tsx:12:import { httpFailureText } from "@/lib/http-failure-text";
+apps/web/tests/ui/project-evidence-list.test.tsx:143:  it("非成员 403 NO_PROJECT_ROLE 如实显示，不露内部码；500 走 httpFailureText；重试可用", async () => {
+apps/web/tests/ui/project-evidence-list.test.tsx:159:    expect(await screen.findByTestId("project-evidence-error")).toHaveTextContent(httpFailureText(500));
+apps/web/lib/http-failure-text.ts:14:export function httpFailureText(status: number, locale: Locale = "zh-CN"): string {
+apps/web/lib/chat-workbench/artifact-failure.ts:21:import { httpFailureText } from "@/lib/http-failure-text";
+apps/web/lib/chat-workbench/artifact-failure.ts:36:    return httpFailureText(err.status);
+apps/web/lib/home-config-failure.ts:11:import { httpFailureText } from "@/lib/http-failure-text";
+apps/web/lib/home-config-failure.ts:29:    return httpFailureText(err.status, locale);
+apps/web/lib/agent-escalation.ts:12:import { httpFailureText } from "./http-failure-text";
+apps/web/lib/agent-escalation.ts:50:    return (error.reasonCode && ESCALATION_ERROR_TEXT[error.reasonCode]) || httpFailureText(error.status);
+apps/web/lib/design-failure.ts:12:import { httpFailureText } from "@/lib/http-failure-text";
+apps/web/lib/design-failure.ts:77:    return httpFailureText(err.status, locale);
+apps/web/components/project/project-brain-panel.tsx:20:import { httpFailureText } from "@/lib/http-failure-text";
+apps/web/components/project/project-brain-panel.tsx:454:  if (e instanceof ApiError) return httpFailureText(e.status);
+apps/web/components/project/project-brain-panel.tsx:593:  if (e instanceof ApiError) return httpFailureText(e.status);
+apps/web/components/project/project-brain-panel.tsx:600:  if (e instanceof ApiError) return httpFailureText(e.status);
+apps/web/components/project/project-join-screen.tsx:7:import { httpFailureText } from "@/lib/http-failure-text";
+apps/web/components/project/project-join-screen.tsx:99:    return httpFailureText(e.status);
+apps/web/components/project/project-ai-settings-panel.tsx:10:import { httpFailureText } from "@/lib/http-failure-text";
+apps/web/components/project/project-ai-settings-panel.tsx:143:    return httpFailureText(e.status);
+apps/web/components/project/project-evidence-section.tsx:8:import { httpFailureText } from "@/lib/http-failure-text";
+apps/web/components/project/project-evidence-section.tsx:169:    return httpFailureText(e.status);
+apps/web/components/project/create-project-form.tsx:10:import { httpFailureText } from "@/lib/http-failure-text";
+apps/web/components/project/create-project-form.tsx:108:    return httpFailureText(e.status, locale);
+apps/web/components/project/tab-todo.tsx:8:import { httpFailureText } from "@/lib/http-failure-text";
+apps/web/components/project/tab-todo.tsx:130:    return httpFailureText(e.status);
+apps/web/components/project/project-resource-section.tsx:13:import { httpFailureText } from "@/lib/http-failure-text";
+apps/web/components/project/project-resource-section.tsx:388:    return httpFailureText(e.status);
+apps/web/components/project/project-invite-panel.tsx:10:import { httpFailureText } from "@/lib/http-failure-text";
+apps/web/components/project/project-invite-panel.tsx:152:    return httpFailureText(e.status);
+apps/web/components/project/project-collaborators-panel.tsx:12:import { httpFailureText } from "@/lib/http-failure-text";
+apps/web/components/project/project-collaborators-panel.tsx:206:    return httpFailureText(e.status);
+apps/web/components/project/project-conversations.tsx:12:import { httpFailureText } from "@/lib/http-failure-text";
+apps/web/components/project/project-conversations.tsx:169:    return httpFailureText(e.status);
+apps/web/components/project/tab-general-overview.tsx:14:import { httpFailureText } from "@/lib/http-failure-text";
+apps/web/components/project/tab-general-overview.tsx:216:      (e: unknown) => { if (alive) setError(e instanceof ApiError ? httpFailureText(e.status) : "成员暂时读不到。"); },
+apps/web/components/project/research-overview.tsx:18:import { httpFailureText } from "@/lib/http-failure-text";
+apps/web/components/project/research-overview.tsx:415:  if (e instanceof ApiError) return httpFailureText(e.status);
+apps/web/components/project/research-overview.tsx:423:    return httpFailureText(e.status);
+apps/web/components/project/research-overview.tsx:432:    return httpFailureText(e.status);
+apps/web/components/project/research-overview.tsx:438:  if (e instanceof ApiError) return httpFailureText(e.status);
+apps/web/components/project/project-members-panel.tsx:9:import { httpFailureText } from "@/lib/http-failure-text";
+apps/web/components/project/project-members-panel.tsx:170:    return httpFailureText(e.status);
+apps/web/components/agent/agent-detail.tsx:17:import { httpFailureText } from "@/lib/http-failure-text";
+apps/web/components/agent/agent-detail.tsx:148:        else setState({ kind: "error", message: error instanceof ApiError ? httpFailureText(error.status) : "网络连接出了问题，稍后再试一次" });
+apps/web/components/agent/agent-directory.tsx:14:import { httpFailureText } from "@/lib/http-failure-text";
+apps/web/components/agent/agent-directory.tsx:178:        setState({ kind: "error", message: error instanceof ApiError ? httpFailureText(error.status) : "网络连接出了问题，稍后再试一次" });
+apps/web/components/admin/memory-ops-panels.tsx:7:import { httpFailureText } from "@/lib/http-failure-text";
+apps/web/components/admin/memory-ops-panels.tsx:33:    return httpFailureText(err.status);
+apps/web/components/admin/telemetry-settings-screen.tsx:8:import { httpFailureText } from "@/lib/http-failure-text";
+apps/web/components/admin/telemetry-settings-screen.tsx:44:    return httpFailureText(err.status);
+apps/web/components/admin/platform-extraction-setting-panel.tsx:7:import { httpFailureText } from "@/lib/http-failure-text";
+apps/web/components/admin/platform-extraction-setting-panel.tsx:45:    return httpFailureText(err.status);
