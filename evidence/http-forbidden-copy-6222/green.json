@@ -1,0 +1,18 @@
+{
+  "gate": "green",
+  "head": "770c9a835721f2aaa7278303265b91ef32890d2b",
+  "exit": 0,
+  "seconds": 11.302,
+  "logSha256": "aef3e9e1f10e373b5be9bdb739b4906ed72ebf28693ba90b351e322435a55482",
+  "rawPrivate": true,
+  "summary": [
+    " ✓ tests/ui/research-overview.test.tsx (10 tests) 751ms",
+    " ✓ tests/lib/http-failure-text.test.ts (15 tests) 15ms",
+    " ✓ tests/lib/artifact-failure.test.ts (4 tests) 4ms",
+    " ✓ tests/ui/failure-i18n.test.ts (3 tests) 7ms",
+    " ✓ tests/lib/i18n-resources.test.ts (5 tests) 124ms",
+    " Test Files  5 passed (5)",
+    "      Tests  37 passed (37)",
+    "   Duration  9.77s (transform 3.22s, setup 872ms, collect 5.69s, tests 901ms, environment 1.02s, prepare 356ms)"
+  ]
+}
