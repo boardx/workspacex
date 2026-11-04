@@ -1,0 +1,19 @@
+{
+  "worker": "95013fbaf4f074e3de5e6b5b699a7652c137ff01",
+  "upstream": "4b3263aa8649b8130e427bc34a9b4bade4f2e70d",
+  "base": "8f115aec5b693f93f8621ba23bcb94bbea3a156e",
+  "merged": "342231af10126413ec554cd003dc0e89b54b32ed",
+  "acceptedPullRequest": 6227,
+  "actualMergedAt": "2026-11-04T11:08:21Z",
+  "workerExclusiveModeBlobPreserved": 126,
+  "upstreamExclusiveModeBlobPreserved": 222,
+  "commonModeBlobPreserved": 23707,
+  "overlap": [
+    "apps/web/lib/i18n/messages/en.ts",
+    "apps/web/lib/i18n/messages/zh-CN.ts"
+  ],
+  "manualResolution": "Only4import/spread hunks in2registries, preserving both sides. Browser config was worker-exclusive and stays byteexact. Dictionary union separately checked.",
+  "inheritedWhitespaceDiagnostics": 7,
+  "inheritedWhitespaceScope": "Accepted quota evidence logs only; retained exact upstream blobs. Manual registry diff--check0; normal commit succeeded.",
+  "scope": "Mode/blob preservation and actual accepted delivery only. Survey660 evidence remains pinned premerge; no unchanged660 rerun implied. Current shared registry gates pending."
+}

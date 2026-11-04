@@ -551,14 +551,18 @@ test("survey intake locale preserves real file bytes, one configured proposal, c
         expect(writes).toHaveLength(beforeModalLocale);
         await capture(page, info, "proposal-corrected-raw-en", markdown);
         let refused = false;
-        const failCreateOnce = async (route: Route) => { if (!refused && route.request().method() === "POST") {
-            refused = true;
-            await route.fulfill({ status: 403, contentType: "application/json", body: JSON.stringify({ error: "forbidden", reasonCode: "CONTROLLED_INTAKE_PERMISSION" }) });
-        }
-        else
-            await route.continue(); };
-        await page.route("**/__fullstack_api/surveys", failCreateOnce);
+        const failSourceOnce = async (route: Route) => {
+            if (!refused && route.request().method() === "PUT") {
+                refused = true;
+                await route.fulfill({ status: 403, contentType: "application/json", body: JSON.stringify({ error: "forbidden", reasonCode: "CONTROLLED_INTAKE_PERMISSION" }) });
+            } else await route.continue();
+        };
+        await page.route("**/__fullstack_api/surveys/*/source", failSourceOnce);
+        const firstCreated = page.waitForResponse(response => pathOf(response.url()) === "/surveys" && response.request().method() === "POST");
         await dialog.getByRole("button", { name: "Apply to survey", exact: true }).click();
+        const firstCreatedResponse = await firstCreated;
+        expect(firstCreatedResponse.ok()).toBe(true);
+        const partial = SurveyRuntimeSchema.parse(await firstCreatedResponse.json());
         await expect(dialog.getByRole("alert")).toContainText("You do not have permission to perform this action.");
         expect(refused).toBe(true);
         for (const alert of await page.getByRole("alert").all())
@@ -566,16 +570,18 @@ test("survey intake locale preserves real file bytes, one configured proposal, c
         await expect(dialog.getByRole("textbox", { name: "AI proposal Markdown", exact: true })).toHaveValue(edited);
         const failedWrites = writes.length;
         await languages.language("zh-CN");
-        await languages.language("en");
         expect(writes).toHaveLength(failedWrites);
-        await expect(dialog.getByRole("textbox", { name: "AI proposal Markdown", exact: true })).toHaveValue(edited);
-        await capture(page, info, "proposal-controlled-permission-en", dialog.getByRole("button", { name: "Apply to survey", exact: true }));
-        await page.unroute("**/__fullstack_api/surveys", failCreateOnce);
-        const sourceSaved = page.waitForResponse(response => /\/surveys\/[0-9a-f-]+\/source$/.test(pathOf(response.url())) && response.request().method() === "PUT");
-        await dialog.getByRole("button", { name: "Apply to survey", exact: true }).click();
+        await expect(page.getByRole("textbox", { name: "AI 提案 Markdown", exact: true })).toHaveValue(edited);
+        await capture(page, info, "proposal-controlled-permission-zh", dialog.getByRole("button", { name: "应用到问卷", exact: true }));
+        await page.unroute("**/__fullstack_api/surveys/*/source", failSourceOnce);
+        const sourceSaved = page.waitForResponse(response => pathOf(response.url()) === `/surveys/${partial.id}/source` && response.request().method() === "PUT");
+        await dialog.getByRole("button", { name: "应用到问卷", exact: true }).click();
         expect((await sourceSaved).ok()).toBe(true);
-        await expect(page).toHaveURL(/\/studio\/survey\/[0-9a-f-]+\/design$/);
-        const id = new URL(page.url()).pathname.split("/")[3]!, saved = await runtime(page, id);
+        await expect(page).toHaveURL(new RegExp(`/studio/survey/${partial.id}/design$`));
+        await expect(page.getByRole("textbox", { name: "问卷名称", exact: true })).toHaveValue(rawTitle);
+        const id = partial.id, saved = await runtime(page, id);
+        expect(saved.template).toEqual(partial.template);
+        await languages.language("en");
         expect(saved.title).toBe(rawTitle);
         expect(saved.questions).toHaveLength(1);
         expect(saved.questions[0]!.title).toBe(rawQuestion);
@@ -586,9 +592,10 @@ test("survey intake locale preserves real file bytes, one configured proposal, c
         await expect(page.getByRole("button", { name: `Edit question 1: ${rawQuestion}`, exact: true })).toBeVisible();
         await capture(page, info, "import-persisted-design-en", page.getByRole("textbox", { name: "Survey name", exact: true }));
         expect(writes.filter(call => call.path === "/surveys/markdown-proposals")).toHaveLength(1);
-        expect(writes.filter(call => call.path === "/surveys" && call.method === "POST")).toHaveLength(2);
+        expect(writes.filter(call => call.path === "/surveys" && call.method === "POST")).toHaveLength(1);
+        expect(writes.filter(call => call.path === `/surveys/${id}/source` && call.method === "PUT")).toHaveLength(2);
         expect(errors).toEqual([]);
-        await writeFile(info.outputPath("intake-mutation-receipt.json"), JSON.stringify({ surveyId: id, fileSha256: sha(fileBytes), fileSize: fileBytes.length, proposalSourceKind: proposal.source.kind, proposalSourceSha256: proposal.source.sha256, provider: proposal.execution.provider, modelId: proposal.execution.modelId, correctedMarkdownSha256: sha(edited), persistedDesignSha256: sha(saved.source!.documents.design.markdown), sourceHash: saved.source!.contentHash, proposalRequests: 1, createAttempts: 2, controlledPermissionFailure: true, configuredModelExecution: true, vendorQualityClaim: false }, null, 2));
+        await writeFile(info.outputPath("intake-mutation-receipt.json"), JSON.stringify({ surveyId: id, fileSha256: sha(fileBytes), fileSize: fileBytes.length, proposalSourceKind: proposal.source.kind, proposalSourceSha256: proposal.source.sha256, provider: proposal.execution.provider, modelId: proposal.execution.modelId, correctedMarkdownSha256: sha(edited), persistedDesignSha256: sha(saved.source!.documents.design.markdown), sourceHash: saved.source!.contentHash, proposalRequests: 1, createAttempts: 1, sourceSaveAttempts: 2, originalReportIdentityRetained: true, controlledPermissionFailure: true, configuredModelExecution: true, vendorQualityClaim: false }, null, 2));
     }
     finally {
         await held?.dispose();
