@@ -1,5 +1,7 @@
 import { expect, test, type Page, type Locator, type Route, type TestInfo } from "@playwright/test";
 import { createHash, randomUUID } from "node:crypto";
+import { inflateRawSync } from "node:zlib";
+import { SURVEY_REPORT_SHARE_MIN_SAMPLE } from "@repo/contracts/survey-report";
 import { readFile, writeFile } from "node:fs/promises";
 import { SurveyRuntimeSchema, type SurveyRuntime } from "@repo/contracts/survey-runtime";
 import { SurveyLibraryTemplateSchema } from "@repo/contracts/survey-template-library";
@@ -74,6 +76,21 @@ async function languageTab(page: Page) {
     await other.goto("/studio/survey");
     return { language: async (locale: "en" | "zh-CN") => { await other.getByTestId("language-switcher").first().selectOption(locale); await expect(page.locator("html")).toHaveAttribute("lang", locale); }, close: () => other.close() };
 }
+/** Inspect actual downloaded OOXML independently of the browser document builder. */
+function zipText(bytes: Buffer, entry: string): string {
+    for (let offset = 0; offset + 46 <= bytes.length; offset++) {
+        if (bytes.readUInt32LE(offset) !== 0x02014b50) continue;
+        const nameLength = bytes.readUInt16LE(offset + 28);
+        if (bytes.subarray(offset + 46, offset + 46 + nameLength).toString("utf8") !== entry) continue;
+        const local = bytes.readUInt32LE(offset + 42);
+        expect(bytes.readUInt32LE(local)).toBe(0x04034b50);
+        const start = local + 30 + bytes.readUInt16LE(local + 26) + bytes.readUInt16LE(local + 28);
+        const data = bytes.subarray(start, start + bytes.readUInt32LE(offset + 20)), method = bytes.readUInt16LE(offset + 10);
+        expect([0, 8]).toContain(method);
+        return (method === 8 ? inflateRawSync(data) : data).toString("utf8");
+    }
+    throw Error(`Downloaded archive entry missing: ${entry}`);
+}
 const meeting = "会议反馈调查";
 async function fillMeeting(page: Page, firstTitle: string) {
     await page.getByRole("textbox", { name: firstTitle, exact: true }).fill("原会议回答 {count}");
@@ -119,8 +136,9 @@ test("survey locale preserves real author publishing, anonymous file submission,
         await page.getByTestId("add-question-file").click();
         await canvas.getByRole("button", { name: "Edit question 9: File upload", exact: true }).click();
         await canvas.getByRole("textbox", { name: "Question content", exact: true }).fill(rawFile);
+        await page.getByRole("checkbox", { name: "Required", exact: true }).uncheck();
         await page.getByRole("textbox", { name: "Survey name", exact: true }).click();
-        await expect.poll(async () => { const value = await runtime(page, id); return [value.title, value.questions[0]?.title, value.questions.at(-1)?.title]; }).toEqual([rawTitle, rawFirst, rawFile]);
+        await expect.poll(async () => { const value = await runtime(page, id); return [value.title, value.questions[0]?.title, value.questions.at(-1)?.title, value.questions.at(-1)?.required]; }).toEqual([rawTitle, rawFirst, rawFile, false]);
         const stable = await runtime(page, id), nameInput = page.getByRole("textbox", { name: "Survey name", exact: true }), nameHandle = await nameInput.elementHandle();
         await nameInput.focus();
         await nameInput.evaluate(element => (element as HTMLInputElement).setSelectionRange(1, 4));
@@ -243,7 +261,54 @@ test("survey locale preserves real author publishing, anonymous file submission,
         await expect(page.getByTestId("survey-report-sample-summary")).toContainText("Included in analysis 1");
         await expect(page.getByRole("status", { name: "Low sample notice", exact: true })).toBeVisible();
         await capture(page, info, "report-low-sample-en", page.getByTestId("survey-report-sample-summary"));
+        await expect(page.getByRole("button", { name: "Export Word", exact: true })).toBeDisabled();
+        await expect(page.getByRole("button", { name: "Export Markdown", exact: true })).toBeDisabled();
+        const supplementalCount = SURVEY_REPORT_SHARE_MIN_SAMPLE - 1;
+        const supplementalAnswers = submission.answers.filter(answer => answer.questionId !== fileQuestion.id);
+        for (let index = 0; index < supplementalCount; index++) {
+            const respondentApi = await browser.newContext();
+            try {
+                const endpoint = `${new URL(publicUrl).origin}${API}/public/surveys/${token}`;
+                const publicRead = await respondentApi.request.get(endpoint);
+                expect(publicRead.ok()).toBe(true);
+                const accepted = await respondentApi.request.post(`${endpoint}/responses`, { data: { submissionId: randomUUID(), answers: supplementalAnswers, durationSeconds: 120, role: `原API补充样本 ${index + 1}`, companySize: "原范围" } });
+                expect(accepted.ok()).toBe(true);
+                expect((await accepted.json()).replayed).toBe(false);
+            } finally { await respondentApi.close(); }
+        }
+        const regenerated = page.waitForResponse(response => pathOf(response.url()) === `/surveys/${id}/report` && response.request().method() === "POST");
+        await page.getByRole("button", { name: "Regenerate report", exact: true }).click();
+        expect((await regenerated).ok()).toBe(true);
+        await expect(page.getByTestId("survey-report-sample-summary")).toContainText(`Included in analysis ${SURVEY_REPORT_SHARE_MIN_SAMPLE}`);
+        await expect(page.getByRole("button", { name: "Export Word", exact: true })).toBeEnabled();
+        await expect(page.getByRole("button", { name: "Export Markdown", exact: true })).toBeEnabled();
+        await capture(page, info, "report-ready-exports-en", page.getByRole("button", { name: "Export Word", exact: true }));
+        const englishDownload = page.waitForEvent("download");
+        await page.getByRole("button", { name: "Export Markdown", exact: true }).click();
+        const englishFile = await englishDownload;
+        expect(englishFile.suggestedFilename()).toBe("survey-report.md");
+        const englishMarkdown = await readFile((await englishFile.path())!, "utf8");
+        expect(englishMarkdown).toContain("原建议 {name}");
+        const beforeExportLocale = requests.length;
+        await languages.language("zh-CN");
+        expect(requests).toHaveLength(beforeExportLocale);
+        const chineseDownload = page.waitForEvent("download");
+        await page.getByRole("button", { name: "导出 Markdown", exact: true }).click();
+        const chineseFile = await chineseDownload;
+        expect(chineseFile.suggestedFilename()).toBe(englishFile.suggestedFilename());
+        expect(await readFile((await chineseFile.path())!, "utf8")).toBe(englishMarkdown);
+        await languages.language("en");
+        const wordDownload = page.waitForEvent("download");
+        await page.getByRole("button", { name: "Export Word", exact: true }).click();
+        const wordFile = await wordDownload;
+        expect(wordFile.suggestedFilename()).toMatch(/\.docx$/);
+        const wordBytes = await readFile((await wordFile.path())!);
+        const documentXml = zipText(wordBytes, "word/document.xml");
+        expect(documentXml).toContain("原建议 {name}");
+        expect(documentXml).toContain("</w:document>");
         const final = await runtime(page, id), finalDb = surveyI18nDatabaseEvidence(account.userId, id);
+        expect(final.responses).toHaveLength(SURVEY_REPORT_SHARE_MIN_SAMPLE);
+        expect(finalDb.responses).toEqual(final.responses);
         expect(finalDb.report).toEqual(final.report);
         expect(finalDb.responses[0]!.analysisHistory).toHaveLength(2);
         expect(finalDb.responses[0]!.analysisHistory![0]!.reason).toBe(reason);
@@ -257,7 +322,7 @@ test("survey locale preserves real author publishing, anonymous file submission,
         await expect(report.locator("[data-chart] svg").first()).toBeVisible();
         await capture(page, info, "report-chart-en", report.locator("[data-chart]").first());
         expect(errors).toEqual([]);
-        await writeFile(info.outputPath("survey-mutation-receipt.json"), JSON.stringify({ surveyId: id, responseId, batchId: final.activeCollectionBatchId, publicationVersion: final.publication!.version, sourceHash: final.publication!.sourceSnapshot!.contentHash, fileSha256: sha(bytes), fileSize: bytes.length, answerSha256: sha(JSON.stringify(submission.answers)), responseCount: final.responses.length, governanceEvents: finalDb.responses[0]!.analysisHistory!.length, uploadSessions: database.uploadSessions.length, attachments: database.attachments.length, apiAndPgAgree: true }, null, 2));
+        await writeFile(info.outputPath("survey-mutation-receipt.json"), JSON.stringify({ surveyId: id, responseId, batchId: final.activeCollectionBatchId, publicationVersion: final.publication!.version, sourceHash: final.publication!.sourceSnapshot!.contentHash, fileSha256: sha(bytes), fileSize: bytes.length, answerSha256: sha(JSON.stringify(submission.answers)), responseCount: final.responses.length, uiSubmissions: 1, supplementalApiSubmissions: supplementalCount, canonicalMarkdownSha256: sha(englishMarkdown), wordBytesSha256: sha(wordBytes), wordDocumentXmlSha256: sha(documentXml), governanceEvents: finalDb.responses[0]!.analysisHistory!.length, uploadSessions: database.uploadSessions.length, attachments: database.attachments.length, apiAndPgAgree: true }, null, 2));
     }
     finally {
         await held?.dispose();
