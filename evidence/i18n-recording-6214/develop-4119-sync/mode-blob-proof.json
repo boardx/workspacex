@@ -1,0 +1,20 @@
+{
+  "worker": "03c5b6c963ee3ed56b4e679e7ac47fb5c448c024",
+  "upstream": "4119fc3d318801215b15bd0a5665983fa25bfe2a",
+  "allMergeBases": [
+    "ec1695d8fd646e004ca40dafbfa8e03bf01f20ef"
+  ],
+  "comparisonBase": "ec1695d8fd646e004ca40dafbfa8e03bf01f20ef",
+  "classification": {
+    "workerOnly": 271,
+    "upstreamOnly": 85,
+    "sharedChangedIdentical": 0,
+    "sharedUnchanged": 23376
+  },
+  "differentChangesOnBothSides": [
+    "apps/web/lib/i18n/messages/en.ts",
+    "apps/web/lib/i18n/messages/zh-CN.ts"
+  ],
+  "unresolvedPaths": [],
+  "allOtherModeBlobsPreserved": true
+}

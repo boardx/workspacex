@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import * as Dialog from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,6 @@ import { TagField, commitDraft } from "@/components/ui/tag-input";
 import { tagInputLimits, personalRealtimeTranscription } from "@repo/contracts";
 const TAG_LIMITS = tagInputLimits(personalRealtimeTranscription.operations.createPersonalTranscription.in.shape.tags);
 
-const DEFAULT_TRANSCRIPTION_NAME = "未命名转录";
 
 export interface NewTranscriptionDraft {
   readonly name: string;
@@ -28,7 +28,13 @@ export function CreateTranscriptionDialog({
   /** 已有标签词表（`标签 → 用量`），给输入框做建议；不给就没有建议。 */
   knownTags?: ReadonlyMap<string, number>;
 }) {
-  const [name, setName] = React.useState(DEFAULT_TRANSCRIPTION_NAME);
+  const { t } = useI18n();
+  const [name, setName] = React.useState(() => t("rec.create.default"));
+  const nameTouched = React.useRef(false);
+  React.useEffect(() => {
+    if (!open) nameTouched.current = false;
+    if (!nameTouched.current) setName(t("rec.create.default"));
+  }, [open, t]);
   const [tags, setTags] = React.useState<readonly string[]>([]);
   const [tagDraft, setTagDraft] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
@@ -38,7 +44,8 @@ export function CreateTranscriptionDialog({
   const created = React.useRef(false);
 
   function reset() {
-    setName(DEFAULT_TRANSCRIPTION_NAME);
+    nameTouched.current = false;
+    setName(t("rec.create.default"));
     setTags([]);
     setTagDraft("");
     setSubmitError(false);
@@ -53,6 +60,7 @@ export function CreateTranscriptionDialog({
     event.preventDefault();
     const nextName = name.trim();
     if (!nextName || submitting) return;
+    nameTouched.current = true;
     const submittedTags = commitDraft(tags, tagDraft, TAG_LIMITS);
     setSubmitting(true);
     setSubmitError(false);
@@ -91,11 +99,11 @@ export function CreateTranscriptionDialog({
         >
           <div className="flex items-start justify-between gap-4">
             <div className="flex flex-col gap-1">
-              <Dialog.Title className="text-20 font-semibold tracking-tight">新建转录</Dialog.Title>
-              <Dialog.Description className="sr-only">设置转录名称与标签，创建后进入转录工作区。</Dialog.Description>
+              <Dialog.Title className="text-20 font-semibold tracking-tight">{t("rec.create.title")}</Dialog.Title>
+              <Dialog.Description className="sr-only">{t("rec.create.description")}</Dialog.Description>
             </div>
             <Dialog.Close asChild>
-              <Button type="button" size="icon" variant="ghost" aria-label="关闭新建转录弹窗">
+              <Button type="button" size="icon" variant="ghost" aria-label={t("rec.create.close")}>
                 <X aria-hidden className="h-4 w-4" />
               </Button>
             </Dialog.Close>
@@ -104,7 +112,7 @@ export function CreateTranscriptionDialog({
           <form className="mt-4 flex flex-col gap-4" onSubmit={submit}>
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between gap-3">
-                <Label htmlFor="rec-create-name" className="text-13 text-card-foreground">转录名称</Label>
+                <Label htmlFor="rec-create-name" className="text-13 text-card-foreground">{t("rec.create.name")}</Label>
                 <span data-testid="rec-create-name-count" className="text-11 text-muted-foreground">{name.length}/100</span>
               </div>
               <Input
@@ -112,9 +120,9 @@ export function CreateTranscriptionDialog({
                 data-testid="rec-create-name"
                 value={name}
                 maxLength={100}
-                placeholder="例如：欧洲市场进入讨论"
+                placeholder={t("rec.create.placeholder")}
                 ref={nameInput}
-                onChange={(event) => setName(event.target.value)}
+                onChange={(event) => { nameTouched.current = true; setName(event.target.value); }}
                 className="h-10"
               />
             </div>
@@ -129,15 +137,15 @@ export function CreateTranscriptionDialog({
                 {...TAG_LIMITS}
                 testIdPrefix="rec-create-tag"
               />
-              {submitError && <p role="alert" className="text-11 text-destructive">创建失败，请稍后重试。</p>}
+              {submitError && <p role="alert" className="text-11 text-destructive">{t("rec.create.failed")}</p>}
             </div>
 
             <WorkflowActionBar placement="footer">
               <WorkflowActionButton data-testid="rec-create-cancel" type="button" variant="outline" onClick={() => changeOpen(false)}>
-                取消
+                {t("common.cancel")}
               </WorkflowActionButton>
               <WorkflowActionButton data-testid="rec-create-submit" type="submit" variant="primary" loading={submitting} disabled={!name.trim() || submitting}>
-                {submitting ? "正在创建" : "创建并进入"}
+                {submitting ? t("rec.create.creating") : t("rec.create.open")}
               </WorkflowActionButton>
             </WorkflowActionBar>
           </form>

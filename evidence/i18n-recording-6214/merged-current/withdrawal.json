@@ -1,0 +1,15 @@
+{
+  "name": "withdrawal",
+  "command": [
+    "node",
+    "apps/web/scripts/lint-withdrawal-flow.mjs"
+  ],
+  "source": "026d8dcac5c044fcafa8b5c33a5d633b346223b6",
+  "exitCode": 0,
+  "seconds": 0.239,
+  "rawLogLocalPath": "/tmp/6214-current-withdrawal.log",
+  "rawLogSha256": "664bad759228cadabfbe3d406308f181b45d4d1b105b0f3b285083bdcc4a74ea",
+  "receiptPath": "withdrawal.txt",
+  "receiptSha256": "664bad759228cadabfbe3d406308f181b45d4d1b105b0f3b285083bdcc4a74ea",
+  "receiptNormalization": "trailing blank EOF only; original rawLogSha256 retained"
+}

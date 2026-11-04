@@ -1,0 +1,37 @@
+{
+  "source": "89745fd03525e4422b8d6c638b018488eacaddc0",
+  "prior": "f998aadc66a08090302533ed629afdf9a039a47f",
+  "accepted": "ec1695d8fd646e004ca40dafbfa8e03bf01f20ef",
+  "typescript": "5.9.3",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "jsx": "ReactJSX",
+    "removeComments": true
+  },
+  "checks": {
+    "acceptedPanelContainsExactOriginalText": true,
+    "literalBytesUnchanged": true,
+    "originalReasonBytesUnchanged": true,
+    "markerCountBefore": 1,
+    "markerCountAfter": 1,
+    "oldLocationRemoved": true,
+    "onlyTwoSourcePathsChanged": true
+  },
+  "literalSha256": "acf16fe6c517bd28ec815f7b1a20ecfcd44298e3212185035b8b1e0c787124fb",
+  "markerAndReasonSha256": "01cb4c34056fcabd0d44f867215bf6def0c3d1d684aec07ed4055dfeb8fa2587",
+  "modules": [
+    {
+      "path": "apps/web/lib/recording-display-copy.ts",
+      "emittedJavaScriptIdentical": true,
+      "beforeEmitSha256": "b0923e23b7b8d62121d422cdb2f4132aa13360c1aff40853f46e7d2e368c54bf",
+      "afterEmitSha256": "b0923e23b7b8d62121d422cdb2f4132aa13360c1aff40853f46e7d2e368c54bf"
+    },
+    {
+      "path": "apps/web/components/rec/retention-panel.tsx",
+      "emittedJavaScriptIdentical": true,
+      "beforeEmitSha256": "c8b6553e2f44c899a994384b7763c9002eda3e0f29e2dcdc9edc71f546c144f5",
+      "afterEmitSha256": "c8b6553e2f44c899a994384b7763c9002eda3e0f29e2dcdc9edc71f546c144f5"
+    }
+  ]
+}

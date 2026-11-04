@@ -1,0 +1,13 @@
+{
+  "name": "wiring",
+  "command": [
+    "pnpm",
+    "run",
+    "lint:ui-wiring"
+  ],
+  "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61",
+  "exitCode": 0,
+  "seconds": 3.539,
+  "rawLogLocalPath": "/tmp/6214-visual-private-f8/wiring.log",
+  "rawLogSha256": "91143fee075e07c8c5577e08efa1fd2dd6d135cbb61bcd82a8e9e8c189b533e8"
+}

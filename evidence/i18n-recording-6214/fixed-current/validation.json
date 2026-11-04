@@ -1,0 +1,74 @@
+{
+  "fixed-web-type": {
+    "name": "fixed-web-type",
+    "command": [
+      "pnpm",
+      "--filter",
+      "web",
+      "typecheck"
+    ],
+    "source": "969bfd76f8affc0bbb679eecbfd69b0f374f743e",
+    "exitCode": 0,
+    "seconds": 40.699,
+    "rawLogSha256": "cd5788cc155241ad0932956ca7dd287ae173e2f213993b615bdafdcb93bc7ce4",
+    "privateRawLogPath": "/tmp/6214-fixed-checks-private-969/fixed-web-type.log"
+  },
+  "fixed-spec-eslint": {
+    "name": "fixed-spec-eslint",
+    "command": [
+      "pnpm",
+      "--filter",
+      "web",
+      "exec",
+      "eslint",
+      "e2e/i18n-recording-journey.spec.ts"
+    ],
+    "source": "969bfd76f8affc0bbb679eecbfd69b0f374f743e",
+    "exitCode": 0,
+    "seconds": 1.927,
+    "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "privateRawLogPath": "/tmp/6214-fixed-checks-private-969/fixed-spec-eslint.log"
+  },
+  "fixed-spec-testid": {
+    "name": "fixed-spec-testid",
+    "command": [
+      "pnpm",
+      "run",
+      "lint:e2e-testid-gate"
+    ],
+    "source": "969bfd76f8affc0bbb679eecbfd69b0f374f743e",
+    "exitCode": 0,
+    "seconds": 3.89,
+    "rawLogSha256": "ac5820152406092e3f5120efad0512b91e47adf278b506ba95f34bf4e6252d1e",
+    "privateRawLogPath": "/tmp/6214-fixed-checks-private-969/fixed-spec-testid.log"
+  },
+  "fixed-spec-list": {
+    "name": "fixed-spec-list",
+    "command": [
+      "pnpm",
+      "exec",
+      "tsx",
+      ".harness/scripts/with-test-isolation.ts",
+      "--",
+      "pnpm",
+      "--filter",
+      "web",
+      "exec",
+      "playwright",
+      "test",
+      "--config",
+      "playwright.fullstack-smoke.config.ts",
+      "--project=seeded",
+      "e2e/i18n-recording-journey.spec.ts",
+      "--workers=1",
+      "--retries=0",
+      "--max-failures=1",
+      "--list"
+    ],
+    "source": "969bfd76f8affc0bbb679eecbfd69b0f374f743e",
+    "exitCode": 0,
+    "seconds": 2.437,
+    "rawLogSha256": "3f5cde58233a95cc21cb34f3edd118f170dcd6fb3d19df590d174f0bd54d3f26",
+    "privateRawLogPath": "/tmp/6214-fixed-checks-private-969/fixed-spec-list.log"
+  }
+}

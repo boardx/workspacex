@@ -1,3 +1,4 @@
+import { recordingProjectEn } from "../namespaces/recording-project";
 import { workflowGrantsEn } from "../namespaces/workflow-grants";
 import { orgHomeConfigEn } from "../namespaces/org-home-config";
 import { orgProfileEn } from "../namespaces/org-profile";
@@ -257,6 +258,9 @@ export const en: Record<keyof typeof zhCN, string> = {
   ...studioResearchEn,
   ...researchEn,
   ...studioHistoryEn,
+  ...recordingEn,
+  ...recordingProjectEn,
+  ...audioInputEn,
   ...interviewEn,
 };
 
@@ -270,3 +274,7 @@ import { researchEn } from "../namespaces/research";
 import { interviewEn } from "../namespaces/interview";
 
 import { studioHistoryEn } from "../namespaces/studio-history";
+
+import { recordingEn } from "../namespaces/recording";
+
+import { audioInputEn } from "../namespaces/audio-input";

@@ -1,0 +1,17 @@
+[
+  "tests/e2e/personal-realtime-transcription-smoke.test.ts",
+  "tests/lib/boardx-realtime-asr-client.test.ts",
+  "tests/lib/i18n-resources.test.ts",
+  "tests/lib/live-personal-transcriptions.test.ts",
+  "tests/lib/realtime-asr-flow.test.ts",
+  "tests/lib/realtime-reconnect.test.ts",
+  "tests/recording/live-recording-capture.test.ts",
+  "tests/ui/audio-input-i18n.test.tsx",
+  "tests/ui/create-transcription-focus.test.tsx",
+  "tests/ui/personal-transcription-history.test.tsx",
+  "tests/ui/realtime-transcription-history.test.tsx",
+  "tests/ui/realtime-transcription-workspace.test.tsx",
+  "tests/ui/recording-controller-i18n.test.tsx",
+  "tests/ui/recording-journey-i18n.test.tsx",
+  "tests/ui/recording-project-i18n.test.tsx"
+]

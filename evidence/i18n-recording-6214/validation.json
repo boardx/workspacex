@@ -1,0 +1,360 @@
+{
+  "init": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6214-init.log",
+    "rawLogSha256": "b9454ea9b0cef337e754f5577a3ea517168d367f1dafc79e9a75b55ad28d998d",
+    "receiptPath": "evidence/i18n-recording-6214/init.txt",
+    "receiptSha256": "b9454ea9b0cef337e754f5577a3ea517168d367f1dafc79e9a75b55ad28d998d",
+    "receiptNormalization": "Trailing blank output lines removed where present. rawLogSha256 remains the unmodified local command output."
+  },
+  "initial-red": {
+    "exitCode": 1,
+    "rawLogLocalPath": "/tmp/6214-initial-red.log",
+    "rawLogSha256": "2f0155083694848590e4099ed9b03ada6dff30e3ba0273627ab5d062cf0b0f61",
+    "receiptPath": "evidence/i18n-recording-6214/initial-red.txt",
+    "receiptSha256": "04e93150a5b4957f265e015d8483df14a61a73d34e97418b876ac98aec5f3ef4",
+    "receiptNormalization": "Trailing blank output lines removed where present. rawLogSha256 remains the unmodified local command output."
+  },
+  "initial-green-attempt": {
+    "exitCode": 1,
+    "note": "9 passed; one unsupported focus matcher, corrected to actual document.activeElement",
+    "rawLogLocalPath": "/tmp/6214-initial-green.log",
+    "rawLogSha256": "30892b5a6698b28dd0e1e8cd42ae79d6c4e362b75426acb29620b4deb70238f6",
+    "receiptPath": "evidence/i18n-recording-6214/initial-green-attempt.txt",
+    "receiptSha256": "30892b5a6698b28dd0e1e8cd42ae79d6c4e362b75426acb29620b4deb70238f6",
+    "receiptNormalization": "Trailing blank output lines removed where present. rawLogSha256 remains the unmodified local command output."
+  },
+  "controller-red": {
+    "exitCode": 1,
+    "note": "5 actual failures, including React child crash from prototype-named unknown reason",
+    "rawLogLocalPath": "/tmp/6214-controller-red.log",
+    "rawLogSha256": "60b777dd9f0cbe89a60ecac7356e564c8ee2ae48dc8d247fd50467c33ba8fc6f",
+    "receiptPath": "evidence/i18n-recording-6214/controller-red.txt",
+    "receiptSha256": "60b777dd9f0cbe89a60ecac7356e564c8ee2ae48dc8d247fd50467c33ba8fc6f",
+    "receiptNormalization": "Trailing blank output lines removed where present. rawLogSha256 remains the unmodified local command output."
+  },
+  "controller-green-project-red": {
+    "exitCode": 1,
+    "note": "15 passed; metadata/delete 2 and project headings 6 actual RED; live fixture invalid carrier caused precondition error, corrected before rerun",
+    "rawLogLocalPath": "/tmp/6214-controller-green-project-red.log",
+    "rawLogSha256": "06d1ff7b2159e07ea55dc11c0e66053e61898d36b1e88ff2cdca961936bc2896",
+    "receiptPath": "evidence/i18n-recording-6214/controller-green-project-red.txt",
+    "receiptSha256": "06d1ff7b2159e07ea55dc11c0e66053e61898d36b1e88ff2cdca961936bc2896",
+    "receiptNormalization": "Trailing blank output lines removed where present. rawLogSha256 remains the unmodified local command output."
+  },
+  "controller-lint": {
+    "exitCode": 0,
+    "note": "3 changed files",
+    "rawLogLocalPath": "/tmp/6214-controller-lint.log",
+    "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "receiptPath": "evidence/i18n-recording-6214/controller-lint.txt",
+    "receiptSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "receiptNormalization": "Trailing blank output lines removed where present. rawLogSha256 remains the unmodified local command output."
+  },
+  "project-first-green-live-red": {
+    "exitCode": 1,
+    "note": "16 passed/8 failed: live fixture corrected and valid placeholder RED; namespace En spread missing and delete test punctuation corrected after this run",
+    "rawLogLocalPath": "/tmp/6214-project-first-green-live-red.log",
+    "rawLogSha256": "442f806f2bde865eb6b19dea98a518267f65dd3bb7d322270b43e924cf94cd75",
+    "receiptPath": "evidence/i18n-recording-6214/project-first-green-live-red.txt",
+    "receiptSha256": "442f806f2bde865eb6b19dea98a518267f65dd3bb7d322270b43e924cf94cd75",
+    "receiptNormalization": "Trailing blank output lines removed where present. rawLogSha256 remains the unmodified local command output."
+  },
+  "project-green": {
+    "exitCode": 0,
+    "note": "4 files,24 passed,7.75s before adding four new display counterexamples",
+    "rawLogLocalPath": "/tmp/6214-project-green.log",
+    "rawLogSha256": "c246eadf872e090726c601f1802df422c4e229374114b89ecb9561f877873be5",
+    "receiptPath": "evidence/i18n-recording-6214/project-green.txt",
+    "receiptSha256": "0f736795a1ed25f8e04dea465a36efa7de12e8448ab47e89965232dfe0ad45f8",
+    "receiptNormalization": "Trailing blank output lines removed where present. rawLogSha256 remains the unmodified local command output."
+  },
+  "first-type": {
+    "exitCode": 2,
+    "note": "TS1117 duplicate namespace property twice and test handler onState never; corrected locally, pending rerun",
+    "rawLogLocalPath": "/tmp/6214-first-type.log",
+    "rawLogSha256": "40042fca4225b2a9d9550194ee3420d60dff724fe61d1779df085930a3f1ff48",
+    "receiptPath": "evidence/i18n-recording-6214/first-type.txt",
+    "receiptSha256": "40042fca4225b2a9d9550194ee3420d60dff724fe61d1779df085930a3f1ff48",
+    "receiptNormalization": "Trailing blank output lines removed where present. rawLogSha256 remains the unmodified local command output."
+  },
+  "project-lint": {
+    "exitCode": 0,
+    "note": "10 changed files scoped lint",
+    "rawLogLocalPath": "/tmp/6214-project-lint.log",
+    "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "receiptPath": "evidence/i18n-recording-6214/project-lint.txt",
+    "receiptSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "receiptNormalization": "Trailing blank output lines removed where present. rawLogSha256 remains the unmodified local command output."
+  },
+  "display-red": {
+    "exitCode": 1,
+    "note": "7 actual meaningful assertion failures; 17 skipped, no collection or fixture errors; duration 7.83s",
+    "rawLogLocalPath": "/tmp/6214-display-red.log",
+    "rawLogSha256": "64ab2869edfac931318c2f0e0c70f9922ba74953bbbb50c5be0bffe694d204a1",
+    "receiptPath": "evidence/i18n-recording-6214/display-red.txt",
+    "receiptSha256": "64ab2869edfac931318c2f0e0c70f9922ba74953bbbb50c5be0bffe694d204a1",
+    "receiptNormalization": "Trailing blank output lines removed where present. rawLogSha256 remains the unmodified local command output."
+  },
+  "display-green-details-red": {
+    "exitCode": 1,
+    "note": "31 passed including seven previous RED cases; four new meaningful caption assertions failed,10.17s",
+    "rawLogLocalPath": "/tmp/6214-display-green-details-red.log",
+    "rawLogSha256": "a366242b5ff3375e1efb119101e66fd7c5f91d23995237d02754c2458255a267",
+    "receiptPath": "evidence/i18n-recording-6214/display-green-details-red.txt",
+    "receiptSha256": "a366242b5ff3375e1efb119101e66fd7c5f91d23995237d02754c2458255a267",
+    "receiptNormalization": "Trailing blank output lines removed where present. rawLogSha256 remains the unmodified local command output."
+  },
+  "display-lint": {
+    "exitCode": 0,
+    "note": "5 changed source/helper/browser files",
+    "rawLogLocalPath": "/tmp/6214-display-lint.log",
+    "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "receiptPath": "evidence/i18n-recording-6214/display-lint.txt",
+    "receiptSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "receiptNormalization": "Trailing blank output lines removed where present. rawLogSha256 remains the unmodified local command output."
+  },
+  "affected-regression": {
+    "exitCode": 0,
+    "note": "15 files205/205 PASS34.31s; product runtime frozen. Follow-up test-only fix gives newly created fixture a distinct sessionId to avoid duplicate React key warnings, pending focused rerun.",
+    "rawLogLocalPath": "/tmp/6214-affected-regression.log",
+    "rawLogSha256": "1771ac4f3f94eb60b6920c7a89c03bdcd8a0ea541f430d5ad1ddd3bc01c777e9",
+    "receiptPath": "evidence/i18n-recording-6214/affected-regression.txt",
+    "receiptSha256": "629eb8946103bce6f2f1e99b212f957c54c12c60fa2ca22adc6e209863e1118d",
+    "receiptNormalization": "Trailing blank output lines removed where present. rawLogSha256 remains the unmodified local command output."
+  },
+  "final-type": {
+    "exitCode": 0,
+    "note": "First type errors corrected; full web tsc exit0. Further display-only singular/plural correction is pending its separate RED/GREEN.",
+    "rawLogLocalPath": "/tmp/6214-final-type.log",
+    "rawLogSha256": "cd5788cc155241ad0932956ca7dd287ae173e2f213993b615bdafdcb93bc7ce4",
+    "receiptPath": "evidence/i18n-recording-6214/final-type.txt",
+    "receiptSha256": "a33cb97200ea3996660a3c0e4d08a349cf90f9a92df56e97f369dbc90851fac3",
+    "receiptNormalization": "Trailing blank output lines removed where present. rawLogSha256 remains the unmodified local command output."
+  },
+  "controller-final": {
+    "exitCode": 0,
+    "note": "Five tests passed; distinct newly created fixture sessionId removes duplicate React key warnings; runtime unchanged",
+    "rawLogLocalPath": "/tmp/6214-controller-final.log",
+    "rawLogSha256": "67503db9b005c712353d736a5ca4a43f7e1a3d78a3d62a21cfaf7a7c57b174e2",
+    "receiptPath": "evidence/i18n-recording-6214/controller-final.txt",
+    "receiptSha256": "4a3d01caa791f5cb76a2b66898d9af86ee1633a5dbf63229064a46cea6427089",
+    "receiptNormalization": "Trailing blank output lines removed where present. rawLogSha256 remains the unmodified local command output."
+  },
+  "final-lint": {
+    "exitCode": 1,
+    "note": "Six react/jsx-key errors in project test case array. Product/source no lint errors. Added stable raw keys locally, pending rerun.",
+    "rawLogLocalPath": "/tmp/6214-final-lint.log",
+    "rawLogSha256": "9323d63670afe68a68754db4b62a3f679ff7645e81d3c0565364693154a69933",
+    "receiptPath": "evidence/i18n-recording-6214/final-lint.txt",
+    "receiptSha256": "9323d63670afe68a68754db4b62a3f679ff7645e81d3c0565364693154a69933",
+    "receiptNormalization": "Trailing blank output lines removed where present. rawLogSha256 remains the unmodified local command output."
+  },
+  "plural-red": {
+    "exitCode": 1,
+    "note": "One meaningful failure: 1 people; thread1 seconds guarded by same test.17 skipped.3.34s. Applied display-only plural variants afterwards, pending GREEN.",
+    "rawLogLocalPath": "/tmp/6214-plural-red.log",
+    "rawLogSha256": "a99a87de802904e7c2122bbb405eda26105ae27ec20379f8eca738e7e2197b08",
+    "receiptPath": "evidence/i18n-recording-6214/plural-red.txt",
+    "receiptSha256": "a99a87de802904e7c2122bbb405eda26105ae27ec20379f8eca738e7e2197b08",
+    "receiptNormalization": "Trailing blank output lines removed where present. rawLogSha256 remains the unmodified local command output."
+  },
+  "corrected-lint": {
+    "exitCode": 0,
+    "note": "Complete changed scope plus rec directory after raw stable JSX fixture keys; subsequent plural adjustment awaits next gate.",
+    "rawLogLocalPath": "/tmp/6214-corrected-lint.log",
+    "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "receiptPath": "evidence/i18n-recording-6214/corrected-lint.txt",
+    "receiptSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "receiptNormalization": "Trailing blank output lines removed where present. rawLogSha256 remains the unmodified local command output."
+  },
+  "testids": {
+    "exitCode": 0,
+    "note": "5463 e2e references have source declarations",
+    "rawLogLocalPath": "/tmp/6214-testids.log",
+    "rawLogSha256": "b80b20c14bd4df9464ace8dc753cb3fdd01e0ff03bfb4b038429cd1011ee8231",
+    "receiptPath": "evidence/i18n-recording-6214/testids.txt",
+    "receiptSha256": "b80b20c14bd4df9464ace8dc753cb3fdd01e0ff03bfb4b038429cd1011ee8231",
+    "receiptNormalization": "Trailing blank output lines removed where present. rawLogSha256 remains the unmodified local command output."
+  },
+  "frozen-type": {
+    "exitCode": 0,
+    "note": "Frozen runtime including singular/plural correction, tsc exit0 real51.63s",
+    "rawLogLocalPath": "/tmp/6214-frozen-type.log",
+    "rawLogSha256": "f149929c84d56ae3083974ebbb57bac951bc1460b655619f146434eb0c31a9ff",
+    "receiptPath": "evidence/i18n-recording-6214/frozen-type.txt",
+    "receiptSha256": "f149929c84d56ae3083974ebbb57bac951bc1460b655619f146434eb0c31a9ff",
+    "receiptNormalization": "Trailing blank output lines removed where present. rawLogSha256 remains the unmodified local command output."
+  },
+  "frozen-ui-green": {
+    "exitCode": 0,
+    "note": "Five files41/41 PASS11.02s, includes36 recording localization cases plus5 dictionary parity cases; type result and dependent start were in same orchestration cell, causing original60s window overrun; all processes actually exited before handoff, no overlap with next owner",
+    "rawLogLocalPath": "/tmp/6214-frozen-ui-green.log",
+    "rawLogSha256": "b1a9899b6e3948d6285077cd044ce281d8ec3b4af00e7d35c85ce2583a9a84d4",
+    "receiptPath": "evidence/i18n-recording-6214/frozen-ui-green.txt",
+    "receiptSha256": "e5793d11b27da1133d322453908e075dca21e7a3de9164e9a48bf8650955d792",
+    "receiptNormalization": "Trailing blank output lines removed where present. rawLogSha256 remains the unmodified local command output."
+  },
+  "frozen-init": {
+    "exitCode": 0,
+    "note": "Normal ./init.sh exit0 real3.36s at pre-extraction source",
+    "rawLogLocalPath": "/tmp/6214-frozen-init.log",
+    "rawLogSha256": "321127163c2752a119b901732bc7fbc86c9cee3938fcb73edd783a2fbb8f7d42",
+    "receiptPath": "evidence/i18n-recording-6214/frozen-init.txt",
+    "receiptSha256": "321127163c2752a119b901732bc7fbc86c9cee3938fcb73edd783a2fbb8f7d42",
+    "receiptNormalization": "Trailing blank output lines removed where present. rawLogSha256 remains the unmodified local command output."
+  },
+  "frozen-lint": {
+    "exitCode": 0,
+    "note": "Complete changed source/test scope, including singular/plural adjustments; before copy-source extraction",
+    "rawLogLocalPath": "/tmp/6214-frozen-lint.log",
+    "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "receiptPath": "evidence/i18n-recording-6214/frozen-lint.txt",
+    "receiptSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "receiptNormalization": "Trailing blank output lines removed where present. rawLogSha256 remains the unmodified local command output."
+  },
+  "withdrawal": {
+    "exitCode": 0,
+    "note": "Policy single source gate pass before extraction",
+    "rawLogLocalPath": "/tmp/6214-withdrawal.log",
+    "rawLogSha256": "664bad759228cadabfbe3d406308f181b45d4d1b105b0f3b285083bdcc4a74ea",
+    "receiptPath": "evidence/i18n-recording-6214/withdrawal.txt",
+    "receiptSha256": "664bad759228cadabfbe3d406308f181b45d4d1b105b0f3b285083bdcc4a74ea",
+    "receiptNormalization": "Trailing blank output lines removed where present. rawLogSha256 remains the unmodified local command output."
+  },
+  "wiring": {
+    "exitCode": 1,
+    "note": "Real gate failure: recording-project dictionary imports mock modules via global provider; fixed display-copy extraction is pending value-equivalence and gate rerun; no exemption changed",
+    "rawLogLocalPath": "/tmp/6214-wiring.log",
+    "rawLogSha256": "3eb907337fcb0a9ba946d5eb43bf650696e878c280d8cbd53d568bf4c39216a0",
+    "receiptPath": "evidence/i18n-recording-6214/wiring.txt",
+    "receiptSha256": "3eb907337fcb0a9ba946d5eb43bf650696e878c280d8cbd53d568bf4c39216a0",
+    "receiptNormalization": "Trailing blank output lines removed where present. rawLogSha256 remains the unmodified local command output."
+  },
+  "copy-wiring": {
+    "exitCode": 0,
+    "note": "Dependency boundary repaired without changing any gate exemption;137routes/original23mock exemptions",
+    "rawLogLocalPath": "/tmp/6214-copy-wiring.log",
+    "rawLogSha256": "91143fee075e07c8c5577e08efa1fd2dd6d135cbb61bcd82a8e9e8c189b533e8",
+    "receiptPath": "evidence/i18n-recording-6214/copy-wiring.txt",
+    "receiptSha256": "91143fee075e07c8c5577e08efa1fd2dd6d135cbb61bcd82a8e9e8c189b533e8",
+    "receiptNormalization": "Trailing blank output lines removed where present. rawLogSha256 remains the unmodified local command output."
+  },
+  "copy-withdrawal": {
+    "exitCode": 0,
+    "note": "Canonical withdrawal source still single; no duplicated policy/SLA",
+    "rawLogLocalPath": "/tmp/6214-copy-withdrawal.log",
+    "rawLogSha256": "664bad759228cadabfbe3d406308f181b45d4d1b105b0f3b285083bdcc4a74ea",
+    "receiptPath": "evidence/i18n-recording-6214/copy-withdrawal.txt",
+    "receiptSha256": "664bad759228cadabfbe3d406308f181b45d4d1b105b0f3b285083bdcc4a74ea",
+    "receiptNormalization": "Trailing blank output lines removed where present. rawLogSha256 remains the unmodified local command output."
+  },
+  "copy-lint": {
+    "exitCode": 0,
+    "note": "Four extraction-affected metadata/mock/dictionary files eslint exit0",
+    "rawLogLocalPath": "/tmp/6214-copy-lint.log",
+    "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "receiptPath": "evidence/i18n-recording-6214/copy-lint.txt",
+    "receiptSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "receiptNormalization": "Trailing blank output lines removed where present. rawLogSha256 remains the unmodified local command output."
+  },
+  "copy-regression": {
+    "exitCode": 0,
+    "note": "Post-extraction15 files206/206 PASS32.45s; includes36 localization cases and all affected original recording regressions",
+    "rawLogLocalPath": "/tmp/6214-copy-regression.log",
+    "rawLogSha256": "2d8ca71e5c9eb3f55a9310b38abf83e199391ee3366254f1a5b82ca728591c83",
+    "receiptPath": "evidence/i18n-recording-6214/copy-regression.txt",
+    "receiptSha256": "354f8a078f2d66c09e5dcbd199fcf82d46d50223aea117ba85f41bc4d56beac3",
+    "receiptNormalization": "Trailing blank output lines removed where present. rawLogSha256 remains the unmodified local command output."
+  },
+  "copy-reproducible": {
+    "exitCode": 0,
+    "note": "Committed comparator script successfully reproduces semantic equality against frozen baseline, all module exports/probes/zh/en identical",
+    "rawLogLocalPath": "/tmp/6214-copy-reproducible.log",
+    "rawLogSha256": "34ae30e6b2a0bf862a91e9a92540643cc611e8a0230d8f9e7590056c5720b710",
+    "receiptPath": "evidence/i18n-recording-6214/copy-reproducible.txt",
+    "receiptSha256": "34ae30e6b2a0bf862a91e9a92540643cc611e8a0230d8f9e7590056c5720b710",
+    "receiptNormalization": "Trailing blank output lines removed where present. rawLogSha256 remains the unmodified local command output."
+  },
+  "copy-type": {
+    "exitCode": 0,
+    "note": "Post-extraction full web tsc exit0,42.74s.Only tsc ran in this dedicated60s owner window; no follow-up gates.",
+    "rawLogLocalPath": "/tmp/6214-copy-type.log",
+    "rawLogSha256": "0c5a30db434921a74904cbf6abfd7fc8e3c7035ea8429827cc2091f723747c6a",
+    "receiptPath": "evidence/i18n-recording-6214/copy-type.txt",
+    "receiptSha256": "0c5a30db434921a74904cbf6abfd7fc8e3c7035ea8429827cc2091f723747c6a",
+    "receiptNormalization": "Trailing blank output lines removed where present. rawLogSha256 remains the unmodified local command output."
+  },
+  "spec-increment-lint": {
+    "exitCode": 0,
+    "note": "Test-only browser contract extension eslint0; browser execution/type-on-increment not yet run",
+    "rawLogLocalPath": "/tmp/6214-spec-increment-lint.log",
+    "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "receiptPath": "evidence/i18n-recording-6214/spec-increment-lint.txt",
+    "receiptSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "spec-increment-testids": {
+    "exitCode": 0,
+    "note": "5478 e2e references declared, same21 exemptions",
+    "rawLogLocalPath": "/tmp/6214-spec-increment-testids.log",
+    "rawLogSha256": "db12014dc3b147c3bc2200120724cd6d98f77ed290d7a25d023fda39bc282677",
+    "receiptPath": "evidence/i18n-recording-6214/spec-increment-testids.txt",
+    "receiptSha256": "db12014dc3b147c3bc2200120724cd6d98f77ed290d7a25d023fda39bc282677"
+  },
+  "verification-caption-red": {
+    "exitCode": 1,
+    "note": "Single actual semantic RED2.49s, missing Uncertain;19 skipped",
+    "rawLogLocalPath": "/tmp/6214-verification-caption-red.log",
+    "rawLogSha256": "dfd39d299f3b87db2cf5556106c5b1c27726cfaad8a9683811b8c32f383b04c1",
+    "receiptPath": "evidence/i18n-recording-6214/verification-caption-red.txt",
+    "receiptSha256": "dfd39d299f3b87db2cf5556106c5b1c27726cfaad8a9683811b8c32f383b04c1"
+  },
+  "verification-caption-green": {
+    "exitCode": 1,
+    "note": "24PASS1FAIL3.89s: action Quote key had different canonical Chinese from category; guard correctly preserved raw. Fixed mapping to existing category key.130 afterwards.",
+    "rawLogLocalPath": "/tmp/6214-verification-caption-green.log",
+    "rawLogSha256": "a24536cc2088a27b4f961ce5b93e40d44a7d20cebbb0f1284a3dbc732a3922c8",
+    "receiptPath": "evidence/i18n-recording-6214/verification-caption-green.txt",
+    "receiptSha256": "a24536cc2088a27b4f961ce5b93e40d44a7d20cebbb0f1284a3dbc732a3922c8"
+  },
+  "verification-caption-fixed": {
+    "exitCode": 0,
+    "note": "Project20+catalog5 all25PASS4.53s, includes fixed states and custom/raw guard",
+    "rawLogLocalPath": "/tmp/6214-verification-caption-fixed.log",
+    "rawLogSha256": "e0a03aaaf1ab02512fe151d38877d008d3172bbdc5ad503b27a23434dfd13eb8",
+    "receiptPath": "evidence/i18n-recording-6214/verification-caption-fixed.txt",
+    "receiptSha256": "a210fb292b4057393b6a260c0900564f38d3326dd0044594083d91d625a14f53"
+  },
+  "caption-copy-values": {
+    "exitCode": 0,
+    "note": "All seed exports/consent probes and every original zh/en dictionary value match frozen baseline; only four explicitly listed new caption keys allowed",
+    "rawLogLocalPath": "/tmp/6214-caption-copy-values.log",
+    "rawLogSha256": "16d19bb518cc37122bee15c51c5bc9685768e39e1556e08bafc7d6663f3a678c",
+    "receiptPath": "evidence/i18n-recording-6214/caption-copy-values.txt",
+    "receiptSha256": "16d19bb518cc37122bee15c51c5bc9685768e39e1556e08bafc7d6663f3a678c"
+  },
+  "caption-lint": {
+    "exitCode": 0,
+    "note": "Six caption affected source/test files",
+    "rawLogLocalPath": "/tmp/6214-caption-lint.log",
+    "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "receiptPath": "evidence/i18n-recording-6214/caption-lint.txt",
+    "receiptSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "caption-wiring": {
+    "exitCode": 0,
+    "note": "137routes/original23mock exemptions, no dependency boundary regression",
+    "rawLogLocalPath": "/tmp/6214-caption-wiring.log",
+    "rawLogSha256": "91143fee075e07c8c5577e08efa1fd2dd6d135cbb61bcd82a8e9e8c189b533e8",
+    "receiptPath": "evidence/i18n-recording-6214/caption-wiring.txt",
+    "receiptSha256": "91143fee075e07c8c5577e08efa1fd2dd6d135cbb61bcd82a8e9e8c189b533e8"
+  },
+  "caption-withdrawal": {
+    "exitCode": 0,
+    "note": "Canonical policy single-source preserved",
+    "rawLogLocalPath": "/tmp/6214-caption-withdrawal.log",
+    "rawLogSha256": "664bad759228cadabfbe3d406308f181b45d4d1b105b0f3b285083bdcc4a74ea",
+    "receiptPath": "evidence/i18n-recording-6214/caption-withdrawal.txt",
+    "receiptSha256": "664bad759228cadabfbe3d406308f181b45d4d1b105b0f3b285083bdcc4a74ea"
+  }
+}
