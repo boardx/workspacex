@@ -1,3 +1,4 @@
+import { surveyPublicEn } from "../namespaces/survey-public";
 import { surveyWorkspaceEn } from "../namespaces/survey-workspace";
 import { surveyRuntimeErrorsEn } from "../namespaces/survey-runtime-errors";
 import { surveyDesignEn } from "../namespaces/survey-design";
@@ -26,6 +27,7 @@ import type { zhCN } from "./zh-CN";
 import { accountEntryEn } from "../namespaces/account-entry";
 import { invitationEntryEn } from "../namespaces/invitation-entry";
 export const en: Record<keyof typeof zhCN, string> = {
+  ...surveyPublicEn,
   ...surveyWorkspaceEn,
   ...surveyRuntimeErrorsEn,
   ...surveyLibraryEn,
