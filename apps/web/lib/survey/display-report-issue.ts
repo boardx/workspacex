@@ -15,5 +15,9 @@ export function displaySurveyReportIssue(message: string, t: Translator): string
   for (const [suffix, key] of suffixes) if (message.endsWith(suffix)) return t(key, { title: message.slice(0, -suffix.length) });
   const group = /^分组有效样本不足 (\d+)，已隐藏$/.exec(message);
   if (group) return t("survey.reportIssue.smallGroup", { count: group[1]! });
+  const share = /^纳入分析的样本不足 (\d+) 份，无法导出或共享报告$/.exec(message);
+  if (share) return t("survey.reportIssue.shareSmall", { count: share[1]! });
+  const block = /^“(.*)”的输出样本不足 (\d+) 份，无法导出或共享报告$/.exec(message);
+  if (block) return t("survey.reportIssue.shareBlockSmall", { title: block[1]!, count: block[2]! });
   return message;
 }
