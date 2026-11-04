@@ -205,10 +205,12 @@ function PlatformMemberItem({
   return (
     <li className="flex flex-col gap-2 px-3 py-2" data-testid={`admin-platform-member-${member.userId}`}>
       <div className="flex flex-wrap items-center gap-2">
-        <Avatar initials={member.displayName.slice(0, 1)} size="sm" />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <span className="break-words text-13 font-medium" data-testid={`admin-platform-member-${member.userId}-name`}>{member.displayName}</span>
-          <span className="break-all text-10 text-muted-foreground">{member.email}</span>
+        <div className="flex w-full min-w-0 items-start gap-2 sm:w-auto sm:min-w-48 sm:flex-1 sm:items-center">
+          <Avatar initials={member.displayName.slice(0, 1)} size="sm" />
+          <div className="flex min-w-0 flex-1 flex-col">
+            <span className="break-words text-13 font-medium" data-testid={`admin-platform-member-${member.userId}-name`}>{member.displayName}</span>
+            <span className="break-all text-10 text-muted-foreground">{member.email}</span>
+          </div>
         </div>
         {member.platformSuperuser && (
           <Badge tone="danger" data-testid={`admin-platform-member-${member.userId}-superuser`}>
