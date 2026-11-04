@@ -647,6 +647,18 @@ test("survey locale preserves real author publishing, anonymous file submission,
         await expect(page.getByRole("region", { name: "答卷详情" })).toContainText(reason);
         await languages.language("en");
         expect(requests).toHaveLength(beforeReviewLocale);
+        // A hidden local overflow can pass the document-wide check while clipping controls.
+        await page.setViewportSize({ width: 375, height: 900 });
+        expect(await details.evaluate(element => {
+            const bounds = element.getBoundingClientRect();
+            return bounds.left >= 0 && bounds.right <= innerWidth && element.scrollWidth <= element.clientWidth;
+        })).toBe(true);
+        for (const button of await details.getByRole("button").all()) {
+            expect(await button.evaluate(element => {
+                const bounds = element.getBoundingClientRect();
+                return bounds.left >= 0 && bounds.right <= innerWidth;
+            })).toBe(true);
+        }
         await capture(page, info, "response-governance-en", details);
         const include = page.waitForResponse(response => pathOf(response.url()) === `/surveys/${id}/responses/${responseId}` && response.request().method() === "PATCH");
         await details.getByRole("button", { name: "Include in analysis again", exact: true }).click();

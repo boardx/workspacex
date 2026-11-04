@@ -153,9 +153,9 @@ export function LiveResponseList({
       {filtered.length === 0 && (
         <p className="py-12 text-center text-muted-foreground">{t("survey.results.noMatches")}</p>
       )}
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-12 text-muted-foreground">{t("survey.results.selectedCount", { count: selectedIds.length })}</p>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
         <Button
           variant="outline"
           disabled={actualPage === 0}
@@ -175,17 +175,17 @@ export function LiveResponseList({
       {item && (
         <section
           aria-label={t("survey.results.responseDetails")}
-          className="rounded-lg border border-border bg-card p-5"
+          className="min-w-0 break-words rounded-lg border border-border bg-card p-5"
         >
           <div className="flex flex-wrap justify-between gap-2">
             <h2 className="text-16 font-semibold">{t("survey.results.responseDetails")}</h2>
-            <div className="flex gap-2">
+            <div className="flex min-w-0 flex-wrap gap-2">
               <Button size="xs" variant="outline" aria-label={t("survey.results.previousResponse")} disabled={selectedIndex <= 0} onClick={() => selectResponse(filtered[selectedIndex - 1]!.id)}>{t("survey.results.previous")}</Button>
               <Button size="xs" variant="outline" aria-label={t("survey.results.nextResponse")} disabled={selectedIndex < 0 || selectedIndex >= filtered.length - 1} onClick={() => selectResponse(filtered[selectedIndex + 1]!.id)}>{t("survey.results.next")}</Button>
             </div>
           </div>
           <div className="mt-3 flex flex-wrap justify-end gap-2">
-            <div className="flex gap-2">
+            <div className="flex min-w-0 flex-wrap gap-2">
               <Button
                 disabled={busy}
                 variant="outline"
