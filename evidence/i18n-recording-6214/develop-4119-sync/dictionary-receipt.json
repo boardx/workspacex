@@ -1,0 +1,15 @@
+{
+  "name": "dictionary",
+  "command": [
+    "node",
+    "/tmp/6220-develop-4119-dictionary.cjs",
+    "03c5b6c963ee3ed56b4e679e7ac47fb5c448c024",
+    "4119fc3d318801215b15bd0a5665983fa25bfe2a",
+    "8ac95585fcb760b05d36a592673027fbd7ee9538"
+  ],
+  "source": "8ac95585fcb760b05d36a592673027fbd7ee9538",
+  "exitCode": 0,
+  "seconds": 7.635,
+  "rawLogSha256": "192f9b51664ce9120b14d2a68014947473920feef64e4acc6ce48ef62a65b1f1",
+  "environment": {}
+}
