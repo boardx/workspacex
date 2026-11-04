@@ -1,0 +1,16 @@
+{
+  "source": "0b1886ef6bd63430cdc01addce1123ebde834790",
+  "production": {
+    "apps/web/lib/i18n/namespaces/admin-limit-policy.ts": {
+      "exactApprovedLiteralReplacements": 1,
+      "allOtherBytesPreserved": true,
+      "sha256": "e35b62cac07790675afdcfdb093df5205c333f2a02f6c8b58d358149679004f1"
+    },
+    "apps/web/lib/i18n/namespaces/ai-usage.ts": {
+      "exactApprovedLiteralReplacements": 2,
+      "allOtherBytesPreserved": true,
+      "sha256": "96818bdfd9a53dee6dab7addddbb50b521a0496f39c8a761ca0e6e2717ff6e9c"
+    }
+  },
+  "frozenRedTestsUnchanged": true
+}

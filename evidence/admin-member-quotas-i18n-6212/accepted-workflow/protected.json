@@ -1,0 +1,19 @@
+{
+  "worker": "f4288bf5bdc50f1853956af321abec867b926db1",
+  "accepted": "4119fc3d318801215b15bd0a5665983fa25bfe2a",
+  "merge": "e42e0407456b27e50c6a4141b523f722c2c81f4f",
+  "base": "ec1695d8fd646e004ca40dafbfa8e03bf01f20ef",
+  "protected": {
+    "common": 23378,
+    "workerOnly": 157,
+    "acceptedOnly": 83
+  },
+  "overlaps": [
+    ".agents/skills/mod-org-identity/SKILL.md",
+    "apps/web/e2e/entity-localization.spec.ts",
+    "apps/web/lib/i18n/messages/en.ts",
+    "apps/web/lib/i18n/messages/zh-CN.ts"
+  ],
+  "protectedFailures": [],
+  "method": "all union paths; exact Git mode/type/object identity including deletions; divergent overlaps require separate review"
+}

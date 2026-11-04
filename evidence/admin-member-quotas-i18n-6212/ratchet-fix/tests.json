@@ -1,0 +1,16 @@
+{
+  "head": "44f41de5e5ca5615c52354b370380f7ebc50d404",
+  "gate": "tests",
+  "exit": 0,
+  "seconds": 5.357,
+  "rawPrivate": true,
+  "logSha256": "af1bb74e9583c083bcecbe532a415deaccc44923768bde6fbb93d3a9397db760",
+  "summary": [
+    "✓ .harness/scripts/lint-user-facing-error-text.test.ts (4 tests) 3212ms",
+    "✓ lint-user-facing-error-text > 拒绝临时仓库中 'apps/web/components/error-text-regres…' 的原始异常文案 1851ms",
+    "✓ lint-user-facing-error-text > 拒绝临时仓库中 'apps/web/components/admin/member-quot…' 的原始异常文案 1158ms",
+    "Test Files  1 passed (1)",
+    "Tests  4 passed (4)",
+    "Duration  3.64s (transform 32ms, setup 0ms, collect 24ms, tests 3.21s, environment 0ms, prepare 64ms)"
+  ]
+}

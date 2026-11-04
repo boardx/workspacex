@@ -1,0 +1,7 @@
+{
+  "parent": "8f9c839ae",
+  "exactTwoExpectationsOnly": true,
+  "allOtherE2EBytesPreserved": true,
+  "sha256": "63d15ef1302544cec131761cbac36073510ab09441568394ff74fa04fd5f012b",
+  "runtime": "pending actual PR6223 merge; historical manual real403 screenshot is the counterexample"
+}

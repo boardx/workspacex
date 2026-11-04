@@ -1,0 +1,80 @@
+{
+  "scopeFound": true,
+  "checkedAt": "2026-11-04T05:05:33.306088+00:00",
+  "scope": "wsx-3a5b4b35f5dd61051b96",
+  "ports": [
+    20165,
+    21165,
+    24165,
+    25165,
+    26165,
+    27165,
+    28165,
+    29165,
+    30165,
+    31165,
+    19165
+  ],
+  "zeroContainers": true,
+  "zeroVolumes": true,
+  "zeroListeners": true,
+  "dockerPsExit": 0,
+  "dockerVolumesExit": 0,
+  "listenerChecks": [
+    {
+      "port": 20165,
+      "exit": 1,
+      "pids": []
+    },
+    {
+      "port": 21165,
+      "exit": 1,
+      "pids": []
+    },
+    {
+      "port": 24165,
+      "exit": 1,
+      "pids": []
+    },
+    {
+      "port": 25165,
+      "exit": 1,
+      "pids": []
+    },
+    {
+      "port": 26165,
+      "exit": 1,
+      "pids": []
+    },
+    {
+      "port": 27165,
+      "exit": 1,
+      "pids": []
+    },
+    {
+      "port": 28165,
+      "exit": 1,
+      "pids": []
+    },
+    {
+      "port": 29165,
+      "exit": 1,
+      "pids": []
+    },
+    {
+      "port": 30165,
+      "exit": 1,
+      "pids": []
+    },
+    {
+      "port": 31165,
+      "exit": 1,
+      "pids": []
+    },
+    {
+      "port": 19165,
+      "exit": 1,
+      "pids": []
+    }
+  ]
+}

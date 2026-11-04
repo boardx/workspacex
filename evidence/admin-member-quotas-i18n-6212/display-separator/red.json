@@ -1,0 +1,17 @@
+{
+  "exit": 1,
+  "seconds": 5.696,
+  "head": "d460b15068fe5bf791cccccd835e700f52d50276",
+  "testSha256": "c54141a7797c474772eddef52af889ccc51e30c2665c5ccade08d8bb3a8750ba",
+  "rawLogSha256": "33afaef913a12598e86ae9c3b2486dcaa42c3a01cd28b97a77ec2bec9866b8c5",
+  "summary": [
+    "\u00d7 separates the English used and available budget sentences in quota editing help (400000) 42ms",
+    "\u00d7 separates the English used and available budget sentences in quota editing help (null) 19ms",
+    "\u23af\u23af\u23af\u23af\u23af\u23af\u23af Failed Tests 2 \u23af\u23af\u23af\u23af\u23af\u23af\u23af",
+    "FAIL  tests/ui/admin-member-quotas-i18n.test.tsx > separates the English used and available budget sentences in quota editing help (400000)",
+    "FAIL  tests/ui/admin-member-quotas-i18n.test.tsx > separates the English used and available budget sentences in quota editing help (null)",
+    "Test Files  1 failed (1)",
+    "Tests  2 failed | 16 passed (18)",
+    "Duration  4.18s (transform 1.33s, setup 169ms, collect 2.08s, tests 599ms, environment 873ms, prepare 47ms)"
+  ]
+}

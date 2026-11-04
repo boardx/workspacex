@@ -1,0 +1,13 @@
+{
+  "source": "9194ab5de3754e79d03c640928b835efbeaa02e6",
+  "sameSourceAs": "4639ef2dd55e0826b21736429e09713173cc1da7",
+  "paths": [
+    "apps/web/playwright.entity-localization.config.ts",
+    "apps/web/playwright.fullstack-smoke.config.ts",
+    ".harness/scripts/lint-spec-gate-coverage.mjs",
+    ".harness/scripts/lint-ui-wiring.mjs",
+    ".github/workflows"
+  ],
+  "changedPaths": [],
+  "scope": "unchangedconfig/CIregistration/wiringscripts; prior fullspec/wiring receipts remainbound4639, currentexactisolatedlist explicitlyrerun"
+}

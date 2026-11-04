@@ -1,0 +1,15 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/web
+
+ ✓ tests/ui/admin-member-quotas-i18n.test.tsx (16 tests) 489ms
+ ✓ tests/ui/admin-members-list.test.tsx (13 tests) 274ms
+ ✓ tests/ui/admin-members-quota-live.test.tsx (8 tests) 267ms
+ ✓ tests/ui/admin-members-boundary-live.test.tsx (6 tests) 112ms
+ ✓ tests/ui/admin-header-org-switch.test.tsx (4 tests) 85ms
+
+ Test Files  5 passed (5)
+      Tests  47 passed (47)
+   Start at  06:46:29
+   Duration  9.05s (transform 1.41s, setup 520ms, collect 3.52s, tests 1.23s, environment 2.73s, prepare 216ms)
+

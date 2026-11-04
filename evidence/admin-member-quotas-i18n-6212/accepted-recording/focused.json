@@ -1,0 +1,13 @@
+{
+  "head": "ce8e561d461cf29d467e8cbc1c1a8e1177b6e559",
+  "gate": "focused",
+  "exit": 0,
+  "seconds": 3.264,
+  "rawPrivate": true,
+  "rawLogSha256": "1f10bbd8264e5e2120c0d8e09b5907abed428af07bda7e81631d765f50f6b188",
+  "summary": [
+    "Test Files  2 passed (2)",
+    "Tests  13 passed (13)",
+    "Duration  1.70s (transform 323ms, setup 275ms, collect 672ms, tests 92ms, environment 0ms, prepare 98ms)"
+  ]
+}

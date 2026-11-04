@@ -1,0 +1,13 @@
+{
+  "head": "c6a5477cfa1482ffad824784a8866c49861310d0",
+  "workflowRun": 41805550882,
+  "job": 126491539915,
+  "firstFailure": "tests/ui/admin-members-quota-live.test.tsx:128",
+  "expected": "刷新页面重新登录",
+  "received": "配额数据读取失败：你没有权限执行此操作，如需访问请联系管理员重试",
+  "summary": "1failed,3442passed,5skipped;1failedfile179passed1skipped before fail-fast",
+  "rawLogSha256": "946a825550a9a80047283a745847f2caf03a07c58323e3125d546ef93daf1fc5",
+  "rawPrivate": true,
+  "fixScope": "test-only stale403 expectation, preserve leak/no-live checks and add401control",
+  "selectionGap": "original88 focused omitted existingquota-live8; corrected selection includes it"
+}

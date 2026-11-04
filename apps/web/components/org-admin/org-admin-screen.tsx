@@ -3,9 +3,11 @@
 import * as React from "react";
 import { useI18n } from "@/lib/i18n/provider";
 import { translate, type MessageKey, type MessageParams } from "@/lib/i18n/messages";
+import { describeFailure } from "@/lib/design-failure";
+import type { Locale } from "@/lib/i18n/locale";
 import { orgMembersZhCN } from "@/lib/i18n/namespaces/org-members";
 type Translator = (key: MessageKey, params?: MessageParams) => string;
-type Feedback = (t: Translator) => string;
+type Feedback = (t: Translator, locale?: Locale) => string;
 type LocalizedNotice = { tone: "success" | "error"; text: Feedback };
 import { AlertTriangle, Ban, Camera, Check, ChevronDown, Copy, Hourglass, Mail, RotateCcw, Send, Settings, UserCog, X } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
@@ -507,8 +509,8 @@ export function MembersTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean
  *  邀请状态的文案单源，别在第二处再抄一份。 */
 const INVITE_STATUS_KEYS = { pending: "orgMembers.pendingAcceptance", "awaiting-review": "orgMembers.awaitingReview", revoked: "orgMembers.revoked", used: "orgMembers.used", "send-failed": "orgMembers.sendFailed" } as const;
 export const INVITE_STATUS_LABEL: Record<string, string> = Object.fromEntries(Object.entries(INVITE_STATUS_KEYS).map(([status, key]) => [status, orgMembersZhCN[key]]));
-function inviteStatusLabel(status: string, t: Translator) {
-  const key = INVITE_STATUS_KEYS[status as keyof typeof INVITE_STATUS_KEYS];
+export function inviteStatusLabel(status: string, t: Translator) {
+  const key = Object.prototype.hasOwnProperty.call(INVITE_STATUS_KEYS, status) ? INVITE_STATUS_KEYS[status as keyof typeof INVITE_STATUS_KEYS] : undefined;
   return key ? t(key) : status;
 }
 
@@ -517,7 +519,7 @@ function inviteStatusLabel(status: string, t: Translator) {
  * （错误码全部来自契约 `inviteOrgMember`/`resendOrgInvite`/`revokeOrgInvite`/
  * `reviewAdminInvite` 的 `err` 声明，不是这里发明的）。
  */
-function describeInviteFailure(failure: unknown, t: Translator): string {
+function describeInviteFailure(failure: unknown, t: Translator, locale: Locale = "zh-CN"): string {
   if (failure instanceof ApiError) {
     switch (failure.reasonCode) {
       case "INVITE_ALREADY_MEMBER":
@@ -543,9 +545,9 @@ function describeInviteFailure(failure: unknown, t: Translator): string {
     }
     if (failure.status === 401) return t("orgMembers.yourSessionHasExpiredHTTP401SignInAgain");
     if (failure.status === 403) return t("orgMembers.youCannotPerformThisActionHTTP403");
-    return t("orgMembers.httpFailure", { reason: failure.reasonCode ?? t("orgMembers.operationFailed"), status: failure.status });
+    return describeFailure(failure, locale);
   }
-  return failure instanceof Error ? failure.message : t("orgMembers.theOperationFailedTryAgainLater");
+  return describeFailure(failure, locale);
 }
 
 /**
@@ -763,7 +765,7 @@ export function InviteMemberForm({
   /** 签发成功且响应带一次性 token 时回调（invite-link-and-reads delta ①）。 */
   onLink: (link: OneTimeLink) => void;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [email, setEmail] = React.useState("");
   const [orgRole, setOrgRole] = React.useState<OrgRole>("consultant");
   const [submitting, setSubmitting] = React.useState(false);
@@ -771,8 +773,8 @@ export function InviteMemberForm({
 
   function report(tone: "success" | "error", text: Feedback) {
     if (onNotice) onNotice({ tone, text });
-    else if (tone === "success") onSucceeded(text(t));
-    else onFailed(text(t));
+    else if (tone === "success") onSucceeded(text(t, locale));
+    else onFailed(text(t, locale));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -809,9 +811,9 @@ export function InviteMemberForm({
       if (contractFieldIssues(err)?.some((i) => i.path === "email")) {
         setFieldError(() => (t: Translator) => t("orgMembers.invalidEmailServer", { email: trimmed }));
       } else if (err instanceof ApiError && (err.reasonCode === "INVITE_ALREADY_MEMBER" || err.reasonCode === "INVITE_DUPLICATE")) {
-        setFieldError(() => (t: Translator) => describeInviteFailure(err, t));
+        setFieldError(() => (t: Translator, locale?: Locale) => describeInviteFailure(err, t, locale));
       } else {
-        report("error", (t) => describeInviteFailure(err, t));
+        report("error", (t, locale) => describeInviteFailure(err, t, locale));
       }
     } finally {
       setSubmitting(false);
@@ -846,7 +848,7 @@ export function InviteMemberForm({
             aria-invalid={fieldError !== null}
           />
           {fieldError ? (
-            <p role="alert" data-testid="err-invite-email" className="text-10 text-destructive">{fieldError(t)}</p>
+            <p role="alert" data-testid="err-invite-email" className="text-10 text-destructive">{fieldError(t, locale)}</p>
           ) : null}
         </div>
         <div className="flex w-32 flex-col gap-1">
@@ -920,7 +922,7 @@ function InviteRow({
       onSucceeded(text);
       onChanged();
     } catch (err) {
-      onFailed((t) => describeInviteFailure(err, t));
+      onFailed((t, locale) => describeInviteFailure(err, t, locale));
       if (err instanceof ApiError && err.reasonCode === "VERSION_CHANGED") onChanged();
     } finally {
       setBusy(false);
@@ -1067,7 +1069,7 @@ function InvitesTab({
   oneTimeLink: OneTimeLink | null;
   onOneTimeLink: (link: OneTimeLink | null) => void;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { session } = useSession();
   const [state, setState] = React.useState<UiState>("loading");
   const [failureMessage, setFailureMessage] = React.useState<unknown>(null);
@@ -1133,7 +1135,7 @@ function InvitesTab({
               : "rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-11 text-destructive"
           }
         >
-          {banner.text(t)}
+          {banner.text(t, locale)}
         </div>
       ) : null}
 

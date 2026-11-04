@@ -1,0 +1,18 @@
+# Accepted dependency merge — bounded source review
+
+**CLEAN — no actionable P1/P2 integration finding.** Exact merge: `4639ef2dd55e0826b21736429e09713173cc1da7`, parents worker `00c87fef75429e3ed99d0791d68ec9cb5e376e6d` and accepted develop `ec1695d8fd646e004ca40dafbfa8e03bf01f20ef`. This is a bounded merge-preservation review, not a second whole-branch audit or runtime acceptance.
+
+## Independently verified
+
+- Queried **all** merge bases: `3644ae2c8213770614866c1c39ac4df2b8920c05` and `ca3f9e4482ae84adea3124ef497b2b2da78b0933`. Classified complete parent/merged tree entries against both base trees. **22,938 common files, 114 worker-only changes and 443 accepted-upstream-only changes** retain exact mode/type/blob. Exactly three overlap paths remain: E2E plus the two message registries. No unexpected fourth overlap or third-source path exists.
+- Parsed E2E top-level statements from the exact three revisions. The merged file has **nine non-import statements / seven cases**. All **eight worker non-home statements** and **all eight accepted statements**, including the accepted home-config body, remain byte-text exact. The quota case, helpers and other worker assertions are unchanged. Import inspection confirms the exact contracts union `agentRole, aiUsage, homeConfig, orgAdmin, skills, wave2Runtime`; all other imports remain unchanged.
+- Each registry differs from worker only by four accepted research namespace import/spread pairs and four separating blank lines; removing precisely those additions restores the old bytes. All four imported namespace files retain accepted-develop mode/type/blob exactly.
+- Static AST inspection finds **1,123 new literal property keys per locale** (studio-research 47, research 385, studio-history 4, interview 687), matching locale key sets, no duplicate keys within/across these additions, and no collision with the worker's existing i18n literal properties. Literal-value pairs have matching placeholder multisets. **47 derived value pairs are explicitly deferred** to canonical runtime resource checks. No imported function execution, external fakes, VM widening or unsupported cross-revision nonliteral evaluation was used; this is not complete runtime registry parity.
+- Accepted API boundary implementation and billing regression-test bytes match the accepted right parent exactly. Worker quota source SHA256 remains `5d691f2aa110cc25a0caf8cec63eaf40c49d28016673e7b5c22d85e8e3a08f17`; its UI test remains `c54141a7797c474772eddef52af889ccc51e30c2665c5ccade08d8bb3a8750ba`.
+- Research merge `0f36864c3b5b2fc7c2f6c618ecca32d10a3b1f30` is an actual ancestor of accepted develop ec1695d8. Its inherited files are accepted-upstream content, not an independently added feature slice. Unsafe browser commit `6ae85819a7bc7953f0cad3e784594ac2bb933754` remains outside the merged ancestry. This is not a repeated full artifact-security audit.
+
+## Acceptance boundary
+
+Root supplied the remote API merge observation, including mergedAt 04:18:05Z; this seat independently checks the supplied accepted Git revisions and preservation, not remote approval/check status. Fresh integration type, affected/resource gates and the original complete 17-image browser/QA acceptance remain root-owned and pending. Earlier parent tests are not merged-head results. The API fix being inherited does not establish that the originally failing browser now passes.
+
+Read-only Git objects/diffs, supplied proof summaries and small static AST comparisons only. No tests, typecheck, lint, services, browser, CI mutation, Git mutation, product edits or subagents. Only this report was written. No quota feature-passing, publication or merge approval is issued.

@@ -1,0 +1,50 @@
+{
+  "merge": "e42e0407456b27e50c6a4141b523f722c2c81f4f",
+  "registries": {
+    "apps/web/lib/i18n/messages/en.ts": {
+      "worker": {
+        "onlyAddedLines": [
+          "import { workflowGrantsEn } from \"../namespaces/workflow-grants\";",
+          "  ...workflowGrantsEn,"
+        ],
+        "zeroDeletedOrEditedLines": true
+      },
+      "accepted": {
+        "onlyAddedLines": [
+          "import { aiUsageEn } from \"../namespaces/ai-usage\";",
+          "import { adminLimitPolicyEn } from \"../namespaces/admin-limit-policy\";",
+          "import { adminMemberQuotasEn } from \"../namespaces/admin-member-quotas\";",
+          "import { adminCommonEn } from \"../namespaces/admin-common\";",
+          "  ...aiUsageEn,",
+          "  ...adminLimitPolicyEn,",
+          "  ...adminMemberQuotasEn,",
+          "  ...adminCommonEn,"
+        ],
+        "zeroDeletedOrEditedLines": true
+      }
+    },
+    "apps/web/lib/i18n/messages/zh-CN.ts": {
+      "worker": {
+        "onlyAddedLines": [
+          "import { workflowGrantsZhCN } from \"../namespaces/workflow-grants\";",
+          "  ...workflowGrantsZhCN,"
+        ],
+        "zeroDeletedOrEditedLines": true
+      },
+      "accepted": {
+        "onlyAddedLines": [
+          "import { aiUsageZhCN } from \"../namespaces/ai-usage\";",
+          "import { adminLimitPolicyZhCN } from \"../namespaces/admin-limit-policy\";",
+          "import { adminMemberQuotasZhCN } from \"../namespaces/admin-member-quotas\";",
+          "import { adminCommonZhCN } from \"../namespaces/admin-common\";",
+          "  ...aiUsageZhCN,",
+          "  ...adminLimitPolicyZhCN,",
+          "  ...adminMemberQuotasZhCN,",
+          "  ...adminCommonZhCN,"
+        ],
+        "zeroDeletedOrEditedLines": true
+      }
+    }
+  },
+  "allParentKnowledgeRowsRetained": true
+}
