@@ -1,0 +1,12 @@
+{
+  "exit": 0,
+  "seconds": 2.019,
+  "head": "d92aea589268a2ef71b618d4959d178c6336106d",
+  "rawLogSha256": "8aeaee1e86f168233f9d27f6853471b61ea87be2fcc84ed7ed4b2c086f9202e9",
+  "scope": "complete current runtime locale key and interpolation parity, including accepted derived values; not cross-revision nonliteral value equivalence",
+  "summary": [
+    "Test Files  1 passed (1)",
+    "Tests  5 passed (5)",
+    "Duration  797ms (transform 228ms, setup 181ms, collect 371ms, tests 56ms, environment 0ms, prepare 48ms)"
+  ]
+}
