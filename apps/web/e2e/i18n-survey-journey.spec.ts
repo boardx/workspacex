@@ -219,7 +219,7 @@ test("survey locale preserves real author publishing, anonymous file submission,
         await fillMeeting(respondent, rawFirst);
         const token = initialPublication.publication!.token, fileQuestion = initialPublication.questions.find(question => question.type === "file")!;
         held = await holdResponse(respondent, `/public/surveys/${token}/upload-sessions`);
-        const bytes = Buffer.from("原附件字节 {count}\nRaw file bytes stay unchanged.\n", "utf8"), filename = "原附件 {name}.txt";
+        const bytes = Buffer.from("原附件字节 {count}\nRaw file bytes stay unchanged.\n", "utf8"), filename = "raw-attachment-{name}.txt";
         await respondent.getByLabel("Choose file", { exact: true }).setInputFiles({ name: filename, mimeType: "text/plain", buffer: bytes });
         const uploadSessionBody = await held.reached as {
             submissionId: string;
