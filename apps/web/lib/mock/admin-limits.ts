@@ -1,3 +1,5 @@
+import { adminLimitPolicyZhCN as policyCopy } from "@/lib/i18n/namespaces/admin-limit-policy";
+
 /**
  * 后台「成员配额」屏的另两张 tab —— 用量监控 / 限额策略（backlog B1）。
  *
@@ -27,26 +29,31 @@ export interface DegradeAgentRow {
   detail: string;
 }
 
+export const DEGRADE_AGENT_DISPLAY = { scoutAmount: "1.5M", scoutPct: 80, ledgerAmount: "800k" } as const;
+
 export const DEGRADE_AGENT_ROWS: DegradeAgentRow[] = [
-  { id: "ag-scout", initials: "SC", name: "Scout", tone: "violet", detail: "1.5M/日 · 80%" },
-  { id: "ag-ledger", initials: "LG", name: "Ledger", tone: "amber", detail: "800k/次 · 不降级" },
-  { id: "ag-ava", initials: "AV", name: "Ava", tone: "teal", detail: "按组织级" },
+  { id: "ag-scout", initials: "SC", name: "Scout", tone: "violet", detail: policyCopy["adminLimitPolicy.scoutDetail"].replace("{amount}", DEGRADE_AGENT_DISPLAY.scoutAmount).replace("{pct}", String(DEGRADE_AGENT_DISPLAY.scoutPct)) },
+  { id: "ag-ledger", initials: "LG", name: "Ledger", tone: "amber", detail: policyCopy["adminLimitPolicy.ledgerDetail"].replace("{amount}", DEGRADE_AGENT_DISPLAY.ledgerAmount) },
+  { id: "ag-ava", initials: "AV", name: "Ava", tone: "teal", detail: policyCopy["adminLimitPolicy.avaDetail"] },
 ];
 
+const MEMBER_NOTE = { name: "吴桐", pct: 98 } as const;
+
 export const DEGRADE_TIERS = {
-  org: { label: "组织级", enabled: true, triggerPct: 90, target: "sonnet-4.6" },
+  org: { label: policyCopy["adminLimitPolicy.org"], enabled: true, triggerPct: 90, target: "sonnet-4.6" },
   member: {
-    label: "成员级",
+    label: policyCopy["adminLimitPolicy.member"],
     enabled: true,
     triggerPct: 85,
-    note: "吴桐已达 98%，本周起降级运行",
-    noteLink: "给他单独提额",
+    noteName: MEMBER_NOTE.name, notePct: MEMBER_NOTE.pct,
+    note: policyCopy["adminLimitPolicy.memberNote"].replace("{name}", MEMBER_NOTE.name).replace("{pct}", String(MEMBER_NOTE.pct)),
+    noteLink: policyCopy["adminLimitPolicy.memberLink"],
   },
   agent: {
-    label: "Agent 级",
+    label: policyCopy["adminLimitPolicy.agent"],
     enabled: true,
     rows: DEGRADE_AGENT_ROWS,
-    footnote: "财务建模精度敏感，Ledger 设为不降级、超限直接请人批准",
+    footnote: policyCopy["adminLimitPolicy.agentFootnote"].replace("{name}", (DEGRADE_AGENT_ROWS[1]?.name ?? "")),
   },
 } as const;
 
@@ -59,10 +66,10 @@ export interface TaskGradingRow {
 }
 
 export const TASK_TYPE_GRADING: TaskGradingRow[] = [
-  { key: "generic", taskType: "普通生成", action: "自动降级 ＋ 消息标注", tone: "success", reason: "质量损失可接受，中断成本更高" },
-  { key: "research", taskType: "研究 / 财务 / 合规 / 决策辅助", action: "先问人再降级", tone: "warning", reason: "这些结论会进决策链，静默降级等于污染证据" },
-  { key: "confidential", taskType: "含客户机密", action: "禁止降级", tone: "destructive", reason: "替代模型不满足隐私与部署要求" },
-  { key: "no-fallback", taskType: "无合格替代模型", action: "明确失败", tone: "destructive", reason: "宁可报错，也不给低质量伪结果" },
+  { key: "generic", taskType: policyCopy["adminLimitPolicy.task.generic.type"], action: policyCopy["adminLimitPolicy.task.generic.action"], tone: "success", reason: policyCopy["adminLimitPolicy.task.generic.reason"] },
+  { key: "research", taskType: policyCopy["adminLimitPolicy.task.research.type"], action: policyCopy["adminLimitPolicy.task.research.action"], tone: "warning", reason: policyCopy["adminLimitPolicy.task.research.reason"] },
+  { key: "confidential", taskType: policyCopy["adminLimitPolicy.task.confidential.type"], action: policyCopy["adminLimitPolicy.task.confidential.action"], tone: "destructive", reason: policyCopy["adminLimitPolicy.task.confidential.reason"] },
+  { key: "no-fallback", taskType: policyCopy["adminLimitPolicy.task.no-fallback.type"], action: policyCopy["adminLimitPolicy.task.no-fallback.action"], tone: "destructive", reason: policyCopy["adminLimitPolicy.task.no-fallback.reason"] },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -83,7 +90,7 @@ export const TASK_TYPE_GRADING: TaskGradingRow[] = [
  */
 
 export const LIMIT_POLICY_INTRO =
-  "限额按「谁 × 哪个模型 × 什么窗口」三段定义。触顶后不是直接失败，而是按这里配置的动作降级或排队——降级目标必须是已测试通过的模型。";
+  policyCopy["adminLimitPolicy.intro"];
 
 // ─────────────────────────────────────────────────────────────────────────
 // 用量监控 tab · 统计窗口 + 概览卡

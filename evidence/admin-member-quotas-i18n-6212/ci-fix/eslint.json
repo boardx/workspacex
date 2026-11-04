@@ -1,0 +1,12 @@
+{
+  "head": "b77667140dd130abffb2c9205c49b394a79dd9db",
+  "gate": "eslint",
+  "exit": 0,
+  "seconds": 3.753,
+  "files": [
+    "tests/ui/admin-members-quota-live.test.tsx"
+  ],
+  "rawPrivate": true,
+  "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "summary": []
+}

@@ -1,0 +1,19 @@
+{
+  "head": "4639ef2dd55e0826b21736429e09713173cc1da7",
+  "left": "00c87fef75429e3ed99d0791d68ec9cb5e376e6d",
+  "right": "ec1695d8fd646e004ca40dafbfa8e03bf01f20ef",
+  "nonImportStatements": 9,
+  "preservedWorkerStatements": 8,
+  "allAcceptedStatementsPreserved": 8,
+  "homeBodyExactlyAccepted": true,
+  "quotaAndAllOtherWorkerBodiesUnchanged": true,
+  "contractImportExactUnion": [
+    "agentRole",
+    "aiUsage",
+    "homeConfig",
+    "orgAdmin",
+    "skills",
+    "wave2Runtime"
+  ],
+  "testCases": 7
+}

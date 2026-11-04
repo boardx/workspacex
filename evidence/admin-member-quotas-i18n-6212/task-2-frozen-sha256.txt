@@ -1,0 +1,6 @@
+b528a2deac4284d8285a0e0c0d747013fa0346166bf11211e4f4370ed814dbfe  apps/web/components/admin/limit-policy-tab.tsx
+cd86d1bd3d713466fcee208baba6243cbce6973ad0aac732ed5ae7b5579b6682  apps/web/components/admin/limit-rules-live.tsx
+21cfb8d6fc372c4ad950055d7bbcc3cee6556588e39d20550a095323ff47a625  apps/web/lib/mock/admin-limits.ts
+cc41a4864b14d8a2b538278cac3dd88e9c431b110bf0ad6d0fa48296dd2d5ae3  apps/web/lib/i18n/messages/en.ts
+873965d5e795aaef1efc900ed3e53e857af71146774467372993fa2611c40960  apps/web/lib/i18n/messages/zh-CN.ts
+0139580559ab85f42394d0df56635dc2851a3f2d3a2911dcd7d72888df61f91a  apps/web/lib/i18n/namespaces/admin-limit-policy.ts

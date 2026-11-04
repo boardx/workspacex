@@ -1,11 +1,12 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
 import * as React from "react";
 import { AiUsagePanel } from "./ai-usage-panel";
 import { BarChart3 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useOptionalSession } from "@/components/session/session-provider";
-import { ApiError } from "@/lib/api-client";
+import { memberFailure } from "@/lib/admin-member-copy";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import {
   getUsageReport, listLimitEvents,
@@ -35,33 +36,37 @@ import {
  */
 
 /** 窗口枚举 → 界面标签。取值来自契约（单一事实源），标签在这里映射一次。 */
-const WINDOW_LABEL: Record<UsageWindowKey, string> = {
-  "5h": "最近 5 小时",
-  today: "今日",
-  week: "本周",
-  month: "本月",
-};
-const WINDOWS = Object.keys(WINDOW_LABEL) as UsageWindowKey[];
 
-function fmt(n: number): string {
+function fmt(n: number, locale: "en" | "zh-CN"): string {
+  if (locale === "en") return n.toLocaleString("en");
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 10_000) return `${(n / 10_000).toFixed(1)} 万`;
   return n.toLocaleString();
 }
 
 /** 触顶动作的中文标签。与 `limit-rules-live.tsx` 的同一份映射同源于契约枚举。 */
-const ACTION_LABEL: Record<string, string> = {
-  warn: "预警", degrade: "已降级", block: "已拒绝", require_approval: "待批准",
-};
+
 
 export function UsageMonitorTab() {
+  const { locale, t } = useI18n();
+const WINDOW_LABEL: Record<UsageWindowKey, string> = {
+  "5h": t("aiUsage.last5Hours"),
+  today: t("aiUsage.today2"),
+  week: t("aiUsage.thisWeek"),
+  month: t("aiUsage.thisMonth"),
+};
+const WINDOWS = Object.keys(WINDOW_LABEL) as UsageWindowKey[];
+
+const ACTION_LABEL: Record<string, string> = {
+  warn: t("aiUsage.warning"), degrade: t("aiUsage.degraded"), block: t("aiUsage.blocked"), require_approval: t("aiUsage.awaitingApproval"),
+};
   const session = useOptionalSession()?.session ?? null;
   const orgId = session?.currentOrgId ?? null;
 
   const [windowKey, setWindowKey] = React.useState<UsageWindowKey>("week");
   const [data, setData] = React.useState<GetUsageReportOut | null>(null);
   const [events, setEvents] = React.useState<ListLimitEventsOut["events"] | null>(null);
-  const [error, setError] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<{ cause: unknown } | null>(null);
 
   React.useEffect(() => {
     if (!orgId) return;
@@ -74,7 +79,7 @@ export function UsageMonitorTab() {
         if (!cancelled) setData(out);
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof ApiError ? (err.reasonCode ?? `http_${err.status}`) : String(err));
+          setError({ cause: err });
         }
       }
     })();
@@ -101,11 +106,11 @@ export function UsageMonitorTab() {
   const empty = data !== null && data.callCount === 0;
 
   return (
-    <div className="flex flex-col gap-5" data-testid="admin-usage-tab">
+    <div className="flex min-w-0 flex-col gap-5" data-testid="admin-usage-tab">
       {/* 统计窗口切换 */}
       <div className="flex flex-wrap items-center gap-2" data-testid="admin-usage-window">
-        <span className="text-11 text-muted-foreground">统计窗口</span>
-        <div className="flex gap-0.5 rounded-lg border border-border bg-card p-0.5">
+        <span className="text-11 text-muted-foreground">{t("aiUsage.usageWindow")}</span>
+        <div className="flex flex-wrap gap-0.5 rounded-lg border border-border bg-card p-0.5">
           {WINDOWS.map((w) => (
             <button
               key={w}
@@ -125,17 +130,17 @@ export function UsageMonitorTab() {
           ))}
         </div>
         <span className="ml-auto font-mono text-10 text-muted-foreground">
-          {data ? `${WINDOW_LABEL[data.window]} · 单位 token` : "读取中…"}
+          {data ? t("aiUsage.windowUnit", { window: WINDOW_LABEL[data.window] }) : t("aiUsage.loading")}
         </span>
       </div>
 
       {orgId && <AiUsagePanel key={orgId} orgId={orgId}/>}
-      {!orgId && <p className="text-12 text-muted-foreground">尚未选择组织。</p>}
+      {!orgId && <p className="text-12 text-muted-foreground">{t("aiUsage.noOrganizationSelected")}</p>}
 
       {error && (
         <Card data-testid="admin-usage-load-failed">
           <CardContent className="p-3 text-12 text-destructive">
-            用量数据读取失败：{error}
+            {t("aiUsage.couldNotLoadUsageData")}{memberFailure(error.cause, locale)}
           </CardContent>
         </Card>
       )}
@@ -146,60 +151,60 @@ export function UsageMonitorTab() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4" data-testid="admin-usage-stats">
             <Card data-testid="admin-usage-stat-total">
               <CardContent className="flex flex-col gap-1.5 pt-3">
-                <span className="text-11 text-muted-foreground">总用量</span>
-                <span className="font-serif text-24 font-medium">{fmt(data.totalTokens)}</span>
+                <span className="text-11 text-muted-foreground">{t("aiUsage.totalUsage")}</span>
+                <span className="font-serif text-24 font-medium">{fmt(data.totalTokens, locale)}</span>
                 <span className="font-mono text-10 text-muted-foreground">{WINDOW_LABEL[data.window]}</span>
               </CardContent>
             </Card>
             <Card data-testid="admin-usage-stat-calls">
               <CardContent className="flex flex-col gap-1.5 pt-3">
-                <span className="text-11 text-muted-foreground">调用次数</span>
+                <span className="text-11 text-muted-foreground">{t("aiUsage.calls")}</span>
                 <span className="font-serif text-24 font-medium">{data.callCount.toLocaleString()}</span>
-                <span className="font-mono text-10 text-muted-foreground">含失败调用</span>
+                <span className="font-mono text-10 text-muted-foreground">{t("aiUsage.includesFailedCalls")}</span>
               </CardContent>
             </Card>
             <Card data-testid="admin-usage-stat-failed">
               <CardContent className="flex flex-col gap-1.5 pt-3">
-                <span className="text-11 text-muted-foreground">其中失败</span>
+                <span className="text-11 text-muted-foreground">{t("aiUsage.failedCalls")}</span>
                 <span className={`font-serif text-24 font-medium ${data.failedCallCount > 0 ? "text-warning" : ""}`}>
                   {data.failedCallCount.toLocaleString()}
                 </span>
-                <span className="font-mono text-10 text-muted-foreground">失败不计 token，但计一次调用</span>
+                <span className="font-mono text-10 text-muted-foreground">{t("aiUsage.failuresCountAsCallsButNot")}</span>
               </CardContent>
             </Card>
             <Card data-testid="admin-usage-stat-active">
               <CardContent className="flex flex-col gap-1.5 pt-3">
-                <span className="text-11 text-muted-foreground">活跃成员</span>
+                <span className="text-11 text-muted-foreground">{t("aiUsage.activeMembers")}</span>
                 <span className="font-serif text-24 font-medium">{data.activeMemberCount}</span>
-                <span className="font-mono text-10 text-muted-foreground">窗口内有过调用的人</span>
+                <span className="font-mono text-10 text-muted-foreground">{t("aiUsage.membersWithCallsInThisWindow")}</span>
               </CardContent>
             </Card>
           </div>
 
           {/* 按人 × 模型矩阵 */}
           <section className="flex flex-col gap-2">
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
               <BarChart3 aria-hidden className="h-4 w-4 text-muted-foreground" />
-              <h2 className="text-14 font-semibold">按人 × 模型</h2>
+              <h2 className="text-14 font-semibold">{t("aiUsage.memberModel2")}</h2>
               <span className="ml-auto text-10 text-muted-foreground">
-                额度用量在「成员配额」tab（额度按月结算，与这里的窗口不同口径）
+                {t("aiUsage.seeQuotaUsageInMemberQuotas")}
               </span>
             </div>
             <Card>
-              <CardContent className="overflow-x-auto p-0">
+              <CardContent className="min-w-0 max-w-full overflow-x-auto p-0">
                 {empty ? (
                   <p className="p-4 text-12 text-muted-foreground" data-testid="admin-usage-empty">
-                    {WINDOW_LABEL[data.window]}内还没有任何模型调用。
+                    {t("aiUsage.emptyWindow", { window: WINDOW_LABEL[data.window] })}
                   </p>
                 ) : (
                   <Table className="w-full min-w-[560px] border-collapse text-11" data-testid="admin-usage-matrix">
                     <TableHeader>
                       <TableRow className="border-b border-border bg-panel text-11 text-muted-foreground">
-                        <TableHead className="px-3 py-2 text-left font-medium">成员</TableHead>
+                        <TableHead className="px-3 py-2 text-left font-medium">{t("aiUsage.member")}</TableHead>
                         {data.models.map((m) => (
                           <TableHead key={m} className="px-2 py-2 text-right font-mono font-medium">{m}</TableHead>
                         ))}
-                        <TableHead className="px-2 py-2 text-right font-medium">合计</TableHead>
+                        <TableHead className="px-2 py-2 text-right font-medium">{t("aiUsage.total")}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -212,10 +217,10 @@ export function UsageMonitorTab() {
                           <TableCell className="px-3 py-2 font-medium">{r.displayName}</TableCell>
                           {r.perModel.map((v, i) => (
                             <TableCell key={data.models[i]} className="px-2 py-2 text-right font-mono text-muted-foreground">
-                              {fmt(v)}
+                              {fmt(v, locale)}
                             </TableCell>
                           ))}
-                          <TableCell className="px-2 py-2 text-right font-mono font-medium">{fmt(r.total)}</TableCell>
+                          <TableCell className="px-2 py-2 text-right font-mono font-medium">{fmt(r.total, locale)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -228,9 +233,9 @@ export function UsageMonitorTab() {
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
             <Card data-testid="admin-usage-model-distribution">
               <CardContent className="flex flex-col gap-2.5 pt-4">
-                <span className="text-12 font-medium">按模型分布</span>
+                <span className="text-12 font-medium">{t("aiUsage.byModel2")}</span>
                 {data.distribution.length === 0 && (
-                  <span className="text-11 text-muted-foreground">窗口内没有调用。</span>
+                  <span className="text-11 text-muted-foreground">{t("aiUsage.noCallsInThisWindow")}</span>
                 )}
                 {data.distribution.map((m) => {
                   const pct = Math.round(m.share * 100);
@@ -251,27 +256,27 @@ export function UsageMonitorTab() {
 
             <Card data-testid="admin-usage-recent-events">
               <CardContent className="flex flex-col gap-2.5 pt-4">
-                <span className="text-12 font-medium">近期限额事件</span>
-                {events === null && <span className="text-11 text-muted-foreground">读取中…</span>}
+                <span className="text-12 font-medium">{t("aiUsage.recentLimitEvents")}</span>
+                {events === null && <span className="text-11 text-muted-foreground">{t("aiUsage.loading")}</span>}
                 {events !== null && events.length === 0 && (
                   <span className="text-11 text-muted-foreground" data-testid="admin-usage-events-empty">
-                    近期没有任何限额规则被触发。
+                    {t("aiUsage.noLimitRulesTriggeredRecently")}
                   </span>
                 )}
                 {(events ?? []).map((ev) => (
                   <div key={ev.eventId} className="flex items-start gap-2"
                     data-testid={`admin-usage-event-${ev.eventId}`}>
                     <Badge tone={ev.actionTaken === "block" ? "danger" : ev.actionTaken === "warn" ? "warning" : "primary"}>
-                      {ACTION_LABEL[ev.actionTaken]}
+                      {Object.prototype.hasOwnProperty.call(ACTION_LABEL, ev.actionTaken) ? ACTION_LABEL[ev.actionTaken] : ev.actionTaken}
                     </Badge>
                     <div className="min-w-0 flex-1">
                       <p className="text-11 leading-relaxed">
-                        {ev.subjectRef} 触顶：观测 {fmt(ev.observedTokens)} / 上限 {fmt(ev.thresholdTokens)}
+                        {t("aiUsage.limitReached", { subject: ev.subjectRef, observed: fmt(ev.observedTokens, locale), threshold: fmt(ev.thresholdTokens, locale) })}
                       </p>
                       <p className="font-mono text-9 text-muted-foreground">
                         {ev.occurredAt}
                         {/* 规则已删时 ruleId 是空串——事件仍然是真的，如实说「规则已删除」 */}
-                        {ev.ruleId === "" ? " · 规则已删除" : ` · 规则 ${ev.ruleId.slice(0, 8)}`}
+                        {ev.ruleId === "" ? t("aiUsage.ruleDeleted") : t("aiUsage.ruleRef", { id: ev.ruleId.slice(0, 8) })}
                       </p>
                     </div>
                   </div>

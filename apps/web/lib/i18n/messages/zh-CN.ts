@@ -5,6 +5,10 @@ import { surveyWorkspaceZhCN } from "../namespaces/survey-workspace";
 import { surveyRuntimeErrorsZhCN } from "../namespaces/survey-runtime-errors";
 import { surveyDesignZhCN } from "../namespaces/survey-design";
 import { surveyLibraryZhCN } from "../namespaces/survey-library";
+import { aiUsageZhCN } from "../namespaces/ai-usage";
+import { adminLimitPolicyZhCN } from "../namespaces/admin-limit-policy";
+import { adminMemberQuotasZhCN } from "../namespaces/admin-member-quotas";
+import { adminCommonZhCN } from "../namespaces/admin-common";
 import { recordingProjectZhCN } from "../namespaces/recording-project";
 import { workflowGrantsZhCN } from "../namespaces/workflow-grants";
 import { orgHomeConfigZhCN } from "../namespaces/org-home-config";
@@ -35,6 +39,10 @@ export const zhCN = {
   ...surveyRuntimeErrorsZhCN,
   ...surveyLibraryZhCN,
   ...surveyDesignZhCN,
+  ...aiUsageZhCN,
+  ...adminLimitPolicyZhCN,
+  ...adminMemberQuotasZhCN,
+  ...adminCommonZhCN,
   ...recordingProjectZhCN,
   ...workflowGrantsZhCN,
   ...orgHomeConfigZhCN,

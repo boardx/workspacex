@@ -1,3 +1,5 @@
+"use client";
+import { useI18n } from "@/lib/i18n/provider";
 import { TriangleAlert } from "lucide-react";
 
 /**
@@ -19,6 +21,7 @@ import { TriangleAlert } from "lucide-react";
  * `lib/mock/*` 且从未调用 `apiRequest`/`lib/live-*` 的，必须渲染本组件。
  */
 export function NoBackendNotice() {
+  const { t } = useI18n();
   return (
     <div
       data-testid="admin-no-backend-notice"
@@ -28,12 +31,10 @@ export function NoBackendNotice() {
       <TriangleAlert aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
       <div className="flex min-w-0 flex-col gap-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-12 font-semibold text-destructive">尚未接入真实后端</span>
+          <span className="text-12 font-semibold text-destructive">{t("adminCommon.noBackend")}</span>
         </div>
         <p className="text-11 text-destructive/90">
-          此功能<strong className="font-semibold">尚未接入真实后端</strong>——没有对应的服务端接口，
-          以下内容为<strong className="font-semibold">静态演示数据</strong>，
-          <strong className="font-semibold">任何操作都不会真的生效</strong>。
+          {t("adminCommon.prototypeExplanation")}
         </p>
       </div>
     </div>

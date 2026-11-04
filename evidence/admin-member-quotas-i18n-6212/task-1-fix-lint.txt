@@ -1,0 +1,1 @@
+Scoped13filesESLint: exit0; no diagnostics

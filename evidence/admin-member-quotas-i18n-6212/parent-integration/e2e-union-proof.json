@@ -1,0 +1,33 @@
+{
+  "worker": "65c0b3833",
+  "parent": "ca3f9e448",
+  "candidate": "fc038e1b9a6cf76dd2b839e613be9a101e4a6ca7",
+  "workerTests": [
+    "administration quotas retain drafts and canonical writes while usage preserves real receipt distinctions across locales",
+    "organization profile preserves authored data and enforces real grant and memory permissions across locales",
+    "admin authors display copy; members switch language; clearing keeps original execution bytes",
+    "an installed organization explicitly updates authored titles without changing execution or manual copy",
+    "organization members and invitations retain source data across locales",
+    "shared admin sidebars retain routes, scope and live counts across locale changes"
+  ],
+  "parentTests": [
+    "organization profile preserves authored data and enforces real grant and memory permissions across locales",
+    "admin authors display copy; members switch language; clearing keeps original execution bytes",
+    "an installed organization explicitly updates authored titles without changing execution or manual copy",
+    "organization members and invitations retain source data across locales",
+    "shared admin sidebars retain routes, scope and live counts across locale changes",
+    "organization home configuration preserves drafts, real previews and recommendation snapshots across locales"
+  ],
+  "mergedTests": [
+    "administration quotas retain drafts and canonical writes while usage preserves real receipt distinctions across locales",
+    "organization profile preserves authored data and enforces real grant and memory permissions across locales",
+    "admin authors display copy; members switch language; clearing keeps original execution bytes",
+    "an installed organization explicitly updates authored titles without changing execution or manual copy",
+    "organization members and invitations retain source data across locales",
+    "shared admin sidebars retain routes, scope and live counts across locale changes",
+    "organization home configuration preserves drafts, real previews and recommendation snapshots across locales"
+  ],
+  "nonImportStatements": 9,
+  "allAcceptedStatementsByteEqual": true,
+  "importsRetained": true
+}

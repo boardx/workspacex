@@ -1,0 +1,172 @@
+[
+  {
+    "file": "images/member-quotas-budget-draft-en-375.png",
+    "width": 375,
+    "height": 900,
+    "sha256": "29f3e6f148c7c9b5c8fda21f3ffc4a959e4f1d6bc28e22605c26e07ec3e0746e",
+    "noTextOrTrailingChunks": true,
+    "rootIndividuallyViewed": true,
+    "qaNotes": "Budget draft500000 is intact; title and full guidance wrap legibly; Close Cancel Save fully inside375 viewport; no visible credentials.",
+    "qaVerdict": "pass"
+  },
+  {
+    "file": "images/member-quotas-denied-en-375.png",
+    "width": 375,
+    "height": 900,
+    "sha256": "c3cfd9b4ffd10cc163994712ff70b2a5fb921f70208d881e437464f2e43fb3c9",
+    "noTextOrTrailingChunks": true,
+    "rootIndividuallyViewed": true,
+    "qaNotes": "Valid-member denial now shows permission guidance in both budget and quota cards; no session-expiry text; wraps fully at375 with Retry reachable; prior403 visual finding resolved.",
+    "qaVerdict": "pass"
+  },
+  {
+    "file": "images/member-quotas-filtered-ledger-en-1280.png",
+    "width": 1280,
+    "height": 900,
+    "sha256": "826d74ce33335d92741e11795d2f82a6a373d4a4785d832d36bcca55220f2c4b",
+    "noTextOrTrailingChunks": true,
+    "rootIndividuallyViewed": true,
+    "qaNotes": "Filtered desktop ledger shows raw model braces and exact1.234567CNY, count-neutral Records on this page:1 and full date. Rightmost columns use the existing contained horizontal scroller; not allcolumns claimed visible together.",
+    "qaVerdict": "pass"
+  },
+  {
+    "file": "images/member-quotas-filtered-ledger-en-375.png",
+    "width": 375,
+    "height": 900,
+    "sha256": "e588affadf99e0269989662099d97deffbdd5c0908195d7cf7b6ad515a40f8c0",
+    "noTextOrTrailingChunks": true,
+    "rootIndividuallyViewed": true,
+    "qaNotes": "Filtered375 controls/date/model braces wrap cleanly, selected filter and1000recorded tokens visible. This viewport shows upper summary only; ledger lowersections are not claimed visible in this frame.",
+    "qaVerdict": "pass"
+  },
+  {
+    "file": "images/member-quotas-initial-en-1280.png",
+    "width": 1280,
+    "height": 900,
+    "sha256": "fb9ad82eea09fbef6ef36453dbbe9c9d4adffa28aa95c783e32de60b374cb044",
+    "noTextOrTrailingChunks": true,
+    "rootIndividuallyViewed": true,
+    "qaNotes": "Initial1280 distinguishes unset budget/unallocateddash from allocated0, renders both raw member cards and exact1005usage, and keeps Adjust/budget/invite controls readable. Lower private-boundary section extends below this viewport.",
+    "qaVerdict": "pass"
+  },
+  {
+    "file": "images/member-quotas-initial-en-375.png",
+    "width": 375,
+    "height": 900,
+    "sha256": "3ed055a8c944b1b344ad30560e00de93c926ba3e550f1d8d93ae995760e98d98",
+    "noTextOrTrailingChunks": true,
+    "rootIndividuallyViewed": true,
+    "qaNotes": "Initial375 heading/tabs/navigation link and unset-vs-zero quota cards wrap cleanly without horizontal overflow. Lower cards/member controls require normal page scrolling and are not claimed visible here.",
+    "qaVerdict": "pass"
+  },
+  {
+    "file": "images/member-quotas-invite-draft-en-375.png",
+    "width": 375,
+    "height": 900,
+    "sha256": "d9000ffff7741dbb2a1469a194ddb0a970c4dc674cfce8f3adb8c5b7be8016b1",
+    "noTextOrTrailingChunks": true,
+    "rootIndividuallyViewed": true,
+    "qaNotes": "Invite modal375 has readable English labels/manual-delivery hint and full Send invitation/Close controls. Raw email braces and selected Consultant persist; long email scrolls inside its input, no activation token exposed.",
+    "qaVerdict": "pass"
+  },
+  {
+    "file": "images/member-quotas-policy-en-1280.png",
+    "width": 1280,
+    "height": 900,
+    "sha256": "af23e6a22ae0349c3bdd3d9f9b56a66540620d9ab94dae2a47107f9f2173652b",
+    "noTextOrTrailingChunks": true,
+    "rootIndividuallyViewed": true,
+    "qaNotes": "Policy1280 clearly retains prototype no-live-backend banner and separately titled live Limit rules. Rules:1 resolves singular finding; raw scope/modeltarget braces,20000limit and1005usage remain; Add/Edit/Delete controls visible.",
+    "qaVerdict": "pass"
+  },
+  {
+    "file": "images/member-quotas-policy-en-375.png",
+    "width": 375,
+    "height": 900,
+    "sha256": "201811726d75c62663d6851904fa0c7028b41320a5a26859d46cad7173dbb99c",
+    "noTextOrTrailingChunks": true,
+    "rootIndividuallyViewed": true,
+    "qaNotes": "Policy375 Rules:1/Add rule and responsive guide are readable. Live rule lower content is belowfold; existing transient shared toast overlaps bottom navigation, not a new layout change or claim of all controls visible simultaneously.",
+    "qaVerdict": "pass"
+  },
+  {
+    "file": "images/member-quotas-quota-draft-en-375.png",
+    "width": 375,
+    "height": 900,
+    "sha256": "a060b5c9a8f1741fb225b121cb00cd5a98d79f415f9559e52b2b857b328a3b9f",
+    "noTextOrTrailingChunks": true,
+    "rootIndividuallyViewed": true,
+    "qaNotes": "Quota375 preserves raw12500.9 draft; Used1005tokens and Unallocated500000tokens have proper English sentence spacing. Full wrapped title, Close, Cancel and Save fit the modal.",
+    "qaVerdict": "pass"
+  },
+  {
+    "file": "images/member-quotas-quota-error-en-375.png",
+    "width": 375,
+    "height": 900,
+    "sha256": "ad0e789a5fc72d7ebb177605897458f48126fcd8b7c37092e4298e3237ed3093",
+    "noTextOrTrailingChunks": true,
+    "rootIndividuallyViewed": true,
+    "qaNotes": "Real409 error retains rejected500001draft and displays500000numeric guidance without internal code; unallocated487500caption remains the separate replacement-budget quantity. Guidance wraps legibly and Cancel/Save/Close fully fit375.",
+    "qaVerdict": "pass"
+  },
+  {
+    "file": "images/member-quotas-rule-draft-en-375.png",
+    "width": 375,
+    "height": 900,
+    "sha256": "3667b0ef38cdd85ef1e849fae3731b04611aebd3a303685278a68d018f067dc3",
+    "noTextOrTrailingChunks": true,
+    "rootIndividuallyViewed": true,
+    "qaNotes": "Add-rule375 shows every field and required-target guidance without clipping; raw20000.9draft, memberID and model-target-raw{model} remain intact; Close/Cancel/Save fully visible. No claim of executing degradation.",
+    "qaVerdict": "pass"
+  },
+  {
+    "file": "images/member-quotas-rule-edit-draft-en-375.png",
+    "width": 375,
+    "height": 900,
+    "sha256": "6fdbd68ebc6221f87f8a88327c71ffa47a6233afa440fd7399e5b1c2cdc859e5",
+    "noTextOrTrailingChunks": true,
+    "rootIndividuallyViewed": true,
+    "qaNotes": "Edit-rule375 keeps full raw scopeID wrapped in title and22500.9draft unchanged; Limit label and all Close/Cancel/Save controls fit with no overlap.",
+    "qaVerdict": "pass"
+  },
+  {
+    "file": "images/member-quotas-usage-ledger-en-1280.png",
+    "width": 1280,
+    "height": 900,
+    "sha256": "e0002b7a864298ef4d87ca1d71da0c852716ed7a7af340a5ed08b1752c14a115",
+    "noTextOrTrailingChunks": true,
+    "rootIndividuallyViewed": true,
+    "qaNotes": "Ledger1280 retains exactCNY/USD fractions, native2000milliseconds estimated, and unknown usage as Not reported/No data; new Calls with unreported usage:1 is correct. Open metering details retained. Date/call-time left edge is shifted inside the pre-existing horizontal table; filteredreset image separately shows full date.",
+    "qaVerdict": "pass"
+  },
+  {
+    "file": "images/member-quotas-usage-ledger-en-375.png",
+    "width": 375,
+    "height": 900,
+    "sha256": "6151fce13e0decbf1f6e122fc8347f51f004c7aa13612ed3340fa1804976e3dc",
+    "noTextOrTrailingChunks": true,
+    "rootIndividuallyViewed": true,
+    "qaNotes": "Ledger375 keeps count-neutral unknown-usage text and native-unit caveat legible; raw model/member data stays intact. Wide table remains contained, with other columns/details and footer outside this viewport; no simultaneous-all-columns claim.",
+    "qaVerdict": "pass"
+  },
+  {
+    "file": "images/member-quotas-usage-overview-en-1280.png",
+    "width": 1280,
+    "height": 900,
+    "sha256": "a22820d0765e2c0cbccc910483847b304af2da09f20dfd7302061a6a3b7aa62c",
+    "noTextOrTrailingChunks": true,
+    "rootIndividuallyViewed": true,
+    "qaNotes": "Overview1280 keeps Asia/Shanghai/month bucket and separate exactCNY1.234567/USD0.000001 trends, readable chart controls/drilldowns and raw member/model braces. Token-selected grouping aggregates are not a claim of native-unit consumption or zero cost.",
+    "qaVerdict": "pass"
+  },
+  {
+    "file": "images/member-quotas-usage-overview-en-375.png",
+    "width": 375,
+    "height": 900,
+    "sha256": "b119ff1e3a932b5254fdaf2fe3c8f0b3e2dfc43eef124a5c89c07d2e7a1d2f5f",
+    "noTextOrTrailingChunks": true,
+    "rootIndividuallyViewed": true,
+    "qaNotes": "Overview375 has readable separateCNY/USD recorded prices and unpriced-cost caveat; timezone/monthly controls wrap within viewport, bars and drilldown action fit. Lower member ranking needs normal scroll; raw prices/date units unchanged.",
+    "qaVerdict": "pass"
+  }
+]

@@ -1,0 +1,11 @@
+{
+  "head": "9194ab5de3754e79d03c640928b835efbeaa02e6",
+  "gate": "browser-list",
+  "exit": 0,
+  "seconds": 4.399,
+  "rawPrivate": true,
+  "rawLogSha256": "15c84641cc8e1936e9e8d32b75db4c73733366c8b2daa5ff6d1a6a75abaa229a",
+  "summary": [
+    "Total: 1 test in 1 file"
+  ]
+}

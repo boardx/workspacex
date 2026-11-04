@@ -1,0 +1,39 @@
+
+> web@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/web
+> tsc --noEmit
+
+components/admin/limit-rules-live.tsx(69,23): error TS7006: Parameter 't' implicitly has an 'any' type.
+components/admin/limit-rules-live.tsx(69,26): error TS7006: Parameter 'locale' implicitly has an 'any' type.
+components/admin/limit-rules-live.tsx(85,66): error TS7006: Parameter 't' implicitly has an 'any' type.
+components/admin/limit-rules-live.tsx(86,55): error TS7006: Parameter 't' implicitly has an 'any' type.
+components/admin/limit-rules-live.tsx(96,23): error TS7006: Parameter 't' implicitly has an 'any' type.
+components/admin/limit-rules-live.tsx(106,66): error TS7006: Parameter 't' implicitly has an 'any' type.
+components/admin/limit-rules-live.tsx(111,23): error TS7006: Parameter 't' implicitly has an 'any' type.
+components/admin/limit-rules-live.tsx(133,23): error TS7006: Parameter 't' implicitly has an 'any' type.
+components/admin/member-invites-panel.tsx(72,27): error TS7006: Parameter 't' implicitly has an 'any' type.
+components/admin/member-invites-panel.tsx(72,30): error TS7006: Parameter 'locale' implicitly has an 'any' type.
+components/admin/member-invites-panel.tsx(87,27): error TS7006: Parameter 't' implicitly has an 'any' type.
+components/admin/member-invites-panel.tsx(87,30): error TS7006: Parameter 'locale' implicitly has an 'any' type.
+components/admin/member-invites-panel.tsx(100,23): error TS7006: Parameter 't' implicitly has an 'any' type.
+components/admin/member-invites-panel.tsx(104,23): error TS7006: Parameter 't' implicitly has an 'any' type.
+components/admin/member-invites-panel.tsx(104,26): error TS7006: Parameter 'locale' implicitly has an 'any' type.
+components/admin/member-quota-tab.tsx(76,27): error TS7006: Parameter '_t' implicitly has an 'any' type.
+components/admin/member-quota-tab.tsx(76,31): error TS7006: Parameter 'locale' implicitly has an 'any' type.
+components/admin/member-quota-tab.tsx(85,71): error TS7006: Parameter 't' implicitly has an 'any' type.
+components/admin/member-quota-tab.tsx(91,23): error TS7006: Parameter 't' implicitly has an 'any' type.
+components/admin/member-quota-tab.tsx(91,26): error TS7006: Parameter 'locale' implicitly has an 'any' type.
+components/admin/member-quota-tab.tsx(98,27): error TS7006: Parameter 't' implicitly has an 'any' type.
+components/admin/member-quota-tab.tsx(98,30): error TS7006: Parameter 'locale' implicitly has an 'any' type.
+components/admin/member-quota-tab.tsx(109,71): error TS7006: Parameter 't' implicitly has an 'any' type.
+components/admin/member-quota-tab.tsx(114,23): error TS7006: Parameter 't' implicitly has an 'any' type.
+components/admin/member-quota-tab.tsx(114,26): error TS7006: Parameter 'locale' implicitly has an 'any' type.
+components/admin/member-quota-tab.tsx(119,27): error TS7006: Parameter 't' implicitly has an 'any' type.
+components/admin/member-quota-tab.tsx(119,30): error TS7006: Parameter 'locale' implicitly has an 'any' type.
+tests/ui/ai-usage-i18n.test.tsx(54,73): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+  Overload 2 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+/Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/web:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  web@0.1.0 typecheck: `tsc --noEmit`
+Exit status 2

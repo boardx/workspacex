@@ -1,0 +1,12 @@
+Frozen implementation original15 +existing36=51PASS; newreviewcounter1expectedRED.
+ ✓ tests/ui/ai-usage-panel.test.tsx (18 tests) 1009ms
+ ✓ tests/ui/admin-usage-monitor-live.test.tsx (6 tests) 209ms
+ ✓ tests/ui/ai-usage-format-i18n.test.ts (6 tests) 25ms
+ ✓ tests/ui/ai-usage-format.test.ts (4 tests) 24ms
+ ✓ tests/lib/i18n-resources.test.ts (5 tests) 54ms
+ ✓ tests/lib/ai-usage-chart.test.ts (3 tests) 19ms
+ FAIL  tests/ui/ai-usage-i18n.test.tsx > does not claim failed calls have zero tokens when the actual report includes reported failed usage
+ Test Files  1 failed | 6 passed (7)
+      Tests  1 failed | 51 passed (52)
+   Duration  10.60s (transform 1.37s, setup 765ms, collect 3.09s, tests 2.21s, environment 1.96s, prepare 335ms)
+Web11filesESLint exit0. Ad-hocAPI ESLint invalid (no configuration), canonicalAPIpackage lint/type pending.

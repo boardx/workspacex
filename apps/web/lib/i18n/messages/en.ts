@@ -5,6 +5,10 @@ import { surveyWorkspaceEn } from "../namespaces/survey-workspace";
 import { surveyRuntimeErrorsEn } from "../namespaces/survey-runtime-errors";
 import { surveyDesignEn } from "../namespaces/survey-design";
 import { surveyLibraryEn } from "../namespaces/survey-library";
+import { aiUsageEn } from "../namespaces/ai-usage";
+import { adminLimitPolicyEn } from "../namespaces/admin-limit-policy";
+import { adminMemberQuotasEn } from "../namespaces/admin-member-quotas";
+import { adminCommonEn } from "../namespaces/admin-common";
 import { recordingProjectEn } from "../namespaces/recording-project";
 import { workflowGrantsEn } from "../namespaces/workflow-grants";
 import { orgHomeConfigEn } from "../namespaces/org-home-config";
@@ -36,6 +40,10 @@ export const en: Record<keyof typeof zhCN, string> = {
   ...surveyRuntimeErrorsEn,
   ...surveyLibraryEn,
   ...surveyDesignEn,
+  ...aiUsageEn,
+  ...adminLimitPolicyEn,
+  ...adminMemberQuotasEn,
+  ...adminCommonEn,
   ...workflowGrantsEn,
   ...orgHomeConfigEn,
   ...orgProfileEn,
