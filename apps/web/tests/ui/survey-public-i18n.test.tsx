@@ -92,3 +92,29 @@ it("shares one pending upload session across two files and retains session, file
   expect(boundary.request).toHaveBeenCalledTimes(3); expect(boundary.request.mock.calls[2]![1].body).toMatchObject({ submissionId: sessionBody.submissionId, uploadSessionToken: "raw-upload-session", answers: [{ questionId: "file-a", value: ["attachment-a"] }, { questionId: "file-b", value: ["attachment-b"] }] });
   expect(boundary.fetch).toHaveBeenCalledTimes(2); await act(async () => submission.resolve({ accepted: true })); expect(screen.getByRole("status")).toHaveTextContent("Submitted successfully");
 });
+it("retains the pending File after a failed upload session and retries only explicitly with the same submission identity", async () => {
+  await load(published([question({ type: "file", config: { maxFiles: 1 } })]));
+  boundary.request.mockRejectedValueOnce(new Error("fake-private-upload-diagnostic"));
+  const file = new File(["原文件字节 {count}"], "原待重试文件.txt", { type: "text/plain" }), input = screen.getByLabelText("选择文件");
+  await act(async () => fireEvent.change(input, { target: { files: [file] } }));
+  expect(screen.getByRole("alert")).toHaveTextContent("上传失败，文件尚未提交。请重试。");
+  const first = boundary.request.mock.calls[1]![1].body; language("en");
+  expect(screen.getByRole("alert")).toHaveTextContent("Upload failed. The file has not been submitted. Try again."); expect(screen.getByRole("alert")).not.toHaveTextContent("fake-private-upload-diagnostic");
+  expect(screen.getByLabelText("Choose file")).toBe(input); expect(boundary.request).toHaveBeenCalledTimes(2); expect(boundary.fetch).not.toHaveBeenCalled();
+  boundary.request.mockResolvedValueOnce({ uploadSessionToken: "raw-retry-session" }); boundary.fetch.mockResolvedValueOnce(new Response(JSON.stringify({ attachmentId: "raw-attachment", name: file.name })));
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: "Retry upload" })));
+  expect(boundary.request).toHaveBeenCalledTimes(3); expect(boundary.request.mock.calls[2]![1].body.submissionId).toBe(first.submissionId);
+  expect(boundary.fetch).toHaveBeenCalledTimes(1); const retryFile = boundary.fetch.mock.calls[0]![1].body.get("file") as File; expect(retryFile.name).toBe(file.name); expect(retryFile.size).toBe(file.size);
+  expect(screen.getByText(file.name)).toBeVisible(); language("zh-CN"); language("en"); expect(boundary.request).toHaveBeenCalledTimes(3);
+});
+it("retains one pending attachment deletion and its original upload session while the language changes", async () => {
+  await load(published([question({ type: "file", config: { maxFiles: 1 } })]));
+  boundary.request.mockResolvedValueOnce({ uploadSessionToken: "raw-upload-session" }); const file = new File(["原文件字节"], "原已上传文件.txt", { type: "text/plain" });
+  boundary.fetch.mockResolvedValueOnce(new Response(JSON.stringify({ attachmentId: "raw-attachment", name: file.name })));
+  await act(async () => fireEvent.change(screen.getByLabelText("选择文件"), { target: { files: [file] } })); expect(screen.getByText(file.name)).toBeVisible();
+  const pending = deferred<unknown>(); boundary.request.mockReturnValueOnce(pending.promise); const remove = screen.getByRole("button", { name: "删除材料" });
+  await act(async () => fireEvent.click(remove)); language("en"); expect(screen.getByRole("button", { name: "Delete material" })).toBe(remove); expect(remove).toBeDisabled(); expect(screen.getByText(file.name)).toBeVisible();
+  expect(boundary.request).toHaveBeenCalledTimes(3); expect(boundary.request).toHaveBeenLastCalledWith("/public/surveys/raw-token/upload-sessions/raw-upload-session/questions/raw-q/attachments/raw-attachment", { method: "DELETE", sessionToken: null });
+  language("zh-CN"); language("en"); expect(boundary.request).toHaveBeenCalledTimes(3); await act(async () => pending.resolve({}));
+  expect(screen.queryByText(file.name)).not.toBeInTheDocument(); expect(screen.getByLabelText("Choose file")).toBeEnabled(); expect(boundary.fetch).toHaveBeenCalledTimes(1); expect(boundary.request).toHaveBeenCalledTimes(3);
+});
