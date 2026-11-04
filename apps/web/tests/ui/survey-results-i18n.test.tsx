@@ -91,7 +91,7 @@ it("exports the same selected canonical Markdown bytes and filename in both lang
     expect(actual).toEqual(Array(2).fill("# 问卷答卷\n\n## 答卷 raw-response-0\n\n提交时间：2026-11-04T06:00:00.000Z\n\n用时：20 秒\n\n分析状态：纳入分析\n\n### 原问题 {count}\n\n原回答 {name}"));
     expect(filenames).toEqual(["survey-responses.md", "survey-responses.md"]);
   } finally {
-    vi.clearAllTimers(); vi.useRealTimers();
+    vi.useRealTimers();
     if (descriptors.create) Object.defineProperty(URL, "createObjectURL", descriptors.create); else delete (URL as unknown as { createObjectURL?: unknown }).createObjectURL;
     if (descriptors.revoke) Object.defineProperty(URL, "revokeObjectURL", descriptors.revoke); else delete (URL as unknown as { revokeObjectURL?: unknown }).revokeObjectURL;
   }
