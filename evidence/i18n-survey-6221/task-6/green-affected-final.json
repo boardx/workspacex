@@ -39,9 +39,10 @@
   "newCases": 29,
   "inheritedCases": 80,
   "stderrGroups": 0,
-  "warnings": 0,
   "unhandled": 0,
   "skipped": 0,
   "nativeSeconds": 26.03,
-  "innerLogSha256": "c2c3e5d0e28952c14e54637bd00915307910b1d8b7051ecc28fd97839601ee1b"
+  "innerLogSha256": "c2c3e5d0e28952c14e54637bd00915307910b1d8b7051ecc28fd97839601ee1b",
+  "applicationWarnings": 0,
+  "viteCjsDeprecationNotices": 1
 }
