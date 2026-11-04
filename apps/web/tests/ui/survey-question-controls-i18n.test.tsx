@@ -112,9 +112,16 @@ const invalidConfigurations: [Partial<SurveyWorkflowQuestion>, string, string][]
   [{ type: "number", options: [], config: { step: 0 } }, "题目配置格式不正确", "Question configuration is invalid."],
 ];
 it.each(invalidConfigurations)("renders canonical configuration diagnostics in the active language: %s", (patch, source, translated) => {
+  // Deliberately invalid duplicate-ID fixtures exercise canonical diagnostics;
+  // account for React's expected duplicate-key warning without hiding other errors.
+  const expectedWarning = (message: unknown, ...args: unknown[]) => typeof message === "string" && message.startsWith("Warning: Encountered two children with the same key") && args[0] === "same";
+  const errors = vi.spyOn(console, "error").mockImplementation((message, ...args) => {
+    if (!expectedWarning(message, ...args)) throw new Error(`Unexpected React error: ${String(message)}`);
+  });
   show(<SurveyQuestionEditor questions={[question(patch)]} onChange={vi.fn()} />);
   const messages = screen.getByRole("list", { name: "配置检查" });
   expect(messages).toHaveTextContent(source); language("en"); expect(messages).toHaveTextContent(translated);
+  expect(errors.mock.calls.every(([message, ...args]) => expectedWarning(message, ...args))).toBe(true);
 });
 
 it("localizes Other chrome while submitting the original reserved choice ID and raw explanation", () => {
