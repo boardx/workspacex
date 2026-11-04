@@ -9,7 +9,7 @@
 
 ## Global Constraints
 
-- Issue6237; same worktree/branchworker/i18n-platform-telemetry-6237. Parent715d/PR6234 may be an explicitly unaccepted stack; actual accepted develop fetchedddf must be normally incorporated before gates. Parent pending => Draft stack; actual parent merge => develop target/new CI. First6234 CI failure preempts after protecting WIP.
+- Issue6237; same worktree/branchworker/i18n-platform-telemetry-6237. Parent6234 actually merged asb992 at14:35:23Z (issue6224 closed14:35:25Z), independently verified. Acceptedddf content was incorporated exactly; normally include acceptedb992 ancestry before GREEN. This child now targets develop with independent diff/new CI, not a Draft feature-base delivery.
 - Preserve canonical GET/PUT methods, bodies, guards, defaults/version, reporter worker/transport/timing and raw report JSON/IDs/epochs. No production API/contracts changes.
 - Chinese consent copy remains single-source from TELEMETRY_CONSENT_COPY. English is display localization only; locale never enters data effects or resets save state.
 - Root alone runs Git/native gates/resources/evidence. All heavy commands and normal hooks/commits require fresh sole peer handoff; actual exit/owned cleanup then immediate release before archival. No new worktree.
@@ -29,10 +29,10 @@
 
 **Interfaces:** consume instanceTelemetry operations/enums/defaults/copy and useI18n/httpFailureText; preserve existing test IDs and exported TelemetrySettingsScreen({state}). Produce translated semantic display without new runtime/API abstractions.
 
-- [ ] Read spec, actual source/contracts/controller, existing three tests and namespace patterns.
-- [ ] StageA tests only: meaningful English/locale transitions after real mocked branch entry, deferred GET/PUT ownership/exact counts, all reporter/outcome states, one-key PUT/independent flags, known/unknown/network/server failures, omitted labels/date and exact raw JSON. Use installed matcher APIs; no nonexistent namespace import or invalid fixture counts as RED.
-- [ ] Stop for root's native intended RED before any production edit.
-- [ ] StageB minimum page/namespace implementation; semantic failures translate onrender, locale stays out of effects, contract Chinese is referenced, booleans/raw data/behavior unchanged. Perform consolidated page width/label/truncate audit.
+- [x] Read spec, actual source/contracts/controller, existing three tests and namespace patterns.
+- [x] StageA tests only: meaningful English/locale transitions after real mocked branch entry, deferred GET/PUT ownership/exact counts, all reporter/outcome states, one-key PUT/independent flags, known/unknown/network/server failures, omitted labels/date and exact raw JSON. Use installed matcher APIs; no nonexistent namespace import or invalid fixture counts as RED.
+- [x] Stop for root's native intended RED before any production edit.
+- [x] StageB minimum page/namespace implementation; semantic failures translate onrender, locale stays out of effects, contract Chinese is referenced, booleans/raw data/behavior unchanged. Perform consolidated page width/label/truncate audit.
 - [ ] Root runs focused tests + existing three/resources GREEN, scoped lint/type/init and actual raw-error checks; commit and independent task review.
 
 ### Task 2: Canonical real consent/history browser acceptance and publication
