@@ -1,0 +1,9 @@
+# Actual accepted workflow integration
+
+PR6211 actually merged at2026-11-04T06:47:46Z as `4119fc3d318801215b15bd0a5665983fa25bfe2a`, independently read from GitHub. Quota worker `f4288bf5bdc50f1853956af321abec867b926db1` normally merges that accepted commit as source `e42e0407456b27e50c6a4141b523f722c2c81f4f`.
+
+Root rebuilt every union path and protected mode/type/object identity including deletions:23,378 common,157 worker-only and83 accepted-only entries,zero mismatches. Four divergent overlaps preserve both module-knowledge rows, both registries' namespace import/spread additions and the exact E2E named-import union. Eight browser cases/ten non-import statements retain both parents' exact bytes and relative order. Relative to worker each registry adds only two workflow lines; relative to accepted it adds only eight quota namespace lines. No existing line/value is edited to resolve registry conflicts.
+
+The two new semantic403 expectations remain inside the original quota case before its existing denied375 screenshot. Exact removal restores prior E2E bytes; same case count,17quota images,request/status/no-mutation checks and config/budgets. Historical real source4639 denied screenshot is the manual counterexample; these new assertions are still pending runtime verification.
+
+Independent bounded integration review is CLEAN with no actionable P1/P2; the report is included. No merged-source test/browser success is asserted. Shared403 maintenance PR6223 is still unaccepted: its actual candidate186a failed a Chat refresh check, now uniquely investigated by the Chat owner under main coordination. This integration includes only actual accepted4119. After the shared fix actually merges, a normal accepted-develop merge, necessary source checks and one original17-image run remain required. At this evidence snapshot, root holds no services or heavy window during the dependency wait.

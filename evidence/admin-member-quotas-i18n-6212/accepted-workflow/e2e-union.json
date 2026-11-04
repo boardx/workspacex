@@ -1,0 +1,38 @@
+{
+  "sourceRelativeOrdersPreserved": true,
+  "exactNamedImportUnion": true,
+  "worker": "f4288bf5bdc50f1853956af321abec867b926db1",
+  "parent": "4119fc3d318801215b15bd0a5665983fa25bfe2a",
+  "candidate": "HEAD",
+  "workerTests": [
+    "administration quotas retain drafts and canonical writes while usage preserves real receipt distinctions across locales",
+    "organization profile preserves authored data and enforces real grant and memory permissions across locales",
+    "admin authors display copy; members switch language; clearing keeps original execution bytes",
+    "an installed organization explicitly updates authored titles without changing execution or manual copy",
+    "organization members and invitations retain source data across locales",
+    "shared admin sidebars retain routes, scope and live counts across locale changes",
+    "organization home configuration preserves drafts, real previews and recommendation snapshots across locales"
+  ],
+  "parentTests": [
+    "organization profile preserves authored data and enforces real grant and memory permissions across locales",
+    "admin authors display copy; members switch language; clearing keeps original execution bytes",
+    "an installed organization explicitly updates authored titles without changing execution or manual copy",
+    "organization members and invitations retain source data across locales",
+    "shared admin sidebars retain routes, scope and live counts across locale changes",
+    "organization home configuration preserves drafts, real previews and recommendation snapshots across locales",
+    "workflow grant management persists canonical permissions and audit across locales with real member denial"
+  ],
+  "mergedTests": [
+    "administration quotas retain drafts and canonical writes while usage preserves real receipt distinctions across locales",
+    "organization profile preserves authored data and enforces real grant and memory permissions across locales",
+    "admin authors display copy; members switch language; clearing keeps original execution bytes",
+    "an installed organization explicitly updates authored titles without changing execution or manual copy",
+    "organization members and invitations retain source data across locales",
+    "shared admin sidebars retain routes, scope and live counts across locale changes",
+    "organization home configuration preserves drafts, real previews and recommendation snapshots across locales",
+    "workflow grant management persists canonical permissions and audit across locales with real member denial"
+  ],
+  "nonImportStatements": 10,
+  "allAcceptedStatementsByteEqual": true,
+  "importsRetained": true
+}
