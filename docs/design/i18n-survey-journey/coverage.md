@@ -7,7 +7,7 @@ Source branch worker/i18n-survey-journey-6221 @e6dc452f7fd14d3f6f7a3e57dc8f7fd04
 | /studio/survey | library tabs/search/tags/status/cards/menu/delete/create/import entry | component tests+whole-source review; actual library375/1280 viewed |
 | /studio/survey/[surveyId]/design | all31question types/editor/settings/advanced/logic/preview/Markdown/mobile panels | unit/exhaustive metadata tests; actual raw edit/save/reload/focus/selection and selected375/1280 captures |
 | /studio/survey/[surveyId]/publish | schedule/collection state/anonymity/settings/share/QR labels/clone draft | unit+static; actual draft publish201 and anonymous validation reached; screenshots settings375/1280 viewed |
-| /surveys/[token] | anonymous language switch/required/format/upload/pending/retry/submit/success chrome | unit+static; actual load/required-validation reached; upload/submit still blocked by6239, noPG claim |
+| /surveys/[token] | anonymous language switch/required/format/upload/pending/retry/submit/success chrome | unit+static; actual load/required-validation reached; first remote author upload rejected by question allowlist; real-UI txt prerequisite fixed, fresh upload/submit/PG proof pending |
 | /studio/survey/[surveyId]/responses | filters/details/raw exclusion reason/review/audit/download | unit+static; real governance and PG still unrun |
 | /studio/survey/[surveyId]/report | sample notices/charts/locale format/exports/fixed diagnostics | unit+static/canonical export invariance; real report/download/PG still unrun |
 | /studio/survey/[surveyId]/template | report block/chapter editor/save/reuse/unlink/undo | unit+static; real template-case independently ready, no multipart dependency |
@@ -28,3 +28,14 @@ Their exact selected results will be reported separately from the original uploa
 Latest scope: diagnostic API encoding test removed; production API/contracts match accepted develop cf77 exactly. Upload uses supported ASCII braced filename, preserving Chinese raw bytes; issue6239 is deferred/uncovered. Original template/intake case bodies byte-identical to reviewed7ed. See develop-cf77-scope-proof.json.
 
 Independent selected-two run reached template preview then failed a driver stripped-Markdown assumption. Corrected only to rawBody;3 actual screenshots individually viewed. Intake was maxfail-unrun and will now run under its exact single title. No aggregate three-case pass is claimed.
+
+## Current Draft checkpoint — remote run 41914710802 and source72b0
+
+Draft [PR6251](https://github.com/boardx/workspacex/pull/6251) remains **not READY**. Its first existing remote fullstack run checked out merge0c3302f (parent includes published fbbd0beb). Native total96PASS/1unexpected/119skipped/0flaky/global1; the author case failed on both original CI attempts (19.183s/19.239s), while template and intake were maxfail-unrun. This is not native3PASS.
+
+The upload's actual published file-question allowlist was pdf/png/jpg, so the unchanged text/plain TXT fixture was rejected as invalid_file. Source72b0 explicitly checks the existing txt checkbox through real Advanced rules, waits for autosave and verifies the published allowlist; defaults and size/count limits stay intact. Original ASCII filename,55 original UTF-8 bytes and every author assertion from file bytes onward are byte-exact. Template and intake complete case bodies are only moved before author; all180000ms budgets and CI configuration remain unchanged. No API/parser/encoding change;6239 remains deferred.
+
+One remaining fixed signature help paragraph now uses the shared namespace with the original Chinese and equivalent English copy. The existing continuity test produced a valid semantic RED, then2files46PASS (no skips); exact4filelint passed. Canonical --list discovers all3 original seeded cases, discovery only. The original independent reviewer judged the exact four-file source/test delta STATIC CLEAN at72b0, not browser acceptance. Whole669, prior24 and current46 are separate source-pinned results.
+
+All28 actual remote PNGs (both author attempts) were individually viewed; captured states have no new material copy/layout finding. This does not cover template, intake or the unexecuted author remainder. Raw traces/capabilities/screenshots remain private; public manifests retain only safe metadata/hashes. Fresh remote original3case execution, all actual PNG QA, sourceCI/review green and MAIN actual merge remain required. No third local Next build.
+

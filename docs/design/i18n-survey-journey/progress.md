@@ -1,5 +1,18 @@
 # Survey internationalization progress
 
+## Current Draft checkpoint — remote run 41914710802 and source72b0
+
+Draft [PR6251](https://github.com/boardx/workspacex/pull/6251) remains **not READY**. Its first existing remote fullstack run checked out merge0c3302f (parent includes published fbbd0beb). Native total96PASS/1unexpected/119skipped/0flaky/global1; the author case failed on both original CI attempts (19.183s/19.239s), while template and intake were maxfail-unrun. This is not native3PASS.
+
+The upload's actual published file-question allowlist was pdf/png/jpg, so the unchanged text/plain TXT fixture was rejected as invalid_file. Source72b0 explicitly checks the existing txt checkbox through real Advanced rules, waits for autosave and verifies the published allowlist; defaults and size/count limits stay intact. Original ASCII filename,55 original UTF-8 bytes and every author assertion from file bytes onward are byte-exact. Template and intake complete case bodies are only moved before author; all180000ms budgets and CI configuration remain unchanged. No API/parser/encoding change;6239 remains deferred.
+
+One remaining fixed signature help paragraph now uses the shared namespace with the original Chinese and equivalent English copy. The existing continuity test produced a valid semantic RED, then2files46PASS (no skips); exact4filelint passed. Canonical --list discovers all3 original seeded cases, discovery only. The original independent reviewer judged the exact four-file source/test delta STATIC CLEAN at72b0, not browser acceptance. Whole669, prior24 and current46 are separate source-pinned results.
+
+All28 actual remote PNGs (both author attempts) were individually viewed; captured states have no new material copy/layout finding. This does not cover template, intake or the unexecuted author remainder. Raw traces/capabilities/screenshots remain private; public manifests retain only safe metadata/hashes. Fresh remote original3case execution, all actual PNG QA, sourceCI/review green and MAIN actual merge remain required. No third local Next build.
+
+## Historical checkpoint (retained)
+
+
 Issue: [#6221](https://github.com/boardx/workspacex/issues/6221). Owner: FIRST. Branch: `worker/i18n-survey-journey-6221`. Task7 remains in progress, no PR or delivery claim yet. Current frozen source d83f8bf3b93c0fb8c7035d9bca78c7ed732675a1 (metadata-only successor of validated232421f) normally accepts actual delivered develop ef49474134137e7d07cef97577d4799fbd9c0eb8. Uncommitted changes are safe receipts and status documentation only.
 
 Implementation Tasks1–6 and source reviews are complete within their recorded scope. Whole affected56files669 cases passed at ee9b; after the minimal template mobile layout correction and accepted-parent merge, current full webtype/2file24existing report-editor+resource subset/5filelint passed. These are separate results, not added/stitched case totals. Details and immutable receipt hashes: [acceptance ledger](../../../evidence/i18n-survey-6221/task-7/README.md).

@@ -122,3 +122,14 @@ flowchart LR
 - [ ] Request one whole-source/final-safe-evidence independent review through authorized existing reviewer. Fix material findings with TDD; preserve review boundaries.
 - [ ] Normal explicit branch push with hooks, explicitly Draft one survey PR referencing6221 under coordinator authorization for repeated local startup failures, follow sourceCI/review to green. Sole coordinator integrates actualdevelop; parent stack and candidate failures remain explicit. Expected: actual mergedAt and delivered SHA, not local/source-only green.
 - [ ] Update plan/evidence/issue/matrix and cleanup resources; no false passing/unfinished source.
+
+## Current Draft checkpoint — remote run 41914710802 and source72b0
+
+Draft [PR6251](https://github.com/boardx/workspacex/pull/6251) remains **not READY**. Its first existing remote fullstack run checked out merge0c3302f (parent includes published fbbd0beb). Native total96PASS/1unexpected/119skipped/0flaky/global1; the author case failed on both original CI attempts (19.183s/19.239s), while template and intake were maxfail-unrun. This is not native3PASS.
+
+The upload's actual published file-question allowlist was pdf/png/jpg, so the unchanged text/plain TXT fixture was rejected as invalid_file. Source72b0 explicitly checks the existing txt checkbox through real Advanced rules, waits for autosave and verifies the published allowlist; defaults and size/count limits stay intact. Original ASCII filename,55 original UTF-8 bytes and every author assertion from file bytes onward are byte-exact. Template and intake complete case bodies are only moved before author; all180000ms budgets and CI configuration remain unchanged. No API/parser/encoding change;6239 remains deferred.
+
+One remaining fixed signature help paragraph now uses the shared namespace with the original Chinese and equivalent English copy. The existing continuity test produced a valid semantic RED, then2files46PASS (no skips); exact4filelint passed. Canonical --list discovers all3 original seeded cases, discovery only. The original independent reviewer judged the exact four-file source/test delta STATIC CLEAN at72b0, not browser acceptance. Whole669, prior24 and current46 are separate source-pinned results.
+
+All28 actual remote PNGs (both author attempts) were individually viewed; captured states have no new material copy/layout finding. This does not cover template, intake or the unexecuted author remainder. Raw traces/capabilities/screenshots remain private; public manifests retain only safe metadata/hashes. Fresh remote original3case execution, all actual PNG QA, sourceCI/review green and MAIN actual merge remain required. No third local Next build.
+
