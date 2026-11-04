@@ -10,6 +10,7 @@ async function main(){
  const orgId=process.env.QWEN_ACTIVATION_ORG_ID;
  const cookie=process.env.QWEN_ACTIVATION_COOKIE_FILE?readFileSync(process.env.QWEN_ACTIVATION_COOKIE_FILE,'utf8').trim():process.env.QWEN_ACTIVATION_COOKIE;
  const apply=process.argv.includes('--apply'),markup=process.argv.includes('--markup10');
+ if(apply&&!markup)throw new Error('MARKUP10_REQUIRED_FOR_APPLY');
  async function request(path:string,method='GET',body?:unknown){
   if(!orgId||!cookie)throw new Error('DEVAPP_OPERATOR_ORG_AND_COOKIE_REQUIRED');
   const response=await fetch(new URL(path,base),{method,headers:{cookie,'content-type':'application/json'},body:body?JSON.stringify(body):undefined,redirect:'error',signal:AbortSignal.timeout(15000)});
@@ -37,8 +38,7 @@ async function main(){
  const wanted=before.items.filter(row=>row.modelProvider==='bailian-image'&&models.includes(row.modelId)&&row.unit==='image');
  console.log(JSON.stringify({mode:'check',orgId,tariffs:wanted,missingModels:models.filter(model=>!wanted.some(row=>row.modelId===model))},null,2));
  if(!apply)return;
- const file=process.argv[process.argv.indexOf('--apply')+1];if(!generated&&!file)throw new Error('APPROVED_TARIFF_FILE_REQUIRED');
- const raw:unknown=generated??JSON.parse(readFileSync(file!,'utf8'));if(!Array.isArray(raw)||raw.length!==3)throw new Error('EXACT_THREE_APPROVED_TARIFFS_REQUIRED');
+ const raw:unknown=generated;if(!Array.isArray(raw)||raw.length!==3)throw new Error('EXACT_THREE_APPROVED_TARIFFS_REQUIRED');
  const approved=raw.map(row=>NativeCreditTariff.parse(row));
  if(new Set(approved.map(row=>row.modelId)).size!==3||approved.some(row=>row.orgId!==orgId||row.modelProvider!=='bailian-image'||!models.includes(row.modelId)||row.unit!=='image'||row.quantum!=='1'))throw new Error('TARIFF_SCOPE_MISMATCH');
  for(const row of approved){const saved=NativeCreditTariff.parse(await request(path,'PUT',row));if(JSON.stringify(saved)!==JSON.stringify(row))throw new Error('TARIFF_READBACK_MISMATCH');console.log(JSON.stringify({configured:saved.modelId,orgId,version:saved.version}));}
