@@ -1,4 +1,5 @@
 import { recordingProjectZhCN } from "../namespaces/recording-project";
+import { workflowGrantsZhCN } from "../namespaces/workflow-grants";
 import { orgHomeConfigZhCN } from "../namespaces/org-home-config";
 import { orgProfileZhCN } from "../namespaces/org-profile";
 import { adminNavigationZhCN } from "../namespaces/admin-navigation";
@@ -21,6 +22,7 @@ import { accountEntryZhCN } from "../namespaces/account-entry";
 import { invitationEntryZhCN } from "../namespaces/invitation-entry";
 export const zhCN = {
   ...recordingProjectZhCN,
+  ...workflowGrantsZhCN,
   ...orgHomeConfigZhCN,
   ...orgProfileZhCN,
   ...brainViewsZhCN,

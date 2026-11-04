@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { ENTITY_LOCALIZATION_E2E } from "./entity-localization-fixture";
-import { agentRole, homeConfig, orgAdmin, skills, wave2Runtime } from "@repo/contracts";
+import { agentRole, homeConfig, orgAdmin, skills, wave2Runtime, workflowCapabilityGrants as WG } from "@repo/contracts";
 import { EntityLocalizationAdminView } from "@repo/contracts/entity-localization";
 import { SkillFileSnapshot, operations as fileOperations } from "@repo/contracts/skill-file-edit";
 
@@ -707,5 +707,162 @@ test("organization home configuration preserves drafts, real previews and recomm
     await expect(member.getByTestId("home-screen")).toContainText(agent!.name);
     await expect(member.getByTestId("home-screen")).toContainText(skill!.name);
     await member.screenshot({ path: testInfo.outputPath("home-config-member-home.png"), fullPage: true });
+  } finally { await memberContext.close(); }
+});
+
+test("workflow grant management persists canonical permissions and audit across locales with real member denial", async ({ page, browser }, testInfo) => {
+  await login(page, true);
+  const headers = await authorization(page);
+  const listPath = "/__fullstack_api" + WG.operations.listWorkflowCapabilityGrants.path;
+  const itemPath = listPath + "/artifact.write";
+  const read = async () => {
+    const response = await page.request.get(listPath, { headers });
+    expect(response.status()).toBe(200);
+    return WG.operations.listWorkflowCapabilityGrants.out.parse(await response.json());
+  };
+  // This tenant belongs to this registered fixture; establish a real read-only baseline.
+  const baseline = await page.request.delete(itemPath, { headers });
+  expect(baseline.status()).toBe(200);
+  expect(WG.operations.revokeWorkflowCapabilityGrant.out.parse(await baseline.json())).toMatchObject({ capabilityCategory: "artifact.write", configured: false, authorized: true, sideEffectCap: "read" });
+  const catalog = await read();
+  expect(catalog.workflows.some(workflow => workflow.workflowId === "W029" && workflow.capabilities.some(capability => capability.capabilityCategory === "artifact.write"))).toBe(true);
+  let reads = 0, writes = 0;
+  page.on("request", request => {
+    const path = new URL(request.url()).pathname;
+    if (request.method() === "GET" && path === listPath) reads++;
+    if (["PUT", "DELETE"].includes(request.method()) && path === itemPath) writes++;
+  });
+  await page.goto("/org-admin/workflow-grants?workflow=W029");
+  const focused = page.getByTestId("workflow-grants-workflow-W029");
+  await expect(focused).toHaveAttribute("data-focused", "true");
+  await expect(focused).toBeFocused();
+  const countsBeforeLocale = [reads, writes];
+  expect(reads).toBeGreaterThan(0);
+  await page.getByTestId("language-switcher").first().selectOption("en");
+  await expect(page.getByRole("heading", { name: "Workflow permissions", exact: true })).toBeVisible();
+  await expect(focused).toContainText("Problem to PRD");
+  await expect(page.getByTestId("workflow-grants-tab-workflow")).toHaveAttribute("aria-selected", "true");
+  await page.getByTestId("language-switcher").first().selectOption("zh-CN");
+  await expect(focused).toContainText("问题定义到 PRD");
+  await page.getByTestId("language-switcher").first().selectOption("en");
+  expect([reads, writes]).toEqual(countsBeforeLocale);
+  const revealDialogFooter = async () => {
+    const modal = page.getByTestId("workflow-grant-dialog");
+    await modal.hover();
+    await page.mouse.wheel(0, 1200);
+    await expect(modal.getByTestId("workflow-grant-confirm")).toBeInViewport({ ratio: 1 });
+    await expect(modal.getByTestId("workflow-grant-cancel")).toBeInViewport({ ratio: 1 });
+  };
+  const capture = async (state: string) => {
+    for (const width of [1280, 375]) {
+      await page.setViewportSize({ width, height: width === 375 ? 812 : 900 });
+      if (state === "workflow") await focused.scrollIntoViewIfNeeded();
+      if (state === "capability") await page.getByTestId("workflow-grant-row-artifact.write").scrollIntoViewIfNeeded();
+      if (state === "audit") await page.getByTestId("workflow-grants-audit").scrollIntoViewIfNeeded();
+      if (state === "dialog" || state === "revoke") {
+        const modal = page.getByTestId("workflow-grant-dialog");
+        await modal.hover();
+        await page.mouse.wheel(0, -5000);
+        await expect(modal.getByRole("heading")).toBeInViewport({ ratio: 1 });
+        await page.screenshot({ path: testInfo.outputPath("workflow-grants-" + state + "-top-" + width + ".png") });
+        await revealDialogFooter();
+      }
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      await page.screenshot({ path: testInfo.outputPath("workflow-grants-" + state + "-" + width + ".png") });
+    }
+  };
+  await capture("workflow");
+  await page.getByTestId("workflow-grants-tab-capability").click();
+  const artifact = page.getByTestId("workflow-grant-row-artifact.write");
+  await expect(artifact).toContainText("Save output documents");
+  await capture("capability");
+  await artifact.getByTestId("workflow-grant-edit").click();
+  const dialog = page.getByTestId("workflow-grant-dialog");
+  await expect(dialog).toBeVisible();
+  await page.getByTestId("workflow-grant-level-write").check();
+  const beforeDialogLocale = [reads, writes];
+  // A modal blocks the underlying header. Use the real cross-tab locale channel.
+  const localePage = await page.context().newPage();
+  try {
+    await localePage.goto("/home");
+    await localePage.getByTestId("language-switcher").first().selectOption("zh-CN");
+    await expect(dialog).toContainText("调整「保存产出文档」权限");
+    await expect(page.getByTestId("workflow-grant-level-write")).toBeChecked();
+    await localePage.getByTestId("language-switcher").first().selectOption("en");
+    await expect(dialog).toContainText("Adjust permission for Save output documents");
+    await expect(page.getByTestId("workflow-grant-level-write")).toBeChecked();
+  } finally { await localePage.close(); }
+  expect([reads, writes]).toEqual(beforeDialogLocale);
+  await capture("dialog");
+  const beforeGrantEventIds = new Set(catalog.audit.map(event => event.eventId));
+  const changed = page.waitForResponse(response => response.request().method() === "PUT" && new URL(response.url()).pathname === itemPath);
+  await page.getByTestId("workflow-grant-confirm").click();
+  const granted = await changed;
+  expect(granted.status()).toBe(200);
+  expect(WG.operations.setWorkflowCapabilityGrant.in.parse(granted.request().postDataJSON())).toEqual({ sideEffectCap: "write" });
+  expect(WG.operations.setWorkflowCapabilityGrant.out.parse(await granted.json())).toMatchObject({ capabilityCategory: "artifact.write", configured: true, authorized: true, sideEffectCap: "write" });
+  await expect(dialog).toBeHidden();
+  await expect(page.getByTestId("workflow-grants-notice")).toContainText("Granted");
+  await page.getByTestId("language-switcher").first().selectOption("zh-CN");
+  await expect(page.getByTestId("workflow-grants-notice")).toContainText("已授予「保存产出文档」可写入权限");
+  await page.getByTestId("language-switcher").first().selectOption("en");
+  const persisted = await read();
+  expect(persisted.grants.find(grant => grant.capabilityCategory === "artifact.write")).toMatchObject({ configured: true, sideEffectCap: "write" });
+  const grantEvent = persisted.audit.find(event => !beforeGrantEventIds.has(event.eventId) && event.capabilityCategory === "artifact.write" && event.action === "granted" && event.fromCap === "read" && event.toCap === "write" && event.actorId === ENTITY_LOCALIZATION_E2E.adminUserId);
+  expect(grantEvent).toMatchObject({ actorId: ENTITY_LOCALIZATION_E2E.adminUserId });
+  expect(Number.isFinite(Date.parse(grantEvent!.at))).toBe(true);
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Workflow permissions", exact: true })).toBeVisible();
+  await page.getByTestId("workflow-grants-tab-capability").click();
+  await expect(artifact.getByTestId("workflow-grant-current")).toContainText("Write");
+  expect((await read()).audit).toContainEqual(grantEvent);
+  const audit = page.getByTestId("workflow-grants-audit");
+  await expect(audit).toContainText("Granted");
+  await expect(audit.getByTestId("workflow-grants-audit-actor").filter({ hasText: "Localization admin (me)" }).first()).toHaveText("Localization admin (me)");
+  const localizedAuditTime = await page.evaluate(iso => new Intl.DateTimeFormat("en", {
+    year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false,
+  }).format(new Date(iso)), grantEvent!.at);
+  await expect(audit).toContainText(localizedAuditTime);
+  await expect(audit).not.toContainText(ENTITY_LOCALIZATION_E2E.adminUserId);
+  await audit.scrollIntoViewIfNeeded();
+  await capture("audit");
+  await artifact.getByTestId("workflow-grant-edit").click();
+  await page.getByTestId("workflow-grant-level-read").check();
+  await capture("revoke");
+  const beforeRevokeEventIds = new Set(persisted.audit.map(event => event.eventId));
+  const revoked = page.waitForResponse(response => response.request().method() === "DELETE" && new URL(response.url()).pathname === itemPath);
+  await page.getByTestId("workflow-grant-confirm").click();
+  const revokeResponse = await revoked;
+  expect(revokeResponse.status()).toBe(200);
+  expect(WG.operations.revokeWorkflowCapabilityGrant.out.parse(await revokeResponse.json())).toMatchObject({ capabilityCategory: "artifact.write", configured: false, sideEffectCap: "read" });
+  await expect(page.getByTestId("workflow-grants-notice")).toContainText("Revoked");
+  const restored = await read();
+  const revokeEvent = restored.audit.find(event => !beforeRevokeEventIds.has(event.eventId) && event.capabilityCategory === "artifact.write" && event.action === "revoked" && event.fromCap === "write" && event.toCap === "read" && event.actorId === ENTITY_LOCALIZATION_E2E.adminUserId);
+  expect(revokeEvent).toMatchObject({ actorId: ENTITY_LOCALIZATION_E2E.adminUserId });
+  expect(Number.isFinite(Date.parse(revokeEvent!.at))).toBe(true);
+  await page.reload();
+  await page.getByTestId("workflow-grants-tab-capability").click();
+  await expect(artifact.getByTestId("workflow-grant-current")).toContainText("Read-only");
+  expect((await read()).audit).toContainEqual(revokeEvent);
+  const memberContext = await browser.newContext({ viewport: { width: 375, height: 812 } });
+  try {
+    const member = await memberContext.newPage();
+    await login(member, false);
+    const memberHeaders = await authorization(member);
+    expect((await member.request.get(listPath, { headers: memberHeaders })).status()).toBe(403);
+    expect((await member.request.put(itemPath, { headers: memberHeaders, data: { sideEffectCap: "external_send" } })).status()).toBe(403);
+    expect((await member.request.delete(itemPath, { headers: memberHeaders })).status()).toBe(403);
+    let memberReads = 0;
+    member.on("request", request => { if (request.method() === "GET" && new URL(request.url()).pathname === listPath) memberReads++; });
+    await member.goto("/org-admin/workflow-grants");
+    await member.getByTestId("language-switcher").first().selectOption("en");
+    await expect(member.getByTestId("denied-layer")).toContainText("Only organization administrators");
+    await member.screenshot({ path: testInfo.outputPath("workflow-grants-member-denied-375.png") });
+    await member.getByTestId("language-switcher").first().selectOption("zh-CN");
+    await expect(member.getByTestId("denied-layer")).toContainText("仅组织管理员");
+    expect(memberReads).toBe(0);
+    const afterDenied = await read();
+    expect(afterDenied.grants).toEqual(restored.grants);
+    expect(afterDenied.audit).toEqual(restored.audit);
   } finally { await memberContext.close(); }
 });
