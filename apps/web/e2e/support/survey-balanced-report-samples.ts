@@ -20,6 +20,18 @@ export function balancedMeetingSupplementalAnswers(
     throw Error("Expected the original four-option meeting duration question");
   const fileIds = new Set(questions.filter(question => question.type === "file").map(question => question.id));
   const base = firstAnswers.filter(answer => !fileIds.has(answer.questionId));
-  // Initial reproduction of the old driver: enough total responses only.
-  return Array.from({ length: SURVEY_REPORT_SHARE_MIN_SAMPLE - 1 }, () => structuredClone(base));
+  const choices = surveyChoices(duration);
+  const firstChoice = base.find(answer => answer.questionId === duration.id)?.value;
+  if (!choices.some(choice => choice.id === firstChoice))
+    throw Error("The first UI response must contain a canonical duration choice");
+  const supplemental: BrowserSurveyAnswer[][] = [];
+  for (const choice of choices)
+    for (let index = 0; index < SURVEY_REPORT_SHARE_MIN_SAMPLE; index++) {
+      // The genuine first UI response already fills one slot of its own group.
+      if (choice.id === firstChoice && index === 0) continue;
+      supplemental.push(structuredClone(base).map(answer => answer.questionId === duration.id ? { ...answer, value: choice.id } : answer));
+    }
+  if (supplemental.length > firstSupplementalBatchSize + CLIENT_ERROR_REPORT_MAX_PER_WINDOW)
+    throw Error("Balanced fixture exceeds its bounded two-window request budget");
+  return supplemental;
 }
