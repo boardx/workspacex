@@ -1,0 +1,25 @@
+{
+  "source": "cb933851f59127646052ec0ad67ed099d65152ec",
+  "gate": "api-lint",
+  "command": [
+    "pnpm",
+    "--filter",
+    "@repo/api",
+    "lint"
+  ],
+  "exit": 0,
+  "seconds": 9.588,
+  "rawPrivate": true,
+  "logSha256": "2ffd3dec0d7e2475bd9b627c5c9e84651e7548b7a04309b200b29967b4c6b0a2",
+  "summary": [
+    "\u2705 lint-error-leak: 207 files in the interface layer, no error detail reaches a response",
+    "\u2705 lint-permission-paths: every tenant-table read goes through the guarded read path",
+    "\u2705 lint-no-builtin-capabilities: no built-in capability list in product code",
+    "\u2705 lint-design-facet-single-source: the definition table has one source",
+    "\u2705 design-facet catalog is in sync with the definition table",
+    "\u2705 agenda tier catalog is in sync with the definition table",
+    "\u2705 lint-skill-context-api-only: 78 \u4e2a\u6587\u4ef6\uff0cskill \u53d6\u6570\u53ea\u7ecf Context API\uff08I-25\uff09",
+    "\u2705 lint-naming-single-source: 0 \u5904\u8d25\u9009\u540d\uff08stepId / step_id / agenda_stage / stage.<action>\uff09",
+    "\u2705 lint-arch-deps: 2255 files, all dependencies point inward"
+  ]
+}

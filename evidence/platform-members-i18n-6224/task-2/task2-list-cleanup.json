@@ -1,0 +1,77 @@
+{
+  "checkedAt": "2026-11-04T12:10:56.773098+00:00",
+  "scope": "wsx-b002526f3158e29d2681",
+  "ports": [
+    20191,
+    21191,
+    24191,
+    25191,
+    26191,
+    27191,
+    28191,
+    29191,
+    30191,
+    31191,
+    19191
+  ],
+  "zeroContainers": true,
+  "zeroVolumes": true,
+  "zeroListeners": true,
+  "listenerChecks": [
+    {
+      "port": 20191,
+      "exit": 1,
+      "pids": []
+    },
+    {
+      "port": 21191,
+      "exit": 1,
+      "pids": []
+    },
+    {
+      "port": 24191,
+      "exit": 1,
+      "pids": []
+    },
+    {
+      "port": 25191,
+      "exit": 1,
+      "pids": []
+    },
+    {
+      "port": 26191,
+      "exit": 1,
+      "pids": []
+    },
+    {
+      "port": 27191,
+      "exit": 1,
+      "pids": []
+    },
+    {
+      "port": 28191,
+      "exit": 1,
+      "pids": []
+    },
+    {
+      "port": 29191,
+      "exit": 1,
+      "pids": []
+    },
+    {
+      "port": 30191,
+      "exit": 1,
+      "pids": []
+    },
+    {
+      "port": 31191,
+      "exit": 1,
+      "pids": []
+    },
+    {
+      "port": 19191,
+      "exit": 1,
+      "pids": []
+    }
+  ]
+}
