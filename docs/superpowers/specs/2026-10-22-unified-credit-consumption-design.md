@@ -31,7 +31,7 @@ No model execution is allowed to use an anonymous or client-selected payer. An o
 ## Payer resolution
 
 - Personal workspace activity bills the authenticated user’s personal wallet.
-- Organization activity bills that organization’s wallet; the initiating user is retained as attribution.
+- Organization activity resolves its payer under the human revision below; the initiating user is always retained as attribution.
 - Resolve organization/personal workspace kind and membership from persisted identity. Do not infer account kind from ID prefixes or from whether a wallet exists.
 - Background jobs persist the initiating user, organization and payer when queued and revalidate that provenance when executed.
 - Run, subtask, tool and private-runtime calls derive ownership from the persisted root execution and lease. Child/model arguments cannot choose another account.

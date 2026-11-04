@@ -49,7 +49,7 @@
 
 操作者只取 principal，body 拒绝 actorId、generation、套餐生效时间、钱包余额、合同和自动发放计划。平台手动额度的范围和整数上限与已采用原型一致，提取为契约单源；零、负数、小数、超限、溢出或非当前Enterprise不落账。增员折算及钱包仍保留既有0.01精度，不与手动表单混为一谈。幂等键按原组织／generation 唯一，绑定原操作者及参数；不同参数／操作者冲突，不能再次记账。
 
-Enterprise 升级依 `domain.md` 的可恢复流程先处理原 Team 支付及未来 Stripe 扣款，再原子写既有 Plan／当前代际／审计。用户已确认已付Team基础/增员窗口按原购买日继续发到原paidPeriodEnd，同时停止未来续费；Enterprise额外额度仍手动添加，不新增默认月额度。升级影响摘要、收据与worker均须保留原已付期限，不改锚点、预发、退款或折抵。并发版本冲突保留原操作，客户端刷新后处理，不盲重放新 key。手工额度仅对当前Enterprise开放，不改变套餐或虚构有效期；Team通过购买额外额度充值，但到期仍挡新AI，直到订阅续购或Enterprise真正生效。
+Enterprise 升级依 `domain.md` 的可恢复流程先处理原 Team 支付及未来 Stripe 扣款，再原子写既有 Plan／当前代际／审计。用户已确认已付Team基础/增员窗口按原购买日继续发到原paidPeriodEnd，同时停止未来续费；Enterprise额外额度仍手动添加，不新增默认月额度。升级影响摘要、收据与worker均须保留原已付期限，不改锚点、预发、退款或折抵。并发版本冲突保留原操作，客户端刷新后处理，不盲重放新 key。手工额度仅对当前Enterprise开放，不改变套餐或虚构有效期；Team通过购买额外额度充值，但充值不恢复到期Team钱包准入；订阅续购或Enterprise真正生效前的个人回退依[统一 credit 付款方规则](../../../../docs/superpowers/specs/2026-10-22-unified-credit-consumption-design.md#payer-resolution)，不改写TeamEntitlement或付款历史。
 
 ## 错误与交易测试
 

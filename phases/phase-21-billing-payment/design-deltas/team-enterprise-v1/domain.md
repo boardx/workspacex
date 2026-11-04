@@ -17,14 +17,14 @@
 6. Stripe 增员采用付款成功才应用的 pending update；仅对支持的自动扣款方式开放，保持原周期及 billing anchor，核实成功账单和更新后的全部数量后入账。续费 invoice 必须覆盖所有已购数量。失败、需验证或 pending update 过期时不先加席位／额度，也不默认改成另一次 Checkout。
 7. 邀请核销、共享链接、现有账号加入、项目邀请带来的组织成员创建及平台添加成员，全部在实际成员 INSERT 事务内获取同一组织容量锁再计数。并发最后一席只有一个成功；失败不消耗 token／名额／赠送或 outbox。纯角色修改不改变占位，既有双人复核和最后管理员规则保持。
 8. 首次checkout在组织锁内重新计数，人数已超过所选容量则先拒绝、不调用商户。意图提交后以待购容量约束新入组；只有支付商权威关闭／取消才释放这项待购约束，不能用本地倒计时释放。未进入付款的未开通组织不凭空获得Team权益或被默认为已购基础席位。所有T06路径约束和并发验证完成前，服务端目录不得开放Team销售，checkout必须拒绝未就绪，不能只隐藏前端按钮。
-9. Team组织可从既有购买额度入口买永久充值包；使用同一服务端目录SKU及价格，明确账号作用域，不复制Team价目表。一次性充值不创建／增加席位或订阅期限；Stripe使用payment而非subscription模式。充值与许可变更独立，不受旧订阅截止日限制，也不占待购席位容量；原购买幂等、组织customer绑定及全局provider付款引用唯一归属仍须核实。Team过期或未开通即使有永久余额也不能使用新的团队AI。本次Enterprise额度按平台手动流程管理，不另开放Enterprise自助购买／增员。
+9. Team组织可从既有购买额度入口买永久充值包；使用同一服务端目录SKU及价格，明确账号作用域，不复制Team价目表。一次性充值不创建／增加席位或订阅期限；Stripe使用payment而非subscription模式。充值与许可变更独立，不受旧订阅截止日限制，也不占待购席位容量；原购买幂等、组织customer绑定及全局provider付款引用唯一归属仍须核实。Team过期或未开通即使有永久余额，也不能以Team钱包准入新AI；发起人个人额度回退依[统一 credit 付款方规则](../../../../docs/superpowers/specs/2026-10-22-unified-credit-consumption-design.md#payer-resolution)。本次Enterprise额度按平台手动流程管理，不另开放Enterprise自助购买／增员。
 
 Stripe 技术依据：[固定 Clover 的更新接口](https://docs.stripe.com/api/subscriptions/update?api-version=2025-09-30.clover)、[固定折算时刻的账单预览](https://docs.stripe.com/api/invoices/create_preview?api-version=2025-09-30.clover)、[pending updates 的付款及方式限制](https://docs.stripe.com/billing/subscriptions/pending-updates)。这是拟议集成方案，仍需实现时协议反例和真实签名 fixture 验证，不代表已接通。
 
 ## AI 准入与账务边界
 
 - 商业门禁仅在受支持SaaS部署的当前计费代际生效；Community自部署／自备模型沿用现有本地免费和无外连路径，不被要求购买Team或Enterprise。身份／组织权限仍照常校验。
-- 在实际组织 AI 准入事务中核对当前 generation 的 Team 付费期限或 Enterprise 标记，再按既有权限和用量准入。Team 到期有余额、永久充值或负债透支政策也不能放行新的团队 AI。
+- 在实际组织 AI 准入事务中核对当前 generation 的 Team 付费期限或 Enterprise 标记，再按既有权限和用量准入。Team 到期后有余额、永久充值或组织透支也不能恢复Team钱包准入；个人回退、固定付款方、Enterprise和未知账务事实的边界依[统一 credit 付款方规则](../../../../docs/superpowers/specs/2026-10-22-unified-credit-consumption-design.md#payer-resolution)的2026-11-04人工修订，不将个人回退视为Team许可生效。
 - 已准入请求持久化原准入事实，跨到期／计划变更仍完成并结算；登录、资料读取和必要管理不挂 Team 期限守卫。禁止在所有组织 API 外统一加付费墙。
 - 付费确认、席位授予、月度额度、消费、迟到用量 replay 和定时发放在各自实际事务持有 epoch 共享锁；最终 reset 持排他锁。沿用支付链约束，统一为 epoch → paymentRef（有时）→ subscription（有时）→ organization → 购买／操作／计划／期限行 → 钱包；某路径不需要前面的锁就跳过，不得在拿到后面的锁后反取前面的锁。邀请仅需 epoch／组织容量锁。不能外层连接持锁后内层另取同一锁；实际实现须将所有参与路径放入死锁／并发测试核对。
 - verified receipt、不可变报价、原 org/订阅/customer/price 绑定、到账和流水必须一致；并发回调／补账／用户刷新只授予一次。失败不得丢弃已付款事实，也不能错误归到个人钱包或另一组织。
