@@ -37,3 +37,8 @@ PR #6227 first observed a real conflict after develop advanced through #6220. No
 ## First CI failure repaired in tests
 
 Publishedc6a verify-affected exposed a legacy quota-live403 assertion still expecting relogin. Actual local original8 RED is1FAIL7PASS; test-only sourceb776 corrects403 and adds401 control, with other production/E2E/config bytes unchanged. Expanded bounded97/97 plus scopedlint pass, independent incrementreview CLEAN. See `ci-fix/` for exact source/run/receipts and the corrected adjacency-selection gap. RemoteCI and actual merge remain required; no browser rerun or new full-project completion is claimed.
+
+
+## Second CI failure: reduced debt baseline
+
+The next0638 controlplane run found six reduced raw-error counts whose LEGACY records had not yet been tightened. Source44f41de5 only lowers those six counts and adds two isolated real-scanner negative cases, preserving original two tests and all product/API/E2E/config bytes. Original scannerRED0.394s→GREEN0.426s;4/4 selftestsGREEN5.357s; boundedreviewCLEAN. See `ratchet-fix/`. The scanner is unchanged except numeric reductions, remaining debt is explicit, and new remoteCI/actual delivery still required.

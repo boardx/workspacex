@@ -1,0 +1,17 @@
+{
+  "head": "063809984cc2b45e58cb1f23ccbf835133debff3",
+  "gate": "red",
+  "exit": 1,
+  "seconds": 0.394,
+  "rawPrivate": true,
+  "logSha256": "f88223a96f344d5d41325d9c3822b7d6d44fae10cf2555e86d6dec8bb77ff960",
+  "summary": [
+    "❌ [user-facing-error-text] 存量基线对不上：",
+    "apps/web/components/admin/admin-boundary-live.tsx: 0 处（基线 1）——修好了，请把基线改成 0",
+    "apps/web/components/admin/admin-header.tsx: 0 处（基线 1）——修好了，请把基线改成 0",
+    "apps/web/components/admin/limit-rules-live.tsx: 0 处（基线 1）——修好了，请把基线改成 0",
+    "apps/web/components/admin/member-quota-tab.tsx: 0 处（基线 1）——修好了，请把基线改成 0",
+    "apps/web/components/admin/usage-monitor-tab.tsx: 0 处（基线 1）——修好了，请把基线改成 0",
+    "apps/web/components/org-admin/org-admin-screen.tsx: 4 处（基线 5）——修好了，请把基线改成 4"
+  ]
+}
