@@ -21,3 +21,9 @@ Scope confirmed by the parent coordinator on 2026-11-04: preserve NULL legacy ep
 Independent exact-SHA review, normal develop PR checks/merge and authorized DevApp release. Then reproduce the user's real greeting and verify model response, token usage and exactly one personal credit debit. Local tests do not prove the deployed service is restored. No environment balance, privilege, credential or billing configuration was changed to bypass admission.
 
 `pnpm harness tick` was attempted and failed closed because this checkout has no `COORD_GATEWAY_URL`; no lease, heartbeat or queue state is fabricated. Parent coordinator owns integration coordination.
+
+## CI fixture correction
+
+The first backend shard 8 run failed in `pg-platform-model-test-repository.test.ts`: its successful credit INSERT fake returned no rows, whereas the real SQL now uses `ON CONFLICT DO NOTHING RETURNING request_id` and correctly rejects empty results. [CI failure](https://github.com/boardx/workspacex/actions/runs/41809851183/job/126506208102). A local isolated reproduction produced 2 failures / 19 passes (`provenance-red.txt`). The fixture now asserts `RETURNING request_id` and returns the bound request ID for a successful insertion. Production guards are unchanged. The corrected platform provenance 21 tests plus actual PG fallback 10 tests pass, 31/31 (`provenance-green.txt`).
+
+The first full Python CI job passed 872 tests with 45 explicit skips; this does not replace deployed real-model verification. Backend fail-fast cancelled other jobs after the fixture failure, so that cancelled aggregate is not acceptance evidence. New-head CI must pass normally.

@@ -1,0 +1,48 @@
+[stack-admission] load1=4.10 cores=10 perCore=0.41 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw1xxmnw-494a7cf9-0fc76ec55043 db=wsx_0fc76ec55043fe4cc447 compose=wsx-0fc76ec55043fe4cc447 pg=20261 redis=21261 api=24261 web=25261 sandbox=26261 model=27261 deep-agent=28261 asr=29261 vision=30261 loopback-sandbox=31261 mail=19261
+
+ RUN  v2.1.9 <checkout>/apps/api
+
+[db-isolation] db=wsx_0fc76ec55043fe4cc447 capacity=100 current=6 required=32
+ ❯ tests/model/pg-platform-model-test-repository.test.ts (21 tests | 2 failed) 37ms
+   × platform start receipt persistence > persists optional formal platform provenance undefined without fake run identities 17ms
+     → credit_start_replay_mismatch
+   × platform start receipt persistence > persists optional formal platform provenance 0c479acf-6523-4d3c-84b8-1986a40255aa without fake run identities 1ms
+     → credit_start_replay_mismatch
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/model/pg-platform-model-test-repository.test.ts > platform start receipt persistence > persists optional formal platform provenance undefined without fake run identities
+ FAIL  tests/model/pg-platform-model-test-repository.test.ts > platform start receipt persistence > persists optional formal platform provenance 0c479acf-6523-4d3c-84b8-1986a40255aa without fake run identities
+CreditConsumptionError: credit_start_replay_mismatch
+ ❯ PgCreditConsumption.error src/infrastructure/billing/pg-credit-consumption.ts:25:134
+     23|   return isLocalOrg(row.kind)?{ownerType:"user",ownerId:userId}:{owner…
+     24|  }
+     25|  private error(p:Payer,message:string,code:"credit_required"|"credit_a…
+       |                                                                                                                                      ^
+     26|  async reserveInSession(s:TenantSession,orgId:OrgId,input:Start):Promi…
+     27|   let p=await this.payer(s,orgId,input.userId);const at=this.clock();
+ ❯ PgCreditConsumption.reserveInSession src/infrastructure/billing/pg-credit-consumption.ts:82:39
+ ❯ src/infrastructure/auth/pg-token-usage-repository.ts:30:7
+ ❯ PgTokenUsageRepository.startRequest src/infrastructure/auth/pg-token-usage-repository.ts:29:5
+ ❯ tests/model/pg-platform-model-test-repository.test.ts:133:3
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 19 passed (21)
+   Start at  17:55:08
+   Duration  6.19s (transform 1.26s, setup 7ms, collect 1.65s, tests 37ms, environment 0ms, prepare 60ms)
+
+[db-isolation] db=wsx_0fc76ec55043fe4cc447 peak_connections=1
+undefined
+<checkout>/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/model/pg-platform-model-test-repository.test.ts --maxWorkers=1 --minWorkers=1
+[timing] pnpm --filter @repo/api exec vitest run tests/model/pg-platform-model-test-repository.test.ts --maxWorkers=1 --minWorkers=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：7s
+  清理：1s
+  总计：8s
