@@ -61,3 +61,13 @@ describe("survey runtime client error contract", () => {
     expect(apiRequest).toHaveBeenCalledWith("/surveys/survey-legacy/source", {});
   });
 });
+
+it("retains a forbidden response as the cause without changing the legacy system-error contract", async () => {
+  const cause = new ApiError(403, "PRIVATE_UNKNOWN_REASON", { error: "private-server-detail" });
+  apiRequest.mockRejectedValueOnce(cause);
+  const result = await surveyRequest("/surveys/raw-survey").catch(error => error);
+  expect(result).toBeInstanceOf(SurveySystemError);
+  expect(result.message).toBe("请求未完成，请检查网络后重试。"); expect(result.retryable).toBe(true);
+  expect(result.cause).toBe(cause); expect(cause.status).toBe(403);
+  expect(apiRequest).toHaveBeenCalledTimes(1);
+});

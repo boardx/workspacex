@@ -7,6 +7,7 @@ import type { SurveyPublishBlocker } from "@repo/contracts/survey";
 import { serializeSurveyPublicationMarkdown } from "@repo/contracts/survey-source";
 import { I18nProvider, useI18n } from "@/lib/i18n/provider";
 import type { Locale } from "@/lib/i18n/locale";
+import { ApiError } from "@/lib/api-client";
 import { LiveSurveyWorkspace } from "@/components/survey/live/survey-workspace";
 import { SurveyCollectionSettingsEditor } from "@/components/survey/live/collection-settings";
 import { CollectionOverview, RecentCollectionActivity } from "@/components/survey/live/collection-overview";
@@ -243,4 +244,17 @@ it("keeps an open copy dialog and copies only the raw frozen publication into on
   expect(body.draft.questions).not.toBe(original.publication!.questions); expect(body.draft).not.toHaveProperty("responses"); expect(body.draft).not.toHaveProperty("publication");
   language("zh-CN"); language("en"); expect(boundary.request).toHaveBeenCalledTimes(1); expect(screen.getByRole("button", { name: "Creating…" })).toBeDisabled(); expect(original).toEqual(before);
   await act(async () => pending.resolve(runtime({ id: "new-draft" }))); expect(created).toHaveBeenCalledWith("new-draft");
+});
+
+it("shows the shared permission guidance for a wrapped 403 without exposing diagnostics or retrying", async () => {
+  const cause = new ApiError(403, "PRIVATE_UNKNOWN_REASON", { error: "private-server-detail" });
+  const error = new SurveySystemError("请求未完成，请检查网络后重试。");
+  Object.defineProperty(error, "cause", { value: cause });
+  boundary.request.mockRejectedValueOnce(error); await mount();
+  expect(screen.getByRole("alert")).toHaveTextContent("你没有权限执行此操作，如需访问请联系管理员");
+  language("en");
+  expect(screen.getByRole("alert")).toHaveTextContent("You do not have permission to perform this action. Contact your administrator if you need access.");
+  expect(screen.getByRole("alert")).not.toHaveTextContent(/PRIVATE_UNKNOWN_REASON|private-server-detail|expired/i);
+  expect(error.message).toBe("请求未完成，请检查网络后重试。"); expect(error.retryable).toBe(true);
+  expect(boundary.request).toHaveBeenCalledTimes(1); expect(error.cause).toBe(cause);
 });
