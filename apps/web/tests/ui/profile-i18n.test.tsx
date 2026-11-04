@@ -117,3 +117,22 @@ it.each([
   show(<StateShell state={state}>body</StateShell>);
   expect(screen.getByText(text)).toBeTruthy();
 });
+
+it("localizes the structured system template while preserving embedded user text", async () => {
+  const name = '原文 {name} Alice';
+  api.listOwnActivity.mockResolvedValue({ events: [{ eventId: "structured", kind: "profile-renamed", occurredAt: "2026-11-03T00:00:00Z", summary: 'legacy summary ' + name, display: { code: "profile-renamed", params: { displayName: name } } }], nextCursor: null });
+  show();
+  expect(await screen.findByText(`Display name changed to "${name}"`)).toBeTruthy();
+  fireEvent.click(screen.getByText("中文", { exact: true }));
+  expect(screen.getByText(`显示名改为"${name}"`)).toBeTruthy();
+  expect(api.listOwnActivity).toHaveBeenCalledTimes(1);
+});
+it.each([
+  undefined,
+  { code: "future-code", params: {} },
+  { code: "profile-renamed", params: { displayName: 42 } },
+])("preserves source summary when display metadata is missing or unsupported %#", async (display) => {
+  api.listOwnActivity.mockResolvedValue({ events: [{ eventId: "legacy", kind: "profile-renamed", occurredAt: "2026-11-03T00:00:00Z", summary: "保留 source 原文", display }], nextCursor: null });
+  show();
+  expect(await screen.findByText("保留 source 原文")).toBeTruthy();
+});
