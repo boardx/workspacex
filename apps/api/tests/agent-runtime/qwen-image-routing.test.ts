@@ -1,3 +1,4 @@
+import {classifyImageGenerationFailure} from '../../src/application/agent-run/standard-image-tools';
 import {expect,it,vi,afterEach} from 'vitest';
 import {BailianImageProvider,readBailianImageProviderConfig,deriveBailianImageBaseUrl} from '../../src/infrastructure/agent-run/bailian-image-provider';
 import {resolveImageProfile} from '@repo/contracts/standard-image-tools';
@@ -35,4 +36,10 @@ it.each(['qwen-image-3.0','z-image-turbo'])('keeps %s failures failed with one t
  let terminals:any[]=[];const fetch=vi.fn(async()=>new Response(JSON.stringify(modelId==='z-image-turbo'?{request_id:'sync',output:{choices:[]}}:{output:{task_id:'task',task_status:'FAILED'}})));vi.stubGlobal('fetch',fetch);
  const p=new BailianImageProvider({apiKey:'test',modelId,baseUrl:'https://example.com',timeoutMs:1000,pollIntervalMs:1},{start:async()=>({terminal:async input=>{terminals.push(input);}})});
  await expect(p.generateImage('tree',undefined,{orgId:'o' as any,parentRunId:'r',attemptId:'a',leaseEpoch:1})).rejects.toThrow('MODEL_CALL_FAILED');expect(terminals).toHaveLength(1);expect(terminals[0]).toMatchObject({outcome:'failed',quantity:null});expect(fetch).toHaveBeenCalledTimes(modelId==='z-image-turbo'?1:2);
+});
+
+it('exposes only bounded image configuration diagnostics, never vendor strings',()=>{
+ expect(classifyImageGenerationFailure(new Error('credit_native_tariff_missing'))).toBe('credit_native_tariff_missing');
+ expect(classifyImageGenerationFailure(new Error('AI_IMAGE_POLICY_UNCONFIGURED'))).toBe('AI_IMAGE_POLICY_UNCONFIGURED');
+ expect(classifyImageGenerationFailure(new Error('vendor response with secret'))).toBe('image_generation_failed_no_result_confirmed');
 });

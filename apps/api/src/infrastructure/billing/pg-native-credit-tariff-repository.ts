@@ -1,3 +1,5 @@
+import {PricingCatalog} from "@repo/contracts/billing-pricing";
+import {readProductConfiguration,personalConfiguredProducts} from "./product-catalog-configuration";
 import type {DatabasePort} from "../../application/ports/database.port";
 import type {NativeCreditTariffRepository,NativeTariff} from "../../application/billing/native-credit-tariff-service";
 import {toOrgId} from "../../domain/org-id";
@@ -5,6 +7,10 @@ type Row={org_id:string;model_provider:string;model_id:string;unit:NativeTariff[
 const view=(r:Row):NativeTariff=>({orgId:r.org_id,modelProvider:r.model_provider,modelId:r.model_id,unit:r.unit,quantum:r.quantum,hundredthsPerQuantum:r.hundredths_per_quantum,version:r.version});
 export class PgNativeCreditTariffRepository implements NativeCreditTariffRepository {
  constructor(private readonly db:DatabasePort){}
+ async readCnyCatalog(orgId:string){return this.db.withTenant(toOrgId(orgId),async s=>{
+  const configured=await readProductConfiguration(s,'cn');
+  return PricingCatalog.parse({version:configured.version,market:'cn',enabledProviders:[],products:personalConfiguredProducts(configured.rows)});
+ });}
  async list(orgId:string){return this.db.withTenant(toOrgId(orgId),async s=>(await s.query<Row>('SELECT org_id,model_provider,model_id,unit,quantum::text,hundredths_per_quantum::text,version FROM credit_native_tariffs WHERE org_id=$1 ORDER BY model_provider,model_id,unit',[orgId])).rows.map(view));}
  async upsert(actorId:string,input:NativeTariff){
   return this.db.withTenant(toOrgId(input.orgId),async s=>{

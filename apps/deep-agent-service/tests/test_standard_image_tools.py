@@ -26,9 +26,15 @@ def test_profiles_forward_through_generated_contract(monkeypatch,profile,size,di
  seen=[]
  def handle(request):
   seen.append(json.loads(request.content))
-  return httpx.Response(200,json={'status':'generated','workspacePath':'/workspace/generated-'+('a'*64)+'.png','mime':'image/png','width':dimension,'height':dimension,'sha256':'a'*64,'sizeBytes':100,'modelRef':'test-model','taskId':'task'})
+  return httpx.Response(200,stream=httpx.ByteStream(json.dumps({'status':'generated','workspacePath':'/workspace/generated-'+('a'*64)+'.png','mime':'image/png','width':dimension,'height':dimension,'sha256':'a'*64,'sizeBytes':100,'modelRef':'test-model','taskId':'task'}).encode()))
  original=httpx.AsyncClient
  monkeypatch.setattr(image.httpx,'AsyncClient',lambda **kwargs:original(transport=httpx.MockTransport(handle),**kwargs))
  result=asyncio.run(image._parse(runtime(),{**args(),'sizeProfile':size,'generationProfile':profile}))
  assert seen[0]['toolArgs']['generationProfile']==profile
  assert seen[0]['toolArgs']['sizeProfile']==size
+
+def test_reviewed_configuration_failure_remains_explicit(monkeypatch):
+ original=httpx.AsyncClient
+ monkeypatch.setattr(image.httpx,'AsyncClient',lambda **kwargs:original(transport=httpx.MockTransport(lambda _:httpx.Response(503,stream=httpx.ByteStream(json.dumps({'message':'credit_native_tariff_missing'}).encode()))),**kwargs))
+ with pytest.raises(image.StandardImageError,match='credit_native_tariff_missing'):
+  asyncio.run(image._parse(runtime(),args()))

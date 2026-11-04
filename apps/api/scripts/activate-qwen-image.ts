@@ -21,7 +21,7 @@ async function main(){
  if(markup){
   if(process.env.QWEN_ACTIVATION_REGION!=='cn-beijing')throw new Error('VERIFIED_BEIJING_REGION_REQUIRED');
   if(!orgId)throw new Error('DEVAPP_ORG_REQUIRED');
-  quote=cookie?await request('/billing/catalog'):snapshotFile?JSON.parse(readFileSync(snapshotFile,'utf8')):undefined;
+  quote=cookie?await request(`${nativeTariffOperations.getImagePricingBasis.path}?orgId=${encodeURIComponent(orgId!)}`):snapshotFile?JSON.parse(readFileSync(snapshotFile,'utf8')):undefined;
   if(!quote)throw new Error('LIVE_CNY_CATALOG_REQUIRED');
   const costs=[180000n,500000n,100000n],prices=models.map((modelId,index)=>({modelId,...imageMarkup10Price(costs[index]!,quote)}));
   if(cookie&&snapshotFile){const snapshot=JSON.parse(readFileSync(snapshotFile,'utf8'));if(JSON.stringify(imageMarkup10Price(1n,quote))!==JSON.stringify(imageMarkup10Price(1n,snapshot)))throw new Error('CREDIT_QUOTE_CHANGED');}
@@ -29,7 +29,7 @@ async function main(){
   console.log(JSON.stringify({mode:apply?'proposed-apply':'dryrun',quoteSource:cookie?'live-devapp-catalog':'supplied-snapshot-not-live-verified',prices,proposedTariffs:generated,sources:['https://help.aliyun.com/zh/model-studio/qwen-image-3-0','https://help.aliyun.com/zh/model-studio/qwen-image-3-0-pro','https://help.aliyun.com/zh/model-studio/z-image-turbo']},null,2));
   if(!apply)return;
   // Re-read immediately before writes; stale or ambiguous quotes never change tariffs.
-  const current=await request('/billing/catalog');
+  const current=await request(`${nativeTariffOperations.getImagePricingBasis.path}?orgId=${encodeURIComponent(orgId!)}`);
   if(JSON.stringify(imageMarkup10Price(1n,current))!==JSON.stringify(imageMarkup10Price(1n,quote)))throw new Error('CREDIT_QUOTE_CHANGED');
  }
  const path=nativeTariffOperations.listNativeTariffs.path;

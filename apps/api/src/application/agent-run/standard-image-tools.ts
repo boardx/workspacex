@@ -1,3 +1,5 @@
+import {ImageGenerationFailureCode} from '@repo/contracts/standard-image-tools';
+import {CreditConsumptionError} from '../billing/credit-consumption';
 import type {z} from 'zod';
 import type {ImageGenerateInput,ImageGenerated} from '@repo/contracts/standard-image-tools';
 import type {ExecutionAuthorityContext} from './tool-execution-authority';
@@ -26,3 +28,11 @@ export type GeneratedImage=
 export interface ImageGenerator{readonly modelRef:string;resolveRequest?(input:z.infer<typeof ImageGenerateInput>):{modelId:string;dimension:1024|2048};generateImage(prompt:string,signal?:AbortSignal,accountingContext?:ImageContext,options?:Pick<z.infer<typeof ImageGenerateInput>,'sizeProfile'|'generationProfile'>):Promise<GeneratedImage>}
 export type ImageSession=DraftSessionFiles&Pick<DocumentSession,'execute'>;
 export interface GeneratedImageDownloader{download(url:string,signal:AbortSignal):Promise<{bytes:Uint8Array;mime:'image/png'|'image/jpeg'}>}
+
+/** Only reviewed diagnostic codes may leave the image boundary; supplier strings never do. */
+export function classifyImageGenerationFailure(error:unknown){
+ const parsed=ImageGenerationFailureCode.safeParse(error instanceof Error?error.message:undefined);
+ if(parsed.success)return parsed.data;
+ if(error instanceof CreditConsumptionError)return error.code;
+ return 'image_generation_failed_no_result_confirmed' as const;
+}

@@ -20,3 +20,5 @@ export function resolveImageProfile(input:{sizeProfile:'square'|'square-hd';gene
  if(input.generationProfile==='complex'||input.sizeProfile==='square-hd')return IMAGE_PROFILE_ROUTING.complex;
  return IMAGE_PROFILE_ROUTING.standard;
 }
+
+export const ImageGenerationFailureCode=z.enum(['image_generation_failed_no_result_confirmed','image_generation_unavailable','image_profile_provider_unconfigured','image_profile_conflict','AI_IMAGE_POLICY_UNCONFIGURED','AI_IMAGE_PRICE_UNCONFIGURED','credit_native_tariff_missing','credit_required','credit_accounting_unavailable','IMAGE_ICON_PROMPT_TOO_LONG']);
