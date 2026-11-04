@@ -9,6 +9,7 @@ import {appConfig} from "../../src/infrastructure/db/pg-config";
 import {PgTokenUsageRepository} from "../../src/infrastructure/auth/pg-token-usage-repository";
 import {PgAgentRunRepository} from "../../src/infrastructure/agent-run/pg-agent-run-repository";
 import {BILLING_ACCOUNTING_GENERATION as generation} from "../../src/domain/billing/billing-generation";
+import {withRunLease} from "../../src/application/agent-run/run-lease";
 import {toOrgId} from "../../src/domain/org-id";
 const org=toOrgId(`event-meter-lock-${randomUUID().slice(0,8)}`),user=`${org}-user`,run=`${org}-run`,thread=`${org}-thread`;
 const db=new PgDatabase(appConfig());
@@ -33,7 +34,8 @@ afterAll(async()=>{
   await c.query("UPDATE billing_pricing_epoch SET generation=$1,activated_at=$2 WHERE singleton",[prior.generation,prior.activated_at]);
  });await resetOrgs(org);await db.close();
 });
-it("persists chat progress and a real personal token receipt concurrently without a run/org deadlock",async()=>{
+it.each([false,true])("persists progress and a token receipt without deadlock (lease=%s)",async leased=>{
+ await asOwner(async c=>{await c.query("DELETE FROM agent_execution_events WHERE org_id=$1",[org]);await c.query("UPDATE agent_runs SET lease_epoch=1,lease_expires_at=now()+interval '5 minutes' WHERE id=$1",[run]);});
  const request=`meter-${randomUUID()}`;
  await new PgTokenUsageRepository(db).startRequest(org,{requestId:request,userId:user,runId:run,modelProvider:"lock-test",modelId:"fixture",startedAt:new Date().toISOString(),executionAttemptId:null,projectId:null,threadId:thread,maximumTokens:100});
  let orgHeld!:()=>void,releaseReceipt!:()=>void,eventPid=0;
@@ -50,7 +52,8 @@ it("persists chat progress and a real personal token receipt concurrently withou
  }),withoutTenant:fn=>db.withoutTenant(fn),close:async()=>{}};
  const recording=new PgTokenUsageRepository(receiptDb).record(org,{eventId:request,userId:user,runId:run,modelProvider:"lock-test",modelId:"fixture",tokensTotal:9,promptTokens:6,completionTokens:3,totalSource:"reported",outcome:"succeeded"});void recording.catch(()=>{});
  await held;
- const appending=new PgAgentRunRepository(eventDb).appendExecutionEvent(org,run,{kind:"status",status:"running"});void appending.catch(()=>{});
+ const append=()=>new PgAgentRunRepository(eventDb).appendExecutionEvent(org,run,{kind:"status",status:"running"});
+ const appending=leased?withRunLease({orgId:org,runId:run,epoch:1,verify:async()=>{}},append):append();void appending.catch(()=>{});
  let waiting=false;
  try{
   const deadline=Date.now()+5000;
@@ -68,4 +71,29 @@ it("persists chat progress and a real personal token receipt concurrently withou
   expect((await c.query("SELECT count(*)::int AS n FROM credit_transactions WHERE source_type='model_request' AND source_id=$1 AND type='consume'",[request])).rows[0].n).toBe(1);
   expect((await c.query("SELECT w.owner_type,w.owner_id,r.state FROM credit_consumption_requests r JOIN credit_wallets w USING(wallet_id) WHERE request_id=$1",[request])).rows[0]).toMatchObject({owner_type:"user",owner_id:user,state:"settled"});
  });
+});
+
+it("keeps lease takeover excluded until commit and refuses stale or expired worker bodies",async()=>{
+ await asOwner(c=>c.query("UPDATE agent_runs SET lease_epoch=1,lease_expires_at=now()+interval '5 minutes' WHERE id=$1",[run]));
+ let entered!:()=>void,releaseWriter!:()=>void,takeoverPid=0;
+ const held=new Promise<void>(resolve=>entered=resolve),release=new Promise<void>(resolve=>releaseWriter=resolve);
+ const lease={orgId:org,runId:run,epoch:1,verify:async()=>{}};
+ const writing=withRunLease(lease,()=>db.withTenant(org,async s=>{entered();await release;await s.query("UPDATE agent_runs SET model_output='fixture committed' WHERE org_id=$1 AND id=$2",[org,run]);}));void writing.catch(()=>{});
+ await held;
+ const takeover=asOwner(async c=>{takeoverPid=(await c.query("SELECT pg_backend_pid() AS pid")).rows[0].pid;await c.query("UPDATE agent_runs SET lease_epoch=2 WHERE id=$1",[run]);});void takeover.catch(()=>{});
+ let waiting=false;
+ try{
+  const deadline=Date.now()+5000;
+  while(Date.now()<deadline){
+   waiting=takeoverPid>0&&await asOwner(async c=>(await c.query<{wait_event_type:string|null}>("SELECT wait_event_type FROM pg_stat_activity WHERE pid=$1",[takeoverPid])).rows[0]?.wait_event_type==="Lock");
+   if(waiting)break;await new Promise(resolve=>setTimeout(resolve,5));
+  }
+ }finally{releaseWriter();}
+ await Promise.all([writing,takeover]);expect(waiting).toBe(true);
+ let invoked=false;
+ const body=async()=>{invoked=true;};
+ await expect(withRunLease(lease,()=>db.withTenant(org,body))).rejects.toThrow("agent_run_lease_lost");expect(invoked).toBe(false);
+ await asOwner(c=>c.query("UPDATE agent_runs SET lease_expires_at=now()-interval '1 second' WHERE id=$1",[run]));
+ await expect(withRunLease({...lease,epoch:2},()=>db.withTenant(org,body))).rejects.toThrow("agent_run_lease_lost");expect(invoked).toBe(false);
+ expect(await asApp(org,async c=>(await c.query("SELECT model_output FROM agent_runs WHERE id=$1",[run])).rows[0].model_output)).toBe("fixture committed");
 });

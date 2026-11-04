@@ -50,6 +50,7 @@ description: >
 3. 交付：`verify --sprint` 门控；PR 描述里写清对鉴权/权限面的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-11-04：排查 run 行锁要追到 `PgDatabase.inTx` 的 `currentRunLease` 隐式围栏，不能只看仓储显式 SQL；真实 PG 并发反例须带 `withRunLease`。run 键不变时用相容的 `FOR NO KEY UPDATE` 保持写者/租约接管互斥并允许计费 FK `KEY SHARE`；改锁后同时验证 takeover 等待提交、过期/旧 epoch 在执行事务体前被拒绝（issue #6235，`docs/evidence/chat-event-metering-deadlock-6235/`）。
 - 2026-11-04：后台配额/用量说明先核对 canonical `apps/api/src/infrastructure/auth/pg-token-quota-repository.ts` 聚合及 F159 迁移，不从调用失败推导 Token 为零；通用错误文案复用 `apps/web/lib/design-failure.ts` → `http-failure-text.ts`，语义反馈回调在渲染时接收当前 locale。对应反例与回归：`apps/web/tests/ui/admin-member-quotas-i18n.test.tsx`、`ai-usage-i18n.test.tsx`（issue #6212）。
 - 2026-11-04：组织工作流授权的长文案会同时造成纵向按钮不可达和撤销页横向裁剪；保留共享弹窗边界，在页面所属容器提供滚动、footer 允许换行，并用真实 wheel + Confirm/Cancel 完整入屏断言验收。控制值、API 与权限不随显示修复变化（issue #6207；`evidence/workflow-grants-i18n-6207/browser-first/`、`browser-second/`、`final-run/`）。
 - 2026-11-04：首页配置采用保留挂载状态的标签页时，原生 `hidden` 与无条件 Tailwind `flex` 会发生样式覆盖；应按当前页切换 `flex` / `hidden` 并真实断言非活动面板不可见。只跑完成主链的浏览器绿灯不能替代逐屏截图检查（issue #6204；`evidence/org-home-config-i18n-6204/visibility-red/`）。

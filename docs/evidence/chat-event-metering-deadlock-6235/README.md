@@ -60,3 +60,24 @@ After the normal release, verify a complete persisted long reply; same-user
 concurrent sessions; refresh during a live request and journal recovery;
 reported usage, immutable personal payer and no replay or duplicate debit.
 The separate physical SSE completion outcome fix is PR #6236 / issue #6232.
+
+## Production lease-context correction
+
+Follow-up tracing found `PgDatabase.inTx` also implicitly locks the leased run
+before invoking any repository callback. Initial 5f2e7e966 acceptance covered
+the explicit repository SQL and omitted this production context; it is not
+full-path acceptance. Adding actual `withRunLease` to the real PG regression
+reproduces another 40P01 (1 failed / 1 passed, `lease-red.txt`). The implicit
+run guard now also uses NO KEY UPDATE, preserving every org/epoch/expiry
+predicate and transaction boundary.
+
+`lease-green.txt`: **36 passed**, including lease and non-lease concurrent
+receipt/event writes, journal sequence/deduplication, prior personal payer
+lock order, stale run recovery and lease units. A new real PG fencing test
+observes takeover's UPDATE blocked in pg_stat_activity until the live worker
+commits, then proves old epoch and expired leases refuse the transaction
+body. This establishes exclusion through commit without blocking token FKs.
+
+Knowledge feedback records the implicit-guard tracing requirement in
+mod-org-identity; the initial review omission and lease-red regression are
+the observed baseline failure. The final review must inspect that full path.
