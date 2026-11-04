@@ -210,7 +210,7 @@ export function SurveyTemplateWorkspace({
           <Button variant="ghost" disabled={busy} onClick={back}>
             {t("survey.templates.back")}
           </Button>
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 basis-full sm:basis-0 sm:flex-1">
             <h1 className="text-20 font-semibold">
               {t(isBuiltin ? "survey.templates.builtinHeading" : templateId === "new" ? "survey.templates.newHeading" : "survey.templates.editHeading", { label })}
             </h1>

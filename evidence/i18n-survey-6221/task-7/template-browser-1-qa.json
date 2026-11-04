@@ -1,0 +1,80 @@
+{
+  "source": "62c7637b3dcb0497db4f479c8dbddd5ef4c74167",
+  "actualPng": 8,
+  "wholeJourneyPassed": false,
+  "rawArtifactsPrivate": true,
+  "screenshots": [
+    {
+      "name": "template-controlled-permission-en-1280.png",
+      "sha256": "797fdb66b4a2a152f76e3b4cd18e639dfabccbcf445b5c69c94a26130c7cceb1",
+      "width": 1280,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Captured controls readable and raw authored values retained; no whole-journey pass."
+    },
+    {
+      "name": "template-controlled-permission-en-375.png",
+      "sha256": "b5c4c82b03ee5712bf7aa2dd7fab535cecd01fb548a8aa6b4e16762ba2fd62fe",
+      "width": 375,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "FAIL",
+      "note": "Mobile heading overlaps Refresh; minimal flex-basis correction pending fresh browser proof."
+    },
+    {
+      "name": "template-preview-raw-en-1280.png",
+      "sha256": "c69eb89da628a49a0bc6647fd49054ecbea7dde543689fa141f898f39241261c",
+      "width": 1280,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Captured controls readable and raw authored values retained; no whole-journey pass."
+    },
+    {
+      "name": "template-preview-raw-en-375.png",
+      "sha256": "1aaa9e15f7562a0c9ac58bb9e3cd20275e5d7075d59d283a0e07753078915192",
+      "width": 375,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Captured controls readable and raw authored values retained; no whole-journey pass."
+    },
+    {
+      "name": "template-unsaved-raw-en-1280.png",
+      "sha256": "db7213c9958df9fcc7a93eb4ca646f4818dbf8bf38208a5b24e3c1e3c1f8d24c",
+      "width": 1280,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Captured controls readable and raw authored values retained; no whole-journey pass."
+    },
+    {
+      "name": "template-unsaved-raw-en-375.png",
+      "sha256": "45e28eb01240b089757b9e7177f3034782120eef4f42bcc005e14fe6421f5aad",
+      "width": 375,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Captured controls readable and raw authored values retained; no whole-journey pass."
+    },
+    {
+      "name": "test-failed-1.png",
+      "sha256": "d8959a3801ee36d23ef54e43b612fbe8976401ca0c47eef5933c1cd9f955d07e",
+      "width": 1280,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Captured controls readable and raw authored values retained; no whole-journey pass."
+    },
+    {
+      "name": "test-failed-2.png",
+      "sha256": "8bbc2f3007cb1c0b8fd23805529e34a49e713dbf712aa7209894dad3fa93b857",
+      "width": 1280,
+      "height": 720,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Captured controls readable and raw authored values retained; no whole-journey pass."
+    }
+  ]
+}

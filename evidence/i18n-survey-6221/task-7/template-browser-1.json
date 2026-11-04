@@ -1,0 +1,43 @@
+{
+  "name": "template-browser-1",
+  "command": [
+    "pnpm",
+    "exec",
+    "tsx",
+    ".harness/scripts/with-test-isolation.ts",
+    "--",
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "playwright",
+    "test",
+    "--config",
+    "playwright.fullstack-smoke.config.ts",
+    "--project=seeded",
+    "e2e/i18n-survey-journey.spec.ts",
+    "--workers=1",
+    "--retries=0",
+    "--max-failures=1",
+    "--grep",
+    "(?:survey template locale preserves real CAS saves, independent copies, report bindings, undo and raw JSON exports)$",
+    "--reporter=list,json"
+  ],
+  "source": "62c7637b3dcb0497db4f479c8dbddd5ef4c74167",
+  "exitCode": 1,
+  "seconds": 595.538,
+  "rawLogSha256": "a060b8fbf3d7d79bacf9e39f6e817dc81666cb396b96eaedbe93a03906662ea2",
+  "sourceAfter": "62c7637b3dcb0497db4f479c8dbddd5ef4c74167",
+  "sourceStable": true,
+  "environment": {},
+  "nativeStats": {
+    "startTime": "2026-11-04T19:43:14.525Z",
+    "duration": 591311.791,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  },
+  "globalErrorCount": 1,
+  "interpretation": "Original template case timed out at stale Export JSON locator; actual button is Export template. No whole-case pass."
+}

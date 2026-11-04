@@ -516,7 +516,7 @@ test("survey template locale preserves real CAS saves, independent copies, repor
         expect(SurveyLibraryTemplateSchema.parse(await api(page, `/surveys/templates/${original.id}`))).toEqual(updatedOriginal);
         await page.getByRole("tab", { name: "Report settings", exact: true }).click();
         const jsonDownload = page.waitForEvent("download");
-        await page.getByRole("button", { name: "Export JSON", exact: true }).click();
+        await page.getByRole("button", { name: "Export template", exact: true }).click();
         const jsonFile = await jsonDownload;
         expect(jsonFile.suggestedFilename()).toBe("report-template.json");
         const exportedJson = await readFile((await jsonFile.path())!, "utf8");
