@@ -1,0 +1,734 @@
+....FFFFFF..........FF                                                   [100%]
+=================================== FAILURES ===================================
+_ test_completion_protocol_preserves_failures_and_one_terminal[missing-done-chunks2-200-failed-False] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10c064050>
+tmp_path = PosixPath('/private/var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/pytest-of-shenyangjun/pytest-8/test_completion_protocol_prese4')
+asynchronous = False, case = 'missing-done'
+chunks = [b'data: {"usage":{"total_tokens":9,"prompt_tokens":6,"completion_tokens":3}}\n\n']
+status = 200, want = 'failed'
+
+    @pytest.mark.parametrize("asynchronous", [False, True])
+    @pytest.mark.parametrize("case,chunks,status,want", [
+        ("complete", [USAGE, b"data: [DO", b"NE]\r\n", b"\r\n"], 200, "succeeded"),
+        ("unknown-usage", [b"data: [DONE]\n\n"], 200, "succeeded"),
+        ("missing-done", [USAGE], 200, "failed"),
+        ("truncated-event", [USAGE, b"data: [DONE]\n"], 200, "failed"),
+        ("error-event", [USAGE, b'data: {"error":{"message":"fixture"}}\n\n', b"data: [DONE]\n\n"], 200, "failed"),
+        ("http-failure", [USAGE, b"data: [DONE]\n\n"], 503, "failed"),
+        ("early-close", [USAGE, b"data: [DONE]\n\n"], 200, "failed"),
+        ("read-error", [USAGE], 200, "failed"),
+        ("cancel", [USAGE], 200, "failed"),
+    ])
+    def test_completion_protocol_preserves_failures_and_one_terminal(monkeypatch, tmp_path, asynchronous, case, chunks, status, want):
+        monkeypatch.setenv("DEEP_AGENT_USAGE_SPOOL_DIR", str(tmp_path))
+        monkeypatch.setattr(a, "_durability_fault", False)
+        monkeypatch.setattr(a, "ownership", lambda: dict(OWNER))
+        callbacks = []
+        def post(_owner, _run, phase, payload):
+            callbacks.append((phase, payload))
+        async def apost(*args):
+            post(*args)
+        monkeypatch.setattr(a, "post", post)
+        monkeypatch.setattr(a, "apost", apost)
+        req = httpx.Request("POST", "http://vendor.test/chat/completions", json={"model":"fixture", "max_tokens":10, "messages":[{"role":"user","content":"hello"}]})
+        class SyncChunks(httpx.SyncByteStream):
+            def __iter__(self):
+                yield from chunks
+                if case == "read-error":
+                    raise httpx.ReadError("fixture")
+                if case == "cancel":
+                    raise asyncio.CancelledError()
+        class AsyncChunks(httpx.AsyncByteStream):
+            async def __aiter__(self):
+                for chunk in chunks:
+                    yield chunk
+                if case == "read-error":
+                    raise httpx.ReadError("fixture")
+                if case == "cancel":
+                    raise asyncio.CancelledError()
+        def vendor(_request):
+            return httpx.Response(status, headers={"content-type":"text/event-stream"}, stream=SyncChunks())
+        async def avendor(_request):
+            return httpx.Response(status, headers={"content-type":"text/event-stream"}, stream=AsyncChunks())
+        def consume():
+            transport = a.AccountingTransport(httpx.MockTransport(vendor))
+            result = transport.handle_request(req)
+            iterator = iter(result.stream)
+            if case == "early-close":
+                next(iterator)
+            elif case in ("read-error", "cancel"):
+                with pytest.raises(httpx.ReadError if case == "read-error" else asyncio.CancelledError):
+                    list(iterator)
+            else:
+                list(iterator)
+            result.close()
+            result.close()
+            if case == "early-close":
+                iterator.close()
+            transport.close()
+        async def aconsume():
+            transport = a.AsyncAccountingTransport(httpx.MockTransport(avendor))
+            result = await transport.handle_async_request(req)
+            iterator = result.stream.__aiter__()
+            if case == "early-close":
+                await anext(iterator)
+            elif case in ("read-error", "cancel"):
+                with pytest.raises(httpx.ReadError if case == "read-error" else asyncio.CancelledError):
+                    _ = [value async for value in iterator]
+            else:
+                _ = [value async for value in iterator]
+            await result.aclose()
+            await result.aclose()
+            if case == "early-close":
+                await iterator.aclose()
+            await transport.aclose()
+        if asynchronous:
+            asyncio.run(aconsume())
+        else:
+            consume()
+        assert [phase for phase, _ in callbacks] == ["admit", "terminal"]
+        admitted, terminal = [body for _, body in callbacks]
+        assert terminal["requestId"] == admitted["requestId"]
+>       assert terminal["outcome"] == want
+E       AssertionError: assert 'succeeded' == 'failed'
+E         
+E         - failed
+E         + succeeded
+
+apps/deep-agent-service/tests/test_stream_completion.py:92: AssertionError
+_ test_completion_protocol_preserves_failures_and_one_terminal[missing-done-chunks2-200-failed-True] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10bf5f250>
+tmp_path = PosixPath('/private/var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/pytest-of-shenyangjun/pytest-8/test_completion_protocol_prese5')
+asynchronous = True, case = 'missing-done'
+chunks = [b'data: {"usage":{"total_tokens":9,"prompt_tokens":6,"completion_tokens":3}}\n\n']
+status = 200, want = 'failed'
+
+    @pytest.mark.parametrize("asynchronous", [False, True])
+    @pytest.mark.parametrize("case,chunks,status,want", [
+        ("complete", [USAGE, b"data: [DO", b"NE]\r\n", b"\r\n"], 200, "succeeded"),
+        ("unknown-usage", [b"data: [DONE]\n\n"], 200, "succeeded"),
+        ("missing-done", [USAGE], 200, "failed"),
+        ("truncated-event", [USAGE, b"data: [DONE]\n"], 200, "failed"),
+        ("error-event", [USAGE, b'data: {"error":{"message":"fixture"}}\n\n', b"data: [DONE]\n\n"], 200, "failed"),
+        ("http-failure", [USAGE, b"data: [DONE]\n\n"], 503, "failed"),
+        ("early-close", [USAGE, b"data: [DONE]\n\n"], 200, "failed"),
+        ("read-error", [USAGE], 200, "failed"),
+        ("cancel", [USAGE], 200, "failed"),
+    ])
+    def test_completion_protocol_preserves_failures_and_one_terminal(monkeypatch, tmp_path, asynchronous, case, chunks, status, want):
+        monkeypatch.setenv("DEEP_AGENT_USAGE_SPOOL_DIR", str(tmp_path))
+        monkeypatch.setattr(a, "_durability_fault", False)
+        monkeypatch.setattr(a, "ownership", lambda: dict(OWNER))
+        callbacks = []
+        def post(_owner, _run, phase, payload):
+            callbacks.append((phase, payload))
+        async def apost(*args):
+            post(*args)
+        monkeypatch.setattr(a, "post", post)
+        monkeypatch.setattr(a, "apost", apost)
+        req = httpx.Request("POST", "http://vendor.test/chat/completions", json={"model":"fixture", "max_tokens":10, "messages":[{"role":"user","content":"hello"}]})
+        class SyncChunks(httpx.SyncByteStream):
+            def __iter__(self):
+                yield from chunks
+                if case == "read-error":
+                    raise httpx.ReadError("fixture")
+                if case == "cancel":
+                    raise asyncio.CancelledError()
+        class AsyncChunks(httpx.AsyncByteStream):
+            async def __aiter__(self):
+                for chunk in chunks:
+                    yield chunk
+                if case == "read-error":
+                    raise httpx.ReadError("fixture")
+                if case == "cancel":
+                    raise asyncio.CancelledError()
+        def vendor(_request):
+            return httpx.Response(status, headers={"content-type":"text/event-stream"}, stream=SyncChunks())
+        async def avendor(_request):
+            return httpx.Response(status, headers={"content-type":"text/event-stream"}, stream=AsyncChunks())
+        def consume():
+            transport = a.AccountingTransport(httpx.MockTransport(vendor))
+            result = transport.handle_request(req)
+            iterator = iter(result.stream)
+            if case == "early-close":
+                next(iterator)
+            elif case in ("read-error", "cancel"):
+                with pytest.raises(httpx.ReadError if case == "read-error" else asyncio.CancelledError):
+                    list(iterator)
+            else:
+                list(iterator)
+            result.close()
+            result.close()
+            if case == "early-close":
+                iterator.close()
+            transport.close()
+        async def aconsume():
+            transport = a.AsyncAccountingTransport(httpx.MockTransport(avendor))
+            result = await transport.handle_async_request(req)
+            iterator = result.stream.__aiter__()
+            if case == "early-close":
+                await anext(iterator)
+            elif case in ("read-error", "cancel"):
+                with pytest.raises(httpx.ReadError if case == "read-error" else asyncio.CancelledError):
+                    _ = [value async for value in iterator]
+            else:
+                _ = [value async for value in iterator]
+            await result.aclose()
+            await result.aclose()
+            if case == "early-close":
+                await iterator.aclose()
+            await transport.aclose()
+        if asynchronous:
+            asyncio.run(aconsume())
+        else:
+            consume()
+        assert [phase for phase, _ in callbacks] == ["admit", "terminal"]
+        admitted, terminal = [body for _, body in callbacks]
+        assert terminal["requestId"] == admitted["requestId"]
+>       assert terminal["outcome"] == want
+E       AssertionError: assert 'succeeded' == 'failed'
+E         
+E         - failed
+E         + succeeded
+
+apps/deep-agent-service/tests/test_stream_completion.py:92: AssertionError
+_ test_completion_protocol_preserves_failures_and_one_terminal[truncated-event-chunks3-200-failed-False] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10bf5f650>
+tmp_path = PosixPath('/private/var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/pytest-of-shenyangjun/pytest-8/test_completion_protocol_prese6')
+asynchronous = False, case = 'truncated-event'
+chunks = [b'data: {"usage":{"total_tokens":9,"prompt_tokens":6,"completion_tokens":3}}\n\n', b'data: [DONE]\n']
+status = 200, want = 'failed'
+
+    @pytest.mark.parametrize("asynchronous", [False, True])
+    @pytest.mark.parametrize("case,chunks,status,want", [
+        ("complete", [USAGE, b"data: [DO", b"NE]\r\n", b"\r\n"], 200, "succeeded"),
+        ("unknown-usage", [b"data: [DONE]\n\n"], 200, "succeeded"),
+        ("missing-done", [USAGE], 200, "failed"),
+        ("truncated-event", [USAGE, b"data: [DONE]\n"], 200, "failed"),
+        ("error-event", [USAGE, b'data: {"error":{"message":"fixture"}}\n\n', b"data: [DONE]\n\n"], 200, "failed"),
+        ("http-failure", [USAGE, b"data: [DONE]\n\n"], 503, "failed"),
+        ("early-close", [USAGE, b"data: [DONE]\n\n"], 200, "failed"),
+        ("read-error", [USAGE], 200, "failed"),
+        ("cancel", [USAGE], 200, "failed"),
+    ])
+    def test_completion_protocol_preserves_failures_and_one_terminal(monkeypatch, tmp_path, asynchronous, case, chunks, status, want):
+        monkeypatch.setenv("DEEP_AGENT_USAGE_SPOOL_DIR", str(tmp_path))
+        monkeypatch.setattr(a, "_durability_fault", False)
+        monkeypatch.setattr(a, "ownership", lambda: dict(OWNER))
+        callbacks = []
+        def post(_owner, _run, phase, payload):
+            callbacks.append((phase, payload))
+        async def apost(*args):
+            post(*args)
+        monkeypatch.setattr(a, "post", post)
+        monkeypatch.setattr(a, "apost", apost)
+        req = httpx.Request("POST", "http://vendor.test/chat/completions", json={"model":"fixture", "max_tokens":10, "messages":[{"role":"user","content":"hello"}]})
+        class SyncChunks(httpx.SyncByteStream):
+            def __iter__(self):
+                yield from chunks
+                if case == "read-error":
+                    raise httpx.ReadError("fixture")
+                if case == "cancel":
+                    raise asyncio.CancelledError()
+        class AsyncChunks(httpx.AsyncByteStream):
+            async def __aiter__(self):
+                for chunk in chunks:
+                    yield chunk
+                if case == "read-error":
+                    raise httpx.ReadError("fixture")
+                if case == "cancel":
+                    raise asyncio.CancelledError()
+        def vendor(_request):
+            return httpx.Response(status, headers={"content-type":"text/event-stream"}, stream=SyncChunks())
+        async def avendor(_request):
+            return httpx.Response(status, headers={"content-type":"text/event-stream"}, stream=AsyncChunks())
+        def consume():
+            transport = a.AccountingTransport(httpx.MockTransport(vendor))
+            result = transport.handle_request(req)
+            iterator = iter(result.stream)
+            if case == "early-close":
+                next(iterator)
+            elif case in ("read-error", "cancel"):
+                with pytest.raises(httpx.ReadError if case == "read-error" else asyncio.CancelledError):
+                    list(iterator)
+            else:
+                list(iterator)
+            result.close()
+            result.close()
+            if case == "early-close":
+                iterator.close()
+            transport.close()
+        async def aconsume():
+            transport = a.AsyncAccountingTransport(httpx.MockTransport(avendor))
+            result = await transport.handle_async_request(req)
+            iterator = result.stream.__aiter__()
+            if case == "early-close":
+                await anext(iterator)
+            elif case in ("read-error", "cancel"):
+                with pytest.raises(httpx.ReadError if case == "read-error" else asyncio.CancelledError):
+                    _ = [value async for value in iterator]
+            else:
+                _ = [value async for value in iterator]
+            await result.aclose()
+            await result.aclose()
+            if case == "early-close":
+                await iterator.aclose()
+            await transport.aclose()
+        if asynchronous:
+            asyncio.run(aconsume())
+        else:
+            consume()
+        assert [phase for phase, _ in callbacks] == ["admit", "terminal"]
+        admitted, terminal = [body for _, body in callbacks]
+        assert terminal["requestId"] == admitted["requestId"]
+>       assert terminal["outcome"] == want
+E       AssertionError: assert 'succeeded' == 'failed'
+E         
+E         - failed
+E         + succeeded
+
+apps/deep-agent-service/tests/test_stream_completion.py:92: AssertionError
+_ test_completion_protocol_preserves_failures_and_one_terminal[truncated-event-chunks3-200-failed-True] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10c4458b0>
+tmp_path = PosixPath('/private/var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/pytest-of-shenyangjun/pytest-8/test_completion_protocol_prese7')
+asynchronous = True, case = 'truncated-event'
+chunks = [b'data: {"usage":{"total_tokens":9,"prompt_tokens":6,"completion_tokens":3}}\n\n', b'data: [DONE]\n']
+status = 200, want = 'failed'
+
+    @pytest.mark.parametrize("asynchronous", [False, True])
+    @pytest.mark.parametrize("case,chunks,status,want", [
+        ("complete", [USAGE, b"data: [DO", b"NE]\r\n", b"\r\n"], 200, "succeeded"),
+        ("unknown-usage", [b"data: [DONE]\n\n"], 200, "succeeded"),
+        ("missing-done", [USAGE], 200, "failed"),
+        ("truncated-event", [USAGE, b"data: [DONE]\n"], 200, "failed"),
+        ("error-event", [USAGE, b'data: {"error":{"message":"fixture"}}\n\n', b"data: [DONE]\n\n"], 200, "failed"),
+        ("http-failure", [USAGE, b"data: [DONE]\n\n"], 503, "failed"),
+        ("early-close", [USAGE, b"data: [DONE]\n\n"], 200, "failed"),
+        ("read-error", [USAGE], 200, "failed"),
+        ("cancel", [USAGE], 200, "failed"),
+    ])
+    def test_completion_protocol_preserves_failures_and_one_terminal(monkeypatch, tmp_path, asynchronous, case, chunks, status, want):
+        monkeypatch.setenv("DEEP_AGENT_USAGE_SPOOL_DIR", str(tmp_path))
+        monkeypatch.setattr(a, "_durability_fault", False)
+        monkeypatch.setattr(a, "ownership", lambda: dict(OWNER))
+        callbacks = []
+        def post(_owner, _run, phase, payload):
+            callbacks.append((phase, payload))
+        async def apost(*args):
+            post(*args)
+        monkeypatch.setattr(a, "post", post)
+        monkeypatch.setattr(a, "apost", apost)
+        req = httpx.Request("POST", "http://vendor.test/chat/completions", json={"model":"fixture", "max_tokens":10, "messages":[{"role":"user","content":"hello"}]})
+        class SyncChunks(httpx.SyncByteStream):
+            def __iter__(self):
+                yield from chunks
+                if case == "read-error":
+                    raise httpx.ReadError("fixture")
+                if case == "cancel":
+                    raise asyncio.CancelledError()
+        class AsyncChunks(httpx.AsyncByteStream):
+            async def __aiter__(self):
+                for chunk in chunks:
+                    yield chunk
+                if case == "read-error":
+                    raise httpx.ReadError("fixture")
+                if case == "cancel":
+                    raise asyncio.CancelledError()
+        def vendor(_request):
+            return httpx.Response(status, headers={"content-type":"text/event-stream"}, stream=SyncChunks())
+        async def avendor(_request):
+            return httpx.Response(status, headers={"content-type":"text/event-stream"}, stream=AsyncChunks())
+        def consume():
+            transport = a.AccountingTransport(httpx.MockTransport(vendor))
+            result = transport.handle_request(req)
+            iterator = iter(result.stream)
+            if case == "early-close":
+                next(iterator)
+            elif case in ("read-error", "cancel"):
+                with pytest.raises(httpx.ReadError if case == "read-error" else asyncio.CancelledError):
+                    list(iterator)
+            else:
+                list(iterator)
+            result.close()
+            result.close()
+            if case == "early-close":
+                iterator.close()
+            transport.close()
+        async def aconsume():
+            transport = a.AsyncAccountingTransport(httpx.MockTransport(avendor))
+            result = await transport.handle_async_request(req)
+            iterator = result.stream.__aiter__()
+            if case == "early-close":
+                await anext(iterator)
+            elif case in ("read-error", "cancel"):
+                with pytest.raises(httpx.ReadError if case == "read-error" else asyncio.CancelledError):
+                    _ = [value async for value in iterator]
+            else:
+                _ = [value async for value in iterator]
+            await result.aclose()
+            await result.aclose()
+            if case == "early-close":
+                await iterator.aclose()
+            await transport.aclose()
+        if asynchronous:
+            asyncio.run(aconsume())
+        else:
+            consume()
+        assert [phase for phase, _ in callbacks] == ["admit", "terminal"]
+        admitted, terminal = [body for _, body in callbacks]
+        assert terminal["requestId"] == admitted["requestId"]
+>       assert terminal["outcome"] == want
+E       AssertionError: assert 'succeeded' == 'failed'
+E         
+E         - failed
+E         + succeeded
+
+apps/deep-agent-service/tests/test_stream_completion.py:92: AssertionError
+_ test_completion_protocol_preserves_failures_and_one_terminal[error-event-chunks4-200-failed-False] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10c446030>
+tmp_path = PosixPath('/private/var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/pytest-of-shenyangjun/pytest-8/test_completion_protocol_prese8')
+asynchronous = False, case = 'error-event'
+chunks = [b'data: {"usage":{"total_tokens":9,"prompt_tokens":6,"completion_tokens":3}}\n\n', b'data: {"error":{"message":"fixture"}}\n\n', b'data: [DONE]\n\n']
+status = 200, want = 'failed'
+
+    @pytest.mark.parametrize("asynchronous", [False, True])
+    @pytest.mark.parametrize("case,chunks,status,want", [
+        ("complete", [USAGE, b"data: [DO", b"NE]\r\n", b"\r\n"], 200, "succeeded"),
+        ("unknown-usage", [b"data: [DONE]\n\n"], 200, "succeeded"),
+        ("missing-done", [USAGE], 200, "failed"),
+        ("truncated-event", [USAGE, b"data: [DONE]\n"], 200, "failed"),
+        ("error-event", [USAGE, b'data: {"error":{"message":"fixture"}}\n\n', b"data: [DONE]\n\n"], 200, "failed"),
+        ("http-failure", [USAGE, b"data: [DONE]\n\n"], 503, "failed"),
+        ("early-close", [USAGE, b"data: [DONE]\n\n"], 200, "failed"),
+        ("read-error", [USAGE], 200, "failed"),
+        ("cancel", [USAGE], 200, "failed"),
+    ])
+    def test_completion_protocol_preserves_failures_and_one_terminal(monkeypatch, tmp_path, asynchronous, case, chunks, status, want):
+        monkeypatch.setenv("DEEP_AGENT_USAGE_SPOOL_DIR", str(tmp_path))
+        monkeypatch.setattr(a, "_durability_fault", False)
+        monkeypatch.setattr(a, "ownership", lambda: dict(OWNER))
+        callbacks = []
+        def post(_owner, _run, phase, payload):
+            callbacks.append((phase, payload))
+        async def apost(*args):
+            post(*args)
+        monkeypatch.setattr(a, "post", post)
+        monkeypatch.setattr(a, "apost", apost)
+        req = httpx.Request("POST", "http://vendor.test/chat/completions", json={"model":"fixture", "max_tokens":10, "messages":[{"role":"user","content":"hello"}]})
+        class SyncChunks(httpx.SyncByteStream):
+            def __iter__(self):
+                yield from chunks
+                if case == "read-error":
+                    raise httpx.ReadError("fixture")
+                if case == "cancel":
+                    raise asyncio.CancelledError()
+        class AsyncChunks(httpx.AsyncByteStream):
+            async def __aiter__(self):
+                for chunk in chunks:
+                    yield chunk
+                if case == "read-error":
+                    raise httpx.ReadError("fixture")
+                if case == "cancel":
+                    raise asyncio.CancelledError()
+        def vendor(_request):
+            return httpx.Response(status, headers={"content-type":"text/event-stream"}, stream=SyncChunks())
+        async def avendor(_request):
+            return httpx.Response(status, headers={"content-type":"text/event-stream"}, stream=AsyncChunks())
+        def consume():
+            transport = a.AccountingTransport(httpx.MockTransport(vendor))
+            result = transport.handle_request(req)
+            iterator = iter(result.stream)
+            if case == "early-close":
+                next(iterator)
+            elif case in ("read-error", "cancel"):
+                with pytest.raises(httpx.ReadError if case == "read-error" else asyncio.CancelledError):
+                    list(iterator)
+            else:
+                list(iterator)
+            result.close()
+            result.close()
+            if case == "early-close":
+                iterator.close()
+            transport.close()
+        async def aconsume():
+            transport = a.AsyncAccountingTransport(httpx.MockTransport(avendor))
+            result = await transport.handle_async_request(req)
+            iterator = result.stream.__aiter__()
+            if case == "early-close":
+                await anext(iterator)
+            elif case in ("read-error", "cancel"):
+                with pytest.raises(httpx.ReadError if case == "read-error" else asyncio.CancelledError):
+                    _ = [value async for value in iterator]
+            else:
+                _ = [value async for value in iterator]
+            await result.aclose()
+            await result.aclose()
+            if case == "early-close":
+                await iterator.aclose()
+            await transport.aclose()
+        if asynchronous:
+            asyncio.run(aconsume())
+        else:
+            consume()
+        assert [phase for phase, _ in callbacks] == ["admit", "terminal"]
+        admitted, terminal = [body for _, body in callbacks]
+        assert terminal["requestId"] == admitted["requestId"]
+>       assert terminal["outcome"] == want
+E       AssertionError: assert 'succeeded' == 'failed'
+E         
+E         - failed
+E         + succeeded
+
+apps/deep-agent-service/tests/test_stream_completion.py:92: AssertionError
+_ test_completion_protocol_preserves_failures_and_one_terminal[error-event-chunks4-200-failed-True] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10c4697f0>
+tmp_path = PosixPath('/private/var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/pytest-of-shenyangjun/pytest-8/test_completion_protocol_prese9')
+asynchronous = True, case = 'error-event'
+chunks = [b'data: {"usage":{"total_tokens":9,"prompt_tokens":6,"completion_tokens":3}}\n\n', b'data: {"error":{"message":"fixture"}}\n\n', b'data: [DONE]\n\n']
+status = 200, want = 'failed'
+
+    @pytest.mark.parametrize("asynchronous", [False, True])
+    @pytest.mark.parametrize("case,chunks,status,want", [
+        ("complete", [USAGE, b"data: [DO", b"NE]\r\n", b"\r\n"], 200, "succeeded"),
+        ("unknown-usage", [b"data: [DONE]\n\n"], 200, "succeeded"),
+        ("missing-done", [USAGE], 200, "failed"),
+        ("truncated-event", [USAGE, b"data: [DONE]\n"], 200, "failed"),
+        ("error-event", [USAGE, b'data: {"error":{"message":"fixture"}}\n\n', b"data: [DONE]\n\n"], 200, "failed"),
+        ("http-failure", [USAGE, b"data: [DONE]\n\n"], 503, "failed"),
+        ("early-close", [USAGE, b"data: [DONE]\n\n"], 200, "failed"),
+        ("read-error", [USAGE], 200, "failed"),
+        ("cancel", [USAGE], 200, "failed"),
+    ])
+    def test_completion_protocol_preserves_failures_and_one_terminal(monkeypatch, tmp_path, asynchronous, case, chunks, status, want):
+        monkeypatch.setenv("DEEP_AGENT_USAGE_SPOOL_DIR", str(tmp_path))
+        monkeypatch.setattr(a, "_durability_fault", False)
+        monkeypatch.setattr(a, "ownership", lambda: dict(OWNER))
+        callbacks = []
+        def post(_owner, _run, phase, payload):
+            callbacks.append((phase, payload))
+        async def apost(*args):
+            post(*args)
+        monkeypatch.setattr(a, "post", post)
+        monkeypatch.setattr(a, "apost", apost)
+        req = httpx.Request("POST", "http://vendor.test/chat/completions", json={"model":"fixture", "max_tokens":10, "messages":[{"role":"user","content":"hello"}]})
+        class SyncChunks(httpx.SyncByteStream):
+            def __iter__(self):
+                yield from chunks
+                if case == "read-error":
+                    raise httpx.ReadError("fixture")
+                if case == "cancel":
+                    raise asyncio.CancelledError()
+        class AsyncChunks(httpx.AsyncByteStream):
+            async def __aiter__(self):
+                for chunk in chunks:
+                    yield chunk
+                if case == "read-error":
+                    raise httpx.ReadError("fixture")
+                if case == "cancel":
+                    raise asyncio.CancelledError()
+        def vendor(_request):
+            return httpx.Response(status, headers={"content-type":"text/event-stream"}, stream=SyncChunks())
+        async def avendor(_request):
+            return httpx.Response(status, headers={"content-type":"text/event-stream"}, stream=AsyncChunks())
+        def consume():
+            transport = a.AccountingTransport(httpx.MockTransport(vendor))
+            result = transport.handle_request(req)
+            iterator = iter(result.stream)
+            if case == "early-close":
+                next(iterator)
+            elif case in ("read-error", "cancel"):
+                with pytest.raises(httpx.ReadError if case == "read-error" else asyncio.CancelledError):
+                    list(iterator)
+            else:
+                list(iterator)
+            result.close()
+            result.close()
+            if case == "early-close":
+                iterator.close()
+            transport.close()
+        async def aconsume():
+            transport = a.AsyncAccountingTransport(httpx.MockTransport(avendor))
+            result = await transport.handle_async_request(req)
+            iterator = result.stream.__aiter__()
+            if case == "early-close":
+                await anext(iterator)
+            elif case in ("read-error", "cancel"):
+                with pytest.raises(httpx.ReadError if case == "read-error" else asyncio.CancelledError):
+                    _ = [value async for value in iterator]
+            else:
+                _ = [value async for value in iterator]
+            await result.aclose()
+            await result.aclose()
+            if case == "early-close":
+                await iterator.aclose()
+            await transport.aclose()
+        if asynchronous:
+            asyncio.run(aconsume())
+        else:
+            consume()
+        assert [phase for phase, _ in callbacks] == ["admit", "terminal"]
+        admitted, terminal = [body for _, body in callbacks]
+        assert terminal["requestId"] == admitted["requestId"]
+>       assert terminal["outcome"] == want
+E       AssertionError: assert 'succeeded' == 'failed'
+E         
+E         - failed
+E         + succeeded
+
+apps/deep-agent-service/tests/test_stream_completion.py:92: AssertionError
+____ test_model_requests_reported_usage_and_preserves_real_receipt[stream] _____
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1120b2ed0>
+tmp_path = PosixPath('/private/var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/pytest-of-shenyangjun/pytest-8/test_model_requests_reported_u2')
+mode = 'stream'
+
+    @pytest.mark.parametrize("mode", ["invoke", "ainvoke", "stream", "astream"])
+    def test_model_requests_reported_usage_and_preserves_real_receipt(monkeypatch, tmp_path, mode):
+        monkeypatch.setenv("KERNEL_MODEL_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
+        monkeypatch.setenv("KERNEL_MODEL_API_KEY", "fixture")
+        monkeypatch.setenv("KERNEL_MODEL_MAX_OUTPUT_TOKENS", "4096")
+        monkeypatch.setenv("DEEP_AGENT_USAGE_SPOOL_DIR", str(tmp_path))
+        monkeypatch.setattr(accounting, "_durability_fault", False)
+        owner = {"base_url":"http://api.example.test", "key":"fixture", "org_id":"org-A", "run_id":"run-A", "attempt_id":"run-A:1", "lease_epoch":1}
+        monkeypatch.setattr(accounting, "ownership", lambda: dict(owner))
+        callbacks, requests = [], []
+        def callback(_owner, _subject, phase, payload):
+            callbacks.append((phase, payload))
+        async def callback_async(*args):
+            callback(*args)
+        monkeypatch.setattr(accounting, "post", callback)
+        monkeypatch.setattr(accounting, "apost", callback_async)
+        usage = {"total_tokens":9, "prompt_tokens":6, "completion_tokens":3}
+        def vendor(request):
+            body = json.loads(request.content)
+            requests.append(body)
+            common = {"id":"fixture", "created":1, "model":"qwen3.8-max"}
+            if not body.get("stream"):
+                payload = {**common, "object":"chat.completion", "choices":[{"index":0,"message":{"role":"assistant","content":"hello"},"finish_reason":"stop"}], "usage":usage}
+                return httpx.Response(200, headers={"content-type":"application/json"}, stream=httpx.ByteStream(json.dumps(payload).encode()))
+            chunks = [
+                {**common, "object":"chat.completion.chunk", "choices":[{"index":0,"delta":{"role":"assistant","content":"hello"},"finish_reason":None}]},
+                {**common, "object":"chat.completion.chunk", "choices":[{"index":0,"delta":{},"finish_reason":"stop"}]},
+            ]
+            # Qwen's documented protocol returns streamed totals only when requested.
+            if body.get("stream_options", {}).get("include_usage") is True:
+                chunks.append({**common,"object":"chat.completion.chunk","choices":[],"usage":usage})
+            data = "".join("data: " + json.dumps(chunk) + "\n\n" for chunk in chunks) + "data: [DONE]\n\n"
+            # Unbuffered: the real accounting stream must observe every byte.
+            return httpx.Response(200, headers={"content-type":"text/event-stream"}, stream=httpx.ByteStream(data.encode()))
+        sync = httpx.Client(transport=accounting.AccountingTransport(httpx.MockTransport(vendor)))
+        asynchronous = httpx.AsyncClient(transport=accounting.AsyncAccountingTransport(httpx.MockTransport(vendor)))
+        monkeypatch.setattr(models, "model_http_clients", lambda: {"http_client":sync, "http_async_client":asynchronous})
+        model = models.build_chat_model("qwen3.8-max")
+        async def invoke_async():
+            if mode == "ainvoke":
+                return (await model.ainvoke("hello")).content
+            return "".join([chunk.content async for chunk in model.astream("hello")])
+        try:
+            if mode == "invoke":
+                content = model.invoke("hello").content
+            elif mode == "stream":
+                content = "".join(chunk.content for chunk in model.stream("hello"))
+            else:
+                content = asyncio.run(invoke_async())
+            assert content == "hello"
+            assert len(requests) == 1
+            if mode in ("stream", "astream"):
+                assert requests[0].get("stream_options", {}).get("include_usage") is True
+            else:
+                assert "stream_options" not in requests[0]
+            assert [phase for phase, _ in callbacks] == ["admit", "terminal"]
+            assert callbacks[-1][1]["usage"] == {"total":9, "prompt":6, "completion":3}
+>           assert callbacks[-1][1]["outcome"] == "succeeded"
+E           AssertionError: assert 'failed' == 'succeeded'
+E             
+E             - succeeded
+E             + failed
+
+apps/deep-agent-service/tests/test_model_stream_usage.py:67: AssertionError
+____ test_model_requests_reported_usage_and_preserves_real_receipt[astream] ____
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1120890f0>
+tmp_path = PosixPath('/private/var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/pytest-of-shenyangjun/pytest-8/test_model_requests_reported_u3')
+mode = 'astream'
+
+    @pytest.mark.parametrize("mode", ["invoke", "ainvoke", "stream", "astream"])
+    def test_model_requests_reported_usage_and_preserves_real_receipt(monkeypatch, tmp_path, mode):
+        monkeypatch.setenv("KERNEL_MODEL_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
+        monkeypatch.setenv("KERNEL_MODEL_API_KEY", "fixture")
+        monkeypatch.setenv("KERNEL_MODEL_MAX_OUTPUT_TOKENS", "4096")
+        monkeypatch.setenv("DEEP_AGENT_USAGE_SPOOL_DIR", str(tmp_path))
+        monkeypatch.setattr(accounting, "_durability_fault", False)
+        owner = {"base_url":"http://api.example.test", "key":"fixture", "org_id":"org-A", "run_id":"run-A", "attempt_id":"run-A:1", "lease_epoch":1}
+        monkeypatch.setattr(accounting, "ownership", lambda: dict(owner))
+        callbacks, requests = [], []
+        def callback(_owner, _subject, phase, payload):
+            callbacks.append((phase, payload))
+        async def callback_async(*args):
+            callback(*args)
+        monkeypatch.setattr(accounting, "post", callback)
+        monkeypatch.setattr(accounting, "apost", callback_async)
+        usage = {"total_tokens":9, "prompt_tokens":6, "completion_tokens":3}
+        def vendor(request):
+            body = json.loads(request.content)
+            requests.append(body)
+            common = {"id":"fixture", "created":1, "model":"qwen3.8-max"}
+            if not body.get("stream"):
+                payload = {**common, "object":"chat.completion", "choices":[{"index":0,"message":{"role":"assistant","content":"hello"},"finish_reason":"stop"}], "usage":usage}
+                return httpx.Response(200, headers={"content-type":"application/json"}, stream=httpx.ByteStream(json.dumps(payload).encode()))
+            chunks = [
+                {**common, "object":"chat.completion.chunk", "choices":[{"index":0,"delta":{"role":"assistant","content":"hello"},"finish_reason":None}]},
+                {**common, "object":"chat.completion.chunk", "choices":[{"index":0,"delta":{},"finish_reason":"stop"}]},
+            ]
+            # Qwen's documented protocol returns streamed totals only when requested.
+            if body.get("stream_options", {}).get("include_usage") is True:
+                chunks.append({**common,"object":"chat.completion.chunk","choices":[],"usage":usage})
+            data = "".join("data: " + json.dumps(chunk) + "\n\n" for chunk in chunks) + "data: [DONE]\n\n"
+            # Unbuffered: the real accounting stream must observe every byte.
+            return httpx.Response(200, headers={"content-type":"text/event-stream"}, stream=httpx.ByteStream(data.encode()))
+        sync = httpx.Client(transport=accounting.AccountingTransport(httpx.MockTransport(vendor)))
+        asynchronous = httpx.AsyncClient(transport=accounting.AsyncAccountingTransport(httpx.MockTransport(vendor)))
+        monkeypatch.setattr(models, "model_http_clients", lambda: {"http_client":sync, "http_async_client":asynchronous})
+        model = models.build_chat_model("qwen3.8-max")
+        async def invoke_async():
+            if mode == "ainvoke":
+                return (await model.ainvoke("hello")).content
+            return "".join([chunk.content async for chunk in model.astream("hello")])
+        try:
+            if mode == "invoke":
+                content = model.invoke("hello").content
+            elif mode == "stream":
+                content = "".join(chunk.content for chunk in model.stream("hello"))
+            else:
+                content = asyncio.run(invoke_async())
+            assert content == "hello"
+            assert len(requests) == 1
+            if mode in ("stream", "astream"):
+                assert requests[0].get("stream_options", {}).get("include_usage") is True
+            else:
+                assert "stream_options" not in requests[0]
+            assert [phase for phase, _ in callbacks] == ["admit", "terminal"]
+            assert callbacks[-1][1]["usage"] == {"total":9, "prompt":6, "completion":3}
+>           assert callbacks[-1][1]["outcome"] == "succeeded"
+E           AssertionError: assert 'failed' == 'succeeded'
+E             
+E             - succeeded
+E             + failed
+
+apps/deep-agent-service/tests/test_model_stream_usage.py:67: AssertionError
+=========================== short test summary info ============================
+FAILED apps/deep-agent-service/tests/test_stream_completion.py::test_completion_protocol_preserves_failures_and_one_terminal[missing-done-chunks2-200-failed-False]
+FAILED apps/deep-agent-service/tests/test_stream_completion.py::test_completion_protocol_preserves_failures_and_one_terminal[missing-done-chunks2-200-failed-True]
+FAILED apps/deep-agent-service/tests/test_stream_completion.py::test_completion_protocol_preserves_failures_and_one_terminal[truncated-event-chunks3-200-failed-False]
+FAILED apps/deep-agent-service/tests/test_stream_completion.py::test_completion_protocol_preserves_failures_and_one_terminal[truncated-event-chunks3-200-failed-True]
+FAILED apps/deep-agent-service/tests/test_stream_completion.py::test_completion_protocol_preserves_failures_and_one_terminal[error-event-chunks4-200-failed-False]
+FAILED apps/deep-agent-service/tests/test_stream_completion.py::test_completion_protocol_preserves_failures_and_one_terminal[error-event-chunks4-200-failed-True]
+FAILED apps/deep-agent-service/tests/test_model_stream_usage.py::test_model_requests_reported_usage_and_preserves_real_receipt[stream]
+FAILED apps/deep-agent-service/tests/test_model_stream_usage.py::test_model_requests_reported_usage_and_preserves_real_receipt[astream]
+8 failed, 14 passed in 3.91s

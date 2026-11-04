@@ -1,0 +1,91 @@
+..........F....................FF.....................................F. [  7%]
+........................................................................ [ 15%]
+.............................sssss.s.................................... [ 22%]
+........................................................................ [ 30%]
+..............................s..................ssssssssss............. [ 38%]
+......s...sssssss....................s............ssss.s.s.............. [ 45%]
+........................................................................ [ 53%]
+........................................................................ [ 60%]
+........................................................................ [ 68%]
+.................................................s...................... [ 76%]
+.............................................................ssssss..... [ 83%]
+......................sss..............................s................ [ 91%]
+.................................................................ss..... [ 98%]
+...........                                                              [100%]
+=================================== FAILURES ===================================
+_____________ test_tc5_sigkill_midrun_then_resume_and_time_travel ______________
+
+tmp_path = PosixPath('/private/var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/pytest-of-shenyangjun/pytest-10/test_tc5_sigkill_midrun_then_r0')
+evidence = <_scripted.EvidenceWriter object at 0x1102bef90>
+
+    def test_tc5_sigkill_midrun_then_resume_and_time_travel(tmp_path, evidence):  # noqa: ANN001, ANN201
+        from langgraph.checkpoint.postgres import PostgresSaver
+    
+>       dsn = _postgres_url()
+              ^^^^^^^^^^^^^^^
+
+tests/golden/test_tc5_checkpoint_kill_recovery.py:238: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def _postgres_url() -> str:
+        url = (os.environ.get("DEEP_AGENT_TEST_POSTGRES_URL") or "").strip()
+        if not url:
+>           pytest.fail(
+                "TC-5 需要真 Postgres：设 DEEP_AGENT_TEST_POSTGRES_URL，"
+                "或直接跑 bash apps/deep-agent-service/scripts/verify-golden-scenarios.sh"
+            )
+E           Failed: TC-5 需要真 Postgres：设 DEEP_AGENT_TEST_POSTGRES_URL，或直接跑 bash apps/deep-agent-service/scripts/verify-golden-scenarios.sh
+
+tests/golden/test_tc5_checkpoint_kill_recovery.py:52: Failed
+_____________ test_interrupt_survives_process_restart_and_resumes ______________
+
+    def test_interrupt_survives_process_restart_and_resumes() -> None:
+        postgres_url = os.environ.get("DEEP_AGENT_TEST_POSTGRES_URL")
+        if not postgres_url:
+>           pytest.fail("DEEP_AGENT_TEST_POSTGRES_URL is required for the Postgres recovery test")
+E           Failed: DEEP_AGENT_TEST_POSTGRES_URL is required for the Postgres recovery test
+
+tests/test_deep_agent_postgres_recovery.py:60: Failed
+______________________ test_time_travel_rollback_and_fork ______________________
+
+    def test_time_travel_rollback_and_fork() -> None:
+        """D4 → 1.0 的最后缺口（rubric 硬指标）：按 checkpoint_id 回溯到历史节点，
+        并从那个节点**分支**出另一条执行——不是只能沿着最新状态往前走。
+    
+        全程真 Postgres（同一 env 约定）。三半都断：
+          ① get_state_history 能列出历史 checkpoint（回溯的原料）
+          ② 拿历史 checkpoint_id 读 state = 当时的样子（消息数更少）
+          ③ 从历史节点 invoke = 分支：新结果基于旧上下文，且原线程的最新状态被
+            分支覆盖为新时间线（langgraph fork 语义）——分支是真执行，不是只读。
+        """
+        postgres_url = os.environ.get("DEEP_AGENT_TEST_POSTGRES_URL")
+        if not postgres_url:
+>           pytest.fail("DEEP_AGENT_TEST_POSTGRES_URL is required for the time-travel test")
+E           Failed: DEEP_AGENT_TEST_POSTGRES_URL is required for the time-travel test
+
+tests/test_deep_agent_postgres_recovery.py:98: Failed
+________________ test_same_thread_resumes_after_process_restart ________________
+
+    def test_same_thread_resumes_after_process_restart() -> None:
+        postgres_url = os.environ.get("GUIDED_RESEARCH_TEST_POSTGRES_URL")
+        if not postgres_url:
+>           pytest.fail("GUIDED_RESEARCH_TEST_POSTGRES_URL is required for the Postgres recovery test")
+E           Failed: GUIDED_RESEARCH_TEST_POSTGRES_URL is required for the Postgres recovery test
+
+tests/test_guided_research_postgres_recovery.py:19: Failed
+=============================== warnings summary ===============================
+.venv/lib/python3.13/site-packages/trustcall/_base.py:46
+  /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/deep-agent-service/.venv/lib/python3.13/site-packages/trustcall/_base.py:46: LangGraphDeprecatedSinceV10: Importing Send from langgraph.constants is deprecated. Please use 'from langgraph.types import Send' instead. Deprecated in LangGraph V1.0 to be removed in V2.0.
+    from langgraph.constants import Send
+
+src/deep_agent_service/standard_sql.py:12
+  /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/deep-agent-service/src/deep_agent_service/standard_sql.py:12: DeprecationWarning: `langchain-community` is being sunset and is no longer actively maintained. See https://github.com/langchain-ai/langchain-community/issues/674 for details and migration guidance toward standalone integration packages.
+    from langchain_community.agent_toolkits.sql.toolkit import SQLDatabaseToolkit
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/golden/test_tc5_checkpoint_kill_recovery.py::test_tc5_sigkill_midrun_then_resume_and_time_travel
+FAILED tests/test_deep_agent_postgres_recovery.py::test_interrupt_survives_process_restart_and_resumes
+FAILED tests/test_deep_agent_postgres_recovery.py::test_time_travel_rollback_and_fork
+FAILED tests/test_guided_research_postgres_recovery.py::test_same_thread_resumes_after_process_restart
+4 failed, 898 passed, 45 skipped, 2 warnings in 62.22s (0:01:02)
