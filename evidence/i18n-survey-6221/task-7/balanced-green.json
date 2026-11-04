@@ -1,0 +1,24 @@
+{
+  "name": "balanced-green",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/survey-i18n-browser-samples.test.ts",
+    "--reporter=json",
+    "--outputFile",
+    "/tmp/6221-task7-private/balanced-green-native.json"
+  ],
+  "source": "3108555ec64fb3eb1341850c21020e730d9d299c",
+  "exitCode": 0,
+  "seconds": 1.635,
+  "rawLogSha256": "b207b9f53ef485b23669db5193e62fdd228c7de0f35fe2d090a9bc84b42b50f5",
+  "sourceAfter": "3108555ec64fb3eb1341850c21020e730d9d299c",
+  "sourceStable": true,
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  }
+}

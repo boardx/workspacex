@@ -24,3 +24,8 @@ Normal merge080bbba0ee858525f57fedefe42fa68ea938d91b accepts actual delivered pl
 ### Second real browser: failed driver wait, resources released
 
 Source b8b7ed465 (metadata-only freeze of080b) exited1/432.046s:0PASS/1timeout/2unrun, original180s/retry0/worker1 unchanged. Actualpublish201 and anonymous required validation passed before a title-only exact group locator missed the required ` *` marker. Upload/submission/PG and remaining two cases are unverified. All15 actual screenshots individually viewed; no new material finding in captured states, private capabilities never published. See browser-second-diagnosis.md, receipt/cleanup and hash-only screenshot manifest. Two driver-only corrections are under concentrated remaining-step review before another run.
+
+
+### Concentrated driver audit and bounded balanced fixture
+
+Exact111cad whole3case remaining-step review found one P2 in the supplemental data (duration distribution zero groups), with a complete step checklist in review-driver-concentrated-111c.md. Product/report config/threshold/rate guard stay unchanged. Actual contract RED at028c6300 is1 semantic failure+3PASS; minimal test-helper GREEN at3108555 is4/4PASS and3filelint0. See balanced-sample-proof.md and separate native receipts. The real fixture is now32 total (1UI+31API), uses actual API rate-policy constants and one real window wait under original180s; browser/API/PG acceptance remains pending exact delta review and fresh full3case run.

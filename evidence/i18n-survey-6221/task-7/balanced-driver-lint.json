@@ -1,0 +1,22 @@
+{
+  "name": "balanced-driver-lint",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "eslint",
+    "e2e/i18n-survey-journey.spec.ts",
+    "e2e/support/survey-balanced-report-samples.ts",
+    "tests/ui/survey-i18n-browser-samples.test.ts"
+  ],
+  "source": "3108555ec64fb3eb1341850c21020e730d9d299c",
+  "exitCode": 0,
+  "seconds": 2.539,
+  "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "sourceAfter": "3108555ec64fb3eb1341850c21020e730d9d299c",
+  "sourceStable": true,
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  }
+}

@@ -4,7 +4,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { inflateRawSync } from "node:zlib";
 import { SURVEY_REPORT_SHARE_MIN_SAMPLE } from "@repo/contracts/survey-report";
 import { readFile, writeFile } from "node:fs/promises";
-import { SurveyRuntimeSchema, type SurveyRuntime } from "@repo/contracts/survey-runtime";
+import { SurveyRuntimeSchema, SurveySubmissionInputSchema, type SurveyRuntime } from "@repo/contracts/survey-runtime";
 import { SurveyLibraryTemplateSchema } from "@repo/contracts/survey-template-library";
 import { parseSurveyPublicationMarkdown } from "@repo/contracts/survey-source";
 import { surveyChoices } from "@repo/contracts/survey-question-types";
@@ -239,13 +239,7 @@ test("survey locale preserves real author publishing, anonymous file submission,
         await respondent.getByRole("button", { name: "Submit response", exact: true }).click();
         const receipt = await submitted;
         expect(receipt.ok()).toBe(true);
-        const submission = receipt.request().postDataJSON() as {
-            submissionId: string;
-            answers: {
-                questionId: string;
-                value: unknown;
-            }[];
-        };
+        const submission = SurveySubmissionInputSchema.parse(receipt.request().postDataJSON());
         expect(submission.submissionId).toBe(uploadSessionBody.submissionId);
         const { responseId } = await receipt.json() as {
             responseId: string;
