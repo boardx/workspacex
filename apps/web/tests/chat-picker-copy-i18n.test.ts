@@ -7,7 +7,10 @@ it("localizes known built-in workflow display while preserving a custom workflow
   expect(workflowLabel({ stableId:"custom-raw",name:"用户自定义流程（完整原名）" },"en")).toBe("用户自定义流程（完整原名）");
 });
 it("localizes owned overflow wording without rewriting raw items", () => {
-  expect(joinWithOverflow(["用户甲","Raw B","原名C"],2,"en")).toBe("用户甲, Raw B and 1 more");
+  const items = ["用户甲","Raw B","原名C"];
+  expect(joinWithOverflow(items,2,"en")).toBe("用户甲, Raw B and 1 more");
+  expect(joinWithOverflow(items,2)).toBe("用户甲、Raw B 等 3 个");
+  expect(items).toEqual(["用户甲","Raw B","原名C"]);
 });
 it("localizes existing availability categories without exposing unknown upstream diagnostic text", () => {
   expect(reasonCopy("permission denied", "en").short).toBe("No permission");

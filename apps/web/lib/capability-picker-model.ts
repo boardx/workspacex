@@ -171,7 +171,7 @@ export { workflowLabel, workflowLabelsOf };
 export function joinWithOverflow(items: readonly string[], max: number, locale: Locale = "zh-CN"): string {
   const separator = locale === "en" ? ", " : "、";
   if (items.length <= max) return items.join(separator);
-  return translate(locale, "chatPicker.overflow", { items: items.slice(0, max).join(separator), count: items.length, remaining: items.length - max });
+  return translate(locale, "chatPicker.overflow", { items: items.slice(0, max).join(separator), count: locale === "en" ? items.length - max : items.length });
 }
 
 /** 待启用官方数字人的可发起流程：只列内置工作流的中文名（未知 stableId 不上屏，只计数）。 */

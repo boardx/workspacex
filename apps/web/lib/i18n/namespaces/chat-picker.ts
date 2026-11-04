@@ -171,7 +171,7 @@ export const chatPickerEn: Record<keyof typeof chatPickerZhCN, string> = {
   "chatPicker.enabledFlows": ", with {count} available workflows",
   "chatPicker.sentenceEnd": ".",
   "chatPicker.waitingFlows": "{names} have no workflows available yet. You can still have a conversation.",
-  "chatPicker.overflow": "{items} and {remaining} more",
+  "chatPicker.overflow": "{items} and {count} more",
   "chatPicker.unnamedWorkflow": "Unnamed workflow",
   "chatPicker.reasonUnpublishedShort": "Not published",
   "chatPicker.reasonUnpublishedFull": "This digital human has no published version available. Ask an administrator to publish it.",
