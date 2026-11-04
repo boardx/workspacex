@@ -1,0 +1,11 @@
+{
+  "head": "bf3d9de11ca7f4e5afb73c36cb1668c42e5838e0",
+  "gate": "list",
+  "exit": 0,
+  "seconds": 3.542,
+  "rawPrivate": true,
+  "logSha256": "6ef08dd4882fc68be712f5ae08678613d14ee71f46059f1cb36eb50c43a53e25",
+  "summary": [
+    "Total: 1 test in 1 file"
+  ]
+}
