@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import {
   SURVEY_UPLOAD_ALLOWED_EXTENSIONS,
   surveyChoices,
@@ -25,6 +26,7 @@ export function SurveyQuestionSettings({
   inline?: boolean;
   showDescription?: boolean;
 }) {
+  const { t } = useI18n();
   const config = q.config ?? {};
   const [bulk, setBulk] = React.useState("");
   const patch = (next: Partial<Config>) =>
@@ -102,7 +104,7 @@ export function SurveyQuestionSettings({
         <div key={field.id} className="flex flex-wrap gap-2">
           <Input
             className="min-w-0 flex-1"
-            aria-label={`${title} ${index + 1}`}
+            aria-label={t("survey.design.fieldNumber", { title, index: index + 1 })}
             value={field.label}
             onChange={(event) =>
               patch({
@@ -128,19 +130,19 @@ export function SurveyQuestionSettings({
                 })
               }
             />
-            每行必答
+            {t("survey.design.rowRequired")}
           </label>
           <Button
             type="button"
             variant="outline"
-            aria-label={`删除${title} ${index + 1}`}
+            aria-label={t("survey.design.deleteField", { title, index: index + 1 })}
             onClick={() =>
               patch({
                 [key]: config[key]!.filter((item) => item.id !== field.id),
               })
             }
           >
-            删除
+            {t("survey.design.delete")}
           </Button>
         </div>
       ))}
@@ -153,14 +155,14 @@ export function SurveyQuestionSettings({
               ...(config[key] ?? []),
               {
                 id: crypto.randomUUID(),
-                label: `新${title}`,
+                label: t(key === "rows" ? "survey.design.newRow" : "survey.design.newField"),
                 required: q.required,
               },
             ],
           })
         }
       >
-        添加{title}
+        {t(key === "rows" ? "survey.design.addRow" : "survey.design.addField")}
       </Button>
     </div>
   );
@@ -168,10 +170,10 @@ export function SurveyQuestionSettings({
     <div className="space-y-5">
       {showContent && <>
       {showDescription && <label className="block text-12">
-        {!inline && "题目说明"}
-        {inline ? <InlineQuestionText label="题目说明" placeholder="添加题目说明" multiline value={config.description ?? ""} onChange={(description) => patch({ description })} /> : <Textarea
-          aria-label="题目说明"
-          placeholder={inline ? "添加题目说明" : undefined}
+        {!inline && t("survey.design.description")}
+        {inline ? <InlineQuestionText label={t("survey.design.description")} placeholder={t("survey.design.addDescription")} multiline value={config.description ?? ""} onChange={(description) => patch({ description })} /> : <Textarea
+          aria-label={t("survey.design.description")}
+          placeholder={inline ? t("survey.design.addDescription") : undefined}
           className={inline ? "min-h-8 resize-none border-transparent bg-transparent shadow-none transition-colors hover:border-border focus-visible:border-ring" : undefined}
           value={config.description ?? ""}
           onChange={(event) => patch({ description: event.target.value })}
@@ -180,7 +182,7 @@ export function SurveyQuestionSettings({
       {hasChoices && (
         <div className="space-y-2">
           <h3 className={inline ? "sr-only" : "text-13 font-medium"}>
-            {q.type.startsWith("matrix_") ? "矩阵列选项" : "选项"}
+            {q.type.startsWith("matrix_") ? t("survey.design.matrixOptions") : t("survey.design.options")}
           </h3>
           {choices.map((choice, index) => (
             <div
@@ -189,9 +191,9 @@ export function SurveyQuestionSettings({
             >
               <div className="flex gap-2">
                 {inline && <span aria-hidden="true" className="mt-3 size-4 shrink-0 rounded-full border border-border" />}
-                {inline ? <InlineQuestionText label={`选项 ${index + 1}`} editLabel={`编辑选项 ${index + 1}：${choice.label}`} value={choice.label}
+                {inline ? <InlineQuestionText label={t("survey.design.optionNumber", { index: index + 1 })} editLabel={t("survey.design.editOption", { index: index + 1, label: choice.label })} value={choice.label}
                   onChange={(value) => options(q.options.map((label, i) => i === index ? value : label), choices.map((item) => item.id))} /> : <Input
-                  aria-label={`选项 ${index + 1}`}
+                  aria-label={t("survey.design.optionNumber", { index: index + 1 })}
                   className={inline ? "border-transparent bg-transparent shadow-none transition-colors hover:border-border focus-visible:border-ring" : undefined}
                   value={choice.label}
                   onChange={(event) =>
@@ -207,7 +209,7 @@ export function SurveyQuestionSettings({
                   type="button"
                   variant={inline ? "ghost" : "outline"}
                   className={inline ? "invisible group-hover/option:visible group-focus-within/option:visible" : undefined}
-                  aria-label={`删除选项 ${index + 1}`}
+                  aria-label={t("survey.design.deleteOption", { index: index + 1 })}
                   onClick={() =>
                     options(
                       q.options.filter((_, i) => i !== index),
@@ -217,7 +219,7 @@ export function SurveyQuestionSettings({
                     )
                   }
                 >
-                  删除
+                  {t("survey.design.delete")}
                 </Button>
               </div>
               {q.type.startsWith("image_") && (
@@ -230,17 +232,17 @@ export function SurveyQuestionSettings({
             variant="outline"
             onClick={() =>
               options(
-                [...q.options, "新选项"],
+                [...q.options, t("survey.design.newOption")],
                 [...choices.map((item) => item.id), crypto.randomUUID()],
               )
             }
           >
-            添加选项
+            {t("survey.design.addOption")}
           </Button>
           <details className="text-12">
-            <summary className="cursor-pointer py-2">批量粘贴选项</summary>
+            <summary className="cursor-pointer py-2">{t("survey.design.bulkOptions")}</summary>
             <Textarea
-              aria-label="批量选项，每行一个"
+              aria-label={t("survey.design.bulkOptionsInput")}
               value={bulk}
               onChange={(event) => setBulk(event.target.value)}
             />
@@ -261,19 +263,19 @@ export function SurveyQuestionSettings({
                   );
               }}
             >
-              应用选项
+              {t("survey.design.applyOptions")}
             </Button>
           </details>
         </div>
       )}
-      {q.type.startsWith("matrix_") && fields("rows", "矩阵行")}
+      {q.type.startsWith("matrix_") && fields("rows", t("survey.design.matrixRow"))}
       {["multiple_text", "address"].includes(q.type) &&
-        fields("fields", "字段")}
+        fields("fields", t("survey.design.field"))}
       {q.type === "cascade" && (
         <label className="block text-12">
-          级联路径（每行一条，用 / 分隔层级）
+          {t("survey.design.cascadePathsHint")}
           <Textarea
-            aria-label="级联路径"
+            aria-label={t("survey.design.cascadePaths")}
             value={(config.cascadePaths ?? [])
               .map((path) => path.join(" / "))
               .join("\n")}
@@ -294,7 +296,7 @@ export function SurveyQuestionSettings({
       </>}
       {showAdvanced && <details className="rounded-md border border-border p-3">
         <summary className="cursor-pointer text-13 font-medium">
-          高级规则
+          {t("survey.design.advanced")}
         </summary>
         <div className="mt-4 space-y-4">
           {hasChoices && (
@@ -306,7 +308,7 @@ export function SurveyQuestionSettings({
                   patch({ shuffleOptions: event.target.checked })
                 }
               />
-              选项随机顺序（单次填写保持稳定）
+              {t("survey.design.shuffleOptions")}
             </label>
           )}
           {[
@@ -322,17 +324,17 @@ export function SurveyQuestionSettings({
                 checked={config.other ?? false}
                 onChange={(event) => patch({ other: event.target.checked })}
               />
-              包含“其他”及填写说明
+              {t("survey.design.includeOther")}
             </label>
           )}
           {["multi", "image_multi", "matrix_multi"].includes(q.type) && (
             <>
               <div className="grid gap-3 sm:grid-cols-2">
-                {numeric("minSelections", "最少选择数")}
-                {numeric("maxSelections", "最多选择数")}
+                {numeric("minSelections", t("survey.design.minSelections"))}
+                {numeric("maxSelections", t("survey.design.maxSelections"))}
               </div>
               <fieldset>
-                <legend className="text-12">互斥选项</legend>
+                <legend className="text-12">{t("survey.design.exclusiveOptions")}</legend>
                 {choices.map((choice) => (
                   <label
                     key={choice.id}
@@ -363,42 +365,42 @@ export function SurveyQuestionSettings({
             q.type,
           ) && (
             <div className="grid gap-3 sm:grid-cols-2">
-              {numeric("minLength", "最少字数")}
-              {numeric("maxLength", "最多字数")}
+              {numeric("minLength", t("survey.design.minLength"))}
+              {numeric("maxLength", t("survey.design.maxLength"))}
             </div>
           )}
           {["number", "rating", "slider", "allocation"].includes(q.type) && (
             <div className="grid gap-3 sm:grid-cols-2">
-              {numeric("min", "最小值")}
-              {numeric("max", "最大值")}
-              {numeric("step", "步长 / 精度")}
+              {numeric("min", t("survey.design.minimum"))}
+              {numeric("max", t("survey.design.maximum"))}
+              {numeric("step", t("survey.design.step"))}
               <label className="text-12">
-                单位
+                {t("survey.design.unit")}
                 <Input
-                  aria-label="单位"
+                  aria-label={t("survey.design.unit")}
                   value={config.unit ?? ""}
                   onChange={(event) => patch({ unit: event.target.value })}
                 />
               </label>
             </div>
           )}
-          {q.type === "allocation" && numeric("total", "分配合计")}
+          {q.type === "allocation" && numeric("total", t("survey.design.allocationTotal"))}
           {["scale", "rating", "nps", "slider", "matrix_scale"].includes(
             q.type,
           ) && (
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="text-12">
-                低分端点
+                {t("survey.design.lowLabel")}
                 <Input
-                  aria-label="低分端点"
+                  aria-label={t("survey.design.lowLabel")}
                   value={config.lowLabel ?? ""}
                   onChange={(event) => patch({ lowLabel: event.target.value })}
                 />
               </label>
               <label className="text-12">
-                高分端点
+                {t("survey.design.highLabel")}
                 <Input
-                  aria-label="高分端点"
+                  aria-label={t("survey.design.highLabel")}
                   value={config.highLabel ?? ""}
                   onChange={(event) => patch({ highLabel: event.target.value })}
                 />
@@ -407,10 +409,10 @@ export function SurveyQuestionSettings({
           )}
           {q.type === "file" && (
             <div className="grid gap-3 sm:grid-cols-2">
-              {numeric("maxFiles", "最多文件数")}
-              {numeric("maxFileBytes", "单文件字节上限")}
+              {numeric("maxFiles", t("survey.design.maxFiles"))}
+              {numeric("maxFileBytes", t("survey.design.maxFileBytes"))}
               <fieldset>
-                <legend className="text-12">允许文件格式</legend>
+                <legend className="text-12">{t("survey.design.fileFormats")}</legend>
                 {SURVEY_UPLOAD_ALLOWED_EXTENSIONS.map((extension) => (
                   <label
                     key={extension}
@@ -452,13 +454,14 @@ function ImageSettings({
   config: Config;
   patch: (config: Partial<Config>) => void;
 }) {
+  const { t } = useI18n();
   const image = config.images?.[id] ?? { url: "", alt: "" };
   return (
     <div className="grid gap-2 sm:grid-cols-2">
       <label className="text-12">
-        图片地址
+        {t("survey.design.imageUrl")}
         <Input
-          aria-label={`图片地址 ${id}`}
+          aria-label={t("survey.design.imageUrlId", { id })}
           value={image.url}
           onChange={(event) =>
             patch({
@@ -471,9 +474,9 @@ function ImageSettings({
         />
       </label>
       <label className="text-12">
-        图片替代文字
+        {t("survey.design.imageAlt")}
         <Input
-          aria-label={`图片替代文字 ${id}`}
+          aria-label={t("survey.design.imageAltId", { id })}
           value={image.alt}
           onChange={(event) =>
             patch({
@@ -497,6 +500,7 @@ function RuleSettings({
   questions: SurveyWorkflowQuestion[];
   patch: (config: Partial<Config>) => void;
 }) {
+  const { t } = useI18n();
   const config = q.config ?? {},
     index = questions.findIndex((item) => item.id === q.id),
     previous = questions
@@ -507,11 +511,11 @@ function RuleSettings({
     "min-w-0 rounded-md border border-border bg-background p-2 text-12";
   return (
     <div className="space-y-4">
-      <h3 className="text-13 font-medium">条件显示（所有条件满足时显示）</h3>
+      <h3 className="text-13 font-medium">{t("survey.design.conditions")}</h3>
       {(config.visibleWhen ?? []).map((rule, index) => (
         <div key={index} className="flex flex-wrap gap-2">
           <select
-            aria-label={`条件前题 ${index + 1}`}
+            aria-label={t("survey.design.conditionQuestion", { index: index + 1 })}
             className={selectClass}
             value={rule.questionId}
             onChange={(event) =>
@@ -531,7 +535,7 @@ function RuleSettings({
             ))}
           </select>
           <select
-            aria-label={`条件关系 ${index + 1}`}
+            aria-label={t("survey.design.conditionOperator", { index: index + 1 })}
             className={selectClass}
             value={rule.operator}
             onChange={(event) =>
@@ -547,13 +551,13 @@ function RuleSettings({
               })
             }
           >
-            <option value="equals">等于</option>
-            <option value="notEquals">不等于</option>
-            <option value="includes">包含</option>
+            <option value="equals">{t("survey.design.equals")}</option>
+            <option value="notEquals">{t("survey.design.notEquals")}</option>
+            <option value="includes">{t("survey.design.includes")}</option>
           </select>
           <Input
-            aria-label={`条件答案 ${index + 1}`}
-            placeholder="选项 ID 或文字"
+            aria-label={t("survey.design.conditionAnswer", { index: index + 1 })}
+            placeholder={t("survey.design.conditionAnswerHint")}
             value={rule.value}
             onChange={(event) =>
               patch({
@@ -572,7 +576,7 @@ function RuleSettings({
               })
             }
           >
-            删除条件
+            {t("survey.design.deleteCondition")}
           </Button>
         </div>
       ))}
@@ -593,15 +597,15 @@ function RuleSettings({
           })
         }
       >
-        添加显示条件
+        {t("survey.design.addCondition")}
       </Button>
       {!!q.options.length && (
         <>
-          <h3 className="text-13 font-medium">答案向后跳转</h3>
+          <h3 className="text-13 font-medium">{t("survey.design.jumps")}</h3>
           {(config.jumpTo ?? []).map((rule, index) => (
             <div key={index} className="flex flex-wrap gap-2">
               <select
-                aria-label={`跳转选项 ${index + 1}`}
+                aria-label={t("survey.design.jumpOption", { index: index + 1 })}
                 className={selectClass}
                 value={rule.optionId}
                 onChange={(event) =>
@@ -621,7 +625,7 @@ function RuleSettings({
                 ))}
               </select>
               <select
-                aria-label={`跳转目标 ${index + 1}`}
+                aria-label={t("survey.design.jumpTarget", { index: index + 1 })}
                 className={selectClass}
                 value={rule.targetId}
                 onChange={(event) =>
@@ -649,7 +653,7 @@ function RuleSettings({
                   })
                 }
               >
-                删除跳转
+                {t("survey.design.deleteJump")}
               </Button>
             </div>
           ))}
@@ -669,7 +673,7 @@ function RuleSettings({
               })
             }
           >
-            添加跳转
+            {t("survey.design.addJump")}
           </Button>
         </>
       )}

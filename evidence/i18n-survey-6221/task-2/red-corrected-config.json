@@ -1,0 +1,27 @@
+{
+  "name": "red-corrected-config",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/survey-question-controls-i18n.test.tsx",
+    "-t",
+    "canonical configuration diagnostics"
+  ],
+  "source": "2e09b6adf7114cc50fe3c9d6c5e5b7c0c8cb9447",
+  "exitCode": 1,
+  "seconds": 5.5,
+  "rawLogSha256": "a6974b76cadbc369d6937d2f0b3f08eb69e261943d676b3bd2cdf7e239ab0f67",
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "testsExecuted": 26,
+  "validMissingEnglishFailures": 26,
+  "filteredOut": 13,
+  "collectionErrors": 0,
+  "unhandledErrors": 0,
+  "workingTreeScope": "Only previously valid-RED material/inline/responsive/renderer copy was edited; question editor/settings and contracts validation were unchanged at this run."
+}

@@ -1,6 +1,7 @@
 'use client';
 import { WorkflowActionBar, WorkflowActionButton } from '@/components/research-studio/research-workflow-actions';
 import * as React from 'react';
+import { displaySurveyDiagnostic } from '@/lib/survey/display-diagnostic';
 import { Paperclip, FileText, X } from 'lucide-react';
 import { InterviewVoiceInput } from '@/components/itv/interview-voice-input';
 import { getStoredSessionToken } from '@/lib/api-client';
@@ -99,7 +100,7 @@ export function SurveyAiProposal({locked,onApply,storageKey}:{locked:boolean;onA
       <DialogTitle>{t("survey.import.previewTitle")}</DialogTitle><DialogDescription>{t("survey.import.previewDescription")}</DialogDescription>
       <p className="text-12 text-muted-foreground">{proposal?.execution.provider} / {proposal?.execution.modelId} · {t("survey.import.source",{kind:proposal?.source.kind??""})}</p>
       <div className="grid gap-4 md:grid-cols-2"><textarea aria-label={t("survey.import.markdown")} value={markdown} onChange={event=>setMarkdown(event.target.value)} className="min-h-80 rounded-md border border-border bg-background p-3 font-mono text-13"/>
-        <section aria-label={t("survey.import.questionPreview")}>{parsed.ok?<><h2 className="text-18 font-semibold">{parsed.draft.title}</h2>{parsed.draft.questions.map((question,index)=><article key={question.id} className="space-y-2 border-b border-border py-3"><h3>{index+1}. {question.title}</h3>{question.options?.map(option=><p key={option} className="text-13 text-muted-foreground">○ {option}</p>)}</article>)}</>:<p role="alert"> {t("survey.import.fixMarkdown",{details:parsed.diagnostics.map(d=>d.message).join(locale==='zh-CN'?'；':'; ' )})}</p>}</section></div>
+        <section aria-label={t("survey.import.questionPreview")}>{parsed.ok?<><h2 className="text-18 font-semibold">{parsed.draft.title}</h2>{parsed.draft.questions.map((question,index)=><article key={question.id} className="space-y-2 border-b border-border py-3"><h3>{index+1}. {question.title}</h3>{question.options?.map(option=><p key={option} className="text-13 text-muted-foreground">○ {option}</p>)}</article>)}</>:<p role="alert"> {t("survey.import.fixMarkdown",{details:parsed.diagnostics.map(d=>displaySurveyDiagnostic(d.message,t)).join(locale==='zh-CN'?'；':'; ' )})}</p>}</section></div>
       <div className="flex justify-end gap-2"><Button variant="outline" disabled={applying} onClick={()=>setProposal(null)}>{t("survey.import.backInput")}</Button><Button disabled={!parsed.ok||applying} onClick={()=>{setApplying(true);setError(null);void Promise.resolve(onApply(markdown)).then(()=>setProposal(null)).catch(cause=>setError(surveyErrorMessage(cause,'survey.import.applyFailed'))).finally(()=>setApplying(false));}}>{t(applying?'survey.import.applying':'survey.import.apply')}</Button></div>
       {error&&<p role="alert" className="text-destructive">{displaySurveyMessage(error,t)}</p>}
     </DialogContent></Dialog>
