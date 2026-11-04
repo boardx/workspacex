@@ -1,3 +1,4 @@
+import { orgHomeConfigZhCN } from "./i18n/namespaces/org-home-config";
 import { homeConfig } from "@repo/contracts";
 import type { CSSProperties } from "react";
 import type { z } from "zod";
@@ -5,7 +6,7 @@ import { readableTextOn } from "./home-config-catalog";
 
 export type ThemeColors = z.infer<typeof homeConfig.ThemeColors>;
 export const THEME_LABELS: Record<keyof ThemeColors, string> = {
-  primary: "主色", secondary: "辅助色", accent: "强调色", success: "成功", warning: "警告", error: "错误",
+  primary: orgHomeConfigZhCN["homeConfig.theme.primary"], secondary: orgHomeConfigZhCN["homeConfig.theme.secondary"], accent: orgHomeConfigZhCN["homeConfig.theme.accent"], success: orgHomeConfigZhCN["homeConfig.theme.success"], warning: orgHomeConfigZhCN["homeConfig.theme.warning"], error: orgHomeConfigZhCN["homeConfig.theme.error"],
 };
 
 function rgb(hex: string): [number, number, number] {

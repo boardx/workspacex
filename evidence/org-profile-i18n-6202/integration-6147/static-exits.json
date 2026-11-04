@@ -1,0 +1,30 @@
+{
+  "sourceSha": "2a02aa518e689752bc3c650c77115cbd19dc384a",
+  "mode": "static",
+  "eslint": {
+    "exit": 0,
+    "status": "finished",
+    "seconds": 2.39
+  },
+  "init": {
+    "exit": 0,
+    "status": "finished",
+    "seconds": 9.09
+  },
+  "testid": {
+    "exit": 0,
+    "status": "finished",
+    "seconds": 3.7
+  },
+  "wiring": {
+    "exit": 0,
+    "status": "finished",
+    "seconds": 3.29
+  },
+  "spec-gate": {
+    "exit": 0,
+    "status": "finished",
+    "seconds": 35.5
+  },
+  "totalSeconds": 54.0
+}

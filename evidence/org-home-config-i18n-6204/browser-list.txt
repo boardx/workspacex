@@ -1,0 +1,13 @@
+[stack-admission] load1=3.01 cores=10 perCore=0.30 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw130a23-6a5912dc-a09bfe041f25 db=wsx_a09bfe041f251013026d compose=wsx-a09bfe041f251013026d pg=20668 redis=21668 api=24668 web=25668 sandbox=26668 model=27668 deep-agent=28668 asr=29668 vision=30668 loopback-sandbox=31668 mail=19668
+Listing tests:
+  [seeded-github-import] › entity-localization.spec.ts:435:5 › organization home configuration preserves drafts, real previews and recommendation snapshots across locales
+Total: 1 test in 1 file
+[timing] pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded-github-import --no-deps --workers=1 --grep organization home configuration preserves drafts, real previews and recommendation snapshots across locales --list
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：2s
+  清理：0s
+  总计：2s

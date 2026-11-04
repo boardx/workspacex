@@ -1,0 +1,11 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/web
+
+ ✓ tests/ui/org-home-config-i18n.test.tsx (17 tests) 1164ms
+   ✓ switches all tabs without replacing authored inputs, selected tab or config read 475ms
+
+ Test Files  1 passed (1)
+      Tests  17 passed (17)
+   Start at  03:15:53
+   Duration  3.82s (transform 1.07s, setup 104ms, collect 1.68s, tests 1.16s, environment 519ms, prepare 44ms)
