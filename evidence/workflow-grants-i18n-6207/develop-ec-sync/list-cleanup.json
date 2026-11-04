@@ -1,0 +1,77 @@
+{
+  "scope": "wsx-d229a8daa815f884513e",
+  "checkedAt": "2026-11-04T05:34:12.981742+00:00",
+  "ports": [
+    20562,
+    21562,
+    24562,
+    25562,
+    26562,
+    27562,
+    28562,
+    29562,
+    30562,
+    31562,
+    19562
+  ],
+  "zeroContainers": true,
+  "zeroVolumes": true,
+  "zeroListeners": true,
+  "listenerChecks": [
+    {
+      "port": 20562,
+      "exit": 1,
+      "pids": []
+    },
+    {
+      "port": 21562,
+      "exit": 1,
+      "pids": []
+    },
+    {
+      "port": 24562,
+      "exit": 1,
+      "pids": []
+    },
+    {
+      "port": 25562,
+      "exit": 1,
+      "pids": []
+    },
+    {
+      "port": 26562,
+      "exit": 1,
+      "pids": []
+    },
+    {
+      "port": 27562,
+      "exit": 1,
+      "pids": []
+    },
+    {
+      "port": 28562,
+      "exit": 1,
+      "pids": []
+    },
+    {
+      "port": 29562,
+      "exit": 1,
+      "pids": []
+    },
+    {
+      "port": 30562,
+      "exit": 1,
+      "pids": []
+    },
+    {
+      "port": 31562,
+      "exit": 1,
+      "pids": []
+    },
+    {
+      "port": 19562,
+      "exit": 1,
+      "pids": []
+    }
+  ]
+}

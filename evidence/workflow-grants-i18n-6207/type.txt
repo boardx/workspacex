@@ -1,0 +1,2 @@
+> web@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/web
+> tsc --noEmit
