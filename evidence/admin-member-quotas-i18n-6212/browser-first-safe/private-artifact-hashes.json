@@ -1,0 +1,80 @@
+{
+  "publicationPolicy": "Private originals retained locally; hashes only, except inspected PNGs listed separately.",
+  "artifacts": [
+    {
+      "privateRelativePath": "README.md",
+      "sha256": "fa96554c759e8952f13d8b1f599348ac6b4cf5fbce10d8b02f613c3826eea175",
+      "bytes": 1403
+    },
+    {
+      "privateRelativePath": "artifact-sha256.json",
+      "sha256": "a796385d924ccdb4416d2ccf80b3f3933cea86f7a86f7891c8bb7f87ef6f08b6",
+      "bytes": 2009
+    },
+    {
+      "privateRelativePath": "artifacts/error-context.md",
+      "sha256": "9a0f365ce72a93d5b8efe6e0243e1dd123431311aaf96c3286762cfe8b906458",
+      "bytes": 27453
+    },
+    {
+      "privateRelativePath": "artifacts/member-quotas-budget-draft-en-375.png",
+      "sha256": "f4beaeb6f769904e6b711226a008608f8ea33a7216ca3c3db43edbc4c0ff65c3",
+      "bytes": 67987
+    },
+    {
+      "privateRelativePath": "artifacts/member-quotas-initial-en-1280.png",
+      "sha256": "634e6e8c5dd4cbb90618b2486cc4390c25389b694be265701cc341db9f96419f",
+      "bytes": 155790
+    },
+    {
+      "privateRelativePath": "artifacts/member-quotas-initial-en-375.png",
+      "sha256": "0a5392e4b19c8d96a337122055830d88c84d59bd50f018bcfd58805230459a51",
+      "bytes": 70082
+    },
+    {
+      "privateRelativePath": "artifacts/member-quotas-invite-draft-en-375.png",
+      "sha256": "86713f3662b3ec4c88c7b80d3f394c5280b7208753aea5a590656ff3cc3672e2",
+      "bytes": 78692
+    },
+    {
+      "privateRelativePath": "artifacts/member-quotas-quota-draft-en-375.png",
+      "sha256": "106d001904ed6c92637827809a6724c31df85fd54f7d785e660b9c29b65f489d",
+      "bytes": 83107
+    },
+    {
+      "privateRelativePath": "artifacts/test-failed-1.png",
+      "sha256": "b63d72d78b5dd192c4b0a9ec0dca448b2e929ddea78b33762730f91ae87417b4",
+      "bytes": 85987
+    },
+    {
+      "privateRelativePath": "artifacts/trace.zip",
+      "sha256": "840d892ece22cc86599900852e00cd525cb8f29eaedb48e99c17f71230c800ca",
+      "bytes": 3600737
+    },
+    {
+      "privateRelativePath": "browser.txt",
+      "sha256": "750ad78e118b1ed9208e6b84fae866dcbc689ab10078118a8d5dd0481b9bb025",
+      "bytes": 34835
+    },
+    {
+      "privateRelativePath": "cleanup.json",
+      "sha256": "b44412eb5e5d4152843ed330e222cf691a9ac66b712e1cd3486feb3c1ff1515d",
+      "bytes": 516
+    },
+    {
+      "privateRelativePath": "preflight.json",
+      "sha256": "08783b47654a97fc5e0ac7792b1ed868b2a98ec5ae49a180bb9a28839a5fb344",
+      "bytes": 518
+    },
+    {
+      "privateRelativePath": "quota-conflict-response.json",
+      "sha256": "bbc7da649f8ce12d152c94c89d05e6eb3a6a93bbdf21281229c964b29316f03a",
+      "bytes": 374
+    },
+    {
+      "privateRelativePath": "runner.json",
+      "sha256": "88eef97cb00e37751251b43e17a75dd1943951f67f4486bc9da28a98b7dce975",
+      "bytes": 400
+    }
+  ]
+}
