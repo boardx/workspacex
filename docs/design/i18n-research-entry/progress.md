@@ -1,3 +1,5 @@
+> Current state (2026-11-04): research PR #6205 now includes interview PR #6213, which merged into its feature base, not develop. Normal latest-develop merge source is `902da4b5a9d4faaac425b41d4d58c6cdca169939`; static dictionary/blob proofs pass, integrated runtime verification and push remain pending. See [stack-integration.md](stack-integration.md). Earlier sections below are historical receipts, including superseded stash/PR status.
+
 # Progress — complete research journey #6198
 
 Base: fetched develop `44aeac6e10b688471fe03536fc8490a353824976`, branch `worker/i18n-research-entry-6198` in the original checkout. Main coordinates merges; no additional worktree.
