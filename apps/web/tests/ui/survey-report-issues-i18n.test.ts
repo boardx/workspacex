@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { survey } from "@repo/contracts";
-import { surveyReportShareBlockedReason } from "@repo/contracts/survey-report";
+import { SURVEY_REPORT_SHARE_MIN_SAMPLE, surveyReportShareBlockedReason } from "@repo/contracts/survey-report";
 import { translate } from "@/lib/i18n/messages";
 import { displaySurveyReportIssue } from "@/lib/survey/display-report-issue";
 const number: survey.SurveyWorkflowQuestion = { id: "raw-number", title: "原数值题 {count}", type: "number", chapterId: "raw-chapter", order: 1, required: false, options: [] };
@@ -36,8 +36,8 @@ it("retains the actual privacy group-size warning and hidden rows while translat
 });
 it.each([
   [undefined, [], "报告缺少纳入分析样本口径，请重新生成后再导出或共享", "The report has no included-sample basis. Regenerate it before exporting or sharing."],
-  [{ total: 3, pendingReview: 0, excluded: 0, included: 3 }, [], "纳入分析的样本不足 5 份，无法导出或共享报告", "Fewer than 5 responses are included. The report cannot be exported or shared."],
-  [{ total: 8, pendingReview: 0, excluded: 0, included: 8 }, [{ id: "raw-section", title: "原章节", blocks: [{ id: "raw-block", title: "原内容块 {count}", type: "table", questionIds: [], statistic: "mean", samplePolicy: "valid", minGroupSize: 5, rows: [{ label: "原指标", value: 2, count: 1 }], issues: [] }] }], "“原内容块 {count}”的输出样本不足 5 份，无法导出或共享报告", "The output sample for “原内容块 {count}” has fewer than 5 responses. The report cannot be exported or shared."],
+  [{ total: 3, pendingReview: 0, excluded: 0, included: 3 }, [], `纳入分析的样本不足 ${SURVEY_REPORT_SHARE_MIN_SAMPLE} 份，无法导出或共享报告`, `Fewer than ${SURVEY_REPORT_SHARE_MIN_SAMPLE} responses are included. The report cannot be exported or shared.`],
+  [{ total: 8, pendingReview: 0, excluded: 0, included: 8 }, [{ id: "raw-section", title: "原章节", blocks: [{ id: "raw-block", title: "原内容块 {count}", type: "table", questionIds: [], statistic: "mean", samplePolicy: "valid", minGroupSize: 5, rows: [{ label: "原指标", value: 2, count: 1 }], issues: [] }] }], `“原内容块 {count}”的输出样本不足 ${SURVEY_REPORT_SHARE_MIN_SAMPLE} 份，无法导出或共享报告`, `The output sample for “原内容块 {count}” has fewer than ${SURVEY_REPORT_SHARE_MIN_SAMPLE} responses. The report cannot be exported or shared.`],
 ] as [survey.CompiledSurveyReport["sampleSummary"], survey.CompiledSurveyReport["sections"], string, string][])("keeps the original report sharing gate while translating its actual reason", (sampleSummary, sections, source, english) => {
   const report = { sampleSummary, sections }, before = structuredClone(report); expect(surveyReportShareBlockedReason(report)).toBe(source);
   expect(displaySurveyReportIssue(source, (key, params) => translate("en", key, params))).toBe(english); expect(surveyReportShareBlockedReason(report)).toBe(source); expect(report).toEqual(before);
