@@ -1313,7 +1313,7 @@ test("platform telemetry preserves independent consent and original history acro
     await expect(page.locator("html")).toHaveAttribute("lang", value);
     await assertConsent(page);
     for (const control of switches) {
-      expect(await control.evaluate(node => node.isConnected && node === document.querySelector(`[data-testid="${node.getAttribute("data-testid")}"]`))).toBe(true);
+      expect(await control.evaluate(node => node instanceof Element && node.isConnected && node === document.querySelector(`[data-testid="${node.getAttribute("data-testid")}"]`))).toBe(true);
       await control.dispose();
     }
     expect(counts).toEqual(before);
