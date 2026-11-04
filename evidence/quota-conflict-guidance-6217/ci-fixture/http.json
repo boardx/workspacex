@@ -1,0 +1,12 @@
+{
+  "gate": "http",
+  "exit": 0,
+  "seconds": 3.174,
+  "head": "ab1147adb4d349c25b980a57e0d2f83e8e332291",
+  "rawLogSha256": "7b7af6cb1171a38537ffef55f465a1f731753ad17e979972a80121d153044c5f",
+  "summary": [
+    "Test Files  1 passed (1)",
+    "Tests  18 passed (18)",
+    "Duration  1.87s (transform 803ms, setup 0ms, collect 1.48s, tests 216ms, environment 0ms, prepare 48ms)"
+  ]
+}
