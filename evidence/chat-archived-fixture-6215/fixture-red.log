@@ -1,0 +1,92 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ❯ tests/e2e-archived-thread-response.test.ts (7 tests | 3 failed) 18ms
+   × CK-P8 current getThread fixture > matches the current thread with query and excludes child endpoints and other threads 9ms
+     → expected true to be false // Object.is equality
+   × CK-P8 current getThread fixture > never fetches an unrelated agents response even if dispatched to the handler 3ms
+     → expected "spy" to not be called at all, but actually been called 1 times
+
+Received:
+
+  1st spy call:
+
+    Array []
+
+
+Number of calls: 1
+
+   × CK-P8 current getThread fixture > removes its own route and waits for an in-flight response before context disposal 1ms
+     → expected true to be false // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/e2e-archived-thread-response.test.ts > CK-P8 current getThread fixture > matches the current thread with query and excludes child endpoints and other threads
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/e2e-archived-thread-response.test.ts:35:60
+     33|     expect(f.matches("http://web/chat/threads/current-thread?fresh=1")…
+     34|     for (const path of ["current-thread/agents", "current-thread/attac…
+     35|       expect(f.matches("http://web/chat/threads/" + path)).toBe(false);
+       |                                                            ^
+     36|     }
+     37|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  tests/e2e-archived-thread-response.test.ts > CK-P8 current getThread fixture > never fetches an unrelated agents response even if dispatched to the handler
+AssertionError: expected "spy" to not be called at all, but actually been called 1 times
+
+Received:
+
+  1st spy call:
+
+    Array []
+
+
+Number of calls: 1
+
+ ❯ tests/e2e-archived-thread-response.test.ts:41:31
+     39|     const f = await fixture(); const r = f.makeRoute("http://web/chat/…
+     40|     await f.handle(r.route);
+     41|     expect(r.route.fetch).not.toHaveBeenCalled(); expect(r.route.fallb…
+       |                               ^
+     42|   });
+     43|   it("does not replay writes", async () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  tests/e2e-archived-thread-response.test.ts > CK-P8 current getThread fixture > removes its own route and waits for an in-flight response before context disposal
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/e2e-archived-thread-response.test.ts:69:21
+     67|     const stopping = f.stop().then(() => { stopped = true; });
+     68|     await Promise.resolve(); await Promise.resolve();
+     69|     expect(stopped).toBe(false);
+       |                     ^
+     70|     release(); await handling; await stopping;
+     71|     expect(f.page.unroute).toHaveBeenCalledOnce();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 4 passed (7)
+   Start at  06:52:21
+   Duration  1.08s (transform 64ms, setup 238ms, collect 28ms, tests 18ms, environment 0ms, prepare 77ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/e2e-archived-thread-response.test.ts

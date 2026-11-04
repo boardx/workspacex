@@ -1,0 +1,5 @@
+{
+  "apps/web/e2e/copilotkit-v2-persona-archived.spec.ts": "2058b3ed65b5d6e39d0df311c9ef7a59f2fdf3fb4539f0e4f2f5f430f88a6d79",
+  "apps/web/e2e/support/archived-thread-response.ts": "5a2e318bf84b973551fee3eac1560a9098c3e53d0aa6025561f7271ec33c293e",
+  "apps/web/tests/e2e-archived-thread-response.test.ts": "c48b7e26a648b95c8624f62749f0034637ccc4739ed4edc2b39f0ddad2278449"
+}
