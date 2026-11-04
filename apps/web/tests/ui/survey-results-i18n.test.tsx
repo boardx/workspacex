@@ -51,6 +51,7 @@ it("retains raw exclusion history, actors and timestamps while displaying its fi
   const original = response({ analysis: "excluded", exclusionReason: "原排除理由 {count}", analysisHistory: [{ analysis: "excluded", reason: "原历史理由 {name}", actor: "原操作者 {count}", changedAt: "2026-11-04T07:00:00.000Z" }] }); const before = structuredClone(original);
   showList([original]); fireEvent.click(screen.getByRole("button", { name: "查看完整答卷" })); language("en");
   const history = screen.getByRole("region", { name: "Analysis governance history" }); expect(history).toHaveTextContent("Excluded: 原历史理由 {name}"); expect(history).toHaveTextContent("原操作者 {count}"); expect(history).toHaveTextContent(new Date(original.analysisHistory![0]!.changedAt).toLocaleString("en"));
+  expect(screen.getByRole("region", { name: "Response list" })).toHaveTextContent("Responses: 1");
   expect(screen.getByRole("region", { name: "Response details" })).toHaveTextContent("Reason for exclusion: 原排除理由 {count}"); expect(screen.getByRole("button", { name: "Include in analysis again" })).toBeEnabled(); expect(original).toEqual(before);
 });
 it("retains one pending attachment download and an unknown raw failure through language changes", async () => {
@@ -103,6 +104,7 @@ function report(sample = 8): survey.CompiledSurveyReport {
   return { id: "raw-report", title: "原报告 {count}", issues: [], sampleSummary: { total: sample + 3, pendingReview: 2, excluded: 1, included: sample }, sections: [{ id: "raw-section", title: "原章节 {name}", analysis: [{ title: "原模型发现 {count}", evidence: "原模型证据 {name}", action: "原模型建议 {count}", blockIds: ["raw-block"] }], blocks: [reportBlock({ sampleSize: sample, rows: [{ label: "原指标 {count}", value: 3.25, count: sample, target: 5, gap: -1.75 }] })] }] };
 }
 it.each([
+  [1, "Low sample notice", "Included responses: 1. These are descriptive results only", null],
   [3, "Low sample notice", "descriptive results only", null],
   [8, "Exploratory sample notice", "confidence is limited", "Suggested validation:"],
   [40, null, null, "Recommended action:"],
