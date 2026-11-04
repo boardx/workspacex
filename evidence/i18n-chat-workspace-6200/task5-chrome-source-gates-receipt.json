@@ -1,0 +1,85 @@
+{
+  "head": "8357c6636f4ca48d3f62dfe6709b35c781e8bf46",
+  "sourceSha256": {
+    "apps/web/components/chat/copilotkit-v2-panel-view.tsx": "aa0d61898e72b0a979dc1058be32b5acbbd557b9902d074b7d2539f9051edd8f",
+    "apps/web/components/chat/copilotkit-v2-plan-control.tsx": "89fbf1995f2682fe46314ba778bcc3b46014937b8a8823e4d69ef465b8917b8e",
+    "apps/web/components/chat/document-generation-auto-approve-toggle.tsx": "f6bd57135797dd472f6917d82b82e48b02478905c4c7d2478555bed48ee371d9",
+    "apps/web/components/chat/project-chat-context-bar.tsx": "a5dbeff43cf15d75fb452dc81c83404f5a6813adea53e3752812689fd71fd921",
+    "apps/web/e2e/i18n-chat-workspace.spec.ts": "5e6dcca1ac56b2e636f1811d0fd5cc6b58513b10a65666a3523fd8d2d9424b00",
+    "apps/web/lib/i18n/namespaces/chat-composer.ts": "ed85efefea0da5d30c26a50338b0f2bec31196d0cd646ff59c99759f6cb0073b",
+    "apps/web/lib/i18n/namespaces/chat-entry.ts": "585eabf0c39e4b8bfcec2892121a30c519b3693d91307720d0da2df58ddbc43e",
+    "apps/web/lib/i18n/namespaces/chat-plan-control.ts": "9709629d8c0563ccf59bd4c3a8b9fb3fdc627661dca162d51be76a749e1644c7",
+    "apps/web/lib/i18n/namespaces/chat.ts": "ccce5ab99eee4791b80b6ec5ab8c44dbc6596f41cbb05ed800d665635f2a79e3",
+    "apps/web/lib/plan-control-owned-status.ts": "3dc23c4c6228304fe89745263cd8ee84d58f32c4b0c0426bb101e5eb5f446a2f",
+    "apps/web/tests/plan-control-summary-i18n.test.ts": "cf051d8abbd03a4a8f182fc2d6b62c7dbfdfda07ab30bed251ee7535c4402fa5",
+    "apps/web/tests/ui/i18n-chat-canonical-chrome.test.tsx": "214fd0f363d6f6a0121944be4b189fad122e19f6ec75d8fa5a30fddd9254cc66"
+  },
+  "gates": [
+    {
+      "name": "type",
+      "command": [
+        "pnpm",
+        "--filter",
+        "web",
+        "typecheck"
+      ],
+      "exitCode": 0,
+      "seconds": 48.975
+    },
+    {
+      "name": "lint",
+      "command": [
+        "pnpm",
+        "--filter",
+        "web",
+        "exec",
+        "eslint",
+        "components/chat/copilotkit-v2-panel-view.tsx",
+        "components/chat/copilotkit-v2-plan-control.tsx",
+        "components/chat/document-generation-auto-approve-toggle.tsx",
+        "components/chat/project-chat-context-bar.tsx",
+        "e2e/i18n-chat-workspace.spec.ts",
+        "lib/i18n/namespaces/chat-composer.ts",
+        "lib/i18n/namespaces/chat-entry.ts",
+        "lib/i18n/namespaces/chat-plan-control.ts",
+        "lib/i18n/namespaces/chat.ts",
+        "lib/plan-control-owned-status.ts",
+        "tests/plan-control-summary-i18n.test.ts",
+        "tests/ui/i18n-chat-canonical-chrome.test.tsx"
+      ],
+      "exitCode": 0,
+      "seconds": 2.616
+    },
+    {
+      "name": "resources",
+      "command": [
+        "pnpm",
+        "--filter",
+        "web",
+        "exec",
+        "vitest",
+        "run",
+        "tests/lib/i18n-resources.test.ts"
+      ],
+      "exitCode": 0,
+      "seconds": 3.76
+    },
+    {
+      "name": "status-source",
+      "command": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "--config",
+        ".harness/vitest.config.ts",
+        ".harness/scripts/lint-run-status-view-single-source.test.ts",
+        "--maxWorkers=1",
+        "--minWorkers=1"
+      ],
+      "exitCode": 0,
+      "seconds": 1.727
+    }
+  ],
+  "browserExecuted": false
+}

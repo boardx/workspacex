@@ -32,6 +32,21 @@ async function sidebar(page: Page, width: number): Promise<void> {
   await expect(page.getByTestId("chat-task-workbench-thread-search")).toBeVisible();
 }
 
+async function composerControlsFit(page: Page, width: number): Promise<void> {
+  const viewport = page.viewportSize();
+  expect(viewport).not.toBeNull();
+  for (const id of ["chat-composer-realtime-voice", "chat-task-workbench-composer-mic", "chat-task-workbench-composer-mic-devices", "copilotkit-v2-send"]) {
+    const control = page.getByTestId(id);
+    await expect(control).toBeVisible();
+    const box = await control.boundingBox();
+    expect(box, `${id} must have real browser geometry`).not.toBeNull();
+    expect(box!.x, `${id} left edge must be inside viewport`).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width, `${id} right edge must be inside viewport`).toBeLessThanOrEqual(width);
+    expect(box!.y, `${id} top edge must be inside viewport`).toBeGreaterThanOrEqual(0);
+    expect(box!.y + box!.height, `${id} bottom edge must be inside viewport`).toBeLessThanOrEqual(viewport!.height);
+  }
+}
+
 for (const width of [1280, 375]) {
   test(`personal sidebar and unsent raw draft survive locale changes at ${width}`, async ({ page }, info) => {
     const threadId = await openFreshThread(page);
@@ -57,6 +72,7 @@ for (const width of [1280, 375]) {
       expect(executionPosts).toBe(0);
       page.off("request", countRun);
       await picture(page, info, `personal-draft-en-${width}`);
+      await composerControlsFit(page, width);
 
       await sidebar(page, width);
       const row = page.getByTestId(`chat-thread-${threadId}`);
@@ -152,6 +168,7 @@ test("active canonical run retains identity, raw draft, selected inspector tab a
     expect(after.messages.filter(message => message.id === run.resultMessageId)).toEqual([result]);
     await page.setViewportSize({ width: 375, height: 900 });
     await picture(page, info, "persisted-reply-en-375");
+    await composerControlsFit(page, 375);
   } finally {
     await control.close();
   }
@@ -178,7 +195,7 @@ test("material upload, inline preview and enlarged download retain original byte
     const attachment = await response.json() as { id: string };
     await expect(page.locator('[data-testid^="chat-attach-material-att-chip-"]')).toHaveAttribute("data-status", "uploaded");
     await locale(page, control, "zh-CN");
-    await expect(page.getByTestId("chat-attach-material-portal")).toContainText(filename);
+    await expect(page.getByTestId("chat-attach-material")).toContainText(filename);
     await picture(page, info, "attachment-picker-zh-1280");
     await page.getByTestId("chat-attach-material-confirm").click();
     await page.getByTestId("copilotkit-v2-input").fill("请读取这个附件，保留原文。");
@@ -197,6 +214,7 @@ test("material upload, inline preview and enlarged download retain original byte
       await page.setViewportSize({ width, height: 900 });
       await picture(page, info, `material-preview-en-${width}`);
     }
+    await expect(page.getByTestId("chat-attachment-preview-download")).toHaveAttribute("href", /^blob:/);
     const downloadEvent = page.waitForEvent("download");
     await page.getByTestId("chat-attachment-preview-download").click();
     const download = await downloadEvent;

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getProjectOverview } from "@/lib/live-projects";
+import { useI18n } from "@/lib/i18n/provider";
 
 /**
  * 项目对话的上下文条（issue #4744 ④）——`/chat/<threadId>?projectId=<id>` 与个人对话复用
@@ -24,6 +25,7 @@ export function projectBackHref(projectId: string, kind: string | null, orgId: s
 export function ProjectChatContextBar({ projectId, orgId, bearer }: {
   projectId: string; orgId: string | null; bearer: string | null;
 }): JSX.Element {
+  const { t } = useI18n();
   const [info, setInfo] = React.useState<{ id: string; name: string; kind: string } | null>(null);
   React.useEffect(() => {
     if (!bearer) return;
@@ -37,7 +39,7 @@ export function ProjectChatContextBar({ projectId, orgId, bearer }: {
   const known = info !== null && info.id === projectId ? info : null;
   return (
     <nav
-      aria-label="项目上下文"
+      aria-label={t("chatEntry.projectContext")}
       className="flex shrink-0 items-center gap-2 border-b border-border-subtle bg-muted/40 px-6 py-1.5"
       data-testid="project-chat-context-bar"
     >
@@ -46,10 +48,10 @@ export function ProjectChatContextBar({ projectId, orgId, bearer }: {
         data-testid="project-chat-back"
         className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-12 text-muted-foreground transition-colors hover:bg-muted hover:text-background-foreground"
       >
-        <ArrowLeft aria-hidden className="h-3.5 w-3.5" />返回项目
+        <ArrowLeft aria-hidden className="h-3.5 w-3.5" />{t("chatEntry.backToProject")}
       </Link>
       <Badge tone="neutral" className="min-w-0 max-w-[60%] truncate" data-testid="project-chat-name">
-        {known ? known.name : "项目对话"}
+        {known ? known.name : t("chatEntry.projectConversation")}
       </Badge>
     </nav>
   );

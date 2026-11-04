@@ -37,7 +37,7 @@ flowchart TD
   class S2 doing
   class S3 doing
   class S4 doing
-  class S5 todo
+  class S5 doing
   class S6 todo
 ```
 

@@ -776,7 +776,7 @@ export function CopilotKitV2PanelView({
                 ) : null}
               </div>
               {/* 右：语音分段胶囊（唯一麦克风入口，设备菜单在它右侧箭头）+ 发送 / 停止。 */}
-              <div className="flex shrink-0 items-center gap-3">
+              <div className="flex min-w-0 max-w-full flex-wrap items-center justify-end gap-3">
                 <ChatRealtimeVoiceEntry
                   disabled={!canWrite || archived || agent.isRunning || sessionToken === null}
                   agent={selectedVoiceAgent}

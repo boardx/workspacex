@@ -26,8 +26,10 @@ import { chatMessageFailuresEn, chatMessageFailuresZhCN } from "./chat-message-f
 
 import { chatInteractionsEn, chatInteractionsZhCN } from "./chat-interactions";
 import { chatPermissionsEn, chatPermissionsZhCN } from "./chat-permissions";
+import { chatPlanControlEn, chatPlanControlZhCN } from "./chat-plan-control";
 
 export const chatZhCN = {
+  ...chatPlanControlZhCN,
   ...artifactVersionsZhCN,
   ...capabilityEditionZhCN,
   ...chatKnowledgeZhCN,
@@ -53,6 +55,7 @@ export const chatZhCN = {
   ...chatLandingZhCN,
 } as const;
 export const chatEn: Record<keyof typeof chatZhCN, string> = {
+  ...chatPlanControlEn,
   ...artifactVersionsEn,
   ...capabilityEditionEn,
   ...chatKnowledgeEn,

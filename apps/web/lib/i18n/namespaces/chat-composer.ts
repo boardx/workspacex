@@ -1,4 +1,7 @@
 export const chatComposerZhCN = {
+  "chatComposer.documentAutoApprove": "自动批准文档生成所需权限",
+  "chatComposer.documentAutoApproveCompact": "自动批准文档权限",
+  "chatComposer.documentAutoApproveHint": "打开后，生成 PDF / Word / Excel / PPT 全程不再询问权限",
   "chatComposer.voiceListeningHint.one": "文字实时写入输入框 · 已 {count} 字 · 说完点「停止」，检查后再发送",
   "chatComposer.voicePausedHint.one": "已转录 {count} 字 · 继续录音会接在后面",
   "chatComposer.voiceTranscribed.one": "已转录 {count} 字",
@@ -83,6 +86,9 @@ export const chatComposerZhCN = {
   "chatComposer.autoPauseDelay": "静音 {seconds} 秒后",
 } as const;
 export const chatComposerEn: Record<keyof typeof chatComposerZhCN, string> = {
+  "chatComposer.documentAutoApprove": "Auto-approve document generation permissions",
+  "chatComposer.documentAutoApproveCompact": "Auto-approve documents",
+  "chatComposer.documentAutoApproveHint": "Once enabled, PDF / Word / Excel / PPT generation will no longer ask for permissions.",
   "chatComposer.voiceListeningHint.one": "Text appears in the message field · {count} character · Select Stop when finished, then review before sending",
   "chatComposer.voicePausedHint.one": "Transcribed {count} character · Further recording will be appended",
   "chatComposer.voiceTranscribed.one": "Transcribed {count} character",

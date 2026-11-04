@@ -166,3 +166,19 @@ HEAD36f8 remains private/normalaccepted8f merged; ed0 source checkpoint is durab
 
 
 Latest authoritative unit closure: attempt2 complete76/532, Task4boxes/ledger completed from actualrun. Older chronological remaining/UNRUN/failure paragraphs below/above describe prior snapshots only. Realroute/browser state coverage remains pending in Task5.
+
+
+## Task5 initial browser selection — discovery only, not route acceptance
+Current private HEAD8357c6636f4ca48d3f62dfe6709b35c781e8bf46 includes the prepared fde431 checkpoint and normal acceptedddf integration. The exact spec/config blobs remain unchanged across that merge. Premerge canonical discovery actually selected seven cases, all browser-UNRUN. Premerge source type/lint is not postmerge dependency validation.
+
+| Actual route / surface planned | Current evidence boundary |
+| --- | --- |
+| Personal /chat/[threadId], 1280 and375 sidebar / rename menu / search / pin / raw draft and caret | Two cases discovered, browser UNRUN |
+| Canonical controlled slow run, manually selected run-details, raw next draft, persisted IDs and reload | Case discovered, browser UNRUN; intended real API/PG-backed run proof |
+| Same composer upload port → actual materials row → inline and enlarged preview → full downloaded bytes | Case discovered, browser UNRUN |
+| Restored actual tool permission dialog, locale and Escape without decision, explicit once same run | Case discovered, browser UNRUN; no forever grant or cleanup of another owner's grants |
+| Seeded project thread / project context name and stable back target | Case discovered, browser UNRUN; owned Chinese return/nav/fallback found by source audit, production not changed before actual counterexample |
+| Independent seeded org-admin login against another creator's private personal thread | Case discovered, browser UNRUN; intended actual404 and disabled composer, not simulated HTTP denial |
+
+Source/discovery receipt: task5-seven-source-discovery-receipt.json, isolated own containers/volumes/11listeners0. Accepted merge provenance: task5-accepted-ddf-integration-provenance.json, actualtree==inerttree and all92 protected blob/modes equal. New necessary postmerge gates and first real browser are not yet executed. No screenshot has been claimed or QAed for this new spec.
+Remaining actual browser coverage includes authored explicit prefill/noautosend, queued next-turn proof, generated artifact versions and nested previews, knowledge/list/graph/source/nomination/promotion/action dialogs, memory/citations and global feedback composer/history. Existing component tests and older adjacent e2e do not by themselves close those Task5 overlays. Every executed image must be inspected; no file/PR count is a coverage percentage.

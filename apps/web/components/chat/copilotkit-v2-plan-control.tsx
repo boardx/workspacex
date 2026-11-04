@@ -20,6 +20,10 @@ import { useEdition } from "@/lib/edition";
 import { NO_LIVE_PLAN, type LivePlan } from "@/lib/chat-workbench/live-plan-context";
 import type { PlanTodo } from "@/components/chat/agent-plan-panel";
 import { planAllDoneButFailedNote } from "@/lib/chat-workbench/plan-failure-shape";
+import { useI18n } from "@/lib/i18n/provider";
+import { translate } from "@/lib/i18n/messages";
+import type { Locale } from "@/lib/i18n/locale";
+import { planControlStatusMessageKey } from "@/lib/plan-control-owned-status";
 
 /**
  * F972-F978（plan-control 契约束）接入 `copilotkit-v2-panel.tsx` 真实聊天渲染树。
@@ -163,9 +167,11 @@ export interface CopilotKitV2PlanControlProps {
  * 读起来像计划没做完——结束态只说「已完成」，不再摆计数器；步骤明细与 #2451 的
  * 「账本没标满」说明仍在展开后可见。进行中 / 失败 / 取消照旧显示 N/M。
  */
-export function planSummaryText(stateLabel: string, phase: string, runLive: boolean, completed: number, total: number): string {
-  if (phase === "done" && !runLive) return `执行计划 · ${stateLabel} · 已完成`;
-  return `执行计划 · ${stateLabel}${total > 0 ? ` · ${completed}/${total} 步已标记完成` : ""}`;
+export function planSummaryText(stateLabel: string, phase: string, runLive: boolean, completed: number, total: number, locale: Locale = "zh-CN"): string {
+  if (phase === "done" && !runLive) return translate(locale, "chatPlanControl.summaryDone", { state: stateLabel });
+  return total > 0
+    ? translate(locale, "chatPlanControl.summaryProgress", { state: stateLabel, completed, total, count: total })
+    : translate(locale, "chatPlanControl.summary", { state: stateLabel });
 }
 
 export function CopilotKitV2PlanControl(props: CopilotKitV2PlanControlProps): React.JSX.Element {
@@ -175,6 +181,7 @@ export function CopilotKitV2PlanControl(props: CopilotKitV2PlanControlProps): Re
 function PlanControlSession(
   { threadId, projectId, canWrite = true, refetchSignal, onRunDispatched, onStepRecoveryOfferedChange, onLivePlanChange }: CopilotKitV2PlanControlProps,
 ): React.JSX.Element | null {
+  const { locale, t } = useI18n();
   const { ledger, refetch } = usePlanLedgerPolling(threadId, projectId);
   const [editing, setEditing] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
@@ -347,6 +354,9 @@ function PlanControlSession(
     hasRecentError,
     pauseEntryEnabled: CHAT_RUN_PAUSE_ENTRY_ENABLED,
   });
+  const stateLabel = statusView.stateLabel;
+  const statusLabelKey = planControlStatusMessageKey(statusView);
+  const displayStateLabel = statusLabelKey ? t(statusLabelKey) : stateLabel;
 
   const tid = threadId; // 上面已判非空，供下面闭包按非空类型使用。
   const revision = ledger.revision;
@@ -496,7 +506,7 @@ function PlanControlSession(
       * 而那正是人类实测里卡住的那一屏。
       */}
     {/* issue #3365 —— 这一行此前自己拼三元文案，是「run 现在什么状态」的第二处推导。改读同一个 view。 */}
-    <span role="status">{statusView.stateLabel}</span>
+    <span role="status">{displayStateLabel}</span>
     {runControls.canResume ? (
       <Button size="sm" variant="primary" data-testid={PLAN_RUN_RESUME_TESTID} disabled={!canWrite || busy} onClick={handleResume}>继续执行</Button>
     ) : CHAT_RUN_PAUSE_ENTRY_ENABLED ? (
@@ -561,7 +571,6 @@ function PlanControlSession(
    * 现在全部读 `statusView`（`completed` 直接用账本的 `progress.completed`——
    * 读模型已经数过一次，前端不重数）。
    */
-  const stateLabel = statusView.stateLabel;
   const completed = statusView.progressValue;
 
   return (
@@ -579,12 +588,12 @@ function PlanControlSession(
           type="button"
           aria-expanded={!collapsed}
           data-testid={PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID}
-          aria-label={collapsed ? "展开计划面板" : "折叠计划面板"}
+          aria-label={t(collapsed ? "chatPlanControl.expand" : "chatPlanControl.collapse")}
           onClick={() => setCollapsed((v) => !v)}
           className="flex min-w-0 items-center gap-2 rounded-control px-1 py-1 text-13 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {collapsed ? <ChevronRight aria-hidden className="h-4 w-4" /> : <ChevronDown aria-hidden className="h-4 w-4" />}
-          <span data-testid="chat-task-workbench-plan-summary">{planSummaryText(stateLabel, ledger.phase, runLive, completed, ledger.steps.length)}</span>
+          <span data-testid="chat-task-workbench-plan-summary">{planSummaryText(displayStateLabel, ledger.phase, runLive, completed, ledger.steps.length, locale)}</span>
         </button>
         {!collapsed && !readOnlyLedger && ledger.phase !== "failed" && ledger.steps.length > 0 && (
           <Button
