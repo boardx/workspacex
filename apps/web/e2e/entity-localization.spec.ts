@@ -181,6 +181,8 @@ test("administration quotas retain drafts and canonical writes while usage prese
       expect((await member.request.patch(budgetPath, { headers: memberHeaders, data: { orgId, monthlyBudget: 1 } })).status()).toBe(403);
       expect((await member.request.post(rulesPath, { headers: memberHeaders, data: { orgId, scopeKind: "member", scopeRef: userId, modelId: null, windowKind: "day", thresholdTokens: 1, action: "warn", degradeToModelId: null } })).status()).toBe(403);
       await member.goto("/admin/members"); await member.getByTestId("language-switcher").first().selectOption("en"); await expect(member.getByTestId("admin-quota-load-failed")).toContainText("Could not load quota data");
+      await expect(member.getByTestId("admin-quota-load-failed")).toContainText("You do not have permission to perform this action.");
+      await expect(member.getByTestId("admin-quota-load-failed")).not.toContainText("Your session has expired");
       await member.setViewportSize({ width: 375, height: 900 }); await member.screenshot({ path: testInfo.outputPath("member-quotas-denied-en-375.png"), fullPage: true });
     } finally { await memberContext.close(); }
     const afterDenied = await page.request.get(quotaPath, { headers }); expect(orgAdmin.operations.getTokenQuotas.out.parse(await afterDenied.json())).toEqual(persisted);
