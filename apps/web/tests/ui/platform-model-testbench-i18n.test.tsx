@@ -241,7 +241,7 @@ describe("complete platform model testbench localization (mocked SDK)", () => {
 
   it("retranslates failed cancellation without releasing held funds or redispatching", async () => {
     await recover({ state: "unknown", settlementState: "held", result: null });
-    mocks.cancel.mockRejectedValue(new ApiError(503, "PRIVATE_CANCEL_DETAIL"));
+    mocks.cancel.mockRejectedValue(new ApiError(503, "PRIVATE_CANCEL_DETAIL", { message: "PRIVATE_CANCEL_DETAIL" }));
     fireEvent.click(screen.getByRole("button", { name: "取消本次测试" }));
     const failure = await screen.findByRole("alert"); language("en");
     expect(failure).toHaveTextContent(/service.*(?:unavailable|contract).*query.*(?:original|existing)/i);
