@@ -1,0 +1,120 @@
+{
+  "verifiedSource": "4f81b76e600bb404d8ce6e52dd2d4694d23ee68a",
+  "parent": "ca3f9e4482ae84adea3124ef497b2b2da78b0933",
+  "sourceReviews": {
+    "wholeOriginal": "SOURCE CLEAN at0084; no second whole audit",
+    "parentMerge": "CLEAN at4f81; independent75+185mode/blob/e2eunion/dictionaryunion",
+    "finalWave": "CLEAN scoped64+/2- at65c, exact casebody retained at4f81; source seat beforebrowser permain"
+  },
+  "checks": {
+    "type": {
+      "sourceSha": "4f81b76e600bb404d8ce6e52dd2d4694d23ee68a",
+      "mode": "type",
+      "web-type": {
+        "exit": 0,
+        "seconds": 36.76
+      },
+      "totalSeconds": 36.76
+    },
+    "focused": {
+      "sourceSha": "4f81b76e600bb404d8ce6e52dd2d4694d23ee68a",
+      "mode": "focused",
+      "focused": {
+        "exit": 0,
+        "seconds": 9.97
+      },
+      "totalSeconds": 9.97
+    },
+    "static": {
+      "sourceSha": "4f81b76e600bb404d8ce6e52dd2d4694d23ee68a",
+      "mode": "static",
+      "eslint": {
+        "exit": 0,
+        "seconds": 2.45
+      },
+      "init": {
+        "exit": 0,
+        "seconds": 8.58
+      },
+      "testid": {
+        "exit": 0,
+        "seconds": 3.47
+      },
+      "spec-gate": {
+        "exit": 0,
+        "seconds": 35.16
+      },
+      "browser-list": {
+        "exit": 1,
+        "seconds": 1.02,
+        "log": "browser-list-first-unwrapped.txt"
+      },
+      "totalSeconds": 50.67
+    }
+  },
+  "focusedUnit": {
+    "files": 5,
+    "cases": 46,
+    "passed": 46
+  },
+  "correctedDiscovery": {
+    "command": [
+      "pnpm",
+      "exec",
+      "tsx",
+      ".harness/scripts/with-test-isolation.ts",
+      "--",
+      "pnpm",
+      "--filter",
+      "web",
+      "exec",
+      "playwright",
+      "test",
+      "--config",
+      "playwright.entity-localization.config.ts",
+      "--list",
+      "-g",
+      "administration quotas retain drafts"
+    ],
+    "source": "4f81b76e600bb404d8ce6e52dd2d4694d23ee68a",
+    "exit": 0,
+    "seconds": 3.44
+  },
+  "discoveryCleanup": {
+    "checkedAt": "2026-11-04T01:27:26.247560+00:00",
+    "scope": "wsx-ef336908cbc1d9d367a0",
+    "ports": [
+      "20848",
+      "21848",
+      "24848",
+      "25848",
+      "26848",
+      "27848",
+      "28848",
+      "29848",
+      "30848",
+      "31848",
+      "19848"
+    ],
+    "checks": {
+      "containers": {
+        "exit": 0,
+        "output": "",
+        "stderr": ""
+      },
+      "volumes": {
+        "exit": 0,
+        "output": "",
+        "stderr": ""
+      },
+      "listeners": {
+        "exit": 1,
+        "output": "",
+        "stderr": ""
+      }
+    },
+    "note": "Discovery only, no webServer/API/DB started; canonical wrapper down-v completed."
+  },
+  "runtime": "UNRUN; all17realPNGandQA pending",
+  "unwrappedDiscovery": "exit1 due missing isolation env; original failure retained, no fake ports/source change"
+}

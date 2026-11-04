@@ -1,0 +1,17 @@
+{
+  "gate": "green",
+  "head": "0b1886ef6bd63430cdc01addce1123ebde834790",
+  "exit": 0,
+  "seconds": 25.671,
+  "logSha256": "0136bc3dda8e4cdfd89913861ead9fc408ee2ff39a7a4ce23661978365296649",
+  "rawPrivate": true,
+  "summary": [
+    " ✓ tests/ui/ai-usage-i18n.test.tsx (10 tests) 2892ms",
+    " ✓ tests/ui/admin-limit-policy-i18n.test.tsx (9 tests) 1452ms",
+    " ✓ tests/lib/i18n-resources.test.ts (5 tests) 187ms",
+    " ✓ tests/lib/admin-quota-count-copy.test.ts (8 tests) 23ms",
+    " Test Files  4 passed (4)",
+    "      Tests  32 passed (32)",
+    "   Duration  22.86s (transform 3.80s, setup 1.64s, collect 8.92s, tests 4.55s, environment 5.02s, prepare 594ms)"
+  ]
+}

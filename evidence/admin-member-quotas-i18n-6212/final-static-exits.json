@@ -1,0 +1,23 @@
+{
+  "final-test-type": {
+    "exit": 0,
+    "status": "finished",
+    "seconds": 9.27
+  },
+  "final-test-lint": {
+    "exit": 0,
+    "status": "finished",
+    "seconds": 2.67
+  },
+  "final-test-testid": {
+    "exit": 0,
+    "status": "finished",
+    "seconds": 3.5
+  },
+  "final-spec-gate": {
+    "exit": 0,
+    "status": "finished",
+    "seconds": 35.21
+  },
+  "totalSeconds": 50.66
+}

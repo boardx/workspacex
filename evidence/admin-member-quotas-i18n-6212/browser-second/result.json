@@ -1,0 +1,29 @@
+{
+  "runner": {
+    "head": "31268851c37f554d80c10f243162e8af9f7460db",
+    "source": "4639ef2dd55e0826b21736429e09713173cc1da7",
+    "exit": 0,
+    "seconds": 429.1
+  },
+  "stats": {
+    "startTime": "2026-11-04T04:58:24.944Z",
+    "duration": 425726.99,
+    "expected": 1,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "tests": [
+    {
+      "title": "administration quotas retain drafts and canonical writes while usage preserves real receipt distinctions across locales",
+      "project": "entity-localization",
+      "status": "passed",
+      "durationMs": 14661,
+      "retry": 0
+    }
+  ],
+  "pngCount": 17,
+  "rawOnlyPrivate": true,
+  "rawLogSha256": "0b50640b565391e9639bae389bf37b23d5bcbb7cae29927a54b305f2d1948c4e",
+  "rawReportSha256": "dc9daf1fb4c82cb9d258d57524ee1f3f9163748dab57e2b4bf34a8e9e20aa9f4"
+}

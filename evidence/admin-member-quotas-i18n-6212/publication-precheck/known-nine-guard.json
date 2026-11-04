@@ -1,0 +1,75 @@
+{
+  "headBeforeEvidenceOnlyCommit": "7463e7a0b0d5822b4f7e318505c399f80bb5f33d",
+  "scope": "only original nine known non-PNG blob identities and unsafe-commit ancestry/ref; not a new whole-history audit or full credential clearance",
+  "threeAcceptedMetadataBlobs": [
+    {
+      "originalPath": "evidence/admin-member-quotas-i18n-6212/browser-first/cleanup.json",
+      "blob": "8dc3eba1aeb474277b69c3d81d39556b886475f3",
+      "acceptedPaths": [
+        "evidence/quota-conflict-guidance-6217/origin-browser-cleanup.json"
+      ],
+      "exactAcceptedParentBlob": true,
+      "present": true,
+      "unchangedAcceptedBlob": true
+    },
+    {
+      "originalPath": "evidence/admin-member-quotas-i18n-6212/browser-first/quota-conflict-response.json",
+      "blob": "b6a553ff4f23f31da530a0d1ed9814d14a334c5b",
+      "acceptedPaths": [
+        "evidence/quota-conflict-guidance-6217/observed-response.json"
+      ],
+      "exactAcceptedParentBlob": true,
+      "present": true,
+      "unchangedAcceptedBlob": true
+    },
+    {
+      "originalPath": "evidence/admin-member-quotas-i18n-6212/browser-first/runner.json",
+      "blob": "dd6ea7fa0135791d6152e4ba95016357566f3dc1",
+      "acceptedPaths": [
+        "evidence/quota-conflict-guidance-6217/origin-browser-runner.json"
+      ],
+      "exactAcceptedParentBlob": true,
+      "present": true,
+      "unchangedAcceptedBlob": true
+    }
+  ],
+  "sixOtherOriginalNonPngBlobsAbsent": [
+    {
+      "originalPath": "evidence/admin-member-quotas-i18n-6212/browser-first/README.md",
+      "blob": "ff75f2294e609eec017cb5e8fe5176a3b2de9c00",
+      "present": false
+    },
+    {
+      "originalPath": "evidence/admin-member-quotas-i18n-6212/browser-first/artifact-sha256.json",
+      "blob": "d87c63aa15115797a95a5f91a2655e4a06699926",
+      "present": false
+    },
+    {
+      "originalPath": "evidence/admin-member-quotas-i18n-6212/browser-first/artifacts/error-context.md",
+      "blob": "2b6cff247f44e105285c33294b879444f2e25ad5",
+      "present": false
+    },
+    {
+      "originalPath": "evidence/admin-member-quotas-i18n-6212/browser-first/artifacts/trace.zip",
+      "blob": "61f047edc95e2983a0002489ab45ea2ea6625300",
+      "present": false
+    },
+    {
+      "originalPath": "evidence/admin-member-quotas-i18n-6212/browser-first/browser.txt",
+      "blob": "252abbbe8e855f3f2a21f172b2d14be3eb9a2dbd",
+      "present": false
+    },
+    {
+      "originalPath": "evidence/admin-member-quotas-i18n-6212/browser-first/preflight.json",
+      "blob": "d016daca5631a2aa10111231e1f98b1733e4efaf",
+      "present": false
+    }
+  ],
+  "sixClassification": "two benign metadata plus four raw/context/log/archive artifacts per earlier formal review; no raw contents reopened",
+  "unsafeCommit": "6ae85819a7bc7953f0cad3e784594ac2bb933754",
+  "unsafeAncestor": false,
+  "unsafeContainingRefs": [
+    "refs/private/quota6212-unsafe-browser-6ae85819"
+  ],
+  "publicationScan": "canonical tracked head-only scan after final evidence freeze still required"
+}

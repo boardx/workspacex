@@ -1,0 +1,9 @@
+# First source CI failure: legacy quota permission assertion
+
+PR6227 head `c6a5477cfa1482ffad824784a8866c49861310d0` failed verify-affected run41805550882/job126491539915. The unique actual assertion was old `admin-members-quota-live.test.tsx:128`: HTTP403 still expected refresh/relogin, while the correctly fixed product rendered permission/contact-admin. Other cancelled checks were fail-fast propagation, not separately diagnosed defects. Raw CI log remains private; adjacent first-failure.json records its hash and bounded counterexample.
+
+Root reproduced the original eight-case suite at c6a: actual1FAIL7PASS, exit1/5.580s, same stale403 line128; no collection failure. Test-only source `b77667140dd130abffb2c9205c49b394a79dd9db` requires concrete permission/admin guidance and rejects expired-session/relogin, preserving failure prefix, reasonCode nonleak and absent live data. A separate401 control requires auth/relogin, rejects permission/admin, and preserves its own nonleak/no-live checks. The other seven original cases are byte-identical. Production, API, locales, E2E and config have no change, so original17-image acceptance is not rerun or rebound.
+
+The prior88 focused selection omitted this existing eight-case quota suite: that was the worker's adjacency-selection gap. Corrected bounded selection includes its now-nine cases plus the previous88: actual97/97 in11files, exit0/19.463s. Scoped test-file ESLint passes0/3.753s. Independent bounded review is CLEAN; it truthfully records GREEN/lint as pending at its review time, while root's subsequent actual receipts are adjacent. Processes exited and no services were started; peers were released immediately before this archive.
+
+Canonical scan, normal update hooks, remote CI and actual develop delivery remain separate gates. Main owns CI/queue/merge; root retains first-failure repair responsibility. This test repair does not claim that CI has already passed or that the full project is complete.

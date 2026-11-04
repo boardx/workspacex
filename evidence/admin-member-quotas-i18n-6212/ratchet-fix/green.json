@@ -1,0 +1,11 @@
+{
+  "head": "44f41de5e5ca5615c52354b370380f7ebc50d404",
+  "gate": "green",
+  "exit": 0,
+  "seconds": 0.426,
+  "rawPrivate": true,
+  "logSha256": "e5614a8f4e5f17c20fdbf687464d8550fcde1cb9c71d845534d6efb78e158339",
+  "summary": [
+    "✅ [user-facing-error-text] 新代码没有内部错误码上屏；存量基线 55 个文件 / 73 处（只准变小）"
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "worker": "65c0b3833",
+  "upstream": "ca3f9e448",
+  "candidate": "fc038e1b9a6cf76dd2b839e613be9a101e4a6ca7",
+  "locales": {
+    "zh": {
+      "workerKeys": 1438,
+      "upstreamKeys": 1243,
+      "mergedKeys": 1552,
+      "sourceValueConflicts": 0
+    },
+    "en": {
+      "workerKeys": 1438,
+      "upstreamKeys": 1243,
+      "mergedKeys": 1552,
+      "sourceValueConflicts": 0
+    }
+  },
+  "allEffectiveObjectsUnique": true,
+  "objectsChecked": 147,
+  "modulesEvaluated": 90,
+  "externalDependencies": [
+    "zod"
+  ],
+  "candidateValueSha256": "4412ac2ca18ea21791b77b5fb60cb95a58489b093d44ec1f9993c4ae12d516f2"
+}

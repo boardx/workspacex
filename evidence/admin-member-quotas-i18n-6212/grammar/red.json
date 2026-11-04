@@ -1,0 +1,33 @@
+{
+  "gate": "red",
+  "head": "c103ec51aa2765fa88a129e8783b6a93cb1380d8",
+  "exit": 1,
+  "seconds": 6.659,
+  "logSha256": "fd430ca17f36ec877afe8f80b72f208cfac0530ae4f3fd5c0d772906a333c759",
+  "rawPrivate": true,
+  "summary": [
+    " ❯ tests/lib/admin-quota-count-copy.test.ts (8 tests | 6 failed) 44ms",
+    "⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯",
+    " FAIL  tests/lib/admin-quota-count-copy.test.ts > admin quota count copy > uses count-neutral English rule copy for 1",
+    "AssertionError: expected '1 rules' to be 'Rules: 1' // Object.is equality",
+    " ❯ tests/lib/admin-quota-count-copy.test.ts:6:66",
+    " FAIL  tests/lib/admin-quota-count-copy.test.ts > admin quota count copy > uses count-neutral English rule copy for 2",
+    "AssertionError: expected '2 rules' to be 'Rules: 2' // Object.is equality",
+    " ❯ tests/lib/admin-quota-count-copy.test.ts:6:66",
+    " FAIL  tests/lib/admin-quota-count-copy.test.ts > admin quota count copy > preserves unreported usage suffixes for English count 1",
+    "AssertionError: expected '1 calls have unreported usage · raw{s…' to be 'Calls with unreported usage: 1 · raw{…' // Object.is equality",
+    " ❯ tests/lib/admin-quota-count-copy.test.ts:11:74",
+    " FAIL  tests/lib/admin-quota-count-copy.test.ts > admin quota count copy > preserves unreported usage suffixes for English count 2",
+    "AssertionError: expected '2 calls have unreported usage · raw{s…' to be 'Calls with unreported usage: 2 · raw{…' // Object.is equality",
+    " ❯ tests/lib/admin-quota-count-copy.test.ts:11:74",
+    " FAIL  tests/lib/admin-quota-count-copy.test.ts > admin quota count copy > uses count-neutral English page copy for 1",
+    "AssertionError: expected '1 records on this page · Ordered by c…' to be 'Records on this page: 1 · Ordered by …' // Object.is equality",
+    " ❯ tests/lib/admin-quota-count-copy.test.ts:18:61",
+    " FAIL  tests/lib/admin-quota-count-copy.test.ts > admin quota count copy > uses count-neutral English page copy for 2",
+    "AssertionError: expected '2 records on this page · Ordered by c…' to be 'Records on this page: 2 · Ordered by …' // Object.is equality",
+    " ❯ tests/lib/admin-quota-count-copy.test.ts:18:61",
+    " Test Files  1 failed (1)",
+    "      Tests  6 failed | 2 passed (8)",
+    "   Duration  3.06s (transform 704ms, setup 453ms, collect 1.22s, tests 44ms, environment 0ms, prepare 122ms)"
+  ]
+}

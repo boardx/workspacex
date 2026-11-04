@@ -1,0 +1,24 @@
+{
+  "sourceHead": "97b0374ab6e58c022538e2c9a61fe81519f11d28",
+  "productHead": "4f81b76e600bb404d8ce6e52dd2d4694d23ee68a",
+  "runnerExit": 1,
+  "runnerSeconds": 237.93,
+  "failure": "409 QUOTA_OVERALLOCATED omitted contracted remainingTokens; assertion preserved",
+  "httpStatus": 409,
+  "responseFields": {
+    "error": "conflict",
+    "reasonCode": "QUOTA_OVERALLOCATED"
+  },
+  "remainingTokensPresent": false,
+  "plannedFinalScreenshots": 17,
+  "actualBeforeFailureScreenshots": 5,
+  "failureScreenshots": 1,
+  "allSixRootViewed": true,
+  "scope": "wsx-0edd8dfeb7093fc6d3ed",
+  "cleanup": {
+    "containers": 0,
+    "volumes": 0,
+    "listeners": 0
+  },
+  "rawPrivateOnly": true
+}

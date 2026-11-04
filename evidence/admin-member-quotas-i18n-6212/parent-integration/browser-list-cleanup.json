@@ -1,0 +1,35 @@
+{
+  "checkedAt": "2026-11-04T01:27:26.247560+00:00",
+  "scope": "wsx-ef336908cbc1d9d367a0",
+  "ports": [
+    "20848",
+    "21848",
+    "24848",
+    "25848",
+    "26848",
+    "27848",
+    "28848",
+    "29848",
+    "30848",
+    "31848",
+    "19848"
+  ],
+  "checks": {
+    "containers": {
+      "exit": 0,
+      "output": "",
+      "stderr": ""
+    },
+    "volumes": {
+      "exit": 0,
+      "output": "",
+      "stderr": ""
+    },
+    "listeners": {
+      "exit": 1,
+      "output": "",
+      "stderr": ""
+    }
+  },
+  "note": "Discovery only, no webServer/API/DB started; canonical wrapper down-v completed."
+}

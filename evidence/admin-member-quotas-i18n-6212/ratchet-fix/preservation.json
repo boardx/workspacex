@@ -1,0 +1,43 @@
+{
+  "base": "063809984cc2b45e58cb1f23ccbf835133debff3",
+  "head": "44f41de5e5ca5615c52354b370380f7ebc50d404",
+  "changes": [
+    {
+      "path": "apps/web/components/admin/admin-boundary-live.tsx",
+      "before": 1,
+      "after": 0
+    },
+    {
+      "path": "apps/web/components/admin/admin-header.tsx",
+      "before": 1,
+      "after": 0
+    },
+    {
+      "path": "apps/web/components/admin/limit-rules-live.tsx",
+      "before": 1,
+      "after": 0
+    },
+    {
+      "path": "apps/web/components/admin/member-quota-tab.tsx",
+      "before": 1,
+      "after": 0
+    },
+    {
+      "path": "apps/web/components/admin/usage-monitor-tab.tsx",
+      "before": 1,
+      "after": 0
+    },
+    {
+      "path": "apps/web/components/org-admin/org-admin-screen.tsx",
+      "before": 5,
+      "after": 4
+    }
+  ],
+  "totalReduction": 6,
+  "allOtherScannerBytesExact": true,
+  "changedPaths": [
+    ".harness/scripts/lint-user-facing-error-text.mjs",
+    ".harness/scripts/lint-user-facing-error-text.test.ts"
+  ],
+  "allProductApiLocaleE2EConfigBytesExact": true
+}
