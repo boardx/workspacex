@@ -45,4 +45,5 @@
 - [x] Append real UI/API/PG journey per verification-design, exact statuses/methods/schemas/readback/reloads and operator/ordinary/revoked roles; plan16 viewport images and strong label/control bounds.
 - [x] Root runs source/API/web/static/discovery/init gates then one native canonical case, records actual exit/cleanup and releases peers before QA.
 - [x] Individually inspect all16 images, privacy/dimensions/chunks/hashes; retain every real failure/finding separately and fix boundedly without weakening budgets/assertions.
-- [ ] Independent runtime and most-capable final whole-branch review, product-byte binding, canonical credential scan, normal hooks/push and automatic PR. Main owns CI/queue/actual merge; do not mark delivery before actual green integration.
+- [x] Independent runtime and most-capable final whole-branch review, with exact product-byte binding.
+- [ ] Canonical credential scan, normal hooks/push and automatic PR; main owns CI/queue/actual merge. Do not mark delivery before actual green integration.
