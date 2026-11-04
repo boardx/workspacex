@@ -1,0 +1,14 @@
+{
+  "name": "wiring",
+  "command": [
+    "pnpm",
+    "run",
+    "lint:ui-wiring"
+  ],
+  "source": "4c6e437d87a6c3839c832130a9bea0980b61cb57",
+  "exitCode": 0,
+  "seconds": 3.524,
+  "rawLogLocalPath": "/tmp/6220-sync-private-ec169/wiring.log",
+  "rawLogSha256": "91143fee075e07c8c5577e08efa1fd2dd6d135cbb61bcd82a8e9e8c189b533e8",
+  "environment": {}
+}

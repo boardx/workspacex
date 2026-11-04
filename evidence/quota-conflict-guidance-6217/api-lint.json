@@ -1,0 +1,8 @@
+{
+  "gate": "api-lint",
+  "exit": 0,
+  "seconds": 8.135,
+  "head": "caa95ea43c693e2248a42955d97af10b34f5913a",
+  "rawPrivate": true,
+  "logSha256": "22e9348c7d5f37feb86a31664c37cab52b52cc4ae5e703c88334a091831bc444"
+}
