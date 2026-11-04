@@ -53,7 +53,7 @@ export function SurveyImportWorkspace({ draft, projectId }: { draft: SurveyCreat
       window.sessionStorage.setItem(`${sessionKey}:created-id`, created.id);
       await surveyRequest(`/surveys/${created.id}/source`, { method: "PUT", body: {
         expectedVersion: created.version,
-        documents: { design: canonical, publication: "# 发布设置\n", reportTemplate: serializeSurveyReportTemplateMarkdown(input.template) },
+        documents: { design: canonical, publication: "# 发布设置\n", reportTemplate: serializeSurveyReportTemplateMarkdown(created.template) },
       } }, SurveyRuntimeSchema);
       if (projectId) await linkProjectResource({ projectId, kind: "survey", resourceId: created.id });
       window.sessionStorage.removeItem(sessionKey);

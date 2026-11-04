@@ -14,6 +14,7 @@ export class SurveyDesignDiagnosticsError extends Error {
 }
 /** Resolve display copy with the current locale; preserve unknown/raw diagnostics. */
 export function displaySurveyRuntimeError(error: Error | string, t: Translator, locale: Locale): string {
+  if (error instanceof ApiError) return httpFailureText(error.status, locale);
   if (error instanceof Error && error.cause instanceof ApiError && error.cause.status === 403) return httpFailureText(403, locale);
   if (error instanceof SurveyDesignDiagnosticsError) return error.diagnostics.map(entry => t("survey.design.diagnosticLine", { line: entry.line, message: displaySurveyDiagnostic(entry.message, t) })).join(locale === "en" ? "; " : "；");
   const message = error instanceof Error ? error.message : error;
