@@ -2,6 +2,8 @@ import * as React from "react";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { SurveyCreateCommandSchema, type SurveyRuntime } from "@repo/contracts/survey-runtime";
+import { evaluateSurveyForPublish } from "@repo/contracts/survey-publish-readiness";
+import type { SurveyPublishBlocker } from "@repo/contracts/survey";
 import { serializeSurveyPublicationMarkdown } from "@repo/contracts/survey-source";
 import { I18nProvider, useI18n } from "@/lib/i18n/provider";
 import type { Locale } from "@/lib/i18n/locale";
@@ -175,6 +177,24 @@ it("keeps a template step and the raw report title without loading or saving on 
   await load(runtime(), "template"); const field = screen.getByDisplayValue("原报告 {name}"); language("en");
   expect(screen.getByDisplayValue("原报告 {name}")).toBe(field); expect(screen.getByRole("button", { name: "1. Design survey" })).toHaveAttribute("aria-current", "step");
   expect(boundary.request).toHaveBeenCalledTimes(1); expect(boundary.router.push).not.toHaveBeenCalled();
+});
+
+const blockerCases: [SurveyPublishBlocker["code"], string, string, (value: SurveyRuntime) => SurveyRuntime][] = [
+  ["QUESTIONS_EMPTY", "问卷至少需要一道题", "The survey needs at least one question.", value => ({ ...value, questions: [], template: { ...value.template, sections: [] } })],
+  ["QUESTION_OPTIONS_EMPTY", "选项题必须包含有效选项", "Choice questions need valid options.", value => ({ ...value, questions: [{ ...value.questions[0]!, options: [], config: { optionIds: [] } }] })],
+  ["QUESTION_CONFIG_INVALID", "题目配置不完整或无效", "Question configuration is incomplete or invalid.", value => ({ ...value, questions: [{ ...value.questions[0]!, config: { optionIds: ["raw-a", "raw-b"], step: 0 } }] })],
+  ["MAPPING_INCOMPLETE", "报告章节尚未覆盖对应题目", "Report sections do not cover the corresponding questions.", value => ({ ...value, template: { ...value.template, sections: value.template.sections.map(section => ({ ...section, blocks: section.blocks.map(block => ({ ...block, questionIds: [] })) })) } })],
+  ["LEADING_QUESTION", "题目措辞可能带有诱导性", "Question wording may be leading.", value => ({ ...value, questions: [{ ...value.questions[0]!, title: "显然这是原题 {count}" }] })],
+  ["LOGIC_INVALID", "条件显示或跳转规则无效", "Conditional display or jump rules are invalid.", value => ({ ...value, questions: [{ ...value.questions[0]!, config: { optionIds: ["raw-a", "raw-b"], visibleWhen: [{ questionId: "missing-q", operator: "equals", value: "原条件 {count}" }] } }] })],
+];
+it.each(blockerCases)("renders actual %s publishing blockers without changing their score or authored data", async (code, source, translated, fixture) => {
+  const initial = fixture(runtime()), before = structuredClone(initial);
+  expect(evaluateSurveyForPublish(initial).some(blocker => blocker.code === code)).toBe(true);
+  await load(initial, "design"); const checks = screen.getByRole("region", { name: "设计检查" }); expect(checks).toHaveTextContent(source);
+  const numbers = screen.getByTestId("survey-design-readiness").textContent?.match(/\d+(?:\.\d+)?/g); language("en");
+  expect(screen.getByRole("region", { name: "Design checks" })).toBe(checks); expect(checks).toHaveTextContent(translated);
+  expect(screen.getByTestId("survey-design-readiness").textContent?.match(/\d+(?:\.\d+)?/g)).toEqual(numbers);
+  expect(initial).toEqual(before); expect(screen.getByRole("textbox", { name: "Survey name" })).toHaveValue(rawTitle); expect(boundary.request).toHaveBeenCalledTimes(1);
 });
 
 it("keeps authored success Markdown and canonical publication enums while localizing collection controls", () => {
