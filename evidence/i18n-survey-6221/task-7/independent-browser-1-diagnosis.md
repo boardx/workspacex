@@ -1,0 +1,7 @@
+# Independent selected-two invocation
+
+Exact canonical discovery selected only the original template/CAS and intake titles, onefile/seeded/180000ms/worker1/retry0/maxfail1. Sourcee6dc452f7fd14d3f6f7a3e57dc8f7fd04516deb0. Browser wrapperexit1/344.226s, native expected0/unexpected1/skipped1/flaky0/globalerror1. Template case actually executed13.207s; intake was not run. Ownscope7d4e82e187577f10d824 containers0/volumes0/11listeners0; released before archive/QA.
+
+Actual failure: report preview displayed authored rawBody `原报告正文 **{name}**`, while the driver expected a string with the two literal asterisks removed. The current report text block deliberately renders its text as raw content. Only that assertion changes to `.toContainText(rawBody)`; renderer, saved data, permissions and budgets are untouched. Same-case remaining raw/Markdown assertions were checked together: saved block equality usesrawBody; exported JSON remains canonical; raw names/descriptions/binding IDs are exact; no other stripped-Markdown assumption found.
+
+All3 actual screenshots individually viewed:2 planned unsaved editor375/1280 plus1 native failure preview1280. No material clipping/overlap/readability issue in these captured states. Actual names/body show literal braces/asterisks, fixed chrome is English. These images do not prove remaining CAS/copy/reuse/undo or intake paths. Original raw artifacts/native JSON stay private. Next intake is selected alone so another test cannot starve it.

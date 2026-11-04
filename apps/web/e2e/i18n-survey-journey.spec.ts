@@ -436,7 +436,7 @@ test("survey template locale preserves real CAS saves, independent copies, repor
         expect(calls).toHaveLength(beforeLocale);
         await capture(page, info, "template-unsaved-raw-en", page.getByRole("textbox", { name: "Body", exact: true }));
         await page.getByRole("button", { name: "Preview full report", exact: true }).click();
-        await expect(page.getByTestId("survey-report-document")).toContainText("原报告正文 {name}");
+        await expect(page.getByTestId("survey-report-document")).toContainText(rawBody);
         await capture(page, info, "template-preview-raw-en", page.getByTestId("survey-report-document"));
         await page.getByRole("button", { name: "Back to editing", exact: true }).click();
         held = await holdResponse(page, "/surveys/templates");
