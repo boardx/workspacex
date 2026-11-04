@@ -349,7 +349,7 @@ export const surveyResultsEn: Record<keyof typeof surveyResultsZhCN, string> = {
   "survey.results.samplePolicy": "Sample policy: {policy} · Actual sample size {count}",
   "survey.results.validSampleCount": "Valid sample {count}",
   "survey.results.chaptersCount": "Report chapters · {count}",
-  "survey.results.blocksCount": "{count} content blocks",
+  "survey.results.blocksCount": "Content blocks: {count}",
   "survey.results.blockUp": "Move content block {index} up",
   "survey.results.blockDown": "Move content block {index} down",
   "survey.results.addBlock": "Add {type}",

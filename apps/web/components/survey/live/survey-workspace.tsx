@@ -603,7 +603,7 @@ export function LiveSurveyWorkspace({
                   <section aria-label={t("survey.workspace.share")} className="space-y-4 rounded-lg border border-border bg-card p-4">
                     <div>
                       <h2 className="text-16 font-semibold">{t("survey.workspace.share")}</h2>
-                      <p className="mt-1 text-12 text-muted-foreground">{t("survey.workspace.shareHelp")}{selectedPublication.startsAt && <>{t("survey.workspace.shareStart", { date: new Date(selectedPublication.startsAt).toLocaleString(locale) })}</>}{t("survey.workspace.shareEnd", { date: new Date(selectedPublication.expiresAt).toLocaleString(locale) })}</p>
+                      <p className="mt-1 text-12 text-muted-foreground">{t("survey.workspace.shareHelp")}{" "}{selectedPublication.startsAt && <>{t("survey.workspace.shareStart", { date: new Date(selectedPublication.startsAt).toLocaleString(locale) })}</>}{t("survey.workspace.shareEnd", { date: new Date(selectedPublication.expiresAt).toLocaleString(locale) })}</p>
                     </div>
                     <Input aria-label={t("survey.workspace.responseLink")} readOnly value={link} />
                     <div className="flex flex-wrap items-center gap-4">

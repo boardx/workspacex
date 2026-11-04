@@ -317,7 +317,7 @@ export const surveyWorkspaceEn: Record<keyof typeof surveyWorkspaceZhCN, string>
   "survey.workspace.reportRegenerated": "Report regenerated using the latest responses and report template",
   "survey.workspace.newDraftSuffix": " (new draft)",
   "survey.workspace.savedAt": "Saved · {date}",
-  "survey.workspace.issuesCount": "{count} design issues found",
+  "survey.workspace.issuesCount": "Design issues found: {count}",
   "survey.workspace.minutes": "{count} min",
   "survey.workspace.repairLabel": "Locate and fix: {action}",
   "survey.workspace.mappingTarget": "Question to map: {question}. Select this question in a report content block.",
