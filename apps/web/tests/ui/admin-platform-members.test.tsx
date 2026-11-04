@@ -116,7 +116,9 @@ describe("PlatformMembersScreen", () => {
     render(<PlatformMembersScreen state="default" />);
 
     const failed = await screen.findByTestId("admin-platform-members-failed");
-    expect(failed).toHaveTextContent("DEPENDENCY_UNAVAILABLE");
+    expect(failed).toHaveTextContent("服务器出错了，稍后再试一次");
+    expect(failed).not.toHaveTextContent("DEPENDENCY_UNAVAILABLE");
+    expect(screen.getByRole("button", { name: "重试" })).toBeTruthy();
     expect(screen.queryByTestId("admin-platform-members-list")).toBeNull();
   });
 

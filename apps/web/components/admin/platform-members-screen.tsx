@@ -20,12 +20,12 @@ import type { UiState } from "@/lib/ui-state";
 /** Platform operators read/change organization roles; only superusers grant/revoke platform admins. */
 type Failure =
   | { kind: "LAST_ADMIN" | "MEMBER_NOT_FOUND" | "NOT_PLATFORM_SUPERUSER" }
-  | { kind: "http"; status: number; dependency: boolean }
+  | { kind: "http"; status: number }
   | { kind: "network" };
 function failureCause(error: unknown): Failure {
   if (!(error instanceof ApiError)) return { kind: "network" };
   if (error.reasonCode === "LAST_ADMIN" || error.reasonCode === "MEMBER_NOT_FOUND" || error.reasonCode === "NOT_PLATFORM_SUPERUSER") return { kind: error.reasonCode };
-  return { kind: "http", status: error.status, dependency: error.reasonCode === "DEPENDENCY_UNAVAILABLE" };
+  return { kind: "http", status: error.status };
 }
 type I18n = ReturnType<typeof useI18n>;
 function failureText(failure: Failure, operation: "role" | "admin" | "list", { t, locale }: I18n): string {
@@ -33,7 +33,7 @@ function failureText(failure: Failure, operation: "role" | "admin" | "list", { t
     case "LAST_ADMIN": return t("platformMembers.lastAdmin");
     case "MEMBER_NOT_FOUND": return t(operation === "admin" ? "platformMembers.accountMissing" : "platformMembers.membershipMissing");
     case "NOT_PLATFORM_SUPERUSER": return t(operation === "role" ? "platformMembers.roleDenied" : "platformMembers.adminDenied");
-    case "http": return `${httpFailureText(failure.status, locale)}${failure.dependency ? " (DEPENDENCY_UNAVAILABLE)" : ""}`;
+    case "http": return httpFailureText(failure.status, locale);
     case "network": return httpFailureText(0, locale);
   }
 }
@@ -135,7 +135,7 @@ export function PlatformMembersScreen({ state }: { state: UiState }) {
           </span>
           {load.kind === "ready" && (
             <Button size="xs" variant="outline" className="ml-auto" onClick={() => void reload()} data-testid="admin-platform-members-reload">
-              <RefreshCw aria-hidden className="h-3 w-3" /> {t("platformMembers.refresh")}
+              <RefreshCw aria-hidden className="h-3 w-3" /> {t("adminCommon.refresh")}
             </Button>
           )}
         </div>
@@ -167,7 +167,7 @@ export function PlatformMembersScreen({ state }: { state: UiState }) {
             <p className="text-12 text-muted-foreground">
               {t("platformMembers.loadFailed")} {failureText(load.failure, "list", i18n)}
             </p>
-            <Button size="sm" variant="outline" onClick={() => void reload()}>{t("platformMembers.retry")}</Button>
+            <Button size="sm" variant="outline" onClick={() => void reload()}>{t("adminCommon.retry")}</Button>
           </div>
         )}
 
