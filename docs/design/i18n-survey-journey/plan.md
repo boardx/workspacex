@@ -1,5 +1,10 @@
 # Survey journey localization implementation plan
 
+## Latest continuation — source49b537ec
+
+Current runtime and screenshot findings are recorded once in the [acceptance ledger](../../../evidence/i18n-survey-6221/task-7/README.md#latest-actual-runtime-and-screenshot-findings--41923663240). The latest native run passed all3 original cases first try, but actual46-image QA found two minimal copy/layout issues. Their authorized four-file correction has valid RED/GREEN and scoped lint; exact four-file review is STATIC CLEAN; normal push and fresh author/governance image acceptance remain. PR6251 stays Draft; no delivery or passing claim. No third local Next build;6239 stays deferred. Historical checkpoints below remain source-pinned.
+
+
 > **For agentic workers:** Use superpowers:executing-plans natively in this session. Preserve the original three-chat assignment; reuse the authorized reviewer at final review, do not create additional agents/worktrees.
 
 **Goal:** complete B6 fixed UI localization without modifying authored content, wire formats or runtime continuity.

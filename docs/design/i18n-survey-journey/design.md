@@ -1,5 +1,10 @@
 # Survey journey localization design — #6221
 
+## Latest continuation — source49b537ec
+
+Current runtime and screenshot findings are recorded once in the [acceptance ledger](../../../evidence/i18n-survey-6221/task-7/README.md#latest-actual-runtime-and-screenshot-findings--41923663240). The latest native run passed all3 original cases first try, but actual46-image QA found two minimal copy/layout issues. Their authorized four-file correction has valid RED/GREEN and scoped lint; exact four-file review is STATIC CLEAN; normal push and fresh author/governance image acceptance remain. PR6251 stays Draft; no delivery or passing claim. No third local Next build;6239 stays deferred. Historical checkpoints below remain source-pinned.
+
+
 Spec authority: user-authorized B6 scope in issue6133 and issue6221. Native continuous execution in the original checkout is already authorized; no additional worktree/chat/agent or approval round. Recording PR6220 is tracked alongside B6; current delivery state comes from GitHub while historical proof remains frozen.
 
 Localize fixed author and anonymous-user controls across actual /studio/survey/** and /surveys/[token], including nested dialogs/settings/previews/errors. Reuse existing provider and typed namespace registration. The actual live components, not legacy mocks, are the delivery surface.

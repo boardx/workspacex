@@ -1,0 +1,432 @@
+{
+  "run": 41923663240,
+  "source": "25e8a6b16a242c2e80a9de54bf4c8dc192d7a814",
+  "actualPngs": 46,
+  "allIndividuallyViewed": true,
+  "qa": "FAIL pending minimal fixed-copy/responsive corrections",
+  "templateHeader375Overlap": "Fresh captured corrected; no overlap",
+  "preservedRawData": "Authored/builtin question/template/report/success-page Markdown/model content intentionally unchanged; native input chrome browser-owned",
+  "rawArtifacts": "Private only; capability screenshots not committed",
+  "images": [
+    {
+      "caseDirectory": "i18n-survey-journey-survey-5cd65-s-undo-and-raw-JSON-exports-seeded",
+      "name": "report-template-binding-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "02452d261c605eec57d9fe79f57360138a4f01471e10ee7e15a1d30b8b1a97ad",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-5cd65-s-undo-and-raw-JSON-exports-seeded",
+      "name": "report-template-binding-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "6c1bd964a88ae8a61621a3a7801f37d5ca459931672e062f0e07a4a8ab32a540",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-5cd65-s-undo-and-raw-JSON-exports-seeded",
+      "name": "report-template-restored-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "114e458d03950e467a3cee48635fef41a9ea3f37620da690a14ea7b04f7318c4",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-5cd65-s-undo-and-raw-JSON-exports-seeded",
+      "name": "report-template-restored-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "0d82b286053ac77816dd855a83cf0af7d5e795ab954b8ea947982128d8518e20",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-5cd65-s-undo-and-raw-JSON-exports-seeded",
+      "name": "template-controlled-permission-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "212fb1c5978f4749d68b4616304996cdc7f6f62631821814dcdfa61402200a4f",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-5cd65-s-undo-and-raw-JSON-exports-seeded",
+      "name": "template-controlled-permission-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "d232d0406e9efc063125d70371b6526f8dbf5216d5756bb89d5a3c88695fa9ef",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-5cd65-s-undo-and-raw-JSON-exports-seeded",
+      "name": "template-copy-editor-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "0bdd4c34cf3c7f60cd4d745f36643131dd2fe9eae8527677c069161bf9f183e2",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-5cd65-s-undo-and-raw-JSON-exports-seeded",
+      "name": "template-copy-editor-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "c478ca1a995f9f9474d9a194c0b3fcbc0be605907889590618178d127a838217",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-5cd65-s-undo-and-raw-JSON-exports-seeded",
+      "name": "template-preview-raw-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "f5b36bac15156266a8f1335290368edbf932662057fa0c8556b3d9f61389d0be",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-5cd65-s-undo-and-raw-JSON-exports-seeded",
+      "name": "template-preview-raw-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "d5ce3b9617f072039e11b025af725f3b282cd23450bd0d27ce64333fdbf8ed05",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-5cd65-s-undo-and-raw-JSON-exports-seeded",
+      "name": "template-unsaved-raw-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "a849b1d8af39f10ad6f65c4b870bb05436f0564e39062e418b4670fa2b66fb00",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-5cd65-s-undo-and-raw-JSON-exports-seeded",
+      "name": "template-unsaved-raw-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "ecbdbd9a9401b755a6c119792b362f46ce675050514710128c4a69dd9c0e1870",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-9a3ab--explicit-application-retry-seeded",
+      "name": "import-persisted-design-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "9703375ffb2521558be287315ffb67df573f1808a775008ab1d9d84cd92d5375",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-9a3ab--explicit-application-retry-seeded",
+      "name": "import-persisted-design-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "cfec2222049930986a83ded9c81c3c0b96a94f94630f393a91e1f1c1aac5a791",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-9a3ab--explicit-application-retry-seeded",
+      "name": "intake-create-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "197f6295dfa1bbae002a0365f03b674ad43058e4bafd0200fae78df3c6da22a9",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-9a3ab--explicit-application-retry-seeded",
+      "name": "intake-create-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "9424b0d7491de6e1cf1f3dcea987ff3602a3a4432fbe13f1e6e1d23ed338fb7a",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-9a3ab--explicit-application-retry-seeded",
+      "name": "intake-file-raw-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "d4e13302b23d51cb3592b4263c3ed9278fb2e2b456a9828e7b61f8127654adaf",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-9a3ab--explicit-application-retry-seeded",
+      "name": "intake-file-raw-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "86bfacec472011c479964e4d21eddfd5202a9f94df858f9d47df8b39014d51ff",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-9a3ab--explicit-application-retry-seeded",
+      "name": "proposal-controlled-permission-zh-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "ca9e6e698e3cf868951e21c912fc40b1a53b602d06c9219e490bc29f2af2889c",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-9a3ab--explicit-application-retry-seeded",
+      "name": "proposal-controlled-permission-zh-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "69fceed79fa54ca4f14f309f54794156e1d24c9d0cbf43446c545180755416d7",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-9a3ab--explicit-application-retry-seeded",
+      "name": "proposal-corrected-raw-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "4158ad4fa846b30a171bc471cd6225ac40e8be832e42b768da51d568547b9068",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-9a3ab--explicit-application-retry-seeded",
+      "name": "proposal-corrected-raw-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "ac570f2207a4c7f3f359feb7199dc11e76a1ff206d1e3123cfbc782c6962d268",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-c707d-t-and-PostgreSQL-identities-seeded",
+      "name": "designer-raw-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "2c3309a4f985c05a4cd19f968bd01def8ac90ffe13b64792ae0d2a1e42bdbf83",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-c707d-t-and-PostgreSQL-identities-seeded",
+      "name": "designer-raw-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "8ec08b179c7e9b3268ef2275f76b78f9101bec6addc36cf7e6c72398cdcee743",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-c707d-t-and-PostgreSQL-identities-seeded",
+      "name": "public-file-raw-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "52c64d1a30135041c64235d35c93736cf59b16f63b8dbd47ab831b99bddfdfc6",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-c707d-t-and-PostgreSQL-identities-seeded",
+      "name": "public-file-raw-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "fc40fe2ba121e5eed1c3450920c4757eb65da99db5cdbe1b8b4e34fdaa8e2975",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-c707d-t-and-PostgreSQL-identities-seeded",
+      "name": "public-success-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "d450bd4102037758f792243b829edc52ebb0871e327aa771656a827c65a8ae9e",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-c707d-t-and-PostgreSQL-identities-seeded",
+      "name": "public-success-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "a7c2cea16817725fa9ca83d3db9c3ce26d76403d5f87ad422f32c28c364cd1b0",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-c707d-t-and-PostgreSQL-identities-seeded",
+      "name": "public-validation-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "9e5551ea3047527c8257922e67c72a4b1110499b3f8a28c4bc59e3a5e6aa7f64",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-c707d-t-and-PostgreSQL-identities-seeded",
+      "name": "public-validation-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "e306542a7c33145a03851d6db031b59876126cfd95a86e03627b1439d1334afd",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-c707d-t-and-PostgreSQL-identities-seeded",
+      "name": "publication-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "cd93e90227c715537d14a7a1bfeadde784cbf86715d1b5cea40689721d1d9dd4",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-c707d-t-and-PostgreSQL-identities-seeded",
+      "name": "publication-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "3fa02e681ab0ccda539eedf10ef22d47a2a78bdcd8e733517fa557f805f2ddf6",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-c707d-t-and-PostgreSQL-identities-seeded",
+      "name": "publication-settings-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "cd93e90227c715537d14a7a1bfeadde784cbf86715d1b5cea40689721d1d9dd4",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-c707d-t-and-PostgreSQL-identities-seeded",
+      "name": "publication-settings-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "0c0460075cbbba8d7c8296cdf12ece1725139309f1401b99dc59a00809515e81",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-c707d-t-and-PostgreSQL-identities-seeded",
+      "name": "question-library-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "af38a495ea2bce121fc8d490f24a18da604aefd9729f679db0634bba9cdba067",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-c707d-t-and-PostgreSQL-identities-seeded",
+      "name": "question-library-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "50a17d132c5c8196e5cee17f3bf91474b04241803a869da41321cb442f344df7",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-c707d-t-and-PostgreSQL-identities-seeded",
+      "name": "report-chart-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "fb7aba7618f8a60e642f7f9320dc891acdad81967a21094e32b71c8dd27b9502",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-c707d-t-and-PostgreSQL-identities-seeded",
+      "name": "report-chart-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "e52920e441cb50170f503e26c6c8227beedf5eae02f4bc395933253615a8e8a6",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-c707d-t-and-PostgreSQL-identities-seeded",
+      "name": "report-file-binding-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "dc91ef16a444e7f6d2bc9c6fef122e29c2da697982347b456569fdab83a93466",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-c707d-t-and-PostgreSQL-identities-seeded",
+      "name": "report-file-binding-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "dd751d58e0c211aedbac39c4772251bb173f8562500f28107712975213e79d3e",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-c707d-t-and-PostgreSQL-identities-seeded",
+      "name": "report-low-sample-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "a90ea559e6996a19c821799138c966f2204a25f9fc986b26b60aacd9172d6996",
+      "individuallyViewed": true,
+      "findings": [
+        "Singular sample notice rendered as Only 1 responses are included"
+      ]
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-c707d-t-and-PostgreSQL-identities-seeded",
+      "name": "report-low-sample-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "773d31ea30af7703037a22f37fbdac945e7ea7ec8758ae25ce02d328450cb4e5",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-c707d-t-and-PostgreSQL-identities-seeded",
+      "name": "report-ready-exports-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "6aa6b7a5d60255b655389e890ffc18c8f16c0d86edd6466ac73618ce986c63e1",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-c707d-t-and-PostgreSQL-identities-seeded",
+      "name": "report-ready-exports-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "5c70e9018cf6cb78c294536730a6f8de392466e636274d8e6744fff1d46605d0",
+      "individuallyViewed": true,
+      "findings": []
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-c707d-t-and-PostgreSQL-identities-seeded",
+      "name": "response-governance-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "c41dfcb099f22b3679a5dc87854297c3ed276f0ac4ce15519b9e1c3775dbfc3a",
+      "individuallyViewed": true,
+      "findings": [
+        "Singular count rendered as 1 responses"
+      ]
+    },
+    {
+      "caseDirectory": "i18n-survey-journey-survey-c707d-t-and-PostgreSQL-identities-seeded",
+      "name": "response-governance-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "4f5cfd2318b7f1009e5aa681fd4dcfc2cf5513a0c266bcc000d3cc24bf975e64",
+      "individuallyViewed": true,
+      "findings": [
+        "Detail card controls and long raw metadata locally clipped to right; document-wide overflow assertion alone insufficient"
+      ]
+    }
+  ]
+}

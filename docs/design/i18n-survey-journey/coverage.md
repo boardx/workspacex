@@ -1,5 +1,10 @@
 # B6 internationalization review surface
 
+## Latest continuation — source49b537ec
+
+Current runtime and screenshot findings are recorded once in the [acceptance ledger](../../../evidence/i18n-survey-6221/task-7/README.md#latest-actual-runtime-and-screenshot-findings--41923663240). The latest native run passed all3 original cases first try, but actual46-image QA found two minimal copy/layout issues. Their authorized four-file correction has valid RED/GREEN and scoped lint; exact four-file review is STATIC CLEAN; normal push and fresh author/governance image acceptance remain. PR6251 stays Draft; no delivery or passing claim. No third local Next build;6239 stays deferred. Historical checkpoints below remain source-pinned.
+
+
 Source branch worker/i18n-survey-journey-6221 @e6dc452f7fd14d3f6f7a3e57dc8f7fd04516deb0. Current full/source diffs are derived from the named Git source, with runtime API/contracts unchanged and the6239 diagnostic test removed. Source-only review excludes evidence; no attachment parser/decoder implementation belongs to B6. These artifacts are review views, not completion evidence.
 
 | Surface / actual route | Fixed UI scope | Current verification boundary |

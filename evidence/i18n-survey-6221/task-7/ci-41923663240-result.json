@@ -1,0 +1,69 @@
+{
+  "run": 41923663240,
+  "job": 126904080869,
+  "artifact": 13368809829,
+  "artifactBytes": 117924230,
+  "artifactSha256": "ce1ec4a0ba52c4836607db6d14932036005b714bfc08f21f62c46b6f414f2136",
+  "nativeReportSha256": "5342376ec8410e26fa92c9bc1be843ddb7773c00b9475d78066d154df5a1d1fe",
+  "branchHead": "25e8a6b16a242c2e80a9de54bf4c8dc192d7a814",
+  "actualCheckout": "acdd7546d99d31c5059d7fb0645b8c00ad7a0de1",
+  "confirmedCheckoutParents": [
+    "ef49474134137e7d07cef97577d4799fbd9c0eb8",
+    "25e8a6b16a242c2e80a9de54bf4c8dc192d7a814"
+  ],
+  "stats": {
+    "startTime": "2026-11-04T22:21:10.367Z",
+    "duration": 1699482.355,
+    "expected": 216,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "globalErrors": 0,
+  "workers": 2,
+  "cases": [
+    {
+      "title": "survey template locale preserves real CAS saves, independent copies, report bindings, undo and raw JSON exports",
+      "status": "expected",
+      "timeoutMs": 180000,
+      "attempts": [
+        {
+          "retry": 0,
+          "status": "passed",
+          "durationMs": 20713,
+          "errorCount": 0
+        }
+      ]
+    },
+    {
+      "title": "survey intake locale preserves real file bytes, one configured proposal, corrected Markdown and explicit application retry",
+      "status": "expected",
+      "timeoutMs": 180000,
+      "attempts": [
+        {
+          "retry": 0,
+          "status": "passed",
+          "durationMs": 9449,
+          "errorCount": 0
+        }
+      ]
+    },
+    {
+      "title": "survey locale preserves real author publishing, anonymous file submission, review, report and PostgreSQL identities",
+      "status": "expected",
+      "timeoutMs": 180000,
+      "attempts": [
+        {
+          "retry": 0,
+          "status": "passed",
+          "durationMs": 91883,
+          "errorCount": 0
+        }
+      ]
+    }
+  ],
+  "actualPngs": 46,
+  "runtimeVerdict": "Original three cases each first-attempt PASS; screenshot QA has two classes of remaining findings, not READY",
+  "modelBoundary": "Configured loopback, not external provider quality",
+  "deferred6239": "Unfixed and uncovered; original ASCII filename and original55UTF8 bytes retained"
+}

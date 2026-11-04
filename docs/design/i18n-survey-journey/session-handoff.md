@@ -1,5 +1,10 @@
 # Survey acceptance continuation
 
+## Latest continuation — source49b537ec
+
+Current runtime and screenshot findings are recorded once in the [acceptance ledger](../../../evidence/i18n-survey-6221/task-7/README.md#latest-actual-runtime-and-screenshot-findings--41923663240). The latest native run passed all3 original cases first try, but actual46-image QA found two minimal copy/layout issues. Their authorized four-file correction has valid RED/GREEN and scoped lint; exact four-file review is STATIC CLEAN; normal push and fresh author/governance image acceptance remain. PR6251 stays Draft; no delivery or passing claim. No third local Next build;6239 stays deferred. Historical checkpoints below remain source-pinned.
+
+
 ## Current Draft checkpoint — remote run 41914710802 and source72b0
 
 Draft [PR6251](https://github.com/boardx/workspacex/pull/6251) remains **not READY**. Its first existing remote fullstack run checked out merge0c3302f (parent includes published fbbd0beb). Native total96PASS/1unexpected/119skipped/0flaky/global1; the author case failed on both original CI attempts (19.183s/19.239s), while template and intake were maxfail-unrun. This is not native3PASS.
