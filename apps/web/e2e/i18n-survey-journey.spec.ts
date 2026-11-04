@@ -7,6 +7,8 @@ import { readFile, writeFile } from "node:fs/promises";
 import { SurveyRuntimeSchema, type SurveyRuntime } from "@repo/contracts/survey-runtime";
 import { SurveyLibraryTemplateSchema } from "@repo/contracts/survey-template-library";
 import { parseSurveyPublicationMarkdown } from "@repo/contracts/survey-source";
+import { surveyChoices } from "@repo/contracts/survey-question-types";
+import { balancedMeetingSupplementalAnswers, firstSupplementalBatchSize, supplementalWindowPauseMs } from "./support/survey-balanced-report-samples";
 import { surveyAccountFixture } from "./support/survey-owned-organization";
 import { surveyI18nDatabaseEvidence } from "./support/survey-i18n-evidence";
 import { FULLSTACK_E2E as F } from "./fullstack-smoke-fixture";
@@ -312,23 +314,35 @@ test("survey locale preserves real author publishing, anonymous file submission,
         await capture(page, info, "report-low-sample-en", page.getByTestId("survey-report-sample-summary"));
         await expect(page.getByRole("button", { name: "Export Word", exact: true })).toBeDisabled();
         await expect(page.getByRole("button", { name: "Export Markdown", exact: true })).toBeDisabled();
-        const supplementalCount = SURVEY_REPORT_SHARE_MIN_SAMPLE - 1;
-        const supplementalAnswers = submission.answers.filter(answer => answer.questionId !== fileQuestion.id);
+        const supplementalAnswers = balancedMeetingSupplementalAnswers(saved.questions, submission.answers);
+        const supplementalCount = supplementalAnswers.length, expectedResponseCount = supplementalCount + 1;
+        expect(expectedResponseCount).toBe(4 * SURVEY_REPORT_SHARE_MIN_SAMPLE);
+        let rateWindowPauses = 0, rateWindowWaitMs = 0;
         for (let index = 0; index < supplementalCount; index++) {
+            if (index === firstSupplementalBatchSize) {
+                // The first batch plus the real upload-session/UI submission
+                // fills the guard's actual budget. Age every prior hit out,
+                // measured after the last response; do not spoof peers or time.
+                const pauseStarted = performance.now();
+                await page.waitForTimeout(supplementalWindowPauseMs);
+                rateWindowWaitMs += performance.now() - pauseStarted;
+                rateWindowPauses++;
+            }
             const respondentApi = await browser.newContext();
             try {
                 const endpoint = `${new URL(publicUrl).origin}${API}/public/surveys/${token}`;
                 const publicRead = await respondentApi.request.get(endpoint);
                 expect(publicRead.ok()).toBe(true);
-                const accepted = await respondentApi.request.post(`${endpoint}/responses`, { data: { submissionId: randomUUID(), answers: supplementalAnswers, durationSeconds: 120, role: `原API补充样本 ${index + 1}`, companySize: "原范围" } });
+                const accepted = await respondentApi.request.post(`${endpoint}/responses`, { data: { submissionId: randomUUID(), answers: supplementalAnswers[index], durationSeconds: 120, role: `原API补充样本 ${index + 1}`, companySize: "原范围" } });
                 expect(accepted.ok()).toBe(true);
                 expect((await accepted.json()).replayed).toBe(false);
             } finally { await respondentApi.close(); }
         }
+        expect(rateWindowPauses).toBe(Number(supplementalCount > firstSupplementalBatchSize));
         const regenerated = page.waitForResponse(response => pathOf(response.url()) === `/surveys/${id}/report` && response.request().method() === "POST");
         await page.getByRole("button", { name: "Regenerate report", exact: true }).click();
         expect((await regenerated).ok()).toBe(true);
-        await expect(page.getByTestId("survey-report-sample-summary")).toContainText(`Included in analysis ${SURVEY_REPORT_SHARE_MIN_SAMPLE}`);
+        await expect(page.getByTestId("survey-report-sample-summary")).toContainText(`Included in analysis ${expectedResponseCount}`);
         await expect(page.getByRole("button", { name: "Export Word", exact: true })).toBeEnabled();
         await expect(page.getByRole("button", { name: "Export Markdown", exact: true })).toBeEnabled();
         await capture(page, info, "report-ready-exports-en", page.getByRole("button", { name: "Export Word", exact: true }));
@@ -356,7 +370,10 @@ test("survey locale preserves real author publishing, anonymous file submission,
         expect(documentXml).toContain("原建议 {name}");
         expect(documentXml).toContain("</w:document>");
         const final = await runtime(page, id), finalDb = surveyI18nDatabaseEvidence(account.userId, id);
-        expect(final.responses).toHaveLength(SURVEY_REPORT_SHARE_MIN_SAMPLE);
+        expect(final.responses).toHaveLength(expectedResponseCount);
+        const durationQuestion = final.questions.find(question => question.type === "single" && question.title === "会议时长是否合适？")!;
+        const outputGroupCounts = surveyChoices(durationQuestion).map(choice => ({ optionId: choice.id, count: final.responses.filter(response => response.answers.find(answer => answer.questionId === durationQuestion.id)?.value === choice.id).length }));
+        for (const group of outputGroupCounts) expect(group.count).toBe(SURVEY_REPORT_SHARE_MIN_SAMPLE);
         expect(finalDb.responses).toEqual(final.responses);
         expect(finalDb.report).toEqual(final.report);
         expect(finalDb.responses[0]!.analysisHistory).toHaveLength(2);
@@ -371,7 +388,7 @@ test("survey locale preserves real author publishing, anonymous file submission,
         await expect(report.locator("[data-chart] svg").first()).toBeVisible();
         await capture(page, info, "report-chart-en", report.locator("[data-chart]").first());
         expect(errors).toEqual([]);
-        await writeFile(info.outputPath("survey-mutation-receipt.json"), JSON.stringify({ testRetry: info.retry, testTimeoutMs: info.timeout, surveyId: id, responseId, batchId: final.activeCollectionBatchId, publicationVersion: final.publication!.version, sourceHash: final.publication!.sourceSnapshot!.contentHash, fileSha256: sha(bytes), fileSize: bytes.length, answerSha256: sha(JSON.stringify(submission.answers)), responseCount: final.responses.length, uiSubmissions: 1, supplementalApiSubmissions: supplementalCount, canonicalMarkdownSha256: sha(englishMarkdown), wordBytesSha256: sha(wordBytes), wordDocumentXmlSha256: sha(documentXml), governanceEvents: finalDb.responses[0]!.analysisHistory!.length, uploadSessions: database.uploadSessions.length, attachments: database.attachments.length, apiAndPgAgree: true }, null, 2));
+        await writeFile(info.outputPath("survey-mutation-receipt.json"), JSON.stringify({ testRetry: info.retry, testTimeoutMs: info.timeout, surveyId: id, responseId, batchId: final.activeCollectionBatchId, publicationVersion: final.publication!.version, sourceHash: final.publication!.sourceSnapshot!.contentHash, fileSha256: sha(bytes), fileSize: bytes.length, answerSha256: sha(JSON.stringify(submission.answers)), responseCount: final.responses.length, uiSubmissions: 1, supplementalApiSubmissions: supplementalCount, outputGroupCounts, rateWindowPauses, rateWindowWaitMs, canonicalMarkdownSha256: sha(englishMarkdown), wordBytesSha256: sha(wordBytes), wordDocumentXmlSha256: sha(documentXml), governanceEvents: finalDb.responses[0]!.analysisHistory!.length, uploadSessions: database.uploadSessions.length, attachments: database.attachments.length, apiAndPgAgree: true }, null, 2));
     }
     finally {
         await held?.dispose();
