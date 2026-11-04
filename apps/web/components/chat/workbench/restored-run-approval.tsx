@@ -256,6 +256,7 @@ function ApprovalSession({ runId, bearer, canWrite = true, fallbackInterrupt, ho
         </p> : null}
         {request ? <fieldset
           data-testid="chat-task-workbench-approval-card"
+          className="w-full min-w-0"
           data-risk="L2"
           disabled={!canWrite || pending || !request.permissionRequestId}
         >

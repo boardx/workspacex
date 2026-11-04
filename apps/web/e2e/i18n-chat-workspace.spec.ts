@@ -258,7 +258,7 @@ test("permission dialog locale switch and Escape submit no decision; explicit on
     for (const width of [1280, 375]) {
       await page.setViewportSize({ width, height: 900 });
       await picture(page, info, `permission-zh-${width}`);
-      for (const id of ["chat-tool-permission-dialog", "tool-permission-card", "perm-once", "perm-run", "perm-always", "perm-deny"]) {
+      for (const id of ["chat-tool-permission-dialog", "chat-task-workbench-approval-card", "tool-permission-card", "perm-once", "perm-run", "perm-always", "perm-deny"]) {
         const element = page.getByTestId(id);
         await expect(element).toBeVisible();
         const box = await element.boundingBox();
