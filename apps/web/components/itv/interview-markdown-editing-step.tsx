@@ -1,4 +1,7 @@
 "use client";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/locale";
+import { translate } from "@/lib/i18n/messages";
+import { useI18n } from "@/lib/i18n/provider";
 import * as React from "react";
 import { useInterviewRevalidation, useInterviewSessionValue, useInterviewSource } from "./interview-session-provider";
 import { interviewMarkdown } from "@repo/contracts";
@@ -14,10 +17,11 @@ import { InterviewOutlineStep, normalizeOutlineForPersistence, type InterviewOut
 
 type InterviewEditingAction = InterviewOutlineAction | "retry" | "reload";
 
-export function generationUnavailableMessage(step: "experts" | "outline" | null) {
-  return step === "experts"
-    ? "AI 服务暂时不可用，未能生成专家建议。当前专家编辑已保留，你可以重新生成专家或稍后继续。"
-    : "AI 服务暂时不可用，未能生成访谈问题。专家选择与当前编辑均已保留，你可以重新生成问题或稍后继续。";
+function generationUnavailableKey(step: "experts" | "outline" | null) {
+  return step === "experts" ? "itv.editing.expertsUnavailable" : "itv.editing.questionsUnavailable";
+}
+export function generationUnavailableMessage(step: "experts" | "outline" | null, locale: Locale = DEFAULT_LOCALE) {
+  return translate(locale, generationUnavailableKey(step));
 }
 
 export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChange, onDirtyChange, onContinue, onRunningStepChange }: {
@@ -25,6 +29,7 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
   onDirtyChange: (dirty: boolean) => void; onContinue: (step: "experts" | "outline" | "runs") => void;
   onRunningStepChange?: (step: string | null) => void;
 }) {
+ const { t } = useI18n();
   const session = React.useSyncExternalStore(subscribeInterviewGeneration, () => getInterviewGenerationSession(interviewId), () => null);
   const { source, setSource, refresh, cache } = useInterviewSource(interviewId);
   const [markdown, setMarkdown] = React.useState(() => source?.documents.find(doc => doc.step === step)?.markdown ?? "");
@@ -39,7 +44,7 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
   const [operationState, setOperationState] = React.useState<{ kind: InterviewEditingAction; step: typeof step; interviewId: string } | null>(null);
   const activeOperation = operationState?.step === step && operationState.interviewId === interviewId ? operationState.kind : null;
   const [generating, setGenerating] = React.useState(false);
-  const [error, setError] = React.useState("");
+  const [error, setError] = React.useState<import("@/lib/i18n/messages").MessageKey | "">("");
   const [retryGenerationStep, setRetryGenerationStep] = React.useState<"experts" | "outline" | null>(null);
   const sessionRunning = session?.step === step && session.status === "running" && (!source || !session.revisionId || session.revisionId === source.revisionId);
   React.useEffect(() => { onRunningStepChange?.(pending || sessionRunning ? step : null); }, [pending, sessionRunning, step, onRunningStepChange]);
@@ -66,7 +71,7 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
       if (next.version < latestVersion.current) return;
       receive(next); if (!dirty.current) setMarkdown(next.documents.find((doc) => doc.step === step)?.markdown ?? "");
       callbacks.current.onVersionChange(next.version); if (!dirty.current) callbacks.current.onDirtyChange(false);
-    }).catch(() => { if (!controller.signal.aborted) setError("文档载入失败。请重试，不会用示例内容替代。"); })
+    }).catch(() => { if (!controller.signal.aborted) setError("itv.editing.loadFailed"); })
       .finally(() => { if (!controller.signal.aborted) setPending(false); });
     return () => controller.abort();
   }, [interviewId, step, receive, cache, refresh]);
@@ -87,10 +92,10 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
         try { const next = receive(await loadInterviewMarkdown(interviewId)); if (!dirty.current) setMarkdown(next.documents.find((doc) => doc.step === step)?.markdown ?? ""); } catch { /* Retain editable draft. */ }
       }
       setError(cause instanceof ApiError && cause.status === 409
-        ? "版本冲突或文档已确认；当前编辑保留，不能覆盖确认版本。"
+        ? "itv.editing.versionConflict"
         : cause instanceof ApiError && cause.reasonCode === "AI_GENERATION_UNAVAILABLE"
-          ? generationUnavailableMessage(generationStep)
-          : "操作未完成，当前编辑保留。请重试。");
+          ? generationUnavailableKey(generationStep)
+          : "itv.editing.operationFailed");
       setRetryGenerationStep(cause instanceof ApiError && cause.reasonCode === "AI_GENERATION_UNAVAILABLE" ? generationStep : null);
     } finally { setPending(false); setOperationState(current => current === active ? null : current); }
   }
@@ -153,14 +158,14 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
     if (source && session.revisionId && session.revisionId !== source.revisionId) {
       observedGeneration.current = false; setGenerating(false); clearInterviewGenerationSession(interviewId, session); return;
     }
-    if (session.status === "failed" && source && session.revisionId === source.revisionId) { setError(generationUnavailableMessage("outline")); setRetryGenerationStep("outline"); }
+    if (session.status === "failed" && source && session.revisionId === source.revisionId) { setError(generationUnavailableKey("outline")); setRetryGenerationStep("outline"); }
     if (session.status === "running") { observedGeneration.current = true; setPending(true); setGenerating(true); }
     else if (observedGeneration.current) {
       observedGeneration.current = false;
       setPending(false); setGenerating(false);
       if (session.source && !dirty.current && session.source.version >= latestVersion.current) { receive(session.source); setMarkdown(session.source.documents.find(doc => doc.step === "outline")?.markdown ?? ""); }
       if (session.status === "completed") clearInterviewGenerationSession(interviewId, session);
-      if (session.status === "failed") { setError(generationUnavailableMessage("outline")); setRetryGenerationStep("outline"); }
+      if (session.status === "failed") { setError(generationUnavailableKey("outline")); setRetryGenerationStep("outline"); }
     }
   }, [session, step, source, receive, interviewId]);
   const loadingAction = activeOperation === "retry" || activeOperation === "reload" ? null : activeOperation ?? (sessionRunning ? "generate" : null);
@@ -199,20 +204,20 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
     onSave: () => void action(async () => { await save(source ?? await loadInterviewMarkdown(interviewId)); }, null, "save"),
     onConfirm: () => void action(confirm, step === "experts" ? "outline" : null, "confirm"),
     onGenerate: () => {
-      if (immutable) { setError("已确认文档只读；需创建新修订后才能重新生成。"); return; }
-      if (markdown.trim() && markdown !== saved?.markdown) { setError("请先保存或审阅当前编辑，再生成新建议。当前文字不会被丢弃。"); return; }
+      if (immutable) { setError("itv.editing.immutable"); return; }
+      if (markdown.trim() && markdown !== saved?.markdown) { setError("itv.editing.saveFirst"); return; }
       setGenerating(true);
       void action(async () => {
         await generateStep(step);
       }, step, "generate").finally(() => setGenerating(false));
     },
   };
-  if (!source && !error) return <p role="status" className="animate-pulse rounded-xl border border-border p-8 text-sm text-muted-foreground">正在载入访谈资料…</p>;
-  return <div>{draftConflict && <div role="alert" className="mb-4 rounded-lg border border-border p-4 text-sm">后端访谈资料已更新，当前未保存编辑已保留。请复制需要保留的修改，再采用最新版本。<Button variant="outline" className="ml-3" onClick={() => { setMarkdown(source?.documents.find(doc => doc.step === step)?.markdown ?? ""); dirty.current = false; draftBase.current = null; callbacks.current.onDirtyChange(false); }}>放弃本地修改，采用最新版本</Button></div>}{error && <div role="alert" className="mb-5 rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive"><p>{error}</p><div className="mt-3 flex flex-wrap gap-2"><WorkflowActionButton variant="outline" loading={activeOperation === "retry" || activeOperation === "reload"} disabled={pending} onClick={retryGenerationStep ? () => {
+  if (!source && !error) return <p role="status" className="animate-pulse rounded-xl border border-border p-8 text-sm text-muted-foreground">{t("itv.editing.loading")}</p>;
+  return <div>{draftConflict && <div role="alert" className="mb-4 rounded-lg border border-border p-4 text-sm">{t("itv.editing.remoteConflict")}<Button variant="outline" className="ml-3" onClick={() => { setMarkdown(source?.documents.find(doc => doc.step === step)?.markdown ?? ""); dirty.current = false; draftBase.current = null; callbacks.current.onDirtyChange(false); }}>{t("itv.adoptLatest")}</Button></div>}{error && <div role="alert" className="mb-5 rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive"><p>{t(error)}</p><div className="mt-3 flex flex-wrap gap-2"><WorkflowActionButton variant="outline" loading={activeOperation === "retry" || activeOperation === "reload"} disabled={pending} onClick={retryGenerationStep ? () => {
     setGenerating(true);
     void action(async () => {
       await generateStep(retryGenerationStep);
       if (step === "experts" && retryGenerationStep === "outline") callbacks.current.onContinue("outline");
     }, retryGenerationStep, "retry").finally(() => setGenerating(false));
-  } : () => void action(async () => { const next = receive(await loadInterviewMarkdown(interviewId)); if (!dirty.current) setMarkdown(next.documents.find((doc) => doc.step === step)?.markdown ?? ""); setDirectoryEpoch((value) => value + 1); })}>{retryGenerationStep === "outline" ? "重新生成问题" : retryGenerationStep === "experts" ? "重新生成专家" : "重新载入（保留编辑）"}</WorkflowActionButton>{retryGenerationStep === "outline" && step === "outline" && <Button variant="ghost" disabled={pending} onClick={() => callbacks.current.onContinue("experts")}>返回专家选择</Button>}</div></div>}{step === "experts" ? <InterviewExpertsStep {...props} directory={directory} directoryStatus={directoryStatus} showRecoveryContext={savedStatus === "failed"} onRetryDirectory={() => setDirectoryEpoch((value) => value + 1)} /> : <InterviewOutlineStep {...props} loadingAction={loadingAction} generating={generating} directory={directory} expertsDocument={source?.documents.find((doc) => doc.step === "experts")} />}</div>;
+  } : () => void action(async () => { const next = receive(await loadInterviewMarkdown(interviewId)); if (!dirty.current) setMarkdown(next.documents.find((doc) => doc.step === step)?.markdown ?? ""); setDirectoryEpoch((value) => value + 1); })}>{retryGenerationStep === "outline" ? t("itv.editing.regenerateQuestions") : retryGenerationStep === "experts" ? t("itv.editing.regenerateExperts") : t("itv.editing.reload")}</WorkflowActionButton>{retryGenerationStep === "outline" && step === "outline" && <Button variant="ghost" disabled={pending} onClick={() => callbacks.current.onContinue("experts")}>{t("itv.editing.backExperts")}</Button>}</div></div>}{step === "experts" ? <InterviewExpertsStep {...props} directory={directory} directoryStatus={directoryStatus} showRecoveryContext={savedStatus === "failed"} onRetryDirectory={() => setDirectoryEpoch((value) => value + 1)} /> : <InterviewOutlineStep {...props} loadingAction={loadingAction} generating={generating} directory={directory} expertsDocument={source?.documents.find((doc) => doc.step === "experts")} />}</div>;
 }

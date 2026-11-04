@@ -1,0 +1,9 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/api
+
+ ✓ tests/identity/activity-display.test.ts (11 tests) 30ms
+
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+   Start at  16:37:46
+   Duration  8.11s (transform 3.35s, setup 0ms, collect 7.41s, tests 30ms, environment 0ms, prepare 241ms)

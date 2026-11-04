@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
 import * as React from "react";
 import { InterviewSessionCache } from "@/lib/interview-session-cache";
 import { loadInterviewMarkdown, type InterviewMarkdownEnvelope } from "@/lib/interview-markdown-api";
@@ -35,9 +36,10 @@ export function useInterviewRevalidation(key: string, refresh: () => Promise<unk
 
 /** Standalone legacy surfaces retain local state; named routes share their layout. */
 export function useInterviewSource(interviewId: string) {
+  const { t } = useI18n();
   const key = `source/${interviewId}`;
   const { cache, value: shared } = useInterviewSessionValue<InterviewMarkdownEnvelope>(key);
-  const { value: syncError } = useInterviewSessionValue<string>(`sync-error/${interviewId}`);
+  const { value: syncError } = useInterviewSessionValue<boolean>(`sync-error/${interviewId}`);
   const [local, setLocal] = React.useState<InterviewMarkdownEnvelope | null>(null);
   const setSource = React.useCallback((next: InterviewMarkdownEnvelope | null) => {
     if (!next || next.interviewId !== interviewId) return;
@@ -47,9 +49,9 @@ export function useInterviewSource(interviewId: string) {
     const read = () => loadInterviewMarkdown(interviewId);
     try {
       const next = await (cache ? cache.read(key, read) : read());
-      cache?.put(`sync-error/${interviewId}`, ""); return next;
-    } catch (cause) { cache?.put(`sync-error/${interviewId}`, "最新访谈数据同步失败，已显示的内容保留。"); throw cause; }
+      cache?.put(`sync-error/${interviewId}`, false); return next;
+    } catch (cause) { cache?.put(`sync-error/${interviewId}`, true); throw cause; }
   }, [cache, key, interviewId]);
   useInterviewRevalidation(key, refresh);
-  return { source: cache ? shared : local?.interviewId === interviewId ? local : null, setSource, refresh, cache, syncError };
+  return { source: cache ? shared : local?.interviewId === interviewId ? local : null, setSource, refresh, cache, syncError: syncError ? t("itv.syncFailed") : null };
 }

@@ -1,0 +1,200 @@
+{
+  "init-final": {
+    "exitCode": 0,
+    "rawLogSha256": "b9454ea9b0cef337e754f5577a3ea517168d367f1dafc79e9a75b55ad28d998d",
+    "rawLogLocalPath": "/tmp/6198-init-final.log"
+  },
+  "web-typecheck-final": {
+    "exitCode": 0,
+    "rawLogSha256": "cd5788cc155241ad0932956ca7dd287ae173e2f213993b615bdafdcb93bc7ce4",
+    "rawLogLocalPath": "/tmp/6198-web-typecheck-final.log"
+  },
+  "scoped-eslint-final": {
+    "exitCode": 0,
+    "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "rawLogLocalPath": "/tmp/6198-scoped-eslint-final.log"
+  },
+  "final-focused-tests": {
+    "exitCode": 0,
+    "rawLogSha256": "e399a97b7654d0f75fef4e381d0b005a22f2fdc9260fc25584a2591a4ac914c7",
+    "rawLogLocalPath": "/tmp/6198-final-focused-tests.log"
+  },
+  "vitest-reachability": {
+    "exitCode": 0,
+    "rawLogSha256": "f4172c2a80a8546be0c9f7afb4fcb30eff664da1fc624a7851feca8c4e7d1fb7",
+    "rawLogLocalPath": "/tmp/6198-vitest-reachability.log"
+  },
+  "playwright-list": {
+    "exitCode": 0,
+    "rawLogSha256": "2ed5f2832977cd13ccc2835690d9a32de2a82fcbd6d2a5253e17f77b7008b5b1",
+    "rawLogLocalPath": "/tmp/6198-playwright-list.log"
+  },
+  "entry-green-workspace-red": {
+    "exitCode": 1,
+    "rawLogSha256": "286bdf6a8ffa54b762feb44b85fffc98ace206d8d954ed6247ed94d3af89eff1",
+    "rawLogLocalPath": "/tmp/6198-entry-green-workspace-red.log"
+  },
+  "workspace-green-first": {
+    "exitCode": 0,
+    "rawLogSha256": "0cb52b6fef24fd9d03be0c01f992b1f2cb04bbd3d9869d9884905d38f73212c1",
+    "rawLogLocalPath": "/tmp/6198-workspace-green-first.log"
+  },
+  "overlays-red": {
+    "exitCode": 1,
+    "rawLogSha256": "554e880ab476c59b1ab0424826c0645446c309bf5957f9d34a5e28bd57f0b219",
+    "rawLogLocalPath": "/tmp/6198-overlays-red.log"
+  },
+  "overlays-green": {
+    "exitCode": 0,
+    "rawLogSha256": "a44f0491456802216769597d0be92d3876941442ce8144019d3a0010c3a44f66",
+    "rawLogLocalPath": "/tmp/6198-overlays-green.log"
+  },
+  "new-title-red": {
+    "exitCode": 1,
+    "rawLogSha256": "39a9ccb55f2a57e6333e5d499d44dade4e19232e7015e258a33488e4305719d8",
+    "rawLogLocalPath": "/tmp/6198-new-title-red.log"
+  },
+  "related-tests-first": {
+    "exitCode": 1,
+    "rawLogSha256": "7ec8231c6bafc3386baa451654f469cf8c24be54dd2d8c87b50f13881419df90",
+    "rawLogLocalPath": "/tmp/6198-related-tests.log"
+  },
+  "focused-green": {
+    "exitCode": 0,
+    "rawLogSha256": "85da383c18e1bcdf66ac0ba3969001c50b97c828c03e952725e33731b7c6ebdd",
+    "rawLogLocalPath": "/tmp/6198-focused-green.log"
+  },
+  "web-typecheck-first": {
+    "exitCode": 2,
+    "rawLogSha256": "c1ec6333f918102a215d738cf3a457f7954f9d831cfa03d54c037bbd08f98850",
+    "rawLogLocalPath": "/tmp/6198-web-typecheck.log"
+  },
+  "stepper-red": {
+    "exitCode": 1,
+    "rawLogSha256": "8bfdbcbf732c4dca0840a6e1a1963a7b77cd4338e11588ca21120fc50811f0d5",
+    "rawLogLocalPath": "/tmp/6198-stepper-red.log"
+  },
+  "stepper-focused-green": {
+    "exitCode": 0,
+    "rawLogSha256": "c384622368dedc000dc86d1f1e09e2d33ae8202629766091229a7ce65c13c0eb",
+    "rawLogLocalPath": "/tmp/6198-stepper-focused-green.log"
+  },
+  "stepper-typecheck": {
+    "exitCode": 0,
+    "rawLogSha256": "cd5788cc155241ad0932956ca7dd287ae173e2f213993b615bdafdcb93bc7ce4",
+    "rawLogLocalPath": "/tmp/6198-stepper-typecheck.log"
+  },
+  "stepper-eslint": {
+    "exitCode": 0,
+    "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "rawLogLocalPath": "/tmp/6198-stepper-eslint.log"
+  },
+  "browser-first": {
+    "exitCode": 0,
+    "rawLogSha256": "f5af8dd65311339a18c180eb8d6b637fa41d0494378638c6c4aff37f88afb194",
+    "rawLogLocalPath": "/tmp/6198-browser-first.log",
+    "sourceCommit": "e8ece66846e6edc82546bc3ec0f01f0140b5eddd",
+    "testCount": 1,
+    "passedCount": 1,
+    "caseSeconds": 59.7,
+    "wrapperSeconds": 299,
+    "cleanupSeconds": 1,
+    "composeScope": "wsx-ec04e55844377d871f94",
+    "ownContainersObservedAfterCleanup": 0
+  },
+  "browser-geometry-323": {
+    "exitCode": 1,
+    "rawLogSha256": "a0b606a08e4d73ee20517563e43c1e303b7fcbf2063d017e7bd380706a28ff3d",
+    "rawLogLocalPath": "/tmp/6198-browser-final.log"
+  },
+  "integrated-typecheck": {
+    "exitCode": 0,
+    "rawLogSha256": "cd5788cc155241ad0932956ca7dd287ae173e2f213993b615bdafdcb93bc7ce4",
+    "rawLogLocalPath": "/tmp/6198-integrated-typecheck.log"
+  },
+  "integrated-eslint": {
+    "exitCode": 0,
+    "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "rawLogLocalPath": "/tmp/6198-integrated-eslint.log"
+  },
+  "catalog-continuity": {
+    "exitCode": 0,
+    "rawLogSha256": "b1e92fb4b519609491b0eab7febcb878de5920cb9343309673df920f2ae86530",
+    "rawLogLocalPath": "/tmp/6198-catalog-continuity.log"
+  },
+  "route-playwright-list": {
+    "exitCode": 0,
+    "rawLogSha256": "bbba8cba54b3aeb617eade7513321e3e8b657646cbeb6b8cef4d0526dd78dda8",
+    "rawLogLocalPath": "/tmp/6198-route-playwright-list.log",
+    "sourceCommit": "74c46f0e05d2fc23e1f1bd9ffc18ddd7acac0832"
+  },
+  "browser-route-final": {
+    "exitCode": 0,
+    "rawLogSha256": "6e68e6c9f072a6220aa38f683417b7a1c75393a3954458c97cc62f3f8ea84b88",
+    "rawLogLocalPath": "/tmp/6198-browser-route-final.log",
+    "sourceCommit": "74c46f0e05d2fc23e1f1bd9ffc18ddd7acac0832",
+    "testCount": 1,
+    "passedCount": 1,
+    "caseDurationDisplay": "1.0m",
+    "wrapperSeconds": 296,
+    "cleanupSeconds": 1,
+    "composeScope": "wsx-024610af26badaf58bb6",
+    "ownContainersObservedAfterCleanup": 0,
+    "screenshotsVisuallyInspected": 10
+  },
+  "ci-control-plane-red": {
+    "sourceCommit": "5a3825bfbb6f51a932f1c5bb6933221c66d63565",
+    "conclusion": "FAILURE",
+    "runId": 41701321461,
+    "jobId": 126145047582,
+    "rawLogLocalPath": "/tmp/6205-control-plane-failed.log",
+    "rawLogSha256": "5f67677decf76a86def0c09d00b12efb11213fa73b3bb1158d3e645c3f654ed7",
+    "error": "lint-ui-wiring: pure ASR text table imported a live-adapter type; 18 shell routes acquired static data-plane dependencies"
+  },
+  "ci-fix-wiring": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6198-ci-fix-wiring.log",
+    "rawLogSha256": "f99296c7a1d11104c8b0d9526949f989ec0a90db97b8007bb9f03a1366df540e"
+  },
+  "ci-fix-typecheck": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6198-ci-fix-typecheck.log",
+    "rawLogSha256": "cd5788cc155241ad0932956ca7dd287ae173e2f213993b615bdafdcb93bc7ce4"
+  },
+  "ci-fix-voice-tests": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6198-ci-fix-voice-tests.log",
+    "rawLogSha256": "5a94443c0fe627e391cd1796c6ed5b19ffd63779e8df917b76b418e280ba9d13"
+  },
+  "ci-fix-runtime-emit": {
+    "exitCode": 0,
+    "comparisonBase": "5a3825bfbb6f51a932f1c5bb6933221c66d63565",
+    "file": "apps/web/lib/asr-draft-error-text.ts",
+    "method": "TypeScript transpileModule ES2022/ESNext output equality",
+    "observed": "byte-for-byte identical"
+  },
+  "ci-testid-gate-red": {
+    "sourceCommit": "69f3738848cfcdc65a947d4dd99b8cd533744b7a",
+    "conclusion": "FAILURE",
+    "runId": 41705322705,
+    "jobId": 126158979272,
+    "rawLogLocalPath": "/tmp/6205-control-plane-second-failed.log",
+    "rawLogSha256": "14cba0ea8fcabb9c46935dce7aa84642ac994f6d3b50a95097c2d4bfbe132cb5",
+    "error": "Static testid declaration gate cannot resolve anchorId/idPrefix for previous-report article; two spec references failed"
+  },
+  "testid-gate-green": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6198-testid-gate-green.log",
+    "rawLogSha256": "5734fa85328364621d1f5fcd6e6bee1645c98f93ab495ef605d03361e7aa5a74"
+  },
+  "testid-spec-eslint": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6198-testid-spec-eslint.log",
+    "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "testid-playwright-list": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6198-testid-playwright-list.log",
+    "rawLogSha256": "e73b4762392e7edf3a916b869739b27df3e5387c235c423777eefda6e1b235b6"
+  }
+}

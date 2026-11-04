@@ -1,0 +1,12 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/apps/api
+
+ ✓ tests/itv/professional-report-skill.test.ts (31 tests) 141ms
+ ✓ tests/itv/loopback-interview-workflow.test.ts (6 tests) 34ms
+ ✓ tests/itv/loopback-professional-interview-report.test.ts (6 tests) 3ms
+
+ Test Files  3 passed (3)
+      Tests  43 passed (43)
+   Start at  05:59:25
+   Duration  2.82s (transform 944ms, setup 0ms, collect 2.13s, tests 177ms, environment 0ms, prepare 128ms)
+

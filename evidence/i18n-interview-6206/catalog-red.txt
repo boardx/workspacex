@@ -1,0 +1,36 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/apps/web
+
+ ❯ tests/lib/i18n-resources.test.ts (5 tests | 1 failed) 71ms
+   × language resources > covers the same messages and interpolation parameters 53ms
+     → itv.legacy.evidence.simulated: expected [] to deeply equal [ '{label}' ]
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/lib/i18n-resources.test.ts > language resources > covers the same messages and interpolation parameters
+AssertionError: itv.legacy.evidence.simulated: expected [] to deeply equal [ '{label}' ]
+
+- Expected
++ Received
+
+- Array [
+-   "{label}",
+- ]
++ Array []
+
+ ❯ tests/lib/i18n-resources.test.ts:11:58
+      9|   for (const key of Object.keys(zhCN) as (keyof typeof zhCN)[]) {
+     10|    expect(en[key].trim(), key).not.toBe("");
+     11|    expect((en[key].match(/\{\w+\}/g) ?? []).sort(), key).toEqual((zhCN…
+       |                                                          ^
+     12|   }
+     13|  });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 passed (5)
+   Start at  04:54:30
+   Duration  684ms (transform 207ms, setup 143ms, collect 260ms, tests 71ms, environment 0ms, prepare 46ms)
+

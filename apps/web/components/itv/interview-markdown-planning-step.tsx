@@ -1,4 +1,7 @@
 "use client";
+import { INTERVIEW_INTAKE_ERROR_TEXT } from "@/lib/interview-intake-error-text";
+
+import { useI18n } from "@/lib/i18n/provider";
 
 import * as React from "react";
 import { useInterviewSource } from "./interview-session-provider";
@@ -20,10 +23,11 @@ export function InterviewMarkdownPlanningStep({ interviewId, step, onVersionChan
   readonly onContinue: (step: "analysis" | "experts") => void;
   readonly onRunningStepChange?: (step: string | null) => void;
 }) {
+ const { t } = useI18n();
   const { source, setSource, refresh, cache } = useInterviewSource(interviewId);
   const [markdown, setMarkdown] = React.useState(() => source?.documents.find(doc => doc.step === "intake")?.markdown ?? "");
   const [pending, setPending] = React.useState(!source);
-  const [error, setError] = React.useState("");
+  const [error, setError] = React.useState<import("@/lib/i18n/messages").MessageKey | "">("");
   React.useEffect(() => { onRunningStepChange?.(pending ? step : null); }, [pending, step, onRunningStepChange]);
   React.useEffect(() => () => onRunningStepChange?.(null), [onRunningStepChange]);
   const dirty = React.useRef(false);
@@ -37,8 +41,8 @@ export function InterviewMarkdownPlanningStep({ interviewId, step, onVersionChan
   }
   function showError(cause: unknown) {
     setError(cause instanceof ApiError && cause.status === 409
-      ? "文档版本已改变或已确认，不能覆盖。当前草稿保留，请重新载入后审阅版本。"
-      : "操作未完成，已保存内容和当前草稿保留。请重试。");
+      ? "itv.planning.versionConflict"
+      : "itv.planning.operationFailed");
   }
   React.useEffect(() => {
     const controller = new AbortController();
@@ -97,13 +101,13 @@ export function InterviewMarkdownPlanningStep({ interviewId, step, onVersionChan
   const intake = source?.documents.find((document) => document.step === "intake");
   const intakeImmutable = Boolean(intake && source?.states.some((state) => state.documentId === intake.documentId && ["confirmed", "completed"].includes(state.status)));
   const failure = analysis && source?.states.find((state) => state.documentId === analysis.documentId)?.status === "failed"
-    ? "分析生成未完成" : null;
+    ? t("itv.planning.incomplete") : null;
   return <div>
-    {draftConflict && <div role="alert" className="mb-4 rounded-lg border border-border p-4 text-sm">后端需求已更新，当前未保存编辑已保留。请复制需要保留的修改，再采用最新版本。<Button variant="outline" className="ml-3" onClick={() => { setMarkdown(source?.documents.find(doc => doc.step === "intake")?.markdown ?? ""); dirty.current = false; draftBase.current = null; callbacks.current.onDirtyChange(false); }}>放弃本地修改，采用最新版本</Button></div>}
-    {error && <div role="alert" className="mb-5 rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive"><p>{error}</p><Button className="mt-3" variant="outline" disabled={pending} onClick={() => void action(async () => { receive(await loadInterviewMarkdown(interviewId)); })}>重新载入已保存版本（保留编辑文字）</Button></div>}
+    {draftConflict && <div role="alert" className="mb-4 rounded-lg border border-border p-4 text-sm">{t("itv.planning.conflict")}<Button variant="outline" className="ml-3" onClick={() => { setMarkdown(source?.documents.find(doc => doc.step === "intake")?.markdown ?? ""); dirty.current = false; draftBase.current = null; callbacks.current.onDirtyChange(false); }}>{t("itv.adoptLatest")}</Button></div>}
+    {error && <div role="alert" className="mb-5 rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive"><p>{t(error)}</p><Button className="mt-3" variant="outline" disabled={pending} onClick={() => void action(async () => { receive(await loadInterviewMarkdown(interviewId)); })}>{t("itv.planning.reload")}</Button></div>}
     {step === "intake" ? <InterviewIntakeStep voiceSessionToken={getStoredSessionToken() ?? undefined} markdown={markdown} pending={pending} readOnly={intakeImmutable} onImportFile={importInterviewTextFile} onUploadFile={async (file) => {
-      if (intakeImmutable) throw new Error("已确认需求需要创建新修订");
-      if (file.size > chatFileUpload.ATTACHMENT_SYNC_EXTRACTION_MAX_BYTES) throw new Error("研究文件不能超过同步提取上限");
+      if (intakeImmutable) throw new Error(INTERVIEW_INTAKE_ERROR_TEXT.IMMUTABLE);
+      if (file.size > chatFileUpload.ATTACHMENT_SYNC_EXTRACTION_MAX_BYTES) throw new Error(INTERVIEW_INTAKE_ERROR_TEXT.TOO_LARGE_SYNC);
       let current = await loadInterviewMarkdown(interviewId);
       // The attachment transaction can create the first intake. A blank editor
       // has no draft to persist and must not be sent to the nonempty save API.

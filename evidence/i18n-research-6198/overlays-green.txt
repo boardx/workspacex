@@ -1,0 +1,13 @@
+Observed process exit code: 0
+Raw log SHA-256: a44f0491456802216769597d0be92d3876941442ce8144019d3a0010c3a44f66
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/apps/web
+
+ ✓ tests/ui/research-overlays-i18n.test.tsx (4 tests) 255ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  01:18:10
+   Duration  2.64s (transform 1.02s, setup 101ms, collect 1.60s, tests 255ms, environment 487ms, prepare 42ms)

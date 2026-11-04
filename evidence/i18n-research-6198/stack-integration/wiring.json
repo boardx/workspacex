@@ -1,0 +1,16 @@
+{
+  "name": "wiring",
+  "command": [
+    "pnpm",
+    "run",
+    "lint:ui-wiring"
+  ],
+  "source": "8e865198778985cb53965f6b72d2d36e0c4538fe",
+  "exitCode": 0,
+  "seconds": 3.433,
+  "rawLogLocalPath": "/tmp/6205-integration-wiring.log",
+  "rawLogSha256": "91143fee075e07c8c5577e08efa1fd2dd6d135cbb61bcd82a8e9e8c189b533e8",
+  "receiptPath": "wiring.txt",
+  "receiptSha256": "91143fee075e07c8c5577e08efa1fd2dd6d135cbb61bcd82a8e9e8c189b533e8",
+  "receiptNormalization": "trailing blank EOF normalized; original raw log hash retained"
+}

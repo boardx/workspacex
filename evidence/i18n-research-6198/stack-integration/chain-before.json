@@ -1,0 +1,22 @@
+{
+  "researchLocal": "4aa2a1e08443d9cfa1bec718a15e282126098899",
+  "researchRemote": "baf5eb97bcf776f507c1deeced9ff1f93dc9fdf9",
+  "develop": "dc9bc31b5658aacd4376ffa3f66e6794293ac953",
+  "mergeBase": "c49fee15b89f2621d8ceaa582ef6a9c0f6c931cc",
+  "bafTree": "48d1b1b528a66c855cfd89f5350b064d9b8307a9",
+  "interviewTree": "48d1b1b528a66c855cfd89f5350b064d9b8307a9",
+  "ancestorExitCodes": {
+    "4aa_in_baf": 0,
+    "interview_in_baf": 0,
+    "baf_in_develop": 1,
+    "interview_in_develop": 1,
+    "develop_in_baf": 1
+  },
+  "researchInterviewPaths": 328,
+  "upstreamPaths": 113,
+  "overlappingPaths": [
+    "apps/web/lib/i18n/messages/en.ts",
+    "apps/web/lib/i18n/messages/zh-CN.ts"
+  ],
+  "researchCheckedOutAt": []
+}

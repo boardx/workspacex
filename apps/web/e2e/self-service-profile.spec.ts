@@ -30,7 +30,9 @@
  * 是必然。所以这里种了一个只有本文件会碰的专属账号/组织，见
  * `self-service-profile-fixture.ts` 与 `scripts/seed-self-service-profile-e2e.ts`。
  */
+import { operations as identityOperations } from "@repo/contracts/identity";
 import { NotificationListOutput } from "@repo/contracts/notifications";
+import { SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
 import { expect, test, type Page } from "@playwright/test";
 import { expectedPostLoginLanding, judgeLogoutLanding } from "./logout-landing";
 import { SELF_SERVICE_PROFILE_E2E } from "./self-service-profile-fixture";
@@ -66,13 +68,31 @@ test.describe.serial("用户个人资料自助服务", () => {
     page.on("pageerror", (error) => failures.push(`page error: ${error.message}`));
 
     /* ── 1. 改姓名，刷新页面后仍在（不能只测保存后的即时状态） ────────────── */
+    // The landing shell starts this real authenticated request. Consume its body
+    // before leaving that document; a concurrent goto can invalidate Chromium's body handle.
+    const notificationsPending = page.waitForResponse((response) => {
+      const headers = response.request().headers();
+      const referer = headers.referer;
+      return new URL(response.url()).pathname === "/notifications"
+        && response.request().method() === "GET"
+        && headers.authorization?.startsWith("Bearer ") === true
+        && typeof referer === "string" && new URL(referer).pathname === "/home";
+    });
     await loginAs(page, SELF_SERVICE_PROFILE_E2E.adminEmail, SELF_SERVICE_PROFILE_E2E.adminPassword);
-    const [notificationsResponse] = await Promise.all([
-      page.waitForResponse((response) => new URL(response.url()).pathname === "/notifications" && response.request().method() === "GET"),
-      page.goto("/profile"),
-    ]);
+    const notificationsResponse = await notificationsPending;
+    const currentSession = await page.evaluate((tokenKey) => {
+      const metadata = JSON.parse(localStorage.getItem("wsx.session") ?? "null");
+      return { userId: metadata?.userId, orgId: metadata?.currentOrgId, token: localStorage.getItem(tokenKey) };
+    }, SESSION_TOKEN_STORAGE_KEY);
+    expect(currentSession.userId).toBe(SELF_SERVICE_PROFILE_E2E.adminUserId);
+    expect(currentSession.orgId).toBe(SELF_SERVICE_PROFILE_E2E.orgId);
+    // Compare as a boolean so a failed assertion cannot print a real bearer.
+    expect(Boolean(currentSession.token), "current fixture session is authenticated").toBe(true);
+    expect(notificationsResponse.request().headers().authorization === `Bearer ${currentSession.token}`,
+      "notification request belongs to the current fixture session").toBe(true);
     expect(notificationsResponse.ok()).toBe(true);
     expect(NotificationListOutput.parse(await notificationsResponse.json()).unreadCount).toBe(0);
+    await page.goto("/profile");
     await expect(page.getByTestId("profile-screen")).toBeVisible();
 
     const newDisplayName = "SSP E2E Admin 改名后";
@@ -122,6 +142,37 @@ test.describe.serial("用户个人资料自助服务", () => {
     const activityItems = page.getByTestId("profile-activity-list").locator("li");
     await expect(activityItems).not.toHaveCount(0);
     await expect(activityItems.first()).toContainText(`显示名改为"${newDisplayName}"`);
+
+    // The real API negotiates display metadata; legacy callers keep the exact strict shape.
+    const [structuredResponse] = await Promise.all([
+      page.waitForResponse((response) => {
+        const url = new URL(response.url());
+        return url.pathname === identityOperations.listOwnActivity.path && url.searchParams.get("displayFormat") === "structured-v1";
+      }),
+      page.reload(),
+    ]);
+    expect(structuredResponse.ok()).toBe(true);
+    const structured = identityOperations.listOwnActivity.out.parse(await structuredResponse.json());
+    expect(structured.events.some((event) => event.display?.code === "profile-renamed" && event.display.params.displayName === newDisplayName)).toBe(true);
+    const legacyUrl = new URL(structuredResponse.url());
+    legacyUrl.searchParams.delete("displayFormat");
+    const authorization = structuredResponse.request().headers().authorization;
+    expect(authorization).toBeTruthy();
+    const legacyResponse = await page.request.get(legacyUrl.toString(), { headers: { authorization: authorization! } });
+    expect(legacyResponse.ok()).toBe(true);
+    const legacy = identityOperations.listOwnActivity.out.parse(await legacyResponse.json());
+    expect(legacy.events.every((event) => !Object.hasOwn(event, "display"))).toBe(true);
+    expect(legacy.events.some((event) => event.summary === `显示名改为"${newDisplayName}"`)).toBe(true);
+    const invalidVersionUrl = new URL(legacyUrl);
+    invalidVersionUrl.searchParams.set("displayFormat", "structured-v2");
+    const invalidVersionResponse = await page.request.get(invalidVersionUrl.toString(), { headers: { authorization: authorization! } });
+    expect(invalidVersionResponse.status()).toBe(400);
+
+    await page.getByTestId("language-switcher").first().selectOption("en");
+    await expect(activityItems.first()).toContainText(`Display name changed to "${newDisplayName}"`);
+    await page.getByTestId("language-switcher").first().selectOption("zh-CN");
+    await expect(activityItems.first()).toContainText(`显示名改为"${newDisplayName}"`);
+
 
     /* ── 2. 改密码：正确当前密码 + 符合策略的新密码 ──────────────────────── */
     await page.getByTestId("profile-current-password-input").fill(SELF_SERVICE_PROFILE_E2E.adminPassword);

@@ -1,0 +1,10 @@
+
+> web@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex/apps/web
+> tsc --noEmit
+
+tests/ui/interview-legacy-i18n.test.tsx(32,16): error TS2352: Conversion of type '{ readiness: { status: "warning"; issues: never[]; estimatedMinutes: { min: number; max: number; }; }; previewStatus: "available" | "unavailable"; briefIssues: { code: string; message: string; severity: "warning" | "blocking"; objectId: string | null; }[]; expertCoverage: { ...; }[]; questionFindings: { ...; }[]; re...' to type '{ previewStatus: "available" | "unavailable"; briefIssues: { code: string; message: string; severity: "warning" | "blocking"; objectId: string | null; }[]; expertCoverage: { status: "supported" | "single_perspective" | "contradicted" | "missing"; ... 5 more ...; runStatus: "running" | ... 2 more ... | "not_started";...' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Types of property 'readiness' are incompatible.
+    Type '{ status: "warning"; issues: never[]; estimatedMinutes: { min: number; max: number; }; }' is missing the following properties from type '{ status: "warning" | "blocking" | "ready"; issues: { code: string; message: string; severity: "warning" | "blocking"; objectId: string | null; }[]; ruleVersion: string; evaluatedAt: string; estimatedMinutes: { ...; }; }': ruleVersion, evaluatedAt
+/Users/shenyangjun/boardx/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  web@0.1.0 typecheck: `tsc --noEmit`
+Exit status 2

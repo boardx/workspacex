@@ -1,0 +1,10 @@
+{
+  "reviewedHead": "ab1147adb4d349c25b980a57e0d2f83e8e332291",
+  "verdict": "CLEAN",
+  "reviewType": "independent limited fixture increment",
+  "fixtureReplacements": 3,
+  "normalizingOnlySyntheticValuesRestoresPriorTestBytes": true,
+  "testSha256": "5bbc70df332018c802f4f0bc93a45dcd979e833fb864e77d12394c2ae38c1e68",
+  "productFilterSha256": "a98308438dbf5ed91359e1bcfefd862e36173222c03d4ec00e6d4f4bc98ad4b6",
+  "scannerBaselineAndConfigUnchanged": true
+}

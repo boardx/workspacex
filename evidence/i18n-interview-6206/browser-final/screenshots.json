@@ -1,0 +1,115 @@
+{
+  "validationKey": "browser-fourth",
+  "files": [
+    {
+      "path": "create-interview-en-1280.png",
+      "sha256": "9cdf5bb8391bacff0cf940694558545394b13783e91587b9319dbd442baa50c0",
+      "individuallyViewed": true
+    },
+    {
+      "path": "create-interview-en-375.png",
+      "sha256": "0235c823e1bfaeac5f3449227549714788fbd0245c807909e44cccef8740dcab",
+      "individuallyViewed": true
+    },
+    {
+      "path": "interview-analysis-en-1280.png",
+      "sha256": "1e62d75453ed704c187fa6a725db74db08d3313cf03663830e657960e3399591",
+      "individuallyViewed": true
+    },
+    {
+      "path": "interview-analysis-en-375.png",
+      "sha256": "e10f5e5e468996608f205a8070ca37f020f184213808d960d2595e4e7c06e7a6",
+      "individuallyViewed": true
+    },
+    {
+      "path": "interview-experts-en-1280.png",
+      "sha256": "b7fe0f4b7a824b750c961e83500468e135bc4d3a25fcedb2206de27f542c6914",
+      "individuallyViewed": true
+    },
+    {
+      "path": "interview-experts-en-375.png",
+      "sha256": "b258b3230d4524a94828c21004dda4be4d8c7b57a6df02341a7e93c7b0f51202",
+      "individuallyViewed": true
+    },
+    {
+      "path": "interview-history-en-1280.png",
+      "sha256": "7e3d8cc179aae6ac83b8ecf6a66b840eb27113079524aa1398eb8b4aeb00ecb4",
+      "individuallyViewed": true
+    },
+    {
+      "path": "interview-history-en-375.png",
+      "sha256": "c7a2ef727d6b234a77fb7ec9e03e868502ab91dbdcce973d7b9447ce71a82dca",
+      "individuallyViewed": true
+    },
+    {
+      "path": "interview-intake-en-1280.png",
+      "sha256": "ffea691e80c9b3b4bd4a61365f2d9aa5e9d95cacac460e1710848ff1ed066381",
+      "individuallyViewed": true
+    },
+    {
+      "path": "interview-intake-en-375.png",
+      "sha256": "bee0bf9a760a5f1804eb78365fbeea218eac70bf481cc8974a2a0effbbb968d8",
+      "individuallyViewed": true
+    },
+    {
+      "path": "interview-metadata-en-1280.png",
+      "sha256": "9388ce466a1c3283ef2bb82fd7eb82493c90aab8bfb65247a5325fcafc2cda0f",
+      "individuallyViewed": true
+    },
+    {
+      "path": "interview-metadata-en-375.png",
+      "sha256": "2859eb39c5a58352793b77f9d5abfa71c814fc14a7e01514eafef07e996e6bd4",
+      "individuallyViewed": true
+    },
+    {
+      "path": "interview-outline-en-1280.png",
+      "sha256": "df385597a9b1ea4e3347527b896b786e7d0ec8fe56efcc220decdde49c0b5149",
+      "individuallyViewed": true
+    },
+    {
+      "path": "interview-outline-en-375.png",
+      "sha256": "4767403c335726366ccacb9e2d0abaa3abc3331834dab9bbb8be1e0c30c65dee",
+      "individuallyViewed": true
+    },
+    {
+      "path": "interview-report-en-1280.png",
+      "sha256": "2816c3fa434c84b9562b96703ee6b900cd72c948cec55b7702deaa05382cc074",
+      "individuallyViewed": true
+    },
+    {
+      "path": "interview-report-en-375.png",
+      "sha256": "d81658c18fdc2400190077af122e27b1e5bcc22b0028e5d8302879c7c849f674",
+      "individuallyViewed": true
+    },
+    {
+      "path": "interview-runs-en-1280.png",
+      "sha256": "d9dded6fc61b4593a8f474e8f9891f6f0144b5b0ade4b0849aa771a67a3efed9",
+      "individuallyViewed": true
+    },
+    {
+      "path": "interview-runs-en-375.png",
+      "sha256": "2ae80d213ee337a5c6296b263d5c1923d312f0a1b79ca9f5c880fc579428fec6",
+      "individuallyViewed": true
+    },
+    {
+      "path": "private-profile-detail-en-1280.png",
+      "sha256": "20a686d8928cd8c8176244f2251a77913cdff16168a6c22c4e827d8e7d009129",
+      "individuallyViewed": true
+    },
+    {
+      "path": "private-profile-detail-en-375.png",
+      "sha256": "fe85c7aee6ce239043607472331893b8be8bd48ee64f475974b884b49c5dcc1f",
+      "individuallyViewed": true
+    },
+    {
+      "path": "private-profile-en-1280.png",
+      "sha256": "74dcd3437ae2e78e2b0f8bf7d2a89ed48a93cb7d4566440422fb4277f777eff9",
+      "individuallyViewed": true
+    },
+    {
+      "path": "private-profile-en-375.png",
+      "sha256": "085545618d0037a403be272cd677a209c7109f8ab9b3872ad9f7cc500371470f",
+      "individuallyViewed": true
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/apps/web
+
+ ❯ tests/ui/interview-legacy-i18n.test.tsx (6 tests | 1 failed) 347ms
+   × localizes controlled quality reasons by code while preserving unknown diagnostic content 7ms
+     → Unable to find an element with the text: /Clarify which questions this research does not address\./. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+<body
+[intermediate output omitted; full log SHA-256 in validation.json]
+   × localizes controlled quality reasons by code while preserving unknown diagnostic content 7ms
+   × localizes fixed category choices while preserving their canonical filter values 172ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/ui/interview-legacy-i18n.test.tsx > localizes controlled quality reasons by code while preserving unknown diagnostic content
+TestingLibraryElementError: Unable to find an element with the text: /Clarify which questions this research does not address\./. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+ FAIL  tests/ui/interview-workspace-i18n.test.tsx > localizes fixed category choices while preserving their canonical filter values
+TestingLibraryElementError: Unable to find an accessible element with the role "option" and name "Technical experts"
+ Test Files  2 failed | 5 passed (7)
+      Tests  2 failed | 40 passed (42)
+   Duration  13.34s (transform 1.63s, setup 662ms, collect 5.27s, tests 2.59s, environment 3.60s, prepare 292ms)
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/interview-journey-i18n.test.tsx tests/ui/interview-create-i18n.test.tsx tests/ui/interview-workspace-i18n.test.tsx tests/ui/interview-overlays-i18n.test.tsx tests/ui/interview-controller-i18n.test.tsx tests/ui/interview-secondary-i18n.test.tsx tests/ui/interview-legacy-i18n.test.tsx --maxWorkers=1 --minWorkers=1
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/interview-workspace-i18n.test.tsx:51:81
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  2 failed | 5 passed (7)
+      Tests  2 failed | 40 passed (42)
+   Start at  04:41:40
+   Duration  13.34s (transform 1.63s, setup 662ms, collect 5.27s, tests 2.59s, environment 3.60s, prepare 292ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/interview-journey-i18n.test.tsx tests/ui/interview-create-i18n.test.tsx tests/ui/interview-workspace-i18n.test.tsx tests/ui/interview-overlays-i18n.test.tsx tests/ui/interview-controller-i18n.test.tsx tests/ui/interview-secondary-i18n.test.tsx tests/ui/interview-legacy-i18n.test.tsx --maxWorkers=1 --minWorkers=1

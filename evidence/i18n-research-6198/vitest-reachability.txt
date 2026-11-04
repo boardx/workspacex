@@ -1,0 +1,8 @@
+Observed process exit code: 0
+Raw log SHA-256: f4172c2a80a8546be0c9f7afb4fcb30eff664da1fc624a7851feca8c4e7d1fb7
+
+
+> agentic-harness-template@ lint:vitest-config-reachability /Users/shenyangjun/boardx/workspacex
+> pnpm exec tsx .harness/scripts/lint-vitest-config-reachability.mjs
+
+✓ [vitest-config-reachability] 69 个 config 全部可从 npm script / workflow 到达，12 个 live spec 全部被可达 config 覆盖

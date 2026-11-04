@@ -1,4 +1,5 @@
 import { workflowGrantsZhCN } from "../namespaces/workflow-grants";
+import { orgHomeConfigZhCN } from "../namespaces/org-home-config";
 import { orgProfileZhCN } from "../namespaces/org-profile";
 import { adminNavigationZhCN } from "../namespaces/admin-navigation";
 import { brainViewsZhCN } from "../namespaces/brain-views";
@@ -6,7 +7,9 @@ import { zhTasks } from "./tasks";
 import { zhFailures } from "./failures";
 import { controlsZhCN } from "../namespaces/controls";
 import { workflowRunsZhCN } from "../namespaces/workflow-runs";
+import { projectWorkbenchZhCN } from "../namespaces/project-workbench";
 import { projectListZhCN } from "../namespaces/project-list";
+import { activityZhCN } from "../namespaces/activity";
 import { profileZhCN } from "../namespaces/profile";
 import { notificationsZhCN } from "../namespaces/notifications";
 import { aboutMemoryZhCN } from "../namespaces/about-memory";
@@ -18,12 +21,14 @@ import { accountEntryZhCN } from "../namespaces/account-entry";
 import { invitationEntryZhCN } from "../namespaces/invitation-entry";
 export const zhCN = {
   ...workflowGrantsZhCN,
+  ...orgHomeConfigZhCN,
   ...orgProfileZhCN,
   ...brainViewsZhCN,
   ...zhTasks,
   ...zhFailures,
   ...controlsZhCN,
   ...projectListZhCN,
+  ...activityZhCN,
   ...profileZhCN,
   ...notificationsZhCN,
   ...aboutMemoryZhCN,
@@ -34,6 +39,7 @@ export const zhCN = {
   ...chatShareZhCN,
   ...codeFenceZhCN,
   ...workflowRunsZhCN,
+  ...projectWorkbenchZhCN,
   "common.language": "语言",
   "home.greeting": "你好，{name}",
   "ui.viewAll": "查看全部",
@@ -179,26 +185,6 @@ export const zhCN = {
   "home.configFailed": "首页配置没能加载，稍后再试一次",
   "auth.resetDescription": "输入工作邮箱，我们将发送一次性重置链接（{hours} 小时内有效）。",
   "auth.invited": "被邀请加入已有组织？请打开管理员发给你的激活链接设置密码，本页无法自行注册加入组织；链接失效请联系管理员重发。",
-  "action.chat.label": "聊天",
-  "action.chat.description": "开始一次新的对话",
-  "action.projects.label": "项目",
-  "action.projects.description": "按项目组织的工作台",
-  "action.research.label": "深度研究",
-  "action.research.description": "多来源调研与报告",
-  "action.interview.label": "用户访谈",
-  "action.interview.description": "访谈设计、执行与洞察",
-  "action.survey.label": "问卷",
-  "action.survey.description": "设计、发布与回收问卷",
-  "action.recording.label": "录音",
-  "action.recording.description": "实时转写与会议记录",
-  "action.design.label": "设计",
-  "action.design.description": "设计方案与原型",
-  "action.brain.label": "大脑",
-  "action.brain.description": "你的组织记忆",
-  "action.board.label": "Board",
-  "action.board.description": "白板与协作",
-  "action.tasks.label": "任务",
-  "action.tasks.description": "我的任务与待办",
   "navigation.home": "首页",
   "navigation.chat": "对话",
   "navigation.projects": "项目",
@@ -266,7 +252,19 @@ export const zhCN = {
   ...accountEntryZhCN,
   ...invitationEntryZhCN,
   ...adminNavigationZhCN,
+  ...studioResearchZhCN,
+  ...researchZhCN,
+  ...studioHistoryZhCN,
+  ...interviewZhCN,
 } as const;
 
 import { codeFenceZhCN } from "../namespaces/code-fence";
 import { chatShareZhCN } from "../namespaces/chat-share";
+
+import { studioResearchZhCN } from "../namespaces/studio-research";
+
+import { researchZhCN } from "../namespaces/research";
+
+import { interviewZhCN } from "../namespaces/interview";
+
+import { studioHistoryZhCN } from "../namespaces/studio-history";
