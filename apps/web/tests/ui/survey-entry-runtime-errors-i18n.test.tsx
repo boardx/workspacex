@@ -11,7 +11,8 @@ import { SurveyConflictError, SurveySystemError } from "@/lib/survey/runtime-cli
 import { LiveSurveyLibrary } from "@/components/survey/live/survey-library";
 import { CreateSurveyDialog } from "@/components/survey/live/create-survey-dialog";
 import { SurveyImportWorkspace } from "@/components/survey/live/survey-import-workspace";
-const request = vi.hoisted(() => vi.fn()), link = vi.hoisted(() => vi.fn());
+const request = vi.hoisted(() => vi.fn());
+const link = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/survey/runtime-client", async importOriginal => ({ ...await importOriginal<typeof import("@/lib/survey/runtime-client")>(), surveyRequest: request }));
 vi.mock("@/lib/live-personal-transcriptions", () => ({ listPersonalTranscriptions: vi.fn().mockResolvedValue([]) }));
 vi.mock("@/lib/live-project-resources", () => ({ linkProjectResource: link }));
