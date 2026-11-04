@@ -2,6 +2,11 @@ import { WITHDRAWAL_FLOW, WITHDRAWAL_SLA_SUMMARY } from "@/lib/withdrawal-flow";
 
 /** Fixed display copy shared by dictionaries and preview fixtures; no mock/runtime imports. */
 export const RECORDING_DISPLAY_ZH = {
+  "rec.project.verify.uncertainSpeaker": "不确定",
+  "rec.project.verify.overlapHint": "发言人不确定 · 两人重叠",
+  "rec.project.verify.painMarker": "痛点",
+  "rec.project.verify.reviewNeeded": "待你判断",
+
   "rec.project.prep.incomplete": "{count} 人未完成授权 · 不能开始录制",
   "rec.project.prep.incomplete.one": "{count} 人未完成授权 · 不能开始录制",
   "rec.project.syncSecondsAgo.one": "{count} 秒前",

@@ -3,6 +3,11 @@ import { RECORDING_DISPLAY_ZH } from "@/lib/recording-display-copy";
 export const recordingProjectZhCN = RECORDING_DISPLAY_ZH;
 
 export const recordingProjectEn = {
+  "rec.project.verify.uncertainSpeaker": "Uncertain",
+  "rec.project.verify.overlapHint": "Speaker uncertain \u00b7 overlapping speech",
+  "rec.project.verify.painMarker": "Pain points",
+  "rec.project.verify.reviewNeeded": "Your review needed",
+
   "rec.project.prep.incomplete": "{count} people have incomplete consent · recording cannot start",
   "rec.project.prep.incomplete.one": "{count} person has incomplete consent · recording cannot start",
   "rec.project.syncSecondsAgo.one": "{count} second ago",

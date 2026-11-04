@@ -8,6 +8,7 @@ import { RecVerify } from "@/components/rec/rec-verify";
 import { LiveTranscript } from "@/components/rec/live-transcript";
 import { SpeakerAssign } from "@/components/rec/speaker-assign";
 import { QuoteAnnotate } from "@/components/rec/quote-annotate";
+import { VERIFY_NAV_SPEAKERS, VERIFY_MARKS, VERIFY_ITEMS, VERIFY_THEMES } from "@/lib/mock/rec-v2";
 import { SPEAKERS } from "@/lib/mock/rec";
 import { RightRailNav } from "@/components/rec/right-rail";
 import { RetentionPanel } from "@/components/rec/retention-panel";
@@ -71,4 +72,23 @@ it("translates consent choices and their fixed help while retaining submitted sn
 it("uses singular English for one incomplete participant and one second without changing counts", () => {
  const result = render(<I18nProvider initialLocale="en"><RecPrep state="default" view="facilitator" /></I18nProvider>); expect(screen.getByTestId("rec-prep-blocked-badge")).toHaveTextContent("1 person has incomplete consent"); result.unmount();
  render(<I18nProvider initialLocale="en"><LiveTranscript state="default" carrier="thread" view="facilitator" /></I18nProvider>); expect(screen.getByTestId("rec-realtime-bar")).toHaveTextContent("1 second ago");
+});
+it("translates fixed verification states while preserving transcript and model-authored theme content", () => {
+ render(<I18nProvider initialLocale="en"><RecVerify state="default" view="facilitator" /></I18nProvider>);
+ expect(screen.getByTestId("rec-verify-navspeaker-uncertain")).toHaveTextContent("Uncertain");
+ expect(screen.getByTestId("rec-verify-item-v-3")).toHaveTextContent("Speaker uncertain · overlapping speech");
+ expect(screen.getByTestId("rec-verify-nav")).toHaveTextContent("Pain point"); expect(screen.getByTestId("rec-verify-nav")).toHaveTextContent("Quote");
+ expect(screen.getByTestId("rec-verify-theme-t-3")).toHaveTextContent("Your review needed");
+ expect(screen.getByTestId("rec-verify-item-v-1")).toHaveTextContent("采购委员会最后卡的不是价格");
+ expect(screen.getByTestId("rec-verify-theme-t-1")).toHaveTextContent("责任无人承担");
+});
+
+it("keeps custom verification labels and notes literal even when their stable IDs match fixed states", () => {
+ const uncertain = VERIFY_NAV_SPEAKERS.find(item => item.id === "uncertain")!; const marker: { label: string } = VERIFY_MARKS[0]!; const overlap = VERIFY_ITEMS.find(item => item.kind === "speaker-uncertain")!.speakerUncertain!; const judge = VERIFY_THEMES.find(item => item.kind === "judge")!;
+ const original = { name: uncertain.name, label: marker.label, note: overlap.note, title: judge.name };
+ try {
+  uncertain.name = "用户自定义状态 {count}"; marker.label = "用户类别 {count}"; overlap.note = "用户备注 {count}"; judge.name = "用户标题 {count}";
+  render(<I18nProvider initialLocale="en"><RecVerify state="default" view="facilitator" /></I18nProvider>);
+  expect(screen.getByTestId("rec-verify-navspeaker-uncertain")).toHaveTextContent(uncertain.name); expect(screen.getByTestId("rec-verify-nav")).toHaveTextContent(marker.label); expect(screen.getByTestId("rec-verify-item-v-3")).toHaveTextContent(overlap.note); expect(screen.getByTestId("rec-verify-theme-t-3")).toHaveTextContent(judge.name);
+ } finally { uncertain.name = original.name; marker.label = original.label; overlap.note = original.note; judge.name = original.title; }
 });

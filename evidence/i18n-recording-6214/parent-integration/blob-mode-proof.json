@@ -1,0 +1,12 @@
+{
+  "recording": "74023575940ff3b654fe2a7ffbdfd0edaaae8c36",
+  "parent": "2dfcf827d84bc8992c830a615643b4aacb548064",
+  "base": "ec3d35d3d2269752ce9643cd04a8bcd1a9a3030d",
+  "tree": "ae1b13e73bdaf7b94133281f39fc0477268f2fb3",
+  "recordingExactBlobsAndModes": 72,
+  "parentExactBlobsAndModes": 144,
+  "overlap": [
+    "apps/web/lib/i18n/messages/en.ts",
+    "apps/web/lib/i18n/messages/zh-CN.ts"
+  ]
+}

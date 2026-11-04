@@ -1,0 +1,40 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/apps/web
+
+ ❯ tests/ui/recording-project-i18n.test.tsx (20 tests | 1 failed | 19 skipped) 47ms
+   × translates fixed verification states while preserving transcript and model-authored theme content 46ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Uncertain
+Received:
+  不确定14
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/recording-project-i18n.test.tsx > translates fixed verification states while preserving transcript and model-authored theme content
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Uncertain
+Received:
+  不确定14
+ ❯ tests/ui/recording-project-i18n.test.tsx:78:64
+     76| it("translates fixed verification states while preserving transcript a…
+     77|  render(<I18nProvider initialLocale="en"><RecVerify state="default" vi…
+     78|  expect(screen.getByTestId("rec-verify-navspeaker-uncertain")).toHaveT…
+       |                                                                ^
+     79|  expect(screen.getByTestId("rec-verify-item-v-3")).toHaveTextContent("…
+     80|  expect(screen.getByTestId("rec-verify-nav")).toHaveTextContent("Pain …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 19 skipped (20)
+   Start at  08:33:08
+   Duration  2.49s (transform 1.08s, setup 102ms, collect 1.66s, tests 47ms, environment 490ms, prepare 42ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/recording-project-i18n.test.tsx -t translates fixed verification states --maxWorkers=1 --minWorkers=1

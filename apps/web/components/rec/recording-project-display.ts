@@ -1,3 +1,4 @@
+import { RECORDING_DISPLAY_ZH } from "@/lib/recording-display-copy";
 import type { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { speakerById, speakerDisplay, SESSION, TRACKS, VOICEPRINT, type RecView, type Carrier, type RecTrack } from "@/lib/mock/rec";
@@ -70,4 +71,11 @@ export function recordingTrackNote(t: Translate, track: RecTrack): string {
 export function recordingVoiceprintNotice(t: Translate): string {
   const comparison = VOICEPRINT.note.match(/（(\d+) 天）/)?.[1];
   return comparison ? t("rec.project.voiceprint", { fallback: VOICEPRINT.fallbackDay, comparison }) : VOICEPRINT.note;
+}
+
+/** Translate a known state caption only; preserve unknown/custom values verbatim. */
+export function recordingFixedDisplay(t: Translate, keys: Readonly<Record<string, keyof typeof RECORDING_DISPLAY_ZH>>, id: string, value: string): string {
+  if (!Object.hasOwn(keys, id)) return value;
+  const key = keys[id]!;
+  return value === RECORDING_DISPLAY_ZH[key] ? t(key) : value;
 }

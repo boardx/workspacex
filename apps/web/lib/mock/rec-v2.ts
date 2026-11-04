@@ -142,7 +142,7 @@ export interface VerifyNavSpeaker { id: string; name: string; pct: number; tone:
 export const VERIFY_NAV_SPEAKERS: VerifyNavSpeaker[] = [
   { id: "p-10", name: "P-10 Weber", pct: 61, tone: "person" },
   { id: "host", name: "林可", pct: 27, tone: "host" },
-  { id: "uncertain", name: "不确定", pct: 0, tone: "uncertain", count: 14 },
+  { id: "uncertain", name: RECORDING_DISPLAY_ZH["rec.project.verify.uncertainSpeaker"], pct: 0, tone: "uncertain", count: 14 },
 ];
 export const VERIFY_CHAPTERS = [
   { id: "bg", name: "背景与现状", active: false },
@@ -151,7 +151,7 @@ export const VERIFY_CHAPTERS = [
 ];
 export const VERIFY_MARKS = [
   { id: "quote", label: RECORDING_DISPLAY_ZH["rec.project.quote.130"], count: 11 },
-  { id: "pain", label: "痛点", count: 6 },
+  { id: "pain", label: RECORDING_DISPLAY_ZH["rec.project.verify.painMarker"], count: 6 },
 ];
 
 /** 逐字稿段：普通 / 低置信改词 / 发言人不确定 三类，各有行内决策出口。 */
@@ -181,7 +181,7 @@ export const VERIFY_ITEMS: VerifyItem[] = [
   {
     id: "v-3", tc: "00:32:30", kind: "speaker-uncertain",
     text: "…那次其实我们也试过，但权限一直对不上。",
-    speakerUncertain: { note: "发言人不确定 · 两人重叠", actions: [RECORDING_DISPLAY_ZH["rec.project.correction.weber"], RECORDING_DISPLAY_ZH["rec.project.correction.kraus"], RECORDING_DISPLAY_ZH["rec.project.correction.split"]] },
+    speakerUncertain: { note: RECORDING_DISPLAY_ZH["rec.project.verify.overlapHint"], actions: [RECORDING_DISPLAY_ZH["rec.project.correction.weber"], RECORDING_DISPLAY_ZH["rec.project.correction.kraus"], RECORDING_DISPLAY_ZH["rec.project.correction.split"]] },
   },
 ];
 
@@ -190,7 +190,7 @@ export interface VerifyTheme { id: string; name: string; meta: string; strength:
 export const VERIFY_THEMES: VerifyTheme[] = [
   { id: "t-1", name: "责任无人承担", meta: "3 条引述 · 1 个具体流程 · 强度：中", strength: "中", kind: "theme", actions: [RECORDING_DISPLAY_ZH["rec.project.correction.confirm"], RECORDING_DISPLAY_ZH["rec.project.correction.rename"]] },
   { id: "t-2", name: "法务是隐形门槛", meta: "1 条引述 · 待追问 · 强度：弱", strength: "弱", kind: "theme" },
-  { id: "t-3", name: "待你判断", meta: "", strength: "弱", kind: "judge", note: "Kraus 的「对，我们也是这样」算不算独立证据？默认按附和处理，不计入强度。" },
+  { id: "t-3", name: RECORDING_DISPLAY_ZH["rec.project.verify.reviewNeeded"], meta: "", strength: "弱", kind: "judge", note: "Kraus 的「对，我们也是这样」算不算独立证据？默认按附和处理，不计入强度。" },
 ];
 
 export const VERIFY_META = {

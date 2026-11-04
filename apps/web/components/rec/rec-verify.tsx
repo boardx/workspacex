@@ -1,4 +1,5 @@
 "use client";
+import { recordingFixedDisplay } from "./recording-project-display";
 import { useRecordingNotice } from "./use-recording-notice";
 import { useI18n } from "@/lib/i18n/provider";
 import { Play, Volume2, ShieldCheck } from "lucide-react";
@@ -25,6 +26,12 @@ export function RecVerify({ state, view }: { state: UiState; view: RecView }) {
   const { t: recT } = useI18n();
   const readOnly = isReadOnlyRec(view);
   const canWrite = canWriteRec(view) && !readOnly;
+  const fixedCaptionKeys = {
+    speakers: { uncertain: "rec.project.verify.uncertainSpeaker" },
+    markers: { quote: "rec.project.quote.130", pain: "rec.project.verify.painMarker" },
+    hints: { "speaker-uncertain": "rec.project.verify.overlapHint" },
+    themes: { judge: "rec.project.verify.reviewNeeded" },
+  } as const;
   const correctionKeys = { listen: "rec.project.correction.listen", replace: "rec.project.correction.replace", keep: "rec.project.correction.keep", weber: "rec.project.correction.weber", kraus: "rec.project.correction.kraus", split: "rec.project.correction.split", confirm: "rec.project.correction.confirm", rename: "rec.project.correction.rename" } as const;
   const [toast, setToast] = useRecordingNotice();
 
@@ -65,7 +72,7 @@ export function RecVerify({ state, view }: { state: UiState; view: RecView }) {
                   )}
                 >
                   <span className="h-2.5 w-2.5 shrink-0 rounded-sm bg-muted" />
-                  <span className={cn("flex-1", s.tone === "uncertain" && "text-destructive")}>{s.name}</span>
+                  <span className={cn("flex-1", s.tone === "uncertain" && "text-destructive")}>{recordingFixedDisplay(recT, fixedCaptionKeys.speakers, s.id, s.name)}</span>
                   <span className={cn("font-mono text-9", s.tone === "uncertain" ? "text-destructive" : "text-muted-foreground")}>
                     {s.count != null ? s.count : `${s.pct}%`}
                   </span>
@@ -91,7 +98,7 @@ export function RecVerify({ state, view }: { state: UiState; view: RecView }) {
               <span className="text-10 font-medium text-muted-foreground">{recT("rec.project.markers")}</span>
               {VERIFY_MARKS.map((m) => (
                 <div key={m.id} className="flex items-center rounded-md border border-border-subtle px-2.5 py-1.5 text-10">
-                  <span className="flex-1">{m.label}</span>
+                  <span className="flex-1">{recordingFixedDisplay(recT, fixedCaptionKeys.markers, m.id, m.label)}</span>
                   <span className="font-mono text-9 text-muted-foreground">{m.count}</span>
                 </div>
               ))}
@@ -149,7 +156,7 @@ export function RecVerify({ state, view }: { state: UiState; view: RecView }) {
                 )}
                 {it.kind === "speaker-uncertain" && it.speakerUncertain && (
                   <div className="min-w-0 flex-1 rounded-lg border border-border-subtle bg-card p-2.5">
-                    <p className="mb-1.5 font-mono text-9 text-muted-foreground">{it.speakerUncertain.note}</p>
+                    <p className="mb-1.5 font-mono text-9 text-muted-foreground">{recordingFixedDisplay(recT, fixedCaptionKeys.hints, it.kind, it.speakerUncertain.note)}</p>
                     <p className="mb-2 text-11 leading-relaxed">{it.text}</p>
                     <div className="flex flex-wrap gap-1.5">
                       {it.speakerUncertain.actions.map((a, i) => (
@@ -183,7 +190,7 @@ export function RecVerify({ state, view }: { state: UiState; view: RecView }) {
                   t.kind === "judge" ? "border-warning/40 bg-warning/5" : "border-border-subtle bg-card",
                 )}
               >
-                <p className="mb-1 text-11 font-medium">{t.name}</p>
+                <p className="mb-1 text-11 font-medium">{recordingFixedDisplay(recT, fixedCaptionKeys.themes, t.kind, t.name)}</p>
                 {t.meta && <p className="text-10 leading-relaxed text-muted-foreground">{t.meta}</p>}
                 {t.note && <p className="text-10 leading-relaxed text-muted-foreground">{t.note}</p>}
                 {t.actions && (

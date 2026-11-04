@@ -16,5 +16,14 @@ const actual = JSON.parse(JSON.stringify({
   zh: recordingProjectZhCN, en: recordingProjectEn,
 }));
 const baselineBytes = readFileSync("evidence/i18n-recording-6214/copy-baseline.json");
-assert.deepStrictEqual(actual, JSON.parse(baselineBytes.toString("utf8")));
-console.log(JSON.stringify({ equal: true, sections: Object.keys(actual), baselineSha256: createHash("sha256").update(baselineBytes).digest("hex"), baselineBytes: baselineBytes.length }));
+const expected = JSON.parse(baselineBytes.toString("utf8"));
+// Four later fixed-state translations legitimately extend the dictionary. Every
+// original dictionary value and all seed/probe data must still match the snapshot.
+const addedCaptionKeys = ["rec.project.verify.uncertainSpeaker", "rec.project.verify.overlapHint", "rec.project.verify.painMarker", "rec.project.verify.reviewNeeded"].sort();
+for (const locale of ["zh", "en"]) {
+  const added = Object.keys(actual[locale]).filter(key => !Object.hasOwn(expected[locale], key)).sort();
+  assert.deepStrictEqual(added, addedCaptionKeys);
+  actual[locale] = Object.fromEntries(Object.keys(expected[locale]).map(key => [key, actual[locale][key]]));
+}
+assert.deepStrictEqual(actual, expected);
+console.log(JSON.stringify({ equalBaselineValues: true, addedCaptionKeys, sections: Object.keys(actual), baselineSha256: createHash("sha256").update(baselineBytes).digest("hex"), baselineBytes: baselineBytes.length }));
