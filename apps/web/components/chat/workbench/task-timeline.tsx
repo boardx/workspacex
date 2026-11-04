@@ -36,7 +36,7 @@ export const renderExecutionTool = (entry: TraceEntry) => {
   // UIUX r4：行内提示（转交被拒）已画在消息里，执行轨迹里再画一份就是同一句话出现两次。
   return isDecisionTool(toolName) || isInlineNoticeTool(toolName) || toolName === "write_todos" ? null : <ExecutionTool entry={entry} />;
 };
-type TraceContext = { events: TraceStore; messageRuns: Readonly<Record<string, string>>; toolCallMessageIds?: ReadonlySet<string>; resolvePersistedMessageId?: (messageId: string) => string | null; isSettledMessageId?: (messageId: string) => boolean; expanded?: Record<string, boolean>; toggle?: (runId: string, value: boolean) => void;
+type TraceContext = { failureScope?: string; retryFailureRunId?: string | null; onRetryFailure?: () => void; events: TraceStore; messageRuns: Readonly<Record<string, string>>; toolCallMessageIds?: ReadonlySet<string>; resolvePersistedMessageId?: (messageId: string) => string | null; isSettledMessageId?: (messageId: string) => boolean; expanded?: Record<string, boolean>; toggle?: (runId: string, value: boolean) => void;
   /** issue #3399 ② —— 未被采纳的插话必须有一条真的能把它发出去的路径。 */
   onResendInterjection?: (text: string) => void };
 const TraceContext = React.createContext<TraceContext & { anchors?: Readonly<Record<string, string>> }>({ events: {}, messageRuns: {} });
@@ -71,7 +71,7 @@ export function resolveTraceAnchors(
   return anchors;
 }
 function TraceAssistant(props: React.ComponentProps<typeof CopilotChatAssistantMessage>): JSX.Element {
-  const { events, messageRuns, anchors, expanded, toggle, onResendInterjection, resolvePersistedMessageId, isSettledMessageId } = React.useContext(TraceContext);
+  const { failureScope, retryFailureRunId, onRetryFailure, events, messageRuns, anchors, expanded, toggle, onResendInterjection, resolvePersistedMessageId, isSettledMessageId } = React.useContext(TraceContext);
   const runId = messageRuns[props.message.id];
   const trace = runId ? events[runId] : undefined;
   // 锚点从 context 读（永远是最新的一份），不再从可能被 memo 冻住的 `props.messages` 里重算。
@@ -91,7 +91,7 @@ function TraceAssistant(props: React.ComponentProps<typeof CopilotChatAssistantM
     }
   }, [bodyKey, hideProgress, props.message.content]);
   return <>
-    {runId && trace?.length && isAnchor ? <RunTracePanel runId={runId} events={trace} renderTool={renderExecutionTool} running={props.isRunning && !trace.some((event) => event.kind === "final_message")} expanded={expanded?.[runId] ?? false} onExpandedChange={(value) => toggle?.(runId, value)} /> : null}
+    {runId && trace?.length && isAnchor ? <RunTracePanel failureScope={failureScope} onRetryFailure={retryFailureRunId === runId ? onRetryFailure : undefined} runId={runId} events={trace} renderTool={renderExecutionTool} running={props.isRunning && !trace.some((event) => event.kind === "final_message")} expanded={expanded?.[runId] ?? false} onExpandedChange={(value) => toggle?.(runId, value)} /> : null}
     {trace && isAnchor ? <RunInterjections events={trace} readHistory={runId ? expanded?.[runId] : false} onResend={onResendInterjection} /> : null}
     <MessageRunContext.Provider value={runId ?? null}><RunTraceCoveredContext.Provider value={Boolean(trace?.length)}><V2AssistantMessage {...props} message={
       hideProgress
@@ -101,16 +101,16 @@ function TraceAssistant(props: React.ComponentProps<typeof CopilotChatAssistantM
   </>;
 }
 const TraceAssistantSlot = Object.assign(TraceAssistant, CopilotChatAssistantMessage);
-export function TaskTimeline({ events, messageRuns, toolCallMessageIds = EMPTY_IDS, resolvePersistedMessageId, isSettledMessageId, onResendInterjection, ...props }: React.ComponentProps<typeof CopilotChatMessageView> & TraceContext): JSX.Element {
+export function TaskTimeline({ failureScope, retryFailureRunId, onRetryFailure, events, messageRuns, toolCallMessageIds = EMPTY_IDS, resolvePersistedMessageId, isSettledMessageId, onResendInterjection, ...props }: React.ComponentProps<typeof CopilotChatMessageView> & TraceContext): JSX.Element {
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
   const toggle = React.useCallback((runId: string, state: boolean) => setExpanded((previous) => ({ ...previous, [runId]: state })), []);
   const anchors = React.useMemo(() => resolveTraceAnchors(props.messages, messageRuns, toolCallMessageIds), [props.messages, messageRuns, toolCallMessageIds]);
-  const value = React.useMemo(() => ({ events, messageRuns, anchors, expanded, toggle, onResendInterjection, resolvePersistedMessageId, isSettledMessageId }), [events, messageRuns, anchors, expanded, toggle, onResendInterjection, resolvePersistedMessageId, isSettledMessageId]);
+  const value = React.useMemo(() => ({ failureScope, retryFailureRunId, onRetryFailure, events, messageRuns, anchors, expanded, toggle, onResendInterjection, resolvePersistedMessageId, isSettledMessageId }), [failureScope, retryFailureRunId, onRetryFailure, events, messageRuns, anchors, expanded, toggle, onResendInterjection, resolvePersistedMessageId, isSettledMessageId]);
   // 同一份事实的另一面：有锚点的 run 由 inline 槽画，没锚点的才由 fallback 槽画。
   const displayed = new Set(Object.keys(anchors));
   return <TraceContext.Provider value={value}>
     <LiveMessagesContext.Provider value={props.messages ?? null}><CopilotChatMessageView {...props} assistantMessage={TraceAssistantSlot} /></LiveMessagesContext.Provider>
     {Object.entries(events).filter(([runId]) => !displayed.has(runId)).map(([runId, trace]) =>
-      <React.Fragment key={runId}><RunInterjections events={trace} readHistory={runId ? expanded?.[runId] : false} onResend={onResendInterjection} /><RunTracePanel runId={runId} events={trace} renderTool={renderExecutionTool} running={props.isRunning && !trace.some((event) => event.kind === "final_message")} expanded={expanded?.[runId] ?? false} onExpandedChange={(value) => toggle?.(runId, value)} /></React.Fragment>)}
+      <React.Fragment key={runId}><RunInterjections events={trace} readHistory={runId ? expanded?.[runId] : false} onResend={onResendInterjection} /><RunTracePanel failureScope={failureScope} onRetryFailure={retryFailureRunId === runId ? onRetryFailure : undefined} runId={runId} events={trace} renderTool={renderExecutionTool} running={props.isRunning && !trace.some((event) => event.kind === "final_message")} expanded={expanded?.[runId] ?? false} onExpandedChange={(value) => toggle?.(runId, value)} /></React.Fragment>)}
   </TraceContext.Provider>;
 }
