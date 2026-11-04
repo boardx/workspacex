@@ -70,7 +70,15 @@ describe("platform members complete localization", () => {
     expect(screen.getByText(rawName)).toBeTruthy(); expect(screen.getByText(rawOrg)).toBeTruthy();
     expect(screen.getByText("raw+{name}@example.test")).toBeTruthy();
     expect(screen.getByTestId("admin-platform-member-target-admin-toggle")).toHaveTextContent(/grant|make|set as/i);
-    const copy = document.body.textContent!.replaceAll(rawName, "").replaceAll(rawOrg, "");
+    const member = screen.getByTestId("admin-platform-member-target");
+    const avatar = within(member).getByText(rawName.slice(0, 1), { exact: true });
+    expect(avatar).toHaveTextContent(rawName.slice(0, 1));
+    const authoredNodes = [screen.getByText(rawName), screen.getByText(rawOrg), screen.getByText("raw+{name}@example.test"), avatar];
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+      acceptNode: (node) => authoredNodes.some((authored) => authored.contains(node)) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT,
+    });
+    let copy = "";
+    while (walker.nextNode()) copy += walker.currentNode.textContent;
     expect(copy).not.toMatch(/[\u3400-\u9fff]/);
   });
 
@@ -209,7 +217,10 @@ describe("platform members complete localization", () => {
     route(() => kind === "network" ? Promise.reject(new Error("PRIVATE_STACK_xyz")) : json({ reasonCode: "PRIVATE_STACK_xyz", message: "PRIVATE_STACK_xyz" }, 503));
     show(); await choose("lead"); const error = await screen.findByTestId(`${roleId()}-error`);
     expect(error).toHaveTextContent(/failed|try again|unavailable/i); expect(error).not.toHaveTextContent("PRIVATE_STACK_xyz");
-    switchTo("zh-CN"); expect(error).toHaveTextContent(/失败|重试|不可用/);
+    switchTo("zh-CN");
+    expect(error).toHaveTextContent(kind === "network" ? /请求没成功/ : /服务器出错/);
+    expect(error).toHaveTextContent(/稍后再试/);
+    expect(error).not.toHaveTextContent("PRIVATE_STACK_xyz");
     expect(screen.getByTestId(roleId())).toHaveTextContent("顾问"); expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
