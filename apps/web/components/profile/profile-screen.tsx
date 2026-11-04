@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PaginationLoadMore } from "@/components/ui/pagination";
 import { StateShell, type UiState } from "@/components/state/state-shell";
+import { activitySummary } from "@/lib/i18n/activity";
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey, MessageParams } from "@/lib/i18n/messages";
 import { ApiError } from "@/lib/api-client";
@@ -528,7 +529,7 @@ function ActivitySection({ refreshKey }: { refreshKey: number }) {
               className="flex items-start justify-between gap-3 border-b border-border/60 pb-2 last:border-none last:pb-0"
             >
               <div className="flex flex-col gap-0.5 overflow-hidden">
-                <span className="truncate text-12">{event.summary}</span>
+                <span className="truncate text-12">{activitySummary(event, t)}</span>
               </div>
               <time className="shrink-0 text-10 text-muted-foreground" dateTime={event.occurredAt}>
                 {formatActivityTime(event.occurredAt, locale)}

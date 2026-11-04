@@ -1,0 +1,351 @@
+[stack-admission] load1=3.49 cores=10 perCore=0.35 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw0xgdpb-a59de32f-2fb27ada717b db=wsx_2fb27ada717bf87472b0 compose=wsx-2fb27ada717bf87472b0 pg=20010 redis=21010 api=24010 web=25010 sandbox=26010 model=27010 deep-agent=28010 asr=29010 vision=30010 loopback-sandbox=31010 mail=19010
+[WebServer] (node:45230) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45231) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45239) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45240) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45243) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45256) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45257) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45258) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45264) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45265) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45266) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45272) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45273) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45274) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45280) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  Image localhost/workspacex-postgres-age:pg16-age1.6.0 Building
+[WebServer] #1 [internal] load local bake definitions
+[WebServer] #1 reading from stdin 672B done
+[WebServer] #1 DONE 0.0s
+[WebServer]
+[WebServer] #2 [internal] load build definition from Dockerfile
+[WebServer] #2 transferring dockerfile: 2.76kB done
+[WebServer] #2 DONE 0.0s
+[WebServer]
+[WebServer] #3 [internal] load metadata for docker.io/pgvector/pgvector:pg16
+[WebServer] #3 DONE 0.2s
+[WebServer]
+[WebServer] #4 [internal] load .dockerignore
+[WebServer] #4 transferring context: 2B done
+[WebServer] #4 DONE 0.0s
+[WebServer]
+[WebServer] #5 [1/2] FROM docker.io/pgvector/pgvector:pg16@sha256:ad2e18408bf447f62092a8a5259e7df10505c5a0360bd1a1853ac8b8b0763da2
+[WebServer] #5 resolve docker.io/pgvector/pgvector:pg16@sha256:ad2e18408bf447f62092a8a5259e7df10505c5a0360bd1a1853ac8b8b0763da2 done
+[WebServer] #5 DONE 0.0s
+[WebServer]
+[WebServer] #6 [2/2] RUN set -eux;     apt_host="deb.debian.org"; apt_host="${apt_host%%/*}";     sed -Ei "s#//deb\.debian\.org#//${apt_host}#g" /etc/apt/sources.list.d/debian.sources;     apt-get update;     apt-get install -y --no-install-recommends       build-essential ca-certificates git flex bison postgresql-server-dev-16;     git init /tmp/age;     git -C /tmp/age fetch --depth 1 "https://github.com/apache/age.git" "2db2f060c4c9265a14d40f007eb8c56febf31e4c";     git -C /tmp/age checkout FETCH_HEAD;     test "$(git -C /tmp/age rev-parse HEAD)" = "2db2f060c4c9265a14d40f007eb8c56febf31e4c";     make -C /tmp/age;     make -C /tmp/age install;     rm -rf /tmp/age;     apt-get purge -y --auto-remove build-essential git flex bison postgresql-server-dev-16;     rm -rf /var/lib/apt/lists/*
+[WebServer] #6 CACHED
+[WebServer]
+[WebServer] #7 exporting to image
+[WebServer] #7 exporting layers done
+[WebServer] #7 exporting manifest sha256:408d8b08ebc0970cb1bbb1df0028f2f18ad1736cda4db725d85c20f409315e64 done
+[WebServer] #7 exporting config sha256:408f8fa7be2208e678681b6d2d1bc9c075336b6e47143b942e425b3aaeb6a6df done
+[WebServer] #7 exporting attestation manifest sha256:3183ebbbd23f03b2888b3d5de00ea351397f5da24b57ce594a4f5efb205b52db done
+[WebServer] #7 exporting manifest list sha256:59ce90da97dc1cfed9adea8bd32f0a9e5f5c17bb0865c77e7615f6877fad484a
+[WebServer] #7 exporting manifest list sha256:59ce90da97dc1cfed9adea8bd32f0a9e5f5c17bb0865c77e7615f6877fad484a done
+[WebServer] #7 naming to localhost/workspacex-postgres-age:pg16-age1.6.0 done
+[WebServer] #7 unpacking to localhost/workspacex-postgres-age:pg16-age1.6.0 0.0s done
+[WebServer] #7 DONE 0.1s
+[WebServer]
+[WebServer] #8 resolving provenance for metadata file
+[WebServer] #8 DONE 0.0s
+[WebServer]  Image localhost/workspacex-postgres-age:pg16-age1.6.0 Built
+[WebServer]  Network wsx-2fb27ada717bf87472b0_default Creating
+[WebServer]  Network wsx-2fb27ada717bf87472b0_default Created
+[WebServer]  Container wsx-2fb27ada717bf87472b0-minio-1 Creating
+[WebServer]  Container wsx-2fb27ada717bf87472b0-postgres-1 Creating
+[WebServer]  Container wsx-2fb27ada717bf87472b0-redis-1 Creating
+[WebServer]  Container wsx-2fb27ada717bf87472b0-minio-1 Created
+[WebServer]  Container wsx-2fb27ada717bf87472b0-postgres-1 Created
+[WebServer]  Container wsx-2fb27ada717bf87472b0-redis-1 Created
+[WebServer]  Container wsx-2fb27ada717bf87472b0-postgres-1 Starting
+[WebServer]  Container wsx-2fb27ada717bf87472b0-redis-1 Starting
+[WebServer]  Container wsx-2fb27ada717bf87472b0-minio-1 Starting
+[WebServer]  Container wsx-2fb27ada717bf87472b0-redis-1 Started
+[WebServer]  Container wsx-2fb27ada717bf87472b0-postgres-1 Started
+[WebServer]  Container wsx-2fb27ada717bf87472b0-minio-1 Started
+[WebServer]  Container wsx-2fb27ada717bf87472b0-postgres-1 Waiting
+[WebServer]  Container wsx-2fb27ada717bf87472b0-minio-1 Waiting
+[WebServer]  Container wsx-2fb27ada717bf87472b0-redis-1 Waiting
+[WebServer]  Container wsx-2fb27ada717bf87472b0-redis-1 Healthy
+[WebServer]  Container wsx-2fb27ada717bf87472b0-minio-1 Healthy
+[WebServer]  Container wsx-2fb27ada717bf87472b0-postgres-1 Healthy
+[WebServer] (node:45304) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45305) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] [fullstack-fixture] recording thread=thread-466-pb-a59de32f-2fb27ada717b title=FULLSTACK_RECORDING_THREAD_pb-a59de32f-2fb27ada717b
+[WebServer] [fullstack-fixture] db=wsx_2fb27ada717bf87472b0 project=project-fullstack-pb-a59de32f-2fb27ada717b sentinel=FULLSTACK_SENTINEL_pb-a59de32f-2fb27ada717b.md
+[WebServer] [workflow-runs-i18n-fixture] org=org-workflow-runs-pb-a59de32f-2fb27ada717b persisted=3 actorOwned=2 execution=not-tested
+[WebServer] [about-me-i18n-fixture] org=about-org-fullstack-pb-a59de32f-2fb27ada717b actor=consultant personal=2 accepted-by-promotion sources=2 canonical-executor extraction=disabled
+[WebServer] (node:45384) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45385) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45391) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] {"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+[WebServer] {"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+[WebServer] {"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+[WebServer] api listening on 24010
+[WebServer] {"level":"error","msg":"service uptime check: target reported down","traceId":"service-uptime-poll-worker","detail":{"raw":"fetch failed"}}
+[WebServer] platform skill catalog: org created, skills created=[pptx-create,docx-create,xlsx-create,pdf-create] alreadyExisted=[]
+[WebServer] fullstack test API listening on 24010; voice supplier LOCAL_PROTOCOL
+[WebServer] (node:45400) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]   ▲ Next.js 14.2.15
+[WebServer]   - Experiments (use with caution):
+[WebServer]     · proxyTimeout
+[WebServer]
+[WebServer]    Creating an optimized production build ...
+[WebServer] {"level":"error","msg":"service uptime check: target reported down","traceId":"service-uptime-poll-worker","detail":{"raw":"fetch failed"}}
+[WebServer] {"level":"error","msg":"service uptime check: target reported down","traceId":"service-uptime-poll-worker","detail":{"raw":"fetch failed"}}
+[WebServer]  ✓ Compiled successfully
+[WebServer]    Linting and checking validity of types ...
+[WebServer] (node:45908) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] {"level":"error","msg":"service uptime check: target reported down","traceId":"service-uptime-poll-worker","detail":{"raw":"fetch failed"}}
+[WebServer]    Collecting page data ...
+[WebServer] (node:46113) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:46114) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:46129) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:46127) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:46123) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:46128) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:46126) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:46124) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:46122) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:46125) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:46130) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] [CopilotKit Runtime] anonymous telemetry enabled — see https://docs.copilotkit.ai/telemetry to opt out (set COPILOTKIT_TELEMETRY_DISABLED=true).
+[WebServer]    Generating static pages (0/130) ...
+[WebServer] (node:46115) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:46116) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]    Generating static pages (32/130)
+[WebServer]    Generating static pages (64/130)
+[WebServer]    Generating static pages (97/130)
+[WebServer]  ✓ Generating static pages (130/130)
+[WebServer]    Finalizing page optimization ...
+[WebServer]    Collecting build traces ...
+[WebServer]
+[WebServer] Route (app)                                         Size     First Load JS
+[WebServer] ┌ ƒ /                                               202 B          94.3 kB
+[WebServer] ├ ƒ /_not-found                                     881 B            95 kB
+[WebServer] ├ ƒ /.well-known/workspacex-deployment              0 B                0 B
+[WebServer] ├ ƒ /admin                                          10.5 kB         526 kB
+[WebServer] ├ ● /admin/[module]                                 23 kB           562 kB
+[WebServer] ├   ├ /admin/members
+[WebServer] ├   ├ /admin/local
+[WebServer] ├   ├ /admin/blueprint
+[WebServer] ├   └ [+7 more paths]
+[WebServer] ├ ƒ /admin/agent/[id]                               202 B          94.3 kB
+[WebServer] ├ ƒ /admin/skill/[id]                               202 B          94.3 kB
+[WebServer] ├ ƒ /agent                                          18.3 kB         522 kB
+[WebServer] ├ ƒ /agent/[id]                                     16.4 kB         530 kB
+[WebServer] ├ ƒ /api/copilotkit/[[...slug]]                     0 B                0 B
+[WebServer] ├ ƒ /asset-governance                               29.5 kB         533 kB
+[WebServer] ├ ƒ /auth/activate                                  10.5 kB         406 kB
+[WebServer] ├ ƒ /auth/register                                  9.52 kB         405 kB
+[WebServer] ├ ƒ /auth/reset-password                            6.27 kB         402 kB
+[WebServer] ├ ƒ /auth/verify-email                              8.56 kB         190 kB
+[WebServer] ├ ƒ /billing                                        21.4 kB         534 kB
+[WebServer] ├ ƒ /brain                                          13.3 kB         523 kB
+[WebServer] ├ ƒ /canvas                                         202 B          94.3 kB
+[WebServer] ├ ● /canvas/[screen]                                51.9 kB         880 kB
+[WebServer] ├   ├ /canvas/template-admin
+[WebServer] ├   ├ /canvas/template-editor
+[WebServer] ├   ├ /canvas/segment-binding
+[WebServer] ├   └ [+3 more paths]
+[WebServer] ├ ƒ /chat                                           202 B          94.3 kB
+[WebServer] ├ ƒ /chat/[threadId]                                202 B          94.3 kB
+[WebServer] ├ ƒ /chat/copilotkit-preview                        8.86 kB         156 kB
+[WebServer] ├ ƒ /chat/copilotkit-v2                             5.09 kB        1.45 MB
+[WebServer] ├ ƒ /chat/copilotkit-v2/[threadId]                  5.09 kB        1.45 MB
+[WebServer] ├ ƒ /chat/landing                                   3.92 kB         516 kB
+[WebServer] ├ ƒ /chat/legacy                                    14.2 kB         968 kB
+[WebServer] ├ ƒ /chat/live                                      8.52 kB         435 kB
+[WebServer] ├ ƒ /chat/preset                                    5.44 kB         518 kB
+[WebServer] ├ ƒ /consent                                        13.4 kB         408 kB
+[WebServer] ├ ƒ /d/[token]                                      9.12 kB         373 kB
+[WebServer] ├ ƒ /dev/org-home-fixture                           4.33 kB         506 kB
+[WebServer] ├ ƒ /group                                          14.4 kB         195 kB
+[WebServer] ├ ƒ /home                                           599 B           527 kB
+[WebServer] ├ ƒ /itv                                            12 kB           562 kB
+[WebServer] ├ ƒ /itv/[interviewId]/[stage]                      252 B           620 kB
+[WebServer] ├ ƒ /itv/[interviewId]/setup                        252 B           620 kB
+[WebServer] ├ ƒ /itv/experts/[expertId]                         4.78 kB         545 kB
+[WebServer] ├ ƒ /itv/live                                       7.25 kB         386 kB
+[WebServer] ├ ƒ /itv/new                                        202 B          94.3 kB
+[WebServer] ├ ƒ /itv/quick/[interviewId]                        2.48 kB         543 kB
+[WebServer] ├ ƒ /join                                           9.48 kB         197 kB
+[WebServer] ├ ƒ /kitchen-sink                                   9.29 kB         513 kB
+[WebServer] ├ ƒ /login                                          11.4 kB         411 kB
+[WebServer] ├ ƒ /org-admin                                      202 B          94.3 kB
+[WebServer] ├ ƒ /org-admin/home-config                          15.4 kB         553 kB
+[WebServer] ├ ƒ /org-admin/invites                              2.1 kB          533 kB
+[WebServer] ├ ƒ /org-admin/members                              2.1 kB          533 kB
+[WebServer] ├ ƒ /org-admin/preview                              19.9 kB         524 kB
+[WebServer] ├ ƒ /org-admin/profile                              2.1 kB          533 kB
+[WebServer] ├ ƒ /org-admin/workflow-grants                      13.3 kB         529 kB
+[WebServer] ├ ƒ /platform-admin                                 202 B          94.3 kB
+[WebServer] ├ ● /platform-admin/[module]                        75.4 kB         687 kB
+[WebServer] ├   ├ /platform-admin/agent
+[WebServer] ├   ├ /platform-admin/model
+[WebServer] ├   ├ /platform-admin/mcp
+[WebServer] ├   └ [+8 more paths]
+[WebServer] ├ ƒ /platform-admin/agent/[id]                      21.7 kB         547 kB
+[WebServer] ├ ƒ /platform-admin/design-workbench/[projectId]    6.91 kB         515 kB
+[WebServer] ├ ƒ /platform-admin/model-tests                     12.8 kB         528 kB
+[WebServer] ├ ƒ /platform-admin/skill/[id]                      9.25 kB         513 kB
+[WebServer] ├ ƒ /platform-admin/skill/[id]/bindings             11.4 kB         363 kB
+[WebServer] ├ ƒ /preview/agent-interrupts                       4.15 kB         213 kB
+[WebServer] ├ ƒ /preview/agent-kernel                           16.9 kB         368 kB
+[WebServer] ├ ƒ /preview/agent-runtime                          34.3 kB         239 kB
+[WebServer] ├ ƒ /preview/agent-tool-chain                       4.83 kB         113 kB
+[WebServer] ├ ƒ /preview/ai-capability-studio/adapt             3.38 kB         146 kB
+[WebServer] ├ ƒ /preview/ai-capability-studio/connections       7.85 kB         129 kB
+[WebServer] ├ ƒ /preview/ai-capability-studio/governance        16 kB           249 kB
+[WebServer] ├ ƒ /preview/ai-capability-studio/import            7.41 kB         180 kB
+[WebServer] ├ ƒ /preview/ai-capability-studio/source            5.24 kB         148 kB
+[WebServer] ├ ƒ /preview/ai-capability-studio/uploads           6.83 kB         146 kB
+[WebServer] ├ ƒ /preview/ai-capability-studio/workbench         15.3 kB         221 kB
+[WebServer] ├ ƒ /preview/billing                                19.6 kB         453 kB
+[WebServer] ├ ƒ /preview/board-authoring                        7.1 kB          101 kB
+[WebServer] ├ ƒ /preview/board-fabric-v01                       8.6 kB          204 kB
+[WebServer] ├ ƒ /preview/board-object-authoring                 10.5 kB         240 kB
+[WebServer] ├ ƒ /preview/board-workspace                        12.3 kB         215 kB
+[WebServer] ├ ƒ /preview/canvas-streaming                       14.2 kB         842 kB
+[WebServer] ├ ƒ /preview/canvas-template-gallery                22.5 kB         435 kB
+[WebServer] ├ ƒ /preview/chat-attach-modal                      8.22 kB         427 kB
+[WebServer] ├ ƒ /preview/chat-create-project                    2.77 kB         111 kB
+[WebServer] ├ ƒ /preview/chat-diagram-fabric                    267 B           867 kB
+[WebServer] ├ ƒ /preview/chat-file-upload                       13.8 kB         365 kB
+[WebServer] ├ ƒ /preview/chat-knowledge-graph                   14.8 kB         252 kB
+[WebServer] ├ ƒ /preview/chat-viz                               266 B           867 kB
+[WebServer] ├ ƒ /preview/context-pack                           7.6 kB          511 kB
+[WebServer] ├ ƒ /preview/feedback-design-loop                   3.1 kB          592 kB
+[WebServer] ├ ƒ /preview/feedback-loop                          3.18 kB         467 kB
+[WebServer] ├ ƒ /preview/live-collab-orchestration              23.5 kB         152 kB
+[WebServer] ├ ƒ /preview/plan-control                           11.1 kB         141 kB
+[WebServer] ├ ƒ /preview/plan-control-live                      6.5 kB          137 kB
+[WebServer] ├ ƒ /preview/pricing                                18.2 kB         232 kB
+[WebServer] ├ ƒ /preview/tasks                                  11.7 kB         516 kB
+[WebServer] ├ ƒ /preview/whiteboard                             7.42 kB         511 kB
+[WebServer] ├ ƒ /preview/work-stack                             20.5 kB         216 kB
+[WebServer] ├ ƒ /profile                                        279 B           512 kB
+[WebServer] ├ ƒ /profile/preview                                289 B           512 kB
+[WebServer] ├ ƒ /project                                        202 B          94.3 kB
+[WebServer] ├ ƒ /project/live                                   5.53 kB         432 kB
+[WebServer] ├ ƒ /project/new                                    8.81 kB         527 kB
+[WebServer] ├ ƒ /projects                                       9.18 kB         513 kB
+[WebServer] ├ ƒ /projects/[projectId]                           62.3 kB         596 kB
+[WebServer] ├ ƒ /projects/[projectId]/canvas                    332 B           812 kB
+[WebServer] ├ ƒ /projects/[projectId]/files          [WebServer]            29.4 kB         533 kB
+[WebServer] ├ ƒ /projects/join                                  13.4 kB         404 kB
+[WebServer] ├ ƒ /rec                                            46 kB           558 kB
+[WebServer] ├ ƒ /research                                       54.5 kB         625 kB
+[WebServer] ├ ƒ /research/[sessionId]/[stage]                   8.38 kB         499 kB
+[WebServer] ├ ƒ /research/new                                   9.67 kB         436 kB
+[WebServer] ├ ƒ /session                                        10.3 kB         191 kB
+[WebServer] ├ ƒ /share/chat/[token]                             12.3 kB         419 kB
+[WebServer] ├ ƒ /skill                                          43.2 kB         572 kB
+[WebServer] ├ ƒ /studio/board                                   13.4 kB         705 kB
+[WebServer] ├ ƒ /studio/board/[boardId]                         8.96 kB         792 kB
+[WebServer] ├ ƒ /studio/board/[boardId]/digital-human           9.97 kB        1.54 MB
+[WebServer] ├ ƒ /studio/design-workbench                        5.06 kB         519 kB
+[WebServer] ├ ƒ /studio/design-workbench/[projectId]            6.96 kB         515 kB
+[WebServer] ├ ƒ /studio/feedback-drafts                         7.23 kB         511 kB
+[WebServer] ├ ƒ /studio/interview                               202 B          94.3 kB
+[WebServer] ├ ƒ /studio/interview/[id]                          202 B          94.3 kB
+[WebServer] ├ ƒ /studio/prototype                               202 B          94.3 kB
+[WebServer] ├ ƒ /studio/research                                202 B          94.3 kB
+[WebServer] ├ ƒ /studio/survey                                  28.4 kB         460 kB
+[WebServer] ├ ƒ /studio/survey/[surveyId]                       236 B           704 kB
+[WebServer] ├ ƒ /studio/survey/[surveyId]/design                236 B           704 kB
+[WebServer] ├ ƒ /studio/survey/[surveyId]/publish               236 B           704 kB
+[WebServer] ├ ƒ /studio/survey/[surveyId]/report                236 B           704 kB
+[WebServer] ├ ƒ /studio/survey/[surveyId]/responses             236 B           704 kB
+[WebServer] ├ ƒ /studio/survey/[surveyId]/template              236 B           704 kB
+[WebServer] ├ ƒ /studio/survey/new/import                       4.93 kB         429 kB
+[WebServer] ├ ƒ /studio/survey/question-templates/[templateId]  218 B           639 kB
+[WebServer] ├ ƒ /studio/survey/templates/[templateId]           218 B           639 kB
+[WebServer] ├ ƒ /surveys/[token]                                8.73 kB         194 kB
+[WebServer] ├ ƒ /tasks                                          6.12 kB         510 kB
+[WebServer] ├ ƒ /tpl                                            32.2 kB         550 kB
+[WebServer] ├ ƒ /tpl/designer                                   30.3 kB         556 kB
+[WebServer] ├ ƒ /tpl/list                                       6.32 kB         522 kB
+[WebServer] ├ ƒ /usage                                          2.91 kB         515 kB
+[WebServer] ├ ƒ /workflows                                      202 B          94.3 kB
+[WebServer] ├ ƒ /workflows/approvals                            5.21 kB         519 kB
+[WebServer] ├ ƒ /workflows/board                                9.07 kB         513 kB
+[WebServer] ├ ƒ /workflows/runs                                 5.26 kB         519 kB
+[WebServer] ├ ƒ /workflows/runs/[instanceId]                    6.39 kB         520 kB
+[WebServer] └ ƒ /workflows/runs/[instanceId]/result             11.2 kB         515 kB
+[WebServer] + First Load JS shared by all                       94.1 kB
+[WebServer]   ├ chunks/45909-147f44d5835d3a85.js                31.8 kB
+[WebServer]   ├ chunks/9c965e05-5e00deeb75f21abd.js             53.6 kB
+[WebServer]   └ other shared chunks (total)                     8.71 kB
+[WebServer]
+[WebServer]
+[WebServer] ƒ Middleware                                        24.9 kB
+[WebServer]
+[WebServer] ●  (SSG)      prerendered as static HTML (uses getStaticProps)
+[WebServer] ƒ  (Dynamic)  server-rendered on demand
+[WebServer]
+[WebServer] (node:46230) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]   ▲ Next.js 14.2.15
+[WebServer]   - Local:        http://localhost:25010
+[WebServer]
+[WebServer]  ✓ Starting...
+[WebServer]  ✓ Ready in 303ms
+
+Running 1 test using 1 worker
+
+(node:46236) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:46236) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:46230) [DEP0060] DeprecationWarning: The `util._extend` API is deprecated. Please use Object.assign() instead.
+[WebServer] {"level":"error","msg":"http exception","traceId":"a0ba8d4a-2352-45c0-920f-70dbe0dabffd","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at PlatformOperatorGuard.canActivate (/Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/api/src/interface/guards/platform-operator.guard.ts:40:13)\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async GuardsConsumer.tryActivate (/Users/shenyangjun/boardx/workspacex-i18n-agent-skill/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/guards/guards-consumer.js:16:17)\n    at async canActivateFn (/Users/shenyangjun/boardx/workspacex-i18n-agent-skill/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:135:33)\n    at async /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:42:31\n    at async /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+  ✓  1 [seeded-github-import] › e2e/entity-localization.spec.ts:251:5 › shared admin sidebars retain routes, scope and live counts across locale changes (3.0s)
+
+  1 passed (4.5m)
+[timing] pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded-github-import --no-deps --workers=1 --grep shared admin sidebars retain routes, scope and live counts across locale changes
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：4m32s
+  清理：1s
+  总计：4m32s
