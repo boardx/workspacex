@@ -51,6 +51,9 @@ description: >
 
 ## 踩坑与经验（append-only，最新在上）
 - 2026-11-04：后台配额/用量说明先核对 canonical `apps/api/src/infrastructure/auth/pg-token-quota-repository.ts` 聚合及 F159 迁移，不从调用失败推导 Token 为零；通用错误文案复用 `apps/web/lib/design-failure.ts` → `http-failure-text.ts`，语义反馈回调在渲染时接收当前 locale。对应反例与回归：`apps/web/tests/ui/admin-member-quotas-i18n.test.tsx`、`ai-usage-i18n.test.tsx`（issue #6212）。
+- 2026-11-04：首页配置采用保留挂载状态的标签页时，原生 `hidden` 与无条件 Tailwind `flex` 会发生样式覆盖；应按当前页切换 `flex` / `hidden` 并真实断言非活动面板不可见。只跑完成主链的浏览器绿灯不能替代逐屏截图检查（issue #6204；`evidence/org-home-config-i18n-6204/visibility-red/`）。
+- 2026-11-03：契约 mock 再生成的字节同步不能证明样例有效；新增 schema 类型时需以真实响应 safeParse 校验生成样例，判别联合缺生成支持会默默产出 null（issue #6145）。
+- 2026-11-03：strict 事件响应新增展示元数据需显式版本协商并保留旧摘要回退；query 校验复用 ZodBodyPipe，裸 schema.parse 的 ZodError 不会自动成为400。白名单投影与真实新旧HTTP证据见 issue #6145 / evidence/i18n-activity-6145。
 - 2026-11-03：成员/邀请的真实路由在 `org-admin-screen.tsx`，同名 `members-screen.tsx`/`roster-screen.tsx` 是预览；国际化不能只改预览。角色标签复用共享 `role.*` 字典，错误/反馈保留原始载荷并在渲染时翻译，locale 不进入读取 effect 依赖，避免语言切换重发请求（issue #6179）。
 - 2026-11-02：验证邮件重发不能只依赖24小时注册cookie；过期/换浏览器恢复须先复用登录密码校验与锁定规则，再将可信userId传入事务重发，保持challenge→credential锁顺序、限频与旧链接原子失效；API存活不证明发信配置完整（issue #6085）。
 

@@ -1,0 +1,10 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/e2e-archived-thread-response.test.ts (7 tests) 7ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  07:36:27
+   Duration  577ms (transform 38ms, setup 111ms, collect 20ms, tests 7ms, environment 0ms, prepare 53ms)

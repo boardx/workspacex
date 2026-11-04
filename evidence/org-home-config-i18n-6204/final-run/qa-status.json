@@ -1,0 +1,42 @@
+{
+  "source": "95bf3f272e04eac0131a7acdeaa5a03a5726dd83",
+  "passed": 1,
+  "caseSeconds": 13.8,
+  "totalSeconds": 242,
+  "cleanupSeconds": 1,
+  "scope": "wsx-593b53c25ee5c9ae6788",
+  "remainingContainers": 0,
+  "quantitativeGeometry": [
+    375,
+    1280
+  ],
+  "visualOnlyWidth": 820,
+  "viewed": [
+    "home-config-banner-1280.png",
+    "home-config-banner-375.png",
+    "home-config-content-1280.png",
+    "home-config-content-375.png",
+    "home-config-layout-1280.png",
+    "home-config-layout-375.png",
+    "home-config-member-denied.png",
+    "home-config-member-home.png",
+    "home-config-preview-1280.png",
+    "home-config-preview-375.png",
+    "home-config-preview-820.png",
+    "home-config-theme-1280.png",
+    "home-config-theme-375.png"
+  ],
+  "pendingVisualQa": [],
+  "delivery": "local verification and13screenshotQA complete; pending actualprofilemerge/freshdevelop/pure home PR and own source/native CI; no duplicate timing maintenance",
+  "visualConclusion": "All13 inspected: controls readable, no horizontal overflow observed, selected tab has no inactive-panel bleed; raw authored content/selection notes retained.820 qualitative only.",
+  "relatedStaticGates": {
+    "testidExit": 0,
+    "checked": 5440,
+    "unparsed": 37,
+    "existingExemptions": 21,
+    "wiringExit": 0,
+    "routes": 137,
+    "noDataSurfaces": 18,
+    "controllers": 167
+  }
+}
