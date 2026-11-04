@@ -28,16 +28,23 @@
 ```mermaid
 flowchart LR
  A[Audit and baseline] --> B[Library creation import] --> C[Question design] --> D[Workspace publish] --> E[Anonymous form] --> F[Responses reports templates] --> G[Whole proof PR CI merge]
- classDef active fill:#fef3c7,stroke:#d97706
- classDef tested fill:#ddd6fe,stroke:#7c3aed
- classDef done fill:#dcfce7,stroke:#16a34a
- classDef pending fill:#f3f4f6,stroke:#9ca3af
+ classDef todo fill:#e5e7eb,stroke:#6b7280,color:#111827
+ classDef doing fill:#fde68a,stroke:#d97706,color:#111827
+ classDef done fill:#bbf7d0,stroke:#16a34a,color:#111827
+ classDef tested fill:#ddd6fe,stroke:#7c3aed,color:#111827
+ classDef blocked fill:#fecaca,stroke:#dc2626,color:#111827
  class A done
  class B tested
- class C,D,E tested
- %% evidence F: evidence/i18n-survey-6221/task-5/green-affected.json and task-6/green-affected-final.json
+ %% evidence B: evidence/i18n-survey-6221/task-1/green.json
+ class C tested
+ %% evidence C: evidence/i18n-survey-6221/task-2/green-final.json
+ class D tested
+ %% evidence D: evidence/i18n-survey-6221/task-3/green-affected.json
+ class E tested
+ %% evidence E: evidence/i18n-survey-6221/task-4/green-affected.json
  class F tested
- class G active
+ %% evidence F: evidence/i18n-survey-6221/task-5/green-affected.json and task-6/green-affected-final.json
+ class G doing
 ```
 
 ### Task 1: Live library, creation and input
@@ -107,7 +114,7 @@ flowchart LR
 **Files:** new registered e2e/i18n-survey-journey.spec.ts, seeded config; evidence/i18n-survey-6221; design plan progress. No new API/contracts behavior.
 **Interfaces:** consumes complete rendered journey. Use owned survey organization fixtures and canonical isolation; real requests/PostgreSQL, public token and immutable batch/source facts.
 
-- [ ] Write registered original-budget real author→create/edit/save/reload→publish→anonymous fill/upload/submit→author review/exclude/report plus templates/import journey; raw braced/mixed content remains byte-exact. Assert no locale-only requests, real publication/source/batch and response/hash evidence.
+- [x] Write registered original-budget real author→create/edit/save/reload→publish→anonymous fill/upload/submit→author review/exclude/report plus templates/import journey; raw braced/mixed content remains byte-exact. Assert no locale-only requests, real publication/source/batch and response/hash evidence.
 - [ ] Run whole affected survey Vitest (existing Chinese assertions retained), full webtype, scopedlint, init, key/placeholder parity, testid, wiring, Vitest reachability and fullspec gate. Expected: all actual0; record failures honestly and repair within scope.
 - [ ] Run canonical exact-case discovery, then real browser with one worker/retry0 and original case budgets. Expected: all cases PASS; preserve raw artifacts privately, validate allowlisted receipts. After actual exit check own containers/volumes/11listeners0 and release immediately.
 - [ ] Individually view every actual375/1280 screenshot, naturally scroll offscreen/nested content; fix real findings with RED/GREEN and necessary fresh proof, do not infer image QA from pass count.

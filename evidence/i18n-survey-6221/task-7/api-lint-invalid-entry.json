@@ -1,0 +1,18 @@
+{
+  "name": "api-evidence-lint",
+  "command": [
+    "pnpm",
+    "--filter",
+    "@repo/api",
+    "exec",
+    "eslint",
+    "scripts/survey-i18n-evidence.ts"
+  ],
+  "source": "342231af10126413ec554cd003dc0e89b54b32ed",
+  "exitCode": 1,
+  "seconds": 1.89,
+  "rawLogSha256": "4a5957509179b5db397b24bced092fa37648a1c0e9600d793ba041afbc939bca",
+  "environment": {},
+  "validVerification": false,
+  "classification": "Invalid verification launcher: API package has no ESLint configuration. No source lint verdict; canonical API scripts are package lint and typecheck. Subsequent resource/init/raw scanner did not run."
+}
