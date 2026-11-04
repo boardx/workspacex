@@ -1,0 +1,17 @@
+{
+  "head": "c6a5477cfa1482ffad824784a8866c49861310d0",
+  "gate": "red",
+  "exit": 1,
+  "seconds": 5.58,
+  "files": [
+    "tests/ui/admin-members-quota-live.test.tsx"
+  ],
+  "rawPrivate": true,
+  "logSha256": "5cf3eae1b750e06ccf29cfd8905bc451de3b94a909e25527039c2a56261fd3cb",
+  "summary": [
+    "\u23af\u23af\u23af\u23af\u23af\u23af\u23af Failed Tests 1 \u23af\u23af\u23af\u23af\u23af\u23af\u23af",
+    "Test Files  1 failed (1)",
+    "Tests  1 failed | 7 passed (8)",
+    "Duration  3.63s (transform 1.17s, setup 169ms, collect 1.87s, tests 309ms, environment 1.06s, prepare 51ms)"
+  ]
+}

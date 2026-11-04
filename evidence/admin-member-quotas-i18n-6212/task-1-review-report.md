@@ -1,0 +1,24 @@
+# TASK1 independent spec and quality review
+
+Reviewed supplied frozen comparison BASE 67202b721 → HEAD a6239758d using task-1-brief.md, binding design.md and the supplied task-1-review.diff. Implementer report was treated as claims. No tests, type checks, lint, build, resources, Git mutations or product edits were performed. The initial combined tool response truncated the diff; subsequent range reads recovered the omitted context. No changed product files were reread except the narrowly targeted existing invitation callback described below.
+
+SPEC: REQUEST CHANGES — the binding safe-feedback invariant remains unmet in the reachable reused invite-create flow (finding 2). This is an inherited gap, not an introduced invitation-logic regression; the task brief's narrow org-admin ownership needs an explicit root scope decision to resolve it.
+
+QUALITY: REQUEST CHANGES — finding 1 violates the repository's single-authority requirement.
+
+## Actionable findings
+
+1. **[P2] Delegate generic HTTP failures to the existing canonical helper** — `apps/web/lib/admin-member-copy.ts:17-22`. The new memberFailure duplicates the complete status→message policy already owned by `lib/http-failure-text.ts` and used by design-failure.ts. Outputs agree today; there is no current incorrect-message claim. Any future canonical auth/rate-limit/server fallback change will miss member quota, header, boundary and invite-resend feedback. Reuse the canonical helper with the current locale (or add a translator-compatible canonical interface), retaining safe TypeError/unknown handling. Do not create another policy copy.
+
+2. **[P2] Close the inherited unknown-error leak in reused invitation creation before accepting the binding safe-feedback requirement** — `apps/web/components/org-admin/org-admin-screen.tsx:520` (`describeInviteFailure`; unknown fallback at the end of this function). The diff context shows the helper interpolates unrecognized `reasonCode` and returns arbitrary `Error.message`. The narrowly inspected existing InviteMemberForm report/handleSubmit chain confirms that generic failures become `onNotice` semantic closures; MemberInvitesPanel now stores and renders those closures unchanged. Thus an unknown server reason or exception message still appears on the member route after create-invite failure, including after locale changes, despite the binding instruction never to expose unknown exception strings. This predates TASK1 and was already reachable through the old string callback. Preserve the known actionable invite mappings but close the fallback through canonical safe feedback; root should explicitly expand the brief's org-admin restriction for this minimal fix, or record this as an unresolved acceptance gap. Changing only the parent toast is insufficient to cover all shared form render paths.
+
+## Reviewed behavior and limits
+
+- Number parsing remains Number + finite/nonnegative checks + Math.trunc; null/zero rendering, warning thresholds, percentages and service-provided overspend counts remain unchanged. English number formatting is display-only; Chinese M/万 abbreviations remain.
+- Request paths, identifiers, payloads and enum conditions are unchanged. Request effects/callbacks have no new locale dependencies. Header org-keyed state/cancellation and invitation org key, mounted/epoch guards remain intact. Existing unguarded quota lifecycle behavior was preserved and is not a new finding.
+- Quota/header/boundary/resend errors retain raw semantic causes or functions and render with current translations. Function-valued feedback is wrapped when stored; falsey thrown values are represented by functions/discriminated state rather than mistaken for absence. Quota actionable remainingTokens/allocated amounts are preserved.
+- Role text uses existing role resources; invitation status uses the existing canonical key map with own-property fallback. Raw names/emails/IDs/objectRefs/readAt remain raw. Namespace resources are import-free typed dictionaries, and registrations are scoped additions.
+- The changed existing FORBIDDEN assertion is consistent with the binding safe-error requirement and retains no-mock-fallback coverage. Root reports the new TASK1 suite 14/14 green, prior regressions 30 pass / 1 obsolete assertion failure, and the updated assertion rerun pending. These are supplied observations, not independent execution evidence.
+- Real browser geometry, cross-tab/modal locale persistence, live API/PG mutations, final type/static gates and whole-branch review remain root acceptance work. TASK2/3 are outside this review.
+
+Focused outside-diff reads: http-failure-text.ts + design-failure.ts to check the named canonical fallback risk; existing InviteMemberForm lines 755–820 to verify the concrete unsafe callback path visible in diff context. No broad exploration was performed.

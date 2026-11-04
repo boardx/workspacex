@@ -1,0 +1,16 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/web
+
+ ✓ tests/ui/admin-member-quotas-i18n.test.tsx (16 tests) 513ms
+ ✓ tests/ui/ai-usage-i18n.test.tsx (10 tests) 943ms
+   ✓ translates overview and cost caveats while retaining chart metric/grain and separate currencies without reads 389ms
+ ✓ tests/ui/admin-limit-policy-i18n.test.tsx (9 tests) 397ms
+ ✓ tests/ui/ai-usage-format-i18n.test.ts (6 tests) 23ms
+ ✓ tests/lib/i18n-resources.test.ts (5 tests) 55ms
+
+ Test Files  5 passed (5)
+      Tests  46 passed (46)
+   Start at  09:23:07
+   Duration  8.33s (transform 1.35s, setup 539ms, collect 3.14s, tests 1.93s, environment 1.87s, prepare 227ms)
+

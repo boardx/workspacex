@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
 import * as React from "react";
 import { Gauge, RefreshCw } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,7 +14,7 @@ import { ApiError } from "@/lib/api-client";
 import {
   getTokenQuotas, setMemberTokenQuota, setOrgTokenBudget, type GetTokenQuotasOut,
 } from "@/lib/live-org-admin";
-import { ORG_ROLE_LABEL, type OrgRole } from "@/lib/identity";
+import { memberRoleLabel, memberFailure, formatMemberTokens, type MemberFeedback } from "@/lib/admin-member-copy";
 
 /**
  * F160 —— 「成员配额」tab 的**真栈**实现（token-quota-and-usage delta）。
@@ -37,11 +38,6 @@ import { ORG_ROLE_LABEL, type OrgRole } from "@/lib/identity";
 const OVERSPEND_LABEL = "85%";
 
 /** token 数按「万 / 百万」缩写显示：原型上是「5,400 万 / 4.0M」这类量级。 */
-function fmtTokens(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 10_000) return `${(n / 10_000).toFixed(0)} 万`;
-  return n.toLocaleString();
-}
 
 function quotaTone(pct: number): "primary" | "warning" | "destructive" {
   if (pct >= 95) return "destructive";
@@ -52,6 +48,8 @@ function quotaTone(pct: number): "primary" | "warning" | "destructive" {
 type Row = GetTokenQuotasOut["members"][number];
 
 export function MemberQuotaTab() {
+  const { t, locale } = useI18n();
+  const fmtTokens = (n: number) => formatMemberTokens(n, locale);
   // ⚠ 用 `useOptionalSession`：本组件挂在 `/admin/members` 这块屏里，而那块屏的既有
   // 测试是脱离 SessionProvider 直接渲染的。硬要 provider 会让「没有会话」变成一个
   // 崩溃而不是一个状态——而「还没选组织」本来就是个正常状态。
@@ -59,12 +57,12 @@ export function MemberQuotaTab() {
   const orgId = session?.currentOrgId ?? null;
 
   const [data, setData] = React.useState<GetTokenQuotasOut | null>(null);
-  const [loadError, setLoadError] = React.useState<string | null>(null);
+  const [loadError, setLoadError] = React.useState<MemberFeedback | null>(null);
   const [editing, setEditing] = React.useState<Row | null>(null);
   const [budgetOpen, setBudgetOpen] = React.useState(false);
   const [draft, setDraft] = React.useState("");
-  const [saveError, setSaveError] = React.useState<string | null>(null);
-  const [toast, setToast] = React.useState<string | null>(null);
+  const [saveError, setSaveError] = React.useState<MemberFeedback | null>(null);
+  const [toast, setToast] = React.useState<MemberFeedback | null>(null);
   /** 成员配额是一人一行的 entity 列表——默认卡片视图，可切列表（人类原话 2026-08-15）。 */
   const [viewMode, setViewMode] = React.useState<EntityViewMode>("card");
 
@@ -75,7 +73,7 @@ export function MemberQuotaTab() {
       setData(await getTokenQuotas(orgId));
     } catch (err) {
       // 失败就说失败，不退回 mock 数字——一屏看起来正常但数字是假的，比一条错误消息危险得多。
-      setLoadError(err instanceof ApiError ? (err.reasonCode ?? `http_${err.status}`) : String(err));
+      setLoadError((): MemberFeedback => (_t, locale) => memberFailure(err, locale));
     }
   }, [orgId]);
 
@@ -84,22 +82,23 @@ export function MemberQuotaTab() {
   const saveMemberQuota = async () => {
     if (!orgId || !editing) return;
     const parsed = Number(draft);
-    if (!Number.isFinite(parsed) || parsed < 0) { setSaveError("请输入一个非负整数"); return; }
+    if (!Number.isFinite(parsed) || parsed < 0) { setSaveError((): MemberFeedback => (t) => t("adminMemberQuotas.invalid")); return; }
     setSaveError(null);
     try {
       await setMemberTokenQuota(orgId, editing.userId, Math.trunc(parsed));
       setEditing(null);
-      setToast(`已把 ${editing.displayName} 的月度额度设为 ${fmtTokens(Math.trunc(parsed))} token`);
+      const name = editing.displayName;
+      setToast((): MemberFeedback => (t, locale) => t("adminMemberQuotas.memberSaved", { name, amount: formatMemberTokens(Math.trunc(parsed), locale) }));
       await load();
     } catch (err) {
       // ⚠ 把「还剩多少可分」原样说出来：只说「超了」等于让管理员靠试
       //   （O-29⑤：阻断必须伴随可执行的下一步）。
       const detail = err instanceof ApiError ? (err.raw as { remainingTokens?: number } | null) : null;
       const code = err instanceof ApiError ? err.reasonCode : null;
-      setSaveError(
+      setSaveError((): MemberFeedback => (t, locale) =>
         code === "QUOTA_OVERALLOCATED" && typeof detail?.remainingTokens === "number"
-          ? `超出组织剩余额度：现在最多还能分配 ${fmtTokens(detail.remainingTokens)} token`
-          : code ?? String(err),
+          ? t("adminMemberQuotas.remainingError", { amount: formatMemberTokens(detail.remainingTokens, locale) })
+          : memberFailure(err, locale),
       );
     }
   };
@@ -107,36 +106,36 @@ export function MemberQuotaTab() {
   const saveOrgBudget = async () => {
     if (!orgId) return;
     const parsed = Number(draft);
-    if (!Number.isFinite(parsed) || parsed < 0) { setSaveError("请输入一个非负整数"); return; }
+    if (!Number.isFinite(parsed) || parsed < 0) { setSaveError((): MemberFeedback => (t) => t("adminMemberQuotas.invalid")); return; }
     setSaveError(null);
     try {
       await setOrgTokenBudget(orgId, Math.trunc(parsed));
       setBudgetOpen(false);
-      setToast(`组织月度额度已设为 ${fmtTokens(Math.trunc(parsed))} token`);
+      setToast((): MemberFeedback => (t, locale) => t("adminMemberQuotas.budgetSaved", { amount: formatMemberTokens(Math.trunc(parsed), locale) }));
       await load();
     } catch (err) {
       const detail = err instanceof ApiError ? (err.raw as { allocated?: number } | null) : null;
       const code = err instanceof ApiError ? err.reasonCode : null;
-      setSaveError(
+      setSaveError((): MemberFeedback => (t, locale) =>
         code === "BUDGET_BELOW_ALLOCATED" && typeof detail?.allocated === "number"
-          ? `不能低于已分配之和（${fmtTokens(detail.allocated)} token）。先调低某些人的额度，再降组织额度。`
-          : code ?? String(err),
+          ? t("adminMemberQuotas.allocatedError", { amount: formatMemberTokens(detail.allocated, locale) })
+          : memberFailure(err, locale),
       );
     }
   };
 
-  if (!orgId) return <p className="p-3 text-12 text-muted-foreground">尚未选择组织。</p>;
+  if (!orgId) return <p className="p-3 text-12 text-muted-foreground">{t("adminMemberQuotas.noOrg")}</p>;
   if (loadError) {
     return (
       <Card data-testid="admin-quota-load-failed">
         <CardContent className="flex flex-wrap items-center gap-2 p-3 text-12">
-          <span className="text-destructive">配额数据读取失败：{loadError}</span>
-          <Button size="xs" variant="outline" onClick={() => void load()}>重试</Button>
+          <span className="text-destructive">{t("adminMemberQuotas.quotaFailed", { error: loadError(t, locale) })}</span>
+          <Button size="xs" variant="outline" onClick={() => void load()}>{t("adminCommon.retry")}</Button>
         </CardContent>
       </Card>
     );
   }
-  if (!data) return <p className="p-3 text-12 text-muted-foreground">正在读取配额…</p>;
+  if (!data) return <p className="p-3 text-12 text-muted-foreground">{t("adminMemberQuotas.loadingQuota")}</p>;
 
   const budgetUnset = data.orgBudget === null;
 
@@ -146,39 +145,39 @@ export function MemberQuotaTab() {
       <div className="grid gap-3 sm:grid-cols-3">
         <Card data-testid="admin-quota-card-allocated">
           <CardContent className="flex flex-col gap-1 pt-4">
-            <span className="text-11 text-muted-foreground">已分配配额</span>
+            <span className="text-11 text-muted-foreground">{t("adminMemberQuotas.allocated")}</span>
             <span className="text-20 font-semibold">{fmtTokens(data.allocated)}</span>
             <span className="text-11 text-muted-foreground">
               {budgetUnset
-                ? "组织额度未设置"
-                : `占组织额度 ${data.orgBudget === 0 ? 0 : Math.round((data.allocated / data.orgBudget!) * 100)}%`}
+                ? t("adminMemberQuotas.budgetUnset")
+                : t("adminMemberQuotas.budgetPercent", { percent: data.orgBudget === 0 ? 0 : Math.round((data.allocated / data.orgBudget!) * 100) })}
             </span>
           </CardContent>
         </Card>
         <Card data-testid="admin-quota-card-unallocated">
           <CardContent className="flex flex-col gap-1 pt-4">
-            <span className="text-11 text-muted-foreground">未分配</span>
+            <span className="text-11 text-muted-foreground">{t("adminMemberQuotas.unallocated")}</span>
             {/* ⚠ 这里是本屏最重要的一处 null：未设置组织额度时显示「—」，不是 0。 */}
             <span className="text-20 font-semibold">
               {data.unallocated === null ? "—" : fmtTokens(data.unallocated)}
             </span>
             <span className="text-11 text-muted-foreground">
-              {budgetUnset ? "未设置组织额度 ⇒ 当前不限额、不阻断" : "建议留作应急池"}
+              {budgetUnset ? t("adminMemberQuotas.unlimited") : t("adminMemberQuotas.reserve")}
             </span>
           </CardContent>
         </Card>
         <Card data-testid="admin-quota-card-overspend">
           <CardContent className="flex flex-col gap-1 pt-4">
-            <span className="text-11 text-muted-foreground">超支预警</span>
-            <span className="text-20 font-semibold text-warning">{data.overspendCount} 人</span>
-            <span className="text-11 text-muted-foreground">已用 ≥ {OVERSPEND_LABEL}</span>
+            <span className="text-11 text-muted-foreground">{t("adminMemberQuotas.warning")}</span>
+            <span className="text-20 font-semibold text-warning">{t("adminMemberQuotas.people", { count: data.overspendCount })}</span>
+            <span className="text-11 text-muted-foreground">{t("adminMemberQuotas.threshold", { percent: OVERSPEND_LABEL })}</span>
           </CardContent>
         </Card>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-11 text-muted-foreground" data-testid="admin-quota-org-budget">
-          组织本月额度：{budgetUnset ? "未设置" : fmtTokens(data.orgBudget!)} · 本月已用 {fmtTokens(data.orgUsed)}
+          {t("adminMemberQuotas.budgetSummary", { budget: budgetUnset ? t("adminMemberQuotas.unset") : fmtTokens(data.orgBudget!), used: fmtTokens(data.orgUsed) })}
         </span>
         <Button
           size="xs"
@@ -187,11 +186,11 @@ export function MemberQuotaTab() {
           data-testid="admin-quota-budget-open"
           onClick={() => { setDraft(data.orgBudget === null ? "" : String(data.orgBudget)); setSaveError(null); setBudgetOpen(true); }}
         >
-          {budgetUnset ? "设置组织额度" : "调整组织额度"}
+          {budgetUnset ? t("adminMemberQuotas.setBudget") : t("adminMemberQuotas.adjustBudget")}
         </Button>
         <Button size="xs" variant="ghost" onClick={() => void load()} data-testid="admin-quota-refresh">
           <RefreshCw aria-hidden className="h-3.5 w-3.5" />
-          刷新
+          {t("adminCommon.refresh")}
         </Button>
       </div>
 
@@ -199,14 +198,14 @@ export function MemberQuotaTab() {
       <section className="flex flex-col gap-2" data-testid="admin-quota-members">
         <div className="flex flex-wrap items-center gap-1.5">
           <Gauge aria-hidden className="h-4 w-4 text-muted-foreground" />
-          <h2 className="text-14 font-semibold">成员配额</h2>
-          <span className="text-11 text-muted-foreground">· 共 {data.members.length} 人</span>
+          <h2 className="text-14 font-semibold">{t("adminMemberQuotas.quota")}</h2>
+          <span className="text-11 text-muted-foreground">{t("adminMemberQuotas.memberCount", { count: data.members.length })}</span>
           <ViewModeToggle module="members" mode={viewMode} onChange={setViewMode} className="ml-auto" />
         </div>
 
         {data.members.length === 0 && (
           <Card>
-            <CardContent className="py-3 text-12 text-muted-foreground">组织里还没有成员。</CardContent>
+            <CardContent className="py-3 text-12 text-muted-foreground">{t("adminMemberQuotas.empty")}</CardContent>
           </Card>
         )}
 
@@ -221,16 +220,16 @@ export function MemberQuotaTab() {
                   <CardContent className="flex h-full flex-col gap-2 pt-4">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="truncate text-13 font-medium">{m.displayName}</span>
-                      <Badge tone="outline">{ORG_ROLE_LABEL[m.orgRole as OrgRole] ?? m.orgRole}</Badge>
+                      <Badge tone="outline">{memberRoleLabel(m.orgRole, t)}</Badge>
                     </div>
                     <span className="truncate text-11 text-muted-foreground">{m.email}</span>
                     {pct === null ? (
-                      <span className="text-11 text-muted-foreground">未分配额度</span>
+                      <span className="text-11 text-muted-foreground">{t("adminMemberQuotas.noQuota")}</span>
                     ) : (
                       <Progress
                         value={Math.min(100, pct)}
                         tone={quotaTone(pct)}
-                        label={`${m.displayName} 配额 ${pct}%`}
+                        label={t("adminMemberQuotas.progress", { name: m.displayName, percent: pct })}
                       />
                     )}
                     <span
@@ -250,7 +249,7 @@ export function MemberQuotaTab() {
                         setSaveError(null);
                       }}
                     >
-                      调整
+                      {t("adminMemberQuotas.adjust")}
                     </Button>
                   </CardContent>
                 </Card>
@@ -272,16 +271,16 @@ export function MemberQuotaTab() {
                   <div key={m.userId} data-testid={`admin-member-row-${m.userId}`}>
                     <div className="flex flex-wrap items-center gap-3 py-2.5">
                       <span className="w-16 shrink-0 text-13 font-medium">{m.displayName}</span>
-                      <Badge tone="outline">{ORG_ROLE_LABEL[m.orgRole as OrgRole] ?? m.orgRole}</Badge>
+                      <Badge tone="outline">{memberRoleLabel(m.orgRole, t)}</Badge>
                       <span className="text-11 text-muted-foreground">{m.email}</span>
                       <div className="ml-auto flex w-full items-center gap-3 sm:w-64">
                         {pct === null ? (
-                          <span className="flex-1 text-11 text-muted-foreground">未分配额度</span>
+                          <span className="flex-1 text-11 text-muted-foreground">{t("adminMemberQuotas.noQuota")}</span>
                         ) : (
                           <Progress
                             value={Math.min(100, pct)}
                             tone={quotaTone(pct)}
-                            label={`${m.displayName} 配额 ${pct}%`}
+                            label={t("adminMemberQuotas.progress", { name: m.displayName, percent: pct })}
                             className="flex-1"
                           />
                         )}
@@ -302,7 +301,7 @@ export function MemberQuotaTab() {
                           setSaveError(null);
                         }}
                       >
-                        调整
+                        {t("adminMemberQuotas.adjust")}
                       </Button>
                     </div>
                     {i < data.members.length - 1 && <Separator />}
@@ -316,67 +315,67 @@ export function MemberQuotaTab() {
 
       {editing && (
         <AdminModal
-          title={`调整 ${editing.displayName} 的月度额度`}
+          title={t("adminMemberQuotas.adjustTitle", { name: editing.displayName })}
           testid="admin-member-quota-modal"
           onClose={() => setEditing(null)}
           footer={
             <>
-              <Button size="sm" variant="ghost" onClick={() => setEditing(null)} data-testid="admin-member-quota-cancel">取消</Button>
-              <Button size="sm" variant="primary" onClick={() => void saveMemberQuota()} data-testid="admin-member-quota-save">保存</Button>
+              <Button size="sm" variant="ghost" onClick={() => setEditing(null)} data-testid="admin-member-quota-cancel">{t("adminCommon.cancel")}</Button>
+              <Button size="sm" variant="primary" onClick={() => void saveMemberQuota()} data-testid="admin-member-quota-save">{t("adminCommon.save")}</Button>
             </>
           }
         >
           <Field
             id="admin-member-quota-input"
-            label="月度额度（token）"
+            label={t("adminMemberQuotas.monthlyLabel")}
             value={draft}
             inputMode="numeric"
             onChange={(e) => setDraft(e.target.value)}
             data-testid="admin-member-quota-input"
           />
           <p className="text-11 text-muted-foreground">
-            本月已用 {fmtTokens(editing.usedTokens)} token。
+            {t("adminMemberQuotas.used", { amount: fmtTokens(editing.usedTokens) })}
+            {locale === "en" ? " " : ""}
             {data.unallocated === null
-              ? "组织额度未设置，当前不限额。"
-              : `组织未分配余量 ${fmtTokens(data.unallocated)} token。`}
+              ? t("adminMemberQuotas.unlimitedSentence")
+              : t("adminMemberQuotas.available", { amount: fmtTokens(data.unallocated) })}
           </p>
           {saveError && (
-            <p className="text-11 text-destructive" data-testid="admin-member-quota-error">{saveError}</p>
+            <p className="text-11 text-destructive" data-testid="admin-member-quota-error">{saveError(t, locale)}</p>
           )}
         </AdminModal>
       )}
 
       {budgetOpen && (
         <AdminModal
-          title="组织月度 token 额度"
+          title={t("adminMemberQuotas.orgBudgetTitle")}
           testid="admin-quota-budget-modal"
           onClose={() => setBudgetOpen(false)}
           footer={
             <>
-              <Button size="sm" variant="ghost" onClick={() => setBudgetOpen(false)}>取消</Button>
-              <Button size="sm" variant="primary" onClick={() => void saveOrgBudget()} data-testid="admin-quota-budget-save">保存</Button>
+              <Button size="sm" variant="ghost" onClick={() => setBudgetOpen(false)}>{t("adminCommon.cancel")}</Button>
+              <Button size="sm" variant="primary" onClick={() => void saveOrgBudget()} data-testid="admin-quota-budget-save">{t("adminCommon.save")}</Button>
             </>
           }
         >
           <Field
             id="admin-quota-budget-input"
-            label="组织月度额度（token）"
+            label={t("adminMemberQuotas.orgBudgetLabel")}
             value={draft}
             inputMode="numeric"
             onChange={(e) => setDraft(e.target.value)}
             data-testid="admin-quota-budget-input"
           />
           <p className="text-11 text-muted-foreground">
-            已分配 {fmtTokens(data.allocated)} token。调到低于这个数会被拒绝——
-            「谁被砍」由你决定，服务端不会替你截断任何人的额度。
+            {t("adminMemberQuotas.allocatedHelp", { amount: fmtTokens(data.allocated) })}
           </p>
           {saveError && (
-            <p className="text-11 text-destructive" data-testid="admin-quota-budget-error">{saveError}</p>
+            <p className="text-11 text-destructive" data-testid="admin-quota-budget-error">{saveError(t, locale)}</p>
           )}
         </AdminModal>
       )}
 
-      <Toast message={toast} testid="admin-quota-toast" onDismiss={() => setToast(null)} />
+      <Toast message={toast ? toast(t, locale) : null} testid="admin-quota-toast" onDismiss={() => setToast(null)} />
     </div>
   );
 }

@@ -1,0 +1,2879 @@
+{
+  "quota": "65c0b38334bf665230afab6ba205aef5701c34d6",
+  "parent": "ca3f9e4482ae84adea3124ef497b2b2da78b0933",
+  "mergeBase": "bfb608070b6ebb77156e63fde2d7f6b7c97101a6",
+  "candidateTree": "fc038e1b9a6cf76dd2b839e613be9a101e4a6ca7",
+  "overlap": [
+    ".agents/skills/mod-org-identity/SKILL.md",
+    "apps/web/e2e/entity-localization.spec.ts",
+    "apps/web/lib/i18n/messages/en.ts",
+    "apps/web/lib/i18n/messages/zh-CN.ts"
+  ],
+  "conflictResolution": "Knowledge append retains both sides; global dictionary imports/spreads combine; E2E only conflict is contract import union. Complete case/helper bodies are verified separately.",
+  "quotaProtected": [
+    {
+      "path": "apps/api/scripts/fixtures/seed-entity-localization.ts",
+      "sourceEntry": [
+        "100644",
+        "8812e7dafee003a10e2fc20eda44b4a37959817c"
+      ],
+      "indexEntry": [
+        "100644",
+        "8812e7dafee003a10e2fc20eda44b4a37959817c"
+      ]
+    },
+    {
+      "path": "apps/web/components/admin/admin-boundary-live.tsx",
+      "sourceEntry": [
+        "100644",
+        "38ad7225296341472e683295982e7cfbec93f614"
+      ],
+      "indexEntry": [
+        "100644",
+        "38ad7225296341472e683295982e7cfbec93f614"
+      ]
+    },
+    {
+      "path": "apps/web/components/admin/admin-header.tsx",
+      "sourceEntry": [
+        "100644",
+        "c73be7fc6087ee922e148aba57df0401208f136d"
+      ],
+      "indexEntry": [
+        "100644",
+        "c73be7fc6087ee922e148aba57df0401208f136d"
+      ]
+    },
+    {
+      "path": "apps/web/components/admin/ai-usage-format.ts",
+      "sourceEntry": [
+        "100644",
+        "22a62fb682fcf2014bc8a6ca39777d81f0081ac1"
+      ],
+      "indexEntry": [
+        "100644",
+        "22a62fb682fcf2014bc8a6ca39777d81f0081ac1"
+      ]
+    },
+    {
+      "path": "apps/web/components/admin/ai-usage-ledger.tsx",
+      "sourceEntry": [
+        "100644",
+        "6117170e931af3aa59233de6f2f4b4f604ca2f63"
+      ],
+      "indexEntry": [
+        "100644",
+        "6117170e931af3aa59233de6f2f4b4f604ca2f63"
+      ]
+    },
+    {
+      "path": "apps/web/components/admin/ai-usage-overview.tsx",
+      "sourceEntry": [
+        "100644",
+        "f432f924090c2781af0e9452a040545f5bb4c774"
+      ],
+      "indexEntry": [
+        "100644",
+        "f432f924090c2781af0e9452a040545f5bb4c774"
+      ]
+    },
+    {
+      "path": "apps/web/components/admin/ai-usage-panel.tsx",
+      "sourceEntry": [
+        "100644",
+        "b3643a01355d4507342b95d9f6fcafcdaff921a9"
+      ],
+      "indexEntry": [
+        "100644",
+        "b3643a01355d4507342b95d9f6fcafcdaff921a9"
+      ]
+    },
+    {
+      "path": "apps/web/components/admin/limit-policy-tab.tsx",
+      "sourceEntry": [
+        "100644",
+        "758a3d6c094de8ada274734703ef0492c1019605"
+      ],
+      "indexEntry": [
+        "100644",
+        "758a3d6c094de8ada274734703ef0492c1019605"
+      ]
+    },
+    {
+      "path": "apps/web/components/admin/limit-rules-live.tsx",
+      "sourceEntry": [
+        "100644",
+        "358a9c5871f9e626604552679f5bc4f33e117dfd"
+      ],
+      "indexEntry": [
+        "100644",
+        "358a9c5871f9e626604552679f5bc4f33e117dfd"
+      ]
+    },
+    {
+      "path": "apps/web/components/admin/member-invites-panel.tsx",
+      "sourceEntry": [
+        "100644",
+        "c847e82424bc88ab586a441566456b6cbc934aa2"
+      ],
+      "indexEntry": [
+        "100644",
+        "c847e82424bc88ab586a441566456b6cbc934aa2"
+      ]
+    },
+    {
+      "path": "apps/web/components/admin/member-quota-tab.tsx",
+      "sourceEntry": [
+        "100644",
+        "51a54d5d74e56feda60c6e4d624dea16386cd7d6"
+      ],
+      "indexEntry": [
+        "100644",
+        "51a54d5d74e56feda60c6e4d624dea16386cd7d6"
+      ]
+    },
+    {
+      "path": "apps/web/components/admin/members-screen.tsx",
+      "sourceEntry": [
+        "100644",
+        "b76eba8c1d4ddcf2d3dc4672f29e3f18e19d3620"
+      ],
+      "indexEntry": [
+        "100644",
+        "b76eba8c1d4ddcf2d3dc4672f29e3f18e19d3620"
+      ]
+    },
+    {
+      "path": "apps/web/components/admin/no-backend-notice.tsx",
+      "sourceEntry": [
+        "100644",
+        "14c6565c44948017ac31efe1b775ff2dd4bee5e6"
+      ],
+      "indexEntry": [
+        "100644",
+        "14c6565c44948017ac31efe1b775ff2dd4bee5e6"
+      ]
+    },
+    {
+      "path": "apps/web/components/admin/usage-monitor-tab.tsx",
+      "sourceEntry": [
+        "100644",
+        "9cd8ca214e06e3c415db9373e5812cd4279caf47"
+      ],
+      "indexEntry": [
+        "100644",
+        "9cd8ca214e06e3c415db9373e5812cd4279caf47"
+      ]
+    },
+    {
+      "path": "apps/web/components/admin/view-mode-toggle.tsx",
+      "sourceEntry": [
+        "100644",
+        "5c7821bd6d94b60525ea479386545fa1f3dd27d7"
+      ],
+      "indexEntry": [
+        "100644",
+        "5c7821bd6d94b60525ea479386545fa1f3dd27d7"
+      ]
+    },
+    {
+      "path": "apps/web/components/org-admin/org-admin-screen.tsx",
+      "sourceEntry": [
+        "100644",
+        "ad82969086b77941cee1330384e0203cff798f2c"
+      ],
+      "indexEntry": [
+        "100644",
+        "ad82969086b77941cee1330384e0203cff798f2c"
+      ]
+    },
+    {
+      "path": "apps/web/lib/admin-member-copy.ts",
+      "sourceEntry": [
+        "100644",
+        "050290c6d98ac8f61b136f8f65c670a1f3b81a2c"
+      ],
+      "indexEntry": [
+        "100644",
+        "050290c6d98ac8f61b136f8f65c670a1f3b81a2c"
+      ]
+    },
+    {
+      "path": "apps/web/lib/i18n/namespaces/admin-common.ts",
+      "sourceEntry": [
+        "100644",
+        "97a211ba7ca6a11131bb37506bfd1741ec17d228"
+      ],
+      "indexEntry": [
+        "100644",
+        "97a211ba7ca6a11131bb37506bfd1741ec17d228"
+      ]
+    },
+    {
+      "path": "apps/web/lib/i18n/namespaces/admin-limit-policy.ts",
+      "sourceEntry": [
+        "100644",
+        "178f961d2d4f85f1f14e48321b699f5509868b07"
+      ],
+      "indexEntry": [
+        "100644",
+        "178f961d2d4f85f1f14e48321b699f5509868b07"
+      ]
+    },
+    {
+      "path": "apps/web/lib/i18n/namespaces/admin-member-quotas.ts",
+      "sourceEntry": [
+        "100644",
+        "7099b1a79fe769b234e94b7ae484414493dae967"
+      ],
+      "indexEntry": [
+        "100644",
+        "7099b1a79fe769b234e94b7ae484414493dae967"
+      ]
+    },
+    {
+      "path": "apps/web/lib/i18n/namespaces/ai-usage.ts",
+      "sourceEntry": [
+        "100644",
+        "6496cd2a4f0a30c2d5a78a0a485eec5a110abad6"
+      ],
+      "indexEntry": [
+        "100644",
+        "6496cd2a4f0a30c2d5a78a0a485eec5a110abad6"
+      ]
+    },
+    {
+      "path": "apps/web/lib/mock/admin-limits.ts",
+      "sourceEntry": [
+        "100644",
+        "74b23d5339eea44789d8cf6d7f13b68389edc5ef"
+      ],
+      "indexEntry": [
+        "100644",
+        "74b23d5339eea44789d8cf6d7f13b68389edc5ef"
+      ]
+    },
+    {
+      "path": "apps/web/tests/ui/admin-limit-policy-i18n.test.tsx",
+      "sourceEntry": [
+        "100644",
+        "d94ebc7d521022e58d24e26ad2f2cfc094e79f0c"
+      ],
+      "indexEntry": [
+        "100644",
+        "d94ebc7d521022e58d24e26ad2f2cfc094e79f0c"
+      ]
+    },
+    {
+      "path": "apps/web/tests/ui/admin-member-quotas-i18n.test.tsx",
+      "sourceEntry": [
+        "100644",
+        "09d26be5472c74f6e7bc8efde58090531f8a8fb7"
+      ],
+      "indexEntry": [
+        "100644",
+        "09d26be5472c74f6e7bc8efde58090531f8a8fb7"
+      ]
+    },
+    {
+      "path": "apps/web/tests/ui/admin-members-quota-live.test.tsx",
+      "sourceEntry": [
+        "100644",
+        "5bb6f3a12e5d83dd342d407fc885f42e6a3264ae"
+      ],
+      "indexEntry": [
+        "100644",
+        "5bb6f3a12e5d83dd342d407fc885f42e6a3264ae"
+      ]
+    },
+    {
+      "path": "apps/web/tests/ui/ai-usage-format-i18n.test.ts",
+      "sourceEntry": [
+        "100644",
+        "2275c4d6c7c4be10981fa76bd84077ec6f5820fb"
+      ],
+      "indexEntry": [
+        "100644",
+        "2275c4d6c7c4be10981fa76bd84077ec6f5820fb"
+      ]
+    },
+    {
+      "path": "apps/web/tests/ui/ai-usage-i18n.test.tsx",
+      "sourceEntry": [
+        "100644",
+        "35a29c6255cae19748739b14415e59b4ee2d470c"
+      ],
+      "indexEntry": [
+        "100644",
+        "35a29c6255cae19748739b14415e59b4ee2d470c"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/README.md",
+      "sourceEntry": [
+        "100644",
+        "6fa28cbf1bcf064e92df684a22a3ddcc2477ba0c"
+      ],
+      "indexEntry": [
+        "100644",
+        "6fa28cbf1bcf064e92df684a22a3ddcc2477ba0c"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/admin-member-quotas-6212.md",
+      "sourceEntry": [
+        "100644",
+        "917ce8e4b6647917749764705a2f9d4ed8c6c399"
+      ],
+      "indexEntry": [
+        "100644",
+        "917ce8e4b6647917749764705a2f9d4ed8c6c399"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/api-base-first-exits.json",
+      "sourceEntry": [
+        "100644",
+        "d3159746f0c0e69873d8816232987265ac6dd207"
+      ],
+      "indexEntry": [
+        "100644",
+        "d3159746f0c0e69873d8816232987265ac6dd207"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/api-lint-first.txt",
+      "sourceEntry": [
+        "100644",
+        "09052757292e99f9978201bc2b7cf290a5b664da"
+      ],
+      "indexEntry": [
+        "100644",
+        "09052757292e99f9978201bc2b7cf290a5b664da"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/api-type-first.txt",
+      "sourceEntry": [
+        "100644",
+        "5175496448cc08b3887f2035f607c1823a66f596"
+      ],
+      "indexEntry": [
+        "100644",
+        "5175496448cc08b3887f2035f607c1823a66f596"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/browser-plan.md",
+      "sourceEntry": [
+        "100644",
+        "adf3c935b1f8ac2e05380a23b16c92ea2c34ded2"
+      ],
+      "indexEntry": [
+        "100644",
+        "adf3c935b1f8ac2e05380a23b16c92ea2c34ded2"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/design.md",
+      "sourceEntry": [
+        "100644",
+        "01c48638a171883065f69c12710ef5b8401fbc7d"
+      ],
+      "indexEntry": [
+        "100644",
+        "01c48638a171883065f69c12710ef5b8401fbc7d"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/final-spec-gate.txt",
+      "sourceEntry": [
+        "100644",
+        "68e116ee22d5b9a1089d04449040df7251fee035"
+      ],
+      "indexEntry": [
+        "100644",
+        "68e116ee22d5b9a1089d04449040df7251fee035"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/final-static-exits.json",
+      "sourceEntry": [
+        "100644",
+        "25023bfb76a418a87446c45609d99e9c6bfa8298"
+      ],
+      "indexEntry": [
+        "100644",
+        "25023bfb76a418a87446c45609d99e9c6bfa8298"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/final-test-lint.txt",
+      "sourceEntry": [
+        "100644",
+        "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+      ],
+      "indexEntry": [
+        "100644",
+        "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/final-test-testid.txt",
+      "sourceEntry": [
+        "100644",
+        "0bd5c4bc10230b96eef3af546a58489e3b93f924"
+      ],
+      "indexEntry": [
+        "100644",
+        "0bd5c4bc10230b96eef3af546a58489e3b93f924"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/final-test-type.txt",
+      "sourceEntry": [
+        "100644",
+        "11e2a7ebc9ebee947be72f90e2e1cb43961037b4"
+      ],
+      "indexEntry": [
+        "100644",
+        "11e2a7ebc9ebee947be72f90e2e1cb43961037b4"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/final-wave-authored-report.md",
+      "sourceEntry": [
+        "100644",
+        "802f51d1f90dd40a625c9963b9a0e7bd988a3dc6"
+      ],
+      "indexEntry": [
+        "100644",
+        "802f51d1f90dd40a625c9963b9a0e7bd988a3dc6"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/invite-unsafe-red.txt",
+      "sourceEntry": [
+        "100644",
+        "f103ee06b1fe0dd917fa6760a0c91f352f7dc79e"
+      ],
+      "indexEntry": [
+        "100644",
+        "f103ee06b1fe0dd917fa6760a0c91f352f7dc79e"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/knowledge-reference-test.md",
+      "sourceEntry": [
+        "100644",
+        "0fa12f92235286358f8abc4ad78be812068e7d02"
+      ],
+      "indexEntry": [
+        "100644",
+        "0fa12f92235286358f8abc4ad78be812068e7d02"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/old-assert-green.txt",
+      "sourceEntry": [
+        "100644",
+        "592bcdb0d7d165a0b3a20d2ed365e02b1a59bb28"
+      ],
+      "indexEntry": [
+        "100644",
+        "592bcdb0d7d165a0b3a20d2ed365e02b1a59bb28"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/static-api-lint.txt",
+      "sourceEntry": [
+        "100644",
+        "c2b96b971dfdb1f410f63cddadf1716fb577d063"
+      ],
+      "indexEntry": [
+        "100644",
+        "c2b96b971dfdb1f410f63cddadf1716fb577d063"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/static-exits.json",
+      "sourceEntry": [
+        "100644",
+        "d60feaf0bdfee87d31ab1faa99705d1cb19570b1"
+      ],
+      "indexEntry": [
+        "100644",
+        "d60feaf0bdfee87d31ab1faa99705d1cb19570b1"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/static-init.txt",
+      "sourceEntry": [
+        "100644",
+        "ee95d9ff269961da205d3194bce26f688ea7ec14"
+      ],
+      "indexEntry": [
+        "100644",
+        "ee95d9ff269961da205d3194bce26f688ea7ec14"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/static-small.json",
+      "sourceEntry": [
+        "100644",
+        "1a5118c09874bbfea0b15bd97768ab18795246cb"
+      ],
+      "indexEntry": [
+        "100644",
+        "1a5118c09874bbfea0b15bd97768ab18795246cb"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/static-spec-gate.txt",
+      "sourceEntry": [
+        "100644",
+        "66993c81a6f75d866bc4a1d26b1695386b3def43"
+      ],
+      "indexEntry": [
+        "100644",
+        "66993c81a6f75d866bc4a1d26b1695386b3def43"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/static-testid.txt",
+      "sourceEntry": [
+        "100644",
+        "1d0e0e8ef9b224576034a5577eeb6002d8cd080d"
+      ],
+      "indexEntry": [
+        "100644",
+        "1d0e0e8ef9b224576034a5577eeb6002d8cd080d"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/static-wiring.txt",
+      "sourceEntry": [
+        "100644",
+        "0d2caa831ec0e15e70496ffa6f7c9e84ffc56d06"
+      ],
+      "indexEntry": [
+        "100644",
+        "0d2caa831ec0e15e70496ffa6f7c9e84ffc56d06"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/task-1-fix-green.txt",
+      "sourceEntry": [
+        "100644",
+        "7c8aedce58de89af528a8a689660e95a02b567a8"
+      ],
+      "indexEntry": [
+        "100644",
+        "7c8aedce58de89af528a8a689660e95a02b567a8"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/task-1-fix-lint.txt",
+      "sourceEntry": [
+        "100644",
+        "3f0d28e0337c24b60f6c4a9d579feca58d656353"
+      ],
+      "indexEntry": [
+        "100644",
+        "3f0d28e0337c24b60f6c4a9d579feca58d656353"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/task-1-implementation-report.md",
+      "sourceEntry": [
+        "100644",
+        "18125627447c3711048f3a4230e5756ec3d759b1"
+      ],
+      "indexEntry": [
+        "100644",
+        "18125627447c3711048f3a4230e5756ec3d759b1"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/task-1-red.txt",
+      "sourceEntry": [
+        "100644",
+        "fde2595b2d21202d019d1ce4868762e5fb350a6b"
+      ],
+      "indexEntry": [
+        "100644",
+        "fde2595b2d21202d019d1ce4868762e5fb350a6b"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/task-1-review-report.md",
+      "sourceEntry": [
+        "100644",
+        "220ef59e61e555f7ea06a18222e129322b4564c9"
+      ],
+      "indexEntry": [
+        "100644",
+        "220ef59e61e555f7ea06a18222e129322b4564c9"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/task-1-scoped-review-report.md",
+      "sourceEntry": [
+        "100644",
+        "113ef3dd3a4046028589ea5818a3fdce7fb52b33"
+      ],
+      "indexEntry": [
+        "100644",
+        "113ef3dd3a4046028589ea5818a3fdce7fb52b33"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/task-123-frozen-tests.txt",
+      "sourceEntry": [
+        "100644",
+        "a32acf252ebb3b628f8d7486962922ef11a07545"
+      ],
+      "indexEntry": [
+        "100644",
+        "a32acf252ebb3b628f8d7486962922ef11a07545"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/task-2-frozen-sha256.txt",
+      "sourceEntry": [
+        "100644",
+        "a80ccf4ab22f2ebc7e270f5008d71d8b62d7a12c"
+      ],
+      "indexEntry": [
+        "100644",
+        "a80ccf4ab22f2ebc7e270f5008d71d8b62d7a12c"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/task-2-green-task-3-red.txt",
+      "sourceEntry": [
+        "100644",
+        "b343ef5eb1add319e7501a8a883bb1e625a9ae6b"
+      ],
+      "indexEntry": [
+        "100644",
+        "b343ef5eb1add319e7501a8a883bb1e625a9ae6b"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/task-2-implementation-report.md",
+      "sourceEntry": [
+        "100644",
+        "bec491c58591ccb7c47f43c699743cefe57e8624"
+      ],
+      "indexEntry": [
+        "100644",
+        "bec491c58591ccb7c47f43c699743cefe57e8624"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/task-2-review-report.md",
+      "sourceEntry": [
+        "100644",
+        "0440981910f0decfa7ca35b969854f14999d3983"
+      ],
+      "indexEntry": [
+        "100644",
+        "0440981910f0decfa7ca35b969854f14999d3983"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/task-3-fix-exits.json",
+      "sourceEntry": [
+        "100644",
+        "e71b6021dce0aafcacf767aa051ed36cb9fdb0f1"
+      ],
+      "indexEntry": [
+        "100644",
+        "e71b6021dce0aafcacf767aa051ed36cb9fdb0f1"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/task-3-fix-green.txt",
+      "sourceEntry": [
+        "100644",
+        "2de7953545c737024fa323dac838151c25bc2c04"
+      ],
+      "indexEntry": [
+        "100644",
+        "2de7953545c737024fa323dac838151c25bc2c04"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/task-3-frozen-sha256.txt",
+      "sourceEntry": [
+        "100644",
+        "f194c9856c60097b2b9d3ee34b7f085dc3e09ed3"
+      ],
+      "indexEntry": [
+        "100644",
+        "f194c9856c60097b2b9d3ee34b7f085dc3e09ed3"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/task-3-initial-gate.txt",
+      "sourceEntry": [
+        "100644",
+        "4436b7921a65f73dcaf75f20e9052856e62d3cb8"
+      ],
+      "indexEntry": [
+        "100644",
+        "4436b7921a65f73dcaf75f20e9052856e62d3cb8"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/task-3-report.md",
+      "sourceEntry": [
+        "100644",
+        "f1933118a66ff62e92e68461ac941d684e9088f1"
+      ],
+      "indexEntry": [
+        "100644",
+        "f1933118a66ff62e92e68461ac941d684e9088f1"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/task-3-review-report.md",
+      "sourceEntry": [
+        "100644",
+        "f7f73e23f9193d59121105bfcf44b6469c752da8"
+      ],
+      "indexEntry": [
+        "100644",
+        "f7f73e23f9193d59121105bfcf44b6469c752da8"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/task-3-scoped-review-report.md",
+      "sourceEntry": [
+        "100644",
+        "13a203700dda53b5a2a7f4b4aeff3d956746ec9f"
+      ],
+      "indexEntry": [
+        "100644",
+        "13a203700dda53b5a2a7f4b4aeff3d956746ec9f"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/verification-fix-report.md",
+      "sourceEntry": [
+        "100644",
+        "3675ec2f4f86d62ed0d678b7aaae5be305455211"
+      ],
+      "indexEntry": [
+        "100644",
+        "3675ec2f4f86d62ed0d678b7aaae5be305455211"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/verification-fix-review-report.md",
+      "sourceEntry": [
+        "100644",
+        "ba81edf76e3a3116a27fd90a4aa38b31d372315c"
+      ],
+      "indexEntry": [
+        "100644",
+        "ba81edf76e3a3116a27fd90a4aa38b31d372315c"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/web-type-final.json",
+      "sourceEntry": [
+        "100644",
+        "cda9c863b953c07930eae1a39c0a8fd7bb8c1ad0"
+      ],
+      "indexEntry": [
+        "100644",
+        "cda9c863b953c07930eae1a39c0a8fd7bb8c1ad0"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/web-type-final.txt",
+      "sourceEntry": [
+        "100644",
+        "11e2a7ebc9ebee947be72f90e2e1cb43961037b4"
+      ],
+      "indexEntry": [
+        "100644",
+        "11e2a7ebc9ebee947be72f90e2e1cb43961037b4"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/web-type-first-failed.json",
+      "sourceEntry": [
+        "100644",
+        "bf2d728436188f069a557e4dd6b344ae885f573c"
+      ],
+      "indexEntry": [
+        "100644",
+        "bf2d728436188f069a557e4dd6b344ae885f573c"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/web-type-first-failed.txt",
+      "sourceEntry": [
+        "100644",
+        "72ec9f2e6772f8ee4e5fd200c89b95e9116005ff"
+      ],
+      "indexEntry": [
+        "100644",
+        "72ec9f2e6772f8ee4e5fd200c89b95e9116005ff"
+      ]
+    },
+    {
+      "path": "evidence/admin-member-quotas-i18n-6212/whole-source-review-report.md",
+      "sourceEntry": [
+        "100644",
+        "7a7a6704b15a221ce656ca4ed4e8d40e3d93d507"
+      ],
+      "indexEntry": [
+        "100644",
+        "7a7a6704b15a221ce656ca4ed4e8d40e3d93d507"
+      ]
+    }
+  ],
+  "quotaChangedCount": 79,
+  "parentProtected": [
+    {
+      "path": ".agents/skills/mod-chat/SKILL.md",
+      "sourceEntry": [
+        "100644",
+        "ea78cfee8787b82ab233aa2d19b6add7bdfbc605"
+      ],
+      "indexEntry": [
+        "100644",
+        "ea78cfee8787b82ab233aa2d19b6add7bdfbc605"
+      ]
+    },
+    {
+      "path": ".github/workflows/backend-gates.yml",
+      "sourceEntry": [
+        "100644",
+        "2def8e1ce7f84bf857d14eb84750291defa8e97b"
+      ],
+      "indexEntry": [
+        "100644",
+        "2def8e1ce7f84bf857d14eb84750291defa8e97b"
+      ]
+    },
+    {
+      "path": ".harness/scripts/ci-api-shards.test.ts",
+      "sourceEntry": [
+        "100644",
+        "689365eddc66187ec8ac106bdf1c25badd6d6d69"
+      ],
+      "indexEntry": [
+        "100644",
+        "689365eddc66187ec8ac106bdf1c25badd6d6d69"
+      ]
+    },
+    {
+      "path": "apps/api/package.json",
+      "sourceEntry": [
+        "100644",
+        "96a166edb6b78f0dcf00d19c4fac173224791e58"
+      ],
+      "indexEntry": [
+        "100644",
+        "96a166edb6b78f0dcf00d19c4fac173224791e58"
+      ]
+    },
+    {
+      "path": "apps/api/src/application/identity/list-own-activity.ts",
+      "sourceEntry": [
+        "100644",
+        "9780102ca9ae23d7626235ce37b65051c13bc8e5"
+      ],
+      "indexEntry": [
+        "100644",
+        "9780102ca9ae23d7626235ce37b65051c13bc8e5"
+      ]
+    },
+    {
+      "path": "apps/api/src/interface/controllers/identity.controller.ts",
+      "sourceEntry": [
+        "100644",
+        "2e42f4a77a5fdb97dc96a8fa84c35fc8b6e9efb3"
+      ],
+      "indexEntry": [
+        "100644",
+        "2e42f4a77a5fdb97dc96a8fa84c35fc8b6e9efb3"
+      ]
+    },
+    {
+      "path": "apps/api/tests/identity/activity-display.test.ts",
+      "sourceEntry": [
+        "100644",
+        "5b1b15feded092e52f2a4df0777cb2367c9e3982"
+      ],
+      "indexEntry": [
+        "100644",
+        "5b1b15feded092e52f2a4df0777cb2367c9e3982"
+      ]
+    },
+    {
+      "path": "apps/api/vitest.identity-display-unit.config.ts",
+      "sourceEntry": [
+        "100644",
+        "98f4bed8fe6060c53a03d3617aa1445baced831d"
+      ],
+      "indexEntry": [
+        "100644",
+        "98f4bed8fe6060c53a03d3617aa1445baced831d"
+      ]
+    },
+    {
+      "path": "apps/web/components/org-admin/home-config-appearance-section.tsx",
+      "sourceEntry": [
+        "100644",
+        "760a60b6e9b3f843ea0f00117e5ee4a984a2c2e2"
+      ],
+      "indexEntry": [
+        "100644",
+        "760a60b6e9b3f843ea0f00117e5ee4a984a2c2e2"
+      ]
+    },
+    {
+      "path": "apps/web/components/org-admin/home-config-content-sections.tsx",
+      "sourceEntry": [
+        "100644",
+        "baeac3e748540f0fa8f94020bb81aa7896de6750"
+      ],
+      "indexEntry": [
+        "100644",
+        "baeac3e748540f0fa8f94020bb81aa7896de6750"
+      ]
+    },
+    {
+      "path": "apps/web/components/org-admin/home-config-form-model.ts",
+      "sourceEntry": [
+        "100644",
+        "f168984b278a53ae970280ad67265cec68543c9f"
+      ],
+      "indexEntry": [
+        "100644",
+        "f168984b278a53ae970280ad67265cec68543c9f"
+      ]
+    },
+    {
+      "path": "apps/web/components/org-admin/home-config-recommend-sections.tsx",
+      "sourceEntry": [
+        "100644",
+        "e95952ebd9d5967a6c6b61e10b72b34219b633ea"
+      ],
+      "indexEntry": [
+        "100644",
+        "e95952ebd9d5967a6c6b61e10b72b34219b633ea"
+      ]
+    },
+    {
+      "path": "apps/web/components/org-admin/home-config-screen.tsx",
+      "sourceEntry": [
+        "100644",
+        "ce8b5f2176c050a84556b6a3f0964d8a33e91455"
+      ],
+      "indexEntry": [
+        "100644",
+        "ce8b5f2176c050a84556b6a3f0964d8a33e91455"
+      ]
+    },
+    {
+      "path": "apps/web/components/org-admin/home-config-theme-section.tsx",
+      "sourceEntry": [
+        "100644",
+        "b88837516f2f175ae34604ea1fa02fdcba25f4c4"
+      ],
+      "indexEntry": [
+        "100644",
+        "b88837516f2f175ae34604ea1fa02fdcba25f4c4"
+      ]
+    },
+    {
+      "path": "apps/web/components/profile/profile-screen.tsx",
+      "sourceEntry": [
+        "100644",
+        "2c811d2bf539899873495a363ae8c9483b376d11"
+      ],
+      "indexEntry": [
+        "100644",
+        "2c811d2bf539899873495a363ae8c9483b376d11"
+      ]
+    },
+    {
+      "path": "apps/web/e2e/copilotkit-v2-persona-archived.spec.ts",
+      "sourceEntry": [
+        "100644",
+        "11bd534fd85e12476aa02b56140e94e0795ebf36"
+      ],
+      "indexEntry": [
+        "100644",
+        "11bd534fd85e12476aa02b56140e94e0795ebf36"
+      ]
+    },
+    {
+      "path": "apps/web/e2e/self-service-profile.spec.ts",
+      "sourceEntry": [
+        "100644",
+        "09c9936968ca64d716bed2019478bb3df7275270"
+      ],
+      "indexEntry": [
+        "100644",
+        "09c9936968ca64d716bed2019478bb3df7275270"
+      ]
+    },
+    {
+      "path": "apps/web/e2e/support/archived-thread-response.ts",
+      "sourceEntry": [
+        "100644",
+        "38a006741e1006c4d5509a1ea61f1d8fa275bba3"
+      ],
+      "indexEntry": [
+        "100644",
+        "38a006741e1006c4d5509a1ea61f1d8fa275bba3"
+      ]
+    },
+    {
+      "path": "apps/web/lib/generated/identity.mock.ts",
+      "sourceEntry": [
+        "100644",
+        "fd62f2425dc53838df3fb6bbf9088d11ec4cda11"
+      ],
+      "indexEntry": [
+        "100644",
+        "fd62f2425dc53838df3fb6bbf9088d11ec4cda11"
+      ]
+    },
+    {
+      "path": "apps/web/lib/home-config-catalog.ts",
+      "sourceEntry": [
+        "100644",
+        "310da69dbfed6ba84c6f04538056ff51514ca1df"
+      ],
+      "indexEntry": [
+        "100644",
+        "310da69dbfed6ba84c6f04538056ff51514ca1df"
+      ]
+    },
+    {
+      "path": "apps/web/lib/home-theme.ts",
+      "sourceEntry": [
+        "100644",
+        "78288a295d0b1df113bf4ec1673fed6733c6a970"
+      ],
+      "indexEntry": [
+        "100644",
+        "78288a295d0b1df113bf4ec1673fed6733c6a970"
+      ]
+    },
+    {
+      "path": "apps/web/lib/i18n/activity.ts",
+      "sourceEntry": [
+        "100644",
+        "a1b5ee590024a0f83a25c8a1c099234912c1e26a"
+      ],
+      "indexEntry": [
+        "100644",
+        "a1b5ee590024a0f83a25c8a1c099234912c1e26a"
+      ]
+    },
+    {
+      "path": "apps/web/lib/i18n/namespaces/activity.ts",
+      "sourceEntry": [
+        "100644",
+        "688e56fecdc1a764636d0564749a306b86d39ad0"
+      ],
+      "indexEntry": [
+        "100644",
+        "688e56fecdc1a764636d0564749a306b86d39ad0"
+      ]
+    },
+    {
+      "path": "apps/web/lib/i18n/namespaces/org-home-config.ts",
+      "sourceEntry": [
+        "100644",
+        "c4cfcec5394da9cd3b5aef6728fe87a9fd3968e4"
+      ],
+      "indexEntry": [
+        "100644",
+        "c4cfcec5394da9cd3b5aef6728fe87a9fd3968e4"
+      ]
+    },
+    {
+      "path": "apps/web/lib/live-identity.ts",
+      "sourceEntry": [
+        "100644",
+        "8f25e789fb5315f2a167bc0ded48e200c782af37"
+      ],
+      "indexEntry": [
+        "100644",
+        "8f25e789fb5315f2a167bc0ded48e200c782af37"
+      ]
+    },
+    {
+      "path": "apps/web/tests/e2e-archived-thread-response.test.ts",
+      "sourceEntry": [
+        "100644",
+        "578c452d7855213f1ff92d0f11352560c30e2b14"
+      ],
+      "indexEntry": [
+        "100644",
+        "578c452d7855213f1ff92d0f11352560c30e2b14"
+      ]
+    },
+    {
+      "path": "apps/web/tests/ui/org-home-config-i18n.test.tsx",
+      "sourceEntry": [
+        "100644",
+        "d94d98261feceaecfaad61739663c0543d5ddfb7"
+      ],
+      "indexEntry": [
+        "100644",
+        "d94d98261feceaecfaad61739663c0543d5ddfb7"
+      ]
+    },
+    {
+      "path": "apps/web/tests/ui/profile-i18n.test.tsx",
+      "sourceEntry": [
+        "100644",
+        "1d56c68cd39b70b39331fd134bdb0d44513c6126"
+      ],
+      "indexEntry": [
+        "100644",
+        "1d56c68cd39b70b39331fd134bdb0d44513c6126"
+      ]
+    },
+    {
+      "path": "docs/design/chat-archived-fixture/plan.md",
+      "sourceEntry": [
+        "100644",
+        "4649c6d1a512b17c09340c23ce04c3b1a834f4ec"
+      ],
+      "indexEntry": [
+        "100644",
+        "4649c6d1a512b17c09340c23ce04c3b1a834f4ec"
+      ]
+    },
+    {
+      "path": "docs/design/i18n-activity/compatibility.md",
+      "sourceEntry": [
+        "100644",
+        "51b3ba35d9c94f32d2a077256ec3dee46789debd"
+      ],
+      "indexEntry": [
+        "100644",
+        "51b3ba35d9c94f32d2a077256ec3dee46789debd"
+      ]
+    },
+    {
+      "path": "docs/design/i18n-activity/dependency-integration.plan.md",
+      "sourceEntry": [
+        "100644",
+        "0e52fe38ab2332e3fa4effaaca656664b199708d"
+      ],
+      "indexEntry": [
+        "100644",
+        "0e52fe38ab2332e3fa4effaaca656664b199708d"
+      ]
+    },
+    {
+      "path": "docs/design/i18n-activity/develop-sync.md",
+      "sourceEntry": [
+        "100644",
+        "83b473375616e5f701390354e55653a82bebb7be"
+      ],
+      "indexEntry": [
+        "100644",
+        "83b473375616e5f701390354e55653a82bebb7be"
+      ]
+    },
+    {
+      "path": "docs/design/i18n-activity/execution-plan.md",
+      "sourceEntry": [
+        "100644",
+        "a5d4e96e97157befa70704ee257312835f309b63"
+      ],
+      "indexEntry": [
+        "100644",
+        "a5d4e96e97157befa70704ee257312835f309b63"
+      ]
+    },
+    {
+      "path": "docs/design/i18n-activity/notification-response-lifecycle.plan.md",
+      "sourceEntry": [
+        "100644",
+        "13bbe6f50272e5e0a6a6f248e31bc6336f6bda36"
+      ],
+      "indexEntry": [
+        "100644",
+        "13bbe6f50272e5e0a6a6f248e31bc6336f6bda36"
+      ]
+    },
+    {
+      "path": "docs/design/i18n-activity/plan.md",
+      "sourceEntry": [
+        "100644",
+        "64119fba5ddaa4fdd4b48a30283d1746b4d5239b"
+      ],
+      "indexEntry": [
+        "100644",
+        "64119fba5ddaa4fdd4b48a30283d1746b4d5239b"
+      ]
+    },
+    {
+      "path": "docs/design/i18n-activity/priority-integration-6210-6216.md",
+      "sourceEntry": [
+        "100644",
+        "16d7b9fd24cb7a06cf4bc24df5d43bcb4d4d59da"
+      ],
+      "indexEntry": [
+        "100644",
+        "16d7b9fd24cb7a06cf4bc24df5d43bcb4d4d59da"
+      ]
+    },
+    {
+      "path": "evidence/chat-archived-fixture-6215/README.md",
+      "sourceEntry": [
+        "100644",
+        "6a7ac73516c3eed375432cc2501ee1603960eeae"
+      ],
+      "indexEntry": [
+        "100644",
+        "6a7ac73516c3eed375432cc2501ee1603960eeae"
+      ]
+    },
+    {
+      "path": "evidence/chat-archived-fixture-6215/browser-attempt-1-summary.md",
+      "sourceEntry": [
+        "100644",
+        "85244353a277dbb08b90489ea0927770477603ea"
+      ],
+      "indexEntry": [
+        "100644",
+        "85244353a277dbb08b90489ea0927770477603ea"
+      ]
+    },
+    {
+      "path": "evidence/chat-archived-fixture-6215/browser-recovered-cleanup.json",
+      "sourceEntry": [
+        "100644",
+        "1a18756c36718bf1ade73383fee106df69321b97"
+      ],
+      "indexEntry": [
+        "100644",
+        "1a18756c36718bf1ade73383fee106df69321b97"
+      ]
+    },
+    {
+      "path": "evidence/chat-archived-fixture-6215/candidate-timeline.json",
+      "sourceEntry": [
+        "100644",
+        "e489ae8b2b1b91b46824b8972fea92f322b92662"
+      ],
+      "indexEntry": [
+        "100644",
+        "e489ae8b2b1b91b46824b8972fea92f322b92662"
+      ]
+    },
+    {
+      "path": "evidence/chat-archived-fixture-6215/fixture-green.log",
+      "sourceEntry": [
+        "100644",
+        "0d871a0c26e8cef2cf4198f1c148442f678e04ef"
+      ],
+      "indexEntry": [
+        "100644",
+        "0d871a0c26e8cef2cf4198f1c148442f678e04ef"
+      ]
+    },
+    {
+      "path": "evidence/chat-archived-fixture-6215/fixture-red.log",
+      "sourceEntry": [
+        "100644",
+        "a1a9fd4a7169fb51d92f619c3d410961cc8a6dda"
+      ],
+      "indexEntry": [
+        "100644",
+        "a1a9fd4a7169fb51d92f619c3d410961cc8a6dda"
+      ]
+    },
+    {
+      "path": "evidence/chat-archived-fixture-6215/original-spec-recovered-green.log",
+      "sourceEntry": [
+        "100644",
+        "1b6249d4a8a27ce12636942265bccd9c00b60769"
+      ],
+      "indexEntry": [
+        "100644",
+        "1b6249d4a8a27ce12636942265bccd9c00b60769"
+      ]
+    },
+    {
+      "path": "evidence/chat-archived-fixture-6215/recovered-cleanup.json",
+      "sourceEntry": [
+        "100644",
+        "f6613ab7c2f724ce97ea4982c5e84d14b5e5981c"
+      ],
+      "indexEntry": [
+        "100644",
+        "f6613ab7c2f724ce97ea4982c5e84d14b5e5981c"
+      ]
+    },
+    {
+      "path": "evidence/chat-archived-fixture-6215/scoped-eslint.log",
+      "sourceEntry": [
+        "100644",
+        "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+      ],
+      "indexEntry": [
+        "100644",
+        "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+      ]
+    },
+    {
+      "path": "evidence/chat-archived-fixture-6215/source-hashes.json",
+      "sourceEntry": [
+        "100644",
+        "b94cf71cba5949cdfb2a29703781f9e7c6bcdd88"
+      ],
+      "indexEntry": [
+        "100644",
+        "b94cf71cba5949cdfb2a29703781f9e7c6bcdd88"
+      ]
+    },
+    {
+      "path": "evidence/chat-archived-fixture-6215/typecheck.log",
+      "sourceEntry": [
+        "100644",
+        "abf050e989871fd6b10c4b866dd70ec05b491783"
+      ],
+      "indexEntry": [
+        "100644",
+        "abf050e989871fd6b10c4b866dd70ec05b491783"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/44ae-api.log",
+      "sourceEntry": [
+        "100644",
+        "d953b99eb86898143f033f580990d5cfa5d4b2c0"
+      ],
+      "indexEntry": [
+        "100644",
+        "d953b99eb86898143f033f580990d5cfa5d4b2c0"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/44ae-contract.log",
+      "sourceEntry": [
+        "100644",
+        "5991fb9a81cdff27dc32e7b3196ddf8f21126837"
+      ],
+      "indexEntry": [
+        "100644",
+        "5991fb9a81cdff27dc32e7b3196ddf8f21126837"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/44ae-eslint.log",
+      "sourceEntry": [
+        "100644",
+        "8b137891791fe96927ad78e64b0aad7bded08bdc"
+      ],
+      "indexEntry": [
+        "100644",
+        "8b137891791fe96927ad78e64b0aad7bded08bdc"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/44ae-parity.log",
+      "sourceEntry": [
+        "100644",
+        "910ec0675f3de9c4b2e063712a249ec467bdd2d2"
+      ],
+      "indexEntry": [
+        "100644",
+        "910ec0675f3de9c4b2e063712a249ec467bdd2d2"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/44ae-web.log",
+      "sourceEntry": [
+        "100644",
+        "3a5e181e09debc2394e24285c9e358cd70fd3639"
+      ],
+      "indexEntry": [
+        "100644",
+        "3a5e181e09debc2394e24285c9e358cd70fd3639"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/README.md",
+      "sourceEntry": [
+        "100644",
+        "54746f2e26717bf284455d5366f79796ac6ff49a"
+      ],
+      "indexEntry": [
+        "100644",
+        "54746f2e26717bf284455d5366f79796ac6ff49a"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/api-lint-before-pipe-fix.log",
+      "sourceEntry": [
+        "100644",
+        "e3a1d1b0a6bca2ec49919eb09b718a98edd0e40b"
+      ],
+      "indexEntry": [
+        "100644",
+        "e3a1d1b0a6bca2ec49919eb09b718a98edd0e40b"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/api-typecheck-before-pipe-fix.log",
+      "sourceEntry": [
+        "100644",
+        "b4c764e1beb27445f1842536ad49522fc779d004"
+      ],
+      "indexEntry": [
+        "100644",
+        "b4c764e1beb27445f1842536ad49522fc779d004"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/api-unit-tests.log",
+      "sourceEntry": [
+        "100644",
+        "6dabf2c299fe393f039a3fff35af2a1d30b73e9e"
+      ],
+      "indexEntry": [
+        "100644",
+        "6dabf2c299fe393f039a3fff35af2a1d30b73e9e"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/browser.log",
+      "sourceEntry": [
+        "100644",
+        "fa98bc365ef1ae1e7992a304a89288dcb782850c"
+      ],
+      "indexEntry": [
+        "100644",
+        "fa98bc365ef1ae1e7992a304a89288dcb782850c"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/ci-gates-fast-failure.log",
+      "sourceEntry": [
+        "100644",
+        "1c3ce9c91748272533e0683d9eaa091681163026"
+      ],
+      "indexEntry": [
+        "100644",
+        "1c3ce9c91748272533e0683d9eaa091681163026"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/contract-source-fixed.log",
+      "sourceEntry": [
+        "100644",
+        "5b70beda63430574c59d0a9ec7b0c9edd902be15"
+      ],
+      "indexEntry": [
+        "100644",
+        "5b70beda63430574c59d0a9ec7b0c9edd902be15"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/contract-tests.log",
+      "sourceEntry": [
+        "100644",
+        "78c016524feca85d06e68bb60c4e75e763c7629e"
+      ],
+      "indexEntry": [
+        "100644",
+        "78c016524feca85d06e68bb60c4e75e763c7629e"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/control-plane-job-failure.log",
+      "sourceEntry": [
+        "100644",
+        "58300bd2562d6d1460c0816865803724603fb1ee"
+      ],
+      "indexEntry": [
+        "100644",
+        "58300bd2562d6d1460c0816865803724603fb1ee"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/develop-api.log",
+      "sourceEntry": [
+        "100644",
+        "8bcc5c3edff60c605f051dc635f7c7a4c66e915c"
+      ],
+      "indexEntry": [
+        "100644",
+        "8bcc5c3edff60c605f051dc635f7c7a4c66e915c"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/develop-conflict-cost.json",
+      "sourceEntry": [
+        "100644",
+        "02bce5a1b00a70e28da696ca5d6089184f3d9143"
+      ],
+      "indexEntry": [
+        "100644",
+        "02bce5a1b00a70e28da696ca5d6089184f3d9143"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/develop-contract.log",
+      "sourceEntry": [
+        "100644",
+        "0103639f1e2ec362947df829dd24fb50f8de92b9"
+      ],
+      "indexEntry": [
+        "100644",
+        "0103639f1e2ec362947df829dd24fb50f8de92b9"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/develop-secret.log",
+      "sourceEntry": [
+        "100644",
+        "c5cfcfe693a2f56208525ab0bfca5aad94d3a521"
+      ],
+      "indexEntry": [
+        "100644",
+        "c5cfcfe693a2f56208525ab0bfca5aad94d3a521"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/develop-source-parity.log",
+      "sourceEntry": [
+        "100644",
+        "eaa874403be4230a26b2f0108a6869aba5f612f7"
+      ],
+      "indexEntry": [
+        "100644",
+        "eaa874403be4230a26b2f0108a6869aba5f612f7"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/develop-web.log",
+      "sourceEntry": [
+        "100644",
+        "71f9ac395d871a02c233dacd5e12ea5286fcf657"
+      ],
+      "indexEntry": [
+        "100644",
+        "71f9ac395d871a02c233dacd5e12ea5286fcf657"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/e473-api.log",
+      "sourceEntry": [
+        "100644",
+        "b9aef1596df9b5cbef6c7095f1f386dde3ce2b54"
+      ],
+      "indexEntry": [
+        "100644",
+        "b9aef1596df9b5cbef6c7095f1f386dde3ce2b54"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/e473-contract.log",
+      "sourceEntry": [
+        "100644",
+        "2e528a53d02ef91d467dcbe29abcc18f90090567"
+      ],
+      "indexEntry": [
+        "100644",
+        "2e528a53d02ef91d467dcbe29abcc18f90090567"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/e473-eslint.log",
+      "sourceEntry": [
+        "100644",
+        "3624ca3f18aecb1c5f778336cbd412714a4fc25e"
+      ],
+      "indexEntry": [
+        "100644",
+        "3624ca3f18aecb1c5f778336cbd412714a4fc25e"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/e473-parity.log",
+      "sourceEntry": [
+        "100644",
+        "bd95122abc655db2fa777d6b944f2cf4389a0863"
+      ],
+      "indexEntry": [
+        "100644",
+        "bd95122abc655db2fa777d6b944f2cf4389a0863"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/e473-queue-before.json",
+      "sourceEntry": [
+        "100644",
+        "2e371c775821ccb497323c8118599919d64c7d0f"
+      ],
+      "indexEntry": [
+        "100644",
+        "2e371c775821ccb497323c8118599919d64c7d0f"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/e473-web.log",
+      "sourceEntry": [
+        "100644",
+        "ea83f95bec1acdcf479c7eeefa4fe42d0a95bcd5"
+      ],
+      "indexEntry": [
+        "100644",
+        "ea83f95bec1acdcf479c7eeefa4fe42d0a95bcd5"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/entrypoint-gate-green.log",
+      "sourceEntry": [
+        "100644",
+        "c4566ba479132f5ac4d6ab8e97f4a56bce3ddf00"
+      ],
+      "indexEntry": [
+        "100644",
+        "c4566ba479132f5ac4d6ab8e97f4a56bce3ddf00"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/entrypoint-lane-green.log",
+      "sourceEntry": [
+        "100644",
+        "182ac35ec192d6f8f3b392d8bef52ffe04c7c057"
+      ],
+      "indexEntry": [
+        "100644",
+        "182ac35ec192d6f8f3b392d8bef52ffe04c7c057"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/entrypoint-red.log",
+      "sourceEntry": [
+        "100644",
+        "c3c9081a77d9cf68e9af29a813f98f8d17e6494b"
+      ],
+      "indexEntry": [
+        "100644",
+        "c3c9081a77d9cf68e9af29a813f98f8d17e6494b"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/generated-mock-green.log",
+      "sourceEntry": [
+        "100644",
+        "f6f25cf99d0631fd4babb191dcd54d74698c2972"
+      ],
+      "indexEntry": [
+        "100644",
+        "f6f25cf99d0631fd4babb191dcd54d74698c2972"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/generated-mock-red.log",
+      "sourceEntry": [
+        "100644",
+        "7f74dc07ada6dd3a6aeb26882b95bc42e224df57"
+      ],
+      "indexEntry": [
+        "100644",
+        "7f74dc07ada6dd3a6aeb26882b95bc42e224df57"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/notification-lifecycle-browser.log",
+      "sourceEntry": [
+        "100644",
+        "38f918665904c8333213c5e8413995ca667c273b"
+      ],
+      "indexEntry": [
+        "100644",
+        "38f918665904c8333213c5e8413995ca667c273b"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/notification-lifecycle-cleanup.json",
+      "sourceEntry": [
+        "100644",
+        "a6a866bc94b9968f58d8de5651148b604fde9d0a"
+      ],
+      "indexEntry": [
+        "100644",
+        "a6a866bc94b9968f58d8de5651148b604fde9d0a"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/notification-lifecycle-eslint.log",
+      "sourceEntry": [
+        "100644",
+        "8b137891791fe96927ad78e64b0aad7bded08bdc"
+      ],
+      "indexEntry": [
+        "100644",
+        "8b137891791fe96927ad78e64b0aad7bded08bdc"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/notification-lifecycle-notifications-en.png",
+      "sourceEntry": [
+        "100644",
+        "fa01eeafceb8c335fa9bdc91cbd800399d13c95a"
+      ],
+      "indexEntry": [
+        "100644",
+        "fa01eeafceb8c335fa9bdc91cbd800399d13c95a"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/notification-lifecycle-profile-en-1280.png",
+      "sourceEntry": [
+        "100644",
+        "d8b7284ff1cf7893c8ac2dcb930333e9b362572c"
+      ],
+      "indexEntry": [
+        "100644",
+        "d8b7284ff1cf7893c8ac2dcb930333e9b362572c"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/notification-lifecycle-profile-en-375.png",
+      "sourceEntry": [
+        "100644",
+        "511e35d534221167c4aa7f1fdf23606997328a28"
+      ],
+      "indexEntry": [
+        "100644",
+        "511e35d534221167c4aa7f1fdf23606997328a28"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/notification-lifecycle-profile-en-768.png",
+      "sourceEntry": [
+        "100644",
+        "d61bdaf929efcec7df930bc494ca40a32d619e8e"
+      ],
+      "indexEntry": [
+        "100644",
+        "d61bdaf929efcec7df930bc494ca40a32d619e8e"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/notification-lifecycle-reachability.log",
+      "sourceEntry": [
+        "100644",
+        "c4566ba479132f5ac4d6ab8e97f4a56bce3ddf00"
+      ],
+      "indexEntry": [
+        "100644",
+        "c4566ba479132f5ac4d6ab8e97f4a56bce3ddf00"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/notification-lifecycle-red.log",
+      "sourceEntry": [
+        "100644",
+        "5ecec8eee8e356fbe8e37b65281dc500da008ee3"
+      ],
+      "indexEntry": [
+        "100644",
+        "5ecec8eee8e356fbe8e37b65281dc500da008ee3"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/notification-lifecycle-trace-summary.json",
+      "sourceEntry": [
+        "100644",
+        "53399348b8aeea2393dea3a08e199ca7e7b171ed"
+      ],
+      "indexEntry": [
+        "100644",
+        "53399348b8aeea2393dea3a08e199ca7e7b171ed"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/notification-lifecycle-type.log",
+      "sourceEntry": [
+        "100644",
+        "98e0bbc69b44dbac27c10437d42dc110ac3a8975"
+      ],
+      "indexEntry": [
+        "100644",
+        "98e0bbc69b44dbac27c10437d42dc110ac3a8975"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/priority-integration-fixture.log",
+      "sourceEntry": [
+        "100644",
+        "c46fbd5f07b93fe74ca6d9d95b273a7e6fe6b3f3"
+      ],
+      "indexEntry": [
+        "100644",
+        "c46fbd5f07b93fe74ca6d9d95b273a7e6fe6b3f3"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/priority-integration-guard.log",
+      "sourceEntry": [
+        "100644",
+        "01165991009dcf8bfacc5bea0a64a637cccc5dff"
+      ],
+      "indexEntry": [
+        "100644",
+        "01165991009dcf8bfacc5bea0a64a637cccc5dff"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/priority-integration-receipt.json",
+      "sourceEntry": [
+        "100644",
+        "5bcdbcdfe891fd899f26dc63468a00c88492b0f7"
+      ],
+      "indexEntry": [
+        "100644",
+        "5bcdbcdfe891fd899f26dc63468a00c88492b0f7"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/profile-en-1280.png",
+      "sourceEntry": [
+        "100644",
+        "e32fc0bcc07550cf91c92eb9eaf5cc6ec7ea7842"
+      ],
+      "indexEntry": [
+        "100644",
+        "e32fc0bcc07550cf91c92eb9eaf5cc6ec7ea7842"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/profile-en-375.png",
+      "sourceEntry": [
+        "100644",
+        "86824b890147a04c1ba2612581d0ccb65d1bcf98"
+      ],
+      "indexEntry": [
+        "100644",
+        "86824b890147a04c1ba2612581d0ccb65d1bcf98"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/profile-en-768.png",
+      "sourceEntry": [
+        "100644",
+        "5e4a8188e23283cdec45534d441aabaf227a5f72"
+      ],
+      "indexEntry": [
+        "100644",
+        "5e4a8188e23283cdec45534d441aabaf227a5f72"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/query-validation-red.log",
+      "sourceEntry": [
+        "100644",
+        "12b78887b5a575f491b65a1f501d038b5f9d9c0b"
+      ],
+      "indexEntry": [
+        "100644",
+        "12b78887b5a575f491b65a1f501d038b5f9d9c0b"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/secret-fixture-unit-tests.log",
+      "sourceEntry": [
+        "100644",
+        "10bb94ba1c499ec2f88c0df4c87aea1759efeedf"
+      ],
+      "indexEntry": [
+        "100644",
+        "10bb94ba1c499ec2f88c0df4c87aea1759efeedf"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/secret-scan-fixed.log",
+      "sourceEntry": [
+        "100644",
+        "8ddf9a3b5c63b37c1771569e43feeda7252a5531"
+      ],
+      "indexEntry": [
+        "100644",
+        "8ddf9a3b5c63b37c1771569e43feeda7252a5531"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/ui-tests.log",
+      "sourceEntry": [
+        "100644",
+        "910d159b5cc73be24f6c7cfbaeedc90b29887011"
+      ],
+      "indexEntry": [
+        "100644",
+        "910d159b5cc73be24f6c7cfbaeedc90b29887011"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/web-lint-before-pipe-fix.log",
+      "sourceEntry": [
+        "100644",
+        "6753b13f873267b3459abe99e97cf515b1de2542"
+      ],
+      "indexEntry": [
+        "100644",
+        "6753b13f873267b3459abe99e97cf515b1de2542"
+      ]
+    },
+    {
+      "path": "evidence/i18n-activity-6145/web-typecheck-before-pipe-fix.log",
+      "sourceEntry": [
+        "100644",
+        "aafe9b182b94ca9d2b07c9b33cf4f4ab0443dc9b"
+      ],
+      "indexEntry": [
+        "100644",
+        "aafe9b182b94ca9d2b07c9b33cf4f4ab0443dc9b"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/README.md",
+      "sourceEntry": [
+        "100644",
+        "1bebce13b60bcfe7e5d7bdc35c20004035085d3c"
+      ],
+      "indexEntry": [
+        "100644",
+        "1bebce13b60bcfe7e5d7bdc35c20004035085d3c"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/browser-eslint.txt",
+      "sourceEntry": [
+        "100644",
+        "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+      ],
+      "indexEntry": [
+        "100644",
+        "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/browser-list.txt",
+      "sourceEntry": [
+        "100644",
+        "83406941d3f10083e450ebc5874f41e5260010f0"
+      ],
+      "indexEntry": [
+        "100644",
+        "83406941d3f10083e450ebc5874f41e5260010f0"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/browser-typecheck.txt",
+      "sourceEntry": [
+        "100644",
+        "b9c8f1803a18486c6b0400bf1ccacec47d35e036"
+      ],
+      "indexEntry": [
+        "100644",
+        "b9c8f1803a18486c6b0400bf1ccacec47d35e036"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/canonical-after.json",
+      "sourceEntry": [
+        "100644",
+        "3cf75dfdd083db22357a8d0297bf168ea268b011"
+      ],
+      "indexEntry": [
+        "100644",
+        "3cf75dfdd083db22357a8d0297bf168ea268b011"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/canonical-before.json",
+      "sourceEntry": [
+        "100644",
+        "3cf75dfdd083db22357a8d0297bf168ea268b011"
+      ],
+      "indexEntry": [
+        "100644",
+        "3cf75dfdd083db22357a8d0297bf168ea268b011"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/design.md",
+      "sourceEntry": [
+        "100644",
+        "8682314ca482bbc56e55fa7f853e7d09192c75bb"
+      ],
+      "indexEntry": [
+        "100644",
+        "8682314ca482bbc56e55fa7f853e7d09192c75bb"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/final-review-report.md",
+      "sourceEntry": [
+        "100644",
+        "6b2528a1fb82670176f136d18b0c8c31d5482c1d"
+      ],
+      "indexEntry": [
+        "100644",
+        "6b2528a1fb82670176f136d18b0c8c31d5482c1d"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/final-run/browser.txt",
+      "sourceEntry": [
+        "100644",
+        "23f2f27933107c647f6add9eae6a04e016cf91e6"
+      ],
+      "indexEntry": [
+        "100644",
+        "23f2f27933107c647f6add9eae6a04e016cf91e6"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/final-run/home-config-banner-1280.png",
+      "sourceEntry": [
+        "100644",
+        "7f9932e49576e20537553ea2d612fd56fc666c96"
+      ],
+      "indexEntry": [
+        "100644",
+        "7f9932e49576e20537553ea2d612fd56fc666c96"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/final-run/home-config-banner-375.png",
+      "sourceEntry": [
+        "100644",
+        "de295e10222b8534755ec62362bd1ec425e23912"
+      ],
+      "indexEntry": [
+        "100644",
+        "de295e10222b8534755ec62362bd1ec425e23912"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/final-run/home-config-content-1280.png",
+      "sourceEntry": [
+        "100644",
+        "91fa58b5fc452e9f786886f5f118c9dfec047692"
+      ],
+      "indexEntry": [
+        "100644",
+        "91fa58b5fc452e9f786886f5f118c9dfec047692"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/final-run/home-config-content-375.png",
+      "sourceEntry": [
+        "100644",
+        "54e2d8f98cb9472e69b3c8242d277d014b222731"
+      ],
+      "indexEntry": [
+        "100644",
+        "54e2d8f98cb9472e69b3c8242d277d014b222731"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/final-run/home-config-layout-1280.png",
+      "sourceEntry": [
+        "100644",
+        "fb9cdd570e3e492d1c3cf699414b9e8bbed14dcd"
+      ],
+      "indexEntry": [
+        "100644",
+        "fb9cdd570e3e492d1c3cf699414b9e8bbed14dcd"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/final-run/home-config-layout-375.png",
+      "sourceEntry": [
+        "100644",
+        "51094b576a201a699b530d1afd330b9a67453e6e"
+      ],
+      "indexEntry": [
+        "100644",
+        "51094b576a201a699b530d1afd330b9a67453e6e"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/final-run/home-config-member-denied.png",
+      "sourceEntry": [
+        "100644",
+        "d8a6784170c5c98b29f14b03999a231ebfd7287e"
+      ],
+      "indexEntry": [
+        "100644",
+        "d8a6784170c5c98b29f14b03999a231ebfd7287e"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/final-run/home-config-member-home.png",
+      "sourceEntry": [
+        "100644",
+        "9d4faf0941943fe8edbdd859d586707645e38eaf"
+      ],
+      "indexEntry": [
+        "100644",
+        "9d4faf0941943fe8edbdd859d586707645e38eaf"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/final-run/home-config-preview-1280.png",
+      "sourceEntry": [
+        "100644",
+        "4affa4192feea1cb41bf2155d115aa93a6fb9867"
+      ],
+      "indexEntry": [
+        "100644",
+        "4affa4192feea1cb41bf2155d115aa93a6fb9867"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/final-run/home-config-preview-375.png",
+      "sourceEntry": [
+        "100644",
+        "0ed3c3213888ca1a3133848ace8fa00dddb0577c"
+      ],
+      "indexEntry": [
+        "100644",
+        "0ed3c3213888ca1a3133848ace8fa00dddb0577c"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/final-run/home-config-preview-820.png",
+      "sourceEntry": [
+        "100644",
+        "040f9c307f59dc76fc38d9cf8c46831b9abeaa48"
+      ],
+      "indexEntry": [
+        "100644",
+        "040f9c307f59dc76fc38d9cf8c46831b9abeaa48"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/final-run/home-config-theme-1280.png",
+      "sourceEntry": [
+        "100644",
+        "0ba4bebe0ec4886e32b5eaeb2f0470019cf99dad"
+      ],
+      "indexEntry": [
+        "100644",
+        "0ba4bebe0ec4886e32b5eaeb2f0470019cf99dad"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/final-run/home-config-theme-375.png",
+      "sourceEntry": [
+        "100644",
+        "c3c746bd06aa9c997f2b4fbb428ac42b9a749d57"
+      ],
+      "indexEntry": [
+        "100644",
+        "c3c746bd06aa9c997f2b4fbb428ac42b9a749d57"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/final-run/qa-status.json",
+      "sourceEntry": [
+        "100644",
+        "19aca84abb345a3b5b1e2c07da22c50da2f2887d"
+      ],
+      "indexEntry": [
+        "100644",
+        "19aca84abb345a3b5b1e2c07da22c50da2f2887d"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/first-run/README.md",
+      "sourceEntry": [
+        "100644",
+        "d11f194eafc3544b523f3c3fcd0bea4f1e856109"
+      ],
+      "indexEntry": [
+        "100644",
+        "d11f194eafc3544b523f3c3fcd0bea4f1e856109"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/first-run/browser.txt",
+      "sourceEntry": [
+        "100644",
+        "d52c0f39a4135efe15dd97948ee41a495f826854"
+      ],
+      "indexEntry": [
+        "100644",
+        "d52c0f39a4135efe15dd97948ee41a495f826854"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/first-run/home-config-content-375.png",
+      "sourceEntry": [
+        "100644",
+        "f610124a2c6c3f0253ce69cd7a9c8f9cb11bd8fc"
+      ],
+      "indexEntry": [
+        "100644",
+        "f610124a2c6c3f0253ce69cd7a9c8f9cb11bd8fc"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/first-run/home-config-layout-375.png",
+      "sourceEntry": [
+        "100644",
+        "deef4056805c9fc06243df3085f03a1a826bfeaa"
+      ],
+      "indexEntry": [
+        "100644",
+        "deef4056805c9fc06243df3085f03a1a826bfeaa"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/green.txt",
+      "sourceEntry": [
+        "100644",
+        "d587c8a021ad57b843b1b09af8fab0f2c7c3ca2b"
+      ],
+      "indexEntry": [
+        "100644",
+        "d587c8a021ad57b843b1b09af8fab0f2c7c3ca2b"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/init.txt",
+      "sourceEntry": [
+        "100644",
+        "93f1404c3cc1533190ebc0d5cd9c884c2e214c90"
+      ],
+      "indexEntry": [
+        "100644",
+        "93f1404c3cc1533190ebc0d5cd9c884c2e214c90"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/plan.md",
+      "sourceEntry": [
+        "100644",
+        "eac2ebe9ee45125c7b5eb6cfc88f468724bf2917"
+      ],
+      "indexEntry": [
+        "100644",
+        "eac2ebe9ee45125c7b5eb6cfc88f468724bf2917"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/red-summary.txt",
+      "sourceEntry": [
+        "100644",
+        "292850ba777bd00ea223098ea75e748aa500fc66"
+      ],
+      "indexEntry": [
+        "100644",
+        "292850ba777bd00ea223098ea75e748aa500fc66"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/regression.txt",
+      "sourceEntry": [
+        "100644",
+        "1559e5f74f1cf5a18cd26cfba87961c72912c911"
+      ],
+      "indexEntry": [
+        "100644",
+        "1559e5f74f1cf5a18cd26cfba87961c72912c911"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/scoped-eslint.txt",
+      "sourceEntry": [
+        "100644",
+        "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+      ],
+      "indexEntry": [
+        "100644",
+        "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/scoped-rereview-report.md",
+      "sourceEntry": [
+        "100644",
+        "2eeec5bda2fd54ca5e3fa922d087391f5e49c2b5"
+      ],
+      "indexEntry": [
+        "100644",
+        "2eeec5bda2fd54ca5e3fa922d087391f5e49c2b5"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/spacing-eslint.txt",
+      "sourceEntry": [
+        "100644",
+        "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+      ],
+      "indexEntry": [
+        "100644",
+        "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/spacing-green.txt",
+      "sourceEntry": [
+        "100644",
+        "f9ab6b1352990684042eb5ef58d3bb19147abb4f"
+      ],
+      "indexEntry": [
+        "100644",
+        "f9ab6b1352990684042eb5ef58d3bb19147abb4f"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/spacing-red.txt",
+      "sourceEntry": [
+        "100644",
+        "93cc1a0e37da65d50972a8915493866ab6ef99ff"
+      ],
+      "indexEntry": [
+        "100644",
+        "93cc1a0e37da65d50972a8915493866ab6ef99ff"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/spec-gate.txt",
+      "sourceEntry": [
+        "100644",
+        "68e116ee22d5b9a1089d04449040df7251fee035"
+      ],
+      "indexEntry": [
+        "100644",
+        "68e116ee22d5b9a1089d04449040df7251fee035"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/task-review-report.md",
+      "sourceEntry": [
+        "100644",
+        "a9dd9ab83d2edff9c5d4f9de49d0a45bd2bdd3c7"
+      ],
+      "indexEntry": [
+        "100644",
+        "a9dd9ab83d2edff9c5d4f9de49d0a45bd2bdd3c7"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/testid-gate.txt",
+      "sourceEntry": [
+        "100644",
+        "58e4aa5734423315e2a3cc747902d1a46f81f22d"
+      ],
+      "indexEntry": [
+        "100644",
+        "58e4aa5734423315e2a3cc747902d1a46f81f22d"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/visibility-eslint.txt",
+      "sourceEntry": [
+        "100644",
+        "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+      ],
+      "indexEntry": [
+        "100644",
+        "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/visibility-green.txt",
+      "sourceEntry": [
+        "100644",
+        "6bc019469a282bd868f2e9ccfc540a986a00e3a1"
+      ],
+      "indexEntry": [
+        "100644",
+        "6bc019469a282bd868f2e9ccfc540a986a00e3a1"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/visibility-red/browser.txt",
+      "sourceEntry": [
+        "100644",
+        "453284cc050a817800130ea968280f418d132fd7"
+      ],
+      "indexEntry": [
+        "100644",
+        "453284cc050a817800130ea968280f418d132fd7"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/visibility-red/error-context.md",
+      "sourceEntry": [
+        "100644",
+        "2f73903fe7980d47106058b7aa641bec76596f6d"
+      ],
+      "indexEntry": [
+        "100644",
+        "2f73903fe7980d47106058b7aa641bec76596f6d"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/visibility-red/test-failed-1.png",
+      "sourceEntry": [
+        "100644",
+        "b06885e9155d88f3a00aa9dd28534f4fb7135191"
+      ],
+      "indexEntry": [
+        "100644",
+        "b06885e9155d88f3a00aa9dd28534f4fb7135191"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/visibility-typecheck.txt",
+      "sourceEntry": [
+        "100644",
+        "b9c8f1803a18486c6b0400bf1ccacec47d35e036"
+      ],
+      "indexEntry": [
+        "100644",
+        "b9c8f1803a18486c6b0400bf1ccacec47d35e036"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/web-typecheck.txt",
+      "sourceEntry": [
+        "100644",
+        "b9c8f1803a18486c6b0400bf1ccacec47d35e036"
+      ],
+      "indexEntry": [
+        "100644",
+        "b9c8f1803a18486c6b0400bf1ccacec47d35e036"
+      ]
+    },
+    {
+      "path": "evidence/org-home-config-i18n-6204/wiring.txt",
+      "sourceEntry": [
+        "100644",
+        "0d2caa831ec0e15e70496ffa6f7c9e84ffc56d06"
+      ],
+      "indexEntry": [
+        "100644",
+        "0d2caa831ec0e15e70496ffa6f7c9e84ffc56d06"
+      ]
+    },
+    {
+      "path": "evidence/org-profile-i18n-6202/integration-6147/README.md",
+      "sourceEntry": [
+        "100644",
+        "9d82139bedff0433851e7a11fa6551ae2170b7b2"
+      ],
+      "indexEntry": [
+        "100644",
+        "9d82139bedff0433851e7a11fa6551ae2170b7b2"
+      ]
+    },
+    {
+      "path": "evidence/org-profile-i18n-6202/integration-6147/api-exits.json",
+      "sourceEntry": [
+        "100644",
+        "3dc7fd813aa8d4b7edd2a8b8fc4381cdf4817a13"
+      ],
+      "indexEntry": [
+        "100644",
+        "3dc7fd813aa8d4b7edd2a8b8fc4381cdf4817a13"
+      ]
+    },
+    {
+      "path": "evidence/org-profile-i18n-6202/integration-6147/api-type-final.txt",
+      "sourceEntry": [
+        "100644",
+        "5175496448cc08b3887f2035f607c1823a66f596"
+      ],
+      "indexEntry": [
+        "100644",
+        "5175496448cc08b3887f2035f607c1823a66f596"
+      ]
+    },
+    {
+      "path": "evidence/org-profile-i18n-6202/integration-6147/api-type-first-budget.txt",
+      "sourceEntry": [
+        "100644",
+        "7f03f6c766ef8687555e955df520e6520ae1fa96"
+      ],
+      "indexEntry": [
+        "100644",
+        "7f03f6c766ef8687555e955df520e6520ae1fa96"
+      ]
+    },
+    {
+      "path": "evidence/org-profile-i18n-6202/integration-6147/blob-proof.json",
+      "sourceEntry": [
+        "100644",
+        "021dea07116c917a4a2b5d9168147811daec309c"
+      ],
+      "indexEntry": [
+        "100644",
+        "021dea07116c917a4a2b5d9168147811daec309c"
+      ]
+    },
+    {
+      "path": "evidence/org-profile-i18n-6202/integration-6147/eslint.txt",
+      "sourceEntry": [
+        "100644",
+        "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+      ],
+      "indexEntry": [
+        "100644",
+        "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+      ]
+    },
+    {
+      "path": "evidence/org-profile-i18n-6202/integration-6147/init.txt",
+      "sourceEntry": [
+        "100644",
+        "93f1404c3cc1533190ebc0d5cd9c884c2e214c90"
+      ],
+      "indexEntry": [
+        "100644",
+        "93f1404c3cc1533190ebc0d5cd9c884c2e214c90"
+      ]
+    },
+    {
+      "path": "evidence/org-profile-i18n-6202/integration-6147/review-report.md",
+      "sourceEntry": [
+        "100644",
+        "a083e4829258e5523fa440be22ec3d6e13f9dd89"
+      ],
+      "indexEntry": [
+        "100644",
+        "a083e4829258e5523fa440be22ec3d6e13f9dd89"
+      ]
+    },
+    {
+      "path": "evidence/org-profile-i18n-6202/integration-6147/spec-gate.txt",
+      "sourceEntry": [
+        "100644",
+        "68e116ee22d5b9a1089d04449040df7251fee035"
+      ],
+      "indexEntry": [
+        "100644",
+        "68e116ee22d5b9a1089d04449040df7251fee035"
+      ]
+    },
+    {
+      "path": "evidence/org-profile-i18n-6202/integration-6147/static-exits.json",
+      "sourceEntry": [
+        "100644",
+        "0c6085e34507b45e66c1bee4b20185779a236024"
+      ],
+      "indexEntry": [
+        "100644",
+        "0c6085e34507b45e66c1bee4b20185779a236024"
+      ]
+    },
+    {
+      "path": "evidence/org-profile-i18n-6202/integration-6147/testid.txt",
+      "sourceEntry": [
+        "100644",
+        "f9f658b7920104c1ac50b55391fd792ddebc56ea"
+      ],
+      "indexEntry": [
+        "100644",
+        "f9f658b7920104c1ac50b55391fd792ddebc56ea"
+      ]
+    },
+    {
+      "path": "evidence/org-profile-i18n-6202/integration-6147/typeunit-exits.json",
+      "sourceEntry": [
+        "100644",
+        "7ec153c1f5628f181ea6549d286208eb4e46bd9c"
+      ],
+      "indexEntry": [
+        "100644",
+        "7ec153c1f5628f181ea6549d286208eb4e46bd9c"
+      ]
+    },
+    {
+      "path": "evidence/org-profile-i18n-6202/integration-6147/unit-exits.json",
+      "sourceEntry": [
+        "100644",
+        "c2f7a9acb6cfc60cc7d40fe7c72ca7fd393eade2"
+      ],
+      "indexEntry": [
+        "100644",
+        "c2f7a9acb6cfc60cc7d40fe7c72ca7fd393eade2"
+      ]
+    },
+    {
+      "path": "evidence/org-profile-i18n-6202/integration-6147/unit-final.txt",
+      "sourceEntry": [
+        "100644",
+        "d50bd9aa4336e144e77f1bdef3526f779f6a30a9"
+      ],
+      "indexEntry": [
+        "100644",
+        "d50bd9aa4336e144e77f1bdef3526f779f6a30a9"
+      ]
+    },
+    {
+      "path": "evidence/org-profile-i18n-6202/integration-6147/validation.json",
+      "sourceEntry": [
+        "100644",
+        "655c17534dee76f90f3668f168129d5530773c6b"
+      ],
+      "indexEntry": [
+        "100644",
+        "655c17534dee76f90f3668f168129d5530773c6b"
+      ]
+    },
+    {
+      "path": "evidence/org-profile-i18n-6202/integration-6147/web-type.txt",
+      "sourceEntry": [
+        "100644",
+        "11e2a7ebc9ebee947be72f90e2e1cb43961037b4"
+      ],
+      "indexEntry": [
+        "100644",
+        "11e2a7ebc9ebee947be72f90e2e1cb43961037b4"
+      ]
+    },
+    {
+      "path": "evidence/org-profile-i18n-6202/integration-6147/wiring.txt",
+      "sourceEntry": [
+        "100644",
+        "0d2caa831ec0e15e70496ffa6f7c9e84ffc56d06"
+      ],
+      "indexEntry": [
+        "100644",
+        "0d2caa831ec0e15e70496ffa6f7c9e84ffc56d06"
+      ]
+    },
+    {
+      "path": "evidence/runtime-checkout-6209/README.md",
+      "sourceEntry": [
+        "100644",
+        "14ab73633ed63304bd3c93456b6c68f02cbc24cd"
+      ],
+      "indexEntry": [
+        "100644",
+        "14ab73633ed63304bd3c93456b6c68f02cbc24cd"
+      ]
+    },
+    {
+      "path": "evidence/runtime-checkout-6209/compare.mjs",
+      "sourceEntry": [
+        "100644",
+        "540014976237455438b464ab633e42b367de02e0"
+      ],
+      "indexEntry": [
+        "100644",
+        "540014976237455438b464ab633e42b367de02e0"
+      ]
+    },
+    {
+      "path": "evidence/runtime-checkout-6209/compare.txt",
+      "sourceEntry": [
+        "100644",
+        "ff348f641ff46da114fe79d891382dce4d9c30ac"
+      ],
+      "indexEntry": [
+        "100644",
+        "ff348f641ff46da114fe79d891382dce4d9c30ac"
+      ]
+    },
+    {
+      "path": "evidence/runtime-checkout-6209/final-review-report.md",
+      "sourceEntry": [
+        "100644",
+        "6511db12d708c25c0c329654833d225d67451049"
+      ],
+      "indexEntry": [
+        "100644",
+        "6511db12d708c25c0c329654833d225d67451049"
+      ]
+    },
+    {
+      "path": "evidence/runtime-checkout-6209/green.txt",
+      "sourceEntry": [
+        "100644",
+        "ea3ed38f6c9db39c0a513e739e3275bc4679bbec"
+      ],
+      "indexEntry": [
+        "100644",
+        "ea3ed38f6c9db39c0a513e739e3275bc4679bbec"
+      ]
+    },
+    {
+      "path": "evidence/runtime-checkout-6209/native-log-excerpt.txt",
+      "sourceEntry": [
+        "100644",
+        "deb9aaf6c8b7a659d356b418d3b10d01c8c99305"
+      ],
+      "indexEntry": [
+        "100644",
+        "deb9aaf6c8b7a659d356b418d3b10d01c8c99305"
+      ]
+    },
+    {
+      "path": "evidence/runtime-checkout-6209/queue.txt",
+      "sourceEntry": [
+        "100644",
+        "baa4eefe917e3d266d5bdedf9b91784cd52676bd"
+      ],
+      "indexEntry": [
+        "100644",
+        "baa4eefe917e3d266d5bdedf9b91784cd52676bd"
+      ]
+    },
+    {
+      "path": "evidence/runtime-checkout-6209/red.txt",
+      "sourceEntry": [
+        "100644",
+        "af96ef9bf2ba7575fcbbcb488316608f6d668b81"
+      ],
+      "indexEntry": [
+        "100644",
+        "af96ef9bf2ba7575fcbbcb488316608f6d668b81"
+      ]
+    },
+    {
+      "path": "evidence/runtime-checkout-6209/runtime-checkout-6209.md",
+      "sourceEntry": [
+        "100644",
+        "fb9e2888a9fd8297e89f73a6987982afb19baa48"
+      ],
+      "indexEntry": [
+        "100644",
+        "fb9e2888a9fd8297e89f73a6987982afb19baa48"
+      ]
+    },
+    {
+      "path": "evidence/runtime-checkout-6209/shard-native-log-excerpt.txt",
+      "sourceEntry": [
+        "100644",
+        "ba4f961971f3faeb446500cf93fdbdd22d4e7db2"
+      ],
+      "indexEntry": [
+        "100644",
+        "ba4f961971f3faeb446500cf93fdbdd22d4e7db2"
+      ]
+    },
+    {
+      "path": "evidence/runtime-checkout-6209/shards-compare.txt",
+      "sourceEntry": [
+        "100644",
+        "7698164961484dd45b9c7f6e057875072c6d556b"
+      ],
+      "indexEntry": [
+        "100644",
+        "7698164961484dd45b9c7f6e057875072c6d556b"
+      ]
+    },
+    {
+      "path": "evidence/runtime-checkout-6209/shards-green.txt",
+      "sourceEntry": [
+        "100644",
+        "75110769990f813929fa094482042b4552d5502b"
+      ],
+      "indexEntry": [
+        "100644",
+        "75110769990f813929fa094482042b4552d5502b"
+      ]
+    },
+    {
+      "path": "evidence/runtime-checkout-6209/shards-queue.txt",
+      "sourceEntry": [
+        "100644",
+        "7e7b47116aea1e719a93d32989218a20eb70b6bb"
+      ],
+      "indexEntry": [
+        "100644",
+        "7e7b47116aea1e719a93d32989218a20eb70b6bb"
+      ]
+    },
+    {
+      "path": "evidence/runtime-checkout-6209/shards-red.txt",
+      "sourceEntry": [
+        "100644",
+        "4b8bd816495f18d3d9595e6b33f881dfb149e90f"
+      ],
+      "indexEntry": [
+        "100644",
+        "4b8bd816495f18d3d9595e6b33f881dfb149e90f"
+      ]
+    },
+    {
+      "path": "evidence/runtime-checkout-6209/task-2-report.md",
+      "sourceEntry": [
+        "100644",
+        "eb1754cda52e86561c3002e8d953b6caf6039659"
+      ],
+      "indexEntry": [
+        "100644",
+        "eb1754cda52e86561c3002e8d953b6caf6039659"
+      ]
+    },
+    {
+      "path": "evidence/runtime-checkout-6209/task-review-report.md",
+      "sourceEntry": [
+        "100644",
+        "024748d2f0345648f32071e8bf035625df392587"
+      ],
+      "indexEntry": [
+        "100644",
+        "024748d2f0345648f32071e8bf035625df392587"
+      ]
+    },
+    {
+      "path": "packages/contracts/scripts/gen-mock.ts",
+      "sourceEntry": [
+        "100644",
+        "2f7bc5c4377ca84e530820f65b13cafc75428794"
+      ],
+      "indexEntry": [
+        "100644",
+        "2f7bc5c4377ca84e530820f65b13cafc75428794"
+      ]
+    },
+    {
+      "path": "packages/contracts/src/identity.ts",
+      "sourceEntry": [
+        "100644",
+        "7ce3e3839abd73c02a1b5de5a40510e941170ff0"
+      ],
+      "indexEntry": [
+        "100644",
+        "7ce3e3839abd73c02a1b5de5a40510e941170ff0"
+      ]
+    },
+    {
+      "path": "packages/contracts/tests/identity-activity-display.test.ts",
+      "sourceEntry": [
+        "100644",
+        "f32a5d92af09f38e2be65636d393168733e53f52"
+      ],
+      "indexEntry": [
+        "100644",
+        "f32a5d92af09f38e2be65636d393168733e53f52"
+      ]
+    }
+  ],
+  "parentChangedCount": 189
+}

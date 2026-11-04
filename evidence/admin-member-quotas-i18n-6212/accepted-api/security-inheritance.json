@@ -1,0 +1,62 @@
+{
+  "currentHead": "4639ef2dd55e0826b21736429e09713173cc1da7",
+  "acceptedParent": "ec1695d8fd646e004ca40dafbfa8e03bf01f20ef",
+  "acceptedPr": 6219,
+  "acceptedPrHead": "fb1b2a8fdc116a14c6719cfcce36675153e9d85b",
+  "inheritedMetadata": [
+    {
+      "originalPath": "evidence/admin-member-quotas-i18n-6212/browser-first/cleanup.json",
+      "blob": "8dc3eba1aeb474277b69c3d81d39556b886475f3",
+      "acceptedPaths": [
+        "evidence/quota-conflict-guidance-6217/origin-browser-cleanup.json"
+      ],
+      "exactAcceptedParentBlob": true
+    },
+    {
+      "originalPath": "evidence/admin-member-quotas-i18n-6212/browser-first/quota-conflict-response.json",
+      "blob": "b6a553ff4f23f31da530a0d1ed9814d14a334c5b",
+      "acceptedPaths": [
+        "evidence/quota-conflict-guidance-6217/observed-response.json"
+      ],
+      "exactAcceptedParentBlob": true
+    },
+    {
+      "originalPath": "evidence/admin-member-quotas-i18n-6212/browser-first/runner.json",
+      "blob": "dd6ea7fa0135791d6152e4ba95016357566f3dc1",
+      "acceptedPaths": [
+        "evidence/quota-conflict-guidance-6217/origin-browser-runner.json"
+      ],
+      "exactAcceptedParentBlob": true
+    }
+  ],
+  "remainingOriginalNonPngAbsent": [
+    {
+      "originalPath": "evidence/admin-member-quotas-i18n-6212/browser-first/README.md",
+      "blob": "ff75f2294e609eec017cb5e8fe5176a3b2de9c00"
+    },
+    {
+      "originalPath": "evidence/admin-member-quotas-i18n-6212/browser-first/artifact-sha256.json",
+      "blob": "d87c63aa15115797a95a5f91a2655e4a06699926"
+    },
+    {
+      "originalPath": "evidence/admin-member-quotas-i18n-6212/browser-first/artifacts/error-context.md",
+      "blob": "2b6cff247f44e105285c33294b879444f2e25ad5"
+    },
+    {
+      "originalPath": "evidence/admin-member-quotas-i18n-6212/browser-first/artifacts/trace.zip",
+      "blob": "61f047edc95e2983a0002489ab45ea2ea6625300"
+    },
+    {
+      "originalPath": "evidence/admin-member-quotas-i18n-6212/browser-first/browser.txt",
+      "blob": "252abbbe8e855f3f2a21f172b2d14be3eb9a2dbd"
+    },
+    {
+      "originalPath": "evidence/admin-member-quotas-i18n-6212/browser-first/preflight.json",
+      "blob": "d016daca5631a2aa10111231e1f98b1733e4efaf"
+    }
+  ],
+  "unsafeAncestor": false,
+  "unsafeContainingRefs": [
+    "refs/private/quota6212-unsafe-browser-6ae85819"
+  ]
+}
