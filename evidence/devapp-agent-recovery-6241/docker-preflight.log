@@ -1,0 +1,2 @@
+command: docker info --format {{.ServerVersion}}
+result: timed out after 12 seconds; prior docker info also remained unresponsive >60 seconds. No Docker stack was started. Full chat-read API/Postgres E2E cannot start on this host.
