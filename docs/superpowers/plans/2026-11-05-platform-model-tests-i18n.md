@@ -29,7 +29,7 @@
 - [x] StageA: new English/locale tests only. Exercise all owned states/forms/result types, deferred ownership/call counts, exact raw values and payloads, safe failure semantics and faithful financial warnings. Reuse installed matchers and canonical types; schema/collection mistakes are not intended RED.
 - [x] Root freezes tests and runs native focused RED with all old tests and resource controls; original implementer makes no production edits before root's explicit semantic-RED release.
 - [x] StageB: minimum complete page/namespace implementation. Preserve state/effect/call graph and financial helpers; new known reason is display-only. Add bounded stable selectors if needed for native evidence; audit375 label/control wrapping.
-- [ ] Root focused GREEN/types/scoped lint/init/raw-error gate, normal commit and independent source/task review. Reuse unchanged evidence rather than repeat unrelated suites.
+- [x] Root focused GREEN/types/scoped lint/init/raw-error gate, normal commit and independent source/task review. Reuse unchanged evidence rather than repeat unrelated suites.
 
 ### Task 2: Actual-route historical recovery and permission acceptance
 
@@ -46,3 +46,7 @@
 Source production394283d and test/config b8005f are frozen. Focused88/88 passed at58f602; only the required cancellation ApiError raw fixture argument changed later, with its affected case and scoped lint passing. Web type/init/raw-error/testid/wiring and20 static configuration tests passed; exact product-partition discovery selects1 native case. Source reviews are clear after the grant-cleanup ordering correction. Existing CI selects the spec without workflow changes.
 
 Native execution and all20 planned images remain pending. Task2 runtime and final acceptance checkboxes above intentionally remain open. Coordinator approved a normal-hook explicit Draft PR and cloud acceptance, with no additional local Next build. Public receipts and handoff: evidence/platform-model-tests-i18n-6246/ and docs/design/platform-model-tests-i18n/.
+
+## Cloud attempt1 and readonly fixture checkpoint
+
+Attempt1 run41917734613/head43f9 reached the actual page but organization GET503 blocked the planned history/capture flow in both CI results.0/20 planned images. Existing guarded history POST201/GET200 succeeded. Only test-startup readonly catalog composition was corrected in51e5899 under independently reviewed fresh-owned-cluster scope. API type/lint,20 static cases,init and exact discovery pass; provisioning/native/images remain pending. Keep Draft; no200 relaxation or local Next. Retained-PG restart is intentionally unsupported/fails closed. See public fixture/failure receipts and current handoff.

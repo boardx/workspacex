@@ -1,0 +1,50 @@
+{
+  "status": "SOURCE_GATES_ONLY; DRAFT_NONREADY",
+  "fixtureSource": "51e5899b52d99ed0484cec1cd1aab129d58614b1",
+  "startupPostimageSha256": "75d2e76c933f423eae5365b09d1afa5058550c545ed3ba5744a1bee3ce429651",
+  "changedRuntimeFile": "apps/api/scripts/start-fullstack-smoke-api.ts (test composition only)",
+  "staticCasesPassed": 20,
+  "nativeDiscovered": 1,
+  "freshCatalogProvisioningExecutedLocally": false,
+  "localNextOrPgStarted": false,
+  "nativeAfterFix": "UNRUN",
+  "plannedPngProducedAfterFix": 0,
+  "lifecycle": "Fresh owned canonical isolation wrapper only; full PG cluster disposal required. Retained PG API restart deliberately fails closed on existing scoped role.",
+  "receipts": [
+    {
+      "gate": "catalog-fixture-api-type",
+      "head": "51e5899b52d99ed0484cec1cd1aab129d58614b1",
+      "exit": 0,
+      "seconds": 46.996,
+      "logSha256": "4a063ac5f56fa0ecec2a3d001d9be0340ab89af460f06e4767193149f294518d"
+    },
+    {
+      "gate": "catalog-fixture-api-lint",
+      "head": "51e5899b52d99ed0484cec1cd1aab129d58614b1",
+      "exit": 0,
+      "seconds": 8.577,
+      "logSha256": "9c66dd32aef8f3957e2d9ea69e78c7170154bd773d1b493067b21b1acb6e160f"
+    },
+    {
+      "gate": "catalog-fixture-static",
+      "head": "51e5899b52d99ed0484cec1cd1aab129d58614b1",
+      "exit": 0,
+      "seconds": 35.08,
+      "logSha256": "ef31ef5f71c2aa6ad4e63e614f9b2b66aa7b79db709d67f738f16a3fe9650f10"
+    },
+    {
+      "gate": "catalog-fixture-init",
+      "head": "51e5899b52d99ed0484cec1cd1aab129d58614b1",
+      "exit": 0,
+      "seconds": 8.474,
+      "logSha256": "cd764df6595e1aa12dd7426ec836f607d04fe511a6cf57fe40a3d2c3e503b694"
+    },
+    {
+      "gate": "catalog-fixture-discovery",
+      "head": "51e5899b52d99ed0484cec1cd1aab129d58614b1",
+      "exit": 0,
+      "seconds": 2.976,
+      "logSha256": "c870de349f154d98a7dccacb76de71a24c3f5c1ebf07ff6ad1c5e47b50d6f58d"
+    }
+  ]
+}
