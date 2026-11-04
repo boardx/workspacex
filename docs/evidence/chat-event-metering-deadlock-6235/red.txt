@@ -1,0 +1,50 @@
+[stack-admission] load1=3.75 cores=10 perCore=0.38 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw26tpga-96841170-da7559545ea4 db=wsx_da7559545ea4bca6fb06 compose=wsx-da7559545ea4bca6fb06 pg=20668 redis=21668 api=24668 web=25668 sandbox=26668 model=27668 deep-agent=28668 asr=29668 vision=30668 loopback-sandbox=31668 mail=19668
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_da7559545ea4bca6fb06 capacity=100 current=6 required=32
+ ❯ tests/billing/chat-event-metering-lock-order-pg.test.ts (1 test | 1 failed) 28462ms
+   × persists chat progress and a real personal token receipt concurrently without a run/org deadlock 1404ms
+     → expected [ '40P01' ] to deeply equal []
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/chat-event-metering-lock-order-pg.test.ts > persists chat progress and a real personal token receipt concurrently without a run/org deadlock
+AssertionError: expected [ '40P01' ] to deeply equal []
+
+- Expected
++ Received
+
+- Array []
++ Array [
++   "40P01",
++ ]
+
+ ❯ tests/billing/chat-event-metering-lock-order-pg.test.ts:63:44
+     61|  }finally{releaseReceipt();}
+     62|  const results=await Promise.allSettled([recording,appending]);
+     63|  expect(waiting).toBe(true);expect(errors).toEqual([]);
+       |                                            ^
+     64|  expect(results.flatMap(r=>r.status==="rejected"?[{code:r.reason?.code…
+     65|  const journal=await new PgAgentRunRepository(db).readExecutionEvents(…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  22:04:03
+   Duration  37.06s (transform 2.08s, setup 20ms, collect 3.12s, tests 28.46s, environment 0ms, prepare 117ms)
+
+[db-isolation] db=wsx_da7559545ea4bca6fb06 peak_connections=4
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/chat-event-metering-lock-order-pg.test.ts --maxWorkers=1 --minWorkers=1
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/chat-event-metering-lock-order-pg.test.ts --maxWorkers=1 --minWorkers=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：40s
+  清理：1s
+  总计：40s

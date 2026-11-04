@@ -1,0 +1,22 @@
+{
+  "source": "e523132999f0490b44703ece3fe5aca5500e34ed",
+  "gate": "focused",
+  "command": [
+    "pnpm",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/platform-members-i18n.test.tsx",
+    "tests/ui/admin-platform-members.test.tsx",
+    "tests/lib/i18n-resources.test.ts"
+  ],
+  "exit": 0,
+  "seconds": 9.954,
+  "rawPrivate": true,
+  "logSha256": "102d455b9bdd66d83673ceb04976fc8007e9d27b4c91453b590fcf88a3ece91b",
+  "summary": [
+    "Test Files  3 passed (3)",
+    "Tests  32 passed (32)",
+    "Duration  7.78s (transform 1.78s, setup 418ms, collect 3.71s, tests 1.13s, environment 1.64s, prepare 152ms)"
+  ]
+}

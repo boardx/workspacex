@@ -1,0 +1,15 @@
+{
+  "source": "cb933851f59127646052ec0ad67ed099d65152ec",
+  "gate": "web-type",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "typecheck"
+  ],
+  "exit": 0,
+  "seconds": 9.764,
+  "rawPrivate": true,
+  "logSha256": "ea30d6b748ad9ab96126527df942acbf5a2e0557ed6674beeb887f3f9571595a",
+  "summary": []
+}

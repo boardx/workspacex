@@ -19,7 +19,7 @@ export const AGENT_RUN_ERROR_TEXT: Record<AgentRunError, string> = {
 
 export const AGENT_RUN_FAILURE_REASON_TEXT: Record<AgentRunFailureReason, string> = {
   provider_returned_empty: "模型这一轮既没有给出文本，也没有给出下一步动作",
-  provider_rejected: "执行任务的智能体服务自己报错退出了",
+  provider_rejected: "任务执行服务未能完成本次请求。请稍后重试；若仍失败，请反馈此对话",
   provider_timeout: "执行任务的智能体服务在预算时间内没有跑完",
   provider_transport_failed: "与执行任务的智能体服务之间的连接失败了",
   runtime_unavailable: "这次执行依赖的服务未配置或不可用，调用没能发出去",

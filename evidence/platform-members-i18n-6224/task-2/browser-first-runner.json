@@ -1,0 +1,34 @@
+{
+  "runner": {
+    "head": "32d701a31bf903e8c3b4b93086d48185ac3720ca",
+    "source": "cb933851f59127646052ec0ad67ed099d65152ec",
+    "exit": 1,
+    "seconds": 365.823
+  },
+  "stats": {
+    "startTime": "2026-11-04T12:16:28.175Z",
+    "duration": 361627.561,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  },
+  "tests": [
+    {
+      "title": "platform members preserve locale continuity and real superuser operator boundaries across organizations",
+      "project": "entity-localization",
+      "status": "failed",
+      "durationMs": 30813,
+      "retry": 0,
+      "errorLocation": {
+        "file": "/Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/web/e2e/entity-localization.spec.ts",
+        "column": 65,
+        "line": 1109
+      }
+    }
+  ],
+  "pngCount": 12,
+  "rawOnlyPrivate": true,
+  "rawLogSha256": "b21b381602c7fc34929ba0c8c69c50210ac42e71ccf73edda60d5ec745cf27ef",
+  "rawReportSha256": "6c68ca1cb42af5951ceb032cd5382035aadd11ea950649ff79b0436abfae10d4"
+}

@@ -1,0 +1,19 @@
+{
+  "source": "cb933851f59127646052ec0ad67ed099d65152ec",
+  "gate": "web-lint",
+  "command": [
+    "pnpm",
+    "exec",
+    "eslint",
+    "e2e/entity-localization-fixture.ts",
+    "e2e/entity-localization.spec.ts",
+    "playwright.fullstack-smoke.config.ts",
+    "--max-warnings",
+    "0"
+  ],
+  "exit": 0,
+  "seconds": 2.783,
+  "rawPrivate": true,
+  "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "summary": []
+}

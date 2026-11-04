@@ -1,3 +1,5 @@
+import { telemetrySettingsZhCN } from "../namespaces/telemetry-settings";
+import { platformMembersZhCN } from "../namespaces/platform-members";
 import { aiUsageZhCN } from "../namespaces/ai-usage";
 import { adminLimitPolicyZhCN } from "../namespaces/admin-limit-policy";
 import { adminMemberQuotasZhCN } from "../namespaces/admin-member-quotas";
@@ -26,6 +28,8 @@ import { stateZhCN } from "../namespaces/state";
 import { accountEntryZhCN } from "../namespaces/account-entry";
 import { invitationEntryZhCN } from "../namespaces/invitation-entry";
 export const zhCN = {
+  ...telemetrySettingsZhCN,
+  ...platformMembersZhCN,
   ...aiUsageZhCN,
   ...adminLimitPolicyZhCN,
   ...adminMemberQuotasZhCN,

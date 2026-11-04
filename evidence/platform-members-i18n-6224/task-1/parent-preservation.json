@@ -1,0 +1,18 @@
+{
+  "worker": "ba0d51dfac513e84864b7c82c4bfffe5e5ec3b7d",
+  "accepted": "73d5c5bfb20cd544e23303789a5afb8eab7b7744",
+  "merge": "5af5a4043c3b2b0f101329140f770418cdd311ec",
+  "base": "323b9f0769d18a5517ee6704aeb68b05400903ad",
+  "protected": {
+    "common": 23730,
+    "workerOnly": 6,
+    "acceptedOnly": 222
+  },
+  "overlaps": [
+    "apps/web/lib/i18n/messages/en.ts",
+    "apps/web/lib/i18n/messages/zh-CN.ts"
+  ],
+  "protectedFailures": [],
+  "method": "all union paths; exact Git mode/type/object identity including deletions; divergent overlaps require separate review",
+  "rightParentRole": "published ownquota dependency, explicitly not accepted until main actual merge"
+}

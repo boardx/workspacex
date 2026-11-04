@@ -26,6 +26,7 @@ export interface PlanFailureRecoveryProps {
   readonly failedStepIndex?: number;
   readonly failedStepLabel?: string;
   readonly reason: string;
+  readonly busy?: boolean;
   /**
    * 2026-09-22 —— 「每一步都标了完成、这一轮却失败了」时多说的一句解释
    * （单一事实源 `lib/chat-workbench/plan-failure-shape.ts`）。缺省 ⇒ 不渲染这一行，
@@ -37,11 +38,11 @@ export interface PlanFailureRecoveryProps {
 }
 
 export function PlanFailureRecovery(
-  { failedStepIndex, failedStepLabel, reason, note = null, onRetryStep, onEditInput }: PlanFailureRecoveryProps,
+  { failedStepIndex, failedStepLabel, reason, busy = false, note = null, onRetryStep, onEditInput }: PlanFailureRecoveryProps,
 ): React.JSX.Element {
   const { t } = useI18n();
   return (
-    <Card className="border-destructive/30">
+    <Card className="border-destructive/30" aria-busy={busy}>
       <CardContent className="flex flex-col gap-3 py-3">
         <div className="flex items-start gap-2">
           <AlertTriangle aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
@@ -52,6 +53,9 @@ export function PlanFailureRecovery(
                 : t("chatPlanControl.failedTask")}
             </span>
             <span className="whitespace-pre-line text-12 text-muted-foreground">{reason}</span>
+            {failedStepIndex !== undefined && (
+              <span className="text-12 text-muted-foreground">已完成的步骤会保留，重试将从未完成处继续。</span>
+            )}
             {note !== null && (
               <span data-testid={PLAN_FAILURE_NOTE_TESTID} className="mt-1 text-12 text-muted-foreground">
                 {note}
@@ -60,11 +64,11 @@ export function PlanFailureRecovery(
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button size="sm" variant="primary" data-testid={PLAN_FAILURE_RETRY_STEP_TESTID} onClick={onRetryStep}>
+          <Button size="sm" variant="primary" data-testid={PLAN_FAILURE_RETRY_STEP_TESTID} onClick={onRetryStep} disabled={busy}>
             <RotateCcw aria-hidden className="h-3.5 w-3.5" />
-            {failedStepIndex !== undefined ? t("chatPlanControl.retryStep") : t("chatPlanControl.retryTask")}
+            {busy ? "正在重试…" : failedStepIndex !== undefined ? t("chatPlanControl.retryStep") : t("chatPlanControl.retryTask")}
           </Button>
-          <Button size="sm" variant="outline" data-testid={PLAN_FAILURE_EDIT_INPUT_TESTID} onClick={onEditInput}>
+          <Button size="sm" variant="outline" data-testid={PLAN_FAILURE_EDIT_INPUT_TESTID} onClick={onEditInput} disabled={busy}>
             <Pencil aria-hidden className="h-3.5 w-3.5" /> {t("chatPlanControl.editInput")}
           </Button>
         </div>

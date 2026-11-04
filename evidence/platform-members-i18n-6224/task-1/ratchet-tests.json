@@ -1,0 +1,16 @@
+{
+  "head": "7153fd810d1f52752b9050300a6b58f874097b81",
+  "gate": "ratchet-tests",
+  "exit": 0,
+  "seconds": 3.012,
+  "logSha256": "1929f8eb629575052b9b0c22a7bf3a28bbde7272cc263b7546fdae3c8835aa0e",
+  "rawPrivate": true,
+  "summary": [
+    "\u2713 .harness/scripts/lint-user-facing-error-text.test.ts (4 tests) 1695ms",
+    "\u2713 lint-user-facing-error-text > \u62d2\u7edd\u4e34\u65f6\u4ed3\u5e93\u4e2d 'apps/web/components/error-text-regres\u2026' \u7684\u539f\u59cb\u5f02\u5e38\u6587\u6848 764ms",
+    "\u2713 lint-user-facing-error-text > \u62d2\u7edd\u4e34\u65f6\u4ed3\u5e93\u4e2d 'apps/web/components/admin/member-quot\u2026' \u7684\u539f\u59cb\u5f02\u5e38\u6587\u6848 761ms",
+    "Test Files  1 passed (1)",
+    "Tests  4 passed (4)",
+    "Duration  2.03s (transform 27ms, setup 0ms, collect 23ms, tests 1.70s, environment 0ms, prepare 49ms)"
+  ]
+}

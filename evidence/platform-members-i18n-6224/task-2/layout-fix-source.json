@@ -1,0 +1,8 @@
+{
+  "base": "32d701a31bf903e8c3b4b93086d48185ac3720ca",
+  "file": "apps/web/components/admin/platform-members-screen.tsx",
+  "sha256": "8ac2c6ce0d994d3e1783f3273e04a4791b4e8159b891196d96a887571bdc4702",
+  "change": "one responsive identity group; no requests/state/copy/test assertions changed",
+  "nativeRed": "browser-first fulloperator375 viewport ratio0.704845786",
+  "nativeGreen": "pending"
+}

@@ -11,6 +11,9 @@ import {
   type LastTelemetryReportOut, type TelemetrySettingsOut,
 } from "@/lib/instance-telemetry";
 import type { UiState } from "@/lib/ui-state";
+import { useI18n } from "@/lib/i18n/provider";
+import type { MessageKey } from "@/lib/i18n/messages";
+import type { Locale } from "@/lib/i18n/locale";
 
 /**
  * D9 —— 实例管理员的「上报设置」页（`docs/proposals/PROP-OPS-INSTANCE-TELEMETRY-001.md`「UI」一节）。
@@ -32,60 +35,64 @@ type TelemetryErrorCode =
   | (typeof T.operations.getLastTelemetryReport.err)[number];
 
 /** 契约错误码 → 人话（闭集，契约新增码漏配编译不过）。 */
-const ERROR_TEXT: Record<TelemetryErrorCode, string> = {
-  NOT_PLATFORM_SUPERUSER: "这个页面仅平台运维（平台超管白名单，或被超管指定的平台管理员）可用——你当前的账号不是。",
-  VALIDATION_FAILED: "这次改动没通过校验，刷新页面后再试一次",
-};
-
-function failureText(err: unknown): string {
+const ERROR_TEXT = {
+  NOT_PLATFORM_SUPERUSER: "telemetry.permission",
+  VALIDATION_FAILED: "telemetry.validation",
+} as const satisfies Record<TelemetryErrorCode, MessageKey>;
+type Failure = { kind: "message"; key: MessageKey } | { kind: "http"; status: number };
+function failureCause(err: unknown): Failure {
   if (err instanceof ApiError) {
     const code = err.reasonCode;
-    if (code !== null && code in ERROR_TEXT) return ERROR_TEXT[code as TelemetryErrorCode];
-    return httpFailureText(err.status);
+    if (code !== null && Object.hasOwn(ERROR_TEXT, code)) return { kind: "message", key: ERROR_TEXT[code as TelemetryErrorCode] };
+    return { kind: "http", status: err.status };
   }
-  if (err instanceof TypeError) return "连不上服务器，检查一下网络再试";
-  return "出了点问题，稍后再试一次";
+  return { kind: "message", key: err instanceof TypeError ? "telemetry.network" : "telemetry.unknown" };
+}
+function failureText(cause: Failure, { t, locale }: ReturnType<typeof useI18n>): string {
+  return cause.kind === "http" ? httpFailureText(cause.status, locale) : t(cause.key);
+}
+const CONSENT_TEXT = {
+  health: { label: "telemetry.health.label", ifOff: "telemetry.health.ifOff" },
+  usage: { label: "telemetry.usage.label", ifOff: "telemetry.usage.ifOff" },
+  diagnostics: { label: "telemetry.diagnostics.label", ifOff: "telemetry.diagnostics.ifOff" },
+  benchmark: { label: "telemetry.benchmark.label", ifOff: "telemetry.benchmark.ifOff" },
+} as const satisfies Record<ConsentItem, { label: MessageKey; ifOff: MessageKey }>;
+const STATE_TEXT = {
+  enabled: { title: "telemetry.enabled", detail: "telemetry.enabledDetail" },
+  endpoint_unset: { title: "telemetry.endpointUnset", detail: "telemetry.disabledDetail" },
+  kill_switch: { title: "telemetry.killSwitch", detail: "telemetry.disabledDetail" },
+} as const satisfies Record<ReporterState, { title: MessageKey; detail: MessageKey }>;
+const OUTCOME_TEXT = {
+  sent: "telemetry.sent", failed: "telemetry.failed", invalid: "telemetry.invalid",
+} as const satisfies Record<Outcome, MessageKey>;
+
+function formatInterval(seconds: number, t: ReturnType<typeof useI18n>["t"]): string {
+  if (seconds % 86_400 === 0) return seconds === 86_400 ? t("telemetry.daily") : t("telemetry.days", { count: seconds / 86_400 });
+  if (seconds % 3_600 === 0) return t("telemetry.hours", { count: seconds / 3_600 });
+  return t("telemetry.seconds", { count: seconds });
 }
 
-const STATE_TEXT: Record<ReporterState, { title: string; detail: string }> = {
-  enabled: { title: "上报已开启", detail: "按下面四项同意，每个周期发一次。" },
-  endpoint_unset: { title: "上报未开启：没有配置上报地址", detail: "这个实例现在什么都不发——无论下面的同意项开着还是关着。" },
-  kill_switch: { title: "上报未开启：全局总开关已关闭", detail: "这个实例现在什么都不发——无论下面的同意项开着还是关着。" },
-};
-
-const OUTCOME_TEXT: Record<Outcome, string> = {
-  sent: "已发送（对端已确认收到）",
-  failed: "发送失败——已丢弃，不重试",
-  invalid: "报告没通过本地校验——根本没发",
-};
-
-function formatInterval(seconds: number): string {
-  if (seconds % 86_400 === 0) return seconds === 86_400 ? "每天一次" : `每 ${seconds / 86_400} 天一次`;
-  if (seconds % 3_600 === 0) return `每 ${seconds / 3_600} 小时一次`;
-  return `每 ${seconds} 秒一次`;
-}
-
-function formatTime(iso: string): string {
-  const d = new Date(iso);
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} ${hh}:${mm}`;
+function formatTime(iso: string, locale: Locale): string {
+  return new Date(iso).toLocaleString(locale === "en" ? "en-US" : "zh-CN", {
+    year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false,
+  });
 }
 
 export function TelemetrySettingsScreen({ state }: { state: UiState }) {
+  const { t } = useI18n();
   return (
     <AdminScreen
       state={state}
-      moduleLabel="上报设置"
-      title="上报设置"
+      moduleLabel={t("adminNavigation.item.telemetry")}
+      title={t("adminNavigation.item.telemetry")}
       liveBacked
       hideOrgIdentity
-      intro="这个实例向我们上报哪几类运行信号——只有计数与状态，不含任何对话、文档或成员信息。"
-      emptyHint="还没有上报设置"
-      denialReason="仅平台运维（平台超管白名单，或被超管指定的平台管理员）可用。"
-      successMessage="已保存"
+      intro={t("telemetry.intro")}
+      emptyHint={t("telemetry.empty")}
+      denialReason={t("telemetry.denial")}
+      successMessage={t("state.saved")}
     >
-      <div className="flex flex-col gap-4">
+      <div className="flex min-w-0 flex-col gap-4">
         <ConsentPanel />
         <LastReportPanel />
       </div>
@@ -96,18 +103,20 @@ export function TelemetrySettingsScreen({ state }: { state: UiState }) {
 type SettingsState =
   | { kind: "loading" }
   | { kind: "ready"; out: TelemetrySettingsOut }
-  | { kind: "failed"; message: string };
+  | { kind: "failed"; cause: Failure };
 
 function ConsentPanel() {
+  const i18n = useI18n();
+  const { t } = i18n;
   const [settings, setSettings] = React.useState<SettingsState>({ kind: "loading" });
   const [saving, setSaving] = React.useState<ConsentItem | null>(null);
-  const [saveError, setSaveError] = React.useState<{ item: ConsentItem; message: string } | null>(null);
+  const [saveError, setSaveError] = React.useState<{ item: ConsentItem; cause: Failure } | null>(null);
 
   React.useEffect(() => {
     let cancelled = false;
     getTelemetrySettings()
       .then((out) => { if (!cancelled) setSettings({ kind: "ready", out }); })
-      .catch((err) => { if (!cancelled) setSettings({ kind: "failed", message: failureText(err) }); });
+      .catch((err) => { if (!cancelled) setSettings({ kind: "failed", cause: failureCause(err) }); });
     return () => { cancelled = true; };
   }, []);
 
@@ -119,27 +128,27 @@ function ConsentPanel() {
       const out = await updateTelemetryConsent({ [item]: next });
       setSettings({ kind: "ready", out });
     } catch (err) {
-      setSaveError({ item, message: failureText(err) });
+      setSaveError({ item, cause: failureCause(err) });
     } finally {
       setSaving(null);
     }
   };
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border bg-panel p-4" data-testid="admin-telemetry-consent">
+    <div className="flex min-w-0 flex-col gap-3 break-words rounded-lg border border-border bg-panel p-4" data-testid="admin-telemetry-consent">
       <div className="flex flex-col gap-0.5">
-        <h3 className="text-13 font-semibold">上报哪几类信号</h3>
+        <h3 className="text-13 font-semibold">{t("telemetry.signals")}</h3>
         <p className="text-11 text-muted-foreground" data-testid="admin-telemetry-interval-note">
-          上报周期：{formatInterval(T.TELEMETRY_REPORT_INTERVAL_SECONDS)}。改动从下一个周期起生效，不会立刻补发或撤回已发出的报告。
+          {t("telemetry.interval", { interval: formatInterval(T.TELEMETRY_REPORT_INTERVAL_SECONDS, t) })}
         </p>
       </div>
       {settings.kind === "loading" && (
         <p className="flex items-center gap-1.5 text-12 text-muted-foreground" data-testid="admin-telemetry-loading">
-          <Loader2 aria-hidden className="h-3 w-3 animate-spin" />加载中……
+          <Loader2 aria-hidden className="h-3 w-3 animate-spin" />{t("ui.loading")}
         </p>
       )}
       {settings.kind === "failed" && (
-        <p className="text-12 text-destructive" data-testid="admin-telemetry-failed">{settings.message}</p>
+        <p className="text-12 text-destructive" data-testid="admin-telemetry-failed">{failureText(settings.cause, i18n)}</p>
       )}
       {settings.kind === "ready" && (
         <>
@@ -147,18 +156,18 @@ function ConsentPanel() {
             className={`flex flex-col gap-0.5 rounded-md border p-3 ${settings.out.state === "enabled" ? "border-border bg-card" : "border-warning bg-warning-tint"}`}
             data-testid={`admin-telemetry-state-${settings.out.state}`}
           >
-            <p className="text-12 font-medium text-card-foreground">{STATE_TEXT[settings.out.state].title}</p>
-            <p className="text-11 text-muted-foreground">{STATE_TEXT[settings.out.state].detail}</p>
+            <p className="text-12 font-medium text-card-foreground">{t(STATE_TEXT[settings.out.state].title)}</p>
+            <p className="text-11 text-muted-foreground">{t(STATE_TEXT[settings.out.state].detail)}</p>
           </div>
           <ul className="flex flex-col divide-y divide-border">
             {T.TelemetryConsentItem.options.map((item) => {
-              const copy = T.TELEMETRY_CONSENT_COPY[item];
+              const copy = CONSENT_TEXT[item];
               const checked = settings.out.consent[item];
               return (
                 <li key={item} className="flex items-start gap-3 py-2.5" data-testid={`admin-telemetry-consent-${item}`}>
                   <Toggle
                     checked={checked}
-                    label={copy.label}
+                    label={t(copy.label)}
                     disabled={saving !== null}
                     onCheckedChange={(v) => void toggle(item, v)}
                     data-testid={`admin-telemetry-toggle-${item}`}
@@ -166,16 +175,16 @@ function ConsentPanel() {
                   />
                   <div className="flex min-w-0 flex-col gap-0.5">
                     <p className="text-12 font-medium text-card-foreground">
-                      {copy.label}
-                      <span className="ml-1.5 text-11 font-normal text-muted-foreground">{checked ? "已开启" : "已关闭"}</span>
-                      {saving === item && <Loader2 aria-hidden className="ml-1.5 inline h-3 w-3 animate-spin" />}
+                      {t(copy.label)}
+                      <span className="ml-1.5 text-11 font-normal text-muted-foreground">{t(checked ? "telemetry.on" : "telemetry.off")}</span>
+                      {saving === item && <span className="ml-1.5 text-11 font-normal text-muted-foreground" role="status"><Loader2 aria-hidden className="mr-1 inline h-3 w-3 animate-spin" />{t("telemetry.saving")}</span>}
                     </p>
                     <p className="text-11 text-muted-foreground" data-testid={`admin-telemetry-if-off-${item}`}>
-                      关掉后：{copy.ifOff}
+                      {t("telemetry.ifOff", { consequence: t(copy.ifOff) })}
                     </p>
                     {saveError?.item === item && (
                       <p className="text-11 text-destructive" data-testid={`admin-telemetry-save-failed-${item}`}>
-                        没保存成功，仍是{checked ? "开启" : "关闭"}：{saveError.message}
+                        {t("telemetry.saveFailed", { value: t(checked ? "telemetry.on" : "telemetry.off"), reason: failureText(saveError.cause, i18n) })}
                       </p>
                     )}
                   </div>
@@ -192,50 +201,52 @@ function ConsentPanel() {
 type LastState =
   | { kind: "loading" }
   | { kind: "ready"; out: LastTelemetryReportOut }
-  | { kind: "failed"; message: string };
+  | { kind: "failed"; cause: Failure };
 
 function LastReportPanel() {
+  const i18n = useI18n();
+  const { t, locale } = i18n;
   const [state, setState] = React.useState<LastState>({ kind: "loading" });
 
   React.useEffect(() => {
     let cancelled = false;
     getLastTelemetryReport()
       .then((out) => { if (!cancelled) setState({ kind: "ready", out }); })
-      .catch((err) => { if (!cancelled) setState({ kind: "failed", message: failureText(err) }); });
+      .catch((err) => { if (!cancelled) setState({ kind: "failed", cause: failureCause(err) }); });
     return () => { cancelled = true; };
   }, []);
 
   const last = state.kind === "ready" ? state.out.last : null;
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-border bg-panel p-4" data-testid="admin-telemetry-last-report">
+    <div className="flex min-w-0 flex-col gap-2 break-words rounded-lg border border-border bg-panel p-4" data-testid="admin-telemetry-last-report">
       <div className="flex flex-col gap-0.5">
-        <h3 className="text-13 font-semibold">看见传了什么</h3>
-        <p className="text-11 text-muted-foreground">最近一次上报尝试的原样内容——发出去的就是下面这段，一个字不多。</p>
+        <h3 className="text-13 font-semibold">{t("telemetry.lastHeading")}</h3>
+        <p className="text-11 text-muted-foreground">{t("telemetry.lastIntro")}</p>
       </div>
       {state.kind === "loading" && (
         <p className="flex items-center gap-1.5 text-12 text-muted-foreground" data-testid="admin-telemetry-last-loading">
-          <Loader2 aria-hidden className="h-3 w-3 animate-spin" />加载中……
+          <Loader2 aria-hidden className="h-3 w-3 animate-spin" />{t("ui.loading")}
         </p>
       )}
       {state.kind === "failed" && (
-        <p className="text-12 text-destructive" data-testid="admin-telemetry-last-failed">{state.message}</p>
+        <p className="text-12 text-destructive" data-testid="admin-telemetry-last-failed">{failureText(state.cause, i18n)}</p>
       )}
       {state.kind === "ready" && last === null && (
-        <p className="text-12 text-muted-foreground" data-testid="admin-telemetry-last-none">还没有上报过。</p>
+        <p className="text-12 text-muted-foreground" data-testid="admin-telemetry-last-none">{t("telemetry.lastNone")}</p>
       )}
       {last !== null && (
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <p className="text-12 text-card-foreground" data-testid={`admin-telemetry-last-outcome-${last.outcome}`}>
-            {formatTime(last.attemptedAt)} · <span className={last.outcome === "sent" ? "text-success" : "text-destructive"}>{OUTCOME_TEXT[last.outcome]}</span>
+            {formatTime(last.attemptedAt, locale)} · <span className={last.outcome === "sent" ? "text-success" : "text-destructive"}>{t(OUTCOME_TEXT[last.outcome])}</span>
           </p>
           {last.omittedForLackOfData.length > 0 && (
             <p className="text-11 text-muted-foreground" data-testid="admin-telemetry-last-omitted">
-              已同意但本实例还没有真实数据、因此整节没发：{last.omittedForLackOfData.map((i) => T.TELEMETRY_CONSENT_COPY[i].label).join("、")}
+              {t("telemetry.omitted", { items: last.omittedForLackOfData.map((i) => t(CONSENT_TEXT[i].label)).join(locale === "en" ? ", " : "、") })}
             </p>
           )}
           {last.report === null ? (
-            <p className="text-12 text-muted-foreground" data-testid="admin-telemetry-last-no-body">这次什么都没发出去。</p>
+            <p className="text-12 text-muted-foreground" data-testid="admin-telemetry-last-no-body">{t("telemetry.noBody")}</p>
           ) : (
             <pre className="max-h-96 overflow-auto rounded-md border border-border bg-card p-3 font-mono text-11 text-card-foreground" data-testid="admin-telemetry-last-body">
               {JSON.stringify(last.report, null, 2)}
