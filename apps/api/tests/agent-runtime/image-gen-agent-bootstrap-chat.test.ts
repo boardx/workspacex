@@ -29,6 +29,7 @@ process.env.KERNEL_AGENT_RUN_AUTOSTART = "0";
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 
 const ORIGINAL_DATABASE = process.env.PGDATABASE;
+const ORIGINAL_IMAGE_MODEL = process.env.KERNEL_BAILIAN_IMAGE_MODEL_ID;
 const DATABASE = `wsx_image_gen_${process.pid}_${Date.now()}`;
 const CHAT_MODEL_PROVIDER = "wave2-loopback-image-gen";
 const TASK_ID = `task-${randomUUID()}`;
@@ -90,6 +91,7 @@ beforeAll(async () => {
   process.env.KERNEL_MODEL_PROVIDER = CHAT_MODEL_PROVIDER;
   process.env.KERNEL_MODEL_BASE_URL = chatModelBase;
   process.env.KERNEL_MODEL_API_KEY = "sk-image-gen-e2e-do-not-echo";
+  process.env.KERNEL_BAILIAN_IMAGE_MODEL_ID = "wanx2.1-t2i-plus"; // This historical fixture deliberately exercises the legacy protocol.
   process.env.KERNEL_BAILIAN_IMAGE_BASE_URL = bailianBase;
   process.env.KERNEL_BAILIAN_IMAGE_POLL_INTERVAL_MS = "50";
   process.env.KERNEL_BAILIAN_IMAGE_TIMEOUT_MS = "10000";
@@ -116,6 +118,8 @@ afterAll(async () => {
   try { await dropDatabaseAfterDraining(admin, DATABASE); }
   finally {
     await admin.end();
+    if (ORIGINAL_IMAGE_MODEL === undefined) delete process.env.KERNEL_BAILIAN_IMAGE_MODEL_ID;
+    else process.env.KERNEL_BAILIAN_IMAGE_MODEL_ID = ORIGINAL_IMAGE_MODEL;
     if (ORIGINAL_DATABASE === undefined) delete process.env.PGDATABASE;
     else process.env.PGDATABASE = ORIGINAL_DATABASE;
   }
