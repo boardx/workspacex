@@ -3,6 +3,11 @@
  * remain mandatory. Supporting behavior tests do not substitute for these checks. */
 const exact=text=>new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"));
 export const modelMetadataPermissionBoundaries=new Map([
+ ["src/infrastructure/billing/resolve-native-credit-tariff.ts", {
+  tables:["credit_native_tariffs"],
+  reason:"#6268: financial tariff metadata only. Receives the existing tenant transaction from PgCreditConsumption after authenticated membership/payer checks; exact org/provider/model/unit lookup remains tenant RLS scoped. Unified image models read only the global schedule and never legacy org prices. No content or tariff rows leave the reservation boundary. global-image-tariff-pg.test.ts and credit-consumption-pg.test.ts verify real reservations, membership rejection, both payers and frozen settlement.",
+  checks:[[null,exact("WHERE org_id=$1 AND model_provider=$2 AND model_id=$3 AND unit=$4")],["src/infrastructure/billing/pg-credit-consumption.ts",exact("const tariff=await resolveNativeCreditTariff(s,orgId,input.modelProvider,input.modelId,native.unit)")],["tests/billing/global-image-tariff-pg.test.ts",exact("old markup cannot override either payer")]],
+ }],
   ["src/infrastructure/billing/pg-auxiliary-model-accounting.ts", {
     tables:["auxiliary_model_operations","auxiliary_model_requests"],
     reason:"#5894: private auxiliary operation/request rows contain only server-created payer identity, pinned model, finite expiry, immutable request hash/cap and timestamps. They contain no prompt, response or Artifact content and create no formal agent run/chat. Trusted gateway principal creates the owner; authenticated private callback resolves that persisted operation under tenant RLS, never a body-supplied payer. New starts require active operation and exact model/body binding; terminal receipts only resolve an admitted request, including after closure. Financial resolvePayer rechecks same-org membership and selects the wallet. private-auxiliary-credit-pg.test.ts proves zero HTTP at zero credit, actual reported usage debit/replay, foreign tenant/missing user refusal, changed body/model denial and closure/expiry fences. This exception is invalid if metadata expands to content or any listed authority/immutability check disappears.",
