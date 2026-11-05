@@ -20,7 +20,7 @@ import { describe, it, expect } from "vitest";
 import { lintVerificationCanFail, classify, UNTRUSTWORTHY_SHAPES } from "./lint-verification-can-fail.mjs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import {mkdtempSync,writeFileSync,existsSync,rmSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,writeFileSync,existsSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {spawnSync} from 'node:child_process';
 
@@ -58,6 +58,22 @@ it('probes missing Playwright selections without starting application servers',(
   expect(existsSync(setupMarker)).toBe(false);
  }finally{rmSync(dir,{recursive:true,force:true});}
 },45000);
+
+it('uses discovery only through a proven direct Playwright package script, preserving wrappers',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'verification-script-probe-'));
+ try{
+  const pkg=join(dir,'apps/web');mkdirSync(pkg,{recursive:true});
+  const check=script=>{
+   writeFileSync(join(pkg,'package.json'),JSON.stringify({name:'web',scripts:{e2e:script}}));
+   const seen=[];
+   lintVerificationCanFail({root:dir,featureLists:[{phase:'fixture',features:[{id:'F1',verification:['pnpm --filter web run e2e e2e/a.spec.ts']}]}],runProbe:cmd=>{seen.push(cmd);return 1;}});
+   return seen[0];
+  };
+  expect(check('playwright test')).toContain('--list');
+  expect(check('node scripts/custom-wrapper.mjs')).not.toContain('--list');
+  expect(check('playwright test && node scripts/check.mjs')).not.toContain('--list');
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});
 
 describe("① 已知不可信形态逐条会红", () => {
   const cases: Array<[string, string]> = [

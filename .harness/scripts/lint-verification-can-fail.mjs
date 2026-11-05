@@ -458,6 +458,15 @@ export function lintVerificationCanFail({
           );
           continue;
         }
+        // Keep the package-script exit path, but avoid starting its application
+        // when the script is provably the direct Playwright CLI. Unknown wrappers
+        // keep their original probes; a matching script name alone is not proof.
+        if (cls.shape.startsWith('pnpm-script-arg:')) {
+          const target = cls.checks.find(check => check.type === 'package-script');
+          if (target && pkgs.get(target.pkg)?.scripts[target.script]?.trim() === 'playwright test') {
+            cls.probe += ' --list';
+          }
+        }
 
         /* ② 静态存在性 */
         for (const chk of cls.checks) {
