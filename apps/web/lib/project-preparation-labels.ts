@@ -1,5 +1,9 @@
-import type { Group, InterviewSubject } from "./live-project-prep";
-import type { AgendaSegment } from "./live-projects";
+import type { z } from "zod";
+import type { templates, project } from "@repo/contracts";
+
+type Group = z.infer<typeof templates.Group>;
+type InterviewSubject = z.infer<typeof templates.InterviewSubject>;
+type AgendaSegment = z.infer<typeof project.AgendaSegment>;
 
 // Pure display metadata; API modules reexport the unchanged labels for compatibility.
 export const INTERVIEW_SUBJECT_COLUMNS: ReadonlyArray<{
