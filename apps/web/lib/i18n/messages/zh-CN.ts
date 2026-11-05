@@ -20,6 +20,7 @@ import { recordingProjectZhCN } from "../namespaces/recording-project";
 import { workflowGrantsZhCN } from "../namespaces/workflow-grants";
 import { orgHomeConfigZhCN } from "../namespaces/org-home-config";
 import { orgProfileZhCN } from "../namespaces/org-profile";
+import { localOrgZhCN } from "../namespaces/local-org";
 import { adminNavigationZhCN } from "../namespaces/admin-navigation";
 import { brainViewsZhCN } from "../namespaces/brain-views";
 import { projectBrainZhCN } from "../namespaces/project-brain";
@@ -68,6 +69,7 @@ export const zhCN = {
   ...workflowGrantsZhCN,
   ...orgHomeConfigZhCN,
   ...orgProfileZhCN,
+  ...localOrgZhCN,
   ...brainViewsZhCN,
   ...projectBrainZhCN,
   ...chatZhCN,

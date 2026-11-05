@@ -20,6 +20,7 @@ import { recordingProjectEn } from "../namespaces/recording-project";
 import { workflowGrantsEn } from "../namespaces/workflow-grants";
 import { orgHomeConfigEn } from "../namespaces/org-home-config";
 import { orgProfileEn } from "../namespaces/org-profile";
+import { localOrgEn } from "../namespaces/local-org";
 import { adminNavigationEn } from "../namespaces/admin-navigation";
 import { brainViewsEn } from "../namespaces/brain-views";
 import { projectBrainEn } from "../namespaces/project-brain";
@@ -68,6 +69,7 @@ export const en: Record<keyof typeof zhCN, string> = {
   ...workflowGrantsEn,
   ...orgHomeConfigEn,
   ...orgProfileEn,
+  ...localOrgEn,
   ...brainViewsEn,
   ...projectBrainEn,
   ...chatEn,
