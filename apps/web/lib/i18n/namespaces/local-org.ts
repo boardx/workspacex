@@ -48,7 +48,7 @@ export const localOrgZhCN = {
   "localOrg.guarantee.local-model-only": LOCAL_ORG_GUARANTEES.find((guarantee) => guarantee.id === "local-model-only")!.statement,
   "localOrg.guarantee.no-mcp-egress": LOCAL_ORG_GUARANTEES.find((guarantee) => guarantee.id === "no-mcp-egress")!.statement,
   "localOrg.guarantee.no-shared-storage": LOCAL_ORG_GUARANTEES.find((guarantee) => guarantee.id === "no-shared-storage")!.statement,
-  "localOrg.startupHint": LOCAL_RUNTIME_STARTUP_HINT,
+  "localOrg.startupHint": LOCAL_RUNTIME_STARTUP_HINT.replace(/https?:\/\/[^\s）]+/u, "{endpoint}"),
 } as const;
 
 export const localOrgEn = {
