@@ -1,0 +1,7 @@
+# Operations inbox source coverage
+
+Issue #6283. Complete owned fixed display source prepared for real operations inbox board/list, filtering/tags/archive/pagination, all state/aria/actions, full triage/deepen/drawer/GitHub/comment/issue-draft forms and design-handoff controls. Human generated issue/document labels take locale at generation with defaultZH compatibility; raw user/model/HTML/JSON/data/IDs/machine markers/instructions and edited drafts/reasons remain unchanged. Shared design metadata labels now have one frontend display authority for templates, accents and prototype options.
+
+Fourteen source files prepared. One combined light source review found an unused undefined hook in the tag wrapper; original author deleted only that line, restoring the exact original wrapper. Scoped re-review ADDRESSED, no remaining new P1/P2, all other thirteen source hashes unchanged. All manual tests/types/lint/browser/native/CI acceptance remain UNRUN in this source-first phase. Normal hooks retained, no retries or stage-completion claim.
+
+SECOND6264 prototype-canvas.tsx/shared-design-view.tsx renderer locale changes remain an explicit accepted-integration dependency. Those source files and the current renderer call interface were preserved; no absent locale prop or unmerged helper copied. Source preparation continues to workbench home after normal commit/publication; validation belongs to unified closeout.

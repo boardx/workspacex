@@ -1,11 +1,16 @@
 "use client";
+import type { Locale } from "@/lib/i18n/locale";
+import { translate } from "@/lib/i18n/messages";
+import { useI18n } from "@/lib/i18n/provider";
+import { inboxKindLabel, feedbackKindLabel } from "@/lib/i18n/namespaces/design-loop-common";
+
 import * as React from "react";
 import { Loader2, MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Menu, MenuTrigger, MenuContent, MenuItem, MenuSeparator } from "@/components/ui/menu";
 import { ApiError } from "@/lib/api-client";
-import { INBOX_KIND_LABEL, isArchivedInboxItem, type InboxItem, type InboxStage } from "@/lib/live-inbox";
+import { isArchivedInboxItem, type InboxItem, type InboxStage } from "@/lib/live-inbox";
 import { canArchiveInboxItem } from "./board-reorder";
 import { LinkBadge, StatusBadge } from "./badges";
 
@@ -29,7 +34,8 @@ export { describeFailure } from "@/lib/design-failure";
 export const HIGHLIGHT_CLASS = "ring-2 ring-primary ring-offset-1 ring-offset-background";
 
 export function KindLabel({ item }: { item: InboxItem }) {
-  const text = item.kind === "feedback" && item.feedbackKind !== null ? item.feedbackKind : INBOX_KIND_LABEL[item.kind];
+  const { locale } = useI18n();
+  const text = item.kind === "feedback" && item.feedbackKind !== null ? feedbackKindLabel(item.feedbackKind, locale) : inboxKindLabel(item.kind, locale);
   return <span className="whitespace-nowrap rounded-control border border-border px-1.5 py-0.5 text-10 text-muted-foreground">{text}</span>;
 }
 
@@ -38,19 +44,21 @@ export function KindLabel({ item }: { item: InboxItem }) {
  * 每一行都标「不做」会让人以为它们全是被拒掉的（见契约 `isArchivedInboxItem` 头注）。
  */
 export function ItemStatusBadge({ item }: { item: InboxItem }) {
-  if (isArchivedInboxItem(item)) return <Badge tone="neutral" data-testid="status-badge-archived-feedback">已归档</Badge>;
+  const { locale } = useI18n();
+  if (isArchivedInboxItem(item)) return <Badge tone="neutral" data-testid="status-badge-archived-feedback">{translate(locale, "feedbackOverlay.status.archived")}</Badge>;
   return <StatusBadge stage={item.stage} />;
 }
 
 /** 关联标：反馈 → 「已生成方案」（目标 = 设计条目 id），设计 → 「源自反馈」（目标 = 反馈 id）。 */
 export function CardMeta({ item, onNavigateLink }: { item: InboxItem; onNavigateLink: NavigateLink }) {
+  const { locale } = useI18n();
   return (
     <>
       {item.resolvedByDesignId !== null && (
-        <LinkBadge text="已生成方案" testid={`link-generated-${item.code}`} onClick={() => onNavigateLink(item.resolvedByDesignId!, "设计方案")} />
+        <LinkBadge text={translate(locale, "inbox.designCreated")} testid={`link-generated-${item.code}`} onClick={() => onNavigateLink(item.resolvedByDesignId!, "设计方案")} />
       )}
       {item.linkedFeedbackId !== null && (
-        <LinkBadge text="源自反馈" testid={`link-from-${item.code}`} onClick={() => onNavigateLink(item.linkedFeedbackId!, "反馈")} />
+        <LinkBadge text={translate(locale, "inbox.fromFeedback")} testid={`link-from-${item.code}`} onClick={() => onNavigateLink(item.linkedFeedbackId!, "反馈")} />
       )}
     </>
   );
@@ -58,37 +66,38 @@ export function CardMeta({ item, onNavigateLink }: { item: InboxItem; onNavigate
 
 /** 系统异常卡片/行上的「N 次 · 最近 <时间>」。只有折叠了重复行（`count > 1`）才值得占一行。 */
 export function ExceptionRecurrence({ item, testid }: { item: InboxItem; testid: string }) {
+  const { locale } = useI18n();
   if (item.kind !== "exception" || item.exception === null || item.exception.count <= 1) return null;
   return (
-    <span className="whitespace-nowrap text-10 text-muted-foreground" data-testid={testid} title={`最近一次：${new Date(item.exception.lastSeenAt).toLocaleString("zh-CN")}`}>
-      ×{item.exception.count} · 最近 {formatRelative(item.exception.lastSeenAt)}
+    <span className="whitespace-nowrap text-10 text-muted-foreground" data-testid={testid} title={translate(locale, "inbox.lastOccurrence", { v0: new Date(item.exception.lastSeenAt).toLocaleString(locale) })}>
+      ×{item.exception.count} {translate(locale, "inbox.last2")} {formatRelative(item.exception.lastSeenAt, undefined, locale)}
     </span>
   );
 }
 
 /** 「3 分钟前 / 2 小时前 / 昨天 / 9/4」——只给一眼看的时间，精确值放 `title`。 */
-export function formatRelative(iso: string, now: number = Date.now()): string {
+export function formatRelative(iso: string, now: number = Date.now(), locale: Locale = "zh-CN"): string {
   const diff = now - new Date(iso).getTime();
-  if (!Number.isFinite(diff) || diff < 0) return new Date(iso).toLocaleDateString("zh-CN");
+  if (!Number.isFinite(diff) || diff < 0) return new Date(iso).toLocaleDateString(locale);
   const min = Math.floor(diff / 60000);
-  if (min < 1) return "刚刚";
-  if (min < 60) return `${min} 分钟前`;
+  if (min < 1) return translate(locale, "inbox.justNow");
+  if (min < 60) return translate(locale, "inbox.minAgo", { v0: min });
   const h = Math.floor(min / 60);
-  if (h < 24) return `${h} 小时前`;
+  if (h < 24) return translate(locale, "inbox.hrAgo", { v0: h });
   const d = Math.floor(h / 24);
-  if (d === 1) return "昨天";
-  if (d < 7) return `${d} 天前`;
-  return new Date(iso).toLocaleDateString("zh-CN");
+  if (d === 1) return translate(locale, "inbox.yesterday");
+  if (d < 7) return translate(locale, "inbox.daysAgo", { v0: d });
+  return new Date(iso).toLocaleDateString(locale);
 }
 
 export function LoadMoreBar({ nextCursor, loading, onLoadMore }: { nextCursor: string | null; loading: boolean; onLoadMore: () => void }) {
+  const { locale } = useI18n();
   if (nextCursor === null) return null;
   return (
     <div className="flex justify-center border-t border-border p-3">
       <Button size="sm" variant="outline" disabled={loading} onClick={onLoadMore} data-testid="inbox-load-more">
         {loading && <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />}
-        加载更多
-      </Button>
+        {translate(locale, "inbox.loadMore")}</Button>
     </div>
   );
 }
@@ -109,13 +118,14 @@ export function QuickActionMenu({
   onArchive?: () => void;
   testidPrefix: string;
 }) {
+  const { locale } = useI18n();
   if (item.kind === "design") return null;
   return (
     <Menu>
       <MenuTrigger asChild>
         <button
           type="button"
-          aria-label="更多操作"
+          aria-label={translate(locale, "inbox.moreActions")}
           disabled={busy}
           data-testid={`${testidPrefix}-menu-${item.code}`}
           onClick={(e) => e.stopPropagation()}
@@ -127,23 +137,19 @@ export function QuickActionMenu({
       <MenuContent align="end" onClick={(e) => e.stopPropagation()} data-testid={`${testidPrefix}-menu-content-${item.code}`}>
         {item.stage === "backlog" && (
           <MenuItem onSelect={() => onQuickAction("doing")} data-testid={`${testidPrefix}-menu-start-${item.code}`}>
-            开始处理
-          </MenuItem>
+            {translate(locale, "inbox.startProcessing")}</MenuItem>
         )}
         {item.stage === "doing" && item.kind === "feedback" && (
           <MenuItem onSelect={() => onQuickAction("done")} data-testid={`${testidPrefix}-menu-done-${item.code}`}>
-            标记已修复
-          </MenuItem>
+            {translate(locale, "inbox.markFixed")}</MenuItem>
         )}
         {item.stage === "doing" && (
           <MenuItem onSelect={() => onQuickAction("backlog")} data-testid={`${testidPrefix}-menu-back-${item.code}`}>
-            退回待处理
-          </MenuItem>
+            {translate(locale, "inbox.returnToPending")}</MenuItem>
         )}
         {(item.stage === "done" || item.stage === "archived") && (
           <MenuItem onSelect={() => onQuickAction("backlog")} data-testid={`${testidPrefix}-menu-reopen-${item.code}`}>
-            重新打开
-          </MenuItem>
+            {translate(locale, "inbox.reopen")}</MenuItem>
         )}
         {(item.stage === "backlog" || item.stage === "doing") && (
           <>
@@ -153,8 +159,7 @@ export function QuickActionMenu({
               data-testid={`${testidPrefix}-menu-close-${item.code}`}
               className="text-destructive focus:text-destructive"
             >
-              关闭（不做）…
-            </MenuItem>
+              {translate(locale, "inbox.closeWonTDo")}</MenuItem>
           </>
         )}
         {onArchive !== undefined && canArchiveInboxItem(item) && (
@@ -163,8 +168,7 @@ export function QuickActionMenu({
             {/* 2026-09-06——触发已有的「已归档」状态，不需要理由（只有转「不做」才要理由，见契约
                 `TRIAGE_REASON_REQUIRED`），所以直接点即生效；2026-09-08 起归档后离开看板，进「归档箱」。 */}
             <MenuItem onSelect={onArchive} data-testid={`${testidPrefix}-menu-archive-${item.code}`}>
-              归档
-            </MenuItem>
+              {translate(locale, "inbox.archive2")}</MenuItem>
           </>
         )}
       </MenuContent>
