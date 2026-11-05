@@ -1,0 +1,3 @@
+# Handoff
+
+Same checkout branch worker/i18n-b5-closure-6263, stacked on published6261/9bc. Focused test-only addition in research-entry-i18n.test.tsx; production untouched. Fresh source window needed before focused RED. ROOT6257 owns queued gates; FIRST noheavy/services0. Main has6261 READY and queue; final runtime2safeJSON and bounded review live privately in /tmp/6253-private and /tmp/research-query-final-safe-receipts-9bc.md and publicly in PR6261 comments6648867790/6648940252. Carry exact files into this planned batch after parent accepted; do not refresh parent head for metadata. Deferred6239 untouched.
