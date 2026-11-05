@@ -1,0 +1,39 @@
+{
+  "issue": 6293,
+  "base": "feab6e36304ed94c1b35b43ab35002d3628166e4",
+  "sourceOnly": true,
+  "lightAudit": {
+    "parserDiagnostics": 0,
+    "localeKeys": 44,
+    "contentFilterMetadataOrderingCountersMemosAndRequestsByteExact": true,
+    "contentPublicErrorStringProjectionRetained": true,
+    "domKeysTestIdsStylesNavigationAndRequestsByteExact": true,
+    "resourceFactoriesPaginationAndPersistedDefaultsByteExact": true,
+    "effectCallbackDependenciesByteExact": true,
+    "threePublicResourceNavigationFactoryFunctionsByteExact": true,
+    "apiAndCardBreadcrumbDependenciesByteExact": true,
+    "ownedChineseJsx": 0,
+    "diffCheck": 0
+  },
+  "sourceSHA256": {
+    "apps/web/components/project/project-resource-section.tsx": "4ba0c789ee77dcd4ca7c858cfc7032e5569f521de4cb2c4bfc38a1d0afd30794",
+    "apps/web/lib/i18n/project-resource-copy.ts": "a95ea99246198fc7366c222337bc9f3687019b1f191a28c26a3ef7f4ce9d45fc",
+    "apps/web/lib/i18n/namespaces/project-resources.ts": "55abbce95d7a20aaeba45db62345aa7a2faa346509ef3f13865c52055db3c105",
+    "apps/web/lib/i18n/messages/en.ts": "4baba7437454e888d4a3da81f41fa314b498950881c5d54ebe0e0e0ae34b350c",
+    "apps/web/lib/i18n/messages/zh-CN.ts": "524bd24ae94e2d39c0b4433fc8d91b1d1a56ed8c63583e1bdb4f20e46d2d3911",
+    "apps/web/components/project/project-content.tsx": "c24402343e38db11c5827369ebf3c25ed1f6dd1b70153978d93591168833ccda"
+  },
+  "unchangedDependenciesSHA256": {
+    "apps/web/lib/live-project-resources.ts": "059e303421cb7ebfbae8ec73043f9b1f88a7297bd58aad3fb69f78fc55a300b3",
+    "apps/web/components/project/project-content-card.tsx": "afc54d43f2c636d66d38abbd716b0592473265e9dd029e4665de1e9fa17a7f48",
+    "apps/web/components/project/project-breadcrumb.tsx": "e7a80ffea221f7c0a72b188e5cbe20e3c2461b47fb0878cc473a4363b201dc30",
+    "apps/web/components/project/project-conversations.tsx": "2e0ac30123e57a486d998c2fd5f049806d7af9fba7f614fd1b07bd1718bfa3ed",
+    "apps/web/lib/home-format.ts": "2c4b1698757092aa6926ff95b232495ab99b0dd18ecd8feed90dd10732df8510"
+  },
+  "deferred": [
+    "independent source review",
+    "focused tests",
+    "type acceptance",
+    "native/viewport QA"
+  ]
+}

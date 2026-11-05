@@ -1,5 +1,9 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
+import type { Locale } from "@/lib/i18n/locale";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+import { projectResourceTypeLabel } from "@/lib/i18n/project-resource-copy";
 import { useRouter } from "next/navigation";
 import { ClipboardList, FileSearch, Link2, MoreHorizontal, Mic, Palette, PenLine, Plus, Unlink, Users, type LucideIcon } from "lucide-react";
 import type { SurveyRuntime } from "@repo/contracts/survey-runtime";
@@ -13,7 +17,6 @@ import { ApiError, getStoredSessionToken } from "@/lib/api-client";
 import { httpFailureText } from "@/lib/http-failure-text";
 import {
   listProjectResources, linkProjectResource, unlinkProjectResource,
-  PROJECT_RESOURCE_KIND_LABEL_ZH,
   type ProjectResourceItem, type ProjectResourceKind, type ProjectLinkableResourceKind,
 } from "@/lib/live-project-resources";
 import { surveyRequest } from "@/lib/survey/runtime-client";
@@ -41,7 +44,7 @@ type ResourceCandidate = { id: string; title: string; updatedAt: string };
 const KIND_META: Record<ProjectResearchSub, {
   resourceKind: ProjectResourceKind;
   icon: LucideIcon;
-  meta: string;
+  meta: MessageKey;
   /** 去 Studio 新建的入口；`null` = 该类型就地创建（见 `create`）。 */
   newHref: string | null;
   /** 就地创建一份并返回它的 id（随后挂到项目并进入它）。 */
@@ -53,7 +56,7 @@ const KIND_META: Record<ProjectResearchSub, {
   survey: {
     resourceKind: "survey",
     icon: ClipboardList,
-    meta: "挂到本项目的问卷：设计、投放与回收都在问卷 Studio",
+    meta: "projectResources.meta.survey",
     newHref: "/studio/survey/new",
     detailHref: (id) => `/studio/survey/${encodeURIComponent(id)}`,
     candidates: async () => (await surveyRequest<SurveyRuntime[]>("/surveys"))
@@ -62,7 +65,7 @@ const KIND_META: Record<ProjectResearchSub, {
   itv: {
     resourceKind: "interview",
     icon: Users,
-    meta: "属于本项目的用户访谈：从项目里新建的自动归到这里，也可以把你已有的访谈关联进来",
+    meta: "projectResources.meta.itv",
     newHref: "/itv?create=1",
     detailHref: (id) => `/itv/${encodeURIComponent(id)}/setup`,
     candidates: async () => (await listMyDigitalInterviews()).items
@@ -71,7 +74,7 @@ const KIND_META: Record<ProjectResearchSub, {
   research: {
     resourceKind: "guided_research",
     icon: FileSearch,
-    meta: "挂到本项目的深度研究会话",
+    meta: "projectResources.meta.research",
     newHref: "/research?flow=home",
     detailHref: (id) => `/research?session=${encodeURIComponent(id)}`,
     candidates: async () => (await listGuidedResearchSessions()).items
@@ -80,7 +83,7 @@ const KIND_META: Record<ProjectResearchSub, {
   transcript: {
     resourceKind: "personal_transcription",
     icon: Mic,
-    meta: "挂到本项目的录音转写",
+    meta: "projectResources.meta.transcript",
     newHref: "/rec?create=1",
     detailHref: (id) => `/rec?session=${encodeURIComponent(id)}`,
     candidates: async () => {
@@ -97,7 +100,7 @@ const KIND_META: Record<ProjectResearchSub, {
   whiteboard: {
     resourceKind: "whiteboard",
     icon: PenLine,
-    meta: "挂到本项目的白板：便签、草图与分组讨论，白板上的内容可进入项目大脑",
+    meta: "projectResources.meta.whiteboard",
     newHref: null,
     create: async () => (await createBoard({ requestId: crypto.randomUUID(), name: "未命名白板" })).id,
     detailHref: (id) => `/studio/board/${encodeURIComponent(id)}`,
@@ -115,7 +118,7 @@ const KIND_META: Record<ProjectResearchSub, {
   design: {
     resourceKind: "design",
     icon: Palette,
-    meta: "挂到本项目的设计稿：原型与界面设计都在设计工作台",
+    meta: "projectResources.meta.design",
     newHref: null,
     create: async () => (await createDesignProject({ name: "未命名设计", template: "ui" })).project.id,
     detailHref: (id) => `/studio/design-workbench/${encodeURIComponent(id)}`,
@@ -156,8 +159,8 @@ export async function startNewProjectResource(sub: ProjectResearchSub, projectId
 }
 
 /** 失败文案（「内容」tab 顶部的新建动作复用同一份）。 */
-export function describeProjectResourceFailure(e: unknown): string {
-  return describeFailure(e);
+export function describeProjectResourceFailure(e: unknown, locale: Locale = "zh-CN"): string {
+  return describeFailure(e, locale);
 }
 
 export function ProjectResourceSection({ projectId, kind, canWrite, initialLinkOpen = false, onChanged }: {
@@ -167,18 +170,19 @@ export function ProjectResourceSection({ projectId, kind, canWrite, initialLinkO
   /** 挂上 / 移出成功后回调（「内容」tab 据此刷新各类计数）。 */
   onChanged?: () => void;
 }) {
+  const { locale, t } = useI18n();
   const router = useRouter();
   const meta = KIND_META[kind];
-  const label = PROJECT_RESOURCE_KIND_LABEL_ZH[meta.resourceKind];
+  const label = projectResourceTypeLabel(meta.resourceKind, locale);
   const linkable = meta.candidates !== null;
   const [items, setItems] = React.useState<ProjectResourceItem[] | null>(null);
   const [loading, setLoading] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<{ cause: unknown } | null>(null);
   const [linkOpen, setLinkOpen] = React.useState(false);
   const [candidates, setCandidates] = React.useState<ResourceCandidate[] | null>(null);
-  const [candidatesError, setCandidatesError] = React.useState<string | null>(null);
+  const [candidatesError, setCandidatesError] = React.useState<{ cause: unknown } | null>(null);
   const [busyId, setBusyId] = React.useState<string | null>(null);
-  const [actionError, setActionError] = React.useState<string | null>(null);
+  const [actionError, setActionError] = React.useState<{ cause: unknown } | null>(null);
   const [creating, setCreating] = React.useState(false);
 
   const load = React.useCallback(async () => {
@@ -188,7 +192,7 @@ export function ProjectResourceSection({ projectId, kind, canWrite, initialLinkO
       const out = await listProjectResources(projectId);
       setItems(out.items.filter((it) => it.kind === meta.resourceKind));
     } catch (e) {
-      setError(describeFailure(e));
+      setError({ cause: e });
     } finally {
       setLoading(false);
     }
@@ -209,7 +213,7 @@ export function ProjectResourceSection({ projectId, kind, canWrite, initialLinkO
       onChanged?.();
       router.push(href);
     } catch (e) {
-      setActionError(describeFailure(e));
+      setActionError({ cause: e });
       setCreating(false);
     }
   }
@@ -220,7 +224,7 @@ export function ProjectResourceSection({ projectId, kind, canWrite, initialLinkO
     try {
       setCandidates(await meta.candidates());
     } catch (e) {
-      setCandidatesError(describeFailure(e));
+      setCandidatesError({ cause: e });
     }
   }
 
@@ -231,7 +235,7 @@ export function ProjectResourceSection({ projectId, kind, canWrite, initialLinkO
       await load();
       onChanged?.();
     } catch (e) {
-      setActionError(describeFailure(e));
+      setActionError({ cause: e });
     } finally {
       setBusyId(null);
     }
@@ -244,7 +248,7 @@ export function ProjectResourceSection({ projectId, kind, canWrite, initialLinkO
       await load();
       onChanged?.();
     } catch (e) {
-      setActionError(describeFailure(e));
+      setActionError({ cause: e });
     } finally {
       setBusyId(null);
     }
@@ -257,46 +261,46 @@ export function ProjectResourceSection({ projectId, kind, canWrite, initialLinkO
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-4 p-6" data-testid="project-resources" data-kind={meta.resourceKind}>
       <div className="flex flex-wrap items-center gap-2">
-        <SectionTitle meta={meta.meta} className="mb-0">{label}</SectionTitle>
+        <SectionTitle meta={t(meta.meta)} className="mb-0">{label}</SectionTitle>
         <span className="flex-1" />
         {canWrite && linkable && (
           <Button size="sm" variant="outline" disabled={linkOpen} onClick={() => void openLink()} data-testid="project-resources-link-open">
-            <Link2 aria-hidden className="h-3.5 w-3.5" />关联已有{label}
+            <Link2 aria-hidden className="h-3.5 w-3.5" />{t("projectResources.linkExisting", { label })}
           </Button>
         )}
         {canWrite && meta.newHref !== null && (
           <Button size="sm" variant="primary" asChild data-testid="project-resources-new">
             <a href={withProjectId(meta.newHref, projectId)}>
-              <Plus aria-hidden className="h-3.5 w-3.5" />在本项目中新建{label}
+              <Plus aria-hidden className="h-3.5 w-3.5" />{t("projectResources.new", { label })}
             </a>
           </Button>
         )}
         {canWrite && meta.newHref === null && (
           <Button size="sm" variant="primary" disabled={creating} onClick={() => void createHere()} data-testid="project-resources-new">
-            <Plus aria-hidden className="h-3.5 w-3.5" />{creating ? `创建${label}中…` : `在本项目中新建${label}`}
+            <Plus aria-hidden className="h-3.5 w-3.5" />{creating ? t("projectResources.creating", { label }) : t("projectResources.new", { label })}
           </Button>
         )}
       </div>
 
       {actionError !== null && (
-        <p className="text-11 text-destructive" data-testid="project-resources-action-error">{actionError}</p>
+        <p className="text-11 text-destructive" data-testid="project-resources-action-error">{describeFailure(actionError.cause, locale)}</p>
       )}
 
       {linkOpen && (
         <Card>
           <div className="flex flex-col gap-2 p-4" data-testid="project-resources-link-panel">
             <div className="flex items-center gap-2">
-              <span className="text-12 font-medium">选择要挂到本项目的{label}</span>
+              <span className="text-12 font-medium">{t("projectResources.select", { label })}</span>
               <span className="flex-1" />
-              <Button size="xs" variant="ghost" onClick={() => setLinkOpen(false)} data-testid="project-resources-link-close">收起</Button>
+              <Button size="xs" variant="ghost" onClick={() => setLinkOpen(false)} data-testid="project-resources-link-close">{t("projectResources.collapse")}</Button>
             </div>
             {candidatesError !== null ? (
-              <p className="text-11 text-destructive" data-testid="project-resources-link-error">{candidatesError}</p>
+              <p className="text-11 text-destructive" data-testid="project-resources-link-error">{describeFailure(candidatesError.cause, locale)}</p>
             ) : candidates === null ? (
-              <p className="text-11 text-muted-foreground">读取你的{label}中…</p>
+              <p className="text-11 text-muted-foreground">{t("projectResources.candidatesLoading", { label })}</p>
             ) : unlinkedCandidates.length === 0 ? (
               <p className="text-11 text-muted-foreground" data-testid="project-resources-link-empty">
-                你名下没有还未挂到本项目的{label}。
+                {t("projectResources.noCandidates", { label })}
               </p>
             ) : (
               <ul className="flex flex-col gap-1">
@@ -304,10 +308,10 @@ export function ProjectResourceSection({ projectId, kind, canWrite, initialLinkO
                   <li key={c.id} className="flex items-center gap-3 rounded-md border border-border px-3 py-2">
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-12">{c.title}</div>
-                      <div className="text-10 text-muted-foreground">更新于 {formatDate(c.updatedAt)}</div>
+                      <div className="text-10 text-muted-foreground">{t("projectResources.updated", { date: formatDate(c.updatedAt, locale) })}</div>
                     </div>
                     <Button size="xs" variant="outline" disabled={busyId === c.id} onClick={() => void link(c.id)} data-testid={`project-resources-link-${c.id}`}>
-                      关联
+                      {t("projectResources.link")}
                     </Button>
                   </li>
                 ))}
@@ -318,21 +322,21 @@ export function ProjectResourceSection({ projectId, kind, canWrite, initialLinkO
       )}
 
       {error !== null ? (
-        <Card><p className="p-4 text-11 text-destructive" data-testid="project-resources-error">{error}</p></Card>
+        <Card><p className="p-4 text-11 text-destructive" data-testid="project-resources-error">{describeFailure(error.cause, locale)}</p></Card>
       ) : loading && items === null ? (
-        <Card><p className="p-4 text-11 text-muted-foreground" data-testid="project-resources-loading">读取{label}中…</p></Card>
+        <Card><p className="p-4 text-11 text-muted-foreground" data-testid="project-resources-loading">{t("projectResources.loading", { label })}</p></Card>
       ) : items === null ? (
-        <Card><p className="p-4 text-11 text-muted-foreground" data-testid="project-resources-anonymous">请先登录。</p></Card>
+        <Card><p className="p-4 text-11 text-muted-foreground" data-testid="project-resources-anonymous">{t("projectResources.signIn")}</p></Card>
       ) : items.length === 0 ? (
         <Card>
           <p className="p-4 text-11 leading-relaxed text-muted-foreground" data-testid="project-resources-empty">
-            本项目还没有{label}。
+            {t("projectResources.empty", { label })}
             {canWrite
               ? linkable
                 ? meta.newHref === null
-                  ? `点「在本项目中新建${label}」直接创建，或点「关联已有${label}」把你已有的挂进来。`
-                  : `点「在本项目中新建${label}」去 Studio 创建，或点「关联已有${label}」把你已有的挂进来。`
-                : `点「在本项目中新建${label}」去 Studio 创建，创建后会自动归到本项目。`
+                  ? t("projectResources.emptyLocal", { label })
+                  : t("projectResources.emptyStudioLink", { label })
+                : t("projectResources.emptyStudio", { label })
               : ""}
           </p>
         </Card>
@@ -347,17 +351,17 @@ export function ProjectResourceSection({ projectId, kind, canWrite, initialLinkO
                 title={it.title}
                 typeLabel={label}
                 status={it.status}
-                meta={`更新于 ${formatDate(it.updatedAt)} · 挂入 ${formatDate(it.linkedAt)}`}
+                meta={t("projectResources.itemMeta", { updated: formatDate(it.updatedAt, locale), linked: formatDate(it.linkedAt, locale) })}
                 menu={canWrite && linkable ? (
                   <Menu>
                     <MenuTrigger asChild>
-                      <Button size="icon" variant="ghost" aria-label="更多操作" className="h-7 w-7" data-testid={`project-resource-more-${it.id}`}>
+                      <Button size="icon" variant="ghost" aria-label={t("projectResources.more")} className="h-7 w-7" data-testid={`project-resource-more-${it.id}`}>
                         <MoreHorizontal aria-hidden className="h-4 w-4" />
                       </Button>
                     </MenuTrigger>
                     <MenuContent align="end">
                       <MenuItem disabled={busyId === it.id} onSelect={() => void unlink(it.id)} data-testid={`project-resource-unlink-${it.id}`}>
-                        <Unlink aria-hidden className="h-3.5 w-3.5" />移出项目
+                        <Unlink aria-hidden className="h-3.5 w-3.5" />{t("projectResources.unlink")}
                       </MenuItem>
                     </MenuContent>
                   </Menu>
@@ -371,21 +375,21 @@ export function ProjectResourceSection({ projectId, kind, canWrite, initialLinkO
   );
 }
 
-function formatDate(iso: string): string {
+function formatDate(iso: string, locale: Locale = "zh-CN"): string {
   const t = Date.parse(iso);
-  return Number.isNaN(t) ? iso : new Date(t).toLocaleDateString();
+  return Number.isNaN(t) ? iso : new Date(t).toLocaleDateString(locale);
 }
 
-function describeFailure(e: unknown): string {
+function describeFailure(e: unknown, locale: Locale = "zh-CN"): string {
   if (e instanceof ApiError) {
     switch (e.reasonCode) {
-      case "NO_PROJECT_ROLE": return "你不在这个项目里，看不到项目内的资源。";
-      case "ADMIN_NOT_SUPERUSER": return "管理员身份不能操作项目资源，请用项目成员身份登录。";
-      case "RESOURCE_NOT_FOUND": return "这条资源不存在，或不属于你——只有资源所有者能把它挂到项目或移出项目。";
-      case "AUTH_SERVICE_UNAVAILABLE": return "身份校验服务暂时不可用，请稍后重试。";
+      case "NO_PROJECT_ROLE": return translate(locale, "projectResources.reason.noRole");
+      case "ADMIN_NOT_SUPERUSER": return translate(locale, "projectResources.reason.adminScope");
+      case "RESOURCE_NOT_FOUND": return translate(locale, "projectResources.reason.notFound");
+      case "AUTH_SERVICE_UNAVAILABLE": return translate(locale, "projectResources.reason.authUnavailable");
     }
-    if (e.status === 401) return "登录已失效，请重新登录。";
-    return httpFailureText(e.status);
+    if (e.status === 401) return translate(locale, "projectResources.reason.sessionExpired");
+    return httpFailureText(e.status, locale);
   }
-  return e instanceof Error ? e.message : "操作失败，请稍后重试。";
+  return e instanceof Error ? e.message : translate(locale, "projectResources.reason.failure");
 }

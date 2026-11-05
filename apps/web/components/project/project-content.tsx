@@ -1,6 +1,9 @@
 "use client";
 import { formatRelativeTime } from "@/lib/home-format";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
+import type { Locale } from "@/lib/i18n/locale";
+import { projectContentFilterEn } from "@/lib/i18n/namespaces/project-resources";
 import { useRouter } from "next/navigation";
 import { ChevronDown, FolderOpen, Inbox, Link2, MessagesSquare, Plus } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -66,9 +69,10 @@ export interface ContentEntry {
  * 「内容」tab 与「概览」共用这一个取数口，不各自拼一份。
  */
 export function useProjectContentIndex(projectId: string) {
+  const { locale } = useI18n();
   const [threads, setThreads] = React.useState<ListThreadsOut | null>(null);
   const [resources, setResources] = React.useState<ListProjectResourcesOut | null>(null);
-  const [error, setError] = React.useState<string | null>(null);
+  const [errorCause, setError] = React.useState<{ cause: unknown } | null>(null);
   const [loading, setLoading] = React.useState(false);
 
   const reload = React.useCallback(async () => {
@@ -78,7 +82,7 @@ export function useProjectContentIndex(projectId: string) {
     if (t.status === "fulfilled") setThreads(t.value);
     if (r.status === "fulfilled") setResources(r.value);
     const failed = t.status === "rejected" ? t.reason : r.status === "rejected" ? r.reason : null;
-    setError(failed === null ? null : describeProjectResourceFailure(failed));
+    setError(failed === null ? null : { cause: failed });
     setLoading(false);
   }, [projectId]);
 
@@ -110,6 +114,7 @@ export function useProjectContentIndex(projectId: string) {
   }, [entries]);
 
   const ready = threads !== null || resources !== null;
+  const error = errorCause === null ? null : describeProjectResourceFailure(errorCause.cause, locale);
   return { entries, counts, error, loading, ready, reload };
 }
 
@@ -118,18 +123,23 @@ export function ContentEntryIcon({ entry, className }: { entry: ContentEntry; cl
   return <Icon aria-hidden className={className} />;
 }
 
-export function contentTypeLabel(type: Exclude<ContentFilter, "all">): string {
-  return FILTER_LABEL[type];
+export function contentTypeLabel(type: Exclude<ContentFilter, "all">, locale: Locale = "zh-CN"): string {
+  return contentFilterLabel(type, locale);
+}
+
+function contentFilterLabel(type: ContentFilter, locale: Locale): string {
+  return locale === "zh-CN" ? FILTER_LABEL[type] : projectContentFilterEn[type] ?? FILTER_LABEL[type];
 }
 
 export function ProjectContent({ projectId, canWrite, sub = null }: {
   projectId: string; canWrite: boolean; sub?: string | null;
 }) {
+  const { locale, t } = useI18n();
   const router = useRouter();
   const [filter, setFilter] = React.useState<ContentFilter>(() => resolveContentFilter(sub));
   const [linkRequest, setLinkRequest] = React.useState<{ kind: ProjectResearchSub; nonce: number } | null>(null);
   const [creating, setCreating] = React.useState(false);
-  const [createError, setCreateError] = React.useState<string | null>(null);
+  const [createError, setCreateError] = React.useState<{ cause: unknown } | null>(null);
   const index = useProjectContentIndex(projectId);
 
   React.useEffect(() => { setFilter(resolveContentFilter(sub)); }, [sub]);
@@ -144,7 +154,7 @@ export function ProjectContent({ projectId, canWrite, sub = null }: {
       }
       router.push(await startNewProjectResource(kind, projectId));
     } catch (e) {
-      setCreateError(describeProjectResourceFailure(e));
+      setCreateError({ cause: e });
       setCreating(false);
     }
   }
@@ -158,19 +168,19 @@ export function ProjectContent({ projectId, canWrite, sub = null }: {
     <div className="flex flex-col" data-testid="project-content" data-filter={filter}>
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 px-4 pt-4 sm:px-6 sm:pt-6">
         <div className="flex flex-wrap items-center gap-2">
-          <SectionTitle className="mb-0" meta="对话、白板、访谈、问卷、研究、转写与设计都在这一张列表里">内容</SectionTitle>
+          <SectionTitle className="mb-0" meta={t("projectResources.contentDescription")}>{t("projectResources.contentHeading")}</SectionTitle>
           <span className="flex-1" />
           {canWrite && (
             <Menu>
               <MenuTrigger asChild>
                 <Button size="sm" variant="outline" data-testid="project-content-link-menu">
-                  <Link2 aria-hidden className="h-3.5 w-3.5" />关联已有<ChevronDown aria-hidden className="h-3.5 w-3.5" />
+                  <Link2 aria-hidden className="h-3.5 w-3.5" />{t("projectResources.contentLink")}<ChevronDown aria-hidden className="h-3.5 w-3.5" />
                 </Button>
               </MenuTrigger>
               <MenuContent align="end">
                 {LINKABLE_FILTERS.map((f) => (
                   <MenuItem key={f.key} onSelect={() => requestLink(f.key)} data-testid={`project-content-link-${f.key}`}>
-                    {f.label}
+                    {contentFilterLabel(f.key, locale)}
                   </MenuItem>
                 ))}
               </MenuContent>
@@ -180,13 +190,13 @@ export function ProjectContent({ projectId, canWrite, sub = null }: {
             <Menu>
               <MenuTrigger asChild>
                 <Button size="sm" variant="primary" disabled={creating} data-testid="project-content-new-menu">
-                  <Plus aria-hidden className="h-3.5 w-3.5" />{creating ? "创建中…" : "新建"}<ChevronDown aria-hidden className="h-3.5 w-3.5" />
+                  <Plus aria-hidden className="h-3.5 w-3.5" />{creating ? t("projectResources.contentCreating") : t("projectResources.contentNew")}<ChevronDown aria-hidden className="h-3.5 w-3.5" />
                 </Button>
               </MenuTrigger>
               <MenuContent align="end">
                 {TYPE_FILTERS.map((f) => (
                   <MenuItem key={f.key} onSelect={() => void createNew(f.key)} data-testid={`project-content-new-${f.key}`}>
-                    {f.label}
+                    {contentFilterLabel(f.key, locale)}
                   </MenuItem>
                 ))}
               </MenuContent>
@@ -195,11 +205,11 @@ export function ProjectContent({ projectId, canWrite, sub = null }: {
         </div>
 
         {createError !== null && (
-          <p className="text-12 text-destructive" data-testid="project-content-create-error">{createError}</p>
+          <p className="text-12 text-destructive" data-testid="project-content-create-error">{describeProjectResourceFailure(createError.cause, locale)}</p>
         )}
 
         <div className="flex flex-wrap items-center gap-1.5" data-testid="project-content-filters-row">
-        <div className="flex flex-wrap items-center gap-1.5" role="tablist" aria-label="内容类型" data-testid="project-content-filters">
+        <div className="flex flex-wrap items-center gap-1.5" role="tablist" aria-label={t("projectResources.contentTypes")} data-testid="project-content-filters">
           {CONTENT_FILTERS.map((f) => {
             const active = f.key === filter;
             const count = f.key === "all" ? index.entries.length : index.counts[f.key];
@@ -218,7 +228,7 @@ export function ProjectContent({ projectId, canWrite, sub = null }: {
                     : "border-border text-muted-foreground hover:border-primary hover:text-background-foreground",
                 )}
               >
-                {f.label}
+                {contentFilterLabel(f.key, locale)}
                 {index.ready && <span className="font-mono text-11 text-muted-foreground">{count}</span>}
               </button>
             );
@@ -230,7 +240,7 @@ export function ProjectContent({ projectId, canWrite, sub = null }: {
             data-testid="project-content-files"
             className="inline-flex h-7 items-center gap-1 rounded-full border border-dashed border-border px-3 text-12 text-muted-foreground transition-colors duration-base hover:border-primary hover:text-background-foreground"
           >
-            <FolderOpen aria-hidden className="h-3.5 w-3.5" />文件
+            <FolderOpen aria-hidden className="h-3.5 w-3.5" />{t("projectResources.files")}
           </a>
         </div>
       </div>
@@ -257,6 +267,7 @@ function AllContentList({ index, canWrite, creating, onCreate }: {
   index: ReturnType<typeof useProjectContentIndex>; canWrite: boolean;
   creating: boolean; onCreate: (kind: Exclude<ContentFilter, "all">) => void;
 }) {
+  const { locale, t } = useI18n();
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 p-4 sm:p-6" data-testid="project-content-all">
       {index.error !== null && (
@@ -266,7 +277,7 @@ function AllContentList({ index, canWrite, creating, onCreate }: {
         index.error === null && (
           <Card>
             <p className="p-4 text-12 text-muted-foreground" data-testid="project-content-loading">
-              {index.loading ? "读取项目内容中…" : "请先登录。"}
+              {index.loading ? t("projectResources.contentLoading") : t("projectResources.signIn")}
             </p>
           </Card>
         )
@@ -275,18 +286,18 @@ function AllContentList({ index, canWrite, creating, onCreate }: {
           <span className="flex h-11 w-11 items-center justify-center rounded-container bg-accent text-accent-foreground">
             <Inbox aria-hidden className="h-5 w-5" />
           </span>
-          <p className="text-13 font-medium text-card-foreground">还没有内容——新建一块白板或一段对话</p>
+          <p className="text-13 font-medium text-card-foreground">{t("projectResources.emptyHeading")}</p>
           <p className="max-w-md text-12 leading-relaxed text-muted-foreground">
-            对话、白板、访谈、问卷、研究、转写与设计都会收在这里
-            {canWrite ? "；也可以点右上「关联已有」把你已有的挂进来。" : "。"}
+            {t("projectResources.contentEmptyDescription")}
+            {canWrite ? t("projectResources.contentEmptyLink") : t("projectResources.sentenceEnd")}
           </p>
           {canWrite && (
             <div className="flex items-center gap-2">
               <Button size="sm" variant="primary" disabled={creating} onClick={() => onCreate("whiteboard")} data-testid="project-content-empty-new-whiteboard">
-                <Plus aria-hidden className="h-3.5 w-3.5" />新建白板
+                <Plus aria-hidden className="h-3.5 w-3.5" />{t("projectResources.newWhiteboard")}
               </Button>
               <Button size="sm" variant="outline" disabled={creating} onClick={() => onCreate("conv")} data-testid="project-content-empty-new-conv">
-                <Plus aria-hidden className="h-3.5 w-3.5" />新建对话
+                <Plus aria-hidden className="h-3.5 w-3.5" />{t("projectResources.newConversation")}
               </Button>
             </div>
           )}
@@ -300,7 +311,7 @@ function AllContentList({ index, canWrite, creating, onCreate }: {
                 linkTestId={`project-content-item-${e.type}-${e.id}`}
                 icon={e.resourceKind ? projectResourceIcon(e.resourceKind) : MessagesSquare}
                 title={e.title}
-                typeLabel={contentTypeLabel(e.type)}
+                typeLabel={contentTypeLabel(e.type, locale)}
                 meta={<UpdatedAt iso={e.updatedAt} />}
               />
             </li>
@@ -313,13 +324,14 @@ function AllContentList({ index, canWrite, creating, onCreate }: {
 
 /** 「更新于 3 分钟前」——悬停显示精确日期；解析不了时间就退回原来的日期文本。 */
 export function UpdatedAt({ iso }: { iso: string }): JSX.Element {
-  const rel = formatRelativeTime(iso);
-  return <time dateTime={iso} title={formatDate(iso)}>更新于 {rel ?? formatDate(iso)}</time>;
+  const { locale, t } = useI18n();
+  const rel = formatRelativeTime(iso, undefined, locale);
+  return <time dateTime={iso} title={formatDate(iso, locale)}>{t("projectResources.updated", { date: rel ?? formatDate(iso, locale) })}</time>;
 }
 
-export function formatDate(iso: string): string {
+export function formatDate(iso: string, locale: Locale = "zh-CN"): string {
   const t = Date.parse(iso);
-  return Number.isNaN(t) ? iso : new Date(t).toLocaleDateString();
+  return Number.isNaN(t) ? iso : new Date(t).toLocaleDateString(locale);
 }
 
 /** 项目内对话线程的链接（同 `project-conversations.tsx` 的 `threadHref`）：chat 壳层用 `?projectId` 把线程列表限定到本项目。 */
