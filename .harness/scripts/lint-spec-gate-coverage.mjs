@@ -76,6 +76,7 @@ import { readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ciJobCommands } from "./lib/ci-job-conditions.mjs";
+import { chatProductionInvocations } from "./lib/chat-production-gate.mjs";
 
 const REPO_ROOT = fileURLToPath(new URL("../..", import.meta.url));
 
@@ -546,6 +547,12 @@ export function resolveInvokedConfigs(root = REPO_ROOT) {
 
   while (queue.length > 0) {
     const { text, pkgDir, unconditional, via } = queue.pop();
+
+    // Only the audited owned builder is transparent; arbitrary tsx wrappers and
+    // restricted selectors must never make the whole chat config reachable.
+    for (const command of chatProductionInvocations(text, root)) {
+      queue.push({ text: command, pkgDir: "apps/web", unconditional, via });
+    }
 
     // This lane invokes Playwright through owned Python process supervision.
     // A filename mention alone is insufficient: inspect the actual AST edges
