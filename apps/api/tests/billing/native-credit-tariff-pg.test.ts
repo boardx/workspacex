@@ -37,73 +37,42 @@ it('personal and team calls share one global price but retain separate wallets a
  expect(audits).toHaveLength(2);expect(audits[0]).toMatchObject({actor_id:'tariff-operator',old_tariff:null,new_tariff:tariff});expect(audits[1]).toMatchObject({old_tariff:tariff,new_tariff:next});
  await expect(asApp(org,c=>c.query('DELETE FROM credit_global_native_tariff_changes'))).rejects.toThrow();
 });
-it('old runtime reads current global prices for existing and newly created orgs; old writes and legacy bypass fail',async()=>{
+it('new organizations consume canonical prices with no old tariff storage',async()=>{
  await seedOrg({orgId:fresh,projectId:'tariff-new-project'});await addOrgMember(fresh,user,'admin',null);
  const store=new PgCreditConsumption(db),requestId='global-tariff-new-'+unique;
  await db.withTenant(fresh,s=>store.reserveInSession(s,fresh,{requestId,userId:user,runId:null,modelProvider:tariff.modelProvider,modelId:unique,startedAt:new Date().toISOString(),executionAttemptId:null,projectId:null,callPurpose:'native-image',nativeMaximum:{unit:'image',quantity:1n}}));
  const admitted=await asOwner(async c=>(await c.query('SELECT native_rate::text,tariff_version,reserved_hundredths::text FROM credit_consumption_requests WHERE request_id=$1',[requestId])).rows[0]);
  expect(admitted).toEqual({native_rate:'30',tariff_version:'canonical-retail-v2',reserved_hundredths:'30'});
- expect(await asOwner(async c=>(await c.query('SELECT count(*)::integer AS count FROM credit_native_tariffs_legacy WHERE org_id=$1',[fresh])).rows[0].count)).toBe(0);
  await db.withTenant(fresh,s=>store.settleInSession(s,fresh,{eventId:requestId,userId:user,runId:null,modelProvider:tariff.modelProvider,modelId:unique,tokensTotal:0,promptTokens:null,completionTokens:null,outcome:'succeeded',totalSource:'not-applicable',nativeUsage:{unit:'image',quantity:0n,source:'reported'}}));
- for(const id of [org,personal,fresh]){
-  const read=await asApp(id,async c=>(await c.query('SELECT org_id,hundredths_per_quantum::text FROM credit_native_tariffs WHERE model_provider=$1 AND model_id=$2',[tariff.modelProvider,unique])).rows);
-  expect(read).toEqual([{org_id:id,hundredths_per_quantum:'30'}]);
- }
- expect(await asApp(org,async c=>(await c.query('SELECT * FROM credit_native_tariffs WHERE org_id=$1',[fresh])).rows)).toEqual([]);
- for(const sql of ["UPDATE credit_native_tariffs SET quantum=999","DELETE FROM credit_native_tariffs","INSERT INTO credit_native_tariffs(org_id,model_provider,model_id,unit,quantum,hundredths_per_quantum,version) VALUES('x','x','x','image',1,1,'x')","SELECT * FROM credit_native_tariffs_legacy","UPDATE credit_native_tariffs_legacy SET quantum=999"]){await expect(asApp(org,c=>c.query(sql))).rejects.toThrow();}
+ expect(await asOwner(async c=>(await c.query("SELECT to_regclass('credit_native_tariffs') AS old,to_regclass('credit_native_tariff_changes') AS old_audit,to_regclass('credit_native_tariffs_legacy') AS legacy")).rows[0])).toEqual({old:null,old_audit:null,legacy:null});
  expect((await repo.list()).find(row=>row.modelId===unique)?.hundredthsPerQuantum).toBe('30');
 });
 it('rejects malformed rates and unsupported units',()=>{
  for(const patch of [{quantum:'0'},{quantum:'1.5'},{hundredthsPerQuantum:'-1'},{hundredthsPerQuantum:'9999999999999999999'},{unit:'token'},{ownerId:'forged'}])expect(NativeCreditTariff.safeParse({...tariff,...patch}).success).toBe(false);
 });
 const migration=readFileSync(new URL('../../migrations/20261105090000_global_native_credit_tariffs.sql',import.meta.url),'utf8');
-it('consolidates equivalent rational prices despite version metadata and rejects real price conflicts',async()=>{
- for(const conflicting of [false,true])await asOwner(async c=>{await c.query('BEGIN');try{
-  await c.query('CREATE SCHEMA global_tariff_migration_fixture');await c.query('SET LOCAL search_path=global_tariff_migration_fixture,public');
-  await c.query('CREATE TABLE credit_native_tariffs(org_id text,model_provider text,model_id text,unit text,quantum bigint,hundredths_per_quantum bigint,version text)');
-  await c.query("INSERT INTO credit_native_tariffs VALUES('a','migration-provider','migration-model','image',1000,10,'old-v1'),('b','migration-provider','migration-model','image',2000,$1,'different-metadata')",[conflicting?21:20]);
-  if(conflicting)await expect(c.query(migration)).rejects.toThrow('global_native_tariff_price_conflicts');
-  else{await c.query(migration);expect((await c.query('SELECT quantum::text,hundredths_per_quantum::text,pricing_basis FROM credit_global_native_tariffs')).rows).toEqual([{quantum:'100',hundredths_per_quantum:'1',pricing_basis:{source:'legacy-consolidation',legacyRowCount:2,legacyVersionCount:2}}]);
-   await c.query("UPDATE credit_global_native_tariffs SET hundredths_per_quantum=7,version='operator-updated'");
-   const before=(await c.query('SELECT id,new_tariff FROM credit_global_native_tariff_changes')).rows;
-   await c.query(migration);await c.query(migration);
-   expect((await c.query('SELECT quantum::text,hundredths_per_quantum::text,version FROM credit_global_native_tariffs')).rows).toEqual([{quantum:'100',hundredths_per_quantum:'7',version:'operator-updated'}]);
-   expect((await c.query('SELECT id,new_tariff FROM credit_global_native_tariff_changes')).rows).toEqual(before);
-   expect((await c.query('SELECT count(*)::int AS n FROM credit_native_tariffs_legacy')).rows[0].n).toBe(2);
-  }
- }finally{await c.query('ROLLBACK');}});
-});
-it('fails migration instead of silently copying zero rows under forced RLS',async()=>{
- await asOwner(async c=>{await c.query('BEGIN');try{
-  await c.query('CREATE SCHEMA global_tariff_rls_fixture');await c.query('GRANT USAGE ON SCHEMA global_tariff_rls_fixture TO app_rw');await c.query('SET LOCAL search_path=global_tariff_rls_fixture,public');
-  await c.query('CREATE TABLE credit_native_tariffs(org_id text,model_provider text,model_id text,unit text,quantum bigint,hundredths_per_quantum bigint,version text)');
-  await c.query("INSERT INTO credit_native_tariffs VALUES('hidden','rls-provider','rls-model','image',1,1,'v1')");
-  await c.query('ALTER TABLE credit_native_tariffs OWNER TO app_rw');await c.query('ALTER TABLE credit_native_tariffs ENABLE ROW LEVEL SECURITY');await c.query('ALTER TABLE credit_native_tariffs FORCE ROW LEVEL SECURITY');
-  await c.query('CREATE POLICY hide ON credit_native_tariffs USING(false)');await c.query('SET LOCAL ROLE app_rw');
-  await expect(c.query(migration)).rejects.toThrow(/row.level security/i);
- }finally{await c.query('ROLLBACK');}});
-});
-
 it('replays the historical and global migrations without rewriting prices, history, or privileges',async()=>{
  const historical=readFileSync(new URL('../../migrations/20261022120000_credit_consumption.sql',import.meta.url),'utf8');
  const audit=readFileSync(new URL('../../migrations/20261023010000_credit_native_tariff_audit.sql',import.meta.url),'utf8');
  await asOwner(async c=>{await c.query('BEGIN');try{
   const snapshot=async()=> (await c.query(`SELECT
    (SELECT coalesce(jsonb_agg(to_jsonb(t) ORDER BY model_provider,model_id,unit),'[]') FROM credit_global_native_tariffs t) AS prices,
-   (SELECT coalesce(jsonb_agg(to_jsonb(t) ORDER BY id),'[]') FROM credit_global_native_tariff_changes t) AS audit,
-   (SELECT coalesce(jsonb_agg(to_jsonb(t) ORDER BY org_id,model_provider,model_id,unit),'[]') FROM credit_native_tariffs_legacy t) AS legacy`)).rows[0];
+   (SELECT coalesce(jsonb_agg(to_jsonb(t) ORDER BY id),'[]') FROM credit_global_native_tariff_changes t) AS audit`)).rows[0];
   const before=await snapshot();
   expect(before.prices.length).toBeGreaterThan(0);
   expect(before.audit.length).toBeGreaterThan(0);
   for(let round=0;round<2;round++){
-   await c.query(historical);await c.query(audit);await c.query(migration);
+   await c.query(historical);await c.query(audit);
+   await c.query("INSERT INTO credit_native_tariffs(org_id,model_provider,model_id,unit,quantum,hundredths_per_quantum,version) VALUES($1,'discarded-test-data','obsolete','image',1,999,'obsolete')",[org]);
+   await c.query("INSERT INTO credit_native_tariff_changes(org_id,actor_id,new_tariff) VALUES($1,'discarded-test-data','{}')",[org]);
+   await c.query(migration);
    expect(await snapshot()).toEqual(before);
    expect((await c.query(`SELECT
-    has_table_privilege('app_rw','credit_native_tariffs','SELECT') AS readable,
-    has_table_privilege('app_rw','credit_native_tariffs','INSERT,UPDATE,DELETE') AS writable,
-    has_table_privilege('app_rw','credit_native_tariffs_legacy','SELECT,INSERT,UPDATE,DELETE') AS legacy_access,
+    to_regclass('credit_native_tariffs') AS old,
+    to_regclass('credit_native_tariff_changes') AS old_audit,
+    to_regclass('credit_native_tariffs_legacy') AS legacy,
     has_table_privilege('app_rw','credit_global_native_tariff_changes','UPDATE,DELETE') AS audit_mutable`)).rows[0])
-    .toEqual({readable:true,writable:false,legacy_access:false,audit_mutable:false});
+    .toEqual({old:null,old_audit:null,legacy:null,audit_mutable:false});
   }
  }finally{await c.query('ROLLBACK');}});
 });

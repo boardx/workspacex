@@ -1,3 +1,8 @@
+> Superseded intermediate evidence: the initial replay repair below retained a
+> compatibility view. The user subsequently instructed removal of all compatibility
+> and authorized deletion of old test prices. The final migration and verification
+> are described in `no-compatibility.md`; these logs record the earlier iteration.
+
 # PR #6298 CI repair — 2026-11-05
 
 The runtime gate force-replayed the historical consumption migration against the new

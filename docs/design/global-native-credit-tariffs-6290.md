@@ -1,37 +1,50 @@
 # Deployment-global native credit tariffs — #6290
 
-The user requires one retail tariff for each provider/model/native unit, shared by personal and enterprise payers and all current/future organizations. ASR is supplier cost ×3; image profiles retain ×10. Different models retain different product prices. Canonical approved retail snapshots are promoted across CN/US; endpoint geography is supplier-cost metadata, not an automatic trigger to change retail prices.
+One retail tariff per provider/model/native unit applies to personal and enterprise
+payers and every current or future organization. Payer permissions, wallet identity,
+and admitted-request price snapshots remain separate. ASR retains its approved
+supplier-cost ×3 rule. Image activation uses the approved fixed CNY prices:
+Z-Image 0.25, Qwen3 0.50, and Qwen3 Pro 1.00 per image, converted using the live CNY
+credit catalog. Supplier geography is metadata, not automatic retail repricing.
 
-## Change and compatibility
+## Schema and activation
 
-- Add `credit_global_native_tariffs` keyed only by provider/model/unit and an append-only global audit. Keep version, exact integer quantum/rate and canonical pricing metadata. Runtime reads only this global source; payer identity, permissions, wallet and request price snapshots stay tenant scoped.
-- Rename the old table to `credit_native_tariffs_legacy`. Normalize each old rational rate with gcd; identical prices with different versions/quantum representations merge deterministically. Conflicting rational prices abort migration and list the conflicting model/unit keys. No lowest/latest/first price is selected.
-- The old table name becomes a `security_invoker`/`security_barrier` compatibility view: the current trusted tenant context × global rows. Explicitly revoke all legacy table privileges and all view INSERT/UPDATE/DELETE from `app_rw`; grant view SELECT only. Old runtime and new runtime use the same source, and newly created organizations need no copied price row.
-- Existing global consumption settings already use `app_rw` table writes behind authoritative platform-operator checks and append-only audit. Reuse this deployed pattern and minimum table grants; ordinary runtime performs only SELECT. This is not a claim of a separately credentialed database writer. No unconfigured writer role or secret is introduced.
-- Platform contract/UI and image activation drop organization pricing inputs. Strict schemas explicitly reject legacy `orgId` query/body fields, including at global endpoints, rather than silently turning an old scoped write into a global write. Canonical image ×10 prices and ASR ×3 remain separate.
+The 2026-11-05 user instruction explicitly removes backward compatibility: old
+per-organization prices and their audit are disposable test data. The migration
+creates `credit_global_native_tariffs` and its append-only global audit, then drops
+`credit_native_tariffs` and `credit_native_tariff_changes`. It creates no legacy
+archive, compatibility view, consolidation routine, or old-runtime read path.
 
-## Switch and rollback
+The global tables start empty. An authorized platform operator activates approved
+global prices through the audited API. Until configured, native model admissions
+fail with the existing missing-tariff error. New organizations automatically use
+configured global prices without copying organization rows.
 
-Migration is one transaction. It validates all old prices before publishing the global rows/view, so existing runtime continues using a single rate through the compatibility view after commit. Deploy new API/UI after migration. An API rollback can retain the migration and read-only compatibility view; old model calls still use global prices, while old organization mutation endpoints fail closed. Do not restore legacy writes. A schema rollback requires a separately reviewed quiesced conversion from current global prices and is not part of ordinary app rollback.
+The migration is idempotent: historical replay may recreate obsolete tables, and
+the final migration drops them again without changing configured global rows or
+their audit. Application writes follow the existing global consumption-settings
+pattern: authoritative operator checks, minimum grants, and immutable audit.
 
-Already admitted requests retain their own `native_quantum`, `native_rate`, `tariff_version` and wallet identity; settlement/replay do not query either tariff source. Changing the global tariff cannot reprice historical usage. Estimated ASR usage remains pending until authoritative reconciliation; this feature does not relabel estimates as vendor receipts.
+Strict API schemas reject removed `orgId` pricing fields. The UI has one global
+price editor; activation uses global URLs and bodies with `--fixed-prices`.
+
+## Release boundary
+
+Ship the new runtime and schema together. Old application versions requiring the
+dropped tables are unsupported; rollback must use a version supporting global
+prices. No deployed database is changed by this PR. Existing admitted requests
+retain `native_quantum`, `native_rate`, `tariff_version` and wallet identity;
+settlement and replay use these snapshots. Estimated ASR usage still awaits
+authoritative reconciliation.
 
 ## Verification contract
 
-1. Real PostgreSQL: equivalent old rational prices merge despite metadata/version differences; differing prices abort with keys. Existing personal/team/new-organization admissions use identical rates but separate wallets. Legacy view reads are tenant scoped and old repo writes/view UPDATE/legacy table access fail without changing global prices.
-2. Existing request settlement/replay uses its saved price after a global update. Nonoperator writes are denied before repository access. Legacy org-shaped requests fail validation.
-3. UI has one deployment-wide model-price entry, no organization selector. Image activation sends global URLs/body and retains ×10 quote checks, Bearer authorization, exact fixed profile costs and dry-run safety.
-4. CN/devapp/US publication uses reviewed canonical snapshots, preserves existing request snapshots and records global audit. No production schema or pricing writes are performed merely by implementing this branch.
-
-```mermaid
-flowchart LR
- A[Design and regression contract] --> B[Global table and compatibility view]
- B --> C[Runtime and operator contract UI]
- C --> D[Activation and tests]
- D --> E[Independent review and CI]
- style A fill:#d9d2e9
- style B fill:#d9d2e9
- style C fill:#d9d2e9
- style D fill:#d9d2e9
- style E fill:#ffe699
-```
+1. Both old pricing relations are absent after migration and historical replay.
+2. Global operator prices and audit rows survive repeated migration execution.
+3. Personal, team and new-organization admissions share prices while using separate
+   wallets; settlement retains previously saved prices after a global update.
+4. Nonoperators cannot configure prices; removed org-shaped inputs are rejected.
+5. Organization export and exhaustive cross-tenant RLS checks pass without legacy
+   object exceptions or privilege filtering.
+6. Fixed-price activation, localized global tariff UI, migration rebuild/replay,
+   and release recovery simulation pass. Production activation remains separate.
