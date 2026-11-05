@@ -17,3 +17,11 @@ Run41947987186 at artifact head55d2 passed case1, failed case2 twice on the last
 Sourcea14e1392 adds one English notice separator after a valid one-case semantic RED, and natively centers the same full nodes before all unchanged geometry assertions. Numeric before/after receipts remain private. Current affected verification is1 new-case PASS/25filtered,5 resources PASS,6-file lint/type/testid and exact3-case discovery; no old30/66/init/static20 rerun. Original narrow reviewers cleared only this literal/driver delta. New native execution and final images remain pending.
 
 Ordinary integration uses accepted a002 plus committed source48e836. The resolved tree matches the protected intended tree exactly; normal pre-commit reviewed23 feature paths, unchanged. No reset/rebase/force push/hook skip or new worktree. The original branch advanced only by fast-forward. See round4-integration-proof.json.
+
+## Second cloud attempt and round 5 correction
+
+Run41964623997 at444f65dc passed case162 in18.521s. Member/public-snapshot case270 exceeded the unchanged30s total budget on both attempts; row-dependent case335 was not executed. Both public-detail widths and four detail screenshots completed before later filtered-catalog audit cancellation. Trace confirms cumulative driver work, not a measured ratio failure or missing DOM node. All25 images were individually inspected:15 first-attempt planned,6 retry repeats,4 automatic failures; no new owned-copy finding, and no final page acceptance.
+
+Sourced87fdc474 removes only the redundant Playwright scroll stabilization before the existing same-node native instant centering. All three case bodies, selectors, full-node checks, ratio1/x/fits/document assertions, screenshots and budgets remain identical. Before/after numeric receipts now bracket native centering directly and remain private. Single-spec lint, canonical web types, testid and exact3-case discovery pass; no old suite/init/Next/DB rerun. Cloud timing/acceptance, final PNG QA, runtime and strongest final review remain pending. Draft / NOT READY.
+
+Independent round5 scoped source review: ADDRESSED, no new Critical/Important issue. Only cumulative driver overhead closure is approved; exact-source native fit and final acceptance remain pending.

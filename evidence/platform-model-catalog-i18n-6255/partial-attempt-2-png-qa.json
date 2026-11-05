@@ -1,0 +1,187 @@
+{
+  "run": 41964623997,
+  "artifact": 13387699713,
+  "head": "444f65dc6c6998a53076aa054e9564104d237935",
+  "all25IndividuallyViewedByController": true,
+  "plannedUnique": 15,
+  "retryRepeats": 6,
+  "automaticFailureImages": 4,
+  "finding": "No new owned-copy finding in generated images; raw public metadata and unsent authored drafts remain untranslated data. This incomplete run is not final page acceptance. Two helper-home failure screenshots are outside the owned page.",
+  "images": [
+    {
+      "path": "model-catalog-member-denied-top-1280.png",
+      "sha256": "a7715b30cab731d59bdb61a0ccd685113e1c489c81c0b64f0f8a22e738e5b753",
+      "width": 1280,
+      "height": 900,
+      "viewed": true
+    },
+    {
+      "path": "model-catalog-member-denied-top-375.png",
+      "sha256": "befcf9f351b389c2adda09b647da8ccad76459f65e3ba86665cf7ef9897f9561",
+      "width": 375,
+      "height": 900,
+      "viewed": true
+    },
+    {
+      "path": "model-catalog-public-detail-bottom-1280.png",
+      "sha256": "b3dfe848865784bccb392b5f77d174671015f03f2a27d54ec8c806a6ea9412c2",
+      "width": 1280,
+      "height": 900,
+      "viewed": true
+    },
+    {
+      "path": "model-catalog-public-detail-bottom-375.png",
+      "sha256": "997ba2ff5b46db08e6acaac9177135e15c60626bf10c05e8d86a07f1568dfb52",
+      "width": 375,
+      "height": 900,
+      "viewed": true
+    },
+    {
+      "path": "model-catalog-public-detail-top-1280.png",
+      "sha256": "87da466f6b0cb5ee532f454832ec8dd1f0befe4d5c47823d8c0dd8e085e571af",
+      "width": 1280,
+      "height": 900,
+      "viewed": true
+    },
+    {
+      "path": "model-catalog-public-detail-top-375.png",
+      "sha256": "9eb63248ebd79ba0dcbe20f856cf0441e2f397773d8f15b45a52fb267384d820",
+      "width": 375,
+      "height": 900,
+      "viewed": true
+    },
+    {
+      "path": "model-catalog-public-filtered-top-375.png",
+      "sha256": "e607ea12014dbce79485c1ae41777d551b8e353c04fbffaf53cf107e053fb513",
+      "width": 375,
+      "height": 900,
+      "viewed": true
+    },
+    {
+      "path": "test-failed-1.png",
+      "sha256": "f4ed3dd040b5ee7ef4d6cb57c8cc4acb0377e4f0a561e6196b691af5e3086890",
+      "width": 375,
+      "height": 900,
+      "viewed": true
+    },
+    {
+      "path": "test-failed-2.png",
+      "sha256": "2df411fa08ef8dd4edbc4cd317dfa9da464b0878bd125f97d894a1a40f6cea06",
+      "width": 1280,
+      "height": 720,
+      "viewed": true
+    },
+    {
+      "path": "model-catalog-member-denied-top-1280.png",
+      "sha256": "5e410c0800f1f460da01252833bdcf822bdd0e1a42e98c5229973548d527c0d4",
+      "width": 1280,
+      "height": 900,
+      "viewed": true
+    },
+    {
+      "path": "model-catalog-member-denied-top-375.png",
+      "sha256": "23e6091e2745209a68fac388e3964b5c137494d8bda872743a2c015273d9516d",
+      "width": 375,
+      "height": 900,
+      "viewed": true
+    },
+    {
+      "path": "model-catalog-public-detail-bottom-1280.png",
+      "sha256": "bb679010d45f8c076c22f4ff6477addb6dc1f2aa7e6292f7b01239a386d22e44",
+      "width": 1280,
+      "height": 900,
+      "viewed": true
+    },
+    {
+      "path": "model-catalog-public-detail-bottom-375.png",
+      "sha256": "997ba2ff5b46db08e6acaac9177135e15c60626bf10c05e8d86a07f1568dfb52",
+      "width": 375,
+      "height": 900,
+      "viewed": true
+    },
+    {
+      "path": "model-catalog-public-detail-top-1280.png",
+      "sha256": "64552a5566cae11b4512abb31796c1aaa34f1632ac7b9b2f4aa16c88e698b654",
+      "width": 1280,
+      "height": 900,
+      "viewed": true
+    },
+    {
+      "path": "model-catalog-public-detail-top-375.png",
+      "sha256": "9eb63248ebd79ba0dcbe20f856cf0441e2f397773d8f15b45a52fb267384d820",
+      "width": 375,
+      "height": 900,
+      "viewed": true
+    },
+    {
+      "path": "test-failed-1.png",
+      "sha256": "0ce487d6f8b8865f0563fa7ccbbe3cb81790e6f39891a2a1b55a4c6cd1c065ee",
+      "width": 1280,
+      "height": 900,
+      "viewed": true
+    },
+    {
+      "path": "test-failed-2.png",
+      "sha256": "0eb1a9ea4861190cec7e9a139c7dfa035979ca20bd1327599a81b1a269ec4e98",
+      "width": 1280,
+      "height": 720,
+      "viewed": true
+    },
+    {
+      "path": "model-catalog-core-actual-state-top-1280.png",
+      "sha256": "bf20e8e66f9d44e0e0ee4a724d25442da283a37bf55396b21c8865c89c37e866",
+      "width": 1280,
+      "height": 900,
+      "viewed": true
+    },
+    {
+      "path": "model-catalog-core-actual-state-top-375.png",
+      "sha256": "6286cdaead56745069230a5eea1750c51bb00d6fc1c7f99db45d9361029a56f8",
+      "width": 375,
+      "height": 900,
+      "viewed": true
+    },
+    {
+      "path": "model-catalog-empty-pool-top-1280.png",
+      "sha256": "0bef4e9475fd2f343dfaa4b6598bd999fa31b6ff3806676b4f6a3c469ca001ad",
+      "width": 1280,
+      "height": 900,
+      "viewed": true
+    },
+    {
+      "path": "model-catalog-empty-pool-top-375.png",
+      "sha256": "ca93ce71b3580d0a5b00dc3dd4515cce5dba2ee7b6566ec5762ca55c33ca1741",
+      "width": 375,
+      "height": 900,
+      "viewed": true
+    },
+    {
+      "path": "model-catalog-registration-draft-bottom-1280.png",
+      "sha256": "2d60aa887c50132200d85e1739a9ce34f60d39e4482405272192c016f7bd02a8",
+      "width": 1280,
+      "height": 900,
+      "viewed": true
+    },
+    {
+      "path": "model-catalog-registration-draft-bottom-375.png",
+      "sha256": "6e0b7e421d2014d7aec8ad7de93df8fc6a121ffe31f2abe741a6b9408365bba6",
+      "width": 375,
+      "height": 900,
+      "viewed": true
+    },
+    {
+      "path": "model-catalog-registration-draft-top-1280.png",
+      "sha256": "3ed19559fd5dd64de86346cb20e57805b16b9b7173e3142df3b43d0cfe1d7696",
+      "width": 1280,
+      "height": 900,
+      "viewed": true
+    },
+    {
+      "path": "model-catalog-registration-draft-top-375.png",
+      "sha256": "6e0b7e421d2014d7aec8ad7de93df8fc6a121ffe31f2abe741a6b9408365bba6",
+      "width": 375,
+      "height": 900,
+      "viewed": true
+    }
+  ]
+}

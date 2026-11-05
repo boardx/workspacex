@@ -1,0 +1,43 @@
+{
+  "run": 41964623997,
+  "artifactId": 13387699713,
+  "artifactHead": "444f65dc6c6998a53076aa054e9564104d237935",
+  "zipBytes": 145992298,
+  "zipSha256": "3df8f51357ac6eef9e3d357f7a09f85f25ddbc37a81a3f9ccf8bb7949b1ae6bc",
+  "reportSha256": "cadaeb28bb11909d2a015be746b16ff2be42bc145272fb881865f9d514d7a239",
+  "ownCases": [
+    {
+      "line": 162,
+      "results": [
+        {
+          "retry": 0,
+          "status": "passed",
+          "durationMs": 18521
+        }
+      ]
+    },
+    {
+      "line": 270,
+      "results": [
+        {
+          "retry": 0,
+          "status": "timedOut",
+          "durationMs": 31423
+        },
+        {
+          "retry": 1,
+          "status": "timedOut",
+          "durationMs": 31224
+        }
+      ]
+    },
+    {
+      "line": 335,
+      "results": []
+    }
+  ],
+  "rootCause": "Total test deadline exhausted by cumulative serial audit work; context closure cancels final locator operations. Undefined is not a measured viewport ratio. Public detail audit completed both widths before later filtered audit timeout.",
+  "boundedFix": "Remove redundant Playwright scroll stability call; preserve same-node native instant centering, every exact geometry assertion, node selector, width, screenshot and budget.",
+  "newNativeAcceptance": "PENDING",
+  "rawAuthenticatedEvidencePrivate": true
+}
