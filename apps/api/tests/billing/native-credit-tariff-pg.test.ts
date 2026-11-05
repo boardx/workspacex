@@ -39,7 +39,13 @@ it('personal and team calls share one global price but retain separate wallets a
  await expect(asApp(org,c=>c.query('DELETE FROM credit_global_native_tariff_changes'))).rejects.toThrow();
 });
 it('old runtime reads current global prices for existing and newly created orgs; old writes and legacy bypass fail',async()=>{
- await seedOrg({orgId:fresh,projectId:'tariff-new-project'});
+ await seedOrg({orgId:fresh,projectId:'tariff-new-project'});await addOrgMember(fresh,user,'admin',null);
+ const store=new PgCreditConsumption(db),requestId='global-tariff-new-'+unique;
+ await db.withTenant(fresh,s=>store.reserveInSession(s,fresh,{requestId,userId:user,runId:null,modelProvider:tariff.modelProvider,modelId:unique,startedAt:new Date().toISOString(),executionAttemptId:null,projectId:null,callPurpose:'native-image',nativeMaximum:{unit:'image',quantity:1n}}));
+ const admitted=await asOwner(async c=>(await c.query('SELECT native_rate::text,tariff_version,reserved_hundredths::text FROM credit_consumption_requests WHERE request_id=$1',[requestId])).rows[0]);
+ expect(admitted).toEqual({native_rate:'30',tariff_version:'canonical-retail-v2',reserved_hundredths:'30'});
+ expect(await asOwner(async c=>(await c.query('SELECT count(*)::integer AS count FROM credit_native_tariffs_legacy WHERE org_id=$1',[fresh])).rows[0].count)).toBe(0);
+ await db.withTenant(fresh,s=>store.settleInSession(s,fresh,{eventId:requestId,userId:user,runId:null,modelProvider:tariff.modelProvider,modelId:unique,tokensTotal:0,promptTokens:null,completionTokens:null,outcome:'succeeded',totalSource:'not-applicable',nativeUsage:{unit:'image',quantity:0n,source:'reported'}}));
  for(const id of [org,personal,fresh]){
   const read=await asApp(id,async c=>(await c.query('SELECT org_id,hundredths_per_quantum::text FROM credit_native_tariffs WHERE model_provider=$1 AND model_id=$2',[tariff.modelProvider,unique])).rows);
   expect(read).toEqual([{org_id:id,hundredths_per_quantum:'30'}]);
@@ -59,5 +65,15 @@ it('consolidates equivalent rational prices despite version metadata and rejects
   await c.query("INSERT INTO credit_native_tariffs VALUES('a','migration-provider','migration-model','image',1000,10,'old-v1'),('b','migration-provider','migration-model','image',2000,$1,'different-metadata')",[conflicting?21:20]);
   if(conflicting)await expect(c.query(migration)).rejects.toThrow('global_native_tariff_price_conflicts');
   else{await c.query(migration);expect((await c.query('SELECT quantum::text,hundredths_per_quantum::text,pricing_basis FROM credit_global_native_tariffs')).rows).toEqual([{quantum:'100',hundredths_per_quantum:'1',pricing_basis:{source:'legacy-consolidation',legacyRowCount:2,legacyVersionCount:2}}]);}
+ }finally{await c.query('ROLLBACK');}});
+});
+it('fails migration instead of silently copying zero rows under forced RLS',async()=>{
+ await asOwner(async c=>{await c.query('BEGIN');try{
+  await c.query('CREATE SCHEMA global_tariff_rls_fixture');await c.query('GRANT USAGE ON SCHEMA global_tariff_rls_fixture TO app_rw');await c.query('SET LOCAL search_path=global_tariff_rls_fixture,public');
+  await c.query('CREATE TABLE credit_native_tariffs(org_id text,model_provider text,model_id text,unit text,quantum bigint,hundredths_per_quantum bigint,version text)');
+  await c.query("INSERT INTO credit_native_tariffs VALUES('hidden','rls-provider','rls-model','image',1,1,'v1')");
+  await c.query('ALTER TABLE credit_native_tariffs OWNER TO app_rw');await c.query('ALTER TABLE credit_native_tariffs ENABLE ROW LEVEL SECURITY');await c.query('ALTER TABLE credit_native_tariffs FORCE ROW LEVEL SECURITY');
+  await c.query('CREATE POLICY hide ON credit_native_tariffs USING(false)');await c.query('SET LOCAL ROLE app_rw');
+  await expect(c.query(migration)).rejects.toThrow(/row.level security/i);
  }finally{await c.query('ROLLBACK');}});
 });
