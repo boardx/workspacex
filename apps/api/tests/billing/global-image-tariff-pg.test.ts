@@ -1,4 +1,5 @@
 // Global schedule writes use the audited repository; rejected direct SQL is an explicit permission counterexample.
+// @global-scope-fixture table:billing_pricing_epoch: snapshots and restores the exact singleton cutover marker in afterAll.
 // @global-scope-fixture table:credit_wallets: unique personal owner, isolated database teardown owns cleanup.
 import {randomUUID} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
@@ -14,6 +15,7 @@ import {toOrgId} from '../../src/domain/org-id';
 import {BILLING_ACCOUNTING_GENERATION as generation} from '../../src/domain/billing/billing-generation';
 const prefix=`global-image-${randomUUID().slice(0,8)}`,user=`${prefix}-user`,personal=toOrgId(`${prefix}-personal`),team=toOrgId(`${prefix}-team`);
 const reader=new PgDatabase(appConfig());let writer:PgDatabase,repo:PgGlobalImageTariffRepository;const credits=new PgCreditConsumption(reader);let catalogVersion:string;
+let previousEpoch:{generation:string|null;activated_at:string|null}|null|undefined;
 const start=(id:string)=>({requestId:`${prefix}-${id}`,userId:user,runId:null,modelProvider:'bailian-image',modelId:'qwen-image-3.0',startedAt:new Date().toISOString(),executionAttemptId:null,projectId:null,maximumTokens:null,nativeMaximum:{unit:'image' as const,quantity:1n},callPurpose:'native-image' as const});
 beforeAll(async()=>{
  ensureDatabase();await migrateOnce();
@@ -21,13 +23,24 @@ beforeAll(async()=>{
  writer=new PgDatabase(billingTariffWriterConfig()!);repo=new PgGlobalImageTariffRepository(reader,writer);
  for(const org of [personal,team]){await seedOrg({orgId:org,projectId:`${org}-project`});await addOrgMember(org,user,'admin',null);}
  await asOwner(async c=>{
+  previousEpoch=(await c.query<{generation:string|null;activated_at:string|null}>('SELECT generation,activated_at::text AS activated_at FROM billing_pricing_epoch WHERE singleton')).rows[0]??null;
   await c.query('UPDATE billing_pricing_epoch SET generation=$1,activated_at=clock_timestamp() WHERE singleton',[generation]);
   await c.query("INSERT INTO organization_plans(org_id,plan,version,updated_by,billing_generation) VALUES($1,'enterprise',1,'operator',$2)",[team,generation]);
   await c.query("INSERT INTO credit_wallets(owner_type,owner_id,balance) VALUES('user',$1,20000),('team',$2,20000)",[user,team]);
  });
  catalogVersion=(await new PgNativeCreditTariffRepository(reader).readCnyCatalog(personal)).version;
 });
-afterAll(async()=>{await writer?.close();await reader.close();delete process.env.BILLING_TARIFF_DB_USER;delete process.env.BILLING_TARIFF_DB_PASSWORD;});
+afterAll(async()=>{
+ try{await writer?.close();}finally{try{await reader.close();}finally{
+  delete process.env.BILLING_TARIFF_DB_USER;delete process.env.BILLING_TARIFF_DB_PASSWORD;
+  // This shared database also runs legacy subscription fixtures after image pricing.
+  // Restore the exact cutover marker even if setup or an assertion failed.
+  if(previousEpoch!==undefined)await asOwner(async c=>{
+   if(previousEpoch===null)await c.query('DELETE FROM billing_pricing_epoch WHERE singleton');
+   else await c.query('INSERT INTO billing_pricing_epoch(singleton,generation,activated_at) VALUES(true,$1,$2) ON CONFLICT(singleton) DO UPDATE SET generation=EXCLUDED.generation,activated_at=EXCLUDED.activated_at',[previousEpoch!.generation,previousEpoch!.activated_at]);
+  });
+ }}
+});
 it('app identity cannot mutate global prices; provisioned password writer activates and audits atomically',async()=>{
  await expect(asApp(personal,c=>c.query("INSERT INTO credit_global_image_schedule(singleton,revision,catalog_version,schedule) VALUES(true,'forged','x','[1,2,3]')"))).rejects.toThrow();
  const schedule=await repo.activate('operator',{expectedRevision:null,expectedCatalogVersion:catalogVersion});expect(schedule.items).toHaveLength(3);
