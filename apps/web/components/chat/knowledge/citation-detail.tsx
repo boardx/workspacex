@@ -8,14 +8,17 @@ import type { KgRecalledMemory } from "@repo/contracts/chat-knowledge-graph";
 import type { CitationCorrection, CitationCorrectionKind } from "@/lib/knowledge-graph-api";
 import { MemoryCard } from "./memory-card";
 import { ConflictPromptCard } from "./conflict-prompt-card";
+import { useI18n } from "@/lib/i18n/provider";
+import type { MessageKey } from "@/lib/i18n/messages";
+import { HumanActionDisplayError, describeHumanActionFailure } from "@/lib/knowledge-graph-failure";
 
 /** 新说法的上限（契约 `correctCitation.in.replacement`）。 */
 const REPLACEMENT_MAX = 2000;
 
-const DONE_NOTE: Record<CitationCorrection["outcome"], string> = {
-  forgotten: "已忘掉这条，之后的回答不再用它",
-  superseded: "已改成新的说法，之后的回答按新的来",
-  expired: "已标为过时，之后的回答不再用它",
+const DONE_NOTE: Record<CitationCorrection["outcome"], MessageKey> = {
+  forgotten: "chatKnowledge.citation.done.forgotten",
+  superseded: "chatKnowledge.citation.done.superseded",
+  expired: "chatKnowledge.citation.done.expired",
 };
 
 export type CitationCorrect = (kind: CitationCorrectionKind, replacement?: string) => Promise<CitationCorrection>;
@@ -46,19 +49,20 @@ export function CitationDetail({
   onJump: () => Promise<boolean>;
   onCorrect?: CitationCorrect;
 }) {
+  const { t, locale } = useI18n();
   const id = memory.claimId;
   const [mode, setMode] = React.useState<"idle" | "wrong" | "expire">("idle");
   const [replacement, setReplacement] = React.useState("");
   const [done, setDone] = React.useState<CitationCorrection["outcome"] | null>(null);
   const [busy, setBusy] = React.useState(false);
-  const [note, setNote] = React.useState<string | null>(null);
+  const [note, setNote] = React.useState<MessageKey | { owned: HumanActionDisplayError } | { raw: string } | null>(null);
 
   const jump = async (): Promise<void> => {
     setNote(null);
     try {
-      if (!(await onJump())) setNote("这条的原话找不到了（可能只来自附件，或原对话已经看不到）。");
+      if (!(await onJump())) setNote("chatKnowledge.citation.sourceMissing");
     } catch {
-      setNote("没能打开原消息，请稍后再试。");
+      setNote("chatKnowledge.citation.sourceFailed");
     }
   };
 
@@ -69,7 +73,7 @@ export function CitationDetail({
     try {
       setDone((await correct("expired")).outcome);
     } catch (e) {
-      setNote(e instanceof Error && e.message !== "" ? e.message : "没能完成这次操作，请稍后重试。");
+      setNote(e instanceof HumanActionDisplayError ? { owned: e } : e instanceof Error && e.message !== "" ? { raw: e.message } : "chatKnowledge.memory.failed");
     } finally {
       setBusy(false);
     }
@@ -88,13 +92,13 @@ export function CitationDetail({
       {done !== null ? (
         <p role="status" className="flex items-center gap-1 text-10 text-muted-foreground" data-testid={`kg-cite-done-${id}`}>
           <Check aria-hidden className="h-3 w-3 text-success" />
-          {DONE_NOTE[done]}
+          {t(DONE_NOTE[done])}
         </p>
       ) : (
         <div className="flex flex-wrap items-center gap-1.5">
           <Button size="xs" variant="ghost" data-testid={`kg-cite-jump-${id}`} onClick={() => void jump()}>
             <ArrowUpRight aria-hidden className="mr-1 h-3 w-3" />
-            跳到原消息
+            {t("chatKnowledge.citation.jump")}
           </Button>
           {correctable ? (
             <>
@@ -107,7 +111,7 @@ export function CitationDetail({
                 onClick={() => { setNote(null); setMode((m) => (m === "wrong" ? "idle" : "wrong")); }}
               >
                 <ThumbsDown aria-hidden className="mr-1 h-3 w-3" />
-                这条不对
+                {t("chatKnowledge.citation.wrong")}
               </Button>
               <Button
                 size="xs"
@@ -118,7 +122,7 @@ export function CitationDetail({
                 onClick={() => { setNote(null); setMode((m) => (m === "expire" ? "idle" : "expire")); }}
               >
                 <Clock3 aria-hidden className="mr-1 h-3 w-3" />
-                已过时
+                {t("chatKnowledge.citation.expired")}
               </Button>
             </>
           ) : null}
@@ -127,12 +131,12 @@ export function CitationDetail({
 
       {correctable && done === null && mode === "expire" ? (
         <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-warning bg-warning-tint p-2" data-testid={`kg-cite-expire-confirm-panel-${id}`}>
-          <span className="text-10 text-warning-tint-foreground">确认这条已经过时？之后的回答不再用它。</span>
+          <span className="text-10 text-warning-tint-foreground">{t("chatKnowledge.citation.confirmExpired")}</span>
           <Button size="xs" variant="destructive" disabled={busy} data-testid={`kg-cite-expire-confirm-${id}`} onClick={() => void expire()}>
-            确认
+            {t("chatKnowledge.citation.confirm")}
           </Button>
           <Button size="xs" variant="ghost" disabled={busy} data-testid={`kg-cite-expire-cancel-${id}`} onClick={() => setMode("idle")}>
-            取消
+            {t("common.cancel")}
           </Button>
         </div>
       ) : null}
@@ -140,12 +144,12 @@ export function CitationDetail({
       {correctable && done === null && mode === "wrong" ? (
         <div className="flex flex-col gap-1" data-testid={`kg-cite-wrong-panel-${id}`}>
           <label className="flex flex-col gap-0.5 text-10 text-muted-foreground">
-            正确的是？（可不填，不填就是忘掉这条）
+            {t("chatKnowledge.citation.replacement")}
             <Input
               value={replacement}
               maxLength={REPLACEMENT_MAX}
               onChange={(e) => setReplacement(e.target.value)}
-              placeholder="例如：主库改用 MySQL"
+              placeholder={t("chatKnowledge.citation.example")}
               data-testid={`kg-cite-replacement-${id}`}
               className="text-11"
             />
@@ -185,7 +189,7 @@ export function CitationDetail({
       ) : null}
 
       {note !== null ? (
-        <p role="alert" className="text-10 text-destructive" data-testid={`kg-cite-error-${id}`}>{note}</p>
+        <p role="alert" className="text-10 text-destructive" data-testid={`kg-cite-error-${id}`}>{typeof note === "string" ? t(note) : "owned" in note ? describeHumanActionFailure(note.owned.failure, locale) : note.raw}</p>
       ) : null}
     </div>
   );

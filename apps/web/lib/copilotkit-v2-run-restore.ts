@@ -71,7 +71,7 @@ export interface RunRestoreState {
 }
 
 /** `isRestoring` 为真时展示的阶段文案——单一事实源，调用方不要另写一份措辞。 */
-export const RUN_RESTORE_PHASE_LABEL = "正在恢复上次未完成的任务…";
+export { RUN_RESTORE_PHASE_LABEL } from "./chat-runtime-labels";
 
 /**
  * 2026-08-30（devapp 真实用户复现修复的另一半）—— 这个 hook 的 `onSettled` 把"轮询是

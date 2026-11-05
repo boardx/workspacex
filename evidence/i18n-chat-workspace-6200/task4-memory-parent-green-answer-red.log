@@ -1,0 +1,93 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/ui/i18n-chat-memory-parent-errors.test.tsx (5 tests) 116ms
+ ❯ tests/ui/i18n-chat-answer-memory-line.test.tsx (4 tests | 4 failed) 83ms
+   × renders the actual pending line with the same DOM and no locale action 35ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Remembering…
+Received:
+  正在记…
+   × uses canonical view callback explicitly and keeps readonly actions gated through locale 10ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Saved memories: 1
+Received:
+  已记下 1 条·查看
+   × keeps a pending explicit undo and caller-provided raw failure without locale retry 13ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Undoing…
+Received:
+  撤销中…
+   × formats actual captured-parent403 from its raw cause while preserving one current-revision revoke 25ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Only the conversation creator can edit its memories.
+Received:
+  只有对话的创建者可以修改这里的记忆。
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/i18n-chat-answer-memory-line.test.tsx > renders the actual pending line with the same DOM and no locale action
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Remembering…
+Received:
+  正在记…
+ ❯ tests/ui/i18n-chat-answer-memory-line.test.tsx:19:306
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  tests/ui/i18n-chat-answer-memory-line.test.tsx > uses canonical view callback explicitly and keeps readonly actions gated through locale
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Saved memories: 1
+Received:
+  已记下 1 条·查看
+ ❯ tests/ui/i18n-chat-answer-memory-line.test.tsx:20:252
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  tests/ui/i18n-chat-answer-memory-line.test.tsx > keeps a pending explicit undo and caller-provided raw failure without locale retry
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Undoing…
+Received:
+  撤销中…
+ ❯ tests/ui/i18n-chat-answer-memory-line.test.tsx:21:404
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  tests/ui/i18n-chat-answer-memory-line.test.tsx > formats actual captured-parent403 from its raw cause while preserving one current-revision revoke
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Only the conversation creator can edit its memories.
+Received:
+  只有对话的创建者可以修改这里的记忆。
+ ❯ tests/ui/i18n-chat-answer-memory-line.test.tsx:22:763
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  4 failed | 5 passed (9)
+   Start at  17:06:53
+   Duration  5.77s (transform 1.39s, setup 326ms, collect 3.32s, tests 199ms, environment 1.52s, prepare 112ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/i18n-chat-memory-parent-errors.test.tsx tests/ui/i18n-chat-answer-memory-line.test.tsx --maxWorkers=1 --minWorkers=1

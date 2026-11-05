@@ -1,4 +1,6 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { displayThreadTitle } from "@/lib/thread-title-display";
 import * as React from "react";
 import { MoreHorizontal, Pencil, Pin, Plus, Trash2 } from "lucide-react";
@@ -25,10 +27,11 @@ import type { ThreadCard } from "@/lib/live-chat";
  */
 
 /** 左栏栏头。照原型：标题 +「⌘K」提示。 */
-export function ThreadListHeader({ title = "对话" }: { title?: string }) {
+export function ThreadListHeader({ title }: { title?: string }) {
+  const { t } = useI18n();
   return (
     <div className="flex items-center justify-between gap-2 px-3 pt-3">
-      <h2 className="text-14 font-semibold">{title}</h2>
+      <h2 className="text-14 font-semibold">{title ?? t("chatEntry.conversations")}</h2>
       <kbd className="rounded-sm border border-border px-1 py-0.5 text-9 text-muted-foreground">⌘K</kbd>
     </div>
   );
@@ -49,6 +52,7 @@ export function ThreadListHeader({ title = "对话" }: { title?: string }) {
  *   视觉。
  */
 export function SidebarBrandHeader(): JSX.Element {
+  const { t } = useI18n();
   return (
     <div className="relative flex items-center justify-center px-3 pt-3" data-testid="chat-sidebar-brand-header">
       {/* 2026-09-08 人类直接指令：「workspacex 的图标应该居中，放大一点」——logo 独占一行居中，
@@ -56,7 +60,7 @@ export function SidebarBrandHeader(): JSX.Element {
           （否则 justify-between 会把 logo 挤到左边）。它现在是真快捷键，见
           `copilotkit-v2-shell.tsx` 的 keydown 监听。 */}
       <WorkspaceXWordmark className="h-8 w-auto" />
-      <kbd className="absolute right-3 top-3 rounded-sm border border-border px-1 py-0.5 text-9 text-muted-foreground" title="⌘K / Ctrl+K 搜索对话">⌘K</kbd>
+      <kbd className="absolute right-3 top-3 rounded-sm border border-border px-1 py-0.5 text-9 text-muted-foreground" title={t("chatEntry.searchShortcut")}>⌘K</kbd>
     </div>
   );
 }
@@ -77,19 +81,20 @@ export function SidebarBrandHeader(): JSX.Element {
  *   —— 枚举加一档时 tsc 会红，而不是静默把英文吐给用户。
  */
 export function ThreadMeta({ card }: { card: ThreadCard }) {
+  const { t } = useI18n();
   return (
     <span className="sr-only">
       <span data-testid="chat-task-workbench-thread-status" data-status={card.status}>
-        {THREAD_STATUS_LABEL[card.status]}
+        {t(THREAD_STATUS_LABEL[card.status])}
       </span>
       {card.artifactCount > 0 ? (
         <span data-testid="chat-task-workbench-thread-artifact-count">
-          · {card.artifactCount} 份产物
+          · {t("chatEntry.artifacts", { count: card.artifactCount })}
         </span>
       ) : null}
       <span> · {shortTime(card.lastActivityAt)}</span>
       {card.badges.map((badge) => (
-        <span key={badge}> · {THREAD_BADGE_TEXT[badge]}</span>
+        <span key={badge}> · {t(THREAD_BADGE_TEXT[badge])}</span>
       ))}
     </span>
   );
@@ -143,19 +148,13 @@ function ThreadRunningDot() {
  *   `awaiting-approval` → 「等待你确认」而不是「等待审批」——后者说的是系统在等，
  *   前者说的是**该用户动手了**，而这一条正是审计要的「用户语言 + 明确动作」。
  */
-const THREAD_STATUS_LABEL: Record<ThreadCard["status"], string> = {
-  "not-started": "还没开始",
-  running: "进行中",
-  "awaiting-approval": "等待你确认",
-  failed: "未能完成",
-  paused: "已暂停",
-  cancelled: "已停止",
-  done: "已完成",
+const THREAD_STATUS_LABEL: Record<ThreadCard["status"], MessageKey> = {
+  "not-started": "chatEntry.status.not-started", running: "chatEntry.status.running",
+  "awaiting-approval": "chatEntry.status.awaiting-approval", failed: "chatEntry.status.failed",
+  paused: "chatEntry.status.paused", cancelled: "chatEntry.status.cancelled", done: "chatEntry.status.done",
 };
-
-const THREAD_BADGE_TEXT: Record<ThreadCard["badges"][number], string> = {
-  degraded: "已降级",
-  "review-pending": "待复核",
+const THREAD_BADGE_TEXT: Record<ThreadCard["badges"][number], MessageKey> = {
+  degraded: "chatEntry.badge.degraded", "review-pending": "chatEntry.badge.review-pending",
 };
 
 /**
@@ -209,6 +208,7 @@ export function ThreadCardButton({
   pinned?: boolean;
   onTogglePin?: () => void;
 }) {
+  const { t } = useI18n();
   const canMutate = onRename !== undefined && onDelete !== undefined;
   const [mode, setMode] = React.useState<"view" | "menu" | "editing" | "deleting">("view");
   const [titleDraft, setTitleDraft] = React.useState(card.title);
@@ -267,7 +267,7 @@ export function ThreadCardButton({
       >
         <input
           autoFocus
-          aria-label="新的会话标题"
+          aria-label={t("chatEntry.titleInput")}
           data-testid="chat-thread-title-input"
           className="rounded-md border border-border-subtle px-2 py-1 text-12 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           value={titleDraft}
@@ -278,11 +278,11 @@ export function ThreadCardButton({
         />
         <div className="flex gap-1">
           <Button size="xs" variant="primary" type="submit" data-testid="chat-thread-title-submit" disabled={busy || titleDraft.trim() === ""}>
-            确认
+            {t("chatEntry.confirm")}
           </Button>
-          <Button size="xs" variant="outline" type="button" onClick={() => setMode("view")}>取消</Button>
+          <Button size="xs" variant="outline" type="button" onClick={() => setMode("view")}>{t("common.cancel")}</Button>
         </div>
-        {busy ? <p className="text-10 text-muted-foreground" data-testid="chat-thread-mutate-pending">正在提交…</p> : null}
+        {busy ? <p className="text-10 text-muted-foreground" data-testid="chat-thread-mutate-pending">{t("chatEntry.submitting")}</p> : null}
         {failure ? <p className="text-11 text-destructive" data-testid="chat-thread-mutate-error">{failure}</p> : null}
       </form>
     );
@@ -295,10 +295,10 @@ export function ThreadCardButton({
         onSubmit={submitDelete}
         className="flex flex-col gap-1 rounded-md border-l-2 border-destructive/60 bg-muted px-2 py-2"
       >
-        <p className="text-11 text-muted-foreground">删除后不可撤销，请填写原因（会写入审计）。</p>
+        <p className="text-11 text-muted-foreground">{t("chatEntry.deleteHint")}</p>
         <input
           autoFocus
-          aria-label="删除原因"
+          aria-label={t("chatEntry.deleteReason")}
           data-testid="chat-thread-delete-reason"
           className="rounded-md border border-border-subtle px-2 py-1 text-12 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           value={deleteReason}
@@ -309,11 +309,11 @@ export function ThreadCardButton({
         />
         <div className="flex gap-1">
           <Button size="xs" variant="destructive" type="submit" data-testid="chat-thread-delete-submit" disabled={busy || deleteReason.trim() === ""}>
-            确认删除
+            {t("chatEntry.confirmDelete")}
           </Button>
-          <Button size="xs" variant="outline" type="button" onClick={() => setMode("view")}>取消</Button>
+          <Button size="xs" variant="outline" type="button" onClick={() => setMode("view")}>{t("common.cancel")}</Button>
         </div>
-        {busy ? <p className="text-10 text-muted-foreground" data-testid="chat-thread-mutate-pending">正在提交…</p> : null}
+        {busy ? <p className="text-10 text-muted-foreground" data-testid="chat-thread-mutate-pending">{t("chatEntry.submitting")}</p> : null}
         {failure ? <p className="text-11 text-destructive" data-testid="chat-thread-mutate-error">{failure}</p> : null}
       </form>
     );
@@ -357,7 +357,7 @@ export function ThreadCardButton({
             不是整张卡：断言读的是标题文本,不会被副行的状态/时间冲淡——副行现在
             整段是 `sr-only`,连视觉上都不会再出现,这条注释的前提更稳固了。 */}
         <span data-testid="chat-task-workbench-thread-title" className="min-w-0 flex-1 truncate text-12 font-medium">
-          {displayThreadTitle(card.title) ?? "新对话"}
+          {displayThreadTitle(card.title) ?? t("chatEntry.untitled")}
         </span>
         <ThreadMeta card={card} />
       </button>
@@ -380,8 +380,8 @@ export function ThreadCardButton({
            每张卡常驻一个图钉来重复同一件事）。 */
         <button
           type="button"
-          aria-label={pinned ? `取消置顶「${displayThreadTitle(card.title) ?? "新对话"}」` : `置顶「${displayThreadTitle(card.title) ?? "新对话"}」`}
-          title={pinned ? "取消置顶（仅本浏览器）" : "置顶（仅本浏览器）"}
+          aria-label={t(pinned ? "chatEntry.unpinTitle" : "chatEntry.pinTitle", { title: displayThreadTitle(card.title) ?? t("chatEntry.untitled") })}
+          title={t(pinned ? "chatEntry.unpinBrowser" : "chatEntry.pinBrowser")}
           aria-pressed={pinned === true}
           data-testid="chat-task-workbench-thread-pin"
           data-thread-id={card.id}
@@ -402,7 +402,7 @@ export function ThreadCardButton({
           <MenuTrigger asChild>
             <button
               type="button"
-              aria-label="更多操作"
+              aria-label={t("chatEntry.more")}
               data-testid="chat-thread-card-menu-trigger"
               onClick={(event) => event.stopPropagation()}
               /* issue #2075（TW-A11Y-2）—— `p-1` 时整个按钮只有 14+8=22px，低于 24×24
@@ -428,14 +428,14 @@ export function ThreadCardButton({
               onSelect={(event) => { event.preventDefault(); startEdit(); }}
               className="gap-1.5"
             >
-              <Pencil aria-hidden className="h-3 w-3" />改名
+              <Pencil aria-hidden className="h-3 w-3" />{t("chatEntry.rename")}
             </MenuItem>
             <MenuItem
               data-testid="chat-thread-delete"
               onSelect={(event) => { event.preventDefault(); startDelete(); }}
               className="gap-1.5 text-destructive data-[highlighted]:text-destructive"
             >
-              <Trash2 aria-hidden className="h-3 w-3" />删除
+              <Trash2 aria-hidden className="h-3 w-3" />{t("chatEntry.delete")}
             </MenuItem>
           </MenuContent>
         </Menu>
@@ -464,7 +464,7 @@ export function shortTime(iso: string): string {
  *   点不动的按钮（rev-uiux 第 3/4 轮各抓到一次）。两个问题根子相同：没有共用这个组件。
  */
 export function NewThreadButton({
-  onClick, disabled, label = "新建对话",
+  onClick, disabled, label,
 }: {
   onClick: () => void;
   disabled: boolean;
@@ -476,9 +476,10 @@ export function NewThreadButton({
    */
   label?: string;
 }) {
+  const { t } = useI18n();
   return (
     <Button className="w-full" size="sm" variant="primary" data-testid="chat-thread-create" disabled={disabled} onClick={onClick}>
-      <Plus aria-hidden className="h-3.5 w-3.5" />{label}
+      <Plus aria-hidden className="h-3.5 w-3.5" />{label ?? t("chatEntry.newConversation")}
     </Button>
   );
 }

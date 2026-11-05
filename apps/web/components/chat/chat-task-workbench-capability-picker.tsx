@@ -1,4 +1,7 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/locale";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { useSession } from "@/components/session/session-provider";
@@ -40,7 +43,7 @@ export { agentTagsOf } from "@/lib/capability-picker-model";
  * - 「擅长什么」= `strengthsFor`：与名字不同的 duty → 标签 → 流程名（不回显名字，UIUX 复审 r1）。
  * - 「可用工具与技能」= 目录卡片的可发起 workflows（没有则在底部「边界」行写「暂无可直接发起的流程」）。
  * - 「能读哪些材料」「是否写文件/调外部服务」—— 契约无对应字段，在「边界」行如实写「未单独声明」。
- * - 「记忆范围」—— 全仓无跨线程记忆机制，恒为「仅本对话」。
+ * - 「记忆范围」—— 此处标示本次对话上下文；不对全站跨会话个人记忆机制做断言。
  * - 「当前状态」—— `isCapabilityReady=false` → failed；当前对话 agent 用真实运行态；其余 ready。
  *
  * ## 官方数字人为什么会「看不到」
@@ -60,15 +63,15 @@ export interface CapabilityCardActingState {
   readonly status: CapabilityCardStatus;
 }
 
-const MEMORY_SCOPE_SHORT_LABEL = "仅本对话";
-const MEMORY_SCOPE_FULL_LABEL = "记忆范围：仅本对话（本仓当前无跨线程记忆机制）";
 
-function statusLabel(status: CapabilityCardStatus): string {
+
+function statusLabel(status: CapabilityCardStatus, locale: Locale = DEFAULT_LOCALE): string {
+  const t = (key: MessageKey) => translate(locale, key);
   switch (status) {
-    case "ready": return "随时可用";
-    case "running": return "正在工作";
-    case "awaiting-approval": return "等你确认";
-    case "failed": return "暂不可用";
+    case "ready": return t("chatPicker.ready");
+    case "running": return t("chatPicker.running");
+    case "awaiting-approval": return t("chatPicker.awaiting");
+    case "failed": return t("chatPicker.reasonUnavailableShort");
     default: return status;
   }
 }
@@ -109,18 +112,22 @@ export interface OfficialOfferState {
   readonly progress?: EnableProgress | null;
   /** 启用完成后的一句结果（启用了几位、能发起几个流程）；未启用过为 null。 */
   readonly result?: string | null;
+  readonly resultCards?: readonly AgentDirectoryCard[] | null;
+  readonly errorKey?: MessageKey | null;
 }
 
 /** 启用结果：按启用后的目录如实数——能发起流程的官方数字人 / 还没有可发起流程的。 */
-export function enableResultText(cards: readonly AgentDirectoryCard[]): string {
+export function enableResultText(cards: readonly AgentDirectoryCard[], locale: Locale = DEFAULT_LOCALE): string {
   const official = cards.filter((c) => c.catalogSource === "official");
-  if (official.length === 0) return "已启用。数字人列表稍后刷新即可看到。";
+  if (official.length === 0) return translate(locale, "chatPicker.enabledRefresh");
   const flows = new Set(official.flatMap((c) => c.workflows.map((w) => w.stableId)));
   const waiting = official.filter((c) => c.workflows.length === 0).map((c) => c.name);
-  const head = `已启用 ${official.length} 位官方数字人${flows.size > 0 ? `，可发起 ${flows.size} 个流程` : ""}。`;
-  return waiting.length > 0 ? `${head}${waiting.join("、")}暂无可发起的流程，可先直接对话。` : head;
+  const head = translate(locale, "chatPicker.enabledCount", { count: official.length })
+    + (flows.size > 0 ? translate(locale, "chatPicker.enabledFlows", { count: flows.size }) : "")
+    + translate(locale, "chatPicker.sentenceEnd");
+  return waiting.length > 0 ? head + (locale === "en" ? " " : "")
+    + translate(locale, "chatPicker.waitingFlows", { names: waiting.join(locale === "en" ? ", " : "、") }) : head;
 }
-
 /** 官方数字人待启用要约 + 管理员一键启用。读失败 → 不显示该分组（不打扰聊天）。 */
 export function useOfficialRoleOffer(enabled: boolean, onEnabled?: () => void): OfficialOfferState {
   const { session } = useSession();
@@ -131,9 +138,9 @@ export function useOfficialRoleOffer(enabled: boolean, onEnabled?: () => void): 
   const [stateScope, setStateScope] = React.useState(scope);
   const [offer, setOffer] = React.useState<OfficialRolePackOffer | null>(null);
   const [enabling, setEnabling] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<true | null>(null);
   const [progress, setProgress] = React.useState<EnableProgress | null>(null);
-  const [result, setResult] = React.useState<string | null>(null);
+  const [resultCards, setResult] = React.useState<readonly AgentDirectoryCard[] | null>(null);
   const [tick, setTick] = React.useState(0);
   React.useEffect(() => {
     setStateScope(scope);
@@ -169,17 +176,17 @@ export function useOfficialRoleOffer(enabled: boolean, onEnabled?: () => void): 
         if (!isCurrent()) return;
         const cards = await listAgentDirectory().catch(() => [] as const);
         if (!isCurrent()) return;
-        setResult(enableResultText(cards));
+        setResult(cards);
         setTick((t) => t + 1);
         onEnabled?.();
       })
-      .catch(() => { if (isCurrent()) setError("启用没有完成，已完成的部分会保留。请稍后再点一次继续；仍不行请联系平台支持。"); })
+      .catch(() => { if (isCurrent()) setError(true); })
       .finally(() => {
         if (isCurrent()) { setEnabling(false); setProgress(null); operation.current = null; }
       });
   }, [visible, offer, scope, session, onEnabled]);
-  return { offer: visible ? offer : null, enabling: visible && enabling, error: visible ? error : null, enable,
-    progress: visible ? progress : null, result: visible ? result : null };
+  return { offer: visible ? offer : null, enabling: visible && enabling, error: visible && error ? translate(DEFAULT_LOCALE, "chatPicker.enableFailed") : null, errorKey: visible && error ? "chatPicker.enableFailed" : null, enable,
+    progress: visible ? progress : null, result: visible && resultCards ? enableResultText(resultCards) : null, resultCards: visible ? resultCards : null };
 }
 
 type ActiveKey = { kind: "auto" } | { kind: "agent"; id: string } | { kind: "pending"; roleRef: string };
@@ -238,6 +245,7 @@ function TagChips({ tags, max = 3 }: { tags: readonly string[]; max?: number }):
 export function CapabilityCardList({
   listings, selectedAgentId, onSelect, acting = null, directory = EMPTY_DIRECTORY, autoFocusSearch = false, official, maxListHeight, sheet = false,
 }: CapabilityCardListProps): JSX.Element {
+  const { t, locale } = useI18n();
   const [query, setQuery] = React.useState("");
   const [filter, setFilter] = React.useState<PickerFilter>(null);
   const [active, setActive] = React.useState<ActiveKey>(selectedAgentId ? { kind: "agent", id: selectedAgentId } : { kind: "auto" });
@@ -284,7 +292,7 @@ export function CapabilityCardList({
       <div className="flex min-h-0 flex-1">
         <div className={`min-w-0 flex-1 flex-col sm:max-w-[22rem] sm:border-r sm:border-border ${showDetail ? "hidden" : "flex"}`}>
           <div className="flex flex-col gap-1.5 border-b border-border p-2">
-            <label htmlFor={searchId} className="sr-only">搜索数字人</label>
+            <label htmlFor={searchId} className="sr-only">{t("chatPicker.search")}</label>
             <Input
               ref={searchRef}
               id={searchId}
@@ -294,13 +302,13 @@ export function CapabilityCardList({
               autoFocus={autoFocusSearch}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => { if (e.key === "ArrowDown") { e.preventDefault(); focusOption("first"); } }}
-              placeholder="搜索名字、角色、标签或擅长的事"
+              placeholder={t("chatPicker.searchPlaceholder")}
               className="text-12 focus-visible:border-ring/50 focus-visible:ring-ring/25 focus-visible:ring-offset-0"
             />
             {groups.tagOptions.length > 0 ? (
               /* 复审 P0-1：不再单行横向裁切（半个 chip 露在边上、无滚动提示）——改为换行，超过一行的收进「更多」。 */
-              <div role="group" aria-label="按标签筛选" data-testid="chat-task-workbench-capability-tags" className="flex flex-wrap gap-1">
-                <button type="button" aria-pressed={filter === null} className={chipClass(filter === null)} onClick={() => setFilter(null)}>全部</button>
+              <div role="group" aria-label={t("chatPicker.filterTags")} data-testid="chat-task-workbench-capability-tags" className="flex flex-wrap gap-1">
+                <button type="button" aria-pressed={filter === null} className={chipClass(filter === null)} onClick={() => setFilter(null)}>{t("chatPicker.all")}</button>
                 {visibleTags(groups.tagOptions, filter?.value ?? null, allTags).map((t) => {
                   const on = filter?.value === t;
                   return (
@@ -311,7 +319,7 @@ export function CapabilityCardList({
                 })}
                 {groups.tagOptions.length > TAG_ROW_LIMIT ? (
                   <button type="button" data-testid="chat-task-workbench-capability-tags-more" aria-expanded={allTags} className={chipClass(false)} onClick={() => setAllTags((v) => !v)}>
-                    {allTags ? "收起" : `更多 ${groups.tagOptions.length - TAG_ROW_LIMIT}`}
+                    {allTags ? t("chatPicker.collapse") : t("chatPicker.moreTags", { count: groups.tagOptions.length - TAG_ROW_LIMIT })}
                   </button>
                 ) : null}
               </div>
@@ -320,7 +328,7 @@ export function CapabilityCardList({
           <div
             ref={listRef}
             role="listbox"
-            aria-label="选择数字人"
+            aria-label={t("chatPicker.chooseDigitalHuman")}
             /* issue #2130 —— 保留既有 e2e（copilotkit-v2-agent-switch.spec.ts）依赖的容器锚点名。 */
             data-testid="chat-agent-select-listbox"
             onKeyDown={onListKeyDown}
@@ -340,23 +348,23 @@ export function CapabilityCardList({
               >
                 <span aria-hidden className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-14 text-primary">✦</span>
                 <span className="flex min-w-0 flex-1 flex-col">
-                  <span className="text-12 font-medium text-card-foreground">自动匹配</span>
-                  <span className="truncate text-11 text-muted-foreground">按你的任务挑选最合适的数字人</span>
+                  <span className="text-12 font-medium text-card-foreground">{t("chatPicker.auto")}</span>
+                  <span className="truncate text-11 text-muted-foreground">{t("chatPicker.autoHint")}</span>
                 </span>
                 <SelectedMark on={selectedAgentId === null} />
               </button>
             ) : null}
 
             {groups.isEmpty ? (
-              <p data-testid="chat-task-workbench-capability-none" className="px-2 py-4 text-center text-11 text-muted-foreground">这个组织还没有可用的数字人，请联系管理员添加。</p>
+              <p data-testid="chat-task-workbench-capability-none" className="px-2 py-4 text-center text-11 text-muted-foreground">{t("chatPicker.empty")}</p>
             ) : null}
             {!groups.isEmpty && nothingVisible ? (
               <div data-testid="chat-task-workbench-capability-empty" className="flex flex-col items-center gap-2 px-2 py-6 text-center">
                 <SearchX aria-hidden className="size-6 text-muted-foreground" />
-                <p className="text-12 text-card-foreground">没有找到匹配的数字人</p>
-                <p className="text-11 text-muted-foreground">换个关键词，或清除筛选看全部。</p>
+                <p className="text-12 text-card-foreground">{t("chatPicker.noMatch")}</p>
+                <p className="text-11 text-muted-foreground">{t("chatPicker.noMatchHint")}</p>
                 <Button type="button" size="xs" variant="outline" onClick={() => { setQuery(""); setFilter(null); }}>
-                  清除搜索与筛选
+                  {t("chatPicker.clearFilters")}
                 </Button>
               </div>
             ) : null}
@@ -364,19 +372,19 @@ export function CapabilityCardList({
             {official?.result ? (
               <p role="status" data-testid="chat-task-workbench-capability-enable-result" className="mx-1 my-1 flex items-start gap-1.5 rounded-md bg-ai-tint px-2 py-1.5 text-11 text-ai-tint-foreground">
                 <Check aria-hidden className="mt-px size-3.5 shrink-0" />
-                <span>{official.result}</span>
+                <span>{official.resultCards ? enableResultText(official.resultCards, locale) : official.result}</span>
               </p>
             ) : null}
 
             {groups.digitalHumans.length > 0 ? (
-              <section aria-label="数字人" data-testid="chat-task-workbench-capability-group-dh">
-                <GroupHeading>数字人</GroupHeading>
+              <section aria-label={t("chatPicker.digitalHumans")} data-testid="chat-task-workbench-capability-group-dh">
+                <GroupHeading>{t("chatPicker.digitalHumans")}</GroupHeading>
                 {groups.digitalHumans.map((e) => <AgentOption key={e.listing.id} {...entryProps(e)} />)}
               </section>
             ) : null}
 
             {groups.pending.length > 0 && official?.offer ? (
-              <section aria-label="待启用的官方数字人" data-testid="chat-task-workbench-capability-group-pending">
+              <section aria-label={t("chatPicker.pendingOfficials")} data-testid="chat-task-workbench-capability-group-pending">
                 <GroupHeading
                   action={official.offer.canEnable ? (
                     <Button
@@ -388,21 +396,21 @@ export function CapabilityCardList({
                       onClick={official.enable}
                     >
                       {official.enabling ? <Loader2 aria-hidden className="size-3 animate-spin" /> : null}
-                      {official.enabling ? "启用中…" : `一键启用 ${official.offer.pending.length} 位`}
+                      {official.enabling ? t("chatPicker.enabling") : t("chatPicker.enableCount", { count: official.offer.pending.length })}
                     </Button>
-                  ) : <span className="text-10 text-muted-foreground">需管理员启用</span>}
+                  ) : <span className="text-10 text-muted-foreground">{t("chatPicker.requiresAdmin")}</span>}
                 >
-                  官方数字人 · 待启用
+                  {t("chatPicker.officialPending")}
                 </GroupHeading>
                 {official.enabling && official.progress ? (
                   <div role="status" data-testid="chat-task-workbench-capability-enable-progress" className="mx-2 mb-1.5 flex flex-col gap-1">
-                    <span className="text-11 text-card-foreground">{official.progress.label}（{official.progress.step}/{official.progress.total}）</span>
+                    <span className="text-11 text-card-foreground">{official.progress.labelKey ? t(official.progress.labelKey) : official.progress.label}（{official.progress.step}/{official.progress.total}）</span>
                     <span aria-hidden className="h-1 overflow-hidden rounded-pill bg-muted">
                       <span className="block h-full rounded-pill bg-primary transition-all duration-base" style={{ width: `${Math.round((official.progress.step / official.progress.total) * 100)}%` }} />
                     </span>
                   </div>
                 ) : null}
-                {official.error ? <p role="alert" className="px-2 pb-1 text-11 text-destructive">{official.error}</p> : null}
+                {official.error ? <p role="alert" className="px-2 pb-1 text-11 text-destructive">{official.errorKey ? t(official.errorKey) : official.error}</p> : null}
                 {groups.pending.map((p) => (
                   <PendingRow key={p.roleRef} role={p} onActivate={() => setActive({ kind: "pending", roleRef: p.roleRef })} onOpen={sheet ? () => openDetail({ kind: "pending", roleRef: p.roleRef }) : undefined} />
                 ))}
@@ -410,8 +418,8 @@ export function CapabilityCardList({
             ) : null}
 
             {groups.others.length > 0 ? (
-              <section aria-label="其他助手" data-testid="chat-task-workbench-capability-group-others">
-                <GroupHeading>其他助手</GroupHeading>
+              <section aria-label={t("chatPicker.otherAssistants")} data-testid="chat-task-workbench-capability-group-others">
+                <GroupHeading>{t("chatPicker.otherAssistants")}</GroupHeading>
                 {groups.others.map((e) => <AgentOption key={e.listing.id} {...entryProps(e)} />)}
               </section>
             ) : null}
@@ -420,7 +428,7 @@ export function CapabilityCardList({
               <details data-testid="chat-task-workbench-capability-group-unavailable" className="group mt-1 border-t border-border pt-1" open={filtering || undefined}>
                 <summary className="flex cursor-pointer select-none items-center gap-1 rounded-sm px-2 py-1.5 text-10 font-medium tracking-wide text-muted-foreground transition-colors duration-fast hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                   <span aria-hidden className="transition-transform duration-fast group-open:rotate-90">›</span>
-                  不可用（{groups.unavailable.length}）
+                  {t("chatPicker.unavailableCount", { count: groups.unavailable.length })}
                 </summary>
                 {groups.unavailable.map((e) => <UnavailableOption key={e.listing.id} entry={e} onActivate={() => setActive({ kind: "agent", id: e.listing.id })} />)}
               </details>
@@ -434,7 +442,7 @@ export function CapabilityCardList({
       </div>
       <div className="flex items-center gap-3 border-t border-border px-2.5 py-1 text-10 text-muted-foreground">
         <div className="min-w-0 flex-1"><CapabilityEditionNote compact /></div>
-        <span aria-hidden className="hidden shrink-0 sm:inline">↑↓ 选择 · Enter 确认 · Esc 关闭</span>
+        <span aria-hidden className="hidden shrink-0 sm:inline">{t("chatPicker.keyboard")}</span>
       </div>
     </div>
   );
@@ -460,6 +468,7 @@ function AgentOption({
   onSelect: (agentId: string) => void;
   onActivate: () => void;
 }): JSX.Element {
+  const { locale } = useI18n();
   const { listing, card, subtitle, tags } = entry;
   const liveStatus = acting && acting.agentId === listing.id && acting.status !== "ready" ? acting.status : null;
   return (
@@ -478,7 +487,7 @@ function AgentOption({
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="flex items-center gap-1.5">
           <span className="truncate text-12 font-medium text-card-foreground">{listing.name}</span>
-          {liveStatus ? <Badge tone="ai" className="shrink-0">{statusLabel(liveStatus)}</Badge> : null}
+          {liveStatus ? <Badge tone="ai" className="shrink-0">{statusLabel(liveStatus, locale)}</Badge> : null}
         </span>
         {subtitle ? <span className="truncate text-11 text-muted-foreground" title={subtitle}>{subtitle}</span> : null}
         <TagChips tags={tags} />
@@ -489,6 +498,7 @@ function AgentOption({
 }
 
 function UnavailableOption({ entry, onActivate }: { entry: PickerEntry; onActivate: () => void }): JSX.Element {
+  const { locale } = useI18n();
   const { listing } = entry;
   return (
     <button
@@ -496,21 +506,22 @@ function UnavailableOption({ entry, onActivate }: { entry: PickerEntry; onActiva
       role="option"
       disabled
       aria-selected={false}
-      aria-label={`${listing.name}（不可用：${reasonCopy(listing.disabledReason).short}）`}
+      aria-label={locale === "en" ? `${listing.name} (${reasonCopy(listing.disabledReason, locale).short})` : `${listing.name}（不可用：${reasonCopy(listing.disabledReason, locale).short}）`}
       data-testid="chat-task-workbench-capability-card"
       data-agent-id={listing.id}
       data-unavailable="true"
-      title={reasonCopy(listing.disabledReason).full}
+      title={reasonCopy(listing.disabledReason, locale).full}
       onMouseEnter={onActivate}
       className="flex w-full cursor-not-allowed items-center gap-2 rounded-md px-2 py-1 text-left text-disabled-foreground"
     >
       <span className="min-w-0 flex-1 truncate text-11">{listing.name}</span>
-      <span className="max-w-[55%] shrink-0 truncate text-10">{shortReason(listing.disabledReason)}</span>
+      <span className="max-w-[55%] shrink-0 truncate text-10">{shortReason(listing.disabledReason, locale)}</span>
     </button>
   );
 }
 
 function PendingRow({ role, onActivate, onOpen }: { role: PendingOfficialRole; onActivate: () => void; onOpen?: () => void }): JSX.Element {
+  const { t } = useI18n();
   return (
     <div
       data-testid="chat-task-workbench-capability-pending"
@@ -524,7 +535,7 @@ function PendingRow({ role, onActivate, onOpen }: { role: PendingOfficialRole; o
         <span className="truncate text-12 font-medium text-card-foreground">{role.name}</span>
         <TagChips tags={role.tags} />
       </span>
-      <Badge tone="outline" className="shrink-0">待启用</Badge>
+      <Badge tone="outline" className="shrink-0">{t("chatPicker.pending")}</Badge>
     </div>
   );
 }
@@ -546,13 +557,14 @@ function Facet({ label, testId, children, title, extra }: { label: string; testI
  *   收成底部一行小字「边界」——六项披露（TW-P0-2②）的锚点都还在、都可见，只是不再用整栏说「不知道」。
  */
 function PreviewPane({ active, entry, pending, acting, suggestions, step }: { step?: { onBack: () => void; onChoose: () => void }; active: ActiveKey; entry: PickerEntry | undefined; pending: PendingOfficialRole | undefined; acting: CapabilityCardActingState | null; suggestions: readonly PickerEntry[] }): JSX.Element {
+  const { t, locale } = useI18n();
   let body: React.ReactNode;
   if (entry) {
     const { listing, card, tags } = entry;
     const ready = identity.isCapabilityReady(listing);
     const status: CapabilityCardStatus = !ready ? "failed" : acting && acting.agentId === listing.id ? acting.status : "ready";
-    const workflows = workflowLabelsOf(card);
-    const strengths = strengthsFor(listing, card) ?? "日常对话与问答";
+    const workflows = workflowLabelsOf(card, locale);
+    const strengths = strengthsFor(listing, card, locale) ?? t("chatPicker.everyday");
     body = (
       <>
         <div className="flex items-center gap-3">
@@ -560,33 +572,33 @@ function PreviewPane({ active, entry, pending, acting, suggestions, step }: { st
           <div className="min-w-0">
             <p className="truncate text-14 font-semibold text-card-foreground">{listing.name}</p>
             {entry.subtitle ? <p className="truncate text-11 text-muted-foreground">{entry.subtitle}</p> : null}
-            {card?.catalogSource === "official" ? <Badge tone="ai" className="mt-1">官方数字人</Badge> : null}
+            {card?.catalogSource === "official" ? <Badge tone="ai" className="mt-1">{t("chatPicker.official")}</Badge> : null}
           </div>
         </div>
         <dl className="flex flex-col gap-1.5 border-t border-border pt-2">
-          <Facet label="状态" testId="chat-task-workbench-capability-facet-status" extra={{ "data-status": status }}>
-            <span className={status === "failed" ? "text-muted-foreground" : "text-success"}>{statusLabel(status)}</span>
-            {!ready ? <span className="block text-10 text-muted-foreground">{reasonCopy(listing.disabledReason).full}</span> : null}
+          <Facet label={t("chatPicker.status")} testId="chat-task-workbench-capability-facet-status" extra={{ "data-status": status }}>
+            <span className={status === "failed" ? "text-muted-foreground" : "text-success"}>{statusLabel(status, locale)}</span>
+            {!ready ? <span className="block text-10 text-muted-foreground">{reasonCopy(listing.disabledReason, locale).full}</span> : null}
           </Facet>
-          <Facet label="擅长" testId="chat-task-workbench-capability-facet-strengths">{strengths}</Facet>
+          <Facet label={t("chatPicker.strengths")} testId="chat-task-workbench-capability-facet-strengths">{strengths}</Facet>
           {workflows.length > 0 ? (
-            <Facet label="可发起" testId="chat-task-workbench-capability-facet-tools" extra={{ "data-count": String(workflows.length) }}>
+            <Facet label={t("chatPicker.workflows")} testId="chat-task-workbench-capability-facet-tools" extra={{ "data-count": String(workflows.length) }}>
               <ExpandableList key={listing.id} items={workflows} />
             </Facet>
           ) : null}
         </dl>
         <div data-testid="chat-task-workbench-capability-examples" className="flex flex-col gap-1 border-t border-border pt-2">
-          <p className="text-10 font-medium text-muted-foreground">适合这样问</p>
+          <p className="text-10 font-medium text-muted-foreground">{t("chatPicker.examples")}</p>
           <ul className="flex flex-col gap-1">
-            {examplePromptsFor(card).map((q) => <li key={q} className="rounded-md bg-muted px-2 py-1 text-11 text-card-foreground">{q}</li>)}
+            {examplePromptsFor(card, locale).map((q) => <li key={q} className="rounded-md bg-muted px-2 py-1 text-11 text-card-foreground">{q}</li>)}
           </ul>
         </div>
         <p data-testid="chat-task-workbench-capability-boundary" className="border-t border-border pt-2 text-10 leading-relaxed text-muted-foreground">
-          {workflows.length === 0 ? <span data-testid="chat-task-workbench-capability-facet-tools" data-count="0">暂无可直接发起的流程，可以直接对话。</span> : null}
-          <span data-testid="chat-task-workbench-capability-facet-memory" data-memory-scope="thread" title={MEMORY_SCOPE_FULL_LABEL}>记忆{MEMORY_SCOPE_SHORT_LABEL}</span>
+          {workflows.length === 0 ? <span data-testid="chat-task-workbench-capability-facet-tools" data-count="0">{t("chatPicker.noWorkflows")}</span> : null}
+          <span data-testid="chat-task-workbench-capability-facet-memory" data-memory-scope="thread" title={t("chatPicker.memoryFull")}>{t("chatPicker.memory")}{t("chatPicker.memoryShort")}</span>
           {" · "}
-          <span data-testid="chat-task-workbench-capability-facet-materials" title="能读哪些材料：该数字人未单独声明">材料读取</span>
-          <span data-testid="chat-task-workbench-capability-facet-writes" title="是否写文件或调外部服务：该数字人未单独声明">与写入范围未单独声明，按组织权限执行</span>
+          <span data-testid="chat-task-workbench-capability-facet-materials" title={t("chatPicker.materialsHint")}>{t("chatPicker.materials")}</span>
+          <span data-testid="chat-task-workbench-capability-facet-writes" title={t("chatPicker.writeHint")}>{t("chatPicker.writeScope")}</span>
         </p>
       </>
     );
@@ -597,19 +609,19 @@ function PreviewPane({ active, entry, pending, acting, suggestions, step }: { st
           <Avatar initials={pending.name.slice(0, 1)} avatarKey={pending.avatar?.key ?? null} tone="ai" size="lg" className="size-14 text-16" />
           <div className="min-w-0">
             <p className="truncate text-14 font-semibold text-card-foreground">{pending.name}</p>
-            <Badge tone="outline" className="mt-1">官方数字人 · 待启用</Badge>
+            <Badge tone="outline" className="mt-1">{t("chatPicker.officialPending")}</Badge>
           </div>
         </div>
         <TagChips tags={pending.tags} max={6} />
         <p className="text-11 leading-relaxed text-muted-foreground">
-          启用后可在这里直接选用{pending.workflowAllowlist.length > 0 ? "，并按角色发起相应的工作流程" : ""}。启用由组织管理员一次完成，所需的技能与流程会一并准备好。
+          {t("chatPicker.enableIntro")}{pending.workflowAllowlist.length > 0 ? t("chatPicker.enableFlows") : ""}{t("chatPicker.enableEnd")}
         </p>
         <PendingWorkflows role={pending} />
         <ol data-testid="chat-task-workbench-capability-pending-steps" className="flex flex-col gap-1 border-t border-border pt-2 text-11 text-card-foreground">
-          <li className="text-10 font-medium text-muted-foreground">启用之后</li>
-          <li>1. 出现在上方「数字人」分组，可直接选用</li>
-          <li>2. 在对话里说出任务，由它按流程推进</li>
-          <li>3. 需要审批的步骤会先请你确认</li>
+          <li className="text-10 font-medium text-muted-foreground">{t("chatPicker.afterEnable")}</li>
+          <li>{t("chatPicker.afterEnable1")}</li>
+          <li>{t("chatPicker.afterEnable2")}</li>
+          <li>{t("chatPicker.afterEnable3")}</li>
         </ol>
       </>
     );
@@ -619,50 +631,50 @@ function PreviewPane({ active, entry, pending, acting, suggestions, step }: { st
         <div className="flex items-center gap-3">
           <span aria-hidden className="flex size-14 items-center justify-center rounded-full bg-primary/10 text-20 text-primary">✦</span>
           <div className="min-w-0">
-            <p className="text-14 font-semibold text-card-foreground">自动匹配</p>
-            <p className="text-11 text-muted-foreground">按你这条消息的任务挑人</p>
+            <p className="text-14 font-semibold text-card-foreground">{t("chatPicker.auto")}</p>
+            <p className="text-11 text-muted-foreground">{t("chatPicker.autoTask")}</p>
           </div>
         </div>
         {suggestions.length > 0 ? (
           <div data-testid="chat-task-workbench-capability-auto-candidates" className="flex flex-col gap-1.5 border-t border-border pt-2">
-            <p className="text-10 font-medium text-muted-foreground">可能由他们来处理</p>
+            <p className="text-10 font-medium text-muted-foreground">{t("chatPicker.possibleAgents")}</p>
             {suggestions.slice(0, 4).map((e) => (
               <div key={e.listing.id} className="flex items-center gap-2">
                 <Avatar initials={e.card?.initials || abbrFor(e.listing)} avatarKey={e.card?.avatar?.key ?? null} tone="ai" size="sm" />
                 <span className="flex min-w-0 flex-col">
                   <span className="truncate text-11 font-medium text-card-foreground">{e.listing.name}</span>
-                  <span className="truncate text-10 text-muted-foreground">{strengthsFor(e.listing, e.card) ?? "日常对话与问答"}</span>
+                  <span className="truncate text-10 text-muted-foreground">{strengthsFor(e.listing, e.card, locale) ?? t("chatPicker.everyday")}</span>
                 </span>
               </div>
             ))}
           </div>
         ) : null}
         <div data-testid="chat-task-workbench-capability-examples" className="flex flex-col gap-1 border-t border-border pt-2">
-          <p className="text-10 font-medium text-muted-foreground">适合这样问</p>
+          <p className="text-10 font-medium text-muted-foreground">{t("chatPicker.examples")}</p>
           <ul className="flex flex-col gap-1">
-            {autoExamplePrompts(suggestions).map((q) => <li key={q} className="rounded-md bg-muted px-2 py-1 text-11 text-card-foreground">{q}</li>)}
+            {autoExamplePrompts(suggestions, locale).map((q) => <li key={q} className="rounded-md bg-muted px-2 py-1 text-11 text-card-foreground">{q}</li>)}
           </ul>
         </div>
-        <p className="border-t border-border pt-2 text-11 leading-relaxed text-muted-foreground">按消息里的任务与标签挑最合适的一位；想固定由某位数字人处理，从左侧选择即可。</p>
+        <p className="border-t border-border pt-2 text-11 leading-relaxed text-muted-foreground">{t("chatPicker.autoDetail")}</p>
       </>
     );
   }
   const canChoose = step !== undefined && (entry ? identity.isCapabilityReady(entry.listing) : pending === undefined);
   return (
     <aside
-      aria-label="数字人详情"
+      aria-label={t("chatPicker.details")}
       data-testid="chat-task-workbench-capability-preview"
       data-step={step ? "detail" : undefined}
       className={step ? "flex min-h-0 w-full flex-1 flex-col gap-2.5 overflow-y-auto p-3" : "hidden w-[18rem] shrink-0 flex-col gap-2.5 overflow-y-auto p-3 sm:flex"}
     >
       {step ? (
         <button type="button" data-testid="chat-task-workbench-capability-detail-back" onClick={step.onBack} className="-ml-1 flex items-center gap-1 self-start rounded-md px-1 py-1 text-12 text-muted-foreground transition-colors duration-fast hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <ArrowLeft aria-hidden className="size-4" />返回列表
+          <ArrowLeft aria-hidden className="size-4" />{t("chatPicker.back")}
         </button>
       ) : null}
       {body}
       {step && canChoose ? (
-        <Button type="button" variant="primary" className="sticky bottom-0 mt-auto w-full" data-testid="chat-task-workbench-capability-detail-choose" onClick={step.onChoose}>选择</Button>
+        <Button type="button" variant="primary" className="sticky bottom-0 mt-auto w-full" data-testid="chat-task-workbench-capability-detail-choose" onClick={step.onChoose}>{t("chatPicker.choose")}</Button>
       ) : null}
     </aside>
   );
@@ -670,6 +682,7 @@ function PreviewPane({ active, entry, pending, acting, suggestions, step }: { st
 
 /** 「可发起」列表：超过 5 项时「另有 n 个」可点开全部，「收起」还原（不是死路）。 */
 function ExpandableList({ items, testId = "chat-task-workbench-capability-facet-tools-more" }: { items: readonly string[]; testId?: string }): JSX.Element {
+  const { t } = useI18n();
   const [open, setOpen] = React.useState(false);
   const shown = open ? items : items.slice(0, 5);
   return (
@@ -678,7 +691,7 @@ function ExpandableList({ items, testId = "chat-task-workbench-capability-facet-
       {items.length > 5 ? (
         <li>
           <button type="button" aria-expanded={open} data-testid={testId} onClick={() => setOpen((v) => !v)} className="text-left text-muted-foreground underline-offset-2 transition-colors duration-fast hover:text-card-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            {open ? "收起" : `另有 ${items.length - 5} 个`}
+            {open ? t("chatPicker.collapse") : t("chatPicker.overflowMore", { count: items.length - 5 })}
           </button>
         </li>
       ) : null}
@@ -687,14 +700,15 @@ function ExpandableList({ items, testId = "chat-task-workbench-capability-facet-
 }
 
 function PendingWorkflows({ role }: { role: PendingOfficialRole }): JSX.Element | null {
-  const { labels, unknown } = pendingWorkflowLabels(role);
+  const { t, locale } = useI18n();
+  const { labels, unknown } = pendingWorkflowLabels(role, locale);
   if (labels.length === 0 && unknown === 0) return null;
   return (
     <div data-testid="chat-task-workbench-capability-pending-workflows" className="flex flex-col gap-1 border-t border-border pt-2">
-      <p className="text-10 font-medium text-muted-foreground">启用后可发起</p>
+      <p className="text-10 font-medium text-muted-foreground">{t("chatPicker.availableAfterEnable")}</p>
       <div className="text-11 text-card-foreground">
         {labels.length > 0 ? <ExpandableList key={role.name} items={labels} testId="chat-task-workbench-capability-pending-workflows-more" /> : null}
-        {unknown > 0 ? <p className="text-muted-foreground">{labels.length > 0 ? "另有" : "共"} {unknown} 个流程</p> : null}
+        {unknown > 0 ? <p className="text-muted-foreground">{t(labels.length > 0 ? "chatPicker.unknownFlows" : "chatPicker.totalFlows", { count: unknown })}</p> : null}
       </div>
     </div>
   );
@@ -756,6 +770,7 @@ const COMPOSER_FRAME_SELECTOR = '[data-testid="chat-task-workbench-composer"]';
 
 /** 浮层壳：portal + fixed 定位；outside-click（锚点除外）/ Escape 关闭。 */
 export function CapabilityPopover({ listings, status, selectedAgentId, onSelect, acting = null, directory, official, anchorRef, onRetry }: PopoverProps): JSX.Element | null {
+  const { t } = useI18n();
   const [open, setOpen] = useCapabilityPopoverSlot();
   const containerRef = React.useRef<HTMLDivElement>(null);
   const ownDirectory = useDigitalHumanDirectory(open && directory === undefined);
@@ -805,12 +820,12 @@ export function CapabilityPopover({ listings, status, selectedAgentId, onSelect,
   if (status === "error") {
     content = (
       <div data-testid="chat-task-workbench-capability-error" className="flex w-64 flex-col gap-2 px-3 py-4 text-12 text-card-foreground">
-        <p>数字人列表没有读出来。</p>
-        {onRetry ? <button type="button" onClick={onRetry} className="self-start text-11 text-primary transition-colors duration-fast hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">重试</button> : null}
+        <p>{t("chatPicker.loadFailed")}</p>
+        {onRetry ? <button type="button" onClick={onRetry} className="self-start text-11 text-primary transition-colors duration-fast hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{t("ui.retry")}</button> : null}
       </div>
     );
   } else if (status === "loading" || listings === null) {
-    content = <p data-testid="chat-task-workbench-capability-loading" className="w-64 px-3 py-4 text-12 text-muted-foreground">正在读取数字人…</p>;
+    content = <p data-testid="chat-task-workbench-capability-loading" className="w-64 px-3 py-4 text-12 text-muted-foreground">{t("chatPicker.loading")}</p>;
   } else {
     content = (
       <CapabilityCardList
@@ -835,15 +850,15 @@ export function CapabilityPopover({ listings, status, selectedAgentId, onSelect,
           ref={containerRef}
           role="dialog"
           aria-modal="true"
-          aria-label="选择数字人"
+          aria-label={t("chatPicker.chooseDigitalHuman")}
           data-testid="chat-task-workbench-capability-popover"
           data-layout="sheet"
           className="fixed inset-x-0 bottom-0 z-50 flex max-h-[85dvh] flex-col overflow-hidden rounded-t-container border-t border-border bg-popover pb-[env(safe-area-inset-bottom)] shadow-lg"
         >
           <div className="relative flex items-center gap-2 border-b border-border px-3 pb-2 pt-3">
             <span aria-hidden className="absolute left-1/2 top-1 h-1 w-8 -translate-x-1/2 rounded-pill bg-muted" />
-            <p className="flex-1 text-13 font-semibold text-popover-foreground">选择数字人</p>
-            <Button type="button" size="icon" variant="ghost" aria-label="关闭" data-testid="chat-task-workbench-capability-sheet-close" onClick={close}>
+            <p className="flex-1 text-13 font-semibold text-popover-foreground">{t("chatPicker.chooseDigitalHuman")}</p>
+            <Button type="button" size="icon" variant="ghost" aria-label={t("common.close")} data-testid="chat-task-workbench-capability-sheet-close" onClick={close}>
               <X aria-hidden className="size-4" />
             </Button>
           </div>
@@ -897,6 +912,7 @@ export function CapabilityPicker({
   /** 管理员一键启用官方数字人后，让父组件重读 `listCapabilities`。 */
   readonly onListingsChanged?: () => void;
 }): JSX.Element {
+  const { t, locale } = useI18n();
   const [open, setOpen] = useCapabilityPopoverSlot();
   const anchorRef = React.useRef<HTMLButtonElement>(null);
   const [refresh, setRefresh] = React.useState(0);
@@ -905,8 +921,8 @@ export function CapabilityPicker({
   const official = useOfficialRoleOffer(status === "ready" && open, onEnabled);
   const selected = listings?.find((l) => l.id === selectedAgentId) ?? null;
   const selectedCard = selected ? directory.get(selected.id) : undefined;
-  const abilities = workflowLabelsOf(selectedCard);
-  const abilityHint = abilities.length > 0 ? `能做：${joinWithOverflow(abilities, 3)}` : null;
+  const abilities = workflowLabelsOf(selectedCard, locale);
+  const abilityHint = abilities.length > 0 ? t("chatPicker.canDo", { items: joinWithOverflow(abilities, 3, locale) }) : null;
   return (
     <div className="relative flex items-center">
       <button
@@ -916,15 +932,15 @@ export function CapabilityPicker({
         data-auto-match={selectedAgentId === null ? "true" : "false"}
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-label={selected ? `当前数字人：${selected.name}，点击更换` : "选择数字人（当前自动匹配）"}
-        title={selected ? [`当前数字人：${selected.name}`, abilityHint].filter(Boolean).join("\n") : "未指定时按任务自动匹配数字人，点击手选"}
+        aria-label={selected ? t("chatPicker.currentAria", { name: selected.name }) : t("chatPicker.autoAria")}
+        title={selected ? [t("chatPicker.currentTitle", { name: selected.name }), abilityHint].filter(Boolean).join("\n") : t("chatPicker.autoTitle")}
         disabled={disabled}
         onClick={() => setOpen((v) => !v)}
         className="flex h-7 max-w-[11rem] min-w-0 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-pill px-2.5 text-12 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:text-disabled-foreground"
       >
         {selected ? <Avatar initials={selectedCard?.initials || abbrFor(selected)} avatarKey={selectedCard?.avatar?.key ?? null} tone="ai" size="xs" /> : null}
         {/* 复审 r1：芯片只放肖像 + 名字，能力清单移进 title 提示，不再两段截断。 */}
-        <span data-testid="chat-task-workbench-capability-picker-name" className="truncate">{selected ? selected.name : "能力：自动匹配"}</span>
+        <span data-testid="chat-task-workbench-capability-picker-name" className="truncate">{selected ? selected.name : t("chatPicker.autoTrigger")}</span>
         <span aria-hidden className="text-9">▾</span>
       </button>
       <CapabilityPopover

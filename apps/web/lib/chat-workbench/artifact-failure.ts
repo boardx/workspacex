@@ -19,23 +19,26 @@
  */
 import { ApiError } from "@/lib/api-client";
 import { httpFailureText } from "@/lib/http-failure-text";
+import { translate } from "@/lib/i18n/messages";
+import type { Locale } from "@/lib/i18n/locale";
+import type { chatInspectorZhCN } from "@/lib/i18n/namespaces/chat-inspector";
 
 /** `chat.getThreadArtifactSource.err` 的闭集（见 packages/contracts/src/chat.ts）。 */
 type ArtifactSourceError = "NOT_VISIBLE" | "STORAGE_UNAVAILABLE";
 
-const ERROR_TEXT: Record<ArtifactSourceError, string> = {
+const ERROR_KEYS: Record<ArtifactSourceError, keyof typeof chatInspectorZhCN> = {
   // 契约上「不存在」与「不可见」同码同语义（I-36），所以这句话两种情形都要说得通。
-  NOT_VISIBLE: "这份产物你现在看不到：可能是别人的草稿，也可能已经被删掉",
-  STORAGE_UNAVAILABLE: "产物内容暂时读不出来（存储服务不可用），稍后再试一次",
+  NOT_VISIBLE: "chatInspector.source.notVisible",
+  STORAGE_UNAVAILABLE: "chatInspector.source.storage",
 };
 
-export function describeArtifactFailure(err: unknown): string {
+export function describeArtifactFailure(err: unknown, locale: Locale = "zh-CN"): string {
   if (err instanceof ApiError) {
     const code = err.reasonCode;
-    if (code !== null && code in ERROR_TEXT) return ERROR_TEXT[code as ArtifactSourceError];
-    return httpFailureText(err.status);
+    if (code !== null && code in ERROR_KEYS) return translate(locale, ERROR_KEYS[code as ArtifactSourceError]);
+    return httpFailureText(err.status, locale);
   }
-  if (err instanceof TypeError) return "连不上服务器，检查一下网络再试";
+  if (err instanceof TypeError) return translate(locale, "chatInspector.source.network");
   // 兜底同样不端出内部细节：`String(err)` 在这里多半是一段栈或一句英文异常。
-  return "这份产物没能打开，稍后再试一次";
+  return translate(locale, "chatInspector.source.failure");
 }

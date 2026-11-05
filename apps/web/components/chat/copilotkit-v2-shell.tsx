@@ -32,6 +32,8 @@ import {
 import { createWorkbenchThread, listWorkbenchThreads, workbenchThreadPath } from "@/lib/chat-workbench/project-scope";
 import { THREAD_PAGE_SIZE, appendThreadPage, hasMorePages, refreshLimit } from "@/lib/chat-workbench/thread-pages";
 import { useIntervalFocusRefresh } from "@/lib/chat-workbench/use-interval-focus-refresh";
+import { useI18n } from "@/lib/i18n/provider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { describeMutateFailure } from "@/lib/chat-failure-copy";
 import { listCapabilities, type CapabilityListing } from "@/lib/live-capabilities";
 import { useReportShellBusy } from "@/lib/shell-busy";
@@ -205,6 +207,10 @@ function renameCardInThreadList(list: ListPersonalThreadsOut, threadId: string, 
   };
 }
 
+const THREAD_GROUP_MESSAGES: Record<string, MessageKey | undefined> = {
+  "置顶": "chatEntry.pinned", "今天": "chatEntry.today", "本周": "chatEntry.thisWeek", "更早": "chatEntry.earlier",
+};
+
 export function CopilotKitV2Shell({
   initialThreadId,
   projectId = null,
@@ -212,6 +218,7 @@ export function CopilotKitV2Shell({
   initialThreadId: string | null;
   projectId?: string | null;
 }): JSX.Element {
+  const { locale, t } = useI18n();
   const router = useRouter();
   const { session } = useSession();
   const bearer = session?.sessionToken ?? null;
@@ -403,7 +410,8 @@ export function CopilotKitV2Shell({
   const [threads, setThreads] = React.useState<ListPersonalThreadsOut | null>(
     () => (bearer && threadListCache?.bearer === sourceKey ? threadListCache.value : null),
   );
-  const [listError, setListError] = React.useState<string | null>(null);
+  const [listErrorNotice, setListError] = React.useState<{ cause: unknown } | null>(null);
+  const listError = listErrorNotice ? (listErrorNotice.cause instanceof Error ? listErrorNotice.cause.message : t("chatErrors.list")) : null;
   const listGeneration = React.useRef(0);
   /**
    * issue #3356 —— `threads` 的镜像。`fetchThreadList` 需要在**发起请求那一刻**
@@ -506,7 +514,7 @@ export function CopilotKitV2Shell({
       // 读取失败，是这次请求本身被主动放弃，不该冒充"线程列表读取失败"亮给
       // 一个已经不存在的界面。
       if (!mountedRef.current || (failure instanceof DOMException && failure.name === "AbortError")) return;
-      setListError(failure instanceof Error ? failure.message : "线程列表读取失败");
+      setListError({ cause: failure });
     }
   }, [bearer, fetchThreadList]);
 
@@ -533,7 +541,8 @@ export function CopilotKitV2Shell({
    * 不会把合并结果覆盖回去。
    */
   const [loadMorePending, setLoadMorePending] = React.useState(false);
-  const [loadMoreError, setLoadMoreError] = React.useState<string | null>(null);
+  const [loadMoreErrorNotice, setLoadMoreError] = React.useState<{ cause: unknown } | null>(null);
+  const loadMoreError = loadMoreErrorNotice ? (loadMoreErrorNotice.cause instanceof Error ? loadMoreErrorNotice.cause.message : t("chatErrors.more")) : null;
   const loadMore = React.useCallback(async () => {
     const cursor = threads?.nextCursor ?? null;
     if (!bearer || cursor === null || loadMorePending) return;
@@ -554,7 +563,7 @@ export function CopilotKitV2Shell({
       setThreads(merged);
     } catch (failure) {
       if (!mountedRef.current || (failure instanceof DOMException && failure.name === "AbortError")) return;
-      setLoadMoreError(failure instanceof Error ? failure.message : "加载更多失败");
+      setLoadMoreError({ cause: failure });
     } finally {
       if (mountedRef.current) setLoadMorePending(false);
     }
@@ -587,8 +596,8 @@ export function CopilotKitV2Shell({
    *   旧屏 `ChatReadScreen`（见 `app/chat/page.tsx` 头注），v2 轨道至今没有项目线程。
    */
   const [threadDetailResult, setThreadDetailResult] = React.useState<{ key: string; value: GetThreadOut } | null>(null);
-  const [artifactsFailure, setArtifactsFailure] = React.useState<{ key: string; value: string } | null>(null);
-  const [materialsFailure, setMaterialsFailure] = React.useState<{ key: string; value: string } | null>(null);
+  const [artifactsFailure, setArtifactsFailure] = React.useState<{ key: string; cause: unknown } | null>(null);
+  const [materialsFailure, setMaterialsFailure] = React.useState<{ key: string; cause: unknown } | null>(null);
   /** issue #3347 —— 面板上报的 composer 附件控制器最小能力面（见下方传给面板的注释）。 */
   const [attachUploadPort, setAttachUploadPort] = React.useState<ChatMaterialsUploadPort | null>(null);
   const [rightLoadingKey, setRightLoadingKey] = React.useState<string | null>(null);
@@ -596,8 +605,8 @@ export function CopilotKitV2Shell({
 
   const artifacts = artifactsResult?.key === rightKey ? artifactsResult.value : null;
   const materials = materialsResult?.key === rightKey ? materialsResult.value : null;
-  const artifactsError = artifactsFailure?.key === rightKey ? artifactsFailure.value : null;
-  const materialsError = materialsFailure?.key === rightKey ? materialsFailure.value : null;
+  const artifactsError = artifactsFailure?.key === rightKey ? (artifactsFailure.cause instanceof Error ? artifactsFailure.cause.message : t("chatErrors.artifacts")) : null;
+  const materialsError = materialsFailure?.key === rightKey ? (materialsFailure.cause instanceof Error ? materialsFailure.cause.message : t("chatErrors.materials")) : null;
   const rightLoading = rightKey !== null && rightLoadingKey === rightKey;
 
   const threadDetail = threadDetailResult?.key === rightKey ? threadDetailResult.value : null;
@@ -638,13 +647,13 @@ export function CopilotKitV2Shell({
       setArtifactsResult({ key, value: nextArtifacts.value });
     } else {
       setArtifactsResult(null);
-      setArtifactsFailure({ key, value: nextArtifacts.reason instanceof Error ? nextArtifacts.reason.message : "产物列表读取失败" });
+      setArtifactsFailure({ key, cause: nextArtifacts.reason });
     }
     if (nextMaterials.status === "fulfilled") {
       setMaterialsResult({ key, value: nextMaterials.value });
     } else {
       setMaterialsResult(null);
-      setMaterialsFailure({ key, value: nextMaterials.reason instanceof Error ? nextMaterials.reason.message : "材料列表读取失败" });
+      setMaterialsFailure({ key, cause: nextMaterials.reason });
     }
     setRightLoadingKey(null);
   }, [bearer, selectedThreadId, projectId]);
@@ -672,13 +681,14 @@ export function CopilotKitV2Shell({
    * （#513：本地存一份版本号就是第二个事实源，刷新后必 409），读不回来就**不提交**。
    */
   const [rosterResult, setRosterResult] = React.useState<{ key: string; value: GetAgentPanelOut } | null>(null);
-  const [rosterFailure, setRosterFailure] = React.useState<{ key: string; value: string } | null>(null);
+  const [rosterFailure, setRosterFailure] = React.useState<{ key: string; cause: unknown } | null>(null);
   const [rosterPending, setRosterPending] = React.useState(false);
-  const [rosterMutateFailure, setRosterMutateFailure] = React.useState<string | null>(null);
+  const [rosterMutateFailureNotice, setRosterMutateFailure] = React.useState<{ cause: unknown } | null>(null);
+  const rosterMutateFailure = rosterMutateFailureNotice ? describeMutateFailure(rosterMutateFailureNotice.cause, locale) : null;
   const rosterGeneration = React.useRef(0);
 
   const roster = rosterResult?.key === rightKey ? rosterResult.value : null;
-  const rosterError = rosterFailure?.key === rightKey ? rosterFailure.value : null;
+  const rosterError = rosterFailure?.key === rightKey ? (rosterFailure.cause instanceof Error ? rosterFailure.cause.message : t("chatErrors.roster")) : null;
   const rosterLoading = rightKey !== null && roster === null && rosterError === null;
 
   const loadRoster = React.useCallback(async () => {
@@ -693,7 +703,7 @@ export function CopilotKitV2Shell({
     } catch (failure) {
       if (generation !== rosterGeneration.current) return;
       setRosterResult(null);
-      setRosterFailure({ key, value: failure instanceof Error ? failure.message : "编制读取失败" });
+      setRosterFailure({ key, cause: failure });
     }
   }, [bearer, selectedThreadId, projectId]);
 
@@ -703,7 +713,8 @@ export function CopilotKitV2Shell({
   }, [rightKey, loadRoster]);
 
   const [agentCatalog, setAgentCatalog] = React.useState<CapabilityListing[] | null>(null);
-  const [agentCatalogError, setAgentCatalogError] = React.useState<string | null>(null);
+  const [agentCatalogErrorNotice, setAgentCatalogError] = React.useState<{ cause: unknown } | null>(null);
+  const agentCatalogError = agentCatalogErrorNotice ? (agentCatalogErrorNotice.cause instanceof Error ? agentCatalogErrorNotice.cause.message : t("chatErrors.catalog")) : null;
   const currentOrgId = session?.currentOrgId ?? null;
 
   React.useEffect(() => {
@@ -718,7 +729,7 @@ export function CopilotKitV2Shell({
       } catch (failure) {
         if (cancelled) return;
         setAgentCatalog(null);
-        setAgentCatalogError(failure instanceof Error ? failure.message : "agent 目录读取失败");
+        setAgentCatalogError({ cause: failure });
       }
     })();
     return () => { cancelled = true; };
@@ -749,7 +760,7 @@ export function CopilotKitV2Shell({
       // 不把写端口的响应体直接画上去，也不本地拼一个（#513 之后版本号只有一个事实源）。
       await loadRoster();
     } catch (failure) {
-      setRosterMutateFailure(describeMutateFailure(failure));
+      setRosterMutateFailure({ cause: failure });
     } finally {
       setRosterPending(false);
     }
@@ -764,7 +775,8 @@ export function CopilotKitV2Shell({
    *   `handleRename`/`handleDelete`/`runRosterMutation` 都是"捕获失败 → 显式落一个
    *   失败态给用户看"的同一套纪律（`describeMutateFailure`），这里补齐，不是新造一套。
    */
-  const [createFailure, setCreateFailure] = React.useState<string | null>(null);
+  const [createFailureNotice, setCreateFailure] = React.useState<{ cause: unknown } | null>(null);
+  const createFailure = createFailureNotice ? describeMutateFailure(createFailureNotice.cause, locale) : null;
 
   // #3522: explicit new means a new thread. A list's empty badge can be stale
   // while another tab is already sending; never reuse that shared draft here.
@@ -780,7 +792,7 @@ export function CopilotKitV2Shell({
       applyThreadSelection(result.threadId); // 同上
       router.push(workbenchThreadPath(result.threadId, projectId));
     } catch (failure) {
-      setCreateFailure(describeMutateFailure(failure));
+      setCreateFailure({ cause: failure });
     } finally {
       createPendingRef.current = false;
       setCreatePending(false);
@@ -927,7 +939,8 @@ export function CopilotKitV2Shell({
    */
   const [mutatingThreadId, setMutatingThreadId] = React.useState<string | null>(null);
   const [mutatePending, setMutatePending] = React.useState<"rename" | "delete" | null>(null);
-  const [mutateFailure, setMutateFailure] = React.useState<string | null>(null);
+  const [mutateFailureNotice, setMutateFailure] = React.useState<{ cause: unknown } | null>(null);
+  const mutateFailure = mutateFailureNotice ? describeMutateFailure(mutateFailureNotice.cause, locale) : null;
 
   const handleRename = React.useCallback(async (threadId: string, title: string) => {
     if (!bearer) return;
@@ -952,7 +965,7 @@ export function CopilotKitV2Shell({
     } catch (failure) {
       // 卸载触发的中止不是一次真实的改名失败——见 `reloadThreads` catch 同一条注释。
       if (!mountedRef.current || (failure instanceof DOMException && failure.name === "AbortError")) return;
-      setMutateFailure(describeMutateFailure(failure));
+      setMutateFailure({ cause: failure });
     } finally {
       if (mountedRef.current) setMutatePending(null);
     }
@@ -986,7 +999,7 @@ export function CopilotKitV2Shell({
     } catch (failure) {
       // 卸载触发的中止不是一次真实的删除失败——见 `reloadThreads` catch 同一条注释。
       if (!mountedRef.current || (failure instanceof DOMException && failure.name === "AbortError")) return;
-      setMutateFailure(describeMutateFailure(failure));
+      setMutateFailure({ cause: failure });
     } finally {
       if (mountedRef.current) setMutatePending(null);
     }
@@ -1065,6 +1078,7 @@ export function CopilotKitV2Shell({
   const [runState, setRunState] = React.useState<{
     readonly isRunning: boolean;
     readonly phaseLabel: string | null;
+    readonly phaseLabelOwned?: boolean;
     readonly startedAt: number | null; readonly recoveryDiagnostic?: string | null;
   }>({ isRunning: false, phaseLabel: null, startedAt: null });
   const [pendingMaterialsCount, setPendingMaterialsCount] = React.useState(0);
@@ -1121,7 +1135,7 @@ export function CopilotKitV2Shell({
           aria-expanded={mobileListOpen}
           onClick={() => setMobileListOpen((v) => !v)}
         >
-          {mobileListOpen ? "返回当前对话" : "对话列表"}
+          {mobileListOpen ? t("chatEntry.backToConversation") : t("chatEntry.conversationList")}
         </Button>
       </div>
       <aside
@@ -1143,7 +1157,7 @@ export function CopilotKitV2Shell({
             起，铃铛不在这里了——它挂在全局图标导航栏底部（`components/shell/rail-notifications.tsx`）。
             铃铛顺带承担的「对话列表保鲜」那半边留在本文件：它属于聊天外壳，不该跟着搬走。 */}
         <div className="flex flex-col gap-1.5 px-3">
-          <NewThreadButton onClick={() => void handleCreate()} disabled={!bearer || createPending} label="新建对话" />
+          <NewThreadButton onClick={() => void handleCreate()} disabled={!bearer || createPending} label={t("chatEntry.newConversation")} />
           {/* 2026-08-31 补：新建失败此前无声无息（见上面 `createFailure` 头注）——
               现在与 `mutateFailure`（改名/删除失败）同一套呈现纪律，就地印一行红字。 */}
           {createFailure ? (
@@ -1151,15 +1165,15 @@ export function CopilotKitV2Shell({
           ) : null}
           {/* issue #2039（第 3 轮 gap #2，fidelity P2）——个人对话上下文如实说明，
               与旧轨道 `personal-chat-screen.tsx` 同一句文案，不画假项目名填空。 */}
-          <p className="text-10 text-muted-foreground">{projectId ? "本项目的对话，按对话权限可见" : "不挂靠任何项目，仅自己可见"}</p>
+          <p className="text-10 text-muted-foreground">{projectId ? t("chatEntry.projectHint") : t("chatEntry.personalHint")}</p>
           {/* issue #2075（TW-P2-6）—— 搜索。纯前端过滤已经在手的这份列表，
               理由见上面 `query` 声明处（契约里没有服务端查询参数）。 */}
           <Input
             ref={searchRef}
             type="search"
             data-testid="chat-task-workbench-thread-search"
-            aria-label="搜索对话"
-            placeholder="搜索对话标题"
+            aria-label={t("chatEntry.search")}
+            placeholder={t("chatEntry.searchPlaceholder")}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
@@ -1213,14 +1227,14 @@ export function CopilotKitV2Shell({
                ⚠ 文案措辞也跟着改了：搜索现在查的是全部历史，不是手上这一页，
                  所以"没搜到"这次是真的没有。 */
             <p className="px-1 py-2 text-11 text-muted-foreground" data-testid="chat-task-workbench-thread-search-empty">
-              全部对话里都没有标题含「{appliedQuery}」的。换个词，或点上面「新建对话」。
+              {t("chatEntry.noSearchResults", { query: appliedQuery })}
             </p>
           ) : cards.length === 0 ? (
-            <p className="px-1 py-2 text-11 text-muted-foreground">还没有对话，点上面「新建对话」开始第一次对话</p>
+            <p className="px-1 py-2 text-11 text-muted-foreground">{t("chatEntry.emptyList")}</p>
           ) : (
             renderGroups.map((group) => (
               <React.Fragment key={group.label}>
-                <p className="px-1 pb-0.5 pt-2 text-10 font-medium text-muted-foreground">{group.label}</p>
+                <p className="px-1 pb-0.5 pt-2 text-10 font-medium text-muted-foreground">{THREAD_GROUP_MESSAGES[group.label] ? t(THREAD_GROUP_MESSAGES[group.label]!) : group.label}</p>
                 {group.cards.map((card) => (
                   <ThreadCardButton
                     key={card.id}
@@ -1257,7 +1271,7 @@ export function CopilotKitV2Shell({
                 disabled={loadMorePending}
                 onClick={() => void loadMore()}
               >
-                {loadMorePending ? "加载中…" : "加载更多"}
+                {loadMorePending ? t("ui.loading") : t("chatEntry.loadMore")}
               </Button>
               {loadMoreError ? (
                 <p className="pt-1 text-10 text-destructive" data-testid="chat-thread-list-load-more-error">
@@ -1289,15 +1303,15 @@ export function CopilotKitV2Shell({
             data-testid="copilotkit-v2-thread-topbar-title"
           >
             {selectedThreadId === null
-              ? (projectId ? "项目对话" : "个人对话")
-              : displayThreadTitle(cards.find((card) => card.id === selectedThreadId)?.title) ?? (projectId ? "项目对话" : "个人对话")}
+              ? (projectId ? t("chatEntry.projectConversation") : t("chatEntry.personalConversation"))
+              : displayThreadTitle(cards.find((card) => card.id === selectedThreadId)?.title) ?? (projectId ? t("chatEntry.projectConversation") : t("chatEntry.personalConversation"))}
           </span>
           <span
             className="flex shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-10 text-muted-foreground"
             data-testid="copilotkit-v2-thread-topbar-visibility"
           >
             <Lock aria-hidden className="h-2.5 w-2.5" />
-            {projectId ? "按对话权限可见" : "仅自己可见"}
+            {projectId ? t("chatEntry.projectVisibility") : t("chatEntry.privateVisibility")}
           </span>
           {selectedThreadId && bearer && threadDetail?.thread.id === selectedThreadId && threadDetail.thread.createdBy === session?.userId && <ChatShareButton key={JSON.stringify([selectedThreadId, bearer, currentOrgId])} threadId={selectedThreadId} bearer={bearer} />}
         </div>
@@ -1396,14 +1410,15 @@ export function CopilotKitV2Shell({
            那行同源（`canWriteThread`/`archived`）。服务端本就按 `composer.send` 能力
            拒绝越权上传（`NO_WRITE_ROLE`），这里只是让前端诚实反映它已经在拒的事。 */
         uploadDisabledReason={
-          archived ? "该对话已归档，不能再上传文件"
-            : !canWriteThread ? "当前对话只读或写权限尚未确认，不能上传文件"
-              : selectedThreadId === null ? "先选一条对话，再上传文件"
+          archived ? t("chatEntry.uploadArchived")
+            : !canWriteThread ? t("chatEntry.uploadReadOnly")
+              : selectedThreadId === null ? t("chatEntry.uploadNoThread")
                 : null
         }
         planTodos={planTodos}
         isRunning={runState.isRunning}
         runPhaseLabel={runState.phaseLabel}
+        runPhaseLabelOwned={runState.phaseLabelOwned}
         runStartedAt={runState.startedAt}
         recoveryDiagnostic={runState.recoveryDiagnostic}
         /* phase-18 F09 —— 右栏「记忆」页签（会话知识面板）。与编制同一条规则：选中了线程才开。 */

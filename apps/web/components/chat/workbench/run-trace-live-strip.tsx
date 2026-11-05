@@ -1,6 +1,9 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import type { TraceEntry } from "@/lib/chat-workbench/run-trace";
+
+type LiveTranslate = ReturnType<typeof useI18n>["t"];
 
 /**
  * issue #3320 —— 「工具失败之后界面失去前进感，用户以为死机」的活性文案。
@@ -71,6 +74,7 @@ export function RunTraceLiveStrip({ entries, active }: {
    * 「已等待 N 秒」是**真事实**（我们确实知道等了多久），不是伪造的进度百分比——
    * 后者才是这个文件头注一直在拒绝的那种「界面从未验证过的谎言」。
    */
+  const { t } = useI18n();
   const [elapsedSec, setElapsedSec] = React.useState(0);
   const startedAt = React.useRef<number | null>(null);
   React.useEffect(() => {
@@ -106,10 +110,10 @@ export function RunTraceLiveStrip({ entries, active }: {
   >
     <span data-testid="run-trace-live-label" className="truncate">
       {runningEntry !== undefined
-        ? liveLabel(runningEntry)
-        : lastSettled === undefined ? "正在等待模型返回" : settledLabel(lastSettled)}
-      {completed > 0 ? ` · 已完成 ${String(completed)} 个动作` : ""}
-      {elapsedSec >= 3 ? ` · 已等待 ${String(elapsedSec)} 秒` : ""}
+        ? liveLabel(runningEntry, t)
+        : lastSettled === undefined ? t("chatTools.waitingModel") : settledLabel(lastSettled, t)}
+      {completed > 0 ? t("chatTools.completedCount", { count: completed }) : ""}
+      {elapsedSec >= 3 ? t("chatTools.waited", { count: elapsedSec }) : ""}
     </span>
   </span>;
 }
@@ -118,23 +122,23 @@ export function RunTraceLiveStrip({ entries, active }: {
  * 刚收尾的那一步。用「刚完成 / 刚失败」而不是「正在」——它说的是过去式，不能借活性文案
  * 的位置假装有东西在跑。
  */
-function settledLabel(entry: TraceEntry): string {
-  const what = entry.kind === "skill" ? `技能 · ${entry.text}` : actionName(entry.text);
-  return entry.status === "failed" ? `刚失败：${what}` : `刚完成：${what}`;
+function settledLabel(entry: TraceEntry, t: LiveTranslate): string {
+  const what = entry.kind === "skill" ? t("chatTools.skillWhat", { name: entry.text }) : actionName(entry.text, t);
+  return entry.status === "failed" ? t("chatTools.justFailed", { what }) : t("chatTools.justCompleted", { what });
 }
 
 /** 与折叠行同一套动作措辞，但只说**此刻**在做什么——不带「有失败步骤」这种恒在的后缀。 */
-function liveLabel(entry: TraceEntry): string {
-  if (entry.activityStage) return "正在执行技能";
-  if (entry.kind === "skill") return `正在调用技能 · ${entry.text}`;
-  return `正在${actionName(entry.text)}`;
+function liveLabel(entry: TraceEntry, t: LiveTranslate): string {
+  if (entry.activityStage) return t("chatTools.executingSkill");
+  if (entry.kind === "skill") return t("chatTools.callingSkill", { name: entry.text });
+  return t("chatTools.runningAction", { action: actionName(entry.text, t) });
 }
 
 /** 动作措辞的单一事实源：`liveLabel`（进行中）与 `settledLabel`（已收尾）共用。 */
-function actionName(tool: string): string {
-  return tool === "search_documents" ? "检索资料"
-    : tool === "spawn_async_task" ? "派发后台任务"
-    : tool === "write_todos" ? "更新执行计划"
-    : tool === "run_script" ? "执行生成脚本"
-    : "执行工具操作";
+function actionName(tool: string, t: LiveTranslate): string {
+  return tool === "search_documents" ? t("chatTools.searchAction")
+    : tool === "spawn_async_task" ? t("chatTools.dispatchAction")
+    : tool === "write_todos" ? t("chatTools.planAction")
+    : tool === "run_script" ? t("chatTools.scriptAction")
+    : t("chatTools.genericAction");
 }

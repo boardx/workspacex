@@ -19,6 +19,7 @@ import { orgHomeConfigZhCN } from "../namespaces/org-home-config";
 import { orgProfileZhCN } from "../namespaces/org-profile";
 import { adminNavigationZhCN } from "../namespaces/admin-navigation";
 import { brainViewsZhCN } from "../namespaces/brain-views";
+import { chatZhCN } from "../namespaces/chat";
 import { zhTasks } from "./tasks";
 import { zhFailures } from "./failures";
 import { controlsZhCN } from "../namespaces/controls";
@@ -56,6 +57,7 @@ export const zhCN = {
   ...orgHomeConfigZhCN,
   ...orgProfileZhCN,
   ...brainViewsZhCN,
+  ...chatZhCN,
   ...zhTasks,
   ...zhFailures,
   ...controlsZhCN,

@@ -1,0 +1,43 @@
+export const chatRosterZhCN = {
+  "chatRoster.title": "本线程的 AI 团队",
+  "chatRoster.presentCount": " · 在场 {count}",
+  "chatRoster.edit": "编辑",
+  "chatRoster.readonly": "只读",
+  "chatRoster.addLabel": "加入 agent（选自组织 agent 目录）",
+  "chatRoster.noCandidates": "组织 agent 目录里没有可加入的 agent",
+  "chatRoster.choose": "选择一个 agent…",
+  "chatRoster.pending": "提交中…",
+  "chatRoster.add": "加入",
+  "chatRoster.hint": "候选来自组织 agent 目录，加入编制不代表该 agent 已具备可执行的运行时——如果加入后发消息失败，是已知的后台创建路径缺口，请联系管理员确认该 agent 是否已发布。",
+  "chatRoster.directoryFailure": "agent 目录读取失败：",
+  "chatRoster.noSelection": "还没有选择对话。在左侧选一条对话，这里会列出它的成员编制。",
+  "chatRoster.loading": "正在读取编制…",
+  "chatRoster.empty": "当前编制为空。",
+  "chatRoster.remove": "移出",
+  "chatRoster.market": "从 Agent 市场加入",
+  "chatRoster.presence.present": "在场",
+  "chatRoster.presence.away": "离开",
+  "chatRoster.presence.off": "离线"
+} as const;
+
+export const chatRosterEn: Record<keyof typeof chatRosterZhCN, string> = {
+  "chatRoster.title": "AI team for this conversation",
+  "chatRoster.presentCount": " · {count} present",
+  "chatRoster.edit": "Edit",
+  "chatRoster.readonly": "Read only",
+  "chatRoster.addLabel": "Add an agent from the organization directory",
+  "chatRoster.noCandidates": "No agents available to add from the organization directory",
+  "chatRoster.choose": "Choose an agent…",
+  "chatRoster.pending": "Submitting…",
+  "chatRoster.add": "Add",
+  "chatRoster.hint": "Candidates come from the organization agent directory. Adding an agent to the team does not mean it has a runnable published version. If messages fail after adding it, ask an administrator to check whether the agent is published.",
+  "chatRoster.directoryFailure": "Could not load the agent directory: ",
+  "chatRoster.noSelection": "Select a conversation on the left to see its team members.",
+  "chatRoster.loading": "Loading team…",
+  "chatRoster.empty": "This team is empty.",
+  "chatRoster.remove": "Remove",
+  "chatRoster.market": "Add from the Agent marketplace",
+  "chatRoster.presence.present": "Present",
+  "chatRoster.presence.away": "Away",
+  "chatRoster.presence.off": "Offline"
+};

@@ -1,0 +1,88 @@
+{
+  "head": "cb463c5160a8f78a1c8d910fefd27c79ce438250",
+  "sourceSha256": {
+    "apps/web/components/agent-kernel/tool-permission-card.tsx": "fc837d8ef3c9126806fe343b0f17bab06849ad8f64258677ba9e7ec1cc2927c4",
+    "apps/web/components/chat/chat-skill-mount-panel.tsx": "ebeb0fc91dc327c189b9ec19d65f10b0bd7a5dd9184a9021bfd48c44ff765579",
+    "apps/web/components/chat/copilotkit-v2-panel-body.tsx": "b14587d278649d70e9eba1749234839fb376a900eb5647003b17db080827233a",
+    "apps/web/components/chat/copilotkit-v2-panel-view.tsx": "02a7cea9981ccbbf2eec8a18b18b8298d54765bcea0bba123240425154080050",
+    "apps/web/components/chat/copilotkit-v2-plan-control.tsx": "89fbf1995f2682fe46314ba778bcc3b46014937b8a8823e4d69ef465b8917b8e",
+    "apps/web/components/chat/document-generation-auto-approve-toggle.tsx": "f6bd57135797dd472f6917d82b82e48b02478905c4c7d2478555bed48ee371d9",
+    "apps/web/components/chat/project-chat-context-bar.tsx": "a5dbeff43cf15d75fb452dc81c83404f5a6813adea53e3752812689fd71fd921",
+    "apps/web/e2e/i18n-chat-workspace.spec.ts": "5203b280cbe1aa0cd23a6914871b01911608a21af9bc7618f41e83bd9c327669",
+    "apps/web/lib/i18n/namespaces/chat-composer.ts": "7c45f563cb6f62de1936da278ab9ea441ed2db0f117861c576933315acd3d851",
+    "apps/web/lib/i18n/namespaces/chat-entry.ts": "585eabf0c39e4b8bfcec2892121a30c519b3693d91307720d0da2df58ddbc43e",
+    "apps/web/lib/i18n/namespaces/chat-plan-control.ts": "9709629d8c0563ccf59bd4c3a8b9fb3fdc627661dca162d51be76a749e1644c7",
+    "apps/web/lib/i18n/namespaces/chat.ts": "ccce5ab99eee4791b80b6ec5ab8c44dbc6596f41cbb05ed800d665635f2a79e3",
+    "apps/web/lib/plan-control-owned-status.ts": "3dc23c4c6228304fe89745263cd8ee84d58f32c4b0c0426bb101e5eb5f446a2f",
+    "apps/web/tests/plan-control-summary-i18n.test.ts": "cf051d8abbd03a4a8f182fc2d6b62c7dbfdfda07ab30bed251ee7535c4402fa5",
+    "apps/web/tests/ui/copilotkit-v2-live-failure-cause-banner.test.tsx": "ddc24bc5eb0368010d206abac4357ca7f1137c75c05a812f9d829f8c623cd6af",
+    "apps/web/tests/ui/i18n-chat-canonical-chrome.test.tsx": "214fd0f363d6f6a0121944be4b189fad122e19f6ec75d8fa5a30fddd9254cc66"
+  },
+  "gates": [
+    {
+      "name": "type",
+      "command": [
+        "pnpm",
+        "--filter",
+        "web",
+        "typecheck"
+      ],
+      "exitCode": 0,
+      "seconds": 46.96
+    },
+    {
+      "name": "lint",
+      "command": [
+        "pnpm",
+        "--filter",
+        "web",
+        "exec",
+        "eslint",
+        "components/agent-kernel/tool-permission-card.tsx",
+        "components/chat/chat-skill-mount-panel.tsx",
+        "components/chat/copilotkit-v2-panel-body.tsx",
+        "components/chat/copilotkit-v2-panel-view.tsx",
+        "components/chat/copilotkit-v2-plan-control.tsx",
+        "components/chat/document-generation-auto-approve-toggle.tsx",
+        "components/chat/project-chat-context-bar.tsx",
+        "e2e/i18n-chat-workspace.spec.ts",
+        "lib/i18n/namespaces/chat-composer.ts",
+        "lib/i18n/namespaces/chat-entry.ts",
+        "lib/i18n/namespaces/chat-plan-control.ts",
+        "lib/i18n/namespaces/chat.ts",
+        "lib/plan-control-owned-status.ts",
+        "tests/plan-control-summary-i18n.test.ts",
+        "tests/ui/copilotkit-v2-live-failure-cause-banner.test.tsx",
+        "tests/ui/i18n-chat-canonical-chrome.test.tsx"
+      ],
+      "exitCode": 0,
+      "seconds": 2.762
+    },
+    {
+      "name": "neighbors",
+      "command": [
+        "pnpm",
+        "--filter",
+        "web",
+        "exec",
+        "vitest",
+        "run",
+        "tests/ui/copilotkit-v2-live-failure-cause-banner.test.tsx",
+        "tests/agent-kernel/tool-permission-card.test.tsx",
+        "tests/ui/i18n-chat-skill-mount.test.tsx",
+        "tests/ui/copilotkit-v2-restore-tool-permission-dialog.test.tsx",
+        "tests/lib/i18n-resources.test.ts"
+      ],
+      "exitCode": 0,
+      "seconds": 21.311
+    }
+  ],
+  "neighborResult": {
+    "files": 5,
+    "passed": 30,
+    "failed": 0,
+    "skipped": 0,
+    "warnings": "Existing realSDK relative runtime-info URL, intentional error-bus fixtures, Lit/Vite diagnostics retained; not zero-stderr."
+  },
+  "browserGeometryVerified": false
+}

@@ -1,11 +1,13 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
+import type { Locale } from "@/lib/i18n/locale";
 import { ArrowUpRight, CheckCircle2, Loader2 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  ESCALATION_TARGET_LABEL,
+  escalationTargetLabel,
   decideEscalation,
   escalationFailureText,
   parseEscalatePayload,
@@ -58,14 +60,15 @@ export function AgentEscalationCard({
   onDecided,
   submit = decideEscalation,
 }: AgentEscalationCardProps): JSX.Element {
+  const { locale, t } = useI18n();
   const [text, setText] = React.useState("");
   const [inFlight, setInFlight] = React.useState<EscalateDecision["decision"] | null>(null);
-  const [error, setError] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<{ cause: unknown } | null>(null);
   const [done, setDone] = React.useState<EscalateDecision["decision"] | null>(null);
   const textId = React.useId();
   const hintId = React.useId();
 
-  const who = agentName?.trim() || "数字人";
+  const who = agentName?.trim() || t("chatEscalation.teammate");
   const trimmed = text.trim();
   const hasDistinctReason = payload !== null && payload.reason.trim() !== "" && payload.reason.trim() !== payload.matter.trim();
   const actionable = canWrite && interruptId !== null && payload !== null && done === null;
@@ -82,7 +85,7 @@ export function AgentEscalationCard({
       setDone(kind);
       onDecided?.(kind);
     } catch (cause) {
-      setError(escalationFailureText(cause));
+      setError({ cause });
     } finally {
       setInFlight(null);
     }
@@ -90,14 +93,14 @@ export function AgentEscalationCard({
 
   return (
     <section
-      aria-label={`${who} 升级了一件事，需要你拍板`}
+      aria-label={t("chatEscalation.cardAria", { who })}
       className="overflow-hidden rounded-card border border-border bg-card shadow-sm"
       data-testid="agent-escalation-card"
       data-escalation-target={payload?.target ?? undefined}
     >
       <div className="flex items-center gap-1.5 bg-warning-tint px-3 py-1.5 text-11 font-medium text-warning-tint-foreground" data-testid="agent-escalation-banner">
         <ArrowUpRight aria-hidden className="h-3.5 w-3.5 shrink-0" />
-        {done ? "已给出决定" : "等你拍板 · 任务暂停中"}
+        {done ? t("chatEscalation.doneBanner") : t("chatEscalation.waiting")}
       </div>
       <div className="p-3">
       <header className="flex items-start gap-2.5">
@@ -111,13 +114,13 @@ export function AgentEscalationCard({
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-center gap-1.5 text-13 font-medium text-card-foreground">
             <span data-testid="agent-escalation-who">{who}</span>
-            <span className="text-muted-foreground">把一件事升级给了</span>
+            <span className="text-muted-foreground">{t("chatEscalation.escalatedTo")}</span>
             {payload ? (
-              <Badge tone="attention" data-testid="agent-escalation-target">{ESCALATION_TARGET_LABEL[payload.target]}</Badge>
+              <Badge tone="attention" data-testid="agent-escalation-target">{escalationTargetLabel(payload.target, locale)}</Badge>
             ) : null}
           </p>
           <p className="mt-0.5 text-11 text-muted-foreground">
-            这件事超出了它自己能做主的范围，任务会停在这里，等你给出决定后继续。
+            {t("chatEscalation.scope")}
           </p>
         </div>
       </header>
@@ -129,43 +132,43 @@ export function AgentEscalationCard({
           {hasDistinctReason ? (
             <div className="rounded-control border-l-2 border-warning bg-muted px-2.5 py-2">
               <dt className="flex flex-wrap items-center gap-1.5 text-11 text-muted-foreground">
-                需要你决定
+                {t("chatEscalation.needsDecision")}
                 <Badge tone="neutral" data-testid="agent-escalation-matter">{payload.matter}</Badge>
               </dt>
               <dd className="mt-0.5 whitespace-pre-wrap font-medium text-card-foreground" data-testid="agent-escalation-reason">{payload.reason}</dd>
             </div>
           ) : (
             <div className="rounded-control border-l-2 border-warning bg-muted px-2.5 py-2">
-              <dt className="text-11 text-muted-foreground">需要你决定</dt>
+              <dt className="text-11 text-muted-foreground">{t("chatEscalation.needsDecision")}</dt>
               <dd className="mt-0.5 font-medium text-card-foreground" data-testid="agent-escalation-matter">{payload.matter}</dd>
             </div>
           )}
           {payload.contextRefs.length > 0 ? (
             <p className="px-0.5 text-11 text-muted-foreground" data-testid="agent-escalation-refs">
-              附带 {payload.contextRefs.length} 条相关材料，可在任务过程区查看。
+              {t("chatEscalation.refs", { count: payload.contextRefs.length })}
             </p>
           ) : null}
         </dl>
       ) : (
         <p className="mt-3 rounded-control bg-muted px-2.5 py-2 text-12 text-muted-foreground" data-testid="agent-escalation-unreadable">
-          这条升级请求的详情暂时读不出来。刷新页面后再看一次；如果仍然看不到，可以在对话里直接告诉它你的意见。
+          {t("chatEscalation.unreadable")}
         </p>
       )}
 
       {done ? (
         <p role="status" className="mt-3 flex items-center gap-1.5 rounded-control bg-muted px-2.5 py-2 text-12 text-card-foreground" data-testid="agent-escalation-done">
           <CheckCircle2 aria-hidden className="h-3.5 w-3.5 shrink-0 text-success" />
-          {done === "resolve" ? "已提交你的决定，任务正在按它继续。" : "已告诉它你不同意，它会据此调整做法。"}
+          {done === "resolve" ? t("chatEscalation.resolved") : t("chatEscalation.rejected")}
         </p>
       ) : actionable ? (
         <div className="mt-3">
-          <label htmlFor={textId} className="text-11 font-medium text-card-foreground">你的决定或意见</label>
+          <label htmlFor={textId} className="text-11 font-medium text-card-foreground">{t("chatEscalation.yourDecision")}</label>
           <textarea
             id={textId}
             aria-describedby={hintId}
             data-testid="agent-escalation-text"
             className="mt-1 h-20 w-full resize-y rounded-control border border-input bg-background px-2.5 py-1.5 text-12 text-background-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            placeholder="写下你的决定；选「不同意」时写明理由。"
+            placeholder={t("chatEscalation.placeholder")}
             maxLength={TEXT_MAX}
             value={text}
             disabled={inFlight !== null}
@@ -175,10 +178,10 @@ export function AgentEscalationCard({
             }}
           />
           <p id={hintId} className="mt-1 text-10 text-muted-foreground">
-            它会按你写的内容继续；选「不同意」时，这段话会作为理由告诉它。Ctrl/⌘ + Enter 快速提交决定。
+            {t("chatEscalation.hint")}
           </p>
           {error ? (
-            <p role="alert" className="mt-2 text-11 text-destructive" data-testid="agent-escalation-error">{error}</p>
+            <p role="alert" className="mt-2 text-11 text-destructive" data-testid="agent-escalation-error">{escalationFailureText(error.cause, locale)}</p>
           ) : null}
           <div className="mt-2 flex flex-wrap justify-end gap-2">
             <Button
@@ -190,7 +193,7 @@ export function AgentEscalationCard({
               onClick={() => void send("reject")}
             >
               {inFlight === "reject" ? <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" /> : null}
-              不同意
+              {t("chatEscalation.disagree")}
             </Button>
             <Button
               type="button"
@@ -201,13 +204,13 @@ export function AgentEscalationCard({
               onClick={() => void send("resolve")}
             >
               {inFlight === "resolve" ? <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" /> : null}
-              提交决定
+              {t("chatEscalation.submit")}
             </Button>
           </div>
         </div>
       ) : payload && interruptId !== null && !canWrite ? (
         <p className="mt-3 text-11 text-muted-foreground" data-testid="agent-escalation-readonly">
-          你当前只能查看这条对话，决定需要由{ESCALATION_TARGET_LABEL[payload.target]}给出。
+          {t("chatEscalation.readonly", { target: locale === "en" ? escalationTargetLabel(payload.target, locale).toLowerCase() : escalationTargetLabel(payload.target, locale) })}
         </p>
       ) : null}
       </div>
@@ -233,13 +236,14 @@ export function AgentEscalationForRun({
   readonly canWrite?: boolean;
   readonly onDecided?: (decision: EscalateDecision["decision"]) => void;
 }): JSX.Element {
+  const { locale } = useI18n();
   const directory = useAgentDirectoryMap();
   const card = directory.get(agentId);
   return (
     <AgentEscalationCard
       interruptId={pending.permissionRequestId ?? null}
       payload={parseEscalatePayload(pending.argsSummary)}
-      agentName={card ? agentDisplayName(card) : null}
+      agentName={card ? agentDisplayName(card, locale) : null}
       agentInitials={card?.initials ?? null}
       agentAvatarKey={card?.avatar?.key ?? null}
       sessionToken={sessionToken}
@@ -251,10 +255,11 @@ export function AgentEscalationForRun({
 
 export type ResolvedEscalation = NonNullable<AgentRunView["resolvedEscalations"]>[number];
 
-function formatDecidedAt(iso: string | null): string | null {
+function formatDecidedAt(iso: string | null, locale: Locale): string | null {
   if (!iso) return null;
   const at = new Date(iso);
   if (Number.isNaN(at.getTime())) return null;
+  if (locale === "en") return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }).format(at);
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${at.getMonth() + 1}月${at.getDate()}日 ${pad(at.getHours())}:${pad(at.getMinutes())}`;
 }
@@ -264,20 +269,21 @@ function formatDecidedAt(iso: string | null): string | null {
  * 决定人 · 同意/驳回 · 时间，下面是事项与说明原文。数据来自权威读 `resolvedEscalations`，刷新后照旧。
  */
 export function AgentEscalationDecidedRecord({ record }: { readonly record: ResolvedEscalation }): JSX.Element {
+  const { locale, t } = useI18n();
   const payload = parseEscalatePayload(record.argsSummary);
-  const decider = record.decidedBy?.displayName?.trim() || (payload ? ESCALATION_TARGET_LABEL[payload.target] : "负责人");
-  const verdict = record.decision === "resolve" ? "同意" : "驳回";
-  const when = formatDecidedAt(record.decidedAt);
+  const decider = record.decidedBy?.displayName?.trim() || (payload ? escalationTargetLabel(payload.target, locale) : t("chatEscalation.owner"));
+  const verdict = record.decision === "resolve" ? t("chatEscalation.approved") : t("chatEscalation.declined");
+  const when = formatDecidedAt(record.decidedAt, locale);
   return (
     <section
-      aria-label={`已裁决：${decider}${verdict}`}
+      aria-label={t("chatEscalation.recordAria", { decider, verdict })}
       className="rounded-card border border-border bg-muted px-3 py-2 text-12"
       data-testid="agent-escalation-decided"
       data-decision={record.decision}
     >
       <p className="flex flex-wrap items-center gap-1.5 text-11 text-muted-foreground">
         <CheckCircle2 aria-hidden className="h-3.5 w-3.5 shrink-0 text-success" />
-        <span className="font-medium text-card-foreground">已裁决</span>
+        <span className="font-medium text-card-foreground">{t("chatEscalation.recorded")}</span>
         <span aria-hidden>·</span>
         <span data-testid="agent-escalation-decided-by">{decider}</span>
         <Badge tone={record.decision === "resolve" ? "success" : "attention"} data-testid="agent-escalation-decided-verdict">{verdict}</Badge>
@@ -285,7 +291,7 @@ export function AgentEscalationDecidedRecord({ record }: { readonly record: Reso
       </p>
       {payload ? <p className="mt-1 text-card-foreground" data-testid="agent-escalation-decided-matter">{payload.matter}</p> : null}
       <p className="mt-0.5 whitespace-pre-wrap text-muted-foreground" data-testid="agent-escalation-decided-text">
-        {record.decision === "resolve" ? "决定：" : "理由："}{record.text}
+        {record.decision === "resolve" ? t("chatEscalation.decisionPrefix") : t("chatEscalation.reasonPrefix")}{record.text}
       </p>
     </section>
   );

@@ -1,3 +1,6 @@
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+import type { Locale } from "@/lib/i18n/locale";
+
 /**
  * 工具的**用户可读名 + 这次调用做了什么**——**唯一**一份映射。
  *
@@ -30,75 +33,67 @@
  * `args` 里躺着，此前只以 JSON 原文出现在展开层。`toolObject` 把它抽成一句人话
  * （`page-06.png`），给折叠行和工具卡**共用**——又一次「同一事实只声明一处」。
  */
-export const TOOL_LABEL: Record<string, string> = {
-  // —— 计划与子任务 ——
-  write_todos: "制定执行计划",
-  task: "派发子任务",
-  spawn_async_task: "派发后台任务",
-  wx_run_status: "查询任务状态",
-  wx_run_cancel: "取消任务",
-  // —— 文件 ——
-  ls: "查看目录",
-  read_file: "读取文件",
-  write_file: "写入文件",
-  edit_file: "修改文件",
-  delete: "删除文件",
-  glob: "按名称查找文件",
-  grep: "在文件里搜索",
-  execute: "运行脚本",
-  run_script: "执行生成脚本",
-  // —— 资料与检索 ——
-  search_documents: "检索文档",
-  read_document: "读取文档",
-  web_search: "联网搜索",
-  fetch_url: "打开网页",
-  wx_document_parse: "解析文档",
-  wx_knowledge_search: "检索知识库",
-  wx_knowledge_read: "读取知识库",
-  wx_cite: "标注引用来源",
-  // #4344：agent 唯一的记忆工具——只在回答下方放一张「记住」确认卡，用户点了才记。
-  wx_remember: "提议记住（待你确认）",
-  // 已退役（#4344），留着是为了旧 run 的轨迹仍显示中文名。
-  wx_memory_search: "检索记忆",
-  wx_memory_write: "记录记忆",
-  wx_memory_delete: "删除记忆",
-  wx_project_list: "查看项目列表",
-  wx_project_read: "读取项目资料",
-  // —— 产物 ——
-  wx_artifact_publish: "发布产物",
-  wx_artifact_download: "下载产物",
-  wx_canvas_read: "读取画布",
-  wx_canvas_update: "更新画布",
-  wx_image_generate: "生成图片",
-  wx_audio_transcribe: "转写音频",
-  wx_skill_create_draft: "起草技能",
-  // —— 日程 ——
-  wx_schedule_create: "创建日程",
-  wx_schedule_list: "查看日程",
-  wx_schedule_cancel: "取消日程",
-  // —— 流程 ——
-  // AG05：Agent 发起组织已发布的 Workflow（白名单外会被拒绝，结果句子在工具结果里）。
-  start_workflow: "发起流程",
-  // AG07：Agent 请求把问题转交给另一个数字人角色（需用户确认，结果句子在工具结果里）。
-  request_handoff: "请求转交",
-  // —— 数据库 ——
-  sql_db_list_tables: "查看数据表",
-  sql_db_schema: "查看表结构",
-  sql_db_query_checker: "检查查询语句",
-  sql_db_query: "执行数据查询",
-  // —— 浏览器 ——
-  browser_navigate: "打开网页",
-  browser_snapshot: "读取页面内容",
-  browser_click: "点击页面元素",
-  browser_fill_form: "填写表单",
-  browser_take_screenshot: "截取页面",
-  // —— 其它 ——
-  lookup_time: "查询当前时间",
-  send_email: "发送邮件",
+const TOOL_LABEL_KEYS: Record<string, MessageKey> = {
+  write_todos: "chatTools.name.write_todos",
+  task: "chatTools.name.task",
+  spawn_async_task: "chatTools.name.spawn_async_task",
+  wx_run_status: "chatTools.name.wx_run_status",
+  wx_run_cancel: "chatTools.name.wx_run_cancel",
+  ls: "chatTools.name.ls",
+  read_file: "chatTools.name.read_file",
+  write_file: "chatTools.name.write_file",
+  edit_file: "chatTools.name.edit_file",
+  delete: "chatTools.name.delete",
+  glob: "chatTools.name.glob",
+  grep: "chatTools.name.grep",
+  execute: "chatTools.name.execute",
+  run_script: "chatTools.name.run_script",
+  search_documents: "chatTools.name.search_documents",
+  read_document: "chatTools.name.read_document",
+  web_search: "chatTools.name.web_search",
+  fetch_url: "chatTools.name.fetch_url",
+  wx_document_parse: "chatTools.name.wx_document_parse",
+  wx_knowledge_search: "chatTools.name.wx_knowledge_search",
+  wx_knowledge_read: "chatTools.name.wx_knowledge_read",
+  wx_cite: "chatTools.name.wx_cite",
+  wx_remember: "chatTools.name.wx_remember",
+  wx_memory_search: "chatTools.name.wx_memory_search",
+  wx_memory_write: "chatTools.name.wx_memory_write",
+  wx_memory_delete: "chatTools.name.wx_memory_delete",
+  wx_project_list: "chatTools.name.wx_project_list",
+  wx_project_read: "chatTools.name.wx_project_read",
+  wx_artifact_publish: "chatTools.name.wx_artifact_publish",
+  wx_artifact_download: "chatTools.name.wx_artifact_download",
+  wx_canvas_read: "chatTools.name.wx_canvas_read",
+  wx_canvas_update: "chatTools.name.wx_canvas_update",
+  wx_image_generate: "chatTools.name.wx_image_generate",
+  wx_audio_transcribe: "chatTools.name.wx_audio_transcribe",
+  wx_skill_create_draft: "chatTools.name.wx_skill_create_draft",
+  wx_schedule_create: "chatTools.name.wx_schedule_create",
+  wx_schedule_list: "chatTools.name.wx_schedule_list",
+  wx_schedule_cancel: "chatTools.name.wx_schedule_cancel",
+  start_workflow: "chatTools.name.start_workflow",
+  request_handoff: "chatTools.name.request_handoff",
+  sql_db_list_tables: "chatTools.name.sql_db_list_tables",
+  sql_db_schema: "chatTools.name.sql_db_schema",
+  sql_db_query_checker: "chatTools.name.sql_db_query_checker",
+  sql_db_query: "chatTools.name.sql_db_query",
+  browser_navigate: "chatTools.name.browser_navigate",
+  browser_snapshot: "chatTools.name.browser_snapshot",
+  browser_click: "chatTools.name.browser_click",
+  browser_fill_form: "chatTools.name.browser_fill_form",
+  browser_take_screenshot: "chatTools.name.browser_take_screenshot",
+  lookup_time: "chatTools.name.lookup_time",
+  send_email: "chatTools.name.send_email",
 };
+/** Legacy Chinese projection; the authored tool-name dictionary remains single-source. */
+export const TOOL_LABEL: Record<string, string> = Object.fromEntries(
+  Object.entries(TOOL_LABEL_KEYS).map(([name, key]) => [name, translate("zh-CN", key)]),
+);
 
-export function toolLabel(name: string): string {
-  return TOOL_LABEL[name] ?? name;
+export function toolLabel(name: string, locale: Locale = "zh-CN"): string {
+  const key = Object.hasOwn(TOOL_LABEL_KEYS, name) ? TOOL_LABEL_KEYS[name] : undefined;
+  return key === undefined ? name : translate(locale, key);
 }
 
 /**

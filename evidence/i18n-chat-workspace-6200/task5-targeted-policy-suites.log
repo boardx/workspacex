@@ -1,0 +1,13 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages
+
+ ✓ .harness/scripts/ci-targeted-ui.test.ts (7 tests) 7431ms
+   ✓ uses real source history and suite hashes; unknown, missing, renamed and nonregular inputs fall back 7093ms
+ ✓ .harness/scripts/ci-targeted-wiring.test.ts (6 tests) 155ms
+ ✓ .harness/scripts/ci-targeted-routing.test.ts (4 tests) 152ms
+
+ Test Files  3 passed (3)
+      Tests  17 passed (17)
+   Start at  07:17:19
+   Duration  8.71s (transform 121ms, setup 0ms, collect 223ms, tests 7.74s, environment 0ms, prepare 158ms)

@@ -1,0 +1,108 @@
+{
+  "head": "8357c6636f4ca48d3f62dfe6709b35c781e8bf46",
+  "sourceSha256": {
+    "apps/web/e2e/i18n-chat-workspace.spec.ts": "4f3372ee5f3c18ac0bed56a863fbe097d3d6b16043d1b80747f92fef93016e5a",
+    "apps/web/playwright.chat-read.config.ts": "d249544199f292eb863d1c93802401699e906de3ee050d801dc126da2b9d571d"
+  },
+  "exitCode": 1,
+  "wrapperSeconds": 522.725,
+  "stats": {
+    "startTime": "2026-11-04T13:22:13.269Z",
+    "duration": 519426.287,
+    "expected": 3,
+    "skipped": 3,
+    "unexpected": 1,
+    "flaky": 0
+  },
+  "cleanup": {
+    "compose": "wsx-88903bf12369c3ae1cca",
+    "containers": 0,
+    "volumes": 0,
+    "listeners": {
+      "20905": 0,
+      "21905": 0,
+      "24905": 0,
+      "25905": 0,
+      "26905": 0,
+      "27905": 0,
+      "28905": 0,
+      "29905": 0,
+      "30905": 0,
+      "31905": 0,
+      "19905": 0
+    }
+  },
+  "browserCasesPassed": 3,
+  "browserCasesFailed": 1,
+  "notRunBecauseMaxFail": 3,
+  "flaky": 0,
+  "globalErrorClass": "max-failures=1 early stop marker, not a second product/global startup error",
+  "imagesActuallyViewed": 10,
+  "visualAcceptance": false,
+  "firstFailure": {
+    "file": "apps/web/e2e/i18n-chat-workspace.spec.ts",
+    "line": 181,
+    "cause": "test asserted content on empty aria-hidden outer portal marker; real Radix dialog contains original uploaded filename",
+    "notMissingEnglishRed": true,
+    "testOnlyDriverFixWritten": true,
+    "fixVerified": false
+  },
+  "visualFindings": [
+    "document-generation-auto-approve fixed label/title/ARIA still Chinese in English",
+    "actual CopilotKitV2PlanControl collapsed owned chrome still Chinese in English",
+    "375px English composer trailing send control clipped horizontally"
+  ],
+  "rawArtifactsPrivateOnly": "/tmp/chat6200-task5-browser-first-private",
+  "pngHashes": [
+    {
+      "name": "persisted-reply-en-375.png",
+      "sha256": "95930e4116ddda5ffedd780e9056d0078b90b8f5734d9635846f6aebe094fff6",
+      "actuallyViewed": true
+    },
+    {
+      "name": "run-details-active-zh-1280.png",
+      "sha256": "8e1546e330f69c4d4fa35ff214f23b7adfe00f75ed2380ebb0244b8d7bd720ee",
+      "actuallyViewed": true
+    },
+    {
+      "name": "run-details-complete-en-1280.png",
+      "sha256": "0b030776d6157e1338dac04482d514c65060e992b2cf2b17544ab25db15bfc38",
+      "actuallyViewed": true
+    },
+    {
+      "name": "test-failed-1.png",
+      "sha256": "a3f7b4528671d92387d100df7015916ae25c8e96548e7cab08eded8f000987b2",
+      "actuallyViewed": true
+    },
+    {
+      "name": "personal-draft-en-375.png",
+      "sha256": "2d6c094b780102b43a3257d1b170837092d9519c31c430a596c6a01e1e60c56d",
+      "actuallyViewed": true
+    },
+    {
+      "name": "thread-menu-zh-375.png",
+      "sha256": "66b5e90e1fe62c425da1f1ad6c42a033b12cb6ac39a20bc08caf793ad2b42b6e",
+      "actuallyViewed": true
+    },
+    {
+      "name": "thread-search-pin-en-375.png",
+      "sha256": "3a35f3f187e25e98ce62091daec3007c3dc506dd2115845c2765ceb3f5a692ca",
+      "actuallyViewed": true
+    },
+    {
+      "name": "personal-draft-en-1280.png",
+      "sha256": "ba4d582491481bc3dd0d66d3a0d4454f5fd42286b8bc80eddbb6b58d606394ff",
+      "actuallyViewed": true
+    },
+    {
+      "name": "thread-menu-zh-1280.png",
+      "sha256": "5a90681a011bac237594a4363ab5c09f7333739f7cdbd3a5243d151843fc375b",
+      "actuallyViewed": true
+    },
+    {
+      "name": "thread-search-pin-en-1280.png",
+      "sha256": "dd8b1c4d7b7cb5968fdcbb088034242db3a8eed60103e14f37c7aec190e8a583",
+      "actuallyViewed": true
+    }
+  ]
+}

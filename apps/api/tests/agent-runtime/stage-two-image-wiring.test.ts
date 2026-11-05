@@ -8,8 +8,11 @@ afterEach(()=>{vi.unstubAllGlobals();vi.restoreAllMocks();});
 it("selected Bailian receives the exact trusted ImageContext and admits once before submit/poll",async()=>{
  const order:string[]=[],terminal=vi.fn(async()=>{}),start=vi.fn(async(_context:ImageContext,_request:Parameters<ImageAiAdmission["start"]>[1])=>{order.push("admit");return {terminal};});
  const selected=selectImageProvider({KERNEL_MODEL_API_KEY:"fixture",KERNEL_IMAGE_PROVIDER:"bailian",KERNEL_AI_PRODUCT_QUOTA_ENABLED:"1",KERNEL_BAILIAN_IMAGE_POLL_INTERVAL_MS:"1"},undefined,{start});
- const fetcher=vi.fn(async(_url:unknown,opts?:RequestInit)=>{order.push(opts?.method==="POST"?"submit":"poll");return Response.json(opts?.method==="POST"?{output:{task_id:"fixture_task"}}:{output:{task_status:"SUCCEEDED",results:[{url:"https://fixture.invalid/image.png"}]},usage:{image_count:1}});});vi.stubGlobal("fetch",fetcher);
+ const fetcher=vi.fn(async(_url:unknown,opts?:RequestInit)=>{order.push(opts?.method==="POST"?"submit":"poll");return Response.json(opts?.method==="POST"?{output:{task_id:"fixture_task"}}:{output:{task_status:"SUCCEEDED",choices:[{message:{content:[{image:"https://fixture.invalid/image.png"}]}}]},usage:{output_image_count:1}});});vi.stubGlobal("fetch",fetcher);
  expect(selected?.choice).toBe("bailian");await selected!.provider.generateImage("image",undefined,context);
+ expect(start.mock.calls[0]?.[1]).toMatchObject({modelId:'qwen-image-3.0',quantity:1n});
+ expect(fetcher.mock.calls[0]?.[0]).toBe('https://dashscope.aliyuncs.com/api/v1/services/aigc/image-generation/generation');
+ expect(fetcher.mock.calls[0]?.[1]?.body).toBe(start.mock.calls[0]?.[1].serializedBody);
  expect(order).toEqual(["admit","submit","poll"]);expect(start.mock.calls[0]?.[0]).toBe(context);expect(start).toHaveBeenCalledTimes(1);expect(terminal).toHaveBeenCalledWith(expect.objectContaining({quantity:1n}));
 });
 it("selected OpenAI receives trusted context through the native admission option",async()=>{

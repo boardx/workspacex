@@ -1,7 +1,9 @@
 "use client";
+import type { ChatOwnedMessage } from "@/lib/chat-runtime-display";
 
 import { AgentIdentityRow, AssistantIdentityDrawnContext, shouldShowAssistantIdentity } from "./copilotkit-v2-agent-identity";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import { CitationList, PersistedMessageCitationScope } from "@/components/chat/message-citations";
 import { MessageRunContext, RunTraceCoveredContext, isDecisionTool, isInlineNoticeTool } from "@/lib/chat-workbench/trace-context";
 import { ESCALATE_TOOL_NAME } from "@/lib/agent-escalation";
@@ -72,6 +74,7 @@ function V2MarkdownRenderer({
 function V2ToolCallsView(
   props: React.ComponentProps<typeof CopilotChatToolCallsView>,
 ): JSX.Element | null {
+  const { t } = useI18n();
   const covered = React.useContext(RunTraceCoveredContext);
   const allToolCalls = props.message.toolCalls ?? [];
   const decisionCalls = allToolCalls.filter((call) => isDecisionTool(call.function.name) || isInlineNoticeTool(call.function.name));
@@ -104,7 +107,7 @@ function V2ToolCallsView(
       >
         <Wrench aria-hidden className="h-3 w-3 shrink-0" />
         <span className="min-w-0 flex-1 text-left">
-          {expanded ? "收起工具调用" : `工具调用 · ${toolCalls.length} 步`}
+          {expanded ? t("chatTools.disclosureCollapse") : t(toolCalls.length === 1 ? "chatTools.disclosureCount.one" : "chatTools.disclosureCount", { count: toolCalls.length })}
         </span>
         {expanded
           ? <ChevronUp aria-hidden className="h-3 w-3 shrink-0" />
@@ -117,7 +120,7 @@ function V2ToolCallsView(
       <div
         id={groupId}
         role="region"
-        aria-label="工具调用详情"
+        aria-label={t("chatTools.disclosureDetails")}
         hidden={!expanded}
         className="flex max-h-64 flex-col gap-1.5 overflow-y-auto border-t border-border-subtle p-2"
         data-testid="copilotkit-v2-tool-calls-group-body"
@@ -505,6 +508,7 @@ export interface LocalSuggestionChip {
   /** 同时也是渲染出来的 `data-testid`，逐字不加前缀。 */
   readonly id: string;
   readonly label: string;
+  readonly labelMessage?: ChatOwnedMessage;
   readonly onSelect: () => void;
   readonly disabled?: boolean;
   /**
@@ -531,6 +535,7 @@ export function FollowUpSuggestions({
    *  只负责渲染，不判断"什么时候该出现"（同一条规则不在两处各写一份）。 */
   localSuggestions?: readonly LocalSuggestionChip[];
 }): JSX.Element | null {
+  const { t } = useI18n();
   useConfigureSuggestions(
     {
       instructions:
@@ -571,13 +576,13 @@ export function FollowUpSuggestions({
             className="px-3 py-1 text-12 text-background-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
             onClick={chip.onSelect}
           >
-            {chip.label}
+            {chip.labelMessage ? t(chip.labelMessage.key, chip.labelMessage.params) : chip.label}
           </button>
           {chip.onDismiss ? (
             <button
               type="button"
               data-testid={`${chip.id}-dismiss`}
-              aria-label="关闭这条建议"
+              aria-label={t("chatInteractions.dismissSuggestion")}
               disabled={disabled}
               className="flex items-center border-l border-border-subtle px-1.5 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
               onClick={chip.onDismiss}

@@ -1,0 +1,29 @@
+[worker/i18n-chat-workspace-6200 bd5773811] feat(i18n): localize canonical chat plan and runtime surfaces
+ 63 files changed, 6990 insertions(+), 195 deletions(-)
+ create mode 100644 apps/web/lib/agent-run-error-labels.ts
+ create mode 100644 apps/web/lib/chat-runtime-display.ts
+ create mode 100644 apps/web/lib/chat-runtime-labels.ts
+ create mode 100644 apps/web/lib/plan-control-display-labels.ts
+ create mode 100644 apps/web/lib/plan-control-display.ts
+ create mode 100644 apps/web/tests/chat-runtime-display-i18n.test.ts
+ create mode 100644 apps/web/tests/ui/i18n-chat-plan-nested.test.tsx
+ create mode 100644 docs/design/i18n-chat-workspace/session-handoff.md
+ create mode 100644 evidence/i18n-chat-workspace-6200/task5-body-backlog-update-receipt.json
+ create mode 100644 evidence/i18n-chat-workspace-6200/task5-fieldset-enospc-receipt.json
+ create mode 100644 evidence/i18n-chat-workspace-6200/task5-fieldset-recovered-cleanup-receipt.json
+ create mode 100644 evidence/i18n-chat-workspace-6200/task5-fieldset-two-selection-receipt.json
+ create mode 100644 evidence/i18n-chat-workspace-6200/task5-plan-lint-green.log
+ create mode 100644 evidence/i18n-chat-workspace-6200/task5-plan-log-publication.json
+ create mode 100644 evidence/i18n-chat-workspace-6200/task5-plan-neighbors-attempt1-red.log
+ create mode 100644 evidence/i18n-chat-workspace-6200/task5-plan-nested-red.log
+ create mode 100644 evidence/i18n-chat-workspace-6200/task5-plan-runtime-neighbors-green.log
+ create mode 100644 evidence/i18n-chat-workspace-6200/task5-plan-runtime-source-receipt.json
+ create mode 100644 evidence/i18n-chat-workspace-6200/task5-plan-status-source-green.log
+ create mode 100644 evidence/i18n-chat-workspace-6200/task5-plan-type-fixture-red.log
+ create mode 100644 evidence/i18n-chat-workspace-6200/task5-plan-type-green.log
+ create mode 100644 evidence/i18n-chat-workspace-6200/task5-review-copy-collection-red.log
+ create mode 100644 evidence/i18n-chat-workspace-6200/task5-review-copy-corrected-red.log
+ create mode 100644 evidence/i18n-chat-workspace-6200/task5-review-copy-initial-red.log
+ create mode 100644 evidence/i18n-chat-workspace-6200/task5-review-report-publication.json
+ create mode 100644 evidence/i18n-chat-workspace-6200/task5-whole-source-fix-review.md
+ create mode 100644 evidence/i18n-chat-workspace-6200/task5-whole-source-review.md

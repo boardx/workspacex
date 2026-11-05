@@ -1,6 +1,9 @@
 "use client";
 import * as React from "react";
 import type { FeedbackKind, FeedbackStructured } from "@/lib/live-feedback";
+import type { Locale } from "@/lib/i18n/locale";
+import { useI18n } from "@/lib/i18n/provider";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
 import { cn } from "@/lib/utils";
 
 /**
@@ -15,6 +18,7 @@ import { cn } from "@/lib/utils";
 export interface StructuredFieldDef<K extends string = string> {
   readonly key: K;
   readonly label: string;
+  readonly labelKey: MessageKey;
   readonly testid: string;
   readonly multiline?: boolean;
 }
@@ -22,23 +26,34 @@ export interface StructuredFieldDef<K extends string = string> {
 type BugKey = keyof Extract<FeedbackStructured, { reproSteps?: unknown }>;
 type ReqKey = keyof Extract<FeedbackStructured, { useScenario?: unknown }>;
 
+/** One field list and one translated-label fact; default body serialization stays Chinese. */
+function structuredField<K extends BugKey | ReqKey>(key: K, testid: string, multiline?: boolean): StructuredFieldDef<K> {
+  const labelKey: MessageKey = `feedbackOverlay.field.${key}`;
+  return { key, labelKey, label: translate("zh-CN", labelKey), testid, ...(multiline ? { multiline } : {}) };
+}
+
 const BUG_FIELDS = [
-  { key: "reproFrequencyEnv", label: "复现频率 · 环境", testid: "freq-env" },
-  { key: "expectedResult", label: "期望结果", testid: "expected" },
-  { key: "actualResult", label: "实际结果", testid: "actual" },
-  { key: "reproSteps", label: "复现步骤", testid: "repro-steps", multiline: true },
+  structuredField("reproFrequencyEnv", "freq-env"),
+  structuredField("expectedResult", "expected"),
+  structuredField("actualResult", "actual"),
+  structuredField("reproSteps", "repro-steps", true),
 ] as const satisfies readonly StructuredFieldDef<BugKey>[];
 
 const REQ_FIELDS = [
-  { key: "useScenario", label: "使用场景", testid: "scene" },
-  { key: "expectedCapability", label: "期望能力", testid: "capability" },
-  { key: "priorityScope", label: "优先级 · 影响范围", testid: "priority" },
+  structuredField("useScenario", "scene"),
+  structuredField("expectedCapability", "capability"),
+  structuredField("priorityScope", "priority"),
 ] as const satisfies readonly StructuredFieldDef<ReqKey>[];
 
 export const STRUCTURED_FIELDS: Record<FeedbackKind, readonly StructuredFieldDef[]> = {
   缺陷: BUG_FIELDS,
   需求: REQ_FIELDS,
 };
+
+/** Authored UI labels only; canonical model/body serialization keeps f.label. */
+export function feedbackStructuredFieldLabel(field: StructuredFieldDef, locale: Locale): string {
+  return translate(locale, field.labelKey);
+}
 
 /**
  * 只列**有值**的字段；`null`（契约：没填）/ 一个都没有 ⇒ 什么都不渲染（`{}` 与不传等价，见契约头注）。
@@ -52,6 +67,7 @@ export function FeedbackStructuredView({
   testid: string;
   compact?: boolean;
 }) {
+  const { locale } = useI18n();
   if (structured == null) return null;
   const rows = STRUCTURED_FIELDS[kind]
     .map((f) => ({ f, v: (structured as Record<string, string | undefined>)[f.key] }))
@@ -64,7 +80,7 @@ export function FeedbackStructuredView({
     >
       {rows.map(({ f, v }) => (
         <React.Fragment key={f.key}>
-          <dt className="text-muted-foreground">{f.label}</dt>
+          <dt className="text-muted-foreground">{feedbackStructuredFieldLabel(f, locale)}</dt>
           <dd className={cn("text-card-foreground", f.multiline ? "whitespace-pre-wrap" : compact ? "line-clamp-2" : "whitespace-pre-wrap")} data-testid={`${testid}-${f.testid}`}>
             {v}
           </dd>

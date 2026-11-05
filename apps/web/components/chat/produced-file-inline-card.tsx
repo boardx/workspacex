@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import { FileText, Download, Eye } from "lucide-react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
@@ -24,6 +25,7 @@ import type { ActiveFile } from "@/lib/agui-file-events";
  * 不重写鉴权/URL 拼接逻辑——两处渲染的是同一件事的下载链接。
  */
 export function ProducedFileInlineCard({ file, threadId }: { file: ActiveFile; threadId: string | null }): JSX.Element {
+  const { t } = useI18n();
   const { src, failed, iconKind } = useProducedFileDownload(file, threadId);
   const [previewOpen, setPreviewOpen] = React.useState(false);
   const canPreviewImage = iconKind === "image" && src !== null && !failed;
@@ -43,7 +45,7 @@ export function ProducedFileInlineCard({ file, threadId }: { file: ActiveFile; t
             type="button"
             className="group relative overflow-hidden rounded-md bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             data-testid="chat-produced-file-inline-preview-trigger"
-            aria-label={`放大预览 ${file.name}`}
+            aria-label={t("chatInspector.file.previewNamed", { name: file.name })}
             onClick={() => setPreviewOpen(true)}
           >
             {/* eslint-disable-next-line @next/next/no-img-element -- authenticated blob URL cannot use next/image */}
@@ -65,7 +67,7 @@ export function ProducedFileInlineCard({ file, threadId }: { file: ActiveFile; t
             <div className="flex min-w-0 items-center gap-1.5">
               <p className="truncate text-13 font-semibold text-card-foreground">{file.name}</p>
               {isSkillDraft ? (
-                <Badge className="shrink-0" tone="outline" data-testid="chat-produced-file-skill-draft-badge">技能草稿</Badge>
+                <Badge className="shrink-0" tone="outline" data-testid="chat-produced-file-skill-draft-badge">{t("chatInspector.file.skill")}</Badge>
               ) : null}
             </div>
             {file.bytes !== null ? (
@@ -73,9 +75,7 @@ export function ProducedFileInlineCard({ file, threadId }: { file: ActiveFile; t
             ) : null}
           </div>
           {failed ? (
-            <span className="shrink-0 text-11 text-destructive" data-testid="chat-produced-file-inline-failed">
-              下载失败
-            </span>
+            <span className="shrink-0 text-11 text-destructive" data-testid="chat-produced-file-inline-failed">{t("chatInspector.file.failed")}</span>
           ) : (
             <div className="flex shrink-0 items-center gap-1.5">
               {iconKind === "pdf" && src !== null ? <ProducedFilePdfPreview file={file} src={src} /> : null}
@@ -88,9 +88,7 @@ export function ProducedFileInlineCard({ file, threadId }: { file: ActiveFile; t
                   data-testid="chat-produced-file-skill-draft-open"
                   onClick={() => setPreviewOpen(true)}
                 >
-                  <Eye aria-hidden className="h-3.5 w-3.5" />
-                  打开
-                </Button>
+                  <Eye aria-hidden className="h-3.5 w-3.5" />{t("chatInspector.file.open")}</Button>
               ) : null}
               <Button asChild size="xs" variant="outline" disabled={src === null} className="shrink-0">
                 <a
@@ -99,9 +97,7 @@ export function ProducedFileInlineCard({ file, threadId }: { file: ActiveFile; t
                   data-testid="chat-produced-file-inline-download"
                   aria-disabled={src === null}
                 >
-                  <Download aria-hidden className="h-3.5 w-3.5" />
-                  下载
-                </a>
+                  <Download aria-hidden className="h-3.5 w-3.5" />{t("chatInspector.download")}</a>
               </Button>
             </div>
           )}
@@ -118,22 +114,21 @@ export function ProducedFileInlineCard({ file, threadId }: { file: ActiveFile; t
 }
 
 function ProducedSkillDraftPreview({ file, src, onClose }: { file: ActiveFile; src: string; onClose: () => void }): JSX.Element {
+  const { t } = useI18n();
   return createPortal(
     <div className="fixed inset-0 z-40" data-testid="chat-produced-file-skill-draft-preview-portal">
       <Modal
         testid="chat-produced-file-skill-draft-preview"
         title={file.name}
-        subtitle={`技能草稿${file.bytes !== null ? ` · ${formatBytes(file.bytes)}` : ""}`}
+        subtitle={`${t("chatInspector.file.skill")}${file.bytes !== null ? ` · ${formatBytes(file.bytes)}` : ""}`}
         onClose={onClose}
         width="lg"
         footer={
           <>
-            <Button type="button" size="sm" variant="ghost" onClick={onClose}>关闭</Button>
+            <Button type="button" size="sm" variant="ghost" onClick={onClose}>{t("chatInspector.file.close")}</Button>
             <Button type="button" size="sm" variant="primary" asChild>
               <a href={src} download={file.name} data-testid="chat-produced-file-skill-draft-download">
-                <Download aria-hidden className="h-3.5 w-3.5" />
-                下载
-              </a>
+                <Download aria-hidden className="h-3.5 w-3.5" />{t("chatInspector.download")}</a>
             </Button>
           </>
         }
@@ -147,6 +142,7 @@ function ProducedSkillDraftPreview({ file, src, onClose }: { file: ActiveFile; s
 
 /** Generated images use the already-authorized blob URL for both inline and enlarged views. */
 function ProducedImagePreview({ file, src, onClose }: { file: ActiveFile; src: string; onClose: () => void }): JSX.Element {
+  const { t } = useI18n();
   return createPortal(
     <div className="fixed inset-0 z-40" data-testid="chat-produced-file-preview-portal">
       <Modal
@@ -157,14 +153,10 @@ function ProducedImagePreview({ file, src, onClose }: { file: ActiveFile; src: s
         width="lg"
         footer={
           <>
-            <Button type="button" size="sm" variant="ghost" data-testid="chat-produced-file-preview-dismiss" onClick={onClose}>
-              关闭
-            </Button>
+            <Button type="button" size="sm" variant="ghost" data-testid="chat-produced-file-preview-dismiss" onClick={onClose}>{t("chatInspector.file.close")}</Button>
             <Button type="button" size="sm" variant="primary" asChild>
               <a href={src} download={file.name} data-testid="chat-produced-file-preview-download">
-                <Download aria-hidden className="h-3.5 w-3.5" />
-                下载
-              </a>
+                <Download aria-hidden className="h-3.5 w-3.5" />{t("chatInspector.download")}</a>
             </Button>
           </>
         }

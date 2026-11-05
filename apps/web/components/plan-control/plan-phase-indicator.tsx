@@ -1,8 +1,9 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
 import * as React from "react";
 import { AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { PLAN_PHASE_LABEL_ZH, type PlanPhase } from "@repo/contracts/plan-control";
+import { type PlanPhase } from "@repo/contracts/plan-control";
 
 /**
  * F977 —— S1 六态指示器（`ui.md` 判据一）。
@@ -33,7 +34,8 @@ export interface PlanPhaseIndicatorProps {
 }
 
 export function PlanPhaseIndicator({ phase }: PlanPhaseIndicatorProps): React.JSX.Element {
-  if (phase === "cancelled") return <div data-testid={PLAN_PHASE_INDICATOR_TESTID} data-phase="cancelled" role="status" className="text-13 text-muted-foreground">{PLAN_PHASE_LABEL_ZH.cancelled}</div>;
+  const { t } = useI18n();
+  if (phase === "cancelled") return <div data-testid={PLAN_PHASE_INDICATOR_TESTID} data-phase="cancelled" role="status" className="text-13 text-muted-foreground">{t("chatPlanControl.phase.cancelled")}</div>;
   if (phase === "failed") {
     return (
       <div
@@ -43,7 +45,7 @@ export function PlanPhaseIndicator({ phase }: PlanPhaseIndicatorProps): React.JS
         className="flex items-center gap-2 rounded-control border border-destructive/40 bg-destructive/5 px-3 py-1.5"
       >
         <AlertTriangle aria-hidden className="h-4 w-4 text-destructive" />
-        <span className="text-13 font-medium text-destructive">{PLAN_PHASE_LABEL_ZH.failed}</span>
+        <span className="text-13 font-medium text-destructive">{t("chatPlanControl.phase.failed")}</span>
       </div>
     );
   }
@@ -55,7 +57,7 @@ export function PlanPhaseIndicator({ phase }: PlanPhaseIndicatorProps): React.JS
       className="flex items-center gap-1 rounded-control border border-border-subtle bg-panel px-3 py-1.5"
     >
       {/* ③ role=status 播报：不依赖用户去找当前处于哪一态。 */}
-      <span role="status" className="sr-only">当前处于「{PLAN_PHASE_LABEL_ZH[phase]}」阶段</span>
+      <span role="status" className="sr-only">{t("chatPlanControl.currentPhase", { phase: t(`chatPlanControl.phase.${phase}`) })}</span>
       {PHASE_LINE.map((p, i) => (
         <React.Fragment key={p}>
           {i > 0 && <span aria-hidden className="text-11 text-muted-foreground">›</span>}
@@ -69,7 +71,7 @@ export function PlanPhaseIndicator({ phase }: PlanPhaseIndicatorProps): React.JS
               p === phase ? "bg-primary font-semibold text-primary-foreground" : "text-muted-foreground",
             )}
           >
-            {PLAN_PHASE_LABEL_ZH[p]}
+            {t(`chatPlanControl.phase.${p}`)}
           </span>
         </React.Fragment>
       ))}

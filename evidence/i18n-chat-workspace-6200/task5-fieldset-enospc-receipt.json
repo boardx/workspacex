@@ -1,0 +1,68 @@
+{
+  "head": "f6957e3177b37b9a03f4f749bf6b2742f05581b3",
+  "scope": "wsx-f1bc3a79cfba60bac5d8",
+  "ownedNodePidsGone": 17,
+  "advertisedPortCount": 11,
+  "listenerCounts": {
+    "pg": 0,
+    "redis": 0,
+    "api": 0,
+    "web": 0,
+    "sandbox": 0,
+    "model": 0,
+    "deep-agent": 0,
+    "asr": 0,
+    "vision": 0,
+    "loopback-sandbox": 0,
+    "mail": 0
+  },
+  "removedOnlyOwnRegenerableCaches": [
+    {
+      "path": "apps/web/.next/cache",
+      "ignored": true,
+      "trackedFiles": 0,
+      "symlink": false,
+      "duKiB": 664,
+      "removed": true
+    },
+    {
+      "path": "apps/web/.next-chat-read-e2e/cache",
+      "ignored": true,
+      "trackedFiles": 0,
+      "symlink": false,
+      "duKiB": 802940,
+      "removed": true
+    },
+    {
+      "path": "apps/web/.next-org-create/cache",
+      "ignored": true,
+      "trackedFiles": 0,
+      "symlink": false,
+      "duKiB": 111348,
+      "removed": true
+    },
+    {
+      "path": "apps/web/.next-self-service-profile-e2e/cache",
+      "ignored": true,
+      "trackedFiles": 0,
+      "symlink": false,
+      "duKiB": 198768,
+      "removed": true
+    }
+  ],
+  "dockerContainers": "UNKNOWN_pending_daemon_query",
+  "dockerVolumes": "UNKNOWN_pending_daemon_query",
+  "nativeVerdict": "UNAVAILABLE_report_missing_PNG0_ENOSPC",
+  "scriptExitCode": 1,
+  "outerError": "OSError28 ENOSPC while writing receipt after child command returned",
+  "nativeReportExists": false,
+  "pngCount": 0,
+  "protectedSourceHashCount": 18,
+  "sourceHashMismatch": [],
+  "dockerContainerQuery": "TIMEOUT5s_UNKNOWN",
+  "dockerVolumeQuery": "TIMEOUT5s_UNKNOWN",
+  "oldReadOnlyDockerClientExit": 130,
+  "oldReadOnlyAuditPythonExited": true,
+  "dockerDaemonRestarted": false,
+  "globalPruneRun": false
+}

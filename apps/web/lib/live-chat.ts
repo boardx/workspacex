@@ -32,6 +32,8 @@
  * Wave 2 的消息写入只接受 human message + selected published Agent。成功响应是 durable
  * human message 与 queued run identity，永不在客户端合成 inline Agent reply。
  */
+import { translate, type MessageKey } from "./i18n/messages";
+import type { Locale } from "./i18n/locale";
 import { agentDefaults, chat, chatFileUpload } from "@repo/contracts";
 import type { z } from "zod";
 import { apiRequest, apiUrl, ApiError, extractReasonCode, getStoredSessionToken } from "./api-client";
@@ -750,30 +752,22 @@ export function lastUsedAgentId(
   return bestId ?? "";
 }
 
-export function describeMessageFailure(failure: unknown, action: string): string {
+export function describeMessageFailure(failure: unknown, action: string, locale: Locale = "zh-CN"): string {
   if (failure instanceof ApiError) {
-    if (failure.status === 401) return `${action}失败：登录已失效（HTTP 401），请重新登录。`;
-    if (failure.status === 403) return `${action}失败：当前身份没有写入权限（HTTP 403）。`;
-    if (failure.status === 404) {
-      // #1534：裸 404 原来一律说成「对话不存在」——对 `mountSkillToThread` 这类
-      // 「对话本身没问题、是 skillId 查无此行（或不在可见范围内）」的失败，这句话
-      // 指错了地方（实测：人类看到这句去查对话，真根因其实在 skill 那一侧）。
-      // `reasonCode` 是服务端唯一权威（`skill-mount.controller.ts` 的 `toHttpError`），
-      // 这里按它分岔文案，不新猜一套判据。
-      if (failure.reasonCode === "SKILL_NOT_FOUND") {
-        return `${action}失败：该 skill 不存在或当前身份不可见（HTTP 404）。`;
-      }
-      return `${action}失败：对话不存在或当前身份不可见（HTTP 404）。`;
-    }
-    if (failure.status === 409 && failure.reasonCode === "IDEMPOTENCY_CONFLICT") {
-      return `${action}失败：同一 clientMessageId 已对应其他内容（HTTP 409），未创建重复消息。`;
-    }
-    if (failure.status === 409) return `${action}失败：对话状态冲突或已归档（HTTP 409）。`;
-    if (failure.status === 422) return `${action}失败：消息无效或所选 Agent 没有可用的已发布版本（HTTP 422）。`;
-    if (failure.status === 503) return `${action}失败：授权或依赖服务暂不可用（HTTP 503），系统没有降级到 mock。`;
-    return `${action}失败：${failure.reasonCode ?? "UNKNOWN"}（HTTP ${failure.status}）。`;
+    let key: MessageKey;
+    if (failure.status === 401) key = "chatMessageFailures.unauthenticated";
+    else if (failure.status === 403) key = "chatMessageFailures.forbidden";
+    else if (failure.status === 404) key = failure.reasonCode === "SKILL_NOT_FOUND" ? "chatMessageFailures.skillMissing" : "chatMessageFailures.threadMissing";
+    else if (failure.status === 409 && failure.reasonCode === "IDEMPOTENCY_CONFLICT") key = "chatMessageFailures.idempotency";
+    else if (failure.status === 409) key = "chatMessageFailures.conflict";
+    else if (failure.status === 422) key = "chatMessageFailures.invalid";
+    else if (failure.status === 503) key = "chatMessageFailures.unavailable";
+    else key = "chatMessageFailures.http";
+    return translate(locale, key, { action, reason: failure.reasonCode ?? "UNKNOWN", status: failure.status });
   }
-  return failure instanceof Error ? `${action}失败：${failure.message}` : `${action}失败，请稍后重试。`;
+  return failure instanceof Error
+    ? translate(locale, "chatMessageFailures.error", { action, message: failure.message })
+    : translate(locale, "chatMessageFailures.unknown", { action });
 }
 
 /**

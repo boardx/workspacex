@@ -1,0 +1,14 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/ui/agent-capability-availability.test.tsx (19 tests) 432ms
+ ✓ tests/ui/i18n-chat-attachment-preview.test.tsx (1 test) 162ms
+ ✓ tests/ui/i18n-chat-capability-picker.test.tsx (1 test) 154ms
+ ✓ tests/chat-picker-copy-i18n.test.ts (5 tests) 5ms
+ ✓ tests/chat-agent-name-i18n.test.ts (4 tests) 3ms
+
+ Test Files  5 passed (5)
+      Tests  30 passed (30)
+   Start at  03:16:49
+   Duration  7.84s (transform 1.83s, setup 529ms, collect 3.98s, tests 755ms, environment 1.78s, prepare 219ms)

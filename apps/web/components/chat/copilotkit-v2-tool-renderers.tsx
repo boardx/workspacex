@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { z } from "zod";
 import { agentRole } from "@repo/contracts";
 import { handoffRefusalNotice } from "@/lib/agent-handoff";
@@ -42,7 +44,7 @@ import { useToolCardStatus, isSettled, type ToolCardStatus } from "@/lib/chat-wo
  * `resultContent` 是 `step.toolResultSummary ?? 「技能"X"执行失败。」`，与成功时用的是**同一个
  * `content` 字段**，客户端没有任何独立通道能把两者机械区分开。
  *
- * 因此这里**不伪造**一个"失败"红色徽标去冒充能区分 succeeded/failed——那需要对 `result`
+ * 因此这里**不伪造**一个t("chatTools.failed")红色徽标去冒充能区分 succeeded/failed——那需要对 `result`
  * 文本做启发式字符串嗅探，命中率不可控，属于"编一个视觉上像是真实信号的假状态"，与本仓
  * 反假数据纪律冲突。诚实的映射是：
  *   - 契约的 `in_progress` → CopilotKit 的 `"inProgress"`（参数还在流式组装）与
@@ -68,10 +70,10 @@ const writeTodosParametersSchema = z.object({
 
 const searchDocumentsParametersSchema = z.object({ query: z.string() });
 
-const TODO_STATUS_TEXT: Record<string, string> = {
-  pending: "待办",
-  in_progress: "进行中",
-  completed: "已完成",
+const TODO_STATUS_TEXT: Record<string, MessageKey> = {
+  pending: "chatTools.pending",
+  in_progress: "chatTools.inProgress",
+  completed: "chatTools.completed",
 };
 
 
@@ -80,15 +82,16 @@ const TODO_STATUS_TEXT: Record<string, string> = {
  *
  * issue #2476：完成态原来是 `text-primary`（现在是近黑色，见 2026-08-27 对
  * `--primary` 的裁决），跟"这一步已经成功"这个语义不搭边——`plan-panel-readonly.tsx`/
- * `plan-panel-edit.tsx` 的步骤状态图标一直用 `text-success` 表达"已完成"，这里
+ * `plan-panel-edit.tsx` 的步骤状态图标一直用 `text-success` 表达t("chatTools.completed")，这里
  * 跟着统一，不是新造一个含义。
  */
 function ToolStatusIcon({ status }: { status: ToolCardStatus }) {
+  const { t } = useI18n();
   // issue #3204 ①：失败态此前根本不存在——框架三态里没有它，于是失败的调用照样发
   // 绿色对勾，与外层折叠行的「执行工具操作失败」+ 红色感叹号自相矛盾。这里的失败
   // 事实只有一个来源：执行日志（`JournalToolOutcomeContext`），不再从"有没有结果"推断。
   if (status === "failed") {
-    return <AlertCircle aria-label="失败" className="h-3.5 w-3.5 shrink-0 text-destructive" />;
+    return <AlertCircle aria-label={t("chatTools.failed")} className="h-3.5 w-3.5 shrink-0 text-destructive" />;
   }
   if (status === "complete") {
     return <CheckCircle2 aria-hidden className="h-3.5 w-3.5 shrink-0 text-success" />;
@@ -109,6 +112,7 @@ function WriteTodosCard({
   status: "inProgress" | "executing" | "complete";
   parameters: Partial<z.infer<typeof writeTodosParametersSchema>>;
 }) {
+  const { locale, t } = useI18n();
   const status = useToolCardStatus(frameworkStatus);
   const todos = Array.isArray(parameters.todos) ? parameters.todos : null;
   return (
@@ -116,16 +120,16 @@ function WriteTodosCard({
       <CardContent className="flex flex-col gap-1.5 p-2.5 text-11">
         <div className="flex items-center gap-1.5 font-medium text-card-foreground">
           <ToolStatusIcon status={status} />
-          <span title="write_todos">{toolLabel("write_todos")}</span>
+          <span title="write_todos">{toolLabel("write_todos", locale)}</span>
           {!isSettled(status) ? (
             <Badge tone="neutral" data-testid="copilotkit-v2-tool-write-todos-in-progress-badge">
-              进行中
+              {t("chatTools.inProgress")}
             </Badge>
           ) : null}
         </div>
         {todos === null ? (
           <p className="text-10 text-muted-foreground" data-testid="copilotkit-v2-tool-write-todos-pending">
-            {isSettled(status) ? "本次没有可解析的计划条目。" : "计划条目正在组装…"}
+            {isSettled(status) ? t("chatTools.noPlan") : t("chatTools.assembling")}
           </p>
         ) : (
           <ul className="flex flex-col gap-0.5" data-testid="copilotkit-v2-tool-write-todos-list">
@@ -152,7 +156,7 @@ function WriteTodosCard({
                   </span>
                   {todoStatus !== null ? (
                     <span className="shrink-0 text-muted-foreground">
-                      {TODO_STATUS_TEXT[todoStatus] ?? todoStatus}
+                      {TODO_STATUS_TEXT[todoStatus] === undefined ? todoStatus : t(TODO_STATUS_TEXT[todoStatus])}
                     </span>
                   ) : null}
                 </li>
@@ -185,6 +189,7 @@ function SearchDocumentsCard({
   parameters: Partial<z.infer<typeof searchDocumentsParametersSchema>>;
   result: string | undefined;
 }) {
+  const { locale, t } = useI18n();
   const status = useToolCardStatus(frameworkStatus);
   const query = typeof parameters.query === "string" ? parameters.query : null;
   const files = isSettled(status) && typeof result === "string" ? extractFilenames(result) : [];
@@ -193,22 +198,22 @@ function SearchDocumentsCard({
       <CardContent className="flex flex-col gap-1.5 p-2.5 text-11">
         <div className="flex items-center gap-1.5 font-medium text-card-foreground">
           <ToolStatusIcon status={status} />
-          <span title="search_documents">{toolLabel("search_documents")}</span>
+          <span title="search_documents">{toolLabel("search_documents", locale)}</span>
           {!isSettled(status) ? (
             <Badge tone="neutral" data-testid="copilotkit-v2-tool-search-documents-in-progress-badge">
-              进行中
+              {t("chatTools.inProgress")}
             </Badge>
           ) : null}
         </div>
         {query !== null ? (
           <p className="flex items-center gap-1.5 text-10 text-muted-foreground">
             <FileSearch aria-hidden className="h-3 w-3 shrink-0" />
-            检索词：{query}
+            {t("chatTools.query", { query })}
           </p>
         ) : null}
         {!isSettled(status) ? (
           <p className="text-10 text-muted-foreground" data-testid="copilotkit-v2-tool-search-documents-pending">
-            检索中…结果尚未返回
+            {t("chatTools.searching")}
           </p>
         ) : files.length > 0 ? (
           <ul className="flex flex-col gap-0.5" data-testid="copilotkit-v2-tool-search-documents-list">
@@ -303,6 +308,7 @@ function GenericToolCard({
   parameters: unknown;
   result: string | undefined;
 }) {
+  const { locale, t } = useI18n();
   const status = useToolCardStatus(frameworkStatus);
   /**
    * 2026-09-16 人类实测（非技术用户）—— 这张卡此前把参数**整段 JSON** 印在第二行：
@@ -327,8 +333,8 @@ function GenericToolCard({
       <CardContent className="flex flex-col gap-1.5 p-2.5 text-11">
         <div className="flex items-center gap-1.5 font-medium text-card-foreground">
           <ToolStatusIcon status={status} />
-          <span className={cn(TOOL_LABEL[name] === undefined && "font-mono")} title={name}>{toolLabel(name)}</span>
-          {!isSettled(status) ? <Badge tone="neutral">进行中</Badge> : null}
+          <span className={cn(TOOL_LABEL[name] === undefined && "font-mono")} title={name}>{toolLabel(name, locale)}</span>
+          {!isSettled(status) ? <Badge tone="neutral">{t("chatTools.inProgress")}</Badge> : null}
         </div>
         {paramsSummary !== null ? (
           <p className="truncate font-mono text-10 text-muted-foreground">{paramsSummary}</p>
@@ -354,6 +360,7 @@ function GenericToolCard({
  * 原文：不隐藏事实，只是不把内部搬运痕迹当结果摆在第一屏。不是占位就与之前完全一样。
  */
 function ToolResultText({ result, testId }: { result: string; testId: string }) {
+  const { locale, t } = useI18n();
   const [rawOpen, setRawOpen] = React.useState(false);
   const evicted = React.useMemo(() => parseEvictedToolResult(result), [result]);
   if (evicted === null) {
@@ -363,7 +370,7 @@ function ToolResultText({ result, testId }: { result: string; testId: string }) 
     <div className="flex flex-col gap-1" data-testid={testId} data-tool-result-evicted="true">
       <p className="flex items-start gap-1.5 text-10 text-card-foreground" data-testid="copilotkit-v2-tool-result-evicted-notice">
         <FileText aria-hidden className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" />
-        <span className="min-w-0 break-all">{evictedToolResultNotice(evicted.path)}</span>
+        <span className="min-w-0 break-all">{evictedToolResultNotice(evicted.path, locale)}</span>
       </p>
       <button
         type="button"
@@ -373,7 +380,7 @@ function ToolResultText({ result, testId }: { result: string; testId: string }) 
         className="flex w-fit items-center gap-1 text-10 text-muted-foreground transition-colors duration-base hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <ChevronRight aria-hidden className={cn("h-3 w-3 shrink-0 transition-transform duration-fast", rawOpen && "rotate-90")} />
-        {rawOpen ? "收起原文" : "查看原文"}
+        {rawOpen ? t("chatTools.collapseRaw") : t("chatTools.showRaw")}
       </button>
       {rawOpen ? (
         <p
@@ -389,6 +396,7 @@ function ToolResultText({ result, testId }: { result: string; testId: string }) 
 
 /** 转交没有发起时的行内提示：说明原因（服务端给出的中文句子），并告诉用户对话会继续。 */
 export function HandoffRefusalNotice({ result, toolCallId }: { result: string | undefined; toolCallId: string | undefined }) {
+  const { t } = useI18n();
   const notice = handoffRefusalNotice(result);
   const isOwner = useSingleNoticeOwner(notice === null ? undefined : toolCallId);
   // UIUX r6 屏 5：提示条是助手这一回合的内容，和其他回合一样带头像 + 名字。回合自己已经画了身份行
@@ -405,7 +413,7 @@ export function HandoffRefusalNotice({ result, toolCallId }: { result: string | 
     >
       <AlertCircle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
       <span className="min-w-0">
-        <span className="font-medium">没有转交</span>
+        <span className="font-medium">{t("chatTools.notHandedOff")}</span>
         <span className="mx-1" aria-hidden>·</span>
         {notice}
       </span>

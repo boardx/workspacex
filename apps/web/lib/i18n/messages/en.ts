@@ -19,6 +19,7 @@ import { orgHomeConfigEn } from "../namespaces/org-home-config";
 import { orgProfileEn } from "../namespaces/org-profile";
 import { adminNavigationEn } from "../namespaces/admin-navigation";
 import { brainViewsEn } from "../namespaces/brain-views";
+import { chatEn } from "../namespaces/chat";
 import { enTasks } from "./tasks";
 import { enFailures } from "./failures";
 import { controlsEn } from "../namespaces/controls";
@@ -56,6 +57,7 @@ export const en: Record<keyof typeof zhCN, string> = {
   ...orgHomeConfigEn,
   ...orgProfileEn,
   ...brainViewsEn,
+  ...chatEn,
   ...enTasks,
   ...enFailures,
   ...controlsEn,

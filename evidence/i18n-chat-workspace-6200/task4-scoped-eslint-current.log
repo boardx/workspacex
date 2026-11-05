@@ -1,0 +1,7 @@
+
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/tests/ui/i18n-chat-artifact-detail.test.tsx
+  10:6  warning  React Hook React.useEffect has a missing dependency: 'p'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+✖ 1 problem (0 errors, 1 warning)
+
+FILE_COUNT 66 EXIT 0 WALL_SECONDS 3.629

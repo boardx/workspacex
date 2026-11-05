@@ -60,7 +60,8 @@ export const LONG_RUN_THRESHOLD_MS = 45_000;
 export const LONG_RUN_HINT = "复杂任务可能需要数分钟";
 
 /** `TEXT_MESSAGE_START` 的阶段文案——见文件头"为什么不借用 `chat_writeback`"。 */
-export const REPLYING_PHASE_LABEL = "正在回复…";
+export { REPLYING_PHASE_LABEL } from "./chat-runtime-labels";
+import { REPLYING_PHASE_LABEL } from "./chat-runtime-labels";
 
 /**
  * PROP-CHAT-UIUX-ITER-002 V2 —— 宏观阶段分组，三桶：`preparing`/`acting`/`replying`。

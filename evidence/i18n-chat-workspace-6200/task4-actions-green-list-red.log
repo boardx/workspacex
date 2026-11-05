@@ -1,0 +1,516 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/ui/i18n-chat-knowledge-actions.test.tsx (6 tests) 265ms
+ ❯ tests/ui/i18n-chat-knowledge-list.test.tsx (3 tests | 3 failed) 167ms
+   × keeps an expanded correction row and raw source action through locale without a write 45ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Fact
+Received:
+  事实1模型原文 {count} const code = '{locale}';AI 记下的证据 3 · 反对 1对不对
+   × keeps readonly selection identity and never renders edit actions 108ms
+     → Unable to find an accessible element with the role "checkbox" and name "Select 模型原文 {count} const code = '{locale}';"
+
+Here are the accessible roles:
+
+  heading:
+
+  Name "事实1":
+  [36m<h3[39m
+    [33mclass[39m=[32m"mb-1.5 flex items-center gap-1.5 text-11 font-medium text-muted-foreground"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  list:
+
+  Name "":
+  [36m<ul[39m
+    [33mclass[39m=[32m"flex flex-col gap-1.5"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  listitem:
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"group flex flex-col gap-1.5 rounded-md border border-border-subtle bg-background p-2 transition-colors duration-base hover:bg-muted"[39m
+    [33mdata-testid[39m=[32m"kg-claim-raw-claim"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  checkbox:
+
+  Name "选择 模型原文 {count} const code = '{locale}';":
+  [36m<input[39m
+    [33maria-label[39m=[32m"选择 模型原文 {count} const code = '{locale}';"[39m
+    [33mchecked[39m=[32m""[39m
+    [33mclass[39m=[32m"peer h-4 w-4 cursor-pointer appearance-none rounded-control border border-input bg-card transition-all duration-200 checked:border-primary checked:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:bg-disabled"[39m
+    [33mdata-testid[39m=[32m"kg-claim-select-raw-claim"[39m
+    [33mid[39m=[32m":r2:"[39m
+    [33mtype[39m=[32m"checkbox"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "模型原文 {count} const code = '{locale}';AI 记下的证据 3 · 反对 1":
+  [36m<button[39m
+    [33mclass[39m=[32m"flex flex-1 flex-col items-start gap-1 text-left"[39m
+    [33mdata-testid[39m=[32m"kg-claim-open-raw-claim"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col gap-4"[39m
+      [33mdata-testid[39m=[32m"kg-list"[39m
+    [36m>[39m
+      [36m<section[39m
+        [33mdata-testid[39m=[32m"kg-group-fact"[39m
+      [36m>[39m
+        [36m<h3[39m
+          [33mclass[39m=[32m"mb-1.5 flex items-center gap-1.5 text-11 font-medium text-muted-foreground"[39m
+        [36m>[39m
+          [0m事实[0m
+          [36m<span[39m
+            [33mclass[39m=[32m"rounded-control bg-muted px-1.5 py-0.5 text-10"[39m
+          [36m>[39m
+            [0m1[0m
+          [36m</span>[39m
+        [36m</h3>[39m
+        [36m<ul[39m
+          [33mclass[39m=[32m"flex flex-col gap-1.5"[39m
+        [36m>[39m
+          [36m<li[39m
+            [33mclass[39m=[32m"group flex flex-col gap-1.5 rounded-md border border-border-subtle bg-background p-2 transition-colors duration-base hover:bg-muted"[39m
+            [33mdata-testid[39m=[32m"kg-claim-raw-claim"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-start gap-2"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-start gap-2 mt-0.5"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"relative mt-0.5 inline-flex h-4 w-4 shrink-0"[39m
+                [36m>[39m
+                  [36m<input[39m
+                    [33maria-label[39m=[32m"选择 模型原文 {count} const code = '{locale}';"[39m
+                    [33mchecked[39m=[32m""[39m
+                    [33mclass[39m=[32m"peer h-4 w-4 cursor-pointer appearance-none rounded-control border border-input bg-card transition-all duration-200 checked:border-primary checked:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:bg-disabled"[39m
+                    [33mdata-testid[39m=[32m"kg-claim-select-raw-claim"[39m
+                    [33mid[39m=[32m":r2:"[39m
+                    [33mtype[39m=[32m"checkbox"[39m
+                  [36m/>[39m
+                  [36m<svg[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"lucide lucide-check pointer-events-none absolute left-0.5 top-0.5 h-3 w-3 text-primary-foreground opacity-0 transition-opacity duration-200 peer-checked:opacity-100"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"24"[39m
+                    [33mstroke[39m=[32m"currentColor"[39m
+                    [33mstroke-linecap[39m=[32m"round"[39m
+                    [33mstroke-linejoin[39m=[32m"round"[39m
+                    [33mstroke-width[39m=[32m"2"[39m
+                    [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [33mwidth[39m=[32m"24"[39m
+                    [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                  [36m>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M20 6 9 17l-5-5"[39m
+                    [36m/>[39m
+                  [36m</svg>[39m
+                [36m</span>[39m
+              [36m</div>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"flex flex-1 flex-col items-start gap-1 text-left"[39m
+                [33mdata-testid[39m=[32m"kg-claim-open-raw-claim"[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-12 leading-relaxed text-background-foreground"[39m
+                [36m>[39m
+                  [0m模型原文 {count} const code = '{locale}';[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"flex items-center gap-1.5"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-warning-tint text-warning-tint-foreground"[39m
+                    [33mdata-testid[39m=[32m"kg-tri-state-pending"[39m
+                  [36m>[39m
+                    [0mAI 记下的[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"flex items-center gap-1 text-10 text-muted-foreground"[39m
+                  [36m>[39m
+                    [36m<svg[39m
+                      [33maria-hidden[39m=[32m"true"[39m
+                      [33mclass[39m=[32m"lucide lucide-file-text h-3 w-3"[39m
+                      [33mfill[39m=[32m"none"[39m
+                      [33mheight[39m=[32m"24"[39m
+                      [33mstroke[39m=[32m"currentColor"[39m
+                      [33mstroke-linecap[39m=[32m"round"[39m
+                      [33mstroke-linejoin[39m=[32m"round"[39m
+                      [33mstroke-width[39m=[32m"2"[39m
+                      [33mviewBox[39m=[32m"0 0 24 24"[39m
+                      [33mwidth[39m=[32m"24"[39m
+                      [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                    [36m>[39m
+                      [36m<path[39m
+                        [33md[39m=[32m"M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"[39m
+                      [36m/>[39m
+                      [36m<path[39m
+                        [33md[39m=[32m"M14 2v4a2 2 0 0 0 2 2h4"[39m
+                      [36m/>[39m
+                      [36m<path[39m
+                        [33md[39m=[32m"M10 9H8"[39m
+                      [36m/>[39m
+                      [36m<path[39m
+                        [33md[39m=[32m"M16 13H8"[39m
+                      [36m/>[39m
+                      [36m<path[39m
+                        [33md[39m=[32m"M16 17H8"[39m
+                      [36m/>[39m
+                    [36m</svg>[39m
+                    [0m证据 [0m
+                    [0m3[0m
+                    [0m · 反对 1[0m
+                  [36m</span>[39m
+                [36m</span>[39m
+              [36m</button>[39m
+            [36m</div>[39m
+          [36m</li>[39m
+        [36m</ul>[39m
+      [36m</section>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × only organizes the conversation on explicit empty-state action 13ms
+     → Unable to find an accessible element with the role "button" and name "Organize this conversation"
+
+Here are the accessible roles:
+
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"max-w-xs text-12 text-muted-foreground"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "整理本会话":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"kg-empty-reindex"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col items-center gap-4 rounded-lg border border-dashed border-border py-12 text-center"[39m
+      [33mdata-testid[39m=[32m"empty"[39m
+    [36m>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"max-w-xs text-12 text-muted-foreground"[39m
+      [36m>[39m
+        [0m对话里提到的人、决定和事实会自动记在这里，你什么都不用做。[0m
+        [0m现在还没有——先聊几句，或手动整理一次。[0m
+      [36m</p>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+        [33mdata-testid[39m=[32m"kg-empty-reindex"[39m
+      [36m>[39m
+        [0m整理本会话[0m
+      [36m</button>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/i18n-chat-knowledge-list.test.tsx > keeps an expanded correction row and raw source action through locale without a write
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Fact
+Received:
+  事实1模型原文 {count} const code = '{locale}';AI 记下的证据 3 · 反对 1对不对
+ ❯ tests/ui/i18n-chat-knowledge-list.test.tsx:18:47
+     16|   render(<I18nProvider initialLocale="en"><Driver /><KnowledgeList cla…
+     17|   const row = screen.getByTestId("kg-claim-raw-claim");
+     18|   expect(screen.getByTestId("kg-group-fact")).toHaveTextContent("Fact"…
+       |                                               ^
+     19|   expect(row).toHaveTextContent("Evidence 3"); expect(row).toHaveTextC…
+     20|   fireEvent.click(within(row).getByRole("button", { name: "Wrong" }));
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  tests/ui/i18n-chat-knowledge-list.test.tsx > keeps readonly selection identity and never renders edit actions
+TestingLibraryElementError: Unable to find an accessible element with the role "checkbox" and name "Select 模型原文 {count} const code = '{locale}';"
+
+Here are the accessible roles:
+
+  heading:
+
+  Name "事实1":
+  [36m<h3[39m
+    [33mclass[39m=[32m"mb-1.5 flex items-center gap-1.5 text-11 font-medium text-muted-foreground"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  list:
+
+  Name "":
+  [36m<ul[39m
+    [33mclass[39m=[32m"flex flex-col gap-1.5"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  listitem:
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"group flex flex-col gap-1.5 rounded-md border border-border-subtle bg-background p-2 transition-colors duration-base hover:bg-muted"[39m
+    [33mdata-testid[39m=[32m"kg-claim-raw-claim"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  checkbox:
+
+  Name "选择 模型原文 {count} const code = '{locale}';":
+  [36m<input[39m
+    [33maria-label[39m=[32m"选择 模型原文 {count} const code = '{locale}';"[39m
+    [33mchecked[39m=[32m""[39m
+    [33mclass[39m=[32m"peer h-4 w-4 cursor-pointer appearance-none rounded-control border border-input bg-card transition-all duration-200 checked:border-primary checked:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:bg-disabled"[39m
+    [33mdata-testid[39m=[32m"kg-claim-select-raw-claim"[39m
+    [33mid[39m=[32m":r2:"[39m
+    [33mtype[39m=[32m"checkbox"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "模型原文 {count} const code = '{locale}';AI 记下的证据 3 · 反对 1":
+  [36m<button[39m
+    [33mclass[39m=[32m"flex flex-1 flex-col items-start gap-1 text-left"[39m
+    [33mdata-testid[39m=[32m"kg-claim-open-raw-claim"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col gap-4"[39m
+      [33mdata-testid[39m=[32m"kg-list"[39m
+    [36m>[39m
+      [36m<section[39m
+        [33mdata-testid[39m=[32m"kg-group-fact"[39m
+      [36m>[39m
+        [36m<h3[39m
+          [33mclass[39m=[32m"mb-1.5 flex items-center gap-1.5 text-11 font-medium text-muted-foreground"[39m
+        [36m>[39m
+          [0m事实[0m
+          [36m<span[39m
+            [33mclass[39m=[32m"rounded-control bg-muted px-1.5 py-0.5 text-10"[39m
+          [36m>[39m
+            [0m1[0m
+          [36m</span>[39m
+        [36m</h3>[39m
+        [36m<ul[39m
+          [33mclass[39m=[32m"flex flex-col gap-1.5"[39m
+        [36m>[39m
+          [36m<li[39m
+            [33mclass[39m=[32m"group flex flex-col gap-1.5 rounded-md border border-border-subtle bg-background p-2 transition-colors duration-base hover:bg-muted"[39m
+            [33mdata-testid[39m=[32m"kg-claim-raw-claim"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-start gap-2"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-start gap-2 mt-0.5"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"relative mt-0.5 inline-flex h-4 w-4 shrink-0"[39m
+                [36m>[39m
+                  [36m<input[39m
+                    [33maria-label[39m=[32m"选择 模型原文 {count} const code = '{locale}';"[39m
+                    [33mchecked[39m=[32m""[39m
+                    [33mclass[39m=[32m"peer h-4 w-4 cursor-pointer appearance-none rounded-control border border-input bg-card transition-all duration-200 checked:border-primary checked:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:bg-disabled"[39m
+                    [33mdata-testid[39m=[32m"kg-claim-select-raw-claim"[39m
+                    [33mid[39m=[32m":r2:"[39m
+                    [33mtype[39m=[32m"checkbox"[39m
+                  [36m/>[39m
+                  [36m<svg[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"lucide lucide-check pointer-events-none absolute left-0.5 top-0.5 h-3 w-3 text-primary-foreground opacity-0 transition-opacity duration-200 peer-checked:opacity-100"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"24"[39m
+                    [33mstroke[39m=[32m"currentColor"[39m
+                    [33mstroke-linecap[39m=[32m"round"[39m
+                    [33mstroke-linejoin[39m=[32m"round"[39m
+                    [33mstroke-width[39m=[32m"2"[39m
+                    [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [33mwidth[39m=[32m"24"[39m
+                    [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                  [36m>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M20 6 9 17l-5-5"[39m
+                    [36m/>[39m
+                  [36m</svg>[39m
+                [36m</span>[39m
+              [36m</div>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"flex flex-1 flex-col items-start gap-1 text-left"[39m
+                [33mdata-testid[39m=[32m"kg-claim-open-raw-claim"[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-12 leading-relaxed text-background-foreground"[39m
+                [36m>[39m
+                  [0m模型原文 {count} const code = '{locale}';[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"flex items-center gap-1.5"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-warning-tint text-warning-tint-foreground"[39m
+                    [33mdata-testid[39m=[32m"kg-tri-state-pending"[39m
+                  [36m>[39m
+                    [0mAI 记下的[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"flex items-center gap-1 text-10 text-muted-foreground"[39m
+                  [36m>[39m
+                    [36m<svg[39m
+                      [33maria-hidden[39m=[32m"true"[39m
+                      [33mclass[39m=[32m"lucide lucide-file-text h-3 w-3"[39m
+                      [33mfill[39m=[32m"none"[39m
+                      [33mheight[39m=[32m"24"[39m
+                      [33mstroke[39m=[32m"currentColor"[39m
+                      [33mstroke-linecap[39m=[32m"round"[39m
+                      [33mstroke-linejoin[39m=[32m"round"[39m
+                      [33mstroke-width[39m=[32m"2"[39m
+                      [33mviewBox[39m=[32m"0 0 24 24"[39m
+                      [33mwidth[39m=[32m"24"[39m
+                      [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                    [36m>[39m
+                      [36m<path[39m
+                        [33md[39m=[32m"M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"[39m
+                      [36m/>[39m
+                      [36m<path[39m
+                        [33md[39m=[32m"M14 2v4a2 2 0 0 0 2 2h4"[39m
+                      [36m/>[39m
+                      [36m<path[39m
+                        [33md[39m=[32m"M10 9H8"[39m
+                      [36m/>[39m
+                      [36m<path[39m
+                        [33md[39m=[32m"M16 13H8"[39m
+                      [36m/>[39m
+                      [36m<path[39m
+                        [33md[39m=[32m"M16 17H8"[39m
+                      [36m/>[39m
+                    [36m</svg>[39m
+                    [0m证据 [0m
+                    [0m3[0m
+                    [0m · 反对 1[0m
+                  [36m</span>[39m
+                [36m</span>[39m
+              [36m</button>[39m
+            [36m</div>[39m
+          [36m</li>[39m
+        [36m</ul>[39m
+      [36m</section>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-knowledge-list.test.tsx:34:27
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  tests/ui/i18n-chat-knowledge-list.test.tsx > only organizes the conversation on explicit empty-state action
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Organize this conversation"
+
+Here are the accessible roles:
+
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"max-w-xs text-12 text-muted-foreground"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "整理本会话":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"kg-empty-reindex"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col items-center gap-4 rounded-lg border border-dashed border-border py-12 text-center"[39m
+      [33mdata-testid[39m=[32m"empty"[39m
+    [36m>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"max-w-xs text-12 text-muted-foreground"[39m
+      [36m>[39m
+        [0m对话里提到的人、决定和事实会自动记在这里，你什么都不用做。[0m
+        [0m现在还没有——先聊几句，或手动整理一次。[0m
+      [36m</p>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+        [33mdata-testid[39m=[32m"kg-empty-reindex"[39m
+      [36m>[39m
+        [0m整理本会话[0m
+      [36m</button>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-knowledge-list.test.tsx:44:25
+     42|   const organize = vi.fn();
+     43|   render(<I18nProvider initialLocale="en"><Driver /><KnowledgeEmpty on…
+     44|   const button = screen.getByRole("button", { name: "Organize this con…
+       |                         ^
+     45|   act(() => changeLocale()); expect(screen.getByRole("button", { name:…
+     46|   fireEvent.click(button); expect(organize).toHaveBeenCalledTimes(1);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  3 failed | 6 passed (9)
+   Start at  12:45:07
+   Duration  3.28s (transform 314ms, setup 250ms, collect 756ms, tests 432ms, environment 1.25s, prepare 89ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/i18n-chat-knowledge-actions.test.tsx tests/ui/i18n-chat-knowledge-list.test.tsx --maxWorkers=1 --minWorkers=1

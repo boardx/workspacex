@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
+import type { chatInspectorZhCN } from "@/lib/i18n/namespaces/chat-inspector";
 import { Package, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -52,6 +54,7 @@ export function ChatArtifactsPanel({
   versionsCount?: number | null;
   onRefresh?: () => void;
 }) {
+  const { t } = useI18n();
   const unified = versions !== undefined;
   const listCount = artifacts?.items.length ?? null;
   const total = unified
@@ -63,10 +66,10 @@ export function ChatArtifactsPanel({
       <div className="flex items-center gap-2 border-b border-border-subtle px-3 py-2">
         <Package aria-hidden className="h-4 w-4 text-muted-foreground" />
         <h2 className="min-w-0 flex-1 text-12 font-medium" data-testid="chat-artifacts-panel-title">
-          {unified ? "产物" : "产物预览"}{total !== null ? `（${total}）` : ""}
+          {total !== null ? t(unified ? "chatInspector.artifacts.count" : "chatInspector.artifacts.previewCount", { count: total }) : t(unified ? "chatInspector.artifacts" : "chatInspector.artifacts.preview")}
         </h2>
         {onRefresh ? (
-          <Button size="xs" variant="ghost" className="w-6 px-0" aria-label="刷新产物与修改进度" title="刷新" data-testid="chat-artifacts-refresh" onClick={onRefresh}>
+          <Button size="xs" variant="ghost" className="w-6 px-0" aria-label={t("chatInspector.artifacts.refresh")} title={t("chatInspector.refresh")} data-testid="chat-artifacts-refresh" onClick={onRefresh}>
             <RefreshCw aria-hidden className="h-3.5 w-3.5" />
           </Button>
         ) : null}
@@ -79,17 +82,17 @@ export function ChatArtifactsPanel({
           （"读取"），不是「用户」该做什么。换成用户语言 + 明确动作。 */}
       {!hasSelection ? (
         <p className="p-3 text-12 text-muted-foreground" data-testid="chat-artifacts-no-selection">
-          还没有选择对话。在左侧选一条对话，这里会列出它生成的产物。
+          {t("chatInspector.artifacts.noSelection")}
         </p>
       ) : null}
       {/* issue #2075（TW-P2-7）—— 加载态从"一行灰字"换成真骨架，理由见
           `chat-panel-skeleton.tsx` 头注（一行字既不是 skeleton 也不是占位区）。 */}
-      {hasSelection && loading ? <ChatPanelSkeleton label="正在读取产物列表" /> : null}
+      {hasSelection && loading ? <ChatPanelSkeleton label={t("chatInspector.artifacts.loading")} /> : null}
       {error ? (
         <div className="flex flex-col items-start gap-2 p-3" data-testid="chat-artifacts-error">
           <p className="text-12 text-destructive">{error}</p>
           <Button size="xs" variant="outline" data-testid="chat-artifacts-retry" onClick={onRetry}>
-            <RefreshCw aria-hidden className="h-3 w-3" />重试
+            <RefreshCw aria-hidden className="h-3 w-3" />{t("chatInspector.retry")}
           </Button>
         </div>
       ) : null}
@@ -99,9 +102,9 @@ export function ChatArtifactsPanel({
           {showEmpty ? (
             <div className="flex flex-col items-center gap-1.5 px-3 py-8 text-center" data-testid="chat-artifacts-empty">
               <Package aria-hidden className="h-5 w-5 text-muted-foreground" />
-              <p className="text-12 font-medium text-card-foreground">这条对话还没有产物</p>
+              <p className="text-12 font-medium text-card-foreground">{t("chatInspector.artifacts.empty")}</p>
               <p className="max-w-64 text-11 text-muted-foreground">
-                任务生成的报告、PPT、表格等文件会出现在这里，可预览、下载，并基于历史版本继续修改。
+                {t("chatInspector.artifacts.emptyHint")}
               </p>
             </div>
           ) : null}
@@ -114,11 +117,11 @@ export function ChatArtifactsPanel({
                   <p className="min-w-0 flex-1 truncate text-11 font-medium">
                     {stripCanvasFenceIdentity(item.title)}
                   </p>
-                  <Badge tone={item.mode === "pinned" ? "primary" : "neutral"}>{ARTIFACT_MODE_TEXT[item.mode]}</Badge>
+                  <Badge tone={item.mode === "pinned" ? "primary" : "neutral"}>{t(ARTIFACT_MODE_KEY[item.mode])}</Badge>
                 </div>
                 <p className="mt-1 text-10 text-muted-foreground">
-                  {item.hasSource ? "已挂出处" : "未挂出处"}
-                  {item.version !== null ? ` · 版本 ${item.version}` : ""}
+                  {t(item.hasSource ? "chatInspector.artifacts.source" : "chatInspector.artifacts.noSource")}
+                  {item.version !== null ? t("chatInspector.artifacts.version", { version: item.version }) : ""}
                 </p>
               </>
             );
@@ -148,8 +151,8 @@ export function ChatArtifactsPanel({
   );
 }
 
-const ARTIFACT_MODE_TEXT: Record<ListThreadArtifactsOut["items"][number]["mode"], string> = {
-  draft: "草稿",
-  live: "实时关联",
-  pinned: "固定快照",
+const ARTIFACT_MODE_KEY: Record<ListThreadArtifactsOut["items"][number]["mode"], keyof typeof chatInspectorZhCN> = {
+  draft: "chatInspector.artifacts.mode.draft",
+  live: "chatInspector.artifacts.mode.live",
+  pinned: "chatInspector.artifacts.mode.pinned",
 };

@@ -1,0 +1,21 @@
+$ pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.chat-read.config.ts --project=chat-read e2e/i18n-chat-workspace.spec.ts --list --workers=1 --retries=0 --max-failures=1 --reporter=json --output=/tmp/chat6200-task5-seven-source-private/output
+[heavy-e2e-lock] 排到了，等了 0s
+[stack-admission] load1=9.21 cores=10 perCore=0.92 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw24btl8-7827d504-819d19cb1a32 db=wsx_819d19cb1a32a709beef compose=wsx-819d19cb1a32a709beef pg=20708 redis=21708 api=24708 web=25708 sandbox=26708 model=27708 deep-agent=28708 asr=29708 vision=30708 loopback-sandbox=31708 mail=19708
+Listing tests:
+  [chat-read] › i18n-chat-workspace.spec.ts:36:7 › personal sidebar and unsent raw draft survive locale changes at 1280
+  [chat-read] › i18n-chat-workspace.spec.ts:36:7 › personal sidebar and unsent raw draft survive locale changes at 375
+  [chat-read] › i18n-chat-workspace.spec.ts:101:5 › active canonical run retains identity, raw draft, selected inspector tab and persisted reply across locale/reload
+  [chat-read] › i18n-chat-workspace.spec.ts:160:5 › material upload, inline preview and enlarged download retain original bytes across locale changes
+  [chat-read] › i18n-chat-workspace.spec.ts:213:5 › permission dialog locale switch and Escape submit no decision; explicit once resumes the same canonical run
+  [chat-read] › i18n-chat-workspace.spec.ts:266:5 › project thread preserves canonical scope, raw project name and return target across locales
+  [chat-read] › i18n-chat-workspace.spec.ts:301:5 › different seeded principal receives real private-thread 404 and locale changes never grant send access
+Total: 7 tests in 1 file
+[timing] pnpm --filter web exec playwright test --config playwright.chat-read.config.ts --project=chat-read e2e/i18n-chat-workspace.spec.ts --list --workers=1 --retries=0 --max-failures=1 --reporter=json --output=/tmp/chat6200-task5-seven-source-private/output
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：4s
+  清理：1s
+  总计：4s

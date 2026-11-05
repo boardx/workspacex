@@ -1,0 +1,49 @@
+{
+  "headBeforeFix": "9e26dab92dfc3ab4fc821b70b75e42df1dafc967",
+  "runId": 41915806823,
+  "attempt": 1,
+  "jobId": 126875862957,
+  "artifactId": 13365710676,
+  "rawReportSha256": "4a7de2ae2778ece0b612334cb1a05b09fe7f7aa7f0423aedd0365b6883069d86",
+  "firstFailedTest": "tests/chat/run-progress-butterfly.test.tsx:147",
+  "cause": "Old source guard read controller after its UI was extracted to the actual delegated view; the original status span remains in that view.",
+  "productChanged": false,
+  "testSourceSha256": "35fba46645bed4529ed55cd4bf63bf56f666da8bce19c2eb3a8f8b080094011c",
+  "assertionPolicy": "Keep controller negatives/hook; assert actual view import/render delegation; check the same UI negatives and original sr-only status marker in that view.",
+  "gates": [
+    {
+      "gate": "neighbors",
+      "command": [
+        "pnpm",
+        "--filter",
+        "web",
+        "exec",
+        "vitest",
+        "run",
+        "tests/chat/run-progress-butterfly.test.tsx",
+        "tests/ui/escalation-thread-record.test.tsx"
+      ],
+      "exitCode": 0,
+      "seconds": 15.371
+    },
+    {
+      "gate": "lint",
+      "command": [
+        "pnpm",
+        "--filter",
+        "web",
+        "exec",
+        "eslint",
+        "tests/chat/run-progress-butterfly.test.tsx"
+      ],
+      "exitCode": 0,
+      "seconds": 2.181
+    }
+  ],
+  "nativeTestFiles": 2,
+  "nativePassed": 19,
+  "nativeSkipped": 0,
+  "review": "Same independent reviewer bounded single-file STATIC CLEAN; no dynamic review claim.",
+  "chatRuntimeVerdict": "UNAVAILABLE_CANCELLED_NO_REPORT_NO_PNG",
+  "rawPrivate": true
+}

@@ -1,0 +1,1490 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+stderr | tests/ui/copilotkit-v2-persona-archived.test.tsx
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+stderr | tests/ui/copilotkit-v2-persona-archived.test.tsx > owned persona failure prefix translates while preserving the raw reason and request count
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:13502:13
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:9578:25)
+      at fetch (node:internal/deps/undici/undici:10307:25)
+      at fetch (node:internal/deps/undici/undici:13500:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+} { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-persona-archived.test.tsx > owned generated suggestion prefix translates but keeps the server display name and prompt raw
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:13502:13
+    at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:9578:25)
+      at fetch (node:internal/deps/undici/undici:10307:25)
+      at fetch (node:internal/deps/undici/undici:13500:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+} { runtimeUrl: '/api/copilotkit' }
+
+ ❯ tests/ui/copilotkit-v2-persona-archived.test.tsx (14 tests | 2 failed | 12 skipped) 443ms
+   × owned persona failure prefix translates while preserving the raw reason and request count 333ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Could not generate persona: NO_WRITE_ROLE
+Received:
+  生成用户画像失败：NO_WRITE_ROLE
+   × owned generated suggestion prefix translates but keeps the server display name and prompt raw 109ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Generate 组织原名 {name}
+Received:
+  生成组织原名 {name}
+stderr | tests/ui/copilotkit-v2-live-failure-cause-banner.test.tsx
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+stderr | tests/ui/copilotkit-v2-live-failure-cause-banner.test.tsx > owned live run error and cause follow locale without another authority read
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:13502:13
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:9578:25)
+      at fetch (node:internal/deps/undici/undici:10307:25)
+      at fetch (node:internal/deps/undici/undici:13500:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+} { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-live-failure-cause-banner.test.tsx > owned live run error and cause follow locale without another authority read
+[copilotkit-v2] agent run failed {
+  code: 'MODEL_CALL_FAILED',
+  context: {
+    source: 'onRunErrorEvent',
+    runtimeErrorCode: 'MODEL_CALL_FAILED',
+    event: {
+      type: 'RUN_ERROR',
+      message: 'MODEL_CALL_FAILED',
+      code: 'MODEL_CALL_FAILED'
+    }
+  }
+}
+[CopilotKit] Error (agent_run_error_event): Error: MODEL_CALL_FAILED
+    at /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/tests/ui/copilotkit-v2-live-failure-cause-banner.test.tsx:405:38
+    at file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:533:5
+    at runTest (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1056:11)
+    at runSuite (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1205:15)
+    at runFiles (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1262:5)
+    at startTests (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1271:3)
+    at file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/vitest@2.1.9_@edge-runtime+vm@3.2.0_@types+node@22.20.1_jsdom@30.0.1_canvas@3.2.3__terser@5.50.0/node_modules/vitest/dist/chunks/runBaseTests.3qpJUEJM.js:126:11
+    at withEnv (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/vitest@2.1.9_@edge-runtime+vm@3.2.0_@types+node@22.20.1_jsdom@30.0.1_canvas@3.2.3__terser@5.50.0/node_modules/vitest/dist/chunks/runBaseTests.3qpJUEJM.js:90:5)
+    at run (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/vitest@2.1.9_@edge-runtime+vm@3.2.0_@types+node@22.20.1_jsdom@30.0.1_canvas@3.2.3__terser@5.50.0/node_modules/vitest/dist/chunks/runBaseTests.3qpJUEJM.js:112:3)
+    at runBaseTests (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/vitest@2.1.9_@edge-runtime+vm@3.2.0_@types+node@22.20.1_jsdom@30.0.1_canvas@3.2.3__terser@5.50.0/node_modules/vitest/dist/chunks/base.BZZh4cSm.js:29:3) {
+  source: 'onRunErrorEvent',
+  runtimeErrorCode: 'MODEL_CALL_FAILED',
+  event: {
+    type: 'RUN_ERROR',
+    message: 'MODEL_CALL_FAILED',
+    code: 'MODEL_CALL_FAILED'
+  }
+}
+
+ ❯ tests/ui/copilotkit-v2-live-failure-cause-banner.test.tsx (9 tests | 1 failed | 8 skipped) 1360ms
+   × owned live run error and cause follow locale without another authority read 1360ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  A server defect occurred
+Received:
+  模型这次没能返回可用结果：这是我们服务端的缺陷，不是模型的问题，请把这次的任务编号报给管理员
+
+Ignored nodes: comments, script, style
+[36m<html[39m
+  [33mlang[39m=[32m"en"[39m
+[36m>[39m
+  [36m<head>[39m
+    [36m<link[39m
+      [33mhref[39m=[32m"https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600&family=Spline+Sans+Mono:wght@600&display=swap"[39m
+      [33mid[39m=[32m"cpk-inspector-brand-fonts"[39m
+      [33mrel[39m=[32m"stylesheet"[39m
+    [36m/>[39m
+  [36m</head>[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<button>[39m
+        [0mChange history test locale[0m
+      [36m</button>[39m
+      [36m<div[39m
+        [33mdata-testid[39m=[32m"copilot-error-banner"[39m
+        [33mstyle[39m=[32m"position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; background-color: rgb(254, 226, 226); border-width: 1px 1px 1px 4px; border-style: solid; border-color: rgb(220, 38, 38); border-image: none; border-radius: 8px; padding: 12px 16px; font-size: 13px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); backdrop-filter: blur(8px); max-width: min(90vw, 700px); width: 100%; box-sizing: border-box; overflow: hidden;"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mstyle[39m=[32m"display: flex; justify-content: space-between; align-items: center; gap: 10px;"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mstyle[39m=[32m"display: flex; align-items: center; gap: 8px; flex: 1 1 0%; min-width: 0px;"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mstyle[39m=[32m"width: 12px; height: 12px; border-radius: 50%; background-color: rgb(220, 38, 38); flex-shrink: 0;"[39m
+            [36m/>[39m
+            [36m<div[39m
+              [33mstyle[39m=[32m"display: flex; align-items: center; gap: 10px; flex: 1 1 0%; min-width: 0px;"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mstyle[39m=[32m"color: rgb(127, 29, 29); line-height: 1.4; font-weight: 400; font-size: 13px; flex: 1 1 0%; word-break: break-all; overflow-wrap: break-word; max-width: 550px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 10; -webkit-box-orient: vertical;"[39m
+              [36m>[39m
+                [0mMODEL_CALL_FAILED[0m
+              [36m</div>[39m
+              [36m<button[39m
+                [33mstyle[39m=[32m"background: transparent; border: 1px solid rgb(220, 38, 38); border-radius: 5px; padding: 4px 10px; font-size: 11px; font-weight: 500; cursor: pointer; color: rgb(127, 29, 29); flex-shrink: 0; transition: all 0.2s ease;"[39m
+              [36m>[39m
+                [0mShow Details[0m
+              [36m</button>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<button[39m
+            [33mstyle[39m=[32m"background: transparent; border: medium; color: rgb(127, 29, 29); cursor: pointer; padding: 2px; border-radius: 3px; font-size: 14px; line-height: 1; opacity: 0.6; transition: all 0.2s ease; flex-shrink: 0;"[39m
+            [33mtitle[39m=[32m"Dismiss"[39m
+          [36m>[39m
+            [0mx[0m
+          [36m</button>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex h-full w-full flex-col gap-2 p-4"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"min-h-0 flex-1"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex h-full min-h-0 w-full gap-3"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"relative flex min-h-0 w-full min-w-0 flex-1 flex-col gap-3"[39m
+            [36m>[39m
+              [36m<p[39m
+                [33maria-atomic[39m=[32m"true"[39m
+                [33maria-live[39m=[32m"polite"[39m
+                [33mclass[39m=[32m"sr-only"[39m
+                [33mdata-testid[39m=[32m"chat-task-workbench-live-announcer"[39m
+                [33mrole[39m=[32m"status"[39m
+              [36m/>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"relative flex min-h-0 flex-1 flex-col"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"relative flex-1 overflow-y-auto p-3 flex flex-col"[39m
+                  [33mdata-testid[39m=[32m"copilotkit-v2-messages"[39m
+                [36m>[39m
+                  [36m<div[39m
+                    [33mclass[39m=[32m"mx-auto w-full max-w-3xl flex flex-1 flex-col"[39m
+                  [36m>[39m
+                    [36m<div[39m
+                      [33mclass[39m=[32m"flex min-h-full flex-col items-center justify-center gap-4 px-4 py-4 text-center sm:px-6"[39m
+                      [33mdata-testid[39m=[32m"copilotkit-v2-empty"[39m
+                    [36m>[39m
+                      [36m<div[39m
+                        [33mclass[39m=[32m"flex flex-col items-center gap-2"[39m
+                        [33mdata-testid[39m=[32m"chat-task-workbench-goal-headline"[39m
+                      [36m>[39m
+                        [36m<p[39m
+                          [33mclass[39m=[32m"max-w-xl text-24 sm:text-30 font-semibold tracking-tight text-card-foreground"[39m
+                        [36m>[39m
+                          [0mWhat would you like to accomplish today?[0m
+                        [36m</p>[39m
+                        [36m<p[39m
+                          [33mclass[39m=[32m"max-w-lg text-14 leading-relaxed text-muted-foreground"[39m
+                        [36m>[39m
+                          [0mDescribe your goal. The agent will propose a plan and wait for your confirmation before executing it. You can also drop files into this conversation or use the microphone for voice input.[0m
+                        [36m</p>[39m
+                      [36m</div>[39m
+                      [36m<p[39m
+                        [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+                        [33mdata-testid[39m=[32m"err-session-briefing"[39m
+                        [33mrole[39m=[32m"status"[39m
+                      [36m>[39m
+                        [0mCould not load your previous progress. You can still start a new conversation.[0m
+                      [36m</p>[39m
+                      [36m<div[39m
+                        [33mclass[39m=[32m"grid w-full max-w-xl grid-cols-2 gap-x-3"[39m
+                      [36m>[39m
+                        [36m<button[39m
+                          [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle bg-card px-2 py-2 text-left text-13 leading-relaxed text-card-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+                          [33mdata-testid[39m=[32m"chat-task-workbench-template-research"[39m
+                          [33mtype[39m=[32m"button"[39m
+                        [36m>[39m
+                          [36m<span[39m
+          ...
+stderr | tests/ui/copilotkit-v2-run-restore-on-remount.test.tsx
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+stderr | tests/ui/copilotkit-v2-run-restore-on-remount.test.tsx > owned restored run phase follows locale on the same input without repeating recovery reads
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:13502:13
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:9578:25)
+      at fetch (node:internal/deps/undici/undici:10307:25)
+      at fetch (node:internal/deps/undici/undici:13500:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+} { runtimeUrl: '/api/copilotkit' }
+
+ ❯ tests/ui/copilotkit-v2-run-restore-on-remount.test.tsx (6 tests | 1 failed | 5 skipped) 1268ms
+   × owned restored run phase follows locale on the same input without repeating recovery reads 1267ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Executing
+Received:
+  正在执行
+
+Ignored nodes: comments, script, style
+[36m<html[39m
+  [33mlang[39m=[32m"en"[39m
+[36m>[39m
+  [36m<head>[39m
+    [36m<link[39m
+      [33mhref[39m=[32m"https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600&family=Spline+Sans+Mono:wght@600&display=swap"[39m
+      [33mid[39m=[32m"cpk-inspector-brand-fonts"[39m
+      [33mrel[39m=[32m"stylesheet"[39m
+    [36m/>[39m
+  [36m</head>[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<button>[39m
+        [0mChange restore locale[0m
+      [36m</button>[39m
+      [36m<div[39m
+        [33mdata-testid[39m=[32m"copilot-error-banner"[39m
+        [33mstyle[39m=[32m"position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; background-color: rgb(254, 226, 226); border-width: 1px 1px 1px 4px; border-style: solid; border-color: rgb(220, 38, 38); border-image: none; border-radius: 8px; padding: 12px 16px; font-size: 13px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); backdrop-filter: blur(8px); max-width: min(90vw, 700px); width: 100%; box-sizing: border-box; overflow: hidden;"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mstyle[39m=[32m"display: flex; justify-content: space-between; align-items: center; gap: 10px;"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mstyle[39m=[32m"display: flex; align-items: center; gap: 8px; flex: 1 1 0%; min-width: 0px;"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mstyle[39m=[32m"width: 12px; height: 12px; border-radius: 50%; background-color: rgb(220, 38, 38); flex-shrink: 0;"[39m
+            [36m/>[39m
+            [36m<div[39m
+              [33mstyle[39m=[32m"display: flex; align-items: center; gap: 10px; flex: 1 1 0%; min-width: 0px;"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mstyle[39m=[32m"color: rgb(127, 29, 29); line-height: 1.4; font-weight: 400; font-size: 13px; flex: 1 1 0%; word-break: break-all; overflow-wrap: break-word; max-width: 550px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 10; -webkit-box-orient: vertical;"[39m
+              [36m>[39m
+                [0mFailed to parse URL from /api/copilotkit/info[0m
+              [36m</div>[39m
+              [36m<button[39m
+                [33mstyle[39m=[32m"background: transparent; border: 1px solid rgb(220, 38, 38); border-radius: 5px; padding: 4px 10px; font-size: 11px; font-weight: 500; cursor: pointer; color: rgb(127, 29, 29); flex-shrink: 0; transition: all 0.2s ease;"[39m
+              [36m>[39m
+                [0mShow Details[0m
+              [36m</button>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<button[39m
+            [33mstyle[39m=[32m"background: transparent; border: medium; color: rgb(127, 29, 29); cursor: pointer; padding: 2px; border-radius: 3px; font-size: 14px; line-height: 1; opacity: 0.6; transition: all 0.2s ease; flex-shrink: 0;"[39m
+            [33mtitle[39m=[32m"Dismiss"[39m
+          [36m>[39m
+            [0mx[0m
+          [36m</button>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex h-full w-full flex-col gap-2 p-4"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"min-h-0 flex-1"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex h-full min-h-0 w-full gap-3"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"relative flex min-h-0 w-full min-w-0 flex-1 flex-col gap-3"[39m
+            [36m>[39m
+              [36m<p[39m
+                [33maria-atomic[39m=[32m"true"[39m
+                [33maria-live[39m=[32m"polite"[39m
+                [33mclass[39m=[32m"sr-only"[39m
+                [33mdata-testid[39m=[32m"chat-task-workbench-live-announcer"[39m
+                [33mrole[39m=[32m"status"[39m
+              [36m/>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"relative flex min-h-0 flex-1 flex-col"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"relative flex-1 overflow-y-auto p-3 bg-background"[39m
+                  [33mdata-testid[39m=[32m"copilotkit-v2-messages"[39m
+                [36m>[39m
+                  [36m<div[39m
+                    [33mclass[39m=[32m"mx-auto w-full max-w-3xl"[39m
+                  [36m>[39m
+                    [36m<div[39m
+                      [33mclass[39m=[32m"w-full"[39m
+                    [36m>[39m
+                      [36m<div[39m
+                        [33mclass[39m=[32m"copilotKitMessages cpk:flex cpk:flex-col"[39m
+                        [33mdata-copilotkit[39m=[32m"true"[39m
+                        [33mdata-testid[39m=[32m"copilot-message-list"[39m
+                      [36m>[39m
+                        [36m<div[39m
+                          [33mclass[39m=[32m"copilotKitMessage copilotKitUserMessage cpk:flex cpk:flex-col cpk:items-end cpk:group cpk:pt-10"[39m
+                          [33mdata-copilotkit[39m=[32m"true"[39m
+                          [33mdata-message-id[39m=[32m"cm-1"[39m
+                          [33mdata-testid[39m=[32m"copilot-user-message"[39m
+                        [36m>[39m
+                          [36m<div[39m
+                            [33mclass[39m=[32m"flex flex-col gap-1"[39m
+                            [33mdata-kg-message-id[39m=[32m"cm-1"[39m
+                          [36m>[39m
+                            [36m<div[39m
+                              [33mclass[39m=[32m"whitespace-pre-wrap text-13 text-secondary-foreground"[39m
+                              [33mdata-testid[39m=[32m"chat-user-message-text"[39m
+                            [36m>[39m
+                              [0m帮我把这份纪要生成一份 PDF[0m
+                            [36m</div>[39m
+                          [36m</div>[39m
+                          [36m<div[39m
+                            [33mclass[39m=[32m"cpk:w-full cpk:bg-transparent cpk:flex cpk:items-center cpk:justify-end cpk:-mr-[5px] cpk:mt-[4px] cpk:invisible cpk:group-hover:visible"[39m
+                            [33mdata-testid[39m=[32m"copilot-user-toolbar"[39m
+                          [36m>[39m
+                            [36m<div[39m
+                              [33mclass[39m=[32m"cpk:flex cpk:items-center cpk:gap-1 cpk:justify-end"[39m
+                            [36m>[39m
+                              [36m<button[39m
+                                [33maria-label[39m=[32m"Remember this statement"[39m
+                                [33mclass[39m=[32m"inline-grid h-5 w-5 place-items-center rounded text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+                                [33mdata-test...
+ ❯ tests/ui/i18n-chat-canonical-chrome.test.tsx (9 tests | 1 failed | 8 skipped) 1028ms
+   × owned existing resume and failed-action chrome translate without locale resuming a run 1028ms
+     → Unable to find an element by: [data-testid="chat-task-workbench-run-resume"]
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mChange test locale[0m
+    [36m</button>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex max-h-48 shrink-0 flex-col gap-2 overflow-y-auto overscroll-contain md:max-h-64"[39m
+      [33mdata-testid[39m=[32m"chat-task-workbench-plan-control"[39m
+      [33mdata-thread-id[39m=[32m"raw-thread"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-center gap-2"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33maria-expanded[39m=[32m"false"[39m
+          [33maria-label[39m=[32m"Expand plan panel"[39m
+          [33mclass[39m=[32m"flex min-w-0 items-center gap-2 rounded-control px-1 py-1 text-13 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-plan-collapse-toggle"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-chevron-right h-4 w-4"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m9 18 6-6-6-6"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<span[39m
+            [33mdata-testid[39m=[32m"chat-task-workbench-plan-summary"[39m
+          [36m>[39m
+            [0mExecution plan · Task paused[0m
+          [36m</span>[39m
+        [36m</button>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mChange test locale[0m
+    [36m</button>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex max-h-48 shrink-0 flex-col gap-2 overflow-y-auto overscroll-contain md:max-h-64"[39m
+      [33mdata-testid[39m=[32m"chat-task-workbench-plan-control"[39m
+      [33mdata-thread-id[39m=[32m"raw-thread"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-center gap-2"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33maria-expanded[39m=[32m"false"[39m
+          [33maria-label[39m=[32m"Expand plan panel"[39m
+          [33mclass[39m=[32m"flex min-w-0 items-center gap-2 rounded-control px-1 py-1 text-13 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-plan-collapse-toggle"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-chevron-right h-4 w-4"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m9 18 6-6-6-6"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<span[39m
+            [33mdata-testid[39m=[32m"chat-task-workbench-plan-summary"[39m
+          [36m>[39m
+            [0mExecution plan · Task paused[0m
+          [36m</span>[39m
+        [36m</button>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ tests/ui/i18n-chat-feedback-draft-quota.test.tsx (5 tests | 1 failed | 4 skipped) 1125ms
+   × owned saved-draft receipt translates without a second draft write 1125ms
+     → Unable to find an element by: [data-testid="feedback-draft-saved"]
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"fixed inset-0 z-50 flex items-center justify-center p-4"[39m
+      [33mdata-testid[39m=[32m"feedback-dialog-backdrop"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"absolute inset-0 bg-inverse/40"[39m
+      [36m/>[39m
+      [36m<div[39m
+        [33maria-label[39m=[32m"Submit feedback"[39m
+        [33maria-modal[39m=[32m"true"[39m
+        [33mclass[39m=[32m"relative flex w-full flex-col overflow-hidden border-border bg-card shadow-lg h-[min(85vh,54rem)] max-w-2xl rounded-lg border"[39m
+        [33mdata-fullscreen[39m=[32m"false"[39m
+        [33mdata-testid[39m=[32m"feedback-dialog"[39m
+        [33mrole[39m=[32m"dialog"[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex items-start justify-between gap-3 border-b border-border p-4 pb-3"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"text-14 font-semibold"[39m
+              [33mdata-testid[39m=[32m"feedback-dialog-title"[39m
+            [36m>[39m
+              [0mSend feedback about Agent “组织原名 {target}”[0m
+            [36m</h2>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"mt-0.5 text-11 text-muted-foreground"[39m
+            [36m>[39m
+              [0mEvery submission has a status and a destination. Follow it in My feedback.[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex shrink-0 items-center gap-1"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33maria-label[39m=[32m"Fullscreen"[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-8 w-8 p-0"[39m
+              [33mdata-testid[39m=[32m"feedback-dialog-fullscreen-toggle"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-maximize2 h-4 w-4"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<polyline[39m
+                  [33mpoints[39m=[32m"15 3 21 3 21 9"[39m
+                [36m/>[39m
+                [36m<polyline[39m
+                  [33mpoints[39m=[32m"9 21 3 21 3 15"[39m
+                [36m/>[39m
+                [36m<line[39m
+                  [33mx1[39m=[32m"21"[39m
+                  [33mx2[39m=[32m"14"[39m
+                  [33my1[39m=[32m"3"[39m
+                  [33my2[39m=[32m"10"[39m
+                [36m/>[39m
+                [36m<line[39m
+                  [33mx1[39m=[32m"3"[39m
+                  [33mx2[39m=[32m"10"[39m
+                  [33my1[39m=[32m"21"[39m
+                  [33my2[39m=[32m"14"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-label[39m=[32m"Close"[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-8 w-8 p-0"[39m
+              [33mdata-testid[39m=[32m"feedback-dialog-close"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M18 6 6 18"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"m6 6 12 12"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+            [36m</button>[39m
+          [36m</div>[39m
+        [36m</header>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex gap-1 border-b border-border px-4 pt-2"[39m
+          [33mrole[39m=[32m"tablist"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33maria-selected[39m=[32m"true"[39m
+            [33mclass[39m=[32m"-mb-px rounded-t-md border-b-2 px-3 py-1.5 text-12 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-primary font-medium text-card-foreground"[39m
+            [33mdata-testid[39m=[32m"feedback-tab-submit"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mSubmit[0m
+          [36m</button>[39m
+          [36m<button[39m
+            [33maria-selected[39m=[32m"false"[39m
+            [33mclass[39m=[32m"-mb-px rounded-t-md border-b-2 px-3 py-1.5 text-12 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-transparent text-muted-foreground hover:text-card-foreground"[39m
+            [33mdata-testid[39m=[32m"feedback-tab-mine"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mMy feedback[0m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<div[39m
+    ...
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"fixed inset-0 z-50 flex items-center justify-center p-4"[39m
+      [33mdata-testid[39m=[32m"feedback-dialog-backdrop"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"absolute inset-0 bg-inverse/40"[39m
+      [36m/>[39m
+      [36m<div[39m
+        [33maria-label[39m=[32m"Submit feedback"[39m
+        [33maria-modal[39m=[32m"true"[39m
+        [33mclass[39m=[32m"relative flex w-full flex-col overflow-hidden border-border bg-card shadow-lg h-[min(85vh,54rem)] max-w-2xl rounded-lg border"[39m
+        [33mdata-fullscreen[39m=[32m"false"[39m
+        [33mdata-testid[39m=[32m"feedback-dialog"[39m
+        [33mrole[39m=[32m"dialog"[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex items-start justify-between gap-3 border-b border-border p-4 pb-3"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"text-14 font-semibold"[39m
+              [33mdata-testid[39m=[32m"feedback-dialog-title"[39m
+            [36m>[39m
+              [0mSend feedback about Agent “组织原名 {target}”[0m
+            [36m</h2>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"mt-0.5 text-11 text-muted-foreground"[39m
+            [36m>[39m
+              [0mEvery submission has a status and a destination. Follow it in My feedback.[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex shrink-0 items-center gap-1"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33maria-label[39m=[32m"Fullscreen"[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-8 w-8 p-0"[39m
+              [33mdata-testid[39m=[32m"feedback-dialog-fullscreen-toggle"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-maximize2 h-4 w-4"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<polyline[39m
+                  [33mpoints[39m=[32m"15 3 21 3 21 9"[39m
+                [36m/>[39m
+                [36m<polyline[39m
+                  [33mpoints[39m=[32m"9 21 3 21 3 15"[39m
+                [36m/>[39m
+                [36m<line[39m
+                  [33mx1[39m=[32m"21"[39m
+                  [33mx2[39m=[32m"14"[39m
+                  [33my1[39m=[32m"3"[39m
+                  [33my2[39m=[32m"10"[39m
+                [36m/>[39m
+                [36m<line[39m
+                  [33mx1[39m=[32m"3"[39m
+                  [33mx2[39m=[32m"10"[39m
+                  [33my1[39m=[32m"21"[39m
+                  [33my2[39m=[32m"14"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-label[39m=[32m"Close"[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-8 w-8 p-0"[39m
+              [33mdata-testid[39m=[32m"feedback-dialog-close"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M18 6 6 18"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"m6 6 12 12"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+            [36m</button>[39m
+          [36m</div>[39m
+        [36m</header>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex gap-1 border-b border-border px-4 pt-2"[39m
+          [33mrole[39m=[32m"tablist"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33maria-selected[39m=[32m"true"[39m
+            [33mclass[39m=[32m"-mb-px rounded-t-md border-b-2 px-3 py-1.5 text-12 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-primary font-medium text-card-foreground"[39m
+            [33mdata-testid[39m=[32m"feedback-tab-submit"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mSubmit[0m
+          [36m</button>[39m
+          [36m<button[39m
+            [33maria-selected[39m=[32m"false"[39m
+            [33mclass[39m=[32m"-mb-px rounded-t-md border-b-2 px-3 py-1.5 text-12 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-transparent text-muted-foreground hover:text-card-foreground"[39m
+            [33mdata-testid[39m=[32m"feedback-tab-mine"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mMy feedback[0m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<div[39m
+    ...
+ ❯ tests/ui/i18n-chat-attachment-surfaces.test.tsx (5 tests | 1 failed | 4 skipped) 34ms
+   × owned skill draft badge follows locale without rewriting the persisted filename 34ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Skill draft
+Received:
+  技能草稿
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/copilotkit-v2-live-failure-cause-banner.test.tsx > owned live run error and cause follow locale without another authority read
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  A server defect occurred
+Received:
+  模型这次没能返回可用结果：这是我们服务端的缺陷，不是模型的问题，请把这次的任务编号报给管理员
+
+Ignored nodes: comments, script, style
+[36m<html[39m
+  [33mlang[39m=[32m"en"[39m
+[36m>[39m
+  [36m<head>[39m
+    [36m<link[39m
+      [33mhref[39m=[32m"https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600&family=Spline+Sans+Mono:wght@600&display=swap"[39m
+      [33mid[39m=[32m"cpk-inspector-brand-fonts"[39m
+      [33mrel[39m=[32m"stylesheet"[39m
+    [36m/>[39m
+  [36m</head>[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<button>[39m
+        [0mChange history test locale[0m
+      [36m</button>[39m
+      [36m<div[39m
+        [33mdata-testid[39m=[32m"copilot-error-banner"[39m
+        [33mstyle[39m=[32m"position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; background-color: rgb(254, 226, 226); border-width: 1px 1px 1px 4px; border-style: solid; border-color: rgb(220, 38, 38); border-image: none; border-radius: 8px; padding: 12px 16px; font-size: 13px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); backdrop-filter: blur(8px); max-width: min(90vw, 700px); width: 100%; box-sizing: border-box; overflow: hidden;"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mstyle[39m=[32m"display: flex; justify-content: space-between; align-items: center; gap: 10px;"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mstyle[39m=[32m"display: flex; align-items: center; gap: 8px; flex: 1 1 0%; min-width: 0px;"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mstyle[39m=[32m"width: 12px; height: 12px; border-radius: 50%; background-color: rgb(220, 38, 38); flex-shrink: 0;"[39m
+            [36m/>[39m
+            [36m<div[39m
+              [33mstyle[39m=[32m"display: flex; align-items: center; gap: 10px; flex: 1 1 0%; min-width: 0px;"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mstyle[39m=[32m"color: rgb(127, 29, 29); line-height: 1.4; font-weight: 400; font-size: 13px; flex: 1 1 0%; word-break: break-all; overflow-wrap: break-word; max-width: 550px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 10; -webkit-box-orient: vertical;"[39m
+              [36m>[39m
+                [0mMODEL_CALL_FAILED[0m
+              [36m</div>[39m
+              [36m<button[39m
+                [33mstyle[39m=[32m"background: transparent; border: 1px solid rgb(220, 38, 38); border-radius: 5px; padding: 4px 10px; font-size: 11px; font-weight: 500; cursor: pointer; color: rgb(127, 29, 29); flex-shrink: 0; transition: all 0.2s ease;"[39m
+              [36m>[39m
+                [0mShow Details[0m
+              [36m</button>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<button[39m
+            [33mstyle[39m=[32m"background: transparent; border: medium; color: rgb(127, 29, 29); cursor: pointer; padding: 2px; border-radius: 3px; font-size: 14px; line-height: 1; opacity: 0.6; transition: all 0.2s ease; flex-shrink: 0;"[39m
+            [33mtitle[39m=[32m"Dismiss"[39m
+          [36m>[39m
+            [0mx[0m
+          [36m</button>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex h-full w-full flex-col gap-2 p-4"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"min-h-0 flex-1"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex h-full min-h-0 w-full gap-3"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"relative flex min-h-0 w-full min-w-0 flex-1 flex-col gap-3"[39m
+            [36m>[39m
+              [36m<p[39m
+                [33maria-atomic[39m=[32m"true"[39m
+                [33maria-live[39m=[32m"polite"[39m
+                [33mclass[39m=[32m"sr-only"[39m
+                [33mdata-testid[39m=[32m"chat-task-workbench-live-announcer"[39m
+                [33mrole[39m=[32m"status"[39m
+              [36m/>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"relative flex min-h-0 flex-1 flex-col"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"relative flex-1 overflow-y-auto p-3 flex flex-col"[39m
+                  [33mdata-testid[39m=[32m"copilotkit-v2-messages"[39m
+                [36m>[39m
+                  [36m<div[39m
+                    [33mclass[39m=[32m"mx-auto w-full max-w-3xl flex flex-1 flex-col"[39m
+                  [36m>[39m
+                    [36m<div[39m
+                      [33mclass[39m=[32m"flex min-h-full flex-col items-center justify-center gap-4 px-4 py-4 text-center sm:px-6"[39m
+                      [33mdata-testid[39m=[32m"copilotkit-v2-empty"[39m
+                    [36m>[39m
+                      [36m<div[39m
+                        [33mclass[39m=[32m"flex flex-col items-center gap-2"[39m
+                        [33mdata-testid[39m=[32m"chat-task-workbench-goal-headline"[39m
+                      [36m>[39m
+                        [36m<p[39m
+                          [33mclass[39m=[32m"max-w-xl text-24 sm:text-30 font-semibold tracking-tight text-card-foreground"[39m
+                        [36m>[39m
+                          [0mWhat would you like to accomplish today?[0m
+                        [36m</p>[39m
+                        [36m<p[39m
+                          [33mclass[39m=[32m"max-w-lg text-14 leading-relaxed text-muted-foreground"[39m
+                        [36m>[39m
+                          [0mDescribe your goal. The agent will propose a plan and wait for your confirmation before executing it. You can also drop files into this conversation or use the microphone for voice input.[0m
+                        [36m</p>[39m
+                      [36m</div>[39m
+                      [36m<p[39m
+                        [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+                        [33mdata-testid[39m=[32m"err-session-briefing"[39m
+                        [33mrole[39m=[32m"status"[39m
+                      [36m>[39m
+                        [0mCould not load your previous progress. You can still start a new conversation.[0m
+                      [36m</p>[39m
+                      [36m<div[39m
+                        [33mclass[39m=[32m"grid w-full max-w-xl grid-cols-2 gap-x-3"[39m
+                      [36m>[39m
+                        [36m<button[39m
+                          [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle bg-card px-2 py-2 text-left text-13 leading-relaxed text-card-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+                          [33mdata-testid[39m=[32m"chat-task-workbench-template-research"[39m
+                          [33mtype[39m=[32m"button"[39m
+                        [36m>[39m
+                          [36m<span[39m
+          ...
+ ❯ tests/ui/copilotkit-v2-live-failure-cause-banner.test.tsx:407:38
+
+ ❯ runWithExpensiveErrorDiagnosticsDisabled ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+
+ FAIL  tests/ui/copilotkit-v2-persona-archived.test.tsx > owned persona failure prefix translates while preserving the raw reason and request count
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Could not generate persona: NO_WRITE_ROLE
+Received:
+  生成用户画像失败：NO_WRITE_ROLE
+ ❯ tests/ui/copilotkit-v2-persona-archived.test.tsx:158:19
+    156|   fireEvent.click(await screen.findByTestId("chat-persona-summary-trig…
+    157|   const failure = await screen.findByTestId("chat-persona-summary-erro…
+    158|   expect(failure).toHaveTextContent("Could not generate persona: NO_WR…
+       |                   ^
+    159|   fireEvent.click(screen.getByRole("button", { name: "Change persona l…
+    160|   expect(screen.getByTestId("chat-persona-summary-error")).toBe(failur…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯
+
+ FAIL  tests/ui/copilotkit-v2-persona-archived.test.tsx > owned generated suggestion prefix translates but keeps the server display name and prompt raw
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Generate 组织原名 {name}
+Received:
+  生成组织原名 {name}
+ ❯ tests/ui/copilotkit-v2-persona-archived.test.tsx:169:16
+    167|   mountPersonaLocale();
+    168|   const chip = await screen.findByTestId("chat-persona-summary-trigger…
+    169|   expect(chip).toHaveTextContent("Generate 组织原名 {name}");
+       |                ^
+    170|   const reads = recommendCanvasTemplates.mock.calls.length;
+    171|   fireEvent.click(screen.getByRole("button", { name: "Change persona l…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯
+
+ FAIL  tests/ui/copilotkit-v2-run-restore-on-remount.test.tsx > owned restored run phase follows locale on the same input without repeating recovery reads
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Executing
+Received:
+  正在执行
+
+Ignored nodes: comments, script, style
+[36m<html[39m
+  [33mlang[39m=[32m"en"[39m
+[36m>[39m
+  [36m<head>[39m
+    [36m<link[39m
+      [33mhref[39m=[32m"https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600&family=Spline+Sans+Mono:wght@600&display=swap"[39m
+      [33mid[39m=[32m"cpk-inspector-brand-fonts"[39m
+      [33mrel[39m=[32m"stylesheet"[39m
+    [36m/>[39m
+  [36m</head>[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<button>[39m
+        [0mChange restore locale[0m
+      [36m</button>[39m
+      [36m<div[39m
+        [33mdata-testid[39m=[32m"copilot-error-banner"[39m
+        [33mstyle[39m=[32m"position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; background-color: rgb(254, 226, 226); border-width: 1px 1px 1px 4px; border-style: solid; border-color: rgb(220, 38, 38); border-image: none; border-radius: 8px; padding: 12px 16px; font-size: 13px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); backdrop-filter: blur(8px); max-width: min(90vw, 700px); width: 100%; box-sizing: border-box; overflow: hidden;"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mstyle[39m=[32m"display: flex; justify-content: space-between; align-items: center; gap: 10px;"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mstyle[39m=[32m"display: flex; align-items: center; gap: 8px; flex: 1 1 0%; min-width: 0px;"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mstyle[39m=[32m"width: 12px; height: 12px; border-radius: 50%; background-color: rgb(220, 38, 38); flex-shrink: 0;"[39m
+            [36m/>[39m
+            [36m<div[39m
+              [33mstyle[39m=[32m"display: flex; align-items: center; gap: 10px; flex: 1 1 0%; min-width: 0px;"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mstyle[39m=[32m"color: rgb(127, 29, 29); line-height: 1.4; font-weight: 400; font-size: 13px; flex: 1 1 0%; word-break: break-all; overflow-wrap: break-word; max-width: 550px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 10; -webkit-box-orient: vertical;"[39m
+              [36m>[39m
+                [0mFailed to parse URL from /api/copilotkit/info[0m
+              [36m</div>[39m
+              [36m<button[39m
+                [33mstyle[39m=[32m"background: transparent; border: 1px solid rgb(220, 38, 38); border-radius: 5px; padding: 4px 10px; font-size: 11px; font-weight: 500; cursor: pointer; color: rgb(127, 29, 29); flex-shrink: 0; transition: all 0.2s ease;"[39m
+              [36m>[39m
+                [0mShow Details[0m
+              [36m</button>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<button[39m
+            [33mstyle[39m=[32m"background: transparent; border: medium; color: rgb(127, 29, 29); cursor: pointer; padding: 2px; border-radius: 3px; font-size: 14px; line-height: 1; opacity: 0.6; transition: all 0.2s ease; flex-shrink: 0;"[39m
+            [33mtitle[39m=[32m"Dismiss"[39m
+          [36m>[39m
+            [0mx[0m
+          [36m</button>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex h-full w-full flex-col gap-2 p-4"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"min-h-0 flex-1"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex h-full min-h-0 w-full gap-3"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"relative flex min-h-0 w-full min-w-0 flex-1 flex-col gap-3"[39m
+            [36m>[39m
+              [36m<p[39m
+                [33maria-atomic[39m=[32m"true"[39m
+                [33maria-live[39m=[32m"polite"[39m
+                [33mclass[39m=[32m"sr-only"[39m
+                [33mdata-testid[39m=[32m"chat-task-workbench-live-announcer"[39m
+                [33mrole[39m=[32m"status"[39m
+              [36m/>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"relative flex min-h-0 flex-1 flex-col"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"relative flex-1 overflow-y-auto p-3 bg-background"[39m
+                  [33mdata-testid[39m=[32m"copilotkit-v2-messages"[39m
+                [36m>[39m
+                  [36m<div[39m
+                    [33mclass[39m=[32m"mx-auto w-full max-w-3xl"[39m
+                  [36m>[39m
+                    [36m<div[39m
+                      [33mclass[39m=[32m"w-full"[39m
+                    [36m>[39m
+                      [36m<div[39m
+                        [33mclass[39m=[32m"copilotKitMessages cpk:flex cpk:flex-col"[39m
+                        [33mdata-copilotkit[39m=[32m"true"[39m
+                        [33mdata-testid[39m=[32m"copilot-message-list"[39m
+                      [36m>[39m
+                        [36m<div[39m
+                          [33mclass[39m=[32m"copilotKitMessage copilotKitUserMessage cpk:flex cpk:flex-col cpk:items-end cpk:group cpk:pt-10"[39m
+                          [33mdata-copilotkit[39m=[32m"true"[39m
+                          [33mdata-message-id[39m=[32m"cm-1"[39m
+                          [33mdata-testid[39m=[32m"copilot-user-message"[39m
+                        [36m>[39m
+                          [36m<div[39m
+                            [33mclass[39m=[32m"flex flex-col gap-1"[39m
+                            [33mdata-kg-message-id[39m=[32m"cm-1"[39m
+                          [36m>[39m
+                            [36m<div[39m
+                              [33mclass[39m=[32m"whitespace-pre-wrap text-13 text-secondary-foreground"[39m
+                              [33mdata-testid[39m=[32m"chat-user-message-text"[39m
+                            [36m>[39m
+                              [0m帮我把这份纪要生成一份 PDF[0m
+                            [36m</div>[39m
+                          [36m</div>[39m
+                          [36m<div[39m
+                            [33mclass[39m=[32m"cpk:w-full cpk:bg-transparent cpk:flex cpk:items-center cpk:justify-end cpk:-mr-[5px] cpk:mt-[4px] cpk:invisible cpk:group-hover:visible"[39m
+                            [33mdata-testid[39m=[32m"copilot-user-toolbar"[39m
+                          [36m>[39m
+                            [36m<div[39m
+                              [33mclass[39m=[32m"cpk:flex cpk:items-center cpk:gap-1 cpk:justify-end"[39m
+                            [36m>[39m
+                              [36m<button[39m
+                                [33maria-label[39m=[32m"Remember this statement"[39m
+                                [33mclass[39m=[32m"inline-grid h-5 w-5 place-items-center rounded text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+                                [33mdata-test...
+ ❯ tests/ui/copilotkit-v2-run-restore-on-remount.test.tsx:186:37
+    184|   </I18nProvider>);
+    185|   const phase = await screen.findByTestId("copilotkit-v2-thinking-phas…
+    186|   await waitFor(() => expect(phase).toHaveTextContent("Executing"));
+       |                                     ^
+    187|   await waitFor(() => expect(sockets.length).toBe(1));
+    188|   const input = screen.getByTestId("copilotkit-v2-input");
+ ❯ runWithExpensiveErrorDiagnosticsDisabled ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯
+
+ FAIL  tests/ui/i18n-chat-attachment-surfaces.test.tsx > owned skill draft badge follows locale without rewriting the persisted filename
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Skill draft
+Received:
+  技能草稿
+ ❯ tests/ui/i18n-chat-attachment-surfaces.test.tsx:27:17
+     25|   render(<I18nProvider initialLocale="en"><MessageDriver /></I18nProvi…
+     26|   const badge = screen.getByTestId(`chat-skill-draft-${file.id}`);
+     27|   expect(badge).toHaveTextContent("Skill draft");
+       |                 ^
+     28|   fireEvent.click(screen.getByRole("button", { name: "Change message l…
+     29|   expect(screen.getByTestId(`chat-skill-draft-${file.id}`)).toBe(badge…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯
+
+ FAIL  tests/ui/i18n-chat-canonical-chrome.test.tsx > owned existing resume and failed-action chrome translate without locale resuming a run
+TestingLibraryElementError: Unable to find an element by: [data-testid="chat-task-workbench-run-resume"]
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mChange test locale[0m
+    [36m</button>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex max-h-48 shrink-0 flex-col gap-2 overflow-y-auto overscroll-contain md:max-h-64"[39m
+      [33mdata-testid[39m=[32m"chat-task-workbench-plan-control"[39m
+      [33mdata-thread-id[39m=[32m"raw-thread"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-center gap-2"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33maria-expanded[39m=[32m"false"[39m
+          [33maria-label[39m=[32m"Expand plan panel"[39m
+          [33mclass[39m=[32m"flex min-w-0 items-center gap-2 rounded-control px-1 py-1 text-13 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-plan-collapse-toggle"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-chevron-right h-4 w-4"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m9 18 6-6-6-6"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<span[39m
+            [33mdata-testid[39m=[32m"chat-task-workbench-plan-summary"[39m
+          [36m>[39m
+            [0mExecution plan · Task paused[0m
+          [36m</span>[39m
+        [36m</button>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mChange test locale[0m
+    [36m</button>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex max-h-48 shrink-0 flex-col gap-2 overflow-y-auto overscroll-contain md:max-h-64"[39m
+      [33mdata-testid[39m=[32m"chat-task-workbench-plan-control"[39m
+      [33mdata-thread-id[39m=[32m"raw-thread"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-center gap-2"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33maria-expanded[39m=[32m"false"[39m
+          [33maria-label[39m=[32m"Expand plan panel"[39m
+          [33mclass[39m=[32m"flex min-w-0 items-center gap-2 rounded-control px-1 py-1 text-13 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-plan-collapse-toggle"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-chevron-right h-4 w-4"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m9 18 6-6-6-6"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<span[39m
+            [33mdata-testid[39m=[32m"chat-task-workbench-plan-summary"[39m
+          [36m>[39m
+            [0mExecution plan · Task paused[0m
+          [36m</span>[39m
+        [36m</button>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ tests/ui/i18n-chat-canonical-chrome.test.tsx:145:31
+    143|   ports.planControlErrorCode.mockReturnValue("RAW_CODE");
+    144|   host(<CopilotKitV2PlanControl threadId="raw-thread" projectId={null}…
+    145|   const button = await screen.findByTestId("chat-task-workbench-run-re…
+       |                               ^
+    146|   expect(button).toHaveTextContent("Resume execution");
+    147|   expect(ports.resumePlanRun).not.toHaveBeenCalled();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/7]⎯
+
+ FAIL  tests/ui/i18n-chat-feedback-draft-quota.test.tsx > owned saved-draft receipt translates without a second draft write
+TestingLibraryElementError: Unable to find an element by: [data-testid="feedback-draft-saved"]
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"fixed inset-0 z-50 flex items-center justify-center p-4"[39m
+      [33mdata-testid[39m=[32m"feedback-dialog-backdrop"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"absolute inset-0 bg-inverse/40"[39m
+      [36m/>[39m
+      [36m<div[39m
+        [33maria-label[39m=[32m"Submit feedback"[39m
+        [33maria-modal[39m=[32m"true"[39m
+        [33mclass[39m=[32m"relative flex w-full flex-col overflow-hidden border-border bg-card shadow-lg h-[min(85vh,54rem)] max-w-2xl rounded-lg border"[39m
+        [33mdata-fullscreen[39m=[32m"false"[39m
+        [33mdata-testid[39m=[32m"feedback-dialog"[39m
+        [33mrole[39m=[32m"dialog"[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex items-start justify-between gap-3 border-b border-border p-4 pb-3"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"text-14 font-semibold"[39m
+              [33mdata-testid[39m=[32m"feedback-dialog-title"[39m
+            [36m>[39m
+              [0mSend feedback about Agent “组织原名 {target}”[0m
+            [36m</h2>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"mt-0.5 text-11 text-muted-foreground"[39m
+            [36m>[39m
+              [0mEvery submission has a status and a destination. Follow it in My feedback.[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex shrink-0 items-center gap-1"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33maria-label[39m=[32m"Fullscreen"[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-8 w-8 p-0"[39m
+              [33mdata-testid[39m=[32m"feedback-dialog-fullscreen-toggle"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-maximize2 h-4 w-4"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<polyline[39m
+                  [33mpoints[39m=[32m"15 3 21 3 21 9"[39m
+                [36m/>[39m
+                [36m<polyline[39m
+                  [33mpoints[39m=[32m"9 21 3 21 3 15"[39m
+                [36m/>[39m
+                [36m<line[39m
+                  [33mx1[39m=[32m"21"[39m
+                  [33mx2[39m=[32m"14"[39m
+                  [33my1[39m=[32m"3"[39m
+                  [33my2[39m=[32m"10"[39m
+                [36m/>[39m
+                [36m<line[39m
+                  [33mx1[39m=[32m"3"[39m
+                  [33mx2[39m=[32m"10"[39m
+                  [33my1[39m=[32m"21"[39m
+                  [33my2[39m=[32m"14"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-label[39m=[32m"Close"[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-8 w-8 p-0"[39m
+              [33mdata-testid[39m=[32m"feedback-dialog-close"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M18 6 6 18"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"m6 6 12 12"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+            [36m</button>[39m
+          [36m</div>[39m
+        [36m</header>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex gap-1 border-b border-border px-4 pt-2"[39m
+          [33mrole[39m=[32m"tablist"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33maria-selected[39m=[32m"true"[39m
+            [33mclass[39m=[32m"-mb-px rounded-t-md border-b-2 px-3 py-1.5 text-12 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-primary font-medium text-card-foreground"[39m
+            [33mdata-testid[39m=[32m"feedback-tab-submit"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mSubmit[0m
+          [36m</button>[39m
+          [36m<button[39m
+            [33maria-selected[39m=[32m"false"[39m
+            [33mclass[39m=[32m"-mb-px rounded-t-md border-b-2 px-3 py-1.5 text-12 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-transparent text-muted-foreground hover:text-card-foreground"[39m
+            [33mdata-testid[39m=[32m"feedback-tab-mine"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mMy feedback[0m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<div[39m
+    ...
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"fixed inset-0 z-50 flex items-center justify-center p-4"[39m
+      [33mdata-testid[39m=[32m"feedback-dialog-backdrop"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"absolute inset-0 bg-inverse/40"[39m
+      [36m/>[39m
+      [36m<div[39m
+        [33maria-label[39m=[32m"Submit feedback"[39m
+        [33maria-modal[39m=[32m"true"[39m
+        [33mclass[39m=[32m"relative flex w-full flex-col overflow-hidden border-border bg-card shadow-lg h-[min(85vh,54rem)] max-w-2xl rounded-lg border"[39m
+        [33mdata-fullscreen[39m=[32m"false"[39m
+        [33mdata-testid[39m=[32m"feedback-dialog"[39m
+        [33mrole[39m=[32m"dialog"[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex items-start justify-between gap-3 border-b border-border p-4 pb-3"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"text-14 font-semibold"[39m
+              [33mdata-testid[39m=[32m"feedback-dialog-title"[39m
+            [36m>[39m
+              [0mSend feedback about Agent “组织原名 {target}”[0m
+            [36m</h2>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"mt-0.5 text-11 text-muted-foreground"[39m
+            [36m>[39m
+              [0mEvery submission has a status and a destination. Follow it in My feedback.[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex shrink-0 items-center gap-1"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33maria-label[39m=[32m"Fullscreen"[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-8 w-8 p-0"[39m
+              [33mdata-testid[39m=[32m"feedback-dialog-fullscreen-toggle"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-maximize2 h-4 w-4"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<polyline[39m
+                  [33mpoints[39m=[32m"15 3 21 3 21 9"[39m
+                [36m/>[39m
+                [36m<polyline[39m
+                  [33mpoints[39m=[32m"9 21 3 21 3 15"[39m
+                [36m/>[39m
+                [36m<line[39m
+                  [33mx1[39m=[32m"21"[39m
+                  [33mx2[39m=[32m"14"[39m
+                  [33my1[39m=[32m"3"[39m
+                  [33my2[39m=[32m"10"[39m
+                [36m/>[39m
+                [36m<line[39m
+                  [33mx1[39m=[32m"3"[39m
+                  [33mx2[39m=[32m"10"[39m
+                  [33my1[39m=[32m"21"[39m
+                  [33my2[39m=[32m"14"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-label[39m=[32m"Close"[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-8 w-8 p-0"[39m
+              [33mdata-testid[39m=[32m"feedback-dialog-close"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M18 6 6 18"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"m6 6 12 12"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+            [36m</button>[39m
+          [36m</div>[39m
+        [36m</header>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex gap-1 border-b border-border px-4 pt-2"[39m
+          [33mrole[39m=[32m"tablist"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33maria-selected[39m=[32m"true"[39m
+            [33mclass[39m=[32m"-mb-px rounded-t-md border-b-2 px-3 py-1.5 text-12 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-primary font-medium text-card-foreground"[39m
+            [33mdata-testid[39m=[32m"feedback-tab-submit"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mSubmit[0m
+          [36m</button>[39m
+          [36m<button[39m
+            [33maria-selected[39m=[32m"false"[39m
+            [33mclass[39m=[32m"-mb-px rounded-t-md border-b-2 px-3 py-1.5 text-12 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-transparent text-muted-foreground hover:text-card-foreground"[39m
+            [33mdata-testid[39m=[32m"feedback-tab-mine"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mMy feedback[0m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<div[39m
+    ...
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ tests/ui/i18n-chat-feedback-draft-quota.test.tsx:25:32
+     23|   const saved = vi.fn(); render(app(saved)); await review();
+     24|   fireEvent.click(screen.getByTestId("feedback-save-draft"));
+     25|   const receipt = await screen.findByTestId("feedback-draft-saved");
+       |                                ^
+     26|   expect(receipt).toHaveTextContent("Saved as a draft");
+     27|   act(() => changeLocale());
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/7]⎯
+
+ Test Files  6 failed (6)
+      Tests  7 failed | 41 skipped (48)
+   Start at  03:15:42
+   Duration  24.67s (transform 3.25s, setup 697ms, collect 13.78s, tests 5.26s, environment 3.75s, prepare 285ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/copilotkit-v2-run-restore-on-remount.test.tsx tests/ui/copilotkit-v2-live-failure-cause-banner.test.tsx tests/ui/copilotkit-v2-persona-archived.test.tsx tests/ui/i18n-chat-attachment-surfaces.test.tsx tests/ui/i18n-chat-feedback-draft-quota.test.tsx tests/ui/i18n-chat-canonical-chrome.test.tsx -t ^owned

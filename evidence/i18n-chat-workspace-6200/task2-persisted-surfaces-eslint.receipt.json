@@ -1,0 +1,8 @@
+{
+  "kind": "agent-observed tool receipt",
+  "command": "pnpm --filter web exec eslint (11 touched product/helper/namespace/test files; exact command in session tool call)",
+  "exitCode": 0,
+  "stdout": "",
+  "stderr": "",
+  "rawLog": "/tmp/chat6200-persisted-surfaces-eslint.log"
+}

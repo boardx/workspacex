@@ -1,0 +1,15 @@
+$ pnpm --filter web exec vitest run tests/ui/i18n-chat-canonical-chrome.test.tsx tests/plan-control-summary-i18n.test.ts tests/ui/document-generation-auto-approve-toggle.test.tsx tests/ui/project-chat-context-bar.test.tsx tests/ui/copilotkit-v2-plan-control.test.tsx
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/ui/copilotkit-v2-plan-control.test.tsx (52 tests | 4 skipped) 527ms
+ ✓ tests/ui/i18n-chat-canonical-chrome.test.tsx (5 tests) 206ms
+ ✓ tests/ui/project-chat-context-bar.test.tsx (5 tests) 75ms
+ ✓ tests/ui/document-generation-auto-approve-toggle.test.tsx (4 tests) 66ms
+ ✓ tests/plan-control-summary-i18n.test.ts (2 tests) 4ms
+
+ Test Files  5 passed (5)
+      Tests  64 passed | 4 skipped (68)
+   Start at  22:14:06
+   Duration  10.62s (transform 2.64s, setup 586ms, collect 5.78s, tests 878ms, environment 2.49s, prepare 242ms)

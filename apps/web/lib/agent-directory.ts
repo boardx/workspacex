@@ -1,3 +1,4 @@
+import { translate, type MessageKey } from "./i18n/messages";
 import authoredTitles from "../../../skills/localizations/work-stack-v2.json";
 import { applyDisplayUpdate, getDisplayUpdateOffer } from "./authored-display-update";
 /**
@@ -64,6 +65,8 @@ export interface EnableProgress {
   readonly step: number;
   readonly total: number;
   readonly label: string;
+  /** Owned UI provenance; callers with raw labels remain supported. */
+  readonly labelKey?: MessageKey;
 }
 
 /**
@@ -104,7 +107,7 @@ export async function enableOfficialRolePack(
   const skillOp = wave2Runtime.operations.importSkillStarterPack;
   for (const [i, pack] of packs.entries()) {
     checkScope();
-    onProgress?.({ step: i + 1, total, label: "准备数字人需要的技能与流程" });
+    onProgress?.({ step: i + 1, total, label: translate("zh-CN", "chatPicker.prepareSkills"), labelKey: "chatPicker.prepareSkills" });
     try {
       checkScope();
       await apiRequest<unknown>(skillOp.path, {
@@ -118,7 +121,7 @@ export async function enableOfficialRolePack(
     }
   }
   checkScope();
-  onProgress?.({ step: total, total, label: "启用官方数字人" });
+  onProgress?.({ step: total, total, label: translate("zh-CN", "chatPicker.enableOfficials"), labelKey: "chatPicker.enableOfficials" });
   const op = wave2Runtime.operations.importAgentStarterPack;
   checkScope();
   await apiRequest<unknown>(op.path, {
@@ -154,25 +157,36 @@ const LEGACY_OFFICIAL_DUTIES: Readonly<Record<string,string>> = {
   "dh-05-sales-representative": "筛选线索，推进从首次会面到签约的整条销售管道，每次阶段变化都以客户管理系统里的记录为准。",
   "dh-11-design-thinking-expert": "主持从洞察到机会、再到实验验证的循环，在做决定前保留多个方向，并把取舍理由记在选中的方案旁边。"
 };
-function legacyOfficialCopy(avatarKey: string | null | undefined) {
+function legacyOfficialCopy(avatarKey: string | null | undefined, locale: Locale = "zh-CN") {
   if (!avatarKey || !Object.prototype.hasOwnProperty.call(LEGACY_OFFICIAL_DUTIES,avatarKey)) return undefined;
   const number = /^dh-(\d{2})-/.exec(avatarKey)?.[1];
   const id = number ? `D${number.padStart(3,"0")}` : "";
-  const name = authoredTitles.agents[id as keyof typeof authoredTitles.agents]?.["zh-CN"].name;
+  const name = authoredTitles.agents[id as keyof typeof authoredTitles.agents]?.[locale].name;
   return name ? { name,duty: LEGACY_OFFICIAL_DUTIES[avatarKey]! } : undefined;
 }
 
 type NamedAgent = Pick<AgentDirectoryCard, "name" | "catalogSource" | "avatar" | "display">;
 
-/** 成员界面上的数字人称呼（官方角色本地化，其余原样）。 */
-export function agentDisplayName(agent: NamedAgent): string {
-  const zh = agent.catalogSource === "official" && agent.avatar ? legacyOfficialCopy(agent.avatar.key) : undefined;
-  return localizedText(agent.display, "name", zh?.name ?? agent.name);
+/** 成员界面上的数字人称呼；显式 locale 只消费匹配语言的展示投影。 */
+export function agentDisplayName(agent: NamedAgent, locale?: Locale): string {
+  const authored = agent.catalogSource === "official" && agent.avatar
+    ? legacyOfficialCopy(agent.avatar.key, locale)?.name : undefined;
+  const display = locale === undefined || agent.display?.requestedLocale === locale ? agent.display : undefined;
+  return localizedText(display, "name", authored ?? agent.name);
 }
 
-/** 按头像 key 取中文称呼（聊天消息身份行只有头像 key 与名字时用）。 */
-export function agentDisplayNameByAvatar(avatarKey: string | null | undefined, fallback: string, display?: LocalizedEntityDisplay): string {
-  return localizedText(display, "name", (avatarKey ? legacyOfficialCopy(avatarKey)?.name : undefined) ?? fallback);
+/** 显式语言模式需要来源证明，不能仅凭组织用户也可选择的头像推断官方身份。 */
+export function agentDisplayNameByAvatar(
+  avatarKey: string | null | undefined,
+  fallback: string,
+  display?: LocalizedEntityDisplay,
+  locale?: Locale,
+  catalogSource?: AgentDirectoryCard["catalogSource"],
+): string {
+  const authored = locale === undefined || catalogSource === "official"
+    ? legacyOfficialCopy(avatarKey, locale)?.name : undefined;
+  const matchingDisplay = locale === undefined || display?.requestedLocale === locale ? display : undefined;
+  return localizedText(matchingDisplay, "name", authored ?? fallback);
 }
 
 /** 官方角色的中文一句话职责；非官方或未登记返回 null。 */

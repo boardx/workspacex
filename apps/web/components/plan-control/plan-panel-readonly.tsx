@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
 import * as React from "react";
 import { CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -20,13 +21,6 @@ import type { PlanStep, PlanStepStatus } from "@repo/contracts/plan-control";
 export const PLAN_STEP_TESTID = "chat-task-workbench-plan-step";
 export const PLAN_PANEL_TESTID = "chat-task-workbench-plan-panel";
 
-const STEP_STATUS_LABEL_ZH: Readonly<Record<PlanStepStatus, string>> = {
-  pending: "待执行", in_progress: "进行中", completed: "已完成",
-};
-
-function stepStatusLabel(status: PlanStepStatus, stopped: boolean): string {
-  return stopped && status === "in_progress" ? "已停止" : STEP_STATUS_LABEL_ZH[status];
-}
 
 /**
  * issue #2476 —— 步骤序号徽标：圆形 + 序号，替代此前"只有一个状态图标、没有序号"
@@ -62,6 +56,7 @@ export interface PlanPanelReadOnlyProps {
 }
 
 export function PlanPanelReadOnly({ steps, compact = false, executionStopped = false }: PlanPanelReadOnlyProps): React.JSX.Element {
+  const { t } = useI18n();
   return (
     /*
      * issue #3245② —— `shrink-0` 不是装饰，是这块能不能滚的开关。
@@ -87,9 +82,9 @@ export function PlanPanelReadOnly({ steps, compact = false, executionStopped = f
       {!compact && <div className="flex items-center gap-2 border-b border-border-subtle bg-accent px-3 py-2.5">
         <div className="flex flex-col gap-0.5">
           <span className="font-mono text-9 font-medium uppercase tracking-wide text-accent-foreground/70">Plan</span>
-          <span className="text-13 font-semibold text-accent-foreground">当前计划</span>
+          <span className="text-13 font-semibold text-accent-foreground">{t("chatPlanControl.currentPlan")}</span>
         </div>
-        <Badge tone="neutral" className="ml-auto text-10">{steps.length} 步</Badge>
+        <Badge tone="neutral" className="ml-auto text-10">{t("chatPlanControl.steps", { count: steps.length })}</Badge>
       </div>}
       <CardContent className="flex flex-col gap-2 py-3">
         <ol className="flex flex-col gap-1.5">
@@ -106,8 +101,8 @@ export function PlanPanelReadOnly({ steps, compact = false, executionStopped = f
                   {step.content}
                 </span>
                 {/* aria-label 承载状态文案：不是只靠上面那个徽标的形状/颜色。 */}
-                <span aria-label={stepStatusLabel(step.status, executionStopped)} className="ml-auto text-10 text-muted-foreground">
-                  {stepStatusLabel(step.status, executionStopped)}
+                <span aria-label={t(executionStopped && step.status === "in_progress" ? "chatPlanControl.step.stopped" : `chatPlanControl.step.${step.status}`)} className="ml-auto text-10 text-muted-foreground">
+                  {t(executionStopped && step.status === "in_progress" ? "chatPlanControl.step.stopped" : `chatPlanControl.step.${step.status}`)}
                 </span>
               </div>
               {step.constraints.map((c) => (
@@ -119,7 +114,7 @@ export function PlanPanelReadOnly({ steps, compact = false, executionStopped = f
                 >
                   <span className="text-11 text-muted-foreground" aria-hidden>↳</span>
                   <span className="text-12 text-background-foreground">{c.text}</span>
-                  <Badge tone="outline" className="text-10">约束</Badge>
+                  <Badge tone="outline" className="text-10">{t("chatPlanControl.constraint")}</Badge>
                 </div>
               ))}
             </li>

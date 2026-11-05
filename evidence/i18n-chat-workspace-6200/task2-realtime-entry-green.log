@@ -1,0 +1,13 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/live-omni-conversation-hangup.test.ts (8 tests) 271ms
+ ✓ tests/ui/chat-realtime-voice-thread-lifecycle.test.ts (5 tests) 5ms
+ ✓ tests/ui/i18n-chat-realtime-entry.test.tsx (2 tests) 135ms
+ ✓ tests/ui/chat-realtime-voice-entry-label.test.tsx (2 tests) 144ms
+
+ Test Files  4 passed (4)
+      Tests  17 passed (17)
+   Start at  03:42:03
+   Duration  6.48s (transform 1.81s, setup 378ms, collect 3.71s, tests 555ms, environment 1.01s, prepare 169ms)

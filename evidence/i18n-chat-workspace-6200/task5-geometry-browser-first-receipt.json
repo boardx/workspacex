@@ -1,0 +1,100 @@
+{
+  "head": "b4650bfe4f88a31471fb89bd517efddce9ad9506",
+  "sourceSha256": {
+    "apps/web/components/agent-kernel/tool-permission-card.tsx": "fc837d8ef3c9126806fe343b0f17bab06849ad8f64258677ba9e7ec1cc2927c4",
+    "apps/web/components/chat/chat-skill-mount-panel.tsx": "ebeb0fc91dc327c189b9ec19d65f10b0bd7a5dd9184a9021bfd48c44ff765579",
+    "apps/web/components/chat/copilotkit-v2-panel-body.tsx": "b14587d278649d70e9eba1749234839fb376a900eb5647003b17db080827233a",
+    "apps/web/components/chat/copilotkit-v2-panel-view.tsx": "02a7cea9981ccbbf2eec8a18b18b8298d54765bcea0bba123240425154080050",
+    "apps/web/components/chat/copilotkit-v2-plan-control.tsx": "89fbf1995f2682fe46314ba778bcc3b46014937b8a8823e4d69ef465b8917b8e",
+    "apps/web/components/chat/document-generation-auto-approve-toggle.tsx": "f6bd57135797dd472f6917d82b82e48b02478905c4c7d2478555bed48ee371d9",
+    "apps/web/components/chat/project-chat-context-bar.tsx": "a5dbeff43cf15d75fb452dc81c83404f5a6813adea53e3752812689fd71fd921",
+    "apps/web/e2e/i18n-chat-workspace.spec.ts": "5203b280cbe1aa0cd23a6914871b01911608a21af9bc7618f41e83bd9c327669",
+    "apps/web/lib/i18n/namespaces/chat-composer.ts": "7c45f563cb6f62de1936da278ab9ea441ed2db0f117861c576933315acd3d851",
+    "apps/web/lib/i18n/namespaces/chat-entry.ts": "585eabf0c39e4b8bfcec2892121a30c519b3693d91307720d0da2df58ddbc43e",
+    "apps/web/lib/i18n/namespaces/chat-plan-control.ts": "9709629d8c0563ccf59bd4c3a8b9fb3fdc627661dca162d51be76a749e1644c7",
+    "apps/web/lib/i18n/namespaces/chat.ts": "ccce5ab99eee4791b80b6ec5ab8c44dbc6596f41cbb05ed800d665635f2a79e3",
+    "apps/web/lib/plan-control-owned-status.ts": "3dc23c4c6228304fe89745263cd8ee84d58f32c4b0c0426bb101e5eb5f446a2f",
+    "apps/web/tests/plan-control-summary-i18n.test.ts": "cf051d8abbd03a4a8f182fc2d6b62c7dbfdfda07ab30bed251ee7535c4402fa5",
+    "apps/web/tests/ui/copilotkit-v2-live-failure-cause-banner.test.tsx": "ddc24bc5eb0368010d206abac4357ca7f1137c75c05a812f9d829f8c623cd6af",
+    "apps/web/tests/ui/i18n-chat-canonical-chrome.test.tsx": "214fd0f363d6f6a0121944be4b189fad122e19f6ec75d8fa5a30fddd9254cc66",
+    "apps/web/playwright.chat-read.config.ts": "d249544199f292eb863d1c93802401699e906de3ee050d801dc126da2b9d571d"
+  },
+  "actualSelection": [
+    {
+      "file": "i18n-chat-workspace.spec.ts",
+      "title": "permission dialog locale switch and Escape submit no decision; explicit once resumes the same canonical run",
+      "project": "chat-read",
+      "timeout": 240000
+    },
+    {
+      "file": "i18n-chat-workspace.spec.ts",
+      "title": "different seeded principal receives real private-thread 404 and locale changes never grant send access",
+      "project": "chat-read",
+      "timeout": 240000
+    }
+  ],
+  "selectionMatches": true,
+  "exitCode": 1,
+  "wrapperSeconds": 173.545,
+  "stats": {
+    "startTime": "2026-11-04T16:30:56.962Z",
+    "duration": 169455.93000000002,
+    "expected": 0,
+    "skipped": 1,
+    "unexpected": 1,
+    "flaky": 0
+  },
+  "cleanup": {
+    "compose": "wsx-73dcb7e8e18bfa7df2e2",
+    "containers": 0,
+    "volumes": 0,
+    "listeners": {
+      "20840": 0,
+      "21840": 0,
+      "24840": 0,
+      "25840": 0,
+      "26840": 0,
+      "27840": 0,
+      "28840": 0,
+      "29840": 0,
+      "30840": 0,
+      "31840": 0,
+      "19840": 0
+    }
+  },
+  "firstFailure": {
+    "case": "HITL permission",
+    "caseSeconds": 37.162,
+    "assertion": "tool-permission-card right edge <=375",
+    "actualRight": 528,
+    "deniedCaseNotRun": true,
+    "globalError": "maxfail earlystop only"
+  },
+  "images": [
+    {
+      "name": "permission-zh-1280.png",
+      "sha256": "254fb66f23c7077a88b71b33098499b13d03a48b9fb72c629fd7e9b6bcee70ad",
+      "actuallyViewed": true,
+      "qa": "Desktop permission layout readable; mobile assertion later fails, not a complete case PASS."
+    },
+    {
+      "name": "permission-zh-375.png",
+      "sha256": "cb1980ca1c74dd6711a7a9bbd2f80eb3f150f6538f93cfcc4e7bfd08e9a249a3",
+      "actuallyViewed": true,
+      "qa": "FAIL: permission card right edge528 exceeds375 viewport despite updated card classes."
+    },
+    {
+      "name": "test-failed-1.png",
+      "sha256": "cb1980ca1c74dd6711a7a9bbd2f80eb3f150f6538f93cfcc4e7bfd08e9a249a3",
+      "actuallyViewed": true,
+      "qa": "FAIL: failure screenshot independently viewed, same mobile overflow (same hash as prior image)."
+    }
+  ],
+  "privateDomEvidence": {
+    "cardUpdatedClassesLoaded": true,
+    "unconstrainedAncestorTag": "FIELDSET",
+    "unconstrainedAncestorTestId": "chat-task-workbench-approval-card",
+    "ancestorClassAttributeAbsent": true
+  },
+  "candidateFix": "Only actual fieldset w-full min-w-0; new fieldset bounding box joins all previous guards. UNVERIFIED after fix."
+}

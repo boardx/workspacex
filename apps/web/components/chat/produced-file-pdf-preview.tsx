@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import { createPortal } from "react-dom";
 import { Download, Eye } from "lucide-react";
 import { Modal } from "@/components/files/overlay";
@@ -14,6 +15,7 @@ import type { ActiveFile } from "@/lib/agui-file-events";
  * neither invents a second content endpoint nor fetches the attachment bytes again.
  */
 export function ProducedFilePdfPreview({ file, src }: { file: ActiveFile; src: string }): JSX.Element {
+  const { t } = useI18n();
   const [open, setOpen] = React.useState(false);
 
   return (
@@ -26,9 +28,7 @@ export function ProducedFilePdfPreview({ file, src }: { file: ActiveFile; src: s
         data-testid="chat-produced-file-pdf-preview-trigger"
         onClick={() => setOpen(true)}
       >
-        <Eye aria-hidden className="h-3.5 w-3.5" />
-        预览
-      </Button>
+        <Eye aria-hidden className="h-3.5 w-3.5" />{t("chatInspector.file.preview")}</Button>
       {open ? <ProducedFilePdfPreviewModal file={file} src={src} onClose={() => setOpen(false)} /> : null}
     </>
   );
@@ -43,6 +43,7 @@ function ProducedFilePdfPreviewModal({
   src: string;
   onClose: () => void;
 }): JSX.Element {
+  const { t } = useI18n();
   return createPortal(
     <div className="fixed inset-0 z-40" data-testid="chat-produced-file-pdf-preview-portal">
       <Modal
@@ -53,21 +54,17 @@ function ProducedFilePdfPreviewModal({
         width="lg"
         footer={
           <>
-            <Button type="button" size="sm" variant="ghost" data-testid="chat-produced-file-pdf-preview-dismiss" onClick={onClose}>
-              关闭
-            </Button>
+            <Button type="button" size="sm" variant="ghost" data-testid="chat-produced-file-pdf-preview-dismiss" onClick={onClose}>{t("chatInspector.file.close")}</Button>
             <Button type="button" size="sm" variant="primary" asChild>
               <a href={src} download={file.name} data-testid="chat-produced-file-pdf-preview-download">
-                <Download aria-hidden className="h-3.5 w-3.5" />
-                下载
-              </a>
+                <Download aria-hidden className="h-3.5 w-3.5" />{t("chatInspector.download")}</a>
             </Button>
           </>
         }
       >
         <iframe
           src={src}
-          title={`${file.name} PDF 预览`}
+          title={t("chatInspector.file.pdfTitle", { name: file.name })}
           className="h-[65vh] w-full rounded-md border border-border-subtle"
           data-testid="chat-produced-file-pdf-preview-frame"
         />
