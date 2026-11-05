@@ -13,7 +13,10 @@ const builder = 'apps/web/e2e/support/chat-refresh-production-build.ts';
 const helper = 'apps/web/e2e/support/chat-refresh-owned-process.cjs';
 const roots: string[] = [];
 afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true }); });
-function fixture(command: string) {
+function workflow(root: string, text: string) {
+  writeFileSync(path.join(root, '.github/workflows/chat.yml'), `on: pull_request\njobs:\n  chat-test-shards:\n    strategy:\n      matrix:\n        shard: [1, 2]\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n${text.split('\n').map(line => `          ${line}`).join('\n')}\n`);
+}
+function fixture(changedCommand: string) {
   const root = mkdtempSync(path.join(tmpdir(), 'chat-production-gate-')); roots.push(root);
   for (const file of [builder, helper]) {
     mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
@@ -22,7 +25,12 @@ function fixture(command: string) {
   writeFileSync(path.join(root, 'apps/web/package.json'), '{"name":"web"}');
   writeFileSync(path.join(root, 'apps/web/playwright.chat-read.config.ts'), 'export default {};');
   mkdirSync(path.join(root, '.github/workflows'), { recursive: true });
-  writeFileSync(path.join(root, '.github/workflows/chat.yml'), `on: pull_request\njobs:\n  chat-test-shards:\n    strategy:\n      matrix:\n        shard: [1, 2]\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n${command.split('\n').map(line => `          ${line}`).join('\n')}\n`);
+  workflow(root, command);
+  // Every counterexample must start from a working unmutated execution route;
+  // an always-false predicate must fail here rather than make negatives green.
+  expect(chatProductionTransparent(root)).toBe(true);
+  expect(verdict(root)).toBe('covered');
+  if (changedCommand !== command) workflow(root, changedCommand);
   return root;
 }
 const args = '--config playwright.chat-read.config.ts --project=chat-read --max-failures=1 --shard=${{ matrix.shard }}/${{ needs.chat-test-plan.outputs.count }} --reporter=json';

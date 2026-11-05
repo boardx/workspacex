@@ -36,7 +36,9 @@ function immutableEdges(source) {
   for (const node of nodes(source)) {
     if (ts.isBinaryExpression(node) && node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment
         && node.operatorToken.kind <= ts.SyntaxKind.LastAssignment && sensitive.test(node.left.getText(source))) return false;
-    if ((ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node) || ts.isDeleteExpression(node))
+    const update = (ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node))
+      && [ts.SyntaxKind.PlusPlusToken, ts.SyntaxKind.MinusMinusToken].includes(node.operator);
+    if ((update || ts.isDeleteExpression(node))
         && sensitive.test(node.operand?.getText(source) ?? node.expression?.getText(source) ?? '')) return false;
     if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)
         && sensitive.test(node.expression.expression.getText(source))

@@ -87,3 +87,14 @@ heredocs, rather than matching a line inside them. The positive fixture uses the
 real complete workflow run block; if-false and heredoc negatives are added to the
 existing shell group. The three reviewed execution contracts are unchanged.
 The planned pure case count is now 41; no tests have run at this checkpoint.
+
+Exact c9ec pure verification actually ran: 41 cases, 40 passed and one real
+baseline positive failed (log `/tmp/sourcechat-c9ec-pure.log`). The first failure
+stopped the batch before the real spec coverage gate or push; c9ec was not pushed.
+Read-only TypeScript AST inspection located immutableEdges treating the existing
+`!env` preflight (PrefixUnaryExpression / ExclamationToken) as a write. Only
+++/-- updates and delete now enter that unary write guard; assignment checks
+remain unchanged. Each fixture first establishes the unmutated command/runtime
+as transparent and covered, before changing only its target workflow/source.
+This makes negative cases non-vacuous if baseline recognition regresses. The
+existing 41 planned cases remain; this source checkpoint has not rerun them.
