@@ -56,8 +56,22 @@ it('partial cutover is refused rather than treated as an already applied migrati
 });
 it('repeat migration validates permissions instead of silently skipping a corrupted cutover',async()=>{
  await asOwner(async c=>{await c.query('BEGIN');try{
-  await c.query('GRANT UPDATE ON credit_native_tariffs TO app_rw');
-  await expect(c.query(globalMigration)).rejects.toThrow('global_native_tariff_cutover_invalid_permissions');
+  // Exercise the real validator on owned catalog objects; never change grants on
+  // the shared application's view, even temporarily inside a transaction.
+  await c.query('CREATE SCHEMA native_force_permission_fixture');
+  await c.query('CREATE TABLE native_force_permission_fixture.credit_native_tariffs_legacy (LIKE public.credit_native_tariffs_legacy INCLUDING ALL)');
+  await c.query('CREATE TABLE native_force_permission_fixture.credit_global_native_tariffs (LIKE public.credit_global_native_tariffs INCLUDING ALL)');
+  await c.query('CREATE TABLE native_force_permission_fixture.credit_global_native_tariff_changes (LIKE public.credit_global_native_tariff_changes INCLUDING ALL)');
+  const view=(await c.query<{definition:string}>('SELECT pg_get_viewdef(\'public.credit_native_tariffs\'::regclass,true) AS definition')).rows[0]!.definition;
+  await c.query('CREATE VIEW native_force_permission_fixture.credit_native_tariffs WITH(security_invoker=true,security_barrier=true) AS '+view);
+  await c.query("DO $$ BEGIN EXECUTE format('COMMENT ON VIEW native_force_permission_fixture.credit_native_tariffs IS %L','native-tariff-union-v1:'||md5(pg_get_viewdef('native_force_permission_fixture.credit_native_tariffs'::regclass,true))); END $$");
+  await c.query('CREATE TRIGGER immutable_global_native_tariff_changes BEFORE UPDATE OR DELETE ON native_force_permission_fixture.credit_global_native_tariff_changes FOR EACH ROW EXECUTE FUNCTION public.f159_token_usage_append_only()');
+  await c.query('GRANT SELECT ON native_force_permission_fixture.credit_native_tariffs,native_force_permission_fixture.credit_global_native_tariffs,native_force_permission_fixture.credit_global_native_tariff_changes TO app_rw');
+  await c.query('GRANT SELECT,INSERT,UPDATE ON native_force_permission_fixture.credit_global_native_tariffs TO app_billing_tariff_writer');
+  await c.query('GRANT SELECT,INSERT ON native_force_permission_fixture.credit_global_native_tariff_changes TO app_billing_tariff_writer');
+  expect((await c.query("SELECT public.kernel_native_tariff_cutover_complete('native_force_permission_fixture') AS valid")).rows[0].valid).toBe(true);
+  await c.query('GRANT UPDATE ON native_force_permission_fixture.credit_native_tariffs TO app_rw');
+  await expect(c.query("SELECT public.kernel_native_tariff_cutover_complete('native_force_permission_fixture')")).rejects.toThrow('global_native_tariff_cutover_invalid_permissions');
  }finally{await c.query('ROLLBACK');}});
  expect(await asApp(org,async c=>(await c.query("SELECT has_table_privilege('app_rw','credit_native_tariffs','UPDATE') AS allowed")).rows[0].allowed)).toBe(false);
 });
