@@ -44,12 +44,14 @@ it("rejects coerced booleans and arbitrary settings without writing",async()=>{
 
 it("tariff routes authenticate operators and validate native pricing before writes",async()=>{
  const path='/platform/billing/consumption/native-tariffs';
- expect((await call(path+'?orgId='+orgId)).status).toBe(401);
- expect((await call(path+'?orgId='+orgId,'member')).status).toBe(403);
- expect((await call(path+'?orgId='+orgId,'operator')).status).toBe(200);
- const body:NativeTariff={orgId,modelProvider:'openai',modelId:'image',unit:'image',quantum:'1',hundredthsPerQuantum:'25',version:'v1'};
+ expect((await call(path)).status).toBe(401);
+ expect((await call(path,'member')).status).toBe(403);
+ expect((await call(path,'operator')).status).toBe(200);
+ const body:NativeTariff={modelProvider:'openai',modelId:'image',unit:'image',quantum:'1',hundredthsPerQuantum:'25',version:'v1'};
+ expect((await call(path+'?orgId='+orgId,'operator')).status).toBe(400);
  const put=(user:string,value:unknown)=>fetch(base+path,{method:'PUT',headers:{Authorization:'Bearer '+user,'Content-Type':'application/json'},body:JSON.stringify(value)});
  expect((await put('member',body)).status).toBe(403);
  expect((await put('operator',{...body,quantum:'0'})).status).toBe(400);
+ expect((await put('operator',{...body,orgId})).status).toBe(400);
  const response=await put('operator',body);expect(response.status).toBe(200);expect(await response.json()).toEqual(body);
 });

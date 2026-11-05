@@ -8,10 +8,10 @@ import {addOrgMember,asApp,ensureDatabase,migrateOnce,resetOrgs,seedOrg} from ".
 const org=toOrgId("chat-read-asr-credit-fixture"),other=toOrgId("chat-read-asr-credit-other");let db:PgDatabase;
 beforeAll(async()=>{await ensureDatabase();await migrateOnce();await resetOrgs(org,other);await seedOrg({orgId:org,projectId:org+"-p"});await seedOrg({orgId:other,projectId:other+"-p"});await addOrgMember(org,"speaker","consultant",null);db=new PgDatabase(appConfig());});
 afterAll(async()=>{await db?.close();await resetOrgs(org,other);});
-it("requires the explicit controlled tenant and leaves other tenants unpriced",async()=>{
+it("requires the explicit controlled tenant and cannot be enabled from a foreign fixture tenant",async()=>{
  await expect(db.withTenant(org,s=>seedChatReadAsrCreditTariff(s,org,{}))).rejects.toThrow("FIXTURE_SCOPE_REQUIRED");
  await expect(db.withTenant(other,s=>seedChatReadAsrCreditTariff(s,other,{CHAT_E2E_FIXTURE:"1",CHAT_E2E_ORG_ID:org}))).rejects.toThrow("FIXTURE_SCOPE_REQUIRED");
- expect((await asApp(other,c=>c.query("SELECT * FROM credit_native_tariffs"))).rows).toEqual([]);
+ expect((await asApp(other,c=>c.query("SELECT * FROM credit_global_native_tariffs WHERE model_provider='chat-read-loopback-asr'"))).rows).toEqual([]);
 });
 it("admits the loopback microphone through the real credit ledger with an explicit native tariff",async()=>{
  const env={CHAT_E2E_FIXTURE:"1",CHAT_E2E_ORG_ID:org};

@@ -123,9 +123,9 @@ await addOrgMember(orgId, securityReviewerUserId, "consultant", fixture.teams.fu
 // The deterministic voice supplier still needs an explicit financial tariff:
 // mandatory accounting cannot be bypassed by the smoke fixture's quota flags.
 await asApp(orgId, async client => {
-  await client.query(`INSERT INTO credit_native_tariffs
-    (org_id,model_provider,model_id,unit,quantum,hundredths_per_quantum,version)
-    VALUES($1,'fullstack-loopback-asr','loopback-transcribe','millisecond',1000,1,'fullstack-asr-v1')`, [orgId]);
+  await client.query(`INSERT INTO credit_global_native_tariffs
+    (model_provider,model_id,unit,quantum,hundredths_per_quantum,version)
+    VALUES('fullstack-loopback-asr','loopback-transcribe','millisecond',1000,1,'fullstack-asr-v1') ON CONFLICT DO NOTHING`);
 });
 
 const hasher = new BcryptPasswordHasher();

@@ -142,8 +142,8 @@ describe("#662 直接后续：新组织 bootstrap 出来就有一个能用的图
     const principal = { "x-kernel-test-principal": `${userId}:${orgId}`, "content-type": "application/json" };
     // Image transports require an explicit native fallback tariff even with preflight OFF.
     await databasePort.withTenant(toOrgId(orgId), session => session.query(
-      `INSERT INTO credit_native_tariffs(org_id,model_provider,model_id,unit,quantum,hundredths_per_quantum,version)
-       VALUES($1,'bailian-image','wanx2.1-t2i-plus','image',1,1,'bootstrap-image-fixture-v1')`, [orgId]));
+      `INSERT INTO credit_global_native_tariffs(model_provider,model_id,unit,quantum,hundredths_per_quantum,version)
+       VALUES('bailian-image','wanx2.1-t2i-plus','image',1,1,'bootstrap-image-fixture-v1') ON CONFLICT DO NOTHING`));
 
 
     /* ── 能力目录里应该有三个 agent：通用助手 + Deep Research + 图片生成 ── */

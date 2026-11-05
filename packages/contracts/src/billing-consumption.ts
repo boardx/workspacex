@@ -19,11 +19,15 @@ export const operations={
 export const CreditNativeUnit=z.enum(["image","pixel","millisecond","microsecond","character","request"]);
 const PositiveIntegerString=z.string().regex(/^[1-9][0-9]{0,17}$/);
 export const NativeCreditTariff=z.object({
- orgId:z.string().min(1).max(128),modelProvider:z.string().min(1).max(128),modelId:z.string().min(1).max(256),
- unit:CreditNativeUnit,quantum:PositiveIntegerString,hundredthsPerQuantum:PositiveIntegerString,version:z.string().min(1).max(128),
+ modelProvider:z.string().min(1).max(128),modelId:z.string().min(1).max(256),
+ unit:CreditNativeUnit,pricingBasis:z.object({
+  source:z.enum(['operator','supplier-markup','legacy-consolidation']),retailSnapshotId:z.string().min(1).max(128).optional(),
+  markup:z.number().int().positive().optional(),supplierRegion:z.string().min(1).max(64).optional(),supplierCurrency:z.literal('CNY').optional(),supplierMicros:z.string().regex(/^[1-9][0-9]*$/).optional(),supplierQuantum:PositiveIntegerString.optional(),
+  catalogVersion:z.string().min(1).max(128).optional(),sku:z.string().min(1).max(128).optional(),amountMinor:z.number().int().positive().optional(),credits:z.number().int().positive().optional(),legacyRowCount:z.number().int().nonnegative().optional(),legacyVersionCount:z.number().int().nonnegative().optional(),
+ }).strict().optional(),quantum:PositiveIntegerString,hundredthsPerQuantum:PositiveIntegerString,version:z.string().min(1).max(128),
 }).strict();
 export const nativeTariffOperations={
- getImagePricingBasis:{method:'GET',path:'/platform/billing/consumption/image-pricing-basis',in:z.object({orgId:z.string().min(1).max(128)}).strict(),out:PricingCatalog},
- listNativeTariffs:{method:"GET",path:"/platform/billing/consumption/native-tariffs",in:z.object({orgId:z.string().min(1).max(128)}).strict(),out:z.object({items:z.array(NativeCreditTariff)}).strict()},
+ getImagePricingBasis:{method:'GET',path:'/platform/billing/consumption/image-pricing-basis',in:z.object({}).strict(),out:PricingCatalog},
+ listNativeTariffs:{method:"GET",path:"/platform/billing/consumption/native-tariffs",in:z.object({}).strict(),out:z.object({items:z.array(NativeCreditTariff)}).strict()},
  upsertNativeTariff:{method:"PUT",path:"/platform/billing/consumption/native-tariffs",in:NativeCreditTariff,out:NativeCreditTariff},
 } as const;

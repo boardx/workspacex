@@ -68,7 +68,7 @@ export class PgCreditConsumption {
   const native=extended.nativeMaximum??(admission?.billing_kind==="native"&&admission.native_unit&&admission.max_native_quantity?{unit:admission.native_unit,quantity:BigInt(admission.max_native_quantity)}:undefined);
   let reserved=0n,version="token-v1-1000-per-credit",quantum:bigint|null=null,rate:bigint|null=null;
   if(native){
-   const tariff=(await s.query<{quantum:string;hundredths_per_quantum:string;version:string}>("SELECT quantum::text,hundredths_per_quantum::text,version FROM credit_native_tariffs WHERE org_id=$1 AND model_provider=$2 AND model_id=$3 AND unit=$4",[orgId,input.modelProvider,input.modelId,native.unit])).rows[0];
+   const tariff=(await s.query<{quantum:string;hundredths_per_quantum:string;version:string}>("SELECT quantum::text,hundredths_per_quantum::text,version FROM credit_global_native_tariffs WHERE model_provider=$1 AND model_id=$2 AND unit=$3",[input.modelProvider,input.modelId,native.unit])).rows[0];
    if(!tariff||native.quantity<0n)throw this.error(p,"credit_native_tariff_missing");
    quantum=BigInt(tariff.quantum);rate=BigInt(tariff.hundredths_per_quantum);version=tariff.version;reserved=(native.quantity*rate+quantum-1n)/quantum;
    if(extended.maximumTokens!=null){const tokenBound=tokenCreditHundredths(extended.maximumTokens);if(tokenBound>reserved)reserved=tokenBound;}

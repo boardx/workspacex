@@ -15,7 +15,7 @@ async function recordUsage(orgId:ReturnType<typeof toOrgId>,receipt:Parameters<P
  const existing=await asApp(orgId,c=>c.query("SELECT id FROM model_request_starts WHERE id=$1",[receipt.eventId]));
  if(!existing.rows.length){
   const native=receipt.nativeUsage;
-  if(native)await asApp(orgId,c=>c.query("INSERT INTO credit_native_tariffs(org_id,model_provider,model_id,unit,quantum,hundredths_per_quantum,version) VALUES($1,$2,$3,$4,1,1,'report-fixture-v1') ON CONFLICT DO NOTHING",[orgId,receipt.modelProvider,receipt.modelId,native.unit]));
+  if(native)await asApp(orgId,c=>c.query("INSERT INTO credit_global_native_tariffs(model_provider,model_id,unit,quantum,hundredths_per_quantum,version) VALUES($1,$2,$3,1,1,'report-fixture-v1') ON CONFLICT DO NOTHING",[receipt.modelProvider,receipt.modelId,native.unit]));
   await usage.startRequest(orgId,{requestId:receipt.eventId!,userId:receipt.userId,runId:receipt.runId,executionAttemptId:null,projectId:receipt.projectId??null,modelProvider:receipt.modelProvider,modelId:receipt.modelId,startedAt:receipt.requestStartedAt??new Date().toISOString(),callPurpose:receipt.runId?undefined:"auxiliary",maximumTokens:10000,...(native?{nativeMaximum:{unit:native.unit,quantity:native.quantity??1n}}:{})});
  }
  await usage.record(orgId,receipt);
@@ -26,7 +26,7 @@ beforeAll(async()=>{await ensureDatabase();await migrateOnce();db=new PgDatabase
 beforeEach(async()=>{
  await resetOrgs(ORG,OTHER);await seedOrg({orgId:ORG,projectId:PROJECT});await seedOrg({orgId:OTHER,projectId:"p-usage-5261-other"});
  for(const org of [ORG,OTHER])for(const user of ["alice","bob"])await addOrgMember(org,user,"consultant",null);
- await asApp(ORG,c=>c.query("INSERT INTO credit_native_tariffs(org_id,model_provider,model_id,unit,quantum,hundredths_per_quantum,version) VALUES($1,'fixture-asr','actual','millisecond',1000,1,'asr-fixture-v1')",[ORG]));
+ await asApp(ORG,c=>c.query("INSERT INTO credit_global_native_tariffs(model_provider,model_id,unit,quantum,hundredths_per_quantum,version) VALUES('fixture-asr','actual','millisecond',1000,1,'asr-fixture-v1') ON CONFLICT DO NOTHING"));
  await usage.startRequest(toOrgId(ORG),{requestId:"usage-r1",userId:"alice",runId:null,callPurpose:"auxiliary",executionAttemptId:null,projectId:PROJECT,modelProvider:"p",modelId:"m",startedAt:new Date(now).toISOString()});
  await usage.startRequest(toOrgId(ORG),{requestId:"usage-pending",userId:"alice",runId:"r",executionAttemptId:null,projectId:PROJECT,modelProvider:"p",modelId:"m",startedAt:new Date(now).toISOString()});
  await recordUsage(toOrgId(ORG),{eventId:"usage-r1",userId:"alice",runId:null,modelProvider:"p",modelId:"m",projectId:PROJECT,

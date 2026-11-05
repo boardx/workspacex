@@ -12,9 +12,9 @@ export class NativeCreditTariffController {
  private async mapped<T>(call:()=>Promise<T>){try{return await call();}catch(error){if(error instanceof ImagePricingBasisUnavailable)throw new ServiceUnavailableException(error.code);if(error instanceof ConsumptionSettingsForbidden)throw new ForbiddenException();throw error;}}
  @Header("Cache-Control","private, no-store")
  @Get(C.getImagePricingBasis.path)
- imagePricingBasis(@CurrentPrincipal() p:Principal,@Query(new ZodBodyPipe(C.getImagePricingBasis.in)) q:z.infer<typeof C.getImagePricingBasis.in>){return this.mapped(()=>this.service.imagePricingBasis(p,q.orgId));}
+ imagePricingBasis(@CurrentPrincipal() p:Principal,@Query(new ZodBodyPipe(C.getImagePricingBasis.in)) q:z.infer<typeof C.getImagePricingBasis.in>){return this.mapped(()=>this.service.imagePricingBasis(p));}
  @Get(C.listNativeTariffs.path)
- list(@CurrentPrincipal() p:Principal,@Query(new ZodBodyPipe(C.listNativeTariffs.in)) q:z.infer<typeof C.listNativeTariffs.in>){return this.mapped(()=>this.service.list(p,q.orgId));}
+ list(@CurrentPrincipal() p:Principal,@Query(new ZodBodyPipe(C.listNativeTariffs.in)) q:z.infer<typeof C.listNativeTariffs.in>){return this.mapped(()=>this.service.list(p));}
  @Put(C.upsertNativeTariff.path)
  upsert(@CurrentPrincipal() p:Principal,@Body(new ZodBodyPipe(C.upsertNativeTariff.in)) body:z.infer<typeof C.upsertNativeTariff.in>){return this.mapped(()=>this.service.upsert(p,body));}
 }
