@@ -1,12 +1,14 @@
 "use client";
 import * as React from "react";
 import { Lock, ShieldCheck } from "lucide-react";
-import { AdminScreen } from "./admin-screen";
-import { LocalExportPanel } from "./local-export-panel";
-import { LocalOrgLive } from "./local-org-live";
+import { AdminScreen } from "@/components/admin/admin-screen";
+import { LocalExportPanel } from "@/components/admin/local-export-panel";
+import { LocalOrgLive } from "@/components/admin/local-org-live";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LOCAL_ORG_GUARANTEES, LOCAL_RUNTIME_STARTUP_HINT } from "@/lib/identity";
+import { useI18n } from "@/lib/i18n/provider";
+import { localOrgGuaranteeKey, localOrgStartupHint } from "@/lib/i18n/namespaces/local-org";
 import type { UiState } from "@/lib/ui-state";
 
 /**
@@ -34,34 +36,35 @@ import type { UiState } from "@/lib/ui-state";
  *   `tests/ui/local-org-live.test.tsx` 另有一条源码断言守着它。
  */
 export function LocalOrgScreen({ state }: { state: UiState }) {
+  const { t } = useI18n();
   return (
     <AdminScreen
       state={state}
-      moduleLabel="本地组织"
-      title="我的本地"
-      intro="这个组织只有你一个人，且它的数据不出本机。以下三条是产品承诺，不是可配置项——任何接口都改不动它们。"
-      emptyHint="本机还没有可用的本地模型，先在本机启动推理运行时"
+      moduleLabel={t("localOrg.module")}
+      title={t("localOrg.title")}
+      intro={t("localOrg.intro")}
+      emptyHint={t("localOrg.empty")}
       // #1172：三块数据都读真端点了，屏级「示例数据」提示不再适用。
       liveBacked
       // 依赖失败态 = 本地运行时没起来。文案取自契约常量，不在这里另写一句。
-      depFailure={LOCAL_RUNTIME_STARTUP_HINT}
-      denialReason="本地组织只对它的所有者可见——组织管理员与平台运营都看不到，这比「个人层对管理员封闭」更强：数据根本不在他们的组织里。"
-      successMessage="本地模型调用完成，本次未产生任何出网流量"
+      depFailure={localOrgStartupHint(t, LOCAL_RUNTIME_STARTUP_HINT)}
+      denialReason={t("localOrg.denial")}
+      successMessage={t("localOrg.success")}
     >
       <div className="flex flex-col gap-5">
         {/* ── 三条硬隔离：常驻，逐条 ── */}
         <section className="flex flex-col gap-2" data-testid="local-org-guarantees">
           <div className="flex items-center gap-1.5">
             <ShieldCheck aria-hidden className="h-4 w-4 text-muted-foreground" />
-            <h2 className="text-14 font-semibold">三条硬隔离</h2>
-            <Badge tone="outline">产品承诺 · 不可关闭</Badge>
+            <h2 className="text-14 font-semibold">{t("localOrg.guarantees")}</h2>
+            <Badge tone="outline">{t("localOrg.commitment")}</Badge>
           </div>
           <Card>
             <CardContent className="flex flex-col gap-2 pt-3">
               {LOCAL_ORG_GUARANTEES.map((g) => (
                 <div key={g.id} className="flex items-start gap-2" data-testid={`local-org-guarantee-${g.id}`}>
                   <Lock aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ai-tint-foreground" />
-                  <p className="text-13">{g.statement}</p>
+                  <p className="text-13">{t(localOrgGuaranteeKey(g.id))}</p>
                 </div>
               ))}
             </CardContent>

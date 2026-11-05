@@ -1,0 +1,7 @@
+# Local organization localization source coverage
+
+Issue #6278. Complete fixed source display prepared for /admin/local: isolation-promise display from canonical source, live owner/member/model/runtime states, cloud-disabled explanations, all state/aria copy and mounted mock export controls. Three components, paired local-org namespace and two registrations. Unknown server hints/raw names/modelIDs/URLs remain original; guards, endpoint classification, scope, requests, selection/export/expiry behavior unchanged by source review. Canonical startup URL is derived from its original hint rather than copied as a second default. The export panel remains an explicit prototype, not a real transfer claim.
+
+Independent light source review Spec PASS / Quality APPROVE, no new P1/P2; six source hashes and four candidate/source byte parity verified. All manual tests/types/lint/native/browser/CI acceptance remain UNRUN under source-first priority. Normal commit/publication hooks retained. Continue complete inbox source next; code coverage does not mean stage acceptance or merge.
+
+Task1candidate artifacts retained in .superpowers/sdd/2026-11-05-local-org-i18n; publicplan migration/promotion/review in sibling -plans workspace. Do not redo candidates or overwrite contracts/shared identity/shell.

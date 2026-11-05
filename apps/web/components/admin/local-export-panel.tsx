@@ -3,9 +3,10 @@ import * as React from "react";
 import { ArrowUpFromLine, Eye, Lock, ShieldAlert, Users } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useI18n } from "@/lib/i18n/provider";
 import { Button } from "@/components/ui/button";
 import {
-  LOCAL_EXPORT_PREVIEW_TTL_MS, localExportUnvettedNote, mockIdentity,
+  LOCAL_EXPORT_PREVIEW_TTL_MS, mockIdentity,
 } from "@/lib/identity";
 import {
   exportToOrganizationMock, previewExportMock,
@@ -30,8 +31,8 @@ import {
  *
  * 形状与文案全部来自契约：`previewExportMock` / `exportToOrganizationMock` 由
  * `packages/contracts` 生成，来源标注取 `localExportUnvettedNote()`，
- * 有效期取 `LOCAL_EXPORT_PREVIEW_TTL_MS`。这一屏**一句都不自己拼**——
- * 「这条材料审没审过」在库里和屏幕上必须是同一个答案。
+ * 有效期取 `LOCAL_EXPORT_PREVIEW_TTL_MS`。中文标注继续取契约函数，
+ * 英文仅作显示投影，不改样例响应、来源标注或审计数据。
  */
 
 /** 演示用的本地成果。⚠ 结构来自契约的 preview item，值在这里给（同 F16 的 DEMO_MODELS）。 */
@@ -44,6 +45,7 @@ const DEMO_ARTIFACTS = [
 type Step = "select" | "previewed" | "done";
 
 export function LocalExportPanel() {
+  const { t } = useI18n();
   const identity = mockIdentity("org-local", null);
   const [selected, setSelected] = React.useState<string[]>([DEMO_ARTIFACTS[0]!.artifactId]);
   const [step, setStep] = React.useState<Step>("select");
@@ -61,9 +63,9 @@ export function LocalExportPanel() {
     <section className="flex flex-col gap-2" data-testid="local-export">
       <div className="flex items-center gap-1.5">
         <ArrowUpFromLine aria-hidden className="h-4 w-4 text-muted-foreground" />
-        <h2 className="text-14 font-semibold">导出到正式组织</h2>
-        <Badge tone="outline">承诺的唯一豁口</Badge>
-        <Badge tone="warning" data-testid="local-export-demo-badge">演示态</Badge>
+        <h2 className="text-14 font-semibold">{t("localOrg.exportTitle")}</h2>
+        <Badge tone="outline">{t("localOrg.exportException")}</Badge>
+        <Badge tone="warning" data-testid="local-export-demo-badge">{t("localOrg.exportDemo")}</Badge>
       </div>
 
       {/*
@@ -78,17 +80,13 @@ export function LocalExportPanel() {
         data-testid="local-export-demo-notice"
         className="rounded-card border border-warning-tint-foreground/30 bg-warning-tint px-2 py-1.5 text-11 text-warning-tint-foreground"
       >
-        下面这三步是<strong>流程演示</strong>：列出的成果是样例数据，点「确认导出」不会真的把任何东西
-        送去正式组织，也不会产生审计记录。真正的导出通道还没实现。现在要把本机的成果带走，
-        请在产出上用「下载」保存到本地，再到在线系统里上传。
+        {t("localOrg.exportDemoNotice")}
       </p>
 
       <Card>
         <CardContent className="flex flex-col gap-3 pt-3">
           <p className="text-12 text-muted-foreground" data-testid="local-export-intro">
-            这是本地组织里唯一一条会让数据离开本机的路径。它只能由你<strong>手动</strong>发起一次——
-            没有自动同步，没有后台上传，没有定时推送。导出是复制：本地的原件仍然留在本机。
-            反过来把正式组织的数据导入本地组织是不可能的，产品里没有这个操作。
+            {t("localOrg.exportIntro")}
           </p>
 
           {/* ── ① 选择 ── */}
@@ -110,7 +108,7 @@ export function LocalExportPanel() {
                   />
                   <span className="text-13">{a.title}</span>
                   <Lock aria-hidden className="h-3 w-3 text-muted-foreground" />
-                  <code className="text-11 text-muted-foreground">本机</code>
+                  <code className="text-11 text-muted-foreground">{t("localOrg.exportOnDevice")}</code>
                 </label>
               );
             })}
@@ -123,7 +121,7 @@ export function LocalExportPanel() {
               onClick={() => setStep("previewed")}
             >
               <Eye aria-hidden className="mr-1 h-3.5 w-3.5" />
-              预览将离开本机的内容
+              {t("localOrg.exportPreview")}
             </Button>
             <Button
               data-testid="local-export-confirm-btn"
@@ -131,11 +129,11 @@ export function LocalExportPanel() {
               disabled={step !== "previewed"}
               onClick={() => setStep("done")}
             >
-              确认导出
+              {t("localOrg.exportConfirm")}
             </Button>
             {step === "select" && (
               <span className="text-11 text-muted-foreground" data-testid="local-export-gate-hint">
-                需要先预览并确认——预览有效期 {ttlMinutes} 分钟，且只能用一次。
+                {t("localOrg.exportGate", { minutes: ttlMinutes })}
               </span>
             )}
           </div>
@@ -145,7 +143,7 @@ export function LocalExportPanel() {
             <div className="flex flex-col gap-2" data-testid="local-export-preview">
               <div className="flex items-center gap-1.5">
                 <ShieldAlert aria-hidden className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-13 font-medium">以下内容会离开本机</span>
+                <span className="text-13 font-medium">{t("localOrg.exportPreviewHeading")}</span>
               </div>
               {DEMO_ARTIFACTS.filter((a) => selected.includes(a.artifactId)).map((a) => (
                 <div
@@ -158,7 +156,7 @@ export function LocalExportPanel() {
                       「导给公司」和「导给公司里这些人都能读」是两个不同的决定。 */}
                   <div className="flex flex-wrap items-center gap-1.5">
                     <Users aria-hidden className="h-3 w-3 text-muted-foreground" />
-                    <span className="text-11 text-muted-foreground">进入后可读：</span>
+                    <span className="text-11 text-muted-foreground">{t("localOrg.exportViewers")}</span>
                     {viewers.map((v) => (
                       <Badge key={v.id} tone="outline">
                         {v.name}
@@ -168,8 +166,8 @@ export function LocalExportPanel() {
                 </div>
               ))}
               <p className="text-11 text-muted-foreground" data-testid="local-export-unvetted-note">
-                {/* 契约函数生成，界面不自己拼。落库的、写进审计的、显示在这里的是同一句。 */}
-                目标组织里的条目会带上这条标注：{localExportUnvettedNote(identity.displayName)}
+                {/* 中文由契约函数生成；英文仅是显示投影，不更改任何来源或审计数据。 */}
+                {t("localOrg.exportNotePrefix")}{t("localOrg.exportUnvettedNote", { owner: identity.displayName })}
               </p>
             </div>
           )}
@@ -178,12 +176,11 @@ export function LocalExportPanel() {
           {step === "done" && (
             <div className="flex flex-col gap-1" data-testid="local-export-result">
               <div className="flex items-center gap-1.5">
-                <Badge tone="outline">已导出 {selected.length} 件</Badge>
-                <span className="text-12">本地副本仍在本机——这是复制，不是迁移。</span>
+                <Badge tone="outline">{t("localOrg.exportDone", { count: selected.length })}</Badge>
+                <span className="text-12">{t("localOrg.exportCopy")}</span>
               </div>
               <span className="text-11 text-muted-foreground" data-testid="local-export-trace">
-                两侧各留一条审计记录：本地 {exportToOrganizationMock.localProvenanceEventId} ·
-                目标 {exportToOrganizationMock.targetProvenanceEventId}
+                {t("localOrg.exportTrace", { local: exportToOrganizationMock.localProvenanceEventId, target: exportToOrganizationMock.targetProvenanceEventId })}
               </span>
             </div>
           )}
