@@ -1,4 +1,5 @@
 import { workshopLiveZhCN } from "../namespaces/workshop-live";
+import { platformOpsStatusZhCN } from "../namespaces/platform-ops-status";
 import { modelTestbenchZhCN } from "../namespaces/model-testbench";
 import { platformModelCatalogZhCN } from "../namespaces/platform-model-catalog";
 import { telemetrySettingsZhCN } from "../namespaces/telemetry-settings";
@@ -39,6 +40,7 @@ import { accountEntryZhCN } from "../namespaces/account-entry";
 import { invitationEntryZhCN } from "../namespaces/invitation-entry";
 export const zhCN = {
   ...workshopLiveZhCN,
+  ...platformOpsStatusZhCN,
   ...modelTestbenchZhCN,
   ...platformModelCatalogZhCN,
   ...telemetrySettingsZhCN,

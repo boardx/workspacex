@@ -1,0 +1,18 @@
+{
+  "name": "webtype-2",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "typecheck"
+  ],
+  "source": "c7c6c4f1a5e6b9172c786681c7deb86a8473e3eb",
+  "sourceAfter": "c7c6c4f1a5e6b9172c786681c7deb86a8473e3eb",
+  "sourceStable": true,
+  "exitCode": 2,
+  "seconds": 47.029,
+  "rawLogSha256": "8b47db06eafc426b85762e221960ca744398bceeb0ef18b39f035f92cffd7aa9",
+  "diagnostics": [
+    "e2e/i18n-research-entry.spec.ts(372,12): TS18048: submitted is possibly undefined"
+  ]
+}
