@@ -12,12 +12,12 @@ export async function runQwenImageActivation(options:{env?:NodeJS.ProcessEnv;arg
  if(env.QWEN_ACTIVATION_ORG_ID||args.some(arg=>/^--org(?:-?id)?(?:=|$)/i.test(arg)))throw new Error('LEGACY_ORG_SCOPE_REJECTED_USE_GLOBAL_SCHEDULE');
  // Required only by the read-only CN catalog endpoint, never a tariff selector.
  const quoteOrgId=env.QWEN_ACTIVATION_QUOTE_ORG_ID;
- const cookie=env.QWEN_ACTIVATION_COOKIE_FILE?read(env.QWEN_ACTIVATION_COOKIE_FILE).trim():env.QWEN_ACTIVATION_COOKIE;
- const token=env.QWEN_ACTIVATION_TOKEN_FILE?read(env.QWEN_ACTIVATION_TOKEN_FILE).trim():env.QWEN_ACTIVATION_TOKEN;
  if(args.includes('--markup10'))throw new Error('LEGACY_MARKUP_DISABLED_USE_FIXED_PRICES');
  if(args.some(arg=>arg!=='--fixed-prices'&&arg!=='--apply'))throw new Error('UNKNOWN_ACTIVATION_ARGUMENT');
  const apply=args.includes('--apply'),markup=args.includes('--fixed-prices');
  if(apply&&!markup)throw new Error('FIXED_PRICES_REQUIRED_FOR_APPLY');
+ const cookie=env.QWEN_ACTIVATION_COOKIE_FILE?read(env.QWEN_ACTIVATION_COOKIE_FILE).trim():env.QWEN_ACTIVATION_COOKIE;
+ const token=env.QWEN_ACTIVATION_TOKEN_FILE?read(env.QWEN_ACTIVATION_TOKEN_FILE).trim():env.QWEN_ACTIVATION_TOKEN;
  async function request(path:string,method='GET',body?:unknown){
   if(!token)throw new Error('DEVAPP_OPERATOR_TOKEN_REQUIRED');
   const response=await fetcher(activationApiUrl(base,path),{method,headers:{authorization:`Bearer ${token}`,...(cookie?{cookie}:{}),'content-type':'application/json'},body:body?JSON.stringify(body):undefined,redirect:'error',signal:AbortSignal.timeout(15000)});
