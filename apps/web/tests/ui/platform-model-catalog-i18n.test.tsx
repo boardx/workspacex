@@ -258,7 +258,7 @@ describe("platform model catalog complete localization", () => {
   });
 
   it("preserves unknown list protocol reasons exactly across locales", async () => {
-    sdk.list.mockRejectedValue(new ApiError(418, "RAW_REASON_{id}", { secret: "NEVER_PROJECT_PRIVATE_BODY" }));
+    sdk.list.mockRejectedValue(new ApiError(418, "RAW_REASON_{id}", { privateDetail: "NEVER_PROJECT_PRIVATE_BODY" }));
     show(); const error = await screen.findByTestId("admin-model-error"); expect(error).toHaveTextContent("RAW_REASON_{id}");
     language("zh-CN"); expect(error).toHaveTextContent("RAW_REASON_{id}"); language("en");
     expect(error).not.toHaveTextContent("NEVER_PROJECT_PRIVATE_BODY"); expect(sdk.list).toHaveBeenCalledTimes(1);
@@ -323,7 +323,7 @@ describe("core model configuration within the mounted page", () => {
     [409, "VERSION_CHANGED", /another.*admin|changed.*admin/i, /配置已被其他管理员修改/],
     [500, "UNRECOGNIZED", /unavailable|try again/i, /暂不可用/],
   ] as const)("retranslates core save %s/%s and preserves the draft without another operation", async (status, code, english, chinese) => {
-    sdk.saveCore.mockRejectedValue(new ApiError(status, code, { secret: "NEVER_PROJECT_PRIVATE_BODY" }));
+    sdk.saveCore.mockRejectedValue(new ApiError(status, code, { privateDetail: "NEVER_PROJECT_PRIVATE_BODY" }));
     show("zh-CN"); await ready(); const panel = screen.getByTestId("org-core-model-panel");
     fireEvent.click(within(panel).getByRole("button", { name: `选择 ${candidate.displayName}` }));
     const reason = within(panel).getByRole("textbox"); fireEvent.change(reason, { target: { value: "保留草稿 {reason}" } });
