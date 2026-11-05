@@ -1,4 +1,3 @@
-import { workshopOverviewZhCN } from "../namespaces/workshop-overview";
 import { platformOpsStatusZhCN } from "../namespaces/platform-ops-status";
 import { modelTestbenchZhCN } from "../namespaces/model-testbench";
 import { platformModelCatalogZhCN } from "../namespaces/platform-model-catalog";
@@ -26,6 +25,7 @@ import { zhTasks } from "./tasks";
 import { zhFailures } from "./failures";
 import { controlsZhCN } from "../namespaces/controls";
 import { workflowRunsZhCN } from "../namespaces/workflow-runs";
+import { workshopOverviewZhCN } from "../namespaces/workshop-overview";
 import { projectWorkbenchZhCN } from "../namespaces/project-workbench";
 import { projectListZhCN } from "../namespaces/project-list";
 import { activityZhCN } from "../namespaces/activity";
@@ -39,7 +39,6 @@ import { stateZhCN } from "../namespaces/state";
 import { accountEntryZhCN } from "../namespaces/account-entry";
 import { invitationEntryZhCN } from "../namespaces/invitation-entry";
 export const zhCN = {
-  ...workshopOverviewZhCN,
   ...platformOpsStatusZhCN,
   ...modelTestbenchZhCN,
   ...platformModelCatalogZhCN,
@@ -77,6 +76,7 @@ export const zhCN = {
   ...chatShareZhCN,
   ...codeFenceZhCN,
   ...workflowRunsZhCN,
+  ...workshopOverviewZhCN,
   ...projectWorkbenchZhCN,
   "common.language": "语言",
   "home.greeting": "你好，{name}",
