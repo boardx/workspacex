@@ -26,7 +26,7 @@ export const localOrgZhCN = {
   "localOrg.loadFailed": "读不到本地组织（{error}）。这里不退回示例数据——显示假清单会让人以为模型已经配好了。",
   "localOrg.modelsEmpty": "这个组织还没有配置任何模型。产品不提供内置默认清单——先在本机启动推理运行时并把它登记为组织能力。",
   "localOrg.noEndpoint": "这条能力没有端点，无法确认它只在本机运行。",
-  "localOrg.cloudDisabledReason": localOrgCloudDisabledReason("{endpoint}"),
+  "localOrg.cloudDisabledReason": localOrgCloudDisabledReason("{endpoint}").replace(LOCAL_ORG_GUARANTEES[0].statement, "{guarantee}"),
   "localOrg.ready": "已就绪",
   "localOrg.notReady": "未就绪",
   "localOrg.exportTitle": "导出到正式组织",
