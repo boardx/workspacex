@@ -1,0 +1,221 @@
+{
+  "head": "b730bb12459c1563fe1e30cdddba248985fb13da",
+  "driverCheckpoint": "d4a8f45e2aac196eca2596f48cb92a9fb9fcdbdd",
+  "accepted": "a00287a86c411c13148294cc2ed4379852949c5d",
+  "codeSha256": {
+    "apps/web/components/project/project-content.tsx": "132b325dcba99b67fe8c3caaf3ed239ad0311d61b6b45c94d44168f0e305b3dd",
+    "apps/web/components/project/project-resource-section.tsx": "556222f1b3e2fe872bb4c84607b1032cf483a081ac63e5057c511aeb3e3f8ffc",
+    "apps/web/components/project/tab-general-overview.tsx": "f46fba26f537facffa1d8ccf25a4b405fe33a01fa2ea19aa7e9872a488fb1040",
+    "apps/web/e2e/i18n-project-general-overview.spec.ts": "57b85cdafb2635e8451d148d5f08ed567854c9862e5bcf1962d4d13faa6dfa7d",
+    "apps/web/lib/i18n/messages/en.ts": "c19fb3f3aa49df20a67ce653078463e90d79616538ce6f547a140e4e155f2a96",
+    "apps/web/lib/i18n/messages/zh-CN.ts": "7de3cd9ae70025c811b8ebce9f34bde3ff19650555bb8a9eb025a91cec1e580e",
+    "apps/web/lib/i18n/namespaces/project-overview.ts": "ca7c820c3ce24760cad4fbf87d80b2762e620a940190f74594a58b7ed5636d0e",
+    "apps/web/lib/project-content-filters.ts": "b3c25456e647ed6ca2b0a5f900317e113d86590fbb4fe5d24c56008d53e5fb39",
+    "apps/web/playwright.fullstack-smoke.config.ts": "f0021c35c02f8f1e5e93a64e5fecab2202928182fd36f6099dcd277cc0c84203",
+    "apps/web/tests/ui/project-general-overview-i18n.test.tsx": "b4785bca17f4b102038378604549418056de5b61dd19fc49913254788b1b35f8"
+  },
+  "steps": [
+    {
+      "label": "driver-freeze",
+      "command": [
+        "git",
+        "commit",
+        "-m",
+        "Add canonical general overview route acceptance driver"
+      ],
+      "exitCode": 0,
+      "seconds": 0.19,
+      "logSha256": "8c3abad8c193093688946aa4c1069ea572b0cf7867bfd7d3366c625874057753"
+    },
+    {
+      "label": "accepted-merge",
+      "command": [
+        "git",
+        "merge",
+        "--no-commit",
+        "--no-ff",
+        "a00287a86c411c13148294cc2ed4379852949c5d"
+      ],
+      "exitCode": 0,
+      "seconds": 0.39,
+      "logSha256": "504cf77f8d590ebac34b28e22673413fe9e65f8dfd617161fb361488cf602d4f"
+    },
+    {
+      "label": "merge-diffcheck",
+      "command": [
+        "git",
+        "diff",
+        "--cached",
+        "--check"
+      ],
+      "exitCode": 0,
+      "seconds": 0.107,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "merge-commit",
+      "command": [
+        "git",
+        "commit",
+        "-m",
+        "Merge accepted develop preserving overview dictionary union"
+      ],
+      "exitCode": 0,
+      "seconds": 0.229,
+      "logSha256": "14201d82d68f08f6c4ecdfc91ecd0c8086f52462192df6720b245a7f1149143f"
+    },
+    {
+      "label": "resources",
+      "command": [
+        "pnpm",
+        "--filter",
+        "web",
+        "exec",
+        "vitest",
+        "run",
+        "tests/lib/i18n-resources.test.ts"
+      ],
+      "exitCode": 0,
+      "seconds": 3.869,
+      "logSha256": "a0ee3c69b43a48ed74b91a663f026a439a146190390d257fb9924e7bae681e7d"
+    },
+    {
+      "label": "driver-lint",
+      "command": [
+        "pnpm",
+        "--filter",
+        "web",
+        "exec",
+        "eslint",
+        "e2e/i18n-project-general-overview.spec.ts",
+        "playwright.fullstack-smoke.config.ts"
+      ],
+      "exitCode": 0,
+      "seconds": 2.116,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "type",
+      "command": [
+        "pnpm",
+        "--filter",
+        "web",
+        "typecheck"
+      ],
+      "exitCode": 0,
+      "seconds": 66.154,
+      "logSha256": "e9b019d37db080d36b121892b06e0818b37e0b4f08f68f45cd0110befa237e7e"
+    },
+    {
+      "label": "testid",
+      "command": [
+        "pnpm",
+        "run",
+        "lint:e2e-testid-gate"
+      ],
+      "exitCode": 0,
+      "seconds": 3.957,
+      "logSha256": "35ae837c9c241edc2c14cb6b9a88a5ff35f60aca95ee0e4625e2cd8dcd4c4429"
+    },
+    {
+      "label": "wiring",
+      "command": [
+        "pnpm",
+        "run",
+        "lint:ui-wiring"
+      ],
+      "exitCode": 0,
+      "seconds": 4.203,
+      "logSha256": "ac5e2424575394a05e7c0fa3c66023760a438a4c1e5b5e5f36b8e51359b0c900"
+    },
+    {
+      "label": "specgate",
+      "command": [
+        "pnpm",
+        "run",
+        "lint:spec-gate-coverage"
+      ],
+      "exitCode": 0,
+      "seconds": 35.499,
+      "logSha256": "7750effea22e76c3281a9911e0f2a33332665bd9ef98cf16178009e2a26697c1"
+    },
+    {
+      "label": "list",
+      "command": [
+        "pnpm",
+        "exec",
+        "tsx",
+        ".harness/scripts/with-test-isolation.ts",
+        "--",
+        "pnpm",
+        "--filter",
+        "web",
+        "exec",
+        "playwright",
+        "test",
+        "--config",
+        "playwright.fullstack-smoke.config.ts",
+        "--project=seeded",
+        "e2e/i18n-project-general-overview.spec.ts",
+        "--workers=1",
+        "--max-failures=1",
+        "--no-deps",
+        "--list",
+        "--reporter=json",
+        "--output=/tmp/project6258-driver-source-private/output"
+      ],
+      "exitCode": 0,
+      "seconds": 2.564,
+      "logSha256": "bd7ffa3ef5a6709cd3a4b21b7c5c5bad4c699d0e912f7773ab5b8528430235e9"
+    }
+  ],
+  "actualDiscovery": [
+    {
+      "file": "i18n-project-general-overview.spec.ts",
+      "title": "project overview empty real owner page preserves raw name, links and reads through locale and reload",
+      "project": "seeded",
+      "timeout": 30000
+    },
+    {
+      "file": "i18n-project-general-overview.spec.ts",
+      "title": "project overview real linked whiteboard keeps canonical counts, raw title and href while projecting categories and date",
+      "project": "seeded",
+      "timeout": 30000
+    },
+    {
+      "file": "i18n-project-general-overview.spec.ts",
+      "title": "project overview independent real nonmember receives the existing access denial instead of body data",
+      "project": "seeded",
+      "timeout": 30000
+    },
+    {
+      "file": "i18n-project-general-overview.spec.ts",
+      "title": "project overview explicitly injected read failures project owned fallbacks in place without retrying on locale",
+      "project": "seeded",
+      "timeout": 30000
+    }
+  ],
+  "discoveryOnly": true,
+  "browserExecuted": false,
+  "cleanup": {
+    "scope": "wsx-f647d21bf3ca388b984b",
+    "containers": 0,
+    "volumes": 0,
+    "listeners": {
+      "pg": 0,
+      "redis": 0,
+      "api": 0,
+      "web": 0,
+      "sandbox": 0,
+      "model": 0,
+      "deep-agent": 0,
+      "asr": 0,
+      "vision": 0,
+      "loopback-sandbox": 0,
+      "mail": 0
+    }
+  },
+  "privateRawDirectory": "/tmp/project6258-driver-source-private",
+  "rawListReportSha256": "7bed5137965e235f1cc796bd86150645f4a3eb90b18e3b8098e17824a4304eee",
+  "noRuntimeOrImageQAClaim": true
+}
