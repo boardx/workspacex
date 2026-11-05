@@ -94,8 +94,8 @@ type GeometrySnapshot = {
 };
 type ScrollReceipt = { controlIndex: number; before: GeometrySnapshot; after: GeometrySnapshot };
 // Values in this private receipt are geometry only; indices follow audit then anchor traversal.
+// Before/after snapshots bracket this same node's native instant centering.
 async function position(node: Locator, receipts: ScrollReceipt[]) {
-  await node.scrollIntoViewIfNeeded();
   const geometry = await node.evaluate(el => {
     const card = el.closest('[role="button"][data-testid^="bailian-model-"], [role="button"][data-testid^="admin-model-card-"]');
     let scrollport = el.parentElement;
