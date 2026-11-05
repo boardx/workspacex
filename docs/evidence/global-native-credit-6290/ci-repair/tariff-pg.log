@@ -1,0 +1,15 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/e6f1/workspacex/apps/api
+
+[db-isolation] db=wx6298_ci capacity=100 current=6 required=32
+ ✓ tests/billing/native-credit-tariff-pg.test.ts (7 tests) 2554ms
+   ✓ old runtime reads current global prices for existing and newly created orgs; old writes and legacy bypass fail 345ms
+   ✓ consolidates equivalent rational prices despite version metadata and rejects real price conflicts 651ms
+   ✓ replays the historical and global migrations without rewriting prices, history, or privileges 389ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  20:24:47
+   Duration  8.56s (transform 2.20s, setup 10ms, collect 3.18s, tests 2.55s, environment 0ms, prepare 68ms)
+
+[db-isolation] db=wx6298_ci peak_connections=3

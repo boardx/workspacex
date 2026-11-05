@@ -34,11 +34,19 @@ ALTER TABLE credit_consumption_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE credit_consumption_requests FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS credit_consumption_requests_tenant ON credit_consumption_requests;
 CREATE POLICY credit_consumption_requests_tenant ON credit_consumption_requests USING(org_id=current_setting('app.current_org',true)) WITH CHECK(org_id=current_setting('app.current_org',true));
+-- A later migration replaces this table with a read-only compatibility view.
+-- On forced replay do not apply table RLS or restore write grants to that view.
+DO $native_tariff_rls$
+BEGIN
+ IF (SELECT relkind FROM pg_class WHERE oid = to_regclass('credit_native_tariffs')) IN ('r','p') THEN
 ALTER TABLE credit_native_tariffs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE credit_native_tariffs FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS credit_native_tariffs_tenant ON credit_native_tariffs;
 CREATE POLICY credit_native_tariffs_tenant ON credit_native_tariffs USING(org_id=current_setting('app.current_org',true)) WITH CHECK(org_id=current_setting('app.current_org',true));
-GRANT SELECT,INSERT,UPDATE ON credit_consumption_requests,credit_native_tariffs TO app_rw;
+GRANT SELECT,INSERT,UPDATE ON credit_native_tariffs TO app_rw;
+ END IF;
+END $native_tariff_rls$;
+GRANT SELECT,INSERT,UPDATE ON credit_consumption_requests TO app_rw;
 -- Wallet aggregate serializes cross-workspace personal holds without bypassing tenant RLS.
 ALTER TABLE credit_wallets ADD COLUMN IF NOT EXISTS held_hundredths bigint NOT NULL DEFAULT 0 CHECK(held_hundredths>=0);
 

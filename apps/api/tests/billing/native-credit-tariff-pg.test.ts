@@ -63,7 +63,14 @@ it('consolidates equivalent rational prices despite version metadata and rejects
   await c.query('CREATE TABLE credit_native_tariffs(org_id text,model_provider text,model_id text,unit text,quantum bigint,hundredths_per_quantum bigint,version text)');
   await c.query("INSERT INTO credit_native_tariffs VALUES('a','migration-provider','migration-model','image',1000,10,'old-v1'),('b','migration-provider','migration-model','image',2000,$1,'different-metadata')",[conflicting?21:20]);
   if(conflicting)await expect(c.query(migration)).rejects.toThrow('global_native_tariff_price_conflicts');
-  else{await c.query(migration);expect((await c.query('SELECT quantum::text,hundredths_per_quantum::text,pricing_basis FROM credit_global_native_tariffs')).rows).toEqual([{quantum:'100',hundredths_per_quantum:'1',pricing_basis:{source:'legacy-consolidation',legacyRowCount:2,legacyVersionCount:2}}]);}
+  else{await c.query(migration);expect((await c.query('SELECT quantum::text,hundredths_per_quantum::text,pricing_basis FROM credit_global_native_tariffs')).rows).toEqual([{quantum:'100',hundredths_per_quantum:'1',pricing_basis:{source:'legacy-consolidation',legacyRowCount:2,legacyVersionCount:2}}]);
+   await c.query("UPDATE credit_global_native_tariffs SET hundredths_per_quantum=7,version='operator-updated'");
+   const before=(await c.query('SELECT id,new_tariff FROM credit_global_native_tariff_changes')).rows;
+   await c.query(migration);await c.query(migration);
+   expect((await c.query('SELECT quantum::text,hundredths_per_quantum::text,version FROM credit_global_native_tariffs')).rows).toEqual([{quantum:'100',hundredths_per_quantum:'7',version:'operator-updated'}]);
+   expect((await c.query('SELECT id,new_tariff FROM credit_global_native_tariff_changes')).rows).toEqual(before);
+   expect((await c.query('SELECT count(*)::int AS n FROM credit_native_tariffs_legacy')).rows[0].n).toBe(2);
+  }
  }finally{await c.query('ROLLBACK');}});
 });
 it('fails migration instead of silently copying zero rows under forced RLS',async()=>{
@@ -74,5 +81,29 @@ it('fails migration instead of silently copying zero rows under forced RLS',asyn
   await c.query('ALTER TABLE credit_native_tariffs OWNER TO app_rw');await c.query('ALTER TABLE credit_native_tariffs ENABLE ROW LEVEL SECURITY');await c.query('ALTER TABLE credit_native_tariffs FORCE ROW LEVEL SECURITY');
   await c.query('CREATE POLICY hide ON credit_native_tariffs USING(false)');await c.query('SET LOCAL ROLE app_rw');
   await expect(c.query(migration)).rejects.toThrow(/row.level security/i);
+ }finally{await c.query('ROLLBACK');}});
+});
+
+it('replays the historical and global migrations without rewriting prices, history, or privileges',async()=>{
+ const historical=readFileSync(new URL('../../migrations/20261022120000_credit_consumption.sql',import.meta.url),'utf8');
+ const audit=readFileSync(new URL('../../migrations/20261023010000_credit_native_tariff_audit.sql',import.meta.url),'utf8');
+ await asOwner(async c=>{await c.query('BEGIN');try{
+  const snapshot=async()=> (await c.query(`SELECT
+   (SELECT coalesce(jsonb_agg(to_jsonb(t) ORDER BY model_provider,model_id,unit),'[]') FROM credit_global_native_tariffs t) AS prices,
+   (SELECT coalesce(jsonb_agg(to_jsonb(t) ORDER BY id),'[]') FROM credit_global_native_tariff_changes t) AS audit,
+   (SELECT coalesce(jsonb_agg(to_jsonb(t) ORDER BY org_id,model_provider,model_id,unit),'[]') FROM credit_native_tariffs_legacy t) AS legacy`)).rows[0];
+  const before=await snapshot();
+  expect(before.prices.length).toBeGreaterThan(0);
+  expect(before.audit.length).toBeGreaterThan(0);
+  for(let round=0;round<2;round++){
+   await c.query(historical);await c.query(audit);await c.query(migration);
+   expect(await snapshot()).toEqual(before);
+   expect((await c.query(`SELECT
+    has_table_privilege('app_rw','credit_native_tariffs','SELECT') AS readable,
+    has_table_privilege('app_rw','credit_native_tariffs','INSERT,UPDATE,DELETE') AS writable,
+    has_table_privilege('app_rw','credit_native_tariffs_legacy','SELECT,INSERT,UPDATE,DELETE') AS legacy_access,
+    has_table_privilege('app_rw','credit_global_native_tariff_changes','UPDATE,DELETE') AS audit_mutable`)).rows[0])
+    .toEqual({readable:true,writable:false,legacy_access:false,audit_mutable:false});
+  }
  }finally{await c.query('ROLLBACK');}});
 });
