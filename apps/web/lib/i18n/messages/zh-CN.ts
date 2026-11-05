@@ -39,6 +39,7 @@ import { activityZhCN } from "../namespaces/activity";
 import { profileZhCN } from "../namespaces/profile";
 import { projectPreparationZhCN } from "../namespaces/project-preparation";
 import { notificationsZhCN } from "../namespaces/notifications";
+import { projectResourcesZhCN } from "../namespaces/project-resources";
 import { aboutMemoryZhCN } from "../namespaces/about-memory";
 import { orgMembersZhCN } from "../namespaces/org-members";
 import { orgMembersPreviewZhCN } from "../namespaces/org-members-preview";
@@ -83,6 +84,7 @@ export const zhCN = {
   ...profileZhCN,
   ...projectPreparationZhCN,
   ...notificationsZhCN,
+  ...projectResourcesZhCN,
   ...aboutMemoryZhCN,
   ...orgMembersZhCN,
   ...orgMembersPreviewZhCN,
