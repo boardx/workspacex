@@ -30,6 +30,7 @@ import { workflowRunsZhCN } from "../namespaces/workflow-runs";
 import { workshopOverviewZhCN } from "../namespaces/workshop-overview";
 import { projectWorkbenchZhCN } from "../namespaces/project-workbench";
 import { projectListZhCN } from "../namespaces/project-list";
+import { projectOverviewZhCN } from "../namespaces/project-overview";
 import { activityZhCN } from "../namespaces/activity";
 import { profileZhCN } from "../namespaces/profile";
 import { notificationsZhCN } from "../namespaces/notifications";
@@ -69,6 +70,7 @@ export const zhCN = {
   ...zhFailures,
   ...controlsZhCN,
   ...projectListZhCN,
+  ...projectOverviewZhCN,
   ...activityZhCN,
   ...profileZhCN,
   ...notificationsZhCN,

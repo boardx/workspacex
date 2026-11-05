@@ -27,6 +27,7 @@ import { enTasks } from "./tasks";
 import { enFailures } from "./failures";
 import { controlsEn } from "../namespaces/controls";
 import { projectListEn } from "../namespaces/project-list";
+import { projectOverviewEn } from "../namespaces/project-overview";
 import { activityEn } from "../namespaces/activity";
 import { profileEn } from "../namespaces/profile";
 import { notificationsEn } from "../namespaces/notifications";
@@ -69,6 +70,7 @@ export const en: Record<keyof typeof zhCN, string> = {
   ...enFailures,
   ...controlsEn,
   ...projectListEn,
+  ...projectOverviewEn,
   ...activityEn,
   ...profileEn,
   ...notificationsEn,
