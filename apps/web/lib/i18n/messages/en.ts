@@ -1,3 +1,4 @@
+import { publicDesignShareEn } from "../namespaces/public-design-share";
 import { modelTestbenchEn } from "../namespaces/model-testbench";
 import { telemetrySettingsEn } from "../namespaces/telemetry-settings";
 import { platformMembersEn } from "../namespaces/platform-members";
@@ -69,6 +70,7 @@ export const en: Record<keyof typeof zhCN, string> = {
   ...orgSharedInvitesEn,
   ...stateEn,
   ...chatShareEn,
+  ...publicDesignShareEn,
   ...codeFenceEn,
   ...workflowRunsEn,
   ...projectWorkbenchEn,

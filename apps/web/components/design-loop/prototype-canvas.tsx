@@ -10,6 +10,15 @@
  */
 import { navbarSide, type NavbarSide } from "@/lib/prototype-navbar";
 import * as React from "react";
+import { translate, type MessageKey, type MessageParams } from "@/lib/i18n/messages";
+import type { Locale } from "@/lib/i18n/locale";
+
+// Display-only: never included in HtmlPageCtx, whose value enters iframe srcdoc.
+const ChromeLocaleCtx = React.createContext<Locale>("zh-CN");
+function useChromeT() {
+  const locale = React.useContext(ChromeLocaleCtx);
+  return (key: MessageKey, params?: MessageParams) => translate(locale, key, params);
+}
 import { buildHtmlPageSrcdoc, HTML_PAGE_MESSAGE_SOURCE, HTML_PAGE_PARENT_SOURCE, type HtmlPageMessage } from "@/lib/html-page-srcdoc";
 import { CommentPins, type CommentPin } from "./comment-pins";
 import {
@@ -319,6 +328,7 @@ function RadioNode({ node, tap }: { node: Extract<PrototypeNode, { type: "radio"
 
 function SelectNode({ node, tap, radius }: { node: Extract<PrototypeNode, { type: "select" }>; tap: Record<string, unknown>; radius: string }): React.ReactElement {
   const live = useLive();
+  const t = useChromeT();
   const p = node.props;
   const shown = p.value ?? p.placeholder ?? p.options[0] ?? "";
   return (
@@ -330,7 +340,7 @@ function SelectNode({ node, tap, radius }: { node: Extract<PrototypeNode, { type
           className={cn("h-8 w-full border border-input bg-background px-2 text-12 outline-none focus-visible:ring-2 focus-visible:ring-ring", radius)}
           defaultValue={p.value ?? ""} aria-label={p.label ?? p.placeholder} onClick={(e) => e.stopPropagation()}
         >
-          {p.value === undefined && <option value="" disabled>{p.placeholder ?? "请选择"}</option>}
+          {p.value === undefined && <option value="" disabled>{p.placeholder ?? t("designShare.select")}</option>}
           {p.value !== undefined && !p.options.includes(p.value) && <option value={p.value}>{p.value}</option>}
           {p.options.map((o, i) => <option key={i} value={o}>{o}</option>)}
         </select>
@@ -735,6 +745,7 @@ function ImagePlaceholder({ node, tap }: { node: Extract<PrototypeNode, { type: 
  * 编辑态任意点击 ⇒ 选中这一页的 html 节点（元素级选择留给后续，见 PR 说明）。
  */
 function HtmlPage({ node, tap }: { node: Extract<PrototypeNode, { type: "html" }>; tap: ReturnType<typeof useTap> }): React.ReactElement {
+  const t = useChromeT();
   const { mode, links, onNavigate, onSelect, selectedId, selectedRef, onSelectRef } = React.useContext(SelectionCtx);
   const ref = React.useRef<HTMLIFrameElement>(null);
   const view = React.useContext(HtmlPageCtx);
@@ -766,7 +777,7 @@ function HtmlPage({ node, tap }: { node: Extract<PrototypeNode, { type: "html" }
     <div className="relative min-h-0 w-full flex-1" data-node-id={tap["data-node-id"]} data-selected={active === null ? tap["data-selected"] : undefined} data-changed={tap["data-changed"]}>
       <iframe
         ref={ref}
-        title="页面预览"
+        title={t("designShare.pagePreview")}
         sandbox="allow-scripts"
         srcDoc={buildHtmlPageSrcdoc(node.props.html, { ...view, mode })}
         onLoad={sendSelection}
@@ -780,6 +791,7 @@ function HtmlPage({ node, tap }: { node: Extract<PrototypeNode, { type: "html" }
 function Node({ node }: { node: PrototypeNode }): React.ReactElement {
   const tap = useTap(node);
   const sc = useScale();
+  const t = useChromeT();
   switch (node.type) {
     case "stack": {
       const p = node.props ?? {};
@@ -1046,7 +1058,7 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
         <footer className="mt-auto flex w-full flex-col gap-2 border-t border-border px-4 py-4 text-11 text-muted-foreground" data-proto="footer" {...tap}>
           <span className="text-13 font-semibold text-card-foreground">{p.brand}</span>
           {p.links !== undefined && p.links.length > 0 && (
-            <nav className="flex flex-wrap gap-x-4 gap-y-1" aria-label="页脚链接">
+            <nav className="flex flex-wrap gap-x-4 gap-y-1" aria-label={t("designShare.footerLinks")}>
               {p.links.map((l, i) => <span key={i}>{l}</span>)}
             </nav>
           )}
@@ -1100,9 +1112,10 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
 const BOARD_HEIGHT: Record<"sm" | "md" | "lg" | "fill", string> = { sm: "h-40", md: "h-64", lg: "h-96", fill: "min-h-64 flex-1" };
 const BOARD_DEFAULT_W: Record<"sticky" | "shape" | "text", number> = { sticky: 24, shape: 20, text: 30 };
 function Board({ node, tap }: { node: Extract<PrototypeNode, { type: "board" }>; tap: Record<string, unknown> }): React.ReactElement {
+  const t = useChromeT();
   const p = node.props;
   const links = (p.links ?? []).filter((l) => l.from < p.items.length && l.to < p.items.length);
-  const summary = `画布：${p.items.map((i) => i.text).filter((t) => t !== "").join("、")}`.slice(0, 300);
+  const summary = t("designShare.canvasSummary", { items: p.items.map((i) => i.text).filter((text) => text !== "").join("、") }).slice(0, 300);
   return (
     <div
       className={cn("relative w-full shrink-0 overflow-hidden rounded-card border border-border bg-panel", BOARD_HEIGHT[p.height ?? "md"])}
@@ -1157,6 +1170,7 @@ function Board({ node, tap }: { node: Extract<PrototypeNode, { type: "board" }>;
 }
 
 function Chart({ node, tap }: { node: Extract<PrototypeNode, { type: "chart" }>; tap: Record<string, unknown> }): React.ReactElement {
+  const t = useChromeT();
   const p = node.props;
   const n = Math.min(p.labels.length, p.values.length);
   const labels = p.labels.slice(0, n);
@@ -1171,13 +1185,13 @@ function Chart({ node, tap }: { node: Extract<PrototypeNode, { type: "chart" }>;
   const xAt = (i: number) => (n === 1 ? 50 : (i / (n - 1)) * 100);
   const pct = (v: number) => (span === 0 ? 0 : ((v - lo) / span) * 100);
   const unit = p.unit ?? "";
-  const summary = `${p.title ?? (p.kind === "line" ? "折线图" : "柱状图")}：${labels.map((l, i) => `${l} ${String(values[i])}${unit}`).join("，")}`;
+  const summary = t("designShare.chartSummary", { title: p.title ?? t(p.kind === "line" ? "designShare.lineChart" : "designShare.barChart"), items: labels.map((l, i) => `${l} ${String(values[i])}${unit}`).join("，") });
   return (
     <div className="flex w-full flex-col gap-1.5" data-proto="chart" data-chart-kind={p.kind ?? "bar"} {...tap}>
       {(p.title !== undefined || unit !== "") && (
         <div className="flex items-baseline justify-between gap-2 text-11">
           {p.title !== undefined && <span className="truncate font-medium">{p.title}</span>}
-          {unit !== "" && <span className="shrink-0 text-10 text-muted-foreground">单位：{unit}</span>}
+          {unit !== "" && <span className="shrink-0 text-10 text-muted-foreground">{t("designShare.unit", { unit })}</span>}
         </div>
       )}
       <div role="img" aria-label={summary} className="relative h-28 w-full border-b border-border">
@@ -1283,7 +1297,7 @@ function BrowserBar({ label }: { label: string }) {
 }
 
 export function PrototypeCanvas({
-  label, root, selectedId = null, onSelect = null, selectedRef = null, onSelectRef = null, onInlineEdit = null, pins, ungenerated = false, drawing = false, changed = EMPTY_CHANGED, accent = "neutral", tokens, wireframe = false, onRegenerate = null, device = DEVICE_PRESETS[1]!, landscape = false, frameIndex, mode = "edit", links, onNavigate = null, theme = "dark", thumbnail = false,
+  label, root, selectedId = null, onSelect = null, selectedRef = null, onSelectRef = null, onInlineEdit = null, pins, ungenerated = false, drawing = false, changed = EMPTY_CHANGED, accent = "neutral", tokens, wireframe = false, onRegenerate = null, device = DEVICE_PRESETS[1]!, landscape = false, frameIndex, mode = "edit", links, onNavigate = null, theme = "dark", thumbnail = false, chromeLocale = "zh-CN",
 }: {
   label: string; root: PrototypeNode | null; selectedId?: string | null; onSelect?: ((id: string | null) => void) | null;
   /**
@@ -1291,6 +1305,8 @@ export function PrototypeCanvas({
    * `design-detail-phone`——那个 testid 是导出 PNG 找当前页、e2e 找画布的入口，挂重了两边都会认错。
    */
   thumbnail?: boolean;
+  /** Optional public-share chrome only; authored prototype content stays verbatim. */
+  chromeLocale?: Locale;
   /** 对标 R7：画布上双击改字的提交口（见 `InlineText`）。 */
   /** HTML 页里选中的元素（`data-ref`）与它的回调。不给 ⇒ 点 HTML 页只会选中整页。 */
   selectedRef?: string | null;
@@ -1359,12 +1375,14 @@ export function PrototypeCanvas({
    */
   theme?: "light" | "dark";
 }) {
+  const t = (key: MessageKey, params?: MessageParams) => translate(chromeLocale, key, params);
   const size = rotated(device, landscape);
   const linkMap = React.useMemo(() => linkMapOf(links), [links]);
   const treeRef = React.useRef<HTMLDivElement>(null);
   // 对标 R2：项目级圆角 / 密度。`tokens` 缺失（老调用方）⇒ 都是 default，逐像素同以前。
   const scale = React.useMemo(() => ({ radius: tokens?.radius ?? "default", density: tokens?.density ?? "default" }) as const, [tokens?.radius, tokens?.density]);
   return (
+    <ChromeLocaleCtx.Provider value={chromeLocale}>
     <SelectionCtx.Provider value={{ selectedId, onSelect, mode, links: linkMap, onNavigate, changed, onInlineEdit, selectedRef, onSelectRef }}>
     <ScaleCtx.Provider value={scale}>
     <HtmlPageCtx.Provider value={{ wireframe }}>
@@ -1415,7 +1433,7 @@ export function PrototypeCanvas({
           ) : ungenerated ? (
             <div className="mt-auto flex flex-col items-center gap-1.5">
               {/* 说的是事实：这一页规划过、这一轮没画出来，别的页不受影响。 */}
-              <p className="text-center text-11 text-muted-foreground">这一页没画出来。其余页不受影响。</p>
+              <p className="text-center text-11 text-muted-foreground">{t("designShare.ungenerated")}</p>
               {onRegenerate !== null && (
                 <button
                   type="button"
@@ -1435,7 +1453,7 @@ export function PrototypeCanvas({
              * 方位词在响应式布局里天然会说谎。
              */
             <p className="m-auto max-w-[80%] text-center text-12 text-muted-foreground">
-              还没有原型。<br />在对话里说一句你要做什么，我就画出来。
+              {t("designShare.noPrototype")}<br />{t("designShare.describePrototype")}
             </p>
           )}
         </div>
@@ -1477,5 +1495,6 @@ export function PrototypeCanvas({
     </HtmlPageCtx.Provider>
     </ScaleCtx.Provider>
     </SelectionCtx.Provider>
+    </ChromeLocaleCtx.Provider>
   );
 }

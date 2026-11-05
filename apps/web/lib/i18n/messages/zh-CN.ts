@@ -1,3 +1,4 @@
+import { publicDesignShareZhCN } from "../namespaces/public-design-share";
 import { modelTestbenchZhCN } from "../namespaces/model-testbench";
 import { telemetrySettingsZhCN } from "../namespaces/telemetry-settings";
 import { platformMembersZhCN } from "../namespaces/platform-members";
@@ -69,6 +70,7 @@ export const zhCN = {
   ...orgSharedInvitesZhCN,
   ...stateZhCN,
   ...chatShareZhCN,
+  ...publicDesignShareZhCN,
   ...codeFenceZhCN,
   ...workflowRunsZhCN,
   ...projectWorkbenchZhCN,
