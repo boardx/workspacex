@@ -3,7 +3,7 @@
 > For agentic workers: REQUIRED SUB-SKILL superpowers:subagent-driven-development, task-by-task.
 
 Goal: complete actual model-management page localization, with zero functional/provider/financial changes.
-Spec: docs/design/platform-model-catalog-i18n/spec.md. Issue6255, branchworker/i18n-platform-model-catalog-6255. Base latest fetched origin/develop ef49474134137e7d07cef97577d4799fbd9c0eb8; origin/main e44119db91e9539418ad605ca6aaef2c155d0116 fetched before development. Reuse the same existing worktree. Previous Draft6254 cloud acceptance remains active and any actual failure takes priority.
+Initial planning context: spec docs/design/platform-model-catalog-i18n/spec.md. Issue6255, branchworker/i18n-platform-model-catalog-6255. Base latest fetched origin/develop ef49474134137e7d07cef97577d4799fbd9c0eb8; origin/main e44119db91e9539418ad605ca6aaef2c155d0116 fetched before development. Reuse the same existing worktree. Previous Draft6254 cloud acceptance remains active and any actual failure takes priority.
 
 Global constraints: root owns normal Git/gates/resource handoff/evidence; workers source-only, not alone, never revert others. Fresh sole handoff before any gate/hook/normalcommit, stop first failure and release before diagnosis. No local Next/DB/browser; existing cloud CI runtime. Raw authenticated artifacts private, every finalPNG individually viewed before READY.
 
@@ -28,3 +28,9 @@ Own production: apps/web/components/admin/model-screen.tsx, org-core-model-panel
 Source5961383 normally merges accepteddevelopfe372 and preserves originalTDD commits.66-case focusedGREEN precedes exact shared-key reuse;30 affectedcases/11filelint pass afterward. Final native-spec lint/type/init/raw-error/testid/wiring/static20/exact3case discovery pass. Independent source reviews close shared-label duplication, body-row capture anchoring, false budget claims, login response timing and array first-row narrowing. No local Next/DB/browser started. Native3cases/atmost22PNGs/finalruntime+wholebranch review remain pending; source publication must stay Draft. Existing6254 actualcloud failures retain priority.
 
 Scanner correction checkpoint: source079706dc changes only two synthetic ApiError rawbody testfield names, retaining all assertions/values. Six affectedcasesPASS, scopedlint0, canonicalscan0/new0; originalreviewer closureclear. No scanner/baseline/provider/product change; native5961383 bytes unchanged.
+
+## Bounded correction after first cloud attempt
+
+At source55d2, case1 passed13.575s, case2 failed the same exact full-card visibility check in both attempts, case3 did not execute. Root individually viewed22 generated images (14 unique planned,6 retry repeats,2 automatic failures), finding the scroll-boundary issue and one missing English notice separator. The approximate162/163 raster interpretation is not an original DOM rectangle.
+
+The independent new semantic case failed before the one-character English correction, then passed at sourcea14e1392 (25 old cases filtered). Resources5,6-file lint, web types, testid and exact3-case discovery pass. Same-node native center/nearest positioning preserves every original ratio1/x/scrollWidth/document assertion and all budgets. Original reviewers cleared this delta. Integration into accepted a002 preserves the exact saved tree and all source ancestry using unchanged normal hooks. New native execution/final image QA remain pending; keep Draft.

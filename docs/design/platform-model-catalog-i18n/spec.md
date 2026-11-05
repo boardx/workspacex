@@ -1,6 +1,6 @@
 # Complete platform model catalog localization
 
-Issue #6255. Actual route /platform-admin/model resolves through app/platform-admin/[module]/page.tsx. This is the next ROOT B8 full page under the human-authorized remaining i18n order; current Draft6254 failures take priority.
+Issue #6255. Actual route /platform-admin/model resolves through app/platform-admin/[module]/page.tsx. This is a ROOT B8 full page under the human-authorized remaining i18n order. Actual failures on previously published PRs take priority.
 
 Localize ModelScreen, its registration drawer/manual admission modal/detail/local toasts, OrgCoreModelPanel, BailianModelCatalog, and generic mounted EntityCatalog/DisableDialog copy once. Preserve actual backend/local-only boundaries and translate their limitation. Reuse shared namespace entries later in B4 rather than duplicating generic strings.
 

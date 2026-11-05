@@ -1,8 +1,8 @@
 {
   "issue": 6255,
-  "status": "SOURCE_GATES_PASS_NATIVE_UNRUN",
-  "sourceHead": "079706dca86cd8dc505c751222e6fefb0ad0e7fd",
-  "latestAcceptedMerge": "fe372fa38c851cea8a896abac8e6fb0bd94c8b0b",
+  "status": "SOURCE_GATES_PASS_PRIOR_NATIVE_FAILED_RERUN_PENDING",
+  "sourceHead": "a14e1392c4558f8a7f519aa2cf2969a12e780e1f",
+  "latestAcceptedMerge": "a00287a86c411c13148294cc2ed4379852949c5d",
   "actualFocusedCases": {
     "head": "cfbab5e23c54529e419c9f1c3252250c617ee549",
     "total": 30,
@@ -207,6 +207,105 @@
       "exit": 0,
       "seconds": 9.098,
       "logSha256": "768d86cfbd24da0fadc19c9631d8f98d7fbdf8880278f3608c852c0fb215d9b0"
+    },
+    {
+      "gate": "r4-new1-green",
+      "head": "a14e1392c4558f8a7f519aa2cf2969a12e780e1f",
+      "command": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "tests/ui/platform-model-catalog-i18n.test.tsx",
+        "-t",
+        "preserves the complete mixed notice sentence boundary",
+        "--maxWorkers=1",
+        "--reporter=json",
+        "--outputFile=/Users/shenyangjun/boardx/workspacex-i18n-agent-skill/.superpowers/sdd/2026-11-05-platform-model-catalog-i18n/raw/round4-final-recovery/new1-report.json"
+      ],
+      "exit": 0,
+      "seconds": 5.788,
+      "logSha256": "498668b793ba18ec0dcc9e62d4c5c6ba88983328340e61ea648602a8e49581bb",
+      "rawPrivate": true
+    },
+    {
+      "gate": "r4-resource5",
+      "head": "a14e1392c4558f8a7f519aa2cf2969a12e780e1f",
+      "command": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "tests/lib/i18n-resources.test.ts",
+        "--maxWorkers=1",
+        "--reporter=json",
+        "--outputFile=/Users/shenyangjun/boardx/workspacex-i18n-agent-skill/.superpowers/sdd/2026-11-05-platform-model-catalog-i18n/raw/round4-final-recovery/resources-report.json"
+      ],
+      "exit": 0,
+      "seconds": 3.135,
+      "logSha256": "5923eeb7d44d283b4f45d95218609b8b292bead57b9caa6fc1112c1dd407fcad",
+      "rawPrivate": true
+    },
+    {
+      "gate": "r4-lint",
+      "head": "a14e1392c4558f8a7f519aa2cf2969a12e780e1f",
+      "command": [
+        "pnpm",
+        "exec",
+        "eslint",
+        "lib/i18n/namespaces/platform-model-catalog.ts",
+        "tests/ui/platform-model-catalog-i18n.test.tsx",
+        "e2e/platform-model-catalog-i18n.spec.ts",
+        "lib/i18n/messages/en.ts",
+        "lib/i18n/messages/zh-CN.ts",
+        "playwright.fullstack-smoke.config.ts"
+      ],
+      "exit": 0,
+      "seconds": 2.275,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "rawPrivate": true
+    },
+    {
+      "gate": "r4-web-type",
+      "head": "a14e1392c4558f8a7f519aa2cf2969a12e780e1f",
+      "command": [
+        "pnpm",
+        "--filter",
+        "web",
+        "typecheck"
+      ],
+      "exit": 0,
+      "seconds": 68.292,
+      "logSha256": "ea30d6b748ad9ab96126527df942acbf5a2e0557ed6674beeb887f3f9571595a",
+      "rawPrivate": true
+    },
+    {
+      "gate": "r4-testid",
+      "head": "a14e1392c4558f8a7f519aa2cf2969a12e780e1f",
+      "command": [
+        "pnpm",
+        "run",
+        "lint:e2e-testid-gate"
+      ],
+      "exit": 0,
+      "seconds": 3.985,
+      "logSha256": "ac922d7a30abada3821f7cfc4d10d05e4b9e507f3e89dd445a98885d7a417683",
+      "rawPrivate": true
+    },
+    {
+      "gate": "r4-discovery",
+      "head": "a14e1392c4558f8a7f519aa2cf2969a12e780e1f",
+      "command": [
+        "pnpm",
+        "exec",
+        "tsx",
+        "-e",
+        "import {deriveTestIsolation} from './.harness/scripts/lib/test-isolation'; import {spawnSync} from 'node:child_process'; const env={...process.env,...deriveTestIsolation({isolationId:'i18n-model-catalog-6255-r4-discovery',worktreePath:process.cwd()}),FULLSTACK_SMOKE_PARTITION:'product'}; const r=spawnSync('pnpm',['--filter','web','exec','playwright','test','--config','playwright.fullstack-smoke.config.ts','--project=seeded-github-import','--no-deps','platform-model-catalog-i18n.spec.ts','--list'],{env,stdio:'inherit'});process.exit(r.status??1);"
+      ],
+      "exit": 0,
+      "seconds": 2.585,
+      "logSha256": "4b0d10fb01cb296e3d2ffc46c381cfa51ebc54706b9d7539587e90027b07052d",
+      "rawPrivate": true
     }
   ],
   "protectedPathsByteIdenticalToInitialBase": [
@@ -266,31 +365,31 @@
     },
     {
       "path": "apps/web/e2e/platform-model-catalog-i18n.spec.ts",
-      "sha256": "0079bd617a0ce2f6fb372be6439362e1b66b46f6e73c6a5d27a890cb1aa8e8f8"
+      "sha256": "6178c0139ab7dae1f383968a2d9aa0623972a3d0480e7cd3bf58b60f52c31597"
     },
     {
       "path": "apps/web/lib/i18n/messages/en.ts",
-      "sha256": "fd79e7053bb6a190051f6a1d145151a0f651506b838fe62d6e61bab5a6ceb942"
+      "sha256": "8ecdefee45b449a3cc326bb7cb506630637df614b65d35dfa717a08f9ffba0c4"
     },
     {
       "path": "apps/web/lib/i18n/messages/zh-CN.ts",
-      "sha256": "0799cfb09439802eadd78ce8e57ac1790257b2d429c806a80be815508a7a964b"
+      "sha256": "72d8b4bf939f3e6d8e076c7a1a2e60844912491535ceaba1372736e83c25bf22"
     },
     {
       "path": "apps/web/lib/i18n/namespaces/platform-model-catalog.ts",
-      "sha256": "461f9a2f599199542c9871202ecb33bde68e37b954cbca753a157d7a276aecb9"
+      "sha256": "e14f4afed7f87714cd1f6b288aedd4ca0558518deda1a17a9945ef0e29a361a4"
     },
     {
       "path": "apps/web/playwright.fullstack-smoke.config.ts",
-      "sha256": "5b5e8fe32f03826d970fd36d1df7e901c30dce6595ed5e89280eb63f29264a2d"
+      "sha256": "2cd48bd5820e9e2a31c2ff87e12889bd3f6e7d8c67335c40c9d3af78b7987cf7"
     },
     {
       "path": "apps/web/tests/ui/platform-model-catalog-i18n.test.tsx",
-      "sha256": "a3f7fea7e22db6f32a6a1aca6049dfeac0d3ba557fef09e9c69ddbc86c236aa3"
+      "sha256": "81ed61231c1cf49453df15bdbe6aae33c25eb3a69e7e6c37f566da726d96f73d"
     }
   ],
   "authRawArtifactsPrivate": true,
-  "nativeSourceHead": "5961383d73776382da5a27a3b47358623df207cf",
+  "nativeSourceHead": "a14e1392c4558f8a7f519aa2cf2969a12e780e1f",
   "frozenTestException": {
     "scope": "two synthetic ApiError raw-object field names only; sentinel/all assertions/statuses/reasons/SDK counts unchanged",
     "testSha256": "a3f7fea7e22db6f32a6a1aca6049dfeac0d3ba557fef09e9c69ddbc86c236aa3",
@@ -302,5 +401,14 @@
     "correctedScanExit": 0,
     "correctedNewHits": 0,
     "scannerRulesAndBaselineUnchanged": true
+  },
+  "currentAffectedCases": {
+    "newNotice": {
+      "passed": 1,
+      "filtered": 25
+    },
+    "resources": {
+      "passed": 5
+    }
   }
 }
