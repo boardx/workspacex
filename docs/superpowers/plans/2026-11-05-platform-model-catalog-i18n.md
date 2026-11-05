@@ -26,3 +26,5 @@ Own production: apps/web/components/admin/model-screen.tsx, org-core-model-panel
 ## Source publication checkpoint
 
 Source5961383 normally merges accepteddevelopfe372 and preserves originalTDD commits.66-case focusedGREEN precedes exact shared-key reuse;30 affectedcases/11filelint pass afterward. Final native-spec lint/type/init/raw-error/testid/wiring/static20/exact3case discovery pass. Independent source reviews close shared-label duplication, body-row capture anchoring, false budget claims, login response timing and array first-row narrowing. No local Next/DB/browser started. Native3cases/atmost22PNGs/finalruntime+wholebranch review remain pending; source publication must stay Draft. Existing6254 actualcloud failures retain priority.
+
+Scanner correction checkpoint: source079706dc changes only two synthetic ApiError rawbody testfield names, retaining all assertions/values. Six affectedcasesPASS, scopedlint0, canonicalscan0/new0; originalreviewer closureclear. No scanner/baseline/provider/product change; native5961383 bytes unchanged.

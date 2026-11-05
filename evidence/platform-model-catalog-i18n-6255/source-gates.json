@@ -1,7 +1,7 @@
 {
   "issue": 6255,
   "status": "SOURCE_GATES_PASS_NATIVE_UNRUN",
-  "sourceHead": "5961383d73776382da5a27a3b47358623df207cf",
+  "sourceHead": "079706dca86cd8dc505c751222e6fefb0ad0e7fd",
   "latestAcceptedMerge": "fe372fa38c851cea8a896abac8e6fb0bd94c8b0b",
   "actualFocusedCases": {
     "head": "cfbab5e23c54529e419c9f1c3252250c617ee549",
@@ -163,6 +163,50 @@
       "exit": 0,
       "seconds": 3.234,
       "logSha256": "1991d652cc01ddd0df55cfb8041abd8048fa92a87832c6077790a1a7e72f2682"
+    },
+    {
+      "gate": "fixture-key-covering",
+      "head": "079706dca86cd8dc505c751222e6fefb0ad0e7fd",
+      "command": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "tests/ui/platform-model-catalog-i18n.test.tsx",
+        "-t",
+        "preserves unknown list protocol reasons|retranslates core save",
+        "--maxWorkers=1",
+        "--reporter=json",
+        "--outputFile=/Users/shenyangjun/boardx/workspacex-i18n-agent-skill/.superpowers/sdd/2026-11-05-platform-model-catalog-i18n/raw/fixture-key-fix/report.json"
+      ],
+      "exit": 0,
+      "seconds": 6.973,
+      "logSha256": "e8918370fe4cb06ee108e0eda503961defcbbc52120dcabe16ba3916a0c0d41c"
+    },
+    {
+      "gate": "fixture-key-lint",
+      "head": "079706dca86cd8dc505c751222e6fefb0ad0e7fd",
+      "command": [
+        "pnpm",
+        "exec",
+        "eslint",
+        "tests/ui/platform-model-catalog-i18n.test.tsx"
+      ],
+      "exit": 0,
+      "seconds": 2.619,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "gate": "fixture-key-scan",
+      "head": "079706dca86cd8dc505c751222e6fefb0ad0e7fd",
+      "command": [
+        "pnpm",
+        "run",
+        "lint:oss-secret-scan"
+      ],
+      "exit": 0,
+      "seconds": 9.098,
+      "logSha256": "768d86cfbd24da0fadc19c9631d8f98d7fbdf8880278f3608c852c0fb215d9b0"
     }
   ],
   "protectedPathsByteIdenticalToInitialBase": [
@@ -242,8 +286,21 @@
     },
     {
       "path": "apps/web/tests/ui/platform-model-catalog-i18n.test.tsx",
-      "sha256": "1fcb2aaf3d4dfc62e1ec555cc3022374f7590c6fba140e8ddf9d863c77cc73d1"
+      "sha256": "a3f7fea7e22db6f32a6a1aca6049dfeac0d3ba557fef09e9c69ddbc86c236aa3"
     }
   ],
-  "authRawArtifactsPrivate": true
+  "authRawArtifactsPrivate": true,
+  "nativeSourceHead": "5961383d73776382da5a27a3b47358623df207cf",
+  "frozenTestException": {
+    "scope": "two synthetic ApiError raw-object field names only; sentinel/all assertions/statuses/reasons/SDK counts unchanged",
+    "testSha256": "a3f7fea7e22db6f32a6a1aca6049dfeac0d3ba557fef09e9c69ddbc86c236aa3",
+    "actualAffectedPassed": 6,
+    "actualFiltered": 19,
+    "originalScanExit": 1,
+    "originalRule": "assigned-secret",
+    "originalNewHitPaths": 1,
+    "correctedScanExit": 0,
+    "correctedNewHits": 0,
+    "scannerRulesAndBaselineUnchanged": true
+  }
 }
