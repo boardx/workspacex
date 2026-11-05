@@ -1,0 +1,35 @@
+[stack-admission] load1=6.16 cores=10 perCore=0.62 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw3kr03m-e91751f3-098ffa50da8d db=wsx_098ffa50da8d498f042b compose=wsx-098ffa50da8d498f042b pg=20672 redis=21672 api=24672 web=25672 sandbox=26672 model=27672 deep-agent=28672 asr=29672 vision=30672 loopback-sandbox=31672 mail=19672
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/e6f1/workspacex/apps/api
+
+[db-isolation] db=wsx_098ffa50da8d498f042b capacity=100 current=6 required=32
+ ✓ tests/billing/global-image-tariff-pg.test.ts (9 tests) 23697ms
+   ✓ catalog-derived runtime audit recognizes only the explicitly documented global pricing table 4111ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  21:21:36
+   Duration  31.57s (transform 1.65s, setup 14ms, collect 2.21s, tests 23.70s, environment 0ms, prepare 93ms)
+
+[db-isolation] db=wsx_098ffa50da8d498f042b peak_connections=4
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/e6f1/workspacex/apps/api
+
+[db-isolation] db=wsx_098ffa50da8d498f042b capacity=100 current=6 required=32
+ ✓ tests/billing/subscription-credit-backfill.test.ts (7 tests) 1143ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  21:22:08
+   Duration  2.83s (transform 445ms, setup 10ms, collect 416ms, tests 1.14s, environment 0ms, prepare 82ms)
+
+[db-isolation] db=wsx_098ffa50da8d498f042b peak_connections=4
+[timing] bash -c pnpm --filter @repo/api exec vitest run tests/billing/global-image-tariff-pg.test.ts && pnpm --filter @repo/api exec vitest run tests/billing/subscription-credit-backfill.test.ts --bail=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：36s
+  清理：1s
+  总计：37s

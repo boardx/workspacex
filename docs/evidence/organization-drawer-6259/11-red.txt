@@ -1,0 +1,1247 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web
+
+ ❯ tests/ui/platform-organizations-screen.test.tsx (11 tests | 4 failed) 3972ms
+   ✓ organization management API-bound screen > shows zero-member unconfigured organizations and saves versioned plan with mandatory audit reason 362ms
+   × organization management API-bound screen > keeps the confirmed grant receipt visible during and after same-organization refresh 226ms
+     → expect(element).toHaveFocus()
+
+Expected element with focus:
+  <input
+  class="flex h-9 min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"
+  id="organization-search"
+  maxlength="200"
+  placeholder="搜索组织名称"
+  value=""
+/>
+Received element with focus:
+  <body
+  style=""
+>
+  <div>
+    <div>
+      <form
+        class="flex gap-2"
+      >
+        <label
+          class="sr-only"
+          for="organization-search"
+        >
+          搜索组织名称
+        </label>
+        <input
+          class="flex h-9 min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"
+          id="organization-search"
+          maxlength="200"
+          placeholder="搜索组织名称"
+          value=""
+        />
+        <button
+          class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-secondary text-secondary-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+          type="submit"
+        >
+          搜索
+        </button>
+        <button
+          class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+          type="button"
+        >
+          刷新
+        </button>
+      </form>
+      <table
+        class="w-full border-collapse text-12"
+      >
+        <thead>
+          <tr
+            class="border-b border-border-subtle transition-colors duration-base last:border-b-0"
+          >
+            <th
+              class="px-3 py-2 text-left font-medium"
+            >
+              组织
+            </th>
+            <th
+              class="px-3 py-2 text-left font-medium"
+            >
+              成员
+            </th>
+            <th
+              class="px-3 py-2 text-left font-medium"
+            >
+              套餐
+            </th>
+            <th
+              class="px-3 py-2 text-left font-medium"
+            >
+              操作
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            class="border-b border-border-subtle transition-colors duration-base last:border-b-0"
+          >
+            <td
+              class="px-3 py-2"
+            >
+              <div>
+                Empty SaaS
+              </div>
+              <div
+                class="text-12 text-muted-foreground"
+              >
+                empty-saas
+              </div>
+            </td>
+            <td
+              class="px-3 py-2"
+            >
+              0
+            </td>
+            <td
+              class="px-3 py-2"
+            >
+              企业
+            </td>
+            <td
+              class="px-3 py-2"
+            >
+              <button
+                class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+              >
+                详情与套餐
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div
+        class="flex gap-2"
+      >
+        <button
+          class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+          disabled=""
+        >
+          回到首页
+        </button>
+        <button
+          class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+          disabled=""
+        >
+          下一页
+        </button>
+      </div>
+    </div>
+  </div>
+</body>
+   × renders detail HTTP 403 failure inside the drawer 1025ms
+     → Unable to find role="alert"
+
+Ignored nodes: comments, script, style
+[36m<div[39m
+  [33maria-describedby[39m=[32m"organization-drawer-description"[39m
+  [33maria-labelledby[39m=[32m"radix-:r1l:"[39m
+  [33mclass[39m=[32m"fixed z-50 flex flex-col gap-4 rounded-container border border-border bg-popover text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring left-auto right-0 top-0 h-dvh max-h-dvh w-full max-w-2xl translate-x-0 translate-y-0 rounded-none border-y-0 border-r-0 p-6"[39m
+  [33mdata-state[39m=[32m"open"[39m
+  [33mid[39m=[32m"radix-:r1k:"[39m
+  [33mrole[39m=[32m"dialog"[39m
+  [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [33mtabindex[39m=[32m"-1"[39m
+[36m>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"flex items-center justify-between gap-4"[39m
+  [36m>[39m
+    [36m<h2[39m
+      [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+      [33mid[39m=[32m"radix-:r1l:"[39m
+    [36m>[39m
+      [0m组织详情[0m
+    [36m</h2>[39m
+    [36m<button[39m
+      [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-9 px-3.5 text-13"[39m
+    [36m>[39m
+      [0m关闭[0m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<p[39m
+    [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+    [33mid[39m=[32m"organization-drawer-description"[39m
+  [36m>[39m
+    [0m查看组织信息与管理设置。[0m
+  [36m</p>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"min-h-0 flex-1 overflow-y-auto"[39m
+  [36m>[39m
+    [36m<p>[39m
+      [0m详情未能加载，请重新选择组织。[0m
+    [36m</p>[39m
+  [36m</div>[39m
+[36m</div>[39m
+
+Ignored nodes: comments, script, style
+[36m<div[39m
+  [33maria-describedby[39m=[32m"organization-drawer-description"[39m
+  [33maria-labelledby[39m=[32m"radix-:r1l:"[39m
+  [33mclass[39m=[32m"fixed z-50 flex flex-col gap-4 rounded-container border border-border bg-popover text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring left-auto right-0 top-0 h-dvh max-h-dvh w-full max-w-2xl translate-x-0 translate-y-0 rounded-none border-y-0 border-r-0 p-6"[39m
+  [33mdata-state[39m=[32m"open"[39m
+  [33mid[39m=[32m"radix-:r1k:"[39m
+  [33mrole[39m=[32m"dialog"[39m
+  [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [33mtabindex[39m=[32m"-1"[39m
+[36m>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"flex items-center justify-between gap-4"[39m
+  [36m>[39m
+    [36m<h2[39m
+      [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+      [33mid[39m=[32m"radix-:r1l:"[39m
+    [36m>[39m
+      [0m组织详情[0m
+    [36m</h2>[39m
+    [36m<button[39m
+      [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-9 px-3.5 text-13"[39m
+    [36m>[39m
+      [0m关闭[0m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<p[39m
+    [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+    [33mid[39m=[32m"organization-drawer-description"[39m
+  [36m>[39m
+    [0m查看组织信息与管理设置。[0m
+  [36m</p>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"min-h-0 flex-1 overflow-y-auto"[39m
+  [36m>[39m
+    [36m<p>[39m
+      [0m详情未能加载，请重新选择组织。[0m
+    [36m</p>[39m
+  [36m</div>[39m
+[36m</div>[39m
+   × renders detail HTTP 503 failure inside the drawer 1033ms
+     → Unable to find role="alert"
+
+Ignored nodes: comments, script, style
+[36m<div[39m
+  [33maria-describedby[39m=[32m"organization-drawer-description"[39m
+  [33maria-labelledby[39m=[32m"radix-:r1o:"[39m
+  [33mclass[39m=[32m"fixed z-50 flex flex-col gap-4 rounded-container border border-border bg-popover text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring left-auto right-0 top-0 h-dvh max-h-dvh w-full max-w-2xl translate-x-0 translate-y-0 rounded-none border-y-0 border-r-0 p-6"[39m
+  [33mdata-state[39m=[32m"open"[39m
+  [33mid[39m=[32m"radix-:r1n:"[39m
+  [33mrole[39m=[32m"dialog"[39m
+  [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [33mtabindex[39m=[32m"-1"[39m
+[36m>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"flex items-center justify-between gap-4"[39m
+  [36m>[39m
+    [36m<h2[39m
+      [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+      [33mid[39m=[32m"radix-:r1o:"[39m
+    [36m>[39m
+      [0m组织详情[0m
+    [36m</h2>[39m
+    [36m<button[39m
+      [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-9 px-3.5 text-13"[39m
+    [36m>[39m
+      [0m关闭[0m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<p[39m
+    [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+    [33mid[39m=[32m"organization-drawer-description"[39m
+  [36m>[39m
+    [0m查看组织信息与管理设置。[0m
+  [36m</p>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"min-h-0 flex-1 overflow-y-auto"[39m
+  [36m>[39m
+    [36m<p>[39m
+      [0m详情未能加载，请重新选择组织。[0m
+    [36m</p>[39m
+  [36m</div>[39m
+[36m</div>[39m
+
+Ignored nodes: comments, script, style
+[36m<div[39m
+  [33maria-describedby[39m=[32m"organization-drawer-description"[39m
+  [33maria-labelledby[39m=[32m"radix-:r1o:"[39m
+  [33mclass[39m=[32m"fixed z-50 flex flex-col gap-4 rounded-container border border-border bg-popover text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring left-auto right-0 top-0 h-dvh max-h-dvh w-full max-w-2xl translate-x-0 translate-y-0 rounded-none border-y-0 border-r-0 p-6"[39m
+  [33mdata-state[39m=[32m"open"[39m
+  [33mid[39m=[32m"radix-:r1n:"[39m
+  [33mrole[39m=[32m"dialog"[39m
+  [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [33mtabindex[39m=[32m"-1"[39m
+[36m>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"flex items-center justify-between gap-4"[39m
+  [36m>[39m
+    [36m<h2[39m
+      [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+      [33mid[39m=[32m"radix-:r1o:"[39m
+    [36m>[39m
+      [0m组织详情[0m
+    [36m</h2>[39m
+    [36m<button[39m
+      [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-9 px-3.5 text-13"[39m
+    [36m>[39m
+      [0m关闭[0m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<p[39m
+    [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+    [33mid[39m=[32m"organization-drawer-description"[39m
+  [36m>[39m
+    [0m查看组织信息与管理设置。[0m
+  [36m</p>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"min-h-0 flex-1 overflow-y-auto"[39m
+  [36m>[39m
+    [36m<p>[39m
+      [0m详情未能加载，请重新选择组织。[0m
+    [36m</p>[39m
+  [36m</div>[39m
+[36m</div>[39m
+   × renders a save version conflict inside the drawer and preserves the edit 1074ms
+     → Unable to find an element with the text: 套餐已被其他运营人员修改，请重新打开详情后再提交。. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<div[39m
+  [33maria-describedby[39m=[32m"organization-drawer-description"[39m
+  [33maria-labelledby[39m=[32m"radix-:r1r:"[39m
+  [33mclass[39m=[32m"fixed z-50 flex flex-col gap-4 rounded-container border border-border bg-popover text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring left-auto right-0 top-0 h-dvh max-h-dvh w-full max-w-2xl translate-x-0 translate-y-0 rounded-none border-y-0 border-r-0 p-6"[39m
+  [33mdata-state[39m=[32m"open"[39m
+  [33mid[39m=[32m"radix-:r1q:"[39m
+  [33mrole[39m=[32m"dialog"[39m
+  [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [33mtabindex[39m=[32m"-1"[39m
+[36m>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"flex items-center justify-between gap-4"[39m
+  [36m>[39m
+    [36m<h2[39m
+      [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+      [33mid[39m=[32m"radix-:r1r:"[39m
+    [36m>[39m
+      [0m组织详情[0m
+    [36m</h2>[39m
+    [36m<button[39m
+      [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-9 px-3.5 text-13"[39m
+    [36m>[39m
+      [0m关闭[0m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<p[39m
+    [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+    [33mid[39m=[32m"organization-drawer-description"[39m
+  [36m>[39m
+    [0m查看组织信息与管理设置。[0m
+  [36m</p>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"min-h-0 flex-1 overflow-y-auto"[39m
+  [36m>[39m
+    [36m<p>[39m
+      [0mEmpty SaaS[0m
+      [0m · [0m
+      [0m0[0m
+      [0m 位成员[0m
+    [36m</p>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+    [36m>[39m
+      [0m套餐：[0m
+      [0m未配置[0m
+      [0m · 版本 [0m
+      [0m0[0m
+    [36m</p>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"my-3 text-13 text-muted-foreground"[39m
+    [36m>[39m
+      [0m套餐额度以实际计费记录为准，所有套餐均记录用量并保留安全和供应商限制。[0m
+    [36m</p>[39m
+    [36m<label[39m
+      [33mclass[39m=[32m"block"[39m
+      [33mfor[39m=[32m"organization-plan"[39m
+    [36m>[39m
+      [0m套餐[0m
+    [36m</label>[39m
+    [36m<select[39m
+      [33mclass[39m=[32m"my-2 rounded border bg-background p-2"[39m
+      [33mid[39m=[32m"organization-plan"[39m
+    [36m>[39m
+      [36m<option[39m
+        [33mvalue[39m=[32m"ordinary"[39m
+      [36m>[39m
+        [0m普通[0m
+      [36m</option>[39m
+      [36m<option[39m
+        [33mvalue[39m=[32m"enterprise"[39m
+      [36m>[39m
+        [0m企业[0m
+      [36m</option>[39m
+    [36m</select>[39m
+    [36m<label[39m
+      [33mclass[39m=[32m"block"[39m
+      [33mfor[39m=[32m"plan-change-reason"[39m
+    [36m>[39m
+      [0m变更理由（写入审计记录）[0m
+    [36m</label>[39m
+    [36m<input[39m
+      [33mclass[39m=[32m"flex h-9 min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"[39m
+      [33mid[39m=[32m"plan-change-reason"[39m
+      [33mmaxlength[39m=[32m"500"[39m
+      [33mvalue[39m=[32m"keep this edit"[39m
+    [36m/>[39m
+    [36m<button[39m
+      [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-secondary text-secondary-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13 my-3"[39m
+    [36m>[39m
+      [0m保存套餐[0m
+    [36m</button>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"Enterprise 管理"[39m
+      [33mclass[39m=[32m"my-4 space-y-3 rounded-lg border p-4"[39m
+    [36m>[39m
+      [36m<h3[39m
+        [33mclass[39m=[32m"font-semibold"[39m
+      [36m>[39m
+        [0mEnterprise[0m
+      [36m</h3>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [36m>[39m
+        [0mEnterprise 无 Team 收费席位上限。额度由平台人员手动添加，不产生默认月额度。如有已付 Team 额度，按原购买日继续发放至原到期日。[0m
+      [36m</p>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-secondary text-secondary-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+      [36m>[39m
+        [0m手动升级 Enterprise[0m
+      [36m</button>[39m
+    [36m</section>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"AI额度配置"[39m
+      [33mclass[39m=[32m"my-4 space-y-3 rounded-lg border p-4"[39m
+    [36m>[39m
+      [36m<h3[39m
+        [33mclass[39m=[32m"font-semibold"[39m
+      [36m>[39m
+        [0mAI 额度与安全配置[0m
+      [36m</h3>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [36m>[39m
+        [0m保存配置不会自动启用限额。普通用户按每人额度计量；企业只豁免产品 Token 配额，仍需要有限费用与安全上限。[0m
+      [36m</p>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+      [36m>[39m
+        [0m刷新配置与候选[0m
+      [36m</button>[39m
+      [36m<p>[39m
+        [0m配置：[0m
+        [0m未配置[0m
+        [0m · 限制尚未启用[0m
+      [36m</p>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"grid gap-3 md:grid-cols-2"[39m
+      [36m>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"block space-y-1"[39m
+          [33mfor[39m=[32m"ai-window-start"[39m
+        [36m>[39m
+          ...
+
+Ignored nodes: comments, script, style
+[36m<div[39m
+  [33maria-describedby[39m=[32m"organization-drawer-description"[39m
+  [33maria-labelledby[39m=[32m"radix-:r1r:"[39m
+  [33mclass[39m=[32m"fixed z-50 flex flex-col gap-4 rounded-container border border-border bg-popover text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring left-auto right-0 top-0 h-dvh max-h-dvh w-full max-w-2xl translate-x-0 translate-y-0 rounded-none border-y-0 border-r-0 p-6"[39m
+  [33mdata-state[39m=[32m"open"[39m
+  [33mid[39m=[32m"radix-:r1q:"[39m
+  [33mrole[39m=[32m"dialog"[39m
+  [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [33mtabindex[39m=[32m"-1"[39m
+[36m>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"flex items-center justify-between gap-4"[39m
+  [36m>[39m
+    [36m<h2[39m
+      [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+      [33mid[39m=[32m"radix-:r1r:"[39m
+    [36m>[39m
+      [0m组织详情[0m
+    [36m</h2>[39m
+    [36m<button[39m
+      [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-9 px-3.5 text-13"[39m
+    [36m>[39m
+      [0m关闭[0m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<p[39m
+    [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+    [33mid[39m=[32m"organization-drawer-description"[39m
+  [36m>[39m
+    [0m查看组织信息与管理设置。[0m
+  [36m</p>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"min-h-0 flex-1 overflow-y-auto"[39m
+  [36m>[39m
+    [36m<p>[39m
+      [0mEmpty SaaS[0m
+      [0m · [0m
+      [0m0[0m
+      [0m 位成员[0m
+    [36m</p>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+    [36m>[39m
+      [0m套餐：[0m
+      [0m未配置[0m
+      [0m · 版本 [0m
+      [0m0[0m
+    [36m</p>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"my-3 text-13 text-muted-foreground"[39m
+    [36m>[39m
+      [0m套餐额度以实际计费记录为准，所有套餐均记录用量并保留安全和供应商限制。[0m
+    [36m</p>[39m
+    [36m<label[39m
+      [33mclass[39m=[32m"block"[39m
+      [33mfor[39m=[32m"organization-plan"[39m
+    [36m>[39m
+      [0m套餐[0m
+    [36m</label>[39m
+    [36m<select[39m
+      [33mclass[39m=[32m"my-2 rounded border bg-background p-2"[39m
+      [33mid[39m=[32m"organization-plan"[39m
+    [36m>[39m
+      [36m<option[39m
+        [33mvalue[39m=[32m"ordinary"[39m
+      [36m>[39m
+        [0m普通[0m
+      [36m</option>[39m
+      [36m<option[39m
+        [33mvalue[39m=[32m"enterprise"[39m
+      [36m>[39m
+        [0m企业[0m
+      [36m</option>[39m
+    [36m</select>[39m
+    [36m<label[39m
+      [33mclass[39m=[32m"block"[39m
+      [33mfor[39m=[32m"plan-change-reason"[39m
+    [36m>[39m
+      [0m变更理由（写入审计记录）[0m
+    [36m</label>[39m
+    [36m<input[39m
+      [33mclass[39m=[32m"flex h-9 min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"[39m
+      [33mid[39m=[32m"plan-change-reason"[39m
+      [33mmaxlength[39m=[32m"500"[39m
+      [33mvalue[39m=[32m"keep this edit"[39m
+    [36m/>[39m
+    [36m<button[39m
+      [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-secondary text-secondary-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13 my-3"[39m
+    [36m>[39m
+      [0m保存套餐[0m
+    [36m</button>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"Enterprise 管理"[39m
+      [33mclass[39m=[32m"my-4 space-y-3 rounded-lg border p-4"[39m
+    [36m>[39m
+      [36m<h3[39m
+        [33mclass[39m=[32m"font-semibold"[39m
+      [36m>[39m
+        [0mEnterprise[0m
+      [36m</h3>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [36m>[39m
+        [0mEnterprise 无 Team 收费席位上限。额度由平台人员手动添加，不产生默认月额度。如有已付 Team 额度，按原购买日继续发放至原到期日。[0m
+      [36m</p>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-secondary text-secondary-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+      [36m>[39m
+        [0m手动升级 Enterprise[0m
+      [36m</button>[39m
+    [36m</section>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"AI额度配置"[39m
+      [33mclass[39m=[32m"my-4 space-y-3 rounded-lg border p-4"[39m
+    [36m>[39m
+      [36m<h3[39m
+        [33mclass[39m=[32m"font-semibold"[39m
+      [36m>[39m
+        [0mAI 额度与安全配置[0m
+      [36m</h3>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [36m>[39m
+        [0m保存配置不会自动启用限额。普通用户按每人额度计量；企业只豁免产品 Token 配额，仍需要有限费用与安全上限。[0m
+      [36m</p>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+      [36m>[39m
+        [0m刷新配置与候选[0m
+      [36m</button>[39m
+      [36m<p>[39m
+        [0m配置：[0m
+        [0m未配置[0m
+        [0m · 限制尚未启用[0m
+      [36m</p>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"grid gap-3 md:grid-cols-2"[39m
+      [36m>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"block space-y-1"[39m
+          [33mfor[39m=[32m"ai-window-start"[39m
+        [36m>[39m
+          ...
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/platform-organizations-screen.test.tsx > organization management API-bound screen > keeps the confirmed grant receipt visible during and after same-organization refresh
+Error: expect(element).toHaveFocus()
+
+Expected element with focus:
+  <input
+  class="flex h-9 min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"
+  id="organization-search"
+  maxlength="200"
+  placeholder="搜索组织名称"
+  value=""
+/>
+Received element with focus:
+  <body
+  style=""
+>
+  <div>
+    <div>
+      <form
+        class="flex gap-2"
+      >
+        <label
+          class="sr-only"
+          for="organization-search"
+        >
+          搜索组织名称
+        </label>
+        <input
+          class="flex h-9 min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"
+          id="organization-search"
+          maxlength="200"
+          placeholder="搜索组织名称"
+          value=""
+        />
+        <button
+          class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-secondary text-secondary-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+          type="submit"
+        >
+          搜索
+        </button>
+        <button
+          class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+          type="button"
+        >
+          刷新
+        </button>
+      </form>
+      <table
+        class="w-full border-collapse text-12"
+      >
+        <thead>
+          <tr
+            class="border-b border-border-subtle transition-colors duration-base last:border-b-0"
+          >
+            <th
+              class="px-3 py-2 text-left font-medium"
+            >
+              组织
+            </th>
+            <th
+              class="px-3 py-2 text-left font-medium"
+            >
+              成员
+            </th>
+            <th
+              class="px-3 py-2 text-left font-medium"
+            >
+              套餐
+            </th>
+            <th
+              class="px-3 py-2 text-left font-medium"
+            >
+              操作
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            class="border-b border-border-subtle transition-colors duration-base last:border-b-0"
+          >
+            <td
+              class="px-3 py-2"
+            >
+              <div>
+                Empty SaaS
+              </div>
+              <div
+                class="text-12 text-muted-foreground"
+              >
+                empty-saas
+              </div>
+            </td>
+            <td
+              class="px-3 py-2"
+            >
+              0
+            </td>
+            <td
+              class="px-3 py-2"
+            >
+              企业
+            </td>
+            <td
+              class="px-3 py-2"
+            >
+              <button
+                class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+              >
+                详情与套餐
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div
+        class="flex gap-2"
+      >
+        <button
+          class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+          disabled=""
+        >
+          回到首页
+        </button>
+        <button
+          class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+          disabled=""
+        >
+          下一页
+        </button>
+      </div>
+    </div>
+  </div>
+</body>
+ ❯ tests/ui/platform-organizations-screen.test.tsx:40:43
+     38|   fireEvent.click(screen.getByRole("button",{name:"关闭"}));
+     39|   await waitFor(()=>expect(screen.queryByRole("dialog")).not.toBeInThe…
+     40|   expect(screen.getByLabelText("搜索组织名称")).toHaveFocus();
+       |                                           ^
+     41|  });
+     42|  it("search changes the server query and pagination sends the cursor",…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  tests/ui/platform-organizations-screen.test.tsx > renders detail HTTP 403 failure inside the drawer
+TestingLibraryElementError: Unable to find role="alert"
+
+Ignored nodes: comments, script, style
+[36m<div[39m
+  [33maria-describedby[39m=[32m"organization-drawer-description"[39m
+  [33maria-labelledby[39m=[32m"radix-:r1l:"[39m
+  [33mclass[39m=[32m"fixed z-50 flex flex-col gap-4 rounded-container border border-border bg-popover text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring left-auto right-0 top-0 h-dvh max-h-dvh w-full max-w-2xl translate-x-0 translate-y-0 rounded-none border-y-0 border-r-0 p-6"[39m
+  [33mdata-state[39m=[32m"open"[39m
+  [33mid[39m=[32m"radix-:r1k:"[39m
+  [33mrole[39m=[32m"dialog"[39m
+  [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [33mtabindex[39m=[32m"-1"[39m
+[36m>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"flex items-center justify-between gap-4"[39m
+  [36m>[39m
+    [36m<h2[39m
+      [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+      [33mid[39m=[32m"radix-:r1l:"[39m
+    [36m>[39m
+      [0m组织详情[0m
+    [36m</h2>[39m
+    [36m<button[39m
+      [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-9 px-3.5 text-13"[39m
+    [36m>[39m
+      [0m关闭[0m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<p[39m
+    [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+    [33mid[39m=[32m"organization-drawer-description"[39m
+  [36m>[39m
+    [0m查看组织信息与管理设置。[0m
+  [36m</p>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"min-h-0 flex-1 overflow-y-auto"[39m
+  [36m>[39m
+    [36m<p>[39m
+      [0m详情未能加载，请重新选择组织。[0m
+    [36m</p>[39m
+  [36m</div>[39m
+[36m</div>[39m
+
+Ignored nodes: comments, script, style
+[36m<div[39m
+  [33maria-describedby[39m=[32m"organization-drawer-description"[39m
+  [33maria-labelledby[39m=[32m"radix-:r1l:"[39m
+  [33mclass[39m=[32m"fixed z-50 flex flex-col gap-4 rounded-container border border-border bg-popover text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring left-auto right-0 top-0 h-dvh max-h-dvh w-full max-w-2xl translate-x-0 translate-y-0 rounded-none border-y-0 border-r-0 p-6"[39m
+  [33mdata-state[39m=[32m"open"[39m
+  [33mid[39m=[32m"radix-:r1k:"[39m
+  [33mrole[39m=[32m"dialog"[39m
+  [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [33mtabindex[39m=[32m"-1"[39m
+[36m>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"flex items-center justify-between gap-4"[39m
+  [36m>[39m
+    [36m<h2[39m
+      [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+      [33mid[39m=[32m"radix-:r1l:"[39m
+    [36m>[39m
+      [0m组织详情[0m
+    [36m</h2>[39m
+    [36m<button[39m
+      [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-9 px-3.5 text-13"[39m
+    [36m>[39m
+      [0m关闭[0m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<p[39m
+    [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+    [33mid[39m=[32m"organization-drawer-description"[39m
+  [36m>[39m
+    [0m查看组织信息与管理设置。[0m
+  [36m</p>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"min-h-0 flex-1 overflow-y-auto"[39m
+  [36m>[39m
+    [36m<p>[39m
+      [0m详情未能加载，请重新选择组织。[0m
+    [36m</p>[39m
+  [36m</div>[39m
+[36m</div>[39m
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ tests/ui/platform-organizations-screen.test.tsx:125:30
+    123|  fireEvent.click(await screen.findByRole("button",{name:"详情与套餐"})…
+    124|  const drawer=await screen.findByRole("dialog",{name:"组织详情"});
+    125|  expect(await within(drawer).findByRole("alert")).toHaveTextContent(me…
+       |                              ^
+    126| });
+    127| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  tests/ui/platform-organizations-screen.test.tsx > renders detail HTTP 503 failure inside the drawer
+TestingLibraryElementError: Unable to find role="alert"
+
+Ignored nodes: comments, script, style
+[36m<div[39m
+  [33maria-describedby[39m=[32m"organization-drawer-description"[39m
+  [33maria-labelledby[39m=[32m"radix-:r1o:"[39m
+  [33mclass[39m=[32m"fixed z-50 flex flex-col gap-4 rounded-container border border-border bg-popover text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring left-auto right-0 top-0 h-dvh max-h-dvh w-full max-w-2xl translate-x-0 translate-y-0 rounded-none border-y-0 border-r-0 p-6"[39m
+  [33mdata-state[39m=[32m"open"[39m
+  [33mid[39m=[32m"radix-:r1n:"[39m
+  [33mrole[39m=[32m"dialog"[39m
+  [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [33mtabindex[39m=[32m"-1"[39m
+[36m>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"flex items-center justify-between gap-4"[39m
+  [36m>[39m
+    [36m<h2[39m
+      [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+      [33mid[39m=[32m"radix-:r1o:"[39m
+    [36m>[39m
+      [0m组织详情[0m
+    [36m</h2>[39m
+    [36m<button[39m
+      [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-9 px-3.5 text-13"[39m
+    [36m>[39m
+      [0m关闭[0m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<p[39m
+    [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+    [33mid[39m=[32m"organization-drawer-description"[39m
+  [36m>[39m
+    [0m查看组织信息与管理设置。[0m
+  [36m</p>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"min-h-0 flex-1 overflow-y-auto"[39m
+  [36m>[39m
+    [36m<p>[39m
+      [0m详情未能加载，请重新选择组织。[0m
+    [36m</p>[39m
+  [36m</div>[39m
+[36m</div>[39m
+
+Ignored nodes: comments, script, style
+[36m<div[39m
+  [33maria-describedby[39m=[32m"organization-drawer-description"[39m
+  [33maria-labelledby[39m=[32m"radix-:r1o:"[39m
+  [33mclass[39m=[32m"fixed z-50 flex flex-col gap-4 rounded-container border border-border bg-popover text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring left-auto right-0 top-0 h-dvh max-h-dvh w-full max-w-2xl translate-x-0 translate-y-0 rounded-none border-y-0 border-r-0 p-6"[39m
+  [33mdata-state[39m=[32m"open"[39m
+  [33mid[39m=[32m"radix-:r1n:"[39m
+  [33mrole[39m=[32m"dialog"[39m
+  [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [33mtabindex[39m=[32m"-1"[39m
+[36m>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"flex items-center justify-between gap-4"[39m
+  [36m>[39m
+    [36m<h2[39m
+      [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+      [33mid[39m=[32m"radix-:r1o:"[39m
+    [36m>[39m
+      [0m组织详情[0m
+    [36m</h2>[39m
+    [36m<button[39m
+      [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-9 px-3.5 text-13"[39m
+    [36m>[39m
+      [0m关闭[0m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<p[39m
+    [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+    [33mid[39m=[32m"organization-drawer-description"[39m
+  [36m>[39m
+    [0m查看组织信息与管理设置。[0m
+  [36m</p>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"min-h-0 flex-1 overflow-y-auto"[39m
+  [36m>[39m
+    [36m<p>[39m
+      [0m详情未能加载，请重新选择组织。[0m
+    [36m</p>[39m
+  [36m</div>[39m
+[36m</div>[39m
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ tests/ui/platform-organizations-screen.test.tsx:125:30
+    123|  fireEvent.click(await screen.findByRole("button",{name:"详情与套餐"})…
+    124|  const drawer=await screen.findByRole("dialog",{name:"组织详情"});
+    125|  expect(await within(drawer).findByRole("alert")).toHaveTextContent(me…
+       |                              ^
+    126| });
+    127| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  tests/ui/platform-organizations-screen.test.tsx > renders a save version conflict inside the drawer and preserves the edit
+TestingLibraryElementError: Unable to find an element with the text: 套餐已被其他运营人员修改，请重新打开详情后再提交。. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<div[39m
+  [33maria-describedby[39m=[32m"organization-drawer-description"[39m
+  [33maria-labelledby[39m=[32m"radix-:r1r:"[39m
+  [33mclass[39m=[32m"fixed z-50 flex flex-col gap-4 rounded-container border border-border bg-popover text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring left-auto right-0 top-0 h-dvh max-h-dvh w-full max-w-2xl translate-x-0 translate-y-0 rounded-none border-y-0 border-r-0 p-6"[39m
+  [33mdata-state[39m=[32m"open"[39m
+  [33mid[39m=[32m"radix-:r1q:"[39m
+  [33mrole[39m=[32m"dialog"[39m
+  [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [33mtabindex[39m=[32m"-1"[39m
+[36m>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"flex items-center justify-between gap-4"[39m
+  [36m>[39m
+    [36m<h2[39m
+      [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+      [33mid[39m=[32m"radix-:r1r:"[39m
+    [36m>[39m
+      [0m组织详情[0m
+    [36m</h2>[39m
+    [36m<button[39m
+      [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-9 px-3.5 text-13"[39m
+    [36m>[39m
+      [0m关闭[0m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<p[39m
+    [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+    [33mid[39m=[32m"organization-drawer-description"[39m
+  [36m>[39m
+    [0m查看组织信息与管理设置。[0m
+  [36m</p>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"min-h-0 flex-1 overflow-y-auto"[39m
+  [36m>[39m
+    [36m<p>[39m
+      [0mEmpty SaaS[0m
+      [0m · [0m
+      [0m0[0m
+      [0m 位成员[0m
+    [36m</p>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+    [36m>[39m
+      [0m套餐：[0m
+      [0m未配置[0m
+      [0m · 版本 [0m
+      [0m0[0m
+    [36m</p>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"my-3 text-13 text-muted-foreground"[39m
+    [36m>[39m
+      [0m套餐额度以实际计费记录为准，所有套餐均记录用量并保留安全和供应商限制。[0m
+    [36m</p>[39m
+    [36m<label[39m
+      [33mclass[39m=[32m"block"[39m
+      [33mfor[39m=[32m"organization-plan"[39m
+    [36m>[39m
+      [0m套餐[0m
+    [36m</label>[39m
+    [36m<select[39m
+      [33mclass[39m=[32m"my-2 rounded border bg-background p-2"[39m
+      [33mid[39m=[32m"organization-plan"[39m
+    [36m>[39m
+      [36m<option[39m
+        [33mvalue[39m=[32m"ordinary"[39m
+      [36m>[39m
+        [0m普通[0m
+      [36m</option>[39m
+      [36m<option[39m
+        [33mvalue[39m=[32m"enterprise"[39m
+      [36m>[39m
+        [0m企业[0m
+      [36m</option>[39m
+    [36m</select>[39m
+    [36m<label[39m
+      [33mclass[39m=[32m"block"[39m
+      [33mfor[39m=[32m"plan-change-reason"[39m
+    [36m>[39m
+      [0m变更理由（写入审计记录）[0m
+    [36m</label>[39m
+    [36m<input[39m
+      [33mclass[39m=[32m"flex h-9 min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"[39m
+      [33mid[39m=[32m"plan-change-reason"[39m
+      [33mmaxlength[39m=[32m"500"[39m
+      [33mvalue[39m=[32m"keep this edit"[39m
+    [36m/>[39m
+    [36m<button[39m
+      [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-secondary text-secondary-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13 my-3"[39m
+    [36m>[39m
+      [0m保存套餐[0m
+    [36m</button>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"Enterprise 管理"[39m
+      [33mclass[39m=[32m"my-4 space-y-3 rounded-lg border p-4"[39m
+    [36m>[39m
+      [36m<h3[39m
+        [33mclass[39m=[32m"font-semibold"[39m
+      [36m>[39m
+        [0mEnterprise[0m
+      [36m</h3>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [36m>[39m
+        [0mEnterprise 无 Team 收费席位上限。额度由平台人员手动添加，不产生默认月额度。如有已付 Team 额度，按原购买日继续发放至原到期日。[0m
+      [36m</p>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-secondary text-secondary-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+      [36m>[39m
+        [0m手动升级 Enterprise[0m
+      [36m</button>[39m
+    [36m</section>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"AI额度配置"[39m
+      [33mclass[39m=[32m"my-4 space-y-3 rounded-lg border p-4"[39m
+    [36m>[39m
+      [36m<h3[39m
+        [33mclass[39m=[32m"font-semibold"[39m
+      [36m>[39m
+        [0mAI 额度与安全配置[0m
+      [36m</h3>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [36m>[39m
+        [0m保存配置不会自动启用限额。普通用户按每人额度计量；企业只豁免产品 Token 配额，仍需要有限费用与安全上限。[0m
+      [36m</p>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+      [36m>[39m
+        [0m刷新配置与候选[0m
+      [36m</button>[39m
+      [36m<p>[39m
+        [0m配置：[0m
+        [0m未配置[0m
+        [0m · 限制尚未启用[0m
+      [36m</p>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"grid gap-3 md:grid-cols-2"[39m
+      [36m>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"block space-y-1"[39m
+          [33mfor[39m=[32m"ai-window-start"[39m
+        [36m>[39m
+          ...
+
+Ignored nodes: comments, script, style
+[36m<div[39m
+  [33maria-describedby[39m=[32m"organization-drawer-description"[39m
+  [33maria-labelledby[39m=[32m"radix-:r1r:"[39m
+  [33mclass[39m=[32m"fixed z-50 flex flex-col gap-4 rounded-container border border-border bg-popover text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring left-auto right-0 top-0 h-dvh max-h-dvh w-full max-w-2xl translate-x-0 translate-y-0 rounded-none border-y-0 border-r-0 p-6"[39m
+  [33mdata-state[39m=[32m"open"[39m
+  [33mid[39m=[32m"radix-:r1q:"[39m
+  [33mrole[39m=[32m"dialog"[39m
+  [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [33mtabindex[39m=[32m"-1"[39m
+[36m>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"flex items-center justify-between gap-4"[39m
+  [36m>[39m
+    [36m<h2[39m
+      [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+      [33mid[39m=[32m"radix-:r1r:"[39m
+    [36m>[39m
+      [0m组织详情[0m
+    [36m</h2>[39m
+    [36m<button[39m
+      [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-9 px-3.5 text-13"[39m
+    [36m>[39m
+      [0m关闭[0m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<p[39m
+    [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+    [33mid[39m=[32m"organization-drawer-description"[39m
+  [36m>[39m
+    [0m查看组织信息与管理设置。[0m
+  [36m</p>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"min-h-0 flex-1 overflow-y-auto"[39m
+  [36m>[39m
+    [36m<p>[39m
+      [0mEmpty SaaS[0m
+      [0m · [0m
+      [0m0[0m
+      [0m 位成员[0m
+    [36m</p>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+    [36m>[39m
+      [0m套餐：[0m
+      [0m未配置[0m
+      [0m · 版本 [0m
+      [0m0[0m
+    [36m</p>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"my-3 text-13 text-muted-foreground"[39m
+    [36m>[39m
+      [0m套餐额度以实际计费记录为准，所有套餐均记录用量并保留安全和供应商限制。[0m
+    [36m</p>[39m
+    [36m<label[39m
+      [33mclass[39m=[32m"block"[39m
+      [33mfor[39m=[32m"organization-plan"[39m
+    [36m>[39m
+      [0m套餐[0m
+    [36m</label>[39m
+    [36m<select[39m
+      [33mclass[39m=[32m"my-2 rounded border bg-background p-2"[39m
+      [33mid[39m=[32m"organization-plan"[39m
+    [36m>[39m
+      [36m<option[39m
+        [33mvalue[39m=[32m"ordinary"[39m
+      [36m>[39m
+        [0m普通[0m
+      [36m</option>[39m
+      [36m<option[39m
+        [33mvalue[39m=[32m"enterprise"[39m
+      [36m>[39m
+        [0m企业[0m
+      [36m</option>[39m
+    [36m</select>[39m
+    [36m<label[39m
+      [33mclass[39m=[32m"block"[39m
+      [33mfor[39m=[32m"plan-change-reason"[39m
+    [36m>[39m
+      [0m变更理由（写入审计记录）[0m
+    [36m</label>[39m
+    [36m<input[39m
+      [33mclass[39m=[32m"flex h-9 min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"[39m
+      [33mid[39m=[32m"plan-change-reason"[39m
+      [33mmaxlength[39m=[32m"500"[39m
+      [33mvalue[39m=[32m"keep this edit"[39m
+    [36m/>[39m
+    [36m<button[39m
+      [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-secondary text-secondary-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13 my-3"[39m
+    [36m>[39m
+      [0m保存套餐[0m
+    [36m</button>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"Enterprise 管理"[39m
+      [33mclass[39m=[32m"my-4 space-y-3 rounded-lg border p-4"[39m
+    [36m>[39m
+      [36m<h3[39m
+        [33mclass[39m=[32m"font-semibold"[39m
+      [36m>[39m
+        [0mEnterprise[0m
+      [36m</h3>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [36m>[39m
+        [0mEnterprise 无 Team 收费席位上限。额度由平台人员手动添加，不产生默认月额度。如有已付 Team 额度，按原购买日继续发放至原到期日。[0m
+      [36m</p>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-secondary text-secondary-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+      [36m>[39m
+        [0m手动升级 Enterprise[0m
+      [36m</button>[39m
+    [36m</section>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"AI额度配置"[39m
+      [33mclass[39m=[32m"my-4 space-y-3 rounded-lg border p-4"[39m
+    [36m>[39m
+      [36m<h3[39m
+        [33mclass[39m=[32m"font-semibold"[39m
+      [36m>[39m
+        [0mAI 额度与安全配置[0m
+      [36m</h3>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [36m>[39m
+        [0m保存配置不会自动启用限额。普通用户按每人额度计量；企业只豁免产品 Token 配额，仍需要有限费用与安全上限。[0m
+      [36m</p>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+      [36m>[39m
+        [0m刷新配置与候选[0m
+      [36m</button>[39m
+      [36m<p>[39m
+        [0m配置：[0m
+        [0m未配置[0m
+        [0m · 限制尚未启用[0m
+      [36m</p>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"grid gap-3 md:grid-cols-2"[39m
+      [36m>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"block space-y-1"[39m
+          [33mfor[39m=[32m"ai-window-start"[39m
+        [36m>[39m
+          ...
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ tests/ui/platform-organizations-screen.test.tsx:137:30
+    135|  fireEvent.change(await within(drawer).findByLabelText("变更理由（写入…
+    136|  fireEvent.click(within(drawer).getByRole("button",{name:"保存套餐"}));
+    137|  expect(await within(drawer).findByText("套餐已被其他运营人员修改，请…
+       |                              ^
+    138|  expect(within(drawer).getByLabelText("变更理由（写入审计记录）")).toH…
+    139| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 7 passed (11)
+   Start at  13:00:31
+   Duration  7.58s (transform 1.35s, setup 210ms, collect 2.14s, tests 3.97s, environment 1.02s, prepare 53ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/platform-organizations-screen.test.tsx

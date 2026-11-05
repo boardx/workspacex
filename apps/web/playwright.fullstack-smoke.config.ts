@@ -352,6 +352,7 @@ export default defineConfig({
       testMatch: [
         "fullstack-smoke.spec.ts",
         "i18n-brain-navigation.spec.ts",
+        "i18n-public-design-share.spec.ts",
         "i18n-about-me.spec.ts",
         // Anonymous sharing layout/error regressions; real persistence uses its isolated API lane.
         "chat-public-share.spec.ts",
@@ -399,6 +400,7 @@ export default defineConfig({
         "i18n-live-tasks.spec.ts",
         "i18n-project-list.spec.ts",
         "i18n-project-workbench.spec.ts",
+        "i18n-project-general-overview.spec.ts",
         // ⚠ #853 同理排在 `seeded`：它要用种子里的 sentinel 工作坊（`FULLSTACK_E2E.projectId`）
         //   与该工作坊的 facilitator（`FULLSTACK_E2E.email`，agendaSegment.create 只属这个角色）。
         "agenda-segment-create-smoke.spec.ts",

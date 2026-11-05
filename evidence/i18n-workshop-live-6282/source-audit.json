@@ -1,0 +1,31 @@
+{
+  "issue": 6282,
+  "base": "84cf50deb63e003cbed97acbe4314d727b59991b",
+  "sourceOnly": true,
+  "lightAudit": {
+    "parserDiagnostics": 0,
+    "localeKeys": 45,
+    "apiFunctionsByteExact": 20,
+    "computeViewerOptionsByteExact": true,
+    "copyLinkByteExact": true,
+    "effectRequestClipboardTimerByteExact": true,
+    "ownedChineseJsx": 0,
+    "knownPromptExactSourceBinding": true,
+    "diffCheck": 0
+  },
+  "sourceSHA256": {
+    "apps/web/components/project/tab-live.tsx": "b5b866d2ed63323fe386f373a1d8c51ccedd8b7fab4143809ba3d7a52c99174d",
+    "apps/web/lib/live-projects.ts": "4bdabb5e3f56ca6deb67365e0596d9d7fdcdf2601069705fc7552abb8abf3686",
+    "apps/web/lib/live-project-prep.ts": "67ca806e06f15b0d2a15a31175964f5ca307beef3c4cbe0c170a2054720c857f",
+    "apps/web/lib/i18n/namespaces/workshop-live.ts": "ab0fc2851cf54582ce4cae72dec1f34a01d5fb7340de896453770a0bbef347ce",
+    "apps/web/lib/i18n/messages/en.ts": "6f1f0a729640f20d3ce94476ba6757588ad6fe9437b599f5f041c6b0f0633242",
+    "apps/web/lib/i18n/messages/zh-CN.ts": "f41a38667584a48336f1ccd58c394a0f76524c05329ddd235842c0721478688a"
+  },
+  "serverPromptSourceSHA256": "b361d6e582c1b4852920e7a9d729eb374380c13cd8788ba9eebc88e375b63fa4",
+  "deferred": [
+    "independent source review",
+    "focused unit tests",
+    "typecheck acceptance",
+    "runtime and viewport QA"
+  ]
+}

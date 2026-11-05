@@ -10,6 +10,7 @@
   ],
   "aggregates": {
     "backend-required": [
+      "api-test-plan",
       "gates-fast",
       "gates-test",
       "native-document-chain",

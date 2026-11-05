@@ -10,8 +10,18 @@
  */
 import { navbarSide, type NavbarSide } from "@/lib/prototype-navbar";
 import * as React from "react";
+import { translate, type MessageKey, type MessageParams } from "@/lib/i18n/messages";
+import type { Locale } from "@/lib/i18n/locale";
+
+// Display-only: never included in HtmlPageCtx, whose value enters iframe srcdoc.
+const ChromeLocaleCtx = React.createContext<Locale>("zh-CN");
+function useChromeT() {
+  const locale = React.useContext(ChromeLocaleCtx);
+  return (key: MessageKey, params?: MessageParams) => translate(locale, key, params);
+}
 import { buildHtmlPageSrcdoc, HTML_PAGE_MESSAGE_SOURCE, HTML_PAGE_PARENT_SOURCE, type HtmlPageMessage } from "@/lib/html-page-srcdoc";
 import { CommentPins, type CommentPin } from "./comment-pins";
+import { StatusBar, PhoneNotch, HomeIndicator, BrowserBar } from "./prototype-device-chrome";
 import {
   Check, ChevronDown, Circle, ImageIcon, Loader2, Smartphone, Tablet, Monitor, Home, Search, Bell, User, Settings, Square, CheckSquare, Lock,
   // 迭代 16（#3773 R4）：契约 `PrototypeIcon` 闭集的渲染表（下面 `ICONS` 穷举，漏一个编译不过）。
@@ -319,6 +329,7 @@ function RadioNode({ node, tap }: { node: Extract<PrototypeNode, { type: "radio"
 
 function SelectNode({ node, tap, radius }: { node: Extract<PrototypeNode, { type: "select" }>; tap: Record<string, unknown>; radius: string }): React.ReactElement {
   const live = useLive();
+  const t = useChromeT();
   const p = node.props;
   const shown = p.value ?? p.placeholder ?? p.options[0] ?? "";
   return (
@@ -330,7 +341,7 @@ function SelectNode({ node, tap, radius }: { node: Extract<PrototypeNode, { type
           className={cn("h-8 w-full border border-input bg-background px-2 text-12 outline-none focus-visible:ring-2 focus-visible:ring-ring", radius)}
           defaultValue={p.value ?? ""} aria-label={p.label ?? p.placeholder} onClick={(e) => e.stopPropagation()}
         >
-          {p.value === undefined && <option value="" disabled>{p.placeholder ?? "请选择"}</option>}
+          {p.value === undefined && <option value="" disabled>{p.placeholder ?? t("designShare.select")}</option>}
           {p.value !== undefined && !p.options.includes(p.value) && <option value={p.value}>{p.value}</option>}
           {p.options.map((o, i) => <option key={i} value={o}>{o}</option>)}
         </select>
@@ -735,6 +746,7 @@ function ImagePlaceholder({ node, tap }: { node: Extract<PrototypeNode, { type: 
  * 编辑态任意点击 ⇒ 选中这一页的 html 节点（元素级选择留给后续，见 PR 说明）。
  */
 function HtmlPage({ node, tap }: { node: Extract<PrototypeNode, { type: "html" }>; tap: ReturnType<typeof useTap> }): React.ReactElement {
+  const t = useChromeT();
   const { mode, links, onNavigate, onSelect, selectedId, selectedRef, onSelectRef } = React.useContext(SelectionCtx);
   const ref = React.useRef<HTMLIFrameElement>(null);
   const view = React.useContext(HtmlPageCtx);
@@ -766,7 +778,7 @@ function HtmlPage({ node, tap }: { node: Extract<PrototypeNode, { type: "html" }
     <div className="relative min-h-0 w-full flex-1" data-node-id={tap["data-node-id"]} data-selected={active === null ? tap["data-selected"] : undefined} data-changed={tap["data-changed"]}>
       <iframe
         ref={ref}
-        title="页面预览"
+        title={t("designShare.pagePreview")}
         sandbox="allow-scripts"
         srcDoc={buildHtmlPageSrcdoc(node.props.html, { ...view, mode })}
         onLoad={sendSelection}
@@ -780,6 +792,7 @@ function HtmlPage({ node, tap }: { node: Extract<PrototypeNode, { type: "html" }
 function Node({ node }: { node: PrototypeNode }): React.ReactElement {
   const tap = useTap(node);
   const sc = useScale();
+  const t = useChromeT();
   switch (node.type) {
     case "stack": {
       const p = node.props ?? {};
@@ -1046,7 +1059,7 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
         <footer className="mt-auto flex w-full flex-col gap-2 border-t border-border px-4 py-4 text-11 text-muted-foreground" data-proto="footer" {...tap}>
           <span className="text-13 font-semibold text-card-foreground">{p.brand}</span>
           {p.links !== undefined && p.links.length > 0 && (
-            <nav className="flex flex-wrap gap-x-4 gap-y-1" aria-label="页脚链接">
+            <nav className="flex flex-wrap gap-x-4 gap-y-1" aria-label={t("designShare.footerLinks")}>
               {p.links.map((l, i) => <span key={i}>{l}</span>)}
             </nav>
           )}
@@ -1100,9 +1113,10 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
 const BOARD_HEIGHT: Record<"sm" | "md" | "lg" | "fill", string> = { sm: "h-40", md: "h-64", lg: "h-96", fill: "min-h-64 flex-1" };
 const BOARD_DEFAULT_W: Record<"sticky" | "shape" | "text", number> = { sticky: 24, shape: 20, text: 30 };
 function Board({ node, tap }: { node: Extract<PrototypeNode, { type: "board" }>; tap: Record<string, unknown> }): React.ReactElement {
+  const t = useChromeT();
   const p = node.props;
   const links = (p.links ?? []).filter((l) => l.from < p.items.length && l.to < p.items.length);
-  const summary = `画布：${p.items.map((i) => i.text).filter((t) => t !== "").join("、")}`.slice(0, 300);
+  const summary = t("designShare.canvasSummary", { items: p.items.map((i) => i.text).filter((text) => text !== "").join("、") }).slice(0, 300);
   return (
     <div
       className={cn("relative w-full shrink-0 overflow-hidden rounded-card border border-border bg-panel", BOARD_HEIGHT[p.height ?? "md"])}
@@ -1157,6 +1171,7 @@ function Board({ node, tap }: { node: Extract<PrototypeNode, { type: "board" }>;
 }
 
 function Chart({ node, tap }: { node: Extract<PrototypeNode, { type: "chart" }>; tap: Record<string, unknown> }): React.ReactElement {
+  const t = useChromeT();
   const p = node.props;
   const n = Math.min(p.labels.length, p.values.length);
   const labels = p.labels.slice(0, n);
@@ -1171,13 +1186,13 @@ function Chart({ node, tap }: { node: Extract<PrototypeNode, { type: "chart" }>;
   const xAt = (i: number) => (n === 1 ? 50 : (i / (n - 1)) * 100);
   const pct = (v: number) => (span === 0 ? 0 : ((v - lo) / span) * 100);
   const unit = p.unit ?? "";
-  const summary = `${p.title ?? (p.kind === "line" ? "折线图" : "柱状图")}：${labels.map((l, i) => `${l} ${String(values[i])}${unit}`).join("，")}`;
+  const summary = t("designShare.chartSummary", { title: p.title ?? t(p.kind === "line" ? "designShare.lineChart" : "designShare.barChart"), items: labels.map((l, i) => `${l} ${String(values[i])}${unit}`).join("，") });
   return (
     <div className="flex w-full flex-col gap-1.5" data-proto="chart" data-chart-kind={p.kind ?? "bar"} {...tap}>
       {(p.title !== undefined || unit !== "") && (
         <div className="flex items-baseline justify-between gap-2 text-11">
           {p.title !== undefined && <span className="truncate font-medium">{p.title}</span>}
-          {unit !== "" && <span className="shrink-0 text-10 text-muted-foreground">单位：{unit}</span>}
+          {unit !== "" && <span className="shrink-0 text-10 text-muted-foreground">{t("designShare.unit", { unit })}</span>}
         </div>
       )}
       <div role="img" aria-label={summary} className="relative h-28 w-full border-b border-border">
@@ -1217,73 +1232,8 @@ function Chart({ node, tap }: { node: Extract<PrototypeNode, { type: "chart" }>;
   );
 }
 
-/** 居中手机屏：有树渲染树；没有（还没生成）显示占位块，与 B4.5 之前的外观一致。 */
-/**
- * 迭代 14 —— 机身外观。**只画壳，不参与布局**：状态栏/灵动岛/home 条都是绝对定位或
- * 固定高度的兄弟节点，原型内容仍占满剩余空间。
- *
- * ⚠ 这些是**装饰**，不是原语。它们不进 `data-proto`、不可选中、不进导出的 class 比对
- * （V47 比的是原语树）——把它们做成可选中的节点会让「选中一个节点去改」多出一批
- * 用户根本改不了的目标。
- */
-function StatusBar({ label }: { label: string }) {
-  return (
-    <div className="flex shrink-0 items-center justify-between px-5 pt-1.5 text-9 font-medium text-card-foreground/80" aria-hidden data-chrome="status">
-      <span>9:41</span>
-      {/* 页名：比「9:41」淡一档，但不能低于 AA——45% 时浅色原型上只有 2.99（#4331 U5，普通用户评测集量出）。
-          70% ⇒ 浅色 6.8 / 深色 8.1。 */}
-      <span className="truncate px-2 text-card-foreground/70">{label}</span>
-      <span className="flex items-center gap-0.5">
-        <span className="inline-block h-1.5 w-2.5 rounded-sm bg-current opacity-70" />
-        <span className="inline-block h-1.5 w-1.5 rounded-full bg-current opacity-70" />
-        <span className="inline-block h-1.5 w-3 rounded-sm border border-current opacity-70" />
-      </span>
-    </div>
-  );
-}
-
-/** 灵动岛（新机型）/ 听筒条（旧机型）。两者都是黑色，靠形状区分。 */
-function PhoneNotch({ island }: { island: boolean }) {
-  return (
-    <div className="pointer-events-none absolute inset-x-0 top-1 flex justify-center" aria-hidden data-chrome={island ? "island" : "notch"}>
-      <span className={cn("bg-black", island ? "h-4 w-20 rounded-full" : "h-3.5 w-32 rounded-b-xl")} />
-    </div>
-  );
-}
-
-/** 底部的 home 指示条。iPad 也有。 */
-function HomeIndicator() {
-  return (
-    <div className="flex shrink-0 justify-center pb-1.5 pt-1" aria-hidden data-chrome="home">
-      <span className="h-1 w-24 rounded-full bg-card-foreground/30" />
-    </div>
-  );
-}
-
-/** 浏览器壳：红黄绿 + 地址栏。地址栏里放页标签——它就是这一页的"标题"。 */
-function BrowserBar({ label }: { label: string }) {
-  return (
-    <div className="flex shrink-0 items-center gap-2 border-b border-border bg-panel px-2.5 py-1.5" data-chrome="browser">
-      {/*
-        * 交通灯用**语义 token** 而不是 macOS 那三个字面色值：色相语义正好对得上
-        * （危险/警告/成功），而字面色值在浅色/深色两套主题下都不会跟着变——
-        * 模拟要的是"像个浏览器窗口"，不是"像素级复刻 macOS"。
-        */}
-      <span className="flex gap-1" aria-hidden>
-        <span className="h-2 w-2 rounded-full bg-destructive" />
-        <span className="h-2 w-2 rounded-full bg-warning" />
-        <span className="h-2 w-2 rounded-full bg-success" />
-      </span>
-      <span className="flex min-w-0 flex-1 items-center gap-1 rounded-full bg-background px-2 py-0.5 text-9 text-muted-foreground">
-        <Lock aria-hidden className="h-2 w-2 shrink-0" />
-        <span className="truncate">{label}</span>
-      </span>
-    </div>
-  );
-}
-
 export function PrototypeCanvas({
-  label, root, selectedId = null, onSelect = null, selectedRef = null, onSelectRef = null, onInlineEdit = null, pins, ungenerated = false, drawing = false, changed = EMPTY_CHANGED, accent = "neutral", tokens, wireframe = false, onRegenerate = null, device = DEVICE_PRESETS[1]!, landscape = false, frameIndex, mode = "edit", links, onNavigate = null, theme = "dark", thumbnail = false,
+  label, root, selectedId = null, onSelect = null, selectedRef = null, onSelectRef = null, onInlineEdit = null, pins, ungenerated = false, drawing = false, changed = EMPTY_CHANGED, accent = "neutral", tokens, wireframe = false, onRegenerate = null, device = DEVICE_PRESETS[1]!, landscape = false, frameIndex, mode = "edit", links, onNavigate = null, theme = "dark", thumbnail = false, chromeLocale = "zh-CN",
 }: {
   label: string; root: PrototypeNode | null; selectedId?: string | null; onSelect?: ((id: string | null) => void) | null;
   /**
@@ -1291,6 +1241,8 @@ export function PrototypeCanvas({
    * `design-detail-phone`——那个 testid 是导出 PNG 找当前页、e2e 找画布的入口，挂重了两边都会认错。
    */
   thumbnail?: boolean;
+  /** Optional public-share chrome only; authored prototype content stays verbatim. */
+  chromeLocale?: Locale;
   /** 对标 R7：画布上双击改字的提交口（见 `InlineText`）。 */
   /** HTML 页里选中的元素（`data-ref`）与它的回调。不给 ⇒ 点 HTML 页只会选中整页。 */
   selectedRef?: string | null;
@@ -1359,12 +1311,14 @@ export function PrototypeCanvas({
    */
   theme?: "light" | "dark";
 }) {
+  const t = (key: MessageKey, params?: MessageParams) => translate(chromeLocale, key, params);
   const size = rotated(device, landscape);
   const linkMap = React.useMemo(() => linkMapOf(links), [links]);
   const treeRef = React.useRef<HTMLDivElement>(null);
   // 对标 R2：项目级圆角 / 密度。`tokens` 缺失（老调用方）⇒ 都是 default，逐像素同以前。
   const scale = React.useMemo(() => ({ radius: tokens?.radius ?? "default", density: tokens?.density ?? "default" }) as const, [tokens?.radius, tokens?.density]);
   return (
+    <ChromeLocaleCtx.Provider value={chromeLocale}>
     <SelectionCtx.Provider value={{ selectedId, onSelect, mode, links: linkMap, onNavigate, changed, onInlineEdit, selectedRef, onSelectRef }}>
     <ScaleCtx.Provider value={scale}>
     <HtmlPageCtx.Provider value={{ wireframe }}>
@@ -1415,7 +1369,7 @@ export function PrototypeCanvas({
           ) : ungenerated ? (
             <div className="mt-auto flex flex-col items-center gap-1.5">
               {/* 说的是事实：这一页规划过、这一轮没画出来，别的页不受影响。 */}
-              <p className="text-center text-11 text-muted-foreground">这一页没画出来。其余页不受影响。</p>
+              <p className="text-center text-11 text-muted-foreground">{t("designShare.ungenerated")}</p>
               {onRegenerate !== null && (
                 <button
                   type="button"
@@ -1435,7 +1389,7 @@ export function PrototypeCanvas({
              * 方位词在响应式布局里天然会说谎。
              */
             <p className="m-auto max-w-[80%] text-center text-12 text-muted-foreground">
-              还没有原型。<br />在对话里说一句你要做什么，我就画出来。
+              {t("designShare.noPrototype")}<br />{t("designShare.describePrototype")}
             </p>
           )}
         </div>
@@ -1477,5 +1431,6 @@ export function PrototypeCanvas({
     </HtmlPageCtx.Provider>
     </ScaleCtx.Provider>
     </SelectionCtx.Provider>
+    </ChromeLocaleCtx.Provider>
   );
 }

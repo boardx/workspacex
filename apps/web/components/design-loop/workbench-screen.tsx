@@ -13,7 +13,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { UiState } from "@/lib/ui-state";
-import { ApiError } from "@/lib/api-client";
+import { useI18n } from "@/lib/i18n/provider";
+import { projectTemplateDisplayLabel } from "@/lib/design-display-labels";
 import { describeFailure } from "@/lib/design-failure";
 import { humanTime } from "@/lib/human-time";
 import { LinkBadge } from "./badges";
@@ -30,7 +31,6 @@ import {
   DESIGN_PROJECT_TAG_MAX_CHARS,
   updateProject as apiUpdateProject,
   PROJECT_TEMPLATE_OPTIONS,
-  PROJECT_TEMPLATE_LABEL,
   type DesignProject,
   type IntakeAnswer,
   type ProjectTemplate,
@@ -55,8 +55,16 @@ type IntakeQuestion = designWorkbench.IntakeQuestion;
  *     用服务端返回的 `project` 覆盖列表里那一条（而不是本地拼 patch），删除成功后才从
  *     列表移除；失败都保留原列表 + 提示，不假装已经生效。
  */
-const TEMPLATE_LABEL = PROJECT_TEMPLATE_LABEL;
-const TEMPLATE_OPTIONS = PROJECT_TEMPLATE_OPTIONS.map((t) => ({ value: t, label: TEMPLATE_LABEL[t] }));
+// These keys project only the closed canonical starters; click payloads remain untouched.
+const STARTER_DISPLAY_KEYS = {
+  "对话助手": { label: "workbenchHome.starter.chat.label", prompt: "workbenchHome.starter.chat.prompt" },
+  "数据看板": { label: "workbenchHome.starter.dashboard.label", prompt: "workbenchHome.starter.dashboard.prompt" },
+  "表单流程": { label: "workbenchHome.starter.form.label", prompt: "workbenchHome.starter.form.prompt" },
+} as const;
+type ActionError = { kind: "create" | "save" | "delete"; error: unknown };
+const ACTION_ERROR_KEYS = {
+  create: "workbenchHome.createFailed", save: "workbenchHome.saveFailed", delete: "workbenchHome.deleteFailed",
+} as const;
 
 /**
  * 迭代 33：这三处（工作台首页 / 草稿列表 / 收件箱）原来各抄了一份
@@ -68,7 +76,7 @@ const TEMPLATE_OPTIONS = PROJECT_TEMPLATE_OPTIONS.map((t) => ({ value: t, label:
 type Load =
   | { kind: "loading" }
   | { kind: "ready"; items: DesignProject[] }
-  | { kind: "failed"; reason: string };
+  | { kind: "failed"; reason: { error: unknown } };
 
 const SEARCH_DEBOUNCE_MS = 300;
 
@@ -80,6 +88,7 @@ export function DesignWorkbenchHome({
   /** 迭代 16（#3773 R7）：`justCreated` = 这一次是刚建出来的，调用方据它决定是否自动开画。 */
   onOpenProject?: (id: string, justCreated?: boolean) => void;
 }) {
+  const { locale, t } = useI18n();
   const [queryInput, setQueryInput] = React.useState("");
   const [query, setQuery] = React.useState("");
   const [load, setLoad] = React.useState<Load>({ kind: "loading" });
@@ -91,7 +100,7 @@ export function DesignWorkbenchHome({
     | { mode: "edit"; project: DesignProject }
   >(null);
   const [generating, setGenerating] = React.useState<string | null>(null);
-  const [actionError, setActionError] = React.useState<string | null>(null);
+  const [actionError, setActionError] = React.useState<ActionError | null>(null);
   /** 迭代 23：项目建好了但有参考图没传上去——见 `handleCreate` 头注，这不能静默。 */
   const [partial, setPartial] = React.useState<null | { projectId: string; name: string; failed: number }>(null);
   const [busyId, setBusyId] = React.useState<string | null>(null);
@@ -132,7 +141,7 @@ export function DesignWorkbenchHome({
         setVocabulary([...new Set(out.items.flatMap((p) => p.tags))].sort((a, b) => a.localeCompare(b, "zh-CN")));
       }
     } catch (err) {
-      setLoad({ kind: "failed", reason: describeFailure(err) });
+      setLoad({ kind: "failed", reason: { error: err } });
     } finally {
       setRefreshing(false);
     }
@@ -156,8 +165,8 @@ export function DesignWorkbenchHome({
     return (
       <div className="flex flex-col items-center gap-2 p-16 text-center" data-testid="denied">
         <ShieldAlert aria-hidden className="h-8 w-8 text-muted-foreground" />
-        <p className="text-14 font-medium">PM 设计工作台仅 PM / 运营可见</p>
-        <p className="max-w-sm text-12 text-muted-foreground">这里用来把反馈深化成设计稿再交给开发排期。需要权限的话联系平台管理员。</p>
+        <p className="text-14 font-medium">{t("workbenchHome.deniedTitle")}</p>
+        <p className="max-w-sm text-12 text-muted-foreground">{t("workbenchHome.deniedBody")}</p>
       </div>
     );
   }
@@ -166,11 +175,13 @@ export function DesignWorkbenchHome({
     return (
       <div className="flex flex-col items-center gap-2 p-16 text-center" data-testid="dep-failed">
         <PlugZap aria-hidden className="h-8 w-8 text-muted-foreground" />
-        <p className="text-14 font-medium">设计项目暂时读不到</p>
+        <p className="text-14 font-medium">{t("workbenchHome.loadFailed")}</p>
         <p className="max-w-sm text-12 text-muted-foreground">
-          你的项目没有丢，只是这次没取到{reason !== null ? `（${reason}）` : ""}。稍后重试。
+          {reason !== null
+            ? t("workbenchHome.loadFailedReason", { reason: describeFailure(reason.error, locale) })
+            : t("workbenchHome.loadFailedBody")}
         </p>
-        <Button size="sm" variant="outline" className="mt-1" onClick={() => void reload()} data-testid="workbench-retry">重试</Button>
+        <Button size="sm" variant="outline" className="mt-1" onClick={() => void reload()} data-testid="workbench-retry">{t("workbenchHome.retry")}</Button>
       </div>
     );
   }
@@ -242,7 +253,7 @@ export function DesignWorkbenchHome({
       onOpenProject?.(project.id, true);
     } catch (err) {
       setGenerating(null);
-      setActionError(`没能创建设计项目（${describeFailure(err)}）`);
+      setActionError({ kind: "create", error: err });
     }
   };
 
@@ -257,7 +268,7 @@ export function DesignWorkbenchHome({
       );
       setDialog(null);
     } catch (err) {
-      setActionError(`没能保存修改（${describeFailure(err)}）`);
+      setActionError({ kind: "save", error: err });
     } finally {
       setBusyId(null);
     }
@@ -270,7 +281,7 @@ export function DesignWorkbenchHome({
       await apiDeleteProject(projectId);
       setLoad((prev) => (prev.kind === "ready" ? { ...prev, items: prev.items.filter((p) => p.id !== projectId) } : prev));
     } catch (err) {
-      setActionError(`没能删除这个项目（${describeFailure(err)}）`);
+      setActionError({ kind: "delete", error: err });
     } finally {
       setBusyId(null);
     }
@@ -280,7 +291,7 @@ export function DesignWorkbenchHome({
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4 p-16" data-testid="workbench-generating">
         <Loader2 aria-hidden className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-14 font-medium">正在把「{generating}」整理成设计稿…</p>
+        <p className="text-14 font-medium">{t("workbenchHome.generating", { name: generating })}</p>
         <div className="grid w-full max-w-md grid-cols-3 gap-2">
           {[0, 1, 2].map((n) => (
             <div key={n} className="h-24 animate-pulse rounded-card bg-muted" />
@@ -293,13 +304,13 @@ export function DesignWorkbenchHome({
   return (
     <div className="flex h-full flex-col overflow-y-auto" data-testid="design-workbench">
       <div className="border-b border-border px-6 py-4">
-        <h1 className="text-20 font-semibold tracking-tight">PM 设计工作台</h1>
+        <h1 className="text-20 font-semibold tracking-tight">{t("workbenchHome.title")}</h1>
         {/*
           * 迭代 23：这句话原文是「**从模板起一个设计**，或把收件箱里的反馈深化成方案」——
           * 而三张模板卡片在迭代 13 就删掉了（理由见下面那段注释）。**首屏第一句话在指一条
           * 已经不存在的路**，而且这是新用户看到的第一行字。改成现在真实的两条路。
           */}
-        <p className="mt-0.5 text-12 text-muted-foreground">说清要做什么，AI 问你几句再把它画出来；也可以把收件箱里的反馈深化成设计稿，再交给开发排期。</p>
+        <p className="mt-0.5 text-12 text-muted-foreground">{t("workbenchHome.intro")}</p>
       </div>
 
       {/*
@@ -309,14 +320,14 @@ export function DesignWorkbenchHome({
         */}
       {actionError !== null && (
         <div className="mx-6 mt-3 flex items-start gap-2 rounded-card bg-destructive px-3 py-1.5 text-12 text-destructive-foreground" data-testid="workbench-action-error" role="alert">
-          <span className="min-w-0 flex-1">{actionError}</span>
+          <span className="min-w-0 flex-1">{t(ACTION_ERROR_KEYS[actionError.kind], { reason: describeFailure(actionError.error, locale) })}</span>
           <button
             type="button"
             onClick={() => setActionError(null)}
             data-testid="workbench-action-error-dismiss"
             className="shrink-0 underline underline-offset-2"
           >
-            知道了
+            {t("workbenchHome.dismiss")}
           </button>
         </div>
       )}
@@ -326,13 +337,13 @@ export function DesignWorkbenchHome({
           className="mx-6 mt-3 flex flex-wrap items-center gap-2 rounded-card border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-12"
           data-testid="workbench-delete-confirm"
           role="alertdialog"
-          aria-label="确认删除设计项目"
+          aria-label={t("workbenchHome.deleteTitle")}
         >
           <span className="min-w-0 flex-1">
-            删掉「{confirmDelete.name}」？里面的对话、原型和验收标准会一起没有，删了找不回来。
+            {t("workbenchHome.deleteBody", { name: confirmDelete.name })}
           </span>
           <Button variant="outline" size="sm" data-testid="workbench-delete-cancel" onClick={() => setConfirmDelete(null)}>
-            算了
+            {t("workbenchHome.cancelDelete")}
           </Button>
           <Button
             variant="destructive"
@@ -340,7 +351,7 @@ export function DesignWorkbenchHome({
             data-testid="workbench-delete-yes"
             onClick={() => { void handleDelete(confirmDelete.id); }}
           >
-            删掉
+            {t("workbenchHome.delete")}
           </Button>
         </div>
       )}
@@ -348,13 +359,13 @@ export function DesignWorkbenchHome({
       {partial !== null && (
         <div className="mx-6 mt-3 flex flex-wrap items-center gap-2 rounded-card border border-warning/40 bg-warning/10 px-3 py-1.5 text-12" data-testid="workbench-partial-create" role="alert">
           <span>
-            「{partial.name}」已经建好了，但有 {partial.failed} 张参考图没传上去（多半是格式不对或超过 4MB）。进去再传一次，AI 才看得到它。
+            {t("workbenchHome.partialCreate", { name: partial.name, count: partial.failed })}
           </span>
           <Button variant="outline" size="sm" data-testid="workbench-partial-open"
             onClick={() => { const id = partial.projectId; setPartial(null); onOpenProject?.(id, true); }}>
-            打开这个项目
+            {t("workbenchHome.openProject")}
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => setPartial(null)}>知道了</Button>
+          <Button variant="ghost" size="sm" onClick={() => setPartial(null)}>{t("workbenchHome.dismiss")}</Button>
         </div>
       )}
 
@@ -368,10 +379,10 @@ export function DesignWorkbenchHome({
       {/* 我的设计项目 */}
       <div className="flex flex-wrap items-center justify-between gap-2 px-6 pt-2">
         <h2 className="text-14 font-semibold">
-          我的设计项目
+          {t("workbenchHome.myProjects")}
           {refreshing && load.kind === "ready" && (
             <span className="ml-2 text-11 font-normal text-muted-foreground" data-testid="workbench-refreshing" role="status">
-              正在按新条件筛…
+              {t("workbenchHome.refreshing")}
             </span>
           )}
         </h2>
@@ -381,8 +392,8 @@ export function DesignWorkbenchHome({
             <Input
               value={queryInput}
               onChange={(e) => setQueryInput(e.target.value)}
-              placeholder={searchPlaceholder("设计")}
-              aria-label="搜索设计项目名称或标签"
+              placeholder={searchPlaceholder(t("workbenchHome.searchBusiness"), locale)}
+              aria-label={t("workbenchHome.searchAria")}
               data-testid="workbench-search"
               className="h-8 w-48 pl-7 pr-7 text-12"
             />
@@ -391,7 +402,7 @@ export function DesignWorkbenchHome({
               <button
                 type="button"
                 onClick={() => setQueryInput("")}
-                aria-label="清空搜索"
+                aria-label={t("workbenchHome.clearSearch")}
                 data-testid="workbench-search-clear"
                 className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-control p-0.5 text-muted-foreground transition-colors duration-fast hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
@@ -400,7 +411,7 @@ export function DesignWorkbenchHome({
             )}
           </div>
           <Button variant="primary" size="sm" onClick={() => startCreate("mobile")} data-testid="workbench-new">
-            <Plus aria-hidden className="h-3.5 w-3.5" /> 新建设计
+            <Plus aria-hidden className="h-3.5 w-3.5" /> {t("workbenchHome.newDesign")}
           </Button>
         </div>
       </div>
@@ -412,7 +423,7 @@ export function DesignWorkbenchHome({
             selected={selectedTags}
             onChange={setSelectedTags}
             prefix="workbench"
-            business="设计项目"
+            business={t("workbenchHome.business")}
             match="all"
           />
         </div>
@@ -427,13 +438,13 @@ export function DesignWorkbenchHome({
            *   这就够说出正确的那句话了。）
            */
           <div className="flex flex-1 flex-col items-center justify-center gap-2 p-16 text-center" data-testid="empty-filtered">
-            <p className="text-14 font-medium">没有符合条件的设计项目。</p>
+            <p className="text-14 font-medium">{t("workbenchHome.filteredEmpty")}</p>
             <p className="text-12 text-muted-foreground">
-              你的项目还在，只是被当前的{query === "" ? "" : "搜索词"}{query !== "" && selectedTags.length > 0 ? "和" : ""}{selectedTags.length > 0 ? "标签筛选" : ""}挡住了。
+              {t(query !== "" && selectedTags.length > 0 ? "workbenchHome.filteredBoth" : query !== "" ? "workbenchHome.filteredSearch" : "workbenchHome.filteredTags")}
             </p>
             <Button variant="outline" size="sm" className="mt-1" data-testid="empty-clear-filter"
               onClick={() => { setQueryInput(""); setSelectedTags([]); }}>
-              清除筛选条件
+              {t("workbenchHome.clearFilters")}
             </Button>
           </div>
         ) : (
@@ -446,9 +457,9 @@ export function DesignWorkbenchHome({
            * 新建弹窗，用户仍然能改、仍然走澄清问答：一键体验不等于替他按下确定。
            */
           <div className="flex flex-1 flex-col items-center justify-center gap-3 p-16 text-center" data-testid="empty">
-            <p className="text-14 font-medium">还没有设计项目。</p>
+            <p className="text-14 font-medium">{t("workbenchHome.empty")}</p>
             <p className="max-w-sm text-12 text-muted-foreground">
-              拿下面任意一条开头试试——点了就是一句写好的需求，你可以改；也可以在收件箱把一条反馈「用 PM 设计工作台深化」。
+              {t("workbenchHome.emptyBody")}
             </p>
             <div className="mt-1 flex flex-wrap items-stretch justify-center gap-2" data-testid="empty-starters">
               {DESIGN_WORKBENCH_STARTERS.map((st) => (
@@ -459,8 +470,8 @@ export function DesignWorkbenchHome({
                   onClick={() => startCreate("mobile", { name: st.label, problem: st.prompt })}
                   className="flex w-52 flex-col gap-1 rounded-card border border-border bg-card p-3 text-left transition-colors duration-fast hover:border-primary"
                 >
-                  <span className="text-12 font-medium">{st.label}</span>
-                  <span className="line-clamp-3 text-10 text-muted-foreground">{st.prompt}</span>
+                  <span className="text-12 font-medium">{locale === "en" && Object.hasOwn(STARTER_DISPLAY_KEYS, st.label) ? t(STARTER_DISPLAY_KEYS[st.label as keyof typeof STARTER_DISPLAY_KEYS].label) : st.label}</span>
+                  <span className="line-clamp-3 text-10 text-muted-foreground">{locale === "en" && Object.hasOwn(STARTER_DISPLAY_KEYS, st.label) ? t(STARTER_DISPLAY_KEYS[st.label as keyof typeof STARTER_DISPLAY_KEYS].prompt) : st.prompt}</span>
                 </button>
               ))}
             </div>
@@ -510,35 +521,36 @@ function ProjectCard({
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const { locale, t } = useI18n();
   return (
     <ResourceCard
       testId={`project-card-${project.id}`}
       title={project.name}
       /* 「2026/9/23」是机器时间：他要判断的是「这是不是我刚才那个」。同 `human-time.ts` 单源。 */
-      subtitle={`${TEMPLATE_LABEL[project.template]} · 改于 ${humanTime(project.updatedAt)}`}
+      subtitle={t("workbenchHome.cardSubtitle", { template: projectTemplateDisplayLabel(project.template, locale), time: humanTime(project.updatedAt) })}
       badges={
         <>
-          {project.linkedFeedbackId !== null && <LinkBadge text={`源自反馈`} testid={`project-link-${project.id}`} />}
+          {project.linkedFeedbackId !== null && <LinkBadge text={t("inbox.fromFeedback")} testid={`project-link-${project.id}`} />}
           {project.pushed ? (
-            <Badge tone="success"><Check aria-hidden className="mr-0.5 h-3 w-3" />已推送</Badge>
+            <Badge tone="success"><Check aria-hidden className="mr-0.5 h-3 w-3" />{t("workbenchHome.pushed")}</Badge>
           ) : (
-            <Badge tone="warning">未推送</Badge>
+            <Badge tone="warning">{t("workbenchHome.notPushed")}</Badge>
           )}
         </>
       }
       menu={
         <Menu>
           <MenuTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label={`「${project.name}」的更多操作`} disabled={busy} data-testid={`project-more-${project.id}`}>
+            <Button variant="ghost" size="icon" aria-label={t("workbenchHome.moreActions", { name: project.name })} disabled={busy} data-testid={`project-more-${project.id}`}>
               {busy ? <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> : <MoreHorizontal aria-hidden className="h-4 w-4" />}
             </Button>
           </MenuTrigger>
           <MenuContent align="end" sideOffset={4} className="w-44" data-testid={`project-menu-${project.id}`}>
             <MenuItem onSelect={onEdit} data-testid={`project-edit-${project.id}`}>
-              <Pencil aria-hidden className="h-3.5 w-3.5" />改名字和标签
+              <Pencil aria-hidden className="h-3.5 w-3.5" />{t("workbenchHome.editNameTags")}
             </MenuItem>
             <MenuItem onSelect={onDelete} data-testid={`project-delete-${project.id}`} className="text-destructive data-[highlighted]:text-destructive">
-              <Trash2 aria-hidden className="h-3.5 w-3.5" />删除这个设计
+              <Trash2 aria-hidden className="h-3.5 w-3.5" />{t("workbenchHome.deleteDesign")}
             </MenuItem>
           </MenuContent>
         </Menu>
@@ -548,7 +560,7 @@ function ProjectCard({
            所以标题是纯文字，「打开」由这颗主按钮承担（沿用 `project-open-*` testid，屏幕阅读器读到项目名）。 */
       actions={
         <Button variant="primary" size="sm" onClick={onOpen} disabled={busy} data-testid={`project-open-${project.id}`}>
-          打开设计<span className="sr-only">：{project.name}</span>
+          {t("workbenchHome.openDesign")}<span className="sr-only">{t("workbenchHome.namedProject", { name: project.name })}</span>
         </Button>
       }
     />
@@ -568,6 +580,8 @@ function ProjectDialog({
   /** 编辑走 `updateProject`（.strict()，没有 intake）——所以这里的入参**不含** intake，类型上就不给带。 */
   onSave: (input: { name: string; template: ProjectTemplate; problem: string; tags: readonly string[] }) => void;
 }) {
+  const { locale, t } = useI18n();
+  const templateOptions = PROJECT_TEMPLATE_OPTIONS.map((value) => ({ value, label: projectTemplateDisplayLabel(value, locale) }));
   const [name, setName] = React.useState(initial.name ?? "");
   const [template, setTemplate] = React.useState<ProjectTemplate>(initial.template);
   const [problem, setProblem] = React.useState(initial.problem ?? "");
@@ -626,7 +640,7 @@ function ProjectDialog({
    * 停在原地，一个字都不出。用户会再点一次，再什么也没有。而这一步是新建流程的正门。
    * 失败要说，并且指出那条不靠它也能走完的路（「跳过，直接创建」就在旁边）。
    */
-  const [askError, setAskError] = React.useState<string | null>(null);
+  const [askError, setAskError] = React.useState<{ error: unknown } | null>(null);
   const ask = async () => {
     setAsking(true);
     setAskError(null);
@@ -637,7 +651,7 @@ function ProjectDialog({
       setFallbackQs(out.fallback);
       setStep("questions");
     } catch (err) {
-      setAskError(`没能让 AI 出题（${describeFailure(err)}）。可以再试一次，或者点「跳过，直接创建」——进去以后照样能在对话里说。`);
+      setAskError({ error: err });
     } finally {
       setAsking(false);
     }
@@ -695,31 +709,31 @@ function ProjectDialog({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" data-testid="project-dialog">
       <div className="absolute inset-0 bg-inverse/40" onClick={requestClose} aria-hidden />
-      <div ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={editing ? "编辑设计" : "新建设计"} className="relative flex w-full max-w-md flex-col gap-3 rounded-card border border-border bg-card p-5 shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      <div ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={t(editing ? "workbenchHome.editDesign" : "workbenchHome.newDesign")} className="relative flex w-full max-w-md flex-col gap-3 rounded-card border border-border bg-card p-5 shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         <h3 className="text-16 font-semibold">
-          {editing ? "编辑设计" : step === "brief" ? "新建设计" : step === "questions" ? "再问你几个问题" : "确认设计指导原则"}
+          {t(editing ? "workbenchHome.editDesign" : step === "brief" ? "workbenchHome.newDesign" : step === "questions" ? "workbenchHome.questionsTitle" : "workbenchHome.reviewTitle")}
         </h3>
 
         {(editing || step === "brief") && (
           <>
             <div className="flex flex-col gap-1">
-              <span className="text-11 font-medium text-muted-foreground">类别</span>
-              <Select options={TEMPLATE_OPTIONS} value={template} onValueChange={(v) => setTemplate(v as ProjectTemplate)} data-testid="project-dialog-template" />
+              <span className="text-11 font-medium text-muted-foreground">{t("workbenchHome.category")}</span>
+              <Select options={templateOptions} placeholder={t("workbenchHome.selectCategory")} aria-label={t("workbenchHome.category")} value={template} onValueChange={(v) => setTemplate(v as ProjectTemplate)} data-testid="project-dialog-template" />
             </div>
             <div className="flex flex-col gap-1">
-              <label htmlFor="project-name" className="text-11 font-medium text-muted-foreground">名称</label>
-              <Input id="project-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="给这个设计起个名字" data-testid="project-dialog-name" />
+              <label htmlFor="project-name" className="text-11 font-medium text-muted-foreground">{t("workbenchHome.name")}</label>
+              <Input id="project-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("workbenchHome.namePlaceholder")} data-testid="project-dialog-name" />
               {name.trim() === "" && (effectiveName === ""
-                ? <p className="text-10 text-muted-foreground" data-testid="err-name">写一句想做什么就能创建，名字可以不填。</p>
-                : <p className="text-10 text-muted-foreground" data-testid="name-default">不填也行，会先叫「{effectiveName}」，之后随时能改。</p>)}
+                ? <p className="text-10 text-muted-foreground" data-testid="err-name">{t("workbenchHome.nameOptional")}</p>
+                : <p className="text-10 text-muted-foreground" data-testid="name-default">{t("workbenchHome.defaultName", { name: effectiveName })}</p>)}
             </div>
             <div className="flex flex-col gap-1">
               <label htmlFor="project-problem" className="text-11 font-medium text-muted-foreground">
-                {editing ? "背景 / 上下文（可选）" : "想做什么？"}
+                {t(editing ? "workbenchHome.background" : "workbenchHome.brief")}
               </label>
               <Textarea
                 id="project-problem" value={problem} onChange={(e) => setProblem(e.target.value)} rows={3}
-                placeholder={editing ? "想解决的问题、谁会用、现在怎么绕过去的" : "一句话也行，我会再问你几个问题"}
+                placeholder={t(editing ? "workbenchHome.backgroundPlaceholder" : "workbenchHome.briefPlaceholder")}
                 data-testid="project-dialog-problem"
               />
             </div>
@@ -731,7 +745,7 @@ function ProjectDialog({
           <div className="flex max-h-[50vh] flex-col gap-3 overflow-y-auto" data-testid="intake-questions">
             {fallbackQs && (
               <p className="text-11 text-muted-foreground" data-testid="intake-fallback-notice">
-                AI 没能生成针对性的问题，先按通用的问一遍。
+                {t("workbenchHome.fallbackQuestions")}
               </p>
             )}
             {questions.map((q) => (
@@ -741,7 +755,7 @@ function ProjectDialog({
                   rows={2}
                   value={answers[q.text] ?? ""}
                   onChange={(e) => setAnswers((a) => ({ ...a, [q.text]: e.target.value }))}
-                  placeholder={q.hint ?? "答不上来就留空，跳过这条"}
+                  placeholder={q.hint ?? t("workbenchHome.answerPlaceholder")}
                   data-testid={`intake-answer-${q.dimension}`}
                 />
               </div>
@@ -752,7 +766,7 @@ function ProjectDialog({
         {!editing && step === "review" && (
           <div className="flex flex-col gap-1">
             <label htmlFor="project-guideline" className="text-11 font-medium text-muted-foreground">
-              设计指导原则（可以改，改完就是这个项目的背景）
+              {t("workbenchHome.principles")}
             </label>
             <Textarea
               id="project-guideline" rows={8} value={problem}
@@ -765,33 +779,33 @@ function ProjectDialog({
         {(editing || step === "brief" || step === "review") && (
           <div className="flex flex-col gap-1">
             <span className="text-11 font-medium text-muted-foreground">
-              标签（最多 {DESIGN_PROJECT_MAX_TAGS} 个）
+              {t("workbenchHome.tagsMax", { count: DESIGN_PROJECT_MAX_TAGS })}
             </span>
             <TagInput
               value={tags}
               onChange={setTags}
               knownTags={knownTags}
-              noteFor={(n) => `${String(n)} 个设计在用`}
+              noteFor={(n) => t("workbenchHome.tagUsage", { count: n })}
               maxTags={DESIGN_PROJECT_MAX_TAGS}
               maxTagLength={DESIGN_PROJECT_TAG_MAX_CHARS}
               draft={tagDraft}
               onDraftChange={setTagDraft}
               testIdPrefix="project-tags"
-              emptyHint="输入即搜索已有标签，回车新建一个——设计列表可按它们筛选"
+              emptyHint={t("workbenchHome.tagHint")}
             />
           </div>
         )}
 
         {askError !== null && (
-          <p className="text-11 text-destructive" role="alert" data-testid="project-dialog-ask-error">{askError}</p>
+          <p className="text-11 text-destructive" role="alert" data-testid="project-dialog-ask-error">{t("workbenchHome.askFailed", { reason: describeFailure(askError.error, locale) })}</p>
         )}
 
         {confirmDiscard && (
-          <div className="flex flex-col gap-2 rounded-control border border-border bg-panel p-2" data-testid="project-dialog-discard" role="alertdialog" aria-label="放弃这次填写">
-            <p className="text-11">关掉就把刚填的这些丢了。</p>
+          <div className="flex flex-col gap-2 rounded-control border border-border bg-panel p-2" data-testid="project-dialog-discard" role="alertdialog" aria-label={t("workbenchHome.discardTitle")}>
+            <p className="text-11">{t("workbenchHome.discardBody")}</p>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" size="sm" data-testid="project-dialog-discard-keep" onClick={() => setConfirmDiscard(false)}>继续填</Button>
-              <Button variant="destructive" size="sm" data-testid="project-dialog-discard-yes" onClick={onClose}>丢掉并关闭</Button>
+              <Button variant="outline" size="sm" data-testid="project-dialog-discard-keep" onClick={() => setConfirmDiscard(false)}>{t("workbenchHome.keepEditing")}</Button>
+              <Button variant="destructive" size="sm" data-testid="project-dialog-discard-yes" onClick={onClose}>{t("workbenchHome.discard")}</Button>
             </div>
           </div>
         )}
@@ -804,26 +818,26 @@ function ProjectDialog({
           {!editing && step !== "brief" && (
             <Button variant="ghost" size="sm" data-testid="intake-back"
               onClick={() => setStep(step === "review" ? "questions" : "brief")}>
-              上一步
+              {t("workbenchHome.back")}
             </Button>
           )}
-          <Button variant="ghost" size="sm" onClick={requestClose}>取消</Button>
+          <Button variant="ghost" size="sm" onClick={requestClose}>{t("workbenchHome.cancel")}</Button>
           {!editing && step === "brief" && (
             <>
               {/* 整段跳过：引导是帮忙不是关卡，跳过之后不再拦（delta §3.3 / 取舍 ④=A）。 */}
               <Button variant="ghost" size="sm" disabled={!canSubmit} data-testid="intake-skip-all"
                 onClick={() => onCreate({ name: effectiveName, template, problem: problem.trim(), tags: submitTags(), refFiles })}>
-                跳过，直接创建
+                {t("workbenchHome.skip")}
               </Button>
               <Button variant="primary" size="sm" disabled={!canSubmit || asking} data-testid="intake-ask"
                 onClick={() => void ask()}>
                 {asking && <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />}
-                下一步：让 AI 问几个问题
+                {t("workbenchHome.ask")}
               </Button>
             </>
           )}
           {!editing && step === "questions" && (
-            <Button variant="primary" size="sm" data-testid="intake-next" onClick={toReview}>下一步</Button>
+            <Button variant="primary" size="sm" data-testid="intake-next" onClick={toReview}>{t("workbenchHome.next")}</Button>
           )}
           {(editing || step === "review") && (
             <Button
@@ -840,7 +854,7 @@ function ProjectDialog({
               }
             >
               {busy && <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />}
-              {editing ? "保存" : "创建并进入设计"}
+              {t(editing ? "workbenchHome.save" : "workbenchHome.create")}
             </Button>
           )}
         </div>

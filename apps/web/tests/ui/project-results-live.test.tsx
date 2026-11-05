@@ -125,7 +125,7 @@ describe("F964 TabResults：成果去向 / 审计与反馈接真，四块契约�
     render(<TabResults view="facilitator" liveAudit={audit} />);
     const list = screen.getByTestId("project-results-audit-list");
     expect(list).toHaveTextContent("越权尝试");
-    expect(list).toHaveTextContent("actor u-1 → project:p-1");
+    expect(list).toHaveTextContent("操作者 u-1 → project:p-1");
     expect(screen.getByTestId("project-results-audit-total")).toHaveTextContent("共 1 条");
   });
 });

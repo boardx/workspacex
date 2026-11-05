@@ -53,13 +53,7 @@ export const PROJECT_TEMPLATE_OPTIONS = designWorkbench.ProjectTemplate.options;
  * `detail-screen.tsx`（详情页状态栏）各写了一份同样的三行——同一事实的第二份副本。
  * 键集合是契约闭集，漏一种编译不过。
  */
-export const PROJECT_TEMPLATE_LABEL: Record<ProjectTemplate, string> = {
-  mobile: "移动端设计",
-  ui: "UI 原型",
-  // design-delta `novice-workbench-list`：普通用户评测集把「线框图」列为术语（第一次来的业务人员不认得）。
-  // 只改展示名，存储值仍是 `wireframe`。
-  wireframe: "草图",
-};
+export { PROJECT_TEMPLATE_LABEL } from "./design-loop-label-metadata";
 
 /** 空状态引导语 / 固定回执——展示层文案，不落库（见契约文件头【待确认点 2】）。 */
 export const DESIGN_WORKBENCH_CHAT_INTRO = designWorkbench.DESIGN_WORKBENCH_CHAT_INTRO;

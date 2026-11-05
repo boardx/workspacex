@@ -1,5 +1,5 @@
 import {expect,it} from 'vitest';
-import {inspectUiBoundary,planTargeted,verifyTargetedPlan} from './ci-targeted-ui.mjs';
+import {inspectUiBoundary,inspectPresentationBoundary,inspectMessageBoundary,planTargeted,verifyTargetedPlan} from './ci-targeted-ui.mjs';
 const original='import * as React from "react"; import {cn} from "@/lib/utils"; export function UI({onUseTemplate}:{onUseTemplate:(x:string)=>void}){return <button className={cn("a")} onClick={()=>onUseTemplate("a")}>Hello</button>}';
 it('permits local display changes but rejects new runtime edges and public API changes',()=>{
  const copy=original.replace('Hello','Hi'),classes=original.replace('cn("a")','cn("b")');
@@ -15,13 +15,21 @@ it('fails closed for the actual source after i18n introduced runtime imports and
  expect(component).toContain('useI18n');expect(component).toContain('localizedTaskTemplates');
  expect(inspectUiBoundary(component,component)).toBe(false);
 });
+it('allows presentation edits in an already-localized component without relaxing runtime syntax',()=>{
+ const source='"use client"; import {useI18n} from "@/lib/i18n/provider"; export function UI({canWrite,onClick}:{canWrite:boolean;onClick:()=>void}){const {t}=useI18n();return <section className="px-2"><h2>Title</h2>{canWrite&&<button onClick={onClick}>{t("common.title")}</button>}</section>}';
+ expect(inspectPresentationBoundary(source,source.replace('px-2','px-3').replace('>Title<','>Heading<'))).toBe(true);
+ for(const changed of [source.replace('canWrite&&','!canWrite&&'),source.replace('onClick={onClick}','onClick={()=>onClick()}'),source.replace('common.title','common.other'),source.replace('<button','<button href="/admin"'),source+'\nfetch("/api");',source.replace('px-2','bg-[url(https://evil.invalid)]'),'// @jsxImportSource evil\n'+source])expect(inspectPresentationBoundary(source,changed),changed).toBe(false);
+ expect(inspectPresentationBoundary('invalid {','invalid {')).toBe(false);
+ const business='const value=cn("route");';
+ expect(inspectPresentationBoundary(business,business.replace('route','other'))).toBe(false);
+});
 it('supports explicit rollback and fails closed on missing history',()=>{
  expect(planTargeted({baseSha:'a'.repeat(40),headSha:'b'.repeat(40),enabled:false}).mode).toBe('full');
  expect(planTargeted({baseSha:'bad',headSha:'b'.repeat(40),enabled:true}).mode).toBe('full');
 });
 
 import {execFileSync} from 'node:child_process';
-import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync,symlinkSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,writeFileSync,existsSync,readFileSync,rmSync,symlinkSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {resolve,dirname} from 'node:path';
 it('uses real source history and suite hashes; unknown, missing, renamed and nonregular inputs fall back',()=>{
@@ -37,7 +45,7 @@ it('uses real source history and suite hashes; unknown, missing, renamed and non
   const base=commit();put(p.sourceFile,original.replace('Hello','Hi'));const head=commit();
   const inspect=(b:string,h:string)=>planTargeted({baseSha:b,headSha:h,enabled:true,policyInput:p,git});
   const selected=inspect(base,head);expect(selected.mode).toBe('targeted-ui');expect(selected.suites.map(x=>x.id)).toEqual(['web-unit','chat-ui']);
-  put('docs/design/i18n-copy/notes.md','Copy review evidence');const documented=commit();
+  put('docs/design/i18n-copy/notes.md','Copy review evidence');put('evidence/i18n-copy/source-audit.json','{"sourceOnly":true}');const documented=commit();
   expect(inspect(base,documented).mode).toBe('targeted-ui');
   put(p.sourceFile,original.replace('Hello','Updated'));git(['mv','docs/design/i18n-copy/notes.md','docs/design/i18n-copy/moved.md']);expect(inspect(documented,commit()).mode).toBe('full');
   git(['reset','--hard',documented]);rmSync(resolve(dir,'docs/design/i18n-copy/notes.md'));symlinkSync('missing',resolve(dir,'docs/design/i18n-copy/notes.md'));put(p.sourceFile,original.replace('Hello','Updated'));expect(inspect(documented,commit()).mode).toBe('full');
@@ -110,4 +118,92 @@ it('accepts only literal dictionary value edits with stable keys and interpolati
  expect(inspectMessageBoundary(before,before.replace('Hello','Welcome'))).toBe(true);
  expect(inspectMessageBoundary(before,before.replace('Hello','Welcome'),['different.key'])).toBe(false);
  for(const after of [before.replace('{name}','{other}'),before.replace('ui.name','ui.role'),before.replace('"Hello {name}"','fetch("/api")'),before+'\nfetch("/api");',before.replace('Hello','https://evil.invalid/'),before.replace('export const','import {x} from "x"; export const'),before.replace('{"ui.name"','{...x,"ui.name"'),before.replace('export const','// @ts-nocheck\nexport const')])expect(inspectMessageBoundary(before,after)).toBe(false);
+});
+
+it('admits actual registered dictionary copy edits, rather than only synthetic policies',async()=>{
+ const {inspectMessageBoundary}=await import('./ci-targeted-ui.mjs');
+ const p=JSON.parse(readFileSync('.harness/config/ci-targeted-ui.json','utf8'));
+ for(const r of p.messageFiles){
+  const source=readFileSync(r.file,'utf8');
+  const entry=[...source.matchAll(/"([^"\n]+)": "([^"\n]+)"/g)].find(x=>r.messageKeys?r.messageKeys.includes(x[1]):r.messagePrefixes.some(prefix=>x[1].startsWith(prefix)));
+  expect(entry,`registered keys must exist in ${r.file}`).toBeDefined();
+  const changed=source.replace(entry![0],`"${entry![1]}": "${entry![2]}!"`);
+  expect(changed).not.toBe(source);
+  expect(inspectMessageBoundary(source,changed,r.messageKeys??{prefixes:r.messagePrefixes}),r.file).toBe(true);
+ }
+ for(const r of p.presentationFiles){
+  const source=readFileSync(r.file,'utf8');
+  const changed=source.replace(/className="([^"]+)"/,(_,classes)=>`className="${classes} mt-1"`);
+  expect(changed,r.file).not.toBe(source);
+  expect(inspectPresentationBoundary(source,changed),r.file).toBe(true);
+ }
+});
+
+it('combines registered locale-only edits into one plan and unions required suites',()=>{
+ const dir=mkdtempSync(resolve(tmpdir(),'targeted-locales-'));
+ const p=JSON.parse(readFileSync('.harness/config/ci-targeted-ui.json','utf8'));
+ const git=(args:string[])=>execFileSync('git',args,{cwd:dir,encoding:'utf8',stdio:['ignore','pipe','pipe']});
+ const put=(file:string,text:string)=>{mkdirSync(dirname(resolve(dir,file)),{recursive:true});writeFileSync(resolve(dir,file),text);};
+ const commit=()=>{git(['add','.']);git(['commit','-qm','fixture']);return git(['rev-parse','HEAD']).trim();};
+ const first=p.messageFiles[0];
+ p.messageFiles=[first,{...first,file:'apps/web/lib/i18n/messages/zh-CN.ts'}];
+ try{
+  git(['init','-q']);git(['config','user.name','Fixture']);git(['config','user.email','fixture@example.invalid']);
+  for(const registration of p.messageFiles)put(registration.file,'export const messages={"common.language":"Language {name}"};');
+  for(const file of [...first.unitTests,...first.browserTests,first.browserConfig])put(`apps/web/${file}`,'export {};');
+  for(const registration of p.presentationFiles){
+   put(registration.file,'export function UI(){return <p className="p-2">Copy</p>}');
+   for(const file of [...registration.unitTests,...registration.browserTests,registration.browserConfig])put(`apps/web/${file}`,'export {};');
+  }
+  const base=commit();
+  for(const registration of p.messageFiles)put(registration.file,'export const messages={"common.language":"Locale {name}"};');
+  const head=commit(),context={baseSha:base,headSha:head,enabled:true,policyInput:p,git};
+  const plan=planTargeted(context);
+  expect(plan.mode).toBe('targeted-ui');
+  expect(plan.suites[0].files.map(x=>x.file)).toEqual(first.unitTests);
+  expect(plan.suites[1].files.map(x=>x.file)).toEqual(first.browserTests);
+  expect(verifyTargetedPlan(plan,context)).toBe(true);
+  put('apps/api/src/auth.ts','export const allow=true;');
+  expect(planTargeted({...context,headSha:commit()}).mode).toBe('full');
+  git(['reset','--hard',head]);put(first.file,'export const messages={"common.language":"Locale {other}"};');
+  expect(planTargeted({...context,headSha:commit()}).mode).toBe('full');
+  git(['reset','--hard',base]);
+  for(const registration of p.presentationFiles)put(registration.file,'export function UI(){return <p className="p-3">Updated copy</p>}');
+  const presentationHead=commit(),presentationPlan=planTargeted({...context,headSha:presentationHead});
+  expect(presentationPlan.mode).toBe('targeted-ui');
+  expect(presentationPlan.suites[0].files.map(x=>x.file)).toEqual([...new Set(p.presentationFiles.flatMap(x=>x.unitTests))]);
+  expect(presentationPlan.suites[1].files.map(x=>x.file)).toEqual([...new Set(p.presentationFiles.flatMap(x=>x.browserTests))]);
+  put(p.presentationFiles[0].unitTests[0].replace(/^/,'apps/web/'),'export const noTests=true;');
+  expect(planTargeted({...context,headSha:commit()}).mode).toBe('full');
+  git(['reset','--hard',presentationHead]);put(p.presentationFiles[0].file,'export function UI(){fetch("/api");return <p>Copy</p>}');
+  expect(planTargeted({...context,headSha:commit()}).mode).toBe('full');
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});
+
+it('supports existing top-level message literals beside unchanged runtime expressions without executing the module',()=>{
+ const before='import {FILTERS} from "./filters"; const existing=FILTERS.map(x=>x.label); export const messages={"projectOverview.title":"Title {name}","projectOverview.filter":FILTERS[0].label} as const;';
+ expect(inspectMessageBoundary(before,before.replace('Title {name}','Heading {name}'),{prefixes:['projectOverview.']})).toBe(true);
+ for(const after of [before.replace('FILTERS.map','FILTERS.filter'),before.replace('FILTERS[0]','FILTERS[1]'),before.replace('{name}','{other}'),before.replace('projectOverview.title','projectOverview.other'),before+'\nfetch("/api");']){
+  expect(inspectMessageBoundary(before,after,{prefixes:['projectOverview.']})).toBe(false);
+ }
+ const nested='export function runtime(){return {"projectOverview.title":"business-control"};}';
+ expect(inspectMessageBoundary(nested,nested.replace('business-control','changed'),{prefixes:['projectOverview.']})).toBe(false);
+ const computed='export const messages={["projectOverview.title"]:"Title"};';
+ expect(inspectMessageBoundary(computed,computed.replace('"Title"','"Changed"'),{prefixes:['projectOverview.']})).toBe(false);
+});
+it('registers overview and public-share copy against their existing page tests',()=>{
+ const p=JSON.parse(readFileSync('.harness/config/ci-targeted-ui.json','utf8'));
+ for(const [file,browser,unit] of [
+  ['project-overview','e2e/i18n-project-general-overview.spec.ts','tests/ui/project-general-overview-i18n.test.tsx'],
+  ['public-design-share','e2e/i18n-public-design-share.spec.ts','tests/ui/public-design-share-i18n.test.tsx'],
+ ]){
+  const registration=p.messageFiles.find((x:any)=>x.file===`apps/web/lib/i18n/namespaces/${file}.ts`);
+  expect(registration).toBeDefined();expect(registration.browserTests).toContain(browser);expect(registration.unitTests).toContain(unit);
+ }
+});
+
+it('can explicitly force a full plan for protected queue and release validation',()=>{
+ const result=JSON.parse(execFileSync(process.execPath,['.harness/scripts/ci-targeted-ui.mjs','--full'],{env:{...process.env,GITHUB_SHA:'a'.repeat(40)},encoding:'utf8'}));
+ expect(result.mode).toBe('full');expect(result.reason).toBe('rollout-disabled');
+ expect(existsSync('--full')).toBe(false);
 });

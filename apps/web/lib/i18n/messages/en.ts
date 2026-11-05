@@ -1,3 +1,4 @@
+import { workshopLiveEn } from "../namespaces/workshop-live";
 import { platformOpsStatusEn } from "../namespaces/platform-ops-status";
 import { modelTestbenchEn } from "../namespaces/model-testbench";
 import { platformModelCatalogEn } from "../namespaces/platform-model-catalog";
@@ -14,31 +15,45 @@ import { aiUsageEn } from "../namespaces/ai-usage";
 import { adminLimitPolicyEn } from "../namespaces/admin-limit-policy";
 import { adminMemberQuotasEn } from "../namespaces/admin-member-quotas";
 import { adminCommonEn } from "../namespaces/admin-common";
+import { adminOverviewEn } from "../namespaces/admin-overview";
 import { recordingProjectEn } from "../namespaces/recording-project";
 import { workflowGrantsEn } from "../namespaces/workflow-grants";
 import { orgHomeConfigEn } from "../namespaces/org-home-config";
 import { orgProfileEn } from "../namespaces/org-profile";
+import { localOrgEn } from "../namespaces/local-org";
 import { adminNavigationEn } from "../namespaces/admin-navigation";
 import { brainViewsEn } from "../namespaces/brain-views";
+import { projectBrainEn } from "../namespaces/project-brain";
 import { chatEn } from "../namespaces/chat";
 import { enTasks } from "./tasks";
 import { enFailures } from "./failures";
 import { controlsEn } from "../namespaces/controls";
+import { publicDesignShareEn } from "../namespaces/public-design-share";
 import { projectListEn } from "../namespaces/project-list";
+import { projectOverviewEn } from "../namespaces/project-overview";
 import { activityEn } from "../namespaces/activity";
 import { profileEn } from "../namespaces/profile";
+import { projectPreparationEn } from "../namespaces/project-preparation";
 import { notificationsEn } from "../namespaces/notifications";
+import { projectResourcesEn } from "../namespaces/project-resources";
 import { aboutMemoryEn } from "../namespaces/about-memory";
 import { orgMembersEn } from "../namespaces/org-members";
 import { orgMembersPreviewEn } from "../namespaces/org-members-preview";
 import { orgSharedInvitesEn } from "../namespaces/org-shared-invites";
+import { workbenchHomeEn } from "../namespaces/workbench-home";
+import { inboxEn } from "../namespaces/inbox";
+import { designDocumentEn } from "../namespaces/design-document";
+import { designLoopCommonEn } from "../namespaces/design-loop-common";
 import { stateEn } from "../namespaces/state";
 import { workflowRunsEn } from "../namespaces/workflow-runs";
+import { projectResultsEn } from "../namespaces/project-results";
+import { workshopOverviewEn } from "../namespaces/workshop-overview";
 import { projectWorkbenchEn } from "../namespaces/project-workbench";
 import type { zhCN } from "./zh-CN";
 import { accountEntryEn } from "../namespaces/account-entry";
 import { invitationEntryEn } from "../namespaces/invitation-entry";
 export const en: Record<keyof typeof zhCN, string> = {
+  ...workshopLiveEn,
   ...platformOpsStatusEn,
   ...modelTestbenchEn,
   ...platformModelCatalogEn,
@@ -55,26 +70,39 @@ export const en: Record<keyof typeof zhCN, string> = {
   ...adminLimitPolicyEn,
   ...adminMemberQuotasEn,
   ...adminCommonEn,
+  ...adminOverviewEn,
   ...workflowGrantsEn,
   ...orgHomeConfigEn,
   ...orgProfileEn,
+  ...localOrgEn,
   ...brainViewsEn,
+  ...projectBrainEn,
   ...chatEn,
   ...enTasks,
   ...enFailures,
   ...controlsEn,
+  ...publicDesignShareEn,
   ...projectListEn,
+  ...projectOverviewEn,
   ...activityEn,
   ...profileEn,
+  ...projectPreparationEn,
   ...notificationsEn,
+  ...projectResourcesEn,
   ...aboutMemoryEn,
   ...orgMembersEn,
   ...orgMembersPreviewEn,
   ...orgSharedInvitesEn,
+  ...workbenchHomeEn,
+  ...inboxEn,
+  ...designDocumentEn,
+  ...designLoopCommonEn,
   ...stateEn,
   ...chatShareEn,
   ...codeFenceEn,
   ...workflowRunsEn,
+  ...projectResultsEn,
+  ...workshopOverviewEn,
   ...projectWorkbenchEn,
   "common.language": "Language",
   "home.greeting": "Hello, {name}",

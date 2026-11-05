@@ -1,3 +1,4 @@
+import { workshopLiveZhCN } from "../namespaces/workshop-live";
 import { platformOpsStatusZhCN } from "../namespaces/platform-ops-status";
 import { modelTestbenchZhCN } from "../namespaces/model-testbench";
 import { platformModelCatalogZhCN } from "../namespaces/platform-model-catalog";
@@ -14,30 +15,44 @@ import { aiUsageZhCN } from "../namespaces/ai-usage";
 import { adminLimitPolicyZhCN } from "../namespaces/admin-limit-policy";
 import { adminMemberQuotasZhCN } from "../namespaces/admin-member-quotas";
 import { adminCommonZhCN } from "../namespaces/admin-common";
+import { adminOverviewZhCN } from "../namespaces/admin-overview";
 import { recordingProjectZhCN } from "../namespaces/recording-project";
 import { workflowGrantsZhCN } from "../namespaces/workflow-grants";
 import { orgHomeConfigZhCN } from "../namespaces/org-home-config";
 import { orgProfileZhCN } from "../namespaces/org-profile";
+import { localOrgZhCN } from "../namespaces/local-org";
 import { adminNavigationZhCN } from "../namespaces/admin-navigation";
 import { brainViewsZhCN } from "../namespaces/brain-views";
+import { projectBrainZhCN } from "../namespaces/project-brain";
 import { chatZhCN } from "../namespaces/chat";
 import { zhTasks } from "./tasks";
 import { zhFailures } from "./failures";
 import { controlsZhCN } from "../namespaces/controls";
+import { publicDesignShareZhCN } from "../namespaces/public-design-share";
 import { workflowRunsZhCN } from "../namespaces/workflow-runs";
+import { projectResultsZhCN } from "../namespaces/project-results";
+import { workshopOverviewZhCN } from "../namespaces/workshop-overview";
 import { projectWorkbenchZhCN } from "../namespaces/project-workbench";
 import { projectListZhCN } from "../namespaces/project-list";
+import { projectOverviewZhCN } from "../namespaces/project-overview";
 import { activityZhCN } from "../namespaces/activity";
 import { profileZhCN } from "../namespaces/profile";
+import { projectPreparationZhCN } from "../namespaces/project-preparation";
 import { notificationsZhCN } from "../namespaces/notifications";
+import { projectResourcesZhCN } from "../namespaces/project-resources";
 import { aboutMemoryZhCN } from "../namespaces/about-memory";
 import { orgMembersZhCN } from "../namespaces/org-members";
 import { orgMembersPreviewZhCN } from "../namespaces/org-members-preview";
 import { orgSharedInvitesZhCN } from "../namespaces/org-shared-invites";
+import { workbenchHomeZhCN } from "../namespaces/workbench-home";
+import { inboxZhCN } from "../namespaces/inbox";
+import { designDocumentZhCN } from "../namespaces/design-document";
+import { designLoopCommonZhCN } from "../namespaces/design-loop-common";
 import { stateZhCN } from "../namespaces/state";
 import { accountEntryZhCN } from "../namespaces/account-entry";
 import { invitationEntryZhCN } from "../namespaces/invitation-entry";
 export const zhCN = {
+  ...workshopLiveZhCN,
   ...platformOpsStatusZhCN,
   ...modelTestbenchZhCN,
   ...platformModelCatalogZhCN,
@@ -54,27 +69,40 @@ export const zhCN = {
   ...adminLimitPolicyZhCN,
   ...adminMemberQuotasZhCN,
   ...adminCommonZhCN,
+  ...adminOverviewZhCN,
   ...recordingProjectZhCN,
   ...workflowGrantsZhCN,
   ...orgHomeConfigZhCN,
   ...orgProfileZhCN,
+  ...localOrgZhCN,
   ...brainViewsZhCN,
+  ...projectBrainZhCN,
   ...chatZhCN,
   ...zhTasks,
   ...zhFailures,
   ...controlsZhCN,
+  ...publicDesignShareZhCN,
   ...projectListZhCN,
+  ...projectOverviewZhCN,
   ...activityZhCN,
   ...profileZhCN,
+  ...projectPreparationZhCN,
   ...notificationsZhCN,
+  ...projectResourcesZhCN,
   ...aboutMemoryZhCN,
   ...orgMembersZhCN,
   ...orgMembersPreviewZhCN,
   ...orgSharedInvitesZhCN,
+  ...workbenchHomeZhCN,
+  ...inboxZhCN,
+  ...designDocumentZhCN,
+  ...designLoopCommonZhCN,
   ...stateZhCN,
   ...chatShareZhCN,
   ...codeFenceZhCN,
   ...workflowRunsZhCN,
+  ...projectResultsZhCN,
+  ...workshopOverviewZhCN,
   ...projectWorkbenchZhCN,
   "common.language": "语言",
   "home.greeting": "你好，{name}",

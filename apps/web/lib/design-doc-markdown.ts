@@ -6,10 +6,13 @@
  * 原型部分是组件树的**缩进大纲**，不是 JSON dump：给工程/评审看的是结构与文案，
  * 树的原始 JSON 由 `DesignProject.prototype` 本身承载，不在文档里再复制一份。
  */
+import type { Locale } from "@/lib/i18n/locale";
+import { translate } from "@/lib/i18n/messages";
+import { projectTemplateDisplayLabel, prototypeOptionDisplayLabel, prototypeNodeDisplayLabel, designAccentDisplayLabel } from "./design-display-labels";
 import { designHtmlPage, designPrototype } from "@repo/contracts";
 import { exportFileStem, type Romanize } from "./export-file-name";
 import { localDateStamp, localTimeStamp } from "./prototype-export-html";
-import { PROJECT_TEMPLATE_LABEL, type DesignProject, type PrototypeNode } from "./live-design-workbench";
+import type { DesignProject, PrototypeNode } from "./live-design-workbench";
 
 const { isPrototypeContainer } = designPrototype;
 
@@ -21,33 +24,21 @@ const { isPrototypeContainer } = designPrototype;
  * 那是 schema 的字面量。第 5 轮已经为属性面板建好了单源 `prototypeOptionLabel`
  * （契约里，且有覆盖率门控），这里直接用，不另抄一份中文。
  */
-const opt = (type: string, key: string, value: string | undefined): string | undefined =>
-  value === undefined ? undefined : designPrototype.prototypeOptionLabel(type, key, value);
-
-/**
- * 迭代 38：这是模板名的**第三份**副本。第 10 轮把工作台首页与详情页那两份收敛成了
- * `PROJECT_TEMPLATE_LABEL`，却漏了交付文档这一处——收敛做了一半，比没做更容易让人以为做完了。
- */
-const TEMPLATE_LABEL = PROJECT_TEMPLATE_LABEL;
-
-/** 迭代 21：强调色档位 → 人话。闭集来自契约，漏一档编译不过。 */
-const ACCENT_LABEL: Record<DesignProject["accent"], string> = {
-  neutral: "无（中性灰）", blue: "靛蓝", violet: "紫", teal: "青",
-  green: "绿", amber: "琥珀", rose: "玫红", slate: "石板灰",
-};
+const opt = (locale: Locale, type: string, key: string, value: string | undefined): string | undefined =>
+  value === undefined ? undefined : prototypeOptionDisplayLabel(type, key, value, locale);
 
 /** 一个节点在大纲里的一行文字：类型 + 最能代表它的文案。 */
-export function describeNode(n: PrototypeNode): string {
+export function describeNode(n: PrototypeNode, locale: Locale = "zh-CN"): string {
   switch (n.type) {
-    case "stack": return `布局（${n.props?.direction === "row" ? "横向" : "纵向"}${n.props?.fill === true ? "，填满" : ""}）`;
-    case "card": return n.props?.title !== undefined ? `卡片「${n.props.title}」` : "卡片";
-    case "navbar": return `导航栏「${n.props.title}」${n.props.left !== undefined ? `，左：${n.props.left}` : ""}${n.props.right !== undefined ? `，右：${n.props.right}` : ""}`;
-    case "text": return `文本${n.props.variant !== undefined ? `（${opt("text", "variant", n.props.variant)!}）` : ""}：${n.props.content}`;
+    case "stack": return translate(locale, "designDocument.layout", { v0: n.props?.direction === "row" ? translate(locale, "designDocument.horizontal") : translate(locale, "designDocument.vertical"), v1: n.props?.fill === true ? translate(locale, "designDocument.fill") : "" });
+    case "card": return n.props?.title !== undefined ? translate(locale, "designDocument.card2", { v0: n.props.title }) : translate(locale, "designDocument.card");
+    case "navbar": return translate(locale, "designDocument.navigation2", { v0: n.props.title, v1: n.props.left !== undefined ? translate(locale, "designDocument.left", { v0: n.props.left }) : "", v2: n.props.right !== undefined ? translate(locale, "designDocument.right", { v0: n.props.right }) : "" });
+    case "text": return translate(locale, "designDocument.text2", { v0: n.props.variant !== undefined ? `（${opt(locale, "text", "variant", n.props.variant)!}）` : "", v1: n.props.content });
     // 迭代 21：图标是**设计决定**，工程照着实现时要知道按哪个图标。此前 describeNode
     // 不提它，于是这条信息在交付文档里凭空消失。
-    case "button": return `按钮「${n.props.label}」${n.props.icon !== undefined ? `（图标：${opt("button", "icon", n.props.icon)!}）` : ""}${n.props.variant !== undefined ? `（${opt("button", "variant", n.props.variant)!}）` : ""}`;
-    case "input": return `输入框${n.props.label !== undefined ? `「${n.props.label}」` : ""}${n.props.placeholder !== undefined ? `，占位：${n.props.placeholder}` : ""}${n.props.multiline === true ? "，多行" : ""}`;
-    case "image": return `图片（${opt("image", "kind", n.props.kind ?? "photo")!}）：${n.props.alt}`;
+    case "button": return translate(locale, "designDocument.button2", { v0: n.props.label, v1: n.props.icon !== undefined ? translate(locale, "designDocument.icon", { v0: opt(locale, "button", "icon", n.props.icon)! }) : "", v2: n.props.variant !== undefined ? `（${opt(locale, "button", "variant", n.props.variant)!}）` : "" });
+    case "input": return translate(locale, "designDocument.input", { v0: n.props.label !== undefined ? `「${n.props.label}」` : "", v1: n.props.placeholder !== undefined ? translate(locale, "designDocument.placeholder", { v0: n.props.placeholder }) : "", v2: n.props.multiline === true ? translate(locale, "designDocument.multiline") : "" });
+    case "image": return translate(locale, "designDocument.image", { v0: opt(locale, "image", "kind", n.props.kind ?? "photo")!, v1: n.props.alt });
     /**
      * 迭代 21 —— 列表行的**副标题与右侧值不能丢**。
      *
@@ -62,117 +53,117 @@ export function describeNode(n: PrototypeNode): string {
       const rows = n.props.items.map((item, i) => {
         const detail = n.props.detail?.[i]?.trim();
         const trailing = n.props.trailing?.[i]?.trim();
-        const icon = n.props.leading === "icon" && n.props.icons?.[i] !== undefined ? `[${opt("list", "icons", n.props.icons[i]!) ?? n.props.icons[i]!}] ` : "";
+        const icon = n.props.leading === "icon" && n.props.icons?.[i] !== undefined ? `[${opt(locale, "list", "icons", n.props.icons[i]!) ?? n.props.icons[i]!}] ` : "";
         return icon + item
           + (detail !== undefined && detail !== "" ? `（${detail}）` : "")
           + (trailing !== undefined && trailing !== "" ? ` → ${trailing}` : "");
       });
-      return `列表：${rows.join(" / ")}`;
+      return translate(locale, "designDocument.list", { v0: rows.join(" / ") });
     }
-    case "divider": return "分隔线";
-    case "spacer": return "留白";
-    case "tabs": return `标签页：${n.props.items.map((t, i) => (i === (n.props.active ?? 0) ? `[${t}]` : t)).join(" / ")}`;
-    case "badge": return `标记「${n.props.label}」`;
-    case "avatar": return `头像：${n.props.name}`;
-    case "bottomnav": return `底部导航：${n.props.items.map((t, i) => (i === (n.props.active ?? 0) ? `[${t}]` : t)).join(" / ")}`;
-    case "switch": return `开关「${n.props.label}」${n.props.on === true ? "（开）" : "（关）"}`;
-    case "checkbox": return `复选「${n.props.label}」${n.props.checked === true ? "（已选）" : ""}`;
-    case "chip": return `筛选「${n.props.label}」${n.props.selected === true ? "（选中）" : ""}`;
-    case "progress": return `进度 ${n.props.value}%${n.props.label !== undefined ? `：${n.props.label}` : ""}`;
-    case "stat": return `指标「${n.props.label}」= ${n.props.value}${n.props.delta !== undefined ? `（${n.props.delta}）` : ""}`;
-    case "hero": return `头图「${n.props.title}」${n.props.subtitle !== undefined ? `：${n.props.subtitle}` : ""}${n.props.cta !== undefined ? `，按钮「${n.props.cta}」` : ""}`;
+    case "divider": return translate(locale, "designDocument.divider");
+    case "spacer": return translate(locale, "designDocument.spacer");
+    case "tabs": return translate(locale, "designDocument.tabs", { v0: n.props.items.map((t, i) => (i === (n.props.active ?? 0) ? `[${t}]` : t)).join(" / ") });
+    case "badge": return translate(locale, "designDocument.badge", { v0: n.props.label });
+    case "avatar": return translate(locale, "designDocument.avatar", { v0: n.props.name });
+    case "bottomnav": return translate(locale, "designDocument.bottomNavigation", { v0: n.props.items.map((t, i) => (i === (n.props.active ?? 0) ? `[${t}]` : t)).join(" / ") });
+    case "switch": return translate(locale, "designDocument.switch", { v0: n.props.label, v1: n.props.on === true ? translate(locale, "designDocument.on") : translate(locale, "designDocument.off") });
+    case "checkbox": return translate(locale, "designDocument.checkbox", { v0: n.props.label, v1: n.props.checked === true ? translate(locale, "designDocument.checked") : "" });
+    case "chip": return translate(locale, "designDocument.filter", { v0: n.props.label, v1: n.props.selected === true ? translate(locale, "designDocument.selected") : "" });
+    case "progress": return translate(locale, "designDocument.progress", { v0: n.props.value, v1: n.props.label !== undefined ? `：${n.props.label}` : "" });
+    case "stat": return translate(locale, "designDocument.metric", { v0: n.props.label, v1: n.props.value, v2: n.props.delta !== undefined ? `（${n.props.delta}）` : "" });
+    case "hero": return translate(locale, "designDocument.hero", { v0: n.props.title, v1: n.props.subtitle !== undefined ? `：${n.props.subtitle}` : "", v2: n.props.cta !== undefined ? translate(locale, "designDocument.button", { v0: n.props.cta }) : "" });
     // 对标 R3：表格与图表把**数据**写进文档，工程拿到的是样例数据而不是「这里有张表」。
-    case "table": return `表格（${n.props.columns.join(" / ")}）：${n.props.rows.length} 行${n.props.rows[0] !== undefined ? `，首行「${n.props.rows[0].join(" / ")}」` : ""}`;
-    case "chart": return `${n.props.kind === "line" ? "折线图" : "柱状图"}${n.props.title !== undefined ? `「${n.props.title}」` : ""}：${n.props.labels.slice(0, n.props.values.length).map((l, i) => `${l} ${String(n.props.values[i])}${n.props.unit ?? ""}`).join("，")}`;
+    case "table": return translate(locale, "designDocument.tableRows", { v0: n.props.columns.join(" / "), v1: n.props.rows.length, v2: n.props.rows[0] !== undefined ? translate(locale, "designDocument.firstRow", { v0: n.props.rows[0].join(" / ") }) : "" });
+    case "chart": return `${n.props.kind === "line" ? translate(locale, "designDocument.lineChart") : translate(locale, "designDocument.barChart")}${n.props.title !== undefined ? `「${n.props.title}」` : ""}：${n.props.labels.slice(0, n.props.values.length).map((l, i) => `${l} ${String(n.props.values[i])}${n.props.unit ?? ""}`).join("，")}`;
     // design-delta `prototype-board`：把画布上写了什么、谁连着谁说全——工程据此判断要做的是白板 / 流程图。
-    case "html": return `整页版面（自由排版）：${designHtmlPage.htmlPageVisibleText(n.props.html)}`;
+    case "html": return translate(locale, "designDocument.fullPageFreeLayout", { v0: designHtmlPage.htmlPageVisibleText(n.props.html) });
     case "board": {
-      const items = n.props.items.map((it) => `${it.kind === "sticky" ? "便签" : it.kind === "shape" ? "形状" : "文字"}「${it.text}」${it.author !== undefined ? `（${it.author}）` : ""}`);
+      const items = n.props.items.map((it) => `${it.kind === "sticky" ? translate(locale, "designDocument.stickyNote") : it.kind === "shape" ? translate(locale, "designDocument.shape") : translate(locale, "designDocument.text")}「${it.text}」${it.author !== undefined ? `（${it.author}）` : ""}`);
       const links = (n.props.links ?? []).filter((l) => l.from < n.props.items.length && l.to < n.props.items.length)
         .map((l) => `「${n.props.items[l.from]!.text}」→「${n.props.items[l.to]!.text}」${l.label !== undefined ? `（${l.label}）` : ""}`);
       const cursors = (n.props.cursors ?? []).map((c) => c.name);
-      return `自由画布：${items.join("、") || "（空）"}${links.length > 0 ? `；连线：${links.join("，")}` : ""}${cursors.length > 0 ? `；正在协作：${cursors.join("、")}` : ""}`;
+      return translate(locale, "designDocument.freeCanvas", { v0: items.join("、") || translate(locale, "designDocument.empty"), v1: links.length > 0 ? translate(locale, "designDocument.links", { v0: links.join("，") }) : "", v2: cursors.length > 0 ? translate(locale, "designDocument.collaborating", { v0: cursors.join("、") }) : "" });
     }
     // 对标 R4：表单项把选项写全，叠层说清是哪种（工程据此决定是 Dialog 还是 Sheet）。
     // 对标 R5
-    case "section": return `分区（${n.props?.tone === "muted" ? "浅灰底" : n.props?.tone === "primary" ? "主色底" : n.props?.tone === "inverse" ? "反色底" : "无底色"}）`;
-    case "footer": return `页脚「${n.props.brand}」${n.props.links !== undefined && n.props.links.length > 0 ? `：${n.props.links.join(" / ")}` : ""}${n.props.note !== undefined ? `；${n.props.note}` : ""}`;
-    case "select": return `下拉${n.props.label !== undefined ? `「${n.props.label}」` : ""}：${n.props.options.join(" / ")}${n.props.value !== undefined ? `（当前：${n.props.value}）` : ""}`;
-    case "radio": return `单选${n.props.label !== undefined ? `「${n.props.label}」` : ""}：${n.props.options.map((o, i) => (i === n.props.selected ? `●${o}` : o)).join(" / ")}`;
-    case "overlay": return `${n.props?.kind === "sheet" ? "底部弹层" : n.props?.kind === "toast" ? "轻提示" : "弹窗"}${n.props?.title !== undefined ? `「${n.props.title}」` : ""}`;
-    case "grid": return `网格（${n.props?.columns ?? 2} 列）`;
+    case "section": return translate(locale, "designDocument.section", { v0: n.props?.tone === "muted" ? translate(locale, "designDocument.mutedBackground") : n.props?.tone === "primary" ? translate(locale, "designDocument.primaryBackground") : n.props?.tone === "inverse" ? translate(locale, "designDocument.inverseBackground") : translate(locale, "designDocument.noBackground") });
+    case "footer": return translate(locale, "designDocument.footer", { v0: n.props.brand, v1: n.props.links !== undefined && n.props.links.length > 0 ? `：${n.props.links.join(" / ")}` : "", v2: n.props.note !== undefined ? `；${n.props.note}` : "" });
+    case "select": return translate(locale, "designDocument.select", { v0: n.props.label !== undefined ? `「${n.props.label}」` : "", v1: n.props.options.join(" / "), v2: n.props.value !== undefined ? translate(locale, "designDocument.current", { v0: n.props.value }) : "" });
+    case "radio": return translate(locale, "designDocument.radio", { v0: n.props.label !== undefined ? `「${n.props.label}」` : "", v1: n.props.options.map((o, i) => (i === n.props.selected ? `●${o}` : o)).join(" / ") });
+    case "overlay": return `${n.props?.kind === "sheet" ? translate(locale, "designDocument.bottomSheet") : n.props?.kind === "toast" ? translate(locale, "designDocument.toast") : translate(locale, "designDocument.dialog")}${n.props?.title !== undefined ? `「${n.props.title}」` : ""}`;
+    case "grid": return translate(locale, "designDocument.gridColumns", { v0: n.props?.columns ?? 2 });
   }
 }
 
-export function outlinePrototype(root: PrototypeNode, depth = 0, out: string[] = []): string[] {
-  out.push(`${"  ".repeat(depth)}- ${describeNode(root)}`);
-  if (isPrototypeContainer(root)) for (const c of root.children) outlinePrototype(c, depth + 1, out);
+export function outlinePrototype(root: PrototypeNode, depth = 0, out: string[] = [], locale: Locale = "zh-CN"): string[] {
+  out.push(`${"  ".repeat(depth)}- ${describeNode(root, locale)}`);
+  if (isPrototypeContainer(root)) for (const c of root.children) outlinePrototype(c, depth + 1, out, locale);
   return out;
 }
 
-export function buildDesignDocMarkdown(project: DesignProject, now: Date = new Date()): string {
+export function buildDesignDocMarkdown(project: DesignProject, now: Date = new Date(), locale: Locale = "zh-CN"): string {
   const lines: string[] = [];
   lines.push(`# ${project.name}`, "");
   /*
    * 迭代 21：**视觉设定进文档**。模板（含保真度）、明暗、强调色都是工程要照着实现的
    * 设计决定；此前文档只写模板名，拿到文档的人不知道这稿是按哪个主色定的。
    */
-  lines.push(`- 模板：${TEMPLATE_LABEL[project.template]}${project.template === "wireframe" ? "（低保真线框图：不靠颜色传达信息）" : ""}`);
-  lines.push(`- 视觉：${project.theme === "light" ? "浅色" : "深色"} · 强调色 ${ACCENT_LABEL[project.accent] ?? project.accent}`);
-  lines.push(`- 设计参数：${JSON.stringify(project.tokens)}`);
-  lines.push(`- 设计更新时间：${project.updatedAt}`);
-  lines.push(`- 负责人：${project.ownerName ?? "（未知）"}`);
-  if (project.linkedFeedbackId !== null) lines.push(`- 来源反馈：${project.linkedFeedbackId}`);
-  if (project.githubIssueUrl !== null) lines.push(`- 开发 issue：${project.githubIssueUrl}`);
+  lines.push(translate(locale, "designDocument.template", { v0: projectTemplateDisplayLabel(project.template, locale), v1: project.template === "wireframe" ? translate(locale, "designDocument.lowFidelityWireframeInformationDoesNotRelyOnColor") : "" }));
+  lines.push(translate(locale, "designDocument.appearanceAccent", { v0: project.theme === "light" ? translate(locale, "designDocument.light") : translate(locale, "designDocument.dark"), v1: designAccentDisplayLabel(project.accent, locale) }));
+  lines.push(translate(locale, "designDocument.designParameters", { v0: JSON.stringify(project.tokens) }));
+  lines.push(translate(locale, "designDocument.designUpdatedAt", { v0: project.updatedAt }));
+  lines.push(translate(locale, "designDocument.owner", { v0: project.ownerName ?? translate(locale, "designDocument.unknown") }));
+  if (project.linkedFeedbackId !== null) lines.push(translate(locale, "designDocument.sourceFeedback", { v0: project.linkedFeedbackId }));
+  if (project.githubIssueUrl !== null) lines.push(translate(locale, "designDocument.developmentIssue", { v0: project.githubIssueUrl }));
   /*
    * 迭代 38：原来是 `now.toISOString()`——文档里印着 `2026-09-07T12:00:00.000Z`。
    * 这是给人读的交付文档，而那串东西既不是读者所在时区的时间，也不像个时间。
    */
-  lines.push(`- 导出时间：${localTimeStamp(now)}`, "");
-  lines.push("## 问题与目标", "", project.problem.trim() === "" ? "（还没写）" : project.problem, "");
-  if (project.pushNote?.trim()) lines.push("## 开发交付备注", "", project.pushNote, "");
-  lines.push("## 验收标准", "");
-  if (project.criteria.length === 0) lines.push("（还没有）");
+  lines.push(translate(locale, "designDocument.exportedAt", { v0: localTimeStamp(now) }), "");
+  lines.push(translate(locale, "designDocument.problemAndGoals"), "", project.problem.trim() === "" ? translate(locale, "designDocument.notWrittenYet") : project.problem, "");
+  if (project.pushNote?.trim()) lines.push(translate(locale, "designDocument.developmentHandoffNotes"), "", project.pushNote, "");
+  lines.push(translate(locale, "designDocument.acceptanceCriteria"), "");
+  if (project.criteria.length === 0) lines.push(translate(locale, "designDocument.noneYet"));
   for (const [i, c] of project.criteria.entries()) lines.push(`${i + 1}. ${c}`);
   if (project.refImages.length > 0) {
-    lines.push("", "## 参考图片", "");
+    lines.push("", translate(locale, "designDocument.referenceImages"), "");
     for (const image of project.refImages) lines.push(`- ${image.name}（${image.id}）`);
   }
-  lines.push("", "## 原型", "");
+  lines.push("", translate(locale, "designDocument.prototype"), "");
   if (project.prototype.length === 0) {
-    lines.push(`还没有生成原型。页面划分：${project.frames.join("、") || "（无）"}`);
+    lines.push(translate(locale, "designDocument.noPrototypeGeneratedYetPages", { v0: project.frames.join("、") || translate(locale, "designDocument.none") }));
   } else {
     for (const [i, root] of project.prototype.entries()) {
-      lines.push(`### 页 ${i + 1}：${project.frames[i] ?? ""}`, "");
+      lines.push(translate(locale, "designDocument.page2", { v0: i + 1, v1: project.frames[i] ?? "" }), "");
       // 迭代 8：每页交互说明先于结构大纲——工程先读「这页做什么」再看「里面有什么」。
       const note = (project.frameNotes[i] ?? "").trim();
       if (note !== "") lines.push(`> ${note.replace(/\n+/g, " ")}`, "");
       // issue #3340：没画出来的页**如实写出来**，不静默跳过——文档少一页而不说，
       // 读者会以为设计就是这么定的。
-      if (root === null) lines.push("> ⚠ 这一页规划了但没画出来（生成时这一轮失败）。", "");
-      else lines.push(...outlinePrototype(root), "");
+      if (root === null) lines.push(translate(locale, "designDocument.thisPageWasPlannedButNotRenderedGenerationFailed"), "");
+      else lines.push(...outlinePrototype(root, 0, [], locale), "");
       // 迭代 11：这页点了之后去哪。工程照着实现路由，所以写成「哪个控件 → 第几页（标签）」，
       // 不是裸的节点 id——文档的读者是人。
       const links = project.frameLinks?.[i] ?? [];
       if (links.length > 0) {
-        lines.push("跳转：", "");
+        lines.push(translate(locale, "designDocument.navigation"), "");
         for (const l of links) {
           const node = designPrototype.findPrototypeNodePath(project.prototype, l.from);
-          const label = node === null ? l.from : designPrototype.prototypeNodeLabel(node.path[node.path.length - 1]!);
-          const item = l.item === undefined ? "" : `第 ${l.item + 1} 项`;
-          lines.push(`- ${label}${item} → 第 ${l.to + 1} 页「${project.frames[l.to] ?? ""}」`);
+          const label = node === null ? l.from : prototypeNodeDisplayLabel(node.path[node.path.length - 1]!, locale);
+          const item = l.item === undefined ? "" : translate(locale, "designDocument.item", { v0: l.item + 1 });
+          lines.push(translate(locale, "designDocument.page", { v0: label, v1: item, v2: l.to + 1, v3: project.frames[l.to] ?? "" }));
         }
         lines.push("");
       }
     }
   }
   const aiTurns = project.chat.filter((t) => t.role === "user").length;
-  lines.push("## 设计过程（对话摘录）", "");
-  if (project.chat.length === 0) lines.push("（没有对话）");
+  lines.push(translate(locale, "designDocument.designProcessConversationExcerpts"), "");
+  if (project.chat.length === 0) lines.push(translate(locale, "designDocument.noConversation"));
   else {
-    lines.push(`共 ${aiTurns} 轮。`, "");
+    lines.push(translate(locale, "designDocument.roundsInTotal", { v0: aiTurns }), "");
     // 迭代 38：提需求的人未必是 PM——这一整轮迭代的前提就是「不做设计的人也能做原型」。
-    for (const t of project.chat) lines.push(`- ${t.role === "user" ? "提需求的人" : "AI"}：${t.text.replace(/\s+/g, " ").trim()}`);
+    for (const t of project.chat) lines.push(`- ${t.role === "user" ? translate(locale, "designDocument.requester") : "AI"}：${t.text.replace(/\s+/g, " ").trim()}`);
   }
   lines.push("");
   return lines.join("\n");

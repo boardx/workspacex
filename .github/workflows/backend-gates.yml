@@ -76,6 +76,9 @@ concurrency:
   group: ${{ github.event_name == 'pull_request' && format('backend-gates-{0}', github.ref) || format('backend-gates-{0}-{1}', github.ref, github.run_id) }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+env:
+  CI_SCOPE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+
 jobs:
   # #633（人类新增硬 SLA，2026-08-06）：merge→devapp < 5 分钟。实测基线 8m45s，
   # `gates` 单个 job 占 6m32s，其中 vitest 单测 4m58s（gates 总耗时 76%，最大单项）。
@@ -172,15 +175,36 @@ jobs:
     outputs:
       count: ${{ steps.plan.outputs.count }}
       shards: ${{ steps.plan.outputs.shards }}
+      mode: ${{ steps.regression.outputs.mode }}
+      plan_digest: ${{ steps.regression.outputs.plan_digest }}
+      source_sha: ${{ github.sha }}
+      base_sha: ${{ env.CI_SCOPE_BASE_SHA }}
     steps:
       - uses: actions/checkout@v5
+        with: {fetch-depth: 0, persist-credentials: false}
       - id: plan
         run: node .harness/scripts/ci-api-shards.mjs --plan
+      # Reuse the exact-source AST boundary for PRs. Protected queue/release
+      # validation retains full API coverage and the existing source-admission policy.
+      # Unknown paths, runtime changes and unavailable history retain all API shards.
+      - id: preflight
+        if: github.event_name == 'pull_request'
+        run: node .harness/scripts/ci-targeted-ui.mjs --preflight
+      - uses: pnpm/action-setup@v4.4.0
+        if: steps.preflight.outputs.candidate == 'true'
+      - uses: actions/setup-node@v5
+        if: steps.preflight.outputs.candidate == 'true'
+        with: {node-version-file: .nvmrc, cache: pnpm}
+      - run: pnpm install --frozen-lockfile
+        if: steps.preflight.outputs.candidate == 'true'
+      - id: regression
+        run: node .harness/scripts/ci-targeted-ui.mjs ${{ github.event_name != 'pull_request' && '--full' || '' }}
+
 
   gates-test:
     needs: api-test-plan
     runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    if: (github.event_name != 'pull_request' || needs.api-test-plan.outputs.mode == 'full') && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     timeout-minutes: 20
     strategy:
       fail-fast: true # Stop remaining shards after the first failure.
@@ -524,14 +548,15 @@ jobs:
           path: apps/web/test-results/
           if-no-files-found: ignore
 
-  # Stable merge check: matrix gates-test reports success only when every shard passes.
+  # Stable merge check: full routes require all shards; proven UI routes require
+  # a deliberate matrix skip. All other backend lanes must actually pass.
   # Fork PRs with skipped trusted jobs fail closed and require trusted validation.
   backend-required:
     # #3238：候选组（merge_group）也必须出结论——这是 required check，候选组上 SKIPPED
-    # 就是队列永久卡住。语义不变：aggregateFailures 仍然要求每一条依赖真的 success，
-    # 「skipped 当 success」在这里从来不成立（ci-backend-required.mjs）。
+    # 就是队列永久卡住。ci-backend-required validates the exact-source route and
+    # rejects every unexpected skip, failure or cancellation.
     if: always() && !cancelled() && (github.event_name == 'pull_request' || github.event_name == 'merge_group')
-    needs: [gates-fast, gates-test, native-document-chain, native-runtime-lane, gates-runtime, e2e-core-loop, prototype-audit, design-loop-e2e]
+    needs: [api-test-plan, gates-fast, gates-test, native-document-chain, native-runtime-lane, gates-runtime, e2e-core-loop, prototype-audit, design-loop-e2e]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -539,4 +564,5 @@ jobs:
       - name: Require applicable backend verification
         env:
           CI_BACKEND_RESULTS: ${{ toJSON(needs) }}
+          CI_SOURCE_SHA: ${{ github.sha }}
         run: node .harness/scripts/ci-backend-required.mjs

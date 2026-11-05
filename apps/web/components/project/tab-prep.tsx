@@ -1,5 +1,9 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
+import { translate, type MessageParams } from "@/lib/i18n/messages";
+import type { Locale } from "@/lib/i18n/locale";
+import { projectPrepGroupStatusKeys, projectPrepAgendaStateKeys, type ProjectPrepMessageKey } from "@/lib/i18n/namespaces/project-preparation";
 import { Plus, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,11 +14,11 @@ import {
 } from "@/lib/project-workbench";
 import { ApiError } from "@/lib/api-client";
 import {
-  createAgendaSegment, AGENDA_SEGMENT_STATE_LABEL,
+  createAgendaSegment,
   type ProjectListItem, type ListAgendaSegmentsOut,
 } from "@/lib/live-projects";
 import {
-  saveProjectTopic, saveProjectGrouping, GROUP_STATUS_LABEL,
+  saveProjectTopic, saveProjectGrouping,
   getInterviewSubjects, saveInterviewSubjects, INTERVIEW_SUBJECT_COLUMNS,
   type ProjectTopicOut, type ProjectGroupingOut, type Group,
   type InterviewSubject, type InterviewSubjectsOut,
@@ -23,6 +27,11 @@ import { listOrgMembers, type ListOrgMembersOut } from "@/lib/live-org-admin";
 import { useSession } from "@/components/session/session-provider";
 import { SaveAsOrgTemplateAction } from "@/components/tpl/save-as-org-template-action";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableEmpty } from "@/components/ui/table";
+
+type PrepFailure = { key: ProjectPrepMessageKey; params?: MessageParams } | { cause: unknown };
+function renderPrepFailure(failure: PrepFailure, locale: Locale, describe: (cause: unknown, locale: Locale) => string): string {
+  return "key" in failure ? translate(locale, failure.key, failure.params) : describe(failure.cause, locale);
+}
 
 type OrgMemberRow = ListOrgMembersOut["members"][number];
 
@@ -89,6 +98,7 @@ export function TabPrep({
   /** 保存成功后调用：让父组件重新打一次真实 `getProjectGrouping`。 */
   onGroupingSaved?: () => void;
 }) {
+  const { t } = useI18n();
   const canWrite = ROLE_CAN_WRITE[view] && !readOnly;
   const isObserver = observerHidden(view);
   // agendaSegment.create / 定题 / 分组编排三者都**只属引导师**——复用既有的「全场控制」
@@ -105,7 +115,7 @@ export function TabPrep({
     <div className="mx-auto flex max-w-4xl flex-col gap-5 p-6" data-testid="project-prep">
       {/* 定题 —— 真实数据（F950） */}
       <section>
-        <SectionTitle meta="蓝本决定环节骨架，改动只影响这一场">定题与分组</SectionTitle>
+        <SectionTitle meta={t("projectPrep.blueprintHint")}>{t("projectPrep.topicGrouping")}</SectionTitle>
         <TopicBlock
           projectId={projectId}
           topic={liveTopic}
@@ -120,7 +130,7 @@ export function TabPrep({
       {isObserver ? (
         <ObserverNotice
           testId="project-prep-observer-notice"
-          what="分组名单（组长 / 组员 / 访谈对象）与筹备编排属于内部协作视图，不在观察者只读范围内。你能看到的是定题与下方议程骨架。"
+          what={t("projectPrep.observerNotice")}
         />
       ) : (
         <GroupingBlock
@@ -148,13 +158,12 @@ export function TabPrep({
 
       {/* 议程环节 · 三角色分工表（只读骨架，四视角都可见） */}
       <section>
-        <SectionTitle meta="编排一次，三套视图与待办自动生成">议程 · 每个环节三种角色各做什么</SectionTitle>
+        <SectionTitle meta={t("projectPrep.agendaRolesHint")}>{t("projectPrep.agendaRolesTitle")}</SectionTitle>
         {/* 三角色分工此前渲染 `lib/mock/project.ts` 的虚构 AGENDA（现状共识 / 假设风暴 / 分组共创），
             所有项目一样；契约 `agenda_segments` 只有标题与状态、没有分角色职责字段，故如实空态。 */}
         <Card>
           <p className="p-4 text-11 leading-relaxed text-muted-foreground" data-testid="project-prep-agenda-roles-empty">
-            环节的三角色分工尚未建模——议程环节目前只有标题与状态（见上方真实议程列表）。
-          </p>
+            {t("projectPrep.agendaRolesEmpty")}</p>
         </Card>
         {canWrite && (
           <div className="mt-2 flex flex-col gap-1.5">
@@ -164,8 +173,7 @@ export function TabPrep({
                 testIdPrefix="project-prep-save-template"
                 renderTrigger={(open, testId) => (
                   <Button size="sm" variant="ghost" className="transition-colors" onClick={open} data-testid={testId}>
-                    另存为组织模板
-                  </Button>
+                    {t("projectPrep.saveTemplate")}</Button>
                 )}
               />
             </div>
@@ -192,11 +200,12 @@ function TopicBlock({
   canWrite: boolean;
   onSaved?: () => void;
 }) {
+  const { locale, t } = useI18n();
   const [editing, setEditing] = React.useState(false);
   const [title, setTitle] = React.useState("");
   const [background, setBackground] = React.useState("");
   const [busy, setBusy] = React.useState(false);
-  const [submitError, setSubmitError] = React.useState<string | null>(null);
+  const [submitError, setSubmitError] = React.useState<PrepFailure | null>(null);
 
   const startEdit = () => {
     setTitle(topic?.title ?? "");
@@ -209,7 +218,7 @@ function TopicBlock({
     if (topic === null) return;
     const trimmed = title.trim();
     if (trimmed === "") {
-      setSubmitError("主题不能为空");
+      setSubmitError({ key: "projectPrep.topicRequired" });
       return;
     }
     setBusy(true);
@@ -221,7 +230,7 @@ function TopicBlock({
       setEditing(false);
       onSaved?.();
     } catch (e) {
-      setSubmitError(describeTopicError(e));
+      setSubmitError({ cause: e });
     } finally {
       setBusy(false);
     }
@@ -229,12 +238,12 @@ function TopicBlock({
 
   if (loading && topic === null) {
     return (
-      <Card><div className="p-4 text-11 text-muted-foreground" data-testid="project-prep-topic-loading">加载中…</div></Card>
+      <Card><div className="p-4 text-11 text-muted-foreground" data-testid="project-prep-topic-loading">{t("projectPrep.loading")}</div></Card>
     );
   }
   if (error !== null) {
     return (
-      <Card><div className="p-4 text-11 text-destructive" data-testid="project-prep-topic-error">读取失败：{error}</div></Card>
+      <Card><div className="p-4 text-11 text-destructive" data-testid="project-prep-topic-error">{t("projectPrep.readFailedPrefix")}{error}</div></Card>
     );
   }
 
@@ -245,35 +254,35 @@ function TopicBlock({
           {topic !== null && topic.title !== "" ? (
             <h3 className="text-14 font-medium leading-snug" data-testid="project-prep-topic-title">{topic.title}</h3>
           ) : (
-            <p className="text-13 text-muted-foreground" data-testid="project-prep-topic-empty">还没有定题——{canWrite ? "点「编辑」定主题与背景。" : "等引导师定题。"}</p>
+            <p className="text-13 text-muted-foreground" data-testid="project-prep-topic-empty">{t("projectPrep.noTopic")}{canWrite ? t("projectPrep.editTopicHint") : t("projectPrep.waitTopic")}</p>
           )}
           {topic !== null && topic.background !== "" && (
             <p className="text-11 text-muted-foreground" data-testid="project-prep-topic-background">{topic.background}</p>
           )}
           <div className="flex flex-wrap items-center gap-2">
             {canWrite && topic !== null && (
-              <Button size="xs" variant="outline" onClick={startEdit} data-testid="project-prep-topic-edit">编辑</Button>
+              <Button size="xs" variant="outline" onClick={startEdit} data-testid="project-prep-topic-edit">{t("projectPrep.edit")}</Button>
             )}
           </div>
         </>
       ) : (
         <div className="flex flex-col gap-2">
           <label className="flex flex-col gap-1 text-10">
-            <span className="text-muted-foreground">主题·一句话</span>
+            <span className="text-muted-foreground">{t("projectPrep.topicLabel")}</span>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} data-testid="project-prep-topic-title-input" />
           </label>
           <label className="flex flex-col gap-1 text-10">
-            <span className="text-muted-foreground">背景·为什么现在开这场</span>
+            <span className="text-muted-foreground">{t("projectPrep.backgroundLabel")}</span>
             <Input value={background} onChange={(e) => setBackground(e.target.value)} data-testid="project-prep-topic-background-input" />
           </label>
           {submitError !== null && (
-            <p role="alert" className="text-10 text-destructive" data-testid="project-prep-topic-submit-error">{submitError}</p>
+            <p role="alert" className="text-10 text-destructive" data-testid="project-prep-topic-submit-error">{renderPrepFailure(submitError, locale, describeTopicError)}</p>
           )}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button size="sm" variant="primary" disabled={busy} onClick={() => void submit()} data-testid="project-prep-topic-save">
-              {busy ? "保存中…" : "保存并同步到全场"}
+              {busy ? t("projectPrep.saving") : t("projectPrep.saveSync")}
             </Button>
-            <Button size="sm" variant="ghost" disabled={busy} onClick={() => setEditing(false)} data-testid="project-prep-topic-cancel">取消</Button>
+            <Button size="sm" variant="ghost" disabled={busy} onClick={() => setEditing(false)} data-testid="project-prep-topic-cancel">{t("projectPrep.cancel")}</Button>
           </div>
         </div>
       )}
@@ -281,14 +290,15 @@ function TopicBlock({
   );
 }
 
-function describeTopicError(e: unknown): string {
+function describeTopicError(e: unknown, locale: Locale = "zh-CN"): string {
+  const t = (key: ProjectPrepMessageKey, params?: MessageParams) => translate(locale, key, params);
   if (e instanceof ApiError) {
-    if (e.reasonCode === "VERSION_CHANGED") return "有人改过了这里的内容，请重新加载后再编辑";
-    if (e.reasonCode === "ROLE_INSUFFICIENT" || e.reasonCode === "NO_PROJECT_ROLE") return "你没有编辑定题的权限";
-    return e.reasonCode ?? `操作失败（HTTP ${e.status}）`;
+    if (e.reasonCode === "VERSION_CHANGED") return t("projectPrep.topicConflict");
+    if (e.reasonCode === "ROLE_INSUFFICIENT" || e.reasonCode === "NO_PROJECT_ROLE") return t("projectPrep.topicForbidden");
+    return e.reasonCode ?? t("projectPrep.operationFailed", { status: e.status });
   }
   if (e instanceof Error) return e.message;
-  return "未知错误";
+  return t("projectPrep.unknownError");
 }
 
 /** 一个组的访谈对象读取结果——`undefined` = 还在读，`error` = 这一组读失败（别组不受影响）。 */
@@ -319,18 +329,19 @@ function InterviewSubjectsRow({
   state: SubjectsCell | undefined;
   onSaved: () => void;
 }) {
+  const { locale, t } = useI18n();
   const [open, setOpen] = React.useState(false);
   const [editing, setEditing] = React.useState(false);
   const [draft, setDraft] = React.useState<InterviewSubject[]>([]);
   const [busy, setBusy] = React.useState(false);
-  const [submitError, setSubmitError] = React.useState<string | null>(null);
+  const [submitError, setSubmitError] = React.useState<PrepFailure | null>(null);
 
   const subjects = state?.kind === "ok" ? state.data.subjects : [];
   const summary =
-    state === undefined ? "读取中…"
-      : state.kind === "error" ? "读取失败"
-        : subjects.length === 0 ? "未填"
-          : subjects.map((s) => s.name.trim() || "（未命名）").join("、");
+    state === undefined ? t("projectPrep.reading")
+      : state.kind === "error" ? t("projectPrep.readFailed")
+        : subjects.length === 0 ? t("projectPrep.notFilled")
+          : subjects.map((s) => s.name.trim() || t("projectPrep.unnamed")).join("、");
 
   const startEdit = () => {
     setDraft(subjects.map((s) => ({ ...s })));
@@ -361,7 +372,7 @@ function InterviewSubjectsRow({
       setEditing(false);
       onSaved();
     } catch (e) {
-      setSubmitError(describeSubjectsError(e));
+      setSubmitError({ cause: e });
     } finally {
       setBusy(false);
     }
@@ -372,7 +383,7 @@ function InterviewSubjectsRow({
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-baseline gap-2">
-        <span className="w-16 shrink-0 text-muted-foreground">访谈对象</span>
+        <span className="w-16 shrink-0 text-muted-foreground">{t("projectPrep.subjects")}</span>
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
@@ -388,7 +399,7 @@ function InterviewSubjectsRow({
       {open && (
         <div className="rounded-md border border-border/60 p-2" data-testid={`project-prep-subjects-${groupId}-panel`}>
           {state?.kind === "error" ? (
-            <p className="text-10 text-destructive">读取失败，展开也看不到内容——刷新页面重试。</p>
+            <p className="text-10 text-destructive">{t("projectPrep.subjectsReadFailed")}</p>
           ) : (
             <>
               <div className="overflow-x-auto">
@@ -396,15 +407,15 @@ function InterviewSubjectsRow({
                   <TableHeader>
                     <TableRow className="text-muted-foreground">
                       {INTERVIEW_SUBJECT_COLUMNS.map((c) => (
-                        <TableHead key={c.key} className="border-b border-border/60 px-1 py-1 text-left font-normal">{c.label}</TableHead>
+                        <TableHead key={c.key} className="border-b border-border/60 px-1 py-1 text-left font-normal">{t(`projectPrep.subjectColumn.${c.key}`)}</TableHead>
                       ))}
-                      {editing && <TableHead className="border-b border-border/60 px-1 py-1" aria-label="删除" />}
+                      {editing && <TableHead className="border-b border-border/60 px-1 py-1" aria-label={t("projectPrep.delete")} />}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {rows.length === 0 && (
                       <TableEmpty colSpan={INTERVIEW_SUBJECT_COLUMNS.length} className="px-1 py-2 text-left text-muted-foreground">
-                        还没有访谈对象——{canWrite ? "点「＋ 加对象」加第一个。" : "等引导师或组长填。"}
+                        {t("projectPrep.noSubjects")}{canWrite ? t("projectPrep.addSubjectHint") : t("projectPrep.waitSubjects")}
                       </TableEmpty>
                     )}
                     {rows.map((s) => (
@@ -415,7 +426,7 @@ function InterviewSubjectsRow({
                               <Input
                                 value={s[c.key]}
                                 onChange={(e) => patchRow(s.subjectId, { [c.key]: e.target.value })}
-                                aria-label={c.label}
+                                aria-label={t(`projectPrep.subjectColumn.${c.key}`)}
                                 className="h-6 text-10"
                                 data-testid={`project-prep-subject-${s.subjectId}-${c.key}`}
                               />
@@ -428,7 +439,7 @@ function InterviewSubjectsRow({
                           <TableCell className="border-b border-border/40 px-1 py-1 align-top">
                             <button
                               type="button"
-                              aria-label={`删除 ${s.name.trim() || "这一行"}`}
+                              aria-label={t("projectPrep.deleteSubject", { name: s.name.trim() || t("projectPrep.thisRow") })}
                               onClick={() => removeRow(s.subjectId)}
                               data-testid={`project-prep-subject-${s.subjectId}-remove`}
                               className="rounded-full p-0.5 text-muted-foreground transition-colors duration-200 hover:bg-muted"
@@ -444,46 +455,41 @@ function InterviewSubjectsRow({
               </div>
 
               <p className="mt-1.5 text-10 text-muted-foreground">
-                访谈 AI 会按这张表提前预约并生成提纲；现场访谈转写自动回流到本组。
-              </p>
+                {t("projectPrep.interviewHint")}</p>
 
               {canWrite && (
                 <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                   {!editing ? (
                     <Button size="xs" variant="outline" onClick={startEdit} data-testid={`project-prep-subjects-${groupId}-edit`}>
-                      编辑
-                    </Button>
+                      {t("projectPrep.edit")}</Button>
                   ) : (
                     <>
                       <Button size="xs" variant="outline" onClick={addRow} data-testid={`project-prep-subjects-${groupId}-add`}>
-                        <Plus aria-hidden className="mr-0.5 h-3 w-3" />加对象
-                      </Button>
+                        <Plus aria-hidden className="mr-0.5 h-3 w-3" />{t("projectPrep.addSubject")}</Button>
                       <Button size="xs" onClick={submit} disabled={busy} data-testid={`project-prep-subjects-${groupId}-save`}>
-                        {busy ? "保存中…" : "保存"}
+                        {busy ? t("projectPrep.saving") : t("projectPrep.save")}
                       </Button>
                       <Button
                         size="xs" variant="ghost" disabled={busy}
                         onClick={() => { setEditing(false); setSubmitError(null); }}
                         data-testid={`project-prep-subjects-${groupId}-cancel`}
                       >
-                        取消
-                      </Button>
+                        {t("projectPrep.cancel")}</Button>
                     </>
                   )}
                   {/* 原型有这个按钮，但 AI 选人能力全仓没有实现——禁用 + 说明，不做假入口。 */}
                   <Button
                     size="xs" variant="ghost" disabled
-                    title="AI 选人本版未接入，请手工填写"
+                    title={t("projectPrep.aiSubjectsUnavailableHint")}
                     data-testid={`project-prep-subjects-${groupId}-ai`}
                   >
-                    AI 建议人选（未接入）
-                  </Button>
+                    {t("projectPrep.aiSubjectsUnavailable")}</Button>
                 </div>
               )}
 
               {submitError !== null && (
                 <p className="mt-1 text-10 text-destructive" data-testid={`project-prep-subjects-${groupId}-error`}>
-                  {submitError}
+                  {renderPrepFailure(submitError, locale, describeSubjectsError)}
                 </p>
               )}
             </>
@@ -494,15 +500,16 @@ function InterviewSubjectsRow({
   );
 }
 
-function describeSubjectsError(e: unknown): string {
+function describeSubjectsError(e: unknown, locale: Locale = "zh-CN"): string {
+  const t = (key: ProjectPrepMessageKey, params?: MessageParams) => translate(locale, key, params);
   if (e instanceof ApiError) {
-    if (e.reasonCode === "VERSION_CHANGED") return "有人刚改过这张表，请刷新后重填（你的改动没有覆盖对方的）";
-    if (e.reasonCode === "ROLE_INSUFFICIENT") return "只有引导师和组长能填本组的访谈对象";
-    if (e.reasonCode === "NO_PROJECT_ROLE") return "你不在这个项目里";
-    if (e.reasonCode === "DEPENDENCY_UNAVAILABLE") return "服务暂时不可用，稍后重试";
+    if (e.reasonCode === "VERSION_CHANGED") return t("projectPrep.subjectsConflict");
+    if (e.reasonCode === "ROLE_INSUFFICIENT") return t("projectPrep.subjectsForbidden");
+    if (e.reasonCode === "NO_PROJECT_ROLE") return t("projectPrep.notProjectMember");
+    if (e.reasonCode === "DEPENDENCY_UNAVAILABLE") return t("projectPrep.serviceUnavailable");
   }
   if (e instanceof Error) return e.message;
-  return "未知错误";
+  return t("projectPrep.unknownError");
 }
 
 /**
@@ -522,6 +529,7 @@ function GroupingBlock({
   canWriteSubjects: boolean;
   onSaved?: () => void;
 }) {
+  const { locale, t } = useI18n();
   const { session } = useSession();
   const orgId = session?.currentOrgId ?? null;
   const [members, setMembers] = React.useState<OrgMemberRow[] | null>(null);
@@ -593,7 +601,7 @@ function GroupingBlock({
   const [editing, setEditing] = React.useState(false);
   const [draft, setDraft] = React.useState<Group[]>([]);
   const [busy, setBusy] = React.useState(false);
-  const [submitError, setSubmitError] = React.useState<string | null>(null);
+  const [submitError, setSubmitError] = React.useState<PrepFailure | null>(null);
 
   const startEdit = () => {
     setDraft(grouping?.groups.map((g) => ({ ...g, memberUserIds: [...g.memberUserIds] })) ?? []);
@@ -606,7 +614,7 @@ function GroupingBlock({
       ...prev,
       {
         groupId: `g-${Date.now()}-${prev.length}`,
-        name: `第 ${prev.length + 1} 组`,
+        name: t("projectPrep.newGroupName", { number: prev.length + 1 }),
         scenario: "", leaderUserId: null, status: "needs-intervention", memberUserIds: [],
       },
     ]);
@@ -619,7 +627,7 @@ function GroupingBlock({
     if (grouping === null) return;
     const missingLeader = draft.find((g) => g.leaderUserId === null);
     if (missingLeader !== undefined) {
-      setSubmitError(`「${missingLeader.name}」还没有组长`);
+      setSubmitError({ key: "projectPrep.missingLeader", params: { name: missingLeader.name } });
       return;
     }
     setBusy(true);
@@ -631,7 +639,7 @@ function GroupingBlock({
       setEditing(false);
       onSaved?.();
     } catch (e) {
-      setSubmitError(describeGroupingError(e));
+      setSubmitError({ cause: e });
     } finally {
       setBusy(false);
     }
@@ -640,16 +648,16 @@ function GroupingBlock({
   if (loading && grouping === null) {
     return (
       <section>
-        <SectionTitle meta="每组：场景 · 组长 · 组员 · 访谈对象">分组与组长</SectionTitle>
-        <Card><div className="p-4 text-11 text-muted-foreground" data-testid="project-prep-groups-loading">加载中…</div></Card>
+        <SectionTitle meta={t("projectPrep.groupsHint")}>{t("projectPrep.groupsTitle")}</SectionTitle>
+        <Card><div className="p-4 text-11 text-muted-foreground" data-testid="project-prep-groups-loading">{t("projectPrep.loading")}</div></Card>
       </section>
     );
   }
   if (error !== null) {
     return (
       <section>
-        <SectionTitle meta="每组：场景 · 组长 · 组员 · 访谈对象">分组与组长</SectionTitle>
-        <Card><div className="p-4 text-11 text-destructive" data-testid="project-prep-groups-error">读取失败：{error}</div></Card>
+        <SectionTitle meta={t("projectPrep.groupsHint")}>{t("projectPrep.groupsTitle")}</SectionTitle>
+        <Card><div className="p-4 text-11 text-destructive" data-testid="project-prep-groups-error">{t("projectPrep.readFailedPrefix")}{error}</div></Card>
       </section>
     );
   }
@@ -659,15 +667,15 @@ function GroupingBlock({
   return (
     <section>
       <div className="mb-2 flex items-center justify-between">
-        <SectionTitle className="mb-0" meta="每组：场景 · 组长 · 组员 · 访谈对象">分组与组长</SectionTitle>
+        <SectionTitle className="mb-0" meta={t("projectPrep.groupsHint")}>{t("projectPrep.groupsTitle")}</SectionTitle>
         {canWrite && !editing && (
-          <Button size="xs" variant="outline" onClick={startEdit} data-testid="project-prep-groups-edit">编辑</Button>
+          <Button size="xs" variant="outline" onClick={startEdit} data-testid="project-prep-groups-edit">{t("projectPrep.edit")}</Button>
         )}
       </div>
 
       {groups.length === 0 && !editing && (
         <p className="text-11 text-muted-foreground" data-testid="project-prep-groups-empty">
-          还没有分组——{canWrite ? "点「编辑」建第一组。" : "等引导师分组。"}
+          {t("projectPrep.noGroups")}{canWrite ? t("projectPrep.editGroupsHint") : t("projectPrep.waitGroups")}
         </p>
       )}
 
@@ -681,14 +689,14 @@ function GroupingBlock({
                     <span className="text-12 font-medium">{g.name}</span>
                     <StatChip>{g.scenario}</StatChip>
                     <StatChip tone={g.status === "recording-ready" ? "success" : g.status === "needs-intervention" ? "danger" : "warning"}>
-                      {GROUP_STATUS_LABEL[g.status as keyof typeof GROUP_STATUS_LABEL]}
+                      {projectPrepGroupStatusKeys[g.status as keyof typeof projectPrepGroupStatusKeys] ? t(projectPrepGroupStatusKeys[g.status as keyof typeof projectPrepGroupStatusKeys]) : g.status}
                     </StatChip>
                   </div>
-                  <Row k="组长" v={g.leaderUserId !== null ? nameOf(g.leaderUserId) : "未指派"} />
+                  <Row k={t("projectPrep.leader")} v={g.leaderUserId !== null ? nameOf(g.leaderUserId) : t("projectPrep.unassigned")} />
                   {/* ⚠ 原型（`uc-2-2-prep-default.png` / 已删除的 `mock/project.ts` 的 `members: "3 人"`）
                       这一行是人数，不是姓名清单——F950 当时写成姓名拼接是自由发挥，
                       F961 按已签原型收回。姓名在编辑态的勾选框里仍逐个可见，信息没丢。 */}
-                  <Row k="组员" v={`${g.memberUserIds.length} 人`} />
+                  <Row k={t("projectPrep.members")} v={t("projectPrep.memberCount", { count: g.memberUserIds.length })} />
                   <InterviewSubjectsRow
                     projectId={projectId}
                     groupId={g.groupId}
@@ -708,7 +716,7 @@ function GroupingBlock({
                     />
                     <button
                       type="button"
-                      aria-label="删除这组"
+                      aria-label={t("projectPrep.deleteGroup")}
                       onClick={() => removeGroup(g.groupId)}
                       data-testid={`project-prep-group-${g.groupId}-remove`}
                       className="rounded-full p-1 text-muted-foreground transition-colors duration-200 hover:bg-muted"
@@ -719,7 +727,7 @@ function GroupingBlock({
                   <Input
                     value={g.scenario}
                     onChange={(e) => patchGroup(g.groupId, { scenario: e.target.value })}
-                    placeholder="场景·本组要推演什么"
+                    placeholder={t("projectPrep.scenarioPlaceholder")}
                     className="h-7 text-11"
                     data-testid={`project-prep-group-${g.groupId}-scenario`}
                   />
@@ -729,26 +737,26 @@ function GroupingBlock({
                     className="h-7 rounded-md border border-border bg-card px-2 text-11"
                     data-testid={`project-prep-group-${g.groupId}-status`}
                   >
-                    {Object.entries(GROUP_STATUS_LABEL).map(([v, label]) => (
-                      <option key={v} value={v}>{label}</option>
+                    {Object.entries(projectPrepGroupStatusKeys).map(([v, copyKey]) => (
+                      <option key={v} value={v}>{t(copyKey)}</option>
                     ))}
                   </select>
                   <label className="flex flex-col gap-1">
-                    <span className="text-10 text-muted-foreground">组长</span>
+                    <span className="text-10 text-muted-foreground">{t("projectPrep.leader")}</span>
                     <select
                       value={g.leaderUserId ?? ""}
                       onChange={(e) => patchGroup(g.groupId, { leaderUserId: e.target.value === "" ? null : e.target.value })}
                       className="h-7 rounded-md border border-border bg-card px-2 text-11"
                       data-testid={`project-prep-group-${g.groupId}-leader`}
                     >
-                      <option value="">未指派</option>
+                      <option value="">{t("projectPrep.unassigned")}</option>
                       {(members ?? []).map((m) => (
                         <option key={m.userId} value={m.userId}>{m.displayName}</option>
                       ))}
                     </select>
                   </label>
                   <fieldset className="flex flex-col gap-1">
-                    <legend className="text-10 text-muted-foreground">组员</legend>
+                    <legend className="text-10 text-muted-foreground">{t("projectPrep.members")}</legend>
                     {(members ?? []).filter((m) => m.userId !== g.leaderUserId).map((m) => (
                       <label key={m.userId} className="flex items-center gap-1.5 text-10">
                         <input
@@ -775,16 +783,15 @@ function GroupingBlock({
       {editing && (
         <div className="mt-2 flex flex-col gap-2">
           <Button size="sm" variant="outline" className="self-start" onClick={addGroup} data-testid="project-prep-groups-add">
-            <Plus aria-hidden className="h-3.5 w-3.5" /> 加一组
-          </Button>
+            <Plus aria-hidden className="h-3.5 w-3.5" /> {t("projectPrep.addGroup")}</Button>
           {submitError !== null && (
-            <p role="alert" className="text-10 text-destructive" data-testid="project-prep-groups-submit-error">{submitError}</p>
+            <p role="alert" className="text-10 text-destructive" data-testid="project-prep-groups-submit-error">{renderPrepFailure(submitError, locale, describeGroupingError)}</p>
           )}
           <div className="flex items-center gap-2">
             <Button size="sm" variant="primary" disabled={busy} onClick={() => void submit()} data-testid="project-prep-groups-save">
-              {busy ? "保存中…" : "保存分组"}
+              {busy ? t("projectPrep.saving") : t("projectPrep.saveGroups")}
             </Button>
-            <Button size="sm" variant="ghost" disabled={busy} onClick={() => setEditing(false)} data-testid="project-prep-groups-cancel">取消</Button>
+            <Button size="sm" variant="ghost" disabled={busy} onClick={() => setEditing(false)} data-testid="project-prep-groups-cancel">{t("projectPrep.cancel")}</Button>
           </div>
         </div>
       )}
@@ -792,15 +799,16 @@ function GroupingBlock({
   );
 }
 
-function describeGroupingError(e: unknown): string {
+function describeGroupingError(e: unknown, locale: Locale = "zh-CN"): string {
+  const t = (key: ProjectPrepMessageKey, params?: MessageParams) => translate(locale, key, params);
   if (e instanceof ApiError) {
-    if (e.reasonCode === "VERSION_CHANGED") return "有人改过了分组，请重新加载后再编辑";
-    if (e.reasonCode === "GROUP_LEADER_REQUIRED") return "每组必须有一位组长";
-    if (e.reasonCode === "ROLE_INSUFFICIENT" || e.reasonCode === "NO_PROJECT_ROLE") return "你没有编辑分组的权限";
-    return e.reasonCode ?? `操作失败（HTTP ${e.status}）`;
+    if (e.reasonCode === "VERSION_CHANGED") return t("projectPrep.groupsConflict");
+    if (e.reasonCode === "GROUP_LEADER_REQUIRED") return t("projectPrep.leaderRequired");
+    if (e.reasonCode === "ROLE_INSUFFICIENT" || e.reasonCode === "NO_PROJECT_ROLE") return t("projectPrep.groupsForbidden");
+    return e.reasonCode ?? t("projectPrep.operationFailed", { status: e.status });
   }
   if (e instanceof Error) return e.message;
-  return "未知错误";
+  return t("projectPrep.unknownError");
 }
 
 /**
@@ -818,12 +826,13 @@ function RealAgendaSection({
   canCreate: boolean;
   onCreated?: () => void;
 }) {
+  const { locale, t } = useI18n();
   const [open, setOpen] = React.useState(false);
   const [title, setTitle] = React.useState("");
   const [duration, setDuration] = React.useState("30");
   const [submitting, setSubmitting] = React.useState(false);
-  const [submitError, setSubmitError] = React.useState<string | null>(null);
-  const [lastCreated, setLastCreated] = React.useState<string | null>(null);
+  const [submitError, setSubmitError] = React.useState<PrepFailure | null>(null);
+  const [lastCreated, setLastCreated] = React.useState<{ title: string; ordinal: number; id: string } | null>(null);
 
   const nextOrdinal = segments === null || segments.length === 0
     ? 0
@@ -833,7 +842,7 @@ function RealAgendaSection({
     const trimmedTitle = title.trim();
     const durationMinutes = Number(duration);
     if (trimmedTitle.length === 0 || !Number.isInteger(durationMinutes) || durationMinutes <= 0) {
-      setSubmitError("标题不能为空，时长必须是正整数（分钟）");
+      setSubmitError({ key: "projectPrep.agendaRequired" });
       return;
     }
     setSubmitting(true);
@@ -849,13 +858,13 @@ function RealAgendaSection({
       setTitle("");
       setDuration("30");
       setOpen(false);
-      setLastCreated(`已建「${created.title}」· 第 ${created.ordinal} 位 · id ${created.id}`);
+      setLastCreated({ title: created.title, ordinal: created.ordinal, id: created.id });
       // ⚠ 不在这里把 `created` append 进本地列表——交给调用方重新打一次真实
       //   `listAgendaSegments`，同 `template-apply-dialog.tsx` 对 `onApplied` 的注释：
       //   本地追加看起来与真的一模一样，而「它到底进没进库」正是这个入口要证明的事。
       onCreated?.();
     } catch (e) {
-      setSubmitError(describeCreateError(e));
+      setSubmitError({ cause: e });
     } finally {
       setSubmitting(false);
     }
@@ -863,18 +872,18 @@ function RealAgendaSection({
 
   return (
     <section>
-      <SectionTitle meta="真实往返：建了会落库，刷新页面后还在">议程环节 · 真实数据</SectionTitle>
+      <SectionTitle meta={t("projectPrep.agendaHint")}>{t("projectPrep.agendaTitle")}</SectionTitle>
       <Card>
         <div className="flex flex-col gap-2 p-3.5" data-testid="project-prep-real-agenda">
           {loading && (
-            <p className="text-11 text-muted-foreground" data-testid="project-prep-real-agenda-loading">加载中…</p>
+            <p className="text-11 text-muted-foreground" data-testid="project-prep-real-agenda-loading">{t("projectPrep.loading")}</p>
           )}
           {error !== null && (
-            <p className="text-11 text-destructive" data-testid="project-prep-real-agenda-error">读取失败：{error}</p>
+            <p className="text-11 text-destructive" data-testid="project-prep-real-agenda-error">{t("projectPrep.readFailedPrefix")}{error}</p>
           )}
           {error === null && !loading && segments !== null && segments.length === 0 && (
             <p className="text-11 text-muted-foreground" data-testid="project-prep-real-agenda-empty">
-              这个工作坊还没有任何议程环节——{canCreate ? "点下面「新建议程环节」建第一个。" : "等引导师建第一个。"}
+              {t("projectPrep.noAgenda")}{canCreate ? t("projectPrep.addAgendaHint") : t("projectPrep.waitAgenda")}
             </p>
           )}
           {segments !== null && segments.length > 0 && (
@@ -888,10 +897,10 @@ function RealAgendaSection({
                   <div className="flex min-w-0 items-center gap-2">
                     <span className="font-mono text-10 text-muted-foreground">{s.ordinal}</span>
                     <span className="min-w-0 truncate font-medium">{s.title}</span>
-                    <span className="shrink-0 text-10 text-muted-foreground">{s.duration} 分钟</span>
+                    <span className="shrink-0 text-10 text-muted-foreground">{s.duration} {t("projectPrep.minutes")}</span>
                   </div>
                   <StatChip tone={s.state === "active" ? "ai" : s.state === "closed" || s.state === "skipped" ? "neutral" : "success"}>
-                    {AGENDA_SEGMENT_STATE_LABEL[s.state]}
+                    {projectPrepAgendaStateKeys[s.state] ? t(projectPrepAgendaStateKeys[s.state]) : s.state}
                   </StatChip>
                 </li>
               ))}
@@ -900,7 +909,7 @@ function RealAgendaSection({
 
           {lastCreated !== null && (
             <p className="rounded-md border border-success/30 bg-success/5 px-2.5 py-1.5 text-10 text-success" data-testid="project-prep-real-agenda-created">
-              {lastCreated}
+              {t("projectPrep.createdReceipt", lastCreated)}
             </p>
           )}
 
@@ -908,21 +917,20 @@ function RealAgendaSection({
             <div className="mt-1 flex flex-col gap-2">
               {!open ? (
                 <Button size="sm" variant="outline" className="self-start" onClick={() => setOpen(true)} data-testid="project-prep-create-agenda-open">
-                  <Plus aria-hidden className="h-3.5 w-3.5" /> 新建议程环节
-                </Button>
+                  <Plus aria-hidden className="h-3.5 w-3.5" /> {t("projectPrep.newAgenda")}</Button>
               ) : (
                 <div className="flex flex-col gap-2 rounded-md border border-border bg-panel p-2.5" data-testid="project-prep-create-agenda-form">
                   <label className="flex flex-col gap-1 text-10">
-                    <span className="text-muted-foreground">环节标题</span>
+                    <span className="text-muted-foreground">{t("projectPrep.agendaName")}</span>
                     <Input
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
-                      placeholder="例如：开场破冰"
+                      placeholder={t("projectPrep.agendaPlaceholder")}
                       data-testid="project-prep-create-agenda-title"
                     />
                   </label>
                   <label className="flex flex-col gap-1 text-10">
-                    <span className="text-muted-foreground">时长（分钟）</span>
+                    <span className="text-muted-foreground">{t("projectPrep.duration")}</span>
                     <Input
                       type="number"
                       min={1}
@@ -932,11 +940,11 @@ function RealAgendaSection({
                     />
                   </label>
                   <span className="text-10 text-muted-foreground">
-                    第 {nextOrdinal} 位 · 新建出来是「待开始」，不会自动变成当前环节。
+                    {t("projectPrep.newAgendaPosition", { ordinal: nextOrdinal })}
                   </span>
                   {submitError !== null && (
                     <p role="alert" className="text-10 text-destructive" data-testid="project-prep-create-agenda-error">
-                      {submitError}
+                      {renderPrepFailure(submitError, locale, describeCreateError)}
                     </p>
                   )}
                   <div className="flex items-center gap-2">
@@ -947,7 +955,7 @@ function RealAgendaSection({
                       onClick={() => void submit()}
                       data-testid="project-prep-create-agenda-submit"
                     >
-                      {submitting ? "正在建…" : "建这个环节"}
+                      {submitting ? t("projectPrep.creating") : t("projectPrep.createAgenda")}
                     </Button>
                     <Button
                       size="sm"
@@ -956,8 +964,7 @@ function RealAgendaSection({
                       onClick={() => { setOpen(false); setSubmitError(null); }}
                       data-testid="project-prep-create-agenda-cancel"
                     >
-                      取消
-                    </Button>
+                      {t("projectPrep.cancel")}</Button>
                   </div>
                 </div>
               )}
@@ -974,18 +981,19 @@ function RealAgendaSection({
  * 只把契约 `createAgendaSegment.err` 里真有的码翻成人话，其余原样带 reasonCode，
  * 不在前端造一份错误语义的副本。
  */
-function describeCreateError(error: unknown): string {
+function describeCreateError(error: unknown, locale: Locale = "zh-CN"): string {
+  const t = (key: ProjectPrepMessageKey, params?: MessageParams) => translate(locale, key, params);
   if (error instanceof ApiError) {
     if (error.reasonCode === "PROJECT_ARCHIVED") {
-      return "这个工作坊已归档，不能再新建议程环节（服务端 PROJECT_ARCHIVED）";
+      return t("projectPrep.archived");
     }
     if (error.reasonCode === "PROJECT_ROLE_INSUFFICIENT" || error.reasonCode === "NO_PROJECT_ROLE") {
-      return "你在这个工作坊里没有新建议程环节的权限";
+      return t("projectPrep.agendaForbidden");
     }
-    return `${error.reasonCode ?? "无 reasonCode"}（HTTP ${error.status}）`;
+    return t("projectPrep.codedError", { code: error.reasonCode ?? t("projectPrep.noReasonCode"), status: error.status });
   }
   if (error instanceof Error) return error.message;
-  return "未知错误";
+  return t("projectPrep.unknownError");
 }
 
 function Row({ k, v }: { k: string; v: string }) {
