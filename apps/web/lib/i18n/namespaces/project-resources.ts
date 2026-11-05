@@ -1,5 +1,8 @@
-import type { ContentFilter } from "@/components/project/project-content";
-import type { ProjectResourceKind } from "@/lib/live-project-resources";
+import type { ContentFilter } from "@/components/project/project-links";
+import type { z } from "zod";
+import type { project } from "@repo/contracts";
+
+type ProjectResourceKind = z.infer<typeof project.ProjectResourceKind>;
 
 /** Accepted contract metadata remains the Chinese source; only English is projected here. */
 export const projectResourceKindEn: Record<ProjectResourceKind, string> = {

@@ -16,7 +16,7 @@ import {
   ProjectResourceSection, RESOURCE_KIND_TO_SUB, projectResourceHref, projectResourceIcon,
   startNewProjectResource, describeProjectResourceFailure,
 } from "./project-resource-section";
-import type { ProjectResearchSub } from "./project-links";
+import type { ContentFilter } from "./project-links";
 import { getStoredSessionToken } from "@/lib/api-client";
 import { listThreads, createProjectThread, type ListThreadsOut } from "@/lib/live-chat";
 import { listProjectResources, type ListProjectResourcesOut, type ProjectResourceKind } from "@/lib/live-project-resources";
@@ -33,7 +33,7 @@ import { cn } from "@/lib/utils";
  * 筛选键与研究洞察子导航同一套（`sub=conv|survey|itv|research|transcript|whiteboard|design`），
  * 各 Studio「← 返回项目」的链接因此在通用项目里落到这里对应的筛选。
  */
-export type ContentFilter = "all" | "conv" | ProjectResearchSub;
+export type { ContentFilter } from "./project-links";
 
 /** 筛选 chip 的顺序与文案（唯一一份）。 */
 export const CONTENT_FILTERS: ReadonlyArray<{ key: ContentFilter; label: string }> = [
