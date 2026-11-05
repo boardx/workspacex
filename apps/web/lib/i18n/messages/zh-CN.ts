@@ -26,6 +26,7 @@ import { chatZhCN } from "../namespaces/chat";
 import { zhTasks } from "./tasks";
 import { zhFailures } from "./failures";
 import { controlsZhCN } from "../namespaces/controls";
+import { publicDesignShareZhCN } from "../namespaces/public-design-share";
 import { workflowRunsZhCN } from "../namespaces/workflow-runs";
 import { projectResultsZhCN } from "../namespaces/project-results";
 import { workshopOverviewZhCN } from "../namespaces/workshop-overview";
@@ -70,6 +71,7 @@ export const zhCN = {
   ...zhTasks,
   ...zhFailures,
   ...controlsZhCN,
+  ...publicDesignShareZhCN,
   ...projectListZhCN,
   ...projectOverviewZhCN,
   ...activityZhCN,

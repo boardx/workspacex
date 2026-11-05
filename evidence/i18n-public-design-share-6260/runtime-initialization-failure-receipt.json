@@ -1,0 +1,61 @@
+{
+  "run": 41985197418,
+  "attempt": 1,
+  "head": "7d080926dc2b3621ff6b19442e414c5b2e318243",
+  "job": 127104360229,
+  "stats": {
+    "startTime": "2026-11-05T07:10:51.176Z",
+    "duration": 725121.1170000001,
+    "expected": 85,
+    "skipped": 134,
+    "unexpected": 1,
+    "flaky": 0
+  },
+  "globalErrorCount": 1,
+  "ownCases": [
+    {
+      "title": "public design share real publication, locale/navigation and revocation 1280",
+      "status": "unexpected",
+      "results": [
+        {
+          "status": "failed",
+          "retry": 0,
+          "duration": 2486
+        },
+        {
+          "status": "failed",
+          "retry": 1,
+          "duration": 2775
+        }
+      ]
+    },
+    {
+      "title": "public design share real publication, locale/navigation and revocation 375",
+      "status": "skipped",
+      "results": []
+    }
+  ],
+  "cause": {
+    "method": "POST",
+    "endpoint": "/pm-designs/:projectId/prototype/patch",
+    "status": 400,
+    "reasonCode": "PROTOTYPE_PATCH_REJECTED",
+    "patchReason": "NO_PROTOTYPE",
+    "beforePublication": true
+  },
+  "globalErrorsMeaning": "maxfail early stop",
+  "pngQA": [
+    {
+      "name": "apps/web/test-results/fullstack-smoke/i18n-public-design-share-p-cf729-igation-and-revocation-1280-seeded-retry1/test-failed-1.png",
+      "sha256": "032febb94cad99eb548e40b1d5cea31a5c5503d5e280b1050d74667e09c1422c",
+      "viewed": true,
+      "finding": "Owner home; public share route not reached."
+    },
+    {
+      "name": "apps/web/test-results/fullstack-smoke/i18n-public-design-share-p-cf729-igation-and-revocation-1280-seeded/test-failed-1.png",
+      "sha256": "0c07ca8669ca1f5d6563bcd0baca1eb5a30462f5b64016111842c691824533ab",
+      "viewed": true,
+      "finding": "Owner home; public share route not reached."
+    }
+  ]
+}

@@ -1,0 +1,67 @@
+{
+  "sources": {
+    "apps/web/components/design-loop/shared-design-view.tsx": "18109a1aae2abf11d5220aa24f128f945f62f256d69f71c8a2d9b45bf6f460e6",
+    "apps/web/components/design-loop/prototype-canvas.tsx": "4ed042ca723a6424b512fd42c43d320acf672a1758f70ff78b6431dd1152faea",
+    "apps/web/lib/human-time.ts": "aad98b2ea2dbd2768b30f43c228b4a82740e87d15a6519eebb30b122534e92f0",
+    "apps/web/lib/i18n/messages/en.ts": "04357e319226a562ad2e630c44bd78f8e88d7acddb633120a6ce9c98d078a7b8",
+    "apps/web/lib/i18n/messages/zh-CN.ts": "a149a9a79890ab4320aca3e514f9ed502f8d5eba56d9524ad0585df023c43200",
+    "apps/web/lib/i18n/namespaces/public-design-share.ts": "597fe188f76e84f8841368025464dd6774851cae57f1a2e54fa12f6ab12241e9",
+    "apps/web/tests/ui/public-design-share-i18n.test.tsx": "ab02e940907861a05e8505b16021b88f020edc3c15bb4dae1f7741328dc5c6cb",
+    "apps/web/tests/lib/human-time-i18n.test.ts": "78024a1d7711e414fd0c2ef8d59331517eda692b0c15807241546a90fcc8fcc9"
+  },
+  "steps": [
+    {
+      "name": "neighbors",
+      "exit": 0,
+      "seconds": 18.90846725
+    },
+    {
+      "name": "lint",
+      "exit": 0,
+      "seconds": 3.1669751670000004
+    },
+    {
+      "name": "type",
+      "exit": 0,
+      "seconds": 56.065544
+    }
+  ],
+  "servicesStarted": false,
+  "cleanup": {
+    "newServicesStarted": false,
+    "newAdvertisedPorts": [],
+    "containers": 0,
+    "volumes": 0
+  },
+  "actualExit": 0,
+  "scope": "public-design-share-6260 Task1 display source only",
+  "head": "a00287a86c411c13148294cc2ed4379852949c5d",
+  "native": {
+    "files": 9,
+    "passed": 73,
+    "skipped": 0,
+    "durationSeconds": 17.67
+  },
+  "typeDiagnostics": 0,
+  "lintDiagnostics": 0,
+  "browser": "UNRUN",
+  "initialRed": {
+    "historicalObservation": "9 missing-English provider failures; original private files absent after interruption",
+    "nativeSeconds": 3.56,
+    "readbackAvailable": false
+  },
+  "privateLogs": {
+    "neighbors": {
+      "sha256": "7a3b1f0d01994c6022bc475ea1539266f38d43592b1ed1d9e1515698b8228e86",
+      "bytes": 1309
+    },
+    "lint": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "type": {
+      "sha256": "e9b019d37db080d36b121892b06e0818b37e0b4f08f68f45cd0110befa237e7e",
+      "bytes": 99
+    }
+  }
+}
