@@ -14,6 +14,26 @@ const fail=code=>{throw new Error(code)};
 
 const canonical=value=>Array.isArray(value)?value.map(canonical):value&&typeof value==='object'?Object.fromEntries(Object.keys(value).sort().map(k=>[k,canonical(value[k])])):value;
 const rawEvidenceHash=facts=>createHash('sha256').update(JSON.stringify(canonical({...facts,prChecks:facts.prChecks.slice().sort((a,b)=>a.id-b.id),prStatuses:facts.prStatuses.slice().sort((a,b)=>a.id-b.id),sourceChecks:facts.sourceChecks.slice().sort((a,b)=>a.id-b.id),sourceStatuses:facts.sourceStatuses.slice().sort((a,b)=>a.id-b.id),associatedPrs:facts.associatedPrs.slice().sort((a,b)=>a.number-b.number)}))).digest('hex');
+// Accept historical discovery-only planners or the reviewed PR-only scope planner.
+// Production/queue source admission still requires every real API shard below.
+function verifiedApiPlanner(job,workflow){
+ if(!job||job.env!==undefined||!Array.isArray(job.steps)||job.steps.some(step=>step.env!==undefined))return false;
+ if(job.steps.length===2)return job.steps[0].uses==='actions/checkout@v5'&&job.steps[0].with===undefined&&job.steps[1].id==='plan'&&job.steps[1].run==='node .harness/scripts/ci-api-shards.mjs --plan';
+ const candidate="steps.preflight.outputs.candidate == 'true'";
+ const expected=[
+  {uses:'actions/checkout@v5',with:{'fetch-depth':0,'persist-credentials':false}},
+  {id:'plan',run:'node .harness/scripts/ci-api-shards.mjs --plan'},
+  {id:'preflight',if:"github.event_name == 'pull_request'",run:'node .harness/scripts/ci-targeted-ui.mjs --preflight'},
+  {uses:'pnpm/action-setup@v4.4.0',if:candidate},
+  {uses:'actions/setup-node@v5',if:candidate,with:{'node-version-file':'.nvmrc',cache:'pnpm'}},
+  {run:'pnpm install --frozen-lockfile',if:candidate},
+  {id:'regression',run:"node .harness/scripts/ci-targeted-ui.mjs ${{ github.event_name != 'pull_request' && '--full' || '' }}"},
+ ];
+ return JSON.stringify(canonical(job.steps))===JSON.stringify(canonical(expected))&&
+  job.outputs?.mode==='${{ steps.regression.outputs.mode }}'&&job.outputs?.plan_digest==='${{ steps.regression.outputs.plan_digest }}'&&
+  job.outputs?.source_sha==='${{ github.sha }}'&&job.outputs?.base_sha==='${{ env.CI_SCOPE_BASE_SHA }}'&&
+  workflow.env?.CI_SCOPE_BASE_SHA==='${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}';
+}
 // Direct production ref synchronization retains the develop merge commit identity.
 const admittedSourceBase=ref=>ref==='main'||ref==='develop';
 const ready=(checks,policy)=>{const v=classifyChecks(checks,policy);return !v.blocked.length&&!v.changes.length&&!v.waitingCi.length};
@@ -78,7 +98,7 @@ export function validateMainSourceAdmission(source,repository,facts) {
  const runtimeChecks=obligations.flatMap(name=>{const job=facts.deploymentWorkflow.jobs[name],matrix=job?.strategy?.matrix;if(!matrix)return [job?.name??name];const keys=Object.keys(matrix);if(keys.length!==1||keys[0]!=='shard'||job.name)fail('MAIN_SOURCE_MATRIX_OBLIGATIONS');let shards=matrix.shard;
   if(typeof shards==='string') {
    const planJob=facts.deploymentWorkflow.jobs['api-test-plan'];
-   if(name!=='gates-test'||shards!=='${{ fromJSON(needs.api-test-plan.outputs.shards) }}'||job.needs!=='api-test-plan'||planJob?.outputs?.shards!=='${{ steps.plan.outputs.shards }}'||planJob?.outputs?.count!=='${{ steps.plan.outputs.count }}'||planJob.steps?.length!==2||planJob.steps[0].uses!=='actions/checkout@v5'||planJob.steps[0].with!==undefined||planJob.env!==undefined||planJob.steps.some(s=>s.env!==undefined)||planJob.steps?.filter(s=>s.id==='plan').length!==1||planJob.steps.find(s=>s.id==='plan').run!=='node .harness/scripts/ci-api-shards.mjs --plan'||facts.sourceShardHelperSha256!==shardHelperSha256)fail('MAIN_SOURCE_DYNAMIC_SHARD_CLOSURE');
+   if(name!=='gates-test'||shards!=='${{ fromJSON(needs.api-test-plan.outputs.shards) }}'||job.needs!=='api-test-plan'||planJob?.outputs?.shards!=='${{ steps.plan.outputs.shards }}'||planJob?.outputs?.count!=='${{ steps.plan.outputs.count }}'||!verifiedApiPlanner(planJob,facts.deploymentWorkflow)||facts.sourceShardHelperSha256!==shardHelperSha256)fail('MAIN_SOURCE_DYNAMIC_SHARD_CLOSURE');
    dynamicShardPlan=shardPlan(facts.sourceShardPolicy);shards=dynamicShardPlan.shards;
   }
   if(!Array.isArray(shards)||!shards.length||new Set(shards).size!==shards.length||shards.some(n=>!Number.isSafeInteger(n)||n<1))fail('MAIN_SOURCE_MATRIX_OBLIGATIONS');return shards.map(n=>`${name} (${n})`)});

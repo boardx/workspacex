@@ -862,7 +862,7 @@ jobs:
         with: {node-version-file: .nvmrc, cache: pnpm}
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter web exec playwright install --with-deps chromium
-      - name: Execute actual chat-ui selection
+      - name: Execute actual selected UI browser tests
         env:
           GH_TOKEN: ${{ github.token }}
           WORKSPACEX_WEB_TEST_MAX_WORKERS: "2"
@@ -880,6 +880,6 @@ jobs:
         if: always()
         with:
           name: targeted-ui-browser-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
-          path: apps/web/test-results/chat-read/
+          path: apps/web/test-results/
           if-no-files-found: warn
 
