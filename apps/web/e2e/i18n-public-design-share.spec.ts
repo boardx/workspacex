@@ -1,15 +1,23 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
-import { designWorkbench as D, designPrototype as P } from "@repo/contracts";
+import { designWorkbench as D, designPrototype as P, designHtmlPage } from "@repo/contracts";
 import { FULLSTACK_E2E as F } from "./fullstack-smoke-fixture";
 import { boardApi, boardLogin } from "./board-acceptance-support";
 
 const operationPath = (path: string, id: string) => path.replace(":projectId", encodeURIComponent(id));
-const RAW_HTML = "<main><h1>原始 HTML {title}</h1><p>Do not translate 用户内容</p></main>";
+const RAW_HTML = designHtmlPage.sanitizeHtmlPage("<main><h1>原始 HTML {title}</h1><p>Do not translate 用户内容</p></main>").html;
 const FIRST: P.PrototypeNode = { type: "stack", id: "share-first", children: [
   { type: "text", id: "share-text", props: { content: "模型原文 {name}", variant: "body" } },
   { type: "button", id: "share-next", props: { label: "原始下一页", variant: "primary" } },
 ] };
+
+// Discovery validates the actual canonical setup too; refinements are not a TypeScript check.
+const SHARE_PATCH = P.DesignPrototypePatch.parse([
+  { op: "addScreen", at: 0, frame: "原始首页", root: FIRST },
+  { op: "addScreen", at: 1, frame: "原始次页" },
+  { op: "addScreen", at: 2, frame: "原始HTML", root: { type: "html", id: "share-html", props: { html: RAW_HTML } } },
+  { op: "setLinks", screen: 0, links: [{ from: "share-next", to: 1 }] },
+]);
 
 // Existing seeded lane and its original timeout/retry policy. No route fulfillment,
 // model response, session impersonation, or direct database writes are used.
@@ -22,13 +30,8 @@ for (const width of [1280, 375]) {
     const id = created.project.id;
     // The canonical owner patch supports adding screens; create/updateProject do
     // not accept raw frame/prototype fields. This is setup through that real API.
-    const ops = P.DesignPrototypePatch.parse([
-      { op: "addScreen", at: 0, frame: "原始首页", root: FIRST },
-      { op: "addScreen", at: 1, frame: "原始次页" },
-      { op: "addScreen", at: 2, frame: "原始HTML", root: { type: "html", id: "share-html", props: { html: RAW_HTML } } },
-      { op: "setLinks", screen: 0, links: [{ from: "share-next", to: 1 }] },
-    ]);
-    D.operations.patchPrototype.out.parse(await (await boardApi(page.request, token, "POST", operationPath(D.operations.patchPrototype.path, id), { ops, summary: "Public share i18n acceptance setup" })).json());
+
+    D.operations.patchPrototype.out.parse(await (await boardApi(page.request, token, "POST", operationPath(D.operations.patchPrototype.path, id), { ops: SHARE_PATCH, summary: "Public share i18n acceptance setup" })).json());
     const published = D.operations.publishProject.out.parse(await (await boardApi(page.request, token, "POST", operationPath(D.operations.publishProject.path, id), { scope: "full" })).json());
     expect(published.project.share).not.toBeNull();
     const shareToken = published.project.share?.token;

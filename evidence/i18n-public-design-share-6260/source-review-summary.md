@@ -9,3 +9,7 @@ The necessary single-driver delta review confirmed both P2 statically addressed 
 Original source-only reports are kept private with0700directory/0600files, explicitly not Git ignored and excluded from publication. Whole reportSHA256: 3b981dfc0ffce694a9137747c27faa70b1a457715b601d8ba8aae78430a87328. Necessary delta reportSHA256: 532021bc2775fd9ca29e298d0e81ba2b2d38b901d05ba369cc1c5a0e1bf82f99. This public allowlist summary does not publish the original reports or runtime data.
 
 Reviewer ran no tests, network, native browser or screenshot QA. Source gates and exact discovery have separate receipts. Native two-case results and all ten planned PNG reviews remain UNRUN; static clearance does not establish runtime correctness.
+
+## Native-first-failure correction delta
+
+After runtime41981418944a1 rejected the unsanitized authored fixture before publication, the existing reviewer checked only the necessary driver correction: canonical sanitizeHtmlPage accepted bytes and hoisting the unchanged patch parse to discovery. STATIC CLEAN/no new executableP1/P2; the other nine source hashes, original assertions, anonymous authentication boundary and seeded budget remain unchanged. Corrected driverSHA e7b55c73d7b8afb95cd078cd37183bf8b1193dc409b87acdc1db074b2040a877. Private ignored reportSHA256 a034d457b20713ad290673d91977c92e59661db94ebe7c435fa98b14b41f234e. The two actual failure PNGs show ownerhome only; repaired native2 and ten intended PNGs remain UNRUN. No new whole review or reviewer gate execution is claimed.
