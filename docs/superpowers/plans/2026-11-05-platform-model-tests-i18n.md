@@ -50,3 +50,7 @@ Native execution and all20 planned images remain pending. Task2 runtime and fina
 ## Cloud attempt1 and readonly fixture checkpoint
 
 Attempt1 run41917734613/head43f9 reached the actual page but organization GET503 blocked the planned history/capture flow in both CI results.0/20 planned images. Existing guarded history POST201/GET200 succeeded. Only test-startup readonly catalog composition was corrected in51e5899 under independently reviewed fresh-owned-cluster scope. API type/lint,20 static cases,init and exact discovery pass; provisioning/native/images remain pending. Keep Draft; no200 relaxation or local Next. Retained-PG restart is intentionally unsupported/fails closed. See public fixture/failure receipts and current handoff.
+
+## Concentrated driver checkpoint after cloud attempt2
+
+Run41929967004/head99c69f restored actual catalog/history reads and reached16 planned captures, then failed on public404 envelope expectation; retry exposed login response-body/navigation timing. Root individually QA'd all16 partial planned images; no new owned UI copy/layout finding. Only native spec90f7d10 corrects the three404 checks and parallel actual auth-body observation; inherited settings/explicit case timeout/permissions/cleanup are unchanged. Scoped review and lint/type/testid/one-case discovery pass. Final20 PNGs and whole native PASS remain pending; keep Draft. See current handoff and driver-round3 evidence.
