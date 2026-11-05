@@ -26,21 +26,16 @@ describe('partition commands and isolated CI producers', () => {
 });
 
 
-it('preserves copied PR smoke execution and evidence steps', () => {
-  const automatic = parse(readFileSync('.github/workflows/harness-verify.yml', 'utf8')).jobs;
-  const acceptance = parse(readFileSync('.github/workflows/harness-acceptance.yml', 'utf8')).jobs;
-  for (const name of ['board-smoke', 'directory-smoke', 'fullstack-smoke']) {
-    expect(automatic[name].steps).toEqual(acceptance[name].steps);
-    expect(automatic[name].outputs).toEqual(acceptance[name].outputs);
-  }
-});
-
-it('assigns each broad smoke candidate to exactly one event producer',()=>{
+it('runs broad smoke only at the queue/manual acceptance producer, retaining actual verdicts',()=>{
  const automatic=parse(readFileSync('.github/workflows/harness-verify.yml','utf8'));
  for(const name of ['board-smoke','directory-smoke','fullstack-smoke']){
-  expect(automatic.jobs[name].if).toContain("(github.event_name == 'pull_request')");
-  expect(automatic.jobs[name].if).not.toContain("github.event_name == 'merge_group'");
-  expect(workflow.on.pull_request).toBeUndefined();
-  expect(workflow.on.merge_group.branches).toEqual(['develop']);
+  expect(automatic.jobs[name]).toBeUndefined();
+  expect(workflow.jobs[name]).toBeDefined();
+  expect(workflow.jobs[name].outputs.verdict).toBeDefined();
+  expect(workflow.jobs['e2e-full'].needs).toContain(name);
  }
+ expect(workflow.on.pull_request).toBeUndefined();
+ expect(workflow.on.merge_group.branches).toEqual(['develop']);
+ expect(workflow.on.workflow_dispatch).toBeDefined();
+ expect(automatic.jobs['targeted-ui-browser']).toBeDefined();
 });

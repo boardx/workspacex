@@ -32,7 +32,7 @@ it('test matrices cancel remaining shards and cancelable jobs do not ignore work
  }
 });
 it('skips follow-up validations after primary failure while retaining evidence collection',()=>{
- for(const file of ['harness-verify','harness-acceptance']){
+ for(const file of ['harness-acceptance']){
   const job=parse(readFileSync(`.github/workflows/${file}.yml`,'utf8')).jobs['fullstack-smoke'];
   const evaluate=(condition:string,success:boolean)=>new Function('always','success','steps',`return (${condition})`)(()=>true,()=>success,{dedup:{outputs:{run:'true'}}});
   for(const id of ['sticky','geometry']){

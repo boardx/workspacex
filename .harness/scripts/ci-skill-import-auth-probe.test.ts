@@ -51,6 +51,11 @@ describe('dedicated public Skill import authentication probe', () => {
   });
   it.each(['harness-verify', 'harness-acceptance'])('%s uses only the dedicated secret in the probe step', file => {
     const workflow = readFileSync(new URL(`../../.github/workflows/${file}.yml`, import.meta.url), 'utf8');
+    if(file==='harness-verify'){
+      expect(parse(workflow).jobs['fullstack-smoke']).toBeUndefined();
+      expect(workflow).not.toContain('      - name: Verify dedicated public Skill import authentication');
+      return;
+    }
     const step = workflow.slice(workflow.indexOf('      - name: Verify dedicated public Skill import authentication'), workflow.indexOf('      # Optional public-repository'));
     expect(step).toContain('WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN: ${{ secrets.WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN }}');
     expect(step).not.toContain('github.token');

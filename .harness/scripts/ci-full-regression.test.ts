@@ -92,7 +92,8 @@ describe('acceptance workflow topology', () => {
       expect(workflow.jobs[id]).toBeDefined();
     }
     for (const id of ['verify-full-compile', 'board-smoke', 'directory-smoke', 'fullstack-smoke']) {
-      expect(automatic.jobs[id].if).toContain(id==='verify-full-compile'?"github.event_name == 'pull_request' || github.event_name == 'merge_group'":"github.event_name == 'pull_request'");
+      if(id==='verify-full-compile')expect(automatic.jobs[id].if).toContain("github.event_name == 'pull_request' || github.event_name == 'merge_group'");
+      else expect(automatic.jobs[id]).toBeUndefined();
       expect(workflow.jobs[id==='verify-full-compile'?'base-compile':id]).toBeDefined();
     }
     for (const job of Object.values(workflow.jobs) as {needs?: string | string[]}[]) {

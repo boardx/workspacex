@@ -42,11 +42,12 @@ describe('directory and full-stack smoke execute independently without losing co
 });
 
 
-it('preserves copied PR smoke execution and evidence steps', () => {
+it('retains one queue smoke producer with actual verdicts and no PR duplicate', () => {
   const automatic = parse(readFileSync('.github/workflows/harness-verify.yml', 'utf8')).jobs;
   const acceptance = parse(readFileSync('.github/workflows/harness-acceptance.yml', 'utf8')).jobs;
   for (const name of ['board-smoke', 'directory-smoke', 'fullstack-smoke']) {
-    expect(automatic[name].steps).toEqual(acceptance[name].steps);
-    expect(automatic[name].outputs).toEqual(acceptance[name].outputs);
+    expect(automatic[name]).toBeUndefined();
+    expect(acceptance[name].steps.length).toBeGreaterThan(0);
+    expect(acceptance[name].outputs.verdict).toBeDefined();
   }
 });
