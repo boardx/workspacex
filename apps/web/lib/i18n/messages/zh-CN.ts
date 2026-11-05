@@ -1,3 +1,6 @@
+import { inboxZhCN } from "../namespaces/inbox";
+import { designDocumentZhCN } from "../namespaces/design-document";
+import { designLoopCommonZhCN } from "../namespaces/design-loop-common";
 import { modelTestbenchZhCN } from "../namespaces/model-testbench";
 import { platformModelCatalogZhCN } from "../namespaces/platform-model-catalog";
 import { telemetrySettingsZhCN } from "../namespaces/telemetry-settings";
@@ -37,6 +40,9 @@ import { stateZhCN } from "../namespaces/state";
 import { accountEntryZhCN } from "../namespaces/account-entry";
 import { invitationEntryZhCN } from "../namespaces/invitation-entry";
 export const zhCN = {
+  ...inboxZhCN,
+  ...designDocumentZhCN,
+  ...designLoopCommonZhCN,
   ...modelTestbenchZhCN,
   ...platformModelCatalogZhCN,
   ...telemetrySettingsZhCN,
