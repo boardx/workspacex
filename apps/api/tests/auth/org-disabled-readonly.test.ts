@@ -232,7 +232,7 @@ describe("V12 ②：仅管理员可导出", () => {
         JOIN information_schema.table_constraints f USING(constraint_catalog,constraint_schema,constraint_name)
         WHERE k.table_schema=t.table_schema AND k.table_name=t.table_name AND k.column_name='org_id'
         AND f.constraint_type='FOREIGN KEY'
-        AND (SELECT count(*) FROM information_schema.key_column_usage k2 WHERE k2.constraint_catalog=k.constraint_catalog AND k2.constraint_schema=k.constraint_schema AND k2.constraint_name=k.constraint_name)=1) ORDER BY table_name`,[appConfig().user]));
+        AND (SELECT count(*) FROM information_schema.key_column_usage k2 WHERE k2.constraint_catalog=k.constraint_catalog AND k2.constraint_schema=k.constraint_schema AND k2.constraint_name=k.constraint_name AND k2.table_schema=k.table_schema AND k2.table_name=k.table_name)=1) ORDER BY table_name`,[appConfig().user]));
     expect(out.tables.map(row=>row.table).sort()).toEqual(readable.rows.map(row=>row.table_name).sort());
     for(const {table_name}of readable.rows){
       if(!/^[a-z_][a-z0-9_]*$/.test(table_name))throw new Error("EXPORT_TEST_TABLE_NAME_INVALID");
