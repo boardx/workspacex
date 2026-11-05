@@ -1,0 +1,5 @@
+# Research query assistant progress — #6253
+
+Owner FIRST; branch worker/i18n-research-query-6253, accepteddevelop baseline5832cdb62c08fe4f8917776760626d71c74fea11. Reuses the same checkout; main/develop freshly fetched. Survey6251 actually merged; its five final public/hash-bound safe receipts and closure docs are consolidated here under explicit coordinator direction, preserving source65e5 and exact run41933129696.
+
+Scope/design and verification contract are recorded in issue6253 and design.md/plan.md. Live query brief source and existing adapter/contract are confirmed read-only. New focused tests are written (ten supported quick-action label/canonical-payload cases plus raw input, held turn/apply/undo, failure/retry and saved history continuity), but have not run; no semantic RED or product change yet. FIRST remains out of ROOT's source window. Next: fresh sole test freeze+RED, then minimum display bindings and affected regression. No Next build, service or browser started; no API/model/parser/6239 change.

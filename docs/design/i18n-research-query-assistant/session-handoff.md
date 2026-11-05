@@ -1,0 +1,7 @@
+# Research query assistant continuation
+
+Read design.md, plan.md, progress.md and issue6253. Stay in current checkout/branch; no new worktree/chat/agent. Baseline actualmergeddevelop5832. New focused i18n test is written but uncommitted/unexecuted; production helper/resources are unchanged. SemanticRED must run before any product implementation. Existing Chinese regression assertions must stay intact.
+
+Follow fresh sole source windows with SECOND/ROOT; no local Next/browser/service builds. Next fresh window should freeze only design/newtest and run new test RED, plus required lightweight harness status if applicable; failed infrastructure is not semantic RED. Reuse existing reviewer later; no extra reviewers. Exact original research entry browser case stays byte-identical; append one query brief case in its registered file with existing budgets.
+
+Canonical quick messages stay original Chinese; translate only display labels. Keep sessionKey/step effects, requestId, API/type contracts, pending proposal/storage, raw draft/modelId and explicit apply/undo unchanged. Ten prompt variants are component support; only query brief is the current live-route proof. Final B6 five safe receipts were publicly hash-bound and independently reviewed before6251 actualmerge; coordinator explicitly authorizes their metadata consolidation in this planned i18n batch. No raw artifact/capability data in repo, no6239 work.
