@@ -1,3 +1,4 @@
+import { workbenchHomeEn } from "../namespaces/workbench-home";
 import { inboxEn } from "../namespaces/inbox";
 import { designDocumentEn } from "../namespaces/design-document";
 import { designLoopCommonEn } from "../namespaces/design-loop-common";
@@ -41,6 +42,7 @@ import type { zhCN } from "./zh-CN";
 import { accountEntryEn } from "../namespaces/account-entry";
 import { invitationEntryEn } from "../namespaces/invitation-entry";
 export const en: Record<keyof typeof zhCN, string> = {
+  ...workbenchHomeEn,
   ...inboxEn,
   ...designDocumentEn,
   ...designLoopCommonEn,
