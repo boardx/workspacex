@@ -1,6 +1,6 @@
 # Global native image tariffs — #6268
 
-Status: draft for review; no global implementation or activation yet.
+Status: implementation locally verified; production activation has not been performed. See docs/evidence/global-image-tariffs-6268/verification.md.
 
 ## Behavior
 All existing and future organizations use the same three image prices: Z CNY0.25, Qwen3 CNY0.50, Pro CNY1. Personal and eligible team payers use the common reserve transaction. No synthetic organization or organization initialization is required. Existing wallet eligibility, balance and overdraft rules remain authoritative.
@@ -28,7 +28,7 @@ Additive migration only. Preserve all old organization rows and their audits. Kn
 Run real isolated PostgreSQL tests for transaction, RLS, replay and ledger assertions; mocks alone do not establish these invariants. Run relevant API/contracts typecheck and targeted route/admission tests. No production paid retry is part of code verification.
 
 ## Design gate
-UI: no new end-user UI; existing operator API is extended with explicit global scope. Use cases/API above are review material. Human signoff has not been recorded; an agent must not mark it approved. Implementation and activation remain pending.
+UI: no new end-user UI; existing operator API is extended with explicit global scope. Use cases/API above are review material. Human signoff has not been recorded; an agent must not mark it approved. Implementation verification is recorded in the evidence log; production activation remains pending.
 
 ## Concrete schema and runtime patch map
 GET response: `{scope:"global", revision:string|null, items:[{modelProvider:"bailian-image", modelId:"z-image-turbo"|"qwen-image-3.0"|"qwen-image-3.0-pro", unit:"image", customerAmountMinor:"25"|"50"|"100", currency:"CNY", quantum:"1", hundredthsPerQuantum:string, version:string, catalogVersion:string}]}`. Fixed model/amount correspondence is server-owned, not arbitrary caller pairing.
@@ -38,7 +38,7 @@ Migration constraints: one global schedule revision row; unique(provider,model,u
 
 Patch locations: `packages/contracts/src/billing-consumption.ts` (global contracts); `application/billing/native-credit-tariff-service.ts` (operator authorization/quote); `infrastructure/billing/pg-native-credit-tariff-repository.ts` (global transaction/audit); consumption controller routes and module injection; additive migration; `infrastructure/billing/pg-credit-consumption.ts` (common native resolution). Extract a resolver if needed to avoid duplicated precedence rules. Existing settle/replay stays snapshot-driven.
 
-Planned targeted files: `tests/agent-runtime/global-image-tariff-service.test.ts` for operator/CAS/quote behavior; `tests/billing/global-image-tariff-pg.test.ts` for real PostgreSQL payer/reservation/audit/role counterexamples. Proposed commands (not yet run; tests do not yet exist): `pnpm --filter @repo/api exec vitest run --config vitest.image.config.ts tests/agent-runtime/global-image-tariff-service.test.ts`; real-PG command must use the repository's isolated database harness after resource admission; API and contracts typecheck through normal pre-push. These are a verification plan, not passing evidence.
+Planned targeted files: `tests/agent-runtime/global-image-tariff-service.test.ts` for operator/CAS/quote behavior; `tests/billing/global-image-tariff-pg.test.ts` for real PostgreSQL payer/reservation/audit/role counterexamples. Implemented test commands and results are recorded in the evidence log; the original planned command was: `pnpm --filter @repo/api exec vitest run --config vitest.image.config.ts tests/agent-runtime/global-image-tariff-service.test.ts`; real-PG command must use the repository's isolated database harness after resource admission; API and contracts typecheck through normal pre-push. The evidence log records actual results and earlier failures; CI remains separate.
 
 Review decision package: approve an explicit global, atomic three-model fixed-price schedule API with global precedence for those models, preserved legacy rows and immutable old request prices. No unresolved price or FX choice is requested. The repository root AGENTS hard constraint says a contract bundle must have human signoff before feature work; `.harness/instructions/contract-design.md` lines265-277 specify pending review then human confirmation and the claim gate, lines279-282 protect status. This draft does not assert that gate has passed. Coordinator should bind this material into the applicable contract bundle and obtain the single required design confirmation; do not ask again about already-authorized prices.
 

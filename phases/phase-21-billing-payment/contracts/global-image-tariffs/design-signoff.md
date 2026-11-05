@@ -16,7 +16,7 @@ No new user-facing screen; see ui.md.
 See usecases.md and linked design source.
 
 ## ③ API contract
-Review the atomic global schedule GET/PUT described in the design source. Executable draft Zod schemas GlobalImageTariffSchedule and ActivateGlobalImageTariffs plus globalImageTariffOperations are in packages/contracts/src/billing-consumption.ts. Routes and database implementation do not exist yet.
+Review the atomic global schedule GET/PUT described in the design source. Executable draft Zod schemas GlobalImageTariffSchedule and ActivateGlobalImageTariffs plus globalImageTariffOperations are in packages/contracts/src/billing-consumption.ts. Routes and database implementation are now present; local verification is recorded in docs/evidence/global-image-tariffs-6268/verification.md. Production activation is pending.
 
 Human confirmation pending. Agent must not set confirmed status.
 
