@@ -136,3 +136,28 @@ status and wording assertions to its exact sidebar card. No cancellation product
 logic, API, timeout, worker setting, or workflow changes. This source checkpoint
 has not yet run the corrected real browser scenario; the normal two-worker full
 merge-group shard acceptance remains required.
+
+Real corrected-browser verification subsequently ran on exact source
+`18bbf501d2d8862c7fe4e38e5cb5e04fba2a34b5`: only the stop-generation sidebar
+scenario plus the original core-path simple refresh scenario, in two files,
+selected explicitly and using the production builder. The log confirms
+`Running 2 tests using 2 workers` and `2 passed (1.3m)`. The single production
+prebuild exited 0 in 262263ms, with the original 600000ms build budget, original
+server/case/expect budgets and 50-minute outer limit. The whole wrapper exited 0
+in approximately 345 seconds; no list/build repetition or timeout increase.
+
+Independent post-exit proof exited 0 with observed=4, groups=[], owners=[],
+distAbsent=true. Docker resources with this isolation project's exact label
+wsx-248e34300fd2913c3b37 were independently counted: containers=0, networks=0,
+volumes=0. Receipt files were copied byte-for-byte with SHA-256 readback to
+`/tmp/sourcechat-18bb-artifacts/`; only the exact Next-generated tsconfig include
+for this scope and its three archived untracked receipt files were removed.
+The worktree then read clean at the tested 18bb source.
+
+Execution and independent evidence: `/tmp/sourcechat-18bb-browser.log`,
+`/tmp/sourcechat-18bb-browser-result.json`, `/tmp/sourcechat-18bb-owned-proof.log`,
+`/tmp/sourcechat-18bb-compose-proof.json`, and the archive's receipt manifest.
+This follow-up changes documentation only; the tested source remains 18bb. The
+limited two-case success proves this correction and refresh path, not completion
+of the full standard shards. Normal default CI and complete merge-group
+production shard acceptance remain outstanding.
