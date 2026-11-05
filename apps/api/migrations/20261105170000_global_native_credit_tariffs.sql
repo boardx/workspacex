@@ -36,7 +36,7 @@ BEGIN
   OR NOT has_table_privilege('app_rw',audit_oid,'SELECT') OR has_table_privilege('app_rw',audit_oid,'INSERT,UPDATE,DELETE')
   OR NOT has_table_privilege('app_billing_tariff_writer',global_oid,'SELECT') OR NOT has_table_privilege('app_billing_tariff_writer',global_oid,'INSERT') OR NOT has_table_privilege('app_billing_tariff_writer',global_oid,'UPDATE') OR has_table_privilege('app_billing_tariff_writer',global_oid,'DELETE')
   OR NOT has_table_privilege('app_billing_tariff_writer',audit_oid,'INSERT') OR has_table_privilege('app_billing_tariff_writer',audit_oid,'UPDATE,DELETE') THEN RAISE EXCEPTION 'global_native_tariff_cutover_invalid_permissions'; END IF;
- IF NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgrelid=audit_oid AND tgname='immutable_global_native_tariff_changes' AND tgenabled IN ('O','A') AND tgfoid='f159_token_usage_append_only()'::regprocedure) THEN RAISE EXCEPTION 'global_native_tariff_cutover_invalid_audit_trigger'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgrelid=audit_oid AND tgname='immutable_global_native_tariff_changes' AND tgenabled IN ('O','A') AND tgtype=27 AND tgqual IS NULL AND tgattr::text='' AND tgfoid='f159_token_usage_append_only()'::regprocedure) THEN RAISE EXCEPTION 'global_native_tariff_cutover_invalid_audit_trigger'; END IF;
  RETURN true;
 END $validate$;
 REVOKE ALL ON FUNCTION kernel_native_tariff_cutover_complete(text) FROM PUBLIC;

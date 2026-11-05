@@ -27,7 +27,7 @@ export const NativeCreditTariff=z.object({
  }).strict().optional(),quantum:PositiveIntegerString,hundredthsPerQuantum:PositiveIntegerString,version:z.string().min(1).max(128),
 }).strict();
 export const nativeTariffOperations={
- getImagePricingBasis:{method:'GET',path:'/platform/billing/consumption/image-pricing-basis',in:z.object({orgId:z.string().min(1)}).strict(),out:PricingCatalog},
+ getImagePricingBasis:{method:'GET',path:'/platform/billing/consumption/image-pricing-basis',in:z.object({orgId:z.string().min(1).max(128)}).strict(),out:PricingCatalog},
  listNativeTariffs:{method:"GET",path:"/platform/billing/consumption/native-tariffs",in:z.object({}).strict(),out:z.object({items:z.array(NativeCreditTariff)}).strict()},
  upsertNativeTariff:{method:"PUT",path:"/platform/billing/consumption/native-tariffs",in:NativeCreditTariff,out:NativeCreditTariff},
 } as const;

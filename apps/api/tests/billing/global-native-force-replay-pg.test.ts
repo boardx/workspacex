@@ -75,3 +75,15 @@ it.each([
   await expect(c.query(globalMigration)).rejects.toThrow(/global_native_tariff_cutover_invalid_(nullability|rate_constraints)/);
  }finally{await c.query('ROLLBACK');}});
 });
+
+it.each([
+ 'BEFORE UPDATE ON credit_global_native_tariff_changes FOR EACH ROW',
+ 'BEFORE UPDATE OR DELETE ON credit_global_native_tariff_changes FOR EACH ROW WHEN (false)',
+ 'BEFORE UPDATE OF old_tariff OR DELETE ON credit_global_native_tariff_changes FOR EACH ROW',
+])('refuses a same-name/function weakened audit trigger: %s',async trigger=>{
+ await asOwner(async c=>{await c.query('BEGIN');try{
+  await c.query('DROP TRIGGER immutable_global_native_tariff_changes ON credit_global_native_tariff_changes');
+  await c.query('CREATE TRIGGER immutable_global_native_tariff_changes '+trigger+' EXECUTE FUNCTION f159_token_usage_append_only()');
+  await expect(c.query(globalMigration)).rejects.toThrow('global_native_tariff_cutover_invalid_audit_trigger');
+ }finally{await c.query('ROLLBACK');}});
+});
