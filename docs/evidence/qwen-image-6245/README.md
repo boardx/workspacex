@@ -1,5 +1,11 @@
 # #6245 implementation evidence
 
+## Merge queue recovery (2026-11-05)
+
+Three queue removals were caused by the same `lint:vitest-config-reachability` failure in `base-control-plane` (jobs 126928310136, 126945983324, 126959210199). The PR checks alone did not establish merge-group readiness. `vitest.image.config.ts` lacked a named package/workflow entry; repeated enqueueing could not fix it.
+
+After merging the current develop baseline, the exact gate failure was reproduced locally. Adding `apps/api/package.json#test:image` made the gate pass (71 configs, 12 live specs); `pnpm --filter @repo/api test:image` ran all 10 files / 92 tests successfully. No gate or assertion was weakened. Actual merge-group checks and the final merged state must still be observed before reporting merge completion.
+
 Code connects the existing native image skill/tool/artifact path to Qwen3 standard1024, Qwen3 Pro2048 and Z-Image icon1024. This is not a claim that devapp has been activated or that live general-assistant model selection has passed.
 
 ## Verified locally
