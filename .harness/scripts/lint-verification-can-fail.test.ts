@@ -20,6 +20,9 @@ import { describe, it, expect } from "vitest";
 import { lintVerificationCanFail, classify, UNTRUSTWORTHY_SHAPES } from "./lint-verification-can-fail.mjs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import {mkdtempSync,writeFileSync,existsSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {spawnSync} from 'node:child_process';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -33,6 +36,28 @@ function run(verification: string[], runProbe: (cmd: string) => number = () => 1
 }
 
 const GOOD = "pnpm --filter api exec vitest run tests/kernel/rbac-two-layer.test.ts";
+
+it('probes missing Playwright selections without starting application servers',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'verification-probe-'));
+ try{
+  const marker=join(dir,'server-started'),setupMarker=join(dir,'setup-started'),setup=join(dir,'setup.cjs'),server=join(dir,'server.cjs'),config=join(dir,'playwright.config.mjs');
+  writeFileSync(server,`require('node:fs').writeFileSync(${JSON.stringify(marker)},'started');setInterval(()=>{},1000);`);
+  writeFileSync(setup,`module.exports=()=>{require('node:fs').writeFileSync(${JSON.stringify(setupMarker)},'started');};`);
+  writeFileSync(config,`export default {testDir:${JSON.stringify(dir)},testMatch:'*.spec.ts',globalSetup:${JSON.stringify(setup)},webServer:{command:${JSON.stringify(`${process.execPath} ${server}`)},url:'http://127.0.0.1:9',timeout:1000}};`);
+  writeFileSync(join(dir,'real.spec.ts'),`import {test} from ${JSON.stringify(join(ROOT,'apps/web/node_modules/@playwright/test/index.mjs'))};test('real control',()=>{});`);
+  const input=`pnpm --filter web exec playwright test -c ${config} -g 'real control'`;
+  const probe=classify(input).probe;
+  expect(probe).toContain('--list');
+  const positive=spawnSync('pnpm',['--filter','web','exec','playwright','test','-c',config,'--list','-g','real control'],{cwd:ROOT,encoding:'utf8',timeout:20000});
+  expect(positive.status,positive.stderr).toBe(0);
+  expect(positive.stdout).toContain('real control');
+  const missing=spawnSync('bash',['-c',probe],{cwd:ROOT,encoding:'utf8',timeout:20000});
+  expect(missing.status,missing.stderr).toBe(1);
+  expect(missing.stderr+missing.stdout).toContain('No tests found');
+  expect(existsSync(marker)).toBe(false);
+  expect(existsSync(setupMarker)).toBe(false);
+ }finally{rmSync(dir,{recursive:true,force:true});}
+},45000);
 
 describe("① 已知不可信形态逐条会红", () => {
   const cases: Array<[string, string]> = [
