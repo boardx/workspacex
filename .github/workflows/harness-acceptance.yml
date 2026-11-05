@@ -1113,11 +1113,16 @@ jobs:
         timeout-minutes: 18
         env:
           WSX_CHAT_REFRESH_DIAGNOSTICS: "1"
+          WSX_CHAT_REFRESH_PRODUCTION_WEB: "1"
           WORKSPACEX_WEB_TEST_MAX_WORKERS: "2"
         shell: bash
         run: |
           set -o pipefail
-          pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.chat-read.config.ts --project=chat-read --workers=2 --grep '简单聊天：一轮问答|复杂任务把 write_todos' --max-failures=1 --reporter=line
+          pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm exec tsx apps/web/e2e/support/chat-refresh-production-build.ts
+      - name: Verify owned groups exited before runner orphan cleanup
+        if: always()
+        shell: bash
+        run: node apps/web/e2e/support/chat-refresh-owned-process.cjs
       - uses: actions/upload-artifact@v6
         if: always()
         with:

@@ -23,7 +23,10 @@ describe('explicit manual base validation avoids unrelated runners without false
   const job=w.jobs['chat-refresh-diagnostic'];
   expect(job['runs-on']).toBe('ubuntu-latest');expect(job.needs).toBeUndefined();expect(job.environment).toBeUndefined();
   const step=job.steps.find((s:{run?:string})=>s.run?.includes('with-test-isolation.ts'));
-  expect(step.run).toContain('--workers=2');expect(step.run).toContain('--max-failures=1');expect(step.env.WSX_CHAT_REFRESH_DIAGNOSTICS).toBe('1');
+  expect(step.run).toContain('chat-refresh-production-build.ts');
+  const build=readFileSync('apps/web/e2e/support/chat-refresh-production-build.ts','utf8');
+  expect(build).toContain("'--workers=2'");expect(build).toContain("'--max-failures=1'");expect(build).toContain('600000');
+  expect(step.env.WSX_CHAT_REFRESH_DIAGNOSTICS).toBe('1');expect(step.env.WSX_CHAT_REFRESH_PRODUCTION_WEB).toBe('1');
  });
  it('manual skipped jobs cannot overwrite automatic required check display names',()=>{
   const display=(name:string,event:string,lane:string,shard=1)=>String(w.jobs[name].name??name).replace(/\$\{\{([^}]+)\}\}/g,(_:string,expression:string)=>{
