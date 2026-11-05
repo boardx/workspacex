@@ -375,7 +375,7 @@ export function ProjectResourceSection({ projectId, kind, canWrite, initialLinkO
   );
 }
 
-function formatDate(iso: string, locale: Locale = "zh-CN"): string {
+function formatDate(iso: string, locale?: Locale): string {
   const t = Date.parse(iso);
   return Number.isNaN(t) ? iso : new Date(t).toLocaleDateString(locale);
 }
@@ -383,13 +383,13 @@ function formatDate(iso: string, locale: Locale = "zh-CN"): string {
 function describeFailure(e: unknown, locale: Locale = "zh-CN"): string {
   if (e instanceof ApiError) {
     switch (e.reasonCode) {
-      case "NO_PROJECT_ROLE": return translate(locale, "projectResources.reason.noRole");
-      case "ADMIN_NOT_SUPERUSER": return translate(locale, "projectResources.reason.adminScope");
-      case "RESOURCE_NOT_FOUND": return translate(locale, "projectResources.reason.notFound");
-      case "AUTH_SERVICE_UNAVAILABLE": return translate(locale, "projectResources.reason.authUnavailable");
+      case "NO_PROJECT_ROLE": return translate(locale, "projectOverview.resource.noRole");
+      case "ADMIN_NOT_SUPERUSER": return translate(locale, "projectOverview.resource.admin");
+      case "RESOURCE_NOT_FOUND": return translate(locale, "projectOverview.resource.notFound");
+      case "AUTH_SERVICE_UNAVAILABLE": return translate(locale, "projectOverview.resource.authUnavailable");
     }
-    if (e.status === 401) return translate(locale, "projectResources.reason.sessionExpired");
+    if (e.status === 401) return translate(locale, "projectOverview.resource.expired");
     return httpFailureText(e.status, locale);
   }
-  return e instanceof Error ? e.message : translate(locale, "projectResources.reason.failure");
+  return e instanceof Error ? e.message : translate(locale, "projectOverview.resource.unexpected");
 }

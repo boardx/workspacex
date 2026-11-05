@@ -1,8 +1,10 @@
 "use client";
+import { CONTENT_FILTERS, type ContentFilter } from "@/lib/project-content-filters";
+import type { Locale } from "@/lib/i18n/locale";
+import { translate } from "@/lib/i18n/messages";
 import { formatRelativeTime } from "@/lib/home-format";
 import * as React from "react";
 import { useI18n } from "@/lib/i18n/provider";
-import type { Locale } from "@/lib/i18n/locale";
 import { projectContentFilterEn } from "@/lib/i18n/namespaces/project-resources";
 import { useRouter } from "next/navigation";
 import { ChevronDown, FolderOpen, Inbox, Link2, MessagesSquare, Plus } from "lucide-react";
@@ -16,7 +18,7 @@ import {
   ProjectResourceSection, RESOURCE_KIND_TO_SUB, projectResourceHref, projectResourceIcon,
   startNewProjectResource, describeProjectResourceFailure,
 } from "./project-resource-section";
-import type { ContentFilter, ProjectResearchSub } from "./project-links";
+import type { ProjectResearchSub } from "./project-links";
 import { getStoredSessionToken } from "@/lib/api-client";
 import { listThreads, createProjectThread, type ListThreadsOut } from "@/lib/live-chat";
 import { listProjectResources, type ListProjectResourcesOut, type ProjectResourceKind } from "@/lib/live-project-resources";
@@ -33,19 +35,7 @@ import { cn } from "@/lib/utils";
  * 筛选键与研究洞察子导航同一套（`sub=conv|survey|itv|research|transcript|whiteboard|design`），
  * 各 Studio「← 返回项目」的链接因此在通用项目里落到这里对应的筛选。
  */
-export type { ContentFilter } from "./project-links";
-
-/** 筛选 chip 的顺序与文案（唯一一份）。 */
-export const CONTENT_FILTERS: ReadonlyArray<{ key: ContentFilter; label: string }> = [
-  { key: "all", label: "全部" },
-  { key: "conv", label: "对话" },
-  { key: "whiteboard", label: "白板" },
-  { key: "itv", label: "访谈" },
-  { key: "survey", label: "问卷" },
-  { key: "research", label: "研究" },
-  { key: "transcript", label: "转写" },
-  { key: "design", label: "设计" },
-];
+export { CONTENT_FILTERS, type ContentFilter } from "@/lib/project-content-filters";
 const TYPE_FILTERS = CONTENT_FILTERS.filter((f) => f.key !== "all") as ReadonlyArray<{ key: Exclude<ContentFilter, "all">; label: string }>;
 const LINKABLE_FILTERS = TYPE_FILTERS.filter((f) => f.key !== "conv") as ReadonlyArray<{ key: ProjectResearchSub; label: string }>;
 const FILTER_LABEL = Object.fromEntries(CONTENT_FILTERS.map((f) => [f.key, f.label])) as Record<ContentFilter, string>;
@@ -72,17 +62,17 @@ export function useProjectContentIndex(projectId: string) {
   const { locale } = useI18n();
   const [threads, setThreads] = React.useState<ListThreadsOut | null>(null);
   const [resources, setResources] = React.useState<ListProjectResourcesOut | null>(null);
-  const [errorCause, setError] = React.useState<{ cause: unknown } | null>(null);
+  const [failureCause, setFailureCause] = React.useState<unknown>(null);
   const [loading, setLoading] = React.useState(false);
 
   const reload = React.useCallback(async () => {
     if (!projectId || !getStoredSessionToken()) { setThreads(null); setResources(null); return; }
-    setLoading(true); setError(null);
+    setLoading(true); setFailureCause(null);
     const [t, r] = await Promise.allSettled([listThreads(projectId), listProjectResources(projectId)]);
     if (t.status === "fulfilled") setThreads(t.value);
     if (r.status === "fulfilled") setResources(r.value);
     const failed = t.status === "rejected" ? t.reason : r.status === "rejected" ? r.reason : null;
-    setError(failed === null ? null : { cause: failed });
+    setFailureCause(() => failed);
     setLoading(false);
   }, [projectId]);
 
@@ -114,8 +104,8 @@ export function useProjectContentIndex(projectId: string) {
   }, [entries]);
 
   const ready = threads !== null || resources !== null;
-  const error = errorCause === null ? null : describeProjectResourceFailure(errorCause.cause, locale);
-  return { entries, counts, error, loading, ready, reload };
+  const error = failureCause === null ? null : describeProjectResourceFailure(failureCause, locale);
+  return { entries, counts, error, failureCause, loading, ready, reload };
 }
 
 export function ContentEntryIcon({ entry, className }: { entry: ContentEntry; className?: string }) {
@@ -124,7 +114,7 @@ export function ContentEntryIcon({ entry, className }: { entry: ContentEntry; cl
 }
 
 export function contentTypeLabel(type: Exclude<ContentFilter, "all">, locale: Locale = "zh-CN"): string {
-  return contentFilterLabel(type, locale);
+  return locale === "zh-CN" ? FILTER_LABEL[type] : translate(locale, `projectOverview.type.${type}`);
 }
 
 function contentFilterLabel(type: ContentFilter, locale: Locale): string {
@@ -329,7 +319,7 @@ export function UpdatedAt({ iso }: { iso: string }): JSX.Element {
   return <time dateTime={iso} title={formatDate(iso, locale)}>{t("projectResources.updated", { date: rel ?? formatDate(iso, locale) })}</time>;
 }
 
-export function formatDate(iso: string, locale: Locale = "zh-CN"): string {
+export function formatDate(iso: string, locale?: Locale): string {
   const t = Date.parse(iso);
   return Number.isNaN(t) ? iso : new Date(t).toLocaleDateString(locale);
 }

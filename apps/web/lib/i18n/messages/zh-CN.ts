@@ -15,6 +15,7 @@ import { aiUsageZhCN } from "../namespaces/ai-usage";
 import { adminLimitPolicyZhCN } from "../namespaces/admin-limit-policy";
 import { adminMemberQuotasZhCN } from "../namespaces/admin-member-quotas";
 import { adminCommonZhCN } from "../namespaces/admin-common";
+import { adminOverviewZhCN } from "../namespaces/admin-overview";
 import { recordingProjectZhCN } from "../namespaces/recording-project";
 import { workflowGrantsZhCN } from "../namespaces/workflow-grants";
 import { orgHomeConfigZhCN } from "../namespaces/org-home-config";
@@ -25,10 +26,13 @@ import { chatZhCN } from "../namespaces/chat";
 import { zhTasks } from "./tasks";
 import { zhFailures } from "./failures";
 import { controlsZhCN } from "../namespaces/controls";
+import { publicDesignShareZhCN } from "../namespaces/public-design-share";
 import { workflowRunsZhCN } from "../namespaces/workflow-runs";
+import { projectResultsZhCN } from "../namespaces/project-results";
 import { workshopOverviewZhCN } from "../namespaces/workshop-overview";
 import { projectWorkbenchZhCN } from "../namespaces/project-workbench";
 import { projectListZhCN } from "../namespaces/project-list";
+import { projectOverviewZhCN } from "../namespaces/project-overview";
 import { activityZhCN } from "../namespaces/activity";
 import { profileZhCN } from "../namespaces/profile";
 import { notificationsZhCN } from "../namespaces/notifications";
@@ -58,6 +62,7 @@ export const zhCN = {
   ...adminLimitPolicyZhCN,
   ...adminMemberQuotasZhCN,
   ...adminCommonZhCN,
+  ...adminOverviewZhCN,
   ...recordingProjectZhCN,
   ...workflowGrantsZhCN,
   ...orgHomeConfigZhCN,
@@ -67,7 +72,9 @@ export const zhCN = {
   ...zhTasks,
   ...zhFailures,
   ...controlsZhCN,
+  ...publicDesignShareZhCN,
   ...projectListZhCN,
+  ...projectOverviewZhCN,
   ...activityZhCN,
   ...profileZhCN,
   ...notificationsZhCN,
@@ -80,6 +87,7 @@ export const zhCN = {
   ...chatShareZhCN,
   ...codeFenceZhCN,
   ...workflowRunsZhCN,
+  ...projectResultsZhCN,
   ...workshopOverviewZhCN,
   ...projectWorkbenchZhCN,
   "common.language": "语言",

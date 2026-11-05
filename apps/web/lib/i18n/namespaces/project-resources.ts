@@ -1,4 +1,4 @@
-import type { ContentFilter } from "@/components/project/project-links";
+import type { ContentFilter } from "@/lib/project-content-filters";
 import type { z } from "zod";
 import type { project } from "@repo/contracts";
 

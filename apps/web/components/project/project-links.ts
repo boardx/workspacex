@@ -4,8 +4,6 @@
  */
 export type ProjectResearchSub = "survey" | "itv" | "research" | "transcript" | "whiteboard" | "design";
 
-export type ContentFilter = "all" | "conv" | ProjectResearchSub;
-
 export function projectResearchHref(projectId: string, sub: ProjectResearchSub): string {
   return `/projects/${encodeURIComponent(projectId)}?tab=research&sub=${sub}`;
 }

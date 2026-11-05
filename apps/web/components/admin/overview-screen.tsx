@@ -1,4 +1,6 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
+import { translate } from "@/lib/i18n/messages";
 import { Download, FileBarChart } from "lucide-react";
 import { AdminScreen } from "./admin-screen";
 import { OverviewLive } from "./overview-live";
@@ -38,23 +40,24 @@ import type { UiState } from "@/lib/ui-state";
  * 挂的是禁用原因本身。
  */
 export const EXPORT_UNAVAILABLE_REASON =
-  "组织级审计导出与月度报告尚未实现——没有对应的服务端接口，见 issue #1178。";
+  translate("zh-CN", "adminOverview.exportUnavailable");
 
 export function OverviewScreen({ state }: { state: UiState }) {
+  const { t } = useI18n();
   return (
     <AdminScreen
       state={state}
-      moduleLabel="总览"
-      title="组织总览"
+      moduleLabel={t("adminOverview.module")}
+      title={t("adminOverview.title")}
       // 整屏已读真库，两条屏级提示（示例组织配置 / 尚未接入真实后端）都不适用了，
       // 同 F160 后 members-screen 摘掉屏级提示的处置（见 admin-screen.tsx 的 `liveBacked`）。
       liveBacked
-      intro="本月消耗、活跃度与限额规则触发情况。限额事件不是「事后可查」，是「事中拦截」——这里是处置入口。"
-      emptyHint="本月还没有活动记录"
-      errors={{ report: "生成月度报告失败：审计导出服务返回 500，请稍后重试" }}
-      depFailure="用量与限额埋点依赖审计流水线（UC-17.1），当前不可用，指标与活动流无法刷新。"
-      denialReason="本页仅组织管理员可见；你当前的组织角色是顾问。"
-      successMessage="月度报告已生成，已发送到你的收件箱"
+      intro={t("adminOverview.intro")}
+      emptyHint={t("adminOverview.empty")}
+      errors={{ report: t("adminOverview.reportFailure") }}
+      depFailure={t("adminOverview.dependencyFailure")}
+      denialReason={t("adminOverview.denial")}
+      successMessage={t("adminOverview.reportSuccess")}
     >
       <div className="flex flex-col gap-5">
         {/* 三块真指标 + 限额事件 + 活动流，全部真数据，见 overview-live.tsx */}
@@ -68,34 +71,34 @@ export function OverviewScreen({ state }: { state: UiState }) {
             这里只如实说「还没有」。 */}
         <section className="flex flex-col gap-2" data-testid="admin-overview-reports">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-14 font-semibold">导出与报告</h2>
+            <h2 className="text-14 font-semibold">{t("adminOverview.reports")}</h2>
             <div className="flex gap-2">
               <Button
                 size="sm"
                 variant="outline"
                 disabled
-                title={EXPORT_UNAVAILABLE_REASON}
+                title={t("adminOverview.exportUnavailable")}
                 data-testid="admin-activity-export"
               >
                 <Download aria-hidden className="h-3.5 w-3.5" />
-                导出
+                {t("adminOverview.export")}
               </Button>
               <Button
                 size="sm"
                 variant="primary"
                 disabled
-                title={EXPORT_UNAVAILABLE_REASON}
+                title={t("adminOverview.exportUnavailable")}
                 data-testid="admin-activity-report"
               >
                 <FileBarChart aria-hidden className="h-3.5 w-3.5" />
-                生成月度报告
+                {t("adminOverview.monthlyReport")}
               </Button>
             </div>
           </div>
           {/* 原因摆在旁边，不只藏在 title 里——只禁用不说为什么，和藏起来一样让人
               读作「产品做不到」。同 `local-org-screen` 云端模型整行禁用的处理。 */}
           <p className="text-11 text-muted-foreground" data-testid="admin-overview-reports-disabled-reason">
-            {EXPORT_UNAVAILABLE_REASON}
+            {t("adminOverview.exportUnavailable")}
           </p>
         </section>
       </div>
