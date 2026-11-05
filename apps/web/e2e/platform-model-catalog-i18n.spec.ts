@@ -172,7 +172,9 @@ test("model pool preserves actual read results and registration drafts across la
       if (!rows.length) await expect(page.getByTestId("admin-model-empty")).toBeVisible();
       for (const row of rows) await expect(page.getByTestId(`admin-model-card-${row.modelId}`)).toBeVisible();
       if (rows.length) {
-        const row = rows[0], search = page.getByTestId("admin-model-search");
+        const row = rows[0];
+        if (!row) throw new Error("Nonempty model pool has no first row");
+        const search = page.getByTestId("admin-model-search");
         await search.fill(row.modelId);
         const tag = page.getByTestId(`admin-model-tag-${row.kind}`);
         await tag.click();
