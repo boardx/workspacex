@@ -1,0 +1,92 @@
+{
+  "run": 41929967004,
+  "head": "99c69f71d594f5c95140b8630bb826f54bf4ab04",
+  "artifact": 13372517691,
+  "zipSha256": "fc9eb043abb73ea13c0680423e21246ac69fdbe79e6c1a4ba9871fbdb9f567ff",
+  "reportSha256": "40c4e89c20fd37120336dfe9cddf56646c966941ad40cb2139eec408445647f3",
+  "status": "FAILED_NATIVE; DRAFT_NONREADY",
+  "plannedPng": 16,
+  "automaticFailurePng": 4,
+  "remainingPlannedPng": 4,
+  "results": [
+    {
+      "status": "failed",
+      "retry": 0,
+      "milliseconds": 32802,
+      "failure": "strict404 body expectation mismatch (actual error:not_found + traceId)",
+      "operations": [
+        {
+          "operation": "protected unavailable-adapter historical prerequisite",
+          "status": 201
+        },
+        {
+          "operation": "independent original GET",
+          "status": 200
+        },
+        {
+          "operation": "native organization list",
+          "status": 200
+        },
+        {
+          "operation": "native candidates",
+          "status": 200
+        },
+        {
+          "operation": "native original UUID GET",
+          "status": 200
+        },
+        {
+          "operation": "native query original",
+          "status": 200
+        },
+        {
+          "operation": "native previous original",
+          "status": 200
+        },
+        {
+          "operation": "denied candidates",
+          "status": 403
+        },
+        {
+          "operation": "denied foreign original GET",
+          "status": 403
+        },
+        {
+          "operation": "denied foreign cancellation",
+          "status": 403
+        },
+        {
+          "operation": "independent original GET",
+          "status": 200
+        },
+        {
+          "operation": "native organization list",
+          "status": 403
+        },
+        {
+          "operation": "initial target authority",
+          "status": 200
+        },
+        {
+          "operation": "actual authority prerequisite",
+          "status": 201
+        },
+        {
+          "operation": "denied foreign original GET",
+          "status": 404
+        },
+        {
+          "operation": "cleanup-only outstanding grant revoke",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "status": "failed",
+      "retry": 1,
+      "milliseconds": 2792,
+      "failure": "login response body read after hard navigation",
+      "operations": []
+    }
+  ]
+}

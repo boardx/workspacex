@@ -1,0 +1,61 @@
+{
+  "status": "SOURCE_GATES_ONLY; nativeafterfixUNRUN",
+  "source": "90f7d10cd7656e9d130a1e548fa0aa96aeb1b370",
+  "specSha256": "17320e14b0707305f0d35764bd1eee1c893f3d38ae7cec6225a2dac5db15f29a",
+  "runtimeBudgetsRolesAndProductionUnchanged": true,
+  "nativeDiscovered": 1,
+  "receipts": [
+    {
+      "gate": "driver-r3-lint",
+      "head": "90f7d10cd7656e9d130a1e548fa0aa96aeb1b370",
+      "command": [
+        "pnpm",
+        "exec",
+        "eslint",
+        "e2e/i18n-platform-model-tests.spec.ts"
+      ],
+      "exit": 0,
+      "seconds": 3.738,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "gate": "driver-r3-web-type",
+      "head": "90f7d10cd7656e9d130a1e548fa0aa96aeb1b370",
+      "command": [
+        "pnpm",
+        "--filter",
+        "web",
+        "typecheck"
+      ],
+      "exit": 0,
+      "seconds": 9.338,
+      "logSha256": "ea30d6b748ad9ab96126527df942acbf5a2e0557ed6674beeb887f3f9571595a"
+    },
+    {
+      "gate": "driver-r3-testid",
+      "head": "90f7d10cd7656e9d130a1e548fa0aa96aeb1b370",
+      "command": [
+        "pnpm",
+        "run",
+        "lint:e2e-testid-gate"
+      ],
+      "exit": 0,
+      "seconds": 3.86,
+      "logSha256": "0cb27e8fe3c56e9e2174af962c004f1256b381e54638c9e8662c3f86c4040294"
+    },
+    {
+      "gate": "driver-r3-discovery",
+      "head": "90f7d10cd7656e9d130a1e548fa0aa96aeb1b370",
+      "command": [
+        "pnpm",
+        "exec",
+        "tsx",
+        "-e",
+        "import {deriveTestIsolation} from './.harness/scripts/lib/test-isolation'; import {spawnSync} from 'node:child_process'; const env={...process.env,...deriveTestIsolation({isolationId:'i18n-model-tests-6246-discovery',worktreePath:process.cwd()}),FULLSTACK_SMOKE_PARTITION:'product'}; const r=spawnSync('pnpm',['--filter','web','exec','playwright','test','--config','playwright.fullstack-smoke.config.ts','--project=seeded-github-import','--no-deps','i18n-platform-model-tests.spec.ts','--list'],{env,stdio:'inherit'});process.exit(r.status??1);"
+      ],
+      "exit": 0,
+      "seconds": 2.543,
+      "logSha256": "c5218acfd799b86cde73f8f635b2ca456a581de4a41c380488b051e86388e7a4"
+    }
+  ]
+}
