@@ -208,12 +208,7 @@ export async function listAgendaSegments(workshopId: string): Promise<ListAgenda
   );
 }
 
-export const AGENDA_SEGMENT_STATE_LABEL: Record<AgendaSegment["state"], string> = {
-  pending: translate("zh-CN", "workshopLive.segmentState.pending"),
-  active: translate("zh-CN", "workshopLive.segmentState.active"),
-  closed: translate("zh-CN", "workshopLive.segmentState.closed"),
-  skipped: translate("zh-CN", "workshopLive.segmentState.skipped"),
-};
+export { AGENDA_SEGMENT_STATE_LABEL } from "./project-preparation-labels";
 
 export type AdvanceAgendaSegmentAction = z.infer<typeof project.AgendaSegmentAdvanceAction>;
 export type AdvanceAgendaSegmentOut = z.infer<typeof project.operations.advanceAgendaSegment.out>;

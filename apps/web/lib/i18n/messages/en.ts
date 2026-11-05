@@ -31,6 +31,7 @@ import { projectListEn } from "../namespaces/project-list";
 import { projectOverviewEn } from "../namespaces/project-overview";
 import { activityEn } from "../namespaces/activity";
 import { profileEn } from "../namespaces/profile";
+import { projectPreparationEn } from "../namespaces/project-preparation";
 import { notificationsEn } from "../namespaces/notifications";
 import { aboutMemoryEn } from "../namespaces/about-memory";
 import { orgMembersEn } from "../namespaces/org-members";
@@ -76,6 +77,7 @@ export const en: Record<keyof typeof zhCN, string> = {
   ...projectOverviewEn,
   ...activityEn,
   ...profileEn,
+  ...projectPreparationEn,
   ...notificationsEn,
   ...aboutMemoryEn,
   ...orgMembersEn,

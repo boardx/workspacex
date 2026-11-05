@@ -1,4 +1,3 @@
-import { translate } from "./i18n/messages";
 /**
  * 项目筹备（定题/分组）的真实 API 薄封装（F950，2026-08-16 delta）。
  *
@@ -129,20 +128,4 @@ export async function saveInterviewSubjects(
 }
 
 /** 六列表头——逐字照 `uc-2-2` R3 第 6 步与契约 `InterviewSubject` 的字段顺序，不另起一套叫法。 */
-export const INTERVIEW_SUBJECT_COLUMNS: ReadonlyArray<{
-  key: keyof Omit<InterviewSubject, "subjectId">;
-  label: string;
-}> = [
-  { key: "name", label: "对象" },
-  { key: "role", label: "部门角色" },
-  { key: "contact", label: "联系方式" },
-  { key: "focus", label: "背景与要问什么" },
-  { key: "method", label: "方式" },
-  { key: "status", label: "状态" },
-];
-
-export const GROUP_STATUS_LABEL: Record<z.infer<typeof templates.GroupStatus>, string> = {
-  "recording-ready": translate("zh-CN", "workshopLive.groupStatus.recording-ready"),
-  "short-n": translate("zh-CN", "workshopLive.groupStatus.short-n"),
-  "needs-intervention": translate("zh-CN", "workshopLive.groupStatus.needs-intervention"),
-};
+export { INTERVIEW_SUBJECT_COLUMNS, GROUP_STATUS_LABEL } from "./project-preparation-labels";
