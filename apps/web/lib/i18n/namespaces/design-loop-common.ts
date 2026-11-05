@@ -1,6 +1,6 @@
 import type { Locale } from "../locale";
 import { translate, type MessageKey } from "../messages";
-import { INBOX_KIND_LABEL, INBOX_STAGE_LABEL, type InboxKind, type InboxStage } from "@/lib/live-inbox";
+import { INBOX_KIND_LABEL, INBOX_STAGE_LABEL, type InboxKind, type InboxStage } from "@/lib/design-loop-label-metadata";
 import { feedbackLoop, systemErrorLogs } from "@repo/contracts";
 
 /** Display projection only. Canonical values and state machines remain in contracts. */

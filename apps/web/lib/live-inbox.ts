@@ -24,20 +24,11 @@ export type GetInboxCountsOut = z.infer<typeof inbox.operations.getInboxCounts.o
 
 /** stage → 显示名 + 看板列顺序。派生值的展示层，不是第二份状态机（见契约文件头）。 */
 export const INBOX_STAGE_ORDER: readonly InboxStage[] = inbox.InboxStage.options;
-export const INBOX_STAGE_LABEL: Record<InboxStage, string> = {
-  backlog: "待处理",
-  doing: "进行中",
-  done: "已完成",
-  archived: "不做",
-};
+export { INBOX_STAGE_LABEL } from "./design-loop-label-metadata";
 
 /** kind → 显示名，含全部/系统异常/设计方案闭集，供筛选 Chip 用。 */
 export const INBOX_KIND_OPTIONS = inbox.InboxKind.options;
-export const INBOX_KIND_LABEL: Record<InboxKind, string> = {
-  feedback: "反馈（需求 / 缺陷）",
-  exception: "系统异常",
-  design: "设计方案",
-};
+export { INBOX_KIND_LABEL } from "./design-loop-label-metadata";
 
 export type InboxView = z.infer<typeof inbox.InboxView>;
 export type SetInboxItemTagsOut = z.infer<typeof inbox.operations.setInboxItemTags.out>;

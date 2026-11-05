@@ -1,5 +1,5 @@
 import { designPrototype } from "@repo/contracts";
-import { PROJECT_TEMPLATE_LABEL } from "@/lib/live-design-workbench";
+import { PROJECT_TEMPLATE_LABEL } from "@/lib/design-loop-label-metadata";
 
 export const designDocumentZhCN = {
   "designDocument.option.direction.row": designPrototype.prototypeOptionLabel("", "direction", "row"),
