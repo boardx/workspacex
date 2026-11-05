@@ -1,3 +1,4 @@
+// @global-scope-fixture table:credit_transactions: tariff-replay UUID row exists only inside the replay test transaction and is always rolled back in finally.
 // Repository calls own one unique model key per run; cleanup removes only that exact global key.
 import {readFileSync} from 'node:fs';
 import {randomUUID} from 'node:crypto';
@@ -51,10 +52,12 @@ it('rejects malformed rates and unsupported units',()=>{
  for(const patch of [{quantum:'0'},{quantum:'1.5'},{hundredthsPerQuantum:'-1'},{hundredthsPerQuantum:'9999999999999999999'},{unit:'token'},{ownerId:'forged'}])expect(NativeCreditTariff.safeParse({...tariff,...patch}).success).toBe(false);
 });
 const migration=readFileSync(new URL('../../migrations/20261105090000_global_native_credit_tariffs.sql',import.meta.url),'utf8');
-it('replays the historical and global migrations without rewriting prices, history, or privileges',async()=>{
- const historical=readFileSync(new URL('../../migrations/20261022120000_credit_consumption.sql',import.meta.url),'utf8');
- const audit=readFileSync(new URL('../../migrations/20261023010000_credit_native_tariff_audit.sql',import.meta.url),'utf8');
+it('replays global tariff cleanup without rewriting prices, history, newer ledger rows, or privileges',async()=>{
  await asOwner(async c=>{await c.query('BEGIN');try{
+  // A valid post-consumption-migration type reproduces the populated CI ledger.
+  // Replaying unrelated historical DDL here used to narrow its CHECK and fail23514.
+  const ledger=await c.query("INSERT INTO credit_transactions(wallet_id,type,direction,credits,balance_after,source_type,source_id) SELECT wallet_id,'subscription_expire',-1,1,0,'subscription_period',$1 FROM credit_wallets WHERE owner_type='team' AND owner_id=$2 RETURNING to_jsonb(credit_transactions) AS row",['tariff-replay-'+unique,org]);
+  expect(ledger.rows).toHaveLength(1);
   const snapshot=async()=> (await c.query(`SELECT
    (SELECT coalesce(jsonb_agg(to_jsonb(t) ORDER BY model_provider,model_id,unit),'[]') FROM credit_global_native_tariffs t) AS prices,
    (SELECT coalesce(jsonb_agg(to_jsonb(t) ORDER BY id),'[]') FROM credit_global_native_tariff_changes t) AS audit`)).rows[0];
@@ -62,11 +65,15 @@ it('replays the historical and global migrations without rewriting prices, histo
   expect(before.prices.length).toBeGreaterThan(0);
   expect(before.audit.length).toBeGreaterThan(0);
   for(let round=0;round<2;round++){
-   await c.query(historical);await c.query(audit);
+   // Only the obsolete relations touched by this migration are fixtures. Full
+   // ordered history replay belongs to migrate:check, not a shared populated DB.
+   await c.query("CREATE TABLE credit_native_tariffs(org_id text,model_provider text,model_id text,unit text,quantum bigint,hundredths_per_quantum bigint,version text)");
+   await c.query("CREATE TABLE credit_native_tariff_changes(org_id text,actor_id text,new_tariff jsonb)");
    await c.query("INSERT INTO credit_native_tariffs(org_id,model_provider,model_id,unit,quantum,hundredths_per_quantum,version) VALUES($1,'discarded-test-data','obsolete','image',1,999,'obsolete')",[org]);
    await c.query("INSERT INTO credit_native_tariff_changes(org_id,actor_id,new_tariff) VALUES($1,'discarded-test-data','{}')",[org]);
    await c.query(migration);
    expect(await snapshot()).toEqual(before);
+   expect((await c.query("SELECT to_jsonb(credit_transactions) AS row FROM credit_transactions WHERE source_id=$1",['tariff-replay-'+unique])).rows).toEqual(ledger.rows);
    expect((await c.query(`SELECT
     to_regclass('credit_native_tariffs') AS old,
     to_regclass('credit_native_tariff_changes') AS old_audit,

@@ -19,3 +19,14 @@ Verification of this final implementation:
 
 The unchanged export/RLS suites now pass without filtering or legacy exceptions.
 Owned isolation stacks were released. CI remains the full integration gate.
+
+## Shared-ledger regression fixture correction
+
+The replay unit test previously executed unrelated historical consumption DDL in
+an already populated current-schema database. That narrowed the ledger CHECK and
+rejected valid `subscription_expire` rows from earlier tests (CI SQLSTATE 23514).
+It now constructs only the obsolete tariff-table fixtures, runs the final cleanup
+migration twice, and asserts an explicit newer ledger row is preserved unchanged.
+Full historical replay remains covered by the independent migrate:check gate.
+Native tariff and both credit-period suites passed 12/12 (`isolated-replay.log`).
+Production migration SQL is unchanged by this test correction.
