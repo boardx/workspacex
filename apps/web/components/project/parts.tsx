@@ -55,6 +55,7 @@ export function StatChip({
 export function ObserverNotice({
   what, testId,
 }: { what: string; testId?: string }) {
+  const { t } = useI18n();
   return (
     <div
       data-testid={testId}
@@ -62,7 +63,7 @@ export function ObserverNotice({
     >
       <EyeOff aria-hidden className="h-4 w-4 shrink-0" />
       <span className="min-w-0 flex-1">{what}</span>
-      <Badge tone="outline">观察者只读</Badge>
+      <Badge tone="outline">{t("projectPrep.observerBadge")}</Badge>
     </div>
   );
 }

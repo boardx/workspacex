@@ -208,12 +208,7 @@ export async function listAgendaSegments(workshopId: string): Promise<ListAgenda
   );
 }
 
-export const AGENDA_SEGMENT_STATE_LABEL: Record<AgendaSegment["state"], string> = {
-  pending: "待开始",
-  active: "进行中",
-  closed: "已结束",
-  skipped: "已跳过",
-};
+export { AGENDA_SEGMENT_STATE_LABEL } from "./project-preparation-labels";
 
 export type AdvanceAgendaSegmentAction = z.infer<typeof project.AgendaSegmentAdvanceAction>;
 export type AdvanceAgendaSegmentOut = z.infer<typeof project.operations.advanceAgendaSegment.out>;
