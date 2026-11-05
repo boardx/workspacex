@@ -41,3 +41,6 @@ GRANT SELECT,INSERT,UPDATE ON credit_global_image_schedule TO app_billing_tariff
 GRANT SELECT,INSERT ON credit_global_image_tariff_changes TO app_billing_tariff_writer;
 GRANT USAGE,SELECT ON SEQUENCE credit_global_image_tariff_changes_id_seq TO app_billing_tariff_writer;
 GRANT SELECT ON credit_packages TO app_billing_tariff_writer;
+
+COMMENT ON TABLE credit_global_image_schedule IS
+ 'kernel-no-tenant-data: platform-wide fixed image price schedule, no tenant or customer content. app_rw has SELECT only for authenticated personal/team reservation pricing; only the separately credentialed app_billing_tariff_writer may mutate through operator-authorized atomic CAS and audit. global-image-tariff-pg.test.ts proves app_rw write denial, both payers, new-org inheritance and immutable reservation settlement.';

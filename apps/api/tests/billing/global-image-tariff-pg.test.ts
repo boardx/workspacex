@@ -88,3 +88,8 @@ it('a newly created organization after activation reserves all three global mode
   expect(await asApp(newOrg,async c=>(await c.query('SELECT r.native_rate::text rate,r.tariff_version,w.owner_type,w.owner_id FROM credit_consumption_requests r JOIN credit_wallets w USING(wallet_id) WHERE r.request_id=$1',[input.requestId])).rows[0])).toEqual({rate:row.hundredthsPerQuantum,tariff_version:row.version,owner_type:'user',owner_id:user});
  }
 });
+
+it('catalog-derived runtime audit recognizes only the explicitly documented global pricing table',async()=>{
+ const rows=await asApp(personal,async c=>(await c.query("SELECT table_name,verdict FROM kernel_tenant_table_audit('app_rw') WHERE table_name='credit_global_image_schedule' OR (verdict <> 'ok' AND verdict NOT LIKE 'exempt-%')")).rows);
+ expect(rows).toEqual([{table_name:'credit_global_image_schedule',verdict:'exempt-declared-no-tenant-data'}]);
+});
