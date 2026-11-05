@@ -64,9 +64,9 @@ export type BackflowEntry = z.infer<typeof artifact.BackflowEntry>;
  * 两个组件都从这里 import，不各自抄一份。
  */
 export const BACKFLOW_BADGE_LABEL: Record<BackflowEntry["badge"], string> = {
-  draft: "草稿",
-  live: "实时 · 随源变动",
-  pinned: "已定版",
+  draft: translate("zh-CN", "workshopOverview.backflow.draft"),
+  live: translate("zh-CN", "workshopOverview.backflow.live"),
+  pinned: translate("zh-CN", "workshopOverview.backflow.pinned"),
 };
 
 /**
@@ -209,10 +209,10 @@ export async function listAgendaSegments(workshopId: string): Promise<ListAgenda
 }
 
 export const AGENDA_SEGMENT_STATE_LABEL: Record<AgendaSegment["state"], string> = {
-  pending: "待开始",
-  active: "进行中",
-  closed: "已结束",
-  skipped: "已跳过",
+  pending: translate("zh-CN", "workshopLive.segmentState.pending"),
+  active: translate("zh-CN", "workshopLive.segmentState.active"),
+  closed: translate("zh-CN", "workshopLive.segmentState.closed"),
+  skipped: translate("zh-CN", "workshopLive.segmentState.skipped"),
 };
 
 export type AdvanceAgendaSegmentAction = z.infer<typeof project.AgendaSegmentAdvanceAction>;

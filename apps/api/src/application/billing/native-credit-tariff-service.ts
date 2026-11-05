@@ -1,5 +1,5 @@
 import type {PricingCatalog} from "@repo/contracts/billing-pricing";
-import {imageMarkup10Price} from "../../domain/agent-run/image-activation-pricing";
+import {imageFixedCnyPrice} from "../../domain/agent-run/image-activation-pricing";
 import type {z} from "zod";
 import {NativeCreditTariff} from "@repo/contracts/billing-consumption";
 import {assertPrincipal,type Principal} from "../../domain/principal";
@@ -19,7 +19,7 @@ export class NativeCreditTariffService {
   assertPrincipal(principal);if(!await this.isOperator(principal.userId))throw new ConsumptionSettingsForbidden();
   try{
    if(!this.store.readCnyCatalog)throw new ImagePricingBasisUnavailable();
-   const catalog=await this.store.readCnyCatalog(orgId);imageMarkup10Price(1n,catalog);return catalog;
+   const catalog=await this.store.readCnyCatalog(orgId);imageFixedCnyPrice(1n,catalog);return catalog;
   }catch(error){throw new ImagePricingBasisUnavailable(error instanceof Error&&error.message==='IMAGE_MINIMUM_CNY_CREDIT_QUOTE_AMBIGUOUS'?'image_cny_quote_ambiguous':'image_cny_quote_unconfigured');}
  }
  async list(principal:Principal,orgId:string){assertPrincipal(principal);if(!await this.isOperator(principal.userId))throw new ConsumptionSettingsForbidden();return {items:await this.store.list(orgId)};}

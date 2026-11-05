@@ -1,7 +1,5 @@
-import { workbenchHomeEn } from "../namespaces/workbench-home";
-import { inboxEn } from "../namespaces/inbox";
-import { designDocumentEn } from "../namespaces/design-document";
-import { designLoopCommonEn } from "../namespaces/design-loop-common";
+import { workshopLiveEn } from "../namespaces/workshop-live";
+import { platformOpsStatusEn } from "../namespaces/platform-ops-status";
 import { modelTestbenchEn } from "../namespaces/model-testbench";
 import { platformModelCatalogEn } from "../namespaces/platform-model-catalog";
 import { telemetrySettingsEn } from "../namespaces/telemetry-settings";
@@ -17,6 +15,10 @@ import { aiUsageEn } from "../namespaces/ai-usage";
 import { adminLimitPolicyEn } from "../namespaces/admin-limit-policy";
 import { adminMemberQuotasEn } from "../namespaces/admin-member-quotas";
 import { adminCommonEn } from "../namespaces/admin-common";
+import { workbenchHomeEn } from "../namespaces/workbench-home";
+import { inboxEn } from "../namespaces/inbox";
+import { designDocumentEn } from "../namespaces/design-document";
+import { designLoopCommonEn } from "../namespaces/design-loop-common";
 import { recordingProjectEn } from "../namespaces/recording-project";
 import { workflowGrantsEn } from "../namespaces/workflow-grants";
 import { orgHomeConfigEn } from "../namespaces/org-home-config";
@@ -37,15 +39,14 @@ import { orgMembersPreviewEn } from "../namespaces/org-members-preview";
 import { orgSharedInvitesEn } from "../namespaces/org-shared-invites";
 import { stateEn } from "../namespaces/state";
 import { workflowRunsEn } from "../namespaces/workflow-runs";
+import { workshopOverviewEn } from "../namespaces/workshop-overview";
 import { projectWorkbenchEn } from "../namespaces/project-workbench";
 import type { zhCN } from "./zh-CN";
 import { accountEntryEn } from "../namespaces/account-entry";
 import { invitationEntryEn } from "../namespaces/invitation-entry";
 export const en: Record<keyof typeof zhCN, string> = {
-  ...workbenchHomeEn,
-  ...inboxEn,
-  ...designDocumentEn,
-  ...designLoopCommonEn,
+  ...workshopLiveEn,
+  ...platformOpsStatusEn,
   ...modelTestbenchEn,
   ...platformModelCatalogEn,
   ...telemetrySettingsEn,
@@ -61,6 +62,10 @@ export const en: Record<keyof typeof zhCN, string> = {
   ...adminLimitPolicyEn,
   ...adminMemberQuotasEn,
   ...adminCommonEn,
+  ...workbenchHomeEn,
+  ...inboxEn,
+  ...designDocumentEn,
+  ...designLoopCommonEn,
   ...workflowGrantsEn,
   ...orgHomeConfigEn,
   ...orgProfileEn,
@@ -81,6 +86,7 @@ export const en: Record<keyof typeof zhCN, string> = {
   ...chatShareEn,
   ...codeFenceEn,
   ...workflowRunsEn,
+  ...workshopOverviewEn,
   ...projectWorkbenchEn,
   "common.language": "Language",
   "home.greeting": "Hello, {name}",

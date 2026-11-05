@@ -1,3 +1,4 @@
+import { translate } from "./i18n/messages";
 /**
  * 项目筹备（定题/分组）的真实 API 薄封装（F950，2026-08-16 delta）。
  *
@@ -141,7 +142,7 @@ export const INTERVIEW_SUBJECT_COLUMNS: ReadonlyArray<{
 ];
 
 export const GROUP_STATUS_LABEL: Record<z.infer<typeof templates.GroupStatus>, string> = {
-  "recording-ready": "录音就绪",
-  "short-n": "缺人",
-  "needs-intervention": "需介入",
+  "recording-ready": translate("zh-CN", "workshopLive.groupStatus.recording-ready"),
+  "short-n": translate("zh-CN", "workshopLive.groupStatus.short-n"),
+  "needs-intervention": translate("zh-CN", "workshopLive.groupStatus.needs-intervention"),
 };
