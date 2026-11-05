@@ -35,6 +35,9 @@ try{
  const first=products[0],ambiguous=!!first&&products[1]?.amountMinor===first.amountMinor;
  out.creditBasis=first&&!ambiguous?{catalogVersion:configured.version,sku:first.sku,amountMinor:first.amountMinor,credits:first.credits,currency:'CNY',market:'cn'}:{available:false,ambiguous};
  out.organizationCount=Number((await client.query('SELECT count(*)::integer AS count FROM organizations')).rows[0].count);
+ out.repairAuditCount=Number((await client.query("SELECT count(*)::integer AS count FROM credit_native_tariff_changes WHERE new_tariff->>'version'=$1 AND new_tariff->'maintenance'->>'issue'=$2 AND old_tariff IS NULL",['asr-credit-6275-v1','6275'])).rows[0].count);
+ out.recentAsrRequestStates=(await client.query("SELECT state,count(*)::integer AS count FROM credit_consumption_requests WHERE model_provider=$1 AND model_id=$2 AND created_at>now()-interval '30 minutes' GROUP BY state ORDER BY state",[e.KERNEL_ASR_PROVIDER,e.KERNEL_ASR_MODEL])).rows;
+ out.recentAsrTerminals=(await client.query("SELECT outcome,native_source,count(*)::integer AS count,count(*) FILTER(WHERE native_quantity>0)::integer AS \"withAudio\" FROM token_usage_events WHERE model_provider=$1 AND model_id=$2 AND call_purpose='native-asr' AND request_started_at>now()-interval '30 minutes' GROUP BY outcome,native_source ORDER BY outcome,native_source",[e.KERNEL_ASR_PROVIDER,e.KERNEL_ASR_MODEL])).rows;
  await client.query('COMMIT');Object.assign(out,row,{tariffQueryAvailable:true,millisecondTariffs:millisecondTariffs.map(r=>({...r,model_provider:label(r.model_provider),model_id:label(r.model_id)}))});
 }catch(error){out.databaseProbeCode=['42501','42P01','28P01','ECONNREFUSED','ETIMEDOUT','ENOTFOUND'].includes(error?.code)?error.code:'database_probe_unavailable';}
 finally{client?.release();await pool?.end();}
