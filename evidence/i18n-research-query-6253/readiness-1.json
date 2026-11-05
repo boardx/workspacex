@@ -1,0 +1,15 @@
+{
+  "name": "readiness-1",
+  "command": [
+    "pnpm",
+    "harness",
+    "readiness"
+  ],
+  "source": "5832cdb62c08fe4f8917776760626d71c74fea11",
+  "exitCode": 0,
+  "seconds": 2.044,
+  "rawLogSha256": "94be5677eed8f893c2165733f5344dce5f4eab912ddd3fceb520f87d91feeb04",
+  "sourceAfter": "5832cdb62c08fe4f8917776760626d71c74fea11",
+  "sourceStable": true,
+  "environment": {}
+}

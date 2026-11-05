@@ -1,0 +1,16 @@
+{
+  "name": "assistant-webtype-covering-1",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "typecheck"
+  ],
+  "source": "ef005586569cf51fce1fa0ba446da447554498a5",
+  "exitCode": 0,
+  "seconds": 12.554,
+  "rawLogSha256": "cd5788cc155241ad0932956ca7dd287ae173e2f213993b615bdafdcb93bc7ce4",
+  "sourceAfter": "ef005586569cf51fce1fa0ba446da447554498a5",
+  "sourceStable": true,
+  "environment": {}
+}

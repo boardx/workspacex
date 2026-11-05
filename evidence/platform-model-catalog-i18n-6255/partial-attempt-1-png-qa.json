@@ -1,0 +1,217 @@
+{
+  "run": 41947987186,
+  "head": "55d2e32855f179b7c6d80c72c3a694d5e1047e96",
+  "actualPngTotal": 22,
+  "firstAttemptPlanned": 14,
+  "retryRepeatedPlanned": 6,
+  "automaticFailure": 2,
+  "allIndividuallyViewed": true,
+  "findings": [
+    {
+      "kind": "actual native geometry failure",
+      "target": "bailian-model-qwen3.8-max-0902",
+      "ratio": 0.9938650131225586,
+      "sameBothAttempts": true,
+      "viewport": [
+        375,
+        900
+      ],
+      "traceMainScrollBefore": 449,
+      "traceMainScrollAfter": 540,
+      "domRectNotRecorded": true,
+      "sourceEvidence": "Direct border-box ResourceCard grid; scrollable main, normal-flow56px mobile navigation,24px bottom padding. No source-forced oversize found.",
+      "screenshotEvidence": "Last card begins at raster y682; main/navigation boundary is raster y844; about1px of card outer rectangle not wholly in scrollport. Ratio aligns162/163; dimensions are inferred from raster/ratio, not a recorded DOM bounding box."
+    },
+    {
+      "kind": "owned English missing sentence boundary",
+      "source": "apps/web/lib/i18n/namespaces/platform-model-catalog.ts:66",
+      "actual": "organization.Enable/disable",
+      "expected": "organization. Enable/disable",
+      "scope": "Only add missing English separator at noticeBefore/strong boundary; Chinese/rawfacts/payload unchanged."
+    }
+  ],
+  "items": [
+    {
+      "file": "apps/web/test-results/fullstack-smoke/platform-model-catalog-i18-9ac2b--preserves-canonical-values-seeded-github-import/model-catalog-member-denied-top-1280.png",
+      "sha256": "d069509714acd49c2ebe9dd6a9761e00fc4a6fa495dbeadcd36646b35576df32",
+      "width": 1280,
+      "height": 900,
+      "rootViewedIndividually": true,
+      "kind": "first-attempt planned"
+    },
+    {
+      "file": "apps/web/test-results/fullstack-smoke/platform-model-catalog-i18-9ac2b--preserves-canonical-values-seeded-github-import/model-catalog-member-denied-top-375.png",
+      "sha256": "0e38c23a48b193fc15244714628e2bea42af96ce093bb76d3b3ec566ff93df53",
+      "width": 375,
+      "height": 900,
+      "rootViewedIndividually": true,
+      "kind": "first-attempt planned"
+    },
+    {
+      "file": "apps/web/test-results/fullstack-smoke/platform-model-catalog-i18-9ac2b--preserves-canonical-values-seeded-github-import/model-catalog-public-detail-bottom-1280.png",
+      "sha256": "f496f112bc28193977fe35fba4c137d3476186c3160f3ec10566c6d35ff7e171",
+      "width": 1280,
+      "height": 900,
+      "rootViewedIndividually": true,
+      "kind": "first-attempt planned"
+    },
+    {
+      "file": "apps/web/test-results/fullstack-smoke/platform-model-catalog-i18-9ac2b--preserves-canonical-values-seeded-github-import/model-catalog-public-detail-bottom-375.png",
+      "sha256": "997ba2ff5b46db08e6acaac9177135e15c60626bf10c05e8d86a07f1568dfb52",
+      "width": 375,
+      "height": 900,
+      "rootViewedIndividually": true,
+      "kind": "first-attempt planned"
+    },
+    {
+      "file": "apps/web/test-results/fullstack-smoke/platform-model-catalog-i18-9ac2b--preserves-canonical-values-seeded-github-import/model-catalog-public-detail-top-1280.png",
+      "sha256": "1dfd358cd41282b0e9cb925b3b7cb41e23c6fe9bd13f87b4ff272871fa9120a1",
+      "width": 1280,
+      "height": 900,
+      "rootViewedIndividually": true,
+      "kind": "first-attempt planned"
+    },
+    {
+      "file": "apps/web/test-results/fullstack-smoke/platform-model-catalog-i18-9ac2b--preserves-canonical-values-seeded-github-import/model-catalog-public-detail-top-375.png",
+      "sha256": "9eb63248ebd79ba0dcbe20f856cf0441e2f397773d8f15b45a52fb267384d820",
+      "width": 375,
+      "height": 900,
+      "rootViewedIndividually": true,
+      "kind": "first-attempt planned"
+    },
+    {
+      "file": "apps/web/test-results/fullstack-smoke/platform-model-catalog-i18-9ac2b--preserves-canonical-values-seeded-github-import/test-failed-1.png",
+      "sha256": "2e6f82a7b30bf977df6faf0265398303672b7c7cf3d84b1bbef20ad22283d5c3",
+      "width": 375,
+      "height": 900,
+      "rootViewedIndividually": true,
+      "kind": "automatic failure"
+    },
+    {
+      "file": "apps/web/test-results/fullstack-smoke/platform-model-catalog-i18-9ac2b--preserves-canonical-values-seeded-github-import-retry1/model-catalog-member-denied-top-1280.png",
+      "sha256": "3fba92222db4bd1f800cfb00f7f3452c61db36607bbbc2b21e99bb21afebcf22",
+      "width": 1280,
+      "height": 900,
+      "rootViewedIndividually": true,
+      "kind": "retry repeated planned"
+    },
+    {
+      "file": "apps/web/test-results/fullstack-smoke/platform-model-catalog-i18-9ac2b--preserves-canonical-values-seeded-github-import-retry1/model-catalog-member-denied-top-375.png",
+      "sha256": "c1bfb41a99b7548b8dc31efd5e66216801edc047ec203301911a9bae19da718d",
+      "width": 375,
+      "height": 900,
+      "rootViewedIndividually": true,
+      "kind": "retry repeated planned"
+    },
+    {
+      "file": "apps/web/test-results/fullstack-smoke/platform-model-catalog-i18-9ac2b--preserves-canonical-values-seeded-github-import-retry1/model-catalog-public-detail-bottom-1280.png",
+      "sha256": "b3dfe848865784bccb392b5f77d174671015f03f2a27d54ec8c806a6ea9412c2",
+      "width": 1280,
+      "height": 900,
+      "rootViewedIndividually": true,
+      "kind": "retry repeated planned"
+    },
+    {
+      "file": "apps/web/test-results/fullstack-smoke/platform-model-catalog-i18-9ac2b--preserves-canonical-values-seeded-github-import-retry1/model-catalog-public-detail-bottom-375.png",
+      "sha256": "997ba2ff5b46db08e6acaac9177135e15c60626bf10c05e8d86a07f1568dfb52",
+      "width": 375,
+      "height": 900,
+      "rootViewedIndividually": true,
+      "kind": "retry repeated planned"
+    },
+    {
+      "file": "apps/web/test-results/fullstack-smoke/platform-model-catalog-i18-9ac2b--preserves-canonical-values-seeded-github-import-retry1/model-catalog-public-detail-top-1280.png",
+      "sha256": "87da466f6b0cb5ee532f454832ec8dd1f0befe4d5c47823d8c0dd8e085e571af",
+      "width": 1280,
+      "height": 900,
+      "rootViewedIndividually": true,
+      "kind": "retry repeated planned"
+    },
+    {
+      "file": "apps/web/test-results/fullstack-smoke/platform-model-catalog-i18-9ac2b--preserves-canonical-values-seeded-github-import-retry1/model-catalog-public-detail-top-375.png",
+      "sha256": "9eb63248ebd79ba0dcbe20f856cf0441e2f397773d8f15b45a52fb267384d820",
+      "width": 375,
+      "height": 900,
+      "rootViewedIndividually": true,
+      "kind": "retry repeated planned"
+    },
+    {
+      "file": "apps/web/test-results/fullstack-smoke/platform-model-catalog-i18-9ac2b--preserves-canonical-values-seeded-github-import-retry1/test-failed-1.png",
+      "sha256": "2e6f82a7b30bf977df6faf0265398303672b7c7cf3d84b1bbef20ad22283d5c3",
+      "width": 375,
+      "height": 900,
+      "rootViewedIndividually": true,
+      "kind": "automatic failure"
+    },
+    {
+      "file": "apps/web/test-results/fullstack-smoke/platform-model-catalog-i18-f9863-afts-across-language-events-seeded-github-import/model-catalog-core-actual-state-top-1280.png",
+      "sha256": "e5aa7182556f18cf22f10930c5dc37c1e535aef5b9ace0659099242e6fd308c9",
+      "width": 1280,
+      "height": 900,
+      "rootViewedIndividually": true,
+      "kind": "first-attempt planned"
+    },
+    {
+      "file": "apps/web/test-results/fullstack-smoke/platform-model-catalog-i18-f9863-afts-across-language-events-seeded-github-import/model-catalog-core-actual-state-top-375.png",
+      "sha256": "9f24038b740a8b5f18e389fa41695d9744eafd995630fa13063c285681362b9a",
+      "width": 375,
+      "height": 900,
+      "rootViewedIndividually": true,
+      "kind": "first-attempt planned"
+    },
+    {
+      "file": "apps/web/test-results/fullstack-smoke/platform-model-catalog-i18-f9863-afts-across-language-events-seeded-github-import/model-catalog-empty-pool-top-1280.png",
+      "sha256": "3cc20d1102f79696d7b36283edd62c16a43c955a609e30c3bd15e82d9fb2af9e",
+      "width": 1280,
+      "height": 900,
+      "rootViewedIndividually": true,
+      "kind": "first-attempt planned"
+    },
+    {
+      "file": "apps/web/test-results/fullstack-smoke/platform-model-catalog-i18-f9863-afts-across-language-events-seeded-github-import/model-catalog-empty-pool-top-375.png",
+      "sha256": "5d0372132ca2bfec4fceef55a2d72d2045c7dd693280b2f1433a06a3b8902827",
+      "width": 375,
+      "height": 900,
+      "rootViewedIndividually": true,
+      "kind": "first-attempt planned"
+    },
+    {
+      "file": "apps/web/test-results/fullstack-smoke/platform-model-catalog-i18-f9863-afts-across-language-events-seeded-github-import/model-catalog-registration-draft-bottom-1280.png",
+      "sha256": "2d60aa887c50132200d85e1739a9ce34f60d39e4482405272192c016f7bd02a8",
+      "width": 1280,
+      "height": 900,
+      "rootViewedIndividually": true,
+      "kind": "first-attempt planned"
+    },
+    {
+      "file": "apps/web/test-results/fullstack-smoke/platform-model-catalog-i18-f9863-afts-across-language-events-seeded-github-import/model-catalog-registration-draft-bottom-375.png",
+      "sha256": "6e0b7e421d2014d7aec8ad7de93df8fc6a121ffe31f2abe741a6b9408365bba6",
+      "width": 375,
+      "height": 900,
+      "rootViewedIndividually": true,
+      "kind": "first-attempt planned"
+    },
+    {
+      "file": "apps/web/test-results/fullstack-smoke/platform-model-catalog-i18-f9863-afts-across-language-events-seeded-github-import/model-catalog-registration-draft-top-1280.png",
+      "sha256": "3ed19559fd5dd64de86346cb20e57805b16b9b7173e3142df3b43d0cfe1d7696",
+      "width": 1280,
+      "height": 900,
+      "rootViewedIndividually": true,
+      "kind": "first-attempt planned"
+    },
+    {
+      "file": "apps/web/test-results/fullstack-smoke/platform-model-catalog-i18-f9863-afts-across-language-events-seeded-github-import/model-catalog-registration-draft-top-375.png",
+      "sha256": "6e0b7e421d2014d7aec8ad7de93df8fc6a121ffe31f2abe741a6b9408365bba6",
+      "width": 375,
+      "height": 900,
+      "rootViewedIndividually": true,
+      "kind": "first-attempt planned"
+    }
+  ],
+  "limits": [
+    "No full3case pass;case2 fails both attempts;case3 notexecuted.",
+    "No screenshotfailure is waived as rounding.",
+    "Raw public parameter/source Chinese is expecteddata.",
+    "Original DOMrect unavailable; new native scroll receipt must measure before/after retaining exact checks."
+  ]
+}

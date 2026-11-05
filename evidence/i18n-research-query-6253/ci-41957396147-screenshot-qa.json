@@ -1,0 +1,196 @@
+{
+  "run": 41957396147,
+  "sourceHead": "9bc4e913f5286da26aa021f94071413661bd7150",
+  "actualPngCount": 22,
+  "originalCasePngCount": 10,
+  "queryCasePngCount": 12,
+  "widths": [
+    375,
+    1280
+  ],
+  "method": "Each actual PNG displayed individually using view_image; no montage or inferred QA from test status.",
+  "result": "no new material finding in scoped localized controls",
+  "observations": [
+    "Raw Chinese user/model/report data and literal {count}/{name}/constructor remain visible as expected.",
+    "Explicit retry long conversation reaches the existing max-height overflow-y-auto assistant viewport: footer below fold in capture is scrollable content, not a claim that the whole conversation fits simultaneously.",
+    "Original long report/history captures preserve responsive wrapping; 375 history PNG tool display scaled tall image."
+  ],
+  "images": [
+    {
+      "pathInArtifact": "apps/web/test-results/fullstack-smoke/i18n-research-entry-resear-2aa8c--history-management-journey-seeded/intake-unsaved-en-1280.png",
+      "width": 1280,
+      "height": 979,
+      "sha256": "453d8310aabb0c6273de45af335028cab286cbe942dcf5b287ab602363847006",
+      "individuallyViewed": true,
+      "materialFinding": null
+    },
+    {
+      "pathInArtifact": "apps/web/test-results/fullstack-smoke/i18n-research-entry-resear-2aa8c--history-management-journey-seeded/intake-unsaved-en-375.png",
+      "width": 375,
+      "height": 1231,
+      "sha256": "628d98c49f972c6bc9633766153a5204899378e22531dab3a345414be6207b3a",
+      "individuallyViewed": true,
+      "materialFinding": null
+    },
+    {
+      "pathInArtifact": "apps/web/test-results/fullstack-smoke/i18n-research-entry-resear-2aa8c--history-management-journey-seeded/metadata-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "101439c296d48a19a887008a0c5571791e4d90883496b3be349885b252f9dcdb",
+      "individuallyViewed": true,
+      "materialFinding": null
+    },
+    {
+      "pathInArtifact": "apps/web/test-results/fullstack-smoke/i18n-research-entry-resear-2aa8c--history-management-journey-seeded/metadata-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "852026f08b58e72afefb5827677ede4993579ca705e7b6f44ef473e774d01f0e",
+      "individuallyViewed": true,
+      "materialFinding": null
+    },
+    {
+      "pathInArtifact": "apps/web/test-results/fullstack-smoke/i18n-research-entry-resear-2aa8c--history-management-journey-seeded/plan-confirm-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "dfd49ef7fcc4e0c7fcf50f0caa3de99e6e78064d35b25cf879a2819e6f5b1281",
+      "individuallyViewed": true,
+      "materialFinding": null
+    },
+    {
+      "pathInArtifact": "apps/web/test-results/fullstack-smoke/i18n-research-entry-resear-2aa8c--history-management-journey-seeded/plan-confirm-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "4dbfccf114bd63b65a6d96d8940c31b5345be1a61bb0f9e77f9748f1a61f147c",
+      "individuallyViewed": true,
+      "materialFinding": null
+    },
+    {
+      "pathInArtifact": "apps/web/test-results/fullstack-smoke/i18n-research-entry-resear-2aa8c--history-management-journey-seeded/report-en-1280.png",
+      "width": 1280,
+      "height": 2616,
+      "sha256": "6b739e78682366deabc192a267bb12cf00fa46f18f25414c90f1cac2bc61ca28",
+      "individuallyViewed": true,
+      "materialFinding": null
+    },
+    {
+      "pathInArtifact": "apps/web/test-results/fullstack-smoke/i18n-research-entry-resear-2aa8c--history-management-journey-seeded/report-en-375.png",
+      "width": 375,
+      "height": 4490,
+      "sha256": "07e7843e4d7b8e65fbab4f2f65241fe46835b886324b4f3c9229aade14e3cb6a",
+      "individuallyViewed": true,
+      "materialFinding": null
+    },
+    {
+      "pathInArtifact": "apps/web/test-results/fullstack-smoke/i18n-research-entry-resear-2aa8c--history-management-journey-seeded/report-history-en-1280.png",
+      "width": 1280,
+      "height": 4333,
+      "sha256": "a8056301082de5fb8d2f01b31361ab3e1924626408de0cd3b59a5d4097ec3fd8",
+      "individuallyViewed": true,
+      "materialFinding": null
+    },
+    {
+      "pathInArtifact": "apps/web/test-results/fullstack-smoke/i18n-research-entry-resear-2aa8c--history-management-journey-seeded/report-history-en-375.png",
+      "width": 375,
+      "height": 7037,
+      "sha256": "1e3696cde82d8d7db98041a1102ece62d8601b7a730e62223aa39e663efc0d7a",
+      "individuallyViewed": true,
+      "materialFinding": null
+    },
+    {
+      "pathInArtifact": "apps/web/test-results/fullstack-smoke/i18n-research-entry-resear-ebf83-ts-and-explicit-application-seeded/query-assistant-applied-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "09d30226018bb18b8d925f9eec3b578efc8c65118722257c0364e815d69934bc",
+      "individuallyViewed": true,
+      "materialFinding": null
+    },
+    {
+      "pathInArtifact": "apps/web/test-results/fullstack-smoke/i18n-research-entry-resear-ebf83-ts-and-explicit-application-seeded/query-assistant-applied-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "9f5694b8da54d6a58f6409b72531fb2b350f8bdd69abf8be8de5770f9792f89c",
+      "individuallyViewed": true,
+      "materialFinding": null
+    },
+    {
+      "pathInArtifact": "apps/web/test-results/fullstack-smoke/i18n-research-entry-resear-ebf83-ts-and-explicit-application-seeded/query-assistant-entry-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "3dd8261f16f7a7b36d4629fa230744287d133651388a8f39142c927a875a778e",
+      "individuallyViewed": true,
+      "materialFinding": null
+    },
+    {
+      "pathInArtifact": "apps/web/test-results/fullstack-smoke/i18n-research-entry-resear-ebf83-ts-and-explicit-application-seeded/query-assistant-entry-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "c306ec83c04a94a436eb0225492d91795e94e0c3ad907e8b30aede993c67fccf",
+      "individuallyViewed": true,
+      "materialFinding": null
+    },
+    {
+      "pathInArtifact": "apps/web/test-results/fullstack-smoke/i18n-research-entry-resear-ebf83-ts-and-explicit-application-seeded/query-assistant-explicit-retry-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "b641cdf2dec7c4dc2aeddaf41e2675e4823c6e2bfb1149cf3f25d43e689573ff",
+      "individuallyViewed": true,
+      "materialFinding": null
+    },
+    {
+      "pathInArtifact": "apps/web/test-results/fullstack-smoke/i18n-research-entry-resear-ebf83-ts-and-explicit-application-seeded/query-assistant-explicit-retry-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "1f660de3135fa90b31c2b65bfb130742ac8ee19d0981935b76bb9ef9884a45bc",
+      "individuallyViewed": true,
+      "materialFinding": null
+    },
+    {
+      "pathInArtifact": "apps/web/test-results/fullstack-smoke/i18n-research-entry-resear-ebf83-ts-and-explicit-application-seeded/query-assistant-pending-zh-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "f904a2d07842c224c02998e8a2ffde4117720c6f35112480621f5ecfe9aaf52e",
+      "individuallyViewed": true,
+      "materialFinding": null
+    },
+    {
+      "pathInArtifact": "apps/web/test-results/fullstack-smoke/i18n-research-entry-resear-ebf83-ts-and-explicit-application-seeded/query-assistant-pending-zh-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "b2d5bb64f85c44c3c886c6b697e52f972c14ef1895b582cfd39e76d3587accb0",
+      "individuallyViewed": true,
+      "materialFinding": null
+    },
+    {
+      "pathInArtifact": "apps/web/test-results/fullstack-smoke/i18n-research-entry-resear-ebf83-ts-and-explicit-application-seeded/query-assistant-proposal-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "b260cec892b5260953bb7e7ae5c1ff68f9ab182b1833c4d169efe33be4f3917f",
+      "individuallyViewed": true,
+      "materialFinding": null
+    },
+    {
+      "pathInArtifact": "apps/web/test-results/fullstack-smoke/i18n-research-entry-resear-ebf83-ts-and-explicit-application-seeded/query-assistant-proposal-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "b5cd01889edb80d54d37f4f6ddc65a3d42d5391c1cfae9e0f94f504eacb15b8a",
+      "individuallyViewed": true,
+      "materialFinding": null
+    },
+    {
+      "pathInArtifact": "apps/web/test-results/fullstack-smoke/i18n-research-entry-resear-ebf83-ts-and-explicit-application-seeded/query-assistant-recovery-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "f8e03bae66e531d295f7283e25c391a78eb88003d0f10dafbf850e328c9ae27d",
+      "individuallyViewed": true,
+      "materialFinding": null
+    },
+    {
+      "pathInArtifact": "apps/web/test-results/fullstack-smoke/i18n-research-entry-resear-ebf83-ts-and-explicit-application-seeded/query-assistant-recovery-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "1935f35ba45492e0f90e3e9b9982529ba37628175318941df806b01f05e54429",
+      "individuallyViewed": true,
+      "materialFinding": null
+    }
+  ]
+}

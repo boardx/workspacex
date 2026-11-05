@@ -1,0 +1,64 @@
+{
+  "sourceHead": "d87fdc474a1762b44b561ab2aff0da3d75ad6c98",
+  "sourceSha256": "c0cb6ddc46010c401b58261106ebb55ab49309ca06f5fef9e81a14e15fd35422",
+  "threeCaseBodiesUnchanged": true,
+  "gates": [
+    {
+      "gate": "r5-spec-lint",
+      "head": "444f65dc6c6998a53076aa054e9564104d237935",
+      "sourceSha256": "c0cb6ddc46010c401b58261106ebb55ab49309ca06f5fef9e81a14e15fd35422",
+      "command": [
+        "pnpm",
+        "exec",
+        "eslint",
+        "e2e/platform-model-catalog-i18n.spec.ts"
+      ],
+      "exit": 0,
+      "seconds": 2.59,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "gate": "r5-web-type",
+      "head": "444f65dc6c6998a53076aa054e9564104d237935",
+      "sourceSha256": "c0cb6ddc46010c401b58261106ebb55ab49309ca06f5fef9e81a14e15fd35422",
+      "command": [
+        "pnpm",
+        "--filter",
+        "web",
+        "typecheck"
+      ],
+      "exit": 0,
+      "seconds": 9.262,
+      "logSha256": "ea30d6b748ad9ab96126527df942acbf5a2e0557ed6674beeb887f3f9571595a"
+    },
+    {
+      "gate": "r5-testid",
+      "head": "444f65dc6c6998a53076aa054e9564104d237935",
+      "sourceSha256": "c0cb6ddc46010c401b58261106ebb55ab49309ca06f5fef9e81a14e15fd35422",
+      "command": [
+        "pnpm",
+        "run",
+        "lint:e2e-testid-gate"
+      ],
+      "exit": 0,
+      "seconds": 3.859,
+      "logSha256": "ac922d7a30abada3821f7cfc4d10d05e4b9e507f3e89dd445a98885d7a417683"
+    },
+    {
+      "gate": "r5-discovery",
+      "head": "444f65dc6c6998a53076aa054e9564104d237935",
+      "sourceSha256": "c0cb6ddc46010c401b58261106ebb55ab49309ca06f5fef9e81a14e15fd35422",
+      "command": [
+        "pnpm",
+        "exec",
+        "tsx",
+        "-e",
+        "import {deriveTestIsolation} from './.harness/scripts/lib/test-isolation'; import {spawnSync} from 'node:child_process'; const env={...process.env,...deriveTestIsolation({isolationId:'i18n-model-catalog-6255-r5-discovery',worktreePath:process.cwd()}),FULLSTACK_SMOKE_PARTITION:'product'}; const r=spawnSync('pnpm',['--filter','web','exec','playwright','test','--config','playwright.fullstack-smoke.config.ts','--project=seeded-github-import','--no-deps','platform-model-catalog-i18n.spec.ts','--list'],{env,stdio:'inherit'});process.exit(r.status??1);"
+      ],
+      "exit": 0,
+      "seconds": 5.52,
+      "logSha256": "4b0d10fb01cb296e3d2ffc46c381cfa51ebc54706b9d7539587e90027b07052d"
+    }
+  ],
+  "nativeRerun": "PENDING"
+}

@@ -22,6 +22,7 @@ import {
 } from "@/lib/live-model";
 import type { UiState } from "@/lib/ui-state";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n/provider";
 
 /**
  * #1381 起本屏的列表读走 `lib/live-model.ts` 的 `listModels()`（真实 `GET /models`），
@@ -43,8 +44,10 @@ import { cn } from "@/lib/utils";
  */
 
 /** 三态展示标签，直接对着契约的中文 `ModelStatus` 渲染，不经过第二套键位。 */
-const STATUS_LABEL = { untested: "待测试", enabled: "已启用", disabled: "未启用" } as const;
-const KIND_LABEL: Record<ModelPoolRow["kind"], string> = { "closed-api": "闭源 API", "self-hosted": "开源自托管" };
+const STATUS_LABEL = { untested: "model.untested", enabled: "model.enabled", disabled: "model.disabled" } as const;
+// Stable catalog identity is independent of translated display labels.
+const STATUS_TAG = { untested: "待测试", enabled: "已启用", disabled: "未启用" } as const;
+const KIND_LABEL = { "closed-api": "model.closed", "self-hosted": "model.hosted" } as const;
 
 function tagsLabel(row: ModelPoolRow): string {
   return row.capabilityTags.length > 0 ? row.capabilityTags.join(" · ") : "—";
@@ -52,18 +55,28 @@ function tagsLabel(row: ModelPoolRow): string {
 function contextLabel(row: ModelPoolRow): string {
   return `${row.contextWindow.toLocaleString("zh-CN")} tokens`;
 }
-function priceLabel(row: ModelPoolRow): string {
-  return row.unitPrice > 0 ? `￥${row.unitPrice} / 1k` : "未定价";
+function priceLabel(row: ModelPoolRow, t: ReturnType<typeof useI18n>["t"]): string {
+  return row.unitPrice > 0 ? `￥${row.unitPrice} / 1k` : t("model.unpriced");
 }
+
+function failureText(reason: string | null, t: ReturnType<typeof useI18n>["t"]): string {
+  switch (reason) {
+    case "NOT_ORG_ADMIN": return t("model.adminError");
+    case "COMPLIANCE_ATTR_UNKNOWN": return t("model.complianceError");
+    case "DEPENDENCY_UNAVAILABLE": return t("model.dependencyError");
+    case null: return t("model.unknownError");
+    default: return reason;
+  }
+}
+
+type ModelToast =
+  | { readonly key: "model.registered"; readonly name: string; readonly status: string }
+  | { readonly key: "model.assessed" | "model.disabledToast" | "model.drainedToast"; readonly name: string };
 
 /** phase-1 的五项准入测试（人工判读并记录，不做自动化）。 */
 const ADMISSION_TESTS = [
-  "连通性与稳定性：端点 3 次往返均成功、延迟可接受",
-  "中文长文理解：给定 20 页材料能准确摘要不丢关键信息",
-  "工具调用：能按 schema 正确发起并消费工具返回",
-  "指令遵循与格式：输出严格符合约定 JSON schema",
-  "安全与拒答：对越权/出域请求正确拒绝并说明",
-];
+  "model.test1", "model.test2", "model.test3", "model.test4", "model.test5",
+] as const;
 
 type PoolState =
   | { readonly status: "loading" }
@@ -71,6 +84,7 @@ type PoolState =
   | { readonly status: "ready"; readonly rows: readonly ModelPoolRow[] };
 
 export function ModelScreen({ state }: { state: UiState }) {
+  const { t } = useI18n();
   const session = useOptionalSession()?.session;
   const [catalogTab, setCatalogTab] = React.useState("organization");
   const [pool, setPool] = React.useState<PoolState>({ status: "loading" });
@@ -80,7 +94,7 @@ export function ModelScreen({ state }: { state: UiState }) {
   const [addOpen, setAddOpen] = React.useState(false);
   const [testOf, setTestOf] = React.useState<ModelPoolRow | null>(null);
   const [disableOf, setDisableOf] = React.useState<ModelPoolRow | null>(null);
-  const [toast, setToast] = React.useState<string | null>(null);
+  const [toast, setToast] = React.useState<ModelToast | null>(null);
   const generation = React.useRef(0);
 
   const refresh = React.useCallback(async () => {
@@ -123,11 +137,11 @@ export function ModelScreen({ state }: { state: UiState }) {
     isUntested(m) ? "untested" : isOn(m) ? "enabled" : "disabled";
 
   const tagsOf = React.useCallback((m: ModelPoolRow): readonly CatalogTag[] => [
-    tagOf(m.kind, KIND_LABEL[m.kind]),
-    tagOf(STATUS_LABEL[isUntested(m) ? "untested" : isOn(m) ? "enabled" : "disabled"]),
-    ...(m.kind === "self-hosted" ? [{ key: "confidential-ok", label: "可承接机密" }] : []),
+    tagOf(m.kind, t(KIND_LABEL[m.kind])),
+    tagOf(STATUS_TAG[isUntested(m) ? "untested" : isOn(m) ? "enabled" : "disabled"], t(STATUS_LABEL[isUntested(m) ? "untested" : isOn(m) ? "enabled" : "disabled"])),
+    ...(m.kind === "self-hosted" ? [{ key: "confidential-ok", label: t("model.confidential") }] : []),
     ...m.capabilityTags.map((t) => tagOf(t)),
-  ], [isUntested, isOn]);
+  ], [isUntested, isOn, t]);
   const searchTextOf = React.useCallback(
     (m: ModelPoolRow) => [m.displayName, m.modelId, m.vendor, ...m.capabilityTags].join(" "),
     [],
@@ -137,7 +151,7 @@ export function ModelScreen({ state }: { state: UiState }) {
     const s = statusOf(m);
     return (
       <Badge tone={s === "untested" ? "warning" : s === "enabled" ? "primary" : "outline"} data-testid={`admin-model-status-${m.modelId}`}>
-        {STATUS_LABEL[s]}
+        {t(STATUS_LABEL[s])}
       </Badge>
     );
   }
@@ -148,19 +162,19 @@ export function ModelScreen({ state }: { state: UiState }) {
       return (
         <Button size="xs" variant="outline" onClick={() => setTestOf(m)} data-testid={`admin-model-test-${m.modelId}`}>
           <FlaskConical aria-hidden className="h-3 w-3" />
-          录入测试判读
+          {t("model.assess")}
         </Button>
       );
     }
     return (
       <label className="flex items-center gap-1.5">
         <span className={cn("text-11", on ? "text-background-foreground" : "text-muted-foreground")}>
-          {on ? "已启用" : "未启用"}
+          {t(on ? "model.enabled" : "model.disabled")}
         </span>
         <Toggle
           checked={on}
           onCheckedChange={(v) => (on && !v ? setDisableOf(m) : setEnabled((p) => ({ ...p, [m.modelId]: v })))}
-          label={`启用/停用 ${m.displayName}`}
+          label={t("model.toggle", { name: m.displayName })}
           data-testid={`admin-model-toggle-${m.modelId}`}
         />
       </label>
@@ -171,31 +185,31 @@ export function ModelScreen({ state }: { state: UiState }) {
     <AdminScreen
       state={state}
       hideOrgIdentity
-      moduleLabel="模型"
-      title="模型管理"
+      moduleLabel={t("model.module")}
+      title={t("model.title")}
       noticeOverride={<ModelScreenNotice />}
-      intro="只有测试通过的模型才会出现在 agent 与 skill 的模型选择里。phase-1 的五项准入测试改为人工判读并记录（不做自动化）。客户机密材料只走开源自托管。"
-      emptyHint="模型池是空的，先接入一个模型"
-      errors={{ endpoint: "接入失败：连通性测试超时，端点 3 次未响应；模型保持待测试，不进入可选池" }}
-      depFailure="模型测试与调用依赖推理网关；网关不可达，无法确认模型状态与单价。"
-      denialReason="模型凭据由管理员保管、成员看不到；模型管理仅组织管理员可进入。"
-      successMessage="模型『qwen3-72b』五项测试判读通过，已启用并纳入 Ledger 的可选范围"
+      intro={t("model.intro")}
+      emptyHint={t("model.emptyHint")}
+      errors={{ endpoint: t("model.endpointError") }}
+      depFailure={t("model.dependency")}
+      denialReason={t("model.denial")}
+      successMessage={t("model.success")}
     >
       <Tabs value={catalogTab} onValueChange={setCatalogTab}>
-        <TabsList aria-label="模型目录范围">
-          <TabsTrigger value="organization">组织模型池</TabsTrigger>
-          <TabsTrigger value="bailian">百炼公共目录</TabsTrigger>
+        <TabsList aria-label={t("model.scope")}>
+          <TabsTrigger value="organization">{t("model.organization")}</TabsTrigger>
+          <TabsTrigger value="bailian">{t("model.public")}</TabsTrigger>
         </TabsList>
         <TabsContent value="organization">
           {session?.currentOrgId ? <OrgCoreModelPanel key={session.currentOrgId} orgId={session.currentOrgId} /> : null}
       <EntityCatalog<ModelPoolRow>
         prefix="admin-model"
-        title="模型池"
+        title={t("model.pool")}
         status={
           pool.status === "ready"
             ? { kind: "ready" }
             : pool.status === "error"
-              ? { kind: "error", message: `读不到模型池（${pool.message}）。这里不退回演示数据——假的模型清单会被当成真实可用模型。` }
+              ? { kind: "error", message: t("model.readError", { reason: failureText(pool.message, t) }) }
               : { kind: "loading" }
         }
         rows={rows}
@@ -206,32 +220,32 @@ export function ModelScreen({ state }: { state: UiState }) {
         headerActions={
           <Button size="sm" variant="primary" onClick={() => setAddOpen(true)} data-testid="admin-model-add">
             <Plus aria-hidden className="h-3.5 w-3.5" />
-            接入模型
+            {t("model.add")}
           </Button>
         }
         onRefresh={() => void refresh()}
-        emptyState="模型池是空的——这是本组织在服务端的真实结果。用「接入模型」接一个。"
-        searchPlaceholder="按模型名、供应商或能力标签搜索…"
+        emptyState={t("model.empty")}
+        searchPlaceholder={t("model.search")}
         renderCard={(m) => ({
           title: <span className="font-mono">{m.displayName}</span>,
-          subtitle: `${KIND_LABEL[m.kind]} · ${m.vendor} · ${tagsLabel(m)}`,
+          subtitle: `${t(KIND_LABEL[m.kind])} · ${m.vendor} · ${tagsLabel(m)}`,
           badges: (
             <>
               {renderStatusBadge(m)}
               {m.kind === "self-hosted" && (
                 <Badge tone="ai" data-testid={`admin-model-confidential-${m.modelId}`}>
                   <ShieldCheck aria-hidden className="h-3 w-3" />
-                  可承接机密
+                  {t("model.confidential")}
                 </Badge>
               )}
             </>
           ),
           children: (
             <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-11 text-muted-foreground">
-              <span>上下文 {contextLabel(m)}</span>
-              <span data-testid={`admin-model-price-${m.modelId}`}>{priceLabel(m)}</span>
+              <span>{t("model.context", { value: contextLabel(m) })}</span>
+              <span data-testid={`admin-model-price-${m.modelId}`}>{priceLabel(m, t)}</span>
               <span className="col-span-2" data-testid={`admin-model-key-status-${m.modelId}`}>
-                凭据 <span className="text-background-foreground">{hasApiKeyConfigured(m) ? "已配置" : "未配置"}</span>
+                {t("model.key")} <span className="text-background-foreground">{t(hasApiKeyConfigured(m) ? "model.configured" : "model.notConfigured")}</span>
               </span>
             </div>
           ),
@@ -240,7 +254,7 @@ export function ModelScreen({ state }: { state: UiState }) {
         selectedKey={selectedKey}
         onSelect={setSelectedKey}
         detailTitle={(m) => m.displayName}
-        detailSubtitle={(m) => `${KIND_LABEL[m.kind]} · ${m.vendor} · ${m.modelId}`}
+        detailSubtitle={(m) => `${t(KIND_LABEL[m.kind])} · ${m.vendor} · ${m.modelId}`}
         renderDetail={(m) => (
           <div className="flex flex-col gap-4">
             <div className="flex flex-wrap items-center gap-1.5">
@@ -248,35 +262,34 @@ export function ModelScreen({ state }: { state: UiState }) {
               {m.kind === "self-hosted" && (
                 <Badge tone="ai">
                   <ShieldCheck aria-hidden className="h-3 w-3" />
-                  可承接机密
+                  {t("model.confidential")}
                 </Badge>
               )}
             </div>
             <div className="flex flex-col divide-y divide-border-subtle">
-              <KV k="模型 ID" v={<span className="font-mono text-11">{m.modelId}</span>} />
-              <KV k="种类" v={KIND_LABEL[m.kind]} />
-              <KV k="供应商" v={m.vendor} />
-              <KV k="能力标签" v={tagsLabel(m)} />
-              <KV k="上下文窗口" v={contextLabel(m)} />
-              <KV k="单价" v={priceLabel(m)} />
-              <KV k="凭据" v={hasApiKeyConfigured(m) ? "已配置" : "未配置"} />
-              <KV k="合规属性" v={m.complianceAttrs.length > 0 ? m.complianceAttrs.join("、") : "无"} />
-              <KV k="机密材料" v={m.kind === "self-hosted" ? "可承接（权重跑在自己的 GPU 上）" : "不路由（闭源 API 一律不承接）"} />
+              <KV k={t("model.id")} v={<span className="font-mono text-11">{m.modelId}</span>} />
+              <KV k={t("model.kind")} v={t(KIND_LABEL[m.kind])} />
+              <KV k={t("model.vendor")} v={m.vendor} />
+              <KV k={t("model.tags")} v={tagsLabel(m)} />
+              <KV k={t("model.contextWindow")} v={contextLabel(m)} />
+              <KV k={t("model.price")} v={priceLabel(m, t)} />
+              <KV k={t("model.key")} v={t(hasApiKeyConfigured(m) ? "model.configured" : "model.notConfigured")} />
+              <KV k={t("model.compliance")} v={m.complianceAttrs.length > 0 ? m.complianceAttrs.join("、") : t("model.none")} />
+              <KV k={t("model.confidentialMaterials")} v={t(m.kind === "self-hosted" ? "model.confidentialAllowed" : "model.confidentialDenied")} />
             </div>
             <div className="flex flex-col gap-2 rounded-md border border-border-subtle bg-panel p-3">
-              <span className="text-10 uppercase tracking-wide text-muted-foreground">状态操作（本地演示，尚未回写后端）</span>
+              <span className="text-10 uppercase tracking-wide text-muted-foreground">{t("model.localOperations")}</span>
               <div className="flex flex-wrap items-center gap-3">
                 {renderSwitch(m)}
                 {!isUntested(m) && isOn(m) && (
                   <Button size="xs" variant="outline" onClick={() => setDisableOf(m)} data-testid={`admin-model-detail-disable-${m.modelId}`}>
                     <Ban aria-hidden className="h-3 w-3" />
-                    停用
+                    {t("model.disable")}
                   </Button>
                 )}
               </div>
               <p className="text-10 text-muted-foreground">
-                契约的 `enableModel` / `disableModel` / `recordAdmissionTest` 还没有 controller 路由，
-                这里的改动刷新即丢。契约里也没有「删除模型」——停用是唯一的下线方式。
+                {t("model.routesMissing")}
               </p>
             </div>
           </div>
@@ -295,7 +308,7 @@ export function ModelScreen({ state }: { state: UiState }) {
           onClose={() => setAddOpen(false)}
           onRegistered={(res) => {
             setAddOpen(false);
-            setToast(`已接入模型「${res.displayName}」（${res.status}）。`);
+            setToast({ key: "model.registered", name: res.displayName, status: res.status });
             // #1381：列表现在读真数据了，刷新就能看到刚接入的这条。
             void refresh();
           }}
@@ -310,7 +323,7 @@ export function ModelScreen({ state }: { state: UiState }) {
           onPass={() => {
             setTested((s) => new Set(s).add(testOf.modelId));
             setEnabled((p) => ({ ...p, [testOf.modelId]: true }));
-            setToast(`模型「${testOf.displayName}」五项测试判读通过，已启用并纳入可选范围（本地演示，尚未回写后端——见页头说明）`);
+            setToast({ key: "model.assessed", name: testOf.displayName });
             setTestOf(null);
           }}
         />
@@ -320,27 +333,23 @@ export function ModelScreen({ state }: { state: UiState }) {
       {disableOf && (
         <DisableDialog
           testid="admin-model-disable-dialog"
-          verb="停用"
+          verb={t("model.disable")}
           capabilityName={disableOf.displayName}
           // `inFlightCalls` 来自 `listModelReferences`，那条路由还没有 controller 接线
           // （`model.controller.ts` 文件头），本地没有真实数字可读——诚实显示 0。
           inFlight={0}
-          interruptEffect="正经此模型推理的调用会被立即中断，返回「该能力已被管理员停用」；调用方需改选其它已启用模型。"
-          drainEffect="已发起的推理跑完当前一轮，此刻起路由不再选用此模型。"
+          interruptEffect={t("model.interruptEffect")}
+          drainEffect={t("model.drainEffect")}
           onCancel={() => setDisableOf(null)}
           onConfirm={(mode: DisableMode) => {
             setEnabled((prev) => ({ ...prev, [disableOf.modelId]: false }));
-            setToast(
-              mode === "interrupt"
-                ? `已停用模型「${disableOf.displayName}」（本地演示，尚未回写后端）`
-                : `已停用模型「${disableOf.displayName}」；新调用即刻被拒（本地演示，尚未回写后端）`,
-            );
+            setToast({ key: mode === "interrupt" ? "model.disabledToast" : "model.drainedToast", name: disableOf.displayName });
             setDisableOf(null);
           }}
         />
       )}
 
-      <Toast message={toast} testid="admin-model-toast" onDismiss={() => setToast(null)} />
+      <Toast message={toast ? t(toast.key, { ...toast }) : null} testid="admin-model-toast" onDismiss={() => setToast(null)} />
     </AdminScreen>
   );
 }
@@ -351,6 +360,7 @@ export function ModelScreen({ state }: { state: UiState }) {
  * 按 `admin-screen.tsx` 的注释「按 tab/按区块说实话，比笼统覆盖诚实」新写一条。
  */
 function ModelScreenNotice() {
+  const { t } = useI18n();
   return (
     <div
       data-testid="admin-model-mixed-notice"
@@ -359,14 +369,13 @@ function ModelScreenNotice() {
       <FlaskConical aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
       <div className="flex min-w-0 flex-col gap-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-12 font-medium">模型清单为真实组织配置</span>
-          <Badge tone="outline">GET /models · 真数据</Badge>
+          <span className="text-12 font-medium">{t("model.noticeTitle")}</span>
+          <Badge tone="outline">{t("model.noticeBadge")}</Badge>
         </div>
         <p className="text-11 text-muted-foreground">
-          下方列表与「接入模型」都打真实后端——这个组织真的接入了什么模型，就显示什么。
-          <strong className="font-medium text-background-foreground">启用/停用开关与五项测试判读仍是本地演示</strong>
-          （对应契约操作还没有接 controller 路由）：点了会有提示，但不会持久化，刷新页面或
-          另一位管理员看到的状态不会变。
+          {t("model.noticeBefore")}
+          <strong className="font-medium text-background-foreground">{t("model.noticeStrong")}</strong>
+          {t("model.noticeAfter")}
         </p>
       </div>
     </div>
@@ -386,6 +395,7 @@ function AddModelDrawer({
   onClose: () => void;
   onRegistered: (result: RegisterResult) => void;
 }) {
+  const { t } = useI18n();
   const [kind, setKind] = React.useState<RegisterModelFormInput["kind"]>("closed-api");
   const [vendor, setVendor] = React.useState("");
   const [name, setName] = React.useState("");
@@ -396,7 +406,7 @@ function AddModelDrawer({
   const [contextWindow, setContextWindow] = React.useState("128000");
   const [unitPrice, setUnitPrice] = React.useState("0");
   const [submitting, setSubmitting] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<{ readonly reason: string | null } | null>(null);
 
   const contextWindowNum = Number(contextWindow);
   const unitPriceNum = Number(unitPrice);
@@ -432,8 +442,8 @@ function AddModelDrawer({
           ? `${e.reasonCode ?? `HTTP ${e.status}`}`
           : e instanceof Error
             ? e.message
-            : "未知错误";
-      setError(message);
+            : null;
+      setError({ reason: message });
     } finally {
       setSubmitting(false);
     }
@@ -442,13 +452,13 @@ function AddModelDrawer({
   return (
     <AdminDrawer
       testid="admin-model-panel"
-      title="接入模型"
-      subtitle="接入后置为待测试，通过五项判读才进可选池。凭据只在此刻进入系统，之后任何接口都不会回显。"
+      title={t("model.add")}
+      subtitle={t("model.registerSubtitle")}
       onClose={onClose}
       footer={
         <>
           <Button size="sm" variant="ghost" onClick={onClose} disabled={submitting} data-testid="admin-model-panel-cancel">
-            取消
+            {t("common.cancel")}
           </Button>
           <Button
             size="sm"
@@ -457,7 +467,7 @@ function AddModelDrawer({
             disabled={!canSubmit}
             data-testid="admin-model-panel-save"
           >
-            {submitting ? "接入中…" : "接入（置待测试）"}
+            {t(submitting ? "model.registering" : "model.register")}
           </Button>
         </>
       }
@@ -471,7 +481,7 @@ function AddModelDrawer({
             disabled={submitting}
             data-testid="admin-model-field-kind-closed-api"
           >
-            闭源 API
+            {t("model.closed")}
           </Button>
           <Button
             size="xs"
@@ -480,36 +490,36 @@ function AddModelDrawer({
             disabled={submitting}
             data-testid="admin-model-field-kind-self-hosted"
           >
-            开源自托管
+            {t("model.hosted")}
           </Button>
         </div>
         <Field
           id="admin-model-field-name"
-          label="模型名"
-          placeholder="如 qwen3.7-plus"
+          label={t("model.name")}
+          placeholder={t("model.namePlaceholder")}
           value={name}
           onChange={(e) => setName(e.currentTarget.value)}
           disabled={submitting}
         />
         <Field
           id="admin-model-field-vendor"
-          label="供应商"
-          placeholder="如 阿里云百炼 / 自托管 · H100×4"
+          label={t("model.vendor")}
+          placeholder={t("model.vendorPlaceholder")}
           value={vendor}
           onChange={(e) => setVendor(e.currentTarget.value)}
           disabled={submitting}
         />
         <Field
           id="admin-model-field-endpoint"
-          label="端点 / 权重路径"
-          placeholder="https://… 或 自托管 · H100×4"
+          label={t("model.endpoint")}
+          placeholder={t("model.endpointPlaceholder")}
           value={endpoint}
           onChange={(e) => setEndpoint(e.currentTarget.value)}
           disabled={submitting}
         />
         <Field
           id="admin-model-field-api-key"
-          label="API Key（留空表示暂不配置）"
+          label={t("model.apiKey")}
           type="password"
           placeholder="sk-…"
           value={apiKey}
@@ -518,7 +528,7 @@ function AddModelDrawer({
           autoComplete="off"
         />
         <TagField
-          label="能力标签"
+          label={t("model.tags")}
           value={tags}
           onChange={setTags}
           draft={tagDraft}
@@ -527,12 +537,12 @@ function AddModelDrawer({
           maxTagLength={20}
           disabled={submitting}
           testIdPrefix="admin-model-tag"
-          emptyHint="如 推理、工具、长文；回车或逗号确认"
+          emptyHint={t("model.tagHint")}
         />
         <div className="grid grid-cols-2 gap-3">
           <Field
             id="admin-model-field-context"
-            label="上下文窗口（tokens）"
+            label={t("model.contextInput")}
             type="number"
             min={1}
             value={contextWindow}
@@ -541,7 +551,7 @@ function AddModelDrawer({
           />
           <Field
             id="admin-model-field-price"
-            label="单价（￥ / 1k tokens，未知填 0）"
+            label={t("model.priceInput")}
             type="number"
             min={0}
             step="0.001"
@@ -552,11 +562,11 @@ function AddModelDrawer({
         </div>
         <div className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/5 p-2.5">
           <ShieldCheck aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
-          <p className="text-11">只有自托管模型可承接客户机密材料；闭源 API 一律不路由机密。</p>
+          <p className="text-11">{t("model.confidentialWarning")}</p>
         </div>
         {error && (
           <p className="text-11 text-destructive" data-testid="admin-model-panel-error">
-            接入失败：{error}
+            {t("model.registrationFailed", { reason: failureText(error.reason, t) })}
           </p>
         )}
       </div>
@@ -565,26 +575,27 @@ function AddModelDrawer({
 }
 
 function TestModal({ model, onClose, onPass }: { model: ModelPoolRow; onClose: () => void; onPass: () => void }) {
+  const { t } = useI18n();
   const [passed, setPassed] = React.useState<boolean[]>(() => ADMISSION_TESTS.map(() => false));
   const allPassed = passed.every(Boolean);
   return (
     <AdminModal
       testid="admin-model-test-dialog"
       width="lg"
-      title={`录入测试判读 · ${model.displayName}`}
-      subtitle="phase-1 人工判读并记录（不自动化）。五项全部判为通过才可启用。"
+      title={t("model.assessTitle", { name: model.displayName })}
+      subtitle={t("model.assessSubtitle")}
       onClose={onClose}
       footer={
         <>
-          <Button size="sm" variant="ghost" onClick={onClose} data-testid="admin-model-test-cancel">取消</Button>
-          <Button size="sm" variant="primary" disabled={!allPassed} onClick={onPass} data-testid="admin-model-test-submit" title={allPassed ? undefined : "五项全部判为通过后才可启用"}>
-            判读通过并启用
+          <Button size="sm" variant="ghost" onClick={onClose} data-testid="admin-model-test-cancel">{t("common.cancel")}</Button>
+          <Button size="sm" variant="primary" disabled={!allPassed} onClick={onPass} data-testid="admin-model-test-submit" title={allPassed ? undefined : t("model.assessGuard")}>
+            {t("model.assessSubmit")}
           </Button>
         </>
       }
     >
       <div className="flex flex-col gap-2" data-testid="admin-model-test-items">
-        {ADMISSION_TESTS.map((t, i) => (
+        {ADMISSION_TESTS.map((testKey, i) => (
           <div key={i} className="flex items-center gap-2 rounded-md border border-border-subtle bg-panel p-2.5" data-testid="admin-model-test-item">
             <Checkbox
               checked={passed[i]}
@@ -594,7 +605,7 @@ function TestModal({ model, onClose, onPass }: { model: ModelPoolRow; onClose: (
                 const checked = e.currentTarget.checked;
                 setPassed((p) => p.map((v, j) => (j === i ? checked : v)));
               }}
-              label={`${i + 1}. ${t}`}
+              label={`${i + 1}. ${t(testKey)}`}
               data-testid={`admin-model-test-check-${i + 1}`}
             />
             {passed[i] && <Check aria-hidden className="ml-auto h-3.5 w-3.5 shrink-0 text-success" />}
