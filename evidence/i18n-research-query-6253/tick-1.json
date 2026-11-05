@@ -1,0 +1,16 @@
+{
+  "name": "tick-1",
+  "command": [
+    "pnpm",
+    "harness",
+    "tick"
+  ],
+  "source": "5832cdb62c08fe4f8917776760626d71c74fea11",
+  "exitCode": 1,
+  "seconds": 1.53,
+  "rawLogSha256": "6d2b81b3a9ccdfac32789c83e9338787ab7935745f86bd83691a5012e310dec1",
+  "sourceAfter": "5832cdb62c08fe4f8917776760626d71c74fea11",
+  "sourceStable": true,
+  "environment": {},
+  "boundary": "COORD_GATEWAY_URL not configured; no authoritative lease/time claimed, no control-plane changes mixed in"
+}
