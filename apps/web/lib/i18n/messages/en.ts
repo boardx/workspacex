@@ -1,3 +1,4 @@
+import { projectOverviewEn } from "../namespaces/project-overview";
 import { modelTestbenchEn } from "../namespaces/model-testbench";
 import { telemetrySettingsEn } from "../namespaces/telemetry-settings";
 import { platformMembersEn } from "../namespaces/platform-members";
@@ -36,6 +37,7 @@ import type { zhCN } from "./zh-CN";
 import { accountEntryEn } from "../namespaces/account-entry";
 import { invitationEntryEn } from "../namespaces/invitation-entry";
 export const en: Record<keyof typeof zhCN, string> = {
+  ...projectOverviewEn,
   ...modelTestbenchEn,
   ...telemetrySettingsEn,
   ...platformMembersEn,

@@ -1,5 +1,7 @@
 "use client";
 import * as React from "react";
+import type { Locale } from "@/lib/i18n/locale";
+import { translate } from "@/lib/i18n/messages";
 import { useRouter } from "next/navigation";
 import { ClipboardList, FileSearch, Link2, MoreHorizontal, Mic, Palette, PenLine, Plus, Unlink, Users, type LucideIcon } from "lucide-react";
 import type { SurveyRuntime } from "@repo/contracts/survey-runtime";
@@ -156,8 +158,8 @@ export async function startNewProjectResource(sub: ProjectResearchSub, projectId
 }
 
 /** 失败文案（「内容」tab 顶部的新建动作复用同一份）。 */
-export function describeProjectResourceFailure(e: unknown): string {
-  return describeFailure(e);
+export function describeProjectResourceFailure(e: unknown, locale: Locale = "zh-CN"): string {
+  return describeFailure(e, locale);
 }
 
 export function ProjectResourceSection({ projectId, kind, canWrite, initialLinkOpen = false, onChanged }: {
@@ -376,16 +378,16 @@ function formatDate(iso: string): string {
   return Number.isNaN(t) ? iso : new Date(t).toLocaleDateString();
 }
 
-function describeFailure(e: unknown): string {
+function describeFailure(e: unknown, locale: Locale = "zh-CN"): string {
   if (e instanceof ApiError) {
     switch (e.reasonCode) {
-      case "NO_PROJECT_ROLE": return "你不在这个项目里，看不到项目内的资源。";
-      case "ADMIN_NOT_SUPERUSER": return "管理员身份不能操作项目资源，请用项目成员身份登录。";
-      case "RESOURCE_NOT_FOUND": return "这条资源不存在，或不属于你——只有资源所有者能把它挂到项目或移出项目。";
-      case "AUTH_SERVICE_UNAVAILABLE": return "身份校验服务暂时不可用，请稍后重试。";
+      case "NO_PROJECT_ROLE": return translate(locale, "projectOverview.resource.noRole");
+      case "ADMIN_NOT_SUPERUSER": return translate(locale, "projectOverview.resource.admin");
+      case "RESOURCE_NOT_FOUND": return translate(locale, "projectOverview.resource.notFound");
+      case "AUTH_SERVICE_UNAVAILABLE": return translate(locale, "projectOverview.resource.authUnavailable");
     }
-    if (e.status === 401) return "登录已失效，请重新登录。";
-    return httpFailureText(e.status);
+    if (e.status === 401) return translate(locale, "projectOverview.resource.expired");
+    return httpFailureText(e.status, locale);
   }
-  return e instanceof Error ? e.message : "操作失败，请稍后重试。";
+  return e instanceof Error ? e.message : translate(locale, "projectOverview.resource.unexpected");
 }
