@@ -193,3 +193,30 @@ it("translates completed step accessibility text while keeping the step controls
   changeLanguage("en"); expect(within(progress).getByRole("button", { name: /Completed.*Research plan/ })).toBe(plan);
   expect(screen.getByRole("heading", { name: rawTitle })).toBeVisible();
 });
+
+it("translates live query confirmation pending status without replaying creation", async () => {
+  let rejectCreate!: (error: Error) => void;
+  api.create.mockImplementation(() => new Promise<GuidedResearchSession>((_resolve, reject) => { rejectCreate = reject; }));
+  const rawGoal = "待确认的原始研究需求 {count} / constructor";
+  show(<GuidedResearchFlow step="brief" onStepChange={vi.fn()} />);
+  fireEvent.change(screen.getByTestId("research-brief-goal"), { target: { value: rawGoal } });
+  fireEvent.click(screen.getByTestId("research-confirm-brief"));
+  await waitFor(() => expect(api.create).toHaveBeenCalledTimes(1));
+  const submitted = api.create.mock.calls[0]![0];
+  try {
+    const pending = screen.getByText("Analyzing research requirements…", { exact: true });
+    expect(pending).toHaveAttribute("role", "status");
+    expect(submitted.brief.goal).toBe(rawGoal);
+    changeLanguage("zh-CN");
+    expect(screen.getByText("正在分析研究需求…", { exact: true })).toBe(pending);
+    changeLanguage("en");
+    expect(screen.getByText("Analyzing research requirements…", { exact: true })).toBe(pending);
+    expect(api.create).toHaveBeenCalledTimes(1);
+    expect(api.create.mock.calls[0]![0]).toBe(submitted);
+  } finally {
+    await act(async () => rejectCreate(Error("controlled creation rejection")));
+  }
+  expect(screen.queryByText("Analyzing research requirements…", { exact: true })).not.toBeInTheDocument();
+  expect(screen.getByTestId("research-brief-goal")).toHaveValue(rawGoal);
+  expect(api.create).toHaveBeenCalledTimes(1);
+});

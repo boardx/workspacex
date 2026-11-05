@@ -1,3 +1,4 @@
+import { workshopLiveZhCN } from "./i18n/namespaces/workshop-live";
 import type { z } from "zod";
 import type { templates, project } from "@repo/contracts";
 
@@ -19,14 +20,14 @@ export const INTERVIEW_SUBJECT_COLUMNS: ReadonlyArray<{
 ];
 
 export const GROUP_STATUS_LABEL: Record<Group["status"], string> = {
-  "recording-ready": "录音就绪",
-  "short-n": "缺人",
-  "needs-intervention": "需介入",
+  "recording-ready": workshopLiveZhCN["workshopLive.groupStatus.recording-ready"],
+  "short-n": workshopLiveZhCN["workshopLive.groupStatus.short-n"],
+  "needs-intervention": workshopLiveZhCN["workshopLive.groupStatus.needs-intervention"],
 };
 
 export const AGENDA_SEGMENT_STATE_LABEL: Record<AgendaSegment["state"], string> = {
-  pending: "待开始",
-  active: "进行中",
-  closed: "已结束",
-  skipped: "已跳过",
+  pending: workshopLiveZhCN["workshopLive.segmentState.pending"],
+  active: workshopLiveZhCN["workshopLive.segmentState.active"],
+  closed: workshopLiveZhCN["workshopLive.segmentState.closed"],
+  skipped: workshopLiveZhCN["workshopLive.segmentState.skipped"],
 };
