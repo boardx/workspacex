@@ -201,8 +201,11 @@ test("research query assistant locale preserves canonical intents, pending draft
   await page.evaluate(key => localStorage.removeItem(key), storageKey);
   const languagePage = await context.newPage();
   await languagePage.goto("/research");
-  const language = (locale: "en" | "zh-CN") => languagePage.getByTestId("language-switcher").first().selectOption(locale);
   const panel = page.getByTestId("guided-research-six-step-assistant");
+  const language = async (locale: "en" | "zh-CN") => {
+    await languagePage.getByTestId("language-switcher").first().selectOption(locale);
+    await expect(panel.getByRole("heading", { name: locale === "en" ? "Research skill assistant" : "研究 Skill 助手", exact: true })).toBeVisible();
+  };
   const input = page.getByTestId("research-skill-input");
   const goal = page.getByTestId("research-brief-goal");
   const capture = async (name: string, target: typeof input) => {
@@ -245,6 +248,7 @@ test("research query assistant locale preserves canonical intents, pending draft
   const turnResponse = () => page.waitForResponse(response => pathOf(response.url()) === C.operations.runGuidedResearchSkillTurn.path && response.request().method() === "POST");
   try {
     await page.goto("/research?flow=brief");
+    await expect(page).toHaveURL(/\/research\?flow=brief$/);
     await expect(page.getByTestId("research-flow-brief")).toBeVisible();
     await goal.fill(rawGoal);
     await page.getByRole("button", { name: "AI assistant", exact: true }).click();
