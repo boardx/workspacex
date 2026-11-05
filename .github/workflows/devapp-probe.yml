@@ -9,6 +9,11 @@
 name: devapp-probe
 
 on:
+  pull_request:
+    paths:
+      - .github/workflows/devapp-probe.yml
+      - .harness/scripts/vm/asr-accounting-probe.py
+      - .harness/scripts/vm/tests/test_asr_accounting_probe.py
   workflow_dispatch:
     inputs:
       asr_accounting:
@@ -17,6 +22,14 @@ on:
         default: false
 
 jobs:
+  probe-contract:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+      - run: python3 -I -B -m unittest discover -s .harness/scripts/vm/tests -p test_asr_accounting_probe.py -v
+
   asr-accounting:
     if: ${{ inputs.asr_accounting }}
     runs-on: [self-hosted, linux, x64, workspacex]
@@ -29,7 +42,7 @@ jobs:
         run: git show "$GITHUB_SHA:.harness/scripts/vm/asr-accounting-probe.py" | python3 -I -B
 
   probe:
-    if: ${{ !inputs.asr_accounting }}
+    if: ${{ github.event_name == 'workflow_dispatch' && !inputs.asr_accounting }}
     runs-on: [self-hosted, linux, x64, workspacex]
     timeout-minutes: 5
     steps:

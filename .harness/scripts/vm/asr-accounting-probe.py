@@ -16,7 +16,8 @@ DATABASE = r'''
 import {Pool} from 'pg';
 import {appConfig,migrationConfig} from './src/infrastructure/db/pg-config.ts';
 const e=process.env,ownerConfigured=!!e.MIGRATION_DB_USER&&!!e.MIGRATION_DB_PASSWORD;
-const out={tariffQueryAvailable:false,configuredOwnerCredentialAvailable:ownerConfigured};
+const label=v=>typeof v==='string'&&/^[A-Za-z0-9._:/-]{1,160}$/.test(v)?v:'unavailable';
+const out={tariffQueryAvailable:false,configuredOwnerCredentialAvailable:ownerConfigured,asrProvider:label(e.KERNEL_ASR_PROVIDER),asrModel:label(e.KERNEL_ASR_MODEL)};
 let pool,client;
 try{
  const config=ownerConfigured?migrationConfig():appConfig();
@@ -26,7 +27,8 @@ try{
  // Fail rather than silently return an RLS-filtered zero across organizations.
  await client.query('SET LOCAL row_security=off');
  const row=(await client.query("SELECT count(*)::integer AS \"matchingTariffs\",count(DISTINCT org_id)::integer AS \"pricedOrganizations\" FROM credit_native_tariffs WHERE model_provider=$1 AND model_id=$2 AND unit='millisecond'",[e.KERNEL_ASR_PROVIDER,e.KERNEL_ASR_MODEL])).rows[0];
- await client.query('COMMIT');Object.assign(out,row,{tariffQueryAvailable:true});
+ const millisecondTariffs=(await client.query("SELECT model_provider,model_id,quantum::text,hundredths_per_quantum::text,count(*)::integer AS \"organizationCount\",count(DISTINCT version)::integer AS \"versionCount\" FROM credit_native_tariffs WHERE unit='millisecond' GROUP BY model_provider,model_id,quantum,hundredths_per_quantum ORDER BY model_provider,model_id LIMIT 50")).rows;
+ await client.query('COMMIT');Object.assign(out,row,{tariffQueryAvailable:true,millisecondTariffs:millisecondTariffs.map(r=>({...r,model_provider:label(r.model_provider),model_id:label(r.model_id)}))});
 }catch(error){out.databaseProbeCode=['42501','42P01','28P01','ECONNREFUSED','ETIMEDOUT','ENOTFOUND'].includes(error?.code)?error.code:'database_probe_unavailable';}
 finally{client?.release();await pool?.end();}
 console.log(JSON.stringify(out));
