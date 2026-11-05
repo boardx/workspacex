@@ -19,9 +19,8 @@ function required(name: string): string {
 
 const apiPort = required("WORKSPACEX_API_PORT");
 const webPort = required("WORKSPACEX_WEB_PORT");
-// Experimental comparison only: the ordinary dev command/budgets stay unchanged.
+// Explicit CI production assets; local development remains unchanged.
 const productionComparison = process.env.WSX_CHAT_REFRESH_PRODUCTION_WEB === "1";
-if (productionComparison && process.env.WSX_CHAT_REFRESH_DIAGNOSTICS !== "1") throw new Error("production comparison requires explicit diagnostics");
 const productionDist = productionComparison ? `.next-chat-refresh-${createHash('sha256').update(required('WORKSPACEX_ISOLATION_ID')).digest('hex').slice(0,16)}` : undefined;
 
 /**
@@ -683,11 +682,11 @@ export default defineConfig({
          * `-f ../api/docker-compose.dev.yml` 是同一个相对基准。
          */
         "mkdir -p e2e/__evidence__/chat-path-coverage",
-        process.env.WSX_CHAT_REFRESH_DIAGNOSTICS === "1"
+        (productionComparison || process.env.WSX_CHAT_REFRESH_DIAGNOSTICS === "1")
           ? "node e2e/support/chat-refresh-diagnostic-server.mjs api pnpm --filter @repo/api start"
           : "pnpm --filter @repo/api start 2>&1 | tee e2e/__evidence__/chat-path-coverage/api-server.log",
       ].join(" && "),
-      ...(process.env.WSX_CHAT_REFRESH_DIAGNOSTICS === "1" ? {gracefulShutdown:{signal:"SIGTERM" as const,timeout:5000}} : {}),
+      ...((productionComparison || process.env.WSX_CHAT_REFRESH_DIAGNOSTICS === "1") ? {gracefulShutdown:{signal:"SIGTERM" as const,timeout:5000}} : {}),
       url: `http://127.0.0.1:${apiPort}/healthz`,
       timeout: 120_000,
       reuseExistingServer: false,
@@ -839,8 +838,8 @@ export default defineConfig({
       // deep-agent loopback 替身（`CHAT_READ_E2E.deepAgentId`），复用
       // `copilotkit-agui-state-snapshot.spec.ts` 同一条真实 `DeepAgentModelProvider`
       // 代码路径，不是新起一条上游。
-      command: productionComparison ? `node e2e/support/chat-refresh-diagnostic-server.mjs next next start -p ${webPort}` : `NEXT_PUBLIC_API_URL=http://127.0.0.1:${webPort} CHAT_READ_E2E_API_ORIGIN=http://127.0.0.1:${apiPort} COPILOTKIT_V2_AGENT_ID=${CHAT_READ_E2E.deepAgentId} NEXT_DIST_DIR=.next-chat-read-e2e ${process.env.WSX_CHAT_REFRESH_DIAGNOSTICS === "1" ? "node e2e/support/chat-refresh-diagnostic-server.mjs next next" : "next"} dev -p ${webPort}`,
-      ...(process.env.WSX_CHAT_REFRESH_DIAGNOSTICS === "1" ? {gracefulShutdown:{signal:"SIGTERM" as const,timeout:5000}} : {}),
+      command: productionComparison ? `node e2e/support/chat-refresh-diagnostic-server.mjs next next start -p ${webPort}` : `NEXT_PUBLIC_API_URL=http://127.0.0.1:${webPort} CHAT_READ_E2E_API_ORIGIN=http://127.0.0.1:${apiPort} COPILOTKIT_V2_AGENT_ID=${CHAT_READ_E2E.deepAgentId} NEXT_DIST_DIR=.next-chat-read-e2e ${(productionComparison || process.env.WSX_CHAT_REFRESH_DIAGNOSTICS === "1") ? "node e2e/support/chat-refresh-diagnostic-server.mjs next next" : "next"} dev -p ${webPort}`,
+      ...((productionComparison || process.env.WSX_CHAT_REFRESH_DIAGNOSTICS === "1") ? {gracefulShutdown:{signal:"SIGTERM" as const,timeout:5000}} : {}),
       url: `http://127.0.0.1:${webPort}/login`,
       timeout: 120_000,
       reuseExistingServer: false,

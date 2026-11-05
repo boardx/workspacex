@@ -13,9 +13,9 @@ async function configuration(diag='0',prod='0',id='unit-config-only'){
 const servers=(config:Awaited<ReturnType<typeof configuration>>)=>Array.isArray(config.webServer)?config.webServer:[];
 it('flag-off preserves the original dev command and 120s startup budget',async()=>{
  const config=await configuration(),web=servers(config).find(s=>s.command.includes('NEXT_DIST_DIR=.next-chat-read-e2e'))!;
- expect(web.command).toContain('NEXT_DIST_DIR=.next-chat-read-e2e next dev -p 24001');expect(web.timeout).toBe(120000);expect(web.gracefulShutdown).toBeUndefined();
+ expect(web.command).toContain('NEXT_DIST_DIR=.next-chat-read-e2e next dev -p 24001');expect(web.timeout).toBe(120000);expect(web.gracefulShutdown).toBeUndefined();const api=servers(config).find(s=>s.url==='http://127.0.0.1:24000/healthz')!;expect(api.command).not.toContain('chat-refresh-diagnostic-server.mjs api');expect(api.gracefulShutdown).toBeUndefined();
 });
-it('requires diagnostics opt-in for production comparison',async()=>{await expect(configuration('0','1')).rejects.toThrow('requires explicit diagnostics');});
+it('production assets do not enable request diagnostics implicitly',async()=>{const c=await configuration('0','1');expect(servers(c).at(-1)?.command).toContain('next next start');expect(servers(c).at(-1)?.env?.WSX_CHAT_REFRESH_DIAGNOSTICS).toBe('0');expect(servers(c).at(-1)?.gracefulShutdown).toEqual({signal:'SIGTERM',timeout:5000});const api=servers(c).find(s=>s.url==='http://127.0.0.1:24000/healthz')!;expect(api.command).toContain('chat-refresh-diagnostic-server.mjs api');expect(api.gracefulShutdown).toEqual({signal:'SIGTERM',timeout:5000});expect(api.env?.WSX_CHAT_REFRESH_DIAGNOSTICS).toBe('0');});
 it('binds build/start env to one isolation, keeps API/agent routes and all scenario budgets',async()=>{
  const original=await configuration('1','0'),production=await configuration('1','1');
  const web=servers(production).find(s=>s.command.includes('next next start'))!,api=servers(production).find(s=>s.url==='http://127.0.0.1:24000/healthz')!;
@@ -30,3 +30,5 @@ it('claims a fresh build directory and refuses reuse without changing existing c
   const dir=join(root,'.next-chat-refresh-test'),stat=claimDist(dir);expect(stat.isDirectory()).toBe(true);writeFileSync(join(dir,'owned'),'preserve');expect(()=>claimDist(dir)).toThrow('fresh isolated');expect(readFileSync(join(dir,'owned'),'utf8')).toBe('preserve');
  }finally{rmSync(root,{recursive:true,force:true});}
 });
+
+it('forwards original Playwright argv without adding a selector, worker or reporter',()=>{const {scenarioArguments}=createRequire(import.meta.url)('../e2e/support/chat-refresh-owned-process.cjs');const argv=['--config','playwright.chat-read.config.ts','--project=chat-read','--max-failures=1','--shard=1/2','--reporter=json'];expect(scenarioArguments(argv)).toEqual(argv);expect(scenarioArguments(argv)).not.toBe(argv);expect(scenarioArguments([...argv,'--grep','复杂任务 | 简单聊天'])).toEqual([...argv,'--grep','复杂任务 | 简单聊天']);expect(()=>scenarioArguments([])).toThrow('explicit original');});

@@ -6,11 +6,12 @@ import {fileURLToPath} from 'node:url';
 import core from './chat-refresh-diagnostic-core.cjs';
 import owned from './chat-refresh-owned-process.cjs';
 const [role,...command]=process.argv.slice(2);
-if (!['api','next'].includes(role) || !command.length || process.env.WSX_CHAT_REFRESH_DIAGNOSTICS!=='1' || !process.env.WORKSPACEX_ISOLATION_ID) throw new Error('isolated diagnostic launcher requires explicit opt-in');
+if (!['api','next'].includes(role) || !command.length || (process.env.WSX_CHAT_REFRESH_DIAGNOSTICS!=='1'&&process.env.WSX_CHAT_REFRESH_PRODUCTION_WEB!=='1') || !process.env.WORKSPACEX_ISOLATION_ID) throw new Error('isolated diagnostic launcher requires explicit opt-in');
 const dir=resolve('e2e/__evidence__/chat-refresh-diagnostics');mkdirSync(dir,{recursive:true});
 const write=core.boundedWriter(resolve(dir,`${role}-launcher.jsonl`));
 const preload=resolve(dirname(fileURLToPath(import.meta.url)),'chat-refresh-diagnostic-core.cjs');
-const child=spawn(command[0],command.slice(1),{detached:process.platform!=='win32',stdio:['ignore','pipe','pipe'],env:{...process.env,NODE_OPTIONS:`${process.env.NODE_OPTIONS??''} --require=${preload}`,WSX_CHAT_DIAGNOSTIC_FILE:resolve(dir,`${role}-http.jsonl`)}});
+const diagnostics=process.env.WSX_CHAT_REFRESH_DIAGNOSTICS==='1';
+const child=spawn(command[0],command.slice(1),{detached:process.platform!=='win32',stdio:['ignore','pipe','pipe'],env:{...process.env,...(diagnostics?{NODE_OPTIONS:`${process.env.NODE_OPTIONS??''} --require=${preload}`,WSX_CHAT_DIAGNOSTIC_FILE:resolve(dir,`${role}-http.jsonl`)}:{})}});
 write({event:'child-start',scopeHash:owned.scopeHash(process.env.WORKSPACEX_ISOLATION_ID),ownerPid:process.pid,pid:child.pid,pgid:child.pid});
 for (const stream of [child.stdout,child.stderr]) {
  let pending='';stream.on('data',data=>{

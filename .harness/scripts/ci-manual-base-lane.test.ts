@@ -25,7 +25,7 @@ describe('explicit manual base validation avoids unrelated runners without false
   const step=job.steps.find((s:{run?:string})=>s.run?.includes('with-test-isolation.ts'));
   expect(step.run).toContain('chat-refresh-production-build.ts');
   const build=readFileSync('apps/web/e2e/support/chat-refresh-production-build.ts','utf8');
-  expect(build).toContain("'--workers=2'");expect(build).toContain("'--max-failures=1'");expect(build).toContain('600000');
+  expect(build).toContain('...playwrightArgs');expect(build).not.toContain("'--workers=2'");expect(build).not.toContain("'--grep'");expect(step.run).toContain('--workers=2');expect(step.run).toContain('--grep');expect(step.run).toContain('--max-failures=1');expect(build).toContain('600000');
   expect(step.env.WSX_CHAT_REFRESH_DIAGNOSTICS).toBe('1');expect(step.env.WSX_CHAT_REFRESH_PRODUCTION_WEB).toBe('1');
  });
  it('manual skipped jobs cannot overwrite automatic required check display names',()=>{
@@ -49,3 +49,5 @@ describe('explicit manual base validation avoids unrelated runners without false
   for(const name of ['directory-smoke','fullstack-smoke','board-smoke','full-regression-core','chat-read','self-service-profile','e2e-full'])expect(admitted(name,'workflow_dispatch',{verification_lane:'all',run_e2e_full:true})).toBe(true);
  });
 });
+
+it('standard chat shard preserves all original arguments and uses one bounded production build',()=>{const j=w.jobs['chat-test-shards'],step=j.steps.find((s:{name?:string})=>s.name==='Execute actual isolated shard');expect(step.env.WSX_CHAT_REFRESH_PRODUCTION_WEB).toBe('1');expect(step.env.WSX_CHAT_REFRESH_DIAGNOSTICS).toBeUndefined();expect(step['timeout-minutes']).toBe(50);expect(j['timeout-minutes']).toBe(60);expect(step.run).toContain('chat-refresh-production-build.ts --config playwright.chat-read.config.ts --project=chat-read --max-failures=1 --shard=${{ matrix.shard }}/${{ needs.chat-test-plan.outputs.count }} --reporter=json');expect(step.run).not.toContain('--grep');expect(step.env.WORKSPACEX_WEB_TEST_MAX_WORKERS).toBe('2');expect(j.steps.some((s:{if?:string,run?:string})=>s.if==='always()'&&s.run?.includes('chat-refresh-owned-process.cjs'))).toBe(true);});
