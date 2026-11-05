@@ -368,7 +368,9 @@ test("research query confirmation locale preserves the single real creation requ
     await expect.poll(() => requests.length).toBe(1);
     const pending = page.getByRole("status").filter({ hasText: /^Analyzing research requirements…$/ });
     await expect(pending).toBeVisible();
-    const submitted = structuredClone(requests[0]);
+    const pendingRequest = requests[0];
+    if (!pendingRequest) throw new Error("Expected one held creation request");
+    const submitted = structuredClone(pendingRequest);
     expect(submitted.brief.goal).toBe(rawGoal);
     await languagePage.getByTestId("language-switcher").first().selectOption("zh-CN");
     await expect(page.getByRole("status").filter({ hasText: /^正在分析研究需求…$/ })).toBeVisible();
