@@ -333,3 +333,77 @@ test("research query assistant locale preserves canonical intents, pending draft
     await languagePage.close();
   }
 });
+
+// Delay only forwarding of the real creation request: this is not a fabricated
+// session/model response. Locale changes while pending must never replay it.
+test("research query confirmation locale preserves the single real creation request", async ({ page, context }, info) => {
+  test.setTimeout(180_000);
+  const errors: string[] = [];
+  page.on("pageerror", error => errors.push(error.message));
+  const rawGoal = `确认中的研究原文 {count} / constructor ${randomUUID()}`;
+  const requests: Array<ReturnType<typeof C.operations.createGuidedResearchSession.in.parse>> = [];
+  let releaseCreate!: () => void;
+  const gate = new Promise<void>(resolve => { releaseCreate = resolve; });
+  const createRoute = `**${C.operations.createGuidedResearchSession.path}`;
+  const holdCreate = async (route: import("@playwright/test").Route) => {
+    if (route.request().method() !== "POST") { await route.continue(); return; }
+    requests.push(C.operations.createGuidedResearchSession.in.parse(route.request().postDataJSON()));
+    await gate;
+    await route.continue();
+  };
+  await page.goto("/login");
+  await page.getByTestId("language-switcher").selectOption("en");
+  await page.getByTestId("login-email").fill(F.email);
+  await page.getByTestId("login-password").fill(F.password);
+  await page.getByTestId("login-submit").click();
+  await expect(page).toHaveURL(/\/home$/);
+  const languagePage = await context.newPage();
+  await languagePage.goto("/research");
+  await page.route(createRoute, holdCreate);
+  try {
+    await page.goto("/research?flow=brief");
+    await expect(page).toHaveURL(/\/research\?flow=brief$/);
+    await page.getByTestId("research-brief-goal").fill(rawGoal);
+    await page.getByTestId("research-confirm-brief").click();
+    await expect.poll(() => requests.length).toBe(1);
+    const pending = page.getByRole("status").filter({ hasText: /^Analyzing research requirements…$/ });
+    await expect(pending).toBeVisible();
+    const pendingRequest = requests[0];
+    if (!pendingRequest) throw new Error("Expected one held creation request");
+    const submitted = structuredClone(pendingRequest);
+    expect(submitted.brief.goal).toBe(rawGoal);
+    await languagePage.getByTestId("language-switcher").first().selectOption("zh-CN");
+    await expect(page.getByRole("status").filter({ hasText: /^正在分析研究需求…$/ })).toBeVisible();
+    await languagePage.getByTestId("language-switcher").first().selectOption("en");
+    await expect(pending).toBeVisible();
+    expect(requests).toEqual([submitted]);
+    for (const width of [375, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      await pending.scrollIntoViewIfNeeded();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      expect(await pending.evaluate(element => {
+        const bounds = element.getBoundingClientRect();
+        return bounds.left >= 0 && bounds.right <= innerWidth && element.scrollWidth <= element.clientWidth;
+      })).toBe(true);
+      await page.screenshot({ path: info.outputPath(`query-confirm-pending-en-${width}.png`), fullPage: false });
+    }
+    const created = page.waitForResponse(response => pathOf(response.url()) === C.operations.createGuidedResearchSession.path && response.request().method() === "POST");
+    releaseCreate();
+    const response = await created;
+    expect(response.ok()).toBe(true);
+    const saved = C.operations.createGuidedResearchSession.out.parse(await response.json());
+    expect(saved.brief.goal).toBe(rawGoal);
+    await expect(page).toHaveURL(new RegExp(`/research/${saved.sessionId}/plan$`));
+    await expect(pending).toHaveCount(0);
+    await page.getByRole("button", { name: "Previous step", exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`/research/${saved.sessionId}/import$`));
+    await page.reload();
+    await expect(page.getByRole("textbox", { name: "Research requirements", exact: true })).toHaveValue(rawGoal);
+    expect(requests).toEqual([submitted]);
+    expect(errors).toEqual([]);
+  } finally {
+    releaseCreate();
+    await page.unroute(createRoute, holdCreate);
+    await languagePage.close();
+  }
+});

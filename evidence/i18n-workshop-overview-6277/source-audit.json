@@ -1,0 +1,27 @@
+{
+  "issue": 6277,
+  "base": "84cf50deb63e003cbed97acbe4314d727b59991b",
+  "sourceOnly": true,
+  "lightAudit": {
+    "parserDiagnostics": 0,
+    "localeKeyCount": 48,
+    "apiFunctionsByteExact": 12,
+    "reasonToneRetryByteExact": true,
+    "remainingOwnedChineseJsx": [],
+    "diffCheck": 0
+  },
+  "sourceSHA256": {
+    "apps/web/components/project/tab-overview.tsx": "10c8a883eb161bc9285742381e116a14a1457592f38967480149c336b36a4e8e",
+    "apps/web/lib/live-projects.ts": "f5a10e7a5e85b4603061a65724c3892f6cb1d84b34131b1cba3253f955fef673",
+    "apps/web/lib/i18n/namespaces/workshop-overview.ts": "d793fe8a6d0a17a06cf9fc4f8196876e972adb9c7c391ffbc7be51ad8b79e543",
+    "apps/web/lib/i18n/messages/en.ts": "71eb3f0f4f691e3d796d47aaf584e453dbbdda10eece1891698b44298d1ae66c",
+    "apps/web/lib/i18n/messages/zh-CN.ts": "5a91f88add2f9993e73faa6bd6e1606348634b7828b898d8ad04a454198f2539"
+  },
+  "deferred": [
+    "typecheck",
+    "unit tests",
+    "independent source review",
+    "runtime acceptance",
+    "viewport screenshot QA"
+  ]
+}

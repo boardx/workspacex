@@ -1,0 +1,9 @@
+{
+  "source": "c7c6c4f1a5e6b9172c786681c7deb86a8473e3eb",
+  "webtype": "started session28872, interrupted, session now unknown; no successful return observed; incomplete",
+  "testid": "not started",
+  "newBrowserDiscovery": "not started",
+  "freshProcessSnapshot": "no vitest/tsc/eslint/playwright/6263-runner matches",
+  "temporaryDirectories": "6253-private and6263-private no longer exist after interruption; repository and copied parent safe files retained",
+  "next": "HOLD MAIN latest pricing6259 pure11 RED; no gates restarted"
+}
