@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Fixed devapp-only aggregate diagnosis. Never prints inspect/env/SQL/error text."""
-import json, subprocess
+"""Fixed devapp/CN aggregate diagnosis. Never prints inspect/env/SQL/error text."""
+import json, os, re, subprocess
+from urllib.parse import urlsplit
 
 # Read-only filesystem checks run as the API container's configured user.
 STORAGE = r'''
@@ -18,8 +19,7 @@ import {appConfig,migrationConfig} from './src/infrastructure/db/pg-config.ts';
 import {readProductConfiguration,personalConfiguredProducts} from './src/infrastructure/billing/product-catalog-configuration.ts';
 const e=process.env,ownerConfigured=!!e.MIGRATION_DB_USER&&!!e.MIGRATION_DB_PASSWORD;
 const label=v=>typeof v==='string'&&/^[A-Za-z0-9._:/-]{1,160}$/.test(v)?v:'unavailable';
-let asrRegion='unverified';try{const u=new URL(e.KERNEL_ASR_BASE_URL);if(u.protocol==='wss:'&&!u.username&&!u.password&&!u.port){asrRegion=({'dashscope.aliyuncs.com':'cn-beijing','dashscope-intl.aliyuncs.com':'sg-international'})[u.hostname]??'unverified';}}catch{}
-const out={asrRegion,tariffQueryAvailable:false,configuredOwnerCredentialAvailable:ownerConfigured,asrProvider:label(e.KERNEL_ASR_PROVIDER),asrModel:label(e.KERNEL_ASR_MODEL)};
+const out={tariffQueryAvailable:false,configuredOwnerCredentialAvailable:ownerConfigured};
 let pool,client;
 try{
  const config=ownerConfigured?migrationConfig():appConfig();
@@ -62,14 +62,28 @@ def persistent_mount(row,path):
 def literal(value):
     return "'"+value.replace("'","''")+"'"
 
+def runtime_configuration(values):
+    label=lambda v:v if isinstance(v,str)and re.fullmatch(r'[A-Za-z0-9._:/-]{1,160}',v)else 'unavailable'
+    region='unverified'
+    try:
+        url=urlsplit(values.get('KERNEL_ASR_BASE_URL',''))
+        if url.scheme=='wss'and not url.username and not url.password and url.port is None:
+            region={'dashscope.aliyuncs.com':'cn-beijing','dashscope-intl.aliyuncs.com':'sg-international'}.get(url.hostname,'unverified')
+    except ValueError:pass
+    return {'asrProvider':label(values.get('KERNEL_ASR_PROVIDER')),'asrModel':label(values.get('KERNEL_ASR_MODEL')),'asrRegion':region}
+
 def run():
-    ids=call(['docker','ps','--filter','label=com.docker.compose.project=workspacex-image','--format','{{.ID}}']).split()
+    target=os.environ.get('ASR_PROBE_TARGET','devapp')
+    projects={'devapp':'workspacex-image','cn':'workspacex-cn'}
+    if target not in projects:raise ValueError('fixed_probe_target_required')
+    ids=call(['docker','ps','--filter','label=com.docker.compose.project='+projects[target],'--format','{{.ID}}']).split()
     if not ids:raise ValueError('devapp_project_unavailable')
     rows=json.loads(call(['docker','inspect',*ids]))
     apis=[r for r in rows if r.get('Config',{}).get('Labels',{}).get('com.docker.compose.service')=='api'and r.get('State',{}).get('Running')is True]
     if len(apis)!=1:raise ValueError('unique_devapp_api_unavailable')
     api=apis[0];ae=env(api)
     report=json.loads(call(['docker','exec','-i',api['Id'],'node','--input-type=module'],STORAGE))
+    report.update(runtime_configuration(ae));report['target']=target
     report['receiptDirectoryPersistentRwMount']=persistent_mount(api,ae.get('WORKSPACEX_CREDIT_RECEIPT_DIR'))
     report['tariffQueryAvailable']=False
     # Aggregate ONLY fixed internal diagnostic tokens; raw logs never leave this process.

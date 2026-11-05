@@ -18,8 +18,8 @@ class Probe(unittest.TestCase):
    with self.assertRaisesRegex(ValueError,'^probe_command_unavailable$'):m.call(['docker'])
  def test_diagnostic_dispatch_skips_legacy_private_output(self):
   text=(pathlib.Path(__file__).parents[4]/'.github/workflows/devapp-probe.yml').read_text()
-  self.assertIn("if: ${{ github.event_name == 'workflow_dispatch' && !inputs.asr_accounting && inputs.asr_repair_action == 'none' }}",text)
-  self.assertIn('if: ${{ inputs.asr_accounting }}',text)
+  self.assertIn("if: ${{ github.event_name == 'workflow_dispatch' && !inputs.asr_accounting && inputs.asr_repair_action == 'none' && inputs.target_environment == 'devapp' }}",text)
+  self.assertIn("if: ${{ inputs.asr_accounting && inputs.target_environment == 'devapp' }}",text)
   self.assertIn('git show \"$GITHUB_SHA:.harness/scripts/vm/asr-accounting-probe.py\" | python3 -I -B',text)
   self.assertNotIn('readFile',m.STORAGE)
   self.assertNotIn('write',m.STORAGE)
@@ -47,10 +47,18 @@ class Probe(unittest.TestCase):
  def test_both_exact_tree_pipelines_fail_closed_on_missing_git_source(self):
   import subprocess,tempfile
   text=(pathlib.Path(__file__).parents[4]/'.github/workflows/devapp-probe.yml').read_text()
-  self.assertEqual(text.count('shell: bash\n        run: |\n          set -euo pipefail'),2)
+  self.assertEqual(text.count('shell: bash\n        run: |\n          set -euo pipefail'),3)
   with tempfile.TemporaryDirectory() as cwd:
    result=subprocess.run(['bash','-euo','pipefail','-c','git show HEAD:.harness/scripts/vm/asr-accounting-probe.py | python3 -I -B'],cwd=cwd,capture_output=True)
   self.assertNotEqual(result.returncode,0)
  def test_local_postgres_fallback_refuses_rls_filtered_false_zero(self):
   source=(pathlib.Path(__file__).parents[1]/'asr-accounting-probe.py').read_text()
   self.assertIn('BEGIN READ ONLY; SET LOCAL row_security=off;',source)
+
+ def test_fixed_cn_target_uses_own_project_and_known_official_region(self):
+  from unittest.mock import patch
+  with patch.dict(m.os.environ,{'ASR_PROBE_TARGET':'foreign'}):
+   with self.assertRaisesRegex(ValueError,'fixed_probe_target_required'):m.run()
+  self.assertEqual(m.runtime_configuration({'KERNEL_ASR_BASE_URL':'wss://dashscope-intl.aliyuncs.com/x'})['asrRegion'],'sg-international')
+  self.assertEqual(m.runtime_configuration({'KERNEL_ASR_BASE_URL':'wss://credential@dashscope.aliyuncs.com/x'})['asrRegion'],'unverified')
+  self.assertEqual(m.runtime_configuration({'KERNEL_ASR_BASE_URL':'wss://other.example/x'})['asrRegion'],'unverified')
