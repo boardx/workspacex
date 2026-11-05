@@ -61,7 +61,7 @@ it('cutover validator refuses corrupted permissions only on file-owned probe rel
   await c.query('CREATE TABLE native_acl_probe.credit_native_tariffs_legacy (LIKE public.credit_native_tariffs_legacy INCLUDING ALL)');
   await c.query('CREATE TABLE native_acl_probe.credit_global_native_tariffs (LIKE public.credit_global_native_tariffs INCLUDING ALL)');
   await c.query('CREATE TABLE native_acl_probe.credit_global_native_tariff_changes (LIKE public.credit_global_native_tariff_changes INCLUDING ALL)');
-  const definition=(await c.query<{definition:string}>("SELECT pg_get_viewdef('public.credit_native_tariffs'::regclass,true) AS definition")).rows[0].definition;
+  const definition=(await c.query<{definition:string}>("SELECT pg_get_viewdef('public.credit_native_tariffs'::regclass,true) AS definition")).rows[0]!.definition;
   await c.query('CREATE VIEW native_acl_probe.credit_native_tariffs WITH(security_invoker=true,security_barrier=true) AS '+definition);
   await c.query("DO $probe$ BEGIN EXECUTE format('COMMENT ON VIEW native_acl_probe.credit_native_tariffs IS %L','native-tariff-union-v1:'||md5(pg_get_viewdef('native_acl_probe.credit_native_tariffs'::regclass,true))); END $probe$");
   await c.query('CREATE TRIGGER immutable_global_native_tariff_changes BEFORE UPDATE OR DELETE ON native_acl_probe.credit_global_native_tariff_changes FOR EACH ROW EXECUTE FUNCTION public.f159_token_usage_append_only()');
