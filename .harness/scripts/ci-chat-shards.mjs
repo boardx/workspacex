@@ -22,6 +22,15 @@ export function assertCoverage(full, partitions) {
   return {tests:full.length,counts:partitions.map(p=>p.length)};
 }
 const sentinel = Object.fromEntries(['API','WEB','MODEL_PROVIDER','DEEP_AGENT_PROVIDER','LOOPBACK_SANDBOX','ASR_PROVIDER','VISION_PROVIDER'].map((name,i)=>[`WORKSPACEX_${name}_PORT`,String(18001+i)]));
+// --list imports configuration after the isolated runtime has exited. These
+// two flags require a live isolation scope and must not leak into discovery.
+export function invocationEnvironment(list,environment=process.env) {
+  if(!list) return environment;
+  const env={...environment};
+  delete env.WSX_CHAT_REFRESH_PRODUCTION_WEB;
+  delete env.WSX_CHAT_REFRESH_DIAGNOSTICS;
+  return env;
+}
 export function invoke(shard,count,list=true, options={}) {
   if (!options.config && !/fullyParallel:\s*false/.test(readFileSync(resolve(root,'apps/web/playwright.chat-read.config.ts'),'utf8'))) throw Error('FILE_ISOLATION_REQUIRED');
   const args=['exec','playwright','test','--config',options.config??'playwright.chat-read.config.ts','--reporter=json'];
@@ -31,7 +40,7 @@ export function invoke(shard,count,list=true, options={}) {
   if(options.files){if(!Array.isArray(options.files)||!options.files.length||options.files.some(file=>typeof file!=='string'||file.startsWith('/')||file.startsWith('-')||file.split('/').includes('..')||!/^[a-zA-Z0-9_./-]+\.spec\.ts$/.test(file)))throw Error('INVALID_FILE_SELECTION');args.push(...options.files);}
   const scratch=mkdtempSync(resolve(tmpdir(),'chat-json-report-')),output=resolve(scratch,'report.json');
   try{
-    const env={...process.env,...(list?sentinel:{}),PLAYWRIGHT_JSON_OUTPUT_NAME:output,...(options.stripTokens?{GH_TOKEN:undefined,GITHUB_TOKEN:undefined}:{})};
+    const env={...invocationEnvironment(list),...(list?sentinel:{}),PLAYWRIGHT_JSON_OUTPUT_NAME:output,...(options.stripTokens?{GH_TOKEN:undefined,GITHUB_TOKEN:undefined}:{})};
     const result=spawnSync('pnpm',args,{cwd:options.cwd??resolve(root,'apps/web'),env,encoding:'utf8',timeout:list?120000:3600000,maxBuffer:32*1024*1024});
     if(result.error) throw result.error;
     if(!list){if(result.stdout)process.stdout.write(result.stdout);if(result.stderr)process.stderr.write(result.stderr);}

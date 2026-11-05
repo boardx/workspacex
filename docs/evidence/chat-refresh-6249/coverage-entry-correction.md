@@ -161,3 +161,24 @@ This follow-up changes documentation only; the tested source remains 18bb. The
 limited two-case success proves this correction and refresh path, not completion
 of the full standard shards. Normal default CI and complete merge-group
 production shard acceptance remain outstanding.
+
+The next normal merge candidate 28d45e2e7784d60a11f265a6cfadc243fa1a0548
+(run 42130381859 / shard-2 job 127606105931) completed all 66 business cases
+with 65 passed / 1 declared skip, unexpected=0, flaky=0, errors=[]. Independent
+owned cleanup/dist-absence proof also passed. The subsequent --record discovery
+failed with DISCOVERY_FAILED before result.json was written. The small report
+artifact 13463921926 is preserved at /tmp/sourcechat-6309-28d-shard2-report.json.
+
+The post-runtime discovery child inherited PRODUCTION_WEB=1 from the job step,
+without the isolation ID that existed only inside the finished runtime wrapper.
+Its config import therefore requires a missing isolation scope. The candidate
+and source discovery script blobs match (9986e6d01c8e0077964cdc14750eb34e173b7f16).
+The minimal correction strips only the two runtime/diagnostic flags in --list
+children; non-list runtime environment, parent input, full config/project, all
+partitions, identities/hash, coverage and result validation remain unchanged.
+An installed-Playwright browserless fixture first proves the inherited flags
+make direct discovery fail for the explicit leak guard, then verifies corrected
+full discovery and unchanged runtime flags with no isolation ID. Source-only
+checkpoint: these new tests and the real prod-flag --verify have not run yet.
+Full merge-group shard acceptance remains necessary; prior cases are not rerun
+or relabelled as a successful full merge-group result.

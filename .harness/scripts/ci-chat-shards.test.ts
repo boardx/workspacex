@@ -1,8 +1,33 @@
 import {describe,it,expect} from 'vitest';
 import {mkdtempSync,writeFileSync,rmSync,existsSync} from 'node:fs';
 import {resolve} from 'node:path';
-import {assertCoverage,identities,verifyResults,shardPlan,discoverCoverage,invoke,reportHash} from './ci-chat-shards.mjs';
+import {assertCoverage,identities,verifyResults,shardPlan,discoverCoverage,invoke,reportHash,invocationEnvironment} from './ci-chat-shards.mjs';
 describe('chat shard evidence',()=>{
+ it('strips only discovery runtime flags while preserving the runtime input object',()=>{
+  const input=Object.freeze({WSX_CHAT_REFRESH_PRODUCTION_WEB:'1',WSX_CHAT_REFRESH_DIAGNOSTICS:'1',OTHER:'kept'});
+  expect(invocationEnvironment(true,input)).toEqual({OTHER:'kept'});
+  expect(invocationEnvironment(false,input)).toBe(input);
+  expect(input).toEqual({WSX_CHAT_REFRESH_PRODUCTION_WEB:'1',WSX_CHAT_REFRESH_DIAGNOSTICS:'1',OTHER:'kept'});
+ });
+ it('discovers with inherited production flags and no isolation id without changing runtime execution',()=>{
+  const dir=mkdtempSync(resolve('apps/web','.chat-discovery-env-'));
+  const keys=['WSX_CHAT_REFRESH_PRODUCTION_WEB','WSX_CHAT_REFRESH_DIAGNOSTICS','WORKSPACEX_ISOLATION_ID'];
+  const original=Object.fromEntries(keys.map(key=>[key,process.env[key]]));
+  try{
+   process.env.WSX_CHAT_REFRESH_PRODUCTION_WEB='1';process.env.WSX_CHAT_REFRESH_DIAGNOSTICS='1';delete process.env.WORKSPACEX_ISOLATION_ID;
+   writeFileSync(resolve(dir,'playwright.config.ts'),`import {defineConfig} from '@playwright/test';if(process.argv.includes('--list')&&(process.env.WSX_CHAT_REFRESH_PRODUCTION_WEB||process.env.WSX_CHAT_REFRESH_DIAGNOSTICS))throw Error('RUNTIME_FLAG_LEAKED_IN_DISCOVERY');export default defineConfig({testDir:'.',workers:1});`);
+   writeFileSync(resolve(dir,'environment.spec.ts'),`import {test,expect} from '@playwright/test';test('runtime flags remain present',()=>{expect(process.env.WSX_CHAT_REFRESH_PRODUCTION_WEB).toBe('1');expect(process.env.WSX_CHAT_REFRESH_DIAGNOSTICS).toBe('1');expect(process.env.WORKSPACEX_ISOLATION_ID).toBeUndefined();});`);
+   const options={cwd:resolve('apps/web'),config:resolve(dir,'playwright.config.ts')};
+   // The old inherited --list environment must fail for the actual leak guard,
+   // independently of the adapter. No webServer or browser fixture is involved.
+   const negative=spawnSync('pnpm',['exec','playwright','test','--config',options.config,'--list'],{cwd:options.cwd,env:{...process.env},encoding:'utf8',timeout:30000});
+   expect(negative.status).not.toBe(0);expect(negative.stderr+negative.stdout).toContain('RUNTIME_FLAG_LEAKED_IN_DISCOVERY');
+   const coverage=discoverCoverage(shardPlan({schemaVersion:1,count:1}),options);
+   expect(coverage.tests).toBe(1);expect(coverage.counts).toEqual([1]);
+   const runtime=invoke(null,1,false,options);expect(runtime.status).toBe(0);expect(runtime.report.stats.expected).toBe(1);
+   expect(Object.fromEntries(keys.map(key=>[key,process.env[key]]))).toEqual({WSX_CHAT_REFRESH_PRODUCTION_WEB:'1',WSX_CHAT_REFRESH_DIAGNOSTICS:'1',WORKSPACEX_ISOLATION_ID:undefined});
+  }finally{for(const key of keys){if(original[key]===undefined)delete process.env[key];else process.env[key]=original[key];}rmSync(dir,{recursive:true,force:true});}
+ },60000);
  it('preserves the original chat-read project boundary',()=>{
   const coverage=discoverCoverage(shardPlan({schemaVersion:1,count:2}));
   expect(coverage.full.length).toBeGreaterThan(0);
