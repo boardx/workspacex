@@ -1,9 +1,12 @@
 "use client";
 import * as React from "react";
+import { displaySurveyDiagnostic } from "@/lib/survey/display-diagnostic";
+import { useI18n } from "@/lib/i18n/provider";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+import { createDisplaySurveyQuestion, surveyQuestionTypeLabel, surveyQuestionTypeDescription } from "@/lib/survey/question-display";
 import { ArrowDown, ArrowUp, CalendarDays, CircleDot, Copy, FileText, Grid2X2, Hash, ImageIcon, ListOrdered, Mail, MapPin, Phone, Plus, Redo2, SquareCheck, Star, Trash2, Undo2, Upload } from "lucide-react";
 import {
   SURVEY_QUESTION_TYPES,
-  createSurveyQuestion,
   validateSurveyQuestion,
   visibleSurveyQuestions,
   type SurveyQuestionType,
@@ -58,6 +61,11 @@ export function SurveyQuestionEditor({
   disabled?: boolean;
   surveyTitle?: string;
 }) {
+  const { t, locale } = useI18n();
+  const createQuestion = (type: SurveyQuestionType, id: string, order: number) => createDisplaySurveyQuestion(type, id, order, locale, t);
+  const typeLabel = (type: SurveyQuestionType) => surveyQuestionTypeLabel(type, t);
+  const typeDescription = (type: SurveyQuestionType) => surveyQuestionTypeDescription(type, t);
+  const categoryKeys: Record<string, MessageKey> = {"全部": "survey.design.categoryAll", "选择": "survey.design.categoryChoice", "输入": "survey.design.categoryInput", "评分": "survey.design.categoryRating", "矩阵": "survey.design.categoryMatrix", "比较": "survey.design.categoryComparison", "材料": "survey.design.categoryMaterial", "页面元素": "survey.design.categoryPage"};
   const [id, setId] = React.useState(questions[0]?.id);
   const [picking, setPicking] = React.useState(false);
   const [search, setSearch] = React.useState("");
@@ -148,7 +156,7 @@ export function SurveyQuestionEditor({
     change(questions.map((q) => (q.id === next.id ? { ...next, ...(provenance ? { provenance } : {}) } : q)));
   };
   function add(type: SurveyQuestionType) {
-    const next = createSurveyQuestion(
+    const next = createQuestion(
       type,
       crypto.randomUUID(),
       questions.length + 1,
@@ -164,7 +172,7 @@ export function SurveyQuestionEditor({
   }
   function changeType(type: SurveyQuestionType) {
     if (!question) return;
-    const next = createSurveyQuestion(type, question.id, question.order);
+    const next = createQuestion(type, question.id, question.order);
     update({
       ...next,
       title: question.title,
@@ -194,25 +202,25 @@ export function SurveyQuestionEditor({
     }
     const currentTrialPage = Math.min(trialPage, trialPages.length - 1);
     return (
-      <section aria-label="问卷试填" className="flex min-h-0 flex-1 flex-col bg-muted/30 p-5 lg:h-full lg:overflow-hidden">
+      <section aria-label={t("survey.design.trial")} className="flex min-h-0 flex-1 flex-col bg-muted/30 p-5 lg:h-full lg:overflow-hidden">
         <div className="mx-auto flex w-full max-w-4xl shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border bg-background px-5 py-4">
           <div>
-            <p className="text-12 font-medium text-muted-foreground">受访者视角 · 不会提交答卷</p>
-            <h2 className="mt-1 text-18 font-semibold">试填模式</h2>
+            <p className="text-12 font-medium text-muted-foreground">{t("survey.design.trialHint")}</p>
+            <h2 className="mt-1 text-18 font-semibold">{t("survey.design.trialMode")}</h2>
           </div>
           <Button type="button" variant="outline" onClick={() => { setTrialMode(false); setTrialPage(0); }}>
-            退出试填
+            {t("survey.design.exitTrial")}
           </Button>
         </div>
         <div className="mx-auto w-full max-w-4xl flex-1 overflow-y-auto bg-background px-5 py-7">
           <div className="mx-auto max-w-2xl space-y-7">
             <header className="border-b border-border pb-6 text-center">
-              <h1 className="text-24 font-semibold tracking-tight">{surveyTitle || "未命名问卷"}</h1>
-              <p className="mt-2 text-12 text-muted-foreground">请像受访者一样填写，检查题目顺序、选项与条件显示。</p>
+              <h1 className="text-24 font-semibold tracking-tight">{surveyTitle || t("survey.design.untitledSurvey")}</h1>
+              <p className="mt-2 text-12 text-muted-foreground">{t("survey.design.trialInstructions")}</p>
             </header>
             {trialPages.length > 1 && (
               <p className="text-12 text-muted-foreground" aria-live="polite">
-                第 {currentTrialPage + 1} / {trialPages.length} 页
+                {t("survey.design.pageCount", { page: currentTrialPage + 1, total: trialPages.length })}
               </p>
             )}
             {trialPages[currentTrialPage]!.length ? trialPages[currentTrialPage]!.map((item) => (
@@ -223,18 +231,18 @@ export function SurveyQuestionEditor({
                 onChange={(value) => setAnswers((current) => ({ ...current, [item.id]: value }))}
               />
             )) : (
-              <p className="py-16 text-center text-13 text-muted-foreground">当前没有可试填的题目。</p>
+              <p className="py-16 text-center text-13 text-muted-foreground">{t("survey.design.trialEmpty")}</p>
             )}
             {trialPages.length > 1 && (
               <div className="flex flex-wrap gap-3 border-t border-border pt-5">
                 {currentTrialPage > 0 && (
                   <Button type="button" variant="outline" onClick={() => setTrialPage(currentTrialPage - 1)}>
-                    上一页
+                    {t("survey.design.previousPage")}
                   </Button>
                 )}
                 {currentTrialPage < trialPages.length - 1 && (
                   <Button type="button" onClick={() => setTrialPage(currentTrialPage + 1)}>
-                    下一页
+                    {t("survey.design.nextPage")}
                   </Button>
                 )}
               </div>
@@ -255,9 +263,9 @@ export function SurveyQuestionEditor({
       <div className="mx-auto w-full max-w-4xl space-y-5 p-5 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
           <div>
-            <h2 className="text-18 font-semibold">一页查看问卷</h2>
+            <h2 className="text-18 font-semibold">{t("survey.design.overview")}</h2>
             <p className="mt-1 text-12 text-muted-foreground">
-              共 {answerQuestions.length} 题
+              {t("survey.design.questionCount", { count: answerQuestions.length })}
             </p>
           </div>
           {!locked && (
@@ -268,19 +276,19 @@ export function SurveyQuestionEditor({
                 setEditing(true);
               }}
             >
-              新增题目
+              {t("survey.design.addQuestion")}
             </Button>
           )}
         </div>
         {questions.length ? (
-          <ol className="space-y-4" aria-label="问卷全部题目">
+          <ol className="space-y-4" aria-label={t("survey.design.allQuestions")}>
             {questions.map((item) => {
               const answerOrdinal = answerOrdinalById.get(item.id);
               const itemLabel = answerOrdinal
-                ? `第 ${answerOrdinal} 题`
+                ? t("survey.design.questionOrdinal", { index: answerOrdinal })
                 : item.type === "page_break"
-                  ? "分节"
-                  : "说明";
+                  ? t("survey.design.section")
+                  : t("survey.design.explanation");
               return (
                 <li
                   key={item.id}
@@ -295,14 +303,14 @@ export function SurveyQuestionEditor({
                         type="button"
                         variant="outline"
                         size="sm"
-                        aria-label={`编辑${itemLabel}`}
+                        aria-label={answerOrdinal ? t("survey.design.editQuestion", { index: answerOrdinal }) : t("survey.design.editItem", { item: itemLabel })}
                         onClick={() => {
                           setId(item.id);
                           setPendingType(undefined);
                           setEditing(true);
                         }}
                       >
-                        编辑
+                        {t("survey.design.edit")}
                       </Button>
                     )}
                   </div>
@@ -324,7 +332,7 @@ export function SurveyQuestionEditor({
         ) : (
           <div className="rounded-lg border border-dashed border-border py-16 text-center">
             <p className="text-13 text-muted-foreground">
-              添加第一道题目，开始设计问卷。
+              {t("survey.design.emptyDesign")}
             </p>
           </div>
         )}
@@ -339,13 +347,13 @@ export function SurveyQuestionEditor({
           {studioLayout && !locked && (
             <>
               <Button type="button" variant="secondary" onClick={() => { setTrialPage(0); setTrialMode(true); }}>
-                试填问卷
+                {t("survey.design.trySurvey")}
               </Button>
-              <Button type="button" variant="secondary" aria-label="撤销最近修改" disabled={!undoStack.length} onClick={undo}>
-                <Undo2 aria-hidden="true" className="h-4 w-4" />撤销
+              <Button type="button" variant="secondary" aria-label={t("survey.design.undoLabel")} disabled={!undoStack.length} onClick={undo}>
+                <Undo2 aria-hidden="true" className="h-4 w-4" />{t("survey.design.undo")}
               </Button>
-              <Button type="button" variant="secondary" aria-label="重做最近修改" disabled={!redoStack.length} onClick={redo}>
-                <Redo2 aria-hidden="true" className="h-4 w-4" />重做
+              <Button type="button" variant="secondary" aria-label={t("survey.design.redoLabel")} disabled={!redoStack.length} onClick={redo}>
+                <Redo2 aria-hidden="true" className="h-4 w-4" />{t("survey.design.redo")}
               </Button>
             </>
           )}
@@ -358,7 +366,7 @@ export function SurveyQuestionEditor({
                 setEditing(false);
               }}
             >
-              完成编辑
+              {t("survey.design.finishEditing")}
             </Button>
           )}
           {!overviewFirst && !studioLayout && (
@@ -368,7 +376,7 @@ export function SurveyQuestionEditor({
               aria-expanded={preview}
               onClick={() => setPreview(!preview)}
             >
-              {preview ? "收起实时预览" : "展开实时预览"}
+              {preview ? t("survey.design.collapsePreview") : t("survey.design.expandPreview")}
             </Button>
           )}
         </div>
@@ -377,12 +385,12 @@ export function SurveyQuestionEditor({
         data-testid={studioLayout ? "survey-designer-grid" : undefined}
         className={`grid min-w-0 gap-4 ${studioLayout && preview ? "lg:h-full lg:min-h-0 lg:flex-1 lg:grid-cols-[16rem_minmax(0,1fr)_18rem] lg:overflow-hidden xl:grid-cols-[16rem_minmax(0,1fr)_20rem]" : preview ? "xl:grid-cols-[16rem_minmax(0,1fr)_minmax(0,1fr)]" : "lg:grid-cols-[16rem_minmax(0,1fr)]"}`}
       >
-        <ResponsiveDesignerPanel title="题目大纲" enabled={studioLayout} disabled={disabled}>
-        <aside data-testid={studioLayout ? "survey-designer-outline" : undefined} aria-label="题目大纲" className="min-w-0 space-y-5 rounded-lg border border-border bg-card p-4 lg:h-full lg:overflow-y-auto">
-          {studioLayout && !locked && <section aria-label="题型工具箱" className="space-y-3">
-            <div className="flex items-start justify-between gap-2"><h2 className="text-14 font-semibold">题型工具箱</h2><Button type="button" size="sm" variant="ghost" onClick={() => add("short")}>新增题目</Button></div>
+        <ResponsiveDesignerPanel title={t("survey.design.outline")} enabled={studioLayout} disabled={disabled}>
+        <aside data-testid={studioLayout ? "survey-designer-outline" : undefined} aria-label={t("survey.design.outline")} className="min-w-0 space-y-5 rounded-lg border border-border bg-card p-4 lg:h-full lg:overflow-y-auto">
+          {studioLayout && !locked && <section aria-label={t("survey.design.toolbox")} className="space-y-3">
+            <div className="flex items-start justify-between gap-2"><h2 className="text-14 font-semibold">{t("survey.design.toolbox")}</h2><Button type="button" size="sm" variant="ghost" onClick={() => add("short")}>{t("survey.design.addQuestion")}</Button></div>
             {Array.from(new Set(SURVEY_QUESTION_TYPES.map(item => item.category))).map(group => <div key={group}>
-              <h3 className="mb-2 text-12 font-medium text-muted-foreground">{group}</h3>
+              <h3 className="mb-2 text-12 font-medium text-muted-foreground">{t(categoryKeys[group]!)}</h3>
               <div className="grid grid-cols-2 gap-2">
                 {SURVEY_QUESTION_TYPES.filter(item => item.category === group).map(item => {
                   const Icon = questionTypeIcons[item.type] ?? FileText;
@@ -393,21 +401,21 @@ export function SurveyQuestionEditor({
                     onDragEnd={() => setDraggingType(null)}
                     onClick={() => add(item.type)}
                     className="flex min-h-9 cursor-grab items-center gap-2 rounded-md bg-muted px-3 py-2 text-left text-12 font-medium transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing"
-                  ><Icon aria-hidden="true" className="h-5 w-5" />{item.label}</button>;
+                  ><Icon aria-hidden="true" className="h-5 w-5" />{typeLabel(item.type)}</button>;
                 })}
               </div>
             </div>)}
           </section>}
-          <h2 className="text-14 font-semibold">题目大纲</h2>
-          <p className="text-12 text-muted-foreground">题目目录 · {questions.length}</p>
-          <Input type="search" aria-label="搜索题目" placeholder="搜索题目或章节" value={outlineSearch} onChange={(event) => setOutlineSearch(event.target.value)} />
+          <h2 className="text-14 font-semibold">{t("survey.design.outline")}</h2>
+          <p className="text-12 text-muted-foreground">{t("survey.design.outlineCount", { count: questions.length })}</p>
+          <Input type="search" aria-label={t("survey.design.searchQuestions")} placeholder={t("survey.design.searchQuestionsHint")} value={outlineSearch} onChange={(event) => setOutlineSearch(event.target.value)} />
           <ol className="space-y-1">
             {outlineQuestions.map((q) => {
               const questionIndex = questions.findIndex((item) => item.id === q.id);
               return <li key={q.id} className="flex items-center gap-1">
                 <button
                   type="button"
-                  aria-label={`选择题目 ${q.order}：${q.title || "未命名题目"}`}
+                  aria-label={t("survey.design.selectQuestion", { index: q.order, title: q.title || t("survey.design.untitledQuestion") })}
                   aria-current={q.id === question?.id ? "true" : undefined}
                   onClick={() => {
                     setId(q.id);
@@ -415,12 +423,12 @@ export function SurveyQuestionEditor({
                   }}
                   className={`min-w-0 flex-1 break-words rounded-md p-3 text-left text-12 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${q.id === question?.id ? "bg-accent" : "hover:bg-muted"}`}
                 >
-                  {q.type === "page_break" ? "分节 · " : `${q.order}. `}
-                  {q.title || "未命名题目"}
+                  {q.type === "page_break" ? t("survey.design.sectionPrefix") : `${q.order}. `}
+                  {q.title || t("survey.design.untitledQuestion")}
                 </button>
                 {studioLayout && !locked && <div className="flex shrink-0">
-                  <Button type="button" size="xs" variant="ghost" aria-label={`上移题目：${q.title || "未命名题目"}`} disabled={questionIndex === 0} onClick={() => { change(moveItem(questions, questionIndex, -1)); setId(q.id); }}><ArrowUp aria-hidden="true" className="h-3.5 w-3.5" /></Button>
-                  <Button type="button" size="xs" variant="ghost" aria-label={`下移题目：${q.title || "未命名题目"}`} disabled={questionIndex === questions.length - 1} onClick={() => { change(moveItem(questions, questionIndex, 1)); setId(q.id); }}><ArrowDown aria-hidden="true" className="h-3.5 w-3.5" /></Button>
+                  <Button type="button" size="xs" variant="ghost" aria-label={t("survey.design.moveQuestionUp", { title: q.title || t("survey.design.untitledQuestion") })} disabled={questionIndex === 0} onClick={() => { change(moveItem(questions, questionIndex, -1)); setId(q.id); }}><ArrowUp aria-hidden="true" className="h-3.5 w-3.5" /></Button>
+                  <Button type="button" size="xs" variant="ghost" aria-label={t("survey.design.moveQuestionDown", { title: q.title || t("survey.design.untitledQuestion") })} disabled={questionIndex === questions.length - 1} onClick={() => { change(moveItem(questions, questionIndex, 1)); setId(q.id); }}><ArrowDown aria-hidden="true" className="h-3.5 w-3.5" /></Button>
                 </div>}
               </li>;
             })}
@@ -428,20 +436,20 @@ export function SurveyQuestionEditor({
           {!locked && !studioLayout && (
             <div className="mt-4 flex flex-wrap gap-2">
               <Button type="button" onClick={() => setPicking(!picking)}>
-                新增题目
+                {t("survey.design.addQuestion")}
               </Button>
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => add("page_break")}
               >
-                添加分节
+                {t("survey.design.addSection")}
               </Button>
             </div>
           )}
           {deleted && !locked && (
             <div role="status" className="mt-4 space-y-2 text-12">
-              已删除“{deleted.question.title}”。
+              {t("survey.design.deletedQuestion", { title: deleted.question.title })}
               <Button
                 type="button"
                 variant="outline"
@@ -453,27 +461,27 @@ export function SurveyQuestionEditor({
                   setDeleted(undefined);
                 }}
               >
-                撤销删除
+                {t("survey.design.undoDelete")}
               </Button>
             </div>
           )}
         </aside>
         </ResponsiveDesignerPanel>
-        <ResponsiveDesignerPanel title="题目设置" enabled={studioLayout} disabled={disabled}>
-        <section data-testid={studioLayout ? "survey-designer-settings" : undefined} aria-label="题目设置" className={`min-w-0 space-y-4 ${studioLayout && preview ? 'lg:order-3 lg:h-full lg:overflow-y-auto' : ''}`}>
+        <ResponsiveDesignerPanel title={t("survey.design.settings")} enabled={studioLayout} disabled={disabled}>
+        <section data-testid={studioLayout ? "survey-designer-settings" : undefined} aria-label={t("survey.design.settings")} className={`min-w-0 space-y-4 ${studioLayout && preview ? 'lg:order-3 lg:h-full lg:overflow-y-auto' : ''}`}>
           {locked && (
             <p className="rounded-md bg-muted p-3 text-12">
-              已发布的题目已锁定，以保证答卷与题目一致。仍可调整报告模板。
+              {t("survey.design.publishedLocked")}
             </p>
           )}
           {picking && !locked && !studioLayout && (
             <div
               className="space-y-3 rounded-lg border border-border p-4"
-              aria-label="题型选择器"
+              aria-label={t("survey.design.typePicker")}
             >
               <Input
-                aria-label="搜索题型"
-                placeholder="搜索题型或用途"
+                aria-label={t("survey.design.searchTypes")}
+                placeholder={t("survey.design.searchTypesHint")}
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
               />
@@ -492,7 +500,7 @@ export function SurveyQuestionEditor({
                     aria-pressed={category === item}
                     onClick={() => setCategory(item)}
                   >
-                    {item}
+                    {t(categoryKeys[item]!)}
                   </Button>
                 ))}
               </div>
@@ -500,7 +508,7 @@ export function SurveyQuestionEditor({
                 {SURVEY_QUESTION_TYPES.filter(
                   (item) =>
                     (category === "全部" || item.category === category) &&
-                    `${item.label} ${item.description}`
+                    `${item.label} ${item.description} ${translate("en", `survey.design.type.${item.type}.label`)} ${translate("en", `survey.design.type.${item.type}.description`)}`
                       .toLowerCase()
                       .includes(search.toLowerCase()),
                 ).map((item) => (
@@ -512,10 +520,10 @@ export function SurveyQuestionEditor({
                     className="rounded-md border border-border p-3 text-left transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <span className="block text-13 font-medium">
-                      {item.label}
+                      {typeLabel(item.type)}
                     </span>
                     <span className="text-12 text-muted-foreground">
-                      {item.description}
+                      {typeDescription(item.type)}
                     </span>
                   </button>
                 ))}
@@ -529,14 +537,14 @@ export function SurveyQuestionEditor({
             >
               {question.provenance && (
                 <p data-testid="question-provenance" className="text-12 text-muted-foreground">
-                  {question.provenance.source === "question-library" ? "题库来源" : question.provenance.source === "template" ? "模板来源" : "手动创建"}
-                  {" · 题库认证："}{question.provenance.certifiedAt ? "已认证" : "待认证"}
+                  {question.provenance.source === "question-library" ? t("survey.design.sourceLibrary") : question.provenance.source === "template" ? t("survey.design.sourceTemplate") : t("survey.design.sourceManual")}
+                  {t("survey.design.certification")}{question.provenance.certifiedAt ? t("survey.design.certified") : t("survey.design.uncertified")}
                 </p>
               )}
               {!studioLayout && <label className="block text-12">
-                问题内容
+                {t("survey.design.content")}
                 <Textarea
-                  aria-label="问题内容"
+                  aria-label={t("survey.design.content")}
                   value={question.title}
                   onChange={(event) =>
                     update({ ...question, title: event.target.value })
@@ -545,9 +553,9 @@ export function SurveyQuestionEditor({
               </label>}
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="text-12">
-                  题型
+                  {t("survey.design.questionType")}
                   <select
-                    aria-label="题型"
+                    aria-label={t("survey.design.questionType")}
                     className="mt-1 w-full rounded-md border border-border bg-background p-2"
                     value={question.type}
                     onChange={(event) => {
@@ -557,7 +565,7 @@ export function SurveyQuestionEditor({
                   >
                     {SURVEY_QUESTION_TYPES.map((item) => (
                       <option key={item.type} value={item.type}>
-                        {item.label}
+                        {typeLabel(item.type)}
                       </option>
                     ))}
                   </select>
@@ -573,13 +581,13 @@ export function SurveyQuestionEditor({
                       update({ ...question, required: event.target.checked })
                     }
                   />
-                  必答
+                  {t("survey.design.required")}
                 </label>
               </div>
               <label className="block text-12">
-                所属章节
+                {t("survey.design.chapter")}
                 <Input
-                  aria-label="所属章节"
+                  aria-label={t("survey.design.chapter")}
                   value={question.chapterId}
                   onChange={(event) =>
                     update({ ...question, chapterId: event.target.value })
@@ -589,19 +597,11 @@ export function SurveyQuestionEditor({
               {pendingType && (
                 <div
                   role="alertdialog"
-                  aria-label="确认切换题型"
+                  aria-label={t("survey.design.confirmTypeTitle")}
                   className="space-y-3 rounded-md border border-border bg-muted p-4"
                 >
                   <p className="text-13">
-                    切换到
-                    {
-                      SURVEY_QUESTION_TYPES.find(
-                        (item) => item.type === pendingType,
-                      )?.label
-                    }
-                    将重置 {question.options.length} 个选项、
-                    {question.config?.rows?.length ?? 0}{" "}
-                    个矩阵行以及高级规则。保留题干、说明和章节。
+                    {t("survey.design.confirmTypeHint", { type: typeLabel(pendingType), options: question.options.length, rows: question.config?.rows?.length ?? 0 })}
                   </p>
                   <div className="flex gap-2">
                     <Button
@@ -609,13 +609,13 @@ export function SurveyQuestionEditor({
                       variant="outline"
                       onClick={() => setPendingType(undefined)}
                     >
-                      取消切换
+                      {t("survey.design.cancelType")}
                     </Button>
                     <Button
                       type="button"
                       onClick={() => changeType(pendingType)}
                     >
-                      确认切换
+                      {t("survey.design.confirmType")}
                     </Button>
                   </div>
                 </div>
@@ -628,9 +628,9 @@ export function SurveyQuestionEditor({
                 mode={studioLayout ? "advanced" : "all"}
               />
               {issues.length > 0 && (
-                <ul className="text-12 text-destructive" aria-label="配置检查">
-                  {issues.map((message) => (
-                    <li key={message}>{message}</li>
+                <ul className="text-12 text-destructive" aria-label={t("survey.design.configCheck")}>
+                  {issues.map((message, issueIndex) => (
+                    <li key={`${issueIndex}:${message}`}>{displaySurveyDiagnostic(message, t)}</li>
                   ))}
                 </ul>
               )}
@@ -641,7 +641,7 @@ export function SurveyQuestionEditor({
                   disabled={index === 0}
                   onClick={() => change(moveItem(questions, index, -1))}
                 >
-                  上移
+                  {t("survey.design.moveUp")}
                 </Button>
                 <Button
                   type="button"
@@ -649,7 +649,7 @@ export function SurveyQuestionEditor({
                   disabled={index === questions.length - 1}
                   onClick={() => change(moveItem(questions, index, 1))}
                 >
-                  下移
+                  {t("survey.design.moveDown")}
                 </Button>
                 <Button
                   type="button"
@@ -658,7 +658,7 @@ export function SurveyQuestionEditor({
                     const copy = {
                       ...structuredClone(question),
                       id: crypto.randomUUID(),
-                      title: `${question.title}（副本）`,
+                      title: t("survey.design.copyTitle", { title: question.title }),
                       provenance: question.provenance
                         ? { ...question.provenance, certifiedAt: undefined }
                         : undefined,
@@ -669,7 +669,7 @@ export function SurveyQuestionEditor({
                     setId(copy.id);
                   }}
                 >
-                  复制题目
+                  {t("survey.design.copyQuestion")}
                 </Button>
                 <Button
                   type="button"
@@ -680,30 +680,30 @@ export function SurveyQuestionEditor({
                     setId(questions[index + 1]?.id ?? questions[index - 1]?.id);
                   }}
                 >
-                  删除题目
+                  {t("survey.design.deleteQuestion")}
                 </Button>
               </div>
             </fieldset>
           ) : (
             <p className="py-16 text-center text-muted-foreground">
-              添加第一道题目，开始设计问卷。
+              {t("survey.design.emptyDesign")}
             </p>
           )}
         </section>
         </ResponsiveDesignerPanel>
         {preview && !overviewFirst && (
-          <aside data-testid={studioLayout ? "survey-designer-canvas-scroll" : undefined} aria-label="实时预览" className={`min-w-0 space-y-4 bg-muted/30 ${studioLayout ? 'lg:order-2 lg:h-full lg:overflow-y-auto' : 'rounded-lg border border-border bg-card p-4'}`}>
-            <div role="region" aria-label="问卷设计画布" className="space-y-4">
-            {studioLayout && <h2 className="sr-only">问卷设计画布</h2>}
+          <aside data-testid={studioLayout ? "survey-designer-canvas-scroll" : undefined} aria-label={t("survey.design.livePreview")} className={`min-w-0 space-y-4 bg-muted/30 ${studioLayout ? 'lg:order-2 lg:h-full lg:overflow-y-auto' : 'rounded-lg border border-border bg-card p-4'}`}>
+            <div role="region" aria-label={t("survey.design.designCanvas")} className="space-y-4">
+            {studioLayout && <h2 className="sr-only">{t("survey.design.designCanvas")}</h2>}
             <div className="sticky top-0 z-10 flex justify-center gap-2 bg-card p-2">
               <Button type="button" variant={previewDevice === "desktop" ? "secondary" : "ghost"} aria-pressed={previewDevice === "desktop"} onClick={() => setPreviewDevice("desktop")}>
-                桌面预览
+                {t("survey.design.desktop")}
               </Button>
               <Button type="button" variant={previewDevice === "tablet" ? "secondary" : "ghost"} aria-pressed={previewDevice === "tablet"} onClick={() => setPreviewDevice("tablet")}>
-                平板预览
+                {t("survey.design.tablet")}
               </Button>
               <Button type="button" variant={previewDevice === "mobile" ? "secondary" : "ghost"} aria-pressed={previewDevice === "mobile"} onClick={() => setPreviewDevice("mobile")}>
-                手机预览
+                {t("survey.design.mobile")}
               </Button>
             </div>
             <div
@@ -722,27 +722,27 @@ export function SurveyQuestionEditor({
               }}
               className={`mx-auto space-y-2 bg-card py-6 shadow-sm ${draggingType ? "ring-2 ring-ring" : ""} ${previewDevice === "mobile" ? "max-w-sm" : previewDevice === "tablet" ? "max-w-2xl" : "w-full max-w-4xl"}`}
             >
-              {studioLayout && <section aria-label="问卷封面" className="px-6 py-8 text-center">
-                <h2 className="text-24 font-semibold tracking-tight">{surveyTitle || "未命名问卷"}</h2>
+              {studioLayout && <section aria-label={t("survey.design.cover")} className="px-6 py-8 text-center">
+                <h2 className="text-24 font-semibold tracking-tight">{surveyTitle || t("survey.design.untitledSurvey")}</h2>
               </section>}
               {(studioLayout ? questions : visibleSurveyQuestions(questions, answers)).map((q, questionIndex) => (
                 <React.Fragment key={`${q.id}-${q.type}`}>
                   {studioLayout && (questionIndex === 0 || questions[questionIndex - 1]?.chapterId !== q.chapterId) &&
                     <div className="mx-6 flex items-center justify-between gap-3 border-b border-border px-2 py-3">
-                      <h3 className="text-16 font-semibold">{q.chapterId || "未分组"}</h3>
+                      <h3 className="text-16 font-semibold">{q.chapterId || t("survey.design.ungrouped")}</h3>
                       <span className="shrink-0 text-11 text-muted-foreground">
-                        {questions.filter((item) => item.chapterId === q.chapterId).length} 题
+                        {t("survey.design.chapterCount", { count: questions.filter((item) => item.chapterId === q.chapterId).length })}
                       </span>
                     </div>}
                   <section onClick={studioLayout ? () => { setId(q.id); setPendingType(undefined); } : undefined} className={studioLayout ? `group border px-4 py-5 transition-colors sm:px-8 ${q.id === question?.id ? "border-ring" : "border-transparent hover:border-border"}` : ""}>
                     {studioLayout && <div className="mb-2 flex items-start gap-2">
                       <span aria-hidden="true" className="min-w-4 shrink-0 pt-2 text-destructive">{q.required ? "*" : ""}</span>
                       <span className="shrink-0 whitespace-nowrap pt-2 text-16 font-semibold tabular-nums">{String(questionIndex + 1).padStart(2, "0")}</span>
-                      <InlineQuestionText key={`${q.id}-title`} label="问题内容" editLabel={`编辑第 ${questionIndex + 1} 题：${q.title || "未命名题目"}`} multiline disabled={locked || disabled}
+                      <InlineQuestionText key={`${q.id}-title`} label={t("survey.design.content")} editLabel={t("survey.design.editQuestionTitle", { index: questionIndex + 1, title: q.title || t("survey.design.untitledQuestion") })} multiline disabled={locked || disabled}
                         className="min-w-0 flex-1 text-16 font-medium" value={q.title} onSelect={() => { setId(q.id); setPendingType(undefined); }} onChange={(title) => update({ ...q, title })} />
                     </div>}
                     {studioLayout && ["single", "multi", "dropdown"].includes(q.type) ? (
-                      <fieldset disabled={locked || disabled} className="pl-10 text-13" aria-label={`编辑第 ${questionIndex + 1} 题`}>
+                      <fieldset disabled={locked || disabled} className="pl-10 text-13" aria-label={t("survey.design.editQuestion", { index: questionIndex + 1 })}>
                         <SurveyQuestionSettings
                           key={`${q.id}-inline-content`}
                           question={q}
@@ -754,7 +754,7 @@ export function SurveyQuestionEditor({
                       </fieldset>
                     ) : (
                       <div className={studioLayout ? "space-y-3 pl-10" : ""}>
-                      {studioLayout && <InlineQuestionText key={`${q.id}-description`} label="题目说明" placeholder="添加题目说明" multiline disabled={locked || disabled}
+                      {studioLayout && <InlineQuestionText key={`${q.id}-description`} label={t("survey.design.description")} placeholder={t("survey.design.addDescription")} multiline disabled={locked || disabled}
                         className="text-13 text-muted-foreground" value={q.config?.description ?? ""} onChange={(description) => update({ ...q, config: { ...q.config, description } })} />}
                       <SurveyQuestionRenderer
                         question={q}
@@ -763,17 +763,17 @@ export function SurveyQuestionEditor({
                         value={answers[q.id]}
                         onChange={(value) => setAnswers((current) => ({ ...current, [q.id]: value }))}
                       />
-                      {studioLayout && q.id === question?.id && !locked && <details className="text-12 text-muted-foreground"><summary className="cursor-pointer py-2">编辑题目内容</summary>
+                      {studioLayout && q.id === question?.id && !locked && <details className="text-12 text-muted-foreground"><summary className="cursor-pointer py-2">{t("survey.design.editContent")}</summary>
                         <SurveyQuestionSettings question={q} questions={questions} onChange={update} mode="content" inline showDescription={false} />
                       </details>}
                       </div>
                     )}
-                    {studioLayout && !locked && <div aria-label={`第 ${questionIndex + 1} 题操作`} className={`mt-3 flex justify-end gap-1 ${q.id === question?.id ? "" : "invisible group-hover:visible group-focus-within:visible"}`}>
-                      <Button type="button" size="icon" variant="ghost" aria-label={`在第 ${questionIndex + 1} 题后添加题目`} disabled={disabled} onClick={(event) => { event.stopPropagation(); const next = createSurveyQuestion("short", crypto.randomUUID(), questionIndex + 2); next.chapterId = q.chapterId; const all = [...questions]; all.splice(questionIndex + 1, 0, next); change(all); setId(next.id); }}><Plus className="size-4" /></Button>
-                      <Button type="button" size="icon" variant="ghost" aria-label={`复制第 ${questionIndex + 1} 题`} disabled={disabled} onClick={(event) => { event.stopPropagation(); const copy = { ...structuredClone(q), id: crypto.randomUUID(), provenance: q.provenance ? { ...q.provenance, certifiedAt: undefined } : undefined }; const all = [...questions]; all.splice(questionIndex + 1, 0, copy); change(all); setId(copy.id); }}><Copy className="size-4" /></Button>
-                      <Button type="button" size="icon" variant="ghost" aria-label={`上移第 ${questionIndex + 1} 题`} disabled={disabled || questionIndex === 0} onClick={(event) => { event.stopPropagation(); change(moveItem(questions, questionIndex, -1)); setId(q.id); }}><ArrowUp className="size-4" /></Button>
-                      <Button type="button" size="icon" variant="ghost" aria-label={`下移第 ${questionIndex + 1} 题`} disabled={disabled || questionIndex === questions.length - 1} onClick={(event) => { event.stopPropagation(); change(moveItem(questions, questionIndex, 1)); setId(q.id); }}><ArrowDown className="size-4" /></Button>
-                      <Button type="button" size="icon" variant="ghost" aria-label={`删除第 ${questionIndex + 1} 题`} disabled={disabled} onClick={(event) => { event.stopPropagation(); setDeleted({ question: q, index: questionIndex }); change(questions.filter((item) => item.id !== q.id)); setId(questions[questionIndex + 1]?.id ?? questions[questionIndex - 1]?.id); }}><Trash2 className="size-4" /></Button>
+                    {studioLayout && !locked && <div aria-label={t("survey.design.questionActions", { index: questionIndex + 1 })} className={`mt-3 flex justify-end gap-1 ${q.id === question?.id ? "" : "invisible group-hover:visible group-focus-within:visible"}`}>
+                      <Button type="button" size="icon" variant="ghost" aria-label={t("survey.design.addAfter", { index: questionIndex + 1 })} disabled={disabled} onClick={(event) => { event.stopPropagation(); const next = createQuestion("short", crypto.randomUUID(), questionIndex + 2); next.chapterId = q.chapterId; const all = [...questions]; all.splice(questionIndex + 1, 0, next); change(all); setId(next.id); }}><Plus className="size-4" /></Button>
+                      <Button type="button" size="icon" variant="ghost" aria-label={t("survey.design.copyOrdinal", { index: questionIndex + 1 })} disabled={disabled} onClick={(event) => { event.stopPropagation(); const copy = { ...structuredClone(q), id: crypto.randomUUID(), provenance: q.provenance ? { ...q.provenance, certifiedAt: undefined } : undefined }; const all = [...questions]; all.splice(questionIndex + 1, 0, copy); change(all); setId(copy.id); }}><Copy className="size-4" /></Button>
+                      <Button type="button" size="icon" variant="ghost" aria-label={t("survey.design.moveUpOrdinal", { index: questionIndex + 1 })} disabled={disabled || questionIndex === 0} onClick={(event) => { event.stopPropagation(); change(moveItem(questions, questionIndex, -1)); setId(q.id); }}><ArrowUp className="size-4" /></Button>
+                      <Button type="button" size="icon" variant="ghost" aria-label={t("survey.design.moveDownOrdinal", { index: questionIndex + 1 })} disabled={disabled || questionIndex === questions.length - 1} onClick={(event) => { event.stopPropagation(); change(moveItem(questions, questionIndex, 1)); setId(q.id); }}><ArrowDown className="size-4" /></Button>
+                      <Button type="button" size="icon" variant="ghost" aria-label={t("survey.design.deleteOrdinal", { index: questionIndex + 1 })} disabled={disabled} onClick={(event) => { event.stopPropagation(); setDeleted({ question: q, index: questionIndex }); change(questions.filter((item) => item.id !== q.id)); setId(questions[questionIndex + 1]?.id ?? questions[questionIndex - 1]?.id); }}><Trash2 className="size-4" /></Button>
                     </div>}
                   </section>
                 </React.Fragment>

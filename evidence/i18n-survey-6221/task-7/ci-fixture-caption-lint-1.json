@@ -1,0 +1,23 @@
+{
+  "name": "ci-fixture-caption-lint-1",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "eslint",
+    "components/survey/live/question-material.tsx",
+    "lib/i18n/namespaces/survey-design.ts",
+    "tests/ui/survey-question-controls-i18n.test.tsx",
+    "e2e/i18n-survey-journey.spec.ts"
+  ],
+  "source": "72b0dd34a7e1e03338c43635743dc4fc50d1cb79",
+  "exitCode": 0,
+  "seconds": 2.191,
+  "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "sourceAfter": "72b0dd34a7e1e03338c43635743dc4fc50d1cb79",
+  "sourceStable": true,
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  }
+}

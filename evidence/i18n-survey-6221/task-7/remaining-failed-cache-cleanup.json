@@ -1,0 +1,12 @@
+{
+  "source": "d83f8bf3b93c0fb8c7035d9bca78c7ed732675a1",
+  "checkedAt": "2026-11-04T21:08:51.511699+00:00",
+  "removedOnly": "apps/web/.next-fullstack-e2e/cache",
+  "ownInactiveRegenerableFailedBuildCache": true,
+  "successfulBuildIdPresent": false,
+  "cacheAllocatedBytesBefore": 2469339136,
+  "observedFreeBytesBefore": 5352091648,
+  "observedFreeBytesAfter": 7821864960,
+  "allGlobalDiskChangesNotAttributedToThisCleanup": true,
+  "sourceRawEvidenceStashesPreserved": true
+}

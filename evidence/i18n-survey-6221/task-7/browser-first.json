@@ -1,0 +1,43 @@
+{
+  "name": "browser-first",
+  "command": [
+    "pnpm",
+    "exec",
+    "tsx",
+    ".harness/scripts/with-test-isolation.ts",
+    "--",
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "playwright",
+    "test",
+    "--config",
+    "playwright.fullstack-smoke.config.ts",
+    "--project=seeded",
+    "e2e/i18n-survey-journey.spec.ts",
+    "--workers=1",
+    "--retries=0",
+    "--max-failures=1"
+  ],
+  "source": "9a419be34b0a74907d264a04bba0b09eb313b3a9",
+  "exitCode": 1,
+  "seconds": 611.338,
+  "rawLogSha256": "8e0dd0126ba6ecf79ad8757f97635886615a0609102b164ab5619c1cd5ae0deb",
+  "sourceAfter": "9a419be34b0a74907d264a04bba0b09eb313b3a9",
+  "sourceStable": true,
+  "environment": {},
+  "passed": 0,
+  "failed": 1,
+  "notRun": 2,
+  "flaky": 0,
+  "caseTimeoutMs": 180000,
+  "nativeCaseDurationText": "3.0m",
+  "classification": "DRIVER FAILURE: fresh draft sent actual POST publish201, but the listener awaited start-collection. UI collecting observed. Anonymous/PG/report and the next two cases remain unverified.",
+  "actualPublicationAction": {
+    "method": "POST",
+    "action": "publish",
+    "status": 201
+  },
+  "scope": "Actual failing canonical single-attempt run; not product/missing-English RED and not flaky. No case/service budget is increased. Raw traces and original screenshots remain private."
+}

@@ -1,0 +1,14 @@
+{
+  "name": "wiring-b992",
+  "command": [
+    "node",
+    ".harness/scripts/lint-ui-wiring.mjs"
+  ],
+  "source": "080bbba0ee858525f57fedefe42fa68ea938d91b",
+  "exitCode": 0,
+  "seconds": 3.293,
+  "rawLogSha256": "29bff80ec95d02c24d0688eec5bdc99085109e4b51ffec7a6aa06005aacedf78",
+  "sourceAfter": "080bbba0ee858525f57fedefe42fa68ea938d91b",
+  "sourceStable": true,
+  "environment": {}
+}

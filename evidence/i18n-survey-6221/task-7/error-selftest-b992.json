@@ -1,0 +1,26 @@
+{
+  "name": "error-selftest-b992",
+  "command": [
+    "pnpm",
+    "exec",
+    "vitest",
+    "run",
+    "--config",
+    ".harness/vitest.config.ts",
+    "--dir",
+    ".harness",
+    ".harness/scripts/lint-user-facing-error-text.test.ts",
+    "--maxWorkers=1"
+  ],
+  "source": "080bbba0ee858525f57fedefe42fa68ea938d91b",
+  "exitCode": 0,
+  "seconds": 4.405,
+  "rawLogSha256": "b269592ca4eeb981d7ba20bdeec40d946b90240ac2c95d49ebb874d98d2e1def",
+  "sourceAfter": "080bbba0ee858525f57fedefe42fa68ea938d91b",
+  "sourceStable": true,
+  "environment": {},
+  "testFiles": 1,
+  "passed": 4,
+  "preExistingCopyFilesCollected": 0,
+  "scope": "Official --dir .harness restricts discovery to the current canonical four strict cases."
+}

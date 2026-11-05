@@ -1,0 +1,16 @@
+{
+  "name": "web-type-b992",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "typecheck"
+  ],
+  "source": "080bbba0ee858525f57fedefe42fa68ea938d91b",
+  "exitCode": 0,
+  "seconds": 67.675,
+  "rawLogSha256": "cd5788cc155241ad0932956ca7dd287ae173e2f213993b615bdafdcb93bc7ce4",
+  "sourceAfter": "080bbba0ee858525f57fedefe42fa68ea938d91b",
+  "sourceStable": true,
+  "environment": {}
+}

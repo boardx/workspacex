@@ -1,0 +1,20 @@
+{
+  "worker": "7a35864b274146a804c24c57d9221e022f43e210",
+  "upstream": "b992054dd498530092d09a1fa559f0b12a33406b",
+  "merged": "080bbba0ee858525f57fedefe42fa68ea938d91b",
+  "base": "ddf28f7e91e5c65bb7f63d1a9bf2c3b82f2f11df",
+  "acceptedPullRequest": 6234,
+  "actualMergedAt": "2026-11-04T14:35:23Z",
+  "classification": {
+    "workerExclusive": 174,
+    "upstreamExclusive": 87,
+    "common": 23925
+  },
+  "overlap": [
+    "apps/web/lib/i18n/messages/en.ts",
+    "apps/web/lib/i18n/messages/zh-CN.ts",
+    "apps/web/playwright.fullstack-smoke.config.ts"
+  ],
+  "allOtherModeBlobsExact": true,
+  "scope": "Actual accepted parent normal merge; all non-overlap modes/blobs retained exactly. Registry and config unions checked separately; current shared-resource/type/browser gates remain separate."
+}

@@ -1,5 +1,12 @@
 import { telemetrySettingsEn } from "../namespaces/telemetry-settings";
 import { platformMembersEn } from "../namespaces/platform-members";
+import { surveyTemplatesEn } from "../namespaces/survey-templates";
+import { surveyResultsEn } from "../namespaces/survey-results";
+import { surveyPublicEn } from "../namespaces/survey-public";
+import { surveyWorkspaceEn } from "../namespaces/survey-workspace";
+import { surveyRuntimeErrorsEn } from "../namespaces/survey-runtime-errors";
+import { surveyDesignEn } from "../namespaces/survey-design";
+import { surveyLibraryEn } from "../namespaces/survey-library";
 import { aiUsageEn } from "../namespaces/ai-usage";
 import { adminLimitPolicyEn } from "../namespaces/admin-limit-policy";
 import { adminMemberQuotasEn } from "../namespaces/admin-member-quotas";
@@ -30,6 +37,13 @@ import { invitationEntryEn } from "../namespaces/invitation-entry";
 export const en: Record<keyof typeof zhCN, string> = {
   ...telemetrySettingsEn,
   ...platformMembersEn,
+  ...surveyTemplatesEn,
+  ...surveyResultsEn,
+  ...surveyPublicEn,
+  ...surveyWorkspaceEn,
+  ...surveyRuntimeErrorsEn,
+  ...surveyLibraryEn,
+  ...surveyDesignEn,
   ...aiUsageEn,
   ...adminLimitPolicyEn,
   ...adminMemberQuotasEn,

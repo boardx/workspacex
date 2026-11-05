@@ -1,0 +1,28 @@
+{
+  "name": "green-visual-affected",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/survey-workspace-i18n.test.tsx",
+    "tests/ui/survey-template-i18n.test.tsx",
+    "tests/ui/survey-results-i18n.test.tsx",
+    "tests/ui/survey-report-editor-i18n.test.tsx",
+    "tests/lib/i18n-resources.test.ts"
+  ],
+  "source": "ee9b845a1090082251563c48a2791d1034ff7cb7",
+  "exitCode": 0,
+  "seconds": 22.386,
+  "rawLogSha256": "d74a5e66670d5a2deec0412d96d3013cdf3af435d205411bf4e5a68c50102551",
+  "sourceAfter": "ee9b845a1090082251563c48a2791d1034ff7cb7",
+  "sourceStable": true,
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "testFiles": 5,
+  "passed": 90,
+  "nativeSeconds": 20.91
+}

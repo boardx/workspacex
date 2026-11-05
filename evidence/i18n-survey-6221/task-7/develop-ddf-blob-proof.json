@@ -1,0 +1,19 @@
+{
+  "worker": "03040d25e82b3c1fc45ffd81f99ce9ed87bd90f2",
+  "upstream": "ddf28f7e91e5c65bb7f63d1a9bf2c3b82f2f11df",
+  "merged": "c2f8bd40bbf10f570ed9f66236fcc8ae45cb8c1c",
+  "base": "4b3263aa8649b8130e427bc34a9b4bade4f2e70d",
+  "workerExclusivePaths": 138,
+  "upstreamExclusivePaths": 6,
+  "overlap": [],
+  "allResultModesAndBlobsExact": true,
+  "upstreamPaths": [
+    ".agents/skills/mod-agent-skill-runtime/SKILL.md",
+    "apps/deep-agent-service/src/deep_agent_service/model.py",
+    "apps/deep-agent-service/tests/test_model_stream_usage.py",
+    "docs/evidence/native-stream-usage-6230/README.md",
+    "docs/evidence/native-stream-usage-6230/green.txt",
+    "docs/evidence/native-stream-usage-6230/red.txt"
+  ],
+  "scope": "Normal merge of actually merged PR6231; tree/mode/blob union, not a runtime/browser verdict."
+}

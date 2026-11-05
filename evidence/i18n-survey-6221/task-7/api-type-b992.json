@@ -1,0 +1,16 @@
+{
+  "name": "api-type-b992",
+  "command": [
+    "pnpm",
+    "--filter",
+    "@repo/api",
+    "typecheck"
+  ],
+  "source": "080bbba0ee858525f57fedefe42fa68ea938d91b",
+  "exitCode": 0,
+  "seconds": 75.012,
+  "rawLogSha256": "c85dd5417e6c07523da56cbe1648802ed8f3a8e14ba018603dd453cb69188f89",
+  "sourceAfter": "080bbba0ee858525f57fedefe42fa68ea938d91b",
+  "sourceStable": true,
+  "environment": {}
+}

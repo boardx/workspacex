@@ -1,5 +1,11 @@
 import type { survey } from "@repo/contracts";
 
+export const SURVEY_SAMPLE_NOTICE_COPY = {
+  descriptive: { label: "低样本说明", text: "当前仅纳入 {count} 份答卷，仅展示描述性结果，不代表目标人群，也不形成行动结论。建议先补充样本并核对原始反馈。" },
+  exploratory: { label: "探索性样本说明", text: "当前纳入 {count} 份答卷，结果适合作为探索性线索，置信度有限，不宜直接外推至全部目标人群。建议结合补充样本或访谈继续验证。" },
+} as const;
+export const SURVEY_INSIGHT_ACTION_LABELS = { exploratory: "建议验证：", sufficient: "建议行动：" } as const;
+
 export type SurveySampleTier = "descriptive" | "exploratory" | "sufficient";
 
 export function surveySampleTier(sampleSize: number | undefined): SurveySampleTier {
@@ -13,13 +19,13 @@ export function surveySampleNotice(sampleSize: number | undefined) {
   const tier = surveySampleTier(sampleSize);
   if (tier === "descriptive") return {
     tier,
-    label: "低样本说明",
-    text: `当前仅纳入 ${sampleSize} 份答卷，仅展示描述性结果，不代表目标人群，也不形成行动结论。建议先补充样本并核对原始反馈。`,
+    label: SURVEY_SAMPLE_NOTICE_COPY.descriptive.label,
+    text: SURVEY_SAMPLE_NOTICE_COPY.descriptive.text.replace("{count}", String(sampleSize)),
   };
   if (tier === "exploratory") return {
     tier,
-    label: "探索性样本说明",
-    text: `当前纳入 ${sampleSize} 份答卷，结果适合作为探索性线索，置信度有限，不宜直接外推至全部目标人群。建议结合补充样本或访谈继续验证。`,
+    label: SURVEY_SAMPLE_NOTICE_COPY.exploratory.label,
+    text: SURVEY_SAMPLE_NOTICE_COPY.exploratory.text.replace("{count}", String(sampleSize)),
   };
   return null;
 }
@@ -55,5 +61,5 @@ export function surveyInsightAction(
 ) {
   const tier = surveySampleTier(surveyInsightSampleSize(report, section, insight));
   if (tier === "descriptive") return null;
-  return { label: tier === "exploratory" ? "建议验证：" : "建议行动：", text: insight.action };
+  return { label: tier === "exploratory" ? SURVEY_INSIGHT_ACTION_LABELS.exploratory : SURVEY_INSIGHT_ACTION_LABELS.sufficient, text: insight.action };
 }

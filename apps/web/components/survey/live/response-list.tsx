@@ -1,4 +1,7 @@
 "use client";
+import { displaySurveyRuntimeError } from "@/lib/survey/display-runtime-error";
+import { surveyRuntimeMessages } from "@/lib/survey/runtime-error-copy";
+import { useI18n } from "@/lib/i18n/provider";
 import * as React from "react";
 import { formatSurveyAnswer, isSurveyPageElement } from "@repo/contracts/survey";
 import type { survey } from "@repo/contracts";
@@ -48,7 +51,8 @@ export function LiveResponseList({
   onAnalysis?: (id: string, analysis: "included" | "excluded", reason?: string) => void;
   busy: boolean;
 }) {
-  const [downloadError, setDownloadError] = React.useState("");
+  const { t, locale } = useI18n();
+  const [downloadError, setDownloadError] = React.useState<{ responseId: string; error: Error | string } | null>(null);
   const [downloading, setDownloading] = React.useState<string | null>(null);
   const [query, setQuery] = React.useState("");
   const [quality, setQuality] = React.useState("all");
@@ -90,58 +94,56 @@ export function LiveResponseList({
   };
   return (
     <div data-testid="survey-response-review-layout" className="grid items-start gap-5 p-5 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-      <section aria-label="答卷列表" className="min-w-0 space-y-4 rounded-lg border border-border bg-card p-5">
+      <section aria-label={t("survey.results.responseList")} className="min-w-0 space-y-4 rounded-lg border border-border bg-card p-5">
       <div className="flex flex-wrap gap-4">
-        <p className="text-18 font-semibold">{responses.length} 份答卷</p>
+        <p className="text-18 font-semibold">{t("survey.results.responseCount", { count: responses.length })}</p>
       </div>
-      <div aria-label="答卷分类" className="flex flex-wrap gap-2">
-        {([['all', `全部 ${responses.length}`], ['normal', `有效 ${normal}`], ['review', `待复核 ${review}`], ['excluded', `已排除分析 ${excluded}`]] as const).map(([value, label]) =>
+      <div aria-label={t("survey.results.responseGroups")} className="flex flex-wrap gap-2">
+        {([['all', t("survey.results.allCount", { count: responses.length })], ['normal', t("survey.results.validCount", { count: normal })], ['review', t("survey.results.reviewCount", { count: review })], ['excluded', t("survey.results.excludedCount", { count: excluded })]] as const).map(([value, label]) =>
           <Button key={value} size="sm" variant={quality === value ? 'primary' : 'outline'} aria-pressed={quality === value} onClick={() => { setQuality(value); setPage(0); }}>{label}</Button>
         )}
       </div>
       <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
         <Input
-          aria-label="搜索答卷"
-          placeholder="搜索编号或回答关键词"
+          aria-label={t("survey.results.searchResponses")}
+          placeholder={t("survey.results.searchPlaceholder")}
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
             setPage(0);
           }}
         />
-        <Button variant="outline" disabled={busy || exportRows.length === 0} onClick={exportMarkdown}>{selectedIds.length ? "导出所选 Markdown" : "导出 Markdown"}</Button>
+        <Button variant="outline" disabled={busy || exportRows.length === 0} onClick={exportMarkdown}>{selectedIds.length ? t("survey.results.exportSelected") : t("survey.results.exportMarkdown")}</Button>
       </div>
       <div className="overflow-auto">
         <table className="w-full text-left text-12">
           <thead>
             <tr className="border-b border-border">
-              <th className="p-3"><input type="checkbox" aria-label="选择本页答卷" checked={visibleRows.length > 0 && visibleRows.every((response) => selectedIds.includes(response.id))}
+              <th className="p-3"><input type="checkbox" aria-label={t("survey.results.selectPage")} checked={visibleRows.length > 0 && visibleRows.every((response) => selectedIds.includes(response.id))}
                 onChange={(event) => setSelectedIds((current) => event.target.checked
                   ? [...new Set([...current, ...visibleRows.map((response) => response.id)])]
                   : current.filter((id) => !visibleRows.some((response) => response.id === id)))} /></th>
-              <th className="p-3">编号</th>
-              <th>提交时间</th>
-              <th>用时</th>
-              <th>质量</th>
-              <th>操作</th>
+              <th className="p-3">{t("survey.results.id")}</th>
+              <th>{t("survey.results.submittedAt")}</th>
+              <th>{t("survey.results.duration")}</th>
+              <th>{t("survey.results.quality")}</th>
+              <th>{t("survey.results.actions")}</th>
             </tr>
           </thead>
           <tbody>
             {visibleRows.map((r) => (
               <tr key={r.id} className={`border-b border-border ${selected === r.id ? 'bg-muted' : ''}`}>
-                <td className="p-3"><input type="checkbox" aria-label={`选择答卷 ${r.id}`} checked={selectedIds.includes(r.id)} onChange={(event) => setSelectedIds((current) => event.target.checked ? [...new Set([...current, r.id])] : current.filter((id) => id !== r.id))} /></td>
+                <td className="p-3"><input type="checkbox" aria-label={t("survey.results.selectResponse", { id: r.id })} checked={selectedIds.includes(r.id)} onChange={(event) => setSelectedIds((current) => event.target.checked ? [...new Set([...current, r.id])] : current.filter((id) => id !== r.id))} /></td>
                 <td className="p-3">{r.id.slice(0, 12)}</td>
-                <td>{new Date(r.submittedAt).toLocaleString("zh-CN")}</td>
-                <td>{r.durationSeconds} 秒</td>
-                <td>{r.analysis === "excluded" ? "已排除分析" : r.quality === "normal" ? "有效" : "待复核"}</td>
+                <td>{new Date(r.submittedAt).toLocaleString(locale)}</td>
+                <td>{t("survey.results.seconds", { count: r.durationSeconds })}</td>
+                <td>{r.analysis === "excluded" ? t("survey.results.excluded") : r.quality === "normal" ? t("survey.results.valid") : t("survey.results.review")}</td>
                 <td>
                   <Button
                     size="xs"
                     variant="outline"
                     onClick={() => selectResponse(r.id)}
-                  >
-                    查看完整答卷
-                  </Button>
+                  >{t("survey.results.viewResponse")}</Button>
                 </td>
               </tr>
             ))}
@@ -149,20 +151,16 @@ export function LiveResponseList({
         </table>
       </div>
       {filtered.length === 0 && (
-        <p className="py-12 text-center text-muted-foreground">
-          没有符合条件的答卷。
-        </p>
+        <p className="py-12 text-center text-muted-foreground">{t("survey.results.noMatches")}</p>
       )}
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-12 text-muted-foreground">已选择 {selectedIds.length} 项</p>
-        <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-12 text-muted-foreground">{t("survey.results.selectedCount", { count: selectedIds.length })}</p>
+        <div className="flex flex-wrap items-center gap-3">
         <Button
           variant="outline"
           disabled={actualPage === 0}
           onClick={() => setPage(actualPage - 1)}
-        >
-          上一页
-        </Button>
+        >{t("survey.results.previousPage")}</Button>
         <span className="text-12">
           {actualPage + 1} / {pages}
         </span>
@@ -170,26 +168,24 @@ export function LiveResponseList({
           variant="outline"
           disabled={actualPage >= pages - 1}
           onClick={() => setPage(actualPage + 1)}
-        >
-          下一页
-        </Button>
+        >{t("survey.results.nextPage")}</Button>
         </div>
       </div>
       </section>
       {item && (
         <section
-          aria-label="答卷详情"
-          className="rounded-lg border border-border bg-card p-5"
+          aria-label={t("survey.results.responseDetails")}
+          className="min-w-0 break-words rounded-lg border border-border bg-card p-5"
         >
           <div className="flex flex-wrap justify-between gap-2">
-            <h2 className="text-16 font-semibold">答卷详情</h2>
-            <div className="flex gap-2">
-              <Button size="xs" variant="outline" aria-label="上一条答卷" disabled={selectedIndex <= 0} onClick={() => selectResponse(filtered[selectedIndex - 1]!.id)}>上一条</Button>
-              <Button size="xs" variant="outline" aria-label="下一条答卷" disabled={selectedIndex < 0 || selectedIndex >= filtered.length - 1} onClick={() => selectResponse(filtered[selectedIndex + 1]!.id)}>下一条</Button>
+            <h2 className="text-16 font-semibold">{t("survey.results.responseDetails")}</h2>
+            <div className="flex min-w-0 flex-wrap gap-2">
+              <Button size="xs" variant="outline" aria-label={t("survey.results.previousResponse")} disabled={selectedIndex <= 0} onClick={() => selectResponse(filtered[selectedIndex - 1]!.id)}>{t("survey.results.previous")}</Button>
+              <Button size="xs" variant="outline" aria-label={t("survey.results.nextResponse")} disabled={selectedIndex < 0 || selectedIndex >= filtered.length - 1} onClick={() => selectResponse(filtered[selectedIndex + 1]!.id)}>{t("survey.results.next")}</Button>
             </div>
           </div>
           <div className="mt-3 flex flex-wrap justify-end gap-2">
-            <div className="flex gap-2">
+            <div className="flex min-w-0 flex-wrap gap-2">
               <Button
                 disabled={busy}
                 variant="outline"
@@ -200,53 +196,45 @@ export function LiveResponseList({
                   )
                 }
               >
-                {item.quality === "normal" ? "标记待复核" : "确认有效"}
+                {item.quality === "normal" ? t("survey.results.markReview") : t("survey.results.confirmValid")}
               </Button>
               {onAnalysis && (item.analysis === "excluded" ? (
-                <Button disabled={busy} variant="outline" onClick={() => onAnalysis(item.id, "included")}>
-                  重新纳入分析
-                </Button>
+                <Button disabled={busy} variant="outline" onClick={() => onAnalysis(item.id, "included")}>{t("survey.results.includeAgain")}</Button>
               ) : (
-                <Button disabled={busy || !exclusionReason.trim()} variant="outline" onClick={() => onAnalysis(item.id, "excluded", exclusionReason.trim())}>
-                  排除分析
-                </Button>
+                <Button disabled={busy || !exclusionReason.trim()} variant="outline" onClick={() => onAnalysis(item.id, "excluded", exclusionReason.trim())}>{t("survey.results.exclude")}</Button>
               ))}
               <Button variant="ghost" onClick={() => {
                 setExclusionReason("");
                 setSelected(null);
-              }}>
-                收起详情
-              </Button>
+              }}>{t("survey.results.collapseDetails")}</Button>
             </div>
           </div>
-          <p className="mt-3 text-12 text-muted-foreground">{item.id} · {new Date(item.submittedAt).toLocaleString('zh-CN')} · 用时 {item.durationSeconds} 秒</p>
+          <p className="mt-3 text-12 text-muted-foreground">{t("survey.results.responseMeta", { id: item.id, date: new Date(item.submittedAt).toLocaleString(locale), seconds: item.durationSeconds })}</p>
           {item.analysis === "excluded" ? (
-            <p className="mt-3 text-12 text-warning">排除原因：{item.exclusionReason ?? "未填写"}</p>
+            <p className="mt-3 text-12 text-warning">{t("survey.results.reasonPrefix", { reason: item.exclusionReason ?? t("survey.results.notFilled") })}</p>
           ) : onAnalysis ? (
-            <label className="mt-3 grid gap-1 text-12">
-              排除原因
-              <Input aria-label="排除分析原因" value={exclusionReason} onChange={(event) => setExclusionReason(event.target.value)} placeholder="例如：测试性或重复提交" />
+            <label className="mt-3 grid gap-1 text-12">{t("survey.results.reasonLabel")}<Input aria-label={t("survey.results.reasonInput")} value={exclusionReason} onChange={(event) => setExclusionReason(event.target.value)} placeholder={t("survey.results.reasonPlaceholder")} />
             </label>
           ) : null}
           {(item.analysisHistory?.length ?? 0) > 0 && (
-            <section aria-label="分析治理记录" className="mt-3 rounded-md bg-muted p-3 text-12">
-              <h3 className="font-medium">分析治理记录</h3>
+            <section aria-label={t("survey.results.history")} className="mt-3 rounded-md bg-muted p-3 text-12">
+              <h3 className="font-medium">{t("survey.results.history")}</h3>
               <ol className="mt-1 space-y-1 text-muted-foreground">
                 {item.analysisHistory!.map((entry, index) => (
                   <li key={`${entry.changedAt}-${index}`}>
                     {entry.analysis === "excluded"
-                      ? `已排除：${entry.reason}`
-                      : "已重新纳入分析"}
+                      ? t("survey.results.excludedHistory", { reason: entry.reason ?? "" })
+                      : t("survey.results.includedHistory")}
                     {" · "}
                     {entry.actor}
                     {" · "}
-                    {new Date(entry.changedAt).toLocaleString("zh-CN")}
+                    {new Date(entry.changedAt).toLocaleString(locale)}
                   </li>
                 ))}
               </ol>
             </section>
           )}
-          {downloadError && <p role="alert" className="mt-3 text-12 text-destructive">{downloadError}</p>}
+          {downloadError?.responseId === item.id && <p role="alert" className="mt-3 text-12 text-destructive">{displaySurveyRuntimeError(downloadError.error, t, locale)}</p>}
           <ol className="mt-4 space-y-4">
             {questions.filter(q => !isSurveyPageElement(q)).map((q, i) => {
               const answer = item.answers.find((a) => a.questionId === q.id);
@@ -256,18 +244,18 @@ export function LiveResponseList({
                     {i + 1}. {q.title}
                   </p>
                   <p className="mt-1 whitespace-pre-wrap text-12 text-muted-foreground">
-                    {answer ? formatSurveyAnswer(q, answer.value) : "未填写"}
+                    {answer ? formatSurveyAnswer(q, answer.value) : t("survey.results.notFilled")}
                   </p>
                   {(q.type === "file" || q.type === "signature") && Array.isArray(answer?.value) && answer.value.map((id, index) => (
                     <Button key={id} size="xs" variant="outline" className="mr-2 mt-2" disabled={!surveyId || downloading !== null}
                       onClick={async () => {
                         if (!surveyId) return;
-                        setDownloadError(""); setDownloading(id);
+                        setDownloadError(null); setDownloading(id);
                         try { await downloadSurveyAttachment(surveyId, item.id, id); }
-                        catch (error) { setDownloadError(error instanceof Error ? error.message : "附件下载失败，请重试。"); }
+                        catch (error) { setDownloadError({ responseId: item.id, error: error instanceof Error ? error : surveyRuntimeMessages.attachmentFallback }); }
                         finally { setDownloading(null); }
                       }}>
-                      {downloading === id ? "正在下载…" : q.type === "signature" ? "下载签名" : `下载附件 ${index + 1}`}
+                      {downloading === id ? t("survey.results.downloading") : q.type === "signature" ? t("survey.results.downloadSignature") : t("survey.results.downloadAttachment", { index: index + 1 })}
                     </Button>
                   ))}
                 </li>
@@ -276,7 +264,7 @@ export function LiveResponseList({
           </ol>
         </section>
       )}
-      {!item && <section aria-label="答卷详情" className="rounded-lg border border-border bg-card p-8 text-13 text-muted-foreground">选择一份答卷，查看真实回答和治理记录。</section>}
+      {!item && <section aria-label={t("survey.results.responseDetails")} className="rounded-lg border border-border bg-card p-8 text-13 text-muted-foreground">{t("survey.results.selectResponseHelp")}</section>}
     </div>
   );
 }

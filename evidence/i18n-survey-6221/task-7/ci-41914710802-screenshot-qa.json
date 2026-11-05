@@ -1,0 +1,291 @@
+{
+  "sourceHead": "fbbd0beb6d82e6b36280f8de1c9020d2f74b20d4",
+  "checkoutMerge": "0c3302f60c357fae13f68403b6bc696ef5b3f0e1",
+  "actualPng": 28,
+  "allIndividuallyViewed": true,
+  "wholeJourneyPassed": false,
+  "noNewCapturedLayoutFinding": true,
+  "rawArtifactsPrivate": true,
+  "screenshots": [
+    {
+      "name": "designer-raw-en-1280.png",
+      "attempt": 1,
+      "sha256": "dc2b76225a67d5a803b5816b98d41b0fd1f5b518e2ed8081f9f19c7fb4d974e3",
+      "width": 1280,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Captured fixed UI readable; raw authored content retained. Upload-error captured correctly; no full business acceptance. Capability-bearing originals remain private."
+    },
+    {
+      "name": "designer-raw-en-375.png",
+      "attempt": 1,
+      "sha256": "6d628dee520aa02911d84516979366942e89f35a89e391be9d588eb02b9dab97",
+      "width": 375,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Captured fixed UI readable; raw authored content retained. Upload-error captured correctly; no full business acceptance. Capability-bearing originals remain private."
+    },
+    {
+      "name": "public-validation-en-1280.png",
+      "attempt": 1,
+      "sha256": "b29b7f99c5747b4f4b5f9743661b92ae7edee2a7ee053e3d4be8b491c79376ae",
+      "width": 1280,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Captured fixed UI readable; raw authored content retained. Upload-error captured correctly; no full business acceptance. Capability-bearing originals remain private."
+    },
+    {
+      "name": "public-validation-en-375.png",
+      "attempt": 1,
+      "sha256": "8c5337aa4bbd707202d67ae07e9436a4b6a8791983e78f6b00c6a423622e8140",
+      "width": 375,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Captured fixed UI readable; raw authored content retained. Upload-error captured correctly; no full business acceptance. Capability-bearing originals remain private."
+    },
+    {
+      "name": "publication-en-1280.png",
+      "attempt": 1,
+      "sha256": "d4084596f46fc8a7576e1b75f73fd9c45c8bd40a71b77b9be9100f834b3bb4c9",
+      "width": 1280,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Captured fixed UI readable; raw authored content retained. Upload-error captured correctly; no full business acceptance. Capability-bearing originals remain private."
+    },
+    {
+      "name": "publication-en-375.png",
+      "attempt": 1,
+      "sha256": "3aa273b41ed3e99e68bd6c52aea79940b81cd6d9450c3ae54215dbf61965f5e1",
+      "width": 375,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Captured fixed UI readable; raw authored content retained. Upload-error captured correctly; no full business acceptance. Capability-bearing originals remain private."
+    },
+    {
+      "name": "publication-settings-en-1280.png",
+      "attempt": 1,
+      "sha256": "d4084596f46fc8a7576e1b75f73fd9c45c8bd40a71b77b9be9100f834b3bb4c9",
+      "width": 1280,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Captured fixed UI readable; raw authored content retained. Upload-error captured correctly; no full business acceptance. Capability-bearing originals remain private."
+    },
+    {
+      "name": "publication-settings-en-375.png",
+      "attempt": 1,
+      "sha256": "0c0460075cbbba8d7c8296cdf12ece1725139309f1401b99dc59a00809515e81",
+      "width": 375,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Captured fixed UI readable; raw authored content retained. Upload-error captured correctly; no full business acceptance. Capability-bearing originals remain private."
+    },
+    {
+      "name": "question-library-en-1280.png",
+      "attempt": 1,
+      "sha256": "31154d762b0f0cbd843e4ad743b171387accd249a34afbe7a56047fdc4075ce9",
+      "width": 1280,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Captured fixed UI readable; raw authored content retained. Upload-error captured correctly; no full business acceptance. Capability-bearing originals remain private."
+    },
+    {
+      "name": "question-library-en-375.png",
+      "attempt": 1,
+      "sha256": "50a17d132c5c8196e5cee17f3bf91474b04241803a869da41321cb442f344df7",
+      "width": 375,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Captured fixed UI readable; raw authored content retained. Upload-error captured correctly; no full business acceptance. Capability-bearing originals remain private."
+    },
+    {
+      "name": "report-file-binding-en-1280.png",
+      "attempt": 1,
+      "sha256": "1162ee563b12ea6d5233399bc18817eb828eeb451b42d8dddd837e80dc1e943f",
+      "width": 1280,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Captured fixed UI readable; raw authored content retained. Upload-error captured correctly; no full business acceptance. Capability-bearing originals remain private."
+    },
+    {
+      "name": "report-file-binding-en-375.png",
+      "attempt": 1,
+      "sha256": "dd751d58e0c211aedbac39c4772251bb173f8562500f28107712975213e79d3e",
+      "width": 375,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Captured fixed UI readable; raw authored content retained. Upload-error captured correctly; no full business acceptance. Capability-bearing originals remain private."
+    },
+    {
+      "name": "test-failed-1.png",
+      "attempt": 1,
+      "sha256": "8546511d5176a36251d2949d71aa42b2801c96dd172167f8369db7203c85597a",
+      "width": 1280,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Captured fixed UI readable; raw authored content retained. Upload-error captured correctly; no full business acceptance. Capability-bearing originals remain private."
+    },
+    {
+      "name": "test-failed-2.png",
+      "attempt": 1,
+      "sha256": "aa05ccd66e48d242365681145b9352431f7aef58e2a6d9b4fd69ae36854eef3c",
+      "width": 1280,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Captured fixed UI readable; raw authored content retained. Upload-error captured correctly; no full business acceptance. Capability-bearing originals remain private."
+    },
+    {
+      "name": "designer-raw-en-1280.png",
+      "attempt": 0,
+      "sha256": "635f15480571144956f5f64788a507f6f862583fd626070236265a45ee055b4b",
+      "width": 1280,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Captured fixed UI readable; raw authored content retained. Upload-error captured correctly; no full business acceptance. Capability-bearing originals remain private."
+    },
+    {
+      "name": "designer-raw-en-375.png",
+      "attempt": 0,
+      "sha256": "37a4583e6ecfd4887f017ba987f79528b04c1df4b77be6ba8530512601771452",
+      "width": 375,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Captured fixed UI readable; raw authored content retained. Upload-error captured correctly; no full business acceptance. Capability-bearing originals remain private."
+    },
+    {
+      "name": "public-validation-en-1280.png",
+      "attempt": 0,
+      "sha256": "3c3f5901c4036fe4af167efe3d441e7b3417e0abb81ec8d9546a26d8a0f84e4c",
+      "width": 1280,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Captured fixed UI readable; raw authored content retained. Upload-error captured correctly; no full business acceptance. Capability-bearing originals remain private."
+    },
+    {
+      "name": "public-validation-en-375.png",
+      "attempt": 0,
+      "sha256": "94f9577841c59bd331be35dbb7eaf6dfd9cc64e22b25c6bc7a3d2a9032fc05fe",
+      "width": 375,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Captured fixed UI readable; raw authored content retained. Upload-error captured correctly; no full business acceptance. Capability-bearing originals remain private."
+    },
+    {
+      "name": "publication-en-1280.png",
+      "attempt": 0,
+      "sha256": "9e41785a967f45b64b560583e59fd94da3624cc1092cbf11706196e9f3c93061",
+      "width": 1280,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Captured fixed UI readable; raw authored content retained. Upload-error captured correctly; no full business acceptance. Capability-bearing originals remain private."
+    },
+    {
+      "name": "publication-en-375.png",
+      "attempt": 0,
+      "sha256": "4832eb8297f1c05faec2800d61ee3dc89ba1ffff070661f7da8fdb7c398fabe0",
+      "width": 375,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Captured fixed UI readable; raw authored content retained. Upload-error captured correctly; no full business acceptance. Capability-bearing originals remain private."
+    },
+    {
+      "name": "publication-settings-en-1280.png",
+      "attempt": 0,
+      "sha256": "9e41785a967f45b64b560583e59fd94da3624cc1092cbf11706196e9f3c93061",
+      "width": 1280,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Captured fixed UI readable; raw authored content retained. Upload-error captured correctly; no full business acceptance. Capability-bearing originals remain private."
+    },
+    {
+      "name": "publication-settings-en-375.png",
+      "attempt": 0,
+      "sha256": "0c0460075cbbba8d7c8296cdf12ece1725139309f1401b99dc59a00809515e81",
+      "width": 375,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Captured fixed UI readable; raw authored content retained. Upload-error captured correctly; no full business acceptance. Capability-bearing originals remain private."
+    },
+    {
+      "name": "question-library-en-1280.png",
+      "attempt": 0,
+      "sha256": "5b0d32a541cdff6806ac2af6d8a88ad8730c67e46e9f3f0391bf2b40d647732e",
+      "width": 1280,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Captured fixed UI readable; raw authored content retained. Upload-error captured correctly; no full business acceptance. Capability-bearing originals remain private."
+    },
+    {
+      "name": "question-library-en-375.png",
+      "attempt": 0,
+      "sha256": "50a17d132c5c8196e5cee17f3bf91474b04241803a869da41321cb442f344df7",
+      "width": 375,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Captured fixed UI readable; raw authored content retained. Upload-error captured correctly; no full business acceptance. Capability-bearing originals remain private."
+    },
+    {
+      "name": "report-file-binding-en-1280.png",
+      "attempt": 0,
+      "sha256": "6932889312f141b482338a6ad252b09b384e2cbf372f1f7e890dc9ad994fc2ac",
+      "width": 1280,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Captured fixed UI readable; raw authored content retained. Upload-error captured correctly; no full business acceptance. Capability-bearing originals remain private."
+    },
+    {
+      "name": "report-file-binding-en-375.png",
+      "attempt": 0,
+      "sha256": "dd751d58e0c211aedbac39c4772251bb173f8562500f28107712975213e79d3e",
+      "width": 375,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Captured fixed UI readable; raw authored content retained. Upload-error captured correctly; no full business acceptance. Capability-bearing originals remain private."
+    },
+    {
+      "name": "test-failed-1.png",
+      "attempt": 0,
+      "sha256": "4aaa1e1d8163e652d98bef3a590e95543b1df546b9b596fd52b3b3522baa6f4c",
+      "width": 1280,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Captured fixed UI readable; raw authored content retained. Upload-error captured correctly; no full business acceptance. Capability-bearing originals remain private."
+    },
+    {
+      "name": "test-failed-2.png",
+      "attempt": 0,
+      "sha256": "11d7a31a4e11e8a58cd9381589d338d1010cad65fdf1b25927478109321be952",
+      "width": 1280,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Captured fixed UI readable; raw authored content retained. Upload-error captured correctly; no full business acceptance. Capability-bearing originals remain private."
+    }
+  ]
+}

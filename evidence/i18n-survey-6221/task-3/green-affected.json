@@ -1,0 +1,43 @@
+{
+  "name": "green-affected",
+  "command": [
+    "/Users/shenyangjun/.codex/plugins/cache/openai-curated-remote/superpowers/7.0.1/skills/executing-plans/scripts/task-done",
+    "docs/design/i18n-survey-journey/plan.md",
+    "3",
+    "f12df26afeea0c9a1574cb7866daf453f6e1ff09",
+    "--",
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/survey-workspace-i18n.test.tsx",
+    "tests/ui/survey-unsaved-navigation-i18n.test.tsx",
+    "tests/ui/survey-live-workspace.test.tsx",
+    "tests/ui/survey-live-publishing.test.tsx",
+    "tests/ui/survey-collection-settings.test.tsx",
+    "tests/ui/survey-share-code.test.tsx",
+    "tests/ui/survey-draft-copy.test.tsx",
+    "tests/ui/survey-unsaved-navigation.test.tsx",
+    "tests/ui/survey-runtime-client.test.ts",
+    "tests/lib/i18n-resources.test.ts"
+  ],
+  "source": "429294f1e997d831279361c985060af31c1abb1a",
+  "exitCode": 0,
+  "seconds": 46.812,
+  "rawLogSha256": "ab215221bfa2af3061c898c0e149f8e61515ee9b0c1d68811e05cc27b207441c",
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "testFiles": 10,
+  "passed": 117,
+  "failed": 0,
+  "skipped": 0,
+  "nativeSeconds": 45.55,
+  "newCases": 39,
+  "inheritedCases": 78,
+  "warnings": 0,
+  "unhandled": 0,
+  "innerLogSha256": "82b65d06e88cd9a9012032e177462cee6239a2059abfea0a7a68657284265766"
+}

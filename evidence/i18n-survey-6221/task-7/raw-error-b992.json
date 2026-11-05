@@ -1,0 +1,17 @@
+{
+  "name": "raw-error-b992",
+  "command": [
+    "node",
+    ".harness/scripts/lint-user-facing-error-text.mjs"
+  ],
+  "source": "080bbba0ee858525f57fedefe42fa68ea938d91b",
+  "exitCode": 0,
+  "seconds": 0.399,
+  "rawLogSha256": "458beba2d68ec1238fbf5bee8df850593b34af6ee2e36147a7da4003aa3e6253",
+  "sourceAfter": "080bbba0ee858525f57fedefe42fa68ea938d91b",
+  "sourceStable": true,
+  "environment": {},
+  "acceptedLegacyBaselineFiles": 55,
+  "acceptedLegacyBaselineHits": 70,
+  "workerBaselineChanged": false
+}

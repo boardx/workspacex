@@ -1,0 +1,45 @@
+{
+  "source": "d83f8bf3b93c0fb8c7035d9bca78c7ed732675a1",
+  "base": "ef49474134137e7d07cef97577d4799fbd9c0eb8",
+  "readOnlyStructuralProof": true,
+  "runtimeAcceptance": false,
+  "workflow": "harness-verify / fullstack-smoke",
+  "event": "pull_request to develop; default opened/synchronize/reopened; no draft guard",
+  "command": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run verify:fullstack-product:raw",
+  "rawCommand": "FULLSTACK_SMOKE_PARTITION=product pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded-github-import --max-failures=1",
+  "productDependencyClosure": [
+    "seeded-github-import",
+    "official-role-workflow",
+    "official-digital-human",
+    "seeded",
+    "board-collaboration-regressions",
+    "realtime-voice",
+    "board-image-ingress",
+    "research-ux-r4"
+  ],
+  "selectedSurveyProject": "seeded",
+  "selectedFile": "apps/web/e2e/i18n-survey-journey.spec.ts",
+  "originalCaseTitles": [
+    "survey locale preserves real author publishing, anonymous file submission, review, report and PostgreSQL identities",
+    "survey template locale preserves real CAS saves, independent copies, report bindings, undo and raw JSON exports",
+    "survey intake locale preserves real file bytes, one configured proposal, corrected Markdown and explicit application retry"
+  ],
+  "originalCaseTimeoutMs": 180000,
+  "changedPaths": 254,
+  "docOnly": false,
+  "targetedUiExcluded": "Multiple source/test/config additions and >17 changed paths fall outside ci-targeted-ui reviewed single-source/companion boundary",
+  "advisoryJobContinueOnError": true,
+  "mustInspectActualNativeCasesNotOnlyCheckConclusion": true,
+  "ciDefaultRetries": 1,
+  "ciWorkers": "Playwright runner default; inspect actual report, not claimed identical to local --workers=1/--retries=0",
+  "files": {
+    ".github/workflows/harness-verify.yml": "2d50a4e25282381f2f84fb9ebe8be0d38ad3b634e34305633a134ecc1c6ceb96",
+    ".harness/scripts/ci-doc-smoke-scope.mjs": "5c14d1ff284da0a286b29227d0db8ebd11f9d79d6b91400a58278a0e2e84d964",
+    ".harness/scripts/ci-targeted-ui.mjs": "bc91bf7b3d86ed9465b3d240a12eaa9feb51ca351cc22dec8dedd965bc298a96",
+    ".harness/scripts/ci-fullstack-runtime.mjs": "5ba67c321c82a228cadc442a3c5838591162e264c4f8ccd4d6dc905bc9d0f0ad",
+    "package.json": "c45f6e8df81b66b9b9f3d938e4a1fe4af0e2d863510d232e529b2df075cd858d",
+    "apps/web/smoke-project-partition.ts": "696dbca134ceb851a4194e8036cfcf76d841d564fffbe2b4650d6c4321bfe808",
+    "apps/web/playwright.fullstack-smoke.config.ts": "9101231c6ac07db6bc46db610e5108b610f80f70aed14be02e78a1a765608430",
+    "apps/web/e2e/i18n-survey-journey.spec.ts": "64d9e8295e9dd34a82628c50d6a62c0236c1c34bc7d11d5ae9ac76732ab11aa4"
+  }
+}

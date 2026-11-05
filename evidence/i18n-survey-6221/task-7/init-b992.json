@@ -1,0 +1,13 @@
+{
+  "name": "init-b992",
+  "command": [
+    "./init.sh"
+  ],
+  "source": "080bbba0ee858525f57fedefe42fa68ea938d91b",
+  "exitCode": 0,
+  "seconds": 8.489,
+  "rawLogSha256": "b9454ea9b0cef337e754f5577a3ea517168d367f1dafc79e9a75b55ad28d998d",
+  "sourceAfter": "080bbba0ee858525f57fedefe42fa68ea938d91b",
+  "sourceStable": true,
+  "environment": {}
+}

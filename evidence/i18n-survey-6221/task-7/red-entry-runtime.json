@@ -1,0 +1,24 @@
+{
+  "name": "red-entry-runtime",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/survey-entry-runtime-errors-i18n.test.tsx"
+  ],
+  "source": "1b0bffbf7c075f57af453299e6400b41e923e57f",
+  "exitCode": 1,
+  "seconds": 6.04,
+  "rawLogSha256": "f1ea4d4750a76162463e6478bb27dc104064f01365509d9e77d65419cc1f8ac1",
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "failed": 8,
+  "passed": 0,
+  "stderrGroups": 0,
+  "warnings": 0,
+  "classification": "Actual library/create/template-load/import-apply x409/wrapped403:8 valid current-language display failures; raw draft/model Markdown reached intended render assertions, no collection/fixture errors."
+}

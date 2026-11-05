@@ -1,0 +1,21 @@
+{
+  "testRetry": 0,
+  "testTimeoutMs": 180000,
+  "surveyId": "f172c3d5-cb75-48f6-bc99-57ce3ff4e5ac",
+  "fileSha256": "9b2a3a3abd0d44da8227b69e495c2088dd9c4b9dd050972f0e765bd5fada3c96",
+  "fileSize": 70,
+  "proposalSourceKind": "file",
+  "proposalSourceSha256": "46528042cc33c70576d5e48c8e06fa56286252903c3817501b834a507f94f913",
+  "provider": "fullstack-loopback",
+  "modelId": "loopback-echo",
+  "correctedMarkdownSha256": "6dfb97f130d703ee44536d6674e81c5bb9c79dab5105f90ca4b64f2648e4f100",
+  "persistedDesignSha256": "16731b7f8d25b48a437f3a10f2ae80e639122340de39c91e6e012693d35aef6a",
+  "sourceHash": "b1c7d79dc527e7a348b6ace0a1f57978c51dcc65ddd54b52d3061df1b8939bb7",
+  "proposalRequests": 1,
+  "createAttempts": 1,
+  "sourceSaveAttempts": 2,
+  "originalReportIdentityRetained": true,
+  "controlledPermissionFailure": true,
+  "configuredModelExecution": true,
+  "vendorQualityClaim": false
+}

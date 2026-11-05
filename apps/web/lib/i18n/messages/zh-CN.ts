@@ -1,5 +1,12 @@
 import { telemetrySettingsZhCN } from "../namespaces/telemetry-settings";
 import { platformMembersZhCN } from "../namespaces/platform-members";
+import { surveyTemplatesZhCN } from "../namespaces/survey-templates";
+import { surveyResultsZhCN } from "../namespaces/survey-results";
+import { surveyPublicZhCN } from "../namespaces/survey-public";
+import { surveyWorkspaceZhCN } from "../namespaces/survey-workspace";
+import { surveyRuntimeErrorsZhCN } from "../namespaces/survey-runtime-errors";
+import { surveyDesignZhCN } from "../namespaces/survey-design";
+import { surveyLibraryZhCN } from "../namespaces/survey-library";
 import { aiUsageZhCN } from "../namespaces/ai-usage";
 import { adminLimitPolicyZhCN } from "../namespaces/admin-limit-policy";
 import { adminMemberQuotasZhCN } from "../namespaces/admin-member-quotas";
@@ -29,6 +36,13 @@ import { invitationEntryZhCN } from "../namespaces/invitation-entry";
 export const zhCN = {
   ...telemetrySettingsZhCN,
   ...platformMembersZhCN,
+  ...surveyTemplatesZhCN,
+  ...surveyResultsZhCN,
+  ...surveyPublicZhCN,
+  ...surveyWorkspaceZhCN,
+  ...surveyRuntimeErrorsZhCN,
+  ...surveyLibraryZhCN,
+  ...surveyDesignZhCN,
   ...aiUsageZhCN,
   ...adminLimitPolicyZhCN,
   ...adminMemberQuotasZhCN,

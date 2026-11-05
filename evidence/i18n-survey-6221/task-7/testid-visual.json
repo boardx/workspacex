@@ -1,0 +1,14 @@
+{
+  "name": "testid-visual",
+  "command": [
+    "node",
+    ".harness/scripts/lint-e2e-testid-gate.mjs"
+  ],
+  "source": "ee9b845a1090082251563c48a2791d1034ff7cb7",
+  "exitCode": 0,
+  "seconds": 5.854,
+  "rawLogSha256": "a08ee5142204ca89faf4f0e0b279d7651f4fcc61b6e522b648a9e2fc25a868c9",
+  "sourceAfter": "ee9b845a1090082251563c48a2791d1034ff7cb7",
+  "sourceStable": true,
+  "environment": {}
+}

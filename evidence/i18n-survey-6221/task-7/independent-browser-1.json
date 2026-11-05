@@ -1,0 +1,43 @@
+{
+  "name": "independent-browser-1",
+  "command": [
+    "pnpm",
+    "exec",
+    "tsx",
+    ".harness/scripts/with-test-isolation.ts",
+    "--",
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "playwright",
+    "test",
+    "--config",
+    "playwright.fullstack-smoke.config.ts",
+    "--project=seeded",
+    "e2e/i18n-survey-journey.spec.ts",
+    "--workers=1",
+    "--retries=0",
+    "--max-failures=1",
+    "--grep",
+    "(?:survey template locale preserves real CAS saves, independent copies, report bindings, undo and raw JSON exports|survey intake locale preserves real file bytes, one configured proposal, corrected Markdown and explicit application retry)$",
+    "--reporter=list,json"
+  ],
+  "source": "e6dc452f7fd14d3f6f7a3e57dc8f7fd04516deb0",
+  "exitCode": 1,
+  "seconds": 344.226,
+  "rawLogSha256": "3dd1a89610145412244b002293091dc296014d4e9ed5e71e4a500ae767635b8a",
+  "sourceAfter": "e6dc452f7fd14d3f6f7a3e57dc8f7fd04516deb0",
+  "sourceStable": true,
+  "environment": {},
+  "nativeStats": {
+    "startTime": "2026-11-04T19:07:33.544Z",
+    "duration": 341370.597,
+    "expected": 0,
+    "skipped": 1,
+    "unexpected": 1,
+    "flaky": 0
+  },
+  "globalErrorCount": 1,
+  "interpretation": "Template driver expected Markdown stripping but product preserves rawBody; intake not executed under maxfail1. No full-case pass."
+}

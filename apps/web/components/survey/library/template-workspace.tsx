@@ -1,4 +1,7 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
+import type { MessageKey } from "@/lib/i18n/messages";
+import { displaySurveyTemplateMessage } from "@/lib/survey/display-template-message";
 
 import * as React from "react";
 import { useSurveyUnsavedNavigation } from "@/lib/survey/use-unsaved-navigation";
@@ -18,12 +21,12 @@ import { SurveyQuestionEditor } from "../live/question-editor";
 import { FlexibleReportEditor } from "../report/template-editor";
 
 type Kind = SurveyTemplateInput["kind"];
-const newDraft = (kind: Kind): SurveyTemplateInput => ({
+const newDraft = (kind: Kind, title: string, reportTitle: string): SurveyTemplateInput => ({
   kind,
-  title: kind === "question" ? "未命名问卷模板" : "未命名报告模板",
+  title,
   description: "",
   questions: [],
-  template: { id: crypto.randomUUID(), title: "问卷分析报告", sections: [] },
+  template: { id: crypto.randomUUID(), title: reportTitle, sections: [] },
 });
 const readTemplate = (value: unknown, kind: Kind): SurveyLibraryTemplate => {
   const result = SurveyLibraryTemplateSchema.safeParse(value);
@@ -56,14 +59,17 @@ export function SurveyTemplateWorkspace({
   kind: Kind;
 }) {
   const router = useRouter();
+  const { t, locale } = useI18n();
+  const currentTranslator = React.useRef(t);
+  React.useEffect(() => { currentTranslator.current = t; }, [t]);
   const [saved, setSaved] = React.useState<SurveyLibraryTemplate | null>(null);
   const [draft, setDraft] = React.useState<SurveyTemplateInput | null>(null);
   const [builtinBaseline, setBuiltinBaseline] =
     React.useState<SurveyTemplateInput | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
-  const [error, setError] = React.useState("");
-  const [notice, setNotice] = React.useState("");
+  const [error, setError] = React.useState<Error | string>("");
+  const [notice, setNotice] = React.useState<MessageKey | null>(null);
   const [tab, setTab] = React.useState<"questions" | "report">(
     kind === "question" ? "questions" : "report",
   );
@@ -72,7 +78,7 @@ export function SurveyTemplateWorkspace({
     generation.current++;
   }, []);
   const lock = React.useRef(false);
-  const label = kind === "question" ? "问卷模板" : "报告模板";
+  const label = t(kind === "question" ? "survey.templates.questionOne" : "survey.templates.reportOne");
   const base =
     kind === "question"
       ? "/studio/survey/question-templates"
@@ -92,10 +98,13 @@ export function SurveyTemplateWorkspace({
     const current = ++generation.current;
     setLoading(true);
     setError("");
-    setNotice("");
+    setNotice(null);
     if (templateId === "new") {
       setSaved(null);
-      setDraft(newDraft(kind));
+      setDraft(newDraft(kind,
+        currentTranslator.current(kind === "question" ? "survey.templates.newQuestion" : "survey.templates.newReport"),
+        currentTranslator.current("survey.templates.analysisReport"),
+      ));
       setLoading(false);
       return;
     }
@@ -119,7 +128,7 @@ export function SurveyTemplateWorkspace({
       if (current === generation.current) accept(value);
     } catch (e) {
       if (current === generation.current)
-        setError(e instanceof Error ? e.message : "模板加载失败，请重试。");
+        setError(e instanceof Error ? e : "模板加载失败，请重试。");
     } finally {
       if (current === generation.current) setLoading(false);
     }
@@ -138,12 +147,12 @@ export function SurveyTemplateWorkspace({
     lock.current = true;
     setBusy(true);
     setError("");
-    setNotice("");
+    setNotice(null);
     const current = generation.current;
     try {
       const parsed = SurveyTemplateInputSchema.safeParse({
         ...draft,
-        ...(asCopy ? { title: `${draft.title.slice(0, 197)} 副本` } : {}),
+        ...(asCopy ? { title: `${draft.title.slice(0, locale === "en" ? SurveyLibraryTemplateSchema.shape.title.maxLength! - t("survey.templates.copySuffix").length : 197)}${t("survey.templates.copySuffix")}` } : {}),
       });
       if (!parsed.success)
         throw new Error(
@@ -169,12 +178,12 @@ export function SurveyTemplateWorkspace({
       );
       if (current !== generation.current) return;
       accept(result);
-      setNotice(asCopy ? "副本已保存，原模板保持不变。" : "模板已保存");
+      setNotice(asCopy ? "survey.templates.copySaved" : "survey.templates.saved");
       if (create) router.replace(`${base}/${encodeURIComponent(result.id)}`);
     } catch (e) {
       if (current === generation.current)
         setError(
-          e instanceof Error ? e.message : "保存失败，修改仍保留，请重试。",
+          e instanceof Error ? e : "保存失败，修改仍保留，请重试。",
         );
     } finally {
       lock.current = false;
@@ -182,14 +191,14 @@ export function SurveyTemplateWorkspace({
     }
   };
   const back = () => {
-    if (!dirty || window.confirm("离开将放弃未保存的模板修改，继续吗？"))
+    if (!dirty || window.confirm(t("survey.templates.leaveConfirm")))
       router.push(list);
   };
   const refresh = () => {
     if (
       !dirty ||
       window.confirm(
-        "刷新会替换当前未保存的修改，继续吗？可先另存副本以保留修改。",
+        t("survey.templates.refreshConfirm"),
       )
     )
       void load();
@@ -199,21 +208,20 @@ export function SurveyTemplateWorkspace({
       <header className="space-y-4 border-b border-border bg-card p-4 sm:p-6">
         <div className="flex flex-wrap items-center gap-3">
           <Button variant="ghost" disabled={busy} onClick={back}>
-            返回模板列表
+            {t("survey.templates.back")}
           </Button>
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 basis-full sm:basis-0 sm:flex-1">
             <h1 className="text-20 font-semibold">
-              {isBuiltin ? "内置" : templateId === "new" ? "新建" : "编辑"}
-              {label}
+              {t(isBuiltin ? "survey.templates.builtinHeading" : templateId === "new" ? "survey.templates.newHeading" : "survey.templates.editHeading", { label })}
             </h1>
             <p className="mt-1 text-11 text-muted-foreground">
               {dirty
-                ? "有未保存修改"
+                ? t("survey.templates.unsaved")
                 : saved
-                  ? `已保存 · ${new Date(saved.updatedAt).toLocaleString("zh-CN")}`
+                  ? t("survey.templates.savedDate", { date: new Date(saved.updatedAt).toLocaleString(locale) })
                   : builtinBaseline
-                    ? "内置模板 · 未修改"
-                    : "正在加载"}
+                    ? t("survey.templates.builtinUnchanged")
+                    : t("survey.templates.loadingShort")}
             </p>
           </div>
           {saved && (
@@ -223,14 +231,14 @@ export function SurveyTemplateWorkspace({
                 disabled={busy || loading}
                 onClick={refresh}
               >
-                刷新
+                {t("survey.templates.refresh")}
               </Button>
               <Button
                 variant="outline"
                 disabled={busy || loading || !draft}
                 onClick={() => void save(true)}
               >
-                另存副本
+                {t("survey.templates.saveCopy")}
               </Button>
             </>
           )}
@@ -238,20 +246,20 @@ export function SurveyTemplateWorkspace({
             disabled={busy || loading || !draft || (!dirty && !isBuiltin)}
             onClick={() => void save()}
           >
-            {busy ? "正在保存…" : isBuiltin ? "保存为我的模板" : "保存模板"}
+            {t(busy ? "survey.templates.saving" : isBuiltin ? "survey.templates.saveAsMine" : "survey.templates.save")}
           </Button>
         </div>
         {isBuiltin && draft && (
           <p className="text-12 text-muted-foreground">
-            内置模板不会被更改。可直接使用，或调整后保存为自己的独立模板。
+            {t("survey.templates.builtinImmutable")}
           </p>
         )}
         {draft && (
           <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-1 text-12">
-              <span>模板名称</span>
+              <span>{t("survey.templates.name")}</span>
               <Input
-                aria-label="模板名称"
+                aria-label={t("survey.templates.name")}
                 maxLength={200}
                 disabled={busy || loading}
                 value={draft.title}
@@ -261,9 +269,9 @@ export function SurveyTemplateWorkspace({
               />
             </label>
             <label className="space-y-1 text-12">
-              <span>模板说明</span>
+              <span>{t("survey.templates.description")}</span>
               <Textarea
-                aria-label="模板说明"
+                aria-label={t("survey.templates.description")}
                 className="min-h-10"
                 rows={1}
                 maxLength={2000}
@@ -280,7 +288,7 @@ export function SurveyTemplateWorkspace({
       {error && (
         <div className="m-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/30 p-4">
           <p role="alert" className="text-13 text-destructive">
-            {error}
+            {displaySurveyTemplateMessage(error, t, locale)}
           </p>
           {!draft && (
             <Button
@@ -288,35 +296,34 @@ export function SurveyTemplateWorkspace({
               disabled={busy || loading}
               onClick={() => void load()}
             >
-              重试
+              {t("survey.templates.retry")}
             </Button>
           )}
           {draft && (
             <p className="text-12 text-muted-foreground">
-              当前编辑仍保留。
-              {saved ? "可重试保存，或另存副本。" : "请检查后重试保存。"}
+              {t(saved ? "survey.templates.retainedSaved" : "survey.templates.retainedNew")}
             </p>
           )}
         </div>
       )}
       {notice && (
         <p role="status" className="px-6 py-3 text-13 text-muted-foreground">
-          {notice}
+          {t(notice, { label })}
         </p>
       )}
       {loading && (
         <p role="status" className="p-8 text-13 text-muted-foreground">
-          正在加载模板…
+          {t("survey.templates.loading")}
         </p>
       )}
       {draft && (
         <>
           <div className="border-b border-border px-4 pt-4 sm:px-6">
-            <div role="tablist" aria-label="模板配置" className="flex gap-2">
+            <div role="tablist" aria-label={t("survey.templates.settings")} className="flex gap-2">
               {(
                 [
-                  ["questions", "题目配置"],
-                  ["report", "报告配置"],
+                  ["questions", "survey.templates.questionsTab"],
+                  ["report", "survey.templates.reportTab"],
                 ] as const
               ).map(([id, name]) => (
                 <button
@@ -330,16 +337,16 @@ export function SurveyTemplateWorkspace({
                   onClick={() => setTab(id)}
                   className={`rounded-t-md border-b-2 px-4 py-3 text-13 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${tab === id ? "border-primary bg-accent font-semibold" : "border-transparent text-muted-foreground hover:bg-muted"}`}
                 >
-                  {name}
+                  {t(name)}
                 </button>
               ))}
             </div>
             <p className="py-3 text-12 text-muted-foreground">
               {tab === "questions"
                 ? kind === "report"
-                  ? "参考题目用于配置报告的数据绑定；应用到问卷时再选择对应题目。"
-                  : "题目与配套报告会一同保存；使用模板创建问卷时不会复制答卷或发布状态。"
-                : "自由组织章节与内容块。预览仅用于检查布局，数据将在实际问卷回收后计算。"}
+                  ? t("survey.templates.referenceHint")
+                  : t("survey.templates.questionHint")
+                : t("survey.templates.reportHint")}
             </p>
           </div>
           <fieldset

@@ -1,0 +1,98 @@
+{
+  "source": "62c7637b3dcb0497db4f479c8dbddd5ef4c74167",
+  "actualPng": 10,
+  "wholeIntakeCasePassed": true,
+  "rawArtifactsPrivate": true,
+  "screenshots": [
+    {
+      "name": "import-persisted-design-en-1280.png",
+      "sha256": "1295ff6e8d399aed749c9fad7bb809e22c727b1c81a0ff208baed5a06b9fd67d",
+      "width": 1280,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Fixed controls readable at captured viewport; raw authored content and provenance retained."
+    },
+    {
+      "name": "import-persisted-design-en-375.png",
+      "sha256": "cd6484833b1d21f510f92d14ba58d46074f7d9e221d6f5647e671ef8e28474d5",
+      "width": 375,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Fixed controls readable at captured viewport; raw authored content and provenance retained."
+    },
+    {
+      "name": "intake-create-en-1280.png",
+      "sha256": "e7a3435f51551ef925f329a4e0307e9e297334b0b948fb5dabb3ba42a244508c",
+      "width": 1280,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Fixed controls readable at captured viewport; raw authored content and provenance retained."
+    },
+    {
+      "name": "intake-create-en-375.png",
+      "sha256": "16d70bc582e95b18e62d41dd002a777b270e243a9b67052a6301c88ddf11e378",
+      "width": 375,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Fixed controls readable at captured viewport; raw authored content and provenance retained."
+    },
+    {
+      "name": "intake-file-raw-en-1280.png",
+      "sha256": "49fa2b92028aa0a926e293844b365caa6ec902f6530bfcfb2f7ec4d171474812",
+      "width": 1280,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Fixed controls readable at captured viewport; raw authored content and provenance retained."
+    },
+    {
+      "name": "intake-file-raw-en-375.png",
+      "sha256": "1334de80e7da5d2dae17915c856a23876a174da05e7a76028131d0d4e5887a55",
+      "width": 375,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Fixed controls readable at captured viewport; raw authored content and provenance retained."
+    },
+    {
+      "name": "proposal-controlled-permission-zh-1280.png",
+      "sha256": "5b5a44f67dad1abac532378e2375e8f81fd8aa9206a1061c05ce881c5c75e9a8",
+      "width": 1280,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Fixed controls readable at captured viewport; raw authored content and provenance retained."
+    },
+    {
+      "name": "proposal-controlled-permission-zh-375.png",
+      "sha256": "aa93eb22835d7cba7c90665c425ddb848562a2fd7a30fc8a2373c0d269858b73",
+      "width": 375,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Fixed controls readable at captured viewport; raw authored content and provenance retained."
+    },
+    {
+      "name": "proposal-corrected-raw-en-1280.png",
+      "sha256": "4f31523e595ce37ab44117257bffc0e68eb3ad26cda8b4c7f120687304df87b7",
+      "width": 1280,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Fixed controls readable at captured viewport; raw authored content and provenance retained."
+    },
+    {
+      "name": "proposal-corrected-raw-en-375.png",
+      "sha256": "34a2df5b7bd05fe9b2444511a5f84358c1c84afbb15adcac2262592de917dd55",
+      "width": 375,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Fixed controls readable at captured viewport; raw authored content and provenance retained."
+    }
+  ]
+}

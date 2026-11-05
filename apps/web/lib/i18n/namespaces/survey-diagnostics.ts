@@ -1,0 +1,53 @@
+/** Exact legacy message identities; this catalogue does not validate or modify canonical diagnostics. */
+export const surveyDiagnosticCatalogue = {
+  title: ["请填写题目标题", "Enter a question title."],
+  options: ["至少配置两个选项", "Configure at least two options."],
+  optionIds: ["选项 ID 必须唯一且不能使用保留 ID", "Option IDs must be unique and cannot use reserved IDs."],
+  optionCount: ["选项 ID 与选项数量不一致", "Option IDs must match the number of options."],
+  duplicateOptions: ["选项文字不能重复", "Option text must be unique."],
+  blankOption: ["选项不能为空", "Options cannot be empty."],
+  numberRange: ["数值下限不能超过上限", "Number minimum cannot exceed its maximum."],
+  textRange: ["文字长度下限不能超过上限", "Text length minimum cannot exceed its maximum."],
+  selectionRange: ["选择数量下限不能超过上限", "Minimum selections cannot exceed maximum selections."],
+  maxSelections: ["最大选择数不能超过选项数", "Maximum selections cannot exceed the option count."],
+  minSelections: ["最小选择数不能超过选项数", "Minimum selections cannot exceed the option count."],
+  exclusiveOption: ["互斥选项引用不存在", "An exclusive option reference does not exist."],
+  other: ["此题型不支持其他选项", "This question type does not support an Other option."],
+  rowIds: ["矩阵行标识必须唯一且名称不能为空", "Matrix row IDs must be unique and names must not be empty."],
+  fieldIds: ["字段标识必须唯一且名称不能为空", "Field IDs must be unique and names must not be empty."],
+  rows: ["至少配置一行矩阵", "Configure at least one matrix row."],
+  fields: ["至少配置一个字段", "Configure at least one field."],
+  cascade: ["级联路径不能为空且不能重复", "Cascading paths must be nonempty and unique."],
+  scale: ["量表选项必须是有效数字", "Scale options must be valid numbers."],
+  nps: ["NPS 必须使用 0 至 10 的整数", "NPS must use integers from 0 to 10."],
+  rating: ["评分范围必须有不同的最小值和最大值", "The rating range must have different minimum and maximum values."],
+  images: ["请为每个图片选项配置图片和替代文字", "Provide an image and alternative text for every image option."],
+  imageUrl: ["图片需有效选项、HTTPS/站内地址和替代文字", "Images need a valid option, an HTTPS or same-site URL, and alternative text."],
+  allocation: ["请设置分配总额", "Set an allocation total."],
+  pageRequired: ["页面元素不能设为必答", "Page elements cannot be required."],
+  configuration: ["题目配置格式不正确", "Question configuration is invalid."],
+  metadataFence: ["元数据代码块缺少结束标记", "The metadata code block is missing its closing marker."],
+  metadataJson: ["元数据必须是有效 JSON", "Metadata must be valid JSON."],
+  surveyHeading: ["问卷需要一级标题", "The survey needs a level-one heading."],
+  tags: ["标签需要有效 JSON 数组，最多五个不重复的标签，每个不超过二十字", "Tags must be a valid JSON array with at most five unique tags of up to twenty characters each."],
+  questionHeading: ["题目标题必须使用“## 编号 [题型]”格式", "Question headings must use the “## ID [type]” format."],
+  attributes: ["题目属性只支持 required", "Only the required question attribute is supported."],
+  metadataKeys: ["题目元数据只允许 chapterId、config 与 provenance", "Question metadata allows only chapterId, config and provenance."],
+  prompt: ["题目需要题干", "The question needs a prompt."],
+  choiceOptions: ["选择题至少需要两个选项", "Choice questions need at least two options."],
+  metadataConfig: ["题目元数据不符合题型配置约束", "Question metadata does not match the question configuration constraints."],
+  displayReference: ["显示逻辑引用了不存在的题目", "Display logic references a question that does not exist."],
+  compiled: ["编译后的问卷超出运行时允许的范围", "The compiled survey exceeds the runtime limits."],
+  reportHeading: ["报告模板需要一级标题", "The report template needs a level-one heading."],
+  reportMetadata: ["报告模板元数据不符合运行时约束", "Report template metadata does not match the runtime constraints."],
+  reportTitle: ["报告标题必须与一级标题一致", "The report title must match the level-one heading."],
+  publishHeading: ["发布设置需要一级标题", "Publishing settings need a level-one heading."],
+  publishBlocks: ["发布设置只允许一个配置块", "Publishing settings allow only one configuration block."],
+  publishConfig: ["发布设置配置无效：仅支持浏览器限答与有效成功页 Markdown", "Publishing settings are invalid. Only browser response limits and valid success-page Markdown are supported."],
+} as const;
+type DiagnosticMessages = Record<`survey.diagnostic.${keyof typeof surveyDiagnosticCatalogue}`, string>;
+function messages(index: 0 | 1): DiagnosticMessages {
+  return Object.fromEntries(Object.entries(surveyDiagnosticCatalogue).map(([key, pair]) => [`survey.diagnostic.${key}`, pair[index]])) as DiagnosticMessages;
+}
+export const surveyDiagnosticsZhCN = messages(0);
+export const surveyDiagnosticsEn = messages(1);

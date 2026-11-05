@@ -1,0 +1,30 @@
+{
+  "name": "red-share-date-space",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/survey-workspace-i18n.test.tsx",
+    "--testNamePattern",
+    "separates sharing instructions"
+  ],
+  "source": "db4a47f10dd0734a2dc42d995b0c9da6a8fe5509",
+  "exitCode": 1,
+  "seconds": 5.879,
+  "rawLogSha256": "785393260243630803b2bad2431576066246bd9c604e83a144b9673ecef987c1",
+  "sourceAfter": "db4a47f10dd0734a2dc42d995b0c9da6a8fe5509",
+  "sourceStable": true,
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "classification": "VALID semantic RED: actual rendered sharing instruction/date concatenation lacks the required separating space; original source regex has a single escaped dot and is valid.",
+  "failed": 1,
+  "filtered": 29,
+  "nativeSeconds": 4.66,
+  "stderrGroups": 0,
+  "unhandled": 0,
+  "viteCjsDeprecationNotices": 1
+}
