@@ -1,0 +1,41 @@
+import { createRequire } from "node:module";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { buildTraceFixture } from "./fixtures/build-trace-fixture";
+import { dirname, join } from "node:path";
+import { test, expect } from "@playwright/test";
+const localRequire = createRequire(require.resolve("vitest"));
+const viteRequire = createRequire(localRequire.resolve("vite"));
+const { build } = viteRequire("esbuild");
+let css: string;
+let script: string;
+test.beforeAll(async () => {
+  test.setTimeout(120_000);
+  css = readFileSync(join(dirname(fileURLToPath(buildTraceFixture(join(__dirname, "fixtures/trace-failure-controls-fixture.tsx"), "timeline-failure-style-"))), "out.css"), "utf8");
+  const bundle = await build({ entryPoints: [join(__dirname, "fixtures/timeline-failure-controls-browser.tsx")], bundle: true, write: false, platform: "browser", format: "iife", define: { "process.env": "{}", "process.env.NODE_ENV": '"production"' }, alias: { "@": process.cwd() }, loader: { ".css": "empty" } });
+  script = bundle.outputFiles[0]!.text;
+});
+test("real timeline hides long failure replies across refresh and restores only that run", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.route("http://timeline.test/**", async (route) => {
+    if (route.request().url().includes("/api/")) return route.fulfill({ json: { agents: { default: { name: "default", description: "test fixture" } } } });
+    return route.fulfill({ contentType: "text/html", body: `<html><head><meta charset="utf-8"><style>${css}</style></head><body><div id="root" style="width:760px"></div><script>${script.replace(/<\/script/gi, "<\\/script")}</script></body></html>` });
+  });
+  await page.goto("http://timeline.test/");
+  const failure = page.getByText("这次图片生成未完成。".repeat(80), { exact: true });
+  await expect(failure).toBeVisible();
+  await page.getByRole("button", { name: "隐藏失败记录" }).click();
+  await expect(failure).toHaveCount(0);
+  await expect(page.getByText("失败后的补充说明", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("请生成图片", { exact: true })).toBeVisible();
+  await expect(page.getByText("其他任务成功结果", { exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByText("恢复显示", { exact: true })).toBeVisible();
+  await expect(failure).toHaveCount(0);
+  await page.screenshot({ path: "../../evidence/chat-failure-controls-6244/timeline-hidden.png" });
+  await page.getByRole("button", { name: "恢复显示" }).click();
+  await expect(failure).toBeVisible();
+  await expect(page.getByText("失败后的补充说明", { exact: true })).toBeVisible();
+  expect(errors).toEqual([]);
+});

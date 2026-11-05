@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { failureTraceKey, isSettledFailureTrace } from "@/lib/chat-workbench/failure-trace-visibility";
 import { LiveMessagesContext } from "@/lib/chat-workbench/tool-preamble";
 import { MessageRunContext } from "@/lib/chat-workbench/trace-context";
 import { CopilotChatMessageView, CopilotChatAssistantMessage, useRenderToolCall } from "@copilotkit/react-core/v2";
@@ -36,7 +37,7 @@ export const renderExecutionTool = (entry: TraceEntry) => {
   // UIUX r4：行内提示（转交被拒）已画在消息里，执行轨迹里再画一份就是同一句话出现两次。
   return isDecisionTool(toolName) || isInlineNoticeTool(toolName) || toolName === "write_todos" ? null : <ExecutionTool entry={entry} />;
 };
-type TraceContext = { events: TraceStore; messageRuns: Readonly<Record<string, string>>; toolCallMessageIds?: ReadonlySet<string>; resolvePersistedMessageId?: (messageId: string) => string | null; isSettledMessageId?: (messageId: string) => boolean; expanded?: Record<string, boolean>; toggle?: (runId: string, value: boolean) => void;
+type TraceContext = { hiddenFailureKeys?: ReadonlySet<string>; setFailureHidden?: (key: string, hidden: boolean) => void; failureScope?: string; retryFailureRunId?: string | null; onRetryFailure?: () => void; events: TraceStore; messageRuns: Readonly<Record<string, string>>; toolCallMessageIds?: ReadonlySet<string>; resolvePersistedMessageId?: (messageId: string) => string | null; isSettledMessageId?: (messageId: string) => boolean; expanded?: Record<string, boolean>; toggle?: (runId: string, value: boolean) => void;
   /** issue #3399 ② —— 未被采纳的插话必须有一条真的能把它发出去的路径。 */
   onResendInterjection?: (text: string) => void };
 const TraceContext = React.createContext<TraceContext & { anchors?: Readonly<Record<string, string>> }>({ events: {}, messageRuns: {} });
@@ -71,9 +72,11 @@ export function resolveTraceAnchors(
   return anchors;
 }
 function TraceAssistant(props: React.ComponentProps<typeof CopilotChatAssistantMessage>): JSX.Element {
-  const { events, messageRuns, anchors, expanded, toggle, onResendInterjection, resolvePersistedMessageId, isSettledMessageId } = React.useContext(TraceContext);
+  const { hiddenFailureKeys, setFailureHidden, failureScope, retryFailureRunId, onRetryFailure, events, messageRuns, anchors, expanded, toggle, onResendInterjection, resolvePersistedMessageId, isSettledMessageId } = React.useContext(TraceContext);
   const runId = messageRuns[props.message.id];
   const trace = runId ? events[runId] : undefined;
+  const failureKey = runId && trace ? failureTraceKey(failureScope, runId, trace) : null;
+  const hiddenFailure = Boolean(failureKey && hiddenFailureKeys?.has(failureKey) && trace && isSettledFailureTrace(trace));
   // 锚点从 context 读（永远是最新的一份），不再从可能被 memo 冻住的 `props.messages` 里重算。
   const isAnchor = runId !== undefined && anchors?.[runId] === props.message.id;
   // A journal poll can discover a tool boundary while the live wire is still streaming.
@@ -91,26 +94,42 @@ function TraceAssistant(props: React.ComponentProps<typeof CopilotChatAssistantM
     }
   }, [bodyKey, hideProgress, props.message.content]);
   return <>
-    {runId && trace?.length && isAnchor ? <RunTracePanel runId={runId} events={trace} renderTool={renderExecutionTool} running={props.isRunning && !trace.some((event) => event.kind === "final_message")} expanded={expanded?.[runId] ?? false} onExpandedChange={(value) => toggle?.(runId, value)} /> : null}
-    {trace && isAnchor ? <RunInterjections events={trace} readHistory={runId ? expanded?.[runId] : false} onResend={onResendInterjection} /> : null}
-    <MessageRunContext.Provider value={runId ?? null}><RunTraceCoveredContext.Provider value={Boolean(trace?.length)}><V2AssistantMessage {...props} message={
+    {runId && trace?.length && isAnchor ? <RunTracePanel hidden={hiddenFailure} onHiddenChange={setFailureHidden} failureScope={failureScope} onRetryFailure={retryFailureRunId === runId ? onRetryFailure : undefined} runId={runId} events={trace} renderTool={renderExecutionTool} running={props.isRunning && !trace.some((event) => event.kind === "final_message")} expanded={expanded?.[runId] ?? false} onExpandedChange={(value) => toggle?.(runId, value)} /> : null}
+    {trace && isAnchor && !hiddenFailure ? <RunInterjections events={trace} readHistory={runId ? expanded?.[runId] : false} onResend={onResendInterjection} /> : null}
+    {!hiddenFailure ? <MessageRunContext.Provider value={runId ?? null}><RunTraceCoveredContext.Provider value={Boolean(trace?.length)}><V2AssistantMessage {...props} message={
       hideProgress
         ? { ...props.message, content: "" }
         : props.message
-    } /></RunTraceCoveredContext.Provider></MessageRunContext.Provider>
+    } /></RunTraceCoveredContext.Provider></MessageRunContext.Provider> : null}
   </>;
 }
 const TraceAssistantSlot = Object.assign(TraceAssistant, CopilotChatAssistantMessage);
-export function TaskTimeline({ events, messageRuns, toolCallMessageIds = EMPTY_IDS, resolvePersistedMessageId, isSettledMessageId, onResendInterjection, ...props }: React.ComponentProps<typeof CopilotChatMessageView> & TraceContext): JSX.Element {
+export function TaskTimeline({ failureScope, retryFailureRunId, onRetryFailure, events, messageRuns, toolCallMessageIds = EMPTY_IDS, resolvePersistedMessageId, isSettledMessageId, onResendInterjection, ...props }: React.ComponentProps<typeof CopilotChatMessageView> & TraceContext): JSX.Element {
+  const [hiddenFailureKeys, setHiddenFailureKeys] = React.useState<ReadonlySet<string>>(new Set());
+  React.useEffect(() => {
+    const hidden = new Set<string>();
+    for (const [runId, trace] of Object.entries(events)) {
+      const key = failureTraceKey(failureScope, runId, trace);
+      try { if (key && localStorage.getItem(key) === "1") hidden.add(key); } catch { /* Browser storage is optional. */ }
+    }
+    setHiddenFailureKeys(hidden);
+  }, [events, failureScope]);
+  const setFailureHidden = React.useCallback((key: string, hidden: boolean) => {
+    setHiddenFailureKeys((previous) => {
+      const next = new Set(previous);
+      if (hidden) next.add(key); else next.delete(key);
+      return next;
+    });
+  }, []);
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
   const toggle = React.useCallback((runId: string, state: boolean) => setExpanded((previous) => ({ ...previous, [runId]: state })), []);
   const anchors = React.useMemo(() => resolveTraceAnchors(props.messages, messageRuns, toolCallMessageIds), [props.messages, messageRuns, toolCallMessageIds]);
-  const value = React.useMemo(() => ({ events, messageRuns, anchors, expanded, toggle, onResendInterjection, resolvePersistedMessageId, isSettledMessageId }), [events, messageRuns, anchors, expanded, toggle, onResendInterjection, resolvePersistedMessageId, isSettledMessageId]);
+  const value = React.useMemo(() => ({ hiddenFailureKeys, setFailureHidden, failureScope, retryFailureRunId, onRetryFailure, events, messageRuns, anchors, expanded, toggle, onResendInterjection, resolvePersistedMessageId, isSettledMessageId }), [hiddenFailureKeys, setFailureHidden, failureScope, retryFailureRunId, onRetryFailure, events, messageRuns, anchors, expanded, toggle, onResendInterjection, resolvePersistedMessageId, isSettledMessageId]);
   // 同一份事实的另一面：有锚点的 run 由 inline 槽画，没锚点的才由 fallback 槽画。
   const displayed = new Set(Object.keys(anchors));
   return <TraceContext.Provider value={value}>
     <LiveMessagesContext.Provider value={props.messages ?? null}><CopilotChatMessageView {...props} assistantMessage={TraceAssistantSlot} /></LiveMessagesContext.Provider>
     {Object.entries(events).filter(([runId]) => !displayed.has(runId)).map(([runId, trace]) =>
-      <React.Fragment key={runId}><RunInterjections events={trace} readHistory={runId ? expanded?.[runId] : false} onResend={onResendInterjection} /><RunTracePanel runId={runId} events={trace} renderTool={renderExecutionTool} running={props.isRunning && !trace.some((event) => event.kind === "final_message")} expanded={expanded?.[runId] ?? false} onExpandedChange={(value) => toggle?.(runId, value)} /></React.Fragment>)}
+      <React.Fragment key={runId}>{!(isSettledFailureTrace(trace) && hiddenFailureKeys.has(failureTraceKey(failureScope, runId, trace) ?? "")) ? <RunInterjections events={trace} readHistory={runId ? expanded?.[runId] : false} onResend={onResendInterjection} /> : null}<RunTracePanel hidden={hiddenFailureKeys.has(failureTraceKey(failureScope, runId, trace) ?? "")} onHiddenChange={setFailureHidden} failureScope={failureScope} onRetryFailure={retryFailureRunId === runId ? onRetryFailure : undefined} runId={runId} events={trace} renderTool={renderExecutionTool} running={props.isRunning && !trace.some((event) => event.kind === "final_message")} expanded={expanded?.[runId] ?? false} onExpandedChange={(value) => toggle?.(runId, value)} /></React.Fragment>)}
   </TraceContext.Provider>;
 }
