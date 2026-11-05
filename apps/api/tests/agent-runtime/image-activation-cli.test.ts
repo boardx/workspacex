@@ -33,7 +33,7 @@ it('matching global schedule is idempotent and does not append a second activati
 it('list reads the global CAS schedule without organization context',async()=>{const f=setup();await f.run([]);expect(f.calls).toHaveLength(1);expect(f.calls[0]!.url).toBe('https://devapp.boardx.us/api/platform/billing/consumption/global-native-tariffs');});
 it('explicitly rejects legacy org scope before any request',async()=>{
  const fetcher=vi.fn();await expect(runQwenImageActivation({env:{...env,QWEN_ACTIVATION_ORG_ID:'old-org'},args:[],fetcher})).rejects.toThrow('LEGACY_ORG_SCOPE_REJECTED_USE_GLOBAL_SCHEDULE');
- await expect(runQwenImageActivation({env,args:['--org-id=old-org'],fetcher})).rejects.toThrow('LEGACY_ORG_SCOPE_REJECTED_USE_GLOBAL_SCHEDULE');expect(fetcher).not.toHaveBeenCalled();
+ for(const args of [['--org-id=old-org'],['--orgid=old'],['--orgid','old'],['--orgId=old','--fixed-prices','--apply'],['--ORGID','old'],['--org','old']])await expect(runQwenImageActivation({env,args,fetcher})).rejects.toThrow('LEGACY_ORG_SCOPE_REJECTED_USE_GLOBAL_SCHEDULE');expect(fetcher).not.toHaveBeenCalled();
 });
 it('CAS conflict is surfaced without retry or fallback org writes',async()=>{
  const f=setup();f.fetcher.mockImplementationOnce(async()=>Response.json(quote)).mockImplementationOnce(async()=>Response.json(quote)).mockImplementationOnce(async()=>Response.json({scope:'global',revision:null,items:[]})).mockImplementationOnce(async()=>Response.json({message:'conflict'},{status:409}));
@@ -66,3 +66,5 @@ it('offline snapshot preview cannot activate without an operator Bearer token',a
 });
 
 it('rejects the obsolete markup switch before requests',async()=>{await expect(runQwenImageActivation({args:['--markup10'],env:{}})).rejects.toThrow('LEGACY_MARKUP_DISABLED_USE_FIXED_PRICES');});
+
+it('unknown arguments fail before HTTP instead of silently changing global scope',async()=>{const fetcher=vi.fn();for(const args of [['--scope=org','--fixed-prices','--apply'],['old-org'],['--dry-run']])await expect(runQwenImageActivation({env,args,fetcher})).rejects.toThrow('UNKNOWN_ACTIVATION_ARGUMENT');expect(fetcher).not.toHaveBeenCalled();});

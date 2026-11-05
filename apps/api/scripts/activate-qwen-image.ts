@@ -9,12 +9,13 @@ const models=['qwen-image-3.0','qwen-image-3.0-pro','z-image-turbo'];
 export async function runQwenImageActivation(options:{env?:NodeJS.ProcessEnv;args?:readonly string[];fetcher?:typeof fetch;readFile?:(path:string)=>string;log?:(message:string)=>void}={}){
  const env=options.env??process.env,args=options.args??process.argv.slice(2),fetcher=options.fetcher??fetch,read=options.readFile??((path:string)=>readFileSync(path,'utf8')),log=options.log??console.log;
  const base=activationBaseUrl(env.QWEN_ACTIVATION_BASE_URL);
- if(env.QWEN_ACTIVATION_ORG_ID||args.some(arg=>/^--org(?:-id)?(?:=|$)/.test(arg)))throw new Error('LEGACY_ORG_SCOPE_REJECTED_USE_GLOBAL_SCHEDULE');
+ if(env.QWEN_ACTIVATION_ORG_ID||args.some(arg=>/^--org(?:-?id)?(?:=|$)/i.test(arg)))throw new Error('LEGACY_ORG_SCOPE_REJECTED_USE_GLOBAL_SCHEDULE');
  // Required only by the read-only CN catalog endpoint, never a tariff selector.
  const quoteOrgId=env.QWEN_ACTIVATION_QUOTE_ORG_ID;
  const cookie=env.QWEN_ACTIVATION_COOKIE_FILE?read(env.QWEN_ACTIVATION_COOKIE_FILE).trim():env.QWEN_ACTIVATION_COOKIE;
  const token=env.QWEN_ACTIVATION_TOKEN_FILE?read(env.QWEN_ACTIVATION_TOKEN_FILE).trim():env.QWEN_ACTIVATION_TOKEN;
  if(args.includes('--markup10'))throw new Error('LEGACY_MARKUP_DISABLED_USE_FIXED_PRICES');
+ if(args.some(arg=>arg!=='--fixed-prices'&&arg!=='--apply'))throw new Error('UNKNOWN_ACTIVATION_ARGUMENT');
  const apply=args.includes('--apply'),markup=args.includes('--fixed-prices');
  if(apply&&!markup)throw new Error('FIXED_PRICES_REQUIRED_FOR_APPLY');
  async function request(path:string,method='GET',body?:unknown){
