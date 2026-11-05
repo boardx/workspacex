@@ -1,4 +1,6 @@
-> #6267 fixed-price update: customer prices per image are Z-Image CNY0.25, Qwen3 CNY0.50, Qwen3 Pro CNY1.00. These supersede cost-times-ten pricing. Use `--fixed-prices`; `--markup10` is rejected. Credit amounts come from the authenticated live CNY pricing basis with integer ceiling to 0.01 credit. Writes target only the explicitly selected organization through the audited operator API. Activation of one organization does not activate other existing or future organizations, CN as a whole, or all environments. Global defaults/new-organization initialization require a separate design and issue. Live activation evidence is maintained by the server operator; the implementation tests below do not prove production activation. Historical cost observations below describe supplier costs, not current customer prices.
+> Current global integration (#6298): all image writes use the existing global image schedule CAS. Legacy `QWEN_ACTIVATION_ORG_ID` is rejected; use `QWEN_ACTIVATION_QUOTE_ORG_ID` only as the read-only catalog context. Fixed prices remain Z CNY0.25, Qwen3 CNY0.50, Pro CNY1.00. This supersedes organization-scoped activation instructions below. No deployed activation is established by these tests.
+
+> #6267 fixed-price update: customer prices per image are Z-Image CNY0.25, Qwen3 CNY0.50, Qwen3 Pro CNY1.00. These supersede cost-times-ten pricing. Use `--fixed-prices`; `--markup10` is rejected. Credit amounts come from the authenticated live CNY pricing basis with integer ceiling to 0.01 credit. Writes target the audited global image schedule and apply to every current or future payer in this deployment. Other environments require separate activation. Live activation evidence is maintained by the server operator; the implementation tests below do not prove production activation. Historical cost observations below describe supplier costs, not current customer prices.
 
 # Devapp activation for #6245
 
@@ -25,7 +27,7 @@ Sources: [standard](https://help.aliyun.com/zh/model-studio/qwen-image-3-0), [pr
 
 ```sh
 # Load these from an existing devapp operator session without placing them in shell history:
-# QWEN_ACTIVATION_TOKEN_FILE=/secure/devapp-operator-token, QWEN_ACTIVATION_ORG_ID
+# QWEN_ACTIVATION_TOKEN_FILE=/secure/devapp-operator-token, QWEN_ACTIVATION_QUOTE_ORG_ID
 # Optional QWEN_ACTIVATION_COOKIE_FILE is only for a trusted proxy/access cookie.
 # QWEN_ACTIVATION_REGION=cn-beijing only after checking the actual deployment account/host
 QWEN_ACTIVATION_BASE_URL=https://devapp.boardx.us/api pnpm exec tsx apps/api/scripts/activate-qwen-image.ts
@@ -36,7 +38,7 @@ QWEN_ACTIVATION_BASE_URL=https://devapp.boardx.us/api pnpm exec tsx apps/api/scr
 ```
 
 
-Application requires --fixed-prices --apply; arbitrary tariff JSON files are not accepted by this activation helper. All three calculated rows are validated before PUT, restricted to the chosen org and three fixed models. Every PUT is audited by the existing API and no authentication data is logged. PUTs are individually audited; if a later PUT fails, rerun the read-only check to review partial state before continuing.
+Application requires --fixed-prices --apply; arbitrary tariff JSON files are not accepted by this activation helper. One atomic CAS PUT contains only expectedRevision and expectedCatalogVersion. The server derives all three fixed prices and audits the complete schedule; the CLI independently reads it back. A matching schedule is a no-op, and a CAS conflict fails without retry. No authentication data is logged.
 
 4. GET /platform/model-tests/candidates?orgId=... is the existing platform admission diagnostic. Important current limitation: PlatformTestImageClient supports wanx-async only. Do not register Qwen/Z against that adapter or use its green result as image-route evidence. Use the actual general-assistant product path after correct runtime registration; extending the independent platform test adapter is separate work.
 5. Restart/new general-assistant run loads the latest published visual-content 1.0.2 through PgEnabledSkillVersionReader; explicit user version pins remain unchanged. Ask (a) "生成一张普通的山水配图" (b) "生成复杂高清科幻城市插画" (c) "生成一个蓝色日历icon". Verify read/call of visual-content, actual wx_image_generate arguments, model/task/receipt, credit reservation+settlement, artifact publish staged+writeback, authenticated artifact read and browser image display. Record PNG SHA and1024/2048 dimensions. No current evidence claims these deployed runs succeeded.
@@ -55,9 +57,9 @@ Dryrun command (credentials are read only from protected operator input; this co
 ```sh
 QWEN_ACTIVATION_BASE_URL=https://devapp.boardx.us/api \
 QWEN_ACTIVATION_TOKEN_FILE=/secure/devapp-operator-token \
-QWEN_ACTIVATION_ORG_ID=selected-devapp-org \
+QWEN_ACTIVATION_QUOTE_ORG_ID=selected-devapp-org \
 QWEN_ACTIVATION_REGION=cn-beijing \
 pnpm exec tsx apps/api/scripts/activate-qwen-image.ts --fixed-prices
 ```
 
-Expected sole dryrun request: `GET https://devapp.boardx.us/api/platform/billing/consumption/image-pricing-basis?orgId=selected-devapp-org`, no body. It sends the explicit Bearer token and, only if supplied, the auxiliary Cookie. It logs quote/prices, never either secret. The mocked apply path (no online writes) verifies two basis GETs, one tariff GET with encoded target-org query, and exactly three PUT bodies validated by the existing NativeCreditTariff contract to `/api/platform/billing/consumption/native-tariffs`. A changed quote blocks all PUTs. Unknown HTTP bodies are redacted; known missing/ambiguous CN basis diagnostics remain bounded and explicit.
+Expected sole dryrun request: `GET https://devapp.boardx.us/api/platform/billing/consumption/image-pricing-basis?orgId=selected-devapp-org`, no body. It sends the explicit Bearer token and, only if supplied, the auxiliary Cookie. It logs quote/prices, never either secret. The mocked apply path (no online writes) verifies two basis GETs, one global schedule GET, one atomic CAS PUT to `/api/platform/billing/consumption/global-native-tariffs`, and one independent schedule GET for readback; schedule calls have no organization query/body. A changed quote blocks all PUTs. Unknown HTTP bodies are redacted; known missing/ambiguous CN basis diagnostics remain bounded and explicit.

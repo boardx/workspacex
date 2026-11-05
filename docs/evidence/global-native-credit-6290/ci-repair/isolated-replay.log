@@ -1,0 +1,24 @@
+[stack-admission] load1=5.45 cores=10 perCore=0.54 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw3l0mbe-cc2a0254-d9131900d846 db=wsx_d9131900d846cccd10f9 compose=wsx-d9131900d846cccd10f9 pg=20456 redis=21456 api=24456 web=25456 sandbox=26456 model=27456 deep-agent=28456 asr=29456 vision=30456 loopback-sandbox=31456 mail=19456
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/e6f1/workspacex/apps/api
+
+[db-isolation] db=wsx_d9131900d846cccd10f9 capacity=100 current=6 required=32
+ ✓ tests/billing/native-credit-tariff-pg.test.ts (5 tests) 31994ms
+ ✓ tests/billing/credit-period-lifecycle-pg.test.ts (6 tests) 2739ms
+ ✓ tests/billing/credit-periods-pg.test.ts (1 test) 580ms
+
+ Test Files  3 passed (3)
+      Tests  12 passed (12)
+   Start at  21:29:05
+   Duration  56.60s (transform 3.34s, setup 51ms, collect 7.21s, tests 35.31s, environment 1ms, prepare 324ms)
+
+[db-isolation] db=wsx_d9131900d846cccd10f9 peak_connections=4
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/native-credit-tariff-pg.test.ts tests/billing/credit-periods-pg.test.ts tests/billing/credit-period-lifecycle-pg.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：58s
+  清理：1s
+  总计：59s
