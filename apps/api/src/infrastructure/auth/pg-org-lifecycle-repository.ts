@@ -75,7 +75,7 @@ export class PgOrgLifecycleRepository implements OrgLifecycleRepository {
   /**
    * 每张当前应用角色可读的租户表在本组织下有多少行 —— **表名与读权限从 catalog 推，不写死**。
    *
-   * 与 `kernel_tenant_table_audit()` 同源的推导（带 org_id 且该列有指向租户根表的外键），
+   * 按 catalog 推导带 org_id 单列外键的普通表，再按当前应用角色的 SELECT ACL 限定，
    * 同样的理由：手维护的列表缺的永远是刚加的那张表。
    * 可读租户表必须完整计数；内部不可读归档不属于应用导出清单，也不伪报零行。
    * ACL 是唯一可读性判据；普通 SELECT 失败仍然报错，不吞异常或切换特权角色。
