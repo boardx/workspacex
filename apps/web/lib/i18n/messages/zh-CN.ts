@@ -15,10 +15,6 @@ import { aiUsageZhCN } from "../namespaces/ai-usage";
 import { adminLimitPolicyZhCN } from "../namespaces/admin-limit-policy";
 import { adminMemberQuotasZhCN } from "../namespaces/admin-member-quotas";
 import { adminCommonZhCN } from "../namespaces/admin-common";
-import { workbenchHomeZhCN } from "../namespaces/workbench-home";
-import { inboxZhCN } from "../namespaces/inbox";
-import { designDocumentZhCN } from "../namespaces/design-document";
-import { designLoopCommonZhCN } from "../namespaces/design-loop-common";
 import { recordingProjectZhCN } from "../namespaces/recording-project";
 import { workflowGrantsZhCN } from "../namespaces/workflow-grants";
 import { orgHomeConfigZhCN } from "../namespaces/org-home-config";
@@ -40,6 +36,10 @@ import { aboutMemoryZhCN } from "../namespaces/about-memory";
 import { orgMembersZhCN } from "../namespaces/org-members";
 import { orgMembersPreviewZhCN } from "../namespaces/org-members-preview";
 import { orgSharedInvitesZhCN } from "../namespaces/org-shared-invites";
+import { workbenchHomeZhCN } from "../namespaces/workbench-home";
+import { inboxZhCN } from "../namespaces/inbox";
+import { designDocumentZhCN } from "../namespaces/design-document";
+import { designLoopCommonZhCN } from "../namespaces/design-loop-common";
 import { stateZhCN } from "../namespaces/state";
 import { accountEntryZhCN } from "../namespaces/account-entry";
 import { invitationEntryZhCN } from "../namespaces/invitation-entry";
@@ -61,10 +61,6 @@ export const zhCN = {
   ...adminLimitPolicyZhCN,
   ...adminMemberQuotasZhCN,
   ...adminCommonZhCN,
-  ...workbenchHomeZhCN,
-  ...inboxZhCN,
-  ...designDocumentZhCN,
-  ...designLoopCommonZhCN,
   ...recordingProjectZhCN,
   ...workflowGrantsZhCN,
   ...orgHomeConfigZhCN,
@@ -82,6 +78,10 @@ export const zhCN = {
   ...orgMembersZhCN,
   ...orgMembersPreviewZhCN,
   ...orgSharedInvitesZhCN,
+  ...workbenchHomeZhCN,
+  ...inboxZhCN,
+  ...designDocumentZhCN,
+  ...designLoopCommonZhCN,
   ...stateZhCN,
   ...chatShareZhCN,
   ...codeFenceZhCN,

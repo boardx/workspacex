@@ -15,10 +15,6 @@ import { aiUsageEn } from "../namespaces/ai-usage";
 import { adminLimitPolicyEn } from "../namespaces/admin-limit-policy";
 import { adminMemberQuotasEn } from "../namespaces/admin-member-quotas";
 import { adminCommonEn } from "../namespaces/admin-common";
-import { workbenchHomeEn } from "../namespaces/workbench-home";
-import { inboxEn } from "../namespaces/inbox";
-import { designDocumentEn } from "../namespaces/design-document";
-import { designLoopCommonEn } from "../namespaces/design-loop-common";
 import { recordingProjectEn } from "../namespaces/recording-project";
 import { workflowGrantsEn } from "../namespaces/workflow-grants";
 import { orgHomeConfigEn } from "../namespaces/org-home-config";
@@ -37,6 +33,10 @@ import { aboutMemoryEn } from "../namespaces/about-memory";
 import { orgMembersEn } from "../namespaces/org-members";
 import { orgMembersPreviewEn } from "../namespaces/org-members-preview";
 import { orgSharedInvitesEn } from "../namespaces/org-shared-invites";
+import { workbenchHomeEn } from "../namespaces/workbench-home";
+import { inboxEn } from "../namespaces/inbox";
+import { designDocumentEn } from "../namespaces/design-document";
+import { designLoopCommonEn } from "../namespaces/design-loop-common";
 import { stateEn } from "../namespaces/state";
 import { workflowRunsEn } from "../namespaces/workflow-runs";
 import { workshopOverviewEn } from "../namespaces/workshop-overview";
@@ -62,10 +62,6 @@ export const en: Record<keyof typeof zhCN, string> = {
   ...adminLimitPolicyEn,
   ...adminMemberQuotasEn,
   ...adminCommonEn,
-  ...workbenchHomeEn,
-  ...inboxEn,
-  ...designDocumentEn,
-  ...designLoopCommonEn,
   ...workflowGrantsEn,
   ...orgHomeConfigEn,
   ...orgProfileEn,
@@ -82,6 +78,10 @@ export const en: Record<keyof typeof zhCN, string> = {
   ...orgMembersEn,
   ...orgMembersPreviewEn,
   ...orgSharedInvitesEn,
+  ...workbenchHomeEn,
+  ...inboxEn,
+  ...designDocumentEn,
+  ...designLoopCommonEn,
   ...stateEn,
   ...chatShareEn,
   ...codeFenceEn,
