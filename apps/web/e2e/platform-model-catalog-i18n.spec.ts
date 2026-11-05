@@ -30,12 +30,13 @@ async function login(page: Page, actor: "superuser" | "member") {
   await page.getByTestId("login-email").fill(superuser ? P.superuserEmail : E.memberEmail);
   await page.getByTestId("login-password").fill(superuser ? E.adminPassword : E.memberPassword);
   const response = page.waitForResponse(r => r.request().method() === auth.operations.login.method &&
-    new URL(r.url()).pathname === prefix + auth.operations.login.path);
-  await page.getByTestId("login-submit").click();
-  const actual = await response;
-  expect(actual.status()).toBe(200);
-  // Never assert/attach/log a full auth result, storage, request, cookie or header.
-  const parsed = auth.operations.login.out.safeParse(await actual.json());
+    new URL(r.url()).pathname === prefix + auth.operations.login.path).then(async actual => {
+    expect(actual.status()).toBe(200);
+    // Consume the body before navigation can release its CDP response resource.
+    // Never assert/attach/log a full auth result, storage, request, cookie or header.
+    return auth.operations.login.out.safeParse(await actual.json());
+  });
+  const [parsed] = await Promise.all([response, page.getByTestId("login-submit").click()]);
   expect(parsed.success, "real login must satisfy canonical contract").toBe(true);
   if (!parsed.success) throw new Error("login contract mismatch");
   expect(parsed.data.userId).toBe(superuser ? P.superuserId : E.memberUserId);
