@@ -30,9 +30,17 @@ const missingCopy = "The test record or test service is unavailable. Check the e
 const financialCautionCopy = "Costs or results are unconfirmed; the budget reservation remains held. Querying the original record does not make a new model call. A new test still requires cost confirmation and does not release this reservation.";
 const chineseFinancialCautionCopy = "费用或结果尚未确认，预算预留继续保留。查询原记录不会产生新的模型调用；新测试仍需重新确认费用，且不会释放此预留。";
 
+function expectNotFound(body: unknown) {
+  // The global exception filter exposes only the status code and trace ID here.
+  // Exact equality rejects record data, private detail and unreviewed extra fields.
+  expect(body).toStrictEqual({ error: "not_found", traceId: expect.stringMatching(/\S/) });
+}
+
 test("model testbench preserves actual unavailable-adapter history across locales and operator boundaries", async ({ page, browser }, testInfo) => {
   test.setTimeout(120_000);
-  // Canonical config must retain expect20s, worker1/retry0/maxFailures1 and original startup.
+  // Case timeout is explicit; assertion/worker/retry/startup settings are inherited
+  // from the existing canonical runner and are not enlarged. Actual settings and
+  // attempts are reported from artifacts.
   // Scope execution with --no-deps; do not import another spec or change its cases.
   const receipts: { operation: string; status: number; body: unknown }[] = [];
   async function responseBody(response: APIResponse, status: number, operation: string) {
@@ -48,10 +56,13 @@ test("model testbench preserves actual unavailable-adapter history across locale
     await actorPage.goto("/login");
     await actorPage.getByTestId("login-email").fill(email);
     await actorPage.getByTestId("login-password").fill(password);
-    const pending = actorPage.waitForResponse(response => response.request().method() === auth.operations.login.method && new URL(response.url()).pathname === prefix + auth.operations.login.path);
-    await actorPage.getByTestId("login-submit").click();
-    const response = await pending; expect(response.status()).toBe(200);
-    const authenticated = auth.operations.login.out.parse(await response.json());
+    const pending = actorPage.waitForResponse(response => response.request().method() === auth.operations.login.method && new URL(response.url()).pathname === prefix + auth.operations.login.path).then(async response => {
+      expect(response.status()).toBe(200);
+      // Consume the actual response before hard navigation can discard its body.
+      // Never record the signed login response in the API receipt helper.
+      return auth.operations.login.out.parse(await response.json());
+    });
+    const [authenticated] = await Promise.all([pending, actorPage.getByTestId("login-submit").click()]);
     expect(authenticated.userId).toBe(ordinary ? E.adminUserId : superuser ? F.superuserId : F.targetId);
     // seed-entity-localization.ts adds the ordinary admin only to E.orgId;
     // its separate platform fixture adds the SS/target to both normal organizations.
@@ -159,7 +170,7 @@ test("model testbench preserves actual unavailable-adapter history across locale
     expect(response.status()).toBe(expectedStatus);
     expect(new URL(response.url()).searchParams.get("orgId")).toBe(F.orgAId);
     if (expectedStatus === 200) expect(MT.get.out.parse(body)).toEqual(baseline);
-    else expect(body).toMatchObject({ reasonCode: "TEST_NOT_FOUND" });
+    else expectNotFound(body);
     await expect(control).toBeDisabled(); // Recovery remains disabled once original attempt is owned.
     expect(uiRequests.slice(before)).toEqual([{ method: "GET", path: recordPath(testId), orgId: F.orgAId }]);
   }
@@ -188,15 +199,18 @@ test("model testbench preserves actual unavailable-adapter history across locale
     }
   }
   async function deniedApi(actorPage: Page, actorHeaders: typeof headers, status: 403 | 404) {
-    const expectedReason = status === 404 ? "TEST_NOT_FOUND" : "NOT_PLATFORM_SUPERUSER";
     if (status === 403) {
       const response = await actorPage.request.get(candidatePath, { headers: actorHeaders, params: { orgId: F.orgAId } });
-      expect(await responseBody(response, 403, "denied candidates")).toMatchObject({ reasonCode: expectedReason });
+      expect(await responseBody(response, 403, "denied candidates")).toMatchObject({ reasonCode: "NOT_PLATFORM_SUPERUSER" });
     }
     const response = await actorPage.request.get(recordPath(testId), { headers: actorHeaders, params: { orgId: F.orgAId } });
-    expect(await responseBody(response, status, "denied foreign original GET")).toMatchObject({ reasonCode: expectedReason });
+    const getBody = await responseBody(response, status, "denied foreign original GET");
+    if (status === 404) expectNotFound(getBody);
+    else expect(getBody).toMatchObject({ reasonCode: "NOT_PLATFORM_SUPERUSER" });
     const cancel = await actorPage.request.post(cancelPath(testId), { headers: actorHeaders, data: MT.cancel.in.parse({ orgId: F.orgAId }) });
-    expect(await responseBody(cancel, status, "denied foreign cancellation")).toMatchObject({ reasonCode: expectedReason });
+    const cancelBody = await responseBody(cancel, status, "denied foreign cancellation");
+    if (status === 404) expectNotFound(cancelBody);
+    else expect(cancelBody).toMatchObject({ reasonCode: "NOT_PLATFORM_SUPERUSER" });
     await readOriginal();
   }
   const foreignContext = await browser.newContext({ baseURL: testInfo.project.use.baseURL });
