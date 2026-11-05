@@ -1,4 +1,5 @@
-import { projectBrainZhCN } from "../namespaces/project-brain";
+import { workshopLiveZhCN } from "../namespaces/workshop-live";
+import { platformOpsStatusZhCN } from "../namespaces/platform-ops-status";
 import { modelTestbenchZhCN } from "../namespaces/model-testbench";
 import { platformModelCatalogZhCN } from "../namespaces/platform-model-catalog";
 import { telemetrySettingsZhCN } from "../namespaces/telemetry-settings";
@@ -20,11 +21,13 @@ import { orgHomeConfigZhCN } from "../namespaces/org-home-config";
 import { orgProfileZhCN } from "../namespaces/org-profile";
 import { adminNavigationZhCN } from "../namespaces/admin-navigation";
 import { brainViewsZhCN } from "../namespaces/brain-views";
+import { projectBrainZhCN } from "../namespaces/project-brain";
 import { chatZhCN } from "../namespaces/chat";
 import { zhTasks } from "./tasks";
 import { zhFailures } from "./failures";
 import { controlsZhCN } from "../namespaces/controls";
 import { workflowRunsZhCN } from "../namespaces/workflow-runs";
+import { workshopOverviewZhCN } from "../namespaces/workshop-overview";
 import { projectWorkbenchZhCN } from "../namespaces/project-workbench";
 import { projectListZhCN } from "../namespaces/project-list";
 import { activityZhCN } from "../namespaces/activity";
@@ -38,7 +41,8 @@ import { stateZhCN } from "../namespaces/state";
 import { accountEntryZhCN } from "../namespaces/account-entry";
 import { invitationEntryZhCN } from "../namespaces/invitation-entry";
 export const zhCN = {
-  ...projectBrainZhCN,
+  ...workshopLiveZhCN,
+  ...platformOpsStatusZhCN,
   ...modelTestbenchZhCN,
   ...platformModelCatalogZhCN,
   ...telemetrySettingsZhCN,
@@ -59,6 +63,7 @@ export const zhCN = {
   ...orgHomeConfigZhCN,
   ...orgProfileZhCN,
   ...brainViewsZhCN,
+  ...projectBrainZhCN,
   ...chatZhCN,
   ...zhTasks,
   ...zhFailures,
@@ -75,6 +80,7 @@ export const zhCN = {
   ...chatShareZhCN,
   ...codeFenceZhCN,
   ...workflowRunsZhCN,
+  ...workshopOverviewZhCN,
   ...projectWorkbenchZhCN,
   "common.language": "语言",
   "home.greeting": "你好，{name}",

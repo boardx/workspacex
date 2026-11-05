@@ -1,4 +1,5 @@
-import { projectBrainEn } from "../namespaces/project-brain";
+import { workshopLiveEn } from "../namespaces/workshop-live";
+import { platformOpsStatusEn } from "../namespaces/platform-ops-status";
 import { modelTestbenchEn } from "../namespaces/model-testbench";
 import { platformModelCatalogEn } from "../namespaces/platform-model-catalog";
 import { telemetrySettingsEn } from "../namespaces/telemetry-settings";
@@ -20,6 +21,7 @@ import { orgHomeConfigEn } from "../namespaces/org-home-config";
 import { orgProfileEn } from "../namespaces/org-profile";
 import { adminNavigationEn } from "../namespaces/admin-navigation";
 import { brainViewsEn } from "../namespaces/brain-views";
+import { projectBrainEn } from "../namespaces/project-brain";
 import { chatEn } from "../namespaces/chat";
 import { enTasks } from "./tasks";
 import { enFailures } from "./failures";
@@ -34,12 +36,14 @@ import { orgMembersPreviewEn } from "../namespaces/org-members-preview";
 import { orgSharedInvitesEn } from "../namespaces/org-shared-invites";
 import { stateEn } from "../namespaces/state";
 import { workflowRunsEn } from "../namespaces/workflow-runs";
+import { workshopOverviewEn } from "../namespaces/workshop-overview";
 import { projectWorkbenchEn } from "../namespaces/project-workbench";
 import type { zhCN } from "./zh-CN";
 import { accountEntryEn } from "../namespaces/account-entry";
 import { invitationEntryEn } from "../namespaces/invitation-entry";
 export const en: Record<keyof typeof zhCN, string> = {
-  ...projectBrainEn,
+  ...workshopLiveEn,
+  ...platformOpsStatusEn,
   ...modelTestbenchEn,
   ...platformModelCatalogEn,
   ...telemetrySettingsEn,
@@ -59,6 +63,7 @@ export const en: Record<keyof typeof zhCN, string> = {
   ...orgHomeConfigEn,
   ...orgProfileEn,
   ...brainViewsEn,
+  ...projectBrainEn,
   ...chatEn,
   ...enTasks,
   ...enFailures,
@@ -75,6 +80,7 @@ export const en: Record<keyof typeof zhCN, string> = {
   ...chatShareEn,
   ...codeFenceEn,
   ...workflowRunsEn,
+  ...workshopOverviewEn,
   ...projectWorkbenchEn,
   "common.language": "Language",
   "home.greeting": "Hello, {name}",
