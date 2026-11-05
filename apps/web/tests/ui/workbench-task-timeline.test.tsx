@@ -21,6 +21,41 @@ function DecisionRenderer() {
   return null;
 }
 describe("framework task timeline", () => {
+  it("hides every failed-run assistant bubble, keeps the user and other runs, and restores after remount", () => {
+    localStorage.clear();
+    const longFailure = "这次图片生成未完成。".repeat(80);
+    const failedEvents: ExecutionEvent[] = [
+      ...events,
+      { ...base, seq: 5, kind: "interjection", interjectionId: "ij", text: "失败轮的插话", status: "not_applied" },
+      { ...base, seq: 6, kind: "status", status: "failed", attemptId: "failed-attempt" },
+    ];
+    const view = () => <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
+      <TaskTimeline failureScope="org/thread" messages={[
+        { id: "user", role: "user", content: "请生成图片" },
+        { id: "answer", role: "assistant", content: longFailure },
+        { id: "failure-tail", role: "assistant", content: "失败后的补充说明" },
+        { id: "success", role: "assistant", content: "其他任务的成功结果" },
+      ]} messageRuns={{ answer: "run-a", "failure-tail": "run-a", success: "run-b" }}
+      events={{ "run-a": failedEvents, "run-b": [{ ...base, runId: "run-b", seq: 0, kind: "status", status: "succeeded" }] }} isRunning={false} />
+    </CopilotKit>;
+    const first = render(view());
+    expect(screen.getByText(longFailure)).toBeVisible();
+    fireEvent.click(screen.getByText("隐藏失败记录"));
+    expect(screen.queryByText(longFailure)).not.toBeInTheDocument();
+    expect(screen.queryByTestId("workbench-interjection-status")).not.toBeInTheDocument();
+    expect(screen.queryByText("失败后的补充说明")).not.toBeInTheDocument();
+    expect(screen.getByText("请生成图片")).toBeVisible();
+    expect(screen.getByText("其他任务的成功结果")).toBeVisible();
+    first.unmount();
+    render(view());
+    expect(screen.queryByText(longFailure)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("恢复显示"));
+    expect(screen.getByText(longFailure)).toBeVisible();
+    expect(screen.getByText("失败后的补充说明")).toBeVisible();
+    expect(screen.getByTestId("workbench-interjection-status")).toBeVisible();
+    expect(screen.getByText("其他任务的成功结果")).toBeVisible();
+    localStorage.clear();
+  });
   it("keeps already visible streamed text when a delayed tool boundary classifies it as progress before END", () => {
     const message = { id: "progress", role: "assistant" as const, content: "已流出的正文" };
     const view = (trace: ExecutionEvent[]) => <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>

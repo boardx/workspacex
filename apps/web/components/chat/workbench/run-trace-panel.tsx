@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { failureTraceKey, isSettledFailureTrace } from "@/lib/chat-workbench/failure-trace-visibility";
 import { ChevronRight, Loader2, Check, AlertCircle, Circle, Wrench, Sparkles } from "lucide-react";
 import { RunProgressButterfly } from "@/components/chat/run-progress-butterfly";
 import type { ExecutionEvent } from "@repo/contracts/execution-journal";
@@ -119,12 +120,24 @@ function SourceUrlLine({ args }: { readonly args: unknown }): React.JSX.Element 
  */
 const RESULT_PANEL_MIN_CHARS = 200;
 
-export function RunTracePanel({ runId, events, running = false, expanded: controlledExpanded, onExpandedChange, renderTool }: {
-  runId: string; events: readonly ExecutionEvent[]; running?: boolean; expanded?: boolean; onExpandedChange?: (expanded: boolean) => void; renderTool?: (entry: TraceEntry) => React.ReactNode;
+export function RunTracePanel({ runId, events, running = false, expanded: controlledExpanded, onExpandedChange, renderTool, failureScope, onRetryFailure, hidden: controlledHidden, onHiddenChange }: {
+  hidden?: boolean; onHiddenChange?: (key: string, hidden: boolean) => void; failureScope?: string; onRetryFailure?: () => void; runId: string; events: readonly ExecutionEvent[]; running?: boolean; expanded?: boolean; onExpandedChange?: (expanded: boolean) => void; renderTool?: (entry: TraceEntry) => React.ReactNode;
 }): JSX.Element | null {
   const [localExpanded, setLocalExpanded] = React.useState(false);
   const expanded = controlledExpanded ?? localExpanded;
   const setExpanded = onExpandedChange ?? setLocalExpanded;
+  const storageKey = failureTraceKey(failureScope, runId, events);
+  const [hiddenKey, setHiddenKey] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    try { setHiddenKey(storageKey && localStorage.getItem(storageKey) === "1" ? storageKey : null); }
+    catch { setHiddenKey(null); }
+  }, [storageKey]);
+  const hideFailure = (hide: boolean) => {
+    setHiddenKey(hide ? storageKey : null);
+    if (storageKey) onHiddenChange?.(storageKey, hide);
+    if (!storageKey) return;
+    try { if (hide) localStorage.setItem(storageKey, "1"); else localStorage.removeItem(storageKey); } catch { /* Storage may be disabled; current view still works. */ }
+  };
   const id = React.useId();
   const entries = React.useMemo(() => traceEntries(events), [events]);
   const rows = React.useMemo(() => groupTraceRows(entries), [entries]);
@@ -159,7 +172,9 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
   const seconds = Number.isFinite(start) && Number.isFinite(end) ? Math.max(0, Math.floor((end - start) / 1000)) : 0;
   const elapsed = `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
   const label = legacy ? "历史执行记录" : status?.kind === "status" && status.status === "cancelled" ? "已停止" : status?.kind === "status" && status.status === "failed" ? "执行失败" : status?.kind === "status" && status.status === "paused" ? "已暂停" : status?.kind === "status" && status.status === "awaiting_tool_permission" ? "等待确认" : active ? "正在执行" : "执行过程";
+  const runFailed = status?.kind === "status" && status.status === "failed";
   const failed = entries.some((entry) => entry.status === "failed");
+  const showFailureControls = isSettledFailureTrace(events);
   const tools = entries.filter((entry) => entry.kind === "tool").length;
   const skills = entries.filter((entry) => entry.kind === "skill").length;
   const hasSubtasks = entries.some((entry) => entry.kind === "tool" && entry.text === "spawn_async_task");
@@ -171,6 +186,9 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
   const head = active ? null : failed ? `${label} · 有失败步骤` : label;
   // 「技能活动」只数技能脚本执行；为 0 时对用户没有信息量（人类反馈 2026-09-17），不显示。
   const tail = `${active && failed ? "有失败步骤 · " : ""}历时 ${elapsed} · 工具 ${String(tools)} 次${skills > 0 ? ` · 技能活动 ${String(skills)} 项` : ""}`;
+  if (showFailureControls && storageKey && (controlledHidden ?? (hiddenKey === storageKey))) return <div data-testid="run-trace-hidden" className="my-1 flex items-center gap-2 text-11 text-muted-foreground">
+    <span>已在此浏览器隐藏失败记录</span><button type="button" className="underline" onClick={() => hideFailure(false)}>恢复显示</button>
+  </div>;
   return <section data-testid="run-trace-panel" data-run-id={runId} className="my-3 min-w-0 rounded-card bg-card px-1 py-1 text-13 text-muted-foreground shadow-sm">
     <button type="button" aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(!expanded)}
       data-testid="run-trace-toggle" className="flex w-full max-w-full items-center gap-2 rounded-control px-2 py-1.5 text-left transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -186,6 +204,10 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
       </span>
       <ChevronRight aria-hidden className={`ml-auto h-3.5 w-3.5 shrink-0 transition-transform duration-fast ${expanded ? "rotate-90" : ""}`} />
     </button>
+    {showFailureControls ? <div className="flex items-center gap-3 px-2 text-11">
+      {runFailed && onRetryFailure ? <button type="button" className="underline" onClick={onRetryFailure}>重试</button> : null}
+      {storageKey ? <button type="button" className="underline" title="仅在此浏览器隐藏，执行记录仍保留，可恢复显示" onClick={() => hideFailure(true)}>隐藏失败记录</button> : null}
+    </div> : null}
     {/*
       折叠区「外面」——与活性条、后台任务面板同一条先例（见 `RunTraceLivePreview` 头注：
       改默认展开值的那一版被 `fullstack-smoke` 按设计拦下来了）。展开与否一个字没改；
@@ -196,7 +218,7 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
         也看不到——v2 这条链的计划面板吃的是 AG-UI STATE_SNAPSHOT / 计划账本，
         deep-agent provider 两样都不走。而那份计划其实就在这次工具调用的 args 里，
         已经在浏览器手上了。用「既有的」AgentPlanPanel 渲染，不另画一套。 */}
-    {showPlanHere && shownTodos !== null ? (
+    {showPlanHere && shownTodos !== null && (!showFailureControls || expanded) ? (
       <div className="mb-1.5" data-testid="run-trace-plan">
         <AgentPlanPanel steps={[]} stateSnapshotTodos={shownTodos}
           renderStepDetail={(todo) => <PlanStepActionList todo={todo} actions={stepActions.get(todo.content.trim()) ?? []} openWhenActive={false} />} />
@@ -335,6 +357,6 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
       挂载条件并没有放宽：仍然要求这一轮真的调用过 `spawn_async_task`（`hasSubtasks`），
       且 `SubtaskRunLivePanel` 自己在后端查不到子任务行时返回 null。
     */}
-    {hasSubtasks ? <SubtaskRunLivePanel parentRunId={runId} /> : null}
+    {hasSubtasks && (!showFailureControls || expanded) ? <SubtaskRunLivePanel parentRunId={runId} /> : null}
   </section>;
 }
