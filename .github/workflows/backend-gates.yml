@@ -204,7 +204,7 @@ jobs:
   gates-test:
     needs: api-test-plan
     runs-on: ubuntu-latest
-    if: needs.api-test-plan.outputs.mode == 'full' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    if: (github.event_name != 'pull_request' || needs.api-test-plan.outputs.mode == 'full') && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     timeout-minutes: 20
     strategy:
       fail-fast: true # Stop remaining shards after the first failure.
