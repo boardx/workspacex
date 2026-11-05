@@ -9,3 +9,5 @@ No deployment or global production activation is claimed.
 Commands: `pnpm --filter @repo/api exec vitest run --config vitest.image.config.ts tests/agent-runtime/global-image-tariff-service.test.ts tests/agent-runtime/global-image-tariff-repository.test.ts`; `pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter @repo/api exec vitest run tests/billing/global-image-tariff-pg.test.ts`; `pnpm --filter @repo/api typecheck`; `pnpm --filter @repo/contracts typecheck`. Normal pre-push lint and CI are still pending.
 
 Tests do not issue supplier requests or modify production data. Temporary provisioning password is an isolated fixture. Dedicated role connection uses actual username/password, not owner SET ROLE.
+
+4. Final core-behavior extension: isolated global PG7/7 passed (27.46s), adding activation-then-new-organization reservation for all three models and asserting actual payer/rate/version. Old-request replay also directly asserts ledger sum in hundredths equals the original rate, with exactly one debit. Scope wsx-9b274d049c56d57f3ea2 cleaned by wrapper finally; docker ps empty. Runtime code unchanged from prior successful API/contracts typecheck.

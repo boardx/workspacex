@@ -1,4 +1,4 @@
-// @global-scope-fixture table:credit_global_image_schedule: isolated database is owned and dropped by the isolation runner; global audit is append-only.
+// Global schedule writes use the audited repository; rejected direct SQL is an explicit permission counterexample.
 // @global-scope-fixture table:credit_wallets: unique personal owner, isolated database teardown owns cleanup.
 import {randomUUID} from 'node:crypto';
 import {beforeAll,afterAll,it,expect} from 'vitest';
@@ -53,7 +53,8 @@ it('a global price update leaves replay and settlement on the original snapshot 
  const usage={eventId:input.requestId,userId:user,runId:null,modelProvider:input.modelProvider,modelId:input.modelId,tokensTotal:0,promptTokens:null,completionTokens:null,totalSource:'not-applicable' as const,outcome:'succeeded' as const,nativeUsage:{unit:'image' as const,quantity:1n,source:'reported' as const}};
  await reader.withTenant(personal,s=>credits.settleInSession(s,personal,usage));await reader.withTenant(personal,s=>credits.settleInSession(s,personal,usage));
  expect(await asOwner(async c=>(await c.query('SELECT native_rate::text rate,state FROM credit_consumption_requests WHERE request_id=$1',[input.requestId])).rows[0])).toEqual({rate:oldRate,state:'settled'});
- expect(await asOwner(async c=>(await c.query("SELECT count(*)::int n FROM credit_transactions WHERE source_type='model_request' AND source_id=$1",[input.requestId])).rows[0].n)).toBe(1);
+ const debit=await asApp(personal,async c=>(await c.query("SELECT count(*)::int n,sum(credits*100)::bigint::text hundredths FROM credit_transactions WHERE source_type='model_request' AND source_id=$1",[input.requestId])).rows[0]);
+ expect(debit.n).toBe(1);expect(BigInt(debit.hundredths)).toBe(BigInt(oldRate));
 });
 
 it('database constraints reject malformed prices, duplicate models, zero rates and mixed bases through the actual writer',async()=>{
@@ -73,5 +74,17 @@ it('provisioning rejects both membership directions before granting login',async
   await asOwner(c=>c.query(statement));
   try{await expect(provisionBillingTariffWriter('isolated-test-writer-password-6268')).rejects.toThrow('UNSAFE_WRITER_MEMBERSHIP');}
   finally{await asOwner(c=>c.query(statement.replace('GRANT','REVOKE').replace(' TO ',' FROM ')));}
+ }
+});
+
+it('a newly created organization after activation reserves all three global models without organization tariffs',async()=>{
+ const newOrg=toOrgId(`${prefix}-created-after-activation`);
+ await seedOrg({orgId:newOrg,projectId:`${newOrg}-project`});await addOrgMember(newOrg,user,'admin',null);
+ expect(await new PgNativeCreditTariffRepository(reader).list(newOrg)).toEqual([]);
+ const schedule=await repo.list();
+ for(const row of schedule.items){
+  const input={...start(`new-org-${row.modelId}`),modelId:row.modelId};
+  await reader.withTenant(newOrg,s=>credits.reserveInSession(s,newOrg,input));
+  expect(await asApp(newOrg,async c=>(await c.query('SELECT r.native_rate::text rate,r.tariff_version,w.owner_type,w.owner_id FROM credit_consumption_requests r JOIN credit_wallets w USING(wallet_id) WHERE r.request_id=$1',[input.requestId])).rows[0])).toEqual({rate:row.hundredthsPerQuantum,tariff_version:row.version,owner_type:'user',owner_id:user});
  }
 });
