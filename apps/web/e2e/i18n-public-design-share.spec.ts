@@ -5,6 +5,13 @@ import { FULLSTACK_E2E as F } from "./fullstack-smoke-fixture";
 import { boardApi, boardLogin } from "./board-acceptance-support";
 
 const operationPath = (path: string, id: string) => path.replace(":projectId", encodeURIComponent(id));
+// Authored fixture input for the already-selected deterministic loopback echo.
+// It exercises canonical paged initialization, not real-model design quality.
+const INITIALIZE_PROMPT = JSON.stringify({
+  outline: [{ frame: "Initialization", intent: "Share acceptance setup" }],
+  page: "<page><main><h1>Initialization</h1><p>Canonical setup through model echo</p><button>Continue</button></main></page>",
+  reply: "Authored loopback initialization",
+});
 const RAW_HTML = designHtmlPage.sanitizeHtmlPage("<main><h1>原始 HTML {title}</h1><p>Do not translate 用户内容</p></main>").html;
 const FIRST: P.PrototypeNode = { type: "stack", id: "share-first", children: [
   { type: "text", id: "share-text", props: { content: "模型原文 {name}", variant: "body" } },
@@ -17,21 +24,35 @@ const SHARE_PATCH = P.DesignPrototypePatch.parse([
   { op: "addScreen", at: 1, frame: "原始次页" },
   { op: "addScreen", at: 2, frame: "原始HTML", root: { type: "html", id: "share-html", props: { html: RAW_HTML } } },
   { op: "setLinks", screen: 0, links: [{ from: "share-next", to: 1 }] },
+  // The canonical initialization page is shifted to index3 by these additions.
+  { op: "removeScreen", screen: 3 },
 ]);
 
 // Existing seeded lane and its original timeout/retry policy. No route fulfillment,
-// model response, session impersonation, or direct database writes are used.
+// authentication impersonation, model-provider change, or direct database write.
 for (const width of [1280, 375]) {
   test(`public design share real publication, locale/navigation and revocation ${width}`, async ({ page, browser, baseURL }, info) => {
     const token = await boardLogin(page, F.adminEmail, F.adminPassword);
+    const suffix = randomUUID();
+    const snapshotName = `原始设计 {name} ${suffix}`;
     const created = D.operations.createProject.out.parse(await (await boardApi(page.request, token, "POST", D.operations.createProject.path, {
-      name: `原始设计 {name} ${randomUUID()}`, template: "mobile", problem: "原始问题 {problem}",
+      name: `Canonical share setup ${suffix}`, template: "mobile", problem: "Canonical setup",
     })).json());
     const id = created.project.id;
-    // The canonical owner patch supports adding screens; create/updateProject do
-    // not accept raw frame/prototype fields. This is setup through that real API.
-
-    D.operations.patchPrototype.out.parse(await (await boardApi(page.request, token, "POST", operationPath(D.operations.patchPrototype.path, id), { ops: SHARE_PATCH, summary: "Public share i18n acceptance setup" })).json());
+    // Empty projects reject every prototype patch. Initialize through the existing
+    // real chat API and its configured loopback first; require an actual drawn page.
+    const initialized = D.operations.appendProjectChat.out.parse(await (await boardApi(page.request, token, "POST", operationPath(D.operations.appendProjectChat.path, id), {
+      text: INITIALIZE_PROMPT, maxScreens: 1,
+    })).json());
+    expect(initialized.reply.source).toBe("model");
+    expect(initialized.project.frames).toHaveLength(1);
+    expect(initialized.project.prototype).toHaveLength(1);
+    expect(initialized.project.prototype[0]).not.toBeNull();
+    const patched = D.operations.patchPrototype.out.parse(await (await boardApi(page.request, token, "POST", operationPath(D.operations.patchPrototype.path, id), { ops: SHARE_PATCH, summary: "Public share i18n acceptance setup" })).json());
+    expect(patched.project.frames).toEqual(["原始首页", "原始次页", "原始HTML"]);
+    expect(patched.project.prototype).toHaveLength(3);
+    expect(patched.project.prototype[1]).toBeNull();
+    D.operations.updateProject.out.parse(await (await boardApi(page.request, token, "PATCH", operationPath(D.operations.updateProject.path, id), { name: snapshotName, problem: "原始问题 {problem}" })).json());
     const published = D.operations.publishProject.out.parse(await (await boardApi(page.request, token, "POST", operationPath(D.operations.publishProject.path, id), { scope: "full" })).json());
     expect(published.project.share).not.toBeNull();
     const shareToken = published.project.share?.token;
@@ -52,7 +73,7 @@ for (const width of [1280, 375]) {
       await visitor.goto(`/d/${encodeURIComponent(shareToken)}`);
       const view = visitor.getByTestId("shared-design-view");
       await expect(view).toBeVisible();
-      await expect(visitor.getByTestId("shared-design-name")).toHaveText(created.project.name);
+      await expect(visitor.getByTestId("shared-design-name")).toHaveText(snapshotName);
       await expect(visitor.getByTestId("shared-design-brief")).toContainText("原始问题 {problem}");
       await expect(view).toContainText("模型原文 {name}");
       const picker = visitor.getByTestId("language-switcher");
@@ -96,7 +117,7 @@ for (const width of [1280, 375]) {
       // Freeze proof: owner edit must not replace the anonymously served snapshot.
       D.operations.updateProject.out.parse(await (await boardApi(page.request, token, "PATCH", operationPath(D.operations.updateProject.path, id), { name: "后来修改的标题" })).json());
       await visitor.reload();
-      await expect(visitor.getByTestId("shared-design-name")).toHaveText(created.project.name);
+      await expect(visitor.getByTestId("shared-design-name")).toHaveText(snapshotName);
       D.operations.unpublishProject.out.parse(await (await boardApi(page.request, token, "DELETE", operationPath(D.operations.unpublishProject.path, id))).json());
       const revoked = visitor.waitForResponse(response => response.request().method() === "GET" && new URL(response.url()).pathname.endsWith(sharePath));
       await visitor.reload();
