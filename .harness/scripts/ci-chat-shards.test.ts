@@ -53,7 +53,16 @@ it('keeps real isolation-wrapper stdout out of the Playwright JSON report',()=>{
    .replace('--config playwright.chat-read.config.ts','--config "$CI_JSON_FIXTURE_CONFIG"').replace('--project=chat-read','--project=fixture')
    .replaceAll('phases/phase-01-run-a-project/evidence/ci/chat-read.log','"$RUNNER_TEMP/fixture.log"');
   expect(command).not.toContain('${{');
-  const result=spawnSync('bash',['-o','pipefail','-c',command],{cwd:root,env,encoding:'utf8',timeout:50000,maxBuffer:4*1024*1024});
+  // This counterexample tests real isolation stdout versus the JSON reporter,
+  // not the CI-only production build. Keep its child explicitly browserless.
+  const builder='pnpm exec tsx apps/web/e2e/support/chat-refresh-production-build.ts';
+  expect(command).toContain(builder);
+  const browserlessCommand=command.replace(builder,'pnpm --filter web exec playwright test');
+  expect(browserlessCommand).not.toContain('chat-refresh-production-build.ts');
+  expect(browserlessCommand).toContain('--config "$CI_JSON_FIXTURE_CONFIG"');
+  delete env.WSX_CHAT_REFRESH_PRODUCTION_WEB;
+  delete env.WSX_CHAT_REFRESH_DIAGNOSTICS;
+  const result=spawnSync('bash',['-o','pipefail','-c',browserlessCommand],{cwd:root,env,encoding:'utf8',timeout:50000,maxBuffer:4*1024*1024});
   expect(result.status,result.stderr).toBe(0);expect(result.stdout).toContain('[test-isolation]');
   const report=JSON.parse(readFileSync(resolve(temp,'shard/report.json'),'utf8'));
   expect(report.stats.expected).toBe(1);expect(report.stats.unexpected).toBe(0);
