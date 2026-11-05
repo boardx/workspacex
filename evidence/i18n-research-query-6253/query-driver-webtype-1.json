@@ -1,0 +1,16 @@
+{
+  "name": "query-driver-webtype-1",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "typecheck"
+  ],
+  "source": "fce9ad81a8b3b7ef512a687a1866fc14d38a1199",
+  "exitCode": 0,
+  "seconds": 11.109,
+  "rawLogSha256": "cd5788cc155241ad0932956ca7dd287ae173e2f213993b615bdafdcb93bc7ce4",
+  "sourceAfter": "fce9ad81a8b3b7ef512a687a1866fc14d38a1199",
+  "sourceStable": true,
+  "environment": {}
+}

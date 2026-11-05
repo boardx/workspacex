@@ -1,0 +1,25 @@
+{
+  "name": "assistant-red-1",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/guided-research-skill-assistant-i18n.test.tsx"
+  ],
+  "source": "1c54c26787bd335842b03ef7482e221cccfcd768",
+  "exitCode": 1,
+  "seconds": 8.721,
+  "rawLogSha256": "95321b29d7a54e2668acac00b9100451049e615ac3ba7258ee56ccd8c7931975",
+  "sourceAfter": "1c54c26787bd335842b03ef7482e221cccfcd768",
+  "sourceStable": true,
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "semanticFailures": 14,
+  "skipped": 0,
+  "nativeSeconds": 5.98,
+  "reason": "Missing EN heading/quick-action/undo and untranslated recovery copy; no collection or infrastructure failure"
+}

@@ -1,0 +1,18 @@
+{
+  "name": "assistant-test-lint-covering-1",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "eslint",
+    "tests/ui/guided-research-skill-assistant-i18n.test.tsx"
+  ],
+  "source": "ef005586569cf51fce1fa0ba446da447554498a5",
+  "exitCode": 0,
+  "seconds": 2.537,
+  "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "sourceAfter": "ef005586569cf51fce1fa0ba446da447554498a5",
+  "sourceStable": true,
+  "environment": {}
+}

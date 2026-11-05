@@ -1,5 +1,10 @@
 # Survey acceptance continuation
 
+## Actual delivery — 2026-11-05
+
+[PR6251](https://github.com/boardx/workspacex/pull/6251) actually merged into develop at01:00:43Z as5832cdb62c08fe4f8917776760626d71c74fea11. Final source65e5, run41933129696 original3retry0PASS/global216PASS and all46 new PNG QA passed; original source/evidence reviews closed. Exact final facts and preservation limits live once in the [final acceptance ledger](../../../evidence/i18n-survey-6221/task-7/README.md#final-delivered-acceptance--pr6251-actual-merge). Per coordinator, the five already-public/hash-bound safe final receipts and these closure docs are consolidated with planned6253; no tested-head refresh or B6 rerun.6253 is the next separate issue/branch, not part of this completed survey implementation.6239 stays deferred. Earlier checkpoints below are historical, not the current delivery state.
+
+
 ## Latest continuation — source49b537ec
 
 Current runtime and screenshot findings are recorded once in the [acceptance ledger](../../../evidence/i18n-survey-6221/task-7/README.md#latest-actual-runtime-and-screenshot-findings--41923663240). The latest native run passed all3 original cases first try, but actual46-image QA found two minimal copy/layout issues. Their authorized four-file correction has valid RED/GREEN and scoped lint; exact four-file review is STATIC CLEAN; normal push and fresh author/governance image acceptance remain. PR6251 stays Draft; no delivery or passing claim. No third local Next build;6239 stays deferred. Historical checkpoints below remain source-pinned.

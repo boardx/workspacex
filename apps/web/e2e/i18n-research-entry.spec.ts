@@ -175,3 +175,161 @@ test("research locale preserves the real intake, plan, saved report and history 
   await expect(page.getByTestId(`research-history-${id}`)).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+// This query-only assistant uses a controlled HTTP boundary. The original real
+// session/report journey above remains intact; this case claims UI/request state,
+// not a provider execution, saved research session or PostgreSQL result.
+test("research query assistant locale preserves canonical intents, pending drafts and explicit application", async ({ page, context }, info) => {
+  test.setTimeout(180_000);
+  const errors: string[] = [];
+  page.on("pageerror", error => errors.push(error.message));
+  const rawGoal = `用户原始研究目标 {count} ${randomUUID()}`;
+  const rawProposal = `原模型目标 {name} ${randomUUID()}`;
+  const rawMessage = "原模型建议 {count} / constructor";
+  const rawNext = "下一条用户原文 {name}";
+  const modelId = "controlled-ui-model {count}";
+  const storageKey = "wsx.guidedResearch.skill.v1.pending-brief";
+  const requests: Array<{ requestId: string; message: string; draft: unknown }> = [];
+  let releaseTurn!: () => void;
+  const firstTurnGate = new Promise<void>(resolve => { releaseTurn = resolve; });
+  await page.goto("/login");
+  await page.getByTestId("language-switcher").selectOption("en");
+  await page.getByTestId("login-email").fill(F.email);
+  await page.getByTestId("login-password").fill(F.password);
+  await page.getByTestId("login-submit").click();
+  await expect(page).toHaveURL(/\/home$/);
+  await page.evaluate(key => localStorage.removeItem(key), storageKey);
+  const languagePage = await context.newPage();
+  await languagePage.goto("/research");
+  const panel = page.getByTestId("guided-research-six-step-assistant");
+  const language = async (locale: "en" | "zh-CN") => {
+    await languagePage.getByTestId("language-switcher").first().selectOption(locale);
+    await expect(panel.getByRole("heading", { name: locale === "en" ? "Research skill assistant" : "研究 Skill 助手", exact: true })).toBeVisible();
+  };
+  const input = page.getByTestId("research-skill-input");
+  const goal = page.getByTestId("research-brief-goal");
+  const capture = async (name: string, target: typeof input) => {
+    for (const width of [375, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      await target.scrollIntoViewIfNeeded();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      expect(await panel.evaluate(element => {
+        const bounds = element.getBoundingClientRect();
+        return bounds.left >= 0 && bounds.right <= innerWidth && element.scrollWidth <= element.clientWidth;
+      })).toBe(true);
+      for (const button of await panel.getByRole("button").all()) {
+        expect(await button.evaluate(element => {
+          const bounds = element.getBoundingClientRect();
+          return bounds.left >= 0 && bounds.right <= innerWidth;
+        })).toBe(true);
+      }
+      await page.screenshot({ path: info.outputPath(`${name}-${width}.png`), fullPage: false });
+    }
+  };
+  await page.route(`**${C.operations.runGuidedResearchSkillTurn.path}`, async route => {
+    if (route.request().method() !== "POST") { await route.continue(); return; }
+    const body = C.operations.runGuidedResearchSkillTurn.in.parse(route.request().postDataJSON());
+    expect(body.draft.node).toBe("brief");
+    if (body.draft.node !== "brief") throw new Error("Expected the actual query brief draft");
+    const index = requests.push(structuredClone(body)) - 1;
+    expect(index).toBeLessThan(3);
+    if (index === 0) await firstTurnGate;
+    if (index === 1) {
+      await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ reasonCode: "RESEARCH_WORKFLOW_UNAVAILABLE" }) });
+      return;
+    }
+    const response = C.GuidedResearchSkillTurnResponse.parse({
+      assistantMessage: rawMessage,
+      proposal: { node: "brief", value: { ...body.draft.value, goal: rawProposal } },
+      modelId, modelInvocationId: `${body.requestId}:controlled-ui`,
+    });
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(response) });
+  });
+  const turnResponse = () => page.waitForResponse(response => pathOf(response.url()) === C.operations.runGuidedResearchSkillTurn.path && response.request().method() === "POST");
+  try {
+    await page.goto("/research?flow=brief");
+    await expect(page).toHaveURL(/\/research\?flow=brief$/);
+    await expect(page.getByTestId("research-flow-brief")).toBeVisible();
+    await goal.fill(rawGoal);
+    await page.getByRole("button", { name: "AI assistant", exact: true }).click();
+    await expect(panel.getByRole("heading", { name: "Research skill assistant", exact: true })).toBeVisible();
+    await input.fill("用户草稿 {count}");
+    const originalInput = await input.elementHandle();
+    if (!originalInput) throw new Error("Expected the mounted assistant input");
+    await input.evaluate(element => (element as HTMLInputElement).setSelectionRange(2, 7));
+    await language("zh-CN");
+    await expect(panel.getByRole("heading", { name: "研究 Skill 助手", exact: true })).toBeVisible();
+    await language("en");
+    await expect(input).toHaveValue("用户草稿 {count}");
+    expect(await input.evaluate((current, original) => current === original, originalInput)).toBe(true);
+    await expect(input).toBeFocused();
+    expect(await input.evaluate(element => [(element as HTMLInputElement).selectionStart, (element as HTMLInputElement).selectionEnd])).toEqual([2, 7]);
+    expect(requests).toHaveLength(0);
+    await capture("query-assistant-entry-en", panel.getByRole("heading", { name: "Research skill assistant", exact: true }));
+
+    const firstResponse = turnResponse();
+    await panel.getByRole("button", { name: "Clarify research goal", exact: true }).click();
+    await expect.poll(() => requests.length).toBe(1);
+    expect(requests[0]).toMatchObject({ message: "补充研究目标", draft: { node: "brief", value: { goal: rawGoal } } });
+    const firstRequest = structuredClone(requests[0]);
+    await input.fill(rawNext);
+    await language("zh-CN");
+    await expect(panel.getByRole("button", { name: "发送建议", exact: true })).toBeDisabled();
+    await expect(input).toHaveValue(rawNext);
+    await capture("query-assistant-pending-zh", input);
+    await language("en");
+    await expect(panel.getByRole("button", { name: "Send suggestion", exact: true })).toBeDisabled();
+    expect(requests).toEqual([firstRequest]);
+    releaseTurn();
+    expect((await firstResponse).status()).toBe(200);
+    await expect(panel.getByTestId("research-skill-suggestion")).toContainText(rawMessage);
+    await expect(panel).toContainText(modelId);
+    await expect(input).toHaveValue(rawNext);
+    await expect(goal).toHaveValue(rawGoal);
+    const beforeApply = await page.evaluate(key => localStorage.getItem(key), storageKey);
+    expect(beforeApply).not.toBeNull();
+    await language("zh-CN"); await language("en");
+    expect(await page.evaluate(key => localStorage.getItem(key), storageKey)).toBe(beforeApply);
+    expect(requests).toEqual([firstRequest]);
+    await capture("query-assistant-proposal-en", panel.getByTestId("research-skill-suggestion"));
+    await panel.getByRole("button", { name: "Apply suggestion", exact: true }).click();
+    await expect(goal).toHaveValue(rawProposal);
+    const applied = await page.evaluate(key => localStorage.getItem(key), storageKey);
+    expect(applied).not.toBeNull();
+    expect(JSON.parse(applied!)).toMatchObject({ pendingSuggestion: null, undoSnapshot: { step: "brief", value: { goal: rawGoal } } });
+    await language("zh-CN"); await language("en");
+    expect(await page.evaluate(key => localStorage.getItem(key), storageKey)).toBe(applied);
+    await capture("query-assistant-applied-en", panel.getByRole("button", { name: "Undo last application", exact: true }));
+    await panel.getByRole("button", { name: "Undo last application", exact: true }).click();
+    await expect(goal).toHaveValue(rawGoal);
+    expect(requests).toEqual([firstRequest]);
+
+    const failed = turnResponse();
+    await panel.getByRole("button", { name: "Send suggestion", exact: true }).click();
+    expect((await failed).status()).toBe(503);
+    await expect(panel.getByRole("alert")).toHaveText("The model is temporarily unavailable. Your content has not been replaced with mock data. Try again.");
+    await expect(input).toHaveValue(rawNext);
+    await language("zh-CN");
+    await expect(panel.getByRole("alert")).toHaveText("模型暂时不可用，内容没有被 Mock 替代。请重试。");
+    await language("en");
+    expect(requests).toHaveLength(2);
+    await capture("query-assistant-recovery-en", panel.getByRole("alert"));
+    const retried = turnResponse();
+    await panel.getByRole("button", { name: "Send suggestion", exact: true }).click();
+    expect((await retried).status()).toBe(200);
+    await expect(panel.getByTestId("research-skill-suggestion")).toContainText(rawMessage);
+    expect(requests.map(request => request.message)).toEqual(["补充研究目标", rawNext, rawNext]);
+    expect(requests[1]!.draft).toEqual(requests[2]!.draft);
+    expect(requests[1]!.requestId).not.toBe(requests[2]!.requestId);
+    await expect(goal).toHaveValue(rawGoal);
+    await language("zh-CN"); await language("en");
+    expect(requests).toHaveLength(3);
+    await capture("query-assistant-explicit-retry-en", panel.getByTestId("research-skill-suggestion"));
+    expect(errors).toEqual([]);
+    await originalInput.dispose();
+  } finally {
+    releaseTurn();
+    await page.evaluate(key => localStorage.removeItem(key), storageKey);
+    await languagePage.close();
+  }
+});
