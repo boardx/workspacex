@@ -1,0 +1,35 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+stderr | tests/ui/copilotkit-v2-restore-tool-permission-dialog.test.tsx
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+stderr | tests/ui/copilotkit-v2-restore-tool-permission-dialog.test.tsx > issue #3207 —— 权威读说停在 awaiting_tool_permission 时，确认界面必须可见且可操作 > 没有任何 status 推流事件，只有权威读：提醒出现，审批弹窗也必须出现并可点
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:13502:13
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:9578:25)
+      at fetch (node:internal/deps/undici/undici:10307:25)
+      at fetch (node:internal/deps/undici/undici:13500:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+} { runtimeUrl: '/api/copilotkit' }
+
+ ✓ tests/ui/copilotkit-v2-restore-tool-permission-dialog.test.tsx (1 test) 371ms
+   ✓ issue #3207 —— 权威读说停在 awaiting_tool_permission 时，确认界面必须可见且可操作 > 没有任何 status 推流事件，只有权威读：提醒出现，审批弹窗也必须出现并可点 370ms
+ ✓ tests/ui/i18n-chat-permission-display.test.tsx (3 tests) 273ms
+
+ Test Files  2 passed (2)
+      Tests  4 passed (4)
+   Start at  00:51:57
+   Duration  10.48s (transform 2.87s, setup 310ms, collect 7.23s, tests 644ms, environment 1.62s, prepare 93ms)

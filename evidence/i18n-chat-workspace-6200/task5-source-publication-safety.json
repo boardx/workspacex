@@ -1,0 +1,77 @@
+{
+  "scope": "ten explicit source/docs/source-gate paths; no browser artifacts",
+  "secretPatternHits": 0,
+  "privateOriginalManifest": "/tmp/chat6200-task5-before-sync-private/manifest.json",
+  "files": [
+    {
+      "path": "apps/web/e2e/i18n-chat-workspace.spec.ts",
+      "originalSha256": "4f3372ee5f3c18ac0bed56a863fbe097d3d6b16043d1b80747f92fef93016e5a",
+      "publishedSha256": "4f3372ee5f3c18ac0bed56a863fbe097d3d6b16043d1b80747f92fef93016e5a",
+      "normalizedTrailingWhitespace": false,
+      "nonWhitespaceTokensEqual": true
+    },
+    {
+      "path": "apps/web/playwright.chat-read.config.ts",
+      "originalSha256": "d249544199f292eb863d1c93802401699e906de3ee050d801dc126da2b9d571d",
+      "publishedSha256": "d249544199f292eb863d1c93802401699e906de3ee050d801dc126da2b9d571d",
+      "normalizedTrailingWhitespace": false,
+      "nonWhitespaceTokensEqual": true
+    },
+    {
+      "path": "docs/design/i18n-chat-workspace/progress.md",
+      "originalSha256": "aab59d03a47fa0cc429fbeaec539c69492137351fab34e89aa153a46e0df3ece",
+      "publishedSha256": "aab59d03a47fa0cc429fbeaec539c69492137351fab34e89aa153a46e0df3ece",
+      "normalizedTrailingWhitespace": false,
+      "nonWhitespaceTokensEqual": true
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task5-initial-source-gates.json",
+      "originalSha256": "379326f06f361e469e4f98197fec443982330415eb9c8c4d6af387eb48ca07d9",
+      "publishedSha256": "379326f06f361e469e4f98197fec443982330415eb9c8c4d6af387eb48ca07d9",
+      "normalizedTrailingWhitespace": false,
+      "nonWhitespaceTokensEqual": true
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task5-seven-source-discovery-receipt.json",
+      "originalSha256": "180e7990477464250f70e2cfb481c6bfdb93ce272395a19c156fdda78d8c4268",
+      "publishedSha256": "180e7990477464250f70e2cfb481c6bfdb93ce272395a19c156fdda78d8c4268",
+      "normalizedTrailingWhitespace": false,
+      "nonWhitespaceTokensEqual": true
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task5-initial-lint.log",
+      "originalSha256": "649eae2c9bd75307d58cf41b3d1a67cc25153aed3d8075667a095848a5f114be",
+      "publishedSha256": "649eae2c9bd75307d58cf41b3d1a67cc25153aed3d8075667a095848a5f114be",
+      "normalizedTrailingWhitespace": false,
+      "nonWhitespaceTokensEqual": true
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task5-initial-type.log",
+      "originalSha256": "6cf8c844c277e080af3d725a03627eadb442f1e7ced096b1c5dcd709fe66217c",
+      "publishedSha256": "82b9cbb25c294cf682484a224153a0c92e3696682468a8b98db7592792d19315",
+      "normalizedTrailingWhitespace": true,
+      "nonWhitespaceTokensEqual": true
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task5-seven-lint.log",
+      "originalSha256": "649eae2c9bd75307d58cf41b3d1a67cc25153aed3d8075667a095848a5f114be",
+      "publishedSha256": "649eae2c9bd75307d58cf41b3d1a67cc25153aed3d8075667a095848a5f114be",
+      "normalizedTrailingWhitespace": false,
+      "nonWhitespaceTokensEqual": true
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task5-seven-type.log",
+      "originalSha256": "6cf8c844c277e080af3d725a03627eadb442f1e7ced096b1c5dcd709fe66217c",
+      "publishedSha256": "82b9cbb25c294cf682484a224153a0c92e3696682468a8b98db7592792d19315",
+      "normalizedTrailingWhitespace": true,
+      "nonWhitespaceTokensEqual": true
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task5-seven-list.log",
+      "originalSha256": "4ba6972b1bfcd5cab218f725ad1d672451e81935c0ce6b211d8fd2fa209a3ed0",
+      "publishedSha256": "4ba6972b1bfcd5cab218f725ad1d672451e81935c0ce6b211d8fd2fa209a3ed0",
+      "normalizedTrailingWhitespace": false,
+      "nonWhitespaceTokensEqual": true
+    }
+  ]
+}

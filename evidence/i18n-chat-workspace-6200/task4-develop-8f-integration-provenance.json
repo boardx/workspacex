@@ -1,0 +1,14 @@
+{
+  "sourceHead": "ed0cfd852f9fba5c2217765d3cd53e1d8a7210ba",
+  "developHead": "8f115aec5b693f93f8621ba23bcb94bbea3a156e",
+  "mergeTree": "fdd2b878f632f3b8bd8a0355b43740e01de66de6",
+  "task4SourceFiles": 86,
+  "allTask4ModesAndGitBlobsEqual": true,
+  "actualMergeCommit": "36f8cb8202a35536b0d517c2c0a6cb8c2a57e447",
+  "actualTree": "fdd2b878f632f3b8bd8a0355b43740e01de66de6",
+  "worktreeCleanBeforeMetadata": true,
+  "normalMergeExit": 0,
+  "noConflicts": true,
+  "notPushed": true,
+  "postMergeVerificationPending": true
+}

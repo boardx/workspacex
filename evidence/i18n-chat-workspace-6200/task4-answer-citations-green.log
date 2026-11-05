@@ -1,0 +1,12 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/ui/i18n-chat-citation-detail.test.tsx (7 tests) 192ms
+ ✓ tests/ui/i18n-chat-answer-memory-line.test.tsx (5 tests) 257ms
+ ✓ tests/ui/i18n-chat-answer-knowledge-footer.test.tsx (3 tests) 89ms
+
+ Test Files  3 passed (3)
+      Tests  15 passed (15)
+   Start at  17:24:43
+   Duration  10.18s (transform 2.21s, setup 656ms, collect 5.26s, tests 538ms, environment 2.56s, prepare 249ms)

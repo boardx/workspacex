@@ -2,15 +2,18 @@ import {expect,it} from 'vitest';
 import {inspectUiBoundary,planTargeted,verifyTargetedPlan} from './ci-targeted-ui.mjs';
 const original='import * as React from "react"; import {cn} from "@/lib/utils"; export function UI({onUseTemplate}:{onUseTemplate:(x:string)=>void}){return <button className={cn("a")} onClick={()=>onUseTemplate("a")}>Hello</button>}';
 it('permits local display changes but rejects new runtime edges and public API changes',()=>{
- const actual=readFileSync('.harness/config/ci-targeted-ui.json','utf8');
- const component=readFileSync(JSON.parse(actual).sourceFile,'utf8');
- expect(inspectUiBoundary(component,component.replace('今天，想完成什么？','今天，你想完成什么？'))).toBe(true);
- expect(inspectUiBoundary(original,original.replace('Hello','Hi'))).toBe(true);
- expect(inspectUiBoundary(component,component.replace('bg-card px-2','bg-muted px-2'))).toBe(true);
- expect(inspectUiBoundary(original,original.replace('cn("a")','cn("b")'))).toBe(true);
+ const copy=original.replace('Hello','Hi'),classes=original.replace('cn("a")','cn("b")');
+ expect(copy).not.toBe(original);expect(classes).not.toBe(original);
+ expect(inspectUiBoundary(original,copy)).toBe(true);
+ expect(inspectUiBoundary(original,classes)).toBe(true);
  expect(inspectUiBoundary(original,original.replace('onUseTemplate("a")','onUseTemplate("b")'))).toBe(false);
  expect(inspectUiBoundary(original.replace('react','other'),original.replace('react','other'))).toBe(false);
  for(const changed of [original.replace('Hello','<iframe/>'),original.replace('Hello','{fetch("/api")}'),original.replace('react','other'),original.replace('onUseTemplate:(x:string)','onUseTemplate:(x:number)'),original.replace('<button','<button onMouseOver={()=>onUseTemplate("x")}'),original.replace('Hello','{eval("x")}'),original.replace('Hello','{localStorage.length}')])expect(inspectUiBoundary(original,changed)).toBe(false);
+});
+it('fails closed for the actual source after i18n introduced runtime imports and calls',()=>{
+ const component=readFileSync(JSON.parse(readFileSync('.harness/config/ci-targeted-ui.json','utf8')).sourceFile,'utf8');
+ expect(component).toContain('useI18n');expect(component).toContain('localizedTaskTemplates');
+ expect(inspectUiBoundary(component,component)).toBe(false);
 });
 it('supports explicit rollback and fails closed on missing history',()=>{
  expect(planTargeted({baseSha:'a'.repeat(40),headSha:'b'.repeat(40),enabled:false}).mode).toBe('full');
@@ -24,6 +27,7 @@ import {resolve,dirname} from 'node:path';
 it('uses real source history and suite hashes; unknown, missing, renamed and nonregular inputs fall back',()=>{
  const dir=mkdtempSync(resolve(tmpdir(),'targeted-ui-history-'));
  const p=JSON.parse(readFileSync('.harness/config/ci-targeted-ui.json','utf8'));
+ const actualComponent=readFileSync(p.sourceFile,'utf8');
  const git=(args:string[])=>execFileSync('git',args,{cwd:dir,encoding:'utf8',stdio:['ignore','pipe','pipe']});
  const put=(file:string,text:string)=>{mkdirSync(dirname(resolve(dir,file)),{recursive:true});writeFileSync(resolve(dir,file),text)};
  const commit=()=>{git(['add','.']);git(['commit','-qm','fixture']);return git(['rev-parse','HEAD']).trim()};
@@ -70,6 +74,10 @@ it('uses real source history and suite hashes; unknown, missing, renamed and non
   expect(()=>verifyTargetedPlan({...dictionaryPlan,browserConfig:{...dictionaryPlan.browserConfig,sha256:'bad'}},{baseSha:dictionaryBase,headSha:dictionaryHead,enabled:true,policyInput:p,git})).toThrow();
   put('packages/contracts/src/locale.ts','export const locales=[]');expect(inspect(dictionaryBase,commit()).mode).toBe('full');
 
+  git(['reset','--hard',base]);put(p.sourceFile,actualComponent);
+  const actualPlan=inspect(base,commit());
+  expect(actualPlan.mode).toBe('full');expect(actualPlan.reason).toBe('runtime-or-public-boundary-changed');
+
  }finally{rmSync(dir,{recursive:true,force:true});}
 },30000);
 it('keeps disabled/full preflight dependency-free and never publishes an invalid source identity',()=>{
@@ -89,12 +97,12 @@ it('keeps disabled/full preflight dependency-free and never publishes an invalid
  }finally{rmSync(dir,{recursive:true,force:true});}
 });
 it('rejects tagged-template execution and non-presentation edits without executing payloads',()=>{
- const component=readFileSync(JSON.parse(readFileSync('.harness/config/ci-targeted-ui.json','utf8')).sourceFile,'utf8');
+ const component='"use client"; import * as React from "react"; import {cn} from "@/lib/utils"; export function UI({onUseTemplate,materialsCount,skillsCount}:{onUseTemplate:(x:string)=>void;materialsCount:number;skillsCount:number}){return <button className={cn("bg-card px-2")} onClick={()=>onUseTemplate("a")}>材料 {materialsCount}</button>}';
  const payload='cn["constructor"]`return globalThis.fetch("/api/admin/action", {method:"POST"})```;';
- expect(inspectUiBoundary(component,component.replace('  return (',`  ${payload}\n  return (`))).toBe(false);
- expect(inspectUiBoundary(component,component.replace('"use client"','"use server"'))).toBe(false);
- expect(inspectUiBoundary(component,component.replace('材料 {materialsCount}','材料 {skillsCount}'))).toBe(false);
- expect(inspectUiBoundary(component,component.replace('bg-card px-2','bg-[url(https://example.invalid)] px-2'))).toBe(false);
+ expect(inspectUiBoundary(component,component)).toBe(true);
+ for(const changed of [component.replace('return <button',`${payload}\nreturn <button`),component.replace('"use client"','"use server"'),component.replace('材料 {materialsCount}','材料 {skillsCount}'),component.replace('bg-card px-2','bg-[url(https://example.invalid)] px-2')]){
+  expect(changed).not.toBe(component);expect(inspectUiBoundary(component,changed)).toBe(false);
+ }
 });
 it('accepts only literal dictionary value edits with stable keys and interpolation',async()=>{
  const {inspectMessageBoundary}=await import('./ci-targeted-ui.mjs');

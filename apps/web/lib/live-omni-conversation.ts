@@ -1,3 +1,5 @@
+import { translate, type MessageKey } from "./i18n/messages";
+import type { Locale } from "./i18n/locale";
 import {notifyCreditFailure} from "./credit-guidance";
 import { chat } from "@repo/contracts";
 import { apiWebSocketUrl, getStoredSessionToken, waitForSocketOpen } from "./api-client";
@@ -57,16 +59,16 @@ export class OmniConversationStartError extends Error {
   }
 }
 
-const START_FAILURE_TEXT: Record<OmniStartFailure, string> = {
-  unauthenticated: "请先登录后再开始实时通话",
-  "connect-failed": "实时通话连接失败，请检查网络后重试",
-  "mic-denied": "麦克风权限被拒绝，请在浏览器地址栏允许使用麦克风后重试",
-  "mic-unavailable": "没有检测到可用的麦克风，请连接麦克风后重试",
+const START_FAILURE_TEXT: Record<OmniStartFailure, MessageKey> = {
+  unauthenticated: "chatRealtime.startUnauthenticated",
+  "connect-failed": "chatRealtime.startConnection",
+  "mic-denied": "chatRealtime.startDenied",
+  "mic-unavailable": "chatRealtime.startUnavailable",
 };
 
 /** 启动失败 → 友好文案（未知失败给通用文案，不透出原始错误）。 */
-export function describeOmniStartFailure(error: unknown): string {
-  return error instanceof OmniConversationStartError ? START_FAILURE_TEXT[error.kind] : "实时通话启动失败，请稍后重试";
+export function describeOmniStartFailure(error: unknown, locale: Locale = "zh-CN"): string {
+  return translate(locale, error instanceof OmniConversationStartError ? START_FAILURE_TEXT[error.kind] : "chatRealtime.startUnknown");
 }
 
 export async function openOmniConversation(

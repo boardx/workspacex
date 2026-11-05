@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import { MarkdownMessage } from "@/components/chat/markdown-message";
 import { getThreadArtifactSource } from "@/lib/live-chat";
 import { describeArtifactFailure } from "@/lib/chat-workbench/artifact-failure";
@@ -43,9 +44,10 @@ export function ChatArtifactView({
    */
   readonly onLoaded?: (doc: LoadedArtifact | null) => void;
 }): React.JSX.Element {
+  const { locale, t } = useI18n();
   const [state, setState] = React.useState<
     | { status: "loading" }
-    | { status: "error"; message: string }
+    | { status: "error"; cause: unknown }
     | { status: "ready"; markdown: string; version: number | null; savedAt: string }
   >({ status: "loading" });
 
@@ -71,7 +73,7 @@ export function ChatArtifactView({
          * 的处置完全不同），但「区分」不等于「把内部码端给用户」。码→人话的穷举表
          * 两件事都做到，也才过得了 lint-user-facing-error-text 这道门。
          */
-        setState({ status: "error", message: describeArtifactFailure(e) });
+        setState({ status: "error", cause: e });
       }
     })();
     return () => { cancelled = true; };
@@ -80,14 +82,14 @@ export function ChatArtifactView({
   if (state.status === "loading") {
     return (
       <p className={className} data-testid="chat-artifact-preview-loading">
-        <span className="block py-6 text-center text-12 text-muted-foreground">正在加载产物…</span>
+        <span className="block py-6 text-center text-12 text-muted-foreground">{t("chatInspector.source.loading")}</span>
       </p>
     );
   }
   if (state.status === "error") {
     return (
       <p className={className} data-testid="chat-artifact-preview-error">
-        <span className="block py-6 text-center text-12 text-destructive">{state.message}</span>
+        <span className="block py-6 text-center text-12 text-destructive">{describeArtifactFailure(state.cause, locale)}</span>
       </p>
     );
   }
@@ -108,8 +110,8 @@ export function ChatArtifactView({
       <div data-testid="chat-artifact-preview-content">
       <MarkdownMessage text={state.markdown} />
       <p className="mt-3 text-10 text-muted-foreground">
-        {state.version !== null ? `版本 ${String(state.version)} · ` : ""}
-        保存于 {new Date(state.savedAt).toLocaleString()}
+        {state.version !== null ? t("chatInspector.source.version", { version: state.version }) : ""}
+        {t("chatInspector.source.saved", { date: new Date(state.savedAt).toLocaleString(locale) })}
       </p>
       </div>
     </div>

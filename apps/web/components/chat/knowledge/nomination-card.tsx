@@ -4,6 +4,7 @@ import * as React from "react";
 import { Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useI18n } from "@/lib/i18n/provider";
 import type { PromotionNominations } from "@/lib/knowledge-graph-api";
 
 /**
@@ -26,6 +27,7 @@ export function NominationCard({
   onDismiss?: () => void;
   busy?: boolean;
 }) {
+  const { t } = useI18n();
   const [checked, setChecked] = React.useState<Record<string, boolean>>(() =>
     Object.fromEntries(data.nominations.map((n) => [n.claimId, true])),
   );
@@ -35,14 +37,14 @@ export function NominationCard({
     <div className="rounded-lg border border-ai-tint bg-ai-tint/40 p-3" data-testid="kg-nomination-card">
       <div className="mb-2 flex items-center gap-1.5">
         <Sparkles aria-hidden className="h-4 w-4 text-ai-tint-foreground" />
-        <span className="text-12 font-medium text-ai-tint-foreground">这些值得记住</span>
-        <span className="text-10 text-muted-foreground">由 AI 提名 · 你点了才会记</span>
+        <span className="text-12 font-medium text-ai-tint-foreground">{t("chatKnowledge.promotion.nominationTitle")}</span>
+        <span className="text-10 text-muted-foreground">{t("chatKnowledge.promotion.nominationHint")}</span>
         {onDismiss ? (
           <Button
             size="xs"
             variant="ghost"
             className="ml-auto"
-            aria-label="收起 AI 的提名"
+            aria-label={t("chatKnowledge.promotion.dismissNominations")}
             data-testid="kg-nomination-dismiss"
             onClick={onDismiss}
           >
@@ -56,7 +58,7 @@ export function NominationCard({
             <Checkbox
               checked={checked[n.claimId] ?? true}
               onChange={(e) => setChecked((s) => ({ ...s, [n.claimId]: e.target.checked }))}
-              aria-label={`选择 ${claimLabel(n.claimId)}`}
+              aria-label={t("chatKnowledge.list.select", { statement: claimLabel(n.claimId) })}
               data-testid={`kg-nomination-check-${n.claimId}`}
               className="mt-0.5"
             />
@@ -72,21 +74,21 @@ export function NominationCard({
                 data-testid={`kg-nomination-promote-one-${n.claimId}`}
                 onClick={() => onPromote([n.claimId])}
               >
-                记下
+                {t("chatKnowledge.promotion.remember")}
               </Button>
             ) : null}
           </li>
         ))}
       </ul>
       <div className="mt-2 flex items-center justify-end gap-2">
-        <span className="text-10 text-muted-foreground">记下后即视为你确认过</span>
+        <span className="text-10 text-muted-foreground">{t("chatKnowledge.promotion.confirms")}</span>
         <Button
           size="xs"
           disabled={selected.length === 0 || busy}
           data-testid="kg-nomination-promote"
           onClick={() => onPromote?.(selected)}
         >
-          记到我的长期记忆（{selected.length}）
+          {t("chatKnowledge.promotion.saveMany", { count: selected.length })}
         </Button>
       </div>
     </div>

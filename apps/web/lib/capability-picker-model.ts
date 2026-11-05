@@ -10,10 +10,12 @@
  *   3. 其他 Agent  —— 可用、非数字人。
  *   4. 不可用（n） —— `isCapabilityReady=false` 的全部 Agent，折叠在底部，给一句短原因。
  */
+import type { Locale } from "./i18n/locale";
+import { translate, type MessageKey } from "./i18n/messages";
 import { identity } from "@repo/contracts";
 import type { CapabilityListing } from "./live-capabilities";
 import { ROLE_CATEGORY_LABEL, type AgentDirectoryCard, type PendingOfficialRole } from "./agent-directory";
-import { findBuiltinWorkflow } from "./workflow-display-copy";
+import { workflowDisplayName, findBuiltinWorkflow } from "./workflow-display-copy";
 import { workflowLabel, workflowLabelsOf } from "./workflow-catalog-title-copy";
 
 export type PickerDirectory = ReadonlyMap<string, AgentDirectoryCard>;
@@ -66,14 +68,14 @@ export function isDigitalHuman(card: AgentDirectoryCard | undefined): boolean {
  * 顺序：与名字/头衔不同的 `duty` → 标签（无标签时 `agentTagsOf` 已回退为角色分类）→ 可发起流程名（前 3 个）。
  * 都没有 → null（调用方给中性兜底）。
  */
-export function strengthsFor(listing: Pick<CapabilityListing, "name" | "duty">, card: AgentDirectoryCard | undefined): string | null {
+export function strengthsFor(listing: Pick<CapabilityListing, "name" | "duty">, card: AgentDirectoryCard | undefined, locale: Locale = "zh-CN"): string | null {
   const duty = (listing.duty ?? "").trim();
   const echoes = [listing.name, card?.roleLabel ?? "", card?.name ?? ""].map(norm);
   if (duty && !echoes.includes(norm(duty))) return duty;
   const tags = agentTagsOf(card);
   if (tags.length > 0) return tags.join("、");
-  const flows = workflowLabelsOf(card);
-  if (flows.length > 0) return joinWithOverflow(flows, 3);
+  const flows = workflowLabelsOf(card, locale);
+  if (flows.length > 0) return joinWithOverflow(flows, 3, locale);
   return null;
 }
 
@@ -81,32 +83,37 @@ export function strengthsFor(listing: Pick<CapabilityListing, "name" | "duty">, 
  * 不可用原因 → 客户端中文文案（短句 + 完整一句）。服务端原文可能带端点 URL、技术 id 或英文，
  * 一律不直接上屏：按已知口径归类，认不出的走中性兜底。
  */
-const REASON_COPY: readonly { readonly match: RegExp; readonly short: string; readonly full: string }[] = [
-  { match: /已发布版本|no published|unpublished/i, short: "尚未发布", full: "这位数字人还没有可用的发布版本，请联系管理员发布后再选。" },
-  { match: /本地组织|不在本机|local/i, short: "本地组织不可用", full: "本地组织只使用本机上的服务，这一项在云端，所以无法选用。" },
-  { match: /停用|disabled/i, short: "已被停用", full: "组织管理员已停用这一项，如需使用请联系管理员。" },
-  { match: /权限|forbidden|permission/i, short: "无使用权限", full: "你当前没有使用它的权限，可以联系管理员开通。" },
+const REASON_COPY: readonly { readonly match: RegExp; readonly shortKey: MessageKey; readonly fullKey: MessageKey }[] = [
+  { match: /已发布版本|no published|unpublished/i, shortKey: "chatPicker.reasonUnpublishedShort", fullKey: "chatPicker.reasonUnpublishedFull" },
+  { match: /本地组织|不在本机|local/i, shortKey: "chatPicker.reasonLocalShort", fullKey: "chatPicker.reasonLocalFull" },
+  { match: /停用|disabled/i, shortKey: "chatPicker.reasonDisabledShort", fullKey: "chatPicker.reasonDisabledFull" },
+  { match: /权限|forbidden|permission/i, shortKey: "chatPicker.reasonPermissionShort", fullKey: "chatPicker.reasonPermissionFull" },
 ];
 
-export function reasonCopy(reason: string | null | undefined): { readonly short: string; readonly full: string } {
+export function reasonCopy(reason: string | null | undefined, locale: Locale = "zh-CN"): { readonly short: string; readonly full: string } {
   const t = (reason ?? "").trim();
   const hit = t ? REASON_COPY.find((r) => r.match.test(t)) : undefined;
-  return hit ?? { short: "暂不可用", full: "这位数字人暂时无法选用，请稍后再试或联系管理员。" };
+  return hit
+    ? { short: translate(locale, hit.shortKey), full: translate(locale, hit.fullKey) }
+    : { short: translate(locale, "chatPicker.reasonUnavailableShort"), full: translate(locale, "chatPicker.reasonUnavailableFull") };
 }
 
-export function shortReason(reason: string | null | undefined): string {
-  return reasonCopy(reason).short;
+export function shortReason(reason: string | null | undefined, locale: Locale = "zh-CN"): string {
+  return reasonCopy(reason, locale).short;
 }
 
 /**
  * 预览栏「适合这样问」：由可发起流程 / 标签派生的示例说法（最多 3 条），填预览下半部，不留空白。
  */
-export function examplePromptsFor(card: AgentDirectoryCard | undefined): string[] {
-  const flows = workflowLabelsOf(card);
-  if (flows.length > 0) return flows.slice(0, 3).map((w) => `帮我走一遍「${w}」`);
+export function examplePromptsFor(card: AgentDirectoryCard | undefined, locale: Locale = "zh-CN"): string[] {
+  const flows = workflowLabelsOf(card, locale);
+  if (flows.length > 0) return flows.slice(0, 3).map((workflow) => translate(locale, "chatPicker.walkThrough", { workflow }));
   const tags = agentTagsOf(card);
-  if (tags.length > 0) return tags.slice(0, 2).map((t) => `关于${t}，帮我梳理一下思路`).concat("先听听你的建议");
-  return ["帮我整理一下这件事的要点", "先听听你的建议"];
+  if (tags.length > 0) return tags.slice(0, 2).map((tag) => translate(locale, "chatPicker.topicExample", { tag })).concat(translate(locale, "chatPicker.adviceExample"));
+  return defaultExamples(locale);
+}
+function defaultExamples(locale: Locale): string[] {
+  return [translate(locale, "chatPicker.defaultExample"), translate(locale, "chatPicker.adviceExample")];
 }
 
 function haystack(parts: readonly (string | null | undefined)[]): string {
@@ -161,25 +168,26 @@ export function buildPickerGroups(input: {
 export { workflowLabel, workflowLabelsOf };
 
 /** 按条目边界截断：「A、B、C 等 5 个」——不在某个名字中间切断。 */
-export function joinWithOverflow(items: readonly string[], max: number): string {
-  if (items.length <= max) return items.join("、");
-  return `${items.slice(0, max).join("、")} 等 ${items.length} 个`;
+export function joinWithOverflow(items: readonly string[], max: number, locale: Locale = "zh-CN"): string {
+  const separator = locale === "en" ? ", " : "、";
+  if (items.length <= max) return items.join(separator);
+  return translate(locale, "chatPicker.overflow", { items: items.slice(0, max).join(separator), count: locale === "en" ? items.length - max : items.length });
 }
 
 /** 待启用官方数字人的可发起流程：只列内置工作流的中文名（未知 stableId 不上屏，只计数）。 */
-export function pendingWorkflowLabels(role: Pick<PendingOfficialRole, "workflowAllowlist">): { labels: string[]; unknown: number } {
+export function pendingWorkflowLabels(role: Pick<PendingOfficialRole, "workflowAllowlist">, locale: Locale = "zh-CN"): { labels: string[]; unknown: number } {
   const labels: string[] = [];
   let unknown = 0;
   for (const id of role.workflowAllowlist) {
     const w = findBuiltinWorkflow(id);
-    if (w) labels.push(w.name);
+    if (w) labels.push(workflowDisplayName(w.workflowId, undefined, locale));
     else unknown += 1;
   }
   return { labels: [...new Set(labels)], unknown };
 }
 
 /** 自动匹配预览「适合这样问」：取候选数字人的第一条示例说法，最多 3 条；没有候选给通用说法。 */
-export function autoExamplePrompts(suggestions: readonly PickerEntry[]): string[] {
-  const out = [...new Set(suggestions.map((e) => examplePromptsFor(e.card)[0]).filter((q): q is string => Boolean(q)))].slice(0, 3);
-  return out.length > 0 ? out : ["帮我整理一下这件事的要点", "先听听你的建议"];
+export function autoExamplePrompts(suggestions: readonly PickerEntry[], locale: Locale = "zh-CN"): string[] {
+  const out = [...new Set(suggestions.map((e) => examplePromptsFor(e.card, locale)[0]).filter((q): q is string => Boolean(q)))].slice(0, 3);
+  return out.length > 0 ? out : defaultExamples(locale);
 }

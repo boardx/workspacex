@@ -354,6 +354,7 @@ export function CopilotKitV2Panel({
   onRunStateChange?: (state: {
     readonly isRunning: boolean;
     readonly phaseLabel: string | null;
+    readonly phaseLabelOwned?: boolean;
     /** `RUN_STARTED` 到达的时刻（epoch ms）；**每轮只变一次**。
      *  ⚠ 刻意不上报 `elapsedSeconds`：那个每秒变一次，上抛给外壳等于每秒
      *  `setState` 一次外壳 → 外壳重渲染 → 整棵消息树（含画布）跟着重渲染一次。

@@ -1,0 +1,22 @@
+{
+  "scope": "wsx-f1bc3a79cfba60bac5d8",
+  "canonicalDownExit": 0,
+  "containers": 0,
+  "volumes": 0,
+  "advertisedPortCount": 11,
+  "listeners": {
+    "pg": 0,
+    "redis": 0,
+    "api": 0,
+    "web": 0,
+    "sandbox": 0,
+    "model": 0,
+    "deep-agent": 0,
+    "asr": 0,
+    "vision": 0,
+    "loopback-sandbox": 0,
+    "mail": 0
+  },
+  "nativeVerdict": "UNAVAILABLE_report_missing_PNG0_ENOSPC",
+  "head": "f6957e3177b37b9a03f4f749bf6b2742f05581b3"
+}

@@ -1,0 +1,19 @@
+{
+  "head": "0f08cbe45152ab6b385d6a570e8c10c52e42c0b6",
+  "checkpoint": "bd57738113075f6697a0d9d0674b4ba07a627b28",
+  "accepted": "ef49474134137e7d07cef97577d4799fbd9c0eb8",
+  "normalMerge": true,
+  "actualConflictPaths": [
+    "apps/web/components/plan-control/plan-failure-recovery.tsx",
+    "apps/web/lib/agent-run.ts"
+  ],
+  "protectedSourceChangedOnly": [
+    "apps/web/components/chat/copilotkit-v2-plan-control.tsx",
+    "apps/web/components/plan-control/plan-failure-recovery.tsx",
+    "apps/web/lib/agent-run-error-labels.ts"
+  ],
+  "sourceCount": 39,
+  "unchangedSourceCount": 36,
+  "postmergeGates": "PENDING",
+  "parents": "bd57738113075f6697a0d9d0674b4ba07a627b28 ef49474134137e7d07cef97577d4799fbd9c0eb8"
+}

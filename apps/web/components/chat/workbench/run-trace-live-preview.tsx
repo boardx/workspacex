@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import { Check, X } from "lucide-react";
 import type { TraceEntry } from "@/lib/chat-workbench/run-trace";
 import { toolLabel, toolObject } from "@/lib/chat-workbench/tool-label";
@@ -43,6 +44,7 @@ export function RunTraceLivePreview({ entries, active, hasAssistantText }: {
   readonly active: boolean;
   readonly hasAssistantText: boolean;
 }): React.JSX.Element | null {
+  const { locale, t } = useI18n();
   if (!active || hasAssistantText) return null;
   // 只看真正发生过的动作：进行中与已收尾。`progress`（正文增量）不在这里露面。
   const actions = entries.filter((entry) => entry.kind === "tool" || entry.kind === "skill");
@@ -63,17 +65,17 @@ export function RunTraceLivePreview({ entries, active, hasAssistantText }: {
           className="flex min-w-0 items-center gap-2"
         >
           {entry.status === "failed"
-            ? <X aria-label="这一步失败了" className="h-3 w-3 shrink-0 text-destructive" />
+            ? <X aria-label={t("chatTools.stepFailed")} className="h-3 w-3 shrink-0 text-destructive" />
             : entry.status === "running"
-              ? <span aria-label="进行中" className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-primary" />
-              : <Check aria-label="已完成" className="h-3 w-3 shrink-0" />}
-          <span className="min-w-0 truncate">{toolObject(entry.text, entry.args) ?? toolLabel(entry.text)}</span>
+              ? <span aria-label={t("chatTools.inProgress")} className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-primary" />
+              : <Check aria-label={t("chatTools.completed")} className="h-3 w-3 shrink-0" />}
+          <span className="min-w-0 truncate">{toolObject(entry.text, entry.args) ?? toolLabel(entry.text, locale)}</span>
         </li>
       ))}
       {actions.length > recent.length && (
         <li data-testid="run-trace-live-preview-more" className="text-11 opacity-70">
           {/* 说清楚上面只是最近几步，别让用户以为一共就做了这三件 */}
-          展开可看全部 {String(actions.length)} 个动作
+          {t("chatTools.allActions", { count: actions.length })}
         </li>
       )}
     </ul>

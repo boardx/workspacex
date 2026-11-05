@@ -1,3 +1,7 @@
+import { failureNextStep } from "@repo/contracts/deployment";
+import { translate } from "./i18n/messages";
+import type { Locale } from "./i18n/locale";
+import { planControlLocalNext } from "./plan-control-display";
 /**
  * issue #2451 —— `PlanFailureRecovery` 此前把失败原因写死成一句占位文案
  * （`copilotkit-v2-plan-control.tsx` 旧版本），即使 `getPlanLedger.errorCode`
@@ -16,8 +20,6 @@ import { wave2Runtime } from "@repo/contracts";
 import { describeAgentRunFailureForEdition, type AgentRunError, type AgentRunFailureReason } from "@/lib/agent-run";
 import type { DeploymentEditionValue } from "@repo/contracts/deployment";
 
-const GENERIC_PLAN_FAILURE_REASON =
-  "执行未完成——账本读模型目前不提供更具体的失败原因，可重试该步或修改输入后重新确认。";
 
 /**
  * issue #3403 ④ —— 这里此前**只**接 `errorCode`，于是无论真实成因是什么，用户看见的
@@ -36,9 +38,17 @@ export function describePlanFailureReason(
    * 不必都改）。`/chat` 的调用点传真值，本地版因此多一句可执行的下一步。
    */
   edition: DeploymentEditionValue = "cloud",
+  locale: Locale = "zh-CN",
 ): string {
-  if (errorCode === null) return GENERIC_PLAN_FAILURE_REASON;
+  if (errorCode === null) return translate(locale, "chatPlanControl.genericFailure");
   const parsed = wave2Runtime.AgentRunError.safeParse(errorCode);
-  if (!parsed.success) return GENERIC_PLAN_FAILURE_REASON;
-  return describeAgentRunFailureForEdition(parsed.data as AgentRunError, failureReason ?? null, edition);
+  if (!parsed.success) return translate(locale, "chatPlanControl.genericFailure");
+  if (locale === "zh-CN") return describeAgentRunFailureForEdition(parsed.data as AgentRunError, failureReason ?? null, edition);
+  const head = translate(locale, `chatPlanControl.error.${parsed.data}`);
+  const cause = wave2Runtime.AgentRunFailureReason.safeParse(failureReason);
+  const base = cause.success
+    ? head + translate(locale, "chatPlanControl.failureSeparator") + translate(locale, `chatPlanControl.cause.${cause.data}`)
+    : head;
+  const next = failureNextStep(edition, failureReason, parsed.data);
+  return next === null ? base : `${base}\n\n${translate(locale, "chatPlanControl.nextPrefix")}${planControlLocalNext(next, locale)}`;
 }

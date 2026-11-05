@@ -1,0 +1,15 @@
+{
+  "issue": 6133,
+  "beforeSha256": "b71e0fffab339a7f7704a3d97efc06c2f41ad41090015c03d452277d1f40759b",
+  "afterSha256": "2198bcfc97b8078bb19ff6c507d8dbdddb3583559684ab9abcbf2ec8784770f4",
+  "readbackEqual": true,
+  "otherPriorLinesEqual": true,
+  "priorRowsChanged": [
+    13,
+    28,
+    96
+  ],
+  "newOwnedBacklogRows": 9,
+  "mutexReleased": true,
+  "scope": "SECOND Chat then B2 then B1; only i18n"
+}

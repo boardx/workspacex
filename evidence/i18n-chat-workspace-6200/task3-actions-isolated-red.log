@@ -1,0 +1,326 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ❯ tests/ui/i18n-chat-trace-live.test.tsx (3 tests | 1 failed) 194ms
+   × uses singular and plural action counts without changing the recorded completion facts 12ms
+     → expected 'Just completed: Tool operation · Comp…' to be 'Just completed: Tool operation · Comp…' // Object.is equality
+ ❯ tests/ui/i18n-chat-interrupt-host.test.tsx (2 tests | 2 failed) 182ms
+   × localizes partial streamed intent without inventing a pending approval 92ms
+     → expected '正在接收确认内容…' to be 'Receiving confirmation details…' // Object.is equality
+   × keeps a completed framework confirmation as a disabled record across locale changes 89ms
+     → Unable to find an accessible element with the role "group" and name "Completed confirmation record"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  <button />
+
+  Name "Edit assumptions":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"
+    data-testid="agent-interrupt-confirm-intent-edit-toggle"
+  />
+
+  Name "Continue":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent active:scale-[0.98] h-7 px-2.5 text-12 bg-background-foreground text-background transition-colors duration-fast hover:bg-background-foreground/90"
+    data-testid="agent-interrupt-confirm-intent-continue"
+  />
+
+  --------------------------------------------------
+  group:
+
+  Name "已结束的确认记录":
+  <fieldset
+    aria-label="已结束的确认记录"
+    disabled=""
+  />
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  <p
+    class="text-13 leading-relaxed text-card-foreground"
+    data-testid="agent-interrupt-confirm-intent-understanding"
+  />
+
+  --------------------------------------------------
+  list:
+
+  Name "":
+  <ul
+    class="flex flex-col gap-1.5"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body>
+  <div />
+  <div>
+    <button>
+      switch language
+    </button>
+    <fieldset
+      aria-label="已结束的确认记录"
+      disabled=""
+    >
+      <div
+        class="rounded-card border border-border bg-card text-card-foreground w-full max-w-[34rem]"
+        data-testid="agent-interrupt-confirm-intent-shell"
+      >
+        <div
+          class="flex items-start gap-2.5 border-b border-border-subtle p-3"
+        >
+          <span
+            class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border bg-muted"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-bot h-4 w-4 text-muted-foreground"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M12 8V4H8"
+              />
+              <rect
+                height="12"
+                rx="2"
+                width="16"
+                x="4"
+                y="8"
+              />
+              <path
+                d="M2 14h2"
+              />
+              <path
+                d="M20 14h2"
+              />
+              <path
+                d="M15 13v2"
+              />
+              <path
+                d="M9 13v2"
+              />
+            </svg>
+          </span>
+          <div
+            class="flex flex-col gap-0.5"
+          >
+            <span
+              class="text-13 font-bold tracking-tight text-card-foreground"
+            >
+              Confirm my understanding before I start
+            </span>
+            <span
+              class="text-11 text-muted-foreground"
+            >
+              I will not take further action until you confirm.
+            </span>
+          </div>
+        </div>
+        <div
+          class="p-3"
+        >
+          <div>
+            <div
+              class="flex flex-col gap-3"
+              data-testid="agent-interrupt-confirm-intent-card"
+            >
+              <div
+                class="flex flex-col gap-1"
+              >
+                <span
+                  class="text-11 font-medium text-muted-foreground"
+                >
+                  My understanding
+                </span>
+                <p
+                  class="text-13 leading-relaxed text-card-foreground"
+                  data-testid="agent-interrupt-confirm-intent-understanding"
+                >
+                  用户确认原文{count}
+                </p>
+              </div>
+              <div
+                class="flex flex-col gap-2"
+              >
+                <span
+                  class="text-11 font-medium text-muted-foreground"
+                >
+                  My assumptions (0)
+                </span>
+                <ul
+                  class="flex flex-col gap-1.5"
+                />
+              </div>
+              <div
+                class="flex items-center gap-2 rounded-md border border-dashed border-border px-2.5 py-1.5"
+                data-testid="agent-interrupt-confirm-intent-gated-notice"
+              >
+                <svg
+                  aria-hidden="true"
+                  class="lucide lucide-sparkles h-3.5 w-3.5 text-muted-foreground"
+                  fill="none"
+                  height="24"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  viewBox="0 0 24 24"
+                  width="24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"
+                  />
+                  <path
+                    d="M20 3v4"
+                  />
+                  <path
+                    d="M22 5h-4"
+                  />
+                  <path
+                    d="M4 17v2"
+                  />
+                  <path
+                    d="M5 18H3"
+                  />
+                </svg>
+                <span
+                  class="text-11 text-muted-foreground"
+                >
+                  Further steps, such as fetching data or generating a report, will not start until you confirm.
+                </span>
+              </div>
+              <div
+                class="flex items-center justify-end gap-2"
+              >
+                <button
+                  class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"
+                  data-testid="agent-interrupt-confirm-intent-edit-toggle"
+                >
+                  Edit assumptions
+                </button>
+                <button
+                  class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent active:scale-[0.98] h-7 px-2.5 text-12 bg-background-foreground text-background transition-colors duration-fast hover:bg-background-foreground/90"
+                  data-testid="agent-interrupt-confirm-intent-continue"
+                >
+                  Continue
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </fieldset>
+  </div>
+</body>
+ ❯ tests/ui/i18n-chat-suggestions.test.tsx (1 test | 1 failed) 117ms
+   × localizes only dismissal chrome while preserving generated content and model configuration 116ms
+     → Unable to find an accessible element with the role "button" and name "Dismiss this suggestion"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  <button />
+
+  Name "用户标签{count}":
+  <button
+    class="px-3 py-1 text-12 text-background-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
+    data-testid="raw-local-chip"
+    type="button"
+  />
+
+  Name "关闭这条建议":
+  <button
+    aria-label="关闭这条建议"
+    class="flex items-center border-l border-border-subtle px-1.5 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
+    data-testid="raw-local-chip-dismiss"
+    type="button"
+  />
+
+  Name "模型建议标题{count}":
+  <button
+    class="rounded-full border border-border-subtle bg-card px-3 py-1 text-12 shadow-sm text-background-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
+    data-testid="copilotkit-v2-suggestion-0"
+    type="button"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <button>
+      switch language
+    </button>
+    <div
+      aria-busy="false"
+      class="flex flex-wrap gap-2"
+      data-testid="copilotkit-v2-suggestions"
+    >
+      <span
+        class="inline-flex items-stretch overflow-hidden rounded-full border border-border-subtle bg-card shadow-sm"
+      >
+        <button
+          class="px-3 py-1 text-12 text-background-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
+          data-testid="raw-local-chip"
+          type="button"
+        >
+          用户标签{count}
+        </button>
+        <button
+          aria-label="关闭这条建议"
+          class="flex items-center border-l border-border-subtle px-1.5 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
+          data-testid="raw-local-chip-dismiss"
+          type="button"
+        >
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-x h-3 w-3"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M18 6 6 18"
+            />
+            <path
+              d="m6 6 12 12"
+            />
+          </svg>
+        </button>
+      </span>
+      <button
+        class="rounded-full border border-border-subtle bg-card px-3 py-1 text-12 shadow-sm text-background-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
+        data-testid="copilotkit-v2-suggestion-0"
+        type="button"
+      >
+        模型建议标题{count}
+      </button>
+    </div>
+  </div>
+</body>
+
+Diagnostic collection budget expired; terminating this owned process group. This is not a semantic RED or PASS.

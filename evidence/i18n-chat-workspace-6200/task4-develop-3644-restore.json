@@ -1,0 +1,159 @@
+{
+  "baseline": "3644ae2c8213770614866c1c39ac4df2b8920c05",
+  "task4Base": "23db2c194",
+  "newHead": "66120e5ad595bea5fdac4ebf956b0a7ee0d9ea51",
+  "stash": "51f55698adcbbd804d154351c9ce77a0d4ea5708",
+  "protectedFiles": 37,
+  "ignoredTask4Logs": 6,
+  "allHashesAndModesVerifiedBeforeThisReceipt": true,
+  "files": {
+    "apps/web/components/chat/capability-edition-note.tsx": {
+      "sha256": "f7e13766a72bd75e97b5f2f9c5e39312fd370ff23afa07b3aac463cb2a719cc1",
+      "mode": 420
+    },
+    "apps/web/components/chat/chat-artifact-view.tsx": {
+      "sha256": "83a0c52db44793c2421c9d32de0c042662cf626e07ad3ba042775ccba81b45d3",
+      "mode": 420
+    },
+    "apps/web/components/chat/chat-artifacts-panel.tsx": {
+      "sha256": "4da2a537d5e2d3cb7f136858cb67acbf4440f68f3cecc415cc884614065450f1",
+      "mode": 420
+    },
+    "apps/web/components/chat/chat-materials-panel.tsx": {
+      "sha256": "b7606932281a828ecfd676bbff430552dea0aec48e74a121656f9f3348c84c18",
+      "mode": 420
+    },
+    "apps/web/components/chat/chat-roster-panel.tsx": {
+      "sha256": "f203bf25a8eef370f3c25416ef7e8f15ea6ff635adb8fa53c8ca4aa9382b2483",
+      "mode": 420
+    },
+    "apps/web/components/chat/chat-task-inspector.tsx": {
+      "sha256": "8e75e7079591d7f2f7cb5cde9f226252b43de1251801cb1d6c12b283222f0cca",
+      "mode": 420
+    },
+    "apps/web/components/chat/knowledge/knowledge-panel.tsx": {
+      "sha256": "c46eb1639bcae14b962e203e6cfc94821241a91912c8fe72ea64c16b0f8bf2ec",
+      "mode": 420
+    },
+    "apps/web/components/chat/produced-file-inline-card.tsx": {
+      "sha256": "5cbf288c7b4b7c4805321d0a89f88e8042ec9db0c309574b79adc56fddc4db83",
+      "mode": 420
+    },
+    "apps/web/components/chat/produced-file-pdf-preview.tsx": {
+      "sha256": "750ccfdea14b98d1e07f08c934c18f721ffd737da68ab4a5e5c331ff981bdc04",
+      "mode": 420
+    },
+    "apps/web/components/feedback/feedback-provider.tsx": {
+      "sha256": "91ffd33c4c87a1d39fcc0ac1cf183bd78b92da70ed833d90af949a8bbe469d1f",
+      "mode": 420
+    },
+    "apps/web/lib/chat-workbench/artifact-failure.ts": {
+      "sha256": "98b61b4af2d084f3e22a283c487731b95b9a1491bb4d1ba638ed6887cd0c8fb7",
+      "mode": 420
+    },
+    "apps/web/lib/i18n/namespaces/capability-edition.ts": {
+      "sha256": "3f8d35364f5fc0da7bf8b67a888e4212675c39b3319489d1596ae032512161c6",
+      "mode": 420
+    },
+    "apps/web/lib/i18n/namespaces/chat-inspector.ts": {
+      "sha256": "c939c90346c579357906952ac416b9d455d3c8e498da31c351aab9546b21852f",
+      "mode": 420
+    },
+    "apps/web/lib/i18n/namespaces/chat-knowledge.ts": {
+      "sha256": "6793bd7be27585bf3007f24c75367714eb0681fac04a413bbf2a898714a2db2e",
+      "mode": 420
+    },
+    "apps/web/lib/i18n/namespaces/chat-roster.ts": {
+      "sha256": "4ace8c91ea3e7ef9fa03bfbd5bbfb7f44bb3a323041a4b9eaa6708869d21de96",
+      "mode": 420
+    },
+    "apps/web/lib/i18n/namespaces/chat.ts": {
+      "sha256": "eb516260bb6e53c3cf2914a4ae1f7558cd8643823d9a08fd6f7a0d29473414e4",
+      "mode": 420
+    },
+    "apps/web/lib/i18n/namespaces/feedback-overlay.ts": {
+      "sha256": "0210657c262399c31b5bbe78381089db1b5724af721c7997cdc02032120df3a8",
+      "mode": 420
+    },
+    "apps/web/tests/ui/i18n-chat-artifact-detail.test.tsx": {
+      "sha256": "2c2be3972caad292c623491a527ae365ae9c13673c1437722b1c87cdf6479973",
+      "mode": 420
+    },
+    "apps/web/tests/ui/i18n-chat-artifact-source.test.tsx": {
+      "sha256": "ce599f179c18bef5ed48865df8576576e0a251d15b81edf895cff2282cc9edcc",
+      "mode": 420
+    },
+    "apps/web/tests/ui/i18n-chat-capability-edition.test.tsx": {
+      "sha256": "39a3d79b60a8f15b736cb98e76cf9154a3a58ab80f63da3dec8b0668ab299329",
+      "mode": 420
+    },
+    "apps/web/tests/ui/i18n-chat-feedback-dialog.test.tsx": {
+      "sha256": "92f21e30811728d67e86939051fb9865cfb14c187b20bfd44c2bcd366762b825",
+      "mode": 420
+    },
+    "apps/web/tests/ui/i18n-chat-feedback-receipt.test.tsx": {
+      "sha256": "b05cf16b896349edb1d531dc6d5094da60d373496867bb60993d447930ee2d06",
+      "mode": 420
+    },
+    "apps/web/tests/ui/i18n-chat-inspector-lists.test.tsx": {
+      "sha256": "624fef0c5ccf8a742b050b11709c61aff0276d5d93c779ee60750fc5036e093d",
+      "mode": 420
+    },
+    "apps/web/tests/ui/i18n-chat-inspector.test.tsx": {
+      "sha256": "d8cc1549f9224baea6ce45db387d55865a623e550f13fee59823c74953bd1048",
+      "mode": 420
+    },
+    "apps/web/tests/ui/i18n-chat-knowledge-panel.test.tsx": {
+      "sha256": "f6ce9aae56c2e66a31bd9ffd829b6b48542391710ab422f36e2b2db9c43c9fd4",
+      "mode": 420
+    },
+    "apps/web/tests/ui/i18n-chat-materials-notice.test.tsx": {
+      "sha256": "3d1e31b88a68efb0e8649844b02b886f13228af9f8ce18931dfad03597fbd480",
+      "mode": 420
+    },
+    "apps/web/tests/ui/i18n-chat-produced-file.test.tsx": {
+      "sha256": "288aabe0032b891a6aad49b64de5142bc7277c3bbc81bec23996f08c3e19b797",
+      "mode": 420
+    },
+    "apps/web/tests/ui/i18n-chat-roster.test.tsx": {
+      "sha256": "0379b4c9ea1f238e7d6a96fa7649ad278ed7cbe51c9d7121ce9e18c8747121b2",
+      "mode": 420
+    },
+    "docs/design/i18n-chat-workspace/implementation-plan.md": {
+      "sha256": "c9cad0c1240b0e078daa44ea4782b1516411fdc5dd9bbf55d528c084dc32c311",
+      "mode": 420
+    },
+    "docs/design/i18n-chat-workspace/progress.md": {
+      "sha256": "f5594d4f4fad3e7a890d52cac69450351250ffbb5642f9ca980620b053447dc6",
+      "mode": 420
+    },
+    "docs/design/i18n-chat-workspace/task4-entry-audit.md": {
+      "sha256": "8b65477809faae0d99cbae6734ebba35e4ed7c32754f5f9f24dd41fa5ac00862",
+      "mode": 420
+    },
+    "evidence/i18n-chat-workspace-6200/task4-inspector-green-lists-red.log": {
+      "sha256": "8e3ea0000df25a7d8493aaa41f2610a1ce9d9deb2c4426836b53fdce353113df",
+      "mode": 420
+    },
+    "evidence/i18n-chat-workspace-6200/task4-inspector-lists-green.log": {
+      "sha256": "82f15522f672da4be4bd5ee4d68c526cad33dba98bbd59252fa73f915ca32c38",
+      "mode": 420
+    },
+    "evidence/i18n-chat-workspace-6200/task4-inspector-red.log": {
+      "sha256": "a33835eff409d2d7da604e06c1be9230f8fd7fd02f5a63f65a7351e753aed471",
+      "mode": 420
+    },
+    "evidence/i18n-chat-workspace-6200/task4-overlays-first-green-attempt.log": {
+      "sha256": "97331c0bf1d8f22402398eb2e2da32484426908085e1411cbfebcb8654b20bf6",
+      "mode": 420
+    },
+    "evidence/i18n-chat-workspace-6200/task4-overlays-initial-red.log": {
+      "sha256": "31c8cbc2ae6cb18ab7110868f051c8660e128b442f40a2aac9fb55bd35b96576",
+      "mode": 420
+    },
+    "evidence/i18n-chat-workspace-6200/task4-produced-file-driver-green.log": {
+      "sha256": "bfb7b260aa06166f5465ea15dc8529e588f6774bd9a3fddfad191cc38e9e0e32",
+      "mode": 420
+    }
+  }
+}

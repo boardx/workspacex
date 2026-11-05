@@ -23,7 +23,8 @@ import {
 } from "@/lib/knowledge-graph-api";
 import {
   describeHumanActionFailure,
-  describeMemoryCardFailure,
+  HumanActionDisplayError,
+  MemoryCardDisplayError,
   MEMORY_CARD_RELOAD_ON_FAILURE,
 } from "@/lib/knowledge-graph-failure";
 import {
@@ -87,7 +88,7 @@ export function TurnMemoryLine({ threadId, messageId }: { threadId: string; mess
       }
     } catch (e) {
       requestKnowledgeReload(threadId);
-      throw new Error(describeHumanActionFailure(e));
+      throw new HumanActionDisplayError(e);
     }
     requestKnowledgeReload(threadId);
   }, [threadId, captured]);
@@ -104,8 +105,8 @@ export function TurnMemoryLine({ threadId, messageId }: { threadId: string; mess
     } catch (e) {
       requestKnowledgeReload(threadId);
       // 卡已经不在了（别处处理过 / 一条被改掉）：让卡片收起，而不是留着再点也没用的按钮
-      if (knowledgeGraphErrorCode(e) === "KG_PROMPT_NOT_FOUND") throw new ConflictPromptGoneError(describeHumanActionFailure(e));
-      throw new Error(describeHumanActionFailure(e));
+      if (knowledgeGraphErrorCode(e) === "KG_PROMPT_NOT_FOUND") throw new ConflictPromptGoneError(describeHumanActionFailure(e), new HumanActionDisplayError(e));
+      throw new HumanActionDisplayError(e);
     }
     requestKnowledgeReload(threadId);
   }, [threadId, promptId]);
@@ -120,7 +121,7 @@ export function TurnMemoryLine({ threadId, messageId }: { threadId: string; mess
     } catch (e) {
       requestKnowledgeReload(threadId);
       if (knowledgeGraphErrorCode(e) === "KG_PROMPT_NOT_FOUND") setReloadKey((k) => k + 1);
-      throw new Error(describeHumanActionFailure(e));
+      throw new HumanActionDisplayError(e);
     }
     requestKnowledgeReload(threadId);
   }, [threadId, noticeId]);
@@ -128,7 +129,7 @@ export function TurnMemoryLine({ threadId, messageId }: { threadId: string; mess
   const memoryCard = turn?.prompt?.type === "memory_card" ? turn.prompt.card : null;
   const cardId = memoryCard?.cardId;
   const actOnCard = React.useCallback(async (decision: MemoryCardDecision, opts: MemoryCardActOptions) => {
-    if (cardId === undefined) throw new Error(describeMemoryCardFailure(null));
+    if (cardId === undefined) throw new MemoryCardDisplayError(null);
     try {
       const out = await actOnMemoryCard(cardId, decision, opts);
       if (decision === "accept") requestKnowledgeReload(threadId);
@@ -136,7 +137,7 @@ export function TurnMemoryLine({ threadId, messageId }: { threadId: string; mess
     } catch (e) {
       const code = knowledgeGraphErrorCode(e);
       if (code !== null && MEMORY_CARD_RELOAD_ON_FAILURE.has(code)) setReloadKey((k) => k + 1);
-      throw new Error(describeMemoryCardFailure(e));
+      throw new MemoryCardDisplayError(e);
     }
   }, [threadId, cardId]);
   /**
@@ -163,7 +164,7 @@ export function TurnMemoryLine({ threadId, messageId }: { threadId: string; mess
       const after = await cardNow();
       return after === null ? "unknown" : after.state === "dismissed" ? "undone" : "kept";
     } catch (e) {
-      throw new Error(describeHumanActionFailure(e));
+      throw new HumanActionDisplayError(e);
     } finally {
       requestKnowledgeReload(threadId);
     }
@@ -174,7 +175,7 @@ export function TurnMemoryLine({ threadId, messageId }: { threadId: string; mess
    * 卡已经不是眼前的样子（别的标签页撤过 / 期间又被改过）⇒ 重读这一轮，按服务端现在的状态显示。
    */
   const undoForget = React.useCallback(async (): Promise<KgMemoryCard> => {
-    if (cardId === undefined) throw new Error(describeMemoryCardFailure(null));
+    if (cardId === undefined) throw new MemoryCardDisplayError(null);
     try {
       const out = await undoMemoryCard(cardId);
       requestKnowledgeReload(threadId);
@@ -182,7 +183,7 @@ export function TurnMemoryLine({ threadId, messageId }: { threadId: string; mess
     } catch (e) {
       const code = knowledgeGraphErrorCode(e);
       if (code !== null && MEMORY_CARD_RELOAD_ON_FAILURE.has(code)) setReloadKey((k) => k + 1);
-      throw new Error(describeMemoryCardFailure(e));
+      throw new MemoryCardDisplayError(e);
     }
   }, [threadId, cardId]);
   /** S7（#4364）：引用 chip 展开行的「跳到原消息」（复用 R6 / F15 的跳转）。 */
@@ -195,7 +196,7 @@ export function TurnMemoryLine({ threadId, messageId }: { threadId: string; mess
     try {
       return await correctCitation(threadId, messageId, claimId, kind, replacement);
     } catch (e) {
-      throw new Error(describeHumanActionFailure(e));
+      throw new HumanActionDisplayError(e);
     } finally {
       requestKnowledgeReload(threadId);
     }

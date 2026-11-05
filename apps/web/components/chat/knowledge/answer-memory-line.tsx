@@ -3,6 +3,8 @@
 import * as React from "react";
 import { Loader2, Sparkles } from "lucide-react";
 import type { TurnMemory } from "@/lib/knowledge-graph-api";
+import { useI18n } from "@/lib/i18n/provider";
+import { HumanActionDisplayError, describeHumanActionFailure } from "@/lib/knowledge-graph-failure";
 
 /**
  * U-1：回答气泡下方的单行「已记下 N 条 · 查看 · 撤销」（价值出现在对话里，不藏在面板）。
@@ -27,10 +29,11 @@ export function AnswerMemoryLine({
   onUndo?: () => Promise<void>;
   undo?: "local";
 }) {
+  const { t, locale } = useI18n();
   const [open, setOpen] = React.useState(false);
   const [undone, setUndone] = React.useState(false);
   const [undoing, setUndoing] = React.useState(false);
-  const [undoError, setUndoError] = React.useState<string | null>(null);
+  const [undoError, setUndoError] = React.useState<{ owned: HumanActionDisplayError } | { raw: string } | { fallback: true } | null>(null);
   const canUndo = onUndo !== undefined || undo === "local";
   const runUndo = () => {
     if (!onUndo) { setUndone(true); return; }
@@ -38,7 +41,7 @@ export function AnswerMemoryLine({
     setUndoError(null);
     onUndo().then(
       () => { setUndoing(false); setUndone(true); },
-      (e: unknown) => { setUndoing(false); setUndoError(e instanceof Error ? e.message : "没能撤销，请稍后重试。"); },
+      (e: unknown) => { setUndoing(false); setUndoError(e instanceof HumanActionDisplayError ? { owned: e } : e instanceof Error ? { raw: e.message } : { fallback: true }); },
     );
   };
 
@@ -46,7 +49,7 @@ export function AnswerMemoryLine({
     return (
       <p className="mt-2 flex items-center gap-1 text-10 text-muted-foreground" data-testid="kg-turn-pending">
         <Loader2 aria-hidden className="h-3 w-3 animate-spin" />
-        正在记…
+        {t("chatKnowledge.turn.pending")}
       </p>
     );
   }
@@ -56,7 +59,7 @@ export function AnswerMemoryLine({
   if (undone) {
     return (
       <p className="mt-2 text-10 text-muted-foreground" data-testid="kg-turn-captured-undone">
-        已撤销这一轮的记录
+        {t("chatKnowledge.turn.undone")}
       </p>
     );
   }
@@ -65,7 +68,7 @@ export function AnswerMemoryLine({
     <div className="mt-2 flex flex-col gap-1" data-testid="kg-turn-captured">
       <p className="flex items-center gap-1 text-10 text-muted-foreground">
         <Sparkles aria-hidden className="h-3 w-3" />
-        已记下 {turn.captured.length} 条
+        {t("chatKnowledge.turn.captured", { count: turn.captured.length })}
         <span aria-hidden>·</span>
         <button
           type="button"
@@ -74,7 +77,7 @@ export function AnswerMemoryLine({
           aria-expanded={onView ? undefined : open}
           onClick={() => (onView ? onView() : setOpen((v) => !v))}
         >
-          查看
+          {t("chatKnowledge.turn.view")}
         </button>
         {canUndo ? (
           <>
@@ -86,13 +89,13 @@ export function AnswerMemoryLine({
               disabled={undoing}
               onClick={runUndo}
             >
-              {undoing ? "撤销中…" : "撤销"}
+              {t(undoing ? "chatKnowledge.notice.undoing" : "chatKnowledge.memory.undo")}
             </button>
           </>
         ) : null}
       </p>
       {undoError !== null ? (
-        <p role="alert" className="text-10 text-destructive" data-testid="kg-turn-undo-error">{undoError}</p>
+        <p role="alert" className="text-10 text-destructive" data-testid="kg-turn-undo-error">{"owned" in undoError ? describeHumanActionFailure(undoError.owned.failure, locale) : "raw" in undoError ? undoError.raw : t("chatKnowledge.notice.undoFailed")}</p>
       ) : null}
       {open ? (
         <ul className="ml-4 flex list-disc flex-col gap-0.5 text-10 text-muted-foreground" data-testid="kg-turn-captured-list">

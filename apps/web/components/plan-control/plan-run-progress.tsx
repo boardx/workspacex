@@ -1,4 +1,8 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
+import { translate } from "@/lib/i18n/messages";
+import type { Locale } from "@/lib/i18n/locale";
+import { planControlStatusMessageKey } from "@/lib/plan-control-owned-status";
 import * as React from "react";
 import { CircleDot, Pause, Play } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,11 +21,11 @@ export const PLAN_RUN_PROGRESS_TESTID = "chat-task-workbench-run-progress";
 export const PLAN_RUN_PAUSE_TESTID = "chat-task-workbench-run-pause";
 export const PLAN_RUN_RESUME_TESTID = "chat-task-workbench-run-resume";
 
-export function formatElapsed(ms: number): string {
+export function formatElapsed(ms: number, locale: Locale = "zh-CN"): string {
   const totalSeconds = Math.floor(ms / 1000);
   const m = Math.floor(totalSeconds / 60);
   const s = totalSeconds % 60;
-  return m > 0 ? `${m}分${s}秒` : `${s}秒`;
+  return m > 0 ? translate(locale, "chatPlanControl.elapsedMinutes", { minutes: m, seconds: s }) : translate(locale, "chatPlanControl.elapsedSeconds", { seconds: s });
 }
 
 export const PLAN_RUN_RECENT_ERROR_TESTID = "chat-task-workbench-run-recent-error";
@@ -66,6 +70,9 @@ export function PlanRunProgress(
     isPauseRequested = false, showPause = true, onRecover,
   }: PlanRunProgressProps,
 ): React.JSX.Element {
+  const { locale, t } = useI18n();
+  const statusKey = planControlStatusMessageKey(view);
+  const displayStateLabel = statusKey ? t(statusKey) : view.stateLabel;
   const stalled = view.activity === "stalled";
   return (
     /*
@@ -87,39 +94,39 @@ export function PlanRunProgress(
             * issue #3365 —— 没有真实「当前步骤」时如实只说状态，不编一个步骤出来。
             */}
           <span className="text-13">
-            {currentStepLabel === null ? <b>{view.stateLabel}</b> : <>当前步骤：<b>{currentStepLabel}</b></>}
+            {currentStepLabel === null ? <b>{displayStateLabel}</b> : <>{t("chatPlanControl.currentStep")}<b>{currentStepLabel}</b></>}
           </span>
           <span className="text-11 text-muted-foreground">
             {/* 2026-09-27 人类：「0/5 步已完成」紧挨着「当前步骤：X」容易看错成「这一步完成了 0/5」。
                 有当前步骤时说它是第几步；没有时（收尾/结束）才说完成了几步。 */}
             {view.currentStepIndex !== null
-              ? `第 ${String(view.currentStepIndex)} 步 · 共 ${String(view.progressTotal)} 步`
-              : `已完成 ${String(view.progressValue)}/${String(view.progressTotal)} 步`} · 已用 {formatElapsed(elapsedMs)}
+              ? t("chatPlanControl.indexedProgress", { index: String(view.currentStepIndex), total: String(view.progressTotal) })
+              : t("chatPlanControl.completedProgress", { completed: String(view.progressValue), total: String(view.progressTotal) })} · {t("chatPlanControl.elapsed", { time: formatElapsed(elapsedMs, locale) })}
           </span>
           {isPaused ? (
             <Button
               size="sm" variant="primary" className="ml-auto" disabled={!onResume || stalled}
               data-testid={PLAN_RUN_RESUME_TESTID} onClick={onResume}
             >
-              <Play aria-hidden className="h-3.5 w-3.5" /> 恢复
+              <Play aria-hidden className="h-3.5 w-3.5" /> {t("chatPlanControl.resume")}
             </Button>
           ) : showPause ? (
             <Button
               size="sm" variant="outline" className="ml-auto" disabled={!onPause || stalled || isPauseRequested}
               data-testid={PLAN_RUN_PAUSE_TESTID} onClick={onPause}
             >
-              <Pause aria-hidden className="h-3.5 w-3.5" /> {isPauseRequested ? "暂停中…" : "暂停"}
+              <Pause aria-hidden className="h-3.5 w-3.5" /> {t(isPauseRequested ? "chatPlanControl.pausing" : "chatPlanControl.pause")}
             </Button>
           ) : null}
         </div>
         {view.showRecovery && (
           <div className="flex items-center gap-2">
             <p role="status" data-testid={PLAN_RUN_RECENT_ERROR_TESTID} className="text-11 text-destructive">
-              最近一次调用出错，这轮执行结果未确认。
+              {t("chatPlanControl.recentError")}
             </p>
             {onRecover && (
               <Button size="xs" variant="outline" data-testid={PLAN_RUN_RECOVERY_TESTID} onClick={onRecover}>
-                重试这轮任务
+                {t("chatPlanControl.retryRun")}
               </Button>
             )}
           </div>
@@ -129,7 +136,7 @@ export function PlanRunProgress(
           value={view.progressValue}
           max={Math.max(1, view.progressTotal)}
           tone={stalled ? "destructive" : "primary"}
-          label={`执行进度 ${view.progressValue}/${view.progressTotal}`}
+          label={t("chatPlanControl.progressAria", { completed: view.progressValue, total: view.progressTotal })}
         />
       </CardContent>
     </Card>

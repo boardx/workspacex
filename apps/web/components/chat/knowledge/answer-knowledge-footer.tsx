@@ -4,9 +4,9 @@ import * as React from "react";
 import { Quote, ChevronDown, Route, AlertTriangle, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CITATION_CORRECTABLE_SCOPES, KG_TRI_STATE_LABEL_ZH, type KgRecalledMemory } from "@repo/contracts/chat-knowledge-graph";
+import { CITATION_CORRECTABLE_SCOPES, type KgRecalledMemory } from "@repo/contracts/chat-knowledge-graph";
 import {
-  RETRIEVAL_CHANNEL_LABEL_ZH,
+  retrievalChannelLabel,
   recallDegradedNotice,
   graphPathText,
   personalOriginLabel,
@@ -15,7 +15,8 @@ import {
   truncateStatement,
 } from "@/lib/knowledge-graph-recall";
 import { requestOpenClaimSources } from "@/lib/knowledge-graph-events";
-import { KG_CLAIM_KIND_LABEL_ZH } from "@/lib/knowledge-graph-view";
+import { graphClaimKindLabel, graphTriStateLabel } from "@/lib/knowledge-graph-copy";
+import { useI18n } from "@/lib/i18n/provider";
 import { citationBasisPrefix, citedMemories } from "@/lib/knowledge-graph-citation";
 import { CitationDetail, type CitationCorrect } from "./citation-detail";
 
@@ -59,6 +60,7 @@ export function AnswerKnowledgeFooter({
   /** S7：纠正一条引用 */
   onCorrect?: (claimId: string, ...args: Parameters<CitationCorrect>) => ReturnType<CitationCorrect>;
 }) {
+  const { t, locale } = useI18n();
   const [expanded, setExpanded] = React.useState(false);
   const [open, setOpen] = React.useState<string | null>(null);
   if (recalled.length === 0 && !recallDegraded) return null;
@@ -75,7 +77,7 @@ export function AnswerKnowledgeFooter({
           data-testid="kg-channel-unavailable"
         >
           <AlertTriangle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
-          {recallDegradedNotice(degradedChannels)}
+          {recallDegradedNotice(degradedChannels, locale)}
         </p>
       ) : null}
 
@@ -86,7 +88,7 @@ export function AnswerKnowledgeFooter({
           <div className="flex flex-wrap items-center gap-1.5" data-testid="kg-citation-chips">
             <Quote aria-hidden className="h-3.5 w-3.5 text-muted-foreground" />
             {chips.map((m, i) => {
-              const origin = personalOriginLabel(m);
+              const origin = personalOriginLabel(m, locale);
               return (
                 <button
                   key={m.claimId}
@@ -104,15 +106,15 @@ export function AnswerKnowledgeFooter({
                   {/* S7：「依据你 9/20 的决定」——前半句 + 类型（issue #4343：目标 / 偏好 / 决定 …）。
                       testid 不用 kg-citation- 前缀：那个前缀留给 chip 本身。 */}
                   <span className="shrink-0 text-muted-foreground" data-testid={`kg-cite-basis-${m.claimId}`}>
-                    {citationBasisPrefix(m)}
-                    <span data-testid={`kg-cite-kind-${m.claimId}`}>{KG_CLAIM_KIND_LABEL_ZH[m.kind]}</span>
+                    {citationBasisPrefix(m, locale)}
+                    <span data-testid={`kg-cite-kind-${m.claimId}`}>{graphClaimKindLabel(m.kind, locale)}</span>
                   </span>
                   <span className="truncate">{truncateStatement(m.statement)}</span>
                   {m.triState === "pending" ? (
-                    <Badge tone="warning" data-testid={`kg-citation-pending-${m.claimId}`}>{KG_TRI_STATE_LABEL_ZH.pending}</Badge>
+                    <Badge tone="warning" data-testid={`kg-citation-pending-${m.claimId}`}>{graphTriStateLabel("pending", locale)}</Badge>
                   ) : null}
                   {m.triState === "conflict" ? (
-                    <Badge tone="danger" data-testid={`kg-citation-conflict-${m.claimId}`}>{KG_TRI_STATE_LABEL_ZH.conflict}</Badge>
+                    <Badge tone="danger" data-testid={`kg-citation-conflict-${m.claimId}`}>{graphTriStateLabel("conflict", locale)}</Badge>
                   ) : null}
                   {origin !== null ? (
                     <Badge tone="ai" data-testid={`kg-from-personal-${m.claimId}`}>
@@ -121,7 +123,7 @@ export function AnswerKnowledgeFooter({
                     </Badge>
                   ) : null}
                   {m.scope === "project" ? (
-                    <Badge tone="neutral" data-testid={`kg-from-project-${m.claimId}`}>{projectOriginLabel(m)}</Badge>
+                    <Badge tone="neutral" data-testid={`kg-from-project-${m.claimId}`}>{projectOriginLabel(m, locale)}</Badge>
                   ) : null}
                 </button>
               );
@@ -151,14 +153,14 @@ export function AnswerKnowledgeFooter({
             data-testid="kg-why-recall-toggle"
             onClick={() => setExpanded((v) => !v)}
           >
-            为什么用到它
+            {t("chatKnowledge.recall.why")}
             <ChevronDown aria-hidden className={`ml-1 h-3 w-3 transition-transform duration-base ${expanded ? "rotate-180" : ""}`} />
           </Button>
 
           {expanded ? (
             <div className="flex flex-col gap-2 rounded-md border border-border-subtle bg-background p-2" data-testid="kg-why-recall-body">
               {recalled.map((m, i) => {
-                const path = graphPathText(m.graphPath);
+                const path = graphPathText(m.graphPath, locale);
                 return (
                   <div key={m.claimId} className="flex flex-col gap-1" data-testid={`kg-recall-reason-${m.claimId}`}>
                     <span className="text-11 text-background-foreground">
@@ -167,11 +169,11 @@ export function AnswerKnowledgeFooter({
                     <div className="flex flex-wrap items-center gap-1">
                       {m.channels.map((ch) => (
                         <Badge key={ch} tone={ch === "graph" ? "ai" : "neutral"} data-testid={`kg-recall-channel-${m.claimId}-${ch}`}>
-                          {RETRIEVAL_CHANNEL_LABEL_ZH[ch]}
+                          {retrievalChannelLabel(ch, locale)}
                         </Badge>
                       ))}
-                      {retrievalReasonLabels(m.retrievalReasons).map((r, j) => (
-                        <span key={r} className="text-10 text-muted-foreground" data-testid={`kg-recall-why-${m.claimId}-${m.retrievalReasons[j] ?? r}`}>
+                      {retrievalReasonLabels(m.retrievalReasons, locale).map((r, j) => (
+                        <span key={`${m.retrievalReasons[j] ?? j}:${j}`} className="text-10 text-muted-foreground" data-testid={`kg-recall-why-${m.claimId}-${m.retrievalReasons[j] ?? r}`}>
                           · {r}
                         </span>
                       ))}

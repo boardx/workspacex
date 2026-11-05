@@ -12,6 +12,8 @@ import {
   type OmniConversationHandle,
   type OmniErrorReason,
 } from "@/lib/live-omni-conversation";
+import { useI18n } from "@/lib/i18n/provider";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
 import { cn } from "@/lib/utils";
 
 /**
@@ -36,27 +38,28 @@ type Phase = "connecting" | "live" | "reconnecting" | "error";
 type Activity = "idle" | "listening" | "thinking" | "speaking";
 
 interface Failure {
-  readonly title: string;
-  readonly detail: string;
+  readonly title: MessageKey;
+  readonly detail: MessageKey;
+  readonly startError?: unknown;
   readonly retryable: boolean;
 }
 
 const REASON_FAILURE: Record<OmniErrorReason, Failure> = {
-  CREDIT_REQUIRED: { title: "额度不足", detail: "请充值后重新开始通话。", retryable: false },
-  CREDIT_ACCOUNTING_UNAVAILABLE: { title: "暂时无法确认语音用量", detail: "请稍后手动重试。", retryable: false },
-  NOT_CONFIGURED: { title: "实时语音尚未开通", detail: "管理员配置实时语音模型后即可使用。你可以先用文字继续对话。", retryable: false },
-  AGENT_UNAVAILABLE: { title: "这个数字人暂不可用", detail: "它可能尚未发布，或你没有使用权限。请换一个数字人或使用通用助手。", retryable: false },
-  THREAD_UNAVAILABLE: { title: "当前对话无法开启语音", detail: "这条对话可能已归档，或你只有查看权限。", retryable: false },
-  UPSTREAM_FAILED: { title: "实时模型暂时不可用", detail: "请稍后重试。", retryable: true },
-  INVALID_FRAME: { title: "会话数据异常", detail: "请重新开始通话。", retryable: true },
+  CREDIT_REQUIRED: { title: "chatRealtime.creditTitle", detail: "chatRealtime.creditDetail", retryable: false },
+  CREDIT_ACCOUNTING_UNAVAILABLE: { title: "chatRealtime.accountingTitle", detail: "chatRealtime.accountingDetail", retryable: false },
+  NOT_CONFIGURED: { title: "chatRealtime.configTitle", detail: "chatRealtime.configDetail", retryable: false },
+  AGENT_UNAVAILABLE: { title: "chatRealtime.agentTitle", detail: "chatRealtime.agentDetail", retryable: false },
+  THREAD_UNAVAILABLE: { title: "chatRealtime.threadTitle", detail: "chatRealtime.threadDetail", retryable: false },
+  UPSTREAM_FAILED: { title: "chatRealtime.upstreamTitle", detail: "chatRealtime.upstreamDetail", retryable: true },
+  INVALID_FRAME: { title: "chatRealtime.frameTitle", detail: "chatRealtime.frameDetail", retryable: true },
 };
 
-const ACTIVITY_LABEL: Record<Activity, string> = { idle: "通话中，等你开口", listening: "在听", thinking: "思考中", speaking: "在说" };
+const ACTIVITY_LABEL: Record<Activity, MessageKey> = { idle: "chatRealtime.idle", listening: "chatRealtime.listening", thinking: "chatRealtime.thinking", speaking: "chatRealtime.speaking" };
 /** 静音时字幕区的提示（不能再说「直接开口说话」）。 */
-export const MUTED_FOOTER = "已静音，对方听不到你。";
-export const LIVE_FOOTER = "可随时开口打断。";
-export const MUTED_HINT = "已静音，点击取消静音后说话";
-export const SAVE_NOTICE = "本次通话的文字记录会保存到此对话。";
+export const MUTED_FOOTER = translate("zh-CN", "chatRealtime.mutedFooter");
+export const LIVE_FOOTER = translate("zh-CN", "chatRealtime.liveFooter");
+export const MUTED_HINT = translate("zh-CN", "chatRealtime.mutedHint");
+export const SAVE_NOTICE = translate("zh-CN", "chatRealtime.saveNotice");
 const MAX_RECONNECTS = 2;
 const RECONNECT_DELAY_MS = 1_500;
 
@@ -90,6 +93,7 @@ export function RealtimeVoiceSession(props: RealtimeVoiceSessionProps): JSX.Elem
 }
 
 function SessionBody({ onOpenChange, persona, resolveThreadId, onEnded, connect = openOmniConversation }: RealtimeVoiceSessionProps): JSX.Element {
+  const { t, locale } = useI18n();
   const [phase, setPhase] = React.useState<Phase>("connecting");
   const [activity, setActivity] = React.useState<Activity>("idle");
   const [failure, setFailure] = React.useState<Failure | null>(null);
@@ -141,7 +145,7 @@ function SessionBody({ onOpenChange, persona, resolveThreadId, onEnded, connect 
         },
         onError: (_message, reason) => {
           if (stale()) return;
-          const next = reason ? REASON_FAILURE[reason] : { title: "网络连接中断", detail: "正在尝试恢复通话。", retryable: true };
+          const next: Failure = reason ? REASON_FAILURE[reason] : { title: "chatRealtime.networkTitle", detail: "chatRealtime.networkDetail", retryable: true };
           if (!next.retryable) fatalRef.current = true;
           setFailure(next);
         },
@@ -157,7 +161,7 @@ function SessionBody({ onOpenChange, persona, resolveThreadId, onEnded, connect 
             return;
           }
           setPhase("error");
-          setFailure((current) => current ?? { title: "通话已断开", detail: "网络不稳定，请重试。", retryable: true });
+          setFailure((current) => current ?? { title: "chatRealtime.disconnected", detail: "chatRealtime.disconnectedDetail", retryable: true });
         },
       });
       if (stale()) { void handle.stop(); return; }
@@ -167,7 +171,7 @@ function SessionBody({ onOpenChange, persona, resolveThreadId, onEnded, connect 
       if (generation !== generationRef.current || endedRef.current) return;
       fatalRef.current = true;
       setPhase("error");
-      setFailure({ title: "无法开始通话", detail: describeOmniStartFailure(error), retryable: true });
+      setFailure({ title: "chatRealtime.startTitle", detail: "chatRealtime.startUnknown", startError: error, retryable: true });
     }
   }, [connect, persona.agentId, resolveThreadId]);
 
@@ -222,20 +226,20 @@ function SessionBody({ onOpenChange, persona, resolveThreadId, onEnded, connect 
 
   const visibleActivity: Activity = phase === "live" ? activity : "idle";
   const subtitle = realtimeVoiceSubtitle(persona);
-  const statusText = phase === "connecting" ? "正在连接…"
-    : phase === "reconnecting" ? "连接中断，正在重连…"
-    : phase === "error" ? (failure?.title ?? "通话已断开")
-    : muted && visibleActivity !== "speaking" ? "已静音"
-    : phase === "live" ? ACTIVITY_LABEL[visibleActivity]
-    : "空闲";
+  const statusText = phase === "connecting" ? t("chatRealtime.connecting")
+    : phase === "reconnecting" ? t("chatRealtime.reconnecting")
+    : phase === "error" ? t(failure?.title ?? "chatRealtime.disconnected")
+    : muted && visibleActivity !== "speaking" ? t("chatRealtime.muted")
+    : phase === "live" ? t(ACTIVITY_LABEL[visibleActivity])
+    : t("chatRealtime.inactive");
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" onKeyDown={onKeyDown}>
       <main className="mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col items-center justify-center gap-5 px-4 py-6 sm:px-6">
         <div className="min-w-0 text-center">
-          <DialogPrimitive.Title className="truncate text-16 font-semibold" data-testid="realtime-voice-title">{`与${persona.name}实时对话`}</DialogPrimitive.Title>
+          <DialogPrimitive.Title className="truncate text-16 font-semibold" data-testid="realtime-voice-title">{t("chatRealtime.title", { name: persona.name })}</DialogPrimitive.Title>
           <p className="text-12 text-muted-foreground">
-            {phase === "live" ? <span data-testid="realtime-voice-elapsed">{formatElapsed(elapsed)}</span> : "语音模式"}
+            {phase === "live" ? <span data-testid="realtime-voice-elapsed">{formatElapsed(elapsed)}</span> : t("chatRealtime.mode")}
           </p>
         </div>
         <Portrait persona={persona} activity={visibleActivity} phase={phase} />
@@ -258,16 +262,16 @@ function SessionBody({ onOpenChange, persona, resolveThreadId, onEnded, connect 
 
         {phase === "error" && failure ? (
           <div role="alert" data-testid="realtime-voice-error" className="flex max-w-sm flex-col items-center gap-3 rounded-container border border-border bg-card px-5 py-4 text-center">
-            <p className="text-13 text-muted-foreground">{failure.detail}</p>
+            <p className="text-13 text-muted-foreground">{"startError" in failure ? describeOmniStartFailure(failure.startError, locale) : t(failure.detail)}</p>
             {failure.retryable ? (
               <Button variant="outline" size="sm" onClick={retry} data-testid="realtime-voice-retry">
-                <RotateCw aria-hidden className="mr-2 h-4 w-4" />重试
+                <RotateCw aria-hidden className="mr-2 h-4 w-4" />{t("ui.retry")}
               </Button>
             ) : null}
           </div>
         ) : (
-          <section aria-label="实时字幕" data-testid="realtime-voice-captions" className="flex min-h-[8.5rem] w-full flex-col gap-3">
-            <Caption who="你" text={userCaption} placeholder={phase !== "live" ? "" : muted ? MUTED_HINT : "直接开口说话，说完稍作停顿即可"} testId="realtime-voice-caption-user" />
+          <section aria-label={t("chatRealtime.captions")} data-testid="realtime-voice-captions" className="flex min-h-[8.5rem] w-full flex-col gap-3">
+            <Caption who={t("chatRealtime.you")} text={userCaption} placeholder={phase !== "live" ? "" : muted ? t("chatRealtime.mutedHint") : t("chatRealtime.speakHint")} testId="realtime-voice-caption-user" />
             <Caption who={persona.name} text={assistantCaption} placeholder="" testId="realtime-voice-caption-assistant" emphasis />
           </section>
         )}
@@ -276,8 +280,8 @@ function SessionBody({ onOpenChange, persona, resolveThreadId, onEnded, connect 
       <footer className="flex flex-col items-center gap-3 px-4 pb-6 sm:px-6">
         <div className="flex items-start gap-6">
           <ControlButton
-            label={muted ? "取消静音" : "静音"}
-            hint={muted ? "取消静音（快捷键 M）" : "静音（快捷键 M）"}
+            label={muted ? t("chatRealtime.unmute") : t("chatRealtime.mute")}
+            hint={muted ? t("chatRealtime.unmuteShortcut") : t("chatRealtime.muteShortcut")}
             variant="outline"
             onClick={toggleMute}
             disabled={phase !== "live"}
@@ -287,8 +291,8 @@ function SessionBody({ onOpenChange, persona, resolveThreadId, onEnded, connect 
             {muted ? <MicOff aria-hidden className="h-6 w-6" /> : <Mic aria-hidden className="h-6 w-6" />}
           </ControlButton>
           <ControlButton
-            label="挂断"
-            hint={phase === "live" ? "挂断并保存（Esc）" : "挂断（Esc）"}
+            label={t("chatRealtime.hangup")}
+            hint={phase === "live" ? t("chatRealtime.hangupSave") : t("chatRealtime.hangupShortcut")}
             variant="destructive"
             large
             onClick={() => onOpenChange(false)}
@@ -297,8 +301,8 @@ function SessionBody({ onOpenChange, persona, resolveThreadId, onEnded, connect 
             <PhoneOff aria-hidden className="h-7 w-7" />
           </ControlButton>
           <ControlButton
-            label="打断"
-            hint="打断回答（也可以直接开口说话）"
+            label={t("chatRealtime.interrupt")}
+            hint={t("chatRealtime.interruptHint")}
             variant="outline"
             onClick={interrupt}
             disabled={phase !== "live" || visibleActivity !== "speaking"}
@@ -308,7 +312,7 @@ function SessionBody({ onOpenChange, persona, resolveThreadId, onEnded, connect 
           </ControlButton>
         </div>
         <p id="realtime-voice-session-scope" className="max-w-md text-center text-11 text-muted-foreground">
-          {muted && phase === "live" ? MUTED_FOOTER : LIVE_FOOTER}语音模式暂不支持调用工具、技能和工作流；需要时请挂断后用文字对话。{phase === "live" ? SAVE_NOTICE : null}
+          {muted && phase === "live" ? t("chatRealtime.mutedFooter") : t("chatRealtime.liveFooter")}{locale === "en" ? " " : ""}{t("chatRealtime.scope")}{phase === "live" ? <>{locale === "en" ? " " : ""}{t("chatRealtime.saveNotice")}</> : null}
         </p>
       </footer>
     </div>
@@ -348,12 +352,13 @@ function ControlButton({ label, hint, variant, large, onClick, disabled, pressed
 
 /** 麦克风输入电平条：让用户知道「它听得到我」。 */
 function InputLevelMeter({ level, muted }: { level: number; muted: boolean }): JSX.Element {
+  const { t } = useI18n();
   const bars = 12;
   const lit = Math.round(level * bars);
   return (
     <div
       role="meter"
-      aria-label="麦克风输入音量"
+      aria-label={t("chatRealtime.inputLevel")}
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={Math.round(level * 100)}

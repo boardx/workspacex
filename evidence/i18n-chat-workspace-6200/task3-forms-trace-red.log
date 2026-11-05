@@ -1,0 +1,2285 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ❯ tests/ui/i18n-chat-interrupt-forms.test.tsx (4 tests | 4 failed) 177ms
+   × keeps an edited intent and its assumptions through locale changes without submitting a decision 157ms
+     → Unable to find an accessible element with the role "textbox" and name "My understanding"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  <button />
+
+  Name "删除假设 1":
+  <button
+    aria-label="删除假设 1"
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-8 w-8 p-0"
+    data-testid="agent-interrupt-confirm-intent-assumption-remove-0"
+  />
+
+  Name "加一条假设":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12 self-start"
+    data-testid="agent-interrupt-confirm-intent-assumption-add"
+  />
+
+  Name "取消":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12"
+    data-testid="agent-interrupt-confirm-intent-edit-cancel"
+  />
+
+  Name "用新假设继续":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent active:scale-[0.98] h-7 px-2.5 text-12 bg-background-foreground text-background transition-colors duration-fast hover:bg-background-foreground/90"
+    data-testid="agent-interrupt-confirm-intent-edit-submit"
+  />
+
+  --------------------------------------------------
+  textbox:
+
+  Name "我的理解":
+  <textarea
+    aria-label="我的理解"
+    class="flex w-full rounded-control border border-input bg-card px-3 py-2.5 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed min-h-0 text-13"
+    data-testid="agent-interrupt-confirm-intent-understanding-input"
+    rows="2"
+  />
+
+  Name "假设 1":
+  <textarea
+    aria-label="假设 1"
+    class="flex w-full rounded-control border border-input bg-card px-3 py-2.5 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed min-h-0 flex-1 text-12"
+    data-testid="agent-interrupt-confirm-intent-assumption-input-0"
+    rows="2"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <button>
+      switch language
+    </button>
+    <div
+      class="rounded-card border border-border bg-card text-card-foreground w-full max-w-[34rem]"
+      data-testid="agent-interrupt-confirm-intent-shell"
+    >
+      <div
+        class="flex items-start gap-2.5 border-b border-border-subtle p-3"
+      >
+        <span
+          class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border bg-muted"
+        >
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-bot h-4 w-4 text-muted-foreground"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M12 8V4H8"
+            />
+            <rect
+              height="12"
+              rx="2"
+              width="16"
+              x="4"
+              y="8"
+            />
+            <path
+              d="M2 14h2"
+            />
+            <path
+              d="M20 14h2"
+            />
+            <path
+              d="M15 13v2"
+            />
+            <path
+              d="M9 13v2"
+            />
+          </svg>
+        </span>
+        <div
+          class="flex flex-col gap-0.5"
+        >
+          <span
+            class="text-13 font-bold tracking-tight text-card-foreground"
+          >
+            确认一下我的理解，再开始
+          </span>
+          <span
+            class="text-11 text-muted-foreground"
+          >
+            未确认前，我不会执行任何后续动作。
+          </span>
+        </div>
+      </div>
+      <div
+        class="p-3"
+      >
+        <div>
+          <div
+            class="flex flex-col gap-3"
+            data-testid="agent-interrupt-confirm-intent-card"
+          >
+            <div
+              class="flex flex-col gap-1"
+            >
+              <span
+                class="text-11 font-medium text-muted-foreground"
+              >
+                我的理解
+              </span>
+              <textarea
+                aria-label="我的理解"
+                class="flex w-full rounded-control border border-input bg-card px-3 py-2.5 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed min-h-0 text-13"
+                data-testid="agent-interrupt-confirm-intent-understanding-input"
+                rows="2"
+              >
+                原始任务 {count}
+              </textarea>
+            </div>
+            <div
+              class="flex flex-col gap-2"
+            >
+              <span
+                class="text-11 font-medium text-muted-foreground"
+              >
+                我做了这些假设（
+                1
+                 条）
+              </span>
+              <div
+                class="flex flex-col gap-1.5"
+              >
+                <div
+                  class="flex items-start gap-1.5"
+                  data-testid="agent-interrupt-confirm-intent-assumption-0"
+                >
+                  <span
+                    class="mt-1.5 shrink-0 text-12 font-medium text-muted-foreground"
+                  >
+                    1
+                    .
+                  </span>
+                  <textarea
+                    aria-label="假设 1"
+                    class="flex w-full rounded-control border border-input bg-card px-3 py-2.5 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed min-h-0 flex-1 text-12"
+                    data-testid="agent-interrupt-confirm-intent-assumption-input-0"
+                    rows="2"
+                  >
+                    原始假设 🌍
+                  </textarea>
+                  <button
+                    aria-label="删除假设 1"
+                    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-8 w-8 p-0"
+                    data-testid="agent-interrupt-confirm-intent-assumption-remove-0"
+                  >
+                    <svg
+                      aria-hidden="true"
+                      class="lucide lucide-trash2 h-3.5 w-3.5"
+                      fill="none"
+                      height="24"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      viewBox="0 0 24 24"
+                      width="24"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M3 6h18"
+                      />
+                      <path
+                        d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"
+                      />
+                      <path
+                        d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"
+                      />
+                      <line
+                        x1="10"
+                        x2="10"
+                        y1="11"
+                        y2="17"
+                      />
+                      <line
+                        x1="14"
+                        x2="14"
+                        y1="11"
+                        y2="17"
+                      />
+                    </svg>
+                  </button>
+                </div>
+                <button
+                  class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12 self-start"
+                  data-testid="agent-interrupt-confirm-intent-assumption-add"
+                >
+                  <svg
+                    aria-hidden="true"
+                    class="lucide lucide-plus h-3.5 w-3.5"
+                    fill="none"
+                    height="24"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    viewBox="0 0 24 24"
+                    width="24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M5 12h14"
+                    />
+                    <path
+                      d="M12 5v14"
+                    />
+                  </svg>
+                  加一条假设
+                </button>
+              </div>
+            </div>
+            <div
+              class="flex items-center gap-2 rounded-md border border-dashed border-border px-2.5 py-1.5"
+              data-testid="agent-interrupt-confirm-intent-gated-notice"
+            >
+              <svg
+                aria-hidden="true"
+                class="lucide lucide-sparkles h-3.5 w-3.5 text-muted-foreground"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"
+                />
+                <path
+                  d="M20 3v4"
+                />
+                <path
+                  d="M22 5h-4"
+                />
+                <path
+                  d="M4 17v2"
+                />
+                <path
+                  d="M5 18H3"
+                />
+              </svg>
+              <span
+                class="text-11 text-muted-foreground"
+              >
+                后续步骤（拉取数据、生成报告…）在你确认前不会开始。
+              </span>
+            </div>
+            <div
+              class="flex items-center justify-end gap-2"
+            >
+              <button
+                class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12"
+                data-testid="agent-interrupt-confirm-intent-edit-cancel"
+              >
+                取消
+              </button>
+              <button
+                class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent active:scale-[0.98] h-7 px-2.5 text-12 bg-background-foreground text-background transition-colors duration-fast hover:bg-background-foreground/90"
+                data-testid="agent-interrupt-confirm-intent-edit-submit"
+              >
+                用新假设继续
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+   × keeps canonical parameter names and edited values without introducing unsupported ledger-only decisions 8ms
+     → Unable to find an element with the text: Add task details. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <button>
+      switch language
+    </button>
+    <div
+      class="rounded-card border border-border bg-card text-card-foreground w-full max-w-[34rem]"
+      data-testid="agent-interrupt-fill-params-shell"
+    >
+      <div
+        class="flex items-start gap-2.5 border-b border-border-subtle p-3"
+      >
+        <span
+          class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border bg-muted"
+        >
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-bot h-4 w-4 text-muted-foreground"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M12 8V4H8"
+            />
+            <rect
+              height="12"
+              rx="2"
+              width="16"
+              x="4"
+              y="8"
+            />
+            <path
+              d="M2 14h2"
+            />
+            <path
+              d="M20 14h2"
+            />
+            <path
+              d="M15 13v2"
+            />
+            <path
+              d="M9 13v2"
+            />
+          </svg>
+        </span>
+        <div
+          class="flex flex-col gap-0.5"
+        >
+          <span
+            class="text-13 font-bold tracking-tight text-card-foreground"
+          >
+            补充任务信息
+          </span>
+          <span
+            class="text-11 text-muted-foreground"
+          >
+            只填写会影响结果的缺失信息；已有内容不会重复询问。
+          </span>
+        </div>
+      </div>
+      <div
+        class="p-3"
+      >
+        <div>
+          <div
+            class="flex flex-col gap-3"
+            data-testid="agent-interrupt-fill-params-card"
+          >
+            <div
+              class="flex flex-col gap-2.5"
+            >
+              <div
+                class="flex flex-col gap-1 rounded-md px-2.5 py-2"
+                data-testid="agent-interrupt-fill-params-field-raw_parameter_key"
+              >
+                <div
+                  class="flex items-center gap-1.5"
+                >
+                  <label
+                    class="text-12 font-medium text-card-foreground"
+                    for="agent-interrupt-fill-params-input-raw_parameter_key"
+                  >
+                    用户字段 {count}
+                  </label>
+                  <span
+                    class="text-11 text-muted-foreground"
+                  >
+                    必填
+                  </span>
+                </div>
+                <input
+                  class="flex min-w-0 w-full rounded-control border border-input bg-card px-3 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed h-7 text-12"
+                  data-testid="agent-interrupt-fill-params-input-raw_parameter_key"
+                  id="agent-interrupt-fill-params-input-raw_parameter_key"
+                  placeholder="请填写…"
+                  value="原始参数值"
+                />
+              </div>
+            </div>
+            <div
+              class="flex items-center justify-end gap-2"
+            >
+              <button
+                class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent active:scale-[0.98] h-7 px-2.5 text-12 bg-background-foreground text-background transition-colors duration-fast hover:bg-background-foreground/90"
+                data-testid="agent-interrupt-fill-params-submit"
+              >
+                提交并继续
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+   × localizes option chrome and effort labels while selecting the canonical option ID 7ms
+     → Unable to find an element with the text: Choose a route and I will continue. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <button>
+      switch language
+    </button>
+    <div
+      class="rounded-card border border-border bg-card text-card-foreground w-full max-w-[34rem]"
+      data-testid="agent-interrupt-choose-option-shell"
+    >
+      <div
+        class="flex items-start gap-2.5 border-b border-border-subtle p-3"
+      >
+        <span
+          class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border bg-muted"
+        >
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-bot h-4 w-4 text-muted-foreground"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M12 8V4H8"
+            />
+            <rect
+              height="12"
+              rx="2"
+              width="16"
+              x="4"
+              y="8"
+            />
+            <path
+              d="M2 14h2"
+            />
+            <path
+              d="M20 14h2"
+            />
+            <path
+              d="M15 13v2"
+            />
+            <path
+              d="M9 13v2"
+            />
+          </svg>
+        </span>
+        <div
+          class="flex flex-col gap-0.5"
+        >
+          <span
+            class="text-13 font-bold tracking-tight text-card-foreground"
+          >
+            有几条推进路线，选一条我就接着做
+          </span>
+          <span
+            class="text-11 text-muted-foreground"
+          >
+            点选一张卡即确认；也可以选择都不要。
+          </span>
+        </div>
+      </div>
+      <div
+        class="p-3"
+      >
+        <div>
+          <div
+            class="flex flex-col gap-3"
+            data-testid="agent-interrupt-choose-option-card"
+          >
+            <div
+              class="grid gap-2 grid-cols-2"
+            >
+              <button
+                class="flex flex-col gap-2 rounded-md p-2.5 text-left transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed border-2 border-border bg-card hover:bg-muted"
+                data-testid="agent-interrupt-choose-option-option-raw-option-A"
+                type="button"
+              >
+                <div
+                  class="flex items-center justify-between gap-1"
+                >
+                  <span
+                    class="text-12 font-bold tracking-tight text-card-foreground"
+                  >
+                    用户路线A {count}
+                  </span>
+                </div>
+                <dl
+                  class="flex flex-col gap-1"
+                >
+                  <div
+                    class="flex flex-col gap-0.5"
+                  >
+                    <dt
+                      class="text-10 uppercase tracking-wide text-muted-foreground"
+                    >
+                      见效
+                    </dt>
+                    <dd
+                      class="text-11 leading-snug text-card-foreground"
+                    >
+                      用户时间原文
+                    </dd>
+                  </div>
+                  <div
+                    class="flex flex-col gap-0.5"
+                  >
+                    <dt
+                      class="text-10 uppercase tracking-wide text-muted-foreground"
+                    >
+                      投入
+                    </dt>
+                    <dd
+                      class="text-11 leading-snug text-card-foreground"
+                    >
+                      低
+                    </dd>
+                  </div>
+                  <div
+                    class="flex flex-col gap-0.5"
+                  >
+                    <dt
+                      class="text-10 uppercase tracking-wide text-muted-foreground"
+                    >
+                      预计收益
+                    </dt>
+                    <dd
+                      class="text-11 leading-snug text-card-foreground"
+                    >
+                      用户收益原文
+                    </dd>
+                  </div>
+                </dl>
+              </button>
+              <button
+                class="flex flex-col gap-2 rounded-md p-2.5 text-left transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed border-2 border-border bg-card hover:bg-muted"
+                data-testid="agent-interrupt-choose-option-option-raw-option-B"
+                type="button"
+              >
+                <div
+                  class="flex items-center justify-between gap-1"
+                >
+                  <span
+                    class="text-12 font-bold tracking-tight text-card-foreground"
+                  >
+                    用户路线B 🌍
+                  </span>
+                </div>
+                <dl
+                  class="flex flex-col gap-1"
+                >
+                  <div
+                    class="flex flex-col gap-0.5"
+                  >
+                    <dt
+                      class="text-10 uppercase tracking-wide text-muted-foreground"
+                    >
+                      见效
+                    </dt>
+                    <dd
+                      class="text-11 leading-snug text-card-foreground"
+                    >
+                      另一时间
+                    </dd>
+                  </div>
+                  <div
+                    class="flex flex-col gap-0.5"
+                  >
+                    <dt
+                      class="text-10 uppercase tracking-wide text-muted-foreground"
+                    >
+                      投入
+                    </dt>
+                    <dd
+                      class="text-11 leading-snug text-card-foreground"
+                    >
+                      高
+                    </dd>
+                  </div>
+                  <div
+                    class="flex flex-col gap-0.5"
+                  >
+                    <dt
+                      class="text-10 uppercase tracking-wide text-muted-foreground"
+                    >
+                      预计收益
+                    </dt>
+                    <dd
+                      class="text-11 leading-snug text-card-foreground"
+                    >
+                      另一收益
+                    </dd>
+                  </div>
+                </dl>
+              </button>
+            </div>
+            <div
+              class="flex items-center justify-between gap-2 border-t border-border-subtle pt-2"
+            >
+              <span
+                class="text-11 text-muted-foreground"
+              >
+                点选任意一张卡即确认。
+              </span>
+              <button
+                class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border bg-card active:scale-[0.98] h-7 px-2.5 text-12 border-destructive/40 text-destructive transition-colors duration-fast hover:bg-destructive/10 hover:text-destructive"
+                data-testid="agent-interrupt-choose-option-decline"
+              >
+                都不要
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+   × localizes an observer denial while keeping decision actions unavailable 4ms
+     → Unable to find an element with the text: Observers can view these options but cannot choose for the team.. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="rounded-card border border-border bg-card text-card-foreground w-full max-w-[34rem]"
+      data-testid="agent-interrupt-choose-option-shell"
+    >
+      <div
+        class="flex items-start gap-2.5 border-b border-border-subtle p-3"
+      >
+        <span
+          class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border bg-muted"
+        >
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-bot h-4 w-4 text-muted-foreground"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M12 8V4H8"
+            />
+            <rect
+              height="12"
+              rx="2"
+              width="16"
+              x="4"
+              y="8"
+            />
+            <path
+              d="M2 14h2"
+            />
+            <path
+              d="M20 14h2"
+            />
+            <path
+              d="M15 13v2"
+            />
+            <path
+              d="M9 13v2"
+            />
+          </svg>
+        </span>
+        <div
+          class="flex flex-col gap-0.5"
+        >
+          <span
+            class="text-13 font-bold tracking-tight text-card-foreground"
+          >
+            有几条推进路线，选一条我就接着做
+          </span>
+          <span
+            class="text-11 text-muted-foreground"
+          >
+            点选一张卡即确认；也可以选择都不要。
+          </span>
+        </div>
+      </div>
+      <div
+        class="p-3"
+      >
+        <div
+          class="flex flex-col items-center gap-3 rounded-lg border border-border bg-muted py-10 text-center"
+          data-testid="denied"
+          role="alert"
+        >
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-lock h-6 w-6 text-muted-foreground"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <rect
+              height="11"
+              rx="2"
+              ry="2"
+              width="18"
+              x="3"
+              y="11"
+            />
+            <path
+              d="M7 11V7a5 5 0 0 1 10 0v4"
+            />
+          </svg>
+          <div
+            class="flex flex-col gap-1"
+          >
+            <p
+              class="text-13 font-medium"
+            >
+              You do not have permission to view this content
+            </p>
+            <p
+              class="text-12 text-muted-foreground"
+              data-testid="denied-layer"
+            >
+              Project restriction: 观察者可以看到这些方案，但不能替团队做选择。
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+ ❯ tests/ui/i18n-chat-restored-permission.test.tsx (2 tests | 1 failed) 1096ms
+   × keeps a restored permission's raw args and exact once decision while locale changes during its POST 1036ms
+     → Unable to find role="dialog" and name "Approve high-risk operation"
+
+Ignored nodes: comments, script, style
+<body
+  data-scroll-locked="1"
+  style="pointer-events: none;"
+>
+  <span
+    aria-hidden="true"
+    data-aria-hidden="true"
+    data-radix-focus-guard=""
+    style="outline: none; opacity: 0; position: fixed; pointer-events: none;"
+    tabindex="0"
+  />
+  <div
+    aria-hidden="true"
+    data-aria-hidden="true"
+  >
+    <section
+      aria-label="等待工具审批"
+      class="my-3"
+      data-testid="restored-run-approval"
+    >
+      <button
+        class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+      >
+        打开工具审批
+      </button>
+    </section>
+  </div>
+  <div
+    aria-hidden="true"
+    class="fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"
+    data-aria-hidden="true"
+    data-state="open"
+    style="pointer-events: auto;"
+  />
+  <div
+    aria-describedby="radix-:r2:"
+    aria-labelledby="radix-:r1:"
+    class="fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border text-popover-foreground transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-w-lg border-none bg-transparent p-0 shadow-none"
+    data-state="open"
+    data-testid="chat-tool-permission-dialog"
+    id="radix-:r0:"
+    role="dialog"
+    style="pointer-events: auto;"
+    tabindex="-1"
+  >
+    <h2
+      class="text-16 font-bold tracking-tight sr-only"
+      id="radix-:r1:"
+    >
+      审批高风险操作
+    </h2>
+    <p
+      class="text-13 text-muted-foreground sr-only"
+      id="radix-:r2:"
+    >
+      检查操作范围与参数，然后选择授权范围或拒绝。
+    </p>
+    <p
+      class="mb-2 rounded-control bg-muted p-2 text-12 text-muted-foreground"
+      data-testid="perm-repeat-notice"
+      role="status"
+    >
+      这是本次任务里第
+      2
+       次请求授权，是一次新的请求，不是上一次没生效。
+      你上次选的是「本 run 内都允许」——那一档在这条任务里对同一个工具持续生效，不会再问你；这次请求的是另一个工具的操作，所以要再确认一次。
+    </p>
+    <fieldset
+      data-risk="L2"
+      data-testid="chat-task-workbench-approval-card"
+    >
+      <div
+        class="rounded-card border bg-card text-card-foreground max-w-lg border-warning/40 shadow-lg"
+        data-testid="tool-permission-card"
+      >
+        <div
+          class="flex flex-col p-4 pb-2 gap-1"
+        >
+          <div
+            class="flex items-center gap-2"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-shield-alert h-4 w-4 text-warning"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"
+              />
+              <path
+                d="M12 8v4"
+              />
+              <path
+                d="M12 16h.01"
+              />
+            </svg>
+            <h3
+              class="font-semibold tracking-tight text-14"
+            >
+              The agent is requesting a high-risk operation
+            </h3>
+            <span
+              class="inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-warning-tint text-warning-tint-foreground"
+              data-testid="risk-L2"
+              title="Irreversible or external; requires your confirmation before running"
+            >
+              L2
+               ·
+              High risk
+            </span>
+          </div>
+          <p
+            class="text-muted-foreground text-12"
+          >
+            This operation is irreversible or sends data externally. It will not run without your approval.
+          </p>
+        </div>
+        <div
+          class="p-4 pt-2 flex flex-col gap-3"
+        >
+          <div
+            class="flex flex-col gap-1"
+          >
+            <span
+              class="text-11 font-medium text-muted-foreground"
+            >
+              What it wants to do
+            </span>
+            <p
+              class="text-13 text-background-foreground"
+              data-testid="perm-intent"
+            >
+              调用技能「用户技能 {count}」（需要授权）
+            </p>
+          </div>
+          <div
+            class="flex flex-col gap-1"
+          >
+            [3...
+
+Ignored nodes: comments, script, style
+<body
+  data-scroll-locked="1"
+  style="pointer-events: none;"
+>
+  <span
+    aria-hidden="true"
+    data-aria-hidden="true"
+    data-radix-focus-guard=""
+    style="outline: none; opacity: 0; position: fixed; pointer-events: none;"
+    tabindex="0"
+  />
+  <div
+    aria-hidden="true"
+    data-aria-hidden="true"
+  >
+    <section
+      aria-label="等待工具审批"
+      class="my-3"
+      data-testid="restored-run-approval"
+    >
+      <button
+        class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+      >
+        打开工具审批
+      </button>
+    </section>
+  </div>
+  <div
+    aria-hidden="true"
+    class="fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"
+    data-aria-hidden="true"
+    data-state="open"
+    style="pointer-events: auto;"
+  />
+  <div
+    aria-describedby="radix-:r2:"
+    aria-labelledby="radix-:r1:"
+    class="fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border text-popover-foreground transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-w-lg border-none bg-transparent p-0 shadow-none"
+    data-state="open"
+    data-testid="chat-tool-permission-dialog"
+    id="radix-:r0:"
+    role="dialog"
+    style="pointer-events: auto;"
+    tabindex="-1"
+  >
+    <h2
+      class="text-16 font-bold tracking-tight sr-only"
+      id="radix-:r1:"
+    >
+      审批高风险操作
+    </h2>
+    <p
+      class="text-13 text-muted-foreground sr-only"
+      id="radix-:r2:"
+    >
+      检查操作范围与参数，然后选择授权范围或拒绝。
+    </p>
+    <p
+      class="mb-2 rounded-control bg-muted p-2 text-12 text-muted-foreground"
+      data-testid="perm-repeat-notice"
+      role="status"
+    >
+      这是本次任务里第
+      2
+       次请求授权，是一次新的请求，不是上一次没生效。
+      你上次选的是「本 run 内都允许」——那一档在这条任务里对同一个工具持续生效，不会再问你；这次请求的是另一个工具的操作，所以要再确认一次。
+    </p>
+    <fieldset
+      data-risk="L2"
+      data-testid="chat-task-workbench-approval-card"
+    >
+      <div
+        class="rounded-card border bg-card text-card-foreground max-w-lg border-warning/40 shadow-lg"
+        data-testid="tool-permission-card"
+      >
+        <div
+          class="flex flex-col p-4 pb-2 gap-1"
+        >
+          <div
+            class="flex items-center gap-2"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-shield-alert h-4 w-4 text-warning"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"
+              />
+              <path
+                d="M12 8v4"
+              />
+              <path
+                d="M12 16h.01"
+              />
+            </svg>
+            <h3
+              class="font-semibold tracking-tight text-14"
+            >
+              The agent is requesting a high-risk operation
+            </h3>
+            <span
+              class="inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-warning-tint text-warning-tint-foreground"
+              data-testid="risk-L2"
+              title="Irreversible or external; requires your confirmation before running"
+            >
+              L2
+               ·
+              High risk
+            </span>
+          </div>
+          <p
+            class="text-muted-foreground text-12"
+          >
+            This operation is irreversible or sends data externally. It will not run without your approval.
+          </p>
+        </div>
+        <div
+          class="p-4 pt-2 flex flex-col gap-3"
+        >
+          <div
+            class="flex flex-col gap-1"
+          >
+            <span
+              class="text-11 font-medium text-muted-foreground"
+            >
+              What it wants to do
+            </span>
+            <p
+              class="text-13 text-background-foreground"
+              data-testid="perm-intent"
+            >
+              调用技能「用户技能 {count}」（需要授权）
+            </p>
+          </div>
+          <div
+            class="flex flex-col gap-1"
+          >
+            [3...
+ ❯ tests/ui/i18n-chat-run-trace.test.tsx (2 tests | 2 failed) 41ms
+   × localizes the trace wrapper without changing raw tool arguments/results or the expanded content node 35ms
+     → expected '执行过程 · 历时 00:00 · 工具 1 次' to contain 'Execution trace'
+   × keeps the journal cancellation authoritative when the message slot still says running 5ms
+     → expected '已停止 · 历时 00:00 · 工具 1 次' to contain 'Stopped'
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/i18n-chat-interrupt-forms.test.tsx > keeps an edited intent and its assumptions through locale changes without submitting a decision
+TestingLibraryElementError: Unable to find an accessible element with the role "textbox" and name "My understanding"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  <button />
+
+  Name "删除假设 1":
+  <button
+    aria-label="删除假设 1"
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-8 w-8 p-0"
+    data-testid="agent-interrupt-confirm-intent-assumption-remove-0"
+  />
+
+  Name "加一条假设":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12 self-start"
+    data-testid="agent-interrupt-confirm-intent-assumption-add"
+  />
+
+  Name "取消":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12"
+    data-testid="agent-interrupt-confirm-intent-edit-cancel"
+  />
+
+  Name "用新假设继续":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent active:scale-[0.98] h-7 px-2.5 text-12 bg-background-foreground text-background transition-colors duration-fast hover:bg-background-foreground/90"
+    data-testid="agent-interrupt-confirm-intent-edit-submit"
+  />
+
+  --------------------------------------------------
+  textbox:
+
+  Name "我的理解":
+  <textarea
+    aria-label="我的理解"
+    class="flex w-full rounded-control border border-input bg-card px-3 py-2.5 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed min-h-0 text-13"
+    data-testid="agent-interrupt-confirm-intent-understanding-input"
+    rows="2"
+  />
+
+  Name "假设 1":
+  <textarea
+    aria-label="假设 1"
+    class="flex w-full rounded-control border border-input bg-card px-3 py-2.5 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed min-h-0 flex-1 text-12"
+    data-testid="agent-interrupt-confirm-intent-assumption-input-0"
+    rows="2"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <button>
+      switch language
+    </button>
+    <div
+      class="rounded-card border border-border bg-card text-card-foreground w-full max-w-[34rem]"
+      data-testid="agent-interrupt-confirm-intent-shell"
+    >
+      <div
+        class="flex items-start gap-2.5 border-b border-border-subtle p-3"
+      >
+        <span
+          class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border bg-muted"
+        >
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-bot h-4 w-4 text-muted-foreground"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M12 8V4H8"
+            />
+            <rect
+              height="12"
+              rx="2"
+              width="16"
+              x="4"
+              y="8"
+            />
+            <path
+              d="M2 14h2"
+            />
+            <path
+              d="M20 14h2"
+            />
+            <path
+              d="M15 13v2"
+            />
+            <path
+              d="M9 13v2"
+            />
+          </svg>
+        </span>
+        <div
+          class="flex flex-col gap-0.5"
+        >
+          <span
+            class="text-13 font-bold tracking-tight text-card-foreground"
+          >
+            确认一下我的理解，再开始
+          </span>
+          <span
+            class="text-11 text-muted-foreground"
+          >
+            未确认前，我不会执行任何后续动作。
+          </span>
+        </div>
+      </div>
+      <div
+        class="p-3"
+      >
+        <div>
+          <div
+            class="flex flex-col gap-3"
+            data-testid="agent-interrupt-confirm-intent-card"
+          >
+            <div
+              class="flex flex-col gap-1"
+            >
+              <span
+                class="text-11 font-medium text-muted-foreground"
+              >
+                我的理解
+              </span>
+              <textarea
+                aria-label="我的理解"
+                class="flex w-full rounded-control border border-input bg-card px-3 py-2.5 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed min-h-0 text-13"
+                data-testid="agent-interrupt-confirm-intent-understanding-input"
+                rows="2"
+              >
+                原始任务 {count}
+              </textarea>
+            </div>
+            <div
+              class="flex flex-col gap-2"
+            >
+              <span
+                class="text-11 font-medium text-muted-foreground"
+              >
+                我做了这些假设（
+                1
+                 条）
+              </span>
+              <div
+                class="flex flex-col gap-1.5"
+              >
+                <div
+                  class="flex items-start gap-1.5"
+                  data-testid="agent-interrupt-confirm-intent-assumption-0"
+                >
+                  <span
+                    class="mt-1.5 shrink-0 text-12 font-medium text-muted-foreground"
+                  >
+                    1
+                    .
+                  </span>
+                  <textarea
+                    aria-label="假设 1"
+                    class="flex w-full rounded-control border border-input bg-card px-3 py-2.5 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed min-h-0 flex-1 text-12"
+                    data-testid="agent-interrupt-confirm-intent-assumption-input-0"
+                    rows="2"
+                  >
+                    原始假设 🌍
+                  </textarea>
+                  <button
+                    aria-label="删除假设 1"
+                    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-8 w-8 p-0"
+                    data-testid="agent-interrupt-confirm-intent-assumption-remove-0"
+                  >
+                    <svg
+                      aria-hidden="true"
+                      class="lucide lucide-trash2 h-3.5 w-3.5"
+                      fill="none"
+                      height="24"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      viewBox="0 0 24 24"
+                      width="24"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M3 6h18"
+                      />
+                      <path
+                        d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"
+                      />
+                      <path
+                        d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"
+                      />
+                      <line
+                        x1="10"
+                        x2="10"
+                        y1="11"
+                        y2="17"
+                      />
+                      <line
+                        x1="14"
+                        x2="14"
+                        y1="11"
+                        y2="17"
+                      />
+                    </svg>
+                  </button>
+                </div>
+                <button
+                  class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12 self-start"
+                  data-testid="agent-interrupt-confirm-intent-assumption-add"
+                >
+                  <svg
+                    aria-hidden="true"
+                    class="lucide lucide-plus h-3.5 w-3.5"
+                    fill="none"
+                    height="24"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    viewBox="0 0 24 24"
+                    width="24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M5 12h14"
+                    />
+                    <path
+                      d="M12 5v14"
+                    />
+                  </svg>
+                  加一条假设
+                </button>
+              </div>
+            </div>
+            <div
+              class="flex items-center gap-2 rounded-md border border-dashed border-border px-2.5 py-1.5"
+              data-testid="agent-interrupt-confirm-intent-gated-notice"
+            >
+              <svg
+                aria-hidden="true"
+                class="lucide lucide-sparkles h-3.5 w-3.5 text-muted-foreground"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"
+                />
+                <path
+                  d="M20 3v4"
+                />
+                <path
+                  d="M22 5h-4"
+                />
+                <path
+                  d="M4 17v2"
+                />
+                <path
+                  d="M5 18H3"
+                />
+              </svg>
+              <span
+                class="text-11 text-muted-foreground"
+              >
+                后续步骤（拉取数据、生成报告…）在你确认前不会开始。
+              </span>
+            </div>
+            <div
+              class="flex items-center justify-end gap-2"
+            >
+              <button
+                class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12"
+                data-testid="agent-interrupt-confirm-intent-edit-cancel"
+              >
+                取消
+              </button>
+              <button
+                class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent active:scale-[0.98] h-7 px-2.5 text-12 bg-background-foreground text-background transition-colors duration-fast hover:bg-background-foreground/90"
+                data-testid="agent-interrupt-confirm-intent-edit-submit"
+              >
+                用新假设继续
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-interrupt-forms.test.tsx:14:24
+     12|   const submit = vi.fn(); const approve = vi.fn();
+     13|   render(<I18nProvider initialLocale="en"><SwitchLanguage /><ConfirmIn…
+     14|   const field = screen.getByRole("textbox", { name: "My understanding"…
+       |                        ^
+     15|   const edited = " 用户修改后的任务 {status} 🌍 "; fireEvent.change(fie…
+     16|   fireEvent.click(screen.getByRole("button", { name: "switch language"…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+
+ FAIL  tests/ui/i18n-chat-interrupt-forms.test.tsx > keeps canonical parameter names and edited values without introducing unsupported ledger-only decisions
+TestingLibraryElementError: Unable to find an element with the text: Add task details. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <button>
+      switch language
+    </button>
+    <div
+      class="rounded-card border border-border bg-card text-card-foreground w-full max-w-[34rem]"
+      data-testid="agent-interrupt-fill-params-shell"
+    >
+      <div
+        class="flex items-start gap-2.5 border-b border-border-subtle p-3"
+      >
+        <span
+          class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border bg-muted"
+        >
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-bot h-4 w-4 text-muted-foreground"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M12 8V4H8"
+            />
+            <rect
+              height="12"
+              rx="2"
+              width="16"
+              x="4"
+              y="8"
+            />
+            <path
+              d="M2 14h2"
+            />
+            <path
+              d="M20 14h2"
+            />
+            <path
+              d="M15 13v2"
+            />
+            <path
+              d="M9 13v2"
+            />
+          </svg>
+        </span>
+        <div
+          class="flex flex-col gap-0.5"
+        >
+          <span
+            class="text-13 font-bold tracking-tight text-card-foreground"
+          >
+            补充任务信息
+          </span>
+          <span
+            class="text-11 text-muted-foreground"
+          >
+            只填写会影响结果的缺失信息；已有内容不会重复询问。
+          </span>
+        </div>
+      </div>
+      <div
+        class="p-3"
+      >
+        <div>
+          <div
+            class="flex flex-col gap-3"
+            data-testid="agent-interrupt-fill-params-card"
+          >
+            <div
+              class="flex flex-col gap-2.5"
+            >
+              <div
+                class="flex flex-col gap-1 rounded-md px-2.5 py-2"
+                data-testid="agent-interrupt-fill-params-field-raw_parameter_key"
+              >
+                <div
+                  class="flex items-center gap-1.5"
+                >
+                  <label
+                    class="text-12 font-medium text-card-foreground"
+                    for="agent-interrupt-fill-params-input-raw_parameter_key"
+                  >
+                    用户字段 {count}
+                  </label>
+                  <span
+                    class="text-11 text-muted-foreground"
+                  >
+                    必填
+                  </span>
+                </div>
+                <input
+                  class="flex min-w-0 w-full rounded-control border border-input bg-card px-3 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed h-7 text-12"
+                  data-testid="agent-interrupt-fill-params-input-raw_parameter_key"
+                  id="agent-interrupt-fill-params-input-raw_parameter_key"
+                  placeholder="请填写…"
+                  value="原始参数值"
+                />
+              </div>
+            </div>
+            <div
+              class="flex items-center justify-end gap-2"
+            >
+              <button
+                class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent active:scale-[0.98] h-7 px-2.5 text-12 bg-background-foreground text-background transition-colors duration-fast hover:bg-background-foreground/90"
+                data-testid="agent-interrupt-fill-params-submit"
+              >
+                提交并继续
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-interrupt-forms.test.tsx:26:17
+     24|   const submit = vi.fn();
+     25|   render(<I18nProvider initialLocale="en"><SwitchLanguage /><FillParam…
+     26|   expect(screen.getByText("Add task details")).toBeTruthy();
+       |                 ^
+     27|   const input = screen.getByLabelText(field.label); const value = "用…
+     28|   expect(screen.queryByTestId("agent-interrupt-fill-params-applied-led…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯
+
+ FAIL  tests/ui/i18n-chat-interrupt-forms.test.tsx > localizes option chrome and effort labels while selecting the canonical option ID
+TestingLibraryElementError: Unable to find an element with the text: Choose a route and I will continue. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <button>
+      switch language
+    </button>
+    <div
+      class="rounded-card border border-border bg-card text-card-foreground w-full max-w-[34rem]"
+      data-testid="agent-interrupt-choose-option-shell"
+    >
+      <div
+        class="flex items-start gap-2.5 border-b border-border-subtle p-3"
+      >
+        <span
+          class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border bg-muted"
+        >
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-bot h-4 w-4 text-muted-foreground"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M12 8V4H8"
+            />
+            <rect
+              height="12"
+              rx="2"
+              width="16"
+              x="4"
+              y="8"
+            />
+            <path
+              d="M2 14h2"
+            />
+            <path
+              d="M20 14h2"
+            />
+            <path
+              d="M15 13v2"
+            />
+            <path
+              d="M9 13v2"
+            />
+          </svg>
+        </span>
+        <div
+          class="flex flex-col gap-0.5"
+        >
+          <span
+            class="text-13 font-bold tracking-tight text-card-foreground"
+          >
+            有几条推进路线，选一条我就接着做
+          </span>
+          <span
+            class="text-11 text-muted-foreground"
+          >
+            点选一张卡即确认；也可以选择都不要。
+          </span>
+        </div>
+      </div>
+      <div
+        class="p-3"
+      >
+        <div>
+          <div
+            class="flex flex-col gap-3"
+            data-testid="agent-interrupt-choose-option-card"
+          >
+            <div
+              class="grid gap-2 grid-cols-2"
+            >
+              <button
+                class="flex flex-col gap-2 rounded-md p-2.5 text-left transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed border-2 border-border bg-card hover:bg-muted"
+                data-testid="agent-interrupt-choose-option-option-raw-option-A"
+                type="button"
+              >
+                <div
+                  class="flex items-center justify-between gap-1"
+                >
+                  <span
+                    class="text-12 font-bold tracking-tight text-card-foreground"
+                  >
+                    用户路线A {count}
+                  </span>
+                </div>
+                <dl
+                  class="flex flex-col gap-1"
+                >
+                  <div
+                    class="flex flex-col gap-0.5"
+                  >
+                    <dt
+                      class="text-10 uppercase tracking-wide text-muted-foreground"
+                    >
+                      见效
+                    </dt>
+                    <dd
+                      class="text-11 leading-snug text-card-foreground"
+                    >
+                      用户时间原文
+                    </dd>
+                  </div>
+                  <div
+                    class="flex flex-col gap-0.5"
+                  >
+                    <dt
+                      class="text-10 uppercase tracking-wide text-muted-foreground"
+                    >
+                      投入
+                    </dt>
+                    <dd
+                      class="text-11 leading-snug text-card-foreground"
+                    >
+                      低
+                    </dd>
+                  </div>
+                  <div
+                    class="flex flex-col gap-0.5"
+                  >
+                    <dt
+                      class="text-10 uppercase tracking-wide text-muted-foreground"
+                    >
+                      预计收益
+                    </dt>
+                    <dd
+                      class="text-11 leading-snug text-card-foreground"
+                    >
+                      用户收益原文
+                    </dd>
+                  </div>
+                </dl>
+              </button>
+              <button
+                class="flex flex-col gap-2 rounded-md p-2.5 text-left transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed border-2 border-border bg-card hover:bg-muted"
+                data-testid="agent-interrupt-choose-option-option-raw-option-B"
+                type="button"
+              >
+                <div
+                  class="flex items-center justify-between gap-1"
+                >
+                  <span
+                    class="text-12 font-bold tracking-tight text-card-foreground"
+                  >
+                    用户路线B 🌍
+                  </span>
+                </div>
+                <dl
+                  class="flex flex-col gap-1"
+                >
+                  <div
+                    class="flex flex-col gap-0.5"
+                  >
+                    <dt
+                      class="text-10 uppercase tracking-wide text-muted-foreground"
+                    >
+                      见效
+                    </dt>
+                    <dd
+                      class="text-11 leading-snug text-card-foreground"
+                    >
+                      另一时间
+                    </dd>
+                  </div>
+                  <div
+                    class="flex flex-col gap-0.5"
+                  >
+                    <dt
+                      class="text-10 uppercase tracking-wide text-muted-foreground"
+                    >
+                      投入
+                    </dt>
+                    <dd
+                      class="text-11 leading-snug text-card-foreground"
+                    >
+                      高
+                    </dd>
+                  </div>
+                  <div
+                    class="flex flex-col gap-0.5"
+                  >
+                    <dt
+                      class="text-10 uppercase tracking-wide text-muted-foreground"
+                    >
+                      预计收益
+                    </dt>
+                    <dd
+                      class="text-11 leading-snug text-card-foreground"
+                    >
+                      另一收益
+                    </dd>
+                  </div>
+                </dl>
+              </button>
+            </div>
+            <div
+              class="flex items-center justify-between gap-2 border-t border-border-subtle pt-2"
+            >
+              <span
+                class="text-11 text-muted-foreground"
+              >
+                点选任意一张卡即确认。
+              </span>
+              <button
+                class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border bg-card active:scale-[0.98] h-7 px-2.5 text-12 border-destructive/40 text-destructive transition-colors duration-fast hover:bg-destructive/10 hover:text-destructive"
+                data-testid="agent-interrupt-choose-option-decline"
+              >
+                都不要
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-interrupt-forms.test.tsx:41:17
+     39|   const select = vi.fn(); const decline = vi.fn();
+     40|   render(<I18nProvider initialLocale="en"><SwitchLanguage /><ChooseOpt…
+     41|   expect(screen.getByText("Choose a route and I will continue")).toBeT…
+       |                 ^
+     42|   const option = screen.getByTestId("agent-interrupt-choose-option-opt…
+     43|   fireEvent.click(screen.getByRole("button", { name: "switch language"…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯
+
+ FAIL  tests/ui/i18n-chat-interrupt-forms.test.tsx > localizes an observer denial while keeping decision actions unavailable
+TestingLibraryElementError: Unable to find an element with the text: Observers can view these options but cannot choose for the team.. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="rounded-card border border-border bg-card text-card-foreground w-full max-w-[34rem]"
+      data-testid="agent-interrupt-choose-option-shell"
+    >
+      <div
+        class="flex items-start gap-2.5 border-b border-border-subtle p-3"
+      >
+        <span
+          class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border bg-muted"
+        >
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-bot h-4 w-4 text-muted-foreground"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M12 8V4H8"
+            />
+            <rect
+              height="12"
+              rx="2"
+              width="16"
+              x="4"
+              y="8"
+            />
+            <path
+              d="M2 14h2"
+            />
+            <path
+              d="M20 14h2"
+            />
+            <path
+              d="M15 13v2"
+            />
+            <path
+              d="M9 13v2"
+            />
+          </svg>
+        </span>
+        <div
+          class="flex flex-col gap-0.5"
+        >
+          <span
+            class="text-13 font-bold tracking-tight text-card-foreground"
+          >
+            有几条推进路线，选一条我就接着做
+          </span>
+          <span
+            class="text-11 text-muted-foreground"
+          >
+            点选一张卡即确认；也可以选择都不要。
+          </span>
+        </div>
+      </div>
+      <div
+        class="p-3"
+      >
+        <div
+          class="flex flex-col items-center gap-3 rounded-lg border border-border bg-muted py-10 text-center"
+          data-testid="denied"
+          role="alert"
+        >
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-lock h-6 w-6 text-muted-foreground"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <rect
+              height="11"
+              rx="2"
+              ry="2"
+              width="18"
+              x="3"
+              y="11"
+            />
+            <path
+              d="M7 11V7a5 5 0 0 1 10 0v4"
+            />
+          </svg>
+          <div
+            class="flex flex-col gap-1"
+          >
+            <p
+              class="text-13 font-medium"
+            >
+              You do not have permission to view this content
+            </p>
+            <p
+              class="text-12 text-muted-foreground"
+              data-testid="denied-layer"
+            >
+              Project restriction: 观察者可以看到这些方案，但不能替团队做选择。
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-interrupt-forms.test.tsx:51:17
+     49|   const select = vi.fn();
+     50|   render(<I18nProvider initialLocale="en"><ChooseOptionCard options={[…
+     51|   expect(screen.getByText("Observers can view these options but cannot…
+       |                 ^
+     52| });
+     53|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯
+
+ FAIL  tests/ui/i18n-chat-restored-permission.test.tsx > keeps a restored permission's raw args and exact once decision while locale changes during its POST
+TestingLibraryElementError: Unable to find role="dialog" and name "Approve high-risk operation"
+
+Ignored nodes: comments, script, style
+<body
+  data-scroll-locked="1"
+  style="pointer-events: none;"
+>
+  <span
+    aria-hidden="true"
+    data-aria-hidden="true"
+    data-radix-focus-guard=""
+    style="outline: none; opacity: 0; position: fixed; pointer-events: none;"
+    tabindex="0"
+  />
+  <div
+    aria-hidden="true"
+    data-aria-hidden="true"
+  >
+    <section
+      aria-label="等待工具审批"
+      class="my-3"
+      data-testid="restored-run-approval"
+    >
+      <button
+        class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+      >
+        打开工具审批
+      </button>
+    </section>
+  </div>
+  <div
+    aria-hidden="true"
+    class="fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"
+    data-aria-hidden="true"
+    data-state="open"
+    style="pointer-events: auto;"
+  />
+  <div
+    aria-describedby="radix-:r2:"
+    aria-labelledby="radix-:r1:"
+    class="fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border text-popover-foreground transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-w-lg border-none bg-transparent p-0 shadow-none"
+    data-state="open"
+    data-testid="chat-tool-permission-dialog"
+    id="radix-:r0:"
+    role="dialog"
+    style="pointer-events: auto;"
+    tabindex="-1"
+  >
+    <h2
+      class="text-16 font-bold tracking-tight sr-only"
+      id="radix-:r1:"
+    >
+      审批高风险操作
+    </h2>
+    <p
+      class="text-13 text-muted-foreground sr-only"
+      id="radix-:r2:"
+    >
+      检查操作范围与参数，然后选择授权范围或拒绝。
+    </p>
+    <p
+      class="mb-2 rounded-control bg-muted p-2 text-12 text-muted-foreground"
+      data-testid="perm-repeat-notice"
+      role="status"
+    >
+      这是本次任务里第
+      2
+       次请求授权，是一次新的请求，不是上一次没生效。
+      你上次选的是「本 run 内都允许」——那一档在这条任务里对同一个工具持续生效，不会再问你；这次请求的是另一个工具的操作，所以要再确认一次。
+    </p>
+    <fieldset
+      data-risk="L2"
+      data-testid="chat-task-workbench-approval-card"
+    >
+      <div
+        class="rounded-card border bg-card text-card-foreground max-w-lg border-warning/40 shadow-lg"
+        data-testid="tool-permission-card"
+      >
+        <div
+          class="flex flex-col p-4 pb-2 gap-1"
+        >
+          <div
+            class="flex items-center gap-2"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-shield-alert h-4 w-4 text-warning"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"
+              />
+              <path
+                d="M12 8v4"
+              />
+              <path
+                d="M12 16h.01"
+              />
+            </svg>
+            <h3
+              class="font-semibold tracking-tight text-14"
+            >
+              The agent is requesting a high-risk operation
+            </h3>
+            <span
+              class="inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-warning-tint text-warning-tint-foreground"
+              data-testid="risk-L2"
+              title="Irreversible or external; requires your confirmation before running"
+            >
+              L2
+               ·
+              High risk
+            </span>
+          </div>
+          <p
+            class="text-muted-foreground text-12"
+          >
+            This operation is irreversible or sends data externally. It will not run without your approval.
+          </p>
+        </div>
+        <div
+          class="p-4 pt-2 flex flex-col gap-3"
+        >
+          <div
+            class="flex flex-col gap-1"
+          >
+            <span
+              class="text-11 font-medium text-muted-foreground"
+            >
+              What it wants to do
+            </span>
+            <p
+              class="text-13 text-background-foreground"
+              data-testid="perm-intent"
+            >
+              调用技能「用户技能 {count}」（需要授权）
+            </p>
+          </div>
+          <div
+            class="flex flex-col gap-1"
+          >
+            [3...
+
+Ignored nodes: comments, script, style
+<body
+  data-scroll-locked="1"
+  style="pointer-events: none;"
+>
+  <span
+    aria-hidden="true"
+    data-aria-hidden="true"
+    data-radix-focus-guard=""
+    style="outline: none; opacity: 0; position: fixed; pointer-events: none;"
+    tabindex="0"
+  />
+  <div
+    aria-hidden="true"
+    data-aria-hidden="true"
+  >
+    <section
+      aria-label="等待工具审批"
+      class="my-3"
+      data-testid="restored-run-approval"
+    >
+      <button
+        class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+      >
+        打开工具审批
+      </button>
+    </section>
+  </div>
+  <div
+    aria-hidden="true"
+    class="fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"
+    data-aria-hidden="true"
+    data-state="open"
+    style="pointer-events: auto;"
+  />
+  <div
+    aria-describedby="radix-:r2:"
+    aria-labelledby="radix-:r1:"
+    class="fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border text-popover-foreground transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-w-lg border-none bg-transparent p-0 shadow-none"
+    data-state="open"
+    data-testid="chat-tool-permission-dialog"
+    id="radix-:r0:"
+    role="dialog"
+    style="pointer-events: auto;"
+    tabindex="-1"
+  >
+    <h2
+      class="text-16 font-bold tracking-tight sr-only"
+      id="radix-:r1:"
+    >
+      审批高风险操作
+    </h2>
+    <p
+      class="text-13 text-muted-foreground sr-only"
+      id="radix-:r2:"
+    >
+      检查操作范围与参数，然后选择授权范围或拒绝。
+    </p>
+    <p
+      class="mb-2 rounded-control bg-muted p-2 text-12 text-muted-foreground"
+      data-testid="perm-repeat-notice"
+      role="status"
+    >
+      这是本次任务里第
+      2
+       次请求授权，是一次新的请求，不是上一次没生效。
+      你上次选的是「本 run 内都允许」——那一档在这条任务里对同一个工具持续生效，不会再问你；这次请求的是另一个工具的操作，所以要再确认一次。
+    </p>
+    <fieldset
+      data-risk="L2"
+      data-testid="chat-task-workbench-approval-card"
+    >
+      <div
+        class="rounded-card border bg-card text-card-foreground max-w-lg border-warning/40 shadow-lg"
+        data-testid="tool-permission-card"
+      >
+        <div
+          class="flex flex-col p-4 pb-2 gap-1"
+        >
+          <div
+            class="flex items-center gap-2"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-shield-alert h-4 w-4 text-warning"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"
+              />
+              <path
+                d="M12 8v4"
+              />
+              <path
+                d="M12 16h.01"
+              />
+            </svg>
+            <h3
+              class="font-semibold tracking-tight text-14"
+            >
+              The agent is requesting a high-risk operation
+            </h3>
+            <span
+              class="inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-warning-tint text-warning-tint-foreground"
+              data-testid="risk-L2"
+              title="Irreversible or external; requires your confirmation before running"
+            >
+              L2
+               ·
+              High risk
+            </span>
+          </div>
+          <p
+            class="text-muted-foreground text-12"
+          >
+            This operation is irreversible or sends data externally. It will not run without your approval.
+          </p>
+        </div>
+        <div
+          class="p-4 pt-2 flex flex-col gap-3"
+        >
+          <div
+            class="flex flex-col gap-1"
+          >
+            <span
+              class="text-11 font-medium text-muted-foreground"
+            >
+              What it wants to do
+            </span>
+            <p
+              class="text-13 text-background-foreground"
+              data-testid="perm-intent"
+            >
+              调用技能「用户技能 {count}」（需要授权）
+            </p>
+          </div>
+          <div
+            class="flex flex-col gap-1"
+          >
+            [3...
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ tests/ui/i18n-chat-restored-permission.test.tsx:29:31
+     27|   request.mockImplementation(() => new Promise(resolve => { resolveDec…
+     28|   render(<I18nProvider initialLocale="en"><LocaleDriver /><RestoredRun…
+     29|   const dialog = await screen.findByRole("dialog", { name: "Approve hi…
+       |                               ^
+     30|   expect(screen.getByTestId("perm-repeat-notice").textContent).toConta…
+     31|   const command = screen.getByTestId("perm-command"); expect(command.t…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯
+
+ FAIL  tests/ui/i18n-chat-run-trace.test.tsx > localizes the trace wrapper without changing raw tool arguments/results or the expanded content node
+AssertionError: expected '执行过程 · 历时 00:00 · 工具 1 次' to contain 'Execution trace'
+
+Expected: "Execution trace"
+Received: "执行过程 · 历时 00:00 · 工具 1 次"
+
+ ❯ tests/ui/i18n-chat-run-trace.test.tsx:18:85
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/7]⎯
+
+ FAIL  tests/ui/i18n-chat-run-trace.test.tsx > keeps the journal cancellation authoritative when the message slot still says running
+AssertionError: expected '已停止 · 历时 00:00 · 工具 1 次' to contain 'Stopped'
+
+Expected: "Stopped"
+Received: "已停止 · 历时 00:00 · 工具 1 次"
+
+ ❯ tests/ui/i18n-chat-run-trace.test.tsx:32:85
+     30|   ];
+     31|   render(<I18nProvider initialLocale="en"><SwitchLanguage /><RunTraceP…
+     32|   const toggle = screen.getByTestId("run-trace-toggle"); expect(toggle…
+       |                                                                                     ^
+     33|   expect(screen.queryByTestId("copilotkit-v2-thinking-mark")).toBeNull…
+     34|   fireEvent.click(screen.getByRole("button", { name: "switch language"…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/7]⎯
+
+ Test Files  3 failed (3)
+      Tests  7 failed | 1 passed (8)
+   Start at  05:18:30
+   Duration  6.46s (transform 1.18s, setup 361ms, collect 2.46s, tests 1.31s, environment 1.82s, prepare 132ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/i18n-chat-interrupt-forms.test.tsx tests/ui/i18n-chat-restored-permission.test.tsx tests/ui/i18n-chat-run-trace.test.tsx

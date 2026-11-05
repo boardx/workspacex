@@ -1,0 +1,142 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/ui/workbench-restored-approval.test.tsx (16 tests) 503ms
+stderr | tests/ui/escalation-thread-record.test.tsx
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+stderr | tests/ui/escalation-thread-record.test.tsx > ③ 身份取 run 的持久化 agentId > 刷新后 composer 未选人，回答仍画数字人头像 + 中文称呼，而不是「AI 助手」
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:13502:13
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:9578:25)
+      at fetch (node:internal/deps/undici/undici:10307:25)
+      at fetch (node:internal/deps/undici/undici:13500:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+} { runtimeUrl: '/api/copilotkit' }
+Agent default not found
+
+stderr | tests/ui/escalation-thread-record.test.tsx > ⑤ 已裁决记录 > 回合里留下决定人 · 同意 · 时间 · 说明，刷新后照样从权威读画出来
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:13502:13
+    at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:9578:25)
+      at fetch (node:internal/deps/undici/undici:10307:25)
+      at fetch (node:internal/deps/undici/undici:13500:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+} { runtimeUrl: '/api/copilotkit' }
+Agent default not found
+
+stderr | tests/ui/escalation-thread-record.test.tsx > ② 待决旁白不画 > 带升级调用的那条（「正在提交升级请求。」）整条不渲染
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+stderr | tests/ui/escalation-thread-record.test.tsx > UIUX r4：实时流里的升级前导语 > 正文与升级调用分成两条消息时，调用一到（含裁决后）前导语就不再显示，不等刷新
+Agent default not found
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:13502:13
+    at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:9578:25)
+      at fetch (node:internal/deps/undici/undici:10307:25)
+      at fetch (node:internal/deps/undici/undici:13500:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+} { runtimeUrl: '/api/copilotkit' }
+
+ ❯ tests/ui/escalation-thread-record.test.tsx (9 tests | 1 failed) 304ms
+   × ① 卡片按消息流顺序出现 > 宿主的待决卡挂在 TaskTimeline 之后（触发它的用户消息下面），不在消息流之前 3ms
+     → expected -1 to be greater than 0
+ ✓ tests/ui/workbench-decided-interrupt-record.test.tsx (7 tests) 178ms
+ ✓ tests/ui/subtask-run-panel.test.tsx (11 tests) 173ms
+ ✓ tests/ui/agent-escalation-card.test.tsx (8 tests) 106ms
+ ✓ tests/ui/copilotkit-v2-agent-interrupts.test.tsx (10 tests) 189ms
+ ✓ tests/agent-kernel/tool-permission-card.test.tsx (14 tests) 101ms
+ ✓ tests/ui/i18n-chat-escalation.test.tsx (4 tests) 194ms
+stderr | tests/ui/run-trace-failed-tool-status.test.tsx
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+stderr | tests/ui/run-trace-failed-tool-status.test.tsx > issue #3204 ① 轨迹外层状态与内层卡片状态同源 > 工具调用失败时，内层卡片不得显示成功态（不得出现绿色对勾）
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+stderr | tests/ui/run-trace-failed-tool-status.test.tsx > issue #3204 ① 轨迹外层状态与内层卡片状态同源 > 工具调用成功时，内层卡片仍是成功态（反面：没有把所有卡片一律染成失败）
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+stderr | tests/ui/run-trace-failed-tool-status.test.tsx > issue #3204 ① 轨迹外层状态与内层卡片状态同源 > 工具还在跑时，内层卡片是进行中（反面：没有把未完成态也判成失败）
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+ ✓ tests/ui/run-trace-failed-tool-status.test.tsx (3 tests) 164ms
+ ✓ tests/ui/i18n-chat-interrupt-forms.test.tsx (4 tests) 208ms
+ ✓ tests/ui/agent-plan-panel.test.tsx (12 tests) 46ms
+ ✓ tests/ui/i18n-chat-restored-permission.test.tsx (2 tests) 226ms
+ ✓ tests/ui/i18n-chat-message-queue.test.tsx (3 tests) 181ms
+ ✓ tests/ui/run-trace-source-url.test.tsx (7 tests) 64ms
+ ✓ tests/ui/i18n-chat-permission-display.test.tsx (3 tests) 234ms
+stderr | tests/ui/i18n-chat-tool-renderers.test.tsx
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+stderr | tests/ui/i18n-chat-tool-renderers.test.tsx > uses the actual SDK renderer with translated chrome and unchanged raw file identity
+Agent default not found
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+stderr | tests/ui/i18n-chat-tool-renderers.test.tsx > preserves authoritative failure and raw server result in the actual SDK renderer
+Agent default not found
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+ ✓ tests/ui/i18n-chat-tool-renderers.test.tsx (2 tests) 169ms
+ ✓ tests/ui/i18n-chat-message-identity.test.tsx (3 tests) 148ms
+ ✓ tests/ui/i18n-chat-subtasks.test.tsx (2 tests) 157ms
+ ✓ tests/ui/i18n-chat-run-trace.test.tsx (2 tests) 148ms
+ ✓ tests/ui/i18n-chat-trace-live.test.tsx (2 tests) 129ms
+ ✓ tests/ui/run-trace-stopped-status.test.tsx (5 tests) 68ms
+ ✓ tests/ui/i18n-chat-plan-display.test.tsx (2 tests) 130ms
+ ✓ tests/ui/i18n-chat-interjection.test.tsx (2 tests) 118ms
+ ✓ tests/ui/i18n-chat-message-actions.test.tsx (2 tests) 133ms
+ ✓ tests/chat-tool-label-i18n.test.ts (2 tests) 2ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/escalation-thread-record.test.tsx > ① 卡片按消息流顺序出现 > 宿主的待决卡挂在 TaskTimeline 之后（触发它的用户消息下面），不在消息流之前
+AssertionError: expected -1 to be greater than 0
+ ❯ tests/ui/escalation-thread-record.test.tsx:138:22
+    136|     const timeline = src.indexOf("<TaskTimeline");
+    137|     const card = src.indexOf("<RestoredRunApproval canWrite={canDecide…
+    138|     expect(timeline).toBeGreaterThan(0);
+       |                      ^
+    139|     expect(card).toBeGreaterThan(timeline);
+    140|     expect(src.match(/<RestoredRunApproval canWrite=\{canDecide\}/g)).…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 24 passed (25)
+      Tests  1 failed | 136 passed (137)
+   Start at  06:01:11
+   Duration  38.90s (transform 2.51s, setup 2.42s, collect 16.02s, tests 4.07s, environment 12.46s, prepare 1.09s)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/i18n-chat-message-identity.test.tsx tests/ui/i18n-chat-message-queue.test.tsx tests/ui/i18n-chat-message-actions.test.tsx tests/ui/i18n-chat-permission-display.test.tsx tests/ui/i18n-chat-interrupt-forms.test.tsx tests/ui/i18n-chat-restored-permission.test.tsx tests/ui/i18n-chat-run-trace.test.tsx tests/ui/i18n-chat-trace-live.test.tsx tests/chat-tool-label-i18n.test.ts tests/ui/i18n-chat-tool-renderers.test.tsx tests/ui/i18n-chat-interjection.test.tsx tests/ui/i18n-chat-plan-display.test.tsx tests/ui/i18n-chat-escalation.test.tsx tests/ui/i18n-chat-subtasks.test.tsx tests/ui/workbench-restored-approval.test.tsx tests/ui/workbench-decided-interrupt-record.test.tsx tests/ui/copilotkit-v2-agent-interrupts.test.tsx tests/ui/agent-escalation-card.test.tsx tests/ui/escalation-thread-record.test.tsx tests/ui/subtask-run-panel.test.tsx tests/ui/run-trace-failed-tool-status.test.tsx tests/ui/run-trace-stopped-status.test.tsx tests/ui/run-trace-source-url.test.tsx tests/ui/agent-plan-panel.test.tsx tests/agent-kernel/tool-permission-card.test.tsx

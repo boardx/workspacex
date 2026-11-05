@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,6 +48,7 @@ export function FillParamsCard({
       | { decision: "edit"; fields: { name: string; value: unknown }[]; appliedTo: AppliedTo },
   ) => void;
 }) {
+  const { t } = useI18n();
   const [dirty, setDirty] = React.useState(false);
   const [submitted, setSubmitted] = React.useState(false);
   const [appliedTo, setAppliedTo] = React.useState<AppliedTo>("full-rerun");
@@ -69,18 +71,18 @@ export function FillParamsCard({
   return (
     <InterruptCardShell
       testid={TID}
-      title="补充任务信息"
-      subtitle="只填写会影响结果的缺失信息；已有内容不会重复询问。"
+      title={t("chatInterrupts.fillTitle")}
+      subtitle={t("chatInterrupts.fillSubtitle")}
     >
       <StateShell
         state={effectiveState}
         skeletonRows={5}
-        emptyHint="当前没有待补全的参数——AI 还没有发起这次中断。"
-        errors={{ cc_recipients: "「抄送对象」是必填项，请至少填一个邮箱后再提交。" }}
-        denial={{ layer: "project", reason: "观察者可以看到这些参数，但不能替团队修改或提交。" }}
-        depFailure={{ what: "决策写不进审计（AUDIT_SINK_UNAVAILABLE），本次提交已被安全拦下。" }}
+        emptyHint={t("chatInterrupts.fillEmpty")}
+        errors={{ cc_recipients: t("chatInterrupts.fillInvalid") }}
+        denial={{ layer: "project", reason: t("chatInterrupts.fillDenied") }}
+        depFailure={{ what: t("chatInterrupts.fillDep") }}
         successMessage={
-          appliedTo === "ledger-only" ? "改动已记账，本步骤完成后生效" : "已应用，正在重跑受影响的步骤"
+          appliedTo === "ledger-only" ? t("chatInterrupts.fillLedgerSaved") : t("chatInterrupts.fillApplied")
         }
       >
         <div className="flex flex-col gap-3" data-testid={`${TID}-card`}>
@@ -102,7 +104,7 @@ export function FillParamsCard({
                     <label htmlFor={`${TID}-input-${f.name}`} className="text-12 font-medium text-card-foreground">
                       {f.label}
                     </label>
-                    {f.required ? <span className="text-11 text-muted-foreground">必填</span> : null}
+                    {f.required ? <span className="text-11 text-muted-foreground">{t("chatInterrupts.required")}</span> : null}
                     {aiGuessed ? (
                       <Badge
                         tone="outline"
@@ -110,7 +112,7 @@ export function FillParamsCard({
                         title={f.rationale ?? undefined}
                       >
                         <Sparkles aria-hidden className="h-3 w-3" />
-                        AI 建议
+                        {t("chatInterrupts.aiSuggestion")}
                       </Badge>
                     ) : null}
                   </div>
@@ -121,7 +123,7 @@ export function FillParamsCard({
                       id={`${TID}-input-${f.name}`}
                       data-testid={`${TID}-input-${f.name}`}
                       defaultValue={((f.currentValue ?? f.aiGuess) as string) ?? ""}
-                      placeholder={f.aiGuess === null ? "请填写…" : undefined}
+                      placeholder={f.aiGuess === null ? t("chatInterrupts.fillPlaceholder") : undefined}
                       onChange={(e) => {
                         setDirty(true);
                         setValues((v) => ({ ...v, [f.name]: e.target.value }));
@@ -152,7 +154,7 @@ export function FillParamsCard({
                         setDirty(true);
                         setValues((v) => ({ ...v, [f.name]: e.target.checked }));
                       }}
-                      label={<span className="text-12">{f.currentValue ? "包含" : "不包含"}</span>}
+                      label={<span className="text-12">{f.currentValue ? t("chatInterrupts.include") : t("chatInterrupts.exclude")}</span>}
                     />
                   )}
 
@@ -162,7 +164,7 @@ export function FillParamsCard({
                       className="text-11 text-muted-foreground"
                       data-testid={`${TID}-rationale-${f.name}`}
                     >
-                      依据：{f.rationale}
+                      {t("chatInterrupts.rationaleWithValue", { rationale: f.rationale })}
                     </p>
                   ) : null}
                 </div>
@@ -173,7 +175,7 @@ export function FillParamsCard({
           {/* 应用方式（UC-2 appliedTo：full-rerun / ledger-only）*/}
           {dirty ? (
             <div className="flex flex-col gap-1.5 rounded-md border border-border-subtle p-2.5" data-testid={`${TID}-applied-to`}>
-              <span className="text-11 font-medium text-muted-foreground">改动应用方式</span>
+              <span className="text-11 font-medium text-muted-foreground">{t("chatInterrupts.applyMode")}</span>
               <div className="flex gap-1.5">
                 {((supportsLedgerOnly ? ["full-rerun", "ledger-only"] : ["full-rerun"]) as AppliedTo[]).map((a) => (
                   <Button
@@ -184,13 +186,13 @@ export function FillParamsCard({
                     data-testid={`${TID}-applied-${a}`}
                     onClick={() => setAppliedTo(a)}
                   >
-                    {a === "full-rerun" ? "立即重跑受影响步骤" : "只记账，完成后生效"}
+                    {a === "full-rerun" ? t("chatInterrupts.fullRerun") : t("chatInterrupts.ledgerOnly")}
                   </Button>
                 ))}
               </div>
               {appliedTo === "ledger-only" ? (
                 <p className="text-11 text-muted-foreground" data-testid={`${TID}-ledger-hint`}>
-                  本步骤执行中，改动将在完成后生效。
+                  {t("chatInterrupts.ledgerHint")}
                 </p>
               ) : null}
             </div>
@@ -218,7 +220,7 @@ export function FillParamsCard({
                 }
               }}
             >
-              提交并继续
+              {t("chatInterrupts.submitContinue")}
             </Button>
           </div>
         </div>

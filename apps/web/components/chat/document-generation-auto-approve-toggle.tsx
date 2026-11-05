@@ -2,6 +2,7 @@
 import * as React from "react";
 import { FileCheck2 } from "lucide-react";
 import { Toggle } from "@/components/ui/toggle";
+import { useI18n } from "@/lib/i18n/provider";
 import {
   getDocumentGenerationAutoApprove, setDocumentGenerationAutoApprove,
 } from "@/lib/document-generation-auto-approve";
@@ -20,6 +21,7 @@ import {
  * 开，也不能在不确定当前状态时显示"已开启"）。
  */
 export function DocumentGenerationAutoApproveToggle({ disabled }: { disabled?: boolean }) {
+  const { t } = useI18n();
   const [enabled, setEnabled] = React.useState(false);
   const [pending, setPending] = React.useState(false);
   const [loaded, setLoaded] = React.useState(false);
@@ -46,15 +48,15 @@ export function DocumentGenerationAutoApproveToggle({ disabled }: { disabled?: b
     <span
       className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-border-subtle bg-panel px-2 py-1"
       data-testid="chat-document-generation-auto-approve"
-      title="打开后，生成 PDF / Word / Excel / PPT 全程不再询问权限"
+      title={t("chatComposer.documentAutoApproveHint")}
     >
       <FileCheck2 aria-hidden className="h-3.5 w-3.5 text-muted-foreground" />
-      <span className="text-11 text-muted-foreground"><span className="hidden sm:inline">自动批准文档生成所需权限</span><span className="sm:hidden">自动批准文档权限</span></span>
+      <span className="text-11 text-muted-foreground"><span className="hidden sm:inline">{t("chatComposer.documentAutoApprove")}</span><span className="sm:hidden">{t("chatComposer.documentAutoApproveCompact")}</span></span>
       <Toggle
         className="min-h-6 min-w-6"
         checked={enabled}
         onCheckedChange={onChange}
-        label="自动批准文档生成所需权限"
+        label={t("chatComposer.documentAutoApprove")}
         id="document-generation-auto-approve-toggle"
         disabled={disabled || !loaded || pending}
         data-testid="chat-document-generation-auto-approve-toggle"

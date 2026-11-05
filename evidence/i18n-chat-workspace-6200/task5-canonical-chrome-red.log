@@ -1,0 +1,297 @@
+$ pnpm --filter web exec vitest run tests/ui/i18n-chat-canonical-chrome.test.tsx
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ❯ tests/ui/i18n-chat-canonical-chrome.test.tsx (5 tests | 5 failed) 200ms
+   × translates the actual document consent switch without refetching or changing consent 153ms
+     → Unable to find an accessible element with the role "switch" and name "Auto-approve document generation permissions"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "Change test locale":
+  [36m<button />[39m
+
+  --------------------------------------------------
+  switch:
+
+  Name "自动批准文档生成所需权限":
+  [36m<button[39m
+    [33maria-checked[39m=[32m"true"[39m
+    [33maria-label[39m=[32m"自动批准文档生成所需权限"[39m
+    [33mclass[39m=[32m"group relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 bg-primary disabled:cursor-not-allowed disabled:bg-disabled min-h-6 min-w-6"[39m
+    [33mdata-testid[39m=[32m"chat-document-generation-auto-approve-toggle"[39m
+    [33mid[39m=[32m"document-generation-auto-approve-toggle"[39m
+    [33mrole[39m=[32m"switch"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mChange test locale[0m
+    [36m</button>[39m
+    [36m<span[39m
+      [33mclass[39m=[32m"flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-border-subtle bg-panel px-2 py-1"[39m
+      [33mdata-testid[39m=[32m"chat-document-generation-auto-approve"[39m
+      [33mtitle[39m=[32m"打开后，生成 PDF / Word / Excel / PPT 全程不再询问权限"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-file-check2 h-3.5 w-3.5 text-muted-foreground"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M4 22h14a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v4"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M14 2v4a2 2 0 0 0 2 2h4"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m3 15 2 2 4-4"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"hidden sm:inline"[39m
+        [36m>[39m
+          [0m自动批准文档生成所需权限[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"sm:hidden"[39m
+        [36m>[39m
+          [0m自动批准文档权限[0m
+        [36m</span>[39m
+      [36m</span>[39m
+      [36m<button[39m
+        [33maria-checked[39m=[32m"true"[39m
+        [33maria-label[39m=[32m"自动批准文档生成所需权限"[39m
+        [33mclass[39m=[32m"group relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 bg-primary disabled:cursor-not-allowed disabled:bg-disabled min-h-6 min-w-6"[39m
+        [33mdata-testid[39m=[32m"chat-document-generation-auto-approve-toggle"[39m
+        [33mid[39m=[32m"document-generation-auto-approve-toggle"[39m
+        [33mrole[39m=[32m"switch"[39m
+        [33mtype[39m=[32m"button"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"inline-block h-3 w-3 rounded-full bg-card shadow-sm transition-all duration-200 group-disabled:bg-disabled-foreground translate-x-3.5"[39m
+        [36m/>[39m
+      [36m</button>[39m
+    [36m</span>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × keeps a pending explicit consent write disabled and sends exactly one canonical boolean 13ms
+     → Invalid Chai property: toHaveBeenCalledExactlyOnceWith
+   × translates the actual canonical collapsed plan with the same raw ledger and polling session 10ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Execution plan · Run finished · Completed
+Received:
+  执行计划 · 本轮已结束 · 已完成
+   × localizes project context chrome while retaining the raw name, href and loaded DOM 19ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Back to project
+Received:
+  返回项目
+   × localizes the owned unknown-project fallback without inventing a project name or fetching on locale 4ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Project conversation
+Received:
+  项目对话
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/i18n-chat-canonical-chrome.test.tsx > translates the actual document consent switch without refetching or changing consent
+TestingLibraryElementError: Unable to find an accessible element with the role "switch" and name "Auto-approve document generation permissions"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "Change test locale":
+  [36m<button />[39m
+
+  --------------------------------------------------
+  switch:
+
+  Name "自动批准文档生成所需权限":
+  [36m<button[39m
+    [33maria-checked[39m=[32m"true"[39m
+    [33maria-label[39m=[32m"自动批准文档生成所需权限"[39m
+    [33mclass[39m=[32m"group relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 bg-primary disabled:cursor-not-allowed disabled:bg-disabled min-h-6 min-w-6"[39m
+    [33mdata-testid[39m=[32m"chat-document-generation-auto-approve-toggle"[39m
+    [33mid[39m=[32m"document-generation-auto-approve-toggle"[39m
+    [33mrole[39m=[32m"switch"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mChange test locale[0m
+    [36m</button>[39m
+    [36m<span[39m
+      [33mclass[39m=[32m"flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-border-subtle bg-panel px-2 py-1"[39m
+      [33mdata-testid[39m=[32m"chat-document-generation-auto-approve"[39m
+      [33mtitle[39m=[32m"打开后，生成 PDF / Word / Excel / PPT 全程不再询问权限"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-file-check2 h-3.5 w-3.5 text-muted-foreground"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M4 22h14a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v4"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M14 2v4a2 2 0 0 0 2 2h4"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m3 15 2 2 4-4"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"hidden sm:inline"[39m
+        [36m>[39m
+          [0m自动批准文档生成所需权限[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"sm:hidden"[39m
+        [36m>[39m
+          [0m自动批准文档权限[0m
+        [36m</span>[39m
+      [36m</span>[39m
+      [36m<button[39m
+        [33maria-checked[39m=[32m"true"[39m
+        [33maria-label[39m=[32m"自动批准文档生成所需权限"[39m
+        [33mclass[39m=[32m"group relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 bg-primary disabled:cursor-not-allowed disabled:bg-disabled min-h-6 min-w-6"[39m
+        [33mdata-testid[39m=[32m"chat-document-generation-auto-approve-toggle"[39m
+        [33mid[39m=[32m"document-generation-auto-approve-toggle"[39m
+        [33mrole[39m=[32m"switch"[39m
+        [33mtype[39m=[32m"button"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"inline-block h-3 w-3 rounded-full bg-card shadow-sm transition-all duration-200 group-disabled:bg-disabled-foreground translate-x-3.5"[39m
+        [36m/>[39m
+      [36m</button>[39m
+    [36m</span>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-canonical-chrome.test.tsx:43:17
+     41|   const toggle = await screen.findByTestId("chat-document-generation-a…
+     42|   await waitFor(() => expect(toggle).toHaveAttribute("aria-checked", "…
+     43|   expect(screen.getByRole("switch", { name: "Auto-approve document gen…
+       |                 ^
+     44|   fireEvent.click(screen.getByRole("button", { name: "Change test loca…
+     45|   expect(screen.getByRole("switch", { name: "自动批准文档生成所需权限"…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  tests/ui/i18n-chat-canonical-chrome.test.tsx > keeps a pending explicit consent write disabled and sends exactly one canonical boolean
+Error: Invalid Chai property: toHaveBeenCalledExactlyOnceWith
+ ❯ tests/ui/i18n-chat-canonical-chrome.test.tsx:59:27
+     57|   await waitFor(() => expect(toggle).not.toBeDisabled());
+     58|   fireEvent.click(toggle);
+     59|   expect(ports.setApproval).toHaveBeenCalledExactlyOnceWith(true);
+       |                           ^
+     60|   expect(toggle).toBeDisabled();
+     61|   fireEvent.click(screen.getByRole("button", { name: "Change test loca…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  tests/ui/i18n-chat-canonical-chrome.test.tsx > translates the actual canonical collapsed plan with the same raw ledger and polling session
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Execution plan · Run finished · Completed
+Received:
+  执行计划 · 本轮已结束 · 已完成
+ ❯ tests/ui/i18n-chat-canonical-chrome.test.tsx:87:18
+     85|   host(<CopilotKitV2PlanControl threadId="raw-thread" projectId={null}…
+     86|   const toggle = await screen.findByTestId(PLAN_CONTROL_COLLAPSE_TOGGL…
+     87|   expect(toggle).toHaveTextContent("Execution plan · Run finished · Co…
+       |                  ^
+     88|   expect(toggle).toHaveAccessibleName("Expand plan panel");
+     89|   fireEvent.click(toggle);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  tests/ui/i18n-chat-canonical-chrome.test.tsx > localizes project context chrome while retaining the raw name, href and loaded DOM
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Back to project
+Received:
+  返回项目
+ ❯ tests/ui/i18n-chat-canonical-chrome.test.tsx:105:16
+    103|   const name = await screen.findByText("组织项目 {name} 原文");
+    104|   const back = screen.getByTestId("project-chat-back");
+    105|   expect(back).toHaveTextContent("Back to project");
+       |                ^
+    106|   expect(screen.getByTestId("project-chat-context-bar")).toHaveAccessi…
+    107|   expect(back).toHaveAttribute("href", "/projects/raw%2Fproject?org=ra…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  tests/ui/i18n-chat-canonical-chrome.test.tsx > localizes the owned unknown-project fallback without inventing a project name or fetching on locale
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Project conversation
+Received:
+  项目对话
+ ❯ tests/ui/i18n-chat-canonical-chrome.test.tsx:118:51
+    116|   ports.overview.mockReturnValue(new Promise(() => {}));
+    117|   host(<ProjectChatContextBar projectId="raw-project" orgId={null} bea…
+    118|   expect(screen.getByTestId("project-chat-name")).toHaveTextContent("P…
+       |                                                   ^
+    119|   const back = screen.getByTestId("project-chat-back");
+    120|   expect(back).toHaveAttribute("href", "/projects/raw-project?tab=cont…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+ Test Files  1 failed (1)
+      Tests  5 failed (5)
+   Start at  21:48:19
+   Duration  5.55s (transform 1.80s, setup 365ms, collect 2.80s, tests 200ms, environment 1.32s, prepare 102ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/i18n-chat-canonical-chrome.test.tsx

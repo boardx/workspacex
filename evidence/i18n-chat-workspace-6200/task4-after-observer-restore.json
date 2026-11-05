@@ -1,0 +1,9 @@
+{
+  "branch": "worker/i18n-chat-workspace-6200",
+  "head": "66120e5ad595bea5fdac4ebf956b0a7ee0d9ea51",
+  "stash": "8b9f68ab1ccf625080bbc5ff549b4263abf2e958",
+  "restoredFiles": 113,
+  "sha256AndModeMismatches": [],
+  "maintenanceSavedCommit": "df2f432305b3d867c21c445eed8a86fdea1b2b46",
+  "observerDisposition": "Private preparation only; main explicitly prohibited push/PR/variables/candidate after actual6223 merge; independent review pending."
+}

@@ -1,0 +1,75 @@
+{
+  "logs": [
+    {
+      "source": "/tmp/chat6200-task5-plan-concentrated-private/provider-red.log",
+      "path": "evidence/i18n-chat-workspace-6200/task5-plan-nested-red.log",
+      "rawSha256": "61b8c8854a0ea8e179dc713591998d99f58a55bfd2e08aa54d18d298cb51f2df",
+      "publishedSha256": "61b8c8854a0ea8e179dc713591998d99f58a55bfd2e08aa54d18d298cb51f2df",
+      "nonWhitespaceEqual": true
+    },
+    {
+      "source": "/tmp/chat6200-task5-plan-concentrated-private/green-neighbors.log",
+      "path": "evidence/i18n-chat-workspace-6200/task5-plan-neighbors-attempt1-red.log",
+      "rawSha256": "5b959b6f8ed0eb01ba99005262c5cac6c20b90aa3919def39ab537a7c415aa6d",
+      "publishedSha256": "5b959b6f8ed0eb01ba99005262c5cac6c20b90aa3919def39ab537a7c415aa6d",
+      "nonWhitespaceEqual": true
+    },
+    {
+      "source": "/tmp/chat6200-task5-plan-concentrated-private/review-fixed-copy-red.log",
+      "path": "evidence/i18n-chat-workspace-6200/task5-review-copy-initial-red.log",
+      "rawSha256": "060d901183cd21e4615d0adc82a0de4209e3b568666f14c66c29dc8f83cd03c6",
+      "publishedSha256": "e35fd4b1ecdb966bfe0a51da2baae0f07eefbdc924fd6444fa1bff7567a95a4d",
+      "nonWhitespaceEqual": true
+    },
+    {
+      "source": "/tmp/chat6200-task5-plan-concentrated-private/review-corrected-two-red.log",
+      "path": "evidence/i18n-chat-workspace-6200/task5-review-copy-corrected-red.log",
+      "rawSha256": "cc0e2a21b640164d43c7c65b9a430f6051eda6c94917780ef6a726900f49e3b8",
+      "publishedSha256": "cc0e2a21b640164d43c7c65b9a430f6051eda6c94917780ef6a726900f49e3b8",
+      "nonWhitespaceEqual": true
+    },
+    {
+      "source": "/tmp/chat6200-task5-plan-concentrated-private/final-neighbors.log",
+      "path": "evidence/i18n-chat-workspace-6200/task5-review-copy-collection-red.log",
+      "rawSha256": "0cd029db3010e0d945f36ca5e467ffc07968949c093b2f8f2f075ad205a5c2c2",
+      "publishedSha256": "e51ee57301d7b0c1899f040776bc130d9bcc8381805b53cbf60ecc5ec460a003",
+      "nonWhitespaceEqual": true
+    },
+    {
+      "source": "/tmp/chat6200-task5-plan-final-v3-private/neighbors.log",
+      "path": "evidence/i18n-chat-workspace-6200/task5-plan-runtime-neighbors-green.log",
+      "rawSha256": "b74eef5e2a7a70dc45c39882721fd6e0ab6b2946685fe9d59602bebb81e7170d",
+      "publishedSha256": "f3f0334927b845b4aedff8a2e17de7851b8acc3f62d64b5b088f334391811daa",
+      "nonWhitespaceEqual": true
+    },
+    {
+      "source": "/tmp/chat6200-task5-plan-final-v3-private/type.log",
+      "path": "evidence/i18n-chat-workspace-6200/task5-plan-type-fixture-red.log",
+      "rawSha256": "6535f4abebf25956f0fd2804b82c06dac2eb92363148e590158f72416dfee5d8",
+      "publishedSha256": "6535f4abebf25956f0fd2804b82c06dac2eb92363148e590158f72416dfee5d8",
+      "nonWhitespaceEqual": true
+    },
+    {
+      "source": "/tmp/chat6200-task5-freeze-integration-private/type.log",
+      "path": "evidence/i18n-chat-workspace-6200/task5-plan-type-green.log",
+      "rawSha256": "e9b019d37db080d36b121892b06e0818b37e0b4f08f68f45cd0110befa237e7e",
+      "publishedSha256": "62543be5fd5bf1824e1a01ed8931f0607450a06735a9cb2ac84b1fb88de5122d",
+      "nonWhitespaceEqual": true
+    },
+    {
+      "source": "/tmp/chat6200-task5-freeze-integration-private/lint.log",
+      "path": "evidence/i18n-chat-workspace-6200/task5-plan-lint-green.log",
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "publishedSha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "nonWhitespaceEqual": true
+    },
+    {
+      "source": "/tmp/chat6200-task5-freeze-integration-private/status-source.log",
+      "path": "evidence/i18n-chat-workspace-6200/task5-plan-status-source-green.log",
+      "rawSha256": "11230eb619545ac295c4afae96358c733e61c360aed3369180756ddfa1859bd4",
+      "publishedSha256": "f44ea108e850e000026dca7913f4daa1f6a45b0a381048cc48fd8a5cfe4737a5",
+      "nonWhitespaceEqual": true
+    }
+  ],
+  "policy": "Only trailing whitespace; original bytes retained privately; no verdict/token changes"
+}

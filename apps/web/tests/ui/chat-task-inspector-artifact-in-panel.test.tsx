@@ -37,12 +37,12 @@ vi.mock("@/components/chat/workbench/agent-artifact-versions-panel", () => ({
   AgentArtifactVersionsPanel: () => null,
 }));
 
-const artifacts = {
+const artifacts: ListThreadArtifactsOut = {
   items: [
-    { artifactId: "a-1", title: "调研报告", kind: "markdown", createdAt: new Date().toISOString() },
-    { artifactId: "a-2", title: "财务测算", kind: "markdown", createdAt: new Date().toISOString() },
+    { artifactId: "a-1", title: "调研报告", mode: "live", version: null, pinnedBy: null, pinnedAt: null, hasSource: true, messageId: "source-a-1" },
+    { artifactId: "a-2", title: "财务测算", mode: "live", version: null, pinnedBy: null, pinnedAt: null, hasSource: true, messageId: "source-a-2" },
   ],
-} as unknown as ListThreadArtifactsOut;
+};
 
 function props(overrides: Partial<ChatTaskInspectorProps> = {}): ChatTaskInspectorProps {
   return {

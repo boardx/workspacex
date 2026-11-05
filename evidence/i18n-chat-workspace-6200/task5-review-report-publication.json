@@ -1,0 +1,20 @@
+{
+  "reports": [
+    {
+      "sourceReport": "chat6200-whole-source-review-b03c.md",
+      "published": "evidence/i18n-chat-workspace-6200/task5-whole-source-review.md",
+      "sha256": "0a7fefac500d77f31a3c53c5b4d73192c38ac61bfaa3da9e91858f47edfd8f77",
+      "byteEqual": true
+    },
+    {
+      "sourceReport": "chat6200-whole-review-fix-delta-17cb.md",
+      "published": "evidence/i18n-chat-workspace-6200/task5-whole-source-fix-review.md",
+      "sha256": "edc1828dbf5126c0c0e96b867e2bfef73903e3139a6972c92fc59edce05979c5",
+      "byteEqual": true
+    }
+  ],
+  "wholeSnapshotManifestSha256": "1d65af8f5d9317e419c695c2d957372f602a752b3bddfbb3523e7c5b61479e4a",
+  "fixSnapshotManifestSha256": "17cb1dba404bcc0209cad800cc2fa771a05461ca1633def0f716270a18140340",
+  "staticOnly": true,
+  "dynamicGatesPending": true
+}

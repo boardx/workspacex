@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import type { ExecutionEvent } from "@repo/contracts/execution-journal";
 import { operations, type PublicInterjection } from "@repo/contracts/interjection-status";
 import { apiRequest, getStoredSessionToken } from "@/lib/api-client";
@@ -19,6 +20,7 @@ import { apiRequest, getStoredSessionToken } from "@/lib/api-client";
  * 这里只渲染它的结论，不在前端重写第二份判定。
  */
 export function RunInterjections({ events, readHistory = false, onResend }: { events: readonly ExecutionEvent[]; readHistory?: boolean; onResend?: (text: string) => void }) {
+  const { t } = useI18n();
   const runId = events[0]?.runId;
   const lastStatus = [...events].reverse().find((event) => event.kind === "status");
   const shouldRead = readHistory || events.some((event) => event.kind === "interjection") || (lastStatus?.kind === "status" && ["running", "paused", "awaiting_tool_permission"].includes(lastStatus.status));
@@ -44,15 +46,15 @@ export function RunInterjections({ events, readHistory = false, onResend }: { ev
     latest.set(event.interjectionId, event);
   }
   if (!latest.size) return null;
-  return <div className="my-2 space-y-1 text-11 text-muted-foreground" aria-label="插话状态">
+  return <div className="my-2 space-y-1 text-11 text-muted-foreground" aria-label={t("chatTools.interjectionRegion")}>
     {[...latest.values()].map((event) => <p key={event.interjectionId} data-testid="workbench-interjection-status" data-status={event.status}>
-      插话「{event.text}」 · {event.status === "applied" ? "已应用"
-        : event.status === "carried_over" ? "本轮没来得及采纳，已作为下一条消息带入下一轮"
-          : event.status === "not_applied" ? "本轮未被采纳，助手没有收到这句话" : "已收到，等待安全边界应用"}
+      {t("chatTools.interjection", { text: event.text })}{event.status === "applied" ? t("chatTools.applied")
+        : event.status === "carried_over" ? t("chatTools.carried")
+          : event.status === "not_applied" ? t("chatTools.notApplied") : t("chatTools.received")}
       {event.status === "not_applied" && onResend ? <>
         {" "}
         <button type="button" data-testid="workbench-interjection-resend" className="underline underline-offset-2 transition-colors hover:text-card-foreground"
-          onClick={() => onResend(event.text)}>重新发送</button>
+          onClick={() => onResend(event.text)}>{t("chatTools.resend")}</button>
       </> : null}
     </p>)}
   </div>;
