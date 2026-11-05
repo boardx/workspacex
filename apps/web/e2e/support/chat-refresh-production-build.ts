@@ -19,19 +19,24 @@ const note=(event:string,fields:object={})=>write({event,...fields});
 const scope=ownedProcesses.scopeHash(process.env.WORKSPACEX_ISOLATION_ID);
 note('comparison-start',{scopeHash:scope,ownerPid:process.pid});
 const exit=()=>ownedProcesses.killRecorded(directory,scope,'SIGKILL');process.once('exit',exit);
+// Keep cancellation handled even between child close and awaited registry cleanup.
+let interrupted=false;const onStop=()=>{interrupted=true;};
+for(const s of ['SIGTERM','SIGINT','SIGHUP','SIGQUIT'])process.on(s,onStop);
 async function main(){
  try{
   const local=createRequire(resolve(web,'package.json')),next=local.resolve('next/dist/bin/next');
   const start=Date.now();note('build-start',{budgetMs:600000});
   const built=await ownedProcesses.runOwned(process.execPath,[next,'build'],{cwd:web,env:{...process.env,...env},directory,scope,purpose:'build',note,budgetMs:600000});
   note('build-end',{durationMs:Date.now()-start,code:built.code});
-  if(built.code!==0||built.interrupted||!existsSync(resolve(output,'BUILD_ID'))){process.exitCode=built.code||1;return;}
+  if(built.code!==0||built.interrupted||interrupted||!existsSync(resolve(output,'BUILD_ID'))){process.exitCode=built.code||1;return;}
   const result=await ownedProcesses.runOwned(process.execPath,[local.resolve('@playwright/test/cli'),'test','--config','playwright.chat-read.config.ts','--project=chat-read','--workers=2','--grep','简单聊天：一轮问答|复杂任务把 write_todos','--max-failures=1','--reporter=line'],{cwd:web,env:{...process.env},directory,scope,purpose:'scenarios',note,graceMs:10000});
   process.exitCode=result.code;
  }finally{
   // Kill only groups registered by this isolation scope, wait for real absence,
   // then remove the exact directory inode claimed before the build.
   await ownedProcesses.cleanupOwned(directory,scope,note);
+  for(const s of ['SIGTERM','SIGINT','SIGHUP','SIGQUIT'])process.off(s,onStop);
+  if(interrupted&&!process.exitCode)process.exitCode=1;
   const current=lstatSync(output);if(current.dev===owned.dev&&current.ino===owned.ino&&!current.isSymbolicLink())rmSync(output,{recursive:true});
  }
 }
