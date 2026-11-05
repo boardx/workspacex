@@ -18,7 +18,7 @@ class Probe(unittest.TestCase):
    with self.assertRaisesRegex(ValueError,'^probe_command_unavailable$'):m.call(['docker'])
  def test_diagnostic_dispatch_skips_legacy_private_output(self):
   text=(pathlib.Path(__file__).parents[4]/'.github/workflows/devapp-probe.yml').read_text()
-  self.assertIn("if: ${{ github.event_name == 'workflow_dispatch' && !inputs.asr_accounting }}",text)
+  self.assertIn("if: ${{ github.event_name == 'workflow_dispatch' && !inputs.asr_accounting && inputs.asr_repair_action == 'none' }}",text)
   self.assertIn('if: ${{ inputs.asr_accounting }}',text)
   self.assertIn('git show \"$GITHUB_SHA:.harness/scripts/vm/asr-accounting-probe.py\" | python3 -I -B',text)
   self.assertNotIn('readFile',m.STORAGE)
