@@ -5,10 +5,13 @@ files. Two measured CI attempts exhausted the existing 20-minute job budget; set
 consumed roughly four minutes and shard-four serial execution approached sixteen.
 An all-passing console summary before cancellation is not a passing GitHub job.
 
-`.harness/api-test-shards.json` is the sole shard-count source. The lightweight
-`api-test-plan` job outputs matrix indices and the denominator from that policy.
+`.harness/api-test-shards.json` is the sole shard-count source. The `api-test-plan` job outputs matrix indices and the denominator from that policy.
+It also reuses `ci-targeted-ui.mjs` to prove the exact event base/head route. Only a
+`targeted-ui` proof permits omitting the unrelated API matrix; unknown paths, changed
+runtime syntax, keys, interpolation, tests, configuration or missing history select
+`full`. Dependency installation for this proof is limited to preflight candidates.
 `gates-test` keeps one worker per job, a separate hosted runner/PostgreSQL instance,
-the existing database suffix, fail-fast disabled, frozen dependencies, cleanup and
+the existing database suffix, fail-fast enabled, frozen dependencies, cleanup and
 the 20-minute budget. All native/exclusive/runtime lanes remain required. More jobs
 increase setup instances and runner minutes; shorter release waits remain a measured
 CI objective, not a guaranteed duration.
@@ -23,8 +26,12 @@ and omissions using `(projectName, file)` identities; shared modules in multiple
 workspace projects remain distinct. A real two-project fixture verifies full,
 disjoint coverage without executing its deliberately throwing test module. It also rejects drift from the currently proven serial/default
 sequencer contract. Future custom sequencers/pools require corresponding validation.
-Its JSON is discovery evidence only; every actual matrix job must still run and
-finish SUCCESS before backend-required can pass.
+Its JSON is discovery evidence only. On full routes every actual matrix job must
+finish SUCCESS before backend-required can pass. On targeted UI routes that gate
+requires a successful planner, matching source/base SHAs, a plan digest and the
+explicit matrix SKIPPED result. It never treats that skip as executed test coverage.
+All other backend lanes must finish SUCCESS on both routes; missing or cancelled
+plans and unexpected skips fail closed. Required checks and queue settings are unchanged.
 
 Initial local coverage evidence: 1,411 files, eight disjoint partitions containing
 177/177/177/177/177/177/177/172 files, union exactly the full discovery. File counts

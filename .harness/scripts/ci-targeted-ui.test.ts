@@ -1,5 +1,5 @@
 import {expect,it} from 'vitest';
-import {inspectUiBoundary,inspectPresentationBoundary,planTargeted,verifyTargetedPlan} from './ci-targeted-ui.mjs';
+import {inspectUiBoundary,inspectPresentationBoundary,inspectMessageBoundary,planTargeted,verifyTargetedPlan} from './ci-targeted-ui.mjs';
 const original='import * as React from "react"; import {cn} from "@/lib/utils"; export function UI({onUseTemplate}:{onUseTemplate:(x:string)=>void}){return <button className={cn("a")} onClick={()=>onUseTemplate("a")}>Hello</button>}';
 it('permits local display changes but rejects new runtime edges and public API changes',()=>{
  const copy=original.replace('Hello','Hi'),classes=original.replace('cn("a")','cn("b")');
@@ -178,4 +178,26 @@ it('combines registered locale-only edits into one plan and unions required suit
   git(['reset','--hard',presentationHead]);put(p.presentationFiles[0].file,'export function UI(){fetch("/api");return <p>Copy</p>}');
   expect(planTargeted({...context,headSha:commit()}).mode).toBe('full');
  }finally{rmSync(dir,{recursive:true,force:true});}
+});
+
+it('supports existing top-level message literals beside unchanged runtime expressions without executing the module',()=>{
+ const before='import {FILTERS} from "./filters"; const existing=FILTERS.map(x=>x.label); export const messages={"projectOverview.title":"Title {name}","projectOverview.filter":FILTERS[0].label} as const;';
+ expect(inspectMessageBoundary(before,before.replace('Title {name}','Heading {name}'),{prefixes:['projectOverview.']})).toBe(true);
+ for(const after of [before.replace('FILTERS.map','FILTERS.filter'),before.replace('FILTERS[0]','FILTERS[1]'),before.replace('{name}','{other}'),before.replace('projectOverview.title','projectOverview.other'),before+'\nfetch("/api");']){
+  expect(inspectMessageBoundary(before,after,{prefixes:['projectOverview.']})).toBe(false);
+ }
+ const nested='export function runtime(){return {"projectOverview.title":"business-control"};}';
+ expect(inspectMessageBoundary(nested,nested.replace('business-control','changed'),{prefixes:['projectOverview.']})).toBe(false);
+ const computed='export const messages={["projectOverview.title"]:"Title"};';
+ expect(inspectMessageBoundary(computed,computed.replace('"Title"','"Changed"'),{prefixes:['projectOverview.']})).toBe(false);
+});
+it('registers overview and public-share copy against their existing page tests',()=>{
+ const p=JSON.parse(readFileSync('.harness/config/ci-targeted-ui.json','utf8'));
+ for(const [file,browser,unit] of [
+  ['project-overview','e2e/i18n-project-general-overview.spec.ts','tests/ui/project-general-overview-i18n.test.tsx'],
+  ['public-design-share','e2e/i18n-public-design-share.spec.ts','tests/ui/public-design-share-i18n.test.tsx'],
+ ]){
+  const registration=p.messageFiles.find((x:any)=>x.file===`apps/web/lib/i18n/namespaces/${file}.ts`);
+  expect(registration).toBeDefined();expect(registration.browserTests).toContain(browser);expect(registration.unitTests).toContain(unit);
+ }
 });

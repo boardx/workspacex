@@ -78,18 +78,23 @@ export function inspectPresentationBoundary(before,after){
  for(const text of [before,after])if(ts.createSourceFile('ui.tsx',text,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX).parseDiagnostics.length)return false;
  return JSON.stringify(presentationTree(before))===JSON.stringify(presentationTree(after));
 }
-// No module evaluation: only existing object string values may vary.
+// No module evaluation: only existing top-level dictionary string values may vary.
+// Imported labels and other existing expressions retain their complete syntax tree.
 export function inspectMessageBoundary(before,after,allowedKeys){
  ts??=require('typescript');
  if(JSON.stringify(comments(before))!==JSON.stringify(comments(after)))return false;
  let safe=true;const values=[];
+ function topLevelDictionary(object){
+  let node=object;
+  while(ts.isAsExpression(node.parent)||ts.isSatisfiesExpression(node.parent)||ts.isParenthesizedExpression(node.parent)||ts.isTypeAssertionExpression(node.parent))node=node.parent;
+  const declaration=node.parent;
+  return ts.isVariableDeclaration(declaration)&&declaration.initializer===node&&ts.isVariableDeclarationList(declaration.parent)&&ts.isVariableStatement(declaration.parent.parent)&&ts.isSourceFile(declaration.parent.parent.parent);
+ }
  const tree=text=>{
   const source=ts.createSourceFile('messages.ts',text,ts.ScriptTarget.Latest,true,ts.ScriptKind.TS);
   if(source.parseDiagnostics.length)safe=false;
-  if(source.statements.some(n=>!ts.isImportDeclaration(n)&&!ts.isVariableStatement(n)))safe=false;
   function fingerprint(n){
-   if(ts.isCallExpression(n)||ts.isNewExpression(n)||ts.isTaggedTemplateExpression(n)||ts.isComputedPropertyName(n))safe=false;
-   if(ts.isStringLiteral(n)&&ts.isPropertyAssignment(n.parent)&&n.parent.initializer===n&&ts.isObjectLiteralExpression(n.parent.parent)){
+   if(ts.isStringLiteral(n)&&ts.isPropertyAssignment(n.parent)&&!ts.isComputedPropertyName(n.parent.name)&&n.parent.initializer===n&&ts.isObjectLiteralExpression(n.parent.parent)&&topLevelDictionary(n.parent.parent)){
     values.push({key:n.parent.name.text,value:n.text});return [n.kind,'message',n.text.match(/\{\w+\}/g)?.sort()??[]];
    }
    const children=n.getChildren(source);return children.length?[n.kind,children.map(fingerprint)]:[n.kind,n.getText(source)];

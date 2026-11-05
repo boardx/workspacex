@@ -65,6 +65,36 @@
         "e2e/i18n-project-list.spec.ts"
       ],
       "browserConfig": "playwright.fullstack-smoke.config.ts"
+    },
+    {
+      "file": "apps/web/lib/i18n/namespaces/project-overview.ts",
+      "messagePrefixes": [
+        "projectOverview."
+      ],
+      "unitTests": [
+        "tests/lib/i18n-resources.test.ts",
+        "tests/ui/i18n.test.tsx",
+        "tests/ui/project-general-overview-i18n.test.tsx"
+      ],
+      "browserTests": [
+        "e2e/i18n-project-general-overview.spec.ts"
+      ],
+      "browserConfig": "playwright.fullstack-smoke.config.ts"
+    },
+    {
+      "file": "apps/web/lib/i18n/namespaces/public-design-share.ts",
+      "messagePrefixes": [
+        "designShare."
+      ],
+      "unitTests": [
+        "tests/lib/i18n-resources.test.ts",
+        "tests/ui/i18n.test.tsx",
+        "tests/ui/public-design-share-i18n.test.tsx"
+      ],
+      "browserTests": [
+        "e2e/i18n-public-design-share.spec.ts"
+      ],
+      "browserConfig": "playwright.fullstack-smoke.config.ts"
     }
   ],
   "presentationFiles": [
