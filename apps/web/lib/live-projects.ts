@@ -64,9 +64,9 @@ export type BackflowEntry = z.infer<typeof artifact.BackflowEntry>;
  * 两个组件都从这里 import，不各自抄一份。
  */
 export const BACKFLOW_BADGE_LABEL: Record<BackflowEntry["badge"], string> = {
-  draft: "草稿",
-  live: "实时 · 随源变动",
-  pinned: "已定版",
+  draft: translate("zh-CN", "workshopOverview.backflow.draft"),
+  live: translate("zh-CN", "workshopOverview.backflow.live"),
+  pinned: translate("zh-CN", "workshopOverview.backflow.pinned"),
 };
 
 /**
