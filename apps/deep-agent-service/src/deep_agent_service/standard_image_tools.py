@@ -29,16 +29,23 @@ async def _parse(runtime,args):
         async with asyncio.timeout(deadline):
             async with httpx.AsyncClient(timeout=deadline,follow_redirects=False,trust_env=False) as client:
                 async with client.stream('POST',url,headers={'x-deep-agent-internal-key':callback['key'],'accept-encoding':'identity'},json=body) as response:
-                    if response.status_code!=200 or response.headers.get('content-encoding','identity')!='identity':raise ValueError()
+                    if response.headers.get('content-encoding','identity')!='identity':raise ValueError()
                     data=bytearray()
                     async for chunk in response.aiter_raw():
                         if len(data)+len(chunk)>_SCHEMA['limits']['responseBytes']:raise ValueError()
                         data.extend(chunk)
-                    result=json.loads(data);_V['output'].validate(result);return result
+                    result=json.loads(data)
+                    if response.status_code!=200:
+                        code=result.get('message') if isinstance(result,dict) else None
+                        if code in _SCHEMA['failureCodes']:
+                            raise StandardImageError(f'Image generation failed: {code}. Do not mark generation complete or resubmit automatically.')
+                        raise ValueError()
+                    _V['output'].validate(result);return result
+    except StandardImageError:raise
     except Exception:raise StandardImageError('Image generation failed, editing is unsupported, or outcome is unknown. Do not resubmit with this or another key automatically.') from None
 
 def image_generate_tool():
     async def run(runtime:ToolRuntime,**kwargs):return await _parse(runtime,kwargs)
     def sync(runtime:ToolRuntime,**kwargs):return asyncio.run(_parse(runtime,kwargs))
     return StructuredTool(name=_SCHEMA['toolName'],args_schema=_SCHEMA['toolInput'],func=sync,coroutine=run,
-        description='Generate a square image using the configured image provider. Persist a unique idempotencyKey for the intended image; reuse it for deliberate recovery, never change keys automatically after unknown outcomes. Reference attachments are authorization checked but editing is unsupported by this provider. The returned generated workspace file is not a published artifact: call wx_artifact_publish using the exact path and MIME and wait for normal writeback. No remote URL or ready artifact ID is returned.')
+        description='Generate a real image. generationProfile standard selects Qwen3 square1024, complex selects Qwen3 Pro2048, icon selects Z1024. Use sizeProfile square-hd for complex/high-resolution requests. Failed generation is not a completed step. Persist a unique idempotencyKey for the intended image; reuse it for deliberate recovery, never change keys automatically after unknown outcomes. Reference attachments are authorization checked but editing is unsupported by this provider. The returned generated workspace file is not a published artifact: call wx_artifact_publish using the exact path and MIME and wait for normal writeback. No remote URL or ready artifact ID is returned.')

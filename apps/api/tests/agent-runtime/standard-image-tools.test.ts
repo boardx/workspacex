@@ -81,3 +81,7 @@ it('rejects inline bytes that are not a real png/jpeg instead of writing them to
  await expect(f.service().generate(context,args)).rejects.toThrow('generated_image_format');
  expect(f.files.size).toBe(0);
 });
+
+it('rejects Qwen profiles on an explicit legacy/OpenAI provider instead of silently using another model',async()=>{
+ const f=await setup();await expect(f.service().generate(context,{...args,generationProfile:'standard'})).rejects.toThrow('image_profile_provider_unconfigured');expect(f.provider.generateImage).not.toHaveBeenCalled();
+});
