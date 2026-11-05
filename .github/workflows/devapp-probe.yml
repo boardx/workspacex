@@ -10,9 +10,26 @@ name: devapp-probe
 
 on:
   workflow_dispatch:
+    inputs:
+      asr_accounting:
+        description: Safe aggregate ASR accounting diagnosis only
+        type: boolean
+        default: false
 
 jobs:
+  asr-accounting:
+    if: ${{ inputs.asr_accounting }}
+    runs-on: [self-hosted, linux, x64, workspacex]
+    timeout-minutes: 3
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+      - name: Read-only ASR accounting aggregates
+        run: python3 -I -B .harness/scripts/vm/asr-accounting-probe.py
+
   probe:
+    if: ${{ !inputs.asr_accounting }}
     runs-on: [self-hosted, linux, x64, workspacex]
     timeout-minutes: 5
     steps:
