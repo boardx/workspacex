@@ -1,0 +1,306 @@
+{
+  "issue": 6255,
+  "status": "SOURCE_GATES_PASS_NATIVE_UNRUN",
+  "sourceHead": "079706dca86cd8dc505c751222e6fefb0ad0e7fd",
+  "latestAcceptedMerge": "fe372fa38c851cea8a896abac8e6fb0bd94c8b0b",
+  "actualFocusedCases": {
+    "head": "cfbab5e23c54529e419c9f1c3252250c617ee549",
+    "total": 30,
+    "passed": 30,
+    "failed": 0,
+    "skipped": 0
+  },
+  "priorFullGreen": {
+    "head": "dac22e6c9a65a523cd959124058acbd2a87651fc",
+    "passed": 66
+  },
+  "actualStaticCases": 20,
+  "nativeCasesDiscovered": 3,
+  "nativeCasesExecuted": 0,
+  "plannedPngMaximum": 22,
+  "actualNativePng": 0,
+  "gates": [
+    {
+      "gate": "continuation-covering",
+      "head": "cfbab5e23c54529e419c9f1c3252250c617ee549",
+      "command": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "tests/ui/platform-model-catalog-i18n.test.tsx",
+        "tests/lib/i18n-resources.test.ts",
+        "--maxWorkers=1",
+        "--reporter=json",
+        "--outputFile=/Users/shenyangjun/boardx/workspacex-i18n-agent-skill/.superpowers/sdd/2026-11-05-platform-model-catalog-i18n/raw/continuation-source/report.json"
+      ],
+      "exit": 0,
+      "seconds": 10.225,
+      "logSha256": "3419ac6f6c684d3b5eebcd0533dd1080abb13af68ad055c808971dc446989c7a"
+    },
+    {
+      "gate": "continuation-lint",
+      "head": "cfbab5e23c54529e419c9f1c3252250c617ee549",
+      "command": [
+        "pnpm",
+        "exec",
+        "eslint",
+        "components/admin/bailian-model-catalog.tsx",
+        "components/admin/disable-dialog.tsx",
+        "components/admin/entity-catalog.tsx",
+        "components/admin/model-screen.tsx",
+        "components/admin/org-core-model-panel.tsx",
+        "lib/i18n/messages/en.ts",
+        "lib/i18n/messages/zh-CN.ts",
+        "lib/i18n/namespaces/platform-model-catalog.ts",
+        "e2e/platform-model-catalog-i18n.spec.ts",
+        "playwright.fullstack-smoke.config.ts",
+        "tests/ui/platform-model-catalog-i18n.test.tsx"
+      ],
+      "exit": 0,
+      "seconds": 2.389,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "gate": "remaining-spec-lint",
+      "head": "5961383d73776382da5a27a3b47358623df207cf",
+      "command": [
+        "pnpm",
+        "exec",
+        "eslint",
+        "e2e/platform-model-catalog-i18n.spec.ts"
+      ],
+      "exit": 0,
+      "seconds": 1.997,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "gate": "remaining-web-type",
+      "head": "5961383d73776382da5a27a3b47358623df207cf",
+      "command": [
+        "pnpm",
+        "--filter",
+        "web",
+        "typecheck"
+      ],
+      "exit": 0,
+      "seconds": 8.378,
+      "logSha256": "ea30d6b748ad9ab96126527df942acbf5a2e0557ed6674beeb887f3f9571595a"
+    },
+    {
+      "gate": "remaining-init",
+      "head": "5961383d73776382da5a27a3b47358623df207cf",
+      "command": [
+        "./init.sh"
+      ],
+      "exit": 0,
+      "seconds": 9.159,
+      "logSha256": "afbed895e0dbf3b2822a4f13de35d2b4f35709e35ff2a82a8238791f1a5b3fff"
+    },
+    {
+      "gate": "remaining-raw-error",
+      "head": "5961383d73776382da5a27a3b47358623df207cf",
+      "command": [
+        "pnpm",
+        "run",
+        "lint:user-facing-error-text"
+      ],
+      "exit": 0,
+      "seconds": 0.863,
+      "logSha256": "c8de3363cfb5e8ce2db7d9e466c84445ca3219bb8d0fab6d3b8a7487725a43c8"
+    },
+    {
+      "gate": "remaining-testid",
+      "head": "5961383d73776382da5a27a3b47358623df207cf",
+      "command": [
+        "pnpm",
+        "run",
+        "lint:e2e-testid-gate"
+      ],
+      "exit": 0,
+      "seconds": 3.827,
+      "logSha256": "64f63394c4541abc4a1bfd9fbde6e5c330cf8382f0ebc2590a21b690420e9915"
+    },
+    {
+      "gate": "remaining-wiring",
+      "head": "5961383d73776382da5a27a3b47358623df207cf",
+      "command": [
+        "pnpm",
+        "run",
+        "lint:ui-wiring"
+      ],
+      "exit": 0,
+      "seconds": 3.759,
+      "logSha256": "aa2b48236a0e4e0dc9efb47f91a1c0b5181e4933c4b7ade256d6ea1c721987e9"
+    },
+    {
+      "gate": "remaining-static",
+      "head": "5961383d73776382da5a27a3b47358623df207cf",
+      "command": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "--config",
+        ".harness/vitest.config.ts",
+        ".harness/scripts/fullstack-smoke.test.ts",
+        "--maxWorkers=1"
+      ],
+      "exit": 0,
+      "seconds": 35.82,
+      "logSha256": "fe4c273c3137d88cdb01f7093998b3c43854910d9287c929dd5cdfd4ad39bd32"
+    },
+    {
+      "gate": "remaining-discovery",
+      "head": "5961383d73776382da5a27a3b47358623df207cf",
+      "command": [
+        "pnpm",
+        "exec",
+        "tsx",
+        "-e",
+        "import {deriveTestIsolation} from './.harness/scripts/lib/test-isolation'; import {spawnSync} from 'node:child_process'; const env={...process.env,...deriveTestIsolation({isolationId:'i18n-model-catalog-6255-discovery',worktreePath:process.cwd()}),FULLSTACK_SMOKE_PARTITION:'product'}; const r=spawnSync('pnpm',['--filter','web','exec','playwright','test','--config','playwright.fullstack-smoke.config.ts','--project=seeded-github-import','--no-deps','platform-model-catalog-i18n.spec.ts','--list'],{env,stdio:'inherit'});process.exit(r.status??1);"
+      ],
+      "exit": 0,
+      "seconds": 3.234,
+      "logSha256": "1991d652cc01ddd0df55cfb8041abd8048fa92a87832c6077790a1a7e72f2682"
+    },
+    {
+      "gate": "fixture-key-covering",
+      "head": "079706dca86cd8dc505c751222e6fefb0ad0e7fd",
+      "command": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "tests/ui/platform-model-catalog-i18n.test.tsx",
+        "-t",
+        "preserves unknown list protocol reasons|retranslates core save",
+        "--maxWorkers=1",
+        "--reporter=json",
+        "--outputFile=/Users/shenyangjun/boardx/workspacex-i18n-agent-skill/.superpowers/sdd/2026-11-05-platform-model-catalog-i18n/raw/fixture-key-fix/report.json"
+      ],
+      "exit": 0,
+      "seconds": 6.973,
+      "logSha256": "e8918370fe4cb06ee108e0eda503961defcbbc52120dcabe16ba3916a0c0d41c"
+    },
+    {
+      "gate": "fixture-key-lint",
+      "head": "079706dca86cd8dc505c751222e6fefb0ad0e7fd",
+      "command": [
+        "pnpm",
+        "exec",
+        "eslint",
+        "tests/ui/platform-model-catalog-i18n.test.tsx"
+      ],
+      "exit": 0,
+      "seconds": 2.619,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "gate": "fixture-key-scan",
+      "head": "079706dca86cd8dc505c751222e6fefb0ad0e7fd",
+      "command": [
+        "pnpm",
+        "run",
+        "lint:oss-secret-scan"
+      ],
+      "exit": 0,
+      "seconds": 9.098,
+      "logSha256": "768d86cfbd24da0fadc19c9631d8f98d7fbdf8880278f3608c852c0fb215d9b0"
+    }
+  ],
+  "protectedPathsByteIdenticalToInitialBase": [
+    {
+      "path": "apps/web/lib/live-model.ts",
+      "sha256": "b4e378a7171a0e98363765dee2644289d4becf764d2e6aa4f7607c9c165e3648"
+    },
+    {
+      "path": "apps/web/lib/live-org-core-model.ts",
+      "sha256": "8ea247648d780f815f6e0919b306375cf002f921d24f462796256874cc6b1512"
+    },
+    {
+      "path": "apps/web/lib/provider-model-catalog-view.ts",
+      "sha256": "d5679c13a386ab6e4aefcae702371fe419748b4cca307c9883cccc85c55d9881"
+    },
+    {
+      "path": "apps/web/tests/ui/admin-model-catalog.test.tsx",
+      "sha256": "7d9ba5b5e9632fd1dc75c16875068e0325e06300b3479a92c208681d8a320cfc"
+    },
+    {
+      "path": "apps/web/tests/ui/org-core-model-panel.test.tsx",
+      "sha256": "60c0c2277e3bbb46d12f16faf0b2c83a2582fd5f1324614fc9a792cb7fff3f31"
+    },
+    {
+      "path": "apps/web/tests/ui/bailian-model-catalog.test.tsx",
+      "sha256": "ca4b868f4a4ab02d5816d113e6ba8d1649c6e7bbd7859c53f4db45f52b8b63f3"
+    },
+    {
+      "path": "apps/web/tests/ui/model-impact-preview.test.tsx",
+      "sha256": "dd7833fc99f851f6a925f2ffd18305b198691a9797223829a1830d44792563e6"
+    },
+    {
+      "path": "apps/web/tests/lib/provider-model-catalog-view.test.ts",
+      "sha256": "722e50f5d1a6d57895ee1f7a0590ee25511d745f405067e4d1ab346ad907fe08"
+    }
+  ],
+  "sourcePaths": [
+    {
+      "path": "apps/web/components/admin/bailian-model-catalog.tsx",
+      "sha256": "790ef02d9d19ea04f277e0f3d058c216d3f857f895b5e5027f5e351cea02bf5b"
+    },
+    {
+      "path": "apps/web/components/admin/disable-dialog.tsx",
+      "sha256": "9a44cd09b6261b64d8a8a632c63e9ad7647c868baa5596f59250410943fb767e"
+    },
+    {
+      "path": "apps/web/components/admin/entity-catalog.tsx",
+      "sha256": "247e86e996b2ffa43fcde16d0675f60a2438415423bb89e8ee2e413faa4af9e6"
+    },
+    {
+      "path": "apps/web/components/admin/model-screen.tsx",
+      "sha256": "e9a1b73fbb193d887fdf02efd3e77c14f7d3c0a95d15fbf7f1df83902bc031cf"
+    },
+    {
+      "path": "apps/web/components/admin/org-core-model-panel.tsx",
+      "sha256": "1fc3936e6406aa2f4f5089ec0ff8bb9548ab580a54bb3f8b7ce655c0abb4969e"
+    },
+    {
+      "path": "apps/web/e2e/platform-model-catalog-i18n.spec.ts",
+      "sha256": "0079bd617a0ce2f6fb372be6439362e1b66b46f6e73c6a5d27a890cb1aa8e8f8"
+    },
+    {
+      "path": "apps/web/lib/i18n/messages/en.ts",
+      "sha256": "fd79e7053bb6a190051f6a1d145151a0f651506b838fe62d6e61bab5a6ceb942"
+    },
+    {
+      "path": "apps/web/lib/i18n/messages/zh-CN.ts",
+      "sha256": "0799cfb09439802eadd78ce8e57ac1790257b2d429c806a80be815508a7a964b"
+    },
+    {
+      "path": "apps/web/lib/i18n/namespaces/platform-model-catalog.ts",
+      "sha256": "461f9a2f599199542c9871202ecb33bde68e37b954cbca753a157d7a276aecb9"
+    },
+    {
+      "path": "apps/web/playwright.fullstack-smoke.config.ts",
+      "sha256": "5b5e8fe32f03826d970fd36d1df7e901c30dce6595ed5e89280eb63f29264a2d"
+    },
+    {
+      "path": "apps/web/tests/ui/platform-model-catalog-i18n.test.tsx",
+      "sha256": "a3f7fea7e22db6f32a6a1aca6049dfeac0d3ba557fef09e9c69ddbc86c236aa3"
+    }
+  ],
+  "authRawArtifactsPrivate": true,
+  "nativeSourceHead": "5961383d73776382da5a27a3b47358623df207cf",
+  "frozenTestException": {
+    "scope": "two synthetic ApiError raw-object field names only; sentinel/all assertions/statuses/reasons/SDK counts unchanged",
+    "testSha256": "a3f7fea7e22db6f32a6a1aca6049dfeac0d3ba557fef09e9c69ddbc86c236aa3",
+    "actualAffectedPassed": 6,
+    "actualFiltered": 19,
+    "originalScanExit": 1,
+    "originalRule": "assigned-secret",
+    "originalNewHitPaths": 1,
+    "correctedScanExit": 0,
+    "correctedNewHits": 0,
+    "scannerRulesAndBaselineUnchanged": true
+  }
+}

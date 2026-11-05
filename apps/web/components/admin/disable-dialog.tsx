@@ -5,6 +5,8 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AdminModal } from "./panel";
+import { useI18n } from "@/lib/i18n/provider";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 /**
  * 停用某能力的二选一确认（D-U5 裁决 A+）—— 模型停用 / agent 停用 / skill 下线 /
@@ -20,18 +22,18 @@ import { AdminModal } from "./panel";
 
 export type DisableMode = "interrupt" | "drain";
 
-const MODE_META: Record<DisableMode, { label: string; Icon: typeof Zap; blurb: string; motive: string }> = {
+const MODE_META: Record<DisableMode, { label: MessageKey; Icon: typeof Zap; blurb: MessageKey; motive: MessageKey }> = {
   interrupt: {
-    label: "立即中断",
+    label: "disable.interrupt",
     Icon: Zap,
-    blurb: "进行中的调用立刻失败，各收到「该能力已被管理员停用」。",
-    motive: "适用于安全事件——必须马上切断。",
+    blurb: "disable.interruptBlurb",
+    motive: "disable.interruptMotive",
   },
   drain: {
-    label: "允许跑完当前一轮",
+    label: "disable.drain",
     Icon: TimerReset,
-    blurb: "已发起的调用跑完当前一轮，此刻起的新调用一律被拒。",
-    motive: "适用于版本下线——不丢正在跑的活。",
+    blurb: "disable.drainBlurb",
+    motive: "disable.drainMotive",
   },
 };
 
@@ -52,6 +54,7 @@ export function DisableDialog({
   onCancel: () => void;
   onConfirm: (mode: DisableMode) => void;
 }) {
+  const { t } = useI18n();
   const [mode, setMode] = React.useState<DisableMode>("interrupt");
   const [reason, setReason] = React.useState("");
   const canConfirm = reason.trim().length >= 4;
@@ -61,20 +64,20 @@ export function DisableDialog({
     <AdminModal
       testid={testid}
       title={`${verb} · ${capabilityName}`}
-      subtitle="默认立即中断；若只是版本下线，可改为让进行中的调用跑完当前一轮"
+      subtitle={t("disable.subtitle")}
       onClose={onCancel}
       footer={
         <>
-          <Button size="sm" variant="ghost" onClick={onCancel} data-testid={`${testid}-cancel`}>取消</Button>
+          <Button size="sm" variant="ghost" onClick={onCancel} data-testid={`${testid}-cancel`}>{t("common.cancel")}</Button>
           <Button
             size="sm"
             variant="destructive"
             disabled={!canConfirm}
             onClick={() => onConfirm(mode)}
             data-testid={`${testid}-confirm`}
-            title={canConfirm ? undefined : "填写理由后才可确认"}
+            title={canConfirm ? undefined : t("controls.reasonBeforeConfirm")}
           >
-            {active.label}并{verb}
+            {t("disable.confirm", { mode: t(active.label), verb })}
           </Button>
         </>
       }
@@ -85,22 +88,22 @@ export function DisableDialog({
           <ShieldAlert aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
           <div className="flex min-w-0 flex-col gap-1 text-12">
             <p className="flex flex-wrap items-center gap-1.5">
-              当前有
-              <Badge tone="danger" data-testid={`${testid}-inflight`}>{inFlight} 个进行中的调用</Badge>
-              受影响。
+              {t("disable.impactBefore")}
+              <Badge tone="danger" data-testid={`${testid}-inflight`}>{t("disable.impactCount", { count: inFlight })}</Badge>
+              {t("disable.impactAfter")}
             </p>
             <p className="text-muted-foreground">
               {mode === "interrupt"
-                ? (interruptEffect ?? `这 ${inFlight} 个调用会被立即中断。`)
-                : (drainEffect ?? `这 ${inFlight} 个调用会跑完当前一轮，之后不再受理新调用。`)}
+                ? (interruptEffect ?? t("disable.interruptEffect", { count: inFlight }))
+                : (drainEffect ?? t("disable.drainEffect", { count: inFlight }))}
             </p>
           </div>
         </div>
 
         {/* 二选一 */}
         <div className="flex flex-col gap-1.5">
-          <p className="text-12 font-medium">选择停用方式</p>
-          <div className="flex flex-col gap-1.5" role="radiogroup" aria-label="停用方式">
+          <p className="text-12 font-medium">{t("disable.choose")}</p>
+          <div className="flex flex-col gap-1.5" role="radiogroup" aria-label={t("disable.mode")}>
             {(Object.keys(MODE_META) as DisableMode[]).map((k) => {
               const m = MODE_META[k];
               const selected = mode === k;
@@ -120,12 +123,12 @@ export function DisableDialog({
                   <m.Icon aria-hidden className={cn("mt-0.5 h-4 w-4 shrink-0", selected ? "text-primary" : "text-muted-foreground")} />
                   <div className="flex min-w-0 flex-col">
                     <span className="flex items-center gap-1.5 text-12 font-medium">
-                      {m.label}
-                      {k === "interrupt" && <span className="text-10 text-muted-foreground">（默认）</span>}
+                      {t(m.label)}
+                      {k === "interrupt" && <span className="text-10 text-muted-foreground">{t("disable.default")}</span>}
                       {selected && <Check aria-hidden className="h-3 w-3 text-primary" />}
                     </span>
-                    <span className="text-11 text-muted-foreground">{m.blurb}</span>
-                    <span className="text-10 text-muted-foreground">{m.motive}</span>
+                    <span className="text-11 text-muted-foreground">{t(m.blurb)}</span>
+                    <span className="text-10 text-muted-foreground">{t(m.motive)}</span>
                   </div>
                 </button>
               );
@@ -135,13 +138,13 @@ export function DisableDialog({
 
         {/* 强制填理由（写审计，与后台其它危险动作一致）*/}
         <div className="flex flex-col gap-1.5">
-          <label htmlFor={`${testid}-reason`} className="text-12 font-medium">理由（必填，写入审计）</label>
+          <label htmlFor={`${testid}-reason`} className="text-12 font-medium">{t("controls.auditReason")}</label>
           <textarea
             id={`${testid}-reason`}
             rows={2}
             value={reason}
             onChange={(e) => setReason(e.currentTarget.value)}
-            placeholder={mode === "interrupt" ? "例如：疑似凭据泄漏，安全事件，立即切断。" : "例如：新版本已上线，旧版下线，放行进行中的调用跑完。"}
+            placeholder={t(mode === "interrupt" ? "disable.interruptPlaceholder" : "disable.drainPlaceholder")}
             data-testid={`${testid}-reason`}
             className="rounded-md border border-border bg-card px-2.5 py-1.5 text-12 text-card-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />

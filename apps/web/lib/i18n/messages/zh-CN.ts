@@ -1,4 +1,5 @@
 import { modelTestbenchZhCN } from "../namespaces/model-testbench";
+import { platformModelCatalogZhCN } from "../namespaces/platform-model-catalog";
 import { telemetrySettingsZhCN } from "../namespaces/telemetry-settings";
 import { platformMembersZhCN } from "../namespaces/platform-members";
 import { surveyTemplatesZhCN } from "../namespaces/survey-templates";
@@ -37,6 +38,7 @@ import { accountEntryZhCN } from "../namespaces/account-entry";
 import { invitationEntryZhCN } from "../namespaces/invitation-entry";
 export const zhCN = {
   ...modelTestbenchZhCN,
+  ...platformModelCatalogZhCN,
   ...telemetrySettingsZhCN,
   ...platformMembersZhCN,
   ...surveyTemplatesZhCN,
