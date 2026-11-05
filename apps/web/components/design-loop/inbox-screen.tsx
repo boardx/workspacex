@@ -1,4 +1,9 @@
 "use client";
+import type { Locale } from "@/lib/i18n/locale";
+import { translate } from "@/lib/i18n/messages";
+import { useI18n } from "@/lib/i18n/provider";
+import { inboxStageLabel, inboxKindLabel, type InboxMessage } from "@/lib/design-loop-display";
+
 import * as React from "react";
 import { LayoutList, Columns3, Search, ShieldAlert, PlugZap, Lock, CloudOff, Eye, ChevronUp, ChevronDown, Archive } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,9 +15,9 @@ import {
   listInbox,
   reorderInboxItem,
   setInboxItemTags,
-  INBOX_KIND_LABEL,
+
   INBOX_KIND_OPTIONS,
-  INBOX_STAGE_LABEL,
+
   INBOX_STAGE_ORDER,
   isArchivedInboxItem,
   type GetInboxCountsOut,
@@ -145,7 +150,7 @@ function exceptionStatusForStage(stage: InboxStage): SystemErrorStatus | null {
 type Load =
   | { kind: "loading" }
   | { kind: "ready"; items: InboxItem[]; nextCursor: string | null; sources: GetInboxCountsOut["sources"] }
-  | { kind: "failed"; reason: string };
+  | { kind: "failed"; reason: unknown };
 
 export function DesignLoopInboxScreen({
   state = "default",
@@ -169,6 +174,7 @@ export function DesignLoopInboxScreen({
    */
   onOpenLinked?: (targetId: string) => void;
 }) {
+  const { locale } = useI18n();
   const [view, setView] = React.useState<"board" | "list">("board");
   const [kindFilter, setKindFilter] = React.useState<KindFilter>("all");
   /**
@@ -215,16 +221,16 @@ export function DesignLoopInboxScreen({
   /** 2026-09-05——从「开始处理」/拖进「进行中」进来的反馈（尚无 issue）：直接展开 issue 确认表单。 */
   const [openIssueFormOnOpen, setOpenIssueFormOnOpen] = React.useState(false);
   /** 建 issue 后服务端回来的附件上传警告（`imageUploadWarnings`），持续展示，不吞。 */
-  const [warning, setWarning] = React.useState<string | null>(null);
+  const [warning, setWarning] = React.useState<InboxMessage | null>(null);
   const [dragOver, setDragOver] = React.useState<InboxStage | null>(null);
   const [busyId, setBusyId] = React.useState<string | null>(null);
-  const [saved, setSaved] = React.useState<string | null>(null);
-  const [dragError, setDragError] = React.useState<string | null>(null);
+  const [saved, setSaved] = React.useState<InboxMessage | null>(null);
+  const [dragError, setDragError] = React.useState<InboxMessage | null>(null);
   React.useEffect(() => { setDragError(null); }, [openId]);
   /** B3.7——刚被关联标跳到的条目 id，短暂高亮后自清（看板卡片/列表行都认它）。 */
   const [highlightId, setHighlightId] = React.useState<string | null>(null);
   /** B3.7——关联目标不在已加载列表里时的提示（不静默失败）。 */
-  const [linkNotice, setLinkNotice] = React.useState<string | null>(null);
+  const [linkNotice, setLinkNotice] = React.useState<InboxMessage | null>(null);
 
   React.useEffect(() => {
     if (highlightId === null) return;
@@ -254,7 +260,7 @@ export function DesignLoopInboxScreen({
       });
       setLoad({ kind: "ready", items: [...out.items], nextCursor: out.nextCursor, sources: out.sources });
     } catch (err) {
-      setLoad({ kind: "failed", reason: describeFailure(err) });
+      setLoad({ kind: "failed", reason: err });
     }
   }, [kindFilter, hidingExceptions, query, tagFilter, inboxView]);
 
@@ -332,7 +338,7 @@ export function DesignLoopInboxScreen({
           : prev,
       );
     } catch (err) {
-      setDragError(describeFailure(err));
+      setDragError({ render: (locale: Locale) => describeFailure(err, locale) });
     } finally {
       setLoadingMore(false);
     }
@@ -368,7 +374,7 @@ export function DesignLoopInboxScreen({
   // drawer 按 id 查找仍然在完整 `items` 里找——已经打开的一条不该因为开关状态变化而消失。
   const open = items.find((i) => i.id === openId) ?? null;
 
-  const flashSaved = (msg: string) => {
+  const flashSaved = (msg: InboxMessage) => {
     setSaved(msg);
     window.setTimeout(() => setSaved(null), 2400);
   };
@@ -384,7 +390,7 @@ export function DesignLoopInboxScreen({
   const navigateToLinked: NavigateLink = (targetId, label) => {
     const target = items.find((i) => i.id === targetId);
     if (target === undefined) {
-      setLinkNotice(`关联的${label}不在当前列表里——可能被类型筛选、搜索挡住或还没加载到；清掉筛选或「加载更多」后再试。`);
+      setLinkNotice({ render: (locale: Locale) => translate(locale, "inbox.theLinkedIsNotInTheCurrentListClear", { v0: label === "设计方案" ? translate(locale, "inbox.design") : label === "反馈" ? translate(locale, "inbox.feedback") : label }) });
       window.setTimeout(() => setLinkNotice(null), LINK_NOTICE_MS);
       return;
     }
@@ -430,7 +436,7 @@ export function DesignLoopInboxScreen({
     if (item.kind === "design") return; // 本轮无数据，也没有对应源操作
     const prevStage = item.stage;
     if (item.kind === "exception" && targetStage === "done") {
-      setDragError("系统异常没有「已完成」这一列");
+      setDragError({ render: (locale: Locale) => translate(locale, "inbox.systemErrorsDoNotHaveACompletedStage") });
       window.setTimeout(() => setDragError(null), 3000);
       return;
     }
@@ -468,7 +474,7 @@ export function DesignLoopInboxScreen({
       } else {
         await updateSystemErrorLifecycle(item.id, { status: status as SystemErrorStatus });
       }
-      flashSaved(leavingArchive ? `已重新打开，回到「${INBOX_STAGE_LABEL[targetStage]}」` : `已移动到「${INBOX_STAGE_LABEL[targetStage]}」`);
+      flashSaved({ render: (locale: Locale) => leavingArchive ? translate(locale, "inbox.reopenedIn", { v0: inboxStageLabel(targetStage, locale) }) : translate(locale, "inbox.movedTo", { v0: inboxStageLabel(targetStage, locale) }) });
       if (leavingArchive) setOpenId(null);
     } catch (err) {
       if (leavingArchive) {
@@ -478,7 +484,7 @@ export function DesignLoopInboxScreen({
         replaceItem(item.id, { stage: prevStage });
         bumpStageCount(targetStage, prevStage);
       }
-      setDragError(`没能移动这条（${describeFailure(err)}），已恢复原状态`);
+      setDragError({ render: (locale: Locale) => translate(locale, "inbox.couldNotMoveThisItemOriginalStatusRestored", { v0: describeFailure(err, locale) }) });
       window.setTimeout(() => setDragError(null), 3000);
     } finally {
       setBusyId(null);
@@ -505,11 +511,11 @@ export function DesignLoopInboxScreen({
       replaceItem(item.id, { stage: "doing" });
       bumpStageCount(prevStage, "doing");
       setOpenIssueFormOnOpen(false);
-      flashSaved("已创建 GitHub Issue 并进入迭代");
+      flashSaved({ render: (locale: Locale) => translate(locale, "inbox.githubIssueCreatedAndAddedToIteration") });
       // 2026-09-05——附件没带过去不能只留在服务端日志里（见文件头）：持续展示，管理员据此补救。
       const uploadWarnings = out.imageUploadWarnings ?? [];
       if (uploadWarnings.length > 0) {
-        setWarning(`issue 已创建，但以下附件未能上传到 GitHub：${uploadWarnings.join("；")}`);
+        setWarning({ render: (locale: Locale) => translate(locale, "inbox.issueCreatedButTheseAttachmentsCouldNotBeUploaded", { v0: uploadWarnings.join("；") }) });
         window.setTimeout(() => setWarning(null), WARNING_NOTICE_MS);
       }
       // github 字段（issue 号/链接）由服务端生成，本地乐观更新算不出来——单独现查这一条
@@ -523,7 +529,7 @@ export function DesignLoopInboxScreen({
         /* best-effort：徽标补不上就留白，drawer 展开时的现查还会再试 */
       }
     } catch (err) {
-      setDragError(`没能创建 GitHub Issue（${describeFailure(err)}）。草稿已保留，请稍后重试。`);
+      setDragError({ render: (locale: Locale) => translate(locale, "inbox.couldNotCreateGitHubIssueDraftRetainedTryAgain", { v0: describeFailure(err, locale) }) });
     } finally {
       setBusyId(null);
     }
@@ -550,9 +556,9 @@ export function DesignLoopInboxScreen({
         bumpStageCount(prevStage, "doing");
       }
       setOpenIssueFormOnOpen(false);
-      flashSaved("已创建 GitHub Issue，方案已转入开发");
+      flashSaved({ render: (locale: Locale) => translate(locale, "inbox.githubIssueCreatedDesignSentToDevelopment") });
     } catch (err) {
-      setDragError(`没能创建 GitHub Issue（${describeFailure(err)}）。草稿已保留，请稍后重试。`);
+      setDragError({ render: (locale: Locale) => translate(locale, "inbox.couldNotCreateGitHubIssueDraftRetainedTryAgain", { v0: describeFailure(err, locale) }) });
     } finally {
       setBusyId(null);
     }
@@ -571,9 +577,9 @@ export function DesignLoopInboxScreen({
       }
       replaceItem(item.id, { stage: "archived", statusReason: reason });
       bumpStageCount(prevStage, "archived");
-      flashSaved("已转为不做，理由已记入时间线");
+      flashSaved({ render: (locale: Locale) => translate(locale, "inbox.markedWonTDoReasonRecordedInTimeline") });
     } catch (err) {
-      setDragError(`没能转为不做（${describeFailure(err)}）`);
+      setDragError({ render: (locale: Locale) => translate(locale, "inbox.couldNotMarkWonTDo", { v0: describeFailure(err, locale) }) });
       window.setTimeout(() => setDragError(null), 3000);
     } finally {
       setBusyId(null);
@@ -599,11 +605,11 @@ export function DesignLoopInboxScreen({
     setBusyId(item.id);
     try {
       await triageFeedback(item.id, "已归档", null, null);
-      flashSaved("已归档，可在「归档箱」里查看");
+      flashSaved({ render: (locale: Locale) => translate(locale, "inbox.archivedFindItInTheArchive") });
     } catch (err) {
       setLoad((prev) => (prev.kind === "ready" ? { ...prev, items: [item, ...prev.items] } : prev));
       bumpArchived(-1, prevStage);
-      setDragError(`没能归档（${describeFailure(err)}），已恢复`);
+      setDragError({ render: (locale: Locale) => translate(locale, "inbox.couldNotArchiveItemRestored", { v0: describeFailure(err, locale) }) });
       window.setTimeout(() => setDragError(null), 3000);
     } finally {
       setBusyId(null);
@@ -636,7 +642,7 @@ export function DesignLoopInboxScreen({
           ? { ...prev, items: prev.items.map((i) => (prevOrders.has(i.id) ? { ...i, boardOrder: prevOrders.get(i.id)! } : i)) }
           : prev,
       );
-      setDragError(`没能保存排序（${describeFailure(err)}），已恢复原顺序`);
+      setDragError({ render: (locale: Locale) => translate(locale, "inbox.couldNotSaveOrderOriginalOrderRestored", { v0: describeFailure(err, locale) }) });
       window.setTimeout(() => setDragError(null), 3000);
     });
   };
@@ -656,10 +662,10 @@ export function DesignLoopInboxScreen({
     try {
       await updateSystemErrorLifecycle(item.id, patch);
       replaceItem(item.id, { exception: { ...before, devNote: patch.devNote !== undefined ? patch.devNote : before.devNote } });
-      flashSaved("开发备注已保存");
+      flashSaved({ render: (locale: Locale) => translate(locale, "inbox.developerNoteSaved") });
     } catch (err) {
       replaceItem(item.id, { exception: before });
-      setDragError(`没能保存（${describeFailure(err)}）`);
+      setDragError({ render: (locale: Locale) => translate(locale, "inbox.couldNotSave", { v0: describeFailure(err, locale) }) });
       window.setTimeout(() => setDragError(null), 3000);
     } finally {
       setBusyId(null);
@@ -683,11 +689,11 @@ export function DesignLoopInboxScreen({
         const out = await setInboxItemTags(item.kind, item.id, tags);
         replaceItem(item.id, { tags: [...out.tags] });
       }
-      flashSaved("标签已保存");
+      flashSaved({ render: (locale: Locale) => translate(locale, "inbox.tagsSaved") });
       void reloadCounts();
     } catch (err) {
       replaceItem(item.id, { tags: before });
-      setDragError(`没能保存标签（${describeFailure(err)}）`);
+      setDragError({ render: (locale: Locale) => translate(locale, "inbox.couldNotSaveTags", { v0: describeFailure(err, locale) }) });
       window.setTimeout(() => setDragError(null), 3000);
     } finally {
       setBusyId(null);
@@ -717,7 +723,7 @@ export function DesignLoopInboxScreen({
       setOpenId(null);
       onDeepen?.(project.id);
     } catch (err) {
-      setDragError(`没能深化到 PM 设计工作台（${describeFailure(err)}）`);
+      setDragError({ render: (locale: Locale) => translate(locale, "inbox.couldNotDevelopInThePMDesignWorkbench", { v0: describeFailure(err, locale) }) });
       window.setTimeout(() => setDragError(null), 3000);
     } finally {
       setBusyId(null);
@@ -727,10 +733,9 @@ export function DesignLoopInboxScreen({
   const savedTargetUnavailable = savedFeedbackId != null && initialOpenId === savedFeedbackId;
   const savedRecovery = savedTargetUnavailable ? (
     <p role="status" data-testid="inbox-saved-open-failed">
-      已保存，无法打开收件箱。反馈编号：{savedFeedbackId}。
-      <a href={`/platform-admin/inbox?open=${encodeURIComponent(savedFeedbackId)}`}>重新打开这条反馈</a>
-      ，或从导航栏「提反馈」的「我提过的」回看，无需重新提交。
-    </p>
+      {translate(locale, "inbox.savedButTheInboxCouldNotBeOpenedFeedback")}{savedFeedbackId}。
+      <a href={`/platform-admin/inbox?open=${encodeURIComponent(savedFeedbackId)}`}>{translate(locale, "inbox.reopenThisFeedback")}</a>
+      {translate(locale, "inbox.orFindItUnderSendFeedbackMyFeedbackNo")}</p>
   ) : null;
 
   // ── 七态：loading / denied / dep-failed 走保留态面板；empty 数据驱动 ──────────
@@ -755,24 +760,22 @@ export function DesignLoopInboxScreen({
       <div className="flex flex-col items-center gap-2 p-16 text-center" data-testid="denied">
         {savedRecovery}
         <ShieldAlert aria-hidden className="h-8 w-8 text-muted-foreground" />
-        <p className="text-14 font-medium">运营收件箱仅平台运营可见</p>
+        <p className="text-14 font-medium">{translate(locale, "inbox.theOperationsInboxIsAvailableToPlatformOperatorsOnly")}</p>
         <p className="max-w-sm text-12 text-muted-foreground">
-          你的账号没有平台运营权限。如果需要处理反馈与排期，联系平台管理员把你加入运营组。
-        </p>
+          {translate(locale, "inbox.yourAccountDoesNotHaveOperationsAccessAskA")}</p>
       </div>
     );
   }
   if (state === "dep-failed" || (state === "default" && load.kind === "failed")) {
-    const reason = state === "default" && load.kind === "failed" ? load.reason : null;
+    const reason = state === "default" && load.kind === "failed" ? describeFailure(load.reason, locale) : null;
     return (
       <div className="flex flex-col items-center gap-2 p-16 text-center" data-testid="dep-failed">
         <PlugZap aria-hidden className="h-8 w-8 text-muted-foreground" />
-        <p className="text-14 font-medium">收件箱数据暂时读不到</p>
+        <p className="text-14 font-medium">{translate(locale, "inbox.inboxDataIsTemporarilyUnavailable")}</p>
         <p className="max-w-sm text-12 text-muted-foreground">
-          反馈、系统异常与设计方案的合并数据源这次没取到{reason !== null ? `（${reason}）` : ""}，条目没有丢。稍后重试，或检查后台服务状态。
-        </p>
+          {translate(locale, "inbox.couldNotLoadTheCombinedFeedbackSystemErrorAnd")}{reason !== null ? `（${reason}）` : ""}{translate(locale, "inbox.itemsHaveNotBeenLostTryAgainLaterOr")}</p>
         {savedRecovery}
-        <Button size="sm" variant="outline" className="mt-1" onClick={() => void reload()} data-testid="inbox-retry">重试</Button>
+        <Button size="sm" variant="outline" className="mt-1" onClick={() => void reload()} data-testid="inbox-retry">{translate(locale, "inbox.retry")}</Button>
       </div>
     );
   }
@@ -786,37 +789,37 @@ export function DesignLoopInboxScreen({
           data-testid="saved"
           role="status"
         >
-          {saved}
+          {saved.render(locale)}
         </div>
       )}
       {dragError !== null && open === null && (
         <div className="mx-4 mt-3 rounded-card bg-destructive px-3 py-1.5 text-12 text-destructive-foreground" data-testid="inbox-drag-error" role="alert">
-          {dragError}
+          {dragError.render(locale)}
         </div>
       )}
       {linkNotice !== null && (
         <div className="mx-4 mt-3 rounded-card bg-warning px-3 py-1.5 text-12 text-warning-foreground" data-testid="inbox-link-target-missing" role="status">
-          {linkNotice}
+          {linkNotice.render(locale)}
         </div>
       )}
       {warning !== null && (
         <div className="mx-4 mt-3 rounded-card bg-warning px-3 py-1.5 text-12 text-warning-foreground" data-testid="inbox-attachment-upload-warning" role="alert">
-          {warning}
+          {warning.render(locale)}
         </div>
       )}
       {/* 工具条：视图切换 + 类型 chip + 归档箱 + 搜索 */}
       <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
-        {onNewFeedback && <Button size="sm" variant="primary" onClick={onNewFeedback} data-testid="inbox-new-feedback">新建反馈并分诊</Button>}
+        {onNewFeedback && <Button size="sm" variant="primary" onClick={onNewFeedback} data-testid="inbox-new-feedback">{translate(locale, "inbox.createAndTriageFeedback")}</Button>}
         <div className="flex items-center gap-0.5 rounded-control border border-border p-0.5">
-          <ViewToggle active={view === "board" && !archivedView} disabled={archivedView} onClick={() => setView("board")} testid="inbox-view-board" icon={Columns3} label="看板" />
-          <ViewToggle active={view === "list" || archivedView} onClick={() => setView("list")} testid="inbox-view-list" icon={LayoutList} label="列表" />
+          <ViewToggle active={view === "board" && !archivedView} disabled={archivedView} onClick={() => setView("board")} testid="inbox-view-board" icon={Columns3} label={translate(locale, "inbox.board")} />
+          <ViewToggle active={view === "list" || archivedView} onClick={() => setView("list")} testid="inbox-view-list" icon={LayoutList} label={translate(locale, "inbox.list")} />
         </div>
-        <div className="flex flex-wrap items-center gap-1" role="group" aria-label="类型筛选">
+        <div className="flex flex-wrap items-center gap-1" role="group" aria-label={translate(locale, "inbox.filterByType")}>
           {KIND_FILTERS.map((f) => {
             const disabled = f === "exception" && exceptionBlocked;
             const count = f === "all" ? allCount : counts === null ? null : counts.byKind[f];
             return (
-              <span key={f} className="relative inline-flex" title={disabled ? (exceptionWithheld ? "仅平台运维可见" : "系统异常这一路这次没读到") : undefined}>
+              <span key={f} className="relative inline-flex" title={disabled ? (exceptionWithheld ? translate(locale, "inbox.platformOperationsAccessOnly") : translate(locale, "inbox.systemErrorsCouldNotBeLoaded")) : undefined}>
                 <button
                   type="button"
                   aria-pressed={kindFilter === f}
@@ -839,7 +842,7 @@ export function DesignLoopInboxScreen({
                   {disabled && (exceptionWithheld
                     ? <Lock aria-hidden className="h-3 w-3" />
                     : <CloudOff aria-hidden className="h-3 w-3" data-testid="inbox-kind-exception-unavailable-icon" />)}
-                  {f === "all" ? "全部" : INBOX_KIND_LABEL[f]}
+                  {f === "all" ? translate(locale, "inbox.all") : inboxKindLabel(f, locale)}
                   {/*
                     * 按不下去的那一格**不显示数字**：服务端这时给的 0 是「没有算」，不是「零条」。
                     * 旁边写着「这一路没读到」，这里却挂一个 0，读起来就是「系统零异常」——
@@ -852,13 +855,11 @@ export function DesignLoopInboxScreen({
           })}
           {exceptionWithheld === true && (
             <span className="text-10 text-muted-foreground" data-testid="inbox-exception-withheld-hint">
-              系统异常仅平台运维可见
-            </span>
+              {translate(locale, "inbox.systemErrorsAreVisibleToPlatformOperationsOnly")}</span>
           )}
           {exceptionUnavailable && (
             <span className="text-10 text-muted-foreground" data-testid="inbox-exception-unavailable-hint">
-              系统异常这一路这次没读到；反馈和设计方案不受影响
-            </span>
+              {translate(locale, "inbox.systemErrorsCouldNotBeLoadedFeedbackAndDesigns")}</span>
           )}
           {/* issue #2752 ①——「全部」视图默认滤掉系统异常，这个开关是唯一的显式切回入口。
               只在 kindFilter === "all" 时有意义：单独选中「系统异常」chip 已经是另一种「切换查看」。 */}
@@ -876,7 +877,7 @@ export function DesignLoopInboxScreen({
               )}
             >
               <Eye aria-hidden className="h-3 w-3" />
-              {showExceptionsInAll ? "「全部」已包含系统异常" : "在「全部」中显示系统异常"}
+              {showExceptionsInAll ? translate(locale, "inbox.allIncludesSystemErrors") : translate(locale, "inbox.includeSystemErrorsInAll")}
             </button>
           )}
         </div>
@@ -892,15 +893,14 @@ export function DesignLoopInboxScreen({
           )}
         >
           <Archive aria-hidden className="h-3 w-3" />
-          归档箱
-          {counts !== null && <span className="text-10 opacity-70" data-testid="inbox-archived-count">{counts.archived}</span>}
+          {translate(locale, "inbox.archive")}{counts !== null && <span className="text-10 opacity-70" data-testid="inbox-archived-count">{counts.archived}</span>}
         </button>
         <div className="relative ml-auto">
           <Search aria-hidden className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={queryInput}
             onChange={(e) => setQueryInput(e.target.value)}
-            placeholder="搜索标题或编号"
+            placeholder={translate(locale, "inbox.searchTitleOrID")}
             data-testid="inbox-search"
             className="h-8 w-56 pl-7 text-12"
           />
@@ -914,7 +914,7 @@ export function DesignLoopInboxScreen({
             selected={tagFilter === null ? [] : [tagFilter]}
             onChange={(next) => filterByTag(next[0] ?? null)}
             prefix="inbox"
-            business="收件箱"
+            business={translate(locale, "inbox.inbox")}
             mode="single"
             maxVisible={TAG_CHIP_LIMIT}
           />
@@ -923,30 +923,28 @@ export function DesignLoopInboxScreen({
 
       {items.length === 0 && !onlyExceptionsHidden && !archivedView ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-1 p-16 text-center" data-testid="empty">
-          <p className="text-14 font-medium">收件箱是空的</p>
+          <p className="text-14 font-medium">{translate(locale, "inbox.theInboxIsEmpty")}</p>
           <p className="text-12 text-muted-foreground">
-            {kindFilter !== "all" || query !== "" || tagFilter !== null ? "没有符合当前筛选的条目。" : "用户提交需求 / 缺陷反馈或推送设计方案后，都会汇总到这里；系统异常单独查看。"}
+            {kindFilter !== "all" || query !== "" || tagFilter !== null ? translate(locale, "inbox.noItemsMatchTheCurrentFilters") : translate(locale, "inbox.featureRequestsBugsAndSubmittedDesignsAppearHereView")}
           </p>
         </div>
       ) : visibleItems.length === 0 && !archivedView ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-1 p-16 text-center" data-testid="empty-hidden-exceptions">
-          <p className="text-14 font-medium">当前只有系统异常，已默认隐藏</p>
+          <p className="text-14 font-medium">{translate(locale, "inbox.onlySystemErrorsExistHiddenByDefault")}</p>
           <button
             type="button"
             className="text-12 text-primary underline underline-offset-2"
             onClick={() => setShowExceptionsInAll(true)}
             data-testid="inbox-empty-show-exceptions"
           >
-            显示系统异常
-          </button>
+            {translate(locale, "inbox.showSystemErrors")}</button>
         </div>
       ) : view === "board" && !archivedView ? (
         <div className="flex min-h-0 flex-1 flex-col">
           {/* B6.5 无障碍：拖拽的键盘替代说明（视觉隐藏）。每张卡片 aria-describedby 指到它——
               拖拽本身没有键盘等价操作，等价操作是「打开详情 → 操作按钮」，得告诉读屏用户去哪。 */}
           <p id="inbox-drag-hint" className="sr-only">
-            拖动卡片到另一列可以改变状态。键盘用户：按 Enter 或空格打开详情，详情里的操作按钮提供同样的状态迁移。
-          </p>
+            {translate(locale, "inbox.dragCardsBetweenColumnsToChangeStatusKeyboardUsers")}</p>
           {/* 2026-09-08 ②——看板容器 `min-h-0 flex-1` 吃满屏幕剩余高度，四列等高；**每一列自己滚动**
               （列头固定在列顶），卡片再多也只在列的底色范围内滚，不会堆出列外。
               B6.5 响应式（U8）：md 以下四列横向可滚（列容器自己 overflow-x-auto，页面不横向溢出），
@@ -976,7 +974,7 @@ export function DesignLoopInboxScreen({
                 <div
                   key={col}
                   role="group"
-                  aria-label={`${INBOX_STAGE_LABEL[col]}，${colCount} 条`}
+                  aria-label={translate(locale, "inbox.items", { v0: inboxStageLabel(col, locale), v1: colCount })}
                   data-testid={`inbox-column-${col}`}
                   onDragOver={(e) => {
                     e.preventDefault();
@@ -996,13 +994,13 @@ export function DesignLoopInboxScreen({
                   )}
                 >
                   <div className="flex shrink-0 items-center justify-between px-3 pb-1.5 pt-2.5">
-                    <span className="text-11 font-medium text-muted-foreground">{INBOX_STAGE_LABEL[col]}</span>
+                    <span className="text-11 font-medium text-muted-foreground">{inboxStageLabel(col, locale)}</span>
                     <span className="rounded-control bg-card px-1.5 py-0.5 text-10 text-muted-foreground" data-testid={`inbox-column-count-${col}`}>{colCount}</span>
                   </div>
                   <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2" data-testid={`inbox-column-body-${col}`}>
                     {colItems.length === 0 && (
                       <p className="rounded-card border border-dashed border-border-subtle px-2 py-4 text-center text-11 text-muted-foreground">
-                        {dragOver === col ? "松开放到这里" : "暂无条目"}
+                        {dragOver === col ? translate(locale, "inbox.dropHere") : translate(locale, "inbox.noItemsYet")}
                       </p>
                     )}
                     {colItems.map((item, idx) => (
@@ -1057,7 +1055,7 @@ export function DesignLoopInboxScreen({
         <InboxDrawer
           key={open.id} // B3.7：关联跳转换条目时整体重挂，不把上一条的理由/草稿状态带过去
           item={open}
-          actionError={dragError}
+          actionError={dragError?.render(locale)}
           onNavigateLink={navigateToLinked}
           busy={busyId === open.id}
           openDecline={openDeclineOnOpen}
@@ -1078,6 +1076,7 @@ export function DesignLoopInboxScreen({
 }
 
 function ViewToggle({ active, disabled, onClick, testid, icon: Icon, label }: { active: boolean; disabled?: boolean; onClick: () => void; testid: string; icon: typeof Columns3; label: string }) {
+  const { locale } = useI18n();
   return (
     <button
       type="button"
@@ -1085,7 +1084,7 @@ function ViewToggle({ active, disabled, onClick, testid, icon: Icon, label }: { 
       disabled={disabled}
       onClick={onClick}
       data-testid={testid}
-      title={disabled ? "归档箱只有列表视图" : undefined}
+      title={disabled ? translate(locale, "inbox.theArchiveHasAListViewOnly") : undefined}
       className={cn(
         "inline-flex items-center gap-1 rounded-control px-2 py-1 text-12 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground",
         active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted",
@@ -1119,6 +1118,7 @@ function BoardCard({
   /** 另一张卡片被拖到这张卡片上：同列 = 插到它前面（排序），跨列 = 触发状态迁移。 */
   onDropOnCard: (draggedId: string) => void;
 }) {
+  const { locale } = useI18n();
   /** B6.5：拖拽进行中的可访问状态（`aria-grabbed`，ARIA 1.1 起标记 deprecated 但仍是允许的全局属性，
    *  今天没有替代品能表达"正被抓起"；读屏用户看的是 `aria-describedby` 那句键盘替代说明）。 */
   const [grabbed, setGrabbed] = React.useState(false);
@@ -1165,7 +1165,7 @@ function BoardCard({
       <div className="absolute right-1.5 top-1.5 flex items-center gap-0.5 invisible transition-opacity duration-fast group-hover:visible group-focus:visible group-focus-within:visible">
         <button
           type="button"
-          aria-label="上移"
+          aria-label={translate(locale, "inbox.moveUp")}
           disabled={busy || !canMoveUp}
           data-testid={`inbox-card-move-up-${item.code}`}
           onClick={(e) => { e.stopPropagation(); onMoveUp(); }}
@@ -1175,7 +1175,7 @@ function BoardCard({
         </button>
         <button
           type="button"
-          aria-label="下移"
+          aria-label={translate(locale, "inbox.moveDown")}
           disabled={busy || !canMoveDown}
           data-testid={`inbox-card-move-down-${item.code}`}
           onClick={(e) => { e.stopPropagation(); onMoveDown(); }}

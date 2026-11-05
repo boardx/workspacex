@@ -1,9 +1,13 @@
 "use client";
+import { translate } from "@/lib/i18n/messages";
+import { useI18n } from "@/lib/i18n/provider";
+import { inboxStageLabel } from "@/lib/design-loop-display";
+
 import * as React from "react";
 import { Archive } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { INBOX_STAGE_LABEL, INBOX_STAGE_ORDER, type InboxItem, type InboxStage } from "@/lib/live-inbox";
+import { INBOX_STAGE_ORDER, type InboxItem, type InboxStage } from "@/lib/live-inbox";
 import { GithubBadge, SevereBadge } from "./badges";
 import {
   CardMeta, ExceptionRecurrence, HIGHLIGHT_CLASS, ItemStatusBadge, KindLabel, LoadMoreBar, QuickActionMenu,
@@ -48,9 +52,10 @@ export function InboxListView({
   loadingMore: boolean;
   onLoadMore: () => void;
 }) {
+  const { locale } = useI18n();
   const subFilters: { value: StageFilter; label: string }[] = [
-    { value: "all", label: "全部" },
-    ...INBOX_STAGE_ORDER.map((s) => ({ value: s as StageFilter, label: INBOX_STAGE_LABEL[s] })),
+    { value: "all", label: translate(locale, "inbox.all") },
+    ...INBOX_STAGE_ORDER.map((s) => ({ value: s as StageFilter, label: inboxStageLabel(s, locale) })),
   ];
   return (
     <div className="flex flex-1 flex-col overflow-hidden" data-testid="inbox-list">
@@ -58,10 +63,9 @@ export function InboxListView({
         {archivedView ? (
           <p className="flex items-center gap-1.5 text-11 text-muted-foreground" data-testid="inbox-archived-hint">
             <Archive aria-hidden className="h-3.5 w-3.5" />
-            归档箱：已归档的反馈离开看板后都在这里，可随时「重新打开」回到待处理。
-          </p>
+            {translate(locale, "inbox.archivedFeedbackAppearsHereAfterLeavingTheBoardReopen")}</p>
         ) : (
-          <div className="inline-flex items-center gap-0.5 rounded-control bg-panel p-0.5" role="group" aria-label="状态筛选">
+          <div className="inline-flex items-center gap-0.5 rounded-control bg-panel p-0.5" role="group" aria-label={translate(locale, "inbox.filterByStatus")}>
             {subFilters.map((f) => (
               <button
                 key={f.value}
@@ -79,7 +83,7 @@ export function InboxListView({
             ))}
           </div>
         )}
-        <span className="text-11 text-muted-foreground" data-testid="inbox-list-count">{items.length} 条</span>
+        <span className="text-11 text-muted-foreground" data-testid="inbox-list-count">{items.length} {translate(locale, "inbox.items2")}</span>
       </div>
       {/* B6.5（U8）：宽表格在 375 下横向可滚是设计，不让单元格挤成一字一行。 */}
       <div className="flex-1 overflow-y-auto overflow-x-auto" data-allow-x-scroll="列表视图的宽表格在窄视口横向滚动是设计">
@@ -94,12 +98,12 @@ export function InboxListView({
           </colgroup>
           <thead className="sticky top-0 z-10 bg-panel">
             <tr className="border-b border-border text-left text-10 font-medium text-muted-foreground">
-              <th className="px-4 py-2">状态</th>
-              <th className="px-3 py-2">条目</th>
-              <th className="px-3 py-2">类型</th>
+              <th className="px-4 py-2">{translate(locale, "inbox.status")}</th>
+              <th className="px-3 py-2">{translate(locale, "inbox.item")}</th>
+              <th className="px-3 py-2">{translate(locale, "inbox.type")}</th>
               <th className="px-3 py-2">GitHub</th>
-              <th className="px-3 py-2 text-right">次数 / 时间</th>
-              <th className="px-2 py-2" aria-label="操作" />
+              <th className="px-3 py-2 text-right">{translate(locale, "inbox.occurrencesTime")}</th>
+              <th className="px-2 py-2" aria-label={translate(locale, "inbox.actions")} />
             </tr>
           </thead>
           <tbody>
@@ -108,10 +112,10 @@ export function InboxListView({
               const timeCell =
                 item.kind === "exception" && item.exception !== null ? (
                   <>
-                    <span className="font-medium text-card-foreground">{item.exception.count} 次</span>
+                    <span className="font-medium text-card-foreground">{item.exception.count} {translate(locale, "inbox.occurrences")}</span>
                     {item.exception.count > 1 && (
-                      <span className="block text-10" title={new Date(item.exception.lastSeenAt).toLocaleString("zh-CN")}>
-                        最近 {formatRelative(item.exception.lastSeenAt)}
+                      <span className="block text-10" title={new Date(item.exception.lastSeenAt).toLocaleString(locale)}>
+                        {translate(locale, "inbox.last")} {formatRelative(item.exception.lastSeenAt, undefined, locale)}
                       </span>
                     )}
                   </>
@@ -121,7 +125,7 @@ export function InboxListView({
                    * 普通反馈却是 `toLocaleDateString`（「2026/9/4」）。并排放着，后者既读不出
                    * 新旧、也和前者对不上。统一走同一个函数。
                    */
-                  <span title={new Date(item.createdAt).toLocaleString("zh-CN")}>{formatRelative(item.createdAt)}</span>
+                  <span title={new Date(item.createdAt).toLocaleString(locale)}>{formatRelative(item.createdAt, undefined, locale)}</span>
                 );
               return (
                 <tr
@@ -198,20 +202,19 @@ export function InboxListView({
           <div className="flex flex-col items-center gap-2 p-8 text-center" data-testid="inbox-list-empty-box">
             <p className="text-12 text-muted-foreground" data-testid="inbox-list-empty">
               {archivedView
-                ? "归档箱是空的——在「已完成」或「不做」的反馈上选「归档」即可把它收进来。"
+                ? translate(locale, "inbox.theArchiveIsEmptyArchiveCompletedOrWonT")
                 /*
                  * 迭代 36：原文只说「没有符合当前筛选的条目」，既不说是**哪一层**筛掉的，
                  * 也不给出路。工作台首屏在第 2 轮学过这一课（说清被筛掉了 + 一个能点的清除），
                  * 这一屏没跟上。状态分段是这里唯一能一键退回的那一层，就从它说起。
                  */
                 : stageFilter === "all"
-                  ? "没有符合当前筛选的条目。换个关键词或类型试试。"
-                  : `「${INBOX_STAGE_LABEL[stageFilter]}」这一档里没有条目——其它档里可能有。`}
+                  ? translate(locale, "inbox.noItemsMatchTheseFiltersTryAnotherKeywordOr")
+                  : translate(locale, "inbox.noItemsInOtherStagesMayContainItems", { v0: inboxStageLabel(stageFilter, locale) })}
             </p>
             {!archivedView && stageFilter !== "all" && (
               <Button size="sm" variant="outline" onClick={() => onStageFilter("all")} data-testid="inbox-list-empty-clear">
-                看全部
-              </Button>
+                {translate(locale, "inbox.viewAll")}</Button>
             )}
           </div>
         )}

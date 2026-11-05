@@ -1,4 +1,9 @@
 "use client";
+import type { Locale } from "@/lib/i18n/locale";
+import { translate } from "@/lib/i18n/messages";
+import { useI18n } from "@/lib/i18n/provider";
+import { inboxKindLabel, feedbackKindLabel, inboxSourceStatusLabel, type InboxMessage } from "@/lib/design-loop-display";
+
 import * as React from "react";
 import { feedbackGithubLabels } from "@repo/contracts/feedback-tags";
 import { TagInput, commitDraft } from "@/components/ui/tag-input";
@@ -8,7 +13,7 @@ const EMPTY_KNOWN_TAGS: ReadonlyMap<string, number> = new Map();
 import { X, Sparkles, Play, Check, Undo2, Ban, Loader2, Github, Paperclip, MessageSquare, Mail, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { INBOX_KIND_LABEL, type InboxGithubRef, type InboxItem, type InboxStage } from "@/lib/live-inbox";
+import { type InboxGithubRef, type InboxItem, type InboxStage } from "@/lib/live-inbox";
 import {
   listFeedbackStatusEvents,
   getFeedbackGithubIssue,
@@ -19,7 +24,7 @@ import {
   type FeedbackIssueDraft,
   type GithubIssueComment,
 } from "@/lib/live-feedback";
-import { STRUCTURED_FIELDS, FeedbackStructuredView } from "@/components/feedback/feedback-structured";
+import { STRUCTURED_FIELDS, feedbackStructuredFieldLabel, FeedbackStructuredView } from "@/components/feedback/feedback-structured";
 import { GithubBadge, SevereBadge } from "./badges";
 import { useDialogFocus } from "./use-dialog-focus";
 import { CardMeta, ItemStatusBadge, KindLabel, describeFailure, formatRelative, type NavigateLink } from "./inbox-shared";
@@ -38,16 +43,16 @@ import { buildDesignDocMarkdown } from "@/lib/design-doc-markdown";
 
 
 /** 附件 MIME → 人能看的类型名（表单附件清单 + issue 正文附件清单共用）。 */
-const ATTACHMENT_MIME_LABEL: Record<string, string> = {
-  "image/png": "PNG 图片",
-  "image/jpeg": "JPEG 图片",
-  "image/webp": "WebP 图片",
+function attachmentMimeLabels(locale: Locale): Record<string, string> { return {
+  "image/png": translate(locale, "inbox.pngImage"),
+  "image/jpeg": translate(locale, "inbox.jpegImage"),
+  "image/webp": translate(locale, "inbox.webpImage"),
   "application/pdf": "PDF",
-  "text/plain": "文本",
+  "text/plain": translate(locale, "inbox.text"),
   "text/markdown": "Markdown",
-};
-function attachmentLabel(mime: string): string {
-  return ATTACHMENT_MIME_LABEL[mime] ?? mime;
+}; }
+function attachmentLabel(mime: string, locale: Locale = "zh-CN"): string {
+  return attachmentMimeLabels(locale)[mime] ?? mime;
 }
 
 /**
@@ -58,39 +63,39 @@ function attachmentLabel(mime: string): string {
  * GitHub 并把图片 `![]()` / 文件链接追加到正文末尾，这里不编造一个前端拿不到的公开 URL。
  * `inboxUrl`：当前页面 `?open=<id>`，让 issue 里的人能一键回到这条反馈；SSR/测试没有 `window` 时省略。
  */
-export function buildInboxIssueDraft(item: InboxItem): FeedbackIssueDraft {
+export function buildInboxIssueDraft(item: InboxItem, locale: Locale = "zh-CN"): FeedbackIssueDraft {
   // GitHub 正文是 Markdown，这里的加粗是给 GitHub 渲染的，不是 JSX 文案（lint-design 的 MD 规则只盯 JSX）。
   const B = "**";
   const bold = (t: string) => `${B}${t}${B}`;
   const lines: string[] = [];
-  const detail = item.body ?? "(正文仅组织管理员与提交人可见，分诊时请补充必要的复现上下文。)";
+  const detail = item.body ?? translate(locale, "inbox.onlyOrganizationAdminsAndTheSubmitterCanReadThe2");
   lines.push(detail.trim(), "");
   if (item.feedbackKind !== null && item.structured != null) {
     const rows = STRUCTURED_FIELDS[item.feedbackKind]
       .map((f) => ({ f, v: (item.structured as Record<string, string | undefined>)[f.key] }))
       .filter((x): x is { f: (typeof STRUCTURED_FIELDS)[typeof item.feedbackKind][number]; v: string } => typeof x.v === "string" && x.v.trim() !== "");
     if (rows.length > 0) {
-      lines.push("### 结构化信息");
-      for (const { f, v } of rows) lines.push(f.multiline ? `${bold(f.label)}\n${v.trim()}\n` : `- ${bold(f.label)}：${v.trim()}`);
+      lines.push(translate(locale, "inbox.structuredInformation"));
+      for (const { f, v } of rows) lines.push(f.multiline ? `${bold(feedbackStructuredFieldLabel(f, locale))}\n${v.trim()}\n` : `- ${bold(feedbackStructuredFieldLabel(f, locale))}：${v.trim()}`);
       lines.push("");
     }
   }
-  lines.push("### 反馈信息");
-  lines.push(`- ${bold("编号")}：${item.code}`);
-  lines.push(`- ${bold("类型")}：${item.feedbackKind ?? INBOX_KIND_LABEL[item.kind]}`);
-  lines.push(`- ${bold("提交人")}：${item.reporter ?? "（不可见）"}`);
-  lines.push(`- ${bold("提交时间")}：${new Date(item.createdAt).toLocaleString("zh-CN")}`);
-  lines.push(`- ${bold("票数")}：${item.votes}`);
-  lines.push(`- ${bold("当前状态")}：${item.sourceStatus}`);
+  lines.push(translate(locale, "inbox.feedbackInformation"));
+  lines.push(`- ${bold(translate(locale, "inbox.id"))}：${item.code}`);
+  lines.push(`- ${bold(translate(locale, "inbox.type"))}：${item.feedbackKind !== null ? feedbackKindLabel(item.feedbackKind, locale) : inboxKindLabel(item.kind, locale)}`);
+  lines.push(`- ${bold(translate(locale, "inbox.submitter"))}：${item.reporter ?? translate(locale, "inbox.notVisible")}`);
+  lines.push(`- ${bold(translate(locale, "inbox.submittedAt"))}：${new Date(item.createdAt).toLocaleString(locale)}`);
+  lines.push(`- ${bold(translate(locale, "inbox.votes"))}：${item.votes}`);
+  lines.push(`- ${bold(translate(locale, "inbox.currentStatus"))}：${inboxSourceStatusLabel(item.sourceStatus, locale)}`);
   if (item.attachments.length > 0) {
-    lines.push("", `### 附件（${item.attachments.length} 个，随 issue 上传）`);
-    for (const a of item.attachments) lines.push(`- ${attachmentLabel(a.mime)} · ${a.id}`);
+    lines.push("", translate(locale, "inbox.attachmentsUploadedWithTheIssue", { v0: item.attachments.length }));
+    for (const a of item.attachments) lines.push(`- ${attachmentLabel(a.mime, locale)} · ${a.id}`);
   }
   const inboxUrl =
     typeof window !== "undefined" && window.location !== undefined
       ? `${window.location.origin}${window.location.pathname}?open=${encodeURIComponent(item.id)}`
       : null;
-  lines.push("", "---", `来源：运营收件箱 · 反馈 ID ${item.id}${inboxUrl !== null ? ` · ${inboxUrl}` : ""}`);
+  lines.push("", "---", translate(locale, "inbox.sourceOperationsInboxFeedbackID", { v0: item.id, v1: inboxUrl !== null ? ` · ${inboxUrl}` : "" }));
   return {
     title: item.title,
     body: lines.join("\n"),
@@ -109,25 +114,25 @@ export function buildInboxIssueDraft(item: InboxItem): FeedbackIssueDraft {
  * 收件箱的 design 投影带完整项目，草稿附上逐页设计文档；完整源代码与设计数据
  * 可从排期详情下载。老条目没有 design 时保留回链提示。
  */
-export function buildDesignIssueDraft(item: InboxItem): FeedbackIssueDraft {
+export function buildDesignIssueDraft(item: InboxItem, locale: Locale = "zh-CN"): FeedbackIssueDraft {
   const B = "**";
   const bold = (t: string) => `${B}${t}${B}`;
   const lines: string[] = [];
-  lines.push(item.body ?? "（这个方案没有填写背景说明。）", "");
-  lines.push("### 方案信息");
-  lines.push(`- ${bold("编号")}：${item.code}`);
-  lines.push(`- ${bold("负责人")}：${item.reporter ?? "（不可见）"}`);
-  lines.push(`- ${bold("创建时间")}：${new Date(item.createdAt).toLocaleString("zh-CN")}`);
-  if (item.linkedFeedbackId !== null) lines.push(`- ${bold("源自反馈")}：${item.linkedFeedbackId}`);
+  lines.push(item.body ?? translate(locale, "inbox.noBackgroundProvidedForThisDesign"), "");
+  lines.push(translate(locale, "inbox.designInformation"));
+  lines.push(`- ${bold(translate(locale, "inbox.id"))}：${item.code}`);
+  lines.push(`- ${bold(translate(locale, "inbox.owner"))}：${item.reporter ?? translate(locale, "inbox.notVisible")}`);
+  lines.push(`- ${bold(translate(locale, "inbox.createdAt"))}：${new Date(item.createdAt).toLocaleString(locale)}`);
+  if (item.linkedFeedbackId !== null) lines.push(`- ${bold(translate(locale, "inbox.fromFeedback"))}：${item.linkedFeedbackId}`);
   const inboxUrl =
     typeof window !== "undefined" && window.location !== undefined
       ? `${window.location.origin}${window.location.pathname}?open=${encodeURIComponent(item.id)}`
       : null;
   if (item.design !== undefined) {
-    lines.push("", "### 完整设计交付", "", buildDesignDocMarkdown(item.design));
-    lines.push("", "完整 HTML、组件树、图片与设计参数可在下方开发排期链接的设计详情中下载完整设计包（JSON）。");
-  } else lines.push("", "验收标准与原型画布页见方案详情页（下方链接）。");
-  lines.push("", "---", `来源：PM 设计工作台 · 方案 ID ${item.id}${inboxUrl !== null ? ` · ${inboxUrl}` : ""}`);
+    lines.push("", translate(locale, "inbox.completeDesignHandoff"), "", buildDesignDocMarkdown(item.design, new Date(), locale));
+    lines.push("", translate(locale, "inbox.downloadTheCompleteDesignPackageJSONIncludingHTMLComponent"));
+  } else lines.push("", translate(locale, "inbox.seeDesignDetailsLinkBelowForAcceptanceCriteriaAnd"));
+  lines.push("", "---", translate(locale, "inbox.sourcePMDesignWorkbenchDesignID", { v0: item.id, v1: inboxUrl !== null ? ` · ${inboxUrl}` : "" }));
   return { title: item.title, body: lines.join("\n"), labels: ["design-handoff"] };
 }
 
@@ -136,7 +141,7 @@ export function buildDesignIssueDraft(item: InboxItem): FeedbackIssueDraft {
  * 保持空白（每条反馈的「不做」理由都该是具体的、针对这条反馈的），只给系统异常
  * 一个可编辑的默认模板，省下"每次现想怎么写"这一步，不是不让改。
  */
-const DEFAULT_EXCEPTION_DECLINE_REASON = "系统自动生成的异常，评估后判定为已知噪音或不影响用户的低优先级问题，本轮不做单独处理。";
+function defaultExceptionDeclineReason(locale: Locale) { return translate(locale, "inbox.thisAutomaticallyGeneratedErrorWasAssessedAsKnownNoise"); }
 
 /**
  * drawer 现查回来的 GitHub 状态换算成要展示的徽标——契约头注的派生规则（`inbox.ts`
@@ -190,8 +195,9 @@ export function InboxDrawer({
   /** 2026-09-08——点 drawer 里的标签 ⇒ 关掉 drawer 按它筛选。 */
   onFilterTag: (tag: string) => void;
 }) {
+  const { locale } = useI18n();
   const [declining, setDeclining] = React.useState(openDecline);
-  const [reason, setReason] = React.useState(item.kind === "exception" ? DEFAULT_EXCEPTION_DECLINE_REASON : "");
+  const [reason, setReason] = React.useState(item.kind === "exception" ? defaultExceptionDeclineReason(locale) : "");
   const canConfirm = reason.trim() !== "";
   const canDeepen = item.kind === "feedback" && (item.stage === "backlog" || item.stage === "doing") && item.resolvedByDesignId === null;
   /** 见文件头：转入开发要先建 issue，只对 `backlog` 且尚无 issue 的反馈成立（`doing → doing` 不会建 issue）。 */
@@ -234,7 +240,7 @@ export function InboxDrawer({
     item.github === null ? null : githubCheck.kind === "ready" ? upgradeGithubBadge(githubCheck.status) : item.github;
 
   const [issueDraft, setIssueDraft] = React.useState<FeedbackIssueDraft | null>(() =>
-    openIssueForm && needsIssueBeforeDoing ? buildInboxIssueDraft(item) : null,
+    openIssueForm && needsIssueBeforeDoing ? buildInboxIssueDraft(item, locale) : null,
   );
   /**
    * ⚠ 草稿初值必须是空串。旧版这里是 `labels.join(", ")`，因为那时标签就是这个文本框的
@@ -243,7 +249,7 @@ export function InboxDrawer({
    */
   const [labelsText, setLabelsText] = React.useState("");
   const openIssueDraftForm = () => {
-    const draft = item.kind === "design" ? buildDesignIssueDraft(item) : buildInboxIssueDraft(item);
+    const draft = item.kind === "design" ? buildDesignIssueDraft(item, locale) : buildInboxIssueDraft(item, locale);
     setIssueDraft(draft);
     setLabelsText("");
   };
@@ -254,7 +260,7 @@ export function InboxDrawer({
   >(githubPresent ? { kind: "loading" } : { kind: "n/a" });
   const [commentBody, setCommentBody] = React.useState("");
   const [commentBusy, setCommentBusy] = React.useState(false);
-  const [commentError, setCommentError] = React.useState<string | null>(null);
+  const [commentError, setCommentError] = React.useState<InboxMessage | null>(null);
   const loadComments = React.useCallback(async () => {
     setComments({ kind: "loading" });
     try {
@@ -286,7 +292,7 @@ export function InboxDrawer({
       setCommentBody("");
       await loadComments();
     } catch (err) {
-      setCommentError(`评论没发出去（${describeFailure(err)}）`);
+      setCommentError({ render: (locale: Locale) => translate(locale, "inbox.couldNotPostComment", { v0: describeFailure(err, locale) }) });
     } finally {
       setCommentBusy(false);
     }
@@ -319,7 +325,7 @@ export function InboxDrawer({
             </div>
             <h3 className="mt-1.5 text-16 font-semibold leading-snug">{item.title}</h3>
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose} aria-label="关闭详情" data-testid="inbox-drawer-close">
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label={translate(locale, "inbox.closeDetails")} data-testid="inbox-drawer-close">
             <X aria-hidden className="h-4 w-4" />
           </Button>
         </header>
@@ -327,8 +333,7 @@ export function InboxDrawer({
         <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-4">
           {item.body === null ? (
             <p className="whitespace-pre-wrap text-13 italic text-muted-foreground" data-testid="inbox-drawer-body-withheld">
-              正文仅组织管理员与提交人可见。
-            </p>
+              {translate(locale, "inbox.onlyOrganizationAdminsAndTheSubmitterCanReadThe")}</p>
           ) : (
             <p className="whitespace-pre-wrap text-13 text-card-foreground">{item.body}</p>
           )}
@@ -345,17 +350,17 @@ export function InboxDrawer({
           <dl className="grid grid-cols-2 gap-2 text-11">
             {item.kind === "exception" ? (
               <>
-                <Meta label="发生位置" value={item.exception?.location ?? "—"} />
-                <Meta label="发生次数" value={`${item.exception?.count ?? 0} 次`} />
-                <Meta label="首次发生" value={new Date(item.createdAt).toLocaleString("zh-CN")} />
-                <Meta label="最近发生" value={item.exception !== null ? new Date(item.exception.lastSeenAt).toLocaleString("zh-CN") : "—"} />
-                <Meta label="影响用户" value={item.exception?.affectedUsers !== null && item.exception?.affectedUsers !== undefined ? `${item.exception.affectedUsers} 人` : "—"} />
+                <Meta label={translate(locale, "inbox.location")} value={item.exception?.location ?? "—"} />
+                <Meta label={translate(locale, "inbox.occurrences3")} value={translate(locale, "inbox.occurrences2", { v0: item.exception?.count ?? 0 })} />
+                <Meta label={translate(locale, "inbox.firstSeen")} value={new Date(item.createdAt).toLocaleString(locale)} />
+                <Meta label={translate(locale, "inbox.lastSeen")} value={item.exception !== null ? new Date(item.exception.lastSeenAt).toLocaleString(locale) : "—"} />
+                <Meta label={translate(locale, "inbox.affectedUsers")} value={item.exception?.affectedUsers !== null && item.exception?.affectedUsers !== undefined ? translate(locale, "inbox.people", { v0: item.exception.affectedUsers }) : "—"} />
               </>
             ) : (
               <>
-                <Meta label="提交人" value={item.reporter ?? "—"} />
-                <Meta label="提交时间" value={new Date(item.createdAt).toLocaleString("zh-CN")} />
-                <Meta label="票数" value={String(item.votes)} />
+                <Meta label={translate(locale, "inbox.submitter")} value={item.reporter ?? "—"} />
+                <Meta label={translate(locale, "inbox.submittedAt")} value={new Date(item.createdAt).toLocaleString(locale)} />
+                <Meta label={translate(locale, "inbox.votes")} value={String(item.votes)} />
               </>
             )}
           </dl>
@@ -381,14 +386,13 @@ export function InboxDrawer({
             )}
             {githubCheck.kind === "failed" && (
               <span className="text-10 text-muted-foreground" data-testid="inbox-drawer-github-check-failed">
-                GitHub 状态现查失败，显示为列表推断值
-              </span>
+                {translate(locale, "inbox.couldNotRefreshGitHubStatusShowingTheListS")}</span>
             )}
           </div>
 
           {/* 2026-09-08——标签，三类统一（契约 `InboxItem.tags`）。同一份编辑器也挂在卡片上。 */}
           <div className="rounded-card border border-border-subtle bg-panel p-2.5">
-            <p className="mb-1 text-10 font-medium text-muted-foreground">标签</p>
+            <p className="mb-1 text-10 font-medium text-muted-foreground">{translate(locale, "inbox.tags")}</p>
             <TagEditor tags={item.tags} onChange={onSaveTags} onFilter={onFilterTag} busy={busy} testidPrefix="inbox-drawer" />
           </div>
 
@@ -398,14 +402,13 @@ export function InboxDrawer({
             <div data-testid="inbox-drawer-occurrences">
               <p className="mb-1.5 flex items-center gap-1 text-10 font-medium text-muted-foreground">
                 <History aria-hidden className="h-3 w-3" />
-                发生记录（共 {item.exception.count} 次
-                {item.exception.count > item.exception.occurrences.length ? `，显示最近 ${item.exception.occurrences.length} 次` : ""}）
+                {translate(locale, "inbox.occurrenceHistoryTotal")} {item.exception.count} {translate(locale, "inbox.occurrences")}{item.exception.count > item.exception.occurrences.length ? translate(locale, "inbox.showingTheLatest", { v0: item.exception.occurrences.length }) : ""}）
               </p>
               <ol className="flex flex-col gap-1 border-l border-border pl-3 text-11">
                 {item.exception.occurrences.map((at, i) => (
                   <li key={`${at}-${i}`} className="flex items-baseline gap-1.5">
-                    <span className="text-card-foreground">{new Date(at).toLocaleString("zh-CN")}</span>
-                    <span className="text-muted-foreground">{formatRelative(at)}</span>
+                    <span className="text-card-foreground">{new Date(at).toLocaleString(locale)}</span>
+                    <span className="text-muted-foreground">{formatRelative(at, undefined, locale)}</span>
                   </li>
                 ))}
               </ol>
@@ -414,7 +417,7 @@ export function InboxDrawer({
 
           {item.statusReason !== null && (
             <div className="rounded-card border border-border-subtle bg-panel p-2.5" data-testid="inbox-drawer-reason">
-              <p className="text-10 font-medium text-muted-foreground">不做的理由</p>
+              <p className="text-10 font-medium text-muted-foreground">{translate(locale, "inbox.reasonForWonTDo")}</p>
               <p className="mt-0.5 text-12">{item.statusReason}</p>
             </div>
           )}
@@ -429,20 +432,19 @@ export function InboxDrawer({
           {/* 时间线：仅反馈有对应源操作（见文件头），系统异常今天没有等价接口。 */}
           {item.kind === "feedback" && (
             <div>
-              <p className="mb-1.5 text-10 font-medium text-muted-foreground">时间线</p>
-              {events.kind === "loading" && <p className="text-11 text-muted-foreground">读取中…</p>}
-              {events.kind === "failed" && <p className="text-11 text-muted-foreground" data-testid="inbox-drawer-timeline-failed">时间线没读到，稍后重试。</p>}
+              <p className="mb-1.5 text-10 font-medium text-muted-foreground">{translate(locale, "inbox.timeline")}</p>
+              {events.kind === "loading" && <p className="text-11 text-muted-foreground">{translate(locale, "inbox.loading")}</p>}
+              {events.kind === "failed" && <p className="text-11 text-muted-foreground" data-testid="inbox-drawer-timeline-failed">{translate(locale, "inbox.couldNotLoadTheTimelineTryAgainLater")}</p>}
               {events.kind === "ready" && (
                 <ol className="flex flex-col gap-2 border-l border-border pl-3" data-testid="inbox-drawer-timeline">
-                  {events.items.length === 0 && <li className="text-11 text-muted-foreground">还没有状态变更记录。</li>}
+                  {events.items.length === 0 && <li className="text-11 text-muted-foreground">{translate(locale, "inbox.noStatusChangesYet")}</li>}
                   {events.items.map((e, i) => (
                     <li key={i} className="text-11">
-                      <span className="text-card-foreground">{e.toStatus}</span>
-                      <span className="ml-1.5 text-muted-foreground">{new Date(e.createdAt).toLocaleDateString("zh-CN")}</span>
+                      <span className="text-card-foreground">{inboxSourceStatusLabel(e.toStatus, locale)}</span>
+                      <span className="ml-1.5 text-muted-foreground">{new Date(e.createdAt).toLocaleDateString(locale)}</span>
                       {e.notified && (
                         <span className="ml-1.5 inline-flex items-center gap-0.5 text-muted-foreground" title={e.emailSubject ?? undefined} data-testid="inbox-drawer-timeline-notified">
-                          <Mail aria-hidden className="h-3 w-3" /> 已邮件通知提交人
-                        </span>
+                          <Mail aria-hidden className="h-3 w-3" /> {translate(locale, "inbox.submitterNotifiedByEmail")}</span>
                       )}
                     </li>
                   ))}
@@ -455,23 +457,22 @@ export function InboxDrawer({
           {comments.kind !== "n/a" && (
             <div data-testid="inbox-github-comments">
               <p className="mb-1.5 flex items-center gap-1 text-10 font-medium text-muted-foreground">
-                <MessageSquare aria-hidden className="h-3 w-3" /> GitHub Issue 评论
-              </p>
-              {comments.kind === "loading" && <p className="text-11 text-muted-foreground">读取中…</p>}
+                <MessageSquare aria-hidden className="h-3 w-3" /> {translate(locale, "inbox.githubIssueComments")}</p>
+              {comments.kind === "loading" && <p className="text-11 text-muted-foreground">{translate(locale, "inbox.loading")}</p>}
               {comments.kind === "failed" && (
                 <p className="text-11 text-muted-foreground" data-testid="inbox-github-comments-failed">
-                  评论没读到。<button type="button" className="underline underline-offset-2" onClick={() => void loadComments()}>重试</button>
+                  {translate(locale, "inbox.couldNotLoadComments")}<button type="button" className="underline underline-offset-2" onClick={() => void loadComments()}>{translate(locale, "inbox.retry")}</button>
                 </p>
               )}
               {comments.kind === "ready" && (
                 <ol className="flex flex-col gap-2" data-testid="inbox-github-comments-list">
-                  {comments.items.length === 0 && <li className="text-11 text-muted-foreground">issue 下还没有评论。</li>}
+                  {comments.items.length === 0 && <li className="text-11 text-muted-foreground">{translate(locale, "inbox.noCommentsOnThisIssueYet")}</li>}
                   {comments.items.map((c) => (
                     <li key={c.id} className="rounded-card border border-border-subtle bg-panel p-2" data-testid={`inbox-github-comment-${c.id}`}>
                       <div className="flex items-center justify-between gap-2 text-10 text-muted-foreground">
-                        <span>{c.author ?? "（未知账号）"}</span>
+                        <span>{c.author ?? translate(locale, "inbox.unknownAccount")}</span>
                         <a href={c.url} target="_blank" rel="noopener noreferrer" className="underline-offset-2 transition-colors duration-fast hover:text-card-foreground hover:underline">
-                          {new Date(c.createdAt).toLocaleString("zh-CN")}
+                          {new Date(c.createdAt).toLocaleString(locale)}
                         </a>
                       </div>
                       <p className="mt-1 whitespace-pre-wrap break-words text-12 text-card-foreground">{c.body}</p>
@@ -485,11 +486,11 @@ export function InboxDrawer({
                   onChange={(e) => setCommentBody(e.target.value)}
                   rows={2}
                   maxLength={4000}
-                  placeholder="在 GitHub issue 下发一条评论…"
-                  aria-label="GitHub issue 评论"
+                  placeholder={translate(locale, "inbox.postACommentOnTheGitHubIssue")}
+                  aria-label={translate(locale, "inbox.githubIssueComment")}
                   data-testid="inbox-github-comment-input"
                 />
-                {commentError !== null && <p className="text-10 text-destructive" data-testid="inbox-github-comment-error">{commentError}</p>}
+                {commentError !== null && <p className="text-10 text-destructive" data-testid="inbox-github-comment-error">{commentError.render(locale)}</p>}
                 <div className="flex justify-end">
                   <Button
                     variant="outline"
@@ -499,8 +500,7 @@ export function InboxDrawer({
                     data-testid="inbox-github-comment-submit"
                   >
                     {commentBusy && <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />}
-                    发评论
-                  </Button>
+                    {translate(locale, "inbox.postComment")}</Button>
                 </div>
               </div>
             </div>
@@ -513,22 +513,21 @@ export function InboxDrawer({
           {issueDraft !== null ? (
             <div className="flex flex-col gap-1.5" data-testid="inbox-issue-form">
               <p className="text-11 font-medium text-muted-foreground">
-                转入开发会同时在 boardx/workspacex 建一个 GitHub issue，请确认内容后提交（可编辑）：
-              </p>
+                {translate(locale, "inbox.sendingToDevelopmentAlsoCreatesAGitHubIssueIn")}</p>
               {/* 附件清单只对反馈有意义：设计方案没有附件这个概念（`design_projects` 没有附件表）。 */}
               {item.kind !== "design" && (
               <div className="rounded-card border border-border-subtle bg-panel p-2 text-11" data-testid="inbox-issue-attachments">
                 <p className="flex items-center gap-1 font-medium text-muted-foreground">
                   <Paperclip aria-hidden className="h-3 w-3" />
                   {item.attachments.length === 0
-                    ? "这条反馈没有附件。"
-                    : `${item.attachments.length} 个附件将随 issue 上传到 GitHub：`}
+                    ? translate(locale, "inbox.thisFeedbackHasNoAttachments")
+                    : translate(locale, "inbox.attachmentsWillBeUploadedToGitHubWithTheIssue", { v0: item.attachments.length })}
                 </p>
                 {item.attachments.length > 0 && (
                   <ul className="mt-1 flex flex-col gap-0.5 text-muted-foreground">
                     {item.attachments.map((a) => (
                       <li key={a.id} className="font-mono text-10" data-testid={`inbox-issue-attachment-${a.id}`}>
-                        {attachmentLabel(a.mime)} · {a.id}
+                        {attachmentLabel(a.mime, locale)} · {a.id}
                       </li>
                     ))}
                   </ul>
@@ -536,7 +535,7 @@ export function InboxDrawer({
               </div>
               )}
               <label className="flex flex-col gap-1">
-                <span className="text-10 text-muted-foreground">标题</span>
+                <span className="text-10 text-muted-foreground">{translate(locale, "feedbackOverlay.review.title")}</span>
                 <input
                   value={issueDraft.title}
                   onChange={(e) => setIssueDraft({ ...issueDraft, title: e.target.value })}
@@ -545,7 +544,7 @@ export function InboxDrawer({
                 />
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-10 text-muted-foreground">正文</span>
+                <span className="text-10 text-muted-foreground">{translate(locale, "inbox.body")}</span>
                 <Textarea
                   value={issueDraft.body}
                   onChange={(e) => setIssueDraft({ ...issueDraft, body: e.target.value })}
@@ -554,7 +553,7 @@ export function InboxDrawer({
                 />
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-10 text-muted-foreground">标签</span>
+                <span className="text-10 text-muted-foreground">{translate(locale, "inbox.tags")}</span>
                 {/* 与模板库、设计工作台同一个 `TagInput`（2026-09-09「统一体验」）。 */}
                 <TagInput
                   value={issueDraft.labels}
@@ -563,11 +562,11 @@ export function InboxDrawer({
                   draft={labelsText}
                   onDraftChange={setLabelsText}
                   testIdPrefix="inbox-issue-labels"
-                  emptyHint="输入标签，回车确认"
+                  emptyHint={translate(locale, "inbox.enterATagAndPressEnter")}
                 />
               </label>
               <div className="flex justify-end gap-2">
-                <Button variant="ghost" size="sm" onClick={() => { setIssueDraft(null); setLabelsText(""); }}>取消</Button>
+                <Button variant="ghost" size="sm" onClick={() => { setIssueDraft(null); setLabelsText(""); }}>{translate(locale, "feedbackOverlay.cancel")}</Button>
                 <Button
                   variant="primary"
                   size="sm"
@@ -576,25 +575,23 @@ export function InboxDrawer({
                   data-testid="inbox-issue-submit"
                 >
                   {busy && <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />}
-                  确认转入开发，创建 issue
-                </Button>
+                  {translate(locale, "inbox.confirmDevelopmentAndCreateIssue")}</Button>
               </div>
             </div>
           ) : declining ? (
             <div className="flex flex-col gap-2" data-testid="inbox-decline-form">
               <label htmlFor="inbox-decline-reason" className="text-11 font-medium text-muted-foreground">
-                为什么不做？理由会记入时间线，团队以后能查到。
-              </label>
+                {translate(locale, "inbox.whyWonTThisBeDoneTheReasonIs")}</label>
               <Textarea
                 id="inbox-decline-reason"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 rows={3}
-                placeholder="例如：与即将上线的能力重叠，本轮不单独做。"
+                placeholder={translate(locale, "inbox.forExampleOverlapsWithAnUpcomingCapabilityNoSeparate")}
                 data-testid="inbox-decline-reason"
               />
               {!canConfirm && (
-                <p className="text-10 text-muted-foreground" data-testid="err-reason">不做必须写清理由，否则无法确认。</p>
+                <p className="text-10 text-muted-foreground" data-testid="err-reason">{translate(locale, "inbox.aReasonIsRequiredToConfirmWonTDo")}</p>
               )}
               <div className="flex justify-end gap-2">
                 <Button
@@ -602,11 +599,10 @@ export function InboxDrawer({
                   size="sm"
                   onClick={() => {
                     setDeclining(false);
-                    setReason(item.kind === "exception" ? DEFAULT_EXCEPTION_DECLINE_REASON : "");
+                    setReason(item.kind === "exception" ? defaultExceptionDeclineReason(locale) : "");
                   }}
                 >
-                  取消
-                </Button>
+                  {translate(locale, "feedbackOverlay.cancel")}</Button>
                 <Button
                   variant="destructive"
                   size="sm"
@@ -615,8 +611,7 @@ export function InboxDrawer({
                   data-testid="inbox-decline-confirm"
                 >
                   {busy && <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />}
-                  确认不做
-                </Button>
+                  {translate(locale, "inbox.confirmWonTDo")}</Button>
               </div>
             </div>
           ) : item.kind === "design" ? (
@@ -629,18 +624,15 @@ export function InboxDrawer({
                   onClick={openIssueDraftForm}
                   data-testid="inbox-action-design-handoff"
                 >
-                  <Github aria-hidden className="h-3.5 w-3.5" /> 转入开发（建 GitHub Issue）
-                </Button>
+                  <Github aria-hidden className="h-3.5 w-3.5" /> {translate(locale, "inbox.sendToDevelopmentCreateGitHubIssue")}</Button>
               ) : (
                 <p className="text-11 text-muted-foreground" data-testid="inbox-design-handed-off">
-                  已转入开发，见上方 issue 徽标。
-                </p>
+                  {translate(locale, "inbox.sentToDevelopmentSeeTheIssueBadgeAbove")}</p>
               )}
               {/* ⚠ 文案如实：`onOpenWorkbench` 落到 `/platform-admin/design-workbench`（工作台首页），
                   不带方案 id——写"打开方案详情"会承诺一个这个回调今天做不到的跳转。 */}
               <Button variant="outline" size="sm" onClick={onOpenWorkbench} data-testid="inbox-action-open-design-self">
-                去设计工作台
-              </Button>
+                {translate(locale, "inbox.openDesignWorkbench")}</Button>
             </div>
           ) : (
             <div className="flex flex-wrap gap-2">
@@ -653,40 +645,34 @@ export function InboxDrawer({
                   data-testid="inbox-action-start"
                 >
                   {needsIssueBeforeDoing ? <Github aria-hidden className="h-3.5 w-3.5" /> : <Play aria-hidden className="h-3.5 w-3.5" />}
-                  {needsIssueBeforeDoing ? "转入开发（建 GitHub Issue）" : "开始处理"}
+                  {needsIssueBeforeDoing ? translate(locale, "inbox.sendToDevelopmentCreateGitHubIssue") : translate(locale, "inbox.startProcessing")}
                 </Button>
               )}
               {item.stage === "doing" && (
                 <>
                   {item.kind === "feedback" && (
                     <Button variant="primary" size="sm" disabled={busy} onClick={() => onStatus("done")} data-testid="inbox-action-done">
-                      <Check aria-hidden className="h-3.5 w-3.5" /> 标记已修复
-                    </Button>
+                      <Check aria-hidden className="h-3.5 w-3.5" /> {translate(locale, "inbox.markFixed")}</Button>
                   )}
                   <Button variant="outline" size="sm" disabled={busy} onClick={() => onStatus("backlog")} data-testid="inbox-action-back">
-                    <Undo2 aria-hidden className="h-3.5 w-3.5" /> 退回待处理
-                  </Button>
+                    <Undo2 aria-hidden className="h-3.5 w-3.5" /> {translate(locale, "inbox.returnToPending")}</Button>
                 </>
               )}
               {(item.stage === "done" || item.stage === "archived") && (
                 <Button variant="outline" size="sm" disabled={busy} onClick={() => onStatus("backlog")} data-testid="inbox-action-reopen">
-                  <Undo2 aria-hidden className="h-3.5 w-3.5" /> 重新打开
-                </Button>
+                  <Undo2 aria-hidden className="h-3.5 w-3.5" /> {translate(locale, "inbox.reopen")}</Button>
               )}
               {canDeepen && (
                 <Button variant="ai" size="sm" onClick={onDeepen} data-testid="inbox-action-deepen">
-                  <Sparkles aria-hidden className="h-3.5 w-3.5" /> 用 PM 设计工作台深化
-                </Button>
+                  <Sparkles aria-hidden className="h-3.5 w-3.5" /> {translate(locale, "inbox.developInPMDesignWorkbench")}</Button>
               )}
               {item.resolvedByDesignId !== null && (
                 <Button variant="outline" size="sm" onClick={onOpenWorkbench} data-testid="inbox-action-open-design">
-                  查看方案
-                </Button>
+                  {translate(locale, "inbox.viewDesign")}</Button>
               )}
               {(item.stage === "backlog" || item.stage === "doing") && (
                 <Button variant="ghost" size="sm" className="text-destructive" disabled={busy} onClick={() => setDeclining(true)} data-testid="inbox-action-decline">
-                  <Ban aria-hidden className="h-3.5 w-3.5" /> 不做…
-                </Button>
+                  <Ban aria-hidden className="h-3.5 w-3.5" /> {translate(locale, "inbox.wonTDo")}</Button>
               )}
             </div>
           )}
@@ -719,6 +705,7 @@ function ExceptionDevPanel({
   busy: boolean;
   onSave: (patch: { devNote?: string | null }) => void;
 }) {
+  const { locale } = useI18n();
   const [draft, setDraft] = React.useState(devNote ?? "");
   // 服务端回写（乐观更新落地或回滚）之后，把编辑框拉回权威值——除非用户正在编辑。
   const [touched, setTouched] = React.useState(false);
@@ -731,13 +718,13 @@ function ExceptionDevPanel({
 
   return (
     <div className="rounded-card border border-border-subtle bg-panel p-2.5" data-testid="inbox-drawer-exception-dev">
-      <p className="text-10 font-medium text-muted-foreground">开发备注</p>
+      <p className="text-10 font-medium text-muted-foreground">{translate(locale, "inbox.developerNote")}</p>
       <Textarea
         value={draft}
         onChange={(e) => { setTouched(true); setDraft(e.target.value); }}
         rows={3}
-        placeholder="转给谁 / 怎么复现 / 已知线索"
-        aria-label="开发备注"
+        placeholder={translate(locale, "inbox.assigneeReproductionStepsKnownClues")}
+        aria-label={translate(locale, "inbox.developerNote")}
         disabled={busy}
         className="mt-1 text-12"
         data-testid="inbox-drawer-devnote-input"
@@ -750,8 +737,7 @@ function ExceptionDevPanel({
           onClick={() => { setTouched(false); onSave({ devNote: trimmed === "" ? null : trimmed }); }}
           data-testid="inbox-drawer-devnote-save"
         >
-          保存备注
-        </Button>
+          {translate(locale, "inbox.saveNote")}</Button>
       </div>
     </div>
   );

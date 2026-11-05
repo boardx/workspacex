@@ -40,6 +40,10 @@ import { aboutMemoryEn } from "../namespaces/about-memory";
 import { orgMembersEn } from "../namespaces/org-members";
 import { orgMembersPreviewEn } from "../namespaces/org-members-preview";
 import { orgSharedInvitesEn } from "../namespaces/org-shared-invites";
+import { workbenchHomeEn } from "../namespaces/workbench-home";
+import { inboxEn } from "../namespaces/inbox";
+import { designDocumentEn } from "../namespaces/design-document";
+import { designLoopCommonEn } from "../namespaces/design-loop-common";
 import { stateEn } from "../namespaces/state";
 import { workflowRunsEn } from "../namespaces/workflow-runs";
 import { projectResultsEn } from "../namespaces/project-results";
@@ -89,6 +93,10 @@ export const en: Record<keyof typeof zhCN, string> = {
   ...orgMembersEn,
   ...orgMembersPreviewEn,
   ...orgSharedInvitesEn,
+  ...workbenchHomeEn,
+  ...inboxEn,
+  ...designDocumentEn,
+  ...designLoopCommonEn,
   ...stateEn,
   ...chatShareEn,
   ...codeFenceEn,

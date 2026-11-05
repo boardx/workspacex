@@ -1,9 +1,13 @@
 "use client";
+import { translate } from "@/lib/i18n/messages";
+import { useI18n } from "@/lib/i18n/provider";
+import { inboxStageLabel } from "@/lib/design-loop-display";
+
 import * as React from "react";
 import { Github, ArrowUpRight, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { INBOX_STAGE_LABEL, type InboxGithubRef, type InboxStage } from "@/lib/live-inbox";
+import { type InboxGithubRef, type InboxStage } from "@/lib/live-inbox";
 
 /** 四态 → 语义 tone。四态是现有 feedback-loop 状态机换显示名，颜色沿用其语义分档。 */
 const STAGE_TONE: Record<InboxStage, React.ComponentProps<typeof Badge>["tone"]> = {
@@ -14,9 +18,10 @@ const STAGE_TONE: Record<InboxStage, React.ComponentProps<typeof Badge>["tone"]>
 };
 
 export function StatusBadge({ stage }: { stage: InboxStage }) {
+  const { locale } = useI18n();
   return (
     <Badge tone={STAGE_TONE[stage]} data-testid={`status-badge-${stage}`}>
-      {INBOX_STAGE_LABEL[stage]}
+      {inboxStageLabel(stage, locale)}
     </Badge>
   );
 }
@@ -33,12 +38,6 @@ const GITHUB_TONE: Record<InboxGithubRef["state"], string> = {
   closed: "bg-destructive text-destructive-foreground",
 };
 
-const GITHUB_STATE_LABEL: Record<InboxGithubRef["state"], string> = {
-  open: "Open",
-  draft: "Draft",
-  merged: "Merged",
-  closed: "Closed",
-};
 
 /**
  * 2026-09-05（人类要求「issue / PR 都必须有链接可以点击打开」）：徽标本身就是一个新开标签页的
@@ -47,12 +46,13 @@ const GITHUB_STATE_LABEL: Record<InboxGithubRef["state"], string> = {
  * 会先打开 drawer 再跳 GitHub。`url` 为空字符串（理论上契约不允许，防御性）时退回只读文本。
  */
 export function GithubBadge({ number, state, kind, url }: InboxGithubRef) {
+  const { locale } = useI18n();
   const label = kind === "pr" ? "PR" : "Issue";
   const className = cn("inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium", GITHUB_TONE[state]);
   const content = (
     <>
       <Github aria-hidden className="h-3 w-3" />
-      {label} #{number} · {GITHUB_STATE_LABEL[state]}
+      {label} #{number} · {translate(locale, `designLoop.github.${state}`)}
     </>
   );
   if (url === "") {
@@ -67,7 +67,7 @@ export function GithubBadge({ number, state, kind, url }: InboxGithubRef) {
       href={url}
       target="_blank"
       rel="noopener noreferrer"
-      title={`在 GitHub 打开 ${label} #${number}`}
+      title={translate(locale, "inbox.openOnGitHub", { v0: label, v1: number })}
       className={cn(className, "underline-offset-2 transition-colors duration-fast hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring")}
       data-testid={`github-badge-${state}`}
       onClick={(e) => e.stopPropagation()}
@@ -90,6 +90,7 @@ const LINK_BADGE_CLASS = "inline-flex items-center gap-0.5 rounded-control bg-ai
  * 会先打开自己再被关联导航覆盖，多一次 drawer 闪动。
  */
 export function LinkBadge({ text, testid, onClick }: { text: string; testid: string; onClick?: () => void }) {
+  const { locale } = useI18n();
   if (onClick === undefined) {
     return (
       <span className={LINK_BADGE_CLASS} data-testid={testid}>
@@ -105,7 +106,7 @@ export function LinkBadge({ text, testid, onClick }: { text: string; testid: str
         LINK_BADGE_CLASS,
         "transition-colors duration-fast hover:bg-ai hover:text-ai-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
       )}
-      title="跳到关联条目并高亮"
+      title={translate(locale, "inbox.jumpToAndHighlightLinkedItem")}
       data-testid={testid}
       onClick={(e) => {
         e.stopPropagation();
@@ -120,13 +121,13 @@ export function LinkBadge({ text, testid, onClick }: { text: string; testid: str
 }
 
 export function SevereBadge() {
+  const { locale } = useI18n();
   return (
     <span
       className="inline-flex items-center gap-0.5 rounded-control bg-destructive px-1.5 py-0.5 text-10 font-medium text-destructive-foreground"
       data-testid="severe-badge"
     >
       <AlertTriangle aria-hidden className="h-3 w-3" />
-      严重
-    </span>
+      {translate(locale, "inbox.severe")}</span>
   );
 }
