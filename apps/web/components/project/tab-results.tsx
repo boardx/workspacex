@@ -1,5 +1,8 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
+import type { MessageKey } from "@/lib/i18n/messages";
+import { projectResultsBackflowEn } from "@/lib/i18n/namespaces/project-results";
 import { Card } from "@/components/ui/card";
 import { SectionTitle, StatChip } from "./parts";
 import { ROLE_CAN_WRITE, ROLE_STAGE_CONTROL, type ProjectRole } from "@/lib/project-workbench";
@@ -54,6 +57,7 @@ export function TabResults({
   liveAuditLoading?: boolean;
   liveAuditError?: string | null;
 }) {
+  const { t } = useI18n();
   const canWrite = ROLE_CAN_WRITE[view] && !readOnly;
   const canPublish = ROLE_STAGE_CONTROL[view] && !readOnly;
 
@@ -61,7 +65,7 @@ export function TabResults({
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 p-4 sm:p-6" data-testid="project-results">
       {/* 成果去向 —— 接真：getProjectOverview.backflow（uc-00-2 V1/V8/V9）。真实内容排最前。 */}
       <section>
-        <SectionTitle meta="已回流到项目的产出">成果去向</SectionTitle>
+        <SectionTitle meta={t("projectResults.backflowMeta")}>{t("projectResults.destinations")}</SectionTitle>
         <Card>
           <BackflowPanel overview={liveOverview} loading={liveOverviewLoading} error={liveOverviewError} />
         </Card>
@@ -69,7 +73,7 @@ export function TabResults({
 
       {/* 审计与反馈 —— 接真：queryProvenance（uc-00-1 V10 / uc-00-3 V11） */}
       <section>
-        <SectionTitle meta="仅本项目 · 不可删除">审计与反馈</SectionTitle>
+        <SectionTitle meta={t("projectResults.auditMeta")}>{t("projectResults.audit")}</SectionTitle>
         <Card data-testid="project-results-audit">
           <AuditPanel audit={liveAudit} loading={liveAuditLoading} error={liveAuditError} />
         </Card>
@@ -77,27 +81,27 @@ export function TabResults({
       {/* 契约未建模的四项（项目结论 / 假设状态 / 发布结论 / 候选决策）收进一张「即将开放」卡，
           不再各占一个整宽空框；不发明数据，也不放会产生假副作用的按钮（发布 / 签署）。 */}
       <section>
-        <SectionTitle meta="还在路上，不会出现示例数据">即将开放</SectionTitle>
+        <SectionTitle meta={t("projectResults.soonMeta")}>{t("projectResults.soon")}</SectionTitle>
         <Card>
           <ul className="divide-y divide-border">
             <li className="flex flex-col gap-0.5 px-4 py-3">
-              <span className="text-13 font-medium">项目结论</span>
-              <p className="text-12 leading-relaxed text-muted-foreground" data-testid="project-results-conclusion-unavailable">结论正文和签字人会显示在这里。</p>
+              <span className="text-13 font-medium">{t("projectResults.conclusion")}</span>
+              <p className="text-12 leading-relaxed text-muted-foreground" data-testid="project-results-conclusion-unavailable">{t("projectResults.conclusionHelp")}</p>
             </li>
             <li className="flex flex-col gap-0.5 px-4 py-3">
-              <span className="text-13 font-medium">假设状态</span>
-              <p className="text-12 leading-relaxed text-muted-foreground" data-testid="project-results-hypothesis-unavailable">已验证 / 待验证 / 已推翻各有多少条。</p>
+              <span className="text-13 font-medium">{t("projectResults.hypotheses")}</span>
+              <p className="text-12 leading-relaxed text-muted-foreground" data-testid="project-results-hypothesis-unavailable">{t("projectResults.hypothesesHelp")}</p>
             </li>
             {canPublish && (
               <li className="flex flex-col gap-0.5 px-4 py-3">
-                <span className="text-13 font-medium">发布结论</span>
-                <p className="text-12 leading-relaxed text-muted-foreground" data-testid="project-results-publish-unavailable">真正可用之前这里不放按钮，以免让人误以为已经发布。</p>
+                <span className="text-13 font-medium">{t("projectResults.publish")}</span>
+                <p className="text-12 leading-relaxed text-muted-foreground" data-testid="project-results-publish-unavailable">{t("projectResults.publishHelp")}</p>
               </li>
             )}
             {canWrite && (
               <li className="flex flex-col gap-0.5 px-4 py-3">
-                <span className="text-13 font-medium">候选决策</span>
-                <p className="text-12 leading-relaxed text-muted-foreground" data-testid="project-results-candidates-unavailable">转写里待签署的决策会列在这里，签署前可以回听。</p>
+                <span className="text-13 font-medium">{t("projectResults.decisions")}</span>
+                <p className="text-12 leading-relaxed text-muted-foreground" data-testid="project-results-candidates-unavailable">{t("projectResults.decisionsHelp")}</p>
               </li>
             )}
           </ul>
@@ -110,34 +114,35 @@ export function TabResults({
 function BackflowPanel({
   overview, loading, error,
 }: { overview: ProjectOverview | null; loading: boolean; error: string | null }) {
+  const { locale, t } = useI18n();
   if (loading) {
-    return <div className="p-4 text-12 text-muted-foreground" data-testid="project-results-destinations-loading">读取回流列表中…</div>;
+    return <div className="p-4 text-12 text-muted-foreground" data-testid="project-results-destinations-loading">{t("projectResults.destinationsLoading")}</div>;
   }
   if (error) {
     return (
       <div className="p-4 text-12 text-destructive" data-testid="project-results-destinations-error">
-        回流列表读取失败：{error}
+        {t("projectResults.destinationsError")}{error}
       </div>
     );
   }
   if (overview === null) {
     return (
       <div className="p-4 text-12 text-muted-foreground" data-testid="project-results-destinations-signed-out">
-        登录后才能查看，请重新登录后再试。
+        {t("projectResults.signIn")}
       </div>
     );
   }
   if (overview.backflow.length === 0) {
-    return <div className="p-4 text-12 text-muted-foreground" data-testid="project-results-destinations-empty">暂无已回流的产出</div>;
+    return <div className="p-4 text-12 text-muted-foreground" data-testid="project-results-destinations-empty">{t("projectResults.destinationsEmpty")}</div>;
   }
   return (
     <ul className="divide-y divide-border" data-testid="project-results-destinations-list">
       {overview.backflow.map((b) => (
         <li key={b.bindingId} className="flex items-center gap-2.5 px-3.5 py-2.5 text-12">
           <StatChip tone={b.badge === "pinned" ? "success" : b.badge === "live" ? "ai" : "neutral"}>
-            {BACKFLOW_BADGE_LABEL[b.badge]}
+            {locale === "zh-CN" ? BACKFLOW_BADGE_LABEL[b.badge] : projectResultsBackflowEn[b.badge]}
           </StatChip>
-          <span className="min-w-0 flex-1 truncate">{b.title} · 版本 {b.version}</span>
+          <span className="min-w-0 flex-1 truncate">{b.title} · {t("projectResults.version", { version: b.version })}</span>
           <span className="shrink-0 text-11 text-muted-foreground">{b.pinnedBy} · {b.pinnedAt}</span>
         </li>
       ))}
@@ -145,45 +150,46 @@ function BackflowPanel({
   );
 }
 
-const AUDIT_TYPE_LABEL: Partial<Record<ProvenanceEventType, string>> = {
-  "unauthorized-attempt": "越权尝试",
+const AUDIT_TYPE_LABEL: Partial<Record<ProvenanceEventType, MessageKey>> = {
+  "unauthorized-attempt": "projectResults.unauthorized",
 };
 
 function AuditPanel({
   audit, loading, error,
 }: { audit: QueryProvenanceOut | null; loading: boolean; error: string | null }) {
+  const { locale, t } = useI18n();
   if (loading) {
-    return <div className="p-3.5 text-12 text-muted-foreground" data-testid="project-results-audit-loading">读取审计事件中…</div>;
+    return <div className="p-3.5 text-12 text-muted-foreground" data-testid="project-results-audit-loading">{t("projectResults.auditLoading")}</div>;
   }
   if (error) {
     return (
       <div className="p-3.5 text-12 text-destructive" data-testid="project-results-audit-error">
-        审计事件读取失败：{error}
+        {t("projectResults.auditError")}{error}
       </div>
     );
   }
   if (audit === null) {
     return (
       <div className="p-3.5 text-12 text-muted-foreground" data-testid="project-results-audit-signed-out">
-        登录后才能查看，请重新登录后再试。
+        {t("projectResults.signIn")}
       </div>
     );
   }
   if (audit.events.length === 0) {
-    return <div className="p-3.5 text-12 text-muted-foreground" data-testid="project-results-audit-empty">本项目还没有审计事件，不生成示例条目</div>;
+    return <div className="p-3.5 text-12 text-muted-foreground" data-testid="project-results-audit-empty">{t("projectResults.auditEmpty")}</div>;
   }
   return (
     <>
       <div className="flex flex-wrap items-center gap-2 border-b border-border p-3">
-        <StatChip testId="project-results-audit-total">共 {audit.events.length} 条{audit.nextCursor ? "+" : ""}</StatChip>
+        <StatChip testId="project-results-audit-total">{t("projectResults.auditTotal", { count: audit.events.length })}{audit.nextCursor ? "+" : ""}</StatChip>
       </div>
       <ul className="divide-y divide-border" data-testid="project-results-audit-list">
         {audit.events.map((e) => (
           <li key={e.id} className="flex items-start gap-3 px-3.5 py-2.5">
-            <span className="shrink-0 font-mono text-11 text-muted-foreground">{new Date(e.at).toLocaleString()}</span>
-            <StatChip>{AUDIT_TYPE_LABEL[e.type] ?? e.type}</StatChip>
+            <span className="shrink-0 font-mono text-11 text-muted-foreground">{new Date(e.at).toLocaleString(locale)}</span>
+            <StatChip>{AUDIT_TYPE_LABEL[e.type] ? t(AUDIT_TYPE_LABEL[e.type]!) : e.type}</StatChip>
             <div className="min-w-0 flex-1">
-              <div className="text-12">actor {e.actorId} → {e.target.kind}:{e.target.id}</div>
+              <div className="text-12">{t("projectResults.actor")} {e.actorId} → {e.target.kind}:{e.target.id}</div>
             </div>
           </li>
         ))}

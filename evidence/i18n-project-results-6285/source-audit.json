@@ -1,0 +1,26 @@
+{
+  "issue": 6285,
+  "base": "feab6e36304ed94c1b35b43ab35002d3628166e4",
+  "sourceOnly": true,
+  "lightAudit": {
+    "parserDiagnostics": 0,
+    "localeKeys": 25,
+    "reactKeysTestIdsStylesTonesAndBranchesByteExact": true,
+    "apiAndLegacyChineseMetadataByteExact": true,
+    "ownedChineseJsx": 0,
+    "diffCheck": 0
+  },
+  "sourceSHA256": {
+    "apps/web/components/project/tab-results.tsx": "cc699a3979410ce3e36759f4d93d3f8cbe3b5f72a1be0530b3838ab49d90e92a",
+    "apps/web/lib/i18n/namespaces/project-results.ts": "b00f3ecc62b5e0b805ec3aa556e41abb8668d84e34b7ef9e5bc17e5d9bc776fc",
+    "apps/web/lib/i18n/messages/en.ts": "2b0a1625e8894bb86ff583bafa7cfe9906b2a224edc8760984b78d02bbf60895",
+    "apps/web/lib/i18n/messages/zh-CN.ts": "74194614d4204872eedafa84182abc03182c82013386744c39f8b100bafe8184"
+  },
+  "acceptedApiAndChineseMetadataSHA256": "0004e5757e632070f216c020fa49088604eef330800bcbf53e50634de75cb253",
+  "deferred": [
+    "independent source review",
+    "focused tests",
+    "type acceptance",
+    "runtime/viewport QA"
+  ]
+}
