@@ -1,0 +1,14 @@
+{
+  "baseline": "5832cdb62c08fe4f8917776760626d71c74fea11",
+  "originalRegisteredFileSha256": "6e9e2ee5d4955464f18e9ff90b7f76415c0ff61ca83de89d35f0c429c87865c3",
+  "originalWholeFileIsByteExactPrefix": true,
+  "newCasesAppended": 1,
+  "unchangedProject": "seeded",
+  "existingRegistrationLine": 359,
+  "caseTimeoutMs": 180000,
+  "boundary": "New query-case controlled HTTP UI/request/storage proof only; no backend/model/PG claim. Original real session/report case byte-preserved. New explicit query URL and locale-heading assertions, no sleep/config/budget changes.",
+  "source": "75148e4d6783beadc52cab501b56d3264697e798",
+  "currentFileSha256": "c1979e6cc71d657803f7c1208a8a0391162464433aa7ee040b352659b2836adc",
+  "intendedNewCapturePairs": 6,
+  "discoveryReceipt": "query-driver-selection.json"
+}

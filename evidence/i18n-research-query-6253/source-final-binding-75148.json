@@ -1,0 +1,19 @@
+{
+  "reviewedSource": "75148e4d6783beadc52cab501b56d3264697e798",
+  "baseline": "5832cdb62c08fe4f8917776760626d71c74fea11",
+  "onlyFourSourcePaths": [
+    "apps/web/components/research-studio/guided-research-skill-assistant.tsx",
+    "apps/web/e2e/i18n-research-entry.spec.ts",
+    "apps/web/lib/i18n/namespaces/research.ts",
+    "apps/web/tests/ui/guided-research-skill-assistant-i18n.test.tsx"
+  ],
+  "worktreeSourceBlobsMatchReviewedHead": true,
+  "sha256": {
+    "apps/web/components/research-studio/guided-research-skill-assistant.tsx": "22d92e10bec86f3e216032319fbc7e0d4f4ccca3e186d3ee9dfe464dc32c938f",
+    "apps/web/e2e/i18n-research-entry.spec.ts": "c1979e6cc71d657803f7c1208a8a0391162464433aa7ee040b352659b2836adc",
+    "apps/web/lib/i18n/namespaces/research.ts": "87bb8e2f7d893fa89c72d7754808b6a72f7429e6c5921e5c33414b631d532dae",
+    "apps/web/tests/ui/guided-research-skill-assistant-i18n.test.tsx": "b5e1e35a9be742020025c3955d8c972c90f1763a256320620128071c357159f1"
+  },
+  "b6FinalMetadataHashesMatchPublishedReview": true,
+  "limits": "Static source binding, not browser acceptance; prior14/type and51 separate."
+}

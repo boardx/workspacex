@@ -1,0 +1,24 @@
+{
+  "name": "assistant-test-covering-1",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/guided-research-skill-assistant-i18n.test.tsx"
+  ],
+  "source": "ef005586569cf51fce1fa0ba446da447554498a5",
+  "exitCode": 0,
+  "seconds": 6.3,
+  "rawLogSha256": "f1c6ad87e97e7502dab4f0f827d5eb0ad75e37388dcf1b2b1997089691829bc3",
+  "sourceAfter": "ef005586569cf51fce1fa0ba446da447554498a5",
+  "sourceStable": true,
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "passed": 14,
+  "skipped": 0,
+  "scope": "Covering only the two supported exact-name regex corrections; not added to previous51 total"
+}

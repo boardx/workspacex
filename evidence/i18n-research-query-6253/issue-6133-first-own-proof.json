@@ -1,0 +1,15 @@
+{
+  "beforeSha256": "b917547837c83269f0a24c60dd37d5ca7b5766c347df9529ad31ae388813b92d",
+  "afterSha256": "e8ff9a54c072c424c59765c17ce5544f15e9e275cb2c1e52bd1a19d125c258be",
+  "changes": 5,
+  "scope": [
+    "top-own-B5/B6-fragment",
+    "old-stage-B5",
+    "old-stage-B6",
+    "module-B5",
+    "module-B6"
+  ],
+  "allOtherBytesExactByReverse": true,
+  "readbackExact": true,
+  "actualAfterSha256": "e8ff9a54c072c424c59765c17ce5544f15e9e275cb2c1e52bd1a19d125c258be"
+}
