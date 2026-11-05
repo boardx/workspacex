@@ -1,0 +1,15 @@
+# Handoff —6263
+
+Same checkout branch worker/i18n-b5-closure-6263; HEADc7c6c4f1a5e6b9172c786681c7deb86a8473e3eb. Test-plan source10ea; focusedsemanticRED1/5.473s recorded at issuecomment6649254514 and committed safe receipt. Minimal product changes: oneuseI18n binding and onependingstatuskey,2paired resource entries. Entire otherflow bytes preserved. Existing2browsercases byte-exact prefix; new1case holds/continues actual creationrequest, two intended375/1280 captures.
+
+Successful original tool returns: new1GREEN0/5.345s (old10name-deselected), resource5PASS0/3.250s, affected4lint0/2.524s. Webtype session28872 interrupted; no successful return, current sessionUnknown; incomplete. Testid/new1browserlist neverstarted. No localNext/browser/DB. Fresh pgrep tests/type/lint/Playwright/runner empty; services0; actualEND released. MAIN latestFIFO externalpricing6259 pure11RED before further6263 gates. FIRSTHOLD: do not restart checks without actual next sourcewindow.
+
+Temporary /tmp/6253-private and/tmp/6263-private disappeared across interruption. GREEN/resource/lint summaries reconstructed from exact prior successful tool returns disclose originalrawlogs nowunavailable. Do not claimphysicalreadback or infer typePASS. Source and copied parent finalsafe receipts/review persist in repo, currently unstagedmetadata; do notlose them.
+
+ParentPR6261 exact9bc ownerREADY/normalqueue, actualmerge ownedMAIN and not yet received byFIRST. Native run41957396147 passed218/0skip/unexpected/flaky; original63.625s/newassistant9.278sretry0/180s; FIRST22actualPNG viewed. TwofinalsafeJSON +boundedreview copied into this6263batch, published evidence PRcomments6648867790/6648940252 and ownerdirectreport/API supplement6648977049. Do not refreshparenthead for metadata. B5partial until actualmerge+fullstage acceptance. #6239deferredunchanged.
+
+MAINsend tool currently rejects Cannot steer without active turn id; SECOND receivedactualEND/temporaryloss and askedrelay; ROOT receivedactualEND/HOLD. Do not mistake deliveryfailure for activeheavyprocess. No newWT/agent.
+
+Latest continuation: HEADcbcf73c5ef02e5e3026d1a1294f048b58324320b, minimum newdriver existenceguard after actualTS18048. Driverlint/type/testid/exact1list nowall0; discovery-only notruntime. Ownscopecleanup0/all11listeners0, actualEND released. MAINsource review c7c6andguarddelta CLEAN. Private newlogs durable at /Users/shenyangjun/.codex/validation/i18n-b5-closure-6263. Prior interruption/typeRED remainhistorical; do not substitute earlierincomplete state forlatest successful type. MAINsend nowworks. Metadata/safe summaries stillunstaged; no scan/push/PR6263 yet.
+
+Parent6261 triplemergequeueFAIL was investigated read-only: runs41962282556/41970350692/41974308948 allchat-test-shards1, corepaths77→95 refreshcontaintext. Firstmessagescontainerempty, latermissing. LatesttracebeforeReload actualAPIhas2marker human/agent messages, reloadsnapshotloginconfirmation, scriptrequestsunfinishedstatus-1. No evidence tocall persistence loss or justify driverweakening/requeue. MAINhandlesseparateChat/environment diagnosis; FIRSTmustnotfixChatbehavior.
