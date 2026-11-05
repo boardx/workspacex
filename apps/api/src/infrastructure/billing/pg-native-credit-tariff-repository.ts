@@ -9,7 +9,7 @@ const view=(r:Row):NativeTariff=>({modelProvider:r.model_provider,modelId:r.mode
 const columns='model_provider,model_id,unit,quantum::text,hundredths_per_quantum::text,version,pricing_basis';
 /** Global nonsecret pricing only. Authoritative platform-operator authorization precedes mutations. */
 export class PgNativeCreditTariffRepository implements NativeCreditTariffRepository {
- /** Writer is borrowed from the image service lifecycle; no second pool or closer. */
+ /** Image service owns the shared writer lifecycle; no second pool or closer. */
  constructor(private readonly db:DatabasePort,private readonly writer:DatabasePort|null=null){}
  async readCnyCatalog(orgId:string){return this.db.withTenant(toOrgId(orgId),async s=>{
   const configured=await readProductConfiguration(s,'cn');
