@@ -94,7 +94,7 @@ def run():
         if ae.get('PGHOST')in aliases and ae.get('PGDATABASE')==de.get('POSTGRES_DB')and ae.get('PGPORT','5432')=='5432'and set(api.get('NetworkSettings',{}).get('Networks',{}))&set(row.get('NetworkSettings',{}).get('Networks',{})):databases.append(row)
     if not report['tariffQueryAvailable'] and len(databases)==1 and ae.get('KERNEL_ASR_PROVIDER')and ae.get('KERNEL_ASR_MODEL'):
         db=databases[0];de=env(db)
-        sql="BEGIN READ ONLY; SET LOCAL statement_timeout='5000ms'; SELECT json_build_object('matchingTariffs',count(*),'pricedOrganizations',count(DISTINCT org_id)) FROM credit_native_tariffs WHERE model_provider="+literal(ae['KERNEL_ASR_PROVIDER'])+" AND model_id="+literal(ae['KERNEL_ASR_MODEL'])+" AND unit='millisecond'; COMMIT;"
+        sql="BEGIN READ ONLY; SET LOCAL row_security=off; SET LOCAL statement_timeout='5000ms'; SELECT json_build_object('matchingTariffs',count(*),'pricedOrganizations',count(DISTINCT org_id)) FROM credit_native_tariffs WHERE model_provider="+literal(ae['KERNEL_ASR_PROVIDER'])+" AND model_id="+literal(ae['KERNEL_ASR_MODEL'])+" AND unit='millisecond'; COMMIT;"
         try:
             raw=call(['docker','exec','-i',db['Id'],'psql','-X','-qAt','-v','ON_ERROR_STOP=1','-U',de.get('POSTGRES_USER','postgres'),'-d',ae['PGDATABASE']],sql)
             aggregate=json.loads(raw.strip());report.update(aggregate);report['tariffQueryAvailable']=True

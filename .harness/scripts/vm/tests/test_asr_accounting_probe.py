@@ -43,3 +43,14 @@ class Probe(unittest.TestCase):
   self.assertIn('SET LOCAL row_security=off',m.DATABASE)
   self.assertIn('model_provider=$1 AND model_id=$2',m.DATABASE)
   self.assertIn('ownerConfigured?migrationConfig():appConfig()',m.DATABASE)
+
+ def test_both_exact_tree_pipelines_fail_closed_on_missing_git_source(self):
+  import subprocess,tempfile
+  text=(pathlib.Path(__file__).parents[4]/'.github/workflows/devapp-probe.yml').read_text()
+  self.assertEqual(text.count('shell: bash\n        run: |\n          set -euo pipefail'),2)
+  with tempfile.TemporaryDirectory() as cwd:
+   result=subprocess.run(['bash','-euo','pipefail','-c','git show HEAD:.harness/scripts/vm/asr-accounting-probe.py | python3 -I -B'],cwd=cwd,capture_output=True)
+  self.assertNotEqual(result.returncode,0)
+ def test_local_postgres_fallback_refuses_rls_filtered_false_zero(self):
+  source=(pathlib.Path(__file__).parents[1]/'asr-accounting-probe.py').read_text()
+  self.assertIn('BEGIN READ ONLY; SET LOCAL row_security=off;',source)

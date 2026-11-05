@@ -45,7 +45,10 @@ jobs:
         env:
           ASR_REPAIR_ACTION: ${{ inputs.asr_repair_action }}
           ASR_REPAIR_EXPECTED: ${{ inputs.asr_repair_expected }}
-        run: git show "$GITHUB_SHA:.harness/scripts/vm/repair-asr-credit-tariffs.py" | python3 -I -B
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show "$GITHUB_SHA:.harness/scripts/vm/repair-asr-credit-tariffs.py" | python3 -I -B
 
   probe-contract:
     runs-on: ubuntu-24.04
@@ -64,7 +67,10 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Read-only ASR accounting aggregates
-        run: git show "$GITHUB_SHA:.harness/scripts/vm/asr-accounting-probe.py" | python3 -I -B
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show "$GITHUB_SHA:.harness/scripts/vm/asr-accounting-probe.py" | python3 -I -B
 
   probe:
     if: ${{ github.event_name == 'workflow_dispatch' && !inputs.asr_accounting && inputs.asr_repair_action == 'none' }}
