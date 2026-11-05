@@ -6,7 +6,7 @@ consumed roughly four minutes and shard-four serial execution approached sixteen
 An all-passing console summary before cancellation is not a passing GitHub job.
 
 `.harness/api-test-shards.json` is the sole shard-count source. The `api-test-plan` job outputs matrix indices and the denominator from that policy.
-It also reuses `ci-targeted-ui.mjs` to prove the exact event base/head route. Only a
+It also reuses `ci-targeted-ui.mjs` to prove the exact event base/head route. Only a PR
 `targeted-ui` proof permits omitting the unrelated API matrix; unknown paths, changed
 runtime syntax, keys, interpolation, tests, configuration or missing history select
 `full`. Dependency installation for this proof is limited to preflight candidates.
@@ -30,6 +30,9 @@ Its JSON is discovery evidence only. On full routes every actual matrix job must
 finish SUCCESS before backend-required can pass. On targeted UI routes that gate
 requires a successful planner, matching source/base SHAs, a plan digest and the
 explicit matrix SKIPPED result. It never treats that skip as executed test coverage.
+Protected merge groups and manual runs force `full`; production source admission
+continues requiring all actual API shards. Its closure checker accepts only the
+reviewed PR-only planner shape or the historical discovery-only shape.
 All other backend lanes must finish SUCCESS on both routes; missing or cancelled
 plans and unexpected skips fail closed. Required checks and queue settings are unchanged.
 

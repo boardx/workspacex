@@ -29,7 +29,7 @@ it('supports explicit rollback and fails closed on missing history',()=>{
 });
 
 import {execFileSync} from 'node:child_process';
-import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync,symlinkSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,writeFileSync,existsSync,readFileSync,rmSync,symlinkSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {resolve,dirname} from 'node:path';
 it('uses real source history and suite hashes; unknown, missing, renamed and nonregular inputs fall back',()=>{
@@ -200,4 +200,10 @@ it('registers overview and public-share copy against their existing page tests',
   const registration=p.messageFiles.find((x:any)=>x.file===`apps/web/lib/i18n/namespaces/${file}.ts`);
   expect(registration).toBeDefined();expect(registration.browserTests).toContain(browser);expect(registration.unitTests).toContain(unit);
  }
+});
+
+it('can explicitly force a full plan for protected queue and release validation',()=>{
+ const result=JSON.parse(execFileSync(process.execPath,['.harness/scripts/ci-targeted-ui.mjs','--full'],{env:{...process.env,GITHUB_SHA:'a'.repeat(40)},encoding:'utf8'}));
+ expect(result.mode).toBe('full');expect(result.reason).toBe('rollout-disabled');
+ expect(existsSync('--full')).toBe(false);
 });

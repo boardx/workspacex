@@ -46,7 +46,8 @@ it('binds scope discovery and backend aggregation to the same event source and b
  const planner=w.jobs['api-test-plan'];
  expect(planner.outputs.mode).toBe('${{ steps.regression.outputs.mode }}');
  expect(planner.outputs.plan_digest).toBe('${{ steps.regression.outputs.plan_digest }}');
- expect(planner.steps.find((s:any)=>s.id==='regression').run).toContain('ci-targeted-ui.mjs');
+ expect(planner.steps.find((s:any)=>s.id==='regression').run).toBe("node .harness/scripts/ci-targeted-ui.mjs ${{ github.event_name != 'pull_request' && '--full' || '' }}");
+ expect(planner.steps.find((s:any)=>s.id==='preflight').if).toBe("github.event_name == 'pull_request'");
  expect(planner.steps.find((s:any)=>s.run?.includes('pnpm install')).if).toBe("steps.preflight.outputs.candidate == 'true'");
  expect(w.jobs['gates-test'].if).toContain("needs.api-test-plan.outputs.mode == 'full'");
  expect(w.jobs['backend-required'].needs).toContain('api-test-plan');

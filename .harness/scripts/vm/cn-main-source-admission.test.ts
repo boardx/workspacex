@@ -65,3 +65,13 @@ it.each(['wrong-sha','rerun','suite','url','late','skipped','missing','branch','
 it('admits successful rerun completed before merge with checks from current attempt',()=>{const f=queuedFacts();f.queueRuns[0].run_attempt=2;expect(validateMainSourceAdmission(source,repo,f).sourceSha).toBe(source)});
 
 it('allows optional checks and workflow completion after merge while required checks completed before merge',()=>{const f=queuedFacts();f.queueRuns[0].updated_at='2026-10-01T00:04:00Z';f.queueChecks.push({...check('optional-extra',source,9000),completed_at:'2026-10-01T00:03:00Z',check_suite:{id:901},details_url:`https://github.com/${repo}/actions/runs/900/job/9000`});expect(validateMainSourceAdmission(source,repo,f).sourceSha).toBe(source)});
+
+it.each(['full-route','preflight-scope','checkout','extra-step','source-output'])('rejects targeted planner drift in production source admission: %s',mode=>{
+ const f=committedWorkflowFacts(),planner=f.deploymentWorkflow.jobs['api-test-plan'];
+ if(mode==='full-route')planner.steps.find((s:any)=>s.id==='regression').run='node .harness/scripts/ci-targeted-ui.mjs';
+ if(mode==='preflight-scope')delete planner.steps.find((s:any)=>s.id==='preflight').if;
+ if(mode==='checkout')planner.steps[0].with['persist-credentials']=true;
+ if(mode==='extra-step')planner.steps.push({run:'echo unsafe'});
+ if(mode==='source-output')planner.outputs.source_sha='unbound';
+ expect(()=>validateMainSourceAdmission(source,repo,f)).toThrow('MAIN_SOURCE_DYNAMIC_SHARD_CLOSURE');
+});

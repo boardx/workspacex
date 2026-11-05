@@ -184,9 +184,11 @@ jobs:
         with: {fetch-depth: 0, persist-credentials: false}
       - id: plan
         run: node .harness/scripts/ci-api-shards.mjs --plan
-      # Reuse the same exact-source AST boundary as the required UI route.
+      # Reuse the exact-source AST boundary for PRs. Protected queue/release
+      # validation retains full API coverage and the existing source-admission policy.
       # Unknown paths, runtime changes and unavailable history retain all API shards.
       - id: preflight
+        if: github.event_name == 'pull_request'
         run: node .harness/scripts/ci-targeted-ui.mjs --preflight
       - uses: pnpm/action-setup@v4.4.0
         if: steps.preflight.outputs.candidate == 'true'
@@ -196,7 +198,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
         if: steps.preflight.outputs.candidate == 'true'
       - id: regression
-        run: node .harness/scripts/ci-targeted-ui.mjs
+        run: node .harness/scripts/ci-targeted-ui.mjs ${{ github.event_name != 'pull_request' && '--full' || '' }}
 
 
   gates-test:

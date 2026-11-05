@@ -165,10 +165,10 @@ export function verifyTargetedPlan(plan,options){
 }
 if(process.argv[1]&&existsSync(resolve(process.argv[1]))&&import.meta.url===pathToFileURL(realpathSync(resolve(process.argv[1]))).href){
  if(!/^[a-f0-9]{40}$/.test(process.env.GITHUB_SHA??'')||/^0+$/.test(process.env.GITHUB_SHA??''))throw Error('SOURCE_SHA_REQUIRED');
- const preflight=process.argv[2]==='--preflight';
- const plan=planTargeted({baseSha:process.env.CI_SCOPE_BASE_SHA,headSha:process.env.GITHUB_SHA,preflight});
+ const preflight=process.argv[2]==='--preflight',forceFull=process.argv[2]==='--full';
+ const plan=planTargeted({baseSha:process.env.CI_SCOPE_BASE_SHA,headSha:process.env.GITHUB_SHA,enabled:forceFull?false:policy.enabled,preflight});
  if(preflight){const candidate=plan.mode==='candidate-ui';if(process.env.GITHUB_OUTPUT)appendFileSync(process.env.GITHUB_OUTPUT,`candidate=${candidate}\n`);console.log(JSON.stringify({candidate}));process.exit(0);}
- const output=process.argv[2];if(output){mkdirSync(dirname(resolve(output)),{recursive:true});writeFileSync(output,JSON.stringify(plan,null,2));}
+ const output=forceFull?undefined:process.argv[2];if(output){mkdirSync(dirname(resolve(output)),{recursive:true});writeFileSync(output,JSON.stringify(plan,null,2));}
  if(process.env.GITHUB_OUTPUT)appendFileSync(process.env.GITHUB_OUTPUT,`mode=${plan.mode}\nplan_digest=${plan.planDigest}\n`);
  console.log(JSON.stringify(plan,null,2));
 }

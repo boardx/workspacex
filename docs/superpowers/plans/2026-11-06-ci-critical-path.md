@@ -27,3 +27,8 @@
 - Baseline measurements: required checks completed approximately 25 minutes after initial checks; optional fullstack job 30m50s. Do not claim measured 30-minute merge SLO until real candidates complete.
 
 - Verification: 100 focused scope/backend/workflow tests and 26 existing i18n frontend unit tests passed. actionlint v1.7.12 passed backend-gates.yml; no shellcheck/pyflakes executables used. Full local harness is not rerun; earlier unrelated VM timeout remains recorded on PR.
+
+- Review finding P1: production source admission froze the old two-step planner. Reproduced with existing pure CLI/unit regressions. Fix: restrict API reduction to PRs, force full for merge groups/manual runs, and recognize only the exact reviewed PR-only planner shape while preserving historical closure and every production API shard obligation. This batch does not claim queue-stage acceleration.
+
+- Final local verification after review fix: 163 backend/source-admission/policy tests plus 29 scope/routing/wiring tests PASS (192 distinct); 26 existing frontend i18n tests PASS. actionlint and spec reachability lint PASS. Normal pre-push ran 27/27 tasks successfully (2m59s) before the subsequent pure control-plane compatibility fix.
+- Delivery boundary: push rejected GH006 because remote PR #6308 at d647766 is already QUEUED (position 4). No force, hook skip, dequeue or rerun performed. Local revision is not remote CI evidence and not active policy. Final push must run normal hooks again after queue coordination.
