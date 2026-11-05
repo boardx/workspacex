@@ -1,0 +1,142 @@
+{
+  "sourceHead": "a14e1392c4558f8a7f519aa2cf2969a12e780e1f",
+  "sourceFixCommit": "48e8364433d96867b43ee7a7ded6b63c2285845c",
+  "acceptedBase": "a00287a86c411c13148294cc2ed4379852949c5d",
+  "status": "SOURCE_REVIEW_CLEAR_NEW_NATIVE_REQUIRED",
+  "red": {
+    "exit": 1,
+    "selectedFailed": 1,
+    "existingCasesFiltered": 25,
+    "seconds": 5.699,
+    "actualFailureLocation": "new English paragraph.textContent equality at line106",
+    "classification": "VALID semantic missing English sentence separator",
+    "runtimeMessageTruncated": true,
+    "sourceCompositeDiffOnlyOneMissingEnglishSpace": true,
+    "chineseCompositeMatchesFrozenExpected": true,
+    "imageEvidence": "actual current cloud notice visibly renders organization.Enable",
+    "allStageASourceHashesStillMatch": true,
+    "notCollectionOrSchemaError": true,
+    "noGitMutation": true
+  },
+  "gates": [
+    {
+      "gate": "r4-new1-green",
+      "head": "a14e1392c4558f8a7f519aa2cf2969a12e780e1f",
+      "command": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "tests/ui/platform-model-catalog-i18n.test.tsx",
+        "-t",
+        "preserves the complete mixed notice sentence boundary",
+        "--maxWorkers=1",
+        "--reporter=json",
+        "--outputFile=/Users/shenyangjun/boardx/workspacex-i18n-agent-skill/.superpowers/sdd/2026-11-05-platform-model-catalog-i18n/raw/round4-final-recovery/new1-report.json"
+      ],
+      "exit": 0,
+      "seconds": 5.788,
+      "logSha256": "498668b793ba18ec0dcc9e62d4c5c6ba88983328340e61ea648602a8e49581bb",
+      "rawPrivate": true
+    },
+    {
+      "gate": "r4-resource5",
+      "head": "a14e1392c4558f8a7f519aa2cf2969a12e780e1f",
+      "command": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "tests/lib/i18n-resources.test.ts",
+        "--maxWorkers=1",
+        "--reporter=json",
+        "--outputFile=/Users/shenyangjun/boardx/workspacex-i18n-agent-skill/.superpowers/sdd/2026-11-05-platform-model-catalog-i18n/raw/round4-final-recovery/resources-report.json"
+      ],
+      "exit": 0,
+      "seconds": 3.135,
+      "logSha256": "5923eeb7d44d283b4f45d95218609b8b292bead57b9caa6fc1112c1dd407fcad",
+      "rawPrivate": true
+    },
+    {
+      "gate": "r4-lint",
+      "head": "a14e1392c4558f8a7f519aa2cf2969a12e780e1f",
+      "command": [
+        "pnpm",
+        "exec",
+        "eslint",
+        "lib/i18n/namespaces/platform-model-catalog.ts",
+        "tests/ui/platform-model-catalog-i18n.test.tsx",
+        "e2e/platform-model-catalog-i18n.spec.ts",
+        "lib/i18n/messages/en.ts",
+        "lib/i18n/messages/zh-CN.ts",
+        "playwright.fullstack-smoke.config.ts"
+      ],
+      "exit": 0,
+      "seconds": 2.275,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "rawPrivate": true
+    },
+    {
+      "gate": "r4-web-type",
+      "head": "a14e1392c4558f8a7f519aa2cf2969a12e780e1f",
+      "command": [
+        "pnpm",
+        "--filter",
+        "web",
+        "typecheck"
+      ],
+      "exit": 0,
+      "seconds": 68.292,
+      "logSha256": "ea30d6b748ad9ab96126527df942acbf5a2e0557ed6674beeb887f3f9571595a",
+      "rawPrivate": true
+    },
+    {
+      "gate": "r4-testid",
+      "head": "a14e1392c4558f8a7f519aa2cf2969a12e780e1f",
+      "command": [
+        "pnpm",
+        "run",
+        "lint:e2e-testid-gate"
+      ],
+      "exit": 0,
+      "seconds": 3.985,
+      "logSha256": "ac922d7a30abada3821f7cfc4d10d05e4b9e507f3e89dd445a98885d7a417683",
+      "rawPrivate": true
+    },
+    {
+      "gate": "r4-discovery",
+      "head": "a14e1392c4558f8a7f519aa2cf2969a12e780e1f",
+      "command": [
+        "pnpm",
+        "exec",
+        "tsx",
+        "-e",
+        "import {deriveTestIsolation} from './.harness/scripts/lib/test-isolation'; import {spawnSync} from 'node:child_process'; const env={...process.env,...deriveTestIsolation({isolationId:'i18n-model-catalog-6255-r4-discovery',worktreePath:process.cwd()}),FULLSTACK_SMOKE_PARTITION:'product'}; const r=spawnSync('pnpm',['--filter','web','exec','playwright','test','--config','playwright.fullstack-smoke.config.ts','--project=seeded-github-import','--no-deps','platform-model-catalog-i18n.spec.ts','--list'],{env,stdio:'inherit'});process.exit(r.status??1);"
+      ],
+      "exit": 0,
+      "seconds": 2.585,
+      "logSha256": "4b0d10fb01cb296e3d2ffc46c381cfa51ebc54706b9d7539587e90027b07052d",
+      "rawPrivate": true
+    }
+  ],
+  "nativeAfterFixExecuted": 0,
+  "previousNativeAttempt": {
+    "run": 41947987186,
+    "artifactHead": "55d2e32855f179b7c6d80c72c3a694d5e1047e96",
+    "case1": "PASS retry0/13.575s",
+    "case2": "FAIL both attempts full-card ratio1",
+    "case3": "not executed"
+  },
+  "preservation": {
+    "original25ComponentCasesByteIdentical": true,
+    "all3NativeCaseBodiesByteIdentical": true,
+    "sameFullCardLeafAnchorAssertions": true,
+    "viewportBudgetsRetriesAndPngCapUnchanged": true,
+    "all8ProtectedSdkHelperLegacyFilesByteIdentical": true
+  },
+  "reviewReports": {
+    "round4-task1-source-closure.md": "a588b25f991ee81fede5086fba6a928a462c472db404642904fdf2246ade47b1",
+    "round4-task2-source-closure.md": "a5340a4e7d2219cbe45993e968c362b19e69175e4e7b92ec5a6d05df6c4c9d68"
+  },
+  "rawAuthenticatedArtifactsAndNumericReceiptsPrivate": true
+}

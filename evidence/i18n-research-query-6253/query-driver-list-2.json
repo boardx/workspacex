@@ -1,0 +1,33 @@
+{
+  "name": "query-driver-list-2",
+  "command": [
+    "pnpm",
+    "exec",
+    "tsx",
+    ".harness/scripts/with-test-isolation.ts",
+    "--",
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "playwright",
+    "test",
+    "--config",
+    "playwright.fullstack-smoke.config.ts",
+    "--project=seeded",
+    "--grep",
+    "research (locale preserves the real intake, plan, saved report and history management journey|query assistant locale preserves canonical intents, pending drafts and explicit application)$",
+    "--workers=1",
+    "--retries=0",
+    "--max-failures=1",
+    "--list",
+    "--reporter=json"
+  ],
+  "source": "75148e4d6783beadc52cab501b56d3264697e798",
+  "exitCode": 0,
+  "seconds": 5.0,
+  "rawLogSha256": "69c9e0ca5e5a4a8c62d322bb9f9a04e5d8c9004c3c12086f68f3dd740ef5921f",
+  "sourceAfter": "75148e4d6783beadc52cab501b56d3264697e798",
+  "sourceStable": true,
+  "environment": {}
+}

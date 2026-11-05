@@ -1,0 +1,17 @@
+{
+  "name": "assistant-webtype-1",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "typecheck"
+  ],
+  "source": "6c3760927ad16f2ab0c905c2896be3c0c60b0a03",
+  "exitCode": 2,
+  "seconds": 49.09,
+  "rawLogSha256": "5abf53c8ea0e46039a70ec23f2c1c38a16a639eead661140fa8ca310961a89f7",
+  "sourceAfter": "6c3760927ad16f2ab0c905c2896be3c0c60b0a03",
+  "sourceStable": true,
+  "environment": {},
+  "failure": "Only two new test getByRole option objects use unsupported exact property; replace with equivalent anchored accessible-name regex, preserve assertions"
+}

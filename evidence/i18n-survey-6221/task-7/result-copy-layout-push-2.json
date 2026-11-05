@@ -1,0 +1,20 @@
+{
+  "name": "result-copy-layout-push-2",
+  "command": [
+    "git",
+    "push",
+    "origin",
+    "HEAD:refs/heads/worker/i18n-survey-journey-6221"
+  ],
+  "source": "65e5fe99d93792f2b19831cbfac7e37f46b5f42c",
+  "exitCode": 0,
+  "seconds": 7.64,
+  "rawLogSha256": "baeb28f63e115ae9a82aa48faea00a3b7a2c3a1f66328419f585db92ba49fedc",
+  "sourceAfter": "65e5fe99d93792f2b19831cbfac7e37f46b5f42c",
+  "sourceStable": true,
+  "environment": {},
+  "hookTasksPassed": 27,
+  "hookTasksTotal": 27,
+  "hookCached": 27,
+  "hookSeconds": 0.385
+}

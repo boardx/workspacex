@@ -1,0 +1,17 @@
+{
+  "name": "accepted-a002-merge-1",
+  "command": [
+    "git",
+    "merge",
+    "--no-edit",
+    "a00287a86c411c13148294cc2ed4379852949c5d"
+  ],
+  "source": "fb3341d5fddbfdd0b9f096193110bc5c90e3b04b",
+  "exitCode": 0,
+  "seconds": 0.803,
+  "rawLogSha256": "7bd3de2e623485ecd6876f483b5944e0bd149a388b0c506fc5ecf74a4574c48b",
+  "sourceAfter": "4ec1ba1f59455140fe39c964440ee3dfd2b3cefa",
+  "sourceStable": false,
+  "environment": {},
+  "sourceStableBoundary": "Expected false: normal Git merge changes HEAD; four reviewed source blobs and35metadata bytes independently remained exact"
+}

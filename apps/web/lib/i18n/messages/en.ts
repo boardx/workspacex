@@ -1,5 +1,7 @@
 import { projectOverviewEn } from "../namespaces/project-overview";
+import { platformOpsStatusEn } from "../namespaces/platform-ops-status";
 import { modelTestbenchEn } from "../namespaces/model-testbench";
+import { platformModelCatalogEn } from "../namespaces/platform-model-catalog";
 import { telemetrySettingsEn } from "../namespaces/telemetry-settings";
 import { platformMembersEn } from "../namespaces/platform-members";
 import { surveyTemplatesEn } from "../namespaces/survey-templates";
@@ -39,7 +41,9 @@ import { accountEntryEn } from "../namespaces/account-entry";
 import { invitationEntryEn } from "../namespaces/invitation-entry";
 export const en: Record<keyof typeof zhCN, string> = {
   ...projectOverviewEn,
+  ...platformOpsStatusEn,
   ...modelTestbenchEn,
+  ...platformModelCatalogEn,
   ...telemetrySettingsEn,
   ...platformMembersEn,
   ...surveyTemplatesEn,

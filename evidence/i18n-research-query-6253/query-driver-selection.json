@@ -1,0 +1,17 @@
+{
+  "source": "75148e4d6783beadc52cab501b56d3264697e798",
+  "discoveryOnly": true,
+  "runtimeExecuted": false,
+  "discovered": 2,
+  "files": 1,
+  "projects": [
+    "seeded"
+  ],
+  "titles": [
+    "research locale preserves the real intake, plan, saved report and history management journey",
+    "research query assistant locale preserves canonical intents, pending drafts and explicit application"
+  ],
+  "workers": 1,
+  "noApiContractsConfigWorkflowChange": true,
+  "oldDiscoveryFailure": "Leading ^ anchor matched test name but not Playwright project/file full title; retained as separate failed invocation, no assertions/config weakened"
+}

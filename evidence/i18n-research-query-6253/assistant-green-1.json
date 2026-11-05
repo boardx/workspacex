@@ -1,0 +1,31 @@
+{
+  "name": "assistant-green-1",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/guided-research-skill-assistant-i18n.test.tsx",
+    "tests/ui/guided-research-skill-assistant.test.tsx",
+    "tests/guided-research-skill-state.test.ts",
+    "tests/ui/research-entry-i18n.test.tsx",
+    "tests/ui/research-overlays-i18n.test.tsx",
+    "tests/lib/i18n-resources.test.ts"
+  ],
+  "source": "6c3760927ad16f2ab0c905c2896be3c0c60b0a03",
+  "exitCode": 0,
+  "seconds": 18.918,
+  "rawLogSha256": "695a67d7be810fada9b5445919988352e636252e79d6e8297dd4ba6c53567230",
+  "sourceAfter": "6c3760927ad16f2ab0c905c2896be3c0c60b0a03",
+  "sourceStable": true,
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "files": 6,
+  "passed": 51,
+  "skipped": 0,
+  "nativeSeconds": 16.94,
+  "scope": "Affected suite total; not combined with B6 or another historical run"
+}

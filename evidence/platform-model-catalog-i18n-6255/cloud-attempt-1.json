@@ -1,0 +1,117 @@
+{
+  "run": 41947987186,
+  "head": "55d2e32855f179b7c6d80c72c3a694d5e1047e96",
+  "reportSha256": "a109bc6879e2a4e4cda6bde8c74ababd1e628039595ff45e6036385588e3fdd4",
+  "globalStats": {
+    "startTime": "2026-11-05T01:24:04.151Z",
+    "duration": 1313234.18,
+    "expected": 210,
+    "skipped": 8,
+    "unexpected": 1,
+    "flaky": 0
+  },
+  "workers": 2,
+  "ownedCases": [
+    {
+      "file": "platform-model-catalog-i18n.spec.ts",
+      "title": "model pool preserves actual read results and registration drafts across language events",
+      "project": "seeded-github-import",
+      "overall": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "retry": 0,
+          "ms": 13575,
+          "errorLocations": [],
+          "errorHeadlines": []
+        }
+      ]
+    },
+    {
+      "file": "platform-model-catalog-i18n.spec.ts",
+      "title": "real member denial remains readable and public snapshot preserves canonical values",
+      "project": "seeded-github-import",
+      "overall": "unexpected",
+      "results": [
+        {
+          "status": "failed",
+          "retry": 0,
+          "ms": 27326,
+          "errorLocations": [
+            {
+              "file": "/home/runner/work/workspacex/workspacex/apps/web/e2e/platform-model-catalog-i18n.spec.ts",
+              "column": 24,
+              "line": 96
+            }
+          ],
+          "errorHeadlines": [
+            "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeInViewport\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed"
+          ]
+        },
+        {
+          "status": "failed",
+          "retry": 1,
+          "ms": 28069,
+          "errorLocations": [
+            {
+              "file": "/home/runner/work/workspacex/workspacex/apps/web/e2e/platform-model-catalog-i18n.spec.ts",
+              "column": 24,
+              "line": 96
+            }
+          ],
+          "errorHeadlines": [
+            "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeInViewport\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "platform-model-catalog-i18n.spec.ts",
+      "title": "existing actual model rows expose local manual checks and disable reason semantics only",
+      "project": "seeded-github-import",
+      "overall": "skipped",
+      "results": []
+    }
+  ],
+  "unexpected": [
+    {
+      "file": "platform-model-catalog-i18n.spec.ts",
+      "title": "real member denial remains readable and public snapshot preserves canonical values",
+      "project": "seeded-github-import",
+      "overall": "unexpected",
+      "results": [
+        {
+          "status": "failed",
+          "retry": 0,
+          "ms": 27326,
+          "errorLocations": [
+            {
+              "file": "/home/runner/work/workspacex/workspacex/apps/web/e2e/platform-model-catalog-i18n.spec.ts",
+              "column": 24,
+              "line": 96
+            }
+          ],
+          "errorHeadlines": [
+            "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeInViewport\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed"
+          ]
+        },
+        {
+          "status": "failed",
+          "retry": 1,
+          "ms": 28069,
+          "errorLocations": [
+            {
+              "file": "/home/runner/work/workspacex/workspacex/apps/web/e2e/platform-model-catalog-i18n.spec.ts",
+              "column": 24,
+              "line": 96
+            }
+          ],
+          "errorHeadlines": [
+            "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeInViewport\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed"
+          ]
+        }
+      ]
+    }
+  ],
+  "globalErrorsCount": 1
+}

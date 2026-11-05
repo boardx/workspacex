@@ -1,0 +1,13 @@
+{
+  "source": "48e8364433d96867b43ee7a7ded6b63c2285845c",
+  "accepted": "a00287a86c411c13148294cc2ed4379852949c5d",
+  "merged": "a14e1392c4558f8a7f519aa2cf2969a12e780e1f",
+  "wholeTree": "6d81dfd833cd813a91920cd890098a5a939f1fe2",
+  "wholeTreeEqualsOriginallyResolvedIntendedTree": true,
+  "normalHookStagedPaths": 23,
+  "preCommitHookUnchangedSha256": "fa18947d9c772715b0319f45f2b25278a5ca3ddb369a38addc142301bea461a7",
+  "originalBranchFastForwardOnly": true,
+  "published55AncestorVerified": true,
+  "noResetRebaseForceHookSkipOrNewWorktree": true,
+  "scope": "Integration before evidence metadata: exact saved tree, ordinary hook and fast-forward preservation"
+}
