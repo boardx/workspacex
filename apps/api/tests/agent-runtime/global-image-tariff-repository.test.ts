@@ -1,3 +1,4 @@
+// @global-scope-fixture table:credit_global_image_schedule: SQL is intercepted by a per-test in-memory query fake; each fixture owns fresh state and no database connection is opened.
 import {it,expect,vi} from 'vitest';
 import {PgGlobalImageTariffRepository} from '../../src/infrastructure/billing/pg-global-image-tariff-repository';
 import {GlobalImageTariffConflict,GlobalImageTariffWriterUnavailable} from '../../src/application/billing/global-image-tariff-service';
