@@ -26,9 +26,12 @@ import { chatEn } from "../namespaces/chat";
 import { enTasks } from "./tasks";
 import { enFailures } from "./failures";
 import { controlsEn } from "../namespaces/controls";
+import { publicDesignShareEn } from "../namespaces/public-design-share";
 import { projectListEn } from "../namespaces/project-list";
+import { projectOverviewEn } from "../namespaces/project-overview";
 import { activityEn } from "../namespaces/activity";
 import { profileEn } from "../namespaces/profile";
+import { projectPreparationEn } from "../namespaces/project-preparation";
 import { notificationsEn } from "../namespaces/notifications";
 import { aboutMemoryEn } from "../namespaces/about-memory";
 import { orgMembersEn } from "../namespaces/org-members";
@@ -36,6 +39,7 @@ import { orgMembersPreviewEn } from "../namespaces/org-members-preview";
 import { orgSharedInvitesEn } from "../namespaces/org-shared-invites";
 import { stateEn } from "../namespaces/state";
 import { workflowRunsEn } from "../namespaces/workflow-runs";
+import { projectResultsEn } from "../namespaces/project-results";
 import { workshopOverviewEn } from "../namespaces/workshop-overview";
 import { projectWorkbenchEn } from "../namespaces/project-workbench";
 import type { zhCN } from "./zh-CN";
@@ -68,9 +72,12 @@ export const en: Record<keyof typeof zhCN, string> = {
   ...enTasks,
   ...enFailures,
   ...controlsEn,
+  ...publicDesignShareEn,
   ...projectListEn,
+  ...projectOverviewEn,
   ...activityEn,
   ...profileEn,
+  ...projectPreparationEn,
   ...notificationsEn,
   ...aboutMemoryEn,
   ...orgMembersEn,
@@ -80,6 +87,7 @@ export const en: Record<keyof typeof zhCN, string> = {
   ...chatShareEn,
   ...codeFenceEn,
   ...workflowRunsEn,
+  ...projectResultsEn,
   ...workshopOverviewEn,
   ...projectWorkbenchEn,
   "common.language": "Language",
