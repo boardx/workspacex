@@ -1,3 +1,4 @@
+import { workbenchHomeZhCN } from "../namespaces/workbench-home";
 import { inboxZhCN } from "../namespaces/inbox";
 import { designDocumentZhCN } from "../namespaces/design-document";
 import { designLoopCommonZhCN } from "../namespaces/design-loop-common";
@@ -40,6 +41,7 @@ import { stateZhCN } from "../namespaces/state";
 import { accountEntryZhCN } from "../namespaces/account-entry";
 import { invitationEntryZhCN } from "../namespaces/invitation-entry";
 export const zhCN = {
+  ...workbenchHomeZhCN,
   ...inboxZhCN,
   ...designDocumentZhCN,
   ...designLoopCommonZhCN,
