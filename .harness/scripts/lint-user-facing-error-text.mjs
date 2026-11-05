@@ -60,7 +60,7 @@ const LEGACY = new Map([
   ["apps/web/components/admin/member-quota-tab.tsx", 0],
   ["apps/web/components/admin/model-screen.tsx", 2],
   ["apps/web/components/admin/ops-status-screen.tsx", 2],
-  ["apps/web/components/admin/overview-live.tsx", 2],
+  ["apps/web/components/admin/overview-live.tsx", 0],
   ["apps/web/components/admin/platform-members-screen.tsx", 0],
   ["apps/web/components/admin/skill-starter-import-panel.tsx", 2],
   ["apps/web/components/admin/skill-url-import-panel.tsx", 1],

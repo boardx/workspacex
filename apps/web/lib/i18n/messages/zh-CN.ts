@@ -15,6 +15,7 @@ import { aiUsageZhCN } from "../namespaces/ai-usage";
 import { adminLimitPolicyZhCN } from "../namespaces/admin-limit-policy";
 import { adminMemberQuotasZhCN } from "../namespaces/admin-member-quotas";
 import { adminCommonZhCN } from "../namespaces/admin-common";
+import { adminOverviewZhCN } from "../namespaces/admin-overview";
 import { recordingProjectZhCN } from "../namespaces/recording-project";
 import { workflowGrantsZhCN } from "../namespaces/workflow-grants";
 import { orgHomeConfigZhCN } from "../namespaces/org-home-config";
@@ -57,6 +58,7 @@ export const zhCN = {
   ...adminLimitPolicyZhCN,
   ...adminMemberQuotasZhCN,
   ...adminCommonZhCN,
+  ...adminOverviewZhCN,
   ...recordingProjectZhCN,
   ...workflowGrantsZhCN,
   ...orgHomeConfigZhCN,
