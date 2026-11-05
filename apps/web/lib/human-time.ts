@@ -7,8 +7,11 @@
  * 同一事实不得声明在两处：三处共用这一份。
  */
 
+import { translate } from "./i18n/messages";
+import type { Locale } from "./i18n/locale";
+
 /** 近的说相对时间，远的才落到日期；`now` 可注入，测试不靠真实时钟。 */
-export function humanTime(iso: string, now: number = Date.now()): string {
+export function humanTime(iso: string, now: number = Date.now(), locale: Locale = "zh-CN"): string {
   const d = new Date(iso);
   const t = d.getTime();
   if (Number.isNaN(t)) return iso;
@@ -16,11 +19,11 @@ export function humanTime(iso: string, now: number = Date.now()): string {
   const min = Math.floor((now - t) / 60000);
   // 未来时间（时钟偏差）不说「-3 分钟前」，退回到时刻本身。
   if (min < 0) return hhmm;
-  if (min < 1) return "刚刚";
-  if (min < 60) return `${min} 分钟前`;
+  if (min < 1) return translate(locale, "designShare.time.justNow");
+  if (min < 60) return translate(locale, "designShare.time.minutes", { count: min });
   const startOfToday = new Date(now);
   startOfToday.setHours(0, 0, 0, 0);
-  if (t >= startOfToday.getTime()) return `今天 ${hhmm}`;
-  if (t >= startOfToday.getTime() - 86400000) return `昨天 ${hhmm}`;
+  if (t >= startOfToday.getTime()) return translate(locale, "designShare.time.today", { time: hhmm });
+  if (t >= startOfToday.getTime() - 86400000) return translate(locale, "designShare.time.yesterday", { time: hhmm });
   return `${d.getMonth() + 1}/${d.getDate()} ${hhmm}`;
 }

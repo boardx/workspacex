@@ -9,10 +9,94 @@
 name: devapp-probe
 
 on:
+  pull_request:
+    branches: [develop]
+    paths:
+      - .github/workflows/devapp-probe.yml
+      - .harness/scripts/vm/asr-accounting-probe.py
+      - .harness/scripts/vm/repair-asr-credit-tariffs.py
+      - .harness/scripts/vm/tests/test_asr*.py
   workflow_dispatch:
+    inputs:
+      asr_accounting:
+        description: Safe aggregate ASR accounting diagnosis only
+        type: boolean
+        default: false
+
+      target_environment:
+        description: Fixed accounting diagnostic target (CN is read-only)
+        type: choice
+        options: [devapp, cn]
+        default: devapp
+      asr_repair_action:
+        description: Issue 6275 controlled ASR tariff maintenance
+        type: choice
+        options: [none, dry-run, apply, rollback]
+        default: none
+      asr_repair_expected:
+        description: Exact reviewed dry-run snapshot SHA256 (required for apply/rollback)
+        type: string
+        default: ''
 
 jobs:
+  asr-credit-repair:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.asr_repair_action != 'none' && inputs.target_environment == 'devapp' }}
+    runs-on: [self-hosted, linux, x64, workspacex]
+    timeout-minutes: 3
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+      - name: Controlled issue 6275 ASR credit tariff maintenance
+        env:
+          ASR_REPAIR_ACTION: ${{ inputs.asr_repair_action }}
+          ASR_REPAIR_EXPECTED: ${{ inputs.asr_repair_expected }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show "$GITHUB_SHA:.harness/scripts/vm/repair-asr-credit-tariffs.py" | python3 -I -B
+
+  probe-contract:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+      - run: python3 -I -B -m unittest discover -s .harness/scripts/vm/tests -p 'test_asr*.py' -v
+
+  asr-accounting:
+    if: ${{ inputs.asr_accounting && inputs.target_environment == 'devapp' }}
+    runs-on: [self-hosted, linux, x64, workspacex]
+    timeout-minutes: 3
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+      - name: Read-only ASR accounting aggregates
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show "$GITHUB_SHA:.harness/scripts/vm/asr-accounting-probe.py" | python3 -I -B
+
+  cn-asr-accounting:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.asr_accounting && inputs.target_environment == 'cn' }}
+    environment: production-cn-promotion
+    runs-on: [self-hosted, linux, workspacex-cn-production]
+    timeout-minutes: 3
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+      - name: Read-only CN ASR accounting inventory
+        env:
+          ASR_PROBE_TARGET: cn
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show "$GITHUB_SHA:.harness/scripts/vm/asr-accounting-probe.py" | python3 -I -B
+
   probe:
+    if: ${{ github.event_name == 'workflow_dispatch' && !inputs.asr_accounting && inputs.asr_repair_action == 'none' && inputs.target_environment == 'devapp' }}
     runs-on: [self-hosted, linux, x64, workspacex]
     timeout-minutes: 5
     steps:

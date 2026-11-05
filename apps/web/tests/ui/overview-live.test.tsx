@@ -41,6 +41,7 @@ vi.mock("@/lib/live-provenance", () => ({
 }));
 
 import { OverviewLive } from "@/components/admin/overview-live";
+import { I18nProvider } from "@/lib/i18n/provider";
 
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 // `useOptionalSession.mockReturnValue(...)`（组织切换那条测试用它模拟换组织）不会被
@@ -163,11 +164,20 @@ describe("限额事件（F162 真数据；PR #2425 独立审查补的正向断�
     expect(screen.queryByTestId(/^admin-overview-anomaly-/)).toBeNull();
   });
 
-  it("读失败 ⇒ 显示失败原因，不回退演示数据，且不影响 token/活跃成员那两块的成功渲染", async () => {
+  it.each([
+    { locale: "zh-CN" as const, heading: "读不到限额事件", reason: "出了点问题，稍后再试一次" },
+    { locale: "en" as const, heading: "Could not load limit events", reason: "Something went wrong. Please try again later." },
+  ])("$locale 读失败 ⇒ 显示本地化失败原因，不回退演示数据，且不影响其他指标", async ({ locale, heading, reason }) => {
     arrange({ totalTokens: 999, limitEventsFail: true });
-    render(<OverviewLive />);
+    render(<I18nProvider initialLocale={locale}><OverviewLive /></I18nProvider>);
     await waitFor(() => expect(screen.getByTestId("admin-overview-anomalies-load-failed")).toBeTruthy());
-    expect(screen.getByTestId("admin-overview-anomalies-load-failed").textContent).toContain("limit-boom");
+    const failure = screen.getByTestId("admin-overview-anomalies-load-failed").textContent;
+    expect(failure).toContain(heading);
+    expect(failure).toContain(reason);
+    expect(failure).not.toContain("limit-boom");
+    expect(screen.queryByTestId("admin-overview-anomalies-empty")).toBeNull();
+    expect(screen.queryByTestId(/^admin-overview-anomaly-/)).toBeNull();
+    expect(listLimitEvents).toHaveBeenCalledWith("org-1");
     // 计数卡跟着读失败显示「—」，同 `MetricCard` 对 token 失败的既有规矩一致。
     expect(screen.getByTestId("admin-overview-metric-anomaly").textContent).toContain("—");
     // 一条读失败不能连累另一条已经成功的读——这正是两个独立 effect 的意义。

@@ -1,0 +1,8 @@
+{
+  "sourceBase": "10ea72f223b96e907787e8307d44288f5e5be01c",
+  "flowAllOtherBytesExact": true,
+  "existingTwoBrowserCasePrefixExactAt9bc": true,
+  "originalBrowserBytes": 20712,
+  "originalBrowserSha256": "c1979e6cc71d657803f7c1208a8a0391162464433aa7ee040b352659b2836adc",
+  "onlyProductDelta": "One useI18n binding, one pending status resource call, two paired resource entries. Request/state/effect/route code unchanged."
+}

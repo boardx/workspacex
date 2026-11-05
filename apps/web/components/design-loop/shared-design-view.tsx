@@ -21,9 +21,8 @@ import { PrototypeCanvas, deviceOf, fitScale, rotated } from "./prototype-canvas
 import { fetchSharedDesign, type SharedDesign } from "@/lib/live-design-workbench";
 import { ApiError } from "@/lib/api-client";
 import { humanTime } from "@/lib/human-time";
-
-/** 打不开的三种原因在服务端是同一个码（不给试令牌的人进度条），所以屏上也只有一句话。 */
-const NOT_FOUND_TEXT = "这条分享链接打不开：可能已经被取消分享，也可能链接不完整。找发给你的人要一条新的。";
+import { useI18n } from "@/lib/i18n/provider";
+import { LanguageSwitcher } from "@/components/shell/language-switcher";
 
 export function SharedDesignView({
   token,
@@ -33,8 +32,9 @@ export function SharedDesignView({
   token: string;
   load?: (token: string) => Promise<{ design: SharedDesign }>;
 }): React.ReactElement {
+  const { locale, t } = useI18n();
   const [design, setDesign] = React.useState<SharedDesign | null>(null);
-  const [error, setError] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<"missing" | "unavailable" | null>(null);
   const [frame, setFrame] = React.useState(0);
   /** 点跳转进来的来路——有它才能"返回上一页"，否则访客在深层页里出不来。 */
   const [backStack, setBackStack] = React.useState<number[]>([]);
@@ -52,7 +52,7 @@ export function SharedDesignView({
       } catch (e) {
         if (!alive) return;
         // 404 = 契约的 `SHARE_NOT_FOUND`；别的（断网、5xx）如实说是"没能打开"，不冒充成已撤销。
-        setError(e instanceof ApiError && e.status === 404 ? NOT_FOUND_TEXT : "没能打开这条链接，稍后再试一次。");
+        setError(e instanceof ApiError && e.status === 404 ? "missing" : "unavailable");
       }
     })();
     return () => {
@@ -74,15 +74,16 @@ export function SharedDesignView({
   if (error !== null) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center gap-3 p-6" data-testid="shared-design-error">
-        <p className="max-w-sm text-center text-13 text-muted-foreground">{error}</p>
+        <LanguageSwitcher className="absolute right-4 top-4" />
+        <p className="max-w-sm text-center text-13 text-muted-foreground">{t(error === "missing" ? "designShare.missing" : "designShare.unavailable")}</p>
         {/*
           * 迭代 29：断网/5xx 时原来只有一句话，连个重试都没有——而访客多半在手机上、
           * 地铁里，刷新一下就好。「取消分享」那种情况重试也没用，所以只在**可能是临时的**
           * 那一类下面给按钮。
           */}
-        {error !== NOT_FOUND_TEXT && (
+        {error !== "missing" && (
           <Button variant="outline" size="sm" onClick={() => { setError(null); setReloadAt(Date.now()); }} data-testid="shared-design-retry">
-            再试一次
+            {t("designShare.retry")}
           </Button>
         )}
       </main>
@@ -91,7 +92,8 @@ export function SharedDesignView({
   if (design === null) {
     return (
       <main className="flex min-h-screen items-center justify-center p-6" data-testid="shared-design-loading">
-        <p className="text-13 text-muted-foreground">正在打开…</p>
+        <LanguageSwitcher className="absolute right-4 top-4" />
+        <p className="text-13 text-muted-foreground">{t("designShare.loading")}</p>
       </main>
     );
   }
@@ -117,14 +119,15 @@ export function SharedDesignView({
           */}
         <p className="text-11 text-muted-foreground" data-testid="shared-design-meta">
           {design.ownerName === null ? "" : `${design.ownerName} · `}
-          发布于 {humanTime(design.publishedAt)}
-          {" · 只读"}
+          {t("designShare.published", { time: humanTime(design.publishedAt, undefined, locale) })}
+          {` · ${t("designShare.readOnly")}`}
         </p>
+        <LanguageSwitcher className="ml-auto" />
       </header>
 
       {design.problem !== null && (
         <section className="border-b border-border px-4 py-3" data-testid="shared-design-brief">
-          <h2 className="text-11 font-medium text-muted-foreground">问题与目标</h2>
+          <h2 className="text-11 font-medium text-muted-foreground">{t("designShare.problem")}</h2>
           <p className="mt-1 whitespace-pre-wrap text-12">{design.problem}</p>
           {design.criteria !== null && design.criteria.length > 0 && (
             <ol className="mt-2 list-decimal space-y-0.5 pl-4 text-12 text-muted-foreground">
@@ -135,7 +138,7 @@ export function SharedDesignView({
       )}
 
       {design.frames.length === 0 ? (
-        <p className="p-6 text-13 text-muted-foreground" data-testid="shared-design-empty">这份原型还没有页面。</p>
+        <p className="p-6 text-13 text-muted-foreground" data-testid="shared-design-empty">{t("designShare.empty")}</p>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col">
           {/* 页签横向滚动——手机上八页也放得下，不折行把画布挤走 */}
@@ -152,8 +155,8 @@ export function SharedDesignView({
                   i === at ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60",
                 )}
               >
-                {f || `第 ${String(i + 1)} 页`}
-                {design.prototype[i] === null && <span className="ml-1 opacity-60">（还没画）</span>}
+                {f || t("designShare.page", { number: i + 1 })}
+                {design.prototype[i] === null && <span className="ml-1 opacity-60">{t("designShare.notDrawn")}</span>}
               </button>
             ))}
           </nav>
@@ -171,12 +174,13 @@ export function SharedDesignView({
                   data-testid="shared-design-back"
                   onClick={() => setBackStack((s) => { const prev = s[s.length - 1]; if (prev !== undefined) setFrame(prev); return s.slice(0, -1); })}
                 >
-                  <ArrowLeft aria-hidden className="mr-1 h-3 w-3" />返回
+                  <ArrowLeft aria-hidden className="mr-1 h-3 w-3" />{t("designShare.back")}
                 </Button>
               </div>
             )}
             <div style={{ transform: `scale(${scale})`, transformOrigin: "top center", width: size.w, height: size.h }}>
               <PrototypeCanvas
+                chromeLocale={locale}
                 label={design.frames[at] ?? ""}
                 root={design.prototype[at] ?? null}
                 /* 这一页规划了但没画出来——如实说，不假装这个项目只有几页（issue #3340 同一条）。 */
@@ -200,7 +204,7 @@ export function SharedDesignView({
       <footer className="border-t border-border px-4 py-2 text-10 text-muted-foreground">
         <span className="inline-flex items-center gap-1">
           <ExternalLink aria-hidden className="h-3 w-3" />
-          这是{humanTime(design.publishedAt)}那一刻的快照，只读；设计者之后改的东西不会出现在这条链接里，要看最新的找发给你的人再发一条。
+          {t("designShare.snapshot", { time: humanTime(design.publishedAt, undefined, locale) })}
         </span>
       </footer>
     </main>

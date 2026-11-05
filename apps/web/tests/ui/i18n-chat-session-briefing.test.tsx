@@ -1,6 +1,6 @@
 import * as React from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 const api = vi.hoisted(() => ({ load: vi.fn(), event: vi.fn(), dismiss: vi.fn() }));
 vi.mock("@/lib/knowledge-graph-api", async (load) => ({ ...(await load<typeof import("@/lib/knowledge-graph-api")>()), fetchSessionBriefing: api.load, recordSessionBriefingEvent: api.event, setSessionBriefingDismissed: api.dismiss }));
 import { SessionBriefing } from "@/components/chat/knowledge/session-briefing";
@@ -19,7 +19,7 @@ it("changes authored briefing chrome without refetching, re-recording shown or t
   render(<I18nProvider initialLocale="en"><Driver /><SessionBriefing onResume={resume} /></I18nProvider>);
   const root = await screen.findByTestId("session-briefing"); expect(root).toHaveTextContent("Continue from last time");
   expect(root).toHaveTextContent(statement); const button = screen.getByRole("button", { name: "Continue" });
-  expect(api.event).toHaveBeenCalledTimes(1); expect(api.event).toHaveBeenCalledWith("shown", ["recent:raw"]); expect(resume).not.toHaveBeenCalled();
+  await waitFor(() => expect(api.event).toHaveBeenCalledTimes(1)); expect(api.event).toHaveBeenCalledWith("shown", ["recent:raw"]); expect(resume).not.toHaveBeenCalled();
   act(() => changeLocale()); expect(screen.getByTestId("session-briefing")).toBe(root); expect(screen.getByRole("button", { name: "续上" })).toBe(button); expect(api.load).toHaveBeenCalledTimes(1); expect(api.event).toHaveBeenCalledTimes(1);
   fireEvent.click(button); expect(resume).toHaveBeenCalledTimes(1); expect(resume).toHaveBeenCalledWith(resumePrompt); expect(screen.getByTestId("session-briefing-cited")).toHaveAttribute("data-claim-id", "raw-claim"); expect(screen.getByTestId("session-briefing-cited")).toHaveTextContent(statement);
   expect(api.event).toHaveBeenLastCalledWith("accepted", ["recent:raw"]); expect(api.dismiss).not.toHaveBeenCalled();

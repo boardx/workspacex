@@ -164,6 +164,7 @@ export function GuidedResearchFlow({
    */
   projectId?: string | null;
 }) {
+  const { t } = useI18n();
   const [restoredStep, setRestoredStep] = React.useState(() => clampSessionlessStep(step, sessionId));
   const [activeSessionId, setActiveSessionId] = React.useState(sessionId);
   const [activeVisualStage, setActiveVisualStage] = React.useState(visualStage);
@@ -239,7 +240,7 @@ export function GuidedResearchFlow({
         <p className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-12 text-destructive" data-testid="research-session-restore-error">研究会话恢复失败，请返回首页后重试。</p>
       ) : (
         <>
-          {entryPending && <p role="status">正在分析研究需求…</p>}
+          {entryPending && <p role="status">{t("research.intake.analyzing")}</p>}
           {restoredStep === "home" && <ResearchHome onNavigate={navigate} />}
           {restoredStep === "brief" && <BriefScreen onPending={setEntryPending} projectId={projectId} sessionId={activeSessionId} session={sessionSnapshot} workflow={workflowSnapshot} onSession={setSessionSnapshot} onWorkflow={setWorkflowSnapshot} onNavigate={navigate} />}
           {restoredStep === "directions" && <DirectionsScreen sessionId={activeSessionId} session={sessionSnapshot} workflow={workflowSnapshot} onSession={setSessionSnapshot} onWorkflow={setWorkflowSnapshot} onNavigate={navigate} />}

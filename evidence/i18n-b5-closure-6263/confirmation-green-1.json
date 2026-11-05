@@ -1,0 +1,10 @@
+{
+  "source": "c7c6c4f1a5e6b9172c786681c7deb86a8473e3eb",
+  "name": "confirmation-green-1",
+  "exitCode": 0,
+  "seconds": 5.345,
+  "outcome": "new1 PASS; existing10 name-deselected",
+  "sourceStable": true,
+  "originalRawLogSha256AsReturnedByTool": "01d63977a6b8c50aaade0f95d4d19940e17a62da8575cef006a308312ebcb000",
+  "provenance": "Reconstructed exactly from successful wrapper tool result in this chat. Temporary private directory disappeared across interruption; original raw log/receipt currently unavailable. No rerun or physical readback claimed."
+}

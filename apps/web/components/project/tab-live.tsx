@@ -1,5 +1,7 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
+import { workshopLiveZhCN } from "@/lib/i18n/namespaces/workshop-live";
 import { ChevronDown, Copy } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,10 +10,9 @@ import { ROLE_STAGE_CONTROL, observerHidden, type ProjectRole } from "@/lib/proj
 import { ApiError } from "@/lib/api-client";
 import {
   advanceAgendaSegment,
-  AGENDA_SEGMENT_STATE_LABEL,
   type ListAgendaSegmentsOut,
 } from "@/lib/live-projects";
-import { GROUP_STATUS_LABEL, type Group, type ProjectGroupingOut } from "@/lib/live-project-prep";
+import { type Group, type ProjectGroupingOut } from "@/lib/live-project-prep";
 import type { CheckinBoardOut, CheckinGroupRow } from "@/lib/live-checkin";
 import { useOptionalSession } from "@/components/session/session-provider";
 import type { ViewerOptionsOut } from "@/lib/live-collab-viewer-role";
@@ -97,6 +98,7 @@ export function TabLive({
   liveCheckinError?: string | null;
   onAdvanced?: () => void;
 }) {
+  const { t } = useI18n();
   const stageControl = ROLE_STAGE_CONTROL[view] && !readOnly;
   const isObserver = observerHidden(view);
   const myGroupName = useOptionalSession()?.identity?.groupName ?? null;
@@ -122,7 +124,8 @@ export function TabLive({
     <div className="mx-auto flex max-w-5xl flex-col gap-4 p-6" data-testid="project-live">
       {viewerOptions !== null && (
         <p className="text-11 text-muted-foreground" data-testid="lc-viewer-role-prompt">
-          {viewerOptions.promptText}
+          {viewerOptions.promptText === workshopLiveZhCN[`workshopLive.prompt.${viewerOptions.role}`]
+            ? t(`workshopLive.prompt.${viewerOptions.role}`) : viewerOptions.promptText}
         </p>
       )}
 
@@ -151,13 +154,12 @@ export function TabLive({
           {view === "facilitator" && (
             <CheckinBoard board={liveCheckin} loading={liveCheckinLoading} error={liveCheckinError} />
           )}
-          <SectionTitle meta={isObserver ? "只读" : "暂未开放"}>
-            四组并行
+          <SectionTitle meta={isObserver ? t("workshopLive.readOnly") : t("workshopLive.unavailable")}>
+            {t("workshopLive.parallel")}
           </SectionTitle>
           <Card>
             <p className="px-3.5 py-3 text-11 leading-relaxed text-muted-foreground" data-testid="project-live-groups-unavailable">
-              每组的实时引述、画布完成度、素材是否充足、现场介入提醒还没有开放。
-              上线后会显示在这里，在此之前不展示估算数字。
+              {t("workshopLive.parallelUnavailable")}
             </p>
           </Card>
         </>
@@ -179,29 +181,30 @@ function CheckinBoard({
   loading: boolean;
   error: string | null;
 }) {
+  const { t } = useI18n();
   return (
     <div data-testid="lc-checkin" className="flex flex-col gap-2">
-      <SectionTitle meta={board !== null ? `全场 ${board.overall.present}/${board.overall.total} 已到` : undefined}>
-        分组与签到
+      <SectionTitle meta={board !== null ? t("workshopLive.overallAttendance", { present: board.overall.present, total: board.overall.total }) : undefined}>
+        {t("workshopLive.checkin")}
       </SectionTitle>
       {loading && (
         <Card>
           <p className="px-3.5 py-3 text-11 text-muted-foreground" data-testid="lc-checkin-loading">
-            读取签到数据中…
+            {t("workshopLive.checkinLoading")}
           </p>
         </Card>
       )}
       {!loading && error && (
         <Card>
           <p className="px-3.5 py-3 text-11 text-destructive" data-testid="lc-checkin-error">
-            签到数据读取失败：{error}
+            {t("workshopLive.checkinError")}{error}
           </p>
         </Card>
       )}
       {!loading && !error && board !== null && board.groups.length === 0 && (
         <Card>
           <p className="px-3.5 py-3 text-11 text-muted-foreground" data-testid="lc-checkin-empty">
-            本项目还没有分组，签到板暂时是空的。
+            {t("workshopLive.checkinEmpty")}
           </p>
         </Card>
       )}
@@ -215,7 +218,7 @@ function CheckinBoard({
       {!board && !loading && !error && (
         <Card>
           <p className="px-3.5 py-3 text-11 text-muted-foreground" data-testid="lc-checkin-unavailable">
-            签到数据尚未加载。
+            {t("workshopLive.checkinUnavailable")}
           </p>
         </Card>
       )}
@@ -224,6 +227,7 @@ function CheckinBoard({
 }
 
 function CheckinGroupCard({ group, ordinal }: { group: CheckinGroupRow; ordinal: number }) {
+  const { t } = useI18n();
   const [copyState, setCopyState] = React.useState<"idle" | "copied" | "failed">("idle");
   const link = group.links[0] ?? null;
 
@@ -243,11 +247,11 @@ function CheckinGroupCard({ group, ordinal }: { group: CheckinGroupRow; ordinal:
       <div className="flex flex-col gap-2 px-3.5 py-3">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-baseline gap-1.5">
-            <span className="text-10 uppercase tracking-wide text-muted-foreground">第 {ordinal} 组</span>
+            <span className="text-10 uppercase tracking-wide text-muted-foreground">{t("workshopLive.groupOrdinal", { ordinal })}</span>
             <span className="text-13 font-medium" data-testid="lc-checkin-group-title">{group.title}</span>
           </div>
           <StatChip tone="ai" testId="lc-checkin-group-count">
-            {group.present}/{group.total} 已到
+            {t("workshopLive.attendance", { present: group.present, total: group.total })}
           </StatChip>
         </div>
         <div className="flex items-center gap-1.5">
@@ -261,22 +265,22 @@ function CheckinGroupCard({ group, ordinal }: { group: CheckinGroupRow; ordinal:
             className="gap-1"
           >
             <Copy aria-hidden className="h-3 w-3" />
-            {copyState === "copied" ? "已复制" : "复制链接"}
+            {copyState === "copied" ? t("workshopLive.copied") : t("workshopLive.copyLink")}
           </Button>
           {copyState === "failed" && (
             <span className="text-10 text-destructive" data-testid="lc-checkin-group-copy-failed">
-              复制失败，请手动复制
+              {t("workshopLive.copyFailed")}
             </span>
           )}
           {!link && (
             <span className="text-10 text-muted-foreground" data-testid="lc-checkin-group-no-link">
-              暂无可用邀请链接
+              {t("workshopLive.noLink")}
             </span>
           )}
         </div>
         {group.roster.length === 0 ? (
           <p className="text-10 text-muted-foreground" data-testid="lc-checkin-group-roster-empty">
-            本组还没有名单条目。
+            {t("workshopLive.rosterEmpty")}
           </p>
         ) : (
           <ul className="flex flex-col gap-1" data-testid="lc-checkin-group-roster">
@@ -284,7 +288,7 @@ function CheckinGroupCard({ group, ordinal }: { group: CheckinGroupRow; ordinal:
               <li key={`${r.alias}-${i}`} className="flex items-center justify-between gap-2 text-11">
                 <span className="truncate">{r.alias}</span>
                 <StatChip tone={r.attendance === "present" ? "ai" : "neutral"}>
-                  {r.attendance === "present" ? "已到" : "未到"}
+                  {r.attendance === "present" ? t("workshopLive.present") : t("workshopLive.absent")}
                 </StatChip>
               </li>
             ))}
@@ -346,19 +350,20 @@ function ViewerSwitcher({
   onSelect: (id: string) => void;
   unresolved: boolean;
 }) {
+  const { t } = useI18n();
   const [open, setOpen] = React.useState(false);
   const current = options.find((o) => o.id === selectedId) ?? null;
 
   return (
     <div data-testid="lc-viewer-switcher" className="relative">
       <div className="flex items-center gap-2">
-        <span className="text-10 uppercase tracking-wide text-muted-foreground">视角</span>
-        {loading && <span className="text-11 text-muted-foreground" data-testid="lc-viewer-loading">读取分组中…</span>}
+        <span className="text-10 uppercase tracking-wide text-muted-foreground">{t("workshopLive.view")}</span>
+        {loading && <span className="text-11 text-muted-foreground" data-testid="lc-viewer-loading">{t("workshopLive.groupsLoading")}</span>}
         {!loading && error && (
-          <span className="text-11 text-destructive" data-testid="lc-viewer-error">分组读取失败：{error}</span>
+          <span className="text-11 text-destructive" data-testid="lc-viewer-error">{t("workshopLive.groupError")}{error}</span>
         )}
         {!loading && !error && unresolved && (
-          <span className="text-11 text-destructive" data-testid="lc-viewer-unresolved">看不出你在哪一组</span>
+          <span className="text-11 text-destructive" data-testid="lc-viewer-unresolved">{t("workshopLive.unresolved")}</span>
         )}
         {!loading && !error && !unresolved && (
           <Button
@@ -369,7 +374,7 @@ function ViewerSwitcher({
             className="gap-1"
             onClick={() => setOpen((v) => !v)}
           >
-            {current?.label ?? "主持台·全场"}
+            {current?.kind === "group" ? current.label : t("workshopLive.stage")}
             {!locked && options.length > 1 && <ChevronDown className="h-3 w-3" aria-hidden />}
           </Button>
         )}
@@ -390,9 +395,9 @@ function ViewerSwitcher({
                 setOpen(false);
               }}
             >
-              <span>{o.label}</span>
+              <span>{o.kind === "stage" ? t("workshopLive.stage") : o.label}</span>
               {o.kind === "group" && o.group.status !== "recording-ready" && (
-                <span className="ml-2 text-10 text-muted-foreground">{GROUP_STATUS_LABEL[o.group.status]}</span>
+                <span className="ml-2 text-10 text-muted-foreground">{t(`workshopLive.groupStatus.${o.group.status}`)}</span>
               )}
             </button>
           ))}
@@ -403,20 +408,21 @@ function ViewerSwitcher({
 }
 
 function GroupPanel({ group }: { group: Group }) {
+  const { t } = useI18n();
   return (
     <Card data-testid="lc-group-panel">
       <div className="flex flex-col gap-1.5 px-3.5 py-3">
         <div className="flex items-center gap-2">
           <span className="text-14 font-medium" data-testid="lc-group-panel-name">{group.name}</span>
           {group.status !== "recording-ready" && (
-            <StatChip tone="ai" testId="lc-group-panel-status">{GROUP_STATUS_LABEL[group.status]}</StatChip>
+            <StatChip tone="ai" testId="lc-group-panel-status">{t(`workshopLive.groupStatus.${group.status}`)}</StatChip>
           )}
         </div>
         <p className="text-11 leading-relaxed text-muted-foreground" data-testid="lc-group-panel-scenario">
           {group.scenario}
         </p>
         <p className="text-10 text-muted-foreground">
-          组员 {group.memberUserIds.length} 人{group.leaderUserId === null ? "（未指定组长）" : ""}
+          {t("workshopLive.memberCount", { count: group.memberUserIds.length })}{group.leaderUserId === null ? t("workshopLive.noLeader") : ""}
         </p>
       </div>
     </Card>
@@ -436,8 +442,9 @@ function StageBar({
   stageControl: boolean;
   onAdvanced?: () => void;
 }) {
+  const { t } = useI18n();
   const [advancing, setAdvancing] = React.useState(false);
-  const [advanceError, setAdvanceError] = React.useState<string | null>(null);
+  const [advanceError, setAdvanceError] = React.useState<{ text: string | null } | null>(null);
 
   const current = segments?.find((s) => s.state === "active") ?? null;
   // `ordinal` 契约里是 0-based nonnegative int（`z.number().int().nonnegative()`），
@@ -459,7 +466,7 @@ function StageBar({
         });
         onAdvanced?.();
       } catch (e: unknown) {
-        setAdvanceError(e instanceof ApiError ? e.reasonCode ?? `HTTP ${e.status}` : e instanceof Error ? e.message : "未知错误");
+        setAdvanceError({ text: e instanceof ApiError ? e.reasonCode ?? `HTTP ${e.status}` : e instanceof Error ? e.message : null });
       } finally {
         setAdvancing(false);
       }
@@ -472,21 +479,21 @@ function StageBar({
       <div className="flex items-center gap-3 rounded-t-lg bg-inverse px-4 py-3 text-inverse-foreground">
         <span aria-hidden className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-destructive" />
         <div className="min-w-0 flex-1">
-          {loading && <div className="text-11 text-muted-foreground" data-testid="project-live-stagebar-loading">读取环节中…</div>}
+          {loading && <div className="text-11 text-muted-foreground" data-testid="project-live-stagebar-loading">{t("workshopLive.segmentsLoading")}</div>}
           {!loading && error && (
             <div className="text-11 text-destructive" data-testid="project-live-stagebar-error">
-              环节读取失败：{error}
+              {t("workshopLive.segmentError")}{error}
             </div>
           )}
           {!loading && !error && current === null && (
             <div className="truncate text-14 font-medium" data-testid="project-live-stagebar-empty">
-              当前没有进行中的环节
+              {t("workshopLive.noActive")}
             </div>
           )}
           {!loading && !error && current !== null && (
             <>
               <div className="text-10 uppercase tracking-wide text-muted-foreground">
-                环节 {ordinal}/{total}
+                {t("workshopLive.segmentOrdinal", { ordinal: ordinal ?? "", total: total ?? "" })}
               </div>
               <div className="truncate text-14 font-medium" data-testid="project-live-stagebar-title">
                 {current.title}
@@ -495,13 +502,13 @@ function StageBar({
           )}
         </div>
         {current !== null && (
-          <StatChip tone="ai" testId="project-live-stagebar-state">{AGENDA_SEGMENT_STATE_LABEL[current.state]}</StatChip>
+          <StatChip tone="ai" testId="project-live-stagebar-state">{t(`workshopLive.segmentState.${current.state}`)}</StatChip>
         )}
       </div>
       {stageControl && current !== null && (
         <div className="flex flex-wrap items-center gap-2.5 px-4 py-2.5">
-          {advanceError && (
-            <span className="text-10 text-destructive" data-testid="project-live-advance-error">{advanceError}</span>
+          {advanceError && (advanceError.text === null || advanceError.text !== "") && (
+            <span className="text-10 text-destructive" data-testid="project-live-advance-error">{advanceError.text ?? t("workshopLive.unknownError")}</span>
           )}
           <span className="flex-1" />
           <Button
@@ -509,21 +516,21 @@ function StageBar({
             data-testid="project-live-skip"
             onClick={() => void runAdvance("skip")}
           >
-            跳过
+            {t("workshopLive.skip")}
           </Button>
           <Button
             size="xs" variant="outline" disabled={advancing}
             data-testid="project-live-close-early"
             onClick={() => void runAdvance("closeEarly")}
           >
-            提前结束
+            {t("workshopLive.closeEarly")}
           </Button>
           <Button
             size="xs" variant="primary" disabled={advancing}
             data-testid="project-live-next"
             onClick={() => void runAdvance("advance")}
           >
-            下一环节
+            {t("workshopLive.next")}
           </Button>
         </div>
       )}

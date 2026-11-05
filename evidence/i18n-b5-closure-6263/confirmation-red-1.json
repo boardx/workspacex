@@ -1,0 +1,23 @@
+{
+  "issue": 6263,
+  "source": "10ea72f223b96e907787e8307d44288f5e5be01c",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/research-entry-i18n.test.tsx",
+    "-t",
+    "translates live query confirmation pending status without replaying creation"
+  ],
+  "exitCode": 1,
+  "seconds": 5.473,
+  "nativeDurationSeconds": 4.09,
+  "focusedFailed": 1,
+  "existingDeselectedByName": 10,
+  "reason": "Expected English pending status absent after one observed creation call in the real flow. Original source contains fixed Chinese; raw failure DOM is truncated, so no direct Chinese DOM-log claim. No collection/type/fixture failure.",
+  "rawLogSha256": "73b44e30869942ab24963df57acddb3ee8ea539511195f191cd7d0f299c74837",
+  "browserRun": false
+}
