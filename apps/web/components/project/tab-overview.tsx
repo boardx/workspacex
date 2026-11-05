@@ -1,4 +1,6 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { RefreshCw } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,7 +15,7 @@ import {
   PROJECT_SURFACES, ROLE_CAN_WRITE, observerHidden, type ProjectRole,
 } from "@/lib/project-workbench";
 import {
-  PROJECT_KIND_LABEL, PROJECT_STATUS_LABEL, BACKFLOW_BADGE_LABEL,
+  projectKindLabel, projectStatusLabel,
   type ProjectListItem, type ProjectOverview,
 } from "@/lib/live-projects";
 // ⚠ F964：`BACKFLOW_BADGE_LABEL` 搬到 `lib/live-projects.ts`（原在本文件私有声明）——
@@ -37,39 +39,40 @@ import {
  * 未在名单里的 reasonCode（契约以后新增、或 `HTTP xxx` 兜底）落到默认分支，
  * 原始码仍然保留在文案末尾——不隐藏可追责信息，只是不再让它当唯一信息。
  */
-const OVERVIEW_REASON_PRESENTATION: Record<string, { tone: "muted" | "destructive"; retry: boolean; text: string }> = {
+const OVERVIEW_REASON_PRESENTATION: Record<string, { tone: "muted" | "destructive"; retry: boolean; text: MessageKey }> = {
   NO_PROJECT_ROLE: {
     tone: "muted",
     retry: false,
-    text: "你在这个项目里还没有角色，因此看不到内部数据——这是正常的访问范围（项目层），不是故障。请找引导师或组长把你加进项目。",
+    text: "workshopOverview.reason.noRole",
   },
   ADMIN_NOT_SUPERUSER: {
     tone: "muted",
     retry: false,
-    text: "组织管理员默认看不到项目内部数据（组织层限制）；需要跨项目查看，得先被提升为超级用户。",
+    text: "workshopOverview.reason.adminScope",
   },
   DEPENDENCY_UNAVAILABLE: {
     tone: "destructive",
     retry: true,
-    text: "后端依赖服务暂时不可用，不是没有数据——请稍后重试。",
+    text: "workshopOverview.reason.dependency",
   },
   AUTH_SERVICE_UNAVAILABLE: {
     tone: "destructive",
     retry: true,
-    text: "身份校验服务暂时不可用，无法确认你的权限——请稍后重试。",
+    text: "workshopOverview.reason.auth",
   },
 };
 
-function describeOverviewReason(code: string): { tone: "muted" | "destructive"; retry: boolean; text: string } {
+function describeOverviewReason(code: string): { tone: "muted" | "destructive"; retry: boolean; text: MessageKey } {
   return OVERVIEW_REASON_PRESENTATION[code] ?? {
     tone: "destructive",
     retry: true,
-    text: "读取失败，原因暂不明确——请稍后重试；如果反复出现，请联系管理员。",
+    text: "workshopOverview.reason.unknown",
   };
 }
 
 /** 概览两个真实数据块共用的错误呈现：人话在前、原始 reasonCode 留在括号里，可重试的才给按钮。 */
 function OverviewErrorNotice({ code, testId, retryTestId }: { code: string; testId: string; retryTestId: string }) {
+  const { t } = useI18n();
   const { tone, retry, text } = describeOverviewReason(code);
   return (
     <div role="status" aria-live="polite" className="flex flex-wrap items-center gap-2">
@@ -77,7 +80,7 @@ function OverviewErrorNotice({ code, testId, retryTestId }: { code: string; test
         className={tone === "destructive" ? "text-11 text-destructive" : "text-11 text-muted-foreground"}
         data-testid={testId}
       >
-        {text}（{code}）
+        {t(text)}（{code}）
       </p>
       {retry ? (
         <Button
@@ -86,7 +89,7 @@ function OverviewErrorNotice({ code, testId, retryTestId }: { code: string; test
           onClick={() => window.location.reload()}
           data-testid={retryTestId}
         >
-          <RefreshCw aria-hidden className="h-3 w-3" />重试
+          <RefreshCw aria-hidden className="h-3 w-3" />{t("ui.retry")}
         </Button>
       ) : null}
     </div>
@@ -151,6 +154,7 @@ export function TabOverview({
   liveOverviewLoading?: boolean;
   liveOverviewError?: string | null;
 }) {
+  const { locale, t } = useI18n();
   const canWrite = ROLE_CAN_WRITE[view] && !readOnly;
   const isObserver = observerHidden(view);
   return (
@@ -162,11 +166,11 @@ export function TabOverview({
       >
         <div className="flex items-center justify-between gap-2">
           <span className="text-10 font-medium uppercase tracking-wide text-muted-foreground">
-            项目基本信息 · 真实数据
+            {t("workshopOverview.info")}
           </span>
           {liveLoading ? (
             <span className="text-10 text-muted-foreground" data-testid="project-overview-live-loading">
-              加载中…
+              {t("workshopOverview.loading")}
             </span>
           ) : null}
         </div>
@@ -179,19 +183,19 @@ export function TabOverview({
         ) : liveProject !== null ? (
           <div className="flex flex-wrap items-center gap-2 text-12" data-testid="project-overview-live-name">
             <span className="font-medium">{liveProject.name}</span>
-            <Badge tone="outline">{PROJECT_KIND_LABEL[liveProject.kind]}</Badge>
+            <Badge tone="outline">{projectKindLabel(liveProject.kind, locale)}</Badge>
             <Badge tone={liveProject.status === "active" ? "primary" : "outline"}>
-              {PROJECT_STATUS_LABEL[liveProject.status]}
+              {projectStatusLabel(liveProject.status, locale)}
             </Badge>
             {liveProject.readOnlyReason !== null ? (
               <Badge tone="outline" data-testid="project-overview-live-readonly">
-                只读 · {liveProject.readOnlyReason === "archived" ? "已归档" : "组织已停用"}
+                {t("projects.readOnly", { reason: t(liveProject.readOnlyReason === "archived" ? "projects.status.archived" : "projects.organizationDisabled") })}
               </Badge>
             ) : null}
           </div>
         ) : (
           <p className="text-11 text-muted-foreground" data-testid="project-overview-live-empty">
-            暂无真实数据——请先在「项目」列表页登录并进入本项目（需要 URL 带上 <code>?org=</code>）。
+            {t("workshopOverview.entryHint")} <code>?org=</code>{t("workshopOverview.entryHintEnd")}
           </p>
         )}
       </section>
@@ -203,11 +207,11 @@ export function TabOverview({
       >
         <div className="flex items-center justify-between gap-2">
           <span className="text-10 font-medium uppercase tracking-wide text-muted-foreground">
-            概览 · 真实数据
+            {t("workshopOverview.overview")}
           </span>
           {liveOverviewLoading ? (
             <span className="text-10 text-muted-foreground" data-testid="project-overview-live-overview-loading">
-              加载中…
+              {t("workshopOverview.loading")}
             </span>
           ) : null}
         </div>
@@ -220,47 +224,47 @@ export function TabOverview({
         ) : liveOverview !== null ? (
           <div className="flex flex-col gap-2 text-12" data-testid="project-overview-live-overview-body">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-10 font-medium uppercase tracking-wide text-muted-foreground">当前议程环节</span>
+              <span className="text-10 font-medium uppercase tracking-wide text-muted-foreground">{t("workshopOverview.agenda")}</span>
               {liveOverview.currentAgendaSegment !== null ? (
                 <span data-testid="project-overview-live-agenda-segment">
                   {liveOverview.currentAgendaSegment.title} · {liveOverview.currentAgendaSegment.state}
                 </span>
               ) : (
-                <span className="text-muted-foreground" data-testid="project-overview-live-agenda-segment-empty">无</span>
+                <span className="text-muted-foreground" data-testid="project-overview-live-agenda-segment-empty">{t("workshopOverview.none")}</span>
               )}
             </div>
             {liveOverview.roleCounts !== null ? (
               <div className="flex flex-wrap items-center gap-3" data-testid="project-overview-live-role-counts">
-                <span>引导师 {liveOverview.roleCounts.facilitator}</span>
-                <span>组长 {liveOverview.roleCounts.groupLead}</span>
-                <span>组员 {liveOverview.roleCounts.member}</span>
-                <span>观察者 {liveOverview.roleCounts.observer}</span>
+                <span>{t("projectWorkbench.role.facilitator")} {liveOverview.roleCounts.facilitator}</span>
+                <span>{t("projectWorkbench.role.groupLead")} {liveOverview.roleCounts.groupLead}</span>
+                <span>{t("projectWorkbench.role.member")} {liveOverview.roleCounts.member}</span>
+                <span>{t("projectWorkbench.role.observer")} {liveOverview.roleCounts.observer}</span>
               </div>
             ) : null}
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-10 font-medium uppercase tracking-wide text-muted-foreground">回流</span>
+              <span className="text-10 font-medium uppercase tracking-wide text-muted-foreground">{t("workshopOverview.backflow")}</span>
               {liveOverview.backflow.length === 0 ? (
-                <span className="text-muted-foreground" data-testid="project-overview-live-backflow-empty">暂无</span>
+                <span className="text-muted-foreground" data-testid="project-overview-live-backflow-empty">{t("workshopOverview.empty")}</span>
               ) : (
                 <span data-testid="project-overview-live-backflow-count">
-                  {liveOverview.backflow.length} 条 · {liveOverview.backflow.map((b) => BACKFLOW_BADGE_LABEL[b.badge]).join("、")}
+                  {t("workshopOverview.backflowCount", { count: liveOverview.backflow.length })} · {liveOverview.backflow.map((b) => t(`workshopOverview.backflow.${b.badge}`)).join(t("workshopOverview.listSeparator"))}
                 </span>
               )}
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-10 font-medium uppercase tracking-wide text-muted-foreground">蓝本</span>
+              <span className="text-10 font-medium uppercase tracking-wide text-muted-foreground">{t("workshopOverview.blueprint")}</span>
               {liveOverview.blueprint !== null ? (
                 <span data-testid="project-overview-live-blueprint">
                   {liveOverview.blueprint.name} · v{liveOverview.blueprint.version}
                 </span>
               ) : (
-                <span className="text-muted-foreground" data-testid="project-overview-live-blueprint-empty">空白新建</span>
+                <span className="text-muted-foreground" data-testid="project-overview-live-blueprint-empty">{t("workshopOverview.blank")}</span>
               )}
             </div>
           </div>
         ) : (
           <p className="text-11 text-muted-foreground" data-testid="project-overview-live-overview-empty">
-            暂无真实数据——请先登录。
+            {t("workshopOverview.login")}
           </p>
         )}
       </section>
@@ -279,20 +283,20 @@ export function TabOverview({
         <span className="text-11" data-testid="project-overview-statusbar-segment">
           {liveOverview?.currentAgendaSegment != null
             ? `${liveOverview.currentAgendaSegment.title} · ${liveOverview.currentAgendaSegment.state}`
-            : "当前没有进行中的环节"}
+            : t("workshopOverview.noActiveSegment")}
         </span>
         <MetaSep />
         <span className="text-11 text-muted-foreground" data-testid="project-overview-statusbar-attendance">
           {liveOverview?.roleCounts != null
-            ? `引导师 ${liveOverview.roleCounts.facilitator} · 组长 ${liveOverview.roleCounts.groupLead} · 组员 ${liveOverview.roleCounts.member} · 观察者 ${liveOverview.roleCounts.observer}`
-            : "角色人数暂不可读"}
+            ? t("workshopOverview.roleCounts", liveOverview.roleCounts)
+            : t("workshopOverview.countsUnavailable")}
         </span>
       </div>
 
       {isObserver ? (
         <ObserverNotice
           testId="project-overview-observer-notice"
-          what="当前环节的三角色分工、内部待办与协作动态属于内部协作视图，不在观察者只读范围内。你能看到的是上方的项目问题与现场进度聚合。"
+          what={t("workshopOverview.observer")}
         />
       ) : (
         <>
@@ -313,14 +317,14 @@ export function TabOverview({
               <div className="min-w-0 flex-1 truncate text-14 font-medium" data-testid="project-overview-current-segment-title">
                 {liveOverview?.currentAgendaSegment != null
                   ? `${liveOverview.currentAgendaSegment.title} · ${liveOverview.currentAgendaSegment.state}`
-                  : "当前没有进行中的环节"}
+                  : t("workshopOverview.noActiveSegment")}
               </div>
             </div>
             <p
               className="border-t border-border px-4 py-3 text-11 leading-relaxed text-muted-foreground"
               data-testid="project-overview-current-segment-roles-unavailable"
             >
-              环节内的分工与推进提示还没有开放，上线后会显示在这里。
+              {t("workshopOverview.rolesUnavailable")}
             </p>
           </Card>
 
@@ -332,10 +336,10 @@ export function TabOverview({
               待办看板要真，得先走一遍契约设计流程 —— 那是 PJ-21，本 feature 不越界替它定义。
             */}
             <section>
-              <SectionTitle>待办</SectionTitle>
+              <SectionTitle>{t("workshopOverview.todo")}</SectionTitle>
               <Card>
                 <p className="px-3.5 py-3 text-11 leading-relaxed text-muted-foreground" data-testid="project-overview-todos-unavailable">
-                  项目待办还没有开放。
+                  {t("workshopOverview.todoUnavailable")}
                 </p>
               </Card>
             </section>
@@ -346,9 +350,9 @@ export function TabOverview({
               也没有别的端点提供「这个项目最近发生了什么」。不编。
             */}
             <section>
-              <SectionTitle>最新动态</SectionTitle>
+              <SectionTitle>{t("workshopOverview.activity")}</SectionTitle>
               <p className="border-b border-border py-2.5 text-11 leading-relaxed text-muted-foreground" data-testid="project-overview-activity-unavailable">
-                项目动态还没有开放。已回流的产出可以在上方的概览里看到。
+                {t("workshopOverview.activityUnavailable")}
               </p>
             </section>
           </div>
@@ -357,7 +361,7 @@ export function TabOverview({
 
       {/* 工作面（F317 折入：原 `/projects/[projectId]` 枢纽页内容，现挂在概览尾部）*/}
       <section className="flex flex-col gap-2" data-testid="project-home-surfaces">
-        <SectionTitle>工作面</SectionTitle>
+        <SectionTitle>{t("workshopOverview.surfaces")}</SectionTitle>
         <ul className="flex flex-col gap-1.5">
           {PROJECT_SURFACES.map((s) => {
             const href = s.key === "chat"
@@ -368,11 +372,11 @@ export function TabOverview({
             const body = (
               <>
                 <s.icon aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <span className="w-20 shrink-0 text-13 font-medium">{s.label}</span>
+                <span className="w-20 shrink-0 text-13 font-medium">{t(`workshopOverview.surface.${s.key}.label` as MessageKey)}</span>
                 <span className="min-w-0 flex-1 truncate text-11 text-muted-foreground">
-                  {s.pending ?? s.desc}
+                  {t(`workshopOverview.surface.${s.key}.${s.pending ? "pending" : "desc"}` as MessageKey)}
                 </span>
-                {s.pending && <Badge tone="outline">未建</Badge>}
+                {s.pending && <Badge tone="outline">{t("workshopOverview.notBuilt")}</Badge>}
               </>
             );
             return (
@@ -390,7 +394,7 @@ export function TabOverview({
                   <div
                     data-testid={`project-home-surface-${s.key}`}
                     aria-disabled="true"
-                    title={s.pending}
+                    title={s.pending ? t(`workshopOverview.surface.${s.key}.pending` as MessageKey) : undefined}
                     className="flex cursor-not-allowed items-center gap-3 rounded-md border border-dashed border-border bg-disabled px-3 py-2 text-disabled-foreground"
                   >
                     {body}

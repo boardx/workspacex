@@ -1,0 +1,545 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web
+
+ ❯ tests/ui/platform-organizations-screen.test.tsx (5 tests | 1 failed) 1602ms
+   ✓ organization management API-bound screen > shows zero-member unconfigured organizations and saves versioned plan with mandatory audit reason 334ms
+   × opens organization details in an accessible drawer and closes without retaining stale details 1029ms
+     → Unable to find role="dialog" and name `/组织详情/`
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mstyle[39m=[32m""[39m
+[36m>[39m
+  [36m<div>[39m
+    [36m<div>[39m
+      [36m<form[39m
+        [33mclass[39m=[32m"flex gap-2"[39m
+      [36m>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"sr-only"[39m
+          [33mfor[39m=[32m"organization-search"[39m
+        [36m>[39m
+          [0m搜索组织名称[0m
+        [36m</label>[39m
+        [36m<input[39m
+          [33mclass[39m=[32m"flex h-9 min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"[39m
+          [33mid[39m=[32m"organization-search"[39m
+          [33mmaxlength[39m=[32m"200"[39m
+          [33mplaceholder[39m=[32m"搜索组织名称"[39m
+          [33mvalue[39m=[32m""[39m
+        [36m/>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-secondary text-secondary-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+          [33mtype[39m=[32m"submit"[39m
+        [36m>[39m
+          [0m搜索[0m
+        [36m</button>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [0m刷新[0m
+        [36m</button>[39m
+      [36m</form>[39m
+      [36m<table[39m
+        [33mclass[39m=[32m"w-full border-collapse text-12"[39m
+      [36m>[39m
+        [36m<thead>[39m
+          [36m<tr[39m
+            [33mclass[39m=[32m"border-b border-border-subtle transition-colors duration-base last:border-b-0"[39m
+          [36m>[39m
+            [36m<th[39m
+              [33mclass[39m=[32m"px-3 py-2 text-left font-medium"[39m
+            [36m>[39m
+              [0m组织[0m
+            [36m</th>[39m
+            [36m<th[39m
+              [33mclass[39m=[32m"px-3 py-2 text-left font-medium"[39m
+            [36m>[39m
+              [0m成员[0m
+            [36m</th>[39m
+            [36m<th[39m
+              [33mclass[39m=[32m"px-3 py-2 text-left font-medium"[39m
+            [36m>[39m
+              [0m套餐[0m
+            [36m</th>[39m
+            [36m<th[39m
+              [33mclass[39m=[32m"px-3 py-2 text-left font-medium"[39m
+            [36m>[39m
+              [0m操作[0m
+            [36m</th>[39m
+          [36m</tr>[39m
+        [36m</thead>[39m
+        [36m<tbody>[39m
+          [36m<tr[39m
+            [33mclass[39m=[32m"border-b border-border-subtle transition-colors duration-base last:border-b-0"[39m
+          [36m>[39m
+            [36m<td[39m
+              [33mclass[39m=[32m"px-3 py-2"[39m
+            [36m>[39m
+              [36m<div>[39m
+                [0mEmpty SaaS[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+              [36m>[39m
+                [0mempty-saas[0m
+              [36m</div>[39m
+            [36m</td>[39m
+            [36m<td[39m
+              [33mclass[39m=[32m"px-3 py-2"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</td>[39m
+            [36m<td[39m
+              [33mclass[39m=[32m"px-3 py-2"[39m
+            [36m>[39m
+              [0m未配置[0m
+            [36m</td>[39m
+            [36m<td[39m
+              [33mclass[39m=[32m"px-3 py-2"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+              [36m>[39m
+                [0m详情与套餐[0m
+              [36m</button>[39m
+            [36m</td>[39m
+          [36m</tr>[39m
+        [36m</tbody>[39m
+      [36m</table>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex gap-2"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+          [33mdisabled[39m=[32m""[39m
+        [36m>[39m
+          [0m回到首页[0m
+        [36m</button>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+          [33mdisabled[39m=[32m""[39m
+        [36m>[39m
+          [0m下一页[0m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<section[39m
+        [33maria-label[39m=[32m"组织详情"[39m
+        [33mclass[39m=[32m"rounded-lg border p-4"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex justify-between"[39m
+        [36m>[39m
+          [36m<h2[39m
+            [33mclass[39m=[32m"text-16 font-semibold...
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mstyle[39m=[32m""[39m
+[36m>[39m
+  [36m<div>[39m
+    [36m<div>[39m
+      [36m<form[39m
+        [33mclass[39m=[32m"flex gap-2"[39m
+      [36m>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"sr-only"[39m
+          [33mfor[39m=[32m"organization-search"[39m
+        [36m>[39m
+          [0m搜索组织名称[0m
+        [36m</label>[39m
+        [36m<input[39m
+          [33mclass[39m=[32m"flex h-9 min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"[39m
+          [33mid[39m=[32m"organization-search"[39m
+          [33mmaxlength[39m=[32m"200"[39m
+          [33mplaceholder[39m=[32m"搜索组织名称"[39m
+          [33mvalue[39m=[32m""[39m
+        [36m/>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-secondary text-secondary-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+          [33mtype[39m=[32m"submit"[39m
+        [36m>[39m
+          [0m搜索[0m
+        [36m</button>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [0m刷新[0m
+        [36m</button>[39m
+      [36m</form>[39m
+      [36m<table[39m
+        [33mclass[39m=[32m"w-full border-collapse text-12"[39m
+      [36m>[39m
+        [36m<thead>[39m
+          [36m<tr[39m
+            [33mclass[39m=[32m"border-b border-border-subtle transition-colors duration-base last:border-b-0"[39m
+          [36m>[39m
+            [36m<th[39m
+              [33mclass[39m=[32m"px-3 py-2 text-left font-medium"[39m
+            [36m>[39m
+              [0m组织[0m
+            [36m</th>[39m
+            [36m<th[39m
+              [33mclass[39m=[32m"px-3 py-2 text-left font-medium"[39m
+            [36m>[39m
+              [0m成员[0m
+            [36m</th>[39m
+            [36m<th[39m
+              [33mclass[39m=[32m"px-3 py-2 text-left font-medium"[39m
+            [36m>[39m
+              [0m套餐[0m
+            [36m</th>[39m
+            [36m<th[39m
+              [33mclass[39m=[32m"px-3 py-2 text-left font-medium"[39m
+            [36m>[39m
+              [0m操作[0m
+            [36m</th>[39m
+          [36m</tr>[39m
+        [36m</thead>[39m
+        [36m<tbody>[39m
+          [36m<tr[39m
+            [33mclass[39m=[32m"border-b border-border-subtle transition-colors duration-base last:border-b-0"[39m
+          [36m>[39m
+            [36m<td[39m
+              [33mclass[39m=[32m"px-3 py-2"[39m
+            [36m>[39m
+              [36m<div>[39m
+                [0mEmpty SaaS[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+              [36m>[39m
+                [0mempty-saas[0m
+              [36m</div>[39m
+            [36m</td>[39m
+            [36m<td[39m
+              [33mclass[39m=[32m"px-3 py-2"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</td>[39m
+            [36m<td[39m
+              [33mclass[39m=[32m"px-3 py-2"[39m
+            [36m>[39m
+              [0m未配置[0m
+            [36m</td>[39m
+            [36m<td[39m
+              [33mclass[39m=[32m"px-3 py-2"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+              [36m>[39m
+                [0m详情与套餐[0m
+              [36m</button>[39m
+            [36m</td>[39m
+          [36m</tr>[39m
+        [36m</tbody>[39m
+      [36m</table>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex gap-2"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+          [33mdisabled[39m=[32m""[39m
+        [36m>[39m
+          [0m回到首页[0m
+        [36m</button>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+          [33mdisabled[39m=[32m""[39m
+        [36m>[39m
+          [0m下一页[0m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<section[39m
+        [33maria-label[39m=[32m"组织详情"[39m
+        [33mclass[39m=[32m"rounded-lg border p-4"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex justify-between"[39m
+        [36m>[39m
+          [36m<h2[39m
+            [33mclass[39m=[32m"text-16 font-semibold...
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/platform-organizations-screen.test.tsx > opens organization details in an accessible drawer and closes without retaining stale details
+TestingLibraryElementError: Unable to find role="dialog" and name `/组织详情/`
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mstyle[39m=[32m""[39m
+[36m>[39m
+  [36m<div>[39m
+    [36m<div>[39m
+      [36m<form[39m
+        [33mclass[39m=[32m"flex gap-2"[39m
+      [36m>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"sr-only"[39m
+          [33mfor[39m=[32m"organization-search"[39m
+        [36m>[39m
+          [0m搜索组织名称[0m
+        [36m</label>[39m
+        [36m<input[39m
+          [33mclass[39m=[32m"flex h-9 min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"[39m
+          [33mid[39m=[32m"organization-search"[39m
+          [33mmaxlength[39m=[32m"200"[39m
+          [33mplaceholder[39m=[32m"搜索组织名称"[39m
+          [33mvalue[39m=[32m""[39m
+        [36m/>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-secondary text-secondary-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+          [33mtype[39m=[32m"submit"[39m
+        [36m>[39m
+          [0m搜索[0m
+        [36m</button>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [0m刷新[0m
+        [36m</button>[39m
+      [36m</form>[39m
+      [36m<table[39m
+        [33mclass[39m=[32m"w-full border-collapse text-12"[39m
+      [36m>[39m
+        [36m<thead>[39m
+          [36m<tr[39m
+            [33mclass[39m=[32m"border-b border-border-subtle transition-colors duration-base last:border-b-0"[39m
+          [36m>[39m
+            [36m<th[39m
+              [33mclass[39m=[32m"px-3 py-2 text-left font-medium"[39m
+            [36m>[39m
+              [0m组织[0m
+            [36m</th>[39m
+            [36m<th[39m
+              [33mclass[39m=[32m"px-3 py-2 text-left font-medium"[39m
+            [36m>[39m
+              [0m成员[0m
+            [36m</th>[39m
+            [36m<th[39m
+              [33mclass[39m=[32m"px-3 py-2 text-left font-medium"[39m
+            [36m>[39m
+              [0m套餐[0m
+            [36m</th>[39m
+            [36m<th[39m
+              [33mclass[39m=[32m"px-3 py-2 text-left font-medium"[39m
+            [36m>[39m
+              [0m操作[0m
+            [36m</th>[39m
+          [36m</tr>[39m
+        [36m</thead>[39m
+        [36m<tbody>[39m
+          [36m<tr[39m
+            [33mclass[39m=[32m"border-b border-border-subtle transition-colors duration-base last:border-b-0"[39m
+          [36m>[39m
+            [36m<td[39m
+              [33mclass[39m=[32m"px-3 py-2"[39m
+            [36m>[39m
+              [36m<div>[39m
+                [0mEmpty SaaS[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+              [36m>[39m
+                [0mempty-saas[0m
+              [36m</div>[39m
+            [36m</td>[39m
+            [36m<td[39m
+              [33mclass[39m=[32m"px-3 py-2"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</td>[39m
+            [36m<td[39m
+              [33mclass[39m=[32m"px-3 py-2"[39m
+            [36m>[39m
+              [0m未配置[0m
+            [36m</td>[39m
+            [36m<td[39m
+              [33mclass[39m=[32m"px-3 py-2"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+              [36m>[39m
+                [0m详情与套餐[0m
+              [36m</button>[39m
+            [36m</td>[39m
+          [36m</tr>[39m
+        [36m</tbody>[39m
+      [36m</table>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex gap-2"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+          [33mdisabled[39m=[32m""[39m
+        [36m>[39m
+          [0m回到首页[0m
+        [36m</button>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+          [33mdisabled[39m=[32m""[39m
+        [36m>[39m
+          [0m下一页[0m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<section[39m
+        [33maria-label[39m=[32m"组织详情"[39m
+        [33mclass[39m=[32m"rounded-lg border p-4"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex justify-between"[39m
+        [36m>[39m
+          [36m<h2[39m
+            [33mclass[39m=[32m"text-16 font-semibold...
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mstyle[39m=[32m""[39m
+[36m>[39m
+  [36m<div>[39m
+    [36m<div>[39m
+      [36m<form[39m
+        [33mclass[39m=[32m"flex gap-2"[39m
+      [36m>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"sr-only"[39m
+          [33mfor[39m=[32m"organization-search"[39m
+        [36m>[39m
+          [0m搜索组织名称[0m
+        [36m</label>[39m
+        [36m<input[39m
+          [33mclass[39m=[32m"flex h-9 min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"[39m
+          [33mid[39m=[32m"organization-search"[39m
+          [33mmaxlength[39m=[32m"200"[39m
+          [33mplaceholder[39m=[32m"搜索组织名称"[39m
+          [33mvalue[39m=[32m""[39m
+        [36m/>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-secondary text-secondary-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+          [33mtype[39m=[32m"submit"[39m
+        [36m>[39m
+          [0m搜索[0m
+        [36m</button>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [0m刷新[0m
+        [36m</button>[39m
+      [36m</form>[39m
+      [36m<table[39m
+        [33mclass[39m=[32m"w-full border-collapse text-12"[39m
+      [36m>[39m
+        [36m<thead>[39m
+          [36m<tr[39m
+            [33mclass[39m=[32m"border-b border-border-subtle transition-colors duration-base last:border-b-0"[39m
+          [36m>[39m
+            [36m<th[39m
+              [33mclass[39m=[32m"px-3 py-2 text-left font-medium"[39m
+            [36m>[39m
+              [0m组织[0m
+            [36m</th>[39m
+            [36m<th[39m
+              [33mclass[39m=[32m"px-3 py-2 text-left font-medium"[39m
+            [36m>[39m
+              [0m成员[0m
+            [36m</th>[39m
+            [36m<th[39m
+              [33mclass[39m=[32m"px-3 py-2 text-left font-medium"[39m
+            [36m>[39m
+              [0m套餐[0m
+            [36m</th>[39m
+            [36m<th[39m
+              [33mclass[39m=[32m"px-3 py-2 text-left font-medium"[39m
+            [36m>[39m
+              [0m操作[0m
+            [36m</th>[39m
+          [36m</tr>[39m
+        [36m</thead>[39m
+        [36m<tbody>[39m
+          [36m<tr[39m
+            [33mclass[39m=[32m"border-b border-border-subtle transition-colors duration-base last:border-b-0"[39m
+          [36m>[39m
+            [36m<td[39m
+              [33mclass[39m=[32m"px-3 py-2"[39m
+            [36m>[39m
+              [36m<div>[39m
+                [0mEmpty SaaS[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+              [36m>[39m
+                [0mempty-saas[0m
+              [36m</div>[39m
+            [36m</td>[39m
+            [36m<td[39m
+              [33mclass[39m=[32m"px-3 py-2"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</td>[39m
+            [36m<td[39m
+              [33mclass[39m=[32m"px-3 py-2"[39m
+            [36m>[39m
+              [0m未配置[0m
+            [36m</td>[39m
+            [36m<td[39m
+              [33mclass[39m=[32m"px-3 py-2"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+              [36m>[39m
+                [0m详情与套餐[0m
+              [36m</button>[39m
+            [36m</td>[39m
+          [36m</tr>[39m
+        [36m</tbody>[39m
+      [36m</table>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex gap-2"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+          [33mdisabled[39m=[32m""[39m
+        [36m>[39m
+          [0m回到首页[0m
+        [36m</button>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+          [33mdisabled[39m=[32m""[39m
+        [36m>[39m
+          [0m下一页[0m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<section[39m
+        [33maria-label[39m=[32m"组织详情"[39m
+        [33mclass[39m=[32m"rounded-lg border p-4"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex justify-between"[39m
+        [36m>[39m
+          [36m<h2[39m
+            [33mclass[39m=[32m"text-16 font-semibold...
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ tests/ui/platform-organizations-screen.test.tsx:56:28
+     54|  const trigger=screen.getByRole("button",{name:"详情与套餐"});
+     55|  fireEvent.click(trigger);
+     56|  const drawer=await screen.findByRole("dialog",{name:/组织详情/});
+       |                            ^
+     57|  expect(drawer).toHaveTextContent("Empty SaaS");
+     58|  fireEvent.keyDown(drawer,{key:"Escape"});
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 passed (5)
+   Start at  10:24:29
+   Duration  5.33s (transform 1.34s, setup 224ms, collect 2.17s, tests 1.60s, environment 1.09s, prepare 56ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/platform-organizations-screen.test.tsx

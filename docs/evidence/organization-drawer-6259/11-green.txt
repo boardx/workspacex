@@ -1,0 +1,12 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web
+
+ ✓ tests/ui/platform-organizations-screen.test.tsx (11 tests) 1038ms
+   ✓ organization management API-bound screen > shows zero-member unconfigured organizations and saves versioned plan with mandatory audit reason 442ms
+
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+   Start at  16:28:08
+   Duration  6.51s (transform 1.69s, setup 262ms, collect 2.86s, tests 1.04s, environment 1.55s, prepare 118ms)
+
