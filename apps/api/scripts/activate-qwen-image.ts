@@ -5,7 +5,7 @@ import {fileURLToPath} from 'node:url';
 import {activationBaseUrl,activationApiUrl} from './qwen-image-activation-url';
 import {createHash} from 'node:crypto';
 import {NativeCreditTariff,nativeTariffOperations} from '../../../packages/contracts/src/billing-consumption';
-import {imageMarkup10Price} from '../src/domain/agent-run/image-activation-pricing';
+import {imageFixedCnyPrice} from '../src/domain/agent-run/image-activation-pricing';
 const models=['qwen-image-3.0','qwen-image-3.0-pro','z-image-turbo'];
 export async function runQwenImageActivation(options:{env?:NodeJS.ProcessEnv;args?:readonly string[];fetcher?:typeof fetch;readFile?:(path:string)=>string;log?:(message:string)=>void}={}){
  const env=options.env??process.env,args=options.args??process.argv.slice(2),fetcher=options.fetcher??fetch,read=options.readFile??((path:string)=>readFileSync(path,'utf8')),log=options.log??console.log;
@@ -13,8 +13,9 @@ export async function runQwenImageActivation(options:{env?:NodeJS.ProcessEnv;arg
  if(env.QWEN_ACTIVATION_ORG_ID!==undefined)throw new Error('LEGACY_ORG_SCOPED_ACTIVATION_REMOVED');
  const cookie=env.QWEN_ACTIVATION_COOKIE_FILE?read(env.QWEN_ACTIVATION_COOKIE_FILE).trim():env.QWEN_ACTIVATION_COOKIE;
  const token=env.QWEN_ACTIVATION_TOKEN_FILE?read(env.QWEN_ACTIVATION_TOKEN_FILE).trim():env.QWEN_ACTIVATION_TOKEN;
- const apply=args.includes('--apply'),markup=args.includes('--markup10');
- if(apply&&!markup)throw new Error('MARKUP10_REQUIRED_FOR_APPLY');
+ if(args.includes('--markup10'))throw new Error('LEGACY_MARKUP_DISABLED_USE_FIXED_PRICES');
+ const apply=args.includes('--apply'),markup=args.includes('--fixed-prices');
+ if(apply&&!markup)throw new Error('FIXED_PRICES_REQUIRED_FOR_APPLY');
  async function request(path:string,method='GET',body?:unknown){
   if(!token)throw new Error('DEVAPP_OPERATOR_TOKEN_REQUIRED');
   const response=await fetcher(activationApiUrl(base,path),{method,headers:{authorization:`Bearer ${token}`,...(cookie?{cookie}:{}),'content-type':'application/json'},body:body?JSON.stringify(body):undefined,redirect:'error',signal:AbortSignal.timeout(15000)});
@@ -31,14 +32,14 @@ export async function runQwenImageActivation(options:{env?:NodeJS.ProcessEnv;arg
   if(env.QWEN_ACTIVATION_REGION!=='cn-beijing')throw new Error('VERIFIED_BEIJING_REGION_REQUIRED');
   quote=token?await request(nativeTariffOperations.getImagePricingBasis.path):snapshotFile?JSON.parse(read(snapshotFile)):undefined;
   if(!quote)throw new Error('DEVAPP_OPERATOR_TOKEN_REQUIRED');
-  const costs=[180000n,500000n,100000n],prices=models.map((modelId,index)=>({modelId,...imageMarkup10Price(costs[index]!,quote)}));
-  if(token&&snapshotFile){const snapshot=JSON.parse(read(snapshotFile));if(JSON.stringify(imageMarkup10Price(1n,quote))!==JSON.stringify(imageMarkup10Price(1n,snapshot)))throw new Error('CREDIT_QUOTE_CHANGED');}
-  generated=prices.map(price=>({modelProvider:'bailian-image',modelId:price.modelId,unit:'image',quantum:'1',hundredthsPerQuantum:price.hundredthsPerImage,version:`image-cn-bj-10x-${createHash('sha256').update(JSON.stringify(price)).digest('hex').slice(0,24)}`,pricingBasis:{source:'supplier-markup',markup:10,supplierRegion:price.region,supplierCurrency:price.currency,supplierMicros:price.supplierMicros,supplierQuantum:'1',catalogVersion:price.catalogVersion,sku:price.sku,amountMinor:price.amountMinor,credits:price.credits}}));
+  const costs=[500000n,1000000n,250000n],prices=models.map((modelId,index)=>({modelId,...imageFixedCnyPrice(costs[index]!,quote)}));
+  if(token&&snapshotFile){const snapshot=JSON.parse(read(snapshotFile));if(JSON.stringify(imageFixedCnyPrice(1n,quote))!==JSON.stringify(imageFixedCnyPrice(1n,snapshot)))throw new Error('CREDIT_QUOTE_CHANGED');}
+  generated=prices.map(price=>({modelProvider:'bailian-image',modelId:price.modelId,unit:'image',quantum:'1',hundredthsPerQuantum:price.hundredthsPerImage,version:`image-fixed-cny-${createHash('sha256').update(JSON.stringify(price)).digest('hex').slice(0,24)}`,pricingBasis:{source:'operator',retailSnapshotId:`image-fixed-cny-${createHash('sha256').update(JSON.stringify(price)).digest('hex').slice(0,24)}`,catalogVersion:price.catalogVersion,sku:price.sku,amountMinor:price.amountMinor,credits:price.credits}}));
   log(JSON.stringify({mode:apply?'proposed-apply':'dryrun',quoteSource:token?'live-devapp-catalog':'supplied-snapshot-not-live-verified',prices,proposedTariffs:generated,sources:['https://help.aliyun.com/zh/model-studio/qwen-image-3-0','https://help.aliyun.com/zh/model-studio/qwen-image-3-0-pro','https://help.aliyun.com/zh/model-studio/z-image-turbo']},null,2));
   if(!apply)return;
   // Re-read immediately before writes; stale or ambiguous quotes never change tariffs.
   const current=await request(nativeTariffOperations.getImagePricingBasis.path);
-  if(JSON.stringify(imageMarkup10Price(1n,current))!==JSON.stringify(imageMarkup10Price(1n,quote)))throw new Error('CREDIT_QUOTE_CHANGED');
+  if(JSON.stringify(imageFixedCnyPrice(1n,current))!==JSON.stringify(imageFixedCnyPrice(1n,quote)))throw new Error('CREDIT_QUOTE_CHANGED');
  }
  const path=nativeTariffOperations.listNativeTariffs.path;
  const before=nativeTariffOperations.listNativeTariffs.out.parse(await request(path));
