@@ -227,12 +227,13 @@ describe("V12 ②：仅管理员可导出", () => {
     // Independently walk every readable tenant relation, not only the two named examples.
     const readable=await asOwner(c=>c.query<{table_name:string}>(`SELECT table_name
       FROM information_schema.tables t WHERE table_schema='public' AND table_type='BASE TABLE'
+      AND EXISTS(SELECT 1 FROM pg_class r WHERE r.oid=to_regclass(quote_ident(t.table_schema)||'.'||quote_ident(t.table_name)) AND r.relkind='r')
       AND has_table_privilege($1,quote_ident(table_schema)||'.'||quote_ident(table_name),'SELECT')
       AND EXISTS(SELECT 1 FROM information_schema.key_column_usage k
         JOIN information_schema.table_constraints f USING(constraint_catalog,constraint_schema,constraint_name)
-        WHERE k.table_schema=t.table_schema AND k.table_name=t.table_name AND k.column_name='org_id'
+        WHERE k.table_catalog=t.table_catalog AND k.table_schema=t.table_schema AND k.table_name=t.table_name AND k.column_name='org_id' AND k.ordinal_position=1
         AND f.constraint_type='FOREIGN KEY' AND f.table_catalog=k.table_catalog AND f.table_schema=k.table_schema AND f.table_name=k.table_name
-        AND (SELECT count(*) FROM information_schema.key_column_usage k2 WHERE k2.constraint_catalog=k.constraint_catalog AND k2.constraint_schema=k.constraint_schema AND k2.constraint_name=k.constraint_name AND k2.table_schema=k.table_schema AND k2.table_name=k.table_name)=1) ORDER BY table_name`,[appConfig().user]));
+        AND (SELECT count(*) FROM information_schema.key_column_usage k2 WHERE k2.constraint_catalog=k.constraint_catalog AND k2.constraint_schema=k.constraint_schema AND k2.constraint_name=k.constraint_name AND k2.table_catalog=k.table_catalog AND k2.table_schema=k.table_schema AND k2.table_name=k.table_name)=1) ORDER BY table_name`,[appConfig().user]));
     expect(out.tables.map(row=>row.table).sort()).toEqual(readable.rows.map(row=>row.table_name).sort());
     for(const {table_name}of readable.rows){
       if(!/^[a-z_][a-z0-9_]*$/.test(table_name))throw new Error("EXPORT_TEST_TABLE_NAME_INVALID");
