@@ -1,4 +1,7 @@
-import type { BackflowEntry } from "@/lib/live-projects";
+import type { z } from "zod";
+import type { artifact } from "@repo/contracts";
+
+type BackflowEntry = z.infer<typeof artifact.BackflowEntry>;
 
 /** Chinese remains owned by the accepted legacy metadata; English is a display-only projection. */
 export const projectResultsBackflowEn: Record<BackflowEntry["badge"], string> = {
