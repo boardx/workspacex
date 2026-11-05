@@ -12,6 +12,26 @@ if(p){try{const s=await lstat(p);out.receiptDirectoryExists=s.isDirectory()&&!s.
 console.log(JSON.stringify(out));
 '''
 
+DATABASE = r'''
+import {Pool} from 'pg';
+import {appConfig,migrationConfig} from './src/infrastructure/db/pg-config.ts';
+const e=process.env,ownerConfigured=!!e.MIGRATION_DB_USER&&!!e.MIGRATION_DB_PASSWORD;
+const out={tariffQueryAvailable:false,configuredOwnerCredentialAvailable:ownerConfigured};
+let pool,client;
+try{
+ const config=ownerConfigured?migrationConfig():appConfig();
+ pool=new Pool({...config,connectionTimeoutMillis:5000,statement_timeout:5000,max:1});
+ client=await pool.connect();
+ await client.query('BEGIN READ ONLY');
+ // Fail rather than silently return an RLS-filtered zero across organizations.
+ await client.query('SET LOCAL row_security=off');
+ const row=(await client.query("SELECT count(*)::integer AS \"matchingTariffs\",count(DISTINCT org_id)::integer AS \"pricedOrganizations\" FROM credit_native_tariffs WHERE model_provider=$1 AND model_id=$2 AND unit='millisecond'",[e.KERNEL_ASR_PROVIDER,e.KERNEL_ASR_MODEL])).rows[0];
+ await client.query('COMMIT');Object.assign(out,row,{tariffQueryAvailable:true});
+}catch(error){out.databaseProbeCode=['42501','42P01','28P01','ECONNREFUSED','ETIMEDOUT','ENOTFOUND'].includes(error?.code)?error.code:'database_probe_unavailable';}
+finally{client?.release();await pool?.end();}
+console.log(JSON.stringify(out));
+'''
+
 def call(args, data=None):
     result=subprocess.run(args,input=data,text=True,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,timeout=25,check=False)
     if result.returncode:raise ValueError('probe_command_unavailable')
@@ -47,15 +67,20 @@ def run():
         report['recentErrorCounts']={r:(logs.stdout+logs.stderr).count(r)for r in reasons}
         report['recentLogsReadAvailable']=logs.returncode==0
     except Exception:report['recentLogsReadAvailable']=False
-    # Only local DB whose network aliases AND DB name match this actual API.
+    try:
+        report.update(json.loads(call(['docker','exec','-i',api['Id'],'node','--import','tsx','--input-type=module'],DATABASE)))
+    except Exception:report['databaseProbeCode']='database_probe_unavailable'
+    # Local owner fallback only when network aliases AND DB name match this actual API.
+    dbids=call(['docker','ps','--filter','label=com.docker.compose.service=postgres','--format','{{.ID}}']).split()
+    if dbids:rows=json.loads(call(['docker','inspect',*dbids]))
     databases=[]
     for row in rows:
         if row.get('Config',{}).get('Labels',{}).get('com.docker.compose.service')!='postgres':continue
         de=env(row)
         aliases={a for n in row.get('NetworkSettings',{}).get('Networks',{}).values()for a in n.get('Aliases',[])or []}
         aliases.add(row.get('Name','').lstrip('/'))
-        if ae.get('PGHOST')in aliases and ae.get('PGDATABASE')==de.get('POSTGRES_DB')and ae.get('PGPORT','5432')=='5432':databases.append(row)
-    if len(databases)==1 and ae.get('KERNEL_ASR_PROVIDER')and ae.get('KERNEL_ASR_MODEL'):
+        if ae.get('PGHOST')in aliases and ae.get('PGDATABASE')==de.get('POSTGRES_DB')and ae.get('PGPORT','5432')=='5432'and set(api.get('NetworkSettings',{}).get('Networks',{}))&set(row.get('NetworkSettings',{}).get('Networks',{})):databases.append(row)
+    if not report['tariffQueryAvailable'] and len(databases)==1 and ae.get('KERNEL_ASR_PROVIDER')and ae.get('KERNEL_ASR_MODEL'):
         db=databases[0];de=env(db)
         sql="BEGIN READ ONLY; SET LOCAL statement_timeout='5000ms'; SELECT json_build_object('matchingTariffs',count(*),'pricedOrganizations',count(DISTINCT org_id)) FROM credit_native_tariffs WHERE model_provider="+literal(ae['KERNEL_ASR_PROVIDER'])+" AND model_id="+literal(ae['KERNEL_ASR_MODEL'])+" AND unit='millisecond'; COMMIT;"
         try:
