@@ -29,9 +29,9 @@ flowchart LR
  B --> C[Runtime and operator contract UI]
  C --> D[Activation and tests]
  D --> E[Independent review and CI]
- style A fill:#ffe699
- style B fill:#ddd
- style C fill:#ddd
- style D fill:#ddd
- style E fill:#ddd
+ style A fill:#d9d2e9
+ style B fill:#d9d2e9
+ style C fill:#d9d2e9
+ style D fill:#d9d2e9
+ style E fill:#ffe699
 ```

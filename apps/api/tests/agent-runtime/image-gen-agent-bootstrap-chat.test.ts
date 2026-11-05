@@ -1,3 +1,4 @@
+// @global-scope-fixture table:credit_global_native_tariffs: fixed fake provider/model keys use idempotent seeding; the isolated test database owns cleanup, never organization deletion of shared prices.
 /**
  * #662 直接后续 —— 图片生成 agent（2026-08-07，人类直接指令："这里要可以直接看到图片，
  * 不是只是文字"——gpt-image-2 技能在没有任何图像生成工具时只能退化成"写一段 prompt 交给

@@ -36,7 +36,7 @@ INSERT INTO credit_global_native_tariff_changes(actor_id,old_tariff,new_tariff)
  FROM credit_global_native_tariffs;
 
 ALTER TABLE credit_native_tariffs RENAME TO credit_native_tariffs_legacy;
-REVOKE ALL ON credit_native_tariffs_legacy FROM app_rw;
+REVOKE ALL ON credit_native_tariffs_legacy FROM PUBLIC,app_rw;
 CREATE VIEW credit_native_tariffs WITH(security_invoker=true,security_barrier=true) AS
  SELECT o.id AS org_id,t.model_provider,t.model_id,t.unit,t.quantum,t.hundredths_per_quantum,t.version
  FROM organizations o CROSS JOIN credit_global_native_tariffs t
@@ -47,6 +47,7 @@ REVOKE INSERT,UPDATE,DELETE ON credit_native_tariffs FROM PUBLIC,app_rw;
 REVOKE INSERT,UPDATE,DELETE ON credit_native_tariffs_legacy FROM PUBLIC,app_rw;
 -- Follow the existing deployment-global consumption-settings writer pattern:
 -- application authorization MUST establish authoritative platform operator status.
+REVOKE ALL ON credit_global_native_tariffs,credit_global_native_tariff_changes FROM PUBLIC,app_rw;
 GRANT SELECT,INSERT,UPDATE ON credit_global_native_tariffs TO app_rw;
 GRANT SELECT,INSERT ON credit_global_native_tariff_changes TO app_rw;
 REVOKE UPDATE,DELETE ON credit_global_native_tariff_changes FROM app_rw;

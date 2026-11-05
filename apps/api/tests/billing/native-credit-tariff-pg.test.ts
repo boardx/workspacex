@@ -1,5 +1,4 @@
-// @global-scope-fixture table:credit_global_native_tariffs: each run owns a unique model key; owner cleanup deletes only that key.
-// @global-scope-fixture table:credit_global_native_tariff_changes: append-only audit remains isolated by the unique model key.
+// Repository calls own one unique model key per run; cleanup removes only that exact global key.
 import {readFileSync} from 'node:fs';
 import {randomUUID} from 'node:crypto';
 import {beforeAll,afterAll,it,expect} from 'vitest';

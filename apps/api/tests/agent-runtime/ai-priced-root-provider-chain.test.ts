@@ -1,3 +1,4 @@
+// @global-scope-fixture table:credit_global_native_tariffs: fixed fake provider/model keys use idempotent seeding; the isolated test database owns cleanup, never organization deletion of shared prices.
 import {createServer,type Server} from 'node:http';
 import {createHash,randomUUID} from 'node:crypto';
 import {beforeAll,afterAll,it,expect} from 'vitest';
