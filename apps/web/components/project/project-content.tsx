@@ -16,7 +16,7 @@ import {
   ProjectResourceSection, RESOURCE_KIND_TO_SUB, projectResourceHref, projectResourceIcon,
   startNewProjectResource, describeProjectResourceFailure,
 } from "./project-resource-section";
-import type { ContentFilter } from "./project-links";
+import type { ContentFilter, ProjectResearchSub } from "./project-links";
 import { getStoredSessionToken } from "@/lib/api-client";
 import { listThreads, createProjectThread, type ListThreadsOut } from "@/lib/live-chat";
 import { listProjectResources, type ListProjectResourcesOut, type ProjectResourceKind } from "@/lib/live-project-resources";
