@@ -1,5 +1,5 @@
 import {createRequire} from 'node:module';
-import {spawn} from 'node:child_process';
+import {spawn,spawnSync} from 'node:child_process';
 import {mkdtempSync,mkdirSync,readFileSync,existsSync,rmSync,writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
@@ -20,3 +20,23 @@ for(const mode of ['success','timeout','SIGTERM'] as const)it(`cleans the runner
   await owner.cleanupOwned(dir,scope,()=>{}).catch(()=>{});if(!exited){proc.kill('SIGKILL');await until(()=>exited).catch(()=>{});}rmSync(root,{recursive:true,force:true});
  }
 },10000);
+
+it('external proof selects the latest scope rather than accepting an old already-gone scope',async()=>{
+ const root=mkdtempSync(join(tmpdir(),'chat-proof-scope-')),dir=join(root,'apps/web/e2e/__evidence__/chat-refresh-diagnostics');mkdirSync(dir,{recursive:true});
+ const old=spawn(process.execPath,['-e','process.exit(0)'],{detached:true,stdio:'ignore'});await new Promise<void>(r=>old.once('exit',()=>r()));
+ const live=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{detached:true,stdio:'ignore'});
+ const oldScope=owner.scopeHash('old-gone'),newScope=owner.scopeHash('current-live');
+ writeFileSync(join(dir,'production-build.jsonl'),[
+  {event:'comparison-start',scopeHash:oldScope},{event:'owned-start',scopeHash:oldScope,ownerPid:old.pid,pgid:old.pid},
+  {event:'comparison-start',scopeHash:newScope},{event:'owned-start',scopeHash:newScope,ownerPid:live.pid,pgid:live.pid},
+ ].map(r=>JSON.stringify(r)).join('\n')+'\n');
+ try{
+  const result=spawnSync(process.execPath,[ownerPath],{cwd:root,encoding:'utf8',timeout:3000});
+  expect(result.status).toBe(1);expect(JSON.parse(result.stdout).groups).toContain(live.pid);
+ }finally{await owner.cleanupOwned(dir,newScope,()=>{});rmSync(root,{recursive:true,force:true});}
+});
+it('an interrupted zero exit cannot represent completed scenarios',()=>{
+ expect(owner.comparisonExitCode({code:0,interrupted:true})).toBe(1);
+ expect(owner.comparisonExitCode({code:0,interrupted:false})).toBe(0);
+ expect(owner.comparisonExitCode({code:7,interrupted:true})).toBe(7);
+});

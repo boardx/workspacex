@@ -51,10 +51,11 @@ async function runOwned(command,args,options){
  });
 }
 function claimDist(output){if(fs.existsSync(output))throw Error('fresh isolated production dist required');fs.mkdirSync(output,{mode:0o700});return fs.lstatSync(output);}
-module.exports={scopeHash,starts,remaining,cleanupOwned,killRecorded,runOwned,claimDist};
+const comparisonExitCode=result=>result.interrupted?(result.code||1):result.code;
+module.exports={scopeHash,starts,remaining,cleanupOwned,killRecorded,runOwned,claimDist,comparisonExitCode};
 if(require.main===module){
  const directory=path.resolve('apps/web/e2e/__evidence__/chat-refresh-diagnostics');
- const entry=fs.readFileSync(path.join(directory,'production-build.jsonl'),'utf8').split('\n').filter(Boolean).map(JSON.parse).find(r=>r.event==='comparison-start');
+ const entry=fs.readFileSync(path.join(directory,'production-build.jsonl'),'utf8').split('\n').filter(Boolean).map(JSON.parse).filter(r=>r.event==='comparison-start').at(-1);
  if(!entry||!/^[a-f0-9]{64}$/.test(entry.scopeHash))throw Error('owned_scope_proof_missing');
  const proof=remaining(directory,entry.scopeHash);console.log(JSON.stringify({event:'external-owned-proof',...proof}));
  if(!proof.observed||proof.groups.length||proof.owners.length)process.exitCode=1;

@@ -30,7 +30,7 @@ async function main(){
   note('build-end',{durationMs:Date.now()-start,code:built.code});
   if(built.code!==0||built.interrupted||interrupted||!existsSync(resolve(output,'BUILD_ID'))){process.exitCode=built.code||1;return;}
   const result=await ownedProcesses.runOwned(process.execPath,[local.resolve('@playwright/test/cli'),'test','--config','playwright.chat-read.config.ts','--project=chat-read','--workers=2','--grep','简单聊天：一轮问答|复杂任务把 write_todos','--max-failures=1','--reporter=line'],{cwd:web,env:{...process.env},directory,scope,purpose:'scenarios',note,graceMs:10000});
-  process.exitCode=result.code;
+  process.exitCode=ownedProcesses.comparisonExitCode(result);
  }finally{
   // Kill only groups registered by this isolation scope, wait for real absence,
   // then remove the exact directory inode claimed before the build.
