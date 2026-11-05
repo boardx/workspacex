@@ -37,3 +37,20 @@ Rollback takes the same reviewed preview digest, finds only audited new rows fro
 - [Apply 41999088809](https://github.com/boardx/workspacex/actions/runs/41999088809), repair job `127149500625`: **COMMIT at 2026-11-05T09:02:31Z**, 18 inserted rows and corresponding same-transaction audit writes, version `asr-credit-6275-v1`, same reviewed digest and quote. No service restart or application deployment was performed. Separate hosted contract-job queueing does not negate the completed maintenance job.
 - Rollback is available via this same reviewed script and digest; it has been mock-tested but was deliberately not executed against live data.
 - [Independent read-only postcheck 41999415140](https://github.com/boardx/workspacex/actions/runs/41999415140), job `127150587966`, **2026-11-05T09:04:58Z**: 18 organizations, 18 matching tariffs, 18 priced organizations, 18 repair audit rows; one exact price/version group, quantum 4300 / rate 33. Receipt storage still healthy. No ASR request or terminal was yet recorded in the preceding 30-minute query window, so this postcheck proves configuration coverage, not completed user transcription.
+- The user subsequently reported **“现在可以了”** (relayed by the coordinator). [Read-only session observation 41999707495](https://github.com/boardx/workspacex/actions/runs/41999707495), job `127151554504`, **2026-11-05T09:07:10Z** independently found **two succeeded native-ASR terminal events with positive audio quantity**, matching two durable credit requests. Both requests remain `pending` with `native_source=estimated`. This supports restored real-user voice operation while directly demonstrating the remaining authoritative-settlement boundary. No transcript/audio content or user identifiers were read or printed.
+
+## CN / US promotion requirements (not executed or authorized here)
+
+1. Promote reviewed code through the normal PR/release path; preserve each environment's persistent private receipt volume. Healthy VM templates do not prove an actual running container's storage state.
+2. Inspect the actual ASR provider/model and official endpoint in that environment. Beijing and Singapore supplier prices differ; do not infer provider geography from the VM's location or marketplace currency.
+3. Read the authoritative live minimum CNY top-up and freeze the catalog/SKU/amount/credit snapshot. Apply the user's ASR **3x** rule with exact rational arithmetic and a single final credit-cent ceiling. Never reuse the image 10x rule, stale seed packages, an arbitrary FX rate, or a rounded per-second price.
+4. Inventory that environment's organizations and existing exact-model millisecond tariffs. Preserve overrides, use a newly reviewed local snapshot and actor provenance, and write missing rows plus audit atomically. **Do not copy devapp organization IDs, catalog digest, the hardcoded 18-organization maintenance script, or assume 4300/33 is valid for another environment.**
+5. Verify each environment's own tariff/audit coverage and a real authenticated voice session. Retain rollback metadata and existing request price snapshots. No CN/US database or live production configuration was modified by this task.
+6. Separately design a default-tariff policy for future organizations and authoritative ASR usage/hold reconciliation. Successful transcription and tariff admission do not prove actual debit or release of pending financial holds.
+
+Reproduction commands used locally:
+
+```sh
+python3 -I -B -m unittest discover -s .harness/scripts/vm/tests -p 'test_asr*.py' -v
+pnpm --dir apps/api exec vitest run --config vitest.usage-unit.config.ts tests/auth/asr-request-accounting.test.ts tests/recording/personal-realtime-asr-gateway.test.ts
+```
