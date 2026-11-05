@@ -1,0 +1,10 @@
+{
+  "source": "c7c6c4f1a5e6b9172c786681c7deb86a8473e3eb",
+  "name": "resource-green-1",
+  "exitCode": 0,
+  "seconds": 3.25,
+  "outcome": "resource5 PASS",
+  "sourceStable": true,
+  "originalRawLogSha256AsReturnedByTool": "b369365baefb726766facdd7bdd3ec3cf3c3b7b7d5b0b866dc9c1eaaf39ff819",
+  "provenance": "Reconstructed exactly from successful wrapper tool result in this chat. Temporary private directory disappeared across interruption; original raw log/receipt currently unavailable. No rerun or physical readback claimed."
+}
