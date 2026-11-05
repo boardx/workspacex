@@ -21,3 +21,7 @@ Issue6133's old B5/B6 cells/top-owned fragment were directly corrected under fre
 At75148e4d6783beadc52cab501b56d3264697e798 the independent original reviewer returned STATIC CLEAN/no actionableP1/P2 on the exact four source/test files. Newdriver lint0/3.157s, webtype0/9.662s, corrected canonical exact2-case discovery0/5.000s. Native list confirms only the original real research entry and new controlled-HTTP query assistant cases, one file/seeded; no runtime executed. Latest own wsx-e985471527c65874fcca containers/volumes/11listeners0. Original E2E complete-file prefix and18pairs/10wiremessages/business command blocks are independently byte-preserved.
 
 Next normal metadata commit/secret scan/hooks push and DraftPR6253. Actual remote two-case results/attempts and each actual375/1280 image remain required before READY. Do not treat list/static review/component51 as native acceptance. Original B6 final evidence consolidation is exact/hash-checked against its already-public final review.
+
+## Accepted-parent publication integration
+
+Normally accepted delivered develop a00287a86c411c13148294cc2ed4379852949c5d (Chat6252 merge) as4ec1ba1f59455140fe39c964440ee3dfd2b3cefa. All four independently reviewed source/test blobs and all35 prepared safe metadata paths stayed byte-exact; no rebase or source fix. Resource5 integration passed0/4.243s, separate from51/14. Normal scan/hooks/push and DraftPR follow in this sole authorized batch; actual remote browser still pending.
