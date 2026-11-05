@@ -95,6 +95,19 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 describe("platform model catalog complete localization", () => {
+  it("preserves the complete mixed notice sentence boundary through an English Chinese English round trip", async () => {
+    show(); await ready();
+    const notice = screen.getByTestId("admin-model-mixed-notice");
+    // Assert the joined DOM text, including both boundaries around the strong element.
+    const english = "The list and Register model use the real backend and show the models actually registered by this organization. Enable/disable switches and the five admission assessments are still a local demo (the corresponding contract operations have no controller routes). Actions show feedback but are not persisted; refreshing or another administrator's view will not reflect them.";
+    const chinese = "下方列表与「接入模型」都打真实后端——这个组织真的接入了什么模型，就显示什么。启用/停用开关与五项测试判读仍是本地演示（对应契约操作还没有接 controller 路由）：点了会有提示，但不会持久化，刷新页面或另一位管理员看到的状态不会变。";
+    const paragraph = notice.querySelector("p");
+    expect(paragraph).not.toBeNull();
+    expect(paragraph?.textContent).toBe(english);
+    language("zh-CN"); expect(paragraph?.textContent).toBe(chinese);
+    language("en"); expect(paragraph?.textContent).toBe(english);
+  });
+
   it("localizes mounted list, tags, credentials and detail while preserving raw identifiers and exact prices", async () => {
     show(); await ready();
     expect(screen.getByRole("heading", { name: /model management/i })).toBeInTheDocument();

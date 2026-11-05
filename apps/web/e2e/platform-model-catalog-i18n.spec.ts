@@ -88,16 +88,45 @@ async function roundTrip(page: Page, helper: Awaited<ReturnType<typeof localeHel
 /** Native scroll each relevant visible control/text independently. A long panel is never shrunk to fit.
  * No style edits, forced clicks, fullPage screenshots, hidden layout assertions or arbitrary shot count.
  */
-async function audit(page: Page, scope: Locator) {
+type GeometrySnapshot = {
+  target: number[]; card: number[]; scrollport: number[];
+  scrollTop: number; clientHeight: number; scrollHeight: number; viewport: number[];
+};
+type ScrollReceipt = { controlIndex: number; before: GeometrySnapshot; after: GeometrySnapshot };
+// Values in this private receipt are geometry only; indices follow audit then anchor traversal.
+async function position(node: Locator, receipts: ScrollReceipt[]) {
+  await node.scrollIntoViewIfNeeded();
+  const geometry = await node.evaluate(el => {
+    const card = el.closest('[role="button"][data-testid^="bailian-model-"], [role="button"][data-testid^="admin-model-card-"]');
+    let scrollport = el.parentElement;
+    while (scrollport && !/(auto|scroll|overlay)/.test(getComputedStyle(scrollport).overflowY)) {
+      scrollport = scrollport.parentElement;
+    }
+    const port = scrollport ?? document.documentElement;
+    const rect = (element: Element) => {
+      const r = element.getBoundingClientRect();
+      return [r.left, r.top, r.right, r.bottom, r.width, r.height];
+    };
+    const snapshot = () => ({
+      target: rect(el), card: card ? rect(card) : [], scrollport: rect(port),
+      scrollTop: port.scrollTop, clientHeight: port.clientHeight, scrollHeight: port.scrollHeight,
+      viewport: [innerWidth, innerHeight],
+    });
+    const before = snapshot();
+    el.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" });
+    const after = snapshot();
+    const r = el.getBoundingClientRect();
+    return { left: r.left, right: r.right, fits: el.scrollWidth <= el.clientWidth + 1, width: innerWidth, before, after };
+  });
+  receipts.push({ controlIndex: receipts.length, before: geometry.before, after: geometry.after });
+  return geometry;
+}
+async function audit(page: Page, scope: Locator, receipts: ScrollReceipt[]) {
   const relevant = scope.locator("button,input,select,textarea,a,h1,h2,h3,p,label,legend,[role=button],[role=radio],[role=tab],[role=menuitemradio],[role=checkbox],[role=switch],dt,dd");
   for (const node of await relevant.all()) {
     if (!await node.isVisible()) continue;
-    await node.scrollIntoViewIfNeeded();
+    const geometry = await position(node, receipts);
     await expect(node).toBeInViewport({ ratio: 1 });
-    const geometry = await node.evaluate(el => {
-      const r = el.getBoundingClientRect();
-      return { left: r.left, right: r.right, fits: el.scrollWidth <= el.clientWidth + 1, width: innerWidth };
-    });
     expect(geometry.left).toBeGreaterThanOrEqual(0);
     expect(geometry.right).toBeLessThanOrEqual(geometry.width);
     expect(geometry.fits).toBe(true);
@@ -105,24 +134,27 @@ async function audit(page: Page, scope: Locator) {
   }
   for (const text of await scope.locator("span").all()) {
     if (!await text.isVisible() || await text.locator("*").count() || !(await text.textContent())?.trim()) continue;
-    await text.scrollIntoViewIfNeeded(); await expect(text).toBeInViewport({ ratio: 1 });
-    expect(await text.evaluate(el => {
-      const r = el.getBoundingClientRect();
-      return r.left >= 0 && r.right <= innerWidth && el.scrollWidth <= el.clientWidth + 1;
-    })).toBe(true);
+    const geometry = await position(text, receipts);
+    await expect(text).toBeInViewport({ ratio: 1 });
+    expect(geometry.left >= 0 && geometry.right <= geometry.width && geometry.fits).toBe(true);
   }
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 }
 async function shots(page: Page, info: TestInfo, name: string, scope: Locator, top: Locator, bottom?: Locator) {
   for (const width of [375, 1280]) {
     await page.setViewportSize({ width, height: 900 });
-    await audit(page, scope);
-    await top.scrollIntoViewIfNeeded(); await expect(top).toBeInViewport({ ratio: 1 });
-    await page.screenshot({ path: info.outputPath(`model-catalog-${name}-top-${width}.png`) });
-    if (bottom) {
-      await bottom.scrollIntoViewIfNeeded(); await expect(bottom).toBeInViewport({ ratio: 1 });
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-      await page.screenshot({ path: info.outputPath(`model-catalog-${name}-bottom-${width}.png`) });
+    const receipts: ScrollReceipt[] = [];
+    try {
+      await audit(page, scope, receipts);
+      await position(top, receipts); await expect(top).toBeInViewport({ ratio: 1 });
+      await page.screenshot({ path: info.outputPath(`model-catalog-${name}-top-${width}.png`) });
+      if (bottom) {
+        await position(bottom, receipts); await expect(bottom).toBeInViewport({ ratio: 1 });
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+        await page.screenshot({ path: info.outputPath(`model-catalog-${name}-bottom-${width}.png`) });
+      }
+    } finally {
+      await info.attach("private-native-scroll-geometry", { body: JSON.stringify(receipts), contentType: "application/json" });
     }
   }
 }

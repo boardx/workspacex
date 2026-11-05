@@ -63,7 +63,7 @@ const copy = {
   "model.drainEffect": ["已发起的推理跑完当前一轮，此刻起路由不再选用此模型。", "Existing inference calls finish their current round. Routing no longer selects this model for new calls."],
   "model.noticeTitle": ["模型清单为真实组织配置", "The model list reflects actual organization configuration"],
   "model.noticeBadge": ["GET /models · 真数据", "GET /models · Live data"],
-  "model.noticeBefore": ["下方列表与「接入模型」都打真实后端——这个组织真的接入了什么模型，就显示什么。", "The list and Register model use the real backend and show the models actually registered by this organization."],
+  "model.noticeBefore": ["下方列表与「接入模型」都打真实后端——这个组织真的接入了什么模型，就显示什么。", "The list and Register model use the real backend and show the models actually registered by this organization. "],
   "model.noticeStrong": ["启用/停用开关与五项测试判读仍是本地演示", "Enable/disable switches and the five admission assessments are still a local demo"],
   "model.noticeAfter": ["（对应契约操作还没有接 controller 路由）：点了会有提示，但不会持久化，刷新页面或另一位管理员看到的状态不会变。", " (the corresponding contract operations have no controller routes). Actions show feedback but are not persisted; refreshing or another administrator's view will not reflect them."],
   "model.registerSubtitle": ["接入后置为待测试，通过五项判读才进可选池。凭据只在此刻进入系统，之后任何接口都不会回显。", "New models start untested and become selectable only after all five assessments pass. Secrets enter the system only at registration and are never returned by any API."],
