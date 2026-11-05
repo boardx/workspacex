@@ -14,11 +14,15 @@ Own production: apps/web/components/admin/model-screen.tsx, org-core-model-panel
 - [x] StageA new tests only: apps/web/tests/ui/platform-model-catalog-i18n.test.tsx. Full English and locale-switch ownership/draft/filter/validation/call/payload/financial-display assertions with faithful SDK fixtures; no production changes.
 - [x] Root freeze + focused semantic RED with legacy/resource controls. Schema/driver/type/collection mistakes are not valid RED.
 - [x] StageB minimum complete display implementation only after root release.
-- [ ] Root related GREEN/lint/types/init/raw/testid/wiring/static and independent task review.
+- [x] Root related GREEN/lint/types/init/raw/testid/wiring/static and independent task source review.
 
 ### Task 2: Native route and cloud acceptance
 
-- [ ] Freeze actual supported native journey/actors and unchanged local-only behavior; source-only dedicated spec plus additive existing config selection if needed, no new backend fixture/provider feature.
+- [x] Freeze actual supported native journey/actors and unchanged local-only behavior; source-only dedicated spec plus additive existing config selection if needed, no new backend fixture/provider feature.
 - [ ] Actual discovery/source review then explicit Draft publication via normal scan/hooks to develop, Closes6255.
 - [ ] Existing cloud actual run, first failure repair and all actual375/1280 screenshot QA. No green-check-only acceptance.
 - [ ] Final runtime/whole-branch review and main-controlled all-green queue/actual merge. Update issue/progress/handoff without false completion.
+
+## Source publication checkpoint
+
+Source5961383 normally merges accepteddevelopfe372 and preserves originalTDD commits.66-case focusedGREEN precedes exact shared-key reuse;30 affectedcases/11filelint pass afterward. Final native-spec lint/type/init/raw-error/testid/wiring/static20/exact3case discovery pass. Independent source reviews close shared-label duplication, body-row capture anchoring, false budget claims, login response timing and array first-row narrowing. No local Next/DB/browser started. Native3cases/atmost22PNGs/finalruntime+wholebranch review remain pending; source publication must stay Draft. Existing6254 actualcloud failures retain priority.

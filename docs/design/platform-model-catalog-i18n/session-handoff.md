@@ -1,0 +1,7 @@
+# Platform model catalog i18n handoff
+
+Source5961383 is normally based on accepteddevelopfe372; initialREDa173a62 and66GREENdac22e remain ancestors. Newtests immutable; source includes5 mountedcomponents, typed pairednamespace, dictionary wiring,1native spec and1 additive existingproject selection. Publicsource receipts/reviews are under evidence/platform-model-catalog-i18n-6255/. Normal Draft publication and existing cloud acceptance are next.
+
+Three actual cases: real organization-admin model/core reads plus unsentregistrationdrafts; ordinarymember403 and publicsnapshot/filter/detailrawfacts; conditional actualpoolrow localmanual/disableflow with independentreadback/reload. No providerfixture/backendmutation/paidexecution/financialassertion. Empty/dependency pools explicitly limit rowmodal evidence. Existing30s/5s defaults, CIretry1 and actualinvocationworkers are unchanged. Maximum22planned375/1280PNGs must all be individuallyviewed; authrawreports/traces remain private.
+
+Root owns source gates/normalhooks and serialized resource handoff with FIRST/SECOND; no localNext/DB/browser. Stopfirstnonzero and immediatelyrelease before diagnosis. PreviousDraft6254 exact53ead9d cloud acceptance still pending; firstactualownedfailure takespriority. After nativeproof, obtain independentruntime and strongestwholebranch review, then hand main exactREADY; main alone queues/merges. Do not claimpage/globali18n complete early.
