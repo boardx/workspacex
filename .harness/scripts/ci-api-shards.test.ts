@@ -83,10 +83,12 @@ it('makes exclusive API collection a serial nonoptional step of an existing requ
 it('actually collects exclusive files once and rejects both missing exclusion and missing exclusive include',()=>{
  const apiRoot=fileURLToPath(new URL('../../apps/api/',import.meta.url));
  const directory=mkdtempSync(join(apiRoot,'.vitest-exclusive-discovery-'));
+ const deadline=Date.now()+25000;
  const expected=['tests/recording/personal-transcription-persistence.test.ts','tests/billing/native-credit-tariff-pg.test.ts','tests/billing/global-native-force-replay-pg.test.ts'];
  const list=(config:string,label:string)=>{
   const output=join(directory,label+'.json');
-  const result=spawnSync(process.execPath,[fileURLToPath(new URL('../../node_modules/vitest/vitest.mjs',import.meta.url)),'list','--filesOnly','--config',config,'--json='+output],{cwd:apiRoot,encoding:'utf8',timeout:30000});
+  const remaining=deadline-Date.now();if(remaining<=0)throw new Error('EXCLUSIVE_DISCOVERY_DEADLINE');
+  const result=spawnSync(process.execPath,[fileURLToPath(new URL('../../node_modules/vitest/vitest.mjs',import.meta.url)),'list','--filesOnly','--config',config,'--json='+output],{cwd:apiRoot,encoding:'utf8',timeout:remaining});
   expect(result.error,label).toBeUndefined();expect(result.status,result.stderr).toBe(0);
   const rows=JSON.parse(readFileSync(output,'utf8'));expect(Array.isArray(rows)).toBe(true);
   return rows.map((row:{file:string})=>relative(apiRoot,row.file));
