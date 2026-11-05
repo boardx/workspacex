@@ -560,7 +560,7 @@ export const operations = {
     out: z.object({
       org: Organization,
       lifecycle: OrgLifecycle,
-      /** 每张携带租户键的表在本组织下有多少行。⚠ 数组元素也要 `.strict()`，它不继承 */
+      /** 当前应用角色可读的每张租户表在本组织下有多少行；不含内部不可读归档，不是物理备份。⚠ 数组元素也要 `.strict()`，它不继承 */
       tables: z.array(
         z.object({ table: z.string(), rowCount: z.number().int().nonnegative() }).strict(),
       ),
