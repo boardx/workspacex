@@ -1,37 +1,47 @@
-# Deployment-global native credit tariffs — #6290
+# One global authority per native tariff key — #6290 / #6298
 
-The user requires one retail tariff for each provider/model/native unit, shared by personal and enterprise payers and all current/future organizations. ASR is supplier cost ×3; image profiles retain ×10. Different models retain different product prices. Canonical approved retail snapshots are promoted across CN/US; endpoint geography is supplier-cost metadata, not an automatic trigger to change retail prices.
+The user requires the same per-model retail price for personal and enterprise payers and every current/future organization. This stacks behind #6297 exact2a7b6331d37a9d808fd00a9de961749e8c393b58. Image fixed CNY prices and activation remain owned by that PR; its approved fixed prices supersede the older image×10 policy. ASR remains supplier×3 and its canonical approved credit quote. Different models retain different prices. No CN/US database/configuration is activated by this branch.
 
-## Change and compatibility
+## Disjoint writable authorities
 
-- Add `credit_global_native_tariffs` keyed only by provider/model/unit and an append-only global audit. Keep version, exact integer quantum/rate and canonical pricing metadata. Runtime reads only this global source; payer identity, permissions, wallet and request price snapshots stay tenant scoped.
-- Rename the old table to `credit_native_tariffs_legacy`. Normalize each old rational rate with gcd; identical prices with different versions/quantum representations merge deterministically. Conflicting rational prices abort migration and list the conflicting model/unit keys. No lowest/latest/first price is selected.
-- The old table name becomes a `security_invoker`/`security_barrier` compatibility view: the current trusted tenant context × global rows. Explicitly revoke all legacy table privileges and all view INSERT/UPDATE/DELETE from `app_rw`; grant view SELECT only. Old runtime and new runtime use the same source, and newly created organizations need no copied price row.
-- Existing global consumption settings already use `app_rw` table writes behind authoritative platform-operator checks and append-only audit. Reuse this deployed pattern and minimum table grants; ordinary runtime performs only SELECT. This is not a claim of a separately credentialed database writer. No unconfigured writer role or secret is introduced.
-- Platform contract/UI and image activation drop organization pricing inputs. Strict schemas explicitly reject legacy `orgId` query/body fields, including at global endpoints, rather than silently turning an old scoped write into a global write. Canonical image ×10 prices and ASR ×3 remain separate.
+- `bailian-image`, every unit: only #6297's global image CAS schedule. Three supported image profiles retain that contract, fixed-price helper and activation CLI unchanged. Other units/unknown models fail closed.
+- Every other provider/model/unit: `credit_global_native_tariffs`, keyed without organization. A DB CHECK excludes the entire `bailian-image` provider, not just known models or image units. There is no legacy organization fallback.
+- Both reuse one existing `app_billing_tariff_writer` pool/config/role. `app_rw` has SELECT only; an operator-authorized native upsert uses the borrowed writer and append-only audit. Missing credentials fail explicitly. Image service retains the pool's single closer; native service does not create or close another pool.
+- The native platform DTO/query/UI have no organization price input; strict schemas reject legacy org-shaped writes and all bailian-image writes, directing operators to image CAS. The existing image CN quote endpoint still accepts its required organization context; that context does not choose a price. Model-testing APIs/immutable image contracts are not globally reinterpreted.
 
-## Switch and rollback
+## Atomic migration and compatibility
 
-Migration is one transaction. It validates all old prices before publishing the global rows/view, so existing runtime continues using a single rate through the compatibility view after commit. Deploy new API/UI after migration. An API rollback can retain the migration and read-only compatibility view; old model calls still use global prices, while old organization mutation endpoints fail closed. Do not restore legacy writes. A schema rollback requires a separately reviewed quiesced conversion from current global prices and is not part of ordinary app rollback.
+`20261105170000_global_native_credit_tariffs.sql` depends on image1600 and its writer role. Unmerged old0900 is removed. In one existing migrator transaction, row_security=off and an exclusive old-table lock precede consolidation. Non-bailian rows normalize integer ratios with gcd. Equal ratios with differing metadata merge deterministically; conflicting ratios abort with model/unit keys. No arbitrary lowest/latest org price is selected. Legacy image rows are retained, never copied into the nonimage writable store.
 
-Already admitted requests retain their own `native_quantum`, `native_rate`, `tariff_version` and wallet identity; settlement/replay do not query either tariff source. Changing the global tariff cannot reprice historical usage. Estimated ASR usage remains pending until authoritative reconciliation; this feature does not relabel estimates as vendor receipts.
+The original table becomes `credit_native_tariffs_legacy`; app/PUBLIC privileges are explicitly revoked. A SELECT-only security_invoker/security_barrier view keeps the original name and unions two nonoverlapping sources for the current trusted org: global nonimage rows and image schedule JSON. All view DML is explicitly revoked. New organizations need no copied prices. The shared freeze-policy installer handles the renamed legacy relation.
 
-## Verification contract
+A repeated1700 validates relation kinds, columns, primary key, rate/version nullability and positive/nonempty validated CHECKs, provider exclusion, canonical view fingerprint/dependency, role privileges and append-only audit trigger. Partial/corrupt cutover refuses completion. The one exact historical force replay `20261022120000_credit_consumption.sql` maps only bare old relation references to legacy after this validator succeeds. Its original raw checksum remains unchanged. Legacy grants are revoked again before that replay transaction commits. Normal migration and unrelated force SQL are not rewritten.
 
-1. Real PostgreSQL: equivalent old rational prices merge despite metadata/version differences; differing prices abort with keys. Existing personal/team/new-organization admissions use identical rates but separate wallets. Legacy view reads are tenant scoped and old repo writes/view UPDATE/legacy table access fail without changing global prices.
-2. Existing request settlement/replay uses its saved price after a global update. Nonoperator writes are denied before repository access. Legacy org-shaped requests fail validation.
-3. UI has one deployment-wide model-price entry, no organization selector. Image activation sends global URLs/body and retains ×10 quote checks, Bearer authorization, exact fixed profile costs and dry-run safety.
-4. CN/devapp/US publication uses reviewed canonical snapshots, preserves existing request snapshots and records global audit. No production schema or pricing writes are performed merely by implementing this branch.
+Historical admitted requests retain native quantum/rate/version/wallet snapshots. Settlement/replay do not re-read current tariffs. Estimated ASR remains pending; this does not relabel supplier estimates as reported usage.
+
+## Release and rollback boundary
+
+Apply image1600 before native1700, provision the same reviewed writer credentials, then publish the new runtime/UI. Old runtime can continue reading the compatibility view; old organization-scoped mutation endpoints fail closed. App rollback keeps the read-only view and canonical authorities, never restores legacy writes. Schema rollback requires an independently reviewed quiesced conversion and is not a normal application rollback.
+
+Canonical approved retail snapshots may be promoted across deployments only after live target/source checks. Supplier endpoint geography is cost metadata, not an automatic retail repricing instruction. Root-private CN/US prepared snapshots remain PENDING_NOT_BOUND; no runtime activation is claimed here.
+
+## Required verification (integrated tree not yet tested)
+
+- Isolated PG: ASR33/4300 across personal/team/new org without copied rows; newer request freezes new price/version; old request settles old snapshot.
+- Three image fixed profiles across both payers/new org through unchanged CAS; zero duplicate bailian rows in the nonimage authority/view. Unknown model fails closed.
+- Real restricted writer can mutate authorized nonimage prices; app/view/legacy DML and nonoperator/legacy-org/image writes refuse. One shared writer lifecycle.
+- Equivalent migration ratios consolidate, conflicting values fail, forced RLS cannot hide rows, missing rate CHECK/NOT NULL rejects repeated cutover.
+- Two complete independently timed force passes in the exclusive DDL lane plus default migration no-op; global/image/audit/request values and original historical checksums preserved.
 
 ```mermaid
 flowchart LR
- A[Design and regression contract] --> B[Global table and compatibility view]
- B --> C[Runtime and operator contract UI]
- C --> D[Activation and tests]
+ A[Accepted disjoint-source design] --> B[Post-image1700 and shared writer]
+ B --> C[Runtime operator contract and compatibility]
+ C --> D[Exclusive PG and permission tests]
  D --> E[Independent review and CI]
  style A fill:#d9d2e9
- style B fill:#d9d2e9
- style C fill:#d9d2e9
- style D fill:#d9d2e9
- style E fill:#ffe699
+ style B fill:#ffe699
+ style C fill:#ffe699
+ style D fill:#ddd
+ style E fill:#ddd
 ```

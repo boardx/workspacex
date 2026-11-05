@@ -15,7 +15,7 @@ export default defineConfig({
     // `native-runtime-lane.test.ts`（#3052）同理：它还额外要求 `KERNEL_NATIVE_RUNTIME=1`，
     // 普通 shard 抽到它只会红在"车道前置没有"上（PR #3112 首跑 shard 4 实测）。这三条
     // 的准入不靠 skip 靠这份 exclude——skip 会让"这条车道到底跑没跑"变成看不见的事，
-    // 而 vitest.native-runtime-lane.config.ts 用 `exclude: []` 把它选回来，且在缺任一
+    // 而 vitest.native-runtime-lane.config.ts 用 `exclude: ["tests/billing/global-native-force-replay-pg.test.ts", "tests/billing/native-credit-tariff-pg.test.ts", ]` 把它选回来，且在缺任一
     // 前置时**抛错**而不是跳过。
     exclude: ["tests/agent-runtime/qwen-image-pillow-live.test.ts", "tests/report-files/native-live.test.ts", "tests/recording/personal-transcription-persistence.test.ts", "tests/agent-runtime/native-full-chain.test.ts", "tests/agent-runtime/standard-document-locators-http.test.ts", "tests/agent-runtime/native-runtime-lane.test.ts"],
     globalSetup: ["tests/support/db-global-setup.ts"],

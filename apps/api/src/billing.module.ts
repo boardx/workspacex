@@ -1,3 +1,8 @@
+import {GlobalImageTariffController} from './interface/controllers/global-image-tariff.controller';
+import {GlobalImageTariffService} from './application/billing/global-image-tariff-service';
+import {PgGlobalImageTariffRepository} from './infrastructure/billing/pg-global-image-tariff-repository';
+import {billingTariffWriterConfig} from './infrastructure/db/pg-config';
+import {PgDatabase} from './infrastructure/db/pg-database';
 import {TeamPaymentRecoveryWorker} from "./infrastructure/billing/team-payment-recovery-worker";
 import {PgTeamRecoverySweep} from "./infrastructure/billing/pg-team-recovery-sweep";
 import {TeamBillingController} from "./interface/controllers/team-billing.controller";
@@ -92,7 +97,7 @@ import { PgBillingOrderExpiryStore } from "./infrastructure/billing/pg-billing-o
 
 @Module({
   imports: [IdentityPersistenceModule],
-  controllers: [TeamBillingController, PersonalEntitlementController, PersonalCheckoutController, BillingCatalogController, NativeCreditTariffController, ConsumptionSettingsController, BillingStripeWebhookController, BillingSubscriptionController, BillingConfigController, BillingWalletController, BillingOrderController, BillingWechatNotifyController],
+  controllers: [GlobalImageTariffController, TeamBillingController, PersonalEntitlementController, PersonalCheckoutController, BillingCatalogController, NativeCreditTariffController, ConsumptionSettingsController, BillingStripeWebhookController, BillingSubscriptionController, BillingConfigController, BillingWalletController, BillingOrderController, BillingWechatNotifyController],
   providers: [
     {provide:TeamPaymentRecoveryWorker,useFactory:(db:DatabasePort,config:DeploymentBillingConfig,logger:LoggerPort)=>new TeamPaymentRecoveryWorker(new PgTeamRecoverySweep(db,new TeamPaymentReconciler(db,new TeamWechatPaymentClient(config,logger),new PgTeamPaymentRepository(db))),logger),inject:[DATABASE_PORT,DeploymentBillingConfig,LOGGER_PORT]},
     {provide:TeamAccountService,useFactory:(db:DatabasePort,identity:IdentityRepository,config:DeploymentBillingConfig,logger:LoggerPort)=>{
@@ -109,7 +114,11 @@ import { PgBillingOrderExpiryStore } from "./infrastructure/billing/pg-billing-o
       inject: [DATABASE_PORT, DeploymentBillingConfig, LOGGER_PORT] },
     { provide: BillingCatalogService, useFactory: (db:DatabasePort,config: DeploymentBillingConfig) => new BillingCatalogService(config,new PgBillingCatalogRepository(db)), inject: [DATABASE_PORT,DeploymentBillingConfig] },
     {provide:CreditUsageReplayWorker,useFactory:(db:DatabasePort,logger:LoggerPort)=>new CreditUsageReplayWorker(db,logger),inject:[DATABASE_PORT,LOGGER_PORT]},
-    {provide:NativeCreditTariffService,useFactory:(db:DatabasePort,credentials:CredentialRepository,platformAdmins:PlatformAdminRepository)=>new NativeCreditTariffService(new PgNativeCreditTariffRepository(db),userId=>isRequestorPlatformOperator({credentials,platformAdmins},userId)),inject:[DATABASE_PORT,CREDENTIAL_REPOSITORY,PLATFORM_ADMIN_REPOSITORY]},
+    {provide:"BILLING_TARIFF_WRITER",useFactory:()=>{const cfg=billingTariffWriterConfig();return cfg?new PgDatabase(cfg):null;}},
+    {provide:GlobalImageTariffService,useFactory:(db:DatabasePort,credentials:CredentialRepository,platformAdmins:PlatformAdminRepository,writer:DatabasePort|null)=>{
+      return new GlobalImageTariffService(new PgGlobalImageTariffRepository(db,writer),userId=>isRequestorPlatformOperator({credentials,platformAdmins},userId));
+    },inject:[DATABASE_PORT,CREDENTIAL_REPOSITORY,PLATFORM_ADMIN_REPOSITORY,"BILLING_TARIFF_WRITER"]},
+    {provide:NativeCreditTariffService,useFactory:(db:DatabasePort,credentials:CredentialRepository,platformAdmins:PlatformAdminRepository,writer:DatabasePort|null)=>new NativeCreditTariffService(new PgNativeCreditTariffRepository(db,writer),userId=>isRequestorPlatformOperator({credentials,platformAdmins},userId)),inject:[DATABASE_PORT,CREDENTIAL_REPOSITORY,PLATFORM_ADMIN_REPOSITORY,"BILLING_TARIFF_WRITER"]},
     {provide:APP_INTERCEPTOR,useClass:CreditExecutionContextInterceptor},
     {provide:ConsumptionSettingsService,useFactory:(db:DatabasePort,credentials:CredentialRepository,platformAdmins:PlatformAdminRepository)=>new ConsumptionSettingsService(new PgConsumptionSettingsRepository(db),userId=>isRequestorPlatformOperator({credentials,platformAdmins},userId)),inject:[DATABASE_PORT,CREDENTIAL_REPOSITORY,PLATFORM_ADMIN_REPOSITORY]},
     { provide: PersonalStripeWebhookStore, useFactory: (db: DatabasePort, config: DeploymentBillingConfig, logger: LoggerPort) => {

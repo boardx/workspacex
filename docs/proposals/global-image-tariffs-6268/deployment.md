@@ -1,0 +1,9 @@
+# Activation dependencies
+
+This PR does not activate production. Apply additive migration through the normal release path. The dedicated role is NOLOGIN until explicitly provisioned; tenant app_rw has read-only access to the global schedule, no audit/write privileges.
+
+Run apps/api/scripts/provision-billing-tariff-writer.ts through the authorized owner provisioning process with BILLING_TARIFF_PASSWORD_FILE pointing to a root-only regular file containing a newly generated >=16-character password. Do not put the password on command lines or in logs. Provisioning sets LOGIN on app_billing_tariff_writer; it does not grant membership to app_rw. Store BILLING_TARIFF_DB_USER=app_billing_tariff_writer and BILLING_TARIFF_DB_PASSWORD in the protected deployment environment, use normal release configuration freezing, and restart through the normal release path. Do not reuse migration, tenant, diagnostics or organization-catalog credentials.
+
+An authenticated platform operator reads GET /api/platform/billing/consumption/global-native-tariffs and current live CN catalog basis, then PUTs expectedRevision and expectedCatalogVersion to atomically activate all three fixed prices. Read back revision/items and immutable audit. Missing writer is an explicit 503. Missing schedule rejects new image dispatch until activation; coordinate deployment and activation in a maintenance window. Existing reservations retain stored prices across rollout and rollback. Do not roll back the database by deleting audit or resetting old reservation rates.
+
+The activation audit records supersession of known temporary version-prefix families without reading/deleting tenant rows. Legacy rows remain historical; unified image resolution uses the global schedule exclusively. Unknown image models/units remain unavailable.

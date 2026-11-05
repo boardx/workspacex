@@ -17,6 +17,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
+import {nativeTariffForceReplay} from "./native-tariff-force-replay";
 import type { PgConfig } from "./pg-config";
 
 /**
@@ -113,7 +114,11 @@ export async function migrate(
         attempt += 1;
         await client.query("BEGIN");
         try {
-          await client.query(sql);
+          const replay=await nativeTariffForceReplay(client,name,sql,opts.force===true);
+          await client.query(replay.sql);
+          // The historical file grants its old tenant writer; keep those privileges
+          // revoked inside this same transaction, before exposing a completed replay.
+          if(replay.mapped)await client.query('REVOKE ALL ON credit_native_tariffs_legacy FROM PUBLIC,app_rw');
           await client.query(
             `INSERT INTO _kernel_migrations (name, checksum) VALUES ($1, $2)
                ON CONFLICT (name) DO UPDATE SET checksum = EXCLUDED.checksum`,

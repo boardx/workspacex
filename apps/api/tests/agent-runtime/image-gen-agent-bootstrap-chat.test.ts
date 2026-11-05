@@ -1,4 +1,3 @@
-// @global-scope-fixture table:credit_global_native_tariffs: fixed fake provider/model keys use idempotent seeding; the isolated test database owns cleanup, never organization deletion of shared prices.
 /**
  * #662 直接后续 —— 图片生成 agent（2026-08-07，人类直接指令："这里要可以直接看到图片，
  * 不是只是文字"——gpt-image-2 技能在没有任何图像生成工具时只能退化成"写一段 prompt 交给
@@ -17,6 +16,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import pg from "pg";
 import { migrate } from "../../src/infrastructure/db/migrator";
+import {provisionBillingTariffWriter} from "../../scripts/provision-billing-tariff-writer";
+import {PgNativeCreditTariffRepository} from "../../src/infrastructure/billing/pg-native-credit-tariff-repository";
 import { migrationConfig } from "../../src/infrastructure/db/pg-config";
 import { DATABASE_PORT } from "../../src/application/ports/database.port";
 import { AGENT_RUN_EXECUTOR, type AgentRunExecutorPort } from "../../src/application/agent-run/ports";
@@ -31,6 +32,7 @@ process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 
 const ORIGINAL_DATABASE = process.env.PGDATABASE;
 const ORIGINAL_IMAGE_MODEL = process.env.KERNEL_BAILIAN_IMAGE_MODEL_ID;
+const ORIGINAL_TARIFF_ENV=Object.fromEntries(["BILLING_TARIFF_DB_USER","BILLING_TARIFF_DB_PASSWORD","PLATFORM_SUPERUSER_EMAILS"].map(key=>[key,process.env[key]]));
 const DATABASE = `wsx_image_gen_${process.pid}_${Date.now()}`;
 const CHAT_MODEL_PROVIDER = "wave2-loopback-image-gen";
 const TASK_ID = `task-${randomUUID()}`;
@@ -70,14 +72,14 @@ async function startBailianServer(): Promise<string> {
       res.writeHead(status, { "content-type": "application/json" });
       res.end(JSON.stringify(body));
     };
-    if (req.method === "POST" && url === "/api/v1/services/aigc/text2image/image-synthesis") {
+    if (req.method === "POST" && url === "/api/v1/services/aigc/image-generation/generation") {
       return respond(200, { output: { task_id: TASK_ID, task_status: "PENDING" } });
     }
     if (req.method === "GET" && url === `/api/v1/tasks/${TASK_ID}`) {
       taskPollCount += 1;
       // 前两次仍在跑，第三次才转终态——证明轮询循环本身被真实走过。
       if (taskPollCount < 3) return respond(200, { output: { task_status: "RUNNING" } });
-      return respond(200, { output: { task_status: "SUCCEEDED", results: [{ url: IMAGE_URL }] } });
+      return respond(200, { output: { task_status: "SUCCEEDED", choices: [{message:{content:[{image:IMAGE_URL}]}}] },usage:{output_image_count:1} });
     }
     respond(404, { error: "not_found" });
   });
@@ -92,7 +94,7 @@ beforeAll(async () => {
   process.env.KERNEL_MODEL_PROVIDER = CHAT_MODEL_PROVIDER;
   process.env.KERNEL_MODEL_BASE_URL = chatModelBase;
   process.env.KERNEL_MODEL_API_KEY = "sk-image-gen-e2e-do-not-echo";
-  process.env.KERNEL_BAILIAN_IMAGE_MODEL_ID = "wanx2.1-t2i-plus"; // This historical fixture deliberately exercises the legacy protocol.
+  process.env.KERNEL_BAILIAN_IMAGE_MODEL_ID = "qwen-image-3.0"; // Supported globally priced asynchronous image protocol.
   process.env.KERNEL_BAILIAN_IMAGE_BASE_URL = bailianBase;
   process.env.KERNEL_BAILIAN_IMAGE_POLL_INTERVAL_MS = "50";
   process.env.KERNEL_BAILIAN_IMAGE_TIMEOUT_MS = "10000";
@@ -101,6 +103,10 @@ beforeAll(async () => {
   try { await admin.query(`CREATE DATABASE ${DATABASE}`); } finally { await admin.end(); }
   process.env.PGDATABASE = DATABASE;
   await migrate(ownerConfig(DATABASE));
+  await provisionBillingTariffWriter("isolated-image-bootstrap-writer-password");
+  process.env.BILLING_TARIFF_DB_USER="app_billing_tariff_writer";
+  process.env.BILLING_TARIFF_DB_PASSWORD="isolated-image-bootstrap-writer-password";
+  process.env.PLATFORM_SUPERUSER_EMAILS="first@image-gen.test";
 
   const { createApp } = await import("../../src/main");
   app = await createApp();
@@ -119,6 +125,7 @@ afterAll(async () => {
   try { await dropDatabaseAfterDraining(admin, DATABASE); }
   finally {
     await admin.end();
+    for(const [key,value] of Object.entries(ORIGINAL_TARIFF_ENV)){if(value===undefined)delete process.env[key];else process.env[key]=value;}
     if (ORIGINAL_IMAGE_MODEL === undefined) delete process.env.KERNEL_BAILIAN_IMAGE_MODEL_ID;
     else process.env.KERNEL_BAILIAN_IMAGE_MODEL_ID = ORIGINAL_IMAGE_MODEL;
     if (ORIGINAL_DATABASE === undefined) delete process.env.PGDATABASE;
@@ -141,11 +148,15 @@ describe("#662 直接后续：新组织 bootstrap 出来就有一个能用的图
     expect(bootstrap.status, await bootstrap.clone().text()).toBe(201);
     const { userId, orgId } = (await bootstrap.json()) as { userId: string; orgId: string };
     const principal = { "x-kernel-test-principal": `${userId}:${orgId}`, "content-type": "application/json" };
-    // Image transports require an explicit native fallback tariff even with preflight OFF.
-    await databasePort.withTenant(toOrgId(orgId), session => session.query(
-      `INSERT INTO credit_global_native_tariffs(model_provider,model_id,unit,quantum,hundredths_per_quantum,version)
-       VALUES('bailian-image','wanx2.1-t2i-plus','image',1,1,'bootstrap-image-fixture-v1') ON CONFLICT DO NOTHING`));
-
+    // Platform setup uses the real operator HTTP boundary and separately provisioned writer.
+    // No organization-specific image tariff is inserted; a fresh organization inherits the schedule.
+    const catalog=await new PgNativeCreditTariffRepository(databasePort).readCnyCatalog(orgId);
+    const activation=await fetch(`${base}/platform/billing/consumption/global-native-tariffs`,{
+      method:"PUT",headers:principal,body:JSON.stringify({expectedRevision:null,expectedCatalogVersion:catalog.version}),
+    });
+    expect(activation.status,await activation.clone().text()).toBe(200);
+    expect((await activation.json()).items).toHaveLength(3);
+    expect(await new PgNativeCreditTariffRepository(databasePort).list(orgId)).toEqual([]);
 
     /* ── 能力目录里应该有三个 agent：通用助手 + Deep Research + 图片生成 ── */
     const caps = await fetch(`${base}/capabilities?orgId=${orgId}&kind=agent`, { headers: principal });

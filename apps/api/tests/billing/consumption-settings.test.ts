@@ -53,5 +53,6 @@ it("tariff routes authenticate operators and validate native pricing before writ
  expect((await put('member',body)).status).toBe(403);
  expect((await put('operator',{...body,quantum:'0'})).status).toBe(400);
  expect((await put('operator',{...body,orgId})).status).toBe(400);
+ for(const unit of ['image','millisecond','request'])expect((await put('operator',{...body,modelProvider:'bailian-image',unit})).status).toBe(400);
  const response=await put('operator',body);expect(response.status).toBe(200);expect(await response.json()).toEqual(body);
 });

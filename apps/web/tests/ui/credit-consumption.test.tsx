@@ -79,9 +79,16 @@ it("native tariff requires explicit configured price and keeps native units",asy
  const fetcher=vi.fn().mockImplementation((_url:string,options:RequestInit)=>Promise.resolve(new Response(JSON.stringify(options.method==="PUT"?JSON.parse(String(options.body)):{items:[]}))));vi.stubGlobal("fetch",fetcher);render(<NativeCreditTariffsPanel/>);
  fireEvent.click(screen.getByRole("button",{name:"查询全局费率"}));await screen.findByText("尚无原生用量费率，请按商户定价填写。");
  expect((screen.getByLabelText("每份价格（0.01 credit）") as HTMLInputElement).value).toBe("");
+ expect((screen.getByLabelText("原生用量单位") as HTMLSelectElement).value).toBe("millisecond");fireEvent.change(screen.getByLabelText("原生用量单位"),{target:{value:"image"}});
  for(const [label,value] of [["模型供应商","provider"],["模型 ID","image-model"],["每份用量","1"],["每份价格（0.01 credit）","5"],["费率版本","v2"]])fireEvent.change(screen.getByLabelText(label!),{target:{value}});
  fireEvent.click(screen.getByRole("button",{name:"保存模型费率"}));await screen.findByText("费率已保存，仅对后续新调用生效，历史用量仍保留原费率版本。");
  expect(JSON.parse(fetcher.mock.calls[1]![1].body)).toEqual({pricingBasis:{source:"operator",retailSnapshotId:"v2"},modelProvider:"provider",modelId:"image-model",unit:"image",quantum:"1",hundredthsPerQuantum:"5",version:"v2"});expect(screen.getByText(/每 1 图片收取 5/)).toBeTruthy();
+});
+it("native tariff refuses bailian image writes and directs the operator to global CAS",async()=>{
+ const fetcher=vi.fn().mockResolvedValue(new Response(JSON.stringify({items:[]})));vi.stubGlobal("fetch",fetcher);render(<NativeCreditTariffsPanel/>);
+ fireEvent.click(screen.getByRole("button",{name:"查询全局费率"}));await screen.findByRole("form",{name:"保存原生用量费率"});
+ fireEvent.change(screen.getByLabelText("模型供应商"),{target:{value:"bailian-image"}});fireEvent.submit(screen.getByRole("form",{name:"保存原生用量费率"}));
+ expect(screen.getByText("图片价格请使用全局图片价格发布（CAS）入口，本表不接受图片供应商写入。")).toBeTruthy();expect(fetcher).toHaveBeenCalledTimes(1);
 });
 it("native tariff rejects fractional native quantum without changing stored fee",async()=>{
  vi.stubGlobal("fetch",vi.fn().mockResolvedValue(new Response(JSON.stringify({items:[]}))));render(<NativeCreditTariffsPanel/>);fireEvent.click(screen.getByRole("button",{name:"查询全局费率"}));await screen.findByRole("form",{name:"保存原生用量费率"});

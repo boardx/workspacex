@@ -19,7 +19,7 @@ export const operations={
 export const CreditNativeUnit=z.enum(["image","pixel","millisecond","microsecond","character","request"]);
 const PositiveIntegerString=z.string().regex(/^[1-9][0-9]{0,17}$/);
 export const NativeCreditTariff=z.object({
- modelProvider:z.string().min(1).max(128),modelId:z.string().min(1).max(256),
+ modelProvider:z.string().min(1).max(128).refine(value=>value!=='bailian-image',{message:'image_tariffs_require_global_image_schedule_cas'}),modelId:z.string().min(1).max(256),
  unit:CreditNativeUnit,pricingBasis:z.object({
   source:z.enum(['operator','supplier-markup','legacy-consolidation']),retailSnapshotId:z.string().min(1).max(128).optional(),
   markup:z.number().int().positive().optional(),supplierRegion:z.string().min(1).max(64).optional(),supplierCurrency:z.literal('CNY').optional(),supplierMicros:z.string().regex(/^[1-9][0-9]*$/).optional(),supplierQuantum:PositiveIntegerString.optional(),
@@ -27,7 +27,27 @@ export const NativeCreditTariff=z.object({
  }).strict().optional(),quantum:PositiveIntegerString,hundredthsPerQuantum:PositiveIntegerString,version:z.string().min(1).max(128),
 }).strict();
 export const nativeTariffOperations={
- getImagePricingBasis:{method:'GET',path:'/platform/billing/consumption/image-pricing-basis',in:z.object({}).strict(),out:PricingCatalog},
+ getImagePricingBasis:{method:'GET',path:'/platform/billing/consumption/image-pricing-basis',in:z.object({orgId:z.string().min(1)}).strict(),out:PricingCatalog},
  listNativeTariffs:{method:"GET",path:"/platform/billing/consumption/native-tariffs",in:z.object({}).strict(),out:z.object({items:z.array(NativeCreditTariff)}).strict()},
  upsertNativeTariff:{method:"PUT",path:"/platform/billing/consumption/native-tariffs",in:NativeCreditTariff,out:NativeCreditTariff},
+} as const;
+
+/** Global fixed image schedule: draft contract for #6268; no routes are active yet. */
+export const GlobalImageModelId=z.enum(['z-image-turbo','qwen-image-3.0','qwen-image-3.0-pro']);
+export const GLOBAL_IMAGE_CUSTOMER_FEN={'z-image-turbo':'25','qwen-image-3.0':'50','qwen-image-3.0-pro':'100'} as const;
+const GlobalImageTariffRow=z.object({
+ modelProvider:z.literal('bailian-image'),modelId:GlobalImageModelId,unit:z.literal('image'),
+ customerAmountMinor:z.enum(['25','50','100']),currency:z.literal('CNY'),quantum:z.literal('1'),
+ hundredthsPerQuantum:PositiveIntegerString,version:z.string().min(1).max(128),catalogVersion:z.string().min(1).max(128),
+}).strict().superRefine((row,ctx)=>{
+ if(row.customerAmountMinor!==GLOBAL_IMAGE_CUSTOMER_FEN[row.modelId])ctx.addIssue({code:z.ZodIssueCode.custom,message:'fixed_image_price_mismatch',path:['customerAmountMinor']});
+});
+export const GlobalImageTariffSchedule=z.object({scope:z.literal('global'),revision:z.string().min(1).max(128).nullable(),items:z.array(GlobalImageTariffRow)}).strict().superRefine((schedule,ctx)=>{
+ if(schedule.revision===null ? schedule.items.length!==0 : schedule.items.length!==3||new Set(schedule.items.map(row=>row.modelId)).size!==3||new Set(schedule.items.map(row=>row.catalogVersion)).size!==1)
+  ctx.addIssue({code:z.ZodIssueCode.custom,message:'complete_global_image_schedule_required',path:['items']});
+});
+export const ActivateGlobalImageTariffs=z.object({expectedRevision:z.string().min(1).max(128).nullable(),expectedCatalogVersion:z.string().min(1).max(128)}).strict();
+export const globalImageTariffOperations={
+ list:{method:'GET',path:'/platform/billing/consumption/global-native-tariffs',in:z.object({}).strict(),out:GlobalImageTariffSchedule},
+ activate:{method:'PUT',path:'/platform/billing/consumption/global-native-tariffs',in:ActivateGlobalImageTariffs,out:GlobalImageTariffSchedule},
 } as const;
