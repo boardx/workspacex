@@ -1,0 +1,32 @@
+{
+  "name": "confirmation-list-1",
+  "command": [
+    "pnpm",
+    "exec",
+    "tsx",
+    ".harness/scripts/with-test-isolation.ts",
+    "--",
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "playwright",
+    "test",
+    "--config",
+    "playwright.fullstack-smoke.config.ts",
+    "--project=seeded",
+    "--grep",
+    "research query confirmation locale preserves the single real creation request$",
+    "--workers=1",
+    "--retries=0",
+    "--max-failures=1",
+    "--list",
+    "--reporter=json"
+  ],
+  "source": "cbcf73c5ef02e5e3026d1a1294f048b58324320b",
+  "sourceAfter": "cbcf73c5ef02e5e3026d1a1294f048b58324320b",
+  "sourceStable": true,
+  "exitCode": 0,
+  "seconds": 7.926,
+  "rawLogSha256": "fcc64a13b4f520a13dae5980b8638b5bd0ac79eb09df3501fcaefb47b772f3c6"
+}

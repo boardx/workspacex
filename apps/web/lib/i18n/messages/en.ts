@@ -1,4 +1,4 @@
-import { adminOverviewEn } from "../namespaces/admin-overview";
+import { platformOpsStatusEn } from "../namespaces/platform-ops-status";
 import { modelTestbenchEn } from "../namespaces/model-testbench";
 import { platformModelCatalogEn } from "../namespaces/platform-model-catalog";
 import { telemetrySettingsEn } from "../namespaces/telemetry-settings";
@@ -14,6 +14,7 @@ import { aiUsageEn } from "../namespaces/ai-usage";
 import { adminLimitPolicyEn } from "../namespaces/admin-limit-policy";
 import { adminMemberQuotasEn } from "../namespaces/admin-member-quotas";
 import { adminCommonEn } from "../namespaces/admin-common";
+import { adminOverviewEn } from "../namespaces/admin-overview";
 import { recordingProjectEn } from "../namespaces/recording-project";
 import { workflowGrantsEn } from "../namespaces/workflow-grants";
 import { orgHomeConfigEn } from "../namespaces/org-home-config";
@@ -39,7 +40,7 @@ import type { zhCN } from "./zh-CN";
 import { accountEntryEn } from "../namespaces/account-entry";
 import { invitationEntryEn } from "../namespaces/invitation-entry";
 export const en: Record<keyof typeof zhCN, string> = {
-  ...adminOverviewEn,
+  ...platformOpsStatusEn,
   ...modelTestbenchEn,
   ...platformModelCatalogEn,
   ...telemetrySettingsEn,
@@ -55,6 +56,7 @@ export const en: Record<keyof typeof zhCN, string> = {
   ...adminLimitPolicyEn,
   ...adminMemberQuotasEn,
   ...adminCommonEn,
+  ...adminOverviewEn,
   ...workflowGrantsEn,
   ...orgHomeConfigEn,
   ...orgProfileEn,

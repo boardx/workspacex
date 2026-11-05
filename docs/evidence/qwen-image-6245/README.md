@@ -1,3 +1,5 @@
+> #6267 fixed-price update: customer prices per image are Z-Image CNY0.25, Qwen3 CNY0.50, Qwen3 Pro CNY1.00. These supersede cost-times-ten pricing. Use `--fixed-prices`; `--markup10` is rejected. Credit amounts come from the authenticated live CNY pricing basis with integer ceiling to 0.01 credit. Writes target only the explicitly selected organization through the audited operator API. Activation of one organization does not activate other existing or future organizations, CN as a whole, or all environments. Global defaults/new-organization initialization require a separate design and issue. Live activation evidence is maintained by the server operator; the implementation tests below do not prove production activation. Historical cost observations below describe supplier costs, not current customer prices.
+
 # #6245 implementation evidence
 
 ## Merge queue recovery (2026-11-05)

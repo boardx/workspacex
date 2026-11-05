@@ -25,11 +25,11 @@ Files: new tests/ui/guided-research-skill-assistant-i18n.test.tsx; existing comp
 File: existing e2e/i18n-research-entry.spec.ts; no config registration change.
 
 - [x] Append one separately named original-budget query-entry case; keep the existing whole case byte-identical. Real login, query brief route, same-context locale updates, raw requirements, controlled pending/failure turn and actual contract payload. Explicit apply/undo, no locale-only turn,375/1280 captures and local control bounds.
-- [ ] Discover through the canonical existing runner; normal hooks/push, independent bounded review and one PR Closes6253 to develop.
-- [ ] Read exact remote native cases/attempts/skips/errors and individually view all actual images. Fix only real findings with RED/GREEN and fresh affected proof. No vendor/PG claim from controlled model interaction.
+- [x] Discover through the canonical existing runner; normal hooks/push, independent bounded review and one PR Closes6253 to develop.
+- [x] Read exact remote native cases/attempts/skips/errors and individually view all actual images. Fix only real findings with RED/GREEN and fresh affected proof. No vendor/PG claim from controlled model interaction.
 
 ### Task 3 — Delivery and recorded prior evidence
 
-- [ ] Record the five final safe B6 receipts/review and actual merge docs in this already-planned batch, preserving their exact source/hash and public review boundary.
+- [x] Record the five final safe B6 receipts/review and actual merge docs in this already-planned batch, preserving their exact source/hash and public review boundary.
 - [ ] Publish safe current evidence, update issue/progress/handoff, preserve failed attempts separately. Current sourceCI/review green and coordinator actual merge required; no manual passing.
-- [ ] Check exact owned resources0 and release each sole source window immediately after actual exit.
+- [x] Check exact owned resources0 and release each sole source window immediately after actual exit.
