@@ -1,0 +1,41 @@
+{
+  "issue": 6296,
+  "privateCandidateOnly": false,
+  "candidatePreparedBase": "feab6e36304ed94c1b35b43ab35002d3628166e4",
+  "base": "70aa3f18f7e75885fb93a5279cfa74162e148200",
+  "lightAudit": {
+    "parserDiagnostics": 0,
+    "localeKeys": 68,
+    "domKeysTestIdsStylesNavigationAndApiCallsByteExact": true,
+    "stateDiscriminatorValuesWireStatusPredicatesAndEffectDependenciesByteExact": true,
+    "oneDisplayOnlyUnknownTriLabelGuard": true,
+    "preservedFunctions": [
+      "closedEvidenceKinds",
+      "evidenceSourceKinds",
+      "reasoningView",
+      "evidenceHref",
+      "useClaimSourceKinds",
+      "useProjectAiAllowed",
+      "msToClock",
+      "FilterChip"
+    ],
+    "ownedChineseJsx": 0,
+    "registryWiringOnlyAdditive": true,
+    "parserFileCount": 6,
+    "diffCheck": 0
+  },
+  "sourceSHA256": {
+    "apps/web/components/project/project-brain-panel.tsx": "cf8852b65b76fe501af1c69ccc264fe01ff52927d14fa9441dbac769013b222d",
+    "apps/web/components/project/project-evidence-section.tsx": "8a15f19abab623b5adbc1e3bba53abc04f54e01731aa29295a8f9f97f3dedda3",
+    "apps/web/lib/i18n/project-evidence-copy.ts": "0d10afeaf393be4da82e1859e19351bdba89f453f67622b7e67afd9da44f56de",
+    "apps/web/lib/i18n/namespaces/project-brain.ts": "7eb778c9a464602da8704062833d386b59ffc72a34c086c20441c0df938f303f",
+    "apps/web/lib/i18n/messages/en.ts": "73dde5113895ea59ff58a4a7d7962aa461bd499d9936607f072dc912c7281a1e",
+    "apps/web/lib/i18n/messages/zh-CN.ts": "60572ceca06567a67367e6c8c3d714e1a8f6935815c0b7c797a47bcf4fbe8336"
+  },
+  "deferred": [
+    "independent source review",
+    "focused tests",
+    "type acceptance",
+    "native/viewport QA"
+  ]
+}
