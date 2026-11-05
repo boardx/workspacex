@@ -39,7 +39,7 @@ class Probe(unittest.TestCase):
   self.assertEqual(report['recentErrorCounts']['CREDIT_ACCOUNTING_UNAVAILABLE'],1)
   for private in ['secret','private token','user body','remote','api-id']:self.assertNotIn(private,output.getvalue())
  def test_database_probe_is_read_only_parameterized_and_refuses_filtered_zero(self):
-  self.assertIn('BEGIN READ ONLY',m.DATABASE)
+  self.assertIn('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY',m.DATABASE)
   self.assertIn('SET LOCAL row_security=off',m.DATABASE)
   self.assertIn('model_provider=$1 AND model_id=$2',m.DATABASE)
   self.assertIn('ownerConfigured?migrationConfig():appConfig()',m.DATABASE)
@@ -53,7 +53,7 @@ class Probe(unittest.TestCase):
   self.assertNotEqual(result.returncode,0)
  def test_local_postgres_fallback_refuses_rls_filtered_false_zero(self):
   source=(pathlib.Path(__file__).parents[1]/'asr-accounting-probe.py').read_text()
-  self.assertIn('BEGIN READ ONLY; SET LOCAL row_security=off;',source)
+  self.assertIn('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY; SET LOCAL row_security=off;',source)
 
  def test_fixed_cn_target_uses_own_project_and_known_official_region(self):
   from unittest.mock import patch
@@ -62,3 +62,27 @@ class Probe(unittest.TestCase):
   self.assertEqual(m.runtime_configuration({'KERNEL_ASR_BASE_URL':'wss://dashscope-intl.aliyuncs.com/x'})['asrRegion'],'sg-international')
   self.assertEqual(m.runtime_configuration({'KERNEL_ASR_BASE_URL':'wss://credential@dashscope.aliyuncs.com/x'})['asrRegion'],'unverified')
   self.assertEqual(m.runtime_configuration({'KERNEL_ASR_BASE_URL':'wss://other.example/x'})['asrRegion'],'unverified')
+
+ def test_global_probe_counts_global_rows_without_querying_tenant_compatibility_view(self):
+  import subprocess
+  prelude=r'''
+const sqls=[];
+const fixtureClient={release(){},async query(sql){sqls.push(sql);
+ if(sql.includes("to_regclass"))return {rows:[{enabled:true}]};
+ if(sql.includes('count(*)::integer AS count FROM organizations'))return {rows:[{count:4}]};
+ if(sql.includes('AS "matchingTariffs"'))return {rows:[{matchingTariffs:1}]};
+ if(sql.includes('AS "rowCount"'))return {rows:[{model_provider:'dashscope',model_id:'qwen3-asr-flash-realtime',quantum:'4300',hundredths_per_quantum:'33',rowCount:1,versionCount:1}]};
+ if(sql.includes('count(*)::integer AS count FROM credit_'))return {rows:[{count:1}]};
+ return {rows:[]};}};
+class Pool{async connect(){return fixtureClient;}async end(){console.error(JSON.stringify(sqls));}}
+const appConfig=()=>({}),migrationConfig=()=>({});
+const readProductConfiguration=async()=>({version:'live',rows:[]});
+const personalConfiguredProducts=()=>[{kind:'credit_topup',currency:'CNY',sku:'live-min',amountMinor:12900,credits:10000}];
+'''
+  source=prelude+'\n'+'\n'.join(line for line in m.DATABASE.splitlines()if not line.startswith('import '))
+  result=subprocess.run(['node','--input-type=module'],input=source,text=True,capture_output=True,timeout=10)
+  self.assertEqual(result.returncode,0,result.stderr)
+  out=json.loads(result.stdout);self.assertTrue(out['tariffQueryAvailable']);self.assertEqual(out['tariffScope'],'deployment-global')
+  self.assertEqual(out['matchingTariffs'],1);self.assertEqual(out['pricedOrganizations'],4)
+  self.assertEqual(out['millisecondTariffs'][0]['organizationCount'],4)
+  self.assertFalse(any('FROM credit_native_tariffs 'in sql for sql in json.loads(result.stderr)))

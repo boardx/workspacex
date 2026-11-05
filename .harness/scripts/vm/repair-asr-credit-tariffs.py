@@ -26,6 +26,7 @@ try{
  pool=new Pool({...migrationConfig(),connectionTimeoutMillis:5000,statement_timeout:10000,max:1});client=await pool.connect();
  await client.query(action==='dry-run'?'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY':'BEGIN ISOLATION LEVEL SERIALIZABLE');
  await client.query('SET LOCAL row_security=off');
+ need(!(await client.query("SELECT to_regclass('public.credit_global_native_tariffs') IS NOT NULL AS enabled")).rows[0].enabled,'pre_global_maintenance_only');
  await client.query("SET LOCAL lock_timeout='5000ms'");
  if(action!=='dry-run')await client.query('LOCK TABLE organizations IN SHARE MODE');
  const configured=await readProductConfiguration(client,'cn');

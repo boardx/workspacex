@@ -25,16 +25,22 @@ try{
  const config=ownerConfigured?migrationConfig():appConfig();
  pool=new Pool({...config,connectionTimeoutMillis:5000,statement_timeout:5000,max:1});
  client=await pool.connect();
- await client.query('BEGIN READ ONLY');
- // Fail rather than silently return an RLS-filtered zero across organizations.
+ await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
  await client.query('SET LOCAL row_security=off');
- const row=(await client.query("SELECT count(*)::integer AS \"matchingTariffs\",count(DISTINCT org_id)::integer AS \"pricedOrganizations\" FROM credit_native_tariffs WHERE model_provider=$1 AND model_id=$2 AND unit='millisecond'",[e.KERNEL_ASR_PROVIDER,e.KERNEL_ASR_MODEL])).rows[0];
- const millisecondTariffs=(await client.query("SELECT model_provider,model_id,quantum::text,hundredths_per_quantum::text,count(*)::integer AS \"organizationCount\",count(DISTINCT version)::integer AS \"versionCount\" FROM credit_native_tariffs WHERE unit='millisecond' GROUP BY model_provider,model_id,quantum,hundredths_per_quantum ORDER BY model_provider,model_id LIMIT 50")).rows;
+ // Prevent the old table->view cutover racing scope detection and producing a false zero.
+ await client.query('LOCK TABLE credit_native_tariffs IN ACCESS SHARE MODE');
+ const global=(await client.query("SELECT to_regclass('public.credit_global_native_tariffs') IS NOT NULL AS enabled")).rows[0].enabled;
+ const relation=global?'credit_global_native_tariffs':'credit_native_tariffs';
+ out.tariffScope=global?'deployment-global':'organization-legacy';
+ out.organizationCount=Number((await client.query('SELECT count(*)::integer AS count FROM organizations')).rows[0].count);
+ const row=(await client.query(`SELECT count(*)::integer AS "matchingTariffs"${global?'':',count(DISTINCT org_id)::integer AS "pricedOrganizations"'} FROM ${relation} WHERE model_provider=$1 AND model_id=$2 AND unit='millisecond'`,[e.KERNEL_ASR_PROVIDER,e.KERNEL_ASR_MODEL])).rows[0];
+ if(global)row.pricedOrganizations=row.matchingTariffs===1?out.organizationCount:0;
+ const millisecondTariffs=(await client.query(`SELECT model_provider,model_id,quantum::text,hundredths_per_quantum::text,count(*)::integer AS "rowCount",count(DISTINCT version)::integer AS "versionCount" FROM ${relation} WHERE unit='millisecond' GROUP BY model_provider,model_id,quantum,hundredths_per_quantum ORDER BY model_provider,model_id LIMIT 50`)).rows.map(({rowCount,...r})=>({...r,organizationCount:global?out.organizationCount:rowCount,...(global?{globalPriceRows:rowCount}:{})}));
+ if(global)out.globalTariffAuditCount=Number((await client.query("SELECT count(*)::integer AS count FROM credit_global_native_tariff_changes WHERE new_tariff->>'modelProvider'=$1 AND new_tariff->>'modelId'=$2",[e.KERNEL_ASR_PROVIDER,e.KERNEL_ASR_MODEL])).rows[0].count);
  const configured=await readProductConfiguration(client,'cn');
  const products=personalConfiguredProducts(configured.rows).filter(p=>p.kind==='credit_topup'&&p.currency==='CNY').sort((a,b)=>a.amountMinor-b.amountMinor);
  const first=products[0],ambiguous=!!first&&products[1]?.amountMinor===first.amountMinor;
  out.creditBasis=first&&!ambiguous?{catalogVersion:configured.version,sku:first.sku,amountMinor:first.amountMinor,credits:first.credits,currency:'CNY',market:'cn'}:{available:false,ambiguous};
- out.organizationCount=Number((await client.query('SELECT count(*)::integer AS count FROM organizations')).rows[0].count);
  out.repairAuditCount=Number((await client.query("SELECT count(*)::integer AS count FROM credit_native_tariff_changes WHERE new_tariff->>'version'=$1 AND new_tariff->'maintenance'->>'issue'=$2 AND old_tariff IS NULL",['asr-credit-6275-v1','6275'])).rows[0].count);
  out.recentAsrRequestStates=(await client.query("SELECT state,count(*)::integer AS count FROM credit_consumption_requests WHERE model_provider=$1 AND model_id=$2 AND created_at>now()-interval '30 minutes' GROUP BY state ORDER BY state",[e.KERNEL_ASR_PROVIDER,e.KERNEL_ASR_MODEL])).rows;
  out.recentAsrTerminals=(await client.query("SELECT outcome,native_source,count(*)::integer AS count,count(*) FILTER(WHERE native_quantity>0)::integer AS \"withAudio\" FROM token_usage_events WHERE model_provider=$1 AND model_id=$2 AND call_purpose='native-asr' AND request_started_at>now()-interval '30 minutes' GROUP BY outcome,native_source ORDER BY outcome,native_source",[e.KERNEL_ASR_PROVIDER,e.KERNEL_ASR_MODEL])).rows;
@@ -108,7 +114,13 @@ def run():
         if ae.get('PGHOST')in aliases and ae.get('PGDATABASE')==de.get('POSTGRES_DB')and ae.get('PGPORT','5432')=='5432'and set(api.get('NetworkSettings',{}).get('Networks',{}))&set(row.get('NetworkSettings',{}).get('Networks',{})):databases.append(row)
     if not report['tariffQueryAvailable'] and len(databases)==1 and ae.get('KERNEL_ASR_PROVIDER')and ae.get('KERNEL_ASR_MODEL'):
         db=databases[0];de=env(db)
-        sql="BEGIN READ ONLY; SET LOCAL row_security=off; SET LOCAL statement_timeout='5000ms'; SELECT json_build_object('matchingTariffs',count(*),'pricedOrganizations',count(DISTINCT org_id)) FROM credit_native_tariffs WHERE model_provider="+literal(ae['KERNEL_ASR_PROVIDER'])+" AND model_id="+literal(ae['KERNEL_ASR_MODEL'])+" AND unit='millisecond'; COMMIT;"
+        # psql branches within one locked read-only snapshot; it never queries a global compatibility view without tenant context as if it were legacy data.
+        predicate="model_provider="+literal(ae['KERNEL_ASR_PROVIDER'])+" AND model_id="+literal(ae['KERNEL_ASR_MODEL'])+" AND unit='millisecond'"
+        sql="BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY; SET LOCAL row_security=off; SET LOCAL standard_conforming_strings=on; SET LOCAL statement_timeout='5000ms'; LOCK TABLE credit_native_tariffs IN ACCESS SHARE MODE;\n"
+        sql+="SELECT to_regclass('public.credit_global_native_tariffs') IS NOT NULL AS has_global \\gset\n\\if :has_global\n"
+        sql+="SELECT json_build_object('tariffScope','deployment-global','matchingTariffs',count(*),'pricedOrganizations',CASE WHEN count(*)=1 THEN (SELECT count(*) FROM organizations) ELSE 0 END) FROM credit_global_native_tariffs WHERE "+predicate+";\n\\else\n"
+        sql+="SELECT json_build_object('tariffScope','organization-legacy','matchingTariffs',count(*),'pricedOrganizations',count(DISTINCT org_id)) FROM credit_native_tariffs WHERE "+predicate+";\n\\endif\nCOMMIT;"
+
         try:
             raw=call(['docker','exec','-i',db['Id'],'psql','-X','-qAt','-v','ON_ERROR_STOP=1','-U',de.get('POSTGRES_USER','postgres'),'-d',ae['PGDATABASE']],sql)
             aggregate=json.loads(raw.strip());report.update(aggregate);report['tariffQueryAvailable']=True

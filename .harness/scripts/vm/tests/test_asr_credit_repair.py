@@ -10,6 +10,7 @@ const operations=[];
 const fixtureClient={release(){},async query(sql,args=[]){operations.push({sql,args});
  if(sql.startsWith('BEGIN'))saved=structuredClone({tariffs,audits});
  if(sql==='ROLLBACK'){tariffs=saved.tariffs;audits=saved.audits;}
+ if(sql.startsWith("SELECT to_regclass"))return {rows:[{enabled:fixture.globalSchema??false}]};
  if(sql.startsWith('SELECT id FROM organizations'))return {rows:Array.from({length:fixture.orgCount??18},(_,i)=>({id:'org-'+String(i).padStart(2,'0')}))};
  if(sql.startsWith('SELECT org_id,model_provider'))return {rows:structuredClone(tariffs)};
  if(sql.startsWith('INSERT INTO credit_native_tariffs')){const [org_id,model_provider,model_id,unit,quantum,hundredths_per_quantum,version]=args;tariffs.push({org_id,model_provider,model_id,unit,quantum,hundredths_per_quantum,version});return {rows:[{org_id}]};}
@@ -61,3 +62,8 @@ class Repair(unittest.TestCase):
   preview,_,_=execute('dry-run');_,state,_=execute('apply',expected=preview['snapshot']);state['tariffs'][0]['hundredths_per_quantum']='99'
   out,reverted,code=execute('rollback',expected=preview['snapshot'],tariffs=state['tariffs'],audits=state['audits'])
   self.assertEqual(code,1);self.assertEqual(out['code'],'rollback_tariff_was_modified');self.assertEqual(len(reverted['tariffs']),18)
+
+ def test_pre_global_repair_refuses_after_global_schema_is_installed(self):
+  out,state,code=execute('dry-run',globalSchema=True)
+  self.assertEqual(code,1);self.assertEqual(out['code'],'pre_global_maintenance_only')
+  self.assertFalse(any(o['sql'].startswith(('INSERT','UPDATE','DELETE'))for o in state['operations']))
