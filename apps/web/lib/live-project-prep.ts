@@ -128,3 +128,4 @@ export async function saveInterviewSubjects(
 }
 
 /** 六列表头——逐字照 `uc-2-2` R3 第 6 步与契约 `InterviewSubject` 的字段顺序，不另起一套叫法。 */
+export { INTERVIEW_SUBJECT_COLUMNS, GROUP_STATUS_LABEL } from "./project-preparation-labels";
