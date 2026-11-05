@@ -79,3 +79,11 @@ voice pre-apply review with no known blocking finding in the three contracts.
 It was applied once onto fda5 after git apply --check; actual production builder
 and owned runtime helper remain unchanged. The 39 planned pure cases and real
 coverage gate are still unexecuted at this source-only checkpoint.
+
+Source-only shell-container correction: the adapter now validates the complete
+run block as either one unconditional invocation or the actual five-statement
+standard producer sequence. It rejects all unknown lines/control structures and
+heredocs, rather than matching a line inside them. The positive fixture uses the
+real complete workflow run block; if-false and heredoc negatives are added to the
+existing shell group. The three reviewed execution contracts are unchanged.
+The planned pure case count is now 41; no tests have run at this checkpoint.

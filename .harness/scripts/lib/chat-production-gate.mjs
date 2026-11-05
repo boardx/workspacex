@@ -249,21 +249,35 @@ export function chatProductionTransparent(root) {
   return !source.parseDiagnostics.length && !helper.parseDiagnostics.length && builderSpine(source) && ownedSpine(helper);
 }
 export function chatProductionInvocations(text, root) {
-  if (!text.includes(BUILDER) || !chatProductionTransparent(root)) return [];
-  const result = [];
-  const entry = /^[ \t]*(?:pnpm[ \t]+exec[ \t]+tsx[ \t]+\.harness\/scripts\/with-test-isolation\.ts[ \t]+--[ \t]+)?pnpm[ \t]+exec[ \t]+tsx[ \t]+apps\/web\/e2e\/support\/chat-refresh-production-build\.ts(?=[ \t]|$)([^\n|;&]*)/gm;
-  for (const match of text.matchAll(entry)) {
-    const forwarded = match[1].trimEnd().replace(/\s+2>\s+"[^"\n]+"$/, '');
-    const tokens = forwarded.replace(/\$\{\{[^}]+\}\}/g, 'matrix').trim().split(/\s+/).filter(Boolean);
-    const allowed = new Set(['--config','--project','--max-failures','--shard','--reporter','--workers','--timeout']);
-    let valid = tokens.length > 0;
-    for (let i = 0; i < tokens.length && valid; i++) {
-      const [flag, ...value] = tokens[i].split('=');
-      if (!allowed.has(flag)) { valid = false; break; }
-      const argument = value.length ? value.join('=') : tokens[++i];
-      if (!argument || !/^[A-Za-z0-9_./:-]+$/.test(argument)) valid = false;
-    }
-    if (valid) result.push(`pnpm --filter web exec playwright test${forwarded}`);
+  if (!text.includes(BUILDER)) return [];
+  // A finite whole-run-block grammar, not a search for a command inside Bash.
+  // Only a standalone invocation or the actual five unconditional producer
+  // statements are supported. Unknown lines/control flow/heredocs fail closed.
+  const lines = text.trim().split('\n').map(line => line.trim());
+  const prefix = [
+    'mkdir -p "$RUNNER_TEMP/shard"', 'set -o pipefail',
+    'mkdir -p phases/phase-01-run-a-project/evidence/ci',
+  ];
+  let invocation;
+  if (lines.length === 1) invocation = lines[0];
+  else if (lines.length === 5 && prefix.every((line, index) => lines[index] === line)
+      && lines[4] === 'node .harness/scripts/ci-chat-shards.mjs --record ${{ matrix.shard }}') invocation = lines[3];
+  else return [];
+  const suffix = ' 2> "$RUNNER_TEMP/shard/server.log" | tee phases/phase-01-run-a-project/evidence/ci/chat-read.log "$RUNNER_TEMP/shard/chat-read.log"';
+  if (lines.length === 5 && !invocation.endsWith(suffix)) return [];
+  if (invocation.endsWith(suffix)) invocation = invocation.slice(0, -suffix.length);
+  const entry = /^(?:pnpm[ \t]+exec[ \t]+tsx[ \t]+\.harness\/scripts\/with-test-isolation\.ts[ \t]+--[ \t]+)?pnpm[ \t]+exec[ \t]+tsx[ \t]+apps\/web\/e2e\/support\/chat-refresh-production-build\.ts(?=[ \t]|$)([^\n]*)$/;
+  const match = entry.exec(invocation);
+  if (!match || !chatProductionTransparent(root)) return [];
+  const forwarded = match[1].trimEnd();
+  const tokens = forwarded.replace(/\$\{\{[^}]+\}\}/g, 'matrix').trim().split(/\s+/).filter(Boolean);
+  const allowed = new Set(['--config','--project','--max-failures','--shard','--reporter','--workers','--timeout']);
+  if (!tokens.length) return [];
+  for (let i = 0; i < tokens.length; i++) {
+    const [flag, ...value] = tokens[i].split('=');
+    if (!allowed.has(flag)) return [];
+    const argument = value.length ? value.join('=') : tokens[++i];
+    if (!argument || !/^[A-Za-z0-9_./:-]+$/.test(argument)) return [];
   }
-  return result;
+  return [`pnpm --filter web exec playwright test${forwarded}`];
 }

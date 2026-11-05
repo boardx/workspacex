@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
+import { parse as parseYaml } from 'yaml';
 import { chatProductionInvocations, chatProductionTransparent } from './lib/chat-production-gate.mjs';
 import { resolveInvokedConfigs, classifySpecs } from './lint-spec-gate-coverage.mjs';
 
@@ -21,7 +22,7 @@ function fixture(command: string) {
   writeFileSync(path.join(root, 'apps/web/package.json'), '{"name":"web"}');
   writeFileSync(path.join(root, 'apps/web/playwright.chat-read.config.ts'), 'export default {};');
   mkdirSync(path.join(root, '.github/workflows'), { recursive: true });
-  writeFileSync(path.join(root, '.github/workflows/chat.yml'), `on: pull_request\njobs:\n  chat-test-shards:\n    strategy:\n      matrix:\n        shard: [1, 2]\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          ${command}\n`);
+  writeFileSync(path.join(root, '.github/workflows/chat.yml'), `on: pull_request\njobs:\n  chat-test-shards:\n    strategy:\n      matrix:\n        shard: [1, 2]\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n${command.split('\n').map(line => `          ${line}`).join('\n')}\n`);
   return root;
 }
 const args = '--config playwright.chat-read.config.ts --project=chat-read --max-failures=1 --shard=${{ matrix.shard }}/${{ needs.chat-test-plan.outputs.count }} --reporter=json';
@@ -40,9 +41,10 @@ describe('owned production chat gate', () => {
     const actual = block.split('\n').find(line => line.includes(`pnpm exec tsx ${builder}`))!.trim();
     expect(actual).toContain(args);
     expect(actual).not.toContain('--grep');
-    const root = fixture(actual);
+    const runBlock = parseYaml(workflow).jobs['chat-test-shards'].steps.find((step: { name?: string; run: string }) => step.name === 'Execute actual isolated shard').run;
+    const root = fixture(runBlock);
     expect(chatProductionTransparent(root)).toBe(true);
-    expect(chatProductionInvocations(actual, root)).toEqual([`pnpm --filter web exec playwright test ${args}`]);
+    expect(chatProductionInvocations(runBlock, root)).toEqual([`pnpm --filter web exec playwright test ${args}`]);
     expect(verdict(root)).toBe('covered');
     const viaBuilder = resolveInvokedConfigs(root);
     writeFileSync(path.join(root, '.github/workflows/chat.yml'), `on: pull_request\njobs:\n  chat-test-shards:\n    runs-on: ubuntu-latest\n    steps:\n      - run: pnpm --filter web exec playwright test ${args}\n`);
@@ -56,6 +58,8 @@ describe('owned production chat gate', () => {
     `echo "${command}"`,
     `# ${command}`,
     `echo ignored && ${command}`,
+    `if false; then\n${command}\nfi`,
+    `cat <<EOF\n${command}\nEOF`,
     `${command} --grep 'only two cases'`,
     `${command} --grep-invert=other`,
     `${command} e2e/agent-chat-core-paths.spec.ts`,
