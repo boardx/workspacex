@@ -1,3 +1,4 @@
+// @global-scope-fixture table:billing_pricing_epoch: restores the exact prior row or absence in afterAll.
 // Repository calls own one unique model key per run; cleanup removes only that exact global key.
 import {readFileSync} from 'node:fs';
 import {randomUUID} from 'node:crypto';
@@ -15,10 +16,21 @@ import {BILLING_ACCOUNTING_GENERATION as generation} from '../../src/domain/bill
 import {createFixtureTariffWriter} from '../support/billing-tariff-writer';
 const unique=randomUUID(),org=toOrgId('native-credit-tariff-org'),personal=toOrgId('native-credit-tariff-personal'),fresh=toOrgId('native-credit-tariff-new');
 const db=new PgDatabase(appConfig());let writer:PgDatabase,repo:PgNativeCreditTariffRepository,service:NativeCreditTariffService;
+let previousEpoch:{generation:string|null;activated_at:string|null}|null|undefined;
 const tariff={modelProvider:'dashscope',modelId:'qwen3-asr-flash-realtime',unit:'millisecond' as const,quantum:'4300',hundredthsPerQuantum:'33',version:'canonical-retail-'+unique,pricingBasis:{source:'operator' as const,retailSnapshotId:'canonical-retail-'+unique}};
 const principal={orgId:org,userId:'tariff-operator'},user='tariff-user-'+unique;
-beforeAll(async()=>{await ensureDatabase();await migrateOnce();writer=await createFixtureTariffWriter();repo=new PgNativeCreditTariffRepository(db,writer);service=new NativeCreditTariffService(repo,async u=>u==='tariff-operator');await resetOrgs(org,personal,fresh);await seedOrg({orgId:org,projectId:'tariff-project'});await seedOrg({orgId:personal,kind:'personal-local',ownerUserId:user,projectId:'tariff-personal-project'});for(const id of [org,personal])await addOrgMember(id,user,'admin',null);await asOwner(async c=>{await c.query('UPDATE billing_pricing_epoch SET generation=$1,activated_at=clock_timestamp() WHERE singleton',[generation]);await c.query("INSERT INTO organization_plans(org_id,plan,version,updated_by,billing_generation) VALUES($1,'enterprise',1,'fixture-operator',$2)",[org,generation]);});});
-afterAll(async()=>{await asOwner(c=>c.query('DELETE FROM credit_global_native_tariffs WHERE model_provider=$1 AND model_id=$2',[tariff.modelProvider,tariff.modelId]));await writer?.close();await db.close();await resetOrgs(org,personal,fresh);});
+beforeAll(async()=>{await ensureDatabase();await migrateOnce();writer=await createFixtureTariffWriter();repo=new PgNativeCreditTariffRepository(db,writer);service=new NativeCreditTariffService(repo,async u=>u==='tariff-operator');await resetOrgs(org,personal,fresh);await seedOrg({orgId:org,projectId:'tariff-project'});await seedOrg({orgId:personal,kind:'personal-local',ownerUserId:user,projectId:'tariff-personal-project'});for(const id of [org,personal])await addOrgMember(id,user,'admin',null);await asOwner(async c=>{previousEpoch=(await c.query<{generation:string|null;activated_at:string|null}>('SELECT generation,activated_at::text AS activated_at FROM billing_pricing_epoch WHERE singleton')).rows[0]??null;await c.query('UPDATE billing_pricing_epoch SET generation=$1,activated_at=clock_timestamp() WHERE singleton',[generation]);await c.query("INSERT INTO organization_plans(org_id,plan,version,updated_by,billing_generation) VALUES($1,'enterprise',1,'fixture-operator',$2)",[org,generation]);});});
+afterAll(async()=>{
+ try{await asOwner(c=>c.query('DELETE FROM credit_global_native_tariffs WHERE model_provider=$1 AND model_id=$2',[tariff.modelProvider,tariff.modelId]));}
+ finally{try{await writer?.close();}finally{try{await db.close();}finally{try{await resetOrgs(org,personal,fresh);}finally{
+  // Undefined means setup never captured the epoch; null means the row was absent.
+  // Restore even when assertions or another cleanup operation failed.
+  if(previousEpoch!==undefined)await asOwner(async c=>{
+   if(previousEpoch===null)await c.query('DELETE FROM billing_pricing_epoch WHERE singleton');
+   else await c.query('INSERT INTO billing_pricing_epoch(singleton,generation,activated_at) VALUES(true,$1,$2) ON CONFLICT(singleton) DO UPDATE SET generation=EXCLUDED.generation,activated_at=EXCLUDED.activated_at',[previousEpoch!.generation,previousEpoch!.activated_at]);
+  });
+ }}}}
+});
 it('denies nonoperators before global read/write and rejects legacy org fields',async()=>{
  await expect(service.list({orgId:org,userId:'ordinary-member'})).rejects.toBeInstanceOf(ConsumptionSettingsForbidden);
  await expect(service.upsert({orgId:org,userId:'ordinary-member'},tariff)).rejects.toBeInstanceOf(ConsumptionSettingsForbidden);
