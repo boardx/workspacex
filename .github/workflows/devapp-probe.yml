@@ -10,6 +10,7 @@ name: devapp-probe
 
 on:
   pull_request:
+    branches: [develop]
     paths:
       - .github/workflows/devapp-probe.yml
       - .harness/scripts/vm/asr-accounting-probe.py
