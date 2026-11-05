@@ -129,3 +129,13 @@ export function platformOrgCatalogConfig(): PgConfig | null {
   return { ...transport(), host: req("PGHOST", "127.0.0.1"), port: port(), database: req("PGDATABASE", "workspacex"),
     user, password };
 }
+
+/** Separate narrowly granted billing writer; absent configuration disables activation. */
+export function billingTariffWriterConfig(): PgConfig | null {
+ if(!process.env.BILLING_TARIFF_DB_USER&&!process.env.BILLING_TARIFF_DB_PASSWORD)return null;
+ const user=req('BILLING_TARIFF_DB_USER');
+ if(user!=='app_billing_tariff_writer')throw new Error('invalid billing tariff writer identity');
+ const password=req('BILLING_TARIFF_DB_PASSWORD');
+ if(process.env.WORKSPACEX_DEPLOY_PROFILE&&password.length<16)throw new Error('invalid billing tariff writer credential');
+ return {...transport(),host:req('PGHOST','127.0.0.1'),port:port(),database:req('PGDATABASE','workspacex'),user,password};
+}

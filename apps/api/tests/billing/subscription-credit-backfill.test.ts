@@ -25,7 +25,7 @@ async function run(apply=false,plans=[price]){const {backfillSubscriptionCredits
 it("dry-run verifies payment without touching balance, then concurrent helper/application and rerun grant once",async()=>{
  expect(await run()).toMatchObject({eligible:1,blocked:0,applied:0,nextAfter:user});expect(await balance()).toBe("7.00");
  const [report]=await Promise.all([run(true),db.withoutTenant(s=>grantPaidSubscriptionPeriod(s,{userId:user,subscriptionRef:sub,invoiceRef:invoice.id,planRef:price,periodStart:new Date(start*1000),periodEnd:new Date(end*1000)}))]);
- expect(report).toMatchObject({applied:1,blocked:0});expect(await balance()).toBe("20007.00");
+ expect(report,JSON.stringify(report)).toMatchObject({applied:1,blocked:0});expect(await balance()).toBe("20007.00");
  expect(await run(true)).toMatchObject({applied:1,blocked:0});expect(await balance()).toBe("20007.00");
 });
 it("reports unsupported plans, annual and trial before switching, and permits recovery after provider error",async()=>{

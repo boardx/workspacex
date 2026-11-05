@@ -73,6 +73,14 @@ export const BILLING_PAYMENT_ENV_KEYS: readonly string[] = [
 
 export const LOCAL_ENV_PARITY: readonly ParityGroup[] = [
   {
+    status: "cloud-only",
+    reason: "Global tariff activation uses a separately provisioned cloud PostgreSQL writer role. " +
+      "Local PGlite does not provision this role or its credentials; when both values are absent, " +
+      "billingTariffWriterConfig returns no writer and price activation remains unavailable. " +
+      "Local configuration must not invent or inherit cloud writer credentials.",
+    names: ["BILLING_TARIFF_DB_USER", "BILLING_TARIFF_DB_PASSWORD"],
+  },
+  {
     status: "default-ok",
     reason: "PATH 由 processes.ts 的 baseEnv 继承宿主环境，图片解码子进程沿用该搜索路径。" +
       "它不是 API 专用配置，本地无需覆盖宿主 PATH 或另造一份可执行文件搜索路径。",
