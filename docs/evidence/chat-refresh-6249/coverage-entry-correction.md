@@ -35,3 +35,47 @@ replacement for that gate. Complete standard chat shards run on the normal
 requires the normal queue's actual production build, complete unchanged shards,
 owned process cleanup, and independent dist absence evidence. No manual dispatch,
 timeout increase, spec exemption, or limited two-case result substitutes for it.
+
+The first source checkpoint's independent review rejected expression-presence
+proof: echo/comment shell text and an unreachable or mutated execution spine
+could be credited. The prepared correction narrows recognition to actual line
+commands with only the known isolation prefix and an AST-normalized supported
+builder program plus owned spawn body. Missing main invocation, dead/uncalled
+scenario functions, process.argv mutation and command/cwd/env reassignment are
+explicit negative fixtures. These source-only changes remain untested until the
+coordinator grants a separate verification window.
+
+A second source review identified unchecked pre-spawn statements. The prepared
+contract now constrains every main try-block declaration/expression and guard,
+including Date.now, both note calls and final exit-code expression; it also
+constrains the Promise executor's first build declaration before the direct child
+spawn. Negative fixtures cover early resolve/return and injected process.exit
+paths. No runtime builder/helper changes are proposed, and these fixtures have
+not run in this source preparation window.
+
+The final export edge is constrained to a unique shorthand-property object with
+exactly one module.exports reference. Spread, getter, duplicate key, later
+property override and module.exports rebinding fixtures fail closed. The
+prepared pure suite now contains 37 cases; none has run in this window.
+
+The completed review list is addressed in three finite contracts: main's direct
+execution spine, the async owned invocation/non-async Promise executor, and the
+two actual completion callbacks. Signatures, unique top-level spawn binding and
+local Promise/spawn shadowing are constrained. Completion may only resolve from
+no-pid error or real child.close with the original exit-code expression; early
+success, synthetic close and callback code rewriting are negative mutants. Two
+concentrated test groups bring the planned test case count to 39, with actual
+counts and pass/fail status pending the granted verification window.
+
+The final completion pre-review found unconstrained intermediate executor
+statements. The adapter now requires exactly the 13 baseline direct statements,
+with each middle position constrained, in addition to the existing signature,
+spawn and completion contracts. The completion test group includes unknown
+kill/return and exit-alias insertions; no API blacklist substitutes for the
+complete direct-statement shape. These prepared fixtures remain unexecuted.
+
+Source integration: the final complete temporary patch received independent
+voice pre-apply review with no known blocking finding in the three contracts.
+It was applied once onto fda5 after git apply --check; actual production builder
+and owned runtime helper remain unchanged. The 39 planned pure cases and real
+coverage gate are still unexecuted at this source-only checkpoint.

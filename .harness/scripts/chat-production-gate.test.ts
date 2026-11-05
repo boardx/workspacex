@@ -53,6 +53,9 @@ describe('owned production chat gate', () => {
 
   it.each([
     command.replace(builder, 'apps/web/e2e/support/not-the-builder.ts'),
+    `echo "${command}"`,
+    `# ${command}`,
+    `echo ignored && ${command}`,
     `${command} --grep 'only two cases'`,
     `${command} --grep-invert=other`,
     `${command} e2e/agent-chat-core-paths.spec.ts`,
@@ -62,11 +65,33 @@ describe('owned production chat gate', () => {
   });
 
   it.each([
+    [helper, 'module.exports={scenarioArguments,', 'module.exports={runOwned,scenarioArguments,'],
+    [helper, 'module.exports={scenarioArguments,', 'module.exports={...{runOwned:()=>{}},scenarioArguments,'],
+    [helper, 'claimDist,comparisonExitCode};', 'claimDist,comparisonExitCode,runOwned:()=>{}};'],
+    [helper, 'claimDist,comparisonExitCode};', 'claimDist,comparisonExitCode,...{runOwned:()=>{}}};'],
+    [helper, 'claimDist,comparisonExitCode};', 'claimDist,comparisonExitCode,get runOwned(){return ()=>{};}};'],
+    [helper, 'claimDist,comparisonExitCode};', 'claimDist,comparisonExitCode};module.exports.runOwned=()=>{};'],
+    [helper, 'claimDist,comparisonExitCode};', 'claimDist,comparisonExitCode};module.exports={scenarioArguments,runOwned};'],
+    [helper, "const build=purpose==='build';", "if(purpose==='scenarios'){resolve({code:0,interrupted:false});return;}"],
+    [helper, "const build=purpose==='build';", "const build=(process.exit(0),purpose==='build');"],
+    [builder, 'const start=Date.now()', 'const start=process.exit(0)'],
+    [builder, "note('build-start',{budgetMs:600000})", 'process.exit(0)'],
+    [builder, "note('build-end',{durationMs:Date.now()-start,code:built.code})", 'process.exit(0)'],
+    [builder, 'process.exitCode=ownedProcesses.comparisonExitCode(result)', 'process.exit(0)'],
+    [builder, "note('comparison-start',{scopeHash:scope,ownerPid:process.pid})", "note(process.exit(0),{})"],
+    [builder, 'const playwrightArgs=', "process.argv.push('--grep','hidden');const playwrightArgs="],
+    [builder, "void main().catch(()=>{note('comparison-failed');process.exitCode=1;});", ''],
+    [builder, "const result=await ownedProcesses.runOwned", "if(false){await ownedProcesses.runOwned(process.execPath,[],{});}" + "const result=await ownedProcesses.runOwned"],
+    [builder, "const result=await ownedProcesses.runOwned(process.execPath,[local.resolve('@playwright/test/cli'),'test',...playwrightArgs],{cwd:web,env:{...process.env},directory,scope,purpose:'scenarios',note,graceMs:10000});", "if(false){const result=await ownedProcesses.runOwned(process.execPath,[local.resolve('@playwright/test/cli'),'test',...playwrightArgs],{cwd:web,env:{...process.env},directory,scope,purpose:'scenarios',note,graceMs:10000});}"],
+    [builder, "const result=await ownedProcesses.runOwned(process.execPath,[local.resolve('@playwright/test/cli'),'test',...playwrightArgs],{cwd:web,env:{...process.env},directory,scope,purpose:'scenarios',note,graceMs:10000});", "const unused=async()=>{const result=await ownedProcesses.runOwned(process.execPath,[local.resolve('@playwright/test/cli'),'test',...playwrightArgs],{cwd:web,env:{...process.env},directory,scope,purpose:'scenarios',note,graceMs:10000});};"],
     [builder, 'process.argv.slice(2)', "['--grep', 'only two cases']"],
     [builder, "'test',...playwrightArgs", "'test','--grep','hidden',...playwrightArgs"],
     [builder, "{cwd:web,env:{...process.env},directory,scope,purpose:'scenarios'", "{cwd:'/tmp',env:{...process.env},directory,scope,purpose:'scenarios'"],
     [builder, "require('./chat-refresh-owned-process.cjs')", "require('./another-helper.cjs')"],
     [helper, 'return [...argv]', "return [...argv,'--grep','hidden']"],
+    [helper, 'return new Promise(resolve=>{', "command='not-the-command';return new Promise(resolve=>{"],
+    [helper, 'return new Promise(resolve=>{', "cwd='/tmp';return new Promise(resolve=>{"],
+    [helper, 'return new Promise(resolve=>{', "env={};return new Promise(resolve=>{"],
     [helper, 'spawn(command,args,', "spawn(command,[...args,'--grep','hidden'],"],
   ])('rejects a broken transparent execution edge in %s', (file, before, after) => {
     const root = fixture(command), target = path.join(root, file);
@@ -75,4 +100,45 @@ describe('owned production chat gate', () => {
     expect(chatProductionTransparent(root)).toBe(false);
     expect(verdict(root)).toBe('unrun');
   });
+  it('rejects unsupported signatures and local spawn/Promise shadowing as one concentrated group', () => {
+    const variants = [
+      [helper, "const {spawn}=require('node:child_process');", "const {exec:spawn}=require('node:child_process');"],
+      [helper, "const {spawn}=require('node:child_process');", "const {spawn=()=>{}}=require('node:child_process');"],
+      [helper, "const {spawn}=require('node:child_process');", "const {...spawn}=require('node:child_process');"],
+      [builder, 'async function main(){', 'function main(){'],
+      [builder, 'async function main(){', 'async function* main(){'],
+      [builder, 'async function main(){', 'async function main(unused){'],
+      [helper, 'async function runOwned(command,args,options){', 'function runOwned(command,args,options){'],
+      [helper, 'async function runOwned(command,args,options){', 'async function* runOwned(command,args,options){'],
+      [helper, 'async function runOwned(command,args,options){', 'async function runOwned(command,args,options={}){'],
+      [helper, 'return new Promise(resolve=>{', 'return new Promise(async resolve=>{'],
+      [helper, 'return new Promise(resolve=>{', 'return new Promise((resolve=()=>{})=>{'],
+      [helper, 'return new Promise(resolve=>{', 'const spawn=()=>{};return new Promise(resolve=>{'],
+      [helper, 'return new Promise(resolve=>{', 'const Promise=class{};return new Promise(resolve=>{'],
+    ];
+    for (const [file, before, after] of variants) {
+      const root = fixture(command), target = path.join(root, file), original = readFileSync(target, 'utf8');
+      expect(original).toContain(before); writeFileSync(target, original.replace(before, after));
+      expect(chatProductionTransparent(root)).toBe(false); expect(verdict(root)).toBe('unrun');
+    }
+  });
+
+  it('accepts only real no-pid/close completion, rejecting early success and synthetic close as one group', () => {
+    const variants = [
+      ["if(build)for(const stream", "if(!build){signal(-child.pid,'SIGKILL');return;}if(build)for(const stream"],
+      ["if(build)for(const stream", "const quit=process.exit;quit(0);if(build)for(const stream"],
+      ["note('owned-start',", "resolve({code:0,interrupted:false});note('owned-start',"],
+      ["note('owned-start',", "child.emit('close',0);note('owned-start',"],
+      ['resolve({code:expired?124:code??1,interrupted})', 'resolve({code:0,interrupted})'],
+      ["child.once('close',code=>{", "child.once('close',code=>{code=0;"],
+      ["child.once('close',code=>{", "child.once('close',async code=>{"],
+      ["note('owned-start',", "child.once=(event,callback)=>callback(0);note('owned-start',"],
+    ];
+    for (const [before, after] of variants) {
+      const root = fixture(command), target = path.join(root, helper), original = readFileSync(target, 'utf8');
+      expect(original).toContain(before); writeFileSync(target, original.replace(before, after));
+      expect(chatProductionTransparent(root)).toBe(false); expect(verdict(root)).toBe('unrun');
+    }
+  });
+
 });
