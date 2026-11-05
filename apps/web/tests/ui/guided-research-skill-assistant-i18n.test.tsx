@@ -75,7 +75,7 @@ const variants: Array<[ResearchEditableSnapshot, string, string]> = [
 it.each(variants)("keeps each translated quick action's original canonical intent: %s", async (snapshot, label, message) => {
   const pending = deferred<GuidedResearchSkillTurnResponse>(); boundary.turn.mockReturnValueOnce(pending.promise);
   const before = structuredClone(snapshot); const { change } = show(snapshot);
-  language("en"); fireEvent.click(screen.getByRole("button", { name: label, exact: true }));
+  language("en"); fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${label}$`) }));
   expect(boundary.turn).toHaveBeenCalledTimes(1);
   expect(boundary.turn.mock.calls[0]![0]).toMatchObject({ requestId: expect.any(String), message });
   const request = structuredClone(boundary.turn.mock.calls[0]![0]);
@@ -88,7 +88,7 @@ it.each(variants)("keeps each translated quick action's original canonical inten
 it("retains one pending turn and raw proposal/model identity through locale changes until explicit apply and undo", async () => {
   const pending = deferred<GuidedResearchSkillTurnResponse>(); boundary.turn.mockReturnValueOnce(pending.promise);
   const { change } = show(); language("en");
-  fireEvent.click(screen.getByRole("button", { name: "Clarify research goal", exact: true }));
+  fireEvent.click(screen.getByRole("button", { name: /^Clarify research goal$/ }));
   const input = screen.getByTestId("research-skill-input");
   fireEvent.change(input, { target: { value: "下一条原草稿 {name}" } });
   language("zh-CN"); language("en");
