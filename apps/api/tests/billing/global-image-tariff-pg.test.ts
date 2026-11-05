@@ -1,6 +1,7 @@
 // Global schedule writes use the audited repository; rejected direct SQL is an explicit permission counterexample.
 // @global-scope-fixture table:credit_wallets: unique personal owner, isolated database teardown owns cleanup.
 import {randomUUID} from 'node:crypto';
+import {readFile} from 'node:fs/promises';
 import {beforeAll,afterAll,it,expect} from 'vitest';
 import {ensureDatabase,migrateOnce,seedOrg,addOrgMember,asOwner,asApp} from '../support/db';
 import {PgDatabase} from '../../src/infrastructure/db/pg-database';
@@ -92,4 +93,17 @@ it('a newly created organization after activation reserves all three global mode
 it('catalog-derived runtime audit recognizes only the explicitly documented global pricing table',async()=>{
  const rows=await asApp(personal,async c=>(await c.query("SELECT table_name,verdict FROM kernel_tenant_table_audit('app_rw') WHERE table_name='credit_global_image_schedule' OR (verdict <> 'ok' AND verdict NOT LIKE 'exempt-%')")).rows);
  expect(rows).toEqual([{table_name:'credit_global_image_schedule',verdict:'exempt-declared-no-tenant-data'}]);
+});
+
+it('replaying the migration twice preserves the active schedule, immutable audit and frozen request snapshots',async()=>{
+ const migration=await readFile(new URL('../../migrations/20261105160000_global_image_tariffs.sql',import.meta.url),'utf8');
+ const snapshot=()=>asOwner(async c=>({
+  schedule:(await c.query('SELECT * FROM credit_global_image_schedule')).rows,
+  audit:(await c.query('SELECT * FROM credit_global_image_tariff_changes ORDER BY id')).rows,
+  requests:(await c.query('SELECT * FROM credit_consumption_requests WHERE request_id LIKE $1 ORDER BY request_id',[`${prefix}%`])).rows,
+ }));
+ const before=await snapshot();expect(before.schedule).toHaveLength(1);expect(before.audit.length).toBeGreaterThan(0);expect(before.requests.length).toBeGreaterThan(0);
+ for(let i=0;i<2;i++){await asOwner(c=>c.query(migration));expect(await snapshot()).toEqual(before);}
+ await expect(asApp(personal,c=>c.query("UPDATE credit_global_image_schedule SET revision='forged'"))).rejects.toThrow();
+ await expect(writer.withoutTenant(s=>s.query('DELETE FROM credit_global_image_tariff_changes'))).rejects.toThrow();
 });

@@ -1,4 +1,4 @@
-CREATE FUNCTION valid_global_image_schedule(items jsonb,basis text) RETURNS boolean
+CREATE OR REPLACE FUNCTION valid_global_image_schedule(items jsonb,basis text) RETURNS boolean
 LANGUAGE sql IMMUTABLE STRICT AS $$
  SELECT CASE WHEN jsonb_typeof(items)<>'array' THEN false ELSE
  jsonb_array_length(items)=3 AND
@@ -15,13 +15,13 @@ LANGUAGE sql IMMUTABLE STRICT AS $$
  ,false)) FROM jsonb_array_elements(items) r) END
 $$;
 -- Platform schedule is global; tenant reservations may read it, never mutate it.
-CREATE TABLE credit_global_image_schedule (
+CREATE TABLE IF NOT EXISTS credit_global_image_schedule (
  singleton boolean PRIMARY KEY DEFAULT true CHECK(singleton),
  revision text NOT NULL CHECK(length(revision) BETWEEN 1 AND 128),
  catalog_version text NOT NULL CHECK(length(catalog_version) BETWEEN 1 AND 128),
  schedule jsonb NOT NULL CHECK(valid_global_image_schedule(schedule,catalog_version) IS TRUE)
 );
-CREATE TABLE credit_global_image_tariff_changes (
+CREATE TABLE IF NOT EXISTS credit_global_image_tariff_changes (
  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
  actor_id text NOT NULL, old_schedule jsonb, new_schedule jsonb NOT NULL, supersession jsonb NOT NULL,
  created_at timestamptz NOT NULL DEFAULT now()
@@ -30,6 +30,7 @@ REVOKE ALL ON credit_global_image_schedule,credit_global_image_tariff_changes FR
 GRANT SELECT ON credit_global_image_schedule TO app_rw;
 -- Writes must be wired through the existing separately privileged platform boundary.
 -- No app_rw write grant or SECURITY DEFINER escape is introduced.
+DROP TRIGGER IF EXISTS immutable_credit_global_image_tariff_changes ON credit_global_image_tariff_changes;
 CREATE TRIGGER immutable_credit_global_image_tariff_changes BEFORE UPDATE OR DELETE ON credit_global_image_tariff_changes FOR EACH ROW EXECUTE FUNCTION f159_token_usage_append_only();
 
 DO $$ BEGIN
