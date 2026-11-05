@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import { Sparkles, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -50,6 +51,7 @@ export function ConfirmIntentCard({
    */
   onEditSubmit?: (edited: { understanding: string; assumptions: string[] }) => void;
 }) {
+  const { t } = useI18n();
   const [editing, setEditing] = React.useState(initialEditing);
   const [drafts, setDrafts] = React.useState<string[]>([...args.assumptions]);
   // issue #3310 ②：「我的理解」也是用户会改的那一句（舟山→中山）。空串一律回落到原文，
@@ -70,22 +72,22 @@ export function ConfirmIntentCard({
   return (
     <InterruptCardShell
       testid={TID}
-      title="确认一下我的理解，再开始"
-      subtitle="未确认前，我不会执行任何后续动作。"
+      title={t("chatInterrupts.confirmTitle")}
+      subtitle={t("chatInterrupts.confirmSubtitle")}
     >
       <StateShell
         state={effectiveState}
         skeletonRows={4}
-        emptyHint="当前没有待确认的目标复述——AI 还没有发起这次中断。"
-        errors={{ assumptions: "假设格式无效，请补全或删除空行后再提交；没有额外假设时可以全部删除。" }}
-        denial={{ layer: "project", reason: "观察者可以查看这次复述，但不能替团队做确认。" }}
-        depFailure={{ what: "决策写不进审计（AUDIT_SINK_UNAVAILABLE），本次确认已被安全拦下。" }}
-        successMessage="已按当前理解继续执行"
+        emptyHint={t("chatInterrupts.confirmEmpty")}
+        errors={{ assumptions: t("chatInterrupts.confirmInvalid") }}
+        denial={{ layer: "project", reason: t("chatInterrupts.confirmDenied") }}
+        depFailure={{ what: t("chatInterrupts.confirmDep") }}
+        successMessage={t("chatInterrupts.confirmSuccess")}
       >
         <div className="flex flex-col gap-3" data-testid={`${TID}-card`}>
           {/* 理解文本 */}
           <div className="flex flex-col gap-1">
-            <span className="text-11 font-medium text-muted-foreground">我的理解</span>
+            <span className="text-11 font-medium text-muted-foreground">{t("chatInterrupts.understanding")}</span>
             {!isEditing ? (
               <p className="text-13 leading-relaxed text-card-foreground" data-testid={`${TID}-understanding`}>
                 {args.understanding}
@@ -97,7 +99,7 @@ export function ConfirmIntentCard({
                 rows={2}
                 data-testid={`${TID}-understanding-input`}
                 className="min-h-0 text-13"
-                aria-label="我的理解"
+                aria-label={t("chatInterrupts.understanding")}
               />
             )}
           </div>
@@ -105,7 +107,7 @@ export function ConfirmIntentCard({
           {/* 假设列表 */}
           <div className="flex flex-col gap-2">
             <span className="text-11 font-medium text-muted-foreground">
-              我做了这些假设（{isEditing ? nonBlank : args.assumptions.length} 条）
+              {t("chatInterrupts.assumptionsCount", { count: isEditing ? nonBlank : args.assumptions.length })}
             </span>
             {!isEditing ? (
               <ul className="flex flex-col gap-1.5">
@@ -135,12 +137,12 @@ export function ConfirmIntentCard({
                       rows={2}
                       data-testid={`${TID}-assumption-input-${i}`}
                       className="min-h-0 flex-1 text-12"
-                      aria-label={`假设 ${i + 1}`}
+                      aria-label={t("chatInterrupts.assumptionAria", { index: i + 1 })}
                     />
                     <Button
                       size="icon"
                       variant="ghost"
-                      aria-label={`删除假设 ${i + 1}`}
+                      aria-label={t("chatInterrupts.removeAssumption", { index: i + 1 })}
                       data-testid={`${TID}-assumption-remove-${i}`}
                       onClick={() => setDrafts(shownDrafts.filter((_, j) => j !== i))}
                     >
@@ -156,7 +158,7 @@ export function ConfirmIntentCard({
                   onClick={() => setDrafts([...shownDrafts, ""])}
                 >
                   <Plus aria-hidden className="h-3.5 w-3.5" />
-                  加一条假设
+                  {t("chatInterrupts.addAssumption")}
                 </Button>
               </div>
             )}
@@ -168,10 +170,10 @@ export function ConfirmIntentCard({
             data-testid={`${TID}-decided-note`}
           >
             {decided.decision === "edit"
-              ? "你已按修改后的内容确认过这一次——上面显示的就是被采纳的那一份。"
+              ? t("chatInterrupts.editedRecord")
               : decided.decision === "reject" || decided.decision === "deny"
-                ? "你已拒绝过这一次请求。"
-                : "你已确认过这一次。"}
+                ? t("chatInterrupts.rejectedRecord")
+                : t("chatInterrupts.confirmedRecord")}
           </p> : null}
 
           {/* I-1 的可视化：未确认前后续动作被挡住 */}
@@ -181,7 +183,7 @@ export function ConfirmIntentCard({
           >
             <Sparkles aria-hidden className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="text-11 text-muted-foreground">
-              后续步骤（拉取数据、生成报告…）在你确认前不会开始。
+              {t("chatInterrupts.gatedNotice")}
             </span>
           </div>}
 
@@ -196,7 +198,7 @@ export function ConfirmIntentCard({
                   disabled={!canWrite}
                   onClick={() => setEditing(true)}
                 >
-                  改假设
+                  {t("chatInterrupts.editAssumptions")}
                 </Button>
                 <Button
                   size="sm"
@@ -206,7 +208,7 @@ export function ConfirmIntentCard({
                   disabled={!canWrite}
                   onClick={() => onContinue?.()}
                 >
-                  继续
+                  {t("chatInterrupts.continue")}
                 </Button>
               </>
             ) : (
@@ -221,7 +223,7 @@ export function ConfirmIntentCard({
                     setUnderstandingDraft(args.understanding);
                   }}
                 >
-                  取消
+                  {t("common.cancel")}
                 </Button>
                 <Button
                   size="sm"
@@ -234,7 +236,7 @@ export function ConfirmIntentCard({
                     assumptions: shownDrafts.filter((d) => d.trim().length > 0),
                   })}
                 >
-                  用新假设继续
+                  {t("chatInterrupts.continueEdited")}
                 </Button>
               </>
             )}

@@ -2,8 +2,10 @@
 
 import * as React from "react";
 import type { PromotionChoice, PromotionNominations, PromotionResults } from "@/lib/knowledge-graph-api";
-import { describePromotionFailure } from "@/lib/knowledge-graph-failure";
 import { claimTriState, type KgClaim } from "@repo/contracts/chat-knowledge-graph";
+
+/** Raw cause is formatted by the current display locale, never by the request callback. */
+export interface PromotionFailure { readonly kind: "promotion"; readonly cause: unknown }
 
 export type PromoteFn = (claimIds: string[], choices?: PromotionChoice[]) => Promise<PromotionResults>;
 
@@ -12,7 +14,7 @@ export type PromoteFn = (claimIds: string[], choices?: PromotionChoice[]) => Pro
  *
  * - 首次提交（不带 `choices`）⇒ 结果整份替换：面板只显示「上次记入的结果」。
  * - 回答 `needs_choice`（带 `choices` 重发那一条）⇒ 只替换那一条的结果，其它条保持原样。
- * - 整批被拒（403 / 400 / 404 / 网络）⇒ 把人话交给 `onError`，结果不动；不上屏任何内部码。
+ * - 整批被拒（403 / 400 / 404 / 网络）⇒ 把原始失败交给 `onError`，面板按当前显示语言翻译，结果不动；不上屏任何内部码。
  * - 在途时 `busy=true`，再点直接忽略（按钮也禁用），不重复提交。
  */
 export function usePromotionFlow({
@@ -21,7 +23,7 @@ export function usePromotionFlow({
   initialResult = null,
 }: {
   onPromote: PromoteFn | undefined;
-  onError: (message: string | null) => void;
+  onError: (failure: PromotionFailure | null) => void;
   initialResult?: PromotionResults | null;
 }) {
   const [result, setResult] = React.useState<PromotionResults | null>(initialResult);
@@ -37,7 +39,7 @@ export function usePromotionFlow({
       const next = await onPromote(claimIds, choices);
       setResult((prev) => (choices && choices.length > 0 && prev ? mergeResults(prev, next) : next));
     } catch (e) {
-      onError(describePromotionFailure(e));
+      onError({ kind: "promotion", cause: e });
     } finally {
       busyRef.current = false;
       setBusy(false);

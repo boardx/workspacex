@@ -1,0 +1,11 @@
+$ pnpm --filter web exec vitest run tests/lib/i18n-resources.test.ts
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/lib/i18n-resources.test.ts (5 tests) 135ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  22:27:05
+   Duration  2.67s (transform 1.18s, setup 161ms, collect 1.87s, tests 135ms, environment 0ms, prepare 50ms)

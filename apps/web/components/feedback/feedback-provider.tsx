@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import Link from "next/link";
 import { useOptionalSession } from "@/components/session/session-provider";
 import type { FeedbackTarget } from "@/lib/live-feedback";
@@ -51,6 +52,7 @@ export function useOptionalFeedback(): FeedbackContextValue | null {
 }
 
 export function FeedbackProvider({ children }: { children: React.ReactNode }) {
+  const { t } = useI18n();
   const session = useOptionalSession()?.session;
   const receiptKey = session == null ? null : `feedback-saved-inbox-id:${encodeURIComponent(session.userId)}:${encodeURIComponent(session.currentOrgId)}`;
   const [savedInboxId, setSavedInboxId] = React.useState<string | null>(null);
@@ -80,10 +82,10 @@ export function FeedbackProvider({ children }: { children: React.ReactNode }) {
       {children}
       {savedInboxId !== null && (
         <div role="status" className="fixed bottom-4 right-4 z-50 max-w-md rounded-md border border-border bg-card p-3 text-12 shadow-lg" data-testid="feedback-saved-receipt">
-          已保存，反馈编号：{savedInboxId}。若无法打开收件箱，
-          <Link href={`/platform-admin/inbox?open=${encodeURIComponent(savedInboxId)}`}>打开已保存的反馈</Link>
-          ，或从「提反馈」的「我提过的」回看，无需重新提交。
-          <button type="button" onClick={() => rememberSaved(null)} aria-label="关闭保存回执" className="ml-2">关闭</button>
+          {t("feedbackOverlay.saved", { id: savedInboxId })}
+          <Link href={`/platform-admin/inbox?open=${encodeURIComponent(savedInboxId)}`}>{t("feedbackOverlay.open")}</Link>
+          {t("feedbackOverlay.tail")}
+          <button type="button" onClick={() => rememberSaved(null)} aria-label={t("feedbackOverlay.dismiss")} className="ml-2">{t("feedbackOverlay.close")}</button>
         </div>
       )}
       {open !== null && (

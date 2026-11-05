@@ -1,0 +1,16 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/ui/i18n-chat-trace-live.test.tsx (3 tests) 187ms
+ ✓ tests/ui/i18n-chat-rating.test.tsx (2 tests) 226ms
+ ✓ tests/ui/i18n-chat-interrupt-host.test.tsx (2 tests) 185ms
+stderr | tests/ui/i18n-chat-suggestions.test.tsx
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+ ✓ tests/ui/i18n-chat-suggestions.test.tsx (1 test) 129ms
+
+ Test Files  4 passed (4)
+      Tests  8 passed (8)
+   Start at  06:32:03
+   Duration  6.34s (transform 2.57s, setup 900ms, collect 8.61s, tests 727ms, environment 3.67s, prepare 387ms)

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ClaimTriStateBadge } from "./claim-tri-state-badge";
 import type { ClaimSources } from "@/lib/knowledge-graph-api";
+import { useI18n } from "@/lib/i18n/provider";
 import { ShareToProject } from "@/components/brain/share-to-project";
 
 /**
@@ -35,13 +36,14 @@ export function ClaimSourceDrawer({
   error?: string | null;
   onRetry?: () => void;
 }) {
+  const { t, locale } = useI18n();
   if (!open) return null;
   if (!data || loading || error !== null) {
     return (
       <DrawerFrame onClose={onClose}>
         <header className="flex items-start justify-between gap-2 border-b border-border-subtle p-3">
-          <span className="text-11 font-medium text-muted-foreground">来源与证据</span>
-          <Button variant="ghost" size="xs" aria-label="关闭" onClick={onClose} data-testid="kg-source-drawer-close">
+          <span className="text-11 font-medium text-muted-foreground">{t("chatKnowledge.source.header")}</span>
+          <Button variant="ghost" size="xs" aria-label={t("common.close")} onClick={onClose} data-testid="kg-source-drawer-close">
             <X aria-hidden className="h-4 w-4" />
           </Button>
         </header>
@@ -53,7 +55,7 @@ export function ClaimSourceDrawer({
             </p>
             {onRetry ? (
               <Button size="xs" variant="outline" onClick={onRetry} data-testid="kg-source-drawer-retry">
-                重试
+                {t("chatKnowledge.retry")}
               </Button>
             ) : null}
           </div>
@@ -71,15 +73,15 @@ export function ClaimSourceDrawer({
     <DrawerFrame onClose={onClose}>
       <header className="flex items-start justify-between gap-2 border-b border-border-subtle p-3">
         <div className="flex flex-col gap-1">
-          <span className="text-11 font-medium text-muted-foreground">来源与证据</span>
+          <span className="text-11 font-medium text-muted-foreground">{t("chatKnowledge.source.header")}</span>
           <div className="flex items-center gap-1.5">
-            <ClaimTriStateBadge status={data.claim.status} />
+            <ClaimTriStateBadge status={data.claim.status} locale={locale} />
             <span className="text-10 text-muted-foreground">
-              证据 {data.evidence.filter((e) => !e.revoked).length} · 反对 {data.claim.contradictingCount}
+              {t("chatKnowledge.source.counts", { count: data.evidence.filter((e) => !e.revoked).length, against: data.claim.contradictingCount })}
             </span>
           </div>
         </div>
-        <Button variant="ghost" size="xs" aria-label="关闭" onClick={onClose} data-testid="kg-source-drawer-close">
+        <Button variant="ghost" size="xs" aria-label={t("common.close")} onClick={onClose} data-testid="kg-source-drawer-close">
           <X aria-hidden className="h-4 w-4" />
         </Button>
       </header>
@@ -97,7 +99,7 @@ export function ClaimSourceDrawer({
         <Separator />
 
         <section className="flex flex-col gap-2" data-testid="kg-source-evidence-list">
-          <h3 className="text-11 font-medium text-muted-foreground">证据摘录</h3>
+          <h3 className="text-11 font-medium text-muted-foreground">{t("chatKnowledge.source.excerpts")}</h3>
           {data.evidence.map((ev) => (
             <div
               key={ev.segmentId}
@@ -111,10 +113,10 @@ export function ClaimSourceDrawer({
                   <MessageSquare aria-hidden className="h-3.5 w-3.5 text-muted-foreground" />
                 )}
                 <Badge tone={ev.stance === "contradicting" ? "danger" : "neutral"}>
-                  {ev.stance === "contradicting" ? "反对" : "支持"}
+                  {t(ev.stance === "contradicting" ? "chatKnowledge.source.against" : "chatKnowledge.source.supporting")}
                 </Badge>
                 {ev.locator?.page ? (
-                  <span className="text-10 text-muted-foreground">第 {ev.locator.page} 页</span>
+                  <span className="text-10 text-muted-foreground">{t("chatKnowledge.source.page", { page: ev.locator.page })}</span>
                 ) : null}
               </div>
               {ev.revoked ? (
@@ -124,7 +126,7 @@ export function ClaimSourceDrawer({
                   data-testid={`kg-evidence-revoked-${ev.segmentId}`}
                 >
                   <AlertTriangle aria-hidden className="h-3.5 w-3.5" />
-                  来源已删除，该证据已退出召回
+                  {t("chatKnowledge.source.revoked")}
                 </p>
               ) : (
                 <>
@@ -136,7 +138,7 @@ export function ClaimSourceDrawer({
                     data-testid={`kg-evidence-jump-${ev.segmentId}`}
                     onClick={() => onJumpTo?.(ev.sourceKind, ev.sourceRef)}
                   >
-                    跳到{ev.sourceKind === "attachment" ? "原文件" : "原消息"}
+                    {t(ev.sourceKind === "attachment" ? "chatKnowledge.source.jumpFile" : "chatKnowledge.source.jumpMessage")}
                     <ArrowUpRight aria-hidden className="ml-1 h-3 w-3" />
                   </Button>
                 </>
@@ -147,12 +149,12 @@ export function ClaimSourceDrawer({
 
         <Separator />
         <section className="flex flex-col gap-1.5" data-testid="kg-source-provenance">
-          <h3 className="text-11 font-medium text-muted-foreground">溯源</h3>
+          <h3 className="text-11 font-medium text-muted-foreground">{t("chatKnowledge.source.provenance")}</h3>
           {data.provenance.map((p, i) => (
             <div key={i} className="flex flex-col gap-0.5 text-10 text-muted-foreground" data-testid={`kg-provenance-${i}`}>
               <span className="text-background-foreground">{p.action}</span>
               <span>
-                {p.actor.kind === "human" ? "人" : "系统"}·{p.actor.id}
+                {t(p.actor.kind === "human" ? "chatKnowledge.source.human" : "chatKnowledge.source.system")}·{p.actor.id}
                 {p.pipelineVersion ? ` · ${p.pipelineVersion}` : ""} · {p.at.slice(0, 10)}
               </span>
             </div>
@@ -164,16 +166,17 @@ export function ClaimSourceDrawer({
 }
 
 function DrawerFrame({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
+  const { t } = useI18n();
   return (
     <div className="absolute inset-0 z-20 flex justify-end" data-testid="kg-source-drawer">
       <button
         type="button"
-        aria-label="关闭来源"
+        aria-label={t("chatKnowledge.source.close")}
         className="flex-1 bg-background/60 backdrop-blur-sm"
         data-testid="kg-source-drawer-backdrop"
         onClick={onClose}
       />
-      <aside role="dialog" aria-label="记忆来源" className="flex w-80 flex-col border-l border-border bg-card shadow-lg">
+      <aside role="dialog" aria-label={t("chatKnowledge.source.dialog")} className="flex w-80 flex-col border-l border-border bg-card shadow-lg">
         {children}
       </aside>
     </div>

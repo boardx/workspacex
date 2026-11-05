@@ -1,0 +1,85 @@
+{
+  "baseHead": "8357c6636f4ca48d3f62dfe6709b35c781e8bf46",
+  "secretPatternHits": 0,
+  "rawPrivateBackup": "/tmp/chat6200-task5-chrome-before-checkpoint-private",
+  "logs": [
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task5-postmerge-type.log",
+      "originalSha256": "6cf8c844c277e080af3d725a03627eadb442f1e7ced096b1c5dcd709fe66217c",
+      "publishedSha256": "82b9cbb25c294cf682484a224153a0c92e3696682468a8b98db7592792d19315",
+      "nonWhitespaceEqual": true
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task5-postmerge-lint.log",
+      "originalSha256": "649eae2c9bd75307d58cf41b3d1a67cc25153aed3d8075667a095848a5f114be",
+      "publishedSha256": "649eae2c9bd75307d58cf41b3d1a67cc25153aed3d8075667a095848a5f114be",
+      "nonWhitespaceEqual": true
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task5-postmerge-testid.log",
+      "originalSha256": "cef5ce1c16fd8dbd0cae0e36dbd210f9ece81756ead10a1000e1ffca5b735439",
+      "publishedSha256": "cef5ce1c16fd8dbd0cae0e36dbd210f9ece81756ead10a1000e1ffca5b735439",
+      "nonWhitespaceEqual": true
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task5-postmerge-fullspec.log",
+      "originalSha256": "8d8a0c1ecaad480ef67738205048edd25e9a70bc7c495d136845e30491fab903",
+      "publishedSha256": "8d8a0c1ecaad480ef67738205048edd25e9a70bc7c495d136845e30491fab903",
+      "nonWhitespaceEqual": true
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task5-postmerge-wiring.log",
+      "originalSha256": "7ceb6f3ff0bfaabffcf290aca977c8999b55622e7b27dc9b8b2c2a7d494d3fa7",
+      "publishedSha256": "7ceb6f3ff0bfaabffcf290aca977c8999b55622e7b27dc9b8b2c2a7d494d3fa7",
+      "nonWhitespaceEqual": true
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task5-postmerge-list.log",
+      "originalSha256": "a40fd829959389853e69ba1bca0a123bb32ad62200560753ea13d32657cf8b3d",
+      "publishedSha256": "a40fd829959389853e69ba1bca0a123bb32ad62200560753ea13d32657cf8b3d",
+      "nonWhitespaceEqual": true
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task5-canonical-chrome-red.log",
+      "originalSha256": "67cd7be423465bb9de520f5b3cfb1eef1ad6d575214ab18e61f5bd48dc0b517d",
+      "publishedSha256": "67cd7be423465bb9de520f5b3cfb1eef1ad6d575214ab18e61f5bd48dc0b517d",
+      "nonWhitespaceEqual": true
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task5-canonical-chrome-corrected-red.log",
+      "originalSha256": "83c4a74a6066772ec1db3e6ecdfae65b5526b4931738765e3061f45658f6f666",
+      "publishedSha256": "83c4a74a6066772ec1db3e6ecdfae65b5526b4931738765e3061f45658f6f666",
+      "nonWhitespaceEqual": true
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task5-canonical-chrome-neighbors.log",
+      "originalSha256": "335a7680e538a088bfbbd8eda2b10f324b9803e41c6b898860dc9ebd5e42fc2e",
+      "publishedSha256": "d979ea19db08a5e411aeb862e054dc6a611c8f2eea0a86f67d9332f00320c7aa",
+      "nonWhitespaceEqual": true
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task5-chrome-type.log",
+      "originalSha256": "6cf8c844c277e080af3d725a03627eadb442f1e7ced096b1c5dcd709fe66217c",
+      "publishedSha256": "82b9cbb25c294cf682484a224153a0c92e3696682468a8b98db7592792d19315",
+      "nonWhitespaceEqual": true
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task5-chrome-lint.log",
+      "originalSha256": "6442fa69c8b3910f7848877db276e1a25226e2b6a4dc803c4b990a1cca7edc71",
+      "publishedSha256": "6442fa69c8b3910f7848877db276e1a25226e2b6a4dc803c4b990a1cca7edc71",
+      "nonWhitespaceEqual": true
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task5-chrome-resources.log",
+      "originalSha256": "b1a47c6fe5e1bbf558b807048b0b6b030b640b1a11cba2dad2364281ce918396",
+      "publishedSha256": "7f9d29cb1e62014f63bd57ae5776bf97c80f9c645627524a743769e6a3b7ac1b",
+      "nonWhitespaceEqual": true
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task5-chrome-status-source.log",
+      "originalSha256": "e253384609b99bacddcc8be4c55a0eee63b890d9d2140fcf9fe80bb3ebd7d2a0",
+      "publishedSha256": "ea3609770087622da33d77aa9983821dbba0151d535e00d5cc4f300b455e1d5f",
+      "nonWhitespaceEqual": true
+    }
+  ]
+}

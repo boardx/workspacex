@@ -1,3 +1,4 @@
+import { modelTestbenchZhCN } from "../namespaces/model-testbench";
 import { telemetrySettingsZhCN } from "../namespaces/telemetry-settings";
 import { platformMembersZhCN } from "../namespaces/platform-members";
 import { surveyTemplatesZhCN } from "../namespaces/survey-templates";
@@ -17,6 +18,7 @@ import { orgHomeConfigZhCN } from "../namespaces/org-home-config";
 import { orgProfileZhCN } from "../namespaces/org-profile";
 import { adminNavigationZhCN } from "../namespaces/admin-navigation";
 import { brainViewsZhCN } from "../namespaces/brain-views";
+import { chatZhCN } from "../namespaces/chat";
 import { zhTasks } from "./tasks";
 import { zhFailures } from "./failures";
 import { controlsZhCN } from "../namespaces/controls";
@@ -34,6 +36,7 @@ import { stateZhCN } from "../namespaces/state";
 import { accountEntryZhCN } from "../namespaces/account-entry";
 import { invitationEntryZhCN } from "../namespaces/invitation-entry";
 export const zhCN = {
+  ...modelTestbenchZhCN,
   ...telemetrySettingsZhCN,
   ...platformMembersZhCN,
   ...surveyTemplatesZhCN,
@@ -52,6 +55,7 @@ export const zhCN = {
   ...orgHomeConfigZhCN,
   ...orgProfileZhCN,
   ...brainViewsZhCN,
+  ...chatZhCN,
   ...zhTasks,
   ...zhFailures,
   ...controlsZhCN,

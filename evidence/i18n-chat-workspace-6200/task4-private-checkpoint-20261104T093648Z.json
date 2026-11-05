@@ -1,0 +1,9 @@
+{
+  "branch": "worker/i18n-chat-workspace-6200",
+  "head": "66120e5ad595bea5fdac4ebf956b0a7ee0d9ea51",
+  "files": 129,
+  "backupHashMismatches": [],
+  "backupOnlyNoStashApplyOrReset": true,
+  "privateManifest": "/tmp/chat6200-task4-20261104T093648Z-private/manifest.json",
+  "previousAppliedStashMustNotBeReapplied": "8b9f68ab1ccf625080bbc5ff549b4263abf2e958"
+}

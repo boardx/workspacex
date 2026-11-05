@@ -1,0 +1,27 @@
+{
+  "originalHead": "8fa189cba35dbbaf9e83ea383fc03d2a83757e79",
+  "accepted": "fe372fa38c851cea8a896abac8e6fb0bd94c8b0b",
+  "protectedPaths": 483,
+  "unchangedProtectedPaths": 477,
+  "expectedChanged": [
+    "apps/web/components/chat/copilotkit-v2-panel-body.tsx",
+    "apps/web/components/chat/copilotkit-v2-panel-view.tsx",
+    "apps/web/components/chat/workbench/run-trace-panel.tsx",
+    "apps/web/lib/i18n/namespaces/chat-trace.ts",
+    "docs/design/i18n-chat-workspace/execution-ledger.md",
+    "docs/design/i18n-chat-workspace/progress.md"
+  ],
+  "modeDifferences": [],
+  "acceptedSixForwardingLinesExact": true,
+  "originalSpecConfigAndGuardsExact": {
+    "apps/web/e2e/i18n-chat-workspace.spec.ts": true,
+    "apps/web/playwright.chat-read.config.ts": true,
+    ".harness/scripts/ci-targeted-ui.test.ts": true,
+    ".harness/scripts/lib/gate-mutation-spec.ts": true,
+    ".harness/scripts/lint-e2e-testid-gate.test.ts": true,
+    "apps/web/tests/chat/run-progress-butterfly.test.tsx": true,
+    "apps/web/tests/session/chat-dead-mock-cluster.test.ts": true
+  },
+  "runtimeInheritance": "Original run41934076836 attempt1 seven cases and author QA17 apply to corresponding unchanged scenes only; newly accepted failed-trace retry/hide/restore uses focused provider and accepted neighbor tests, without a new browser claim.",
+  "documentationDelta": "Progress and execution ledger append actual integration lineage; source delta remains only four reviewed files."
+}

@@ -1,0 +1,57 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/knowledge/answer-memory-citations.test.tsx (19 tests) 778ms
+   ✓ AnswerKnowledgeFooter：引用 chip > chip 按 recalled 名次编号，只画 recalled 里的条目；长句截断但 title 保留全文 379ms
+ ✓ tests/knowledge/citation-correction.test.tsx (14 tests) 326ms
+ ❯ tests/ui/i18n-chat-supersede-parent-errors.test.tsx (3 tests | 2 failed) 124ms
+   × keeps actual supersede-parent 'KG_NOT_OWNER' cause until render without changing the CAS action 84ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Only the conversation creator can edit its memories.
+Received:
+  只有对话的创建者可以修改这里的记忆。
+   × keeps actual supersede-parent 'KG_REVISION_CHANGED' cause until render without changing the CAS action 18ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  The content changed. The latest version has been loaded; please try again.
+Received:
+  内容已变化，已为你刷新到最新，请再操作一次。
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/i18n-chat-supersede-parent-errors.test.tsx > keeps actual supersede-parent 'KG_NOT_OWNER' cause until render without changing the CAS action
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Only the conversation creator can edit its memories.
+Received:
+  只有对话的创建者可以修改这里的记忆。
+ ❯ tests/ui/i18n-chat-supersede-parent-errors.test.tsx:23:312
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/ui/i18n-chat-supersede-parent-errors.test.tsx > keeps actual supersede-parent 'KG_REVISION_CHANGED' cause until render without changing the CAS action
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  The content changed. The latest version has been loaded; please try again.
+Received:
+  内容已变化，已为你刷新到最新，请再操作一次。
+ ❯ tests/ui/i18n-chat-supersede-parent-errors.test.tsx:23:312
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed | 2 passed (3)
+      Tests  2 failed | 34 passed (36)
+   Start at  17:41:56
+   Duration  15.09s (transform 3.01s, setup 765ms, collect 7.00s, tests 1.23s, environment 4.97s, prepare 289ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/i18n-chat-supersede-parent-errors.test.tsx tests/knowledge/answer-memory-citations.test.tsx tests/knowledge/citation-correction.test.tsx --maxWorkers=1 --minWorkers=1

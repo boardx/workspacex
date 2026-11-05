@@ -49,6 +49,7 @@
  *      不是一块吓人的纯黑（这条不是主防线，是最后一层安全网）。
  */
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 
 type PptxPreviewer = { preview: (file: ArrayBuffer) => Promise<unknown>; destroy: () => void };
@@ -89,6 +90,7 @@ export function ChatAttachmentSlidesPreview({
   src: string;
   filename: string;
 }) {
+  const { t } = useI18n();
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [failed, setFailed] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
@@ -138,7 +140,7 @@ export function ChatAttachmentSlidesPreview({
     // 不是「压根没有渲染器」，文案不能混用。
     return (
       <p className="text-13 text-muted-foreground" data-testid="chat-attachment-preview-slides-failed">
-        预览渲染失败，请下载查看。
+        {t("chatAttachments.slidesFailed")}
       </p>
     );
   }
@@ -159,7 +161,7 @@ export function ChatAttachmentSlidesPreview({
             className="h-5 w-5 motion-safe:animate-spin rounded-full border-2 border-muted-foreground/40 border-t-muted-foreground"
             aria-hidden
           />
-          <p className="text-13 text-muted-foreground">正在解析幻灯片…</p>
+          <p className="text-13 text-muted-foreground">{t("chatAttachments.slidesLoading")}</p>
         </div>
       )}
       <div
@@ -179,7 +181,7 @@ export function ChatAttachmentSlidesPreview({
           className="pointer-events-none absolute right-2 top-2 rounded-full bg-inverse/70 px-2 py-0.5 text-11 text-inverse-foreground backdrop-blur-sm"
           data-testid="chat-attachment-preview-slides-count"
         >
-          共 {slideCount} 页
+          {t("chatAttachments.slidesCount", { count: slideCount })}
         </span>
       )}
     </div>

@@ -1,0 +1,722 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ❯ tests/ui/i18n-chat-feedback-attachments.test.tsx (4 tests | 4 failed) 1247ms
+   × localizes the upload entry and rejected-type notice while keeping the exact rejected filename and no upload 228ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Add files
+Received:
+  加文件（0/5）
+   × retains one pending original File across locale and removes it only explicitly 712ms
+     → Unable to find an accessible element with the role "button" and name "Remove this attachment"
+
+Here are the accessible roles:
+
+  dialog:
+
+  Name "Submit feedback":
+  [36m<div[39m
+    [33maria-label[39m=[32m"Submit feedback"[39m
+    [33maria-modal[39m=[32m"true"[39m
+    [33mclass[39m=[32m"relative flex w-full flex-col overflow-hidden border-border bg-card shadow-lg h-[min(85vh,54rem)] max-w-2xl rounded-lg border"[39m
+    [33mdata-fullscreen[39m=[32m"false"[39m
+    [33mdata-testid[39m=[32m"feedback-dialog"[39m
+    [33mrole[39m=[32m"dialog"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  banner:
+
+  Name "":
+  [36m<header[39m
+    [33mclass[39m=[32m"flex items-start justify-between gap-3 border-b border-border p-4 pb-3"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "Send product feedback":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-14 font-semibold"[39m
+    [33mdata-testid[39m=[32m"feedback-dialog-title"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"mt-0.5 text-11 text-muted-foreground"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "Fullscreen":
+  [36m<button[39m
+    [33maria-label[39m=[32m"Fullscreen"[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-8 w-8 p-0"[39m
+    [33mdata-testid[39m=[32m"feedback-dialog-fullscreen-toggle"[39m
+  [36m/>[39m
+
+  Name "Close":
+  [36m<button[39m
+    [33maria-label[39m=[32m"Close"[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-8 w-8 p-0"[39m
+    [33mdata-testid[39m=[32m"feedback-dialog-close"[39m
+  [36m/>[39m
+
+  Name "Start voice input":
+  [36m<button[39m
+    [33maria-busy[39m=[32m"false"[39m
+    [33maria-label[39m=[32m"Start voice input"[39m
+    [33maria-pressed[39m=[32m"false"[39m
+    [33mclass[39m=[32m"flex items-center gap-2 rounded-l-pill pl-3.5 pr-3 text-13 font-medium transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground hover:bg-muted"[39m
+    [33mdata-mic-status[39m=[32m"idle"[39m
+    [33mdata-state[39m=[32m"closed"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-composer-mic"[39m
+    [33mdata-voice-phase[39m=[32m"idle"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Input device and recording options":
+  [36m<button[39m
+    [33maria-expanded[39m=[32m"false"[39m
+    [33maria-haspopup[39m=[32m"menu"[39m
+    [33maria-label[39m=[32m"Input device and recording options"[39m
+    [33mclass[39m=[32m"flex w-7 items-center justify-center rounded-r-pill transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground hover:bg-muted"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-composer-mic-devices"[39m
+    [33mtitle[39m=[32m"Input device: System default microphone"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "加文件（1/5）":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12 gap-1"[39m
+    [33mdata-testid[39m=[32m"feedback-attachment-add"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "移除这个附件":
+  [36m<button[39m
+    [33maria-label[39m=[32m"移除这个附件"[39m
+    [33mclass[39m=[32m"absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-inverse text-inverse-foreground"[39m
+    [33mdata-testid[39m=[32m"feedback-attachment-remove-1793773062990-syrfp6nmh1"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "下一步":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"feedback-proceed-review"[39m
+    [33mdisabled[39m=[32m""[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tablist:
+
+  Name "":
+  [36m<div[39m
+    [33mclass[39m=[32m"flex gap-1 border-b border-border px-4 pt-2"[39m
+    [33mrole[39m=[32m"tablist"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tab:
+
+  Name "Submit":
+  [36m<button[39m
+    [33maria-selected[39m=[32m"true"[39m
+    [33mclass[39m=[32m"-mb-px rounded-t-md border-b-2 px-3 py-1.5 text-12 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-primary font-medium text-card-foreground"[39m
+    [33mdata-testid[39m=[32m"feedback-tab-submit"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "My feedback":
+  [36m<button[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"-mb-px rounded-t-md border-b-2 px-3 py-1.5 text-12 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-transparent text-muted-foreground hover:text-card-foreground"[39m
+    [33mdata-testid[39m=[32m"feedback-tab-mine"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  textbox:
+
+  Name "Details （0/4000）":
+  [36m<textarea[39m
+    [33mclass[39m=[32m"resize-y rounded-md border border-border-subtle bg-panel p-2 text-13 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"feedback-detail-input"[39m
+    [33mid[39m=[32m"feedback-detail-input"[39m
+    [33mmaxlength[39m=[32m"4000"[39m
+    [33mplaceholder[39m=[32m"Describe the issue in your own words. Type or speak first; AI can organize it into a title and reproduction steps next."[39m
+    [33mrows[39m=[32m"8"[39m
+  [36m/>[39m
+
+  Name "添加标签":
+  [36m<input[39m
+    [33maria-label[39m=[32m"添加标签"[39m
+    [33mclass[39m=[32m"min-w-32 flex-1 rounded-control bg-transparent text-12 outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed"[39m
+    [33mdata-testid[39m=[32m"feedback-tags-input"[39m
+    [33mmaxlength[39m=[32m"32"[39m
+    [33mplaceholder[39m=[32m"输入标签，回车确认"[39m
+    [33mvalue[39m=[32m""[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  list:
+
+  Name "":
+  [36m<ul[39m
+    [33mclass[39m=[32m"flex flex-wrap gap-2"[39m
+    [33mdata-testid[39m=[32m"feedback-attachment-list"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  listitem:
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"flex w-16 flex-col items-center gap-0.5"[39m
+    [33mdata-testid[39m=[32m"feedback-attachment-1793773062990-syrfp6nmh1"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"fixed inset-0 z-50 flex items-center justify-center p-4"[39m
+      [33mdata-testid[39m=[32m"feedback-dialog-backdrop"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"absolute inset-0 bg-inverse/40"[39m
+      [36m/>[39m
+      [36m<div[39m
+        [33maria-label[39m=[32m"Submit feedback"[39m
+        [33maria-modal[39m=[32m"true"[39m
+        [33mclass[39m=[32m"relative flex w-full flex-col overflow-hidden border-border bg-card shadow-lg h-[min(85vh,54rem)] max-w-2xl rounded-lg border"[39m
+        [33mdata-fullscreen[39m=[32m"false"[39m
+        [33mdata-testid[39m=[32m"feedback-dialog"[39m
+        [33mrole[39m=[32m"dialog"[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex items-start justify-between gap-3 border-b border-border p-4 pb-3"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"text-14 font-semibold"[39m
+              [33mdata-testid[39m=[32m"feedback-dialog-title"[39m
+            [36m>[39m
+              [0mSend product feedback[0m
+            [36m</h2>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"mt-0.5 text-11 text-muted-foreground"[39m
+            [36m>[39m
+              [0mEvery submission has a status and a destination. Follow it in My feedback.[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex shrink-0 items-center gap-1"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33maria-label[39m=[32m"Fullscreen"[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-8 w-8 p-0"[39m
+              [33mdata-testid[39m=[32m"feedback-dialog-fullscreen-toggle"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-maximize2 h-4 w-4"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<polyline[39m
+                  [33mpoints[39m=[32m"15 3 21 3 21 9"[39m
+                [36m/>[39m
+                [36m<polyline[39m
+                  [33mpoints[39m=[32m"9 21 3 21 3 15"[39m
+                [36m/>[39m
+                [36m<line[39m
+                  [33mx1[39m=[32m"21"[39m
+                  [33mx2[39m=[32m"14"[39m
+                  [33my1[39m=[32m"3"[39m
+                  [33my2[39m=[32m"10"[39m
+                [36m/>[39m
+                [36m<line[39m
+                  [33mx1[39m=[32m"3"[39m
+                  [33mx2[39m=[32m"10"[39m
+                  [33my1[39m=[32m"21"[39m
+                  [33my2[39m=[32m"14"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-label[39m=[32m"Close"[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-8 w-8 p-0"[39m
+              [33mdata-testid[39m=[32m"feedback-dialog-close"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M18 6 6 18"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"m6 6 12 12"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+            [36m</button>[39m
+          [36m</div>[39m
+        [36m</header>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex gap-1 border-b border-border px-4 pt-2"[39m
+          [33mrole[39m=[32m"tablist"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33maria-selected[39m=[32m"true"[39m
+            [33mclass[39m=[32m"-mb-px rounded-t-md border-b-2 px-3 py-1.5 text-12 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-primary font-medium text-card-foreground"[39m
+            [33mdata-testid[39m=[32m"feedback-tab-submit"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mSubmit[0m
+          [36m</button>[39m
+          [36m<button[39m
+            [33maria-selected[39m=[32m"false"[39m
+            [33mclass[39m=[32m"-mb-px rounded-t-md border-b-2 px-3 py-1.5 text-12 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-transparent text-muted-foreground hover:text-card-foreground"[39m
+            [33mdata-testid[39m=[32m"feedback-tab-mine"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mMy feedback[0m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39...
+   × formats a persistent upload failure in the current locale and retries the identical File only on click 112ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  server
+Received:
+  连不上服务器，检查一下网络再试
+   × keeps raw user text after a structure failure and changes only its persisted display on locale 194ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Could not organize
+Received:
+  没能把这段话整理成表单（服务暂时不可用，稍后再试一次）。你说的话已经在「详细说说」里——可以自己改标题和正文。
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/i18n-chat-feedback-attachments.test.tsx > localizes the upload entry and rejected-type notice while keeping the exact rejected filename and no upload
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Add files
+Received:
+  加文件（0/5）
+ ❯ tests/ui/i18n-chat-feedback-attachments.test.tsx:19:95
+     17|
+     18| it("localizes the upload entry and rejected-type notice while keeping …
+     19|   render(app()); const button = screen.getByTestId("feedback-attachmen…
+       |                                                                                               ^
+     20|   const file = new File(["raw"], "原始文件 {name}.zip", { type: "appli…
+     21|   fireEvent.change(screen.getByTestId("feedback-attachment-input"), { …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  tests/ui/i18n-chat-feedback-attachments.test.tsx > retains one pending original File across locale and removes it only explicitly
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Remove this attachment"
+
+Here are the accessible roles:
+
+  dialog:
+
+  Name "Submit feedback":
+  [36m<div[39m
+    [33maria-label[39m=[32m"Submit feedback"[39m
+    [33maria-modal[39m=[32m"true"[39m
+    [33mclass[39m=[32m"relative flex w-full flex-col overflow-hidden border-border bg-card shadow-lg h-[min(85vh,54rem)] max-w-2xl rounded-lg border"[39m
+    [33mdata-fullscreen[39m=[32m"false"[39m
+    [33mdata-testid[39m=[32m"feedback-dialog"[39m
+    [33mrole[39m=[32m"dialog"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  banner:
+
+  Name "":
+  [36m<header[39m
+    [33mclass[39m=[32m"flex items-start justify-between gap-3 border-b border-border p-4 pb-3"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "Send product feedback":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-14 font-semibold"[39m
+    [33mdata-testid[39m=[32m"feedback-dialog-title"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"mt-0.5 text-11 text-muted-foreground"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "Fullscreen":
+  [36m<button[39m
+    [33maria-label[39m=[32m"Fullscreen"[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-8 w-8 p-0"[39m
+    [33mdata-testid[39m=[32m"feedback-dialog-fullscreen-toggle"[39m
+  [36m/>[39m
+
+  Name "Close":
+  [36m<button[39m
+    [33maria-label[39m=[32m"Close"[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-8 w-8 p-0"[39m
+    [33mdata-testid[39m=[32m"feedback-dialog-close"[39m
+  [36m/>[39m
+
+  Name "Start voice input":
+  [36m<button[39m
+    [33maria-busy[39m=[32m"false"[39m
+    [33maria-label[39m=[32m"Start voice input"[39m
+    [33maria-pressed[39m=[32m"false"[39m
+    [33mclass[39m=[32m"flex items-center gap-2 rounded-l-pill pl-3.5 pr-3 text-13 font-medium transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground hover:bg-muted"[39m
+    [33mdata-mic-status[39m=[32m"idle"[39m
+    [33mdata-state[39m=[32m"closed"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-composer-mic"[39m
+    [33mdata-voice-phase[39m=[32m"idle"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Input device and recording options":
+  [36m<button[39m
+    [33maria-expanded[39m=[32m"false"[39m
+    [33maria-haspopup[39m=[32m"menu"[39m
+    [33maria-label[39m=[32m"Input device and recording options"[39m
+    [33mclass[39m=[32m"flex w-7 items-center justify-center rounded-r-pill transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground hover:bg-muted"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-composer-mic-devices"[39m
+    [33mtitle[39m=[32m"Input device: System default microphone"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "加文件（1/5）":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12 gap-1"[39m
+    [33mdata-testid[39m=[32m"feedback-attachment-add"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "移除这个附件":
+  [36m<button[39m
+    [33maria-label[39m=[32m"移除这个附件"[39m
+    [33mclass[39m=[32m"absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-inverse text-inverse-foreground"[39m
+    [33mdata-testid[39m=[32m"feedback-attachment-remove-1793773062990-syrfp6nmh1"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "下一步":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"feedback-proceed-review"[39m
+    [33mdisabled[39m=[32m""[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tablist:
+
+  Name "":
+  [36m<div[39m
+    [33mclass[39m=[32m"flex gap-1 border-b border-border px-4 pt-2"[39m
+    [33mrole[39m=[32m"tablist"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tab:
+
+  Name "Submit":
+  [36m<button[39m
+    [33maria-selected[39m=[32m"true"[39m
+    [33mclass[39m=[32m"-mb-px rounded-t-md border-b-2 px-3 py-1.5 text-12 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-primary font-medium text-card-foreground"[39m
+    [33mdata-testid[39m=[32m"feedback-tab-submit"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "My feedback":
+  [36m<button[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"-mb-px rounded-t-md border-b-2 px-3 py-1.5 text-12 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-transparent text-muted-foreground hover:text-card-foreground"[39m
+    [33mdata-testid[39m=[32m"feedback-tab-mine"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  textbox:
+
+  Name "Details （0/4000）":
+  [36m<textarea[39m
+    [33mclass[39m=[32m"resize-y rounded-md border border-border-subtle bg-panel p-2 text-13 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"feedback-detail-input"[39m
+    [33mid[39m=[32m"feedback-detail-input"[39m
+    [33mmaxlength[39m=[32m"4000"[39m
+    [33mplaceholder[39m=[32m"Describe the issue in your own words. Type or speak first; AI can organize it into a title and reproduction steps next."[39m
+    [33mrows[39m=[32m"8"[39m
+  [36m/>[39m
+
+  Name "添加标签":
+  [36m<input[39m
+    [33maria-label[39m=[32m"添加标签"[39m
+    [33mclass[39m=[32m"min-w-32 flex-1 rounded-control bg-transparent text-12 outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed"[39m
+    [33mdata-testid[39m=[32m"feedback-tags-input"[39m
+    [33mmaxlength[39m=[32m"32"[39m
+    [33mplaceholder[39m=[32m"输入标签，回车确认"[39m
+    [33mvalue[39m=[32m""[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  list:
+
+  Name "":
+  [36m<ul[39m
+    [33mclass[39m=[32m"flex flex-wrap gap-2"[39m
+    [33mdata-testid[39m=[32m"feedback-attachment-list"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  listitem:
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"flex w-16 flex-col items-center gap-0.5"[39m
+    [33mdata-testid[39m=[32m"feedback-attachment-1793773062990-syrfp6nmh1"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"fixed inset-0 z-50 flex items-center justify-center p-4"[39m
+      [33mdata-testid[39m=[32m"feedback-dialog-backdrop"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"absolute inset-0 bg-inverse/40"[39m
+      [36m/>[39m
+      [36m<div[39m
+        [33maria-label[39m=[32m"Submit feedback"[39m
+        [33maria-modal[39m=[32m"true"[39m
+        [33mclass[39m=[32m"relative flex w-full flex-col overflow-hidden border-border bg-card shadow-lg h-[min(85vh,54rem)] max-w-2xl rounded-lg border"[39m
+        [33mdata-fullscreen[39m=[32m"false"[39m
+        [33mdata-testid[39m=[32m"feedback-dialog"[39m
+        [33mrole[39m=[32m"dialog"[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex items-start justify-between gap-3 border-b border-border p-4 pb-3"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"text-14 font-semibold"[39m
+              [33mdata-testid[39m=[32m"feedback-dialog-title"[39m
+            [36m>[39m
+              [0mSend product feedback[0m
+            [36m</h2>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"mt-0.5 text-11 text-muted-foreground"[39m
+            [36m>[39m
+              [0mEvery submission has a status and a destination. Follow it in My feedback.[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex shrink-0 items-center gap-1"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33maria-label[39m=[32m"Fullscreen"[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-8 w-8 p-0"[39m
+              [33mdata-testid[39m=[32m"feedback-dialog-fullscreen-toggle"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-maximize2 h-4 w-4"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<polyline[39m
+                  [33mpoints[39m=[32m"15 3 21 3 21 9"[39m
+                [36m/>[39m
+                [36m<polyline[39m
+                  [33mpoints[39m=[32m"9 21 3 21 3 15"[39m
+                [36m/>[39m
+                [36m<line[39m
+                  [33mx1[39m=[32m"21"[39m
+                  [33mx2[39m=[32m"14"[39m
+                  [33my1[39m=[32m"3"[39m
+                  [33my2[39m=[32m"10"[39m
+                [36m/>[39m
+                [36m<line[39m
+                  [33mx1[39m=[32m"3"[39m
+                  [33mx2[39m=[32m"10"[39m
+                  [33my1[39m=[32m"21"[39m
+                  [33my2[39m=[32m"14"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-label[39m=[32m"Close"[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-8 w-8 p-0"[39m
+              [33mdata-testid[39m=[32m"feedback-dialog-close"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M18 6 6 18"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"m6 6 12 12"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+            [36m</button>[39m
+          [36m</div>[39m
+        [36m</header>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex gap-1 border-b border-border px-4 pt-2"[39m
+          [33mrole[39m=[32m"tablist"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33maria-selected[39m=[32m"true"[39m
+            [33mclass[39m=[32m"-mb-px rounded-t-md border-b-2 px-3 py-1.5 text-12 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-primary font-medium text-card-foreground"[39m
+            [33mdata-testid[39m=[32m"feedback-tab-submit"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mSubmit[0m
+          [36m</button>[39m
+          [36m<button[39m
+            [33maria-selected[39m=[32m"false"[39m
+            [33mclass[39m=[32m"-mb-px rounded-t-md border-b-2 px-3 py-1.5 text-12 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-transparent text-muted-foreground hover:text-card-foreground"[39m
+            [33mdata-testid[39m=[32m"feedback-tab-mine"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mMy feedback[0m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39...
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-feedback-attachments.test.tsx:31:25
+     29|   render(app()); const file = new File(["raw bytes {locale}"], "原文 {…
+     30|   fireEvent.change(screen.getByTestId("feedback-attachment-input"), { …
+     31|   const remove = screen.getByRole("button", { name: "Remove this attac…
+       |                         ^
+     32|   act(() => changeLocale()); expect(screen.getByTestId(/^feedback-atta…
+     33|   await act(async () => { finish({ attachmentId: "raw-server-id", url:…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  tests/ui/i18n-chat-feedback-attachments.test.tsx > formats a persistent upload failure in the current locale and retries the identical File only on click
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  server
+Received:
+  连不上服务器，检查一下网络再试
+ ❯ tests/ui/i18n-chat-feedback-attachments.test.tsx:40:93
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  tests/ui/i18n-chat-feedback-attachments.test.tsx > keeps raw user text after a structure failure and changes only its persisted display on locale
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Could not organize
+Received:
+  没能把这段话整理成表单（服务暂时不可用，稍后再试一次）。你说的话已经在「详细说说」里——可以自己改标题和正文。
+ ❯ tests/ui/i18n-chat-feedback-attachments.test.tsx:48:90
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+ Test Files  1 failed (1)
+      Tests  4 failed (4)
+   Start at  14:17:29
+   Duration  14.54s (transform 5.17s, setup 579ms, collect 9.28s, tests 1.25s, environment 2.26s, prepare 134ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/i18n-chat-feedback-attachments.test.tsx --maxWorkers=1 --minWorkers=1

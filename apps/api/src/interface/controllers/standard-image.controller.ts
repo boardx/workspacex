@@ -1,7 +1,7 @@
 import {timingSafeEqual} from 'node:crypto';
 import {Body,Controller,Headers,HttpCode,Inject,Param,Post,UnauthorizedException,ServiceUnavailableException,BadRequestException} from '@nestjs/common';
 import {ImageGenerateInvocation} from '@repo/contracts/standard-image-tools';
-import {STANDARD_IMAGE_SERVICE,type StandardImageService} from '../../application/agent-run/standard-image-tools';
+import {STANDARD_IMAGE_SERVICE,classifyImageGenerationFailure,type StandardImageService} from '../../application/agent-run/standard-image-tools';
 import {toOrgId} from '../../domain/org-id';
 import {Public} from '../public.decorator';
 @Controller()
@@ -16,6 +16,6 @@ export class StandardImageController {
   if(!this.service)throw new ServiceUnavailableException('image_generation_unavailable');
   const {orgId,attemptId,leaseEpoch,bindingId,toolCallId,permissionRequestId,toolArgs}=parsed.data;
   try{return await this.service.generate({orgId:toOrgId(orgId),parentRunId:runId,attemptId,leaseEpoch,bindingId,toolCallId,permissionRequestId},toolArgs);}
-  catch{throw new ServiceUnavailableException('image_generation_failed_no_result_confirmed');}
+  catch(error){throw new ServiceUnavailableException(classifyImageGenerationFailure(error));}
  }
 }

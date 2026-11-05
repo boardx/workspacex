@@ -132,7 +132,13 @@ describe("② 待决旁白不画", () => {
 
 describe("① 卡片按消息流顺序出现", () => {
   it("宿主的待决卡挂在 TaskTimeline 之后（触发它的用户消息下面），不在消息流之前", () => {
-    const src = readFileSync(resolve(__dirname, "../../components/chat/copilotkit-v2-panel-body.tsx"), "utf8");
+    // The canonical controller delegates its presentation tree to the extracted view.
+    // Check that seam as well as the original ordering/uniqueness invariant.
+    const controller = readFileSync(resolve(__dirname, "../../components/chat/copilotkit-v2-panel-body.tsx"), "utf8");
+    expect(controller).toContain('import { CopilotKitV2PanelView } from "./copilotkit-v2-panel-view";');
+    expect(controller).toContain("<CopilotKitV2PanelView {...useCopilotKitV2PanelController(props)} />");
+    expect(controller).not.toContain("<RestoredRunApproval");
+    const src = readFileSync(resolve(__dirname, "../../components/chat/copilotkit-v2-panel-view.tsx"), "utf8");
     const timeline = src.indexOf("<TaskTimeline");
     const card = src.indexOf("<RestoredRunApproval canWrite={canDecide}");
     expect(timeline).toBeGreaterThan(0);

@@ -21,7 +21,9 @@
  */
 
 import * as React from "react";
-import { useEdition, useMissingCapabilities } from "@/lib/edition";
+import { useEdition, useMissingCapabilities, EDITION_CAPABILITIES } from "@/lib/edition";
+import { useI18n } from "@/lib/i18n/provider";
+import { capabilityEditionNameKeys } from "@/lib/i18n/namespaces/capability-edition";
 
 /** 这一行在当前版次下的可用性。矩阵里每行都直接带着两个版次的取值。 */
 function availabilityIn(
@@ -36,6 +38,7 @@ function availabilityIn(
  * 内容与判据逐字同一份（不是第二份文案）。
  */
 export function CapabilityEditionNote({ compact = false }: { readonly compact?: boolean } = {}): React.ReactElement | null {
+  const { t } = useI18n();
   const edition = useEdition();
   const missing = useMissingCapabilities();
   /*
@@ -48,22 +51,25 @@ export function CapabilityEditionNote({ compact = false }: { readonly compact?: 
   */
   const absent = missing.filter((c) => availabilityIn(edition, c) === "absent");
   if (absent.length === 0) return null;
-  const title = edition === "local" ? "这台电脑上做不到的事" : "这个版次做不到的事";
+  const title = t(edition === "local" ? "capabilityEdition.localTitle" : "capabilityEdition.title");
+  const capabilityName = (row: (typeof absent)[number]) => {
+    const key = Object.hasOwn(capabilityEditionNameKeys, row.id) ? capabilityEditionNameKeys[row.id as keyof typeof capabilityEditionNameKeys] : undefined;
+    const authored = EDITION_CAPABILITIES.find(item => item.id === row.id);
+    return key !== undefined && authored?.capability === row.capability ? t(key) : row.capability;
+  };
   const body = (
     <>
       <ul className="mt-1 space-y-0.5">
         {absent.map((c) => (
           <li key={c.id} data-testid={`capability-edition-absent-${c.id}`} className="text-11 leading-snug text-muted-foreground">
             {/* 复审 P1-6：「断网可用（不可用）」括号里的词把标签本身否定了——改成「能力 — 本版次不支持」。 */}
-            {c.capability}
-            <span className="text-muted-foreground"> — {edition === "local" ? "本地版不支持" : "本版次不支持"}</span>
+            {capabilityName(c)}
+            <span className="text-muted-foreground"> — {t(edition === "local" ? "capabilityEdition.localUnsupported" : "capabilityEdition.unsupported")}</span>
           </li>
         ))}
       </ul>
       <p className="mt-1.5 text-11 leading-snug text-muted-foreground">
-        {edition === "local"
-          ? "这些要连在线正式系统才行。本地版的数据和模型都在这台电脑上，这是代价的另一半。"
-          : "这些在当前版次里不可用。"}
+        {t(edition === "local" ? "capabilityEdition.localHint" : "capabilityEdition.hint")}
       </p>
     </>
   );
@@ -71,7 +77,7 @@ export function CapabilityEditionNote({ compact = false }: { readonly compact?: 
     return (
       <details data-testid="capability-edition-note" className="group px-1 text-11 text-muted-foreground">
         <summary className="cursor-pointer select-none rounded-sm py-1 transition-colors duration-fast hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          {title}（{absent.length} 项）
+          {t(absent.length === 1 ? "capabilityEdition.count.one" : "capabilityEdition.count", { title, count: absent.length })}
         </summary>
         <div className="pb-1 pl-2">{body}</div>
       </details>

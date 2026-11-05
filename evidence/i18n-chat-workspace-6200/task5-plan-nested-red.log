@@ -1,0 +1,1865 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ❯ tests/ui/i18n-chat-canonical-chrome.test.tsx (8 tests | 3 failed) 227ms
+   × translates actual expanded done-incomplete notice without changing the ledger or GET session 10ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  1 step remains unmarked
+Received:
+  本轮执行已结束，计划账本仍有 1 步未标记完成，请核对下方步骤。
+   × translates actual proposal and edit controls while keeping the draft action explicit 15ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Proposed plan
+Received:
+  以下是待确认的提案计划，确认后才会开始执行。
+   × translates actual owned failed reason and model-completed note at render without reloading 6ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Retry task
+Received:
+  重试任务
+ ❯ tests/ui/i18n-chat-plan-nested.test.tsx (15 tests | 15 failed) 237ms
+   × keeps readonly raw steps and stopped status on the same DOM across locale 42ms
+     → Unable to find an element with the text: Current plan. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mSwitch test locale[0m
+    [36m</button>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"rounded-card border border-border bg-card text-card-foreground w-full shrink-0 overflow-hidden"[39m
+      [33mdata-plan-mode[39m=[32m"read"[39m
+      [33mdata-testid[39m=[32m"chat-task-workbench-plan-panel"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle bg-accent px-3 py-2.5"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col gap-0.5"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"font-mono text-9 font-medium uppercase tracking-wide text-accent-foreground/70"[39m
+          [36m>[39m
+            [0mPlan[0m
+          [36m</span>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"text-13 font-semibold text-accent-foreground"[39m
+          [36m>[39m
+            [0m当前计划[0m
+          [36m</span>[39m
+        [36m</div>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 font-medium transition-colors duration-200 bg-muted text-muted-foreground ml-auto text-10"[39m
+        [36m>[39m
+          [0m1[0m
+          [0m 步[0m
+        [36m</span>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"p-4 flex flex-col gap-2 py-3"[39m
+      [36m>[39m
+        [36m<ol[39m
+          [33mclass[39m=[32m"flex flex-col gap-1.5"[39m
+        [36m>[39m
+          [36m<li[39m
+            [33mclass[39m=[32m"flex flex-col gap-1"[39m
+            [33mdata-plan-status[39m=[32m"in_progress"[39m
+            [33mdata-testid[39m=[32m"chat-task-workbench-plan-step"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-center gap-2 rounded-control px-1 py-0.5"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"flex h-6 w-6 shrink-0 items-center justify-center rounded-full font-mono text-11 font-medium border border-border text-muted-foreground"[39m
+              [36m>[39m
+                [0m1[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-13"[39m
+              [36m>[39m
+                [0m模型步骤 {id} 🌱[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33maria-label[39m=[32m"已停止"[39m
+                [33mclass[39m=[32m"ml-auto text-10 text-muted-foreground"[39m
+              [36m>[39m
+                [0m已停止[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"ml-7 flex items-center gap-1.5 rounded-control border border-border-subtle bg-panel px-2.5 py-1"[39m
+              [33mdata-testid[39m=[32m"chat-task-workbench-plan-constraint"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+              [36m>[39m
+                [0m↳[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-12 text-background-foreground"[39m
+              [36m>[39m
+                [0m用户约束 {text}[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 font-medium transition-colors duration-200 border border-border text-muted-foreground text-10"[39m
+              [36m>[39m
+                [0m约束[0m
+              [36m</span>[39m
+            [36m</div>[39m
+          [36m</li>[39m
+        [36m</ol>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × retains edit draft and exact constraint/reorder IDs without locale actions 110ms
+     → expect(element).toHaveAccessibleName()
+
+Expected element to have accessible name:
+  Enter a constraint for “模型步骤 {id} 🌱”
+Received:
+  为「模型步骤 {id} 🌱」输入约束
+   × translates stale, pending and orphan notices while preserving raw text and callbacks 31ms
+     → Unable to find an accessible element with the role "button" and name "View changes"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "Switch test locale":
+  [36m<button />[39m
+
+  Name "查看差异":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11 ml-auto"[39m
+  [36m/>[39m
+
+  Name "重新应用":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"[39m
+  [36m/>[39m
+
+  Name "移除":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent hover:bg-muted hover:text-background-foreground h-6 px-2 text-11 ml-auto text-primary"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  status:
+
+  Name "":
+  [36m<div[39m
+    [33mclass[39m=[32m"flex items-center gap-2 rounded-control border border-ai/25 bg-ai-tint px-2.5 py-2 text-12 text-ai-tint-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-plan-stale-banner"[39m
+    [33mrole[39m=[32m"status"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<div[39m
+    [33mclass[39m=[32m"flex items-start gap-2 rounded-control border border-warning/30 bg-warning/5 px-2.5 py-2 text-12"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-plan-pending-apply"[39m
+    [33mrole[39m=[32m"status"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<div[39m
+    [33mclass[39m=[32m"flex items-center gap-2 rounded-control border border-warning/30 bg-warning/5 px-2.5 py-2 text-12"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-plan-orphan-constraint"[39m
+    [33mrole[39m=[32m"status"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mSwitch test locale[0m
+    [36m</button>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex items-center gap-2 rounded-control border border-ai/25 bg-ai-tint px-2.5 py-2 text-12 text-ai-tint-foreground"[39m
+      [33mdata-testid[39m=[32m"chat-task-workbench-plan-stale-banner"[39m
+      [33mrole[39m=[32m"status"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-info h-3.5 w-3.5 shrink-0"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<circle[39m
+          [33mcx[39m=[32m"12"[39m
+          [33mcy[39m=[32m"12"[39m
+          [33mr[39m=[32m"10"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M12 16v-4"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M12 8h.01"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+      [36m<span>[39m
+        [0mAgent 刚更新了计划，你的改动没有丢。[0m
+      [36m</span>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11 ml-auto"[39m
+      [36m>[39m
+        [0m查看差异[0m
+      [36m</button>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"[39m
+      [36m>[39m
+        [0m重新应用[0m
+      [36m</button>[39m
+    [36m</div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex items-start gap-2 rounded-control border border-warning/30 bg-warning/5 px-2.5 py-2 text-12"[39m
+      [33mdata-testid[39m=[32m"chat-task-workbench-plan-pending-apply"[39m
+      [33mrole[39m=[32m"status"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-info mt-0.5 h-3.5 w-3.5 shrink-0 text-warning"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<circle[39m
+          [33mcx[39m=[32m"12"[39m
+          [33mcy[39m=[32m"12"[39m
+          [33mr[39m=[32m"10"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M12 16v-4"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M12 8h.01"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+      [36m<span>[39m
+        [0mAgent 正在执行。你的改动会[0m
+        [36m<b>[39m
+          [0m落到账本、在当前步骤完成后生效[0m
+        [36m</b>[39m
+        [0m，不会改变正在跑的这一步。[0m
+      [36m</span>[39m
+    [36m</div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex items-center gap-2 rounded-control border border-warning/30 bg-warning/5 px-2.5 py-2 text-12"[39m
+      [33mdata-testid[39m=[32m"chat-task-workbench-plan-orphan-constraint"[39m
+      [33mrole[39m=[32m"status"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-unlink h-3.5 w-3.5 shrink-0 text-warning"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m18.84 12.25 1.72-1.71h-.02a5.004 5.004 0 0 0-.12-7.07 5.006 5.006 0 0 0-6.95 0l-1.72 1.71"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m5.17 11.75-1.71 1.71a5.004 5.004 0 0 0 .12 7.07 5.006 5.006 0 0 0 6.95 0l1.71-1.71"[39m
+        [36m/>[39m
+        [36m<line[39m
+          [33mx1[39m=[32m"8"[39m
+          [33mx2[39m=[32m"8"[39m
+          [33my1[39m=[32m"2"[39m
+          [33my2[39m=[32m"5"[39m
+        [36m/>[39m
+        [36m<line[39m
+          [33mx1[39m=[32m"2"[39m
+          [33mx2[39m=[32m"5"[39m
+          [33my1[39m=[32m"8"[39m
+          [33my2[39m=[32m"8"[39m
+        [36m/>[39m
+        [36m<line[39m
+          [33mx1[39m=[32m"16"[39m
+          [33mx2[39m=[32m"16"[39m
+          [33my1[39m=[32m"19"[39m
+          [33my2[39m=[32m"22"[39m
+        [36m/>[39m
+        [36m<line[39m
+          [33mx1[39m=[32m"19"[39m
+          [33mx2[39m=[32m"22"[39m
+          [33my1[39m=[32m"16"[39m
+          [33my2[39m=[32m"16"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+      [36m<span>[39m
+        [0m1 条约束失去了对应步骤：「[0m
+        [0mraw约束[0m
+        [0m」（原属「[0m
+        [0m模型步骤 {id} 🌱[0m
+        [0m」）[0m
+      [36m</span>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent hover:bg-muted hover:text-background-foreground h-6 px-2 text-11 ml-auto text-primary"[39m
+      [36m>[39m
+        [0m移除[0m
+      [36m</button>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × keeps pending confirmation and external raw step decisions explicit 26ms
+     → Unable to find an accessible element with the role "button" and name "Confirm execution"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "Switch test locale":
+  [36m<button />[39m
+
+  Name "调整":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm-step-adjust"[39m
+  [36m/>[39m
+
+  Name "拒绝":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm-step-reject"[39m
+  [36m/>[39m
+
+  Name "确认执行":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm-run"[39m
+  [36m/>[39m
+
+  Name "继续编辑":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm-edit"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-12 text-warning-tint-foreground/80"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm-reason"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"flex items-center gap-1.5 text-11 text-warning-tint-foreground/80"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  list:
+
+  Name "":
+  [36m<ol[39m
+    [33mclass[39m=[32m"flex flex-col gap-1.5"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  listitem:
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"flex items-center gap-2 rounded-control px-1.5 py-1 text-12 border border-warning/50 bg-warning/10"[39m
+    [33mdata-plan-status[39m=[32m"in_progress"[39m
+    [33mdata-plan-step-external[39m=[32m"true"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm-step"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  status:
+
+  Name "":
+  [36m<span[39m
+    [33mclass[39m=[32m"ml-auto text-10 text-warning-tint-foreground/70"[39m
+    [33mrole[39m=[32m"status"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mSwitch test locale[0m
+    [36m</button>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"rounded-card border text-card-foreground overflow-hidden border-warning/30 bg-warning-tint"[39m
+      [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"p-4 flex flex-col gap-2 py-3"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex items-center gap-2"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 font-medium transition-colors duration-200 bg-warning-tint text-warning-tint-foreground text-10"[39m
+          [36m>[39m
+            [0m需确认[0m
+          [36m</span>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"text-13 font-semibold text-warning-tint-foreground"[39m
+          [36m>[39m
+            [0m涉及对外动作，确认后执行[0m
+          [36m</span>[39m
+        [36m</div>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-12 text-warning-tint-foreground/80"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm-reason"[39m
+        [36m>[39m
+          [0m这是一个多步、且会产生对外可见影响的任务，执行前请确认。[0m
+        [36m</p>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"flex items-center gap-1.5 text-11 text-warning-tint-foreground/80"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-shield-alert h-3 w-3 shrink-0"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 8v4"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 16h.01"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [0m带「对外」标记的步骤会产生外部可见的影响，执行前请逐步核对。[0m
+        [36m</p>[39m
+        [36m<ol[39m
+          [33mclass[39m=[32m"flex flex-col gap-1.5"[39m
+        [36m>[39m
+          [36m<li[39m
+            [33mclass[39m=[32m"flex items-center gap-2 rounded-control px-1.5 py-1 text-12 border border-warning/50 bg-warning/10"[39m
+            [33mdata-plan-status[39m=[32m"in_progress"[39m
+            [33mdata-plan-step-external[39m=[32m"true"[39m
+            [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm-step"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"font-mono text-10 text-muted-foreground"[39m
+            [36m>[39m
+              [0m1[0m
+              [0m.[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"flex-1"[39m
+            [36m>[39m
+              [0m模型步骤 {id} 🌱[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 font-medium transition-colors duration-200 bg-warning-tint text-warning-tint-foreground text-9"[39m
+              [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm-step-external"[39m
+            [36m>[39m
+              [0m对外[0m
+            [36m</span>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"[39m
+              [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm-step-adjust"[39m
+            [36m>[39m
+              [0m调整[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"[39m
+              [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm-step-reject"[39m
+            [36m>[39m
+              [0m拒绝[0m
+            [36m</button>[39m
+          [36m</li>[39m
+        [36m</ol>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex items-center gap-2"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+            [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm-run"[39m
+          [36m>[39m
+            [0m确认执行[0m
+          [36m</button>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+            [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm-edit"[39m
+          [36m>[39m
+            [0m继续编辑[0m
+          [36m</button>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"ml-auto text-10 text-warning-tint-foreground/70"[39m
+            [33mrole[39m=[32m"status"[39m
+          [36m>[39m
+            [0m等待你的确认…[0m
+          [36m</span>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × translates direct/automatic delivery without inventing absent step actions 4ms
+     → Unable to find an element with the text: Direct execution. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mSwitch test locale[0m
+    [36m</button>[39m
+    [36m<span[39m
+      [33mclass[39m=[32m"inline-flex w-fit items-center gap-1 rounded-control bg-muted px-1.5 py-0.5 text-10 font-medium text-muted-foreground"[39m
+      [33mdata-testid[39m=[32m"chat-task-workbench-task-type-badge"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-zap h-2.5 w-2.5"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+      [0m判断为直接执行[0m
+    [36m</span>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"rounded-card border text-card-foreground overflow-hidden border-accent/40 bg-accent/30"[39m
+      [33mdata-testid[39m=[32m"chat-task-workbench-plan-auto-deliver"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"p-4 flex flex-col gap-2 py-3"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex items-center gap-2"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 font-medium transition-colors duration-200 bg-accent text-accent-foreground text-10"[39m
+          [36m>[39m
+            [0m已在执行[0m
+          [36m</span>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"text-13 font-semibold text-accent-foreground"[39m
+          [36m>[39m
+            [0m已在按此计划执行[0m
+          [36m</span>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12 ml-auto"[39m
+            [33mdata-testid[39m=[32m"chat-task-workbench-plan-auto-deliver-pause"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-pause h-3.5 w-3.5"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<rect[39m
+                [33mheight[39m=[32m"16"[39m
+                [33mrx[39m=[32m"1"[39m
+                [33mwidth[39m=[32m"4"[39m
+                [33mx[39m=[32m"14"[39m
+                [33my[39m=[32m"4"[39m
+              [36m/>[39m
+              [36m<rect[39m
+                [33mheight[39m=[32m"16"[39m
+                [33mrx[39m=[32m"1"[39m
+                [33mwidth[39m=[32m"4"[39m
+                [33mx[39m=[32m"6"[39m
+                [33my[39m=[32m"4"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0m 暂停/调整[0m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<ol[39m
+          [33mclass[39m=[32m"flex flex-col gap-1"[39m
+        [36m>[39m
+          [36m<li[39m
+            [33mclass[39m=[32m"flex items-center gap-2 rounded-control px-1 py-0.5 text-12"[39m
+            [33mdata-plan-status[39m=[32m"in_progress"[39m
+            [33mdata-testid[39m=[32m"chat-task-workbench-plan-auto-deliver-step"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"font-mono text-10 text-muted-foreground"[39m
+            [36m>[39m
+              [0m1[0m
+              [0m.[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m""[39m
+            [36m>[39m
+              [0m模型步骤 {id} 🌱[0m
+            [36m</span>[39m
+          [36m</li>[39m
+        [36m</ol>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × renders authoritative progress values and raw current step without new timer or locale action 4ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Current step:
+Received:
+  当前步骤：模型步骤 {id} 🌱第 2 步 · 共 2 步 · 已用 1分5秒
+   × translates stalled owned state and keeps recovery an explicit once callback 2ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Execution result unconfirmed
+Received:
+  执行结果未确认已完成 0/0 步 · 已用 1秒最近一次调用出错，这轮执行结果未确认。重试这轮任务
+   × translates recovery chrome but never interprets raw caller reason/note 3ms
+     → Unable to find an element with the text: Step 2 “模型步骤 {id} 🌱” failed. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mSwitch test locale[0m
+    [36m</button>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"rounded-card border bg-card text-card-foreground border-destructive/30"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"p-4 flex flex-col gap-3 py-3"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex items-start gap-2"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-triangle-alert mt-0.5 h-4 w-4 shrink-0 text-destructive"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 9v4"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 17h.01"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-col gap-0.5"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-13"[39m
+            [36m>[39m
+              [0m第 2 步「模型步骤 {id} 🌱」失败[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"whitespace-pre-line text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0mcaller原始reason[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mt-1 text-12 text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"chat-task-workbench-failure-note"[39m
+            [36m>[39m
+              [0mcaller原始note[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-wrap items-center gap-2"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+            [33mdata-testid[39m=[32m"chat-task-workbench-failure-retry-step"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-rotate-ccw h-3.5 w-3.5"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M3 3v5h5"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0m重试该步[0m
+          [36m</button>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+            [33mdata-testid[39m=[32m"chat-task-workbench-failure-edit-input"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-pencil h-3.5 w-3.5"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m15 5 4 4"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0m 修改输入[0m
+          [36m</button>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × translates canonical phase preparing with stable machine identity 3ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Preparing
+Received:
+  当前处于「准备」阶段准备›计划›执行›审批›完成
+   × translates canonical phase planning with stable machine identity 2ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Planning
+Received:
+  当前处于「计划」阶段准备›计划›执行›审批›完成
+   × translates canonical phase executing with stable machine identity 2ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Executing
+Received:
+  当前处于「执行」阶段准备›计划›执行›审批›完成
+   × translates canonical phase approving with stable machine identity 3ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Approval
+Received:
+  当前处于「审批」阶段准备›计划›执行›审批›完成
+   × translates canonical phase done with stable machine identity 2ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Completed
+Received:
+  当前处于「完成」阶段准备›计划›执行›审批›完成
+   × translates canonical phase failed with stable machine identity 1ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Failed
+Received:
+  失败
+   × translates canonical phase cancelled with stable machine identity 1ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Stopped
+Received:
+  已停止
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 18 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/i18n-chat-canonical-chrome.test.tsx > translates actual expanded done-incomplete notice without changing the ledger or GET session
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  1 step remains unmarked
+Received:
+  本轮执行已结束，计划账本仍有 1 步未标记完成，请核对下方步骤。
+ ❯ tests/ui/i18n-chat-canonical-chrome.test.tsx:145:18
+    143|   fireEvent.click(await screen.findByTestId(PLAN_CONTROL_COLLAPSE_TOGG…
+    144|   const notice = screen.getByTestId("chat-task-workbench-plan-done-inc…
+    145|   expect(notice).toHaveTextContent("1 step remains unmarked");
+       |                  ^
+    146|   const raw = screen.getByText("模型步骤 {raw}");
+    147|   fireEvent.click(screen.getByRole("button", { name: "Change test loca…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/18]⎯
+
+ FAIL  tests/ui/i18n-chat-canonical-chrome.test.tsx > translates actual proposal and edit controls while keeping the draft action explicit
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Proposed plan
+Received:
+  以下是待确认的提案计划，确认后才会开始执行。
+ ❯ tests/ui/i18n-chat-canonical-chrome.test.tsx:157:73
+    155|   host(<CopilotKitV2PlanControl threadId="raw-thread" projectId={null}…
+    156|   fireEvent.click(await screen.findByTestId(PLAN_CONTROL_COLLAPSE_TOGG…
+    157|   expect(screen.getByTestId("chat-task-workbench-plan-proposal-badge")…
+       |                                                                         ^
+    158|   const edit = screen.getByRole("button", { name: "Edit plan" });
+    159|   fireEvent.click(edit);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/18]⎯
+
+ FAIL  tests/ui/i18n-chat-canonical-chrome.test.tsx > translates actual owned failed reason and model-completed note at render without reloading
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Retry task
+Received:
+  重试任务
+ ❯ tests/ui/i18n-chat-canonical-chrome.test.tsx:176:17
+    174|   host(<CopilotKitV2PlanControl threadId="raw-thread" projectId={null}…
+    175|   const retry = await screen.findByTestId("chat-task-workbench-failure…
+    176|   expect(retry).toHaveTextContent("Retry task");
+       |                 ^
+    177|   expect(screen.getByText(/provider did not finish within/)).toBeTruth…
+    178|   const note = screen.getByTestId("chat-task-workbench-failure-note");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/18]⎯
+
+ FAIL  tests/ui/i18n-chat-plan-nested.test.tsx > keeps readonly raw steps and stopped status on the same DOM across locale
+TestingLibraryElementError: Unable to find an element with the text: Current plan. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mSwitch test locale[0m
+    [36m</button>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"rounded-card border border-border bg-card text-card-foreground w-full shrink-0 overflow-hidden"[39m
+      [33mdata-plan-mode[39m=[32m"read"[39m
+      [33mdata-testid[39m=[32m"chat-task-workbench-plan-panel"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle bg-accent px-3 py-2.5"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col gap-0.5"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"font-mono text-9 font-medium uppercase tracking-wide text-accent-foreground/70"[39m
+          [36m>[39m
+            [0mPlan[0m
+          [36m</span>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"text-13 font-semibold text-accent-foreground"[39m
+          [36m>[39m
+            [0m当前计划[0m
+          [36m</span>[39m
+        [36m</div>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 font-medium transition-colors duration-200 bg-muted text-muted-foreground ml-auto text-10"[39m
+        [36m>[39m
+          [0m1[0m
+          [0m 步[0m
+        [36m</span>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"p-4 flex flex-col gap-2 py-3"[39m
+      [36m>[39m
+        [36m<ol[39m
+          [33mclass[39m=[32m"flex flex-col gap-1.5"[39m
+        [36m>[39m
+          [36m<li[39m
+            [33mclass[39m=[32m"flex flex-col gap-1"[39m
+            [33mdata-plan-status[39m=[32m"in_progress"[39m
+            [33mdata-testid[39m=[32m"chat-task-workbench-plan-step"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-center gap-2 rounded-control px-1 py-0.5"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"flex h-6 w-6 shrink-0 items-center justify-center rounded-full font-mono text-11 font-medium border border-border text-muted-foreground"[39m
+              [36m>[39m
+                [0m1[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-13"[39m
+              [36m>[39m
+                [0m模型步骤 {id} 🌱[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33maria-label[39m=[32m"已停止"[39m
+                [33mclass[39m=[32m"ml-auto text-10 text-muted-foreground"[39m
+              [36m>[39m
+                [0m已停止[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"ml-7 flex items-center gap-1.5 rounded-control border border-border-subtle bg-panel px-2.5 py-1"[39m
+              [33mdata-testid[39m=[32m"chat-task-workbench-plan-constraint"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+              [36m>[39m
+                [0m↳[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-12 text-background-foreground"[39m
+              [36m>[39m
+                [0m用户约束 {text}[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 font-medium transition-colors duration-200 border border-border text-muted-foreground text-10"[39m
+              [36m>[39m
+                [0m约束[0m
+              [36m</span>[39m
+            [36m</div>[39m
+          [36m</li>[39m
+        [36m</ol>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-plan-nested.test.tsx:28:17
+     26|   host(<PlanPanelReadOnly steps={steps} executionStopped />);
+     27|   const row = screen.getByTestId("chat-task-workbench-plan-step");
+     28|   expect(screen.getByText("Current plan")).toBeTruthy();
+       |                 ^
+     29|   expect(screen.getByLabelText("Stopped")).toBeTruthy();
+     30|   expect(screen.getByText("Constraint")).toBeTruthy();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/18]⎯
+
+ FAIL  tests/ui/i18n-chat-plan-nested.test.tsx > retains edit draft and exact constraint/reorder IDs without locale actions
+Error: expect(element).toHaveAccessibleName()
+
+Expected element to have accessible name:
+  Enter a constraint for “模型步骤 {id} 🌱”
+Received:
+  为「模型步骤 {id} 🌱」输入约束
+ ❯ tests/ui/i18n-chat-plan-nested.test.tsx:45:17
+     43|   const input = screen.getByRole("textbox");
+     44|   fireEvent.change(input, { target: { value: "  raw draft 中文 {x}  " …
+     45|   expect(input).toHaveAccessibleName(`Enter a constraint for “${raw}”`…
+       |                 ^
+     46|   flip();
+     47|   expect(screen.getByRole("textbox")).toBe(input);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/18]⎯
+
+ FAIL  tests/ui/i18n-chat-plan-nested.test.tsx > translates stale, pending and orphan notices while preserving raw text and callbacks
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "View changes"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "Switch test locale":
+  [36m<button />[39m
+
+  Name "查看差异":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11 ml-auto"[39m
+  [36m/>[39m
+
+  Name "重新应用":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"[39m
+  [36m/>[39m
+
+  Name "移除":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent hover:bg-muted hover:text-background-foreground h-6 px-2 text-11 ml-auto text-primary"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  status:
+
+  Name "":
+  [36m<div[39m
+    [33mclass[39m=[32m"flex items-center gap-2 rounded-control border border-ai/25 bg-ai-tint px-2.5 py-2 text-12 text-ai-tint-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-plan-stale-banner"[39m
+    [33mrole[39m=[32m"status"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<div[39m
+    [33mclass[39m=[32m"flex items-start gap-2 rounded-control border border-warning/30 bg-warning/5 px-2.5 py-2 text-12"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-plan-pending-apply"[39m
+    [33mrole[39m=[32m"status"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<div[39m
+    [33mclass[39m=[32m"flex items-center gap-2 rounded-control border border-warning/30 bg-warning/5 px-2.5 py-2 text-12"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-plan-orphan-constraint"[39m
+    [33mrole[39m=[32m"status"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mSwitch test locale[0m
+    [36m</button>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex items-center gap-2 rounded-control border border-ai/25 bg-ai-tint px-2.5 py-2 text-12 text-ai-tint-foreground"[39m
+      [33mdata-testid[39m=[32m"chat-task-workbench-plan-stale-banner"[39m
+      [33mrole[39m=[32m"status"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-info h-3.5 w-3.5 shrink-0"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<circle[39m
+          [33mcx[39m=[32m"12"[39m
+          [33mcy[39m=[32m"12"[39m
+          [33mr[39m=[32m"10"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M12 16v-4"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M12 8h.01"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+      [36m<span>[39m
+        [0mAgent 刚更新了计划，你的改动没有丢。[0m
+      [36m</span>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11 ml-auto"[39m
+      [36m>[39m
+        [0m查看差异[0m
+      [36m</button>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"[39m
+      [36m>[39m
+        [0m重新应用[0m
+      [36m</button>[39m
+    [36m</div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex items-start gap-2 rounded-control border border-warning/30 bg-warning/5 px-2.5 py-2 text-12"[39m
+      [33mdata-testid[39m=[32m"chat-task-workbench-plan-pending-apply"[39m
+      [33mrole[39m=[32m"status"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-info mt-0.5 h-3.5 w-3.5 shrink-0 text-warning"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<circle[39m
+          [33mcx[39m=[32m"12"[39m
+          [33mcy[39m=[32m"12"[39m
+          [33mr[39m=[32m"10"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M12 16v-4"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M12 8h.01"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+      [36m<span>[39m
+        [0mAgent 正在执行。你的改动会[0m
+        [36m<b>[39m
+          [0m落到账本、在当前步骤完成后生效[0m
+        [36m</b>[39m
+        [0m，不会改变正在跑的这一步。[0m
+      [36m</span>[39m
+    [36m</div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex items-center gap-2 rounded-control border border-warning/30 bg-warning/5 px-2.5 py-2 text-12"[39m
+      [33mdata-testid[39m=[32m"chat-task-workbench-plan-orphan-constraint"[39m
+      [33mrole[39m=[32m"status"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-unlink h-3.5 w-3.5 shrink-0 text-warning"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m18.84 12.25 1.72-1.71h-.02a5.004 5.004 0 0 0-.12-7.07 5.006 5.006 0 0 0-6.95 0l-1.72 1.71"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m5.17 11.75-1.71 1.71a5.004 5.004 0 0 0 .12 7.07 5.006 5.006 0 0 0 6.95 0l1.71-1.71"[39m
+        [36m/>[39m
+        [36m<line[39m
+          [33mx1[39m=[32m"8"[39m
+          [33mx2[39m=[32m"8"[39m
+          [33my1[39m=[32m"2"[39m
+          [33my2[39m=[32m"5"[39m
+        [36m/>[39m
+        [36m<line[39m
+          [33mx1[39m=[32m"2"[39m
+          [33mx2[39m=[32m"5"[39m
+          [33my1[39m=[32m"8"[39m
+          [33my2[39m=[32m"8"[39m
+        [36m/>[39m
+        [36m<line[39m
+          [33mx1[39m=[32m"16"[39m
+          [33mx2[39m=[32m"16"[39m
+          [33my1[39m=[32m"19"[39m
+          [33my2[39m=[32m"22"[39m
+        [36m/>[39m
+        [36m<line[39m
+          [33mx1[39m=[32m"19"[39m
+          [33mx2[39m=[32m"22"[39m
+          [33my1[39m=[32m"16"[39m
+          [33my2[39m=[32m"16"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+      [36m<span>[39m
+        [0m1 条约束失去了对应步骤：「[0m
+        [0mraw约束[0m
+        [0m」（原属「[0m
+        [0m模型步骤 {id} 🌱[0m
+        [0m」）[0m
+      [36m</span>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent hover:bg-muted hover:text-background-foreground h-6 px-2 text-11 ml-auto text-primary"[39m
+      [36m>[39m
+        [0m移除[0m
+      [36m</button>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-plan-nested.test.tsx:62:17
+     60|   const diff = vi.fn(), reapply = vi.fn(), remove = vi.fn();
+     61|   host(<><PlanStaleBanner onViewDiff={diff} onReapply={reapply} /><Pla…
+     62|   expect(screen.getByRole("button", { name: "View changes" })).toBeTru…
+       |                 ^
+     63|   expect(screen.getByTestId("chat-task-workbench-plan-pending-apply"))…
+     64|   expect(screen.getByTestId("chat-task-workbench-plan-orphan-constrain…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/18]⎯
+
+ FAIL  tests/ui/i18n-chat-plan-nested.test.tsx > keeps pending confirmation and external raw step decisions explicit
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Confirm execution"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "Switch test locale":
+  [36m<button />[39m
+
+  Name "调整":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm-step-adjust"[39m
+  [36m/>[39m
+
+  Name "拒绝":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm-step-reject"[39m
+  [36m/>[39m
+
+  Name "确认执行":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm-run"[39m
+  [36m/>[39m
+
+  Name "继续编辑":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm-edit"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-12 text-warning-tint-foreground/80"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm-reason"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"flex items-center gap-1.5 text-11 text-warning-tint-foreground/80"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  list:
+
+  Name "":
+  [36m<ol[39m
+    [33mclass[39m=[32m"flex flex-col gap-1.5"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  listitem:
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"flex items-center gap-2 rounded-control px-1.5 py-1 text-12 border border-warning/50 bg-warning/10"[39m
+    [33mdata-plan-status[39m=[32m"in_progress"[39m
+    [33mdata-plan-step-external[39m=[32m"true"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm-step"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  status:
+
+  Name "":
+  [36m<span[39m
+    [33mclass[39m=[32m"ml-auto text-10 text-warning-tint-foreground/70"[39m
+    [33mrole[39m=[32m"status"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mSwitch test locale[0m
+    [36m</button>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"rounded-card border text-card-foreground overflow-hidden border-warning/30 bg-warning-tint"[39m
+      [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"p-4 flex flex-col gap-2 py-3"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex items-center gap-2"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 font-medium transition-colors duration-200 bg-warning-tint text-warning-tint-foreground text-10"[39m
+          [36m>[39m
+            [0m需确认[0m
+          [36m</span>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"text-13 font-semibold text-warning-tint-foreground"[39m
+          [36m>[39m
+            [0m涉及对外动作，确认后执行[0m
+          [36m</span>[39m
+        [36m</div>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-12 text-warning-tint-foreground/80"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm-reason"[39m
+        [36m>[39m
+          [0m这是一个多步、且会产生对外可见影响的任务，执行前请确认。[0m
+        [36m</p>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"flex items-center gap-1.5 text-11 text-warning-tint-foreground/80"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-shield-alert h-3 w-3 shrink-0"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 8v4"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 16h.01"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [0m带「对外」标记的步骤会产生外部可见的影响，执行前请逐步核对。[0m
+        [36m</p>[39m
+        [36m<ol[39m
+          [33mclass[39m=[32m"flex flex-col gap-1.5"[39m
+        [36m>[39m
+          [36m<li[39m
+            [33mclass[39m=[32m"flex items-center gap-2 rounded-control px-1.5 py-1 text-12 border border-warning/50 bg-warning/10"[39m
+            [33mdata-plan-status[39m=[32m"in_progress"[39m
+            [33mdata-plan-step-external[39m=[32m"true"[39m
+            [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm-step"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"font-mono text-10 text-muted-foreground"[39m
+            [36m>[39m
+              [0m1[0m
+              [0m.[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"flex-1"[39m
+            [36m>[39m
+              [0m模型步骤 {id} 🌱[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 font-medium transition-colors duration-200 bg-warning-tint text-warning-tint-foreground text-9"[39m
+              [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm-step-external"[39m
+            [36m>[39m
+              [0m对外[0m
+            [36m</span>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"[39m
+              [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm-step-adjust"[39m
+            [36m>[39m
+              [0m调整[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"[39m
+              [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm-step-reject"[39m
+            [36m>[39m
+              [0m拒绝[0m
+            [36m</button>[39m
+          [36m</li>[39m
+        [36m</ol>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex items-center gap-2"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+            [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm-run"[39m
+          [36m>[39m
+            [0m确认执行[0m
+          [36m</button>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+            [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm-edit"[39m
+          [36m>[39m
+            [0m继续编辑[0m
+          [36m</button>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"ml-auto text-10 text-warning-tint-foreground/70"[39m
+            [33mrole[39m=[32m"status"[39m
+          [36m>[39m
+            [0m等待你的确认…[0m
+          [36m</span>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-plan-nested.test.tsx:77:25
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/18]⎯
+
+ FAIL  tests/ui/i18n-chat-plan-nested.test.tsx > translates direct/automatic delivery without inventing absent step actions
+TestingLibraryElementError: Unable to find an element with the text: Direct execution. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mSwitch test locale[0m
+    [36m</button>[39m
+    [36m<span[39m
+      [33mclass[39m=[32m"inline-flex w-fit items-center gap-1 rounded-control bg-muted px-1.5 py-0.5 text-10 font-medium text-muted-foreground"[39m
+      [33mdata-testid[39m=[32m"chat-task-workbench-task-type-badge"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-zap h-2.5 w-2.5"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+      [0m判断为直接执行[0m
+    [36m</span>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"rounded-card border text-card-foreground overflow-hidden border-accent/40 bg-accent/30"[39m
+      [33mdata-testid[39m=[32m"chat-task-workbench-plan-auto-deliver"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"p-4 flex flex-col gap-2 py-3"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex items-center gap-2"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 font-medium transition-colors duration-200 bg-accent text-accent-foreground text-10"[39m
+          [36m>[39m
+            [0m已在执行[0m
+          [36m</span>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"text-13 font-semibold text-accent-foreground"[39m
+          [36m>[39m
+            [0m已在按此计划执行[0m
+          [36m</span>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12 ml-auto"[39m
+            [33mdata-testid[39m=[32m"chat-task-workbench-plan-auto-deliver-pause"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-pause h-3.5 w-3.5"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<rect[39m
+                [33mheight[39m=[32m"16"[39m
+                [33mrx[39m=[32m"1"[39m
+                [33mwidth[39m=[32m"4"[39m
+                [33mx[39m=[32m"14"[39m
+                [33my[39m=[32m"4"[39m
+              [36m/>[39m
+              [36m<rect[39m
+                [33mheight[39m=[32m"16"[39m
+                [33mrx[39m=[32m"1"[39m
+                [33mwidth[39m=[32m"4"[39m
+                [33mx[39m=[32m"6"[39m
+                [33my[39m=[32m"4"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0m 暂停/调整[0m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<ol[39m
+          [33mclass[39m=[32m"flex flex-col gap-1"[39m
+        [36m>[39m
+          [36m<li[39m
+            [33mclass[39m=[32m"flex items-center gap-2 rounded-control px-1 py-0.5 text-12"[39m
+            [33mdata-plan-status[39m=[32m"in_progress"[39m
+            [33mdata-testid[39m=[32m"chat-task-workbench-plan-auto-deliver-step"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"font-mono text-10 text-muted-foreground"[39m
+            [36m>[39m
+              [0m1[0m
+              [0m.[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m""[39m
+            [36m>[39m
+              [0m模型步骤 {id} 🌱[0m
+            [36m</span>[39m
+          [36m</li>[39m
+        [36m</ol>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-plan-nested.test.tsx:91:17
+     89| it("translates direct/automatic delivery without inventing absent step…
+     90|   host(<><PlanDirectExecutionBadge /><PlanConfirmGate gate={{ required…
+     91|   expect(screen.getByText("Direct execution")).toBeTruthy();
+       |                 ^
+     92|   expect(screen.getByText("Executing this plan")).toBeTruthy();
+     93|   expect(screen.queryByTestId("chat-task-workbench-plan-confirm-run"))…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/18]⎯
+
+ FAIL  tests/ui/i18n-chat-plan-nested.test.tsx > renders authoritative progress values and raw current step without new timer or locale action
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Current step:
+Received:
+  当前步骤：模型步骤 {id} 🌱第 2 步 · 共 2 步 · 已用 1分5秒
+ ❯ tests/ui/i18n-chat-plan-nested.test.tsx:101:16
+     99|   host(<PlanRunProgress view={view} currentStepLabel={raw} elapsedMs={…
+    100|   const card = screen.getByTestId("chat-task-workbench-run-progress");
+    101|   expect(card).toHaveTextContent("Current step:");
+       |                ^
+    102|   expect(card).toHaveTextContent("1m 5s");
+    103|   expect(screen.getByRole("progressbar")).toHaveAccessibleName("Execut…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/18]⎯
+
+ FAIL  tests/ui/i18n-chat-plan-nested.test.tsx > translates stalled owned state and keeps recovery an explicit once callback
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Execution result unconfirmed
+Received:
+  执行结果未确认已完成 0/0 步 · 已用 1秒最近一次调用出错，这轮执行结果未确认。重试这轮任务
+ ❯ tests/ui/i18n-chat-plan-nested.test.tsx:117:66
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/18]⎯
+
+ FAIL  tests/ui/i18n-chat-plan-nested.test.tsx > translates recovery chrome but never interprets raw caller reason/note
+TestingLibraryElementError: Unable to find an element with the text: Step 2 “模型步骤 {id} 🌱” failed. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mSwitch test locale[0m
+    [36m</button>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"rounded-card border bg-card text-card-foreground border-destructive/30"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"p-4 flex flex-col gap-3 py-3"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex items-start gap-2"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-triangle-alert mt-0.5 h-4 w-4 shrink-0 text-destructive"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 9v4"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 17h.01"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-col gap-0.5"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-13"[39m
+            [36m>[39m
+              [0m第 2 步「模型步骤 {id} 🌱」失败[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"whitespace-pre-line text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0mcaller原始reason[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mt-1 text-12 text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"chat-task-workbench-failure-note"[39m
+            [36m>[39m
+              [0mcaller原始note[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-wrap items-center gap-2"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+            [33mdata-testid[39m=[32m"chat-task-workbench-failure-retry-step"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-rotate-ccw h-3.5 w-3.5"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M3 3v5h5"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0m重试该步[0m
+          [36m</button>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+            [33mdata-testid[39m=[32m"chat-task-workbench-failure-edit-input"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-pencil h-3.5 w-3.5"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m15 5 4 4"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0m 修改输入[0m
+          [36m</button>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-plan-nested.test.tsx:127:17
+    125|   const retry = vi.fn();
+    126|   host(<PlanFailureRecovery failedStepIndex={2} failedStepLabel={raw} …
+    127|   expect(screen.getByText(`Step 2 “${raw}” failed`)).toBeTruthy();
+       |                 ^
+    128|   const button = screen.getByRole("button", { name: "Retry this step" …
+    129|   flip(); expect(retry).not.toHaveBeenCalled();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/18]⎯
+
+ FAIL  tests/ui/i18n-chat-plan-nested.test.tsx > translates canonical phase preparing with stable machine identity
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Preparing
+Received:
+  当前处于「准备」阶段准备›计划›执行›审批›完成
+ ❯ tests/ui/i18n-chat-plan-nested.test.tsx:138:16
+    136|   host(<PlanPhaseIndicator phase={phase} />);
+    137|   const root = screen.getByTestId("chat-task-workbench-phase-indicator…
+    138|   expect(root).toHaveTextContent(english);
+       |                ^
+    139|   expect(root).toHaveAttribute("data-phase", phase);
+    140|   const active = root.querySelector('[aria-current="step"]');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/18]⎯
+
+ FAIL  tests/ui/i18n-chat-plan-nested.test.tsx > translates canonical phase planning with stable machine identity
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Planning
+Received:
+  当前处于「计划」阶段准备›计划›执行›审批›完成
+ ❯ tests/ui/i18n-chat-plan-nested.test.tsx:138:16
+    136|   host(<PlanPhaseIndicator phase={phase} />);
+    137|   const root = screen.getByTestId("chat-task-workbench-phase-indicator…
+    138|   expect(root).toHaveTextContent(english);
+       |                ^
+    139|   expect(root).toHaveAttribute("data-phase", phase);
+    140|   const active = root.querySelector('[aria-current="step"]');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/18]⎯
+
+ FAIL  tests/ui/i18n-chat-plan-nested.test.tsx > translates canonical phase executing with stable machine identity
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Executing
+Received:
+  当前处于「执行」阶段准备›计划›执行›审批›完成
+ ❯ tests/ui/i18n-chat-plan-nested.test.tsx:138:16
+    136|   host(<PlanPhaseIndicator phase={phase} />);
+    137|   const root = screen.getByTestId("chat-task-workbench-phase-indicator…
+    138|   expect(root).toHaveTextContent(english);
+       |                ^
+    139|   expect(root).toHaveAttribute("data-phase", phase);
+    140|   const active = root.querySelector('[aria-current="step"]');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/18]⎯
+
+ FAIL  tests/ui/i18n-chat-plan-nested.test.tsx > translates canonical phase approving with stable machine identity
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Approval
+Received:
+  当前处于「审批」阶段准备›计划›执行›审批›完成
+ ❯ tests/ui/i18n-chat-plan-nested.test.tsx:138:16
+    136|   host(<PlanPhaseIndicator phase={phase} />);
+    137|   const root = screen.getByTestId("chat-task-workbench-phase-indicator…
+    138|   expect(root).toHaveTextContent(english);
+       |                ^
+    139|   expect(root).toHaveAttribute("data-phase", phase);
+    140|   const active = root.querySelector('[aria-current="step"]');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/18]⎯
+
+ FAIL  tests/ui/i18n-chat-plan-nested.test.tsx > translates canonical phase done with stable machine identity
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Completed
+Received:
+  当前处于「完成」阶段准备›计划›执行›审批›完成
+ ❯ tests/ui/i18n-chat-plan-nested.test.tsx:138:16
+    136|   host(<PlanPhaseIndicator phase={phase} />);
+    137|   const root = screen.getByTestId("chat-task-workbench-phase-indicator…
+    138|   expect(root).toHaveTextContent(english);
+       |                ^
+    139|   expect(root).toHaveAttribute("data-phase", phase);
+    140|   const active = root.querySelector('[aria-current="step"]');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/18]⎯
+
+ FAIL  tests/ui/i18n-chat-plan-nested.test.tsx > translates canonical phase failed with stable machine identity
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Failed
+Received:
+  失败
+ ❯ tests/ui/i18n-chat-plan-nested.test.tsx:138:16
+    136|   host(<PlanPhaseIndicator phase={phase} />);
+    137|   const root = screen.getByTestId("chat-task-workbench-phase-indicator…
+    138|   expect(root).toHaveTextContent(english);
+       |                ^
+    139|   expect(root).toHaveAttribute("data-phase", phase);
+    140|   const active = root.querySelector('[aria-current="step"]');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/18]⎯
+
+ FAIL  tests/ui/i18n-chat-plan-nested.test.tsx > translates canonical phase cancelled with stable machine identity
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Stopped
+Received:
+  已停止
+ ❯ tests/ui/i18n-chat-plan-nested.test.tsx:138:16
+    136|   host(<PlanPhaseIndicator phase={phase} />);
+    137|   const root = screen.getByTestId("chat-task-workbench-phase-indicator…
+    138|   expect(root).toHaveTextContent(english);
+       |                ^
+    139|   expect(root).toHaveAttribute("data-phase", phase);
+    140|   const active = root.querySelector('[aria-current="step"]');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/18]⎯
+
+ Test Files  2 failed (2)
+      Tests  18 failed | 5 passed (23)
+   Start at  02:40:45
+   Duration  4.94s (transform 1.18s, setup 299ms, collect 2.30s, tests 464ms, environment 1.48s, prepare 93ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/i18n-chat-plan-nested.test.tsx tests/ui/i18n-chat-canonical-chrome.test.tsx

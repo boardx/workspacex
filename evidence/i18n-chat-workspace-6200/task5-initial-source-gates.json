@@ -1,0 +1,35 @@
+{
+  "head": "c1c1f1fb0f420f2cf2ec136990c4c18de4e3e2b0",
+  "sourceSha256": {
+    "apps/web/e2e/i18n-chat-workspace.spec.ts": "f30fc72c567322753200f644014f6b1304a7c40c537df7661cb6c372f9206201",
+    "apps/web/playwright.chat-read.config.ts": "d249544199f292eb863d1c93802401699e906de3ee050d801dc126da2b9d571d"
+  },
+  "gates": [
+    {
+      "name": "lint",
+      "command": [
+        "pnpm",
+        "--filter",
+        "web",
+        "exec",
+        "eslint",
+        "e2e/i18n-chat-workspace.spec.ts",
+        "playwright.chat-read.config.ts"
+      ],
+      "exitCode": 0,
+      "seconds": 12.822
+    },
+    {
+      "name": "type",
+      "command": [
+        "pnpm",
+        "--filter",
+        "web",
+        "typecheck"
+      ],
+      "exitCode": 0,
+      "seconds": 81.881
+    }
+  ],
+  "scope": "Task5 draft five cases; no discovery/browser"
+}

@@ -1,0 +1,60 @@
+{
+  "run": 41917734613,
+  "job": 126883925568,
+  "runAttempt": 1,
+  "head": "43f9f526b582fa7b9c9bba4285ea8cba27dfb46a",
+  "artifact": 13367636152,
+  "reportSha256": "b5b4e589f824987f1678afd9770921c528f04724dca819bd8b92ab9393a54e88",
+  "cases": [
+    {
+      "retry": 0,
+      "status": "failed",
+      "milliseconds": 2467,
+      "operations": [
+        {
+          "operation": "protected unavailable-adapter historical prerequisite",
+          "status": 201
+        },
+        {
+          "operation": "independent original GET",
+          "status": 200
+        },
+        {
+          "operation": "native organization list",
+          "status": 503
+        }
+      ],
+      "orgRead": {
+        "status": 503,
+        "reasonCode": "PLATFORM_CATALOG_UNAVAILABLE"
+      }
+    },
+    {
+      "retry": 1,
+      "status": "failed",
+      "milliseconds": 2808,
+      "operations": [
+        {
+          "operation": "protected unavailable-adapter historical prerequisite",
+          "status": 201
+        },
+        {
+          "operation": "independent original GET",
+          "status": 200
+        },
+        {
+          "operation": "native organization list",
+          "status": 503
+        }
+      ],
+      "orgRead": {
+        "status": 503,
+        "reasonCode": "PLATFORM_CATALOG_UNAVAILABLE"
+      }
+    }
+  ],
+  "plannedPngProduced": 0,
+  "automaticFailurePng": 2,
+  "uiBoundary": "Actual route entered and error UI visible; no planned acceptance capture/recovery flow reached. One failure screenshot visually inspected only for diagnosis.",
+  "status": "DRAFT_NONREADY; actual dependency prerequisite failure; no product/i18n PASS conclusion"
+}

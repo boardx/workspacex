@@ -1,0 +1,126 @@
+{
+  "head": "c1c1f1fb0f420f2cf2ec136990c4c18de4e3e2b0",
+  "sourceSha256": {
+    "apps/web/e2e/i18n-chat-workspace.spec.ts": "4f3372ee5f3c18ac0bed56a863fbe097d3d6b16043d1b80747f92fef93016e5a",
+    "apps/web/playwright.chat-read.config.ts": "d249544199f292eb863d1c93802401699e906de3ee050d801dc126da2b9d571d"
+  },
+  "gates": [
+    {
+      "name": "lint",
+      "command": [
+        "pnpm",
+        "--filter",
+        "web",
+        "exec",
+        "eslint",
+        "e2e/i18n-chat-workspace.spec.ts",
+        "playwright.chat-read.config.ts"
+      ],
+      "exitCode": 0,
+      "seconds": 7.428
+    },
+    {
+      "name": "type",
+      "command": [
+        "pnpm",
+        "--filter",
+        "web",
+        "typecheck"
+      ],
+      "exitCode": 0,
+      "seconds": 30.177
+    },
+    {
+      "name": "list",
+      "command": [
+        "pnpm",
+        "exec",
+        "tsx",
+        ".harness/scripts/with-test-isolation.ts",
+        "--",
+        "pnpm",
+        "--filter",
+        "web",
+        "exec",
+        "playwright",
+        "test",
+        "--config",
+        "playwright.chat-read.config.ts",
+        "--project=chat-read",
+        "e2e/i18n-chat-workspace.spec.ts",
+        "--list",
+        "--workers=1",
+        "--retries=0",
+        "--max-failures=1",
+        "--reporter=json",
+        "--output=/tmp/chat6200-task5-seven-source-private/output"
+      ],
+      "exitCode": 0,
+      "seconds": 6.787
+    }
+  ],
+  "browserExecuted": false,
+  "selection": [
+    {
+      "file": "i18n-chat-workspace.spec.ts",
+      "title": "personal sidebar and unsent raw draft survive locale changes at 1280",
+      "project": "chat-read",
+      "timeout": 240000
+    },
+    {
+      "file": "i18n-chat-workspace.spec.ts",
+      "title": "personal sidebar and unsent raw draft survive locale changes at 375",
+      "project": "chat-read",
+      "timeout": 240000
+    },
+    {
+      "file": "i18n-chat-workspace.spec.ts",
+      "title": "active canonical run retains identity, raw draft, selected inspector tab and persisted reply across locale/reload",
+      "project": "chat-read",
+      "timeout": 240000
+    },
+    {
+      "file": "i18n-chat-workspace.spec.ts",
+      "title": "material upload, inline preview and enlarged download retain original bytes across locale changes",
+      "project": "chat-read",
+      "timeout": 240000
+    },
+    {
+      "file": "i18n-chat-workspace.spec.ts",
+      "title": "permission dialog locale switch and Escape submit no decision; explicit once resumes the same canonical run",
+      "project": "chat-read",
+      "timeout": 240000
+    },
+    {
+      "file": "i18n-chat-workspace.spec.ts",
+      "title": "project thread preserves canonical scope, raw project name and return target across locales",
+      "project": "chat-read",
+      "timeout": 240000
+    },
+    {
+      "file": "i18n-chat-workspace.spec.ts",
+      "title": "different seeded principal receives real private-thread 404 and locale changes never grant send access",
+      "project": "chat-read",
+      "timeout": 240000
+    }
+  ],
+  "cleanup": {
+    "compose": "wsx-819d19cb1a32a709beef",
+    "containers": 0,
+    "volumes": 0,
+    "listeners": {
+      "20708": 0,
+      "21708": 0,
+      "24708": 0,
+      "25708": 0,
+      "26708": 0,
+      "27708": 0,
+      "28708": 0,
+      "29708": 0,
+      "30708": 0,
+      "31708": 0,
+      "19708": 0
+    }
+  },
+  "discoveryOnly": true
+}

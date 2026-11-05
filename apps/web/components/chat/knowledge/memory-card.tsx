@@ -6,7 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { KgMemoryCard } from "@repo/contracts/chat-knowledge-graph";
+import { useI18n } from "@/lib/i18n/provider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { MemoryOverviewCard } from "./memory-overview-card";
+import { HumanActionDisplayError, MemoryCardDisplayError, describeHumanActionFailure, describeMemoryCardFailure } from "@/lib/knowledge-graph-failure";
 
 /** 卡上的决定（契约 `actOnMemoryCard.in.decision`）。 */
 export type MemoryCardDecision = "accept" | "dismiss";
@@ -19,12 +22,11 @@ export interface MemoryCardActOptions {
 
 /** 撤销的结果（以服务端重读为准）：撤掉了 / 撤了但长期记忆里这条还有别的来源所以还在 / 服务端已经不让撤。 */
 export type UndoOutcome = "undone" | "kept" | "not_undoable" | "unknown";
-const UNDO_NOTE: Record<UndoOutcome, string> = {
-  undone: "已撤销，这条没有记到长期记忆",
-  kept: "已撤销这次的记住；长期记忆里这条还有别的来源，所以还在",
-  not_undoable: "已记住。长期记忆里这条还有别的来源，没法只撤这一次",
-  /** 撤了，但读不到这张卡（这一轮现在出的是矛盾卡）：说不准长期记忆里还在不在，不多说。 */
-  unknown: "已撤销这次的记住",
+const UNDO_NOTE: Record<UndoOutcome, MessageKey> = {
+  undone: "chatKnowledge.memory.undo.undone",
+  kept: "chatKnowledge.memory.undo.kept",
+  not_undoable: "chatKnowledge.memory.undo.not_undoable",
+  unknown: "chatKnowledge.memory.undo.unknown",
 };
 
 /** 契约 `KgMemoryCard.items[].statement` 的上限。 */
@@ -69,11 +71,17 @@ function ConfirmMemoryCard({
   onUndo?: (claimId: string) => Promise<UndoOutcome>;
   onUndoForget?: () => Promise<KgMemoryCard>;
 }) {
+  const { t, locale } = useI18n();
   const isRemember = card.kind === "remember";
   const [current, setCurrent] = React.useState<KgMemoryCard>(card);
   const [undone, setUndone] = React.useState<UndoOutcome | null>(null);
   const [busy, setBusy] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<{ owned: HumanActionDisplayError | MemoryCardDisplayError } | { raw: string } | { fallback: true } | null>(null);
+  const errorText = error === null ? null : "owned" in error
+    ? error.owned instanceof MemoryCardDisplayError
+      ? describeMemoryCardFailure(error.owned.failure, locale)
+      : describeHumanActionFailure(error.owned.failure, locale)
+    : "raw" in error ? error.raw : t("chatKnowledge.memory.failed");
   const original = card.items[0]?.statement ?? "";
   const [text, setText] = React.useState(original);
   const [checked, setChecked] = React.useState<Record<string, boolean>>(() =>
@@ -89,7 +97,7 @@ function ConfirmMemoryCard({
     try {
       await fn();
     } catch (e) {
-      setError(e instanceof Error && e.message !== "" ? e.message : "没能完成这次操作，请稍后重试。");
+      setError(e instanceof HumanActionDisplayError || e instanceof MemoryCardDisplayError ? { owned: e } : e instanceof Error && e.message !== "" ? { raw: e.message } : { fallback: true });
     } finally {
       setBusy(false);
     }
@@ -110,7 +118,7 @@ function ConfirmMemoryCard({
     return (
       <p className="mt-2 flex items-center gap-1 text-10 text-muted-foreground" data-testid="kg-card-stale">
         <AlertTriangle aria-hidden className="h-3.5 w-3.5 text-warning" />
-        这张卡上的内容已经变了，没有生效。需要的话请再说一次。
+        {t("chatKnowledge.memory.stale")}
       </p>
     );
   }
@@ -119,7 +127,7 @@ function ConfirmMemoryCard({
     return (
       <p className="mt-2 flex items-center gap-1.5 text-10 text-muted-foreground" data-testid="kg-card-undone">
         <Check aria-hidden className="h-3 w-3 text-success" />
-        已撤销，这 {String(current.items.length)} 条都恢复了，之后的对话照常会用到
+        {t("chatKnowledge.memory.restored", { count: current.items.length })}
       </p>
     );
   }
@@ -134,8 +142,8 @@ function ConfirmMemoryCard({
         <p className="flex items-center gap-1.5 text-10 text-muted-foreground">
           <Check aria-hidden className="h-3 w-3 text-success" />
           {isRemember
-            ? (undone !== null ? UNDO_NOTE[undone] : "已记住")
-            : `已忘掉 ${String(current.items.length)} 条，之后的对话不再用到`}
+            ? (undone !== null ? t(UNDO_NOTE[undone]) : t("chatKnowledge.memory.saved"))
+            : t("chatKnowledge.memory.forgotten", { count: current.items.length })}
           {canUndo ? (
             <>
               <span aria-hidden>·</span>
@@ -152,14 +160,14 @@ function ConfirmMemoryCard({
                   }
                 })}
               >
-                撤销
+                {t("chatKnowledge.memory.undo")}
               </button>
             </>
           ) : null}
         </p>
         {error !== null ? (
           <p role="alert" className="text-10 text-destructive" data-testid="kg-card-error">
-            {error}
+            {errorText}
           </p>
         ) : null}
       </div>
@@ -169,7 +177,7 @@ function ConfirmMemoryCard({
   if (current.state === "dismissed") {
     return (
       <p className="mt-2 text-10 text-muted-foreground" data-testid="kg-card-dismissed">
-        {isRemember ? "好的，这条没有记在长期记忆里" : "好的，这些都留着"}
+        {isRemember ? t("chatKnowledge.memory.dismissRemember") : t("chatKnowledge.memory.dismissForget")}
       </p>
     );
   }
@@ -186,7 +194,7 @@ function ConfirmMemoryCard({
           <Trash2 aria-hidden className="h-4 w-4 text-destructive" />
         )}
         <span className="text-11 font-medium text-ai-tint-foreground">
-          {isRemember ? "要记到你的长期记忆吗？" : "要忘掉这些吗？忘掉后我就不再提了"}
+          {isRemember ? t("chatKnowledge.memory.rememberPrompt") : t("chatKnowledge.memory.forgetPrompt")}
         </span>
       </div>
 
@@ -198,7 +206,7 @@ function ConfirmMemoryCard({
             onChange={(e) => setText(e.target.value)}
             rows={2}
             disabled={busy}
-            aria-label="要记住的内容（可改）"
+            aria-label={t("chatKnowledge.memory.edit")}
             data-testid="kg-card-remember-text"
             className="text-11"
           />
@@ -217,7 +225,7 @@ function ConfirmMemoryCard({
                     checked={checked[it.claimId] ?? false}
                     disabled={busy}
                     onChange={(e) => setChecked((s) => ({ ...s, [key]: e.target.checked }))}
-                    aria-label={`忘掉 ${it.statement}`}
+                    aria-label={t("chatKnowledge.memory.forgetItem", { statement: it.statement })}
                     data-testid={`kg-card-forget-check-${key}`}
                   />
                 ) : null}
@@ -237,17 +245,17 @@ function ConfirmMemoryCard({
             data-testid="kg-card-accept"
             onClick={() => void decide("accept")}
           >
-            {isRemember ? "记住" : `忘掉（${String(selected.length)}）`}
+            {isRemember ? t("chatKnowledge.memory.remember") : t("chatKnowledge.memory.forget", { count: selected.length })}
           </Button>
           <Button size="xs" variant="ghost" disabled={busy} data-testid="kg-card-dismiss" onClick={() => void decide("dismiss")}>
-            不用了
+            {t("chatKnowledge.memory.dismiss")}
           </Button>
         </div>
       ) : null}
 
       {error !== null ? (
         <p role="alert" className="text-10 text-destructive" data-testid="kg-card-error">
-          {error}
+          {errorText}
         </p>
       ) : null}
     </div>

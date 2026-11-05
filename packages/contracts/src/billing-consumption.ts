@@ -1,4 +1,5 @@
 import {z} from "zod";
+import {PricingCatalog} from "./billing-pricing";
 import {BillingOwnerType} from "./billing-credits";
 
 export const CREDIT_ADMISSION_POLICY="personal_nonnegative_enterprise_overdraft" as const;
@@ -22,6 +23,7 @@ export const NativeCreditTariff=z.object({
  unit:CreditNativeUnit,quantum:PositiveIntegerString,hundredthsPerQuantum:PositiveIntegerString,version:z.string().min(1).max(128),
 }).strict();
 export const nativeTariffOperations={
+ getImagePricingBasis:{method:'GET',path:'/platform/billing/consumption/image-pricing-basis',in:z.object({orgId:z.string().min(1).max(128)}).strict(),out:PricingCatalog},
  listNativeTariffs:{method:"GET",path:"/platform/billing/consumption/native-tariffs",in:z.object({orgId:z.string().min(1).max(128)}).strict(),out:z.object({items:z.array(NativeCreditTariff)}).strict()},
  upsertNativeTariff:{method:"PUT",path:"/platform/billing/consumption/native-tariffs",in:NativeCreditTariff,out:NativeCreditTariff},
 } as const;

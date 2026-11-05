@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import { ThumbsUp, ThumbsDown, Check } from "lucide-react";
 import { ApiError } from "@/lib/api-client";
 import { rateMessage, type RatingVerdict } from "@/lib/live-message-rating";
@@ -48,6 +49,7 @@ export function MessageRating({
   /** `false` = 常驻可见（没有 `group` 祖先的宿主，如 CopilotKit v2 的框架 toolbar）。 */
   revealOnHover?: boolean;
 }) {
+  const { t } = useI18n();
   const iconButtonClassName = [
     "inline-grid h-5 w-5 place-items-center rounded text-muted-foreground transition-colors duration-fast",
     "hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -83,11 +85,11 @@ export function MessageRating({
       <div className="flex flex-wrap items-center gap-1.5 text-10 text-muted-foreground"
            data-testid="chat-message-rating-done" data-message-id={messageId}>
         <Check aria-hidden className="h-3 w-3 text-primary" />
-        <span>{submitted.verdict === "up" ? "已记录：有用" : "已记录：待改进"}</span>
+        <span>{submitted.verdict === "up" ? t("chatInteractions.ratingUpRecorded") : t("chatInteractions.ratingDownRecorded")}</span>
         {!submitted.attributedToSkill && (
           // I-20：只计 agent 级。说出来，而不是让这一票悄悄消失在满意度之外。
           <span data-testid="chat-message-rating-unattributed">
-            · 这条未能归到具体 skill 版本，只计 agent 级，不计入任何 skill 的满意度
+            {t("chatInteractions.ratingUnattributed")}
           </span>
         )}
       </div>
@@ -102,8 +104,8 @@ export function MessageRating({
           disabled={busy}
           onClick={() => void send("up", null)}
           data-testid="chat-message-rating-up"
-          aria-label="有用"
-          title="有用"
+          aria-label={t("chatInteractions.ratingHelpful")}
+          title={t("chatInteractions.ratingHelpful")}
           className={iconButtonClassName}
         >
           <ThumbsUp aria-hidden className="h-3 w-3" />
@@ -113,8 +115,8 @@ export function MessageRating({
           disabled={busy}
           onClick={() => setPendingDown(true)}
           data-testid="chat-message-rating-down"
-          aria-label="待改进"
-          title="待改进（可填理由）"
+          aria-label={t("chatInteractions.ratingImprove")}
+          title={t("chatInteractions.ratingImproveTitle")}
           className={iconButtonClassName}
         >
           <ThumbsDown aria-hidden className="h-3 w-3" />
@@ -126,8 +128,8 @@ export function MessageRating({
           <input
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            placeholder="哪里待改进？（可不填）"
-            aria-label="待改进的理由"
+            placeholder={t("chatInteractions.ratingPlaceholder")}
+            aria-label={t("chatInteractions.ratingReason")}
             data-testid="chat-message-rating-reason-input"
             className="h-6 min-w-0 flex-1 rounded border border-border-subtle bg-panel px-1.5 text-10"
           />
@@ -138,14 +140,14 @@ export function MessageRating({
             data-testid="chat-message-rating-reason-submit"
             className="rounded border border-border-subtle px-1.5 py-0.5 text-10 transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            提交
+            {t("chatInteractions.ratingSubmit")}
           </button>
         </div>
       )}
 
       {error && (
         <span className="text-10 text-muted-foreground" data-testid="chat-message-rating-error">
-          评价没能记录（{error}）。它没有被保存，可以再试一次。
+          {t("chatInteractions.ratingFailed", { error })}
         </span>
       )}
     </div>

@@ -1,0 +1,74 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/ui/i18n-chat-feedback-voice-host.test.tsx (7 tests) 201ms
+ ❯ tests/ui/i18n-chat-feedback-history-preview.test.tsx (3 tests | 3 failed) 211ms
+   × keeps actual PDF preview iframe and exact authenticated download bytes on locale without downloading again 159ms
+     → expect(element).toHaveAccessibleName()
+
+Expected element to have accessible name:
+  Preview PDF attachment
+Received:
+  预览 PDF 附件
+   × uses the same lazy-loaded image bytes in the actual preview and keeps its chrome DOM on locale 30ms
+     → expect(element).toHaveAccessibleName()
+
+Expected element to have accessible name:
+  Preview attachment
+Received:
+  预览附件
+   × keeps a failed file-preview button and retries only an explicit click with the same canonical URL 21ms
+     → expect(element).toHaveAttribute("title", "Load failed. Click to retry.") // element.getAttribute("title") === "Load failed. Click to retry."
+
+Expected the element to have attribute:
+  title="Load failed. Click to retry."
+Received:
+  title="加载失败，点一下重试"
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/i18n-chat-feedback-history-preview.test.tsx > keeps actual PDF preview iframe and exact authenticated download bytes on locale without downloading again
+Error: expect(element).toHaveAccessibleName()
+
+Expected element to have accessible name:
+  Preview PDF attachment
+Received:
+  预览 PDF 附件
+ ❯ tests/ui/i18n-chat-feedback-history-preview.test.tsx:20:64
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  tests/ui/i18n-chat-feedback-history-preview.test.tsx > uses the same lazy-loaded image bytes in the actual preview and keeps its chrome DOM on locale
+Error: expect(element).toHaveAccessibleName()
+
+Expected element to have accessible name:
+  Preview attachment
+Received:
+  预览附件
+ ❯ tests/ui/i18n-chat-feedback-history-preview.test.tsx:26:58
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  tests/ui/i18n-chat-feedback-history-preview.test.tsx > keeps a failed file-preview button and retries only an explicit click with the same canonical URL
+Error: expect(element).toHaveAttribute("title", "Load failed. Click to retry.") // element.getAttribute("title") === "Load failed. Click to retry."
+
+Expected the element to have attribute:
+  title="Load failed. Click to retry."
+Received:
+  title="加载失败，点一下重试"
+ ❯ tests/ui/i18n-chat-feedback-history-preview.test.tsx:32:182
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  3 failed | 7 passed (10)
+   Start at  14:57:28
+   Duration  5.64s (transform 1.25s, setup 264ms, collect 2.90s, tests 412ms, environment 1.37s, prepare 109ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/i18n-chat-feedback-voice-host.test.tsx tests/ui/i18n-chat-feedback-history-preview.test.tsx --maxWorkers=1 --minWorkers=1

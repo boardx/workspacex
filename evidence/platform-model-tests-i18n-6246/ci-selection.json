@@ -1,0 +1,13 @@
+{
+  "status": "STATIC_SELECTION_ONLY; actual discovery and remote native pending",
+  "workflow": "harness-verify.yml fullstack-smoke (PR conditional; full!=false/mode!=targeted-ui), harness-acceptance.yml fullstack-smoke (dispatch all or merge_group)",
+  "command": "node .harness/scripts/ci-fullstack-runtime.mjs product -- pnpm run verify:fullstack-product",
+  "script": "verify:fullstack-product -> with-test-isolation -> FULLSTACK_SMOKE_PARTITION=product playwright test --config playwright.fullstack-smoke.config.ts --project=seeded-github-import --max-failures=1",
+  "file": "apps/web/e2e/i18n-platform-model-tests.spec.ts",
+  "line": 33,
+  "title": "model testbench preserves actual unavailable-adapter history across locales and operator boundaries",
+  "plannedCases": 1,
+  "plannedPng": 20,
+  "workflowChanged": false,
+  "specSha256": "64cb34dbf18056fe0032ce3f23e65250900d90821c95132825d8ca2ccae3313b"
+}

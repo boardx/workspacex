@@ -1,0 +1,116 @@
+{
+  "status": "SOURCE_GATES_ONLY; DRAFT; NOT_READY",
+  "productionSource": "394283d0123bfdcb4001bade0eccd1b15ed7904a",
+  "currentSource": "b8005f87d19cd3da544fa5fc4e653cc3f60d4aa4",
+  "focusedAt58f602": {
+    "passed": 88,
+    "failed": 0,
+    "skipped": 0,
+    "files": 3,
+    "legacy": 23,
+    "newMocked": 60,
+    "resources": 5
+  },
+  "laterFixtureFix": {
+    "affectedPassed": 1,
+    "filtered": 59,
+    "assertionsUnchanged": true
+  },
+  "staticConfiguration": {
+    "passed": 20
+  },
+  "native": {
+    "discovered": 1,
+    "executed": 0,
+    "pngPlanned": 20,
+    "pngProduced": 0,
+    "pngInspected": 0
+  },
+  "receipts": [
+    {
+      "gate": "continued-focused-green",
+      "head": "58f602108bc4825f080757cc50f0b06793b351ee",
+      "exit": 0,
+      "seconds": 16.36,
+      "logSha256": "864a88fdc8b7eb375b095b440978ded052a3b39d1b884d5091a775410ea5c32e"
+    },
+    {
+      "gate": "continued-lint",
+      "head": "58f602108bc4825f080757cc50f0b06793b351ee",
+      "exit": 0,
+      "seconds": 3.395,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "gate": "continued-web-type",
+      "head": "58f602108bc4825f080757cc50f0b06793b351ee",
+      "exit": 2,
+      "seconds": 46.485,
+      "logSha256": "7f2c2e2cbdd72a639d1b8dad47e3f04b18df191ae39e26f9fc9d15ffa81a2580"
+    },
+    {
+      "gate": "fix2-targeted",
+      "head": "b8005f87d19cd3da544fa5fc4e653cc3f60d4aa4",
+      "exit": 0,
+      "seconds": 5.363,
+      "logSha256": "8262e37bee85e9dcc220af50011e562ede1039d8ab191d8579a2a1cd6a64d730"
+    },
+    {
+      "gate": "fix2-test-lint",
+      "head": "b8005f87d19cd3da544fa5fc4e653cc3f60d4aa4",
+      "exit": 0,
+      "seconds": 1.885,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "gate": "fix2-web-type",
+      "head": "b8005f87d19cd3da544fa5fc4e653cc3f60d4aa4",
+      "exit": 0,
+      "seconds": 9.022,
+      "logSha256": "ea30d6b748ad9ab96126527df942acbf5a2e0557ed6674beeb887f3f9571595a"
+    },
+    {
+      "gate": "fix2-init",
+      "head": "b8005f87d19cd3da544fa5fc4e653cc3f60d4aa4",
+      "exit": 0,
+      "seconds": 9.312,
+      "logSha256": "1a3eaca14e7390fa637557ec9220323afc5384d04b98d0304d371ccec8cacc51"
+    },
+    {
+      "gate": "fix2-raw-error",
+      "head": "b8005f87d19cd3da544fa5fc4e653cc3f60d4aa4",
+      "exit": 0,
+      "seconds": 0.884,
+      "logSha256": "c8de3363cfb5e8ce2db7d9e466c84445ca3219bb8d0fab6d3b8a7487725a43c8"
+    },
+    {
+      "gate": "fix2-testid",
+      "head": "b8005f87d19cd3da544fa5fc4e653cc3f60d4aa4",
+      "exit": 0,
+      "seconds": 5.015,
+      "logSha256": "0cb27e8fe3c56e9e2174af962c004f1256b381e54638c9e8662c3f86c4040294"
+    },
+    {
+      "gate": "fix2-wiring",
+      "head": "b8005f87d19cd3da544fa5fc4e653cc3f60d4aa4",
+      "exit": 0,
+      "seconds": 3.968,
+      "logSha256": "aa2b48236a0e4e0dc9efb47f91a1c0b5181e4933c4b7ade256d6ea1c721987e9"
+    },
+    {
+      "gate": "fix2-fullstack-static",
+      "head": "b8005f87d19cd3da544fa5fc4e653cc3f60d4aa4",
+      "exit": 0,
+      "seconds": 35.491,
+      "logSha256": "73c1002046d63045a7de6645c93464ecbfea36f0987a01a021be8ba54ab051cb"
+    },
+    {
+      "gate": "fix2-discovery",
+      "head": "b8005f87d19cd3da544fa5fc4e653cc3f60d4aa4",
+      "exit": 0,
+      "seconds": 3.007,
+      "logSha256": "c870de349f154d98a7dccacb76de71a24c3f5c1ebf07ff6ad1c5e47b50d6f58d"
+    }
+  ],
+  "rawPrivate": true
+}

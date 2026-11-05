@@ -1,0 +1,8 @@
+
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/.harness/scripts/lib/gate-mutation-spec.ts
+  0:0  warning  File ignored by default.  Use a negated ignore pattern (like "--ignore-pattern '!<relative/path/to/filename>'") to override
+
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/.harness/scripts/lint-e2e-testid-gate.test.ts
+  0:0  warning  File ignored by default.  Use a negated ignore pattern (like "--ignore-pattern '!<relative/path/to/filename>'") to override
+
+✖ 2 problems (0 errors, 2 warnings)
