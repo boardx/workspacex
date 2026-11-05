@@ -29,14 +29,86 @@
         "e2e/i18n-entry.spec.ts"
       ],
       "browserConfig": "playwright.organization-create.config.ts",
-      "messageKeys": [
-        "common.language",
-        "ui.signInToWorkspacex",
-        "ui.enterYourStrategicWorkspace",
-        "ui.teamworkAndKnowledgeTogetherInOneWorkspace",
-        "ui.doGreatWork",
-        "ui.togetherWithAi"
+      "messagePrefixes": [
+        "common.",
+        "ui.",
+        "home."
       ]
+    },
+    {
+      "file": "apps/web/lib/i18n/messages/zh-CN.ts",
+      "unitTests": [
+        "tests/lib/i18n-resources.test.ts",
+        "tests/ui/i18n.test.tsx"
+      ],
+      "browserTests": [
+        "e2e/i18n-entry.spec.ts"
+      ],
+      "browserConfig": "playwright.organization-create.config.ts",
+      "messagePrefixes": [
+        "common.",
+        "ui.",
+        "home."
+      ]
+    },
+    {
+      "file": "apps/web/lib/i18n/namespaces/project-list.ts",
+      "messagePrefixes": [
+        "projects."
+      ],
+      "unitTests": [
+        "tests/lib/i18n-resources.test.ts",
+        "tests/ui/i18n.test.tsx",
+        "tests/ui/project-list-i18n.test.tsx"
+      ],
+      "browserTests": [
+        "e2e/i18n-project-list.spec.ts"
+      ],
+      "browserConfig": "playwright.fullstack-smoke.config.ts"
+    }
+  ],
+  "presentationFiles": [
+    {
+      "unitTests": [
+        "tests/lib/i18n-resources.test.ts",
+        "tests/ui/i18n.test.tsx",
+        "tests/ui/project-results-live.test.tsx",
+        "tests/ui/project-resource-section.test.tsx",
+        "tests/ui/project-workbench-non-workshop.test.tsx"
+      ],
+      "browserTests": [
+        "e2e/i18n-project-workbench.spec.ts"
+      ],
+      "browserConfig": "playwright.fullstack-smoke.config.ts",
+      "file": "apps/web/components/project/tab-results.tsx"
+    },
+    {
+      "unitTests": [
+        "tests/lib/i18n-resources.test.ts",
+        "tests/ui/i18n.test.tsx",
+        "tests/ui/project-results-live.test.tsx",
+        "tests/ui/project-resource-section.test.tsx",
+        "tests/ui/project-workbench-non-workshop.test.tsx"
+      ],
+      "browserTests": [
+        "e2e/i18n-project-workbench.spec.ts"
+      ],
+      "browserConfig": "playwright.fullstack-smoke.config.ts",
+      "file": "apps/web/components/project/project-content.tsx"
+    },
+    {
+      "unitTests": [
+        "tests/lib/i18n-resources.test.ts",
+        "tests/ui/i18n.test.tsx",
+        "tests/ui/project-results-live.test.tsx",
+        "tests/ui/project-resource-section.test.tsx",
+        "tests/ui/project-workbench-non-workshop.test.tsx"
+      ],
+      "browserTests": [
+        "e2e/i18n-project-workbench.spec.ts"
+      ],
+      "browserConfig": "playwright.fullstack-smoke.config.ts",
+      "file": "apps/web/components/project/project-resource-section.tsx"
     }
   ]
 }
