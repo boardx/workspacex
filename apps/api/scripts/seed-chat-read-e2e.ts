@@ -194,7 +194,8 @@ await asOwner(async (client) => {
 
 await seedOrg({ orgId: ORG_ID, projectId: PROJECT_ID, groupNames: ["readers"] });
 await addOrgMember(ORG_ID, USER_ID, "lead", null);
-await asApp(ORG_ID,session=>seedChatReadAsrCreditTariff(session,ORG_ID));
+// Only isolated fixture setup may configure this global synthetic price.
+await asOwner(session=>seedChatReadAsrCreditTariff(session,ORG_ID));
 const CANVAS_TEMPLATE_ADMIN_ID = `${USER_ID}-canvas-admin`;
 await addOrgMember(ORG_ID, CANVAS_TEMPLATE_ADMIN_ID, "admin", null);
 await addProjectMember(ORG_ID, PROJECT_ID, USER_ID, "facilitator", null);
