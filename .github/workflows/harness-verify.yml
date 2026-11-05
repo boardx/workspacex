@@ -130,6 +130,7 @@ jobs:
   #   两项差距都是刻意的范围收窄，不是遗漏——本次只做"把已经在跑、已经全绿的
   #   两段拆成并行 job"这一件事。
   verify-control-plane:
+    needs: [doc-smoke-scope]
     if: github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
@@ -140,9 +141,11 @@ jobs:
           fetch-depth: 0
 
       - name: Exercise minimal Docker release command offline
+        if: needs.doc-smoke-scope.outputs.mode != 'targeted-ui'
         run: python3 -I -B tests/test_minimal_docker_release.py
 
       - name: Exercise tag schema routing and durable handoff offline
+        if: needs.doc-smoke-scope.outputs.mode != 'targeted-ui'
         run: |
           python3 -I -B -m unittest discover -s tests -p test_tag_schema_plan.py
           python3 -I -B -m unittest discover -s tests -p test_schema_release_handoff.py
@@ -391,6 +394,7 @@ jobs:
       # turbo --affected 只认 workspace 包，.harness/ 不是包，改它一个包都不 affected。
       # 控制平面的测试不跑，等于控制平面没有测试。
       - name: harness 控制平面自测（含门控反证）
+        if: needs.doc-smoke-scope.outputs.mode != 'targeted-ui'
         run: pnpm exec vitest run --dir .harness --bail=1
 
   # 与 verify-control-plane 并行——两者互不依赖（一个测控制平面本身，一个测
