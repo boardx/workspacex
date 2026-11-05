@@ -1,4 +1,3 @@
-import { projectOverviewZhCN } from "../namespaces/project-overview";
 import { platformOpsStatusZhCN } from "../namespaces/platform-ops-status";
 import { modelTestbenchZhCN } from "../namespaces/model-testbench";
 import { platformModelCatalogZhCN } from "../namespaces/platform-model-catalog";
@@ -28,6 +27,7 @@ import { controlsZhCN } from "../namespaces/controls";
 import { workflowRunsZhCN } from "../namespaces/workflow-runs";
 import { projectWorkbenchZhCN } from "../namespaces/project-workbench";
 import { projectListZhCN } from "../namespaces/project-list";
+import { projectOverviewZhCN } from "../namespaces/project-overview";
 import { activityZhCN } from "../namespaces/activity";
 import { profileZhCN } from "../namespaces/profile";
 import { notificationsZhCN } from "../namespaces/notifications";
@@ -39,7 +39,6 @@ import { stateZhCN } from "../namespaces/state";
 import { accountEntryZhCN } from "../namespaces/account-entry";
 import { invitationEntryZhCN } from "../namespaces/invitation-entry";
 export const zhCN = {
-  ...projectOverviewZhCN,
   ...platformOpsStatusZhCN,
   ...modelTestbenchZhCN,
   ...platformModelCatalogZhCN,
@@ -66,6 +65,7 @@ export const zhCN = {
   ...zhFailures,
   ...controlsZhCN,
   ...projectListZhCN,
+  ...projectOverviewZhCN,
   ...activityZhCN,
   ...profileZhCN,
   ...notificationsZhCN,

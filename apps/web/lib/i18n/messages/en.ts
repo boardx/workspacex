@@ -1,4 +1,3 @@
-import { projectOverviewEn } from "../namespaces/project-overview";
 import { platformOpsStatusEn } from "../namespaces/platform-ops-status";
 import { modelTestbenchEn } from "../namespaces/model-testbench";
 import { platformModelCatalogEn } from "../namespaces/platform-model-catalog";
@@ -26,6 +25,7 @@ import { enTasks } from "./tasks";
 import { enFailures } from "./failures";
 import { controlsEn } from "../namespaces/controls";
 import { projectListEn } from "../namespaces/project-list";
+import { projectOverviewEn } from "../namespaces/project-overview";
 import { activityEn } from "../namespaces/activity";
 import { profileEn } from "../namespaces/profile";
 import { notificationsEn } from "../namespaces/notifications";
@@ -40,7 +40,6 @@ import type { zhCN } from "./zh-CN";
 import { accountEntryEn } from "../namespaces/account-entry";
 import { invitationEntryEn } from "../namespaces/invitation-entry";
 export const en: Record<keyof typeof zhCN, string> = {
-  ...projectOverviewEn,
   ...platformOpsStatusEn,
   ...modelTestbenchEn,
   ...platformModelCatalogEn,
@@ -66,6 +65,7 @@ export const en: Record<keyof typeof zhCN, string> = {
   ...enFailures,
   ...controlsEn,
   ...projectListEn,
+  ...projectOverviewEn,
   ...activityEn,
   ...profileEn,
   ...notificationsEn,
