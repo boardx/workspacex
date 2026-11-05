@@ -1,0 +1,15 @@
+{
+  "name": "webtype-3",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "typecheck"
+  ],
+  "source": "cbcf73c5ef02e5e3026d1a1294f048b58324320b",
+  "sourceAfter": "cbcf73c5ef02e5e3026d1a1294f048b58324320b",
+  "sourceStable": true,
+  "exitCode": 0,
+  "seconds": 8.719,
+  "rawLogSha256": "cd5788cc155241ad0932956ca7dd287ae173e2f213993b615bdafdcb93bc7ce4"
+}
