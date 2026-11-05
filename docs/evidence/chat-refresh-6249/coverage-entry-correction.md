@@ -112,3 +112,27 @@ The test-only correction evaluates that existing guard for merge_group, normal
 manual all/base, and manual chat-refresh, without copying the condition. All
 build/typecheck/lint order and queue-admission assertions remain unchanged.
 This source-only checkpoint has not run the affected ownership test or pushed.
+
+Normal merge-group acceptance for source 453f produced candidate
+`f6056d39b1a92999fe350012c2f88ea537ffe82e`, run 42112589550. Immutable
+workflow and execution logs confirm the standard production builder, unchanged
+full shard argv, two workers and original budgets. Shard 1 built successfully
+(204779ms), then reported 63 passed / 1 failed / 1 interrupted / 4 skipped /
+7 not run; shard 2 reported 65 passed / 1 skipped before job cancellation. Both
+independent owned proofs showed observed=4, groups=[], owners=[], distAbsent=true.
+The original core-path refresh test passed (9175ms), but full shards did not pass.
+
+The first failure was the stop-generation sidebar test's global `.first()`
+locator. Its trace records cancel POST 202, target run terminal cancelled, and
+five thread-list responses with the target thread cancelled. DOM snapshot
+after@call3178 renders the current target card thr-bd997401-7140-4471-803d-e432a8ccb810
+as cancelled; the failed first-card snapshot after@call3298 instead selects
+thr-fc694655-8fbd-43fa-9e53-2f59be8e54c9 as done. Evidence resides in
+`/tmp/sourcechat-6309-mg-f605`, with job logs alongside that directory.
+
+The test-only correction retains the authoritative threadId already returned by
+openFreshDeepAgentThread, matches the captured run to that thread, then scopes
+status and wording assertions to its exact sidebar card. No cancellation product
+logic, API, timeout, worker setting, or workflow changes. This source checkpoint
+has not yet run the corrected real browser scenario; the normal two-worker full
+merge-group shard acceptance remains required.

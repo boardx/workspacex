@@ -47,13 +47,14 @@ async function readRun(page: Page, runId: string): Promise<RunView> {
 }
 
 test("issue #3463：点击「停止生成」后，侧边栏状态显示「已停止」而不是「未能完成」", async ({ page }) => {
-  await openFreshDeepAgentThread(page);
+  const threadId = await openFreshDeepAgentThread(page);
 
   // 捕获这一轮真实的 run id（手法取自 chat-path-f5-cancel-propagates-to-subtask.spec.ts）。
   const liveRun = page.waitForResponse(async (response) => {
     if (response.request().method() !== "GET") return false;
     if (!/\/agent-runs\/[^/?]+$/.test(new URL(response.url()).pathname) || !response.ok()) return false;
-    return typeof (await response.json()).runId === "string";
+    const run = await response.json() as { runId?: unknown; threadId?: unknown };
+    return typeof run.runId === "string" && run.threadId === threadId;
   }, { timeout: 120_000 });
 
   await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentMultiStepTrigger);
@@ -79,7 +80,11 @@ test("issue #3463：点击「停止生成」后，侧边栏状态显示「已停
     .toBe("cancelled");
 
   // ── 判据 2（真实渲染）：侧边栏这条会话卡的文案是「已停止」，机器可读属性同步反映 cancelled ─
-  const statusEl = page.getByTestId("chat-task-workbench-thread-status").first();
+  // Other workers can create/reorder cards while this run is cancelling. Bind
+  // the assertion to this authoritative thread, not whichever card is first.
+  const threadCard = page.getByTestId(`chat-thread-${threadId}`);
+  await expect(threadCard).toHaveAttribute("aria-current", "page");
+  const statusEl = threadCard.getByTestId("chat-task-workbench-thread-status");
   await expect(
     statusEl,
     "【#3463】点击停止后侧边栏读不到线程状态锚点——文案映射或数据投影链路本身断了",
@@ -100,6 +105,7 @@ test("issue #3463：点击「停止生成」后，侧边栏状态显示「已停
  *
  * | 破坏 | 预期红在哪一条 |
  * |---|---|
+ * | 另一会话置顶且为 done，本例目标会话为 cancelled | 仍须断言本例 threadId 对应卡为 cancelled；全局 first 会读错卡 |
  * | composer 停止按钮 `onClick` 换回 `agent.abortRun()`（纯客户端 abort，不打真实 cancel 端点） | 判据 1：run 终态落成 `failed` 而非 `cancelled`（#3413 T29/T30 原始缺陷形状） |
  * | `POST /agent-runs/:runId/cancel` 正常但 `thread-badges.ts` 的 `threadCardStatus()` 漏掉 `case "cancelled"` 分支 | 判据 2：`data-status` 不是 `cancelled`（大概率落进 `switch` 的 `never` 分支编译期先红，运行期兜底成别的值） |
  * | `THREAD_STATUS_LABEL` 里把 `cancelled` 的文案改回 `未能完成` 或删掉这一档 | 判据 2 文案断言：读到「未能完成」或抛 `Record` 缺 key 的运行时错误 |
