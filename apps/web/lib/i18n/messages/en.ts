@@ -1,3 +1,4 @@
+import { workshopLiveEn } from "../namespaces/workshop-live";
 import { platformOpsStatusEn } from "../namespaces/platform-ops-status";
 import { modelTestbenchEn } from "../namespaces/model-testbench";
 import { platformModelCatalogEn } from "../namespaces/platform-model-catalog";
@@ -40,6 +41,7 @@ import type { zhCN } from "./zh-CN";
 import { accountEntryEn } from "../namespaces/account-entry";
 import { invitationEntryEn } from "../namespaces/invitation-entry";
 export const en: Record<keyof typeof zhCN, string> = {
+  ...workshopLiveEn,
   ...platformOpsStatusEn,
   ...modelTestbenchEn,
   ...platformModelCatalogEn,
