@@ -20,5 +20,6 @@ class Probe(unittest.TestCase):
   text=(pathlib.Path(__file__).parents[4]/'.github/workflows/devapp-probe.yml').read_text()
   self.assertIn('if: ${{ !inputs.asr_accounting }}',text)
   self.assertIn('if: ${{ inputs.asr_accounting }}',text)
+  self.assertIn('git show \"$GITHUB_SHA:.harness/scripts/vm/asr-accounting-probe.py\" | python3 -I -B',text)
   self.assertNotIn('readFile',m.STORAGE)
   self.assertNotIn('write',m.STORAGE)

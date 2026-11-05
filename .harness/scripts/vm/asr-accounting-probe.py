@@ -40,6 +40,13 @@ def run():
     report=json.loads(call(['docker','exec','-i',api['Id'],'node','--input-type=module'],STORAGE))
     report['receiptDirectoryPersistentRwMount']=persistent_mount(api,ae.get('WORKSPACEX_CREDIT_RECEIPT_DIR'))
     report['tariffQueryAvailable']=False
+    # Aggregate ONLY fixed internal diagnostic tokens; raw logs never leave this process.
+    reasons=('credit_receipt_store_unavailable','credit_native_tariff_missing','credit_payer_provenance_missing','team_license_accounting_unavailable','ASR_USAGE_TERMINAL_FAILED','ASR_ACCOUNTING_REPAIR_REQUIRED','CREDIT_ACCOUNTING_UNAVAILABLE')
+    try:
+        logs=subprocess.run(['docker','logs','--since','30m','--tail','2000',api['Id']],text=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=20,check=False)
+        report['recentErrorCounts']={r:(logs.stdout+logs.stderr).count(r)for r in reasons}
+        report['recentLogsReadAvailable']=logs.returncode==0
+    except Exception:report['recentLogsReadAvailable']=False
     # Only local DB whose network aliases AND DB name match this actual API.
     databases=[]
     for row in rows:

@@ -26,7 +26,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Read-only ASR accounting aggregates
-        run: python3 -I -B .harness/scripts/vm/asr-accounting-probe.py
+        run: git show "$GITHUB_SHA:.harness/scripts/vm/asr-accounting-probe.py" | python3 -I -B
 
   probe:
     if: ${{ !inputs.asr_accounting }}
