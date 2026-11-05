@@ -98,3 +98,17 @@ remain unchanged. Each fixture first establishes the unmutated command/runtime
 as transparent and covered, before changing only its target workflow/source.
 This makes negative cases non-vacuous if baseline recognition regresses. The
 existing 41 planned cases remain; this source checkpoint has not rerun them.
+
+Default CI for source 4da checked out the normal PR merge ref
+`4c5173b3b6c6614c102f18c0ddc63ba0713bfb32` (parents d9f13deb and 4da).
+Run 42101196609 / job 127504128304 passed the real coverage gate, then
+`pnpm exec vitest run --dir .harness --bail=1` exited 1 at
+ci-static-ownership.test.ts:23: the legacy assertion required base-compile.if
+to be undefined, while the accepted manual chat-refresh isolation adds a guard.
+The merge-ref and 4da source blobs were identical for both the ownership test
+(170c12d2737e817b634dd954bd669b595051a321) and acceptance workflow
+(95e743096b7ed59d14501ef421e56b96545c1c9b); this was not merge drift.
+The test-only correction evaluates that existing guard for merge_group, normal
+manual all/base, and manual chat-refresh, without copying the condition. All
+build/typecheck/lint order and queue-admission assertions remain unchanged.
+This source-only checkpoint has not run the affected ownership test or pushed.
