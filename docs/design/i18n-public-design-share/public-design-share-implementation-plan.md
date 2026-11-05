@@ -34,9 +34,9 @@ Files: SharedDesignView, PrototypeCanvas, human-time, a new pure `public-design-
 
 ### Task 2: Real anonymous flow and publication
 
-- [ ] Inspect canonical seeded login/API helpers and design-workbench contract operations. Add one narrowly scoped existing-lane spec: real authenticated create/update/publish, anonymous375/1280 EN/ZH raw snapshot, navigation/locale stability, revoke and missing-link UI. Explicit transient network-abort UI evidence, if added, is labeled fault injection.
-- [ ] Preserve canonical budgets/retries/workers/dependencies; exact discovery proves selection only. Add namespace registration to the existing messages, not a new runtime lane/config.
-- [ ] Run necessary source gates and exact canonical discovery under fresh sole; archive only safe receipts.
-- [ ] One independent whole branch review with existing reviewer; address actionable findings with genuine RED/GREEN and affected suite, no repeated whole reviews.
+- [x] Inspect canonical seeded login/API helpers and design-workbench contract operations. Add one narrowly scoped existing-lane spec: real authenticated create/update/publish, anonymous375/1280 EN/ZH raw snapshot, navigation/locale stability, revoke and missing-link UI. Explicit transient network-abort UI evidence, if added, is labeled fault injection.
+- [x] Preserve canonical budgets/retries/workers/dependencies; exact discovery proves selection only. Add namespace registration to the existing messages, not a new runtime lane/config.
+- [x] Run necessary source gates and exact canonical discovery under fresh sole; archive only safe receipts.
+- [x] One independent whole branch review with existing reviewer; address actionable findings with genuine RED/GREEN and affected suite, no repeated whole reviews.
 - [ ] Normal scan/hooks/push Draft PR Closes6260. Follow actual existing PR runtime, native case verdict and every PNG; author owns first failure to green. Main alone queues/merges.
 - [ ] Verify actual merge/issue closure, exact own resource cleanup0 and hand off uncovered boundaries to the B3 stage review. Do not claim overall stage completion yourself.

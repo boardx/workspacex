@@ -5,10 +5,10 @@ Base: actual accepted develop a00287a86c411c13148294cc2ed4379852949c5d. Branch `
 ```mermaid
 flowchart LR
   A[Reachability and plan] --> B[Provider RED then render projection] --> C[Real anonymous flow and QA] --> D[Independent review and PR] --> E[Actual merge and B3 review]
-  style A fill:#fff3bf
-  style B fill:#e9ecef
-  style C fill:#e9ecef
-  style D fill:#e9ecef
+  style A fill:#e5dbff
+  style B fill:#e5dbff
+  style C fill:#fff3bf
+  style D fill:#fff3bf
   style E fill:#e9ecef
 ```
 
@@ -29,3 +29,15 @@ Interruption evidence boundary: subsequent actual filesystem checks found the ol
 Current resource status: no local batch has begun, no services/init/commit are active. FIRST supplied actual-END confirmation; main has priority for pricing6259 and the necessary6257 cloud-failure repair. Continue HOLD until actual completion and fresh explicit peer handoff.
 
 Task1 necessary GREEN attempt2 ACTUAL session94311 exit0: nine related suites73/73PASS(native17.67s/wrapper18.908s), eight changed-fileESLint0/3.167s/no diagnostics, canonicalwebtype0/56.066s/no diagnostics. Current eight-source SHA freeze is bound in evidence/task1-source-gates-receipt.json; original log hashes are recorded while logs remain private. No skip or browser result is claimed. Processes naturally exited; exact prior own scope Docker containers0/volumes0, no new services/advertisedports, pgrep empty, dual/root release completed before reading native log totals. Source checkpoint and real API anonymous flow remain pending.
+
+Task1 actual normal checkpoint be794898378e9dc18f8f757a1963bf8dbfd1c207 committed exactly12 paths with unchanged8tested sourceSHA. Actual exit0 and no services; immediately handed FIRST its authorized6263 tail batch. Task1 ledger closure checks the actual73PASS/lint0/type0 receipt and frozen hashes without replaying tests; Task2 started once at BASEbe79489.
+
+Task2 new source-only driver candidate is UNRUN. Existing seeded config adds only i18n-public-design-share.spec.ts, two inherited-budget cases for1280/375. Actual owner login/create→canonical addScreen/setLinks prototype patch→full publish; separate anonymous context checks EN/ZH rawtitle/problem/content, navigation/back-stack and sameDOM, HTMLsrcdoc bytes/currentARIA, no locale-triggeredGET, xbounds, frozen snapshot after owner rename, actual revoke404/no retry. Ten per-attempt screenshots planned. This uses authored test trees through existing public contracts, not model-generation evidence, and does not mock routes/responses. Temporary failure stays provider coverage; no new transient-browser claim. Driver/config type/lint/resources/wiring/selection and real runtime/PNGQA remain UNRUN.
+
+Task2 necessary source batch session79200 ACTUAL exit0: two-driver/configESLint2.016s, canonicalwebtype9.545s, testid3.991s, wiring4.346s, specgate48.879s, canonicalisolatedlist2.621s. After actualEND/root+dualrelease, actualJSON confirms exactly2titles/onefile/seeded/30000ms/zeroerrors; discovery is not execution. Scope containers0/volumes0/all13advertisedlisteners0 and processes naturally exited. Ten sourceSHA freeze binds task2-driver-source-receipt.json. Existing73Task1 results remain separate. Real native2/tenPNGQA and final independent whole review/publication are still pending. No product source changed after Task1 checkpoint.
+
+The one whole-source review found two actionable driver P2s before publication: the new setup used html-page instead of canonical html, and a manually created anonymous browser context omitted the seeded baseURL needed by relative navigation. Both were verified against current contracts and existing context callers. Minimal driver-only correction now uses canonical html and passes the fixture baseURL to the separate anonymous context; no auth storage is copied and no product/parser/budget changes. Corrected lint/type/discovery are pending; previous source-gate receipt binds the pre-fix source only. Native2/PNG remain UNRUN. Reviewer report original is private0700/0600; its requested sdd/.archive location is actually unignored, so it is excluded from staging.
+
+Review-fix covering attempt2 session92558 ACTUAL all0: driverESLint2.339s, canonicaltype8.778s, isolatedlist2.954s. Actualreport retains the same two seeded30000ms cases/zeroerrors. Exact own containers0/volumes0/all13listeners0 and pgrepempty; immediate root+dualrelease before parsing. Only driver changed; earlier production8source/related73 and unchanged config guards remain bound to their actual snapshots. Final source review delta and native browser verdict are separate requirements.
+
+The existing reviewer completed the single whole review and only the necessary corrected-driver delta. Both driverP2 are statically addressed, no new executableP1/P2; other9sourceSHA match. Safe source-review-summary.md records report hashes/limits, while original source reports remain private with0700/0600 and explicitly unignored/excluded from staging. Actual native2/tenPNGQA remain pending standardCI. Proceeding with normal precise Draft publication under main authorization, without a local Next build or extra dispatch.
