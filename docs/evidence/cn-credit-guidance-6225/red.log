@@ -1,0 +1,190 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/workspacex-cn-credit-6225/apps/web
+
+ ❯ tests/ui/credit-recharge-entry.test.tsx (2 tests | 1 failed) 187ms
+   × terminal insufficient credit without payer metadata opens account review without assuming a payer 178ms
+     → Unable to find an accessible element with the role "link" and name "查看额度与充值"
+
+Here are the accessible roles:
+
+  textbox:
+
+  Name "草稿":
+  [36m<textarea[39m
+    [33maria-label[39m=[32m"草稿"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  alert:
+
+  Name "模型使用提示":
+  [36m<aside[39m
+    [33maria-label[39m=[32m"模型使用提示"[39m
+    [33mclass[39m=[32m"fixed bottom-6 right-6 z-50 max-w-md space-y-3 rounded-card border border-border bg-card p-4 shadow-lg"[39m
+    [33mrole[39m=[32m"alert"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-14"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "关闭提示":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<textarea[39m
+      [33maria-label[39m=[32m"草稿"[39m
+    [36m>[39m
+      [0m保留问题[0m
+    [36m</textarea>[39m
+    [36m<aside[39m
+      [33maria-label[39m=[32m"模型使用提示"[39m
+      [33mclass[39m=[32m"fixed bottom-6 right-6 z-50 max-w-md space-y-3 rounded-card border border-border bg-card p-4 shadow-lg"[39m
+      [33mrole[39m=[32m"alert"[39m
+    [36m>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-14"[39m
+      [36m>[39m
+        [0m可用额度不足，请联系管理员确认本次任务的计费账户并充值。[0m
+      [36m</p>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+      [36m>[39m
+        [0m当前页面内容已保留，充值后不会自动重新执行任务。[0m
+      [36m</p>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex gap-2"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+        [36m>[39m
+          [0m关闭提示[0m
+        [36m</button>[39m
+      [36m</div>[39m
+    [36m</aside>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/credit-recharge-entry.test.tsx > terminal insufficient credit without payer metadata opens account review without assuming a payer
+TestingLibraryElementError: Unable to find an accessible element with the role "link" and name "查看额度与充值"
+
+Here are the accessible roles:
+
+  textbox:
+
+  Name "草稿":
+  [36m<textarea[39m
+    [33maria-label[39m=[32m"草稿"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  alert:
+
+  Name "模型使用提示":
+  [36m<aside[39m
+    [33maria-label[39m=[32m"模型使用提示"[39m
+    [33mclass[39m=[32m"fixed bottom-6 right-6 z-50 max-w-md space-y-3 rounded-card border border-border bg-card p-4 shadow-lg"[39m
+    [33mrole[39m=[32m"alert"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-14"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "关闭提示":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<textarea[39m
+      [33maria-label[39m=[32m"草稿"[39m
+    [36m>[39m
+      [0m保留问题[0m
+    [36m</textarea>[39m
+    [36m<aside[39m
+      [33maria-label[39m=[32m"模型使用提示"[39m
+      [33mclass[39m=[32m"fixed bottom-6 right-6 z-50 max-w-md space-y-3 rounded-card border border-border bg-card p-4 shadow-lg"[39m
+      [33mrole[39m=[32m"alert"[39m
+    [36m>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-14"[39m
+      [36m>[39m
+        [0m可用额度不足，请联系管理员确认本次任务的计费账户并充值。[0m
+      [36m</p>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+      [36m>[39m
+        [0m当前页面内容已保留，充值后不会自动重新执行任务。[0m
+      [36m</p>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex gap-2"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+        [36m>[39m
+          [0m关闭提示[0m
+        [36m</button>[39m
+      [36m</div>[39m
+    [36m</aside>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/credit-recharge-entry.test.tsx:9:16
+      7|  render(<><textarea aria-label="草稿" defaultValue="保留问题"/><Credit…
+      8|  fireEvent(window,new CustomEvent("workspacex:credit-failure",{detail:…
+      9|  expect(screen.getByRole("link",{name:"查看额度与充值"}).getAttribute(…
+       |                ^
+     10|  expect(screen.getByRole("alert").textContent).toContain("可用额度不足…
+     11|  expect((screen.getByLabelText("草稿") as HTMLTextAreaElement).value).…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  04:20:09
+   Duration  13.25s (transform 93ms, setup 258ms, collect 137ms, tests 187ms, environment 11.48s, prepare 360ms)
+
+undefined
+/private/tmp/workspacex-cn-credit-6225/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/credit-recharge-entry.test.tsx

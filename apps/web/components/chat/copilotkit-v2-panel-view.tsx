@@ -58,6 +58,7 @@ export function CopilotKitV2PanelView({
   attachOpen,
   attachmentMention,
   attachmentOptions,
+  bannerRunRef,
   canDecide,
   canWrite,
   cancellation,
@@ -326,6 +327,12 @@ export function CopilotKitV2PanelView({
                       <UserMessageAttachmentsCtx.Provider value={userMessageAttachmentsContextValue}>
                       <LivePlanContext.Provider value={livePlan}>
                       <TaskTimeline
+                        failureScope={orgId && resolvedChatThreadId ? JSON.stringify([orgId, resolvedChatThreadId]) : undefined}
+                        retryFailureRunId={error && !sendIsBlocked && !planStepRecoveryOffered ? bannerRunRef.current : null}
+                        onRetryFailure={lastSentRef.current ? () => {
+                          const last = lastSentRef.current;
+                          if (last && !sendIsBlocked) void send(last.text, { clientMessageId: last.clientMessageId, attachments: last.attachments });
+                        } : undefined}
                         onResendInterjection={resendInterjection}
                         events={runTrace.events}
                         messageRuns={runTrace.messageRuns}

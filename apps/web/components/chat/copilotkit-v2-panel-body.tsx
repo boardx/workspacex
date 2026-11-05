@@ -1797,6 +1797,7 @@ function useCopilotKitV2PanelController({
     attachOpen,
     attachmentMention,
     attachmentOptions,
+    bannerRunRef,
     canDecide,
     canWrite,
     cancellation,

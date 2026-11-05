@@ -1,4 +1,9 @@
 export const chatTraceZhCN = {
+  "chatTrace.hiddenFailure": "已在此浏览器隐藏失败记录",
+  "chatTrace.restoreFailure": "恢复显示",
+  "chatTrace.hideFailure": "隐藏失败记录",
+  "chatTrace.hideFailureHint": "仅在此浏览器隐藏，执行记录仍保留，可恢复显示",
+
   "chatTrace.metadata": "发现技能元数据",
   "chatTrace.body": "读取技能正文",
   "chatTrace.skillRunning": "技能执行中",
@@ -40,6 +45,11 @@ export const chatTraceZhCN = {
 } as const;
 
 export const chatTraceEn: Record<keyof typeof chatTraceZhCN, string> = {
+  "chatTrace.hiddenFailure": "Failed trace hidden in this browser",
+  "chatTrace.restoreFailure": "Restore display",
+  "chatTrace.hideFailure": "Hide failed trace",
+  "chatTrace.hideFailureHint": "Hide only in this browser. The execution record is retained and can be restored.",
+
   "chatTrace.metadata": "Discovered skill metadata",
   "chatTrace.body": "Read skill instructions",
   "chatTrace.skillRunning": "Skill running",

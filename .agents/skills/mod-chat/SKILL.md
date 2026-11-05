@@ -169,3 +169,5 @@ chat 只负责把执行状态（含工具调用）渲染出来、把用户输入
 - 2026-11-03（#6190）：能力选择卡列表会在目录/官方角色 offer 返回后插入行；指针 click 完成不证明指定 agent 已选中。E2E 用真实 option 的键盘激活，并复核 exact id 的 aria-selected、非自动匹配、发送 header 与落库 run 的 agent/provider；不得删除 `[loopback]`/skill 哨兵掩盖回落到默认 agent。
 
 - 2026-11-04（#6215）：CK-P8 archived fixture 的 route 必须只匹配当前线程 getThread pathname（保留 query）、只处理 GET，不能宽拦 `/agents` 等轮询。精确 trace 显示全部只读断言已过后，无关 route.fetch 仍在途，context 释放后 response.json 才报 disposed；结束前 unregister 自己的 handler 并等待在途工作，错误照常传播，不吞错/扩超时。反例与真实原 spec 结果见 `evidence/chat-archived-fixture-6215`（尚需按其收据确认当前验证状态）。
+
+- 2026-11-05（#6244）：历史失败的显示偏好按组织/会话/run/attempt 隔离，仅终态失败消费隐藏值；重试只复用当前错误横幅对应 run 的恢复路径，不能把历史 run 卡片连到最新计划。失败计划移入执行过程详情时，保留成功/运行中原展示与未完成步骤事实。
