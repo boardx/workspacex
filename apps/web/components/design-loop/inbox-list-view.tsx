@@ -1,7 +1,7 @@
 "use client";
 import { translate } from "@/lib/i18n/messages";
 import { useI18n } from "@/lib/i18n/provider";
-import { inboxStageLabel } from "@/lib/i18n/namespaces/design-loop-common";
+import { inboxStageLabel } from "@/lib/design-loop-display";
 
 import * as React from "react";
 import { Archive } from "lucide-react";

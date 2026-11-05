@@ -2,7 +2,7 @@
 import type { Locale } from "@/lib/i18n/locale";
 import { translate } from "@/lib/i18n/messages";
 import { useI18n } from "@/lib/i18n/provider";
-import { inboxKindLabel, feedbackKindLabel, inboxSourceStatusLabel, type InboxMessage } from "@/lib/i18n/namespaces/design-loop-common";
+import { inboxKindLabel, feedbackKindLabel, inboxSourceStatusLabel, type InboxMessage } from "@/lib/design-loop-display";
 
 import * as React from "react";
 import { feedbackGithubLabels } from "@repo/contracts/feedback-tags";
