@@ -1,0 +1,12 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+
+ ✓ tests/ui/board-header-responsive.test.tsx (3 tests) 880ms
+   ✓ keeps presence and sharing while hiding presentation at compact and full desktop widths 678ms
+ ✓ tests/whiteboard/live-board-collaboration-status.test.tsx (11 tests) 452ms
+
+ Test Files  2 passed (2)
+      Tests  14 passed (14)
+   Start at  03:31:46
+   Duration  6.11s (transform 1.25s, setup 712ms, collect 2.40s, tests 1.33s, environment 4.16s, prepare 1.11s)

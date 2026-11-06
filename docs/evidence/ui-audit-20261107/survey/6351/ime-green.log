@@ -1,0 +1,16 @@
+
+> web@0.1.0 test /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+> vitest run "tests/ui/board-header-rename.test.tsx" "tests/whiteboard/live-board-collaboration-status.test.tsx"
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+
+ ✓ tests/whiteboard/live-board-collaboration-status.test.tsx (11 tests) 601ms
+   ✓ shows provider-authoritative pending and reconnect in the cloud without a standalone banner 385ms
+ ✓ tests/ui/board-header-rename.test.tsx (3 tests) 453ms
+
+ Test Files  2 passed (2)
+      Tests  14 passed (14)
+   Start at  04:31:56
+   Duration  11.63s (transform 4.06s, setup 931ms, collect 7.03s, tests 1.05s, environment 4.46s, prepare 818ms)
