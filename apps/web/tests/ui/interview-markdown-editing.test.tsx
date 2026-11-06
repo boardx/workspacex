@@ -706,3 +706,11 @@ it("blocks expert dialog saves opened after a dirty selection receives remote ch
   expect(posts.filter(url => url.endsWith("/markdown/experts"))).toEqual([]);
   expect(screen.getByRole("textbox", { name: "专家名称" })).toHaveValue(editableVirtualFields.name);
 });
+
+it("keeps unsaved selected expert names free of avatar draft and internal ID guidance", () => {
+  render(<InterviewExpertsStep document={{ ...source, markdown: "## [林知远](#expert-virtual-unsaved)\n\n专业角色：研究员" }} directory={[]} pending={false} onChange={vi.fn()} onConfirm={vi.fn()} />);
+  expect(screen.getByText("林知远")).toBeVisible();
+  expect(screen.queryByText("请先保存专家草稿，再修改虚拟专家头像。")).not.toBeInTheDocument();
+  expect(screen.queryByText(/专家绑定稳定 ID/u)).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "修改林知远头像" })).toBeDisabled();
+});
