@@ -1,7 +1,7 @@
-/** Preserve the deployed API proxy prefix; target only the explicitly supported devapp. */
+/** Preserve the deployed API proxy prefix; target only the explicitly supported deployment origins. */
 export function activationBaseUrl(raw='https://devapp.boardx.us/api'){
  const base=new URL(raw);
- if(base.protocol!=='https:'||base.hostname!=='devapp.boardx.us'||base.username||base.password||base.port||!['/api','/api/'].includes(base.pathname)||base.search||base.hash)throw new Error('ACTIVATION_REQUIRES_DEVAPP_API_BASE');
+ if(base.protocol!=='https:'||!['devapp.boardx.us','app.workspacex.cn'].includes(base.hostname)||base.username||base.password||base.port||!['/api','/api/'].includes(base.pathname)||base.search||base.hash)throw new Error('ACTIVATION_REQUIRES_SUPPORTED_API_BASE');
  return base;
 }
 export function activationApiUrl(base:URL,path:string){

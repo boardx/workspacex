@@ -77,6 +77,14 @@ export async function runtimeEnvironment(config: DeploymentConfig, secretDirecto
       CLOUDFLARE_EMAIL_PREVIEW_DISABLED: "true",
     });
   }
+  const billingTariff: Record<string, string> = {};
+  if (config.provision.billingTariffProfile) {
+    const password = await resolveSecret(config.provision.billingTariffProfile.passwordSecretRef, source, context);
+    if (!password || password.length < 16 || password.length > 4096 || password !== password.trim() || /[\r\n\0]/.test(password)) {
+      throw new Error("BILLING_TARIFF_CONFIGURATION_INVALID");
+    }
+    Object.assign(billingTariff, { BILLING_TARIFF_DB_USER: "app_billing_tariff_writer", BILLING_TARIFF_DB_PASSWORD: password });
+  }
   const platformSuperuser: Record<string, string> = config.provision.platformSuperuserEmails
     ? { PLATFORM_SUPERUSER_EMAILS: config.provision.platformSuperuserEmails.join(",") }
     : {};
@@ -97,9 +105,12 @@ export async function runtimeEnvironment(config: DeploymentConfig, secretDirecto
       MEMORY_DB_OWNER_PASSWORD: secret["memory-owner-password"], MEMORY_DB_DATABASE: "workspacex_memory",
       REDIS_HOST: "redis", REDIS_PORT: "6379", REDIS_PASSWORD: secret["redis-password"], REDIS_TLS: "false" };
   }
+  if (billingTariff.BILLING_TARIFF_DB_PASSWORD && [data.APP_DB_PASSWORD, data.DIAG_DB_PASSWORD, data.MIGRATION_DB_PASSWORD].includes(billingTariff.BILLING_TARIFF_DB_PASSWORD)) {
+    throw new Error("BILLING_TARIFF_CONFIGURATION_INVALID");
+  }
   const apiData = Object.fromEntries(Object.entries(data).filter(([key]) => !key.startsWith("MIGRATION_DB_") && !key.startsWith("AGENT_DB_") && !key.startsWith("MEMORY_DB_")));
   const sharedNative = { NATIVE_SESSION_SOCKET: "/run/sessions/skill-sandbox.sock", DEEP_AGENT_SERVICE_INTERNAL_KEY: secret["service-key"] };
-  const api: Record<string, string> = { ...deploymentStorageEnvironment(config), ...apiData, ...model, ...asr, ...githubIssue, ...mail, ...platformSuperuser, ...sharedNative,
+  const api: Record<string, string> = { ...deploymentStorageEnvironment(config), ...apiData, ...model, ...asr, ...githubIssue, ...mail, ...billingTariff, ...platformSuperuser, ...sharedNative,
     // API report generation consumes real provider deltas, as in local runtime.
     KERNEL_MODEL_STREAM_ENABLED: "1",
     NODE_ENV: "production", PORT: "3200",
