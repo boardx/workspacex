@@ -34,3 +34,6 @@
 - Ruling: progress phase starts persist immediately; updates within the same phase coalesce for 250ms, with no background timer or unsaved observer snapshot. This fixes normal polling visibility and same-revision SSE regression risks.
 
 - Final local validation: init.sh quick health; research40files/920 tests; focused web2files/36tests; API/web typecheck; API lint; diff check. Independent review completed and P2 polling issue fixed; follow-up reviewer ran33tests green. Controlled final results and limitations: docs/evidence/research-parallel-acquisition-6332/README.md. PR/CI delivery remains to finish.
+
+## CI follow-up
+Initial backend shard8 failed because PostgreSQL integration tests still expected named-brief metadata provider dispatch. Updated those assertions to require zero redundant calls, verify the edited brief through an independent service.get, and then assert the first dependent direction call receives it. Recovery/replay/report persistence assertions remain. Full research directory on owned isolated PostgreSQL `wsx_research6332`:64files/1161tests passed (59.84s, peak15connections). Test container removed with compose down. Product implementation unchanged from5e84e6238.
