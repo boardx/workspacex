@@ -6,6 +6,7 @@ import { ApiError } from "@/lib/api-client";
 import type { ExecutionEvent } from "@repo/contracts/execution-journal";
 import { readExecutionPage } from "./execution-events-api";
 import { reduceTrace, type TraceStore } from "./run-trace";
+export interface LiveRunSignal { readonly generation: number; readonly event: Extract<ExecutionEvent, { kind: "status" }> | null }
 
 export function useRunTrace(agent: AbstractAgent, threadId: string | null) {
   const [events, setEvents] = React.useState<TraceStore>({});
@@ -23,6 +24,8 @@ export function useRunTrace(agent: AbstractAgent, threadId: string | null) {
    * `onToolCallStartEvent` below. */
   const [toolCallMessageIds, setToolCallMessageIds] = React.useState<ReadonlySet<string>>(() => new Set());
   const currentRun = React.useRef<string | null>(null);
+  const liveStatus = React.useRef<LiveRunSignal["event"]>(null);
+  const streamGeneration = React.useRef(0);
   const [, refreshLiveIdentity] = React.useReducer((revision: number) => revision + 1, 0);
   /** Message ids whose run was not yet known when their first event arrived.
    * `currentRun` is established by the durable execution events, and a tool call
@@ -42,6 +45,7 @@ export function useRunTrace(agent: AbstractAgent, threadId: string | null) {
     if (resolvedInPlace) return;
     generation.current += 1;
     currentRun.current = null;
+    liveStatus.current = null; streamGeneration.current += 1;
     storeRef.current = {};
     setEvents({}); setMessageRuns({}); setToolCallMessageIds(new Set()); unbound.current = [];
     return () => { for (const controller of activeControllers) controller.abort(); activeControllers.clear(); };
@@ -53,12 +57,13 @@ export function useRunTrace(agent: AbstractAgent, threadId: string | null) {
   }, []);
   React.useEffect(() => {
     const { unsubscribe } = agent.subscribe({
-      onRunStartedEvent: () => { currentRun.current = null; unbound.current = []; refreshLiveIdentity(); },
+      onRunStartedEvent: () => { currentRun.current = null; liveStatus.current = null; streamGeneration.current += 1; unbound.current = []; refreshLiveIdentity(); },
       onCustomEvent: ({ event }) => {
         if (event.name !== AGUI_EXECUTION_EVENT_NAME) return;
         const parsed = parseExecutionEvent(event.value);
         if (!parsed) return;
-        if (currentRun.current !== parsed.runId) { currentRun.current = parsed.runId; refreshLiveIdentity(); }
+        if (currentRun.current !== parsed.runId) { currentRun.current = parsed.runId; liveStatus.current = null; refreshLiveIdentity(); }
+        if (parsed.kind === "status") { liveStatus.current = parsed; refreshLiveIdentity(); }
         if (unbound.current.length) {
           const pending = unbound.current;
           unbound.current = [];
@@ -176,5 +181,6 @@ export function useRunTrace(agent: AbstractAgent, threadId: string | null) {
   const bindMessages = React.useCallback((messages: readonly { id: string; agentRunId?: string | null }[]) => {
     setMessageRuns((previous) => ({ ...previous, ...Object.fromEntries(messages.filter((message) => message.agentRunId).map((message) => [message.id, message.agentRunId!])) }));
   }, []);
-  return { events, messageRuns, toolCallMessageIds, hydrate, acceptedRunEpoch, append, bindMessages, liveRunId: currentRun.current };
+  return { events, messageRuns, toolCallMessageIds, hydrate, acceptedRunEpoch, append, bindMessages, liveRunId: currentRun.current,
+    liveSignal: { generation: streamGeneration.current, event: liveStatus.current } as LiveRunSignal };
 }

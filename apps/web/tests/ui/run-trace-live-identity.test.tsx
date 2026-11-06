@@ -19,11 +19,17 @@ it("only actual live events establish identity; hydration cannot replace it and 
   expect(result.current.liveRunId).toBeNull();
   act(() => subscriber.onCustomEvent({ event: { name: AGUI_EXECUTION_EVENT_NAME, value: event("live-1", "running") } }));
   expect(result.current.liveRunId).toBe("live-1");
+  const liveSignal = result.current.liveSignal;
   await act(() => result.current.hydrate([{ id: "old-message", agentRunId: "historical" }]));
   expect(result.current.liveRunId).toBe("live-1");
+  expect(result.current.liveSignal).toEqual(liveSignal);
   act(() => subscriber.onRunStartedEvent()); expect(result.current.liveRunId).toBeNull();
   // A fast run can first report its genuine terminal event.
   act(() => subscriber.onCustomEvent({ event: { name: AGUI_EXECUTION_EVENT_NAME, value: event("live-2", "succeeded") } }));
   expect(result.current.liveRunId).toBe("live-2");
+  const generation = result.current.liveSignal.generation;
+  act(() => subscriber.onCustomEvent({ event: { name: AGUI_EXECUTION_EVENT_NAME, value: event("live-2", "succeeded") } }));
+  expect(result.current.liveSignal.generation).toBe(generation);
+  expect(result.current.liveSignal.event).toMatchObject({ runId: "live-2", seq: 1, status: "succeeded" });
   rerender({ thread: "thread-2" }); expect(result.current.liveRunId).toBeNull();
 });

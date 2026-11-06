@@ -53,7 +53,7 @@ import { type AssistantMessageLandingValue } from "@/components/chat/copilotkit-
 
 
 
-import { selectAnnouncementRun, useChatRunAnnouncements } from "@/components/chat/use-chat-run-announcements";
+import { useChatRunAnnouncements } from "@/components/chat/use-chat-run-announcements";
 
 import { useAguiFileEvents } from "@/lib/agui-file-events";
 import { useAguiPlanTodos } from "@/lib/agui-plan-todos";
@@ -1402,12 +1402,10 @@ function useCopilotKitV2PanelController({
    * 此前什么都听不到。这里只播**状态迁移**（开始/结束），不播每一帧耗时——
    * 每秒念一次"已耗时 7 秒"会把 live region 变成噪声源。
    */
-  const announcement = selectAnnouncementRun(runTrace.events, runRestore, runTrace.liveRunId);
   useChatRunAnnouncements({
     scope: JSON.stringify([draftSession?.currentOrgId ?? orgId, draftSession?.userId, resolvedChatThreadId ?? threadId]),
     busy: runIsRunning, waiting: pendingPermission !== null,
-    paused: announcement.status === "paused", hasError: Boolean(error), locale: displayLocale,
-    runId: announcement.runId, terminalStatus: announcement.status, terminalProof: announcement.proof,
+    hasError: Boolean(error), locale: displayLocale, live: runTrace.liveSignal, restored: runRestore,
   });
 
   /** CK-P4 —— 最近一次真的发出去的用户消息，供错误横幅上的「重试」重发。
