@@ -269,3 +269,31 @@ test('merge-group web shards force complete selection instead of repeating targe
   const r = recording([], {env:{CI_AFFECTED_WEB_SHARD:'1/4',CI_AFFECTED_WEB_FORCE_FULL:'true'},targetedPlan:input=>{options=input;return {mode:'full'};}});
   r.run(); assert.equal(options.enabled,false);
 });
+
+test('container runtime trusts only its checkout under the active Git global config', async () => {
+  const { parse } = await import('yaml');
+  const { mkdtempSync, mkdirSync, realpathSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const w = parse(readFileSync(new URL('../workflows/harness-verify.yml', import.meta.url), 'utf8'));
+  const steps = w.jobs['verify-web-tests'].steps;
+  const trust = steps.find(s => s.name === 'Trust checkout under container runtime HOME');
+  assert.ok(trust);
+  assert.equal(trust.if, undefined); assert.equal(trust['continue-on-error'], undefined);
+  assert.ok(steps.indexOf(trust) > steps.findIndex(s => s.uses?.startsWith('actions/checkout@')));
+  assert.ok(steps.indexOf(trust) < steps.findIndex(s => s.name === 'Complete affected web test shard'));
+  const directory = realpathSync(mkdtempSync(join(tmpdir(), 'wsx-git-owner-')));
+  try {
+    const checkout = join(directory, 'checkout'), unrelated = join(directory, 'unrelated');
+    mkdirSync(checkout); mkdirSync(unrelated);
+    const env = {...process.env,GIT_CONFIG_GLOBAL:join(directory,'runtime.gitconfig'),GIT_CONFIG_NOSYSTEM:'1',GIT_TEST_ASSUME_DIFFERENT_OWNER:'1',GITHUB_WORKSPACE:checkout};
+    for (const cwd of [checkout, unrelated]) {
+      const init = spawnSync('git', ['init','--quiet'], {cwd,env,encoding:'utf8'}); assert.equal(init.status,0,init.stderr);
+      const before = spawnSync('git', ['status','--porcelain'], {cwd,env,encoding:'utf8'});
+      assert.notEqual(before.status,0); assert.match(before.stderr,/dubious ownership/);
+    }
+    const fix = spawnSync('sh',['-ec',trust.run],{cwd:checkout,env,encoding:'utf8'}); assert.equal(fix.status,0,fix.stderr);
+    const after = spawnSync('git',['status','--porcelain'],{cwd:checkout,env,encoding:'utf8'});assert.equal(after.status,0,after.stderr);
+    const other = spawnSync('git',['status','--porcelain'],{cwd:unrelated,env,encoding:'utf8'});assert.notEqual(other.status,0);assert.match(other.stderr,/dubious ownership/);
+    const entries=spawnSync('git',['config','--global','--get-all','safe.directory'],{env,encoding:'utf8'});assert.equal(entries.stdout.trim(),checkout);
+  } finally {rmSync(directory,{recursive:true,force:true});}
+});
