@@ -1,0 +1,94 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+
+ ❯ tests/ui/survey-upload-hint.test.tsx (1 test | 1 failed) 71ms
+   × shows configured file extensions before selection 70ms
+     → Unable to find an element with the text: /\.png,\.jpg/. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"space-y-3"[39m
+    [36m>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+      [36m>[39m
+        [0m预览模式不上传文件。[0m
+      [36m</p>[39m
+      [36m<label[39m
+        [33mclass[39m=[32m"block text-12"[39m
+      [36m>[39m
+        [0m选择文件[0m
+        [36m<input[39m
+          [33maccept[39m=[32m".png,.jpg"[39m
+          [33maria-label[39m=[32m"选择文件"[39m
+          [33mclass[39m=[32m"flex h-9 min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"[39m
+          [33mdisabled[39m=[32m""[39m
+          [33mtype[39m=[32m"file"[39m
+        [36m/>[39m
+      [36m</label>[39m
+      [36m<ul[39m
+        [33mclass[39m=[32m"space-y-2"[39m
+      [36m/>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/survey-upload-hint.test.tsx > shows configured file extensions before selection
+TestingLibraryElementError: Unable to find an element with the text: /\.png,\.jpg/. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"space-y-3"[39m
+    [36m>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+      [36m>[39m
+        [0m预览模式不上传文件。[0m
+      [36m</p>[39m
+      [36m<label[39m
+        [33mclass[39m=[32m"block text-12"[39m
+      [36m>[39m
+        [0m选择文件[0m
+        [36m<input[39m
+          [33maccept[39m=[32m".png,.jpg"[39m
+          [33maria-label[39m=[32m"选择文件"[39m
+          [33mclass[39m=[32m"flex h-9 min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"[39m
+          [33mdisabled[39m=[32m""[39m
+          [33mtype[39m=[32m"file"[39m
+        [36m/>[39m
+      [36m</label>[39m
+      [36m<ul[39m
+        [33mclass[39m=[32m"space-y-2"[39m
+      [36m/>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/survey-upload-hint.test.tsx:6:16
+      4| it('shows configured file extensions before selection',()=>{
+      5|  render(<QuestionMaterial questionId="q" value={[]} onChange={vi.fn()}…
+      6|  expect(screen.getByText(/\.png,\.jpg/)).toBeVisible();
+       |                ^
+      7| });
+      8|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  03:27:51
+   Duration  8.08s (transform 2.55s, setup 362ms, collect 4.12s, tests 71ms, environment 2.16s, prepare 97ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/survey-upload-hint.test.tsx
