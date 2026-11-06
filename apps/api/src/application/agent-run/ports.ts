@@ -1280,6 +1280,8 @@ export class ModelCallInterruptedError extends ModelCallError {
  * 漏一处就是一条只在某一条分支上存在的契约。
  */
 export interface ModelCallCompletion {
+  /** Verified, already archived provider outputs; write back through existing message attachments. */
+  readonly files?: readonly RunOutputFile[];
   readonly cancelled?: boolean;
   readonly paused?: boolean;
   readonly finalMessageId?: string;

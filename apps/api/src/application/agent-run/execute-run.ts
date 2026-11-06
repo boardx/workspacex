@@ -992,6 +992,7 @@ async function executeClaimed(
    * 恒为数组，缺席时是空的——空数组喂给 `maybeRunSkillScript` 与不传逐字等价。
    */
   let scriptCandidates: readonly string[] = [];
+  let providerFiles: readonly ProducedFile[] = [];
   // #741: this used to be advanced by `executeToolLoop` as it recorded `tool_call` steps;
   // with that loop retired, `model_called` is the step right after context_built for a
   // FRESH run (stepSeqBase=1 ⇒ context_built=2 ⇒ this starts at 3, the pre-existing
@@ -1204,6 +1205,7 @@ async function executeClaimed(
     }
     if (completion.finalMessageId) await deps.runs.appendExecutionEvent?.(orgId, run.runId, { kind: "final_message", attemptId: executionAttemptId, messageId: `${executionAttemptId}:${completion.finalMessageId}` });
     text = completion.text;
+    providerFiles = completion.files ?? [];
     // #1747：缺席 ⇒ 空数组 ⇒ 下面的判据退化成改动前那一条（只看 `text`）。
     scriptCandidates = completion.scriptCandidates ?? [];
   } catch (e) {
@@ -1320,7 +1322,7 @@ async function executeClaimed(
     );
     if (scripted.kind === "cancelled") return;
     text = scripted.text;
-    outputFiles = scripted.files;
+    outputFiles = [...providerFiles, ...scripted.files];
   }
 
   if (await deps.runs.cancelAtCheckpoint?.(orgId, run.runId)) return;
