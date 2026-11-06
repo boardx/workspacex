@@ -252,3 +252,10 @@ it("does not roll back a successful rename when an earlier metadata read resolve
   await waitFor(() => expect(screen.getByTestId("production-live")).toHaveAttribute("data-name", "改名成功B"));
   expect(readResearchMemory("rename-race")?.name).toBe("改名成功B");
 });
+it('keeps the project context on return from an existing research stage', () => {
+ window.history.replaceState({}, '', '/research/real-session/report?projectId=prj-source');
+ render(<ResearchStageRoute sessionId="real-session" stage="report" />);
+ fireEvent.click(screen.getByRole('button', { name: '返回列表' }));
+ expect(push).toHaveBeenCalledWith('/research?projectId=prj-source');
+ window.history.replaceState({}, '', '/');
+});
