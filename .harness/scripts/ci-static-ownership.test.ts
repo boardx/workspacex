@@ -20,7 +20,11 @@ describe('static validation has one PR producer, retaining standalone deployment
     }
     expect(evaluateIf(harness.jobs['verify-full-compile'].if, probe('push'))).toBe(false);
     const base=acceptance.jobs['base-compile'];
-    expect(base.if).toBeUndefined();
+    expect(evaluateIf(base.if, probe('merge_group'))).toBe(true);
+    for (const lane of ['all', 'base']) {
+      expect(evaluateIf(base.if.replaceAll('inputs.verification_lane', `'${lane}'`), probe('workflow_dispatch'))).toBe(true);
+    }
+    expect(evaluateIf(base.if.replaceAll('inputs.verification_lane', "'chat-refresh'"), probe('workflow_dispatch'))).toBe(false);
     const manual=base.steps.filter((step:any)=>step.run?.startsWith('pnpm turbo run'));
     expect(manual.map((step:any)=>step.run)).toEqual(['pnpm turbo run build','pnpm turbo run typecheck lint']);
     for(const step of manual){
