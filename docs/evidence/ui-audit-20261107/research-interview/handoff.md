@@ -65,3 +65,6 @@ Parent review identified default materials would block ordinary new research bec
 RED: 6361-default-open-red.log (2 failed).
 GREEN: 6361-default-open-green.log (30 passed across intake modes, production routes and bootstrap).
 Source/test writes are frozen again. No full tsc or git operations by worker.
+
+## #6372 CI与恢复返工
+旧home/i18n fixture未模拟新增策略持久化，已迁移并保留导航、字节、幂等与不重放模型断言。补查发现真实晚到回调和策略重试hash冲突：policy await之后增加active guard；version>0且已匹配mode复用持久策略；确需修改时command身份绑定session/version/mode。旧模型error的匹配策略可进入恢复页，不被当成策略写失败。Root独立4反例RED4/2，修复后source-mode6/6，组合97项加视觉8项通过，fixture类型窄化后home32/32重跑通过。未用fixture绕过原迟到断言；没有生产部署或浏览器复测假通过。

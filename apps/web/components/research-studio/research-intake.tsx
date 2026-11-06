@@ -186,12 +186,15 @@ export function ResearchIntake({ sessionId, session, workflow, onSession, onWork
       }
       if (!active.current) return;
       if (!runtime) throw new Error("RESEARCH_WORKFLOW_UNAVAILABLE");
-      const policyRequest = `source-policy-${createdSession.sessionId}`;
-      runtime = await executeResearchRuntime({ sessionId: createdSession.sessionId, node: runtime.currentNode,
-        action: "refine_source_policy", requestId: policyRequest, expectedVersion: runtime.version,
-        expectedRevision: runtime.planRevision ?? 0, idempotencyKey: policyRequest,
-        sourcePolicy: { mode: sourceMode, domains: runtime.sourcePolicy?.domains ?? [], internalSourceIds: runtime.sourcePolicy?.internalSourceIds ?? [], revision: (runtime.sourcePolicy?.revision ?? 0) + 1 } });
-      if (runtime.errorCode || runtime.sourcePolicy?.mode !== sourceMode) throw new Error("RESEARCH_SOURCE_POLICY_INVALID");
+      if (!(runtime.version > 0 && runtime.sourcePolicy?.mode === sourceMode)) {
+        const policyRequest = `source-policy-${createdSession.sessionId}-${runtime.version}-${sourceMode}`;
+        runtime = await executeResearchRuntime({ sessionId: createdSession.sessionId, node: runtime.currentNode,
+          action: "refine_source_policy", requestId: policyRequest, expectedVersion: runtime.version,
+          expectedRevision: runtime.planRevision ?? 0, idempotencyKey: policyRequest,
+          sourcePolicy: { mode: sourceMode, domains: runtime.sourcePolicy?.domains ?? [], internalSourceIds: runtime.sourcePolicy?.internalSourceIds ?? [], revision: (runtime.sourcePolicy?.revision ?? 0) + 1 } });
+        if (!active.current) return;
+        if (runtime.errorCode || runtime.sourcePolicy?.mode !== sourceMode) throw new Error("RESEARCH_SOURCE_POLICY_INVALID");
+      }
       window.localStorage.removeItem(pending.storageKey);
       window.sessionStorage.removeItem(CREATE_DRAFT_KEY);
       onClear?.();
