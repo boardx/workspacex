@@ -460,7 +460,7 @@ it('updates waiting collection status when the scheduled start boundary passes',
  vi.useFakeTimers({toFake:['setTimeout','clearTimeout','Date']});
  try {
   const now=Date.now();
-  const publication={token:'token',status:'collecting' as const,startsAt:new Date(now+1000).toISOString(),expiresAt:new Date(now+60000).toISOString(),questions:runtime().questions};
+  const publication={version:1,token:'token',status:'collecting' as const,startsAt:new Date(now+1000).toISOString(),expiresAt:new Date(now+60000).toISOString(),questions:runtime().questions};
   request.mockResolvedValue(runtime({status:'collecting',publication}));
   await act(async()=>{render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="publish"/>);});
   expect(screen.getByRole('heading',{name:'问卷等待开始'})).toBeInTheDocument();
