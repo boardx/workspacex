@@ -53,7 +53,6 @@ chat 只负责把执行状态（含工具调用）渲染出来、把用户输入
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
-- 2026-11-06：SDK isRunning=false 可能只是审批停流，不是业务完成；播报应复用持久执行/审批/恢复状态，只有当前run新终态证明才能结算本次活动，历史终态及另一run恢复状态不能拼成新任务完成。切换组织/用户/线程须清空旧播报（issue #6321）。
 - 2026-11-03：HITL 裁决后下一条消息可能经服务端持久队列派发，不保证再有 SDK run POST；验收复用 `e2e/support/hitl-next-turn.ts` 的 queue → canonical run → 唯一持久 human/result/replyTo 链。SDK 线程不是 Chat 线程，持久线程取 `forwardedProps.chatThreadId`；队列派发的幂等消息身份取实际 queue row id（执行器契约），别把 clientRequestId 当它。出处：issue [#6189](https://github.com/boardx/workspacex/issues/6189)，真实 SDK/忙态队列两场景及反例验证。
 - 2026-10-29：刷新停在登录确认时先对齐脚本加载、hydrate 与身份请求时间；接口最终 200 不证明超时前已恢复。登录/会话客户端应引用契约子路径，避免根 barrel 把无关注册表带入首屏。浏览器离站或 composer 消失也不能用上一次 running 值判成运行卡死（issue #5982；`session-client-bundle-boundary.test.ts` 与 `e2e-chat-run-settled.test.ts`）。
 - 2026-10-15：目录示例任务跳到对话后，URL 和输入文本正确、通用 loading 消失仍不能证明选角及开场简报已稳定。截图需先等空态挂载，再等 session-briefing-loading 消失，并断言实际角色名、非自动匹配和头像加载；CI 成功后的图片仍需逐张审查（[PR #5710](https://github.com/boardx/workspacex/pull/5710)）。
@@ -172,3 +171,5 @@ chat 只负责把执行状态（含工具调用）渲染出来、把用户输入
 - 2026-11-04（#6215）：CK-P8 archived fixture 的 route 必须只匹配当前线程 getThread pathname（保留 query）、只处理 GET，不能宽拦 `/agents` 等轮询。精确 trace 显示全部只读断言已过后，无关 route.fetch 仍在途，context 释放后 response.json 才报 disposed；结束前 unregister 自己的 handler 并等待在途工作，错误照常传播，不吞错/扩超时。反例与真实原 spec 结果见 `evidence/chat-archived-fixture-6215`（尚需按其收据确认当前验证状态）。
 
 - 2026-11-05（#6244）：历史失败的显示偏好按组织/会话/run/attempt 隔离，仅终态失败消费隐藏值；重试只复用当前错误横幅对应 run 的恢复路径，不能把历史 run 卡片连到最新计划。失败计划移入执行过程详情时，保留成功/运行中原展示与未完成步骤事实。
+
+- 2026-11-06：SDK isRunning=false 可能只是审批停流，不是业务完成；播报应复用持久执行/审批/恢复状态，只有当前run新终态证明才能结算本次活动，历史终态及另一run恢复状态不能拼成新任务完成。切换组织/用户/线程须清空旧播报（issue #6321）。

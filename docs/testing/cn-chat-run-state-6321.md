@@ -47,3 +47,7 @@ resume, final writeback and refresh without a false completion announcement.
 Queue dispatch and refresh restoration with no live stream retain their terminal
 state in the timeline; this announcer clears on idle rather than inventing a
 completion from history. The old announcer also covered only SDK live activity.
+
+## Merge queue conflict follow-up
+
+The original announcement head and queued approval-summary PR #6328 both inserted their lesson immediately after the same module heading. A real `git merge-tree --write-tree` reproduced a conflict solely in `.agents/skills/mod-chat/SKILL.md`, even though each PR separately merged cleanly with develop. The announcement lesson now appends after the existing final lesson; no lesson is removed and no application/test implementation is changed. Verify the queued combination, rather than relying only on each PR's individual mergeability. CN release/acceptance boundaries above remain unchanged.
