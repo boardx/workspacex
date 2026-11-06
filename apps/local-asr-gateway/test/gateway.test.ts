@@ -39,6 +39,21 @@ async function connect(url: string, model = "local-zipformer"): Promise<{ ws: We
 }
 
 describe("local ASR gateway protocol", () => {
+  it.each([0, 500])("VAD session.finish flushes the remaining audio before acknowledging completion (%s samples)", async samples => {
+    handle = await startGateway({ engine: new FakeEngine({ endpointAfterSamples: 4000 }), port: 0, tickMs: 20 });
+    const c = await connect(handle.url);
+    c.ws.send(JSON.stringify({ type: "session.update", session: { turn_detection: { type: "server_vad" } } }));
+    await c.next("session.updated");
+    if (samples) c.ws.send(JSON.stringify({ type: "input_audio_buffer.append", audio: pcm(samples) }));
+    const closed = new Promise<number>(resolve => c.ws.once("close", code => resolve(code)));
+    c.ws.send(JSON.stringify({ type: "session.finish" }));
+    if (samples) expect((await c.next("conversation.item.input_audio_transcription.completed")).transcript).toBe("final 500 of 500");
+    await c.next("session.finished");
+    expect(await closed).toBe(1000);
+    expect(c.frames.some(frame => frame.type === "error")).toBe(false);
+    expect(c.frames.some(frame => frame.type === "conversation.item.input_audio_transcription.completed")).toBe(false);
+  });
+
   it("server_vad: partials while audio flows, final on endpoint, final on commit", async () => {
     handle = await startGateway({ engine: new FakeEngine({ endpointAfterSamples: 4000 }), port: 0, tickMs: 20 });
     const c = await connect(handle.url);
