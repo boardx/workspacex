@@ -196,6 +196,9 @@ def test_factory_output_handoff_is_independent_of_attachments_and_respects_admis
     asyncio.run(run())
     args=build.call_args.kwargs
     prompt=args['system_prompt'] or ''
+    assert 'Do not install dependencies' in prompt
+    assert 'no network' in prompt
+    assert 'exit code' in prompt and 'transport' in prompt
     assert args['inputs']==inputs
     assert (publish.name in prompt)==publish_admitted
     assert {tool.name for tool in args['tools']}==({publish.name} if publish_admitted else set())
