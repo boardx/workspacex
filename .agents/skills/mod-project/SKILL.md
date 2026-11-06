@@ -58,6 +58,8 @@ description: >
 
 ## 踩坑与经验（append-only，最新在上）
 
+- 2026-11-06：项目列表的成员入列必须按 `projects.kind` 读取对应身份表：工作坊用 `project_memberships`，通用项目用 `general_project_members`。邀请接受已经持久化后一律不靠前端缓存补列表；仅查询前者会导致协作者能进工作台、返回列表却消失。两支都限定 actor + project + org，保留管理段去重和只读标注；真实邀请→独立数据库读→列表、浏览器返回/刷新/新会话回归见 issue #6339。
+
 - 2026-11-03：国际化开工核对发现本文件旧的三种 kind、创建者不授角色、两段列表及 admin 不能创建已落后于代码。
   以 `ProjectKind` / `listProjects.out`、`canCreateProject`、`PgProjectRepository.create` 及真实创建测试为准，
   修正当前约束；下方 2026-08-12 403 记录仅为当时历史，已被 2026-08-16 后续裁决推翻，不能当当前验收。

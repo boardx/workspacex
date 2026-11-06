@@ -13,7 +13,7 @@
  *
  * 那条门是为「一个 Artifact/Segment 的可见性由 `acl_bindings` 决定」这类场景设计的：
  * 一个 `ObjectRef` 对应一个由 `authorize()` 判的 scope。而 `listProjects` 的两段
- * 判据根本不是 `acl_bindings`——是 `project_memberships`（`member` 段）与
+ * 判据根本不是 `acl_bindings`——是 `project_memberships` / `general_project_members`（`member` 段）与
  * `org_memberships.org_role`（`managed` 段）本身，即**判定所依据的身份数据**，
  * 与 `pg-identity-repository.ts` 在同一份白名单里的理由完全同型：
  * 「reads the memberships ... the decision is MADE from -- guarding it with the
@@ -70,9 +70,17 @@ export class PgProjectListRepository implements ProjectListRepository {
       const memberResult = await s.query<ProjectListSqlRow>(
         `SELECT DISTINCT p.id, p.name, p.kind, p.status, o.status AS org_status, ${TAGS_SUBSELECT}
            FROM projects p
-           JOIN project_memberships pm ON pm.project_id = p.id
            JOIN organizations o ON o.id = p.org_id
-          WHERE pm.user_id = $1 AND p.org_id = $2
+          WHERE p.org_id = $2 AND (
+            (p.kind = 'workshop' AND EXISTS (
+              SELECT 1 FROM project_memberships pm
+               WHERE pm.project_id = p.id AND pm.org_id = p.org_id AND pm.user_id = $1
+            )) OR
+            (p.kind = 'general' AND EXISTS (
+              SELECT 1 FROM general_project_members gm
+               WHERE gm.project_id = p.id AND gm.org_id = p.org_id AND gm.user_id = $1
+            ))
+          )
           ORDER BY p.id`,
         [query.actorId, query.orgId],
       );
