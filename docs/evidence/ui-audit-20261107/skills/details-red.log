@@ -1,0 +1,45 @@
+
+> web@0.1.0 test /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+> vitest run "tests/ui/i18n-chat-skill-mount.test.tsx"
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+
+ ❯ tests/ui/i18n-chat-skill-mount.test.tsx (4 tests | 1 failed) 913ms
+   ✓ searches manually opened skills by task description, clears no-match, and mounts the selected identity 746ms
+   × keeps source maintenance instructions out of the task choice and offers them in details 43ms
+     → expect(element).not.toHaveTextContent()
+
+Expected element not to have text content:
+  声明式契约
+Received:
+  文档理解这个 skill 的内容是文件形式（导入 / 由文件浏览器维护），不是声明式契约表单——查看/编辑源码请点卡片上的「编辑源码」。
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/i18n-chat-skill-mount.test.tsx > keeps source maintenance instructions out of the task choice and offers them in details
+Error: expect(element).not.toHaveTextContent()
+
+Expected element not to have text content:
+  声明式契约
+Received:
+  文档理解这个 skill 的内容是文件形式（导入 / 由文件浏览器维护），不是声明式契约表单——查看/编辑源码请点卡片上的「编辑源码」。
+ ❯ tests/ui/i18n-chat-skill-mount.test.tsx:52:22
+     50|   render(<I18nProvider initialLocale="zh-CN"><ChatSkillMountPanel vari…
+     51|   const option = await screen.findByTestId("chat-skill-mount-option-fi…
+     52|   expect(option).not.toHaveTextContent("声明式契约");
+       |                      ^
+     53|   expect(screen.getByText("技术说明").closest("details")).not.toHaveAt…
+     54|   expect(screen.getByText(duty).closest("details")).toBeTruthy();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 3 passed (4)
+   Start at  03:40:35
+   Duration  26.46s (transform 6.93s, setup 1.14s, collect 10.79s, tests 913ms, environment 7.01s, prepare 1.20s)
+
+/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  web@0.1.0 test: `vitest run "tests/ui/i18n-chat-skill-mount.test.tsx"`
+Exit status 1

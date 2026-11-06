@@ -16,6 +16,8 @@ import { getAgentDirectoryProfile } from "@/lib/agent-directory";
 import { listSkills, type SkillListItem } from "@/lib/live-skill";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { skillTaskDescription } from "@/lib/skill-task-description";
 import { FeedbackButton } from "@/components/feedback/feedback-button";
 import { describeMessageFailure } from "@/lib/live-chat";
 import { useChatPopoverSlot } from "./chat-popover-coordinator";
@@ -185,6 +187,7 @@ export function ChatSkillMountPanel({
    */
   const [version, setVersion] = React.useState<string | null>(null);
   const [pool, setPool] = React.useState<readonly SkillListItem[]>([]);
+  const [search, setSearch] = React.useState("");
   /*
     issue #1803 gap #3（devapp 实测）——这个候选面板与 `AgentPicker`（运行 Agent
     下拉）此前是两个互不相知的私有 `useState<boolean>`，先开一个不关、再开另一个
@@ -298,6 +301,7 @@ export function ChatSkillMountPanel({
     setPending(false);
     setCleaning(false);
     setPicking(false);
+    setSearch("");
     setFailure(null);
     const key = roleScopeKey;
     void loadPool().catch((error) => { if (liveScope.current === key) setFailure({ cause: error, action: "chatSkills.loadRole" }); });
@@ -305,6 +309,7 @@ export function ChatSkillMountPanel({
 
   const openPicker = async (openedByMention: boolean) => {
     mentionOpenedRef.current = openedByMention;
+    setSearch("");
     setPicking(true);
     setFailure(null);
     const key = roleScopeKey;
@@ -332,9 +337,10 @@ export function ChatSkillMountPanel({
   }, [mentionQuery]);
 
   const currentPool = roleScope?.key !== roleScopeKey ? [] : pool;
-  const visiblePool = mentionQuery ? currentPool.filter((item) => item.name.includes(mentionQuery)) : currentPool;
+  const query = (mentionQuery ?? search).trim().toLocaleLowerCase();
+  const visiblePool = query ? currentPool.filter((item) => `${item.name}\n${item.duty}`.toLocaleLowerCase().includes(query)) : currentPool;
   const rolePending = actingAgentId && roleScope?.key === roleScopeKey ? roleScope.pending : [];
-  const visiblePending = mentionQuery ? rolePending.filter((item) => (item.displayName ?? item.stableName).includes(mentionQuery) || item.stableName.includes(mentionQuery)) : rolePending;
+  const visiblePending = query ? rolePending.filter((item) => `${item.displayName ?? ""}\n${item.stableName}`.toLocaleLowerCase().includes(query)) : rolePending;
 
   /** `openRequest` 变化 ⇒ 打开一次（见该 prop 头注）。 */
   const lastOpenRequestRef = React.useRef(openRequest);
@@ -495,6 +501,11 @@ export function ChatSkillMountPanel({
       style={headless ? { maxHeight: pickerMaxHeight } : undefined}
       data-testid="chat-skill-mount-picker"
     >
+      {mentionQuery == null ? <div className="flex w-full shrink-0 items-center gap-1">
+        <Input type="search" autoFocus value={search} aria-label={t("chatSkills.search")}
+          placeholder={t("chatSkills.search")} onChange={(event) => setSearch(event.target.value)} />
+        {search ? <Button size="icon" variant="ghost" aria-label={t("chatSkills.clearSearch")} onClick={() => setSearch("")}><X aria-hidden className="h-3 w-3" /></Button> : null}
+      </div> : null}
       {actingAgentId && roleScope?.key === roleScopeKey ? (
         <span className="px-1.5 py-1 text-10 text-muted-foreground" data-testid="chat-skill-role-counts" data-available-count={currentPool.length} data-pending-count={rolePending.length}>
           {t("chatSkills.counts", { available: currentPool.length, pending: rolePending.length })}
@@ -511,15 +522,15 @@ export function ChatSkillMountPanel({
         </span>
       ) : visiblePool.length === 0 ? (
         <span className="px-1.5 py-1 text-11 text-muted-foreground" data-testid="chat-skill-mount-mention-no-match">
-          {t("chatSkills.noMatch", { query: mentionQuery ?? "" })}
+          {t("chatSkills.noMatch", { query: mentionQuery ?? search })}
         </span>
       ) : headless ? (
         // 竖排列表：名字 + 真实 `duty`（与「浏览 skill」页同一字段），选错了才知道是什么的
         // 横排小按钮不适合"敲 / 快速挑"这个场景（2026-08-30 人类反馈）。
         <div className="min-h-0 overflow-y-auto overscroll-contain" data-testid="chat-skill-mount-options">
           {visiblePool.map((item) => (
+            <div key={item.skillId}>
             <button
-              key={item.skillId}
               type="button"
               disabled={pending || cleaning || Boolean(actingAgentId && !roleScope?.versions.get(item.skillId)?.has(item.currentVersionId ?? ""))}
               data-testid={`chat-skill-mount-option-${item.skillId}`}
@@ -529,9 +540,14 @@ export function ChatSkillMountPanel({
               <span className="max-w-full truncate text-11 font-medium text-card-foreground">{item.name}</span>
               {actingAgentId && !roleScope?.versions.get(item.skillId)?.has(item.currentVersionId ?? "") ? <span className="text-10 text-muted-foreground">{t("chatSkills.pinned")}</span> : null}
               <span className="line-clamp-1 text-10 text-muted-foreground">
-                {item.duty.trim() || t("chatSkills.noDescription")}
+                {skillTaskDescription(item) || t("chatSkills.noDescription")}
               </span>
             </button>
+            {!skillTaskDescription(item) && item.duty.trim() ? <details className="px-2 pb-1 text-10 text-muted-foreground">
+              <summary className="cursor-pointer">{t("chatSkills.technicalDetails")}</summary>
+              <p className="mt-1 break-words">{item.duty}</p>
+            </details> : null}
+            </div>
           ))}
         </div>
       ) : (
