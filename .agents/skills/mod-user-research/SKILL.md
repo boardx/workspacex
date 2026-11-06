@@ -120,3 +120,5 @@ description: 用户研究计划、资料检索、来源证据和研究报告；�
 - 2026-10-28：研究 route 热切换须先显示已有快照，再以捕获基线合并只读校验；校验与后续轮询都保留未提交草稿，明确放弃时才丢弃。页面缓存及并发读取按 bearer + 当前组织 + 研究隔离，明确 401/403/404 清缓存，离线保留；StrictMode 重挂载可共享同基线的未完成读取，不能缓存已完成响应（出处：issue #5969、docs/evidence/research-route-5969/README.md）。
 
 - #5969 复审：热缓存 version0 只用于立即展示，自动 prepare_plan 必须等待当前 route 后端校验成功；metadata GET 与成功 rename 共用名称写入代际，迟到读取不得回退已保存名称。延迟读取、权限拒绝、后端版本推进及新建正常引导的反证见同份证据。
+
+- 2026-11-06：用户明确以跨章节并行资料获取替代#5421按章串行边界。全局primary/recovery队列共享read/model限额3/2，补搜按章内顺序、章间最多3个worker；URL只锁实际候选窗口，不能预锁未读尾部。命名brief的生成主题原本会被用户值覆盖，因此跳过该无效调用，默认主题仍需生成。进度phase-start先落盘、同phase250ms内合并，不能只用observer证明默认NDJSON+polling可见；受控对照不代表线上时延（#6332，docs/evidence/research-parallel-acquisition-6332/README.md）。

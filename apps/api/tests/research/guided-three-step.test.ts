@@ -36,6 +36,16 @@ function fixture() {
 }
 
 describe("three visible stages with durable composite execution", () => {
+  it("uses only two dependent model calls for a named brief and retains every user scope field", async () => {
+    const f = fixture(), brief = structuredClone(f.latest().brief);
+    const result = await f.run("prepare_plan");
+    expect(result.errorCode).toBeNull();
+    expect(result.brief).toEqual(brief);
+    expect(result.generatedNodes).toEqual(["brief", "directions", "outline"]);
+    expect(f.model.complete).toHaveBeenCalledTimes(2);
+    expect(result.modelCalls.map(call => call.node)).toEqual(["directions", "outline"]);
+    expect(f.search).not.toHaveBeenCalled();
+  });
   it("accepts topic-only brief generation while retaining the complete original research scope", async () => {
     const f = fixture(); const complete = f.model.complete.getMockImplementation()!;
     const brief = { ...f.latest().brief, topic: C.DEFAULT_RESEARCH_NAME, goal: "完整需求".repeat(10000), focus: "原始重点", region: "中国", timeRange: "2026" };
@@ -92,7 +102,7 @@ describe("three visible stages with durable composite execution", () => {
     expect(result.errorCode).toBeNull(); expect(result.currentNode).toBe("outline"); expect(result.executionGoal).toBe("plan");
     expect(result.generatedNodes).toEqual(["brief", "directions", "outline"]);
     expect(result.outline.length).toBeGreaterThan(0); expect(result.completed).toBe(false); expect(f.claim).toHaveBeenCalledTimes(1);
-    expect(f.search).not.toHaveBeenCalled(); expect(f.model.complete).toHaveBeenCalledTimes(3);
+    expect(f.search).not.toHaveBeenCalled(); expect(f.model.complete).toHaveBeenCalledTimes(2);
     expect(f.writes[0]?.executionGoal).toBe("plan");
     const calls = f.model.complete.mock.calls.length;
     await f.run("prepare_plan", "brief", { expectedVersion: 0 }, "same-plan"); await f.service.get(f.actor, f.session); await f.run("retry", "outline");
@@ -120,7 +130,7 @@ describe("three visible stages with durable composite execution", () => {
     });
     const result = await f.run("prepare_plan");
     expect(result.errorCode).toBeNull(); expect(result.outline).toEqual(expected);
-    expect(f.model.complete).toHaveBeenCalledTimes(3);
+    expect(f.model.complete).toHaveBeenCalledTimes(2);
   });
   it("rejects unparseable outline content without asking a model to invent missing fields", async () => {
     const f = fixture(); const complete = f.model.complete.getMockImplementation()!;
@@ -128,8 +138,8 @@ describe("three visible stages with durable composite execution", () => {
       ? { text: '[{"id":"chapter", broken JSON]' } : complete(input));
     const result = await f.run("prepare_plan");
     expect(result.errorCode).not.toBeNull(); expect(result.outline).toEqual([]);
-    expect(f.model.complete).toHaveBeenCalledTimes(3);
-    expect(result.modelCalls.map(call => [call.node, call.status])).toEqual([["brief", "succeeded"], ["directions", "succeeded"], ["outline", "failed"]]);
+    expect(f.model.complete).toHaveBeenCalledTimes(2);
+    expect(result.modelCalls.map(call => [call.node, call.status])).toEqual([["directions", "succeeded"], ["outline", "failed"]]);
   });
   it("rejects a truncated outline without a provider flag and keeps successful nodes", async () => {
     vi.useFakeTimers();
@@ -143,7 +153,7 @@ describe("three visible stages with durable composite execution", () => {
       await vi.advanceTimersByTimeAsync(30000);
       finish({ text: '[{"id":"chapter","title":"incomplete' }); await pending;
       expect(result?.errorCode).not.toBeNull(); expect(result?.outline).toEqual([]);
-      expect(f.model.complete).toHaveBeenCalledTimes(3);
+      expect(f.model.complete).toHaveBeenCalledTimes(2);
       expect(result?.generatedNodes).toEqual(["brief", "directions"]);
     } finally { vi.useRealTimers(); }
   });
@@ -178,7 +188,7 @@ describe("three visible stages with durable composite execution", () => {
     expect(failed.executionGoal).toBe("plan"); expect(failed.currentNode).toBe("directions"); expect(failed.errorCode).not.toBeNull();
     expect(failed.outline).toEqual([]); expect(f.search).not.toHaveBeenCalled();
     fail = false; const result = await f.run("retry", "directions"); expect(result.currentNode).toBe("outline"); expect(result.errorCode).toBeNull();
-    expect(f.model.complete.mock.calls.filter(([input]) => input.system.includes("Generate the brief step"))).toHaveLength(1);
+    expect(f.model.complete.mock.calls.filter(([input]) => input.system.includes("Generate the brief step"))).toHaveLength(0);
   });
   it("runs confirmed plan through source preparation and existing report completion with one claim", async () => {
     const f = fixture(); await f.run("prepare_plan"); f.claim.mockClear();
@@ -471,7 +481,7 @@ describe("generated brief subject authority", () => {
     const tasks = tasksFromConfirmedQuestions(f.latest());
     expect(tasks.length).toBeGreaterThan(0); expect(tasks.every(task => task.query.includes(result.brief.topic))).toBe(true);
     expect(tasks.some(task => task.query.includes(C.DEFAULT_RESEARCH_NAME))).toBe(false);
-    expect(f.model.complete).toHaveBeenCalledTimes(3); expect(f.search).not.toHaveBeenCalled();
+    expect(f.model.complete).toHaveBeenCalledTimes(inputTopic === C.DEFAULT_RESEARCH_NAME ? 3 : 2); expect(f.search).not.toHaveBeenCalled();
   });
 });
 
