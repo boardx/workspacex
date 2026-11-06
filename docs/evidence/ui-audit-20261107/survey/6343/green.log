@@ -1,0 +1,39 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+
+ ✓ tests/ui/survey-draft-copy.test.tsx (3 tests) 893ms
+   ✓ copies frozen questions into a distinct draft without copying answers or mutating the original 603ms
+ ✓ tests/ui/survey-live-workspace.test.tsx (39 tests) 53631ms
+   ✓ live survey workspace persistence > saves before opening publish and stays in the designer when that save fails 1932ms
+   ✓ live survey workspace persistence > keeps a single header publish action and moves template saving into more actions 2063ms
+   ✓ live survey workspace persistence > preserves existing tags in canonical Markdown when applying an AI proposal without tags 2300ms
+   ✓ live survey workspace persistence > keeps project context when leaving the AI import step 823ms
+   ✓ live survey workspace persistence > saves repeat policy and success Markdown through canonical publication source 379ms
+   ✓ live survey workspace persistence > keeps title focus while saving without permitting concurrent edits 2368ms
+   ✓ live survey workspace persistence > automatically persists applied valid changes on an existing draft 1900ms
+   ✓ live survey workspace persistence > does not repeatedly save after an automatic version conflict or discard local content 474ms
+   ✓ live survey workspace persistence > shows the prototype design preview beside question settings and a clear publish action 399ms
+   ✓ live survey workspace persistence > locks projected question edits until changed Markdown is applied 1802ms
+   ✓ live survey workspace persistence > preserves the local report template when keeping the local version after a conflict 4515ms
+   ✓ live survey workspace persistence > inserts replacement tokens in survey names literally 417ms
+   ✓ live survey workspace persistence > reuses the created draft when saving its source fails 1245ms
+   ✓ live survey workspace persistence > loads the conflicting remote version without discarding local Markdown 4340ms
+   ✓ live survey workspace persistence > keeps only the three primary steps for ordinary design 2319ms
+   ✓ live survey workspace persistence > keeps the design step active while editing the optional report template 1055ms
+   ✓ live survey workspace persistence > shows optional report-template and latest-report readiness without blocking responses 1884ms
+   ✓ live survey workspace persistence > closes the optional actions menu after choosing an action 4694ms
+   ✓ live survey workspace persistence > uses a four-step AI import flow and enters a clean designer after applying Markdown 899ms
+   ✓ live survey workspace persistence > retains unsaved inputs when saving fails and never shows a success notice 2339ms
+   ✓ live survey workspace persistence > shows a dedicated saving state while a manual save is pending 2368ms
+   ✓ live survey workspace persistence > accepts only the returned saved runtime, including its canonical title and version 4013ms
+   ✓ live survey workspace persistence > keeps the respondent collection link available while a small report is protected 672ms
+   ✓ live survey workspace persistence > sends an explicit reason when excluding a response from analysis 339ms
+   ✓ report template unbinding persistence > clears local mapping blockers immediately and autosaves an optional empty report template that survives reload 2271ms
+   ✓ report template unbinding persistence > autosaves only report configuration on a published survey while preserving its questions, publication, batches and old report 2151ms
+   ✓ keeps ordinary report template title edits unsaved until explicit save 1726ms
+
+ Test Files  2 passed (2)
+      Tests  42 passed (42)
+   Start at  03:40:00
+   Duration  64.77s (transform 4.26s, setup 880ms, collect 13.33s, tests 54.52s, environment 3.19s, prepare 394ms)
