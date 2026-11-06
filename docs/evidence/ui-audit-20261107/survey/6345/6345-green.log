@@ -1,0 +1,12 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+
+ ✓ tests/ui/survey-draft-copy.test.tsx (4 tests) 2116ms
+   ✓ copies frozen questions into a distinct draft without copying answers or mutating the original 1187ms
+   ✓ retains the original and allows an explicit retry when creation fails 454ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  03:40:17
+   Duration  15.81s (transform 3.82s, setup 449ms, collect 6.51s, tests 2.12s, environment 4.37s, prepare 211ms)
