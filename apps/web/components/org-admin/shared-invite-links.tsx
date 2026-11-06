@@ -199,7 +199,7 @@ function CreateLinkForm({
       setMaxUsesRaw("");
       const notice: Feedback = (t) =>
         out.status === "pending-review"
-          ? t("orgSharedInvites.pendingNotice")
+          ? t("invitation.needsResend")
           : t("orgSharedInvites.createdNotice", { expiry: expiryLabelFor(expiry, t), limit: maxUses === null ? t("orgSharedInvites.unlimitedNotice") : t("orgSharedInvites.limitNotice", { count: maxUses }) });
       onCreated({ status: out.status, linkToken: out.linkToken, orgRole }, notice);
     } catch (err) {

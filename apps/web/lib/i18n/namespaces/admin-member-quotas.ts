@@ -79,7 +79,7 @@ export const adminMemberQuotasZhCN = {
   "adminMemberQuotas.shelldenialReason": "成员与配额仅组织管理员可见；顾问只能通过『看我的访问记录』查看自己的访问历史。",
   "adminMemberQuotas.shellsuccessMessage": "已为吴桐单独提额至 5.0M；本次操作已记入审计",
   "adminMemberQuotas.shellQuotaError": "提额失败：目标额度超过组织剩余额度（1,380 万 tokens），请先调整组织总额度",
-  "adminMemberQuotas.orgManagement": "成员/邀请的批准、拒绝与撤销双人复核，组织资料，在「组织成员」管理（已接真实后端）。这里是配额与「管理员看不到什么」这两块——组织级邀请管理不重复做。"
+  "adminMemberQuotas.orgManagement": "成员、邀请和组织资料在「组织成员」中管理。这里可调整成员额度，并查看管理员的数据访问范围。"
 } as const;
 
 export const adminMemberQuotasEn: Record<keyof typeof adminMemberQuotasZhCN, string> = {
@@ -163,5 +163,5 @@ export const adminMemberQuotasEn: Record<keyof typeof adminMemberQuotasZhCN, str
   "adminMemberQuotas.shelldenialReason": "Members and quotas are only visible to organization administrators. Consultants can view their own access history.",
   "adminMemberQuotas.shellsuccessMessage": "Quota for 吴桐 increased to 5.0M; this action was recorded in the audit log",
   "adminMemberQuotas.shellQuotaError": "Could not increase quota: the requested amount exceeds the remaining organization budget (13.8M tokens). Adjust the organization budget first.",
-  "adminMemberQuotas.orgManagement": "Manage member and invitation approval, rejection, revocation review and organization details in Organization members (connected to the live backend). This screen covers quotas and administrator visibility boundaries."
+  "adminMemberQuotas.orgManagement": "Manage members, invitations and organization details in Organization members. Adjust member quotas and view administrator data access boundaries here."
 };
