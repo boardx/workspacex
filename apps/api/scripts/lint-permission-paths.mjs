@@ -74,10 +74,7 @@ const SUBTASK_BOUNDARIES = new Set([
   "src/infrastructure/agent-run/subtask-run-executor.ts",
 ]);
 const ALLOWLIST = new Map([
-  [
-    "src/infrastructure/auth/org-invitation-mail-delivery.ts",
-    "#6316: transactional invitation delivery projects only org_invites.email for the exact tenant/invite and freshly-issued token while pending, unconsumed and unexpired. It is invoked only after org-admin authorization in inviteOrgMember/resend (org-admin-management.controller requireOrgAdmin/requireAdminRole); there is no read/disclosure endpoint and no artifact content. The status write re-locks the invite and conditionally matches the same token so an old delivery cannot consume/change a newer resend. Tests/auth/org-invitation-members.test.ts cover dispatch, unavailable mail and token invalidation. Remove/re-review this entry if recipient predicates, admin entry gate, token whitelist or those tests change.",
-  ],
+
 
 
   [

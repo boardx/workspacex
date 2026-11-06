@@ -11,3 +11,5 @@ Boundary: unknown-cost provider calls reserve the member's remaining allowance a
 Production inbox delivery and production rollout have not been performed in this session. Mail tests exercise the real service through a fake transactional egress. The deployment must have its canonical mail configuration already available; failure is visible and retriable.
 
 Affected static preflight:27/27 tasks passed serially before publication (affected-static.txt).
+
+CI iteration: PR https://github.com/boardx/workspacex/pull/6325 first head c4e79a1 failed forced migration replay, permission exception-count128 cap, stale removed-review wiring, and recovery reviewed-migration suffix. Fixed each cause without relaxing gates: idempotent DDL/policy, reused invitation repository mail store (no new exemption), retired wiring declarations, exact reviewed migration registration. Auth+permission38, forced replay2, migration-scope2, recovery wrapper9 tests passed; API typecheck/lint and UI wiring passed. Scoped independent re-review of mail extraction and migration fixes clean. New head CI pending; PR is authoritative live status.

@@ -1,3 +1,4 @@
+import type {OrgInvitationDeliveryStore} from "../../application/auth/org-invitation-delivery";
 import { lockCapacityEpoch, lockOrganizationCapacity, commercialSeatAvailable, readCommercialCapacity } from "../org-capacity/pg-commercial-capacity";
 /**
  * `OrgInviteRepository` on PostgreSQL —— **I-1 与 I-2 真正住在这个文件里**。
@@ -98,10 +99,32 @@ interface InviteRow {
   status: string;
 }
 
-export class PgOrgInviteRepository implements OrgInviteRepository {
+export class PgOrgInviteRepository implements OrgInviteRepository, OrgInvitationDeliveryStore {
   constructor(private readonly db: DatabasePort) {}
 
   /* ─────────────────────────── 邀请 ─────────────────────────── */
+
+  /** Mail receives only the recipient for the exact newly issued, live token. */
+  async findDeliveryRecipient(input:{orgId:OrgId;inviteId:string;token:string}):Promise<{email:string}|null> {
+    return this.db.withTenant(input.orgId,async s=>(await s.query<{email:string}>(
+      `SELECT i.email FROM org_invites i JOIN org_invite_tokens t ON t.invite_id=i.id
+       WHERE i.id=$1 AND i.org_id=$2 AND i.status='pending' AND t.token=$3
+        AND t.consumed_at IS NULL AND t.expires_at>now()`,
+      [input.inviteId,input.orgId,input.token])).rows[0]??null);
+  }
+
+  async recordDeliveryOutcome(input:{orgId:OrgId;inviteId:string;token:string;delivered:boolean}):Promise<void> {
+    const {orgId,inviteId,token,delivered}=input;
+    await this.db.withTenant(orgId,async s=>{
+      // Same lock order as resend and acceptance. An older attempt cannot alter a newer token.
+      await s.query('SELECT id FROM org_invites WHERE id=$1 FOR UPDATE',[inviteId]);
+      await s.query(`UPDATE org_invites i SET status=$4,sent_at=CASE WHEN $4='pending' THEN now() ELSE NULL END
+       WHERE i.id=$1 AND i.org_id=$2 AND i.status='pending'
+        AND EXISTS(SELECT 1 FROM org_invite_tokens t WHERE t.invite_id=i.id AND t.token=$3 AND t.consumed_at IS NULL)`,
+       [inviteId,orgId,token,delivered?'pending':'send-failed']);
+      if(!delivered)await s.query('UPDATE org_invite_tokens SET consumed_at=now() WHERE invite_id=$1 AND token=$2 AND consumed_at IS NULL',[inviteId,token]);
+    });
+  }
 
   async create(input: CreateOrgInviteInput): Promise<CreateOrgInviteResult> {
     try {

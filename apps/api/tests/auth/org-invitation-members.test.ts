@@ -42,7 +42,7 @@ it('delivers through transactional mail and records provider acceptance without 
  const {OrgInvitationMailDelivery}=await import('../../src/infrastructure/auth/org-invitation-mail-delivery');
  const out=await inviteOrgMember({repo},{...ctx,email,orgRole:'consultant',teamId:null});
  const sent:{to:string;subject:string;text:string}[]=[];
- const delivery=new OrgInvitationMailDelivery(db,{send:async msg=>{sent.push(msg);return {};}},{get:()=> 'https://app.workspacex.cn'});
+ const delivery=new OrgInvitationMailDelivery(repo,{send:async msg=>{sent.push(msg);return {};}},{get:()=> 'https://app.workspacex.cn'});
  await delivery.deliver({orgId:ctx.orgId,inviteId:out.inviteId,token:out.token!});
  expect(sent).toHaveLength(1);expect(sent[0]!.to).toBe(email);expect(sent[0]!.text).toContain(`https://app.workspacex.cn/auth/activate?t=${out.token}`);
  const row=await asOwner(c=>c.query('SELECT status,sent_at FROM org_invites WHERE id=$1',[out.inviteId]));expect(row.rows[0].status).toBe('pending');expect(row.rows[0].sent_at).toBeTruthy();
@@ -51,14 +51,14 @@ it('records mail failure, invalidates its bearer and can resend a fresh ordinary
  const {OrgInvitationMailDelivery}=await import('../../src/infrastructure/auth/org-invitation-mail-delivery');
  const {resendOrgInvite}=await import('../../src/application/auth/resend-org-invite');
  const out=await inviteOrgMember({repo},{...ctx,email,orgRole:'consultant',teamId:null});
- const delivery=new OrgInvitationMailDelivery(db,{send:async()=>{throw Error('provider unavailable');}},{get:()=> 'https://app.workspacex.cn'});
+ const delivery=new OrgInvitationMailDelivery(repo,{send:async()=>{throw Error('provider unavailable');}},{get:()=> 'https://app.workspacex.cn'});
  await expect(delivery.deliver({orgId:ctx.orgId,inviteId:out.inviteId,token:out.token!})).rejects.toMatchObject({reasonCode:'MAIL_UNAVAILABLE'});
  const row=await asOwner(c=>c.query('SELECT status,sent_at FROM org_invites WHERE id=$1',[out.inviteId]));expect(row.rows[0]).toMatchObject({status:'send-failed',sent_at:null});
  const deps={repo,hasher:fakeHasher,sessions:fakeSessions(),tokens:fakeTokens()};
  await expect(activateOrgMember(deps,{token:out.token!,mode:'existing-account',profile:null,existingUserId:member,untrustedClaims:NO_CLAIMS})).rejects.toMatchObject({reasonCode:'INVITE_NOT_FOUND'});
  await asOwner(c=>c.query("UPDATE org_invite_tokens SET issued_at=now()-interval '2 minutes' WHERE invite_id=$1",[out.inviteId]));
  const resent=await resendOrgInvite({repo},{...ctx,inviteId:out.inviteId});expect(resent.activationToken).not.toBe(out.token);
- const good=new OrgInvitationMailDelivery(db,{send:async()=>({})},{get:()=> 'https://app.workspacex.cn'});await good.deliver({orgId:ctx.orgId,inviteId:out.inviteId,token:resent.activationToken});
+ const good=new OrgInvitationMailDelivery(repo,{send:async()=>({})},{get:()=> 'https://app.workspacex.cn'});await good.deliver({orgId:ctx.orgId,inviteId:out.inviteId,token:resent.activationToken});
  expect((await activateOrgMember(deps,{token:resent.activationToken,mode:'existing-account',profile:null,existingUserId:member,untrustedClaims:NO_CLAIMS})).orgRole).toBe('consultant');
 });
 it('allows a legacy awaiting-review invitation to resend without any reviewer and never grants admin',async()=>{

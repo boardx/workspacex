@@ -17,3 +17,5 @@ Global constraints: default ordinary consultant org role; explicit authenticated
 Review focus: no auto acceptance on GET; no admin grants via legacy review/resend; wrong logged-in account cannot redeem personal invite; duplicate shared link joining never burns capacity twice; failed email does not report delivered; credit reservation races cannot overspend allowance.
 
 Final regression evidence: evidence/org-invitation-6316/. API119, Web115, Python13 passed; API/Web typechecks+lint passed; final independent review found no actionable defect. Affected static checks passed:27/27 tasks; publication/CI pending.
+
+CI correction: kept permission exemption cap128 by moving email projections into existing invitation repository; made quota migration replay-safe; updated retired-review wiring and reviewed migration suffix. New regression evidence in evidence/org-invitation-6316/. PR6325 remains under CI observation; no passing/production claim.
