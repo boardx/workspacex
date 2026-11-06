@@ -19,3 +19,5 @@ flowchart LR
 ```
 
 Local browser did not run any tests: webServer failed to start within600000ms under host load rising to70–80. Isolation wrapper explicitly classified zero executed tests and cleaned owned containers (docker ps empty). Browser PASS must come from CI, not this run. Extra API typecheck was deliberately SIGTERM-stopped to avoid overlapping the browser build; it is not a successful validation. Mandatory pre-push typecheck/lint and current-head CI remain required. Independent source/test review clean; permission-path lint passed.
+
+Serial affected static validation completed successfully:33/33 typecheck/lint tasks,18 cached,5m40s (static-checks.txt). This supersedes the deliberately aborted standalone typecheck; API and Web typecheck now both passed. Source review clean. Local browser startup failure remains a zero-test result and is not counted as PASS.
