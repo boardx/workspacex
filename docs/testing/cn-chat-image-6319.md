@@ -27,6 +27,15 @@ Local evidence (base `33f3bd0313dcfef86a9240e93dbb203bdee3a76b` plus patch):
 - Initial CI shard5 caught the existing executor line-count gate (1395 vs1393).
   Provider script/file outputs were then kept in one completion snapshot instead
   of parallel state variables, without changing the size gate or its assertions.
+- A later CI shard1 exposed the old bootstrap fixture: a nonexistent supplier URL
+  was expected to be raw Markdown. Updated integration uses an actual HTTPS PNG
+  fixture and the real guarded downloader with explicit test-only DNS/CA seams.
+  `image-gen-agent-bootstrap-chat.test.ts` passed through real application DI,
+  supplier submit/poll, HTTPS download, PostgreSQL writeback and attachment reads.
+  Two owner reads return exact PNG bytes; anonymous is401; another organization
+  member reading the private thread is404. Latest baseline748683417501ac13802462e9735d0aeeb367f2dc
+  was merged before this test. Test isolation: wsx_bdfccbccc56120158635.
+  API typecheck/full lint passed; no production guard or CI assertion was weakened.
 
 The image tests inject deterministic supplier output and download ports; they
 do not call the paid CN supplier. PostgreSQL coverage verifies existing
