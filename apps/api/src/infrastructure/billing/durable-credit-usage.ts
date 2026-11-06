@@ -131,6 +131,9 @@ export class DurableCreditUsageMeter implements TokenUsageMeterPort {
   if(!this.delegate.startRequest)throw this.unavailable(orgId,"credit_start_boundary_missing");
   try{await this.delegate.startRequest(orgId,input);}catch(error){await this.discardPreparedStart(orgId,input).catch(()=>undefined);throw error;}
  }
+ async assertCreditContinuation(orgId:OrgId,userId:string,requestId:string):Promise<void>{
+  await this.delegate.assertCreditContinuation?.(orgId,userId,requestId);
+ }
  async record(orgId:OrgId,usage:TokenUsageRecord):Promise<void>{
   if(!usage.eventId)throw this.unavailable(orgId,"credit_receipt_identity_missing");
   const key=this.key(usage.eventId);

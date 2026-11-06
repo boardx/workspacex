@@ -48,23 +48,6 @@ export function newOrgInviteId(): string {
 }
 
 /**
- * I-3 / O-28 ⑥：**邀请一名管理员不签发令牌**，先进双人复核队列。
- *
- * 「提权动作被单个被盗账号执行即等于整个组织沦陷」——所以这一条是
- * 由**被邀请的角色**决定的，与邀请人是谁无关。写成函数而不是 `if (role === "admin")`
- * 散在两处（用例一处、仓储一处），因为那两处只要有一处漏了，
- * 表现是「管理员邀请照常发出链接」，而 status 字段仍然写着 awaiting-review。
- */
-export function needsDualReview(orgRole: string): boolean {
-  return orgRole === "admin";
-}
-
-/** 依 `needsDualReview` 推出的初始 status。取值集合与契约 `OrgInviteStatus` 一致。 */
-export function initialInviteStatus(orgRole: string): "pending" | "awaiting-review" {
-  return needsDualReview(orgRole) ? "awaiting-review" : "pending";
-}
-
-/**
  * 链接里声明的身份 —— **不可信输入**，类型名就说明了它的用途。
  *
  * 它存在的唯一理由是「篡改尝试写安全审计」（usecases.md `ActivateOrgMember`）。
@@ -106,7 +89,7 @@ export function detectTamper(
  * I-4：发起人不可自批。
  *
  * ⚠ 写成函数而不是 `reviewerId !== invitedBy` 散在仓储与用例两处——同
- * `needsDualReview` 一条理由：一处漏了，「自批」在那一条路径上就悄悄放行了。
+ * Historical review keeps one self-review predicate for its internal replay tests.
  *
  * ⚠ **组织内只有一名管理员时，这条函数自动挡住全部复核尝试**（该管理员必然是
  * `invitedBy` 本人），符合 usecases.md「不得因无人复核而退化为单人可批」——

@@ -1,3 +1,4 @@
+import {orgAdmin} from "@repo/contracts";
 /**
  * 组织邀请激活链接的**唯一**拼装/解析处（invite-link-and-reads delta ①）。
  *
@@ -13,10 +14,10 @@
  */
 
 /** 激活页路由（app/(entry)/auth/activate/page.tsx）。 */
-export const ACTIVATION_PAGE_PATH = "/auth/activate";
+export const ACTIVATION_PAGE_PATH = orgAdmin.INVITATION_ACTIVATION_PATH;
 
 /** 查询参数名。 */
-export const ACTIVATION_TOKEN_PARAM = "t";
+export const ACTIVATION_TOKEN_PARAM = orgAdmin.INVITATION_TOKEN_PARAM;
 
 /** 管理端：把签发响应里的一次性 token 拼成可转交的绝对链接。 */
 export function buildActivationLink(token: string, origin: string): string {
@@ -28,7 +29,7 @@ export function buildActivationLink(token: string, origin: string): string {
  * **刻意分开**：两种令牌语义不同（一次性 vs 多次），同一个参数名会让激活页猜
  * 「这枚该打哪个端点」——参数名本身就是分发依据。
  */
-export const SHARED_LINK_TOKEN_PARAM = "lt";
+export const SHARED_LINK_TOKEN_PARAM = orgAdmin.INVITATION_SHARED_TOKEN_PARAM;
 
 /** 管理端：把共享链接令牌拼成可分享的绝对链接（同一个激活页，link 模式）。 */
 export function buildSharedInviteLink(token: string, origin: string): string {

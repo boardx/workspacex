@@ -51,7 +51,9 @@ for (const kind of ["single", "shared"] as const) {
       session: { sessionToken: "new-session", userId: "new-user", orgs: ["new-org"], expiresAt: "2099-01-01T00:00:00Z" },
     });
     state.request.mockResolvedValueOnce(output);
-    show(kind); const prefix = fill(kind);
+    show(kind);
+    fireEvent.click(screen.getByTestId(`${kind === "single" ? "activate" : "link-activate"}-mode-new`));
+    const prefix = fill(kind);
     fireEvent.submit(screen.getByTestId(`${prefix}-form`));
     expect(await screen.findByText(/Your current signed-in account has been preserved/)).toBeTruthy();
     locale("zh-CN");
@@ -69,7 +71,7 @@ it("preserves existing-account invitation mode and original session token while 
   locale("zh-CN"); locale("en");
   fireEvent.submit(screen.getByTestId("activate-form"));
   expect(await screen.findByText(/The service is temporarily unavailable/)).toBeTruthy();
-  expect(state.request).toHaveBeenCalledWith(orgAdmin.operations.activateOrgMember.path, expect.objectContaining({ query: claims, sessionToken: state.token, body: { token: "original-invite", mode: "existing-account", profile: null, sessionId: state.token } }));
+  expect(state.request).toHaveBeenCalledWith(orgAdmin.operations.acceptOrgInvite.path, expect.objectContaining({ query: claims, sessionToken: state.token, body: { token: "original-invite" } }));
   locale("zh-CN");
   expect(screen.getByText(/服务暂时不可用/)).toBeTruthy();
   expect(state.request).toHaveBeenCalledTimes(1);

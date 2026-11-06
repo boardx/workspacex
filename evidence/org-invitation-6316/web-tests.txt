@@ -1,0 +1,24 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/2e5d/workspacex/apps/web
+
+ ✓ tests/ui/admin-member-quotas-i18n.test.tsx (19 tests) 974ms
+ ✓ tests/ui/overview-live.test.tsx (12 tests) 199ms
+ ✓ tests/ui/admin-members-list.test.tsx (13 tests) 342ms
+ ✓ tests/ui/admin-members-quota-live.test.tsx (9 tests) 438ms
+ ✓ tests/ui/org-members-i18n.test.tsx (7 tests) 365ms
+ ✓ tests/ui/invitation-session.test.tsx (17 tests) 950ms
+ ✓ tests/ui/org-shared-invites-i18n.test.tsx (4 tests) 177ms
+ ✓ tests/ui/invitation-entry-i18n.test.tsx (5 tests) 512ms
+ ✓ tests/ui/invite-activation-tamper-claims.test.tsx (5 tests) 252ms
+ ✓ tests/ui/member-credit-quota.test.tsx (6 tests) 222ms
+ ✓ tests/ui/invite-activation-unavailable.test.tsx (4 tests) 277ms
+ ✓ tests/ui/first-value-funnel-panel.test.tsx (5 tests) 97ms
+ ✓ tests/ui/overview-mixed-state.test.tsx (5 tests) 96ms
+ ✓ tests/ui/org-invitation-simplified.test.tsx (3 tests) 66ms
+ ✓ tests/ui/org-admin-invite-form-novalidate.test.tsx (1 test) 33ms
+
+ Test Files  15 passed (15)
+      Tests  115 passed (115)
+   Start at  16:06:04
+   Duration  34.02s (transform 2.22s, setup 2.09s, collect 13.85s, tests 5.00s, environment 9.81s, prepare 819ms)

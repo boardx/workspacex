@@ -12,6 +12,14 @@ export const TEAM_REVIEW_FILES=[
  "src/domain/billing/team-purchase.ts","src/domain/billing/team-payment-decision.ts","src/domain/billing/team-ai-license.ts","src/domain/billing/team-payment-product.ts",
  "src/infrastructure/billing/team-financial-owner.ts","src/infrastructure/billing/team-product-configuration.ts","src/infrastructure/billing/pg-team-account-repository.ts","src/infrastructure/billing/pg-team-checkout-repository.ts","src/infrastructure/billing/pg-team-payment-repository.ts","src/infrastructure/billing/pg-team-quote-repository.ts",
  "src/infrastructure/billing/team-credit-admission.ts","src/infrastructure/billing/team-credit-terms.ts","src/infrastructure/billing/team-payment-reconciler.ts","src/infrastructure/billing/pg-team-recovery-sweep.ts","src/infrastructure/billing/team-wechat-crediting-store.ts","src/infrastructure/billing/team-wechat-payment-client.ts","src/infrastructure/billing/team-wechat-checkout-client.ts","src/infrastructure/billing/team-payment-recovery-worker.ts",
+ // #6316: internal member-credit policy reads no content; admission first resolves trusted membership/payer
+ // and locks the financial owner. Continuation binds request + org + user + team wallet. Real concurrent,
+ // cross-tenant, UTC month and zero-allowance evidence: tests/billing/member-credit-quota-pg.test.ts.
+ "src/infrastructure/billing/member-credit-quota.ts",
+ // #6316: public quota read/edit endpoints require OrgAdminManagementController.requireOrgAdmin before
+ // this repository; only member identity and actual usage aggregates leave it, never prompts or secrets.
+ // Admin rejection-before-repository evidence: tests/billing/member-credit-quota-controller.test.ts.
+ "src/infrastructure/billing/pg-member-credit-quota-repository.ts",
  "src/interface/controllers/team-billing.controller.ts","src/interface/controllers/team-billing-http-exception.ts",
 ];
 export const TEAM_FINANCIAL_BOUNDARIES=new Set(TEAM_REVIEW_FILES.filter(p=>p.startsWith("src/infrastructure/")));

@@ -1,7 +1,7 @@
 import type { AgentRunError, AgentRunFailureReason } from "./agent-run";
 
 export const AGENT_RUN_ERROR_TEXT: Record<AgentRunError, string> = {
-  CREDIT_REQUIRED: "可用额度不足，请确认计费账户并充值后继续",
+  CREDIT_REQUIRED: "Credit 余额或成员月度额度不足，请确认额度或联系组织管理员后继续",
   CREDIT_ACCOUNTING_UNAVAILABLE: "计费服务暂时不可用，请稍后重试或联系管理员",
   HITL_REJECTED: "已被人工拒绝执行",
   MODEL_PROVIDER_NOT_CONFIGURED: "所选模型服务尚未配置，请联系管理员",

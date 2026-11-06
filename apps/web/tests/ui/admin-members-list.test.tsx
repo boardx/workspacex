@@ -6,9 +6,9 @@
  *  ① 名册/活跃数来自 `listOrgMembers` 的真实响应，不是写死的 48/41；
  *  ② 待处理邀请（pending/awaiting-review/send-failed）来自 `listOrgInvites`，
  *     已用/已撤销的邀请不出现在这块摘要里；
- *  ③ 只有 pending/send-failed 有 [重发]，且真的发 `POST …/invites/:id/resend`；
+ *  ③ pending/send-failed/awaiting-review 均可 [重发]，且真的发 `POST …/invites/:id/resend`；
  *  ④ 非组织 admin（`listOrgInvites` 403）时不伪造邀请列表，说清「仅管理员可见」；
- *  ⑤ [邀请成员] 打开的是真实 `InviteMemberForm`（邮箱 + 组织角色），不是本地假弹层。
+ *  ⑤ [邀请成员] 打开的是真实 `InviteMemberForm`（邮箱 + 普通成员说明），不是本地假弹层。
  */
 import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -59,10 +59,10 @@ function routed(opts: { members?: unknown[]; invites?: Invite[] | { status: numb
       return Promise.resolve(jsonResponse({ invites: opts.invites ?? [] }));
     }
     if (method === "POST" && /\/invites\/[^/]+\/resend$/.test(u)) {
-      return Promise.resolve(opts.resend?.() ?? jsonResponse({ newTokenIssued: true, cooldownSec: 60, activationToken: "tok-resent" }));
+      return Promise.resolve(opts.resend?.() ?? jsonResponse({ newTokenIssued: true, cooldownSec: 60, activationToken: null }));
     }
     if (method === "POST" && u.endsWith("/invites")) {
-      return Promise.resolve(jsonResponse({ status: "issued", quotaReserved: 1, activationToken: "tok-new" }));
+      return Promise.resolve(jsonResponse({ status: "pending", tokenIssued: true, quotaReserved: 1, activationToken: null }));
     }
     return Promise.resolve(jsonResponse({}, 404));
   };
@@ -104,14 +104,14 @@ describe("MemberInvitesPanel —— 名册 + 待处理邀请（真栈）", () =>
 
     const list = await screen.findByTestId("admin-members-list");
     expect(within(list).getByTestId("admin-member-pending-inv-p")).toHaveTextContent("chenmo@x.test");
-    expect(within(list).getByTestId("admin-member-pending-inv-ar")).toHaveTextContent("待复核");
+    expect(within(list).getByTestId("admin-member-pending-inv-ar")).toHaveTextContent("需要重新发送");
     expect(within(list).getByTestId("admin-member-pending-inv-sf")).toHaveTextContent("发送失败");
     expect(within(list).queryByTestId("admin-member-pending-inv-used")).toBeNull();
     expect(within(list).queryByTestId("admin-member-pending-inv-revoked")).toBeNull();
     expect(within(list).getByTestId("admin-members-roster-count")).toHaveTextContent("待处理邀请 3 条");
   });
 
-  it("③ 只有 pending/send-failed 有 [重发]，点击真的发 POST …/resend", async () => {
+  it("③ pending/send-failed/awaiting-review 均可 [重发]，点击真的发 POST …/resend", async () => {
     fetchMock.mockImplementation(routed({
       invites: [
         invite({ inviteId: "inv-p", status: "pending" }),
@@ -122,7 +122,7 @@ describe("MemberInvitesPanel —— 名册 + 待处理邀请（真栈）", () =>
 
     await screen.findByTestId("admin-member-pending-inv-p");
     expect(screen.getByTestId("admin-member-resend-inv-p")).toBeInTheDocument();
-    expect(screen.queryByTestId("admin-member-resend-inv-ar")).toBeNull();
+    expect(screen.getByTestId("admin-member-resend-inv-ar")).toBeEnabled();
 
     fireEvent.click(screen.getByTestId("admin-member-resend-inv-p"));
 
@@ -130,7 +130,8 @@ describe("MemberInvitesPanel —— 名册 + 待处理邀请（真栈）", () =>
       const call = fetchMock.mock.calls.find((c) => /\/invites\/inv-p\/resend$/.test(String(c[0])) && c[1]?.method === "POST");
       expect(call).toBeDefined();
     });
-    expect(await screen.findByTestId("org-admin-invite-link-block")).toBeTruthy();
+    expect(await screen.findByTestId("admin-members-toast")).toHaveTextContent("邀请邮件已重新发送");
+    expect(screen.queryByTestId("org-admin-invite-link-block")).toBeNull();
   });
 
   it("④ 非组织 admin（listOrgInvites 403）：不伪造邀请列表，说清仅管理员可见", async () => {
@@ -142,7 +143,7 @@ describe("MemberInvitesPanel —— 名册 + 待处理邀请（真栈）", () =>
     expect(screen.queryByTestId(/admin-member-pending-/)).toBeNull();
   });
 
-  it("⑤ [邀请成员] 打开的是真实 InviteMemberForm（邮箱 + 组织角色），不是本地假弹层", async () => {
+  it("⑤ [邀请成员] 打开的是真实 InviteMemberForm（邮箱 + 普通成员说明），不是本地假弹层", async () => {
     fetchMock.mockImplementation(routed());
     render(<MemberInvitesPanel />);
 
@@ -152,7 +153,8 @@ describe("MemberInvitesPanel —— 名册 + 待处理邀请（真栈）", () =>
     const dialog = await screen.findByTestId("admin-members-invite-dialog");
     expect(within(dialog).getByTestId("org-admin-invite-form")).toBeInTheDocument();
     expect(within(dialog).getByTestId("org-admin-invite-email")).toBeInTheDocument();
-    expect(within(dialog).getByTestId("org-admin-invite-role")).toBeInTheDocument();
+    expect(within(dialog).queryByTestId("org-admin-invite-role")).toBeNull();
+    expect(dialog).toHaveTextContent("普通成员");
   });
 });
 
@@ -162,13 +164,13 @@ function deferredResponse() {
   return { promise, resolve };
 }
 
-it("组织切换立即隐藏旧邀请、关闭弹窗并清除激活链接", async () => {
+it("组织切换立即隐藏旧邀请、关闭弹窗并清除邮件发送反馈", async () => {
   const pending = deferredResponse();
   fetchMock.mockImplementation(routed({ invites: [invite()] }));
   const view = render(<MemberInvitesPanel />);
   await screen.findByText("chenmo@x.test");
   fireEvent.click(screen.getByTestId("admin-member-resend-inv-1"));
-  await screen.findByText(/新的激活链接/);
+  expect(await screen.findByTestId("admin-members-toast")).toHaveTextContent("邀请邮件已重新发送");
   fireEvent.click(screen.getByTestId("admin-members-invite-open"));
   expect(screen.getByTestId("admin-members-invite-dialog")).toBeInTheDocument();
   fetchMock.mockImplementation(() => pending.promise);
@@ -176,6 +178,7 @@ it("组织切换立即隐藏旧邀请、关闭弹窗并清除激活链接", asyn
   view.rerender(<MemberInvitesPanel />);
   expect(screen.queryByText("chenmo@x.test")).not.toBeInTheDocument();
   expect(screen.queryByTestId("admin-members-invite-dialog")).not.toBeInTheDocument();
+  expect(screen.queryByTestId("admin-members-toast")).not.toBeInTheDocument();
   expect(screen.queryByDisplayValue(/tok-resent/)).not.toBeInTheDocument();
   expect(screen.getByText("正在读取成员…")).toBeInTheDocument();
   view.unmount();

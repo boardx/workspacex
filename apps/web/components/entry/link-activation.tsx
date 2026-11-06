@@ -30,6 +30,7 @@ type ActivateOut = typeof orgAdmin.operations.activateViaOrgInviteLink.out._outp
  */
 export function LinkActivation({ token }: { token: string }) {
   const { t } = useI18n();
+  const [mode, setMode] = React.useState<"new" | "existing">(() => getStoredSessionToken() ? "existing" : "new");
   const [email, setEmail] = React.useState("");
   const [name, setName] = React.useState("");
   const [pwd, setPwd] = React.useState("");
@@ -37,6 +38,8 @@ export function LinkActivation({ token }: { token: string }) {
   const [error, setError] = React.useState<JoinFailure | null>(null);
   const [done, setDone] = React.useState<InvitationCompletion | null>(null);
   const completeSession = useInvitationSession();
+  const hasSession = getStoredSessionToken() !== null;
+  const loginUrl = `/login?next=${encodeURIComponent(`/auth/activate?lt=${encodeURIComponent(token)}`)}`;
 
   if (done) {
     return (
@@ -69,12 +72,12 @@ export function LinkActivation({ token }: { token: string }) {
     setSubmitting(true);
     const initialToken = getStoredSessionToken();
     try {
-      const result = await apiRequest<ActivateOut>(orgAdmin.operations.activateViaOrgInviteLink.path, {
+      const result = await apiRequest<ActivateOut>((mode === "existing" ? orgAdmin.operations.acceptOrgInviteLink.path : orgAdmin.operations.activateViaOrgInviteLink.path), {
         method: "POST",
-        sessionToken: null,
-        body: { token, email: email.trim(), profile: { name: name.trim(), password: pwd } },
+        sessionToken: mode === "existing" ? initialToken : null,
+        body: mode === "existing" ? { token } : { token, email: email.trim(), profile: { name: name.trim(), password: pwd } },
       });
-      setDone(await completeSession(result.session, initialToken));
+      setDone(await completeSession(result.session, initialToken, mode === "existing"));
     } catch (err) {
       if (err instanceof ApiError && err.reasonCode === "AUTH_SERVICE_UNAVAILABLE") {
         setDone("session-failed");
@@ -87,11 +90,16 @@ export function LinkActivation({ token }: { token: string }) {
   }
 
   const canSubmit =
-    !submitting && email.trim().length > 0 && name.trim().length > 0 && pwd.length > 0;
+    !submitting && (mode === "existing" ? hasSession : email.trim().length > 0 && name.trim().length > 0 && pwd.length > 0);
 
   return (
     <Card>
       <form className="flex flex-col gap-4" onSubmit={submit} data-testid="link-activate-form" noValidate>
+        <div className="flex gap-1.5" data-testid="link-activate-mode">
+          <Button type="button" size="sm" variant={mode === "new" ? "primary" : "outline"} onClick={() => setMode("new")} data-testid="link-activate-mode-new">{t("invitation.newUser")}</Button>
+          <Button type="button" size="sm" variant={mode === "existing" ? "primary" : "outline"} onClick={() => setMode("existing")} data-testid="link-activate-mode-existing">{t("invitation.existingUser")}</Button>
+        </div>
+        {mode === "new" ? <>
         <p className="text-12 text-muted-foreground" data-testid="link-activate-intro">
           {t("invitation.sharedIntro")}
         </p>
@@ -149,6 +157,10 @@ export function LinkActivation({ token }: { token: string }) {
           )}
         </div>
 
+        </> : hasSession ? <p className="text-12 text-muted-foreground">{t("invitation.existingHint")}</p> :
+          <p className="text-12 text-muted-foreground" data-testid="link-activate-existing-need-login">
+            {t("invitation.needLogin").split("{login}").map((part, index) => <React.Fragment key={index}>{index > 0 ? <a className="text-primary underline" href={loginUrl}>{t("invitation.loginPage")}</a> : null}{part}</React.Fragment>)}
+          </p>}
         {error && error.field === null && (
           <div
             role="alert"
@@ -164,7 +176,7 @@ export function LinkActivation({ token }: { token: string }) {
                 type="button"
                 size="sm"
                 variant="outline"
-                onClick={() => window.location.assign("/login")}
+                onClick={() => window.location.assign(loginUrl)}
                 data-testid="link-activate-goto-login"
               >
                 {t("account.goToLogin")}
@@ -172,7 +184,7 @@ export function LinkActivation({ token }: { token: string }) {
             )}
             {error.kind === "unavailable" && (
               <>
-              <a className="text-primary underline" href="/login">{t("invitation.loginRecovery")}</a>
+              <a className="text-primary underline" href={loginUrl}>{t("invitation.loginRecovery")}</a>
               <Button
                 type="button"
                 size="sm"
@@ -194,7 +206,7 @@ export function LinkActivation({ token }: { token: string }) {
               <LoaderCircle aria-hidden className="h-3.5 w-3.5 animate-spin" /> {t("invitation.joining")}
             </>
           ) : (
-            t("invitation.createAndJoin")
+            t(mode === "existing" ? "invitation.confirmJoin" : "invitation.createAndJoin")
           )}
         </Button>
       </form>

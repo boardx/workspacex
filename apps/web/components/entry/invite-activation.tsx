@@ -41,7 +41,7 @@ export function InviteActivation({
   claims?: ActivationLinkClaims;
 }) {
   const { t } = useI18n();
-  const [mode, setMode] = React.useState<"new" | "existing">("new");
+  const [mode, setMode] = React.useState<"new" | "existing">(() => getStoredSessionToken() ? "existing" : "new");
   const [name, setName] = React.useState("");
   const [pwd, setPwd] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
@@ -50,6 +50,7 @@ export function InviteActivation({
   const completeSession = useInvitationSession();
 
   const hasSession = getStoredSessionToken() !== null;
+  const loginUrl = `/login?next=${encodeURIComponent(`/auth/activate?t=${encodeURIComponent(token ?? "")}`)}`;
 
   if (!token) {
     return (
@@ -94,7 +95,7 @@ export function InviteActivation({
     setSubmitting(true);
     const initialToken = getStoredSessionToken();
     try {
-      const result = await apiRequest<ActivateOut>(orgAdmin.operations.activateOrgMember.path, {
+      const result = await apiRequest<ActivateOut>((mode === "existing" ? orgAdmin.operations.acceptOrgInvite.path : orgAdmin.operations.activateOrgMember.path), {
         method: "POST",
         // ⚠ 只进查询串。契约 `activateOrgMember.in` 是 `.strict()` 的，把这三个塞进
         //   body 会被 `ZodBodyPipe` 直接 400——它们本来就不是输入，是留痕材料。
@@ -105,7 +106,7 @@ export function InviteActivation({
         body:
           mode === "new"
             ? { token, mode: "new-account", profile: { name: name.trim(), password: pwd }, sessionId: null }
-            : { token, mode: "existing-account", profile: null, sessionId: initialToken },
+            : { token },
       });
       setDone(await completeSession(result.session, initialToken, mode === "existing"));
     } catch (err) {
@@ -156,7 +157,7 @@ export function InviteActivation({
           </p>
         ) : (
           <p className="text-12 text-muted-foreground" data-testid="activate-existing-need-login">
-            {t("invitation.needLogin").split("{login}").map((part, index) => <React.Fragment key={index}>{index > 0 ? <a className="text-primary underline" href="/login">{t("invitation.loginPage")}</a> : null}{part}</React.Fragment>)}
+            {t("invitation.needLogin").split("{login}").map((part, index) => <React.Fragment key={index}>{index > 0 ? <a className="text-primary underline" href={loginUrl}>{t("invitation.loginPage")}</a> : null}{part}</React.Fragment>)}
           </p>
         )}
 
@@ -172,7 +173,7 @@ export function InviteActivation({
             </p>
             {error.kind === "unavailable" && (
               <>
-              <a className="text-primary underline" href="/login">{t("invitation.loginRecovery")}</a>
+              <a className="text-primary underline" href={loginUrl}>{t("invitation.loginRecovery")}</a>
               <Button
                 type="button"
                 size="sm"

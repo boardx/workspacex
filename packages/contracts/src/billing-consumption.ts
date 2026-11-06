@@ -6,9 +6,11 @@ export const CREDIT_ADMISSION_POLICY="personal_nonnegative_enterprise_overdraft"
 /** Legacy flag is retained for compatibility/audit; the fixed policy governs every new request. */
 export const CreditConsumptionSettings=z.object({creditPreflightEnabled:z.boolean(),admissionPolicy:z.literal(CREDIT_ADMISSION_POLICY).optional()}).strict();
 export const CreditConsumptionErrorCode=z.enum(["credit_required","credit_accounting_unavailable"]);
+export const CreditRequiredReason=z.enum(["member_monthly_limit"]);
+export type CreditRequiredReason=z.infer<typeof CreditRequiredReason>;
 /** Only server-derived account identity and a same-origin billing destination are public. */
 export const CreditRequiredBody=z.object({code:z.literal("credit_required"),ownerType:BillingOwnerType,
- ownerId:z.string().min(1),rechargePath:z.string().regex(/^\/billing(?:\?[^#]*)?$/),traceId:z.string().optional()}).strict();
+ ownerId:z.string().min(1),rechargePath:z.string().regex(/^\/billing(?:\?[^#]*)?$/),reason:CreditRequiredReason.optional(),traceId:z.string().optional()}).strict();
 export const operations={
  getSettings:{method:"GET",path:"/billing/consumption/settings",in:z.object({}).strict(),out:CreditConsumptionSettings},
  getPlatformSettings:{method:"GET",path:"/platform/billing/consumption/settings",in:z.object({}).strict(),out:CreditConsumptionSettings},

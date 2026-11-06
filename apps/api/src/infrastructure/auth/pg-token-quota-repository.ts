@@ -1,3 +1,4 @@
+import {PgMemberCreditQuotaRepository} from "../billing/pg-member-credit-quota-repository";
 /**
  * F160 —— `TokenQuotaRepository` on PostgreSQL。
  *
@@ -90,7 +91,8 @@ export class PgTokenQuotaRepository implements TokenQuotaRepository, UsageAggreg
     });
   }
 
-  constructor(private readonly db: DatabasePort) {}
+  readonly creditQuotas: PgMemberCreditQuotaRepository;
+  constructor(private readonly db: DatabasePort) { this.creditQuotas = new PgMemberCreditQuotaRepository(db); }
 
   async readSnapshot(orgId: OrgId): Promise<OrgQuotaSnapshot> {
     return this.db.withTenant(orgId, async (s) => {

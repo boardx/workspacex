@@ -3,7 +3,6 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { I18nProvider, useI18n } from "@/lib/i18n/provider";
 import { ApiError } from "@/lib/api-client";
-import { ACTIVATION_TOKEN_PARAM } from "@/lib/activation-link";
 const api = vi.hoisted(() => ({
   orgId: "org-quotas-raw" as string | null,
   getTokenQuotas: vi.fn(), setMemberTokenQuota: vi.fn(), setOrgTokenBudget: vi.fn(),
@@ -135,15 +134,31 @@ it("localizes invitation summary and status while preserving authored email/invi
   expect(screen.getByTestId("admin-member-status-pending")).toHaveTextContent("Pending acceptance"); expect(panel).toHaveTextContent(invite.email); expect(panel).toHaveTextContent(invite.invitedBy);
   toggle(); expect(screen.getByTestId("admin-member-status-pending")).toHaveTextContent("待接受"); toggle(); expect(api.listOrgMembers).toHaveBeenCalledTimes(1); expect(api.listOrgInvites).toHaveBeenCalledTimes(1);
 });
-it("retains pending resend identity and one-time raw activation URL while feedback follows locale", async () => {
+it("retains pending resend identity and reports email delivery while feedback follows locale", async () => {
   let finish!: (value: unknown) => void; api.resendOrgInvite.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
   render(<MemberInvitesPanel />, { wrapper: Locale }); fireEvent.click(await screen.findByTestId("admin-member-resend-invite-raw"));
   expect(screen.getByTestId("admin-member-resend-invite-raw")).toHaveTextContent("Resending"); toggle(); expect(screen.getByTestId("admin-member-resend-invite-raw")).toBeDisabled(); toggle();
   expect(api.resendOrgInvite.mock.calls).toEqual([["org-quotas-raw", "invite-raw"]]);
-  await act(async () => finish({ activationToken: "raw-token{locale}", cooldownSec: 60 }));
-  await waitFor(() => expect(screen.getByTestId("admin-members-toast")).toHaveTextContent("Resent"));
-  const input = screen.getByTestId("org-admin-invite-link-url") as HTMLInputElement; const value = input.value; expect(new URL(value).searchParams.get(ACTIVATION_TOKEN_PARAM)).toBe("raw-token{locale}");
-  toggle(); expect(screen.getByTestId("admin-members-toast")).toHaveTextContent("旧链接立即失效"); expect(input).toHaveValue(value);
+  await act(async () => finish({ activationToken: null, cooldownSec: 60 }));
+  await waitFor(() => expect(screen.getByTestId("admin-members-toast")).toHaveTextContent("Invitation email resent"));
+  expect(screen.queryByTestId("org-admin-invite-link-url")).toBeNull();
+  toggle(); expect(screen.getByTestId("admin-members-toast")).toHaveTextContent("邀请邮件已重新发送");
+  expect(screen.getByTestId("admin-members-toast")).toHaveTextContent("旧链接立即失效");
+  expect(api.listOrgInvites).toHaveBeenCalledTimes(2);
+});
+it("resends a legacy awaiting-review invitation and refreshes send-failed after mail failure", async () => {
+  api.listOrgInvites.mockResolvedValueOnce({ invites: [{ ...invite, status: "awaiting-review" }] })
+    .mockResolvedValue({ invites: [{ ...invite, status: "send-failed" }] });
+  api.resendOrgInvite.mockRejectedValue(new ApiError(503, "MAIL_UNAVAILABLE", {}));
+  render(<MemberInvitesPanel />, { wrapper: Locale });
+  expect(await screen.findByTestId("admin-member-status-awaiting-review")).toHaveTextContent("Needs resending");
+  fireEvent.click(screen.getByTestId("admin-member-resend-invite-raw"));
+  expect(await screen.findByTestId("admin-members-toast")).toHaveTextContent("Send failed");
+  expect(await screen.findByTestId("admin-member-status-send-failed")).toHaveTextContent("Send failed");
+  expect(api.listOrgInvites).toHaveBeenCalledTimes(2);
+  expect(screen.queryByTestId("org-admin-invite-link-url")).toBeNull();
+  toggle();
+  expect(screen.getByTestId("admin-members-toast")).toHaveTextContent("发送失败");
 });
 it("localizes denied invitation visibility without pretending an unread list is empty", async () => {
   api.listOrgInvites.mockRejectedValue(new ApiError(403, "FORBIDDEN", {})); render(<MemberInvitesPanel />, { wrapper: Locale });

@@ -1,0 +1,56 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/2e5d/workspacex/apps/api
+
+[db-isolation] db=workspacex_org6316_final capacity=100 current=6 required=32
+ ✓ tests/auth/orphan-invite-resend-revoke.test.ts (16 tests) 39599ms
+   ✓ ResendOrgInvite —— I-6 > 签发新令牌**并且**作废旧令牌，旧链接当场换不到成员 439ms
+   ✓ ResendOrgInvite —— I-6 > 冷却窗口内的第二次重发被拒（RATE_LIMITED），且**不产生第二枚令牌** 522ms
+   ✓ ResendOrgInvite —— I-6 > 24 小时内签发数达到 resendDailyMax 后拒绝，即便冷却已过 878ms
+   ✓ ResendOrgInvite —— I-6 > legacy awaiting-review invitations resend as ordinary members without approval 766ms
+   ✓ RevokeOrgInvite > 撤销后链接当场失效，且重复撤销幂等（返回同一 revoked，时间戳不刷新） 510ms
+   ✓ RevokeOrgInvite > 已激活的邀请撤不回去（VERSION_CHANGED，不是静默成功） 410ms
+   ✓ NON-ADMIN 反证 A —— 摘掉授权检查这两条必须红 > 组织内的顾问 resend → 403，且 org_invite_tokens 一行不多 544ms
+   ✓ NON-ADMIN 反证 A —— 摘掉授权检查这两条必须红 > 组织内的顾问 revoke → 403，且 status 仍是 pending 1205ms
+   ✓ NON-ADMIN 反证 A —— 摘掉授权检查这两条必须红 > 别的组织的管理员既进不来也撤不掉（组织成员资格先于角色） 1195ms
+   ✓ 防枚举 —— 不存在的 id 与够不到的 id 不可区分 > 管理员拿别人组织的 inviteId，与拿一个纯属捏造的 id，响应逐字节相同 1697ms
+   ✓ 防枚举 —— 不存在的 id 与够不到的 id 不可区分 > 非管理员的 403 与 inviteId 存不存在无关（判定顺序，不是错误码长得像） 533ms
+   ✓ mail-only token delivery and administrator non-disclosure > resend delivers the live token through mail and exposes no bearer in its response 834ms
+   ✓ mail-only token delivery and administrator non-disclosure > 「只此一次」的另一半：再查列表拿不到令牌值（任何管理员都不能事后把链接读出来） 823ms
+   ✓ mail-only token delivery and administrator non-disclosure > revoke 的返回体同样只有契约那一个字段 691ms
+   ✓ 契约是同一个对象，不是长得像 > 两条路由的校验 schema 引用自 @repo/contracts 764ms
+   ✓ 契约是同一个对象，不是长得像 > OrgAdminError 抛的码都在契约的闭合枚举里 1318ms
+ ✓ tests/auth/member-invite-activation.test.ts (15 tests) 5748ms
+   ✓ ① 管理员邀请：待激活行按服务端指派的角色与团队落库 > 邮箱规范化后落库，等待真实邮件投递时 sent_at 为空 435ms
+   ✓ ① 管理员邀请：待激活行按服务端指派的角色与团队落库 > V7 越权：顾问调用一律拒，且**没有留下任何邀请行** 571ms
+   ✓ ① 管理员邀请：待激活行按服务端指派的角色与团队落库 > requesting admin creates an ordinary pending invitation, without review 362ms
+   ✓ ① 管理员邀请：待激活行按服务端指派的角色与团队落库 > 幂等重放：同 (org, email, 角色, 团队) 再提交返回既有 inviteId，不新建行、不再吐令牌 335ms
+   ✓ ② 激活：入场即带组织角色 + 团队 > 已有账号分支：不新建凭据，只加一条成员关系（O-12 一人多组织） 374ms
+ ✓ tests/auth/shared-invite-links.test.ts (17 tests) 4073ms
+ ✓ tests/billing/durable-credit-usage.test.ts (18 tests) 3230ms
+   ✓ admits twenty normal concurrent starts without spurious accounting failures 422ms
+   ✓ repeated confirmed predispatch credit rejection never consumes spool capacity 1595ms
+   ✓ preserves compatible late diagnostics and pricing on a retained terminal fragment 384ms
+ ✓ tests/auth/admin-invite-dual-review.test.ts (10 tests) 3462ms
+   ✓ ordinary invitation creation and historical internal review > 发起人不可自批（I-4） 495ms
+ ✓ tests/billing/realtime-voice-credit-pg.test.ts (7 tests) 3439ms
+   ✓ bills cumulative provider response usage once, completes into debt and blocks a new connection 386ms
+   ✓ rejects conflicting provider response replay without another debit 350ms
+   ✓ settles a confirmed nondispatch and releases its durable slot on disconnect during admission 533ms
+stdout | tests/billing/member-credit-quota-pg.test.ts
+[member-credit-fixture-retention] {"org":"member-credit-7d5b238f-e538-4ff4-86a9-0da9648e04de","other":"member-credit-7d5b238f-e538-4ff4-86a9-0da9648e04de-other","user":"member-credit-7d5b238f-e538-4ff4-86a9-0da9648e04de-user"}
+
+ ✓ tests/billing/member-credit-quota-pg.test.ts (5 tests) 1076ms
+ ✓ tests/billing/credit-stream-settlement.test.ts (5 tests) 1549ms
+ ✓ tests/auth/org-invitation-members.test.ts (7 tests) 1963ms
+ ✓ tests/billing/member-credit-quota.test.ts (6 tests) 10ms
+ ✓ tests/billing/member-credit-continuation.test.ts (4 tests) 9ms
+ ✓ tests/billing/member-credit-quota-controller.test.ts (3 tests) 7ms
+ ✓ tests/billing/credit-error-boundary.test.ts (3 tests) 8ms
+ ✓ tests/billing/private-credit-failure.test.ts (3 tests) 15ms
+
+ Test Files  14 passed (14)
+      Tests  119 passed (119)
+   Start at  16:07:34
+   Duration  85.66s (transform 2.88s, setup 130ms, collect 13.79s, tests 64.19s, environment 3ms, prepare 1.60s)
+
+[db-isolation] db=workspacex_org6316_final peak_connections=4

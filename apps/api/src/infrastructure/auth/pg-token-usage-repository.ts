@@ -1,3 +1,4 @@
+import {assertMemberCreditContinuation} from "../billing/member-credit-quota";
 import {PgCreditConsumption} from "../billing/pg-credit-consumption";
 import {AI_NATIVE_UNITS} from "../../domain/agent-run/ai-billable-unit";
 /**
@@ -24,6 +25,10 @@ import type { TokenUsageMeterPort, TokenUsageRecord } from "../../application/ag
 
 export class PgTokenUsageRepository implements TokenUsageMeterPort {
   constructor(private readonly db: DatabasePort, private readonly credits = new PgCreditConsumption(db)) {}
+
+  async assertCreditContinuation(orgId: OrgId, userId: string, requestId: string): Promise<void> {
+    await this.db.withTenant(orgId, s => assertMemberCreditContinuation(s, orgId, userId, requestId));
+  }
 
   async startRequest(orgId: OrgId, input: Parameters<NonNullable<TokenUsageMeterPort["startRequest"]>>[1]): Promise<void> {
     await this.db.withTenant(orgId, async s => {

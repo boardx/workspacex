@@ -1,7 +1,8 @@
+import type {CreditRequiredReason} from "@repo/contracts/billing-consumption";
 /** Financial accounting failures must stop dispatch rather than silently provide free usage. */
 export class CreditConsumptionError extends Error {
   readonly rechargePath: string;
-  constructor(readonly code: "credit_required" | "credit_accounting_unavailable", readonly ownerType: "user" | "team", readonly ownerId: string, message: string = code) {
+  constructor(readonly code: "credit_required" | "credit_accounting_unavailable", readonly ownerType: "user" | "team", readonly ownerId: string, message: string = code, readonly reason?: CreditRequiredReason) {
     super(message);
     this.name = "CreditConsumptionError";
     this.rechargePath = ownerType === "user" ? "/billing?purchase=1" : `/billing?ownerType=team&ownerId=${encodeURIComponent(ownerId)}&purchase=1`;

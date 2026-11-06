@@ -35,6 +35,13 @@ vi.mock("@/components/session/session-provider", () => ({
   }),
 }));
 
+// Credit quotas are a separate read surface, covered in member-credit-quota.test.tsx.
+// Keep this suite's HTTP fixtures dedicated to the token-quota contract.
+vi.mock("@/lib/live-member-credit-quota", () => ({
+  getMemberCreditQuotas: async () => ({ enterprise: false, defaultMonthlyLimit: 1000, month: "2026-11", members: [] }),
+  setMemberCreditQuota: vi.fn(),
+}));
+
 import { MemberQuotaTab } from "@/components/admin/member-quota-tab";
 
 interface QuotaMember {

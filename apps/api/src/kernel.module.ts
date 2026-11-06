@@ -1,3 +1,5 @@
+import {ORG_INVITATION_DELIVERY} from "./application/auth/org-invitation-delivery";
+import {OrgInvitationMailDelivery} from "./infrastructure/auth/org-invitation-mail-delivery";
 import { LocalizationModule } from "./localization.module";
 import {AuxiliaryModelUsageController} from './interface/controllers/auxiliary-model-usage.controller';
 import {AUXILIARY_MODEL_ACCOUNTING} from './application/billing/auxiliary-model-accounting';
@@ -2106,6 +2108,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     },
     // ⚠ lazy：配置校验推迟到**第一次真正用到**时。用 `cloudflareEmailConfig()`
     //   会让整个 API 在 DI 阶段因为一个可能用不到的子系统而起不来（见该函数注释）。
+    { provide: ORG_INVITATION_DELIVERY, useClass: OrgInvitationMailDelivery },
     { provide: CLOUDFLARE_EMAIL_CONFIG, useFactory: () => lazyCloudflareEmailConfig() },
     {
       provide: VERIFICATION_MAIL_TRANSPORT,

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { AlertTriangle, Ban, Check, Copy, Hourglass, Link2, Plus, X } from "lucide-react";
+import { AlertTriangle, Ban, Copy, Link2, Plus } from "lucide-react";
 import { orgAdmin } from "@repo/contracts";
 import type { z } from "zod";
 import { Badge } from "@/components/ui/badge";
@@ -11,9 +11,8 @@ import { Label } from "@/components/ui/label";
 import { StateShell, type UiState } from "@/components/state/state-shell";
 import { ApiError } from "@/lib/api-client";
 import { buildSharedInviteLink } from "@/lib/activation-link";
-import { type OrgRole } from "@/lib/identity";
 import {
-  createOrgInviteLink, listOrgInviteLinks, revokeOrgInviteLink, reviewOrgInviteLink,
+  createOrgInviteLink, listOrgInviteLinks, revokeOrgInviteLink,
   type ListOrgInviteLinksOut,
 } from "@/lib/live-org-admin";
 import { useI18n } from "@/lib/i18n/provider";
@@ -47,7 +46,7 @@ function roleLabelFor(role: string, t: Translate) {
   switch (role) {
     case "admin": return t("role.admin");
     case "lead": return t("role.lead");
-    case "consultant": return t("role.consultant");
+    case "consultant": return t("invitation.memberRole");
     case "compliance": return t("role.compliance");
     default: return role;
   }
@@ -62,7 +61,7 @@ function expiryLabelFor(value: string, t: Translate) {
 }
 function statusLabelFor(value: string, t: Translate) {
   switch (value) {
-    case "pending-review": return t("orgSharedInvites.statuspendingreview");
+    case "pending-review": return t("invitation.needsResend");
     case "active": return t("orgSharedInvites.statusactive");
     case "expired": return t("orgSharedInvites.statusexpired");
     case "revoked": return t("orgSharedInvites.statusrevoked");
@@ -175,7 +174,7 @@ function CreateLinkForm({
   onFailed: (msg: Feedback) => void;
 }) {
   const { t } = useI18n();
-  const [orgRole, setOrgRole] = React.useState<OrgRole>("consultant");
+  const orgRole = "consultant" as const;
   const [expiry, setExpiry] = React.useState<Expiry>("7d"); // 拍板②：默认 7 天
   const [maxUsesRaw, setMaxUsesRaw] = React.useState(""); // 空 = 无上限（拍板②默认）
   const [fieldError, setFieldError] = React.useState(false);
@@ -218,17 +217,6 @@ function CreateLinkForm({
       data-testid="org-admin-shared-link-form"
     >
       <div className="flex flex-wrap items-start gap-2">
-        <div className="flex w-32 flex-col gap-1">
-          <Label id="org-admin-shared-link-role-label">{t("orgSharedInvites.role")}</Label>
-          <PopoverSelect
-            value={orgRole}
-            options={["consultant", "lead", "compliance", "admin"].map((id) => ({ id, label: roleLabelFor(id, t) }))}
-            onSelect={(id) => setOrgRole(id as OrgRole)}
-            disabled={submitting}
-            testid="org-admin-shared-link-role"
-            ariaLabel={t("orgSharedInvites.role")}
-          />
-        </div>
         <div className="flex w-28 flex-col gap-1">
           <Label id="org-admin-shared-link-expiry-label">{t("orgSharedInvites.expiry")}</Label>
           <PopoverSelect
@@ -260,11 +248,6 @@ function CreateLinkForm({
       {fieldError ? (
         <p role="alert" data-testid="err-shared-link-max-uses" className="text-10 text-destructive">{t("orgSharedInvites.invalidMaxUses")}</p>
       ) : null}
-      {orgRole === "admin" && (
-        <p className="text-10 text-muted-foreground" data-testid="org-admin-shared-link-dual-review-note">
-          {t("orgSharedInvites.dualReview")}
-        </p>
-      )}
       <div className="flex items-center justify-between gap-2">
         <p className="text-10 text-muted-foreground">
           {t("orgSharedInvites.joinNote")}
@@ -279,7 +262,7 @@ function CreateLinkForm({
 }
 
 function LinkRow({
-  orgId, link, currentUserId, onChanged, onSucceeded, onFailed, onReveal,
+  orgId, link, onChanged, onSucceeded, onFailed, onReveal,
 }: {
   orgId: string;
   link: ListOrgInviteLinksOut["links"][number];
@@ -293,9 +276,6 @@ function LinkRow({
   const [busy, setBusy] = React.useState(false);
   const [confirmingRevoke, setConfirmingRevoke] = React.useState(false);
 
-  const isCreator = currentUserId !== null && link.createdByUserId === currentUserId;
-  const canReview = link.status === "pending-review" && !isCreator;
-  const waitingPeerReview = link.status === "pending-review" && isCreator;
   const canRevoke = link.status === "active" || link.status === "pending-review";
   const roleLabel = roleLabelFor(link.orgRole, t);
   const expiryLabel = expiryLabelFor(link.expiry, t);
@@ -307,7 +287,8 @@ function LinkRow({
       onSucceeded(text);
       onChanged();
     } catch (err) {
-      onFailed((t) => describeLinkFailure(err, t));
+      onFailed((t) => err instanceof Error && err.message === "replacement-revoke-failed"
+        ? t("invitation.linkReplacementPartial") : describeLinkFailure(err, t));
       if (err instanceof ApiError && err.reasonCode === "VERSION_CHANGED") onChanged();
     } finally {
       setBusy(false);
@@ -325,58 +306,29 @@ function LinkRow({
         </Badge>
         <span className="text-10 text-muted-foreground">
           {expiryLabel}
-          {link.expiresAt !== null ? t("orgSharedInvites.expiresAt", { date: new Date(link.expiresAt).toLocaleDateString(locale) }) : t("orgSharedInvites.startsApproval")}
+          {link.expiresAt !== null ? t("orgSharedInvites.expiresAt", { date: new Date(link.expiresAt).toLocaleDateString(locale) }) : t("invitation.needsResend")}
         </span>
         <span className="text-10 text-muted-foreground" data-testid={`org-admin-shared-link-${link.linkId}-used`}>
           {t("orgSharedInvites.joinedCount", { count: link.usedCount, limit: link.maxUses !== null ? ` / ${link.maxUses}` : "" })}
         </span>
         <span className="text-10 text-muted-foreground">{t("orgSharedInvites.createdBy", { name: link.createdBy })}</span>
         <div className="ml-auto flex shrink-0 items-center gap-1.5">
-          {waitingPeerReview && (
-            <span
-              className="flex items-center gap-1 text-10 text-muted-foreground"
-              data-testid={`org-admin-shared-link-${link.linkId}-waiting-peer-review`}
-            >
-              <Hourglass aria-hidden className="h-3 w-3" />
-              {t("orgSharedInvites.waitingPeer")}
-            </span>
-          )}
-          {canReview && (
-            <>
-              <Button
-                type="button" size="xs" variant="primary" disabled={busy}
-                onClick={() =>
-                  run(async () => {
-                    const out = await reviewOrgInviteLink(orgId, link.linkId, "approve");
-                    if (out.linkToken !== null) {
-                      onReveal({
-                        url: buildSharedInviteLink(out.linkToken, window.location.origin),
-                        orgRole: link.orgRole,
-                        kind: "approved",
-                      });
-                    }
-                    return (t) => t("orgSharedInvites.approvedNotice", { role: roleLabelFor(link.orgRole, t) });
-                  })
+          {link.status === "pending-review" && (
+            <Button type="button" size="xs" variant="outline" disabled={busy}
+              data-testid={`org-admin-shared-link-${link.linkId}-replace`}
+              onClick={() => run(async () => {
+                const out = await createOrgInviteLink({ orgId, orgRole: "consultant", expiry: link.expiry, maxUses: link.maxUses });
+                if (out.linkToken) onReveal({ url: buildSharedInviteLink(out.linkToken, window.location.origin), orgRole: "consultant", kind: "created" });
+                try {
+                  await revokeOrgInviteLink(orgId, link.linkId);
+                } catch {
+                  onChanged();
+                  throw new Error("replacement-revoke-failed");
                 }
-                data-testid={`org-admin-shared-link-${link.linkId}-approve`}
-              >
-                <Check aria-hidden className="h-3 w-3" />
-                {t("orgSharedInvites.approve")}
-              </Button>
-              <Button
-                type="button" size="xs" variant="outline" disabled={busy}
-                onClick={() =>
-                  run(async () => {
-                    await reviewOrgInviteLink(orgId, link.linkId, "reject");
-                    return (t) => t("orgSharedInvites.rejectedNotice", { role: roleLabelFor(link.orgRole, t) });
-                  })
-                }
-                data-testid={`org-admin-shared-link-${link.linkId}-reject`}
-              >
-                <X aria-hidden className="h-3 w-3" />
-                {t("orgSharedInvites.reject")}
-              </Button>
-            </>
+                return (t) => t("invitation.linkReplaced");
+              })}>
+              {t("invitation.replaceLink")}
+            </Button>
           )}
           {canRevoke && !confirmingRevoke && (
             <Button

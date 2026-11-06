@@ -1,0 +1,7 @@
+Using CPython 3.13.7
+Creating virtual environment at: .venv
+   Building deep-agent-service @ file:///Users/shenyangjun/.codex/worktrees/2e5d/workspacex/apps/deep-agent-service
+      Built deep-agent-service @ file:///Users/shenyangjun/.codex/worktrees/2e5d/workspacex/apps/deep-agent-service
+Installed 107 packages in 569ms
+.............                                                            [100%]
+13 passed in 7.52s

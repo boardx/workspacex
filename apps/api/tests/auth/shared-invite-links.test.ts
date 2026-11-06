@@ -1,18 +1,6 @@
-/**
- * shared-invite-links delta —— 组织共享邀请链接（人类 2026-08-13 三条拍板）的反证面。
- *
- * ## 反证怎么戳穿"看起来对"的实现
- *
- * 最容易写错的三个版本，各有一条测试直接打在它身上：
- *   ① "多次链接其实是一次性的"：同一链接第二个人加入失败。→ 多次语义 describe 第一条。
- *   ② "admin 级链接照常签发令牌，只在界面画个待复核徽标"：建链后
- *      `org_invite_link_tokens` 里已有行。→ 复核 describe 直接查那张表，断言零行。
- *   ③ "上限判定放在锁外"：三个人并发挤 max_uses=2 时进来三个。→ used_count 恒等断言
- *      （串行版本；并发窗口由 FOR UPDATE 构造消灭，同 create 的配额锁定先例）。
- *
- * 落库无明文（长期凭据 hash 化）的断言是**搜值不搜字段名**：把两张表整行 to_jsonb，
- * 断言签发响应里的明文不出现在任何列——字段改名骗不过它。
- */
+/** Shared links remain reusable, capacity-limited and hash-only at rest.
+ * New links always grant ordinary membership. Internal review coverage uses
+ * explicitly seeded legacy rows, independent of the current creation policy. */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createOrgInviteLink } from "../../src/application/auth/create-org-invite-link";
 import { listOrgInviteLinks } from "../../src/application/auth/list-org-invite-links";
@@ -99,6 +87,16 @@ async function credentialCount(mail: string): Promise<number> {
 
 async function setSeatQuota(n: number): Promise<void> {
   await asOwner((c) => c.query("UPDATE organizations SET seat_quota = $2 WHERE id = $1", [ORG, n]));
+}
+
+/** Historical review usecases require a legacy pending-review row. */
+async function legacyPendingLink(...args: Parameters<typeof createOrgInviteLink>) {
+  const out = await createOrgInviteLink(...args);
+  await asOwner(async (c) => {
+    await c.query("DELETE FROM org_invite_link_tokens WHERE link_id=$1", [out.linkId]);
+    await c.query("UPDATE org_invite_links SET status='pending-review', org_role='admin', expires_at=NULL WHERE id=$1", [out.linkId]);
+  });
+  return { ...out, status: "pending-review" as const, linkToken: null, expiresAt: null };
 }
 
 beforeAll(async () => {
@@ -199,20 +197,19 @@ describe("失效面统一（V10 防枚举）", () => {
   });
 });
 
-describe("admin 级链接的双人复核（拍板③ / O-28⑥ 适用点扩展）", () => {
-  it("建链即待复核：linkToken=null、token 表零行（令牌不存在，不是签了拦着）", async () => {
-    const link = await createOrgInviteLink(
-      { repo },
-      { ...adminCtx(ADMIN_A), orgRole: "admin", expiry: "7d", maxUses: 1 },
-    );
-    expect(link.status).toBe("pending-review");
-    expect(link.linkToken).toBeNull();
-    expect(link.expiresAt).toBeNull();
-    expect(await tokenRowCount(link.linkId)).toBe(0);
+describe("ordinary shared links and historical internal review", () => {
+  it("requesting admin creates an immediately active ordinary-member link", async () => {
+    const link = await createOrgInviteLink({ repo }, { ...adminCtx(ADMIN_A), orgRole: "admin", expiry: "7d", maxUses: 1 });
+    expect(link.status).toBe("active");
+    expect(link.linkToken).not.toBeNull();
+    expect(link.expiresAt).not.toBeNull();
+    expect(await tokenRowCount(link.linkId)).toBe(1);
+    const joined = await join(link.linkToken!, email("requested-admin"));
+    expect(joined.orgRole).toBe("consultant");
   });
 
   it("发起人自批 → INVITE_SELF_REVIEW_FORBIDDEN（I-4）", async () => {
-    const link = await createOrgInviteLink(
+    const link = await legacyPendingLink(
       { repo },
       { ...adminCtx(ADMIN_A), orgRole: "admin", expiry: "7d", maxUses: null },
     );
@@ -232,7 +229,7 @@ describe("admin 级链接的双人复核（拍板③ / O-28⑥ 适用点扩展�
   });
 
   it("第二 admin 批准 → 明文只此一次回传，且用它真实建号成功（授予 admin）", async () => {
-    const link = await createOrgInviteLink(
+    const link = await legacyPendingLink(
       { repo },
       { ...adminCtx(ADMIN_A), orgRole: "admin", expiry: "1d", maxUses: null },
     );
@@ -268,7 +265,7 @@ describe("admin 级链接的双人复核（拍板③ / O-28⑥ 适用点扩展�
   });
 
   it("拒绝 → revoked；对已裁定链接的第二次不同决定 → VERSION_CHANGED", async () => {
-    const link = await createOrgInviteLink(
+    const link = await legacyPendingLink(
       { repo },
       { ...adminCtx(ADMIN_A), orgRole: "admin", expiry: "7d", maxUses: null },
     );
