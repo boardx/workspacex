@@ -16,10 +16,13 @@ it("localizes permission chrome while preserving raw command and the controlled 
   expect(screen.getByRole("button", { name: "Always allow" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Deny" })).toBeTruthy();
   const command = screen.getByTestId("perm-command"); expect(command.textContent).toBe(request.command);
+  expect(screen.getByTestId("perm-review-guidance")).toHaveTextContent("server-provided argument summary");
+  expect(screen.queryByText("Full command, without truncation")).not.toBeInTheDocument();
   expect(screen.getByTestId("risk-L2").textContent).toBe("L2 · High risk");
   fireEvent.click(screen.getByRole("button", { name: "switch language" }));
   expect(screen.getByRole("button", { name: "仅本次允许" })).toBe(once);
   expect(screen.getByTestId("perm-command")).toBe(command); expect(command.textContent).toBe(request.command);
+  expect(screen.getByTestId("perm-review-guidance")).toHaveTextContent("参数摘要");
   expect(decide).not.toHaveBeenCalled();
   fireEvent.click(once); expect(decide).toHaveBeenCalledWith("once"); expect(decide).toHaveBeenCalledTimes(1);
 });

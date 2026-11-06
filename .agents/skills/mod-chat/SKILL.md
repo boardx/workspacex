@@ -53,6 +53,7 @@ chat 只负责把执行状态（含工具调用）渲染出来、把用户输入
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-11-06：审批卡消费 argsSummary 时不可固定承诺“完整，未截断”；公开参数本来经过逐字符串脱敏和长度限制。保持边界，明确摘要/截断，并给出拒绝后拆分短命令重审的路径；本地组件测试不等于 CN 发布后审批恢复验收（issue #6320）。
 - 2026-11-03：HITL 裁决后下一条消息可能经服务端持久队列派发，不保证再有 SDK run POST；验收复用 `e2e/support/hitl-next-turn.ts` 的 queue → canonical run → 唯一持久 human/result/replyTo 链。SDK 线程不是 Chat 线程，持久线程取 `forwardedProps.chatThreadId`；队列派发的幂等消息身份取实际 queue row id（执行器契约），别把 clientRequestId 当它。出处：issue [#6189](https://github.com/boardx/workspacex/issues/6189)，真实 SDK/忙态队列两场景及反例验证。
 - 2026-10-29：刷新停在登录确认时先对齐脚本加载、hydrate 与身份请求时间；接口最终 200 不证明超时前已恢复。登录/会话客户端应引用契约子路径，避免根 barrel 把无关注册表带入首屏。浏览器离站或 composer 消失也不能用上一次 running 值判成运行卡死（issue #5982；`session-client-bundle-boundary.test.ts` 与 `e2e-chat-run-settled.test.ts`）。
 - 2026-10-15：目录示例任务跳到对话后，URL 和输入文本正确、通用 loading 消失仍不能证明选角及开场简报已稳定。截图需先等空态挂载，再等 session-briefing-loading 消失，并断言实际角色名、非自动匹配和头像加载；CI 成功后的图片仍需逐张审查（[PR #5710](https://github.com/boardx/workspacex/pull/5710)）。
