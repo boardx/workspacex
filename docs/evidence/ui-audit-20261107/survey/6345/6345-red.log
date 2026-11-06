@@ -1,0 +1,44 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+
+ ❯ tests/ui/survey-draft-copy.test.tsx (3 tests | 1 failed) 259ms
+   × links a copied draft to the current project before navigating 45ms
+     → expected "spy" to be called with arguments: [ { projectId: 'project-1', …(2) } ]
+
+Received:
+
+
+
+Number of calls: 0
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/survey-draft-copy.test.tsx > links a copied draft to the current project before navigating
+AssertionError: expected "spy" to be called with arguments: [ { projectId: 'project-1', …(2) } ]
+
+Received:
+
+
+
+Number of calls: 0
+
+ ❯ tests/ui/survey-draft-copy.test.tsx:48:15
+     46|  fireEvent.click(screen.getByRole("button",{name:"确认创建新草稿"}));
+     47|  await waitFor(()=>expect(onCreated).toHaveBeenCalledWith("new-draft")…
+     48|  expect(link).toHaveBeenCalledWith({projectId:"project-1",kind:"survey…
+       |               ^
+     49| });
+     50|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+   Start at  03:25:59
+   Duration  4.32s (transform 1.47s, setup 220ms, collect 2.22s, tests 259ms, environment 728ms, prepare 139ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/survey-draft-copy.test.tsx

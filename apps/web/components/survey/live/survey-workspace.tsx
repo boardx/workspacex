@@ -402,7 +402,7 @@ export function LiveSurveyWorkspace({
               {step === "design" && draft && <SurveyTemplateActions saveOnly kind="question" draft={draft} onApply={() => undefined} locked={!!runtime?.publication} disabled={busy || !projectedInSync} />}
               <Button variant="ghost" className="justify-start" onClick={() => { setSecondaryActionsOpen(false); selectStep("template"); }}>{t("survey.workspace.designReportOptional")}</Button>
               {runtime && <Button variant="ghost" className="justify-start" onClick={() => { setSecondaryActionsOpen(false); selectStep("report"); }}>{t("survey.workspace.reportOptional")}</Button>}
-              {runtime?.publication && <SurveyDraftCopy runtime={runtime} disabled={busy} onCreated={id => router.push(surveyPath(id, "design"))} />}
+              {runtime?.publication && <SurveyDraftCopy runtime={runtime} projectId={projectId} disabled={busy} onCreated={id => router.push(withProjectId(surveyPath(id, "design"), projectId))} />}
               <Button variant="ghost" className="justify-start" disabled={busy || !runtime} onClick={() => { setSecondaryActionsOpen(false); void refresh(); }}>{t("survey.workspace.refresh")}</Button>
             </div>
           )}
