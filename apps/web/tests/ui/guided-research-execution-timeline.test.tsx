@@ -191,3 +191,19 @@ it('shows elapsed time only from a current persisted execution start', () => {
   view.rerender(<GuidedResearchExecutionTimeline state={{ ...state, version: state.version + 1 }} />);
   expect(screen.getByTestId('research-execution-timeline')).not.toHaveTextContent('已用时');
 });
+
+it('shows acquisition counts and current screening before an approved source is published', () => {
+  const base = runtimeFixture('research');
+  const state = { ...base, busy: true, leaseUntil: '2099-01-01T00:00:00Z', sources: [],
+    tasks: [{ ...base.tasks[0]!, status: 'running' as const }],
+    progress: { stage: 'searching' as const, executionVersion: base.version, completed: 0, total: 1,
+      sourceCounts: { discovered: 12, read: 3, screened: 0, reading: 0, screening: 3 } },
+  };
+  const view = render(<GuidedResearchExecutionTimeline state={state} />);
+  expect(screen.getByTestId('execution-documents')).toHaveTextContent('执行中');
+  expect(screen.getByTestId('execution-documents')).toHaveTextContent('已发现 12 · 已读取 3 · 已筛选 0');
+  view.rerender(<GuidedResearchExecutionTimeline state={{ ...state, busy: false }} />);
+  expect(screen.getByTestId('execution-documents')).not.toHaveTextContent('执行中');
+  view.rerender(<GuidedResearchExecutionTimeline state={{ ...state, version: base.version + 1 }} />);
+  expect(screen.getByTestId('execution-documents')).not.toHaveTextContent('已发现 12');
+});

@@ -18,10 +18,10 @@ function fixture(parent?: AbortSignal) {
   const persist: RuntimePersistence = Object.assign(async () => { snapshots.push(structuredClone(state)); }, { requestId: "progressive", observe: vi.fn() });
   const hits = Array.from({ length: 10 }, (_, i) => ({ title: `Policy ${i}`, url: `https://example.org/${i}`, content: "Policy evidence" }));
   const read = vi.fn(async () => ({ text: "Policy evidence from the document", contentKind: "text" as const, truncated: false }));
-  const search = { search: vi.fn(async () => hits), read };
+  const search = { search: vi.fn(async (_query: string) => hits), read };
   const budget = SearchBudget.perCall(90_000, "RESEARCH_SOURCE_MODEL_TIMEOUT", parent);
   const run = () => executeTaskPipeline(state, persist, search, budget, async () => { throw new Error("Unexpected model recovery"); });
-  return { state, snapshots, read, search, budget, run };
+  return { state, snapshots, read, search, budget, run, observe: vi.mocked(persist.observe) };
 }
 it("stops reading additional search hits after three approved document sources", async () => {
   screen.mockImplementation(async (_state, candidates) => candidates);
@@ -203,4 +203,69 @@ it('sizes the last primary batch to its remaining approved target', async () => 
   try { await f.run(); } finally { f.budget.dispose(); }
   expect(f.read).toHaveBeenCalledTimes(4);
   expect(f.state.sources).toHaveLength(4);
+});
+
+it("publishes actual discovery and read counts while a screening batch is still pending", async () => {
+  let entered!: () => void, release!: () => void;
+  const started = new Promise<void>(resolve => { entered = resolve; });
+  const blocked = new Promise<void>(resolve => { release = resolve; });
+  screen.mockImplementation(async (_state, candidates) => { entered(); await blocked; return candidates; });
+  const f = fixture(), execution = f.run();
+  try {
+    await started;
+    expect(f.state.sources).toHaveLength(0); // Counts must not promote unverified material.
+    expect(f.state.progress).toMatchObject({ sourceCounts: { discovered: 10, read: 3, screened: 0, reading: 0, screening: 3 } });
+    expect(f.observe.mock.calls.at(-1)?.[0]).toMatchObject({ type: "snapshot", state: { progress: f.state.progress } });
+  } finally { release(); await execution; f.budget.dispose(); }
+  expect(f.state.progress).toMatchObject({ sourceCounts: { discovered: 10, read: 3, screened: 3, reading: 0, screening: 0 } });
+});
+
+it("does not reserve an unread shared tail URL while unrelated admitted batches can proceed", async () => {
+  let entered!: () => void, release!: () => void, secondStarted = false;
+  const started = new Promise<void>(resolve => { entered = resolve; });
+  const blocked = new Promise<void>(resolve => { release = resolve; });
+  const f = fixture();
+  f.state.outline.push({ ...f.state.outline[0]!, id: "b", order: 1 });
+  f.state.tasks.push({ ...f.state.tasks[0]!, id: "task-b", sectionId: "b", query: "second" });
+  f.search.search.mockImplementation(async query => {
+    const prefix = query === "second" ? "b" : "a";
+    return [...Array.from({ length: 3 }, (_, i) => ({ title: "Evidence", url: `https://example.org/${prefix}/${i}`, content: "Policy evidence" })),
+      { title: "Unused shared tail", url: "https://example.org/shared-tail", content: "Policy evidence" }];
+  });
+  screen.mockImplementation(async (_state, candidates) => {
+    if (candidates[0].taskId === "task-a") { entered(); await blocked; }
+    else secondStarted = true;
+    return candidates;
+  });
+  const execution = f.run();
+  try {
+    await started;
+    await vi.waitFor(() => expect(secondStarted).toBe(true), { timeout: 150 });
+    expect(f.read.mock.calls).toHaveLength(6);
+  } finally { release(); await execution; f.budget.dispose(); }
+  expect(f.state.tasks.every(task => task.status === "succeeded")).toBe(true);
+});
+
+it("does not add a database checkpoint per discovery/read/screen progress update", async () => {
+  screen.mockImplementation(async (_state, candidates) => candidates);
+  const f = fixture();
+  try { await f.run(); } finally { f.budget.dispose(); }
+  // Existing boundaries: attempt registration, task admission, approved batch,
+  // and attempt completion. Phase starts add at most two checkpoints; rapid counters coalesce.
+  expect(f.snapshots.length).toBeLessThanOrEqual(6);
+  expect(f.snapshots.at(-1)?.progress).toMatchObject({ sourceCounts: { read: 3, screened: 3 } });
+});
+
+it("makes active reads visible to the normal polling transport before documents finish", async () => {
+  let entered!: () => void, release!: () => void;
+  const started = new Promise<void>(resolve => { entered = resolve; });
+  const blocked = new Promise<void>(resolve => { release = resolve; });
+  screen.mockImplementation(async (_state, candidates) => candidates);
+  const f = fixture();
+  f.read.mockImplementation(async () => { entered(); await blocked; return { text: "Policy document evidence", contentKind: "text", truncated: false }; });
+  const execution = f.run();
+  try {
+    await started;
+    expect(f.snapshots.some(snapshot => (snapshot.progress?.sourceCounts?.reading ?? 0) > 0)).toBe(true);
+  } finally { release(); await execution; f.budget.dispose(); }
 });
