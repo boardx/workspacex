@@ -11,6 +11,7 @@ import httpx
 from jsonschema import Draft7Validator, FormatChecker
 from langchain.agents.middleware import AgentMiddleware
 from langgraph.config import get_config
+from langgraph.types import interrupt
 
 AUTHORITY_DEADLINE_SECONDS = 5.0
 AUTHORITY_MAX_RESPONSE_BYTES = 16 * 1024
@@ -21,6 +22,9 @@ _OUTPUT=Draft7Validator(_SCHEMA['output'],format_checker=FormatChecker())
 
 class ToolAuthorityError(RuntimeError):
     """Unknown or denied authorization: caller must not dispatch or retry."""
+
+class ToolApprovalRequired(ToolAuthorityError):
+    """A validated host decision requires the existing user approval flow."""
 
 class ReportOutputPublished(ToolAuthorityError):
     """Host refused an unnecessary mutation after the report output was already staged."""
@@ -57,6 +61,8 @@ class HttpNativeToolAuthority:
             if body['allowed'] is not True:
                 if body.get('reason')=='report_output_published' and body.get('reportFile',{}).get('published') is True:
                     raise ReportOutputPublished('Report output is already staged; no further mutation was executed')
+                if body["reason"] == "approval_required":
+                    raise ToolApprovalRequired("Tool execution requires host-bound user approval")
                 raise ToolAuthorityError(f"Tool execution denied: {body['reason']}")
             return body
         except ToolAuthorityError: raise
@@ -98,10 +104,21 @@ class NativeToolAuthority(AgentMiddleware):
         self._report_locks=WeakValueDictionary()
 
     def wrap_tool_call(self, request, handler):
+        reviewed=False
         try:
-            decision=self._authority.check(request.tool_call)
+            try:
+                decision=self._authority.check(request.tool_call)
+            except ToolApprovalRequired:
+                request=self._review_approval(request)
+                reviewed=True
+                if isinstance(request, ToolMessage): return request
+                decision=self._authority.check(request.tool_call)
         except ReportOutputPublished:
             return self._report_closed(request)
+        if not reviewed and isinstance(decision,dict) and decision.get("approvedOnce") is True:
+            request=self._review_approval(request)
+            if isinstance(request, ToolMessage): return request
+            decision=self._authority.check(request.tool_call)
         if isinstance(decision,dict) and decision.get('reportFile'):
             # The native service dispatches asynchronously. Refuse an unsafe synchronous
             # report path rather than execute parallel mutations without its run lock.
@@ -109,8 +126,20 @@ class NativeToolAuthority(AgentMiddleware):
         return handler(request)
 
     async def awrap_tool_call(self, request, handler):
+        reviewed=False
         try:
-            decision=await self._authority.acheck(request.tool_call)
+            try:
+                decision=await self._authority.acheck(request.tool_call)
+            except ToolApprovalRequired:
+                request=self._review_approval(request)
+                reviewed=True
+                if isinstance(request, ToolMessage): return request
+                decision=await self._authority.acheck(request.tool_call)
+            if not reviewed and isinstance(decision,dict) and decision.get("approvedOnce") is True:
+                request=self._review_approval(request)
+                reviewed=True
+                if isinstance(request, ToolMessage): return request
+                decision=await self._authority.acheck(request.tool_call)
             policy=decision.get('reportFile') if isinstance(decision,dict) else None
             if not policy:
                 return await handler(request)
@@ -126,6 +155,30 @@ class NativeToolAuthority(AgentMiddleware):
                 return await handler(request)
         except ReportOutputPublished:
             return self._report_closed(request)
+
+    @staticmethod
+    def _review_approval(request):
+        call=request.tool_call
+        # Standard HITL resume format; approval is never authority by itself.
+        # The caller rechecks the host-bound call/args/attempt before dispatch.
+        response=interrupt({
+            "action_requests": [{"name": call["name"], "args": call["args"]}],
+            "review_configs": [{"action_name": call["name"], "allowed_decisions": ["approve", "edit", "reject"]}],
+        })
+        decisions=response.get("decisions") if isinstance(response,dict) else None
+        if not isinstance(decisions,list) or len(decisions)!=1 or not isinstance(decisions[0],dict):
+            raise ToolAuthorityError("Invalid tool approval response")
+        decision=decisions[0]
+        if decision.get("type")=="reject":
+            return ToolMessage(content="User rejected this tool call. No operation was dispatched.",
+                               name=call["name"],tool_call_id=call["id"],status="error")
+        if decision.get("type")=="approve": return request
+        if decision.get("type")=="edit":
+            edited=decision.get("edited_action")
+            if not isinstance(edited,dict) or edited.get("name")!=call["name"] or not isinstance(edited.get("args"),dict):
+                raise ToolAuthorityError("Invalid edited tool approval")
+            return request.override(tool_call={**call,"args":edited["args"]})
+        raise ToolAuthorityError("Invalid tool approval decision")
 
     @staticmethod
     def _report_closed(request):

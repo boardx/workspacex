@@ -167,3 +167,5 @@ MCP 接线、模型路由、context-pack、provenance；不含对话 UI 本身�
 - 2026-11-04：真实 OpenAI SDK 遇完整 SSE `[DONE]` 后会先关闭 response，未必把底层 HTTP 流读到 EOF；Accounting stream 的 close 不能无条件记 failed。以完整独立 SSE 终止事件及成功 HTTP 状态判完成，保留截断、取消、错误事件、未知 usage 和重复 close 的单终端幂等，真实 SDK 与反例见 issue #6232。
 
 - 2026-11-06：DeepAgents 0.7.6 的 execute ToolMessage.status 只证明 transport；须读结构化 artifact.exit_code，未知不能记成功。shell 管道需 pipefail 才能保留前段失败，但不得顺带开启 errexit；禁止安装/联网的提示注入测试只证明装配，不证明真实模型服从（issue #6322；docs/testing/cn-chat-command-outcomes-6322.md）。
+
+- 2026-11-07：native dispatch authority返回approval_required须进入既有可恢复审批中断，而不是抛通用错误终止报告。恢复节点会重放原始call，host须从持久pending call判断精确审批绑定，不能靠客户端permission marker激活校验；即使已有run/standing grant，编辑前参数也不得绕过digest。受控native Runtime SSE→provider→executor与独立安全反例见issue #6362；生产文件产出仍需单独验收。

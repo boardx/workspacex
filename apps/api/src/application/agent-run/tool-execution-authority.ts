@@ -25,6 +25,7 @@ export interface ToolAuthoritySnapshot {
   readonly attemptId: string | null;
   readonly skillVersionIds: readonly string[];
   readonly explicitlyDenied?: boolean;
+  readonly pendingApprovalCall?: boolean;
   readonly allowedTools?: readonly string[];
   readonly authorizeOnce?: () => Promise<boolean>;
 }
@@ -62,11 +63,12 @@ export class ToolExecutionAuthority {
       }
       if (snapshot.explicitlyDenied) return { allowed: false, reason: "approval_required" };
       const risk = classifyToolCallRisk({ ...input, skillStableName: typeof actualSkill === "string" ? actualSkill : undefined }, resolveSkillRiskLevels(skills));
-      if (risk === "L2" && !await this.grants.hasGrant(input.orgId, input.parentRunId, input.toolName)
-        && !await snapshot.authorizeOnce?.()) {
-        return { allowed: false, reason: "approval_required" };
+      let approvedOnce = false;
+      if (risk === "L2" && (snapshot.pendingApprovalCall || !await this.grants.hasGrant(input.orgId, input.parentRunId, input.toolName))) {
+        approvedOnce = await snapshot.authorizeOnce?.() ?? false;
+        if (!approvedOnce) return { allowed: false, reason: "approval_required" };
       }
-      return { allowed: true,...(reportFile?{reportFile}:{}) };
+      return { allowed: true, ...(approvedOnce ? { approvedOnce: true as const } : {}), ...(reportFile ? { reportFile } : {}) };
     });
   }
 }

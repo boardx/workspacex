@@ -61,6 +61,11 @@ export class PgParentRunControlReader implements ParentCancellationReader, ToolA
       return check(row ? { active: row.active, cancelRequested: row.cancel_requested, leaseValid: row.lease_valid,
         attemptId: row.attempt_id, skillVersionIds: row.skill_version_ids,
         explicitlyDenied: matchesDeniedTool(input, row),
+        // Durable pending call identity activates the exact-call check. Never use a
+        // caller-supplied permission marker to decide whether the check is required.
+        pendingApprovalCall: Boolean(row.pending_tool_call_id
+          && (input.toolCallId === row.pending_tool_call_id
+            || (!input.toolCallId && input.toolName === row.pending_tool_name))),
         authorizeOnce: async () => {
           // Only fixed branch labels reach operator logs: never IDs, args, digests or keys.
           const refused = (reason: "missing_binding" | "permission_mismatch" | "call_mismatch" |
