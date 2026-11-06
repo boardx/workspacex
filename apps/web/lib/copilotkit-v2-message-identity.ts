@@ -221,6 +221,16 @@ export function useChatMessageIdentity(agent: AbstractAgent): UseChatMessageIden
           // 同下：解析失败即这一帧不可信，丢弃——不猜要撤回哪些气泡。
           if (replaced === null) return;
           const drop = new Set(replaced.replacedMessageIds);
+          // Retire the cached projections even if the SDK has already cleared its array.
+          // Otherwise projectMessages resurrects withdrawn text at RUN_FINISHED, and a
+          // later identity echo can compose the stale captured body into the final reply.
+          streamingMessagesRef.current = new Map(
+            [...streamingMessagesRef.current].filter(([id]) => !drop.has(id)),
+          );
+          settledMessagesRef.current = new Map(
+            [...settledMessagesRef.current].filter(([, held]) =>
+              ![...held.aliases].some((id) => drop.has(id))),
+          );
           const kept = messages.filter((m) => !drop.has(m.id));
           if (kept.length === messages.length) return;
           return { messages: kept };
