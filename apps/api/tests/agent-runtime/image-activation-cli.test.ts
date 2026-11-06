@@ -68,3 +68,12 @@ it('offline snapshot preview cannot activate without an operator Bearer token',a
 it('rejects the obsolete markup switch before requests',async()=>{await expect(runQwenImageActivation({args:['--markup10'],env:{}})).rejects.toThrow('LEGACY_MARKUP_DISABLED_USE_FIXED_PRICES');});
 
 it('unknown arguments fail before HTTP instead of silently changing global scope',async()=>{const fetcher=vi.fn();for(const args of [['--scope=org','--fixed-prices','--apply'],['old-org'],['--dry-run']])await expect(runQwenImageActivation({env,args,fetcher})).rejects.toThrow('UNKNOWN_ACTIVATION_ARGUMENT');expect(fetcher).not.toHaveBeenCalled();});
+
+it('supports only the explicit CN production API origin and retains authenticated global CAS', async()=>{
+ const f=setup();
+ await runQwenImageActivation({env:{...env,QWEN_ACTIVATION_BASE_URL:'https://app.workspacex.cn/api'},args:['--fixed-prices','--apply'],fetcher:f.fetcher as typeof fetch,readFile:()=> 'test-session-token',log:()=>{}});
+ expect(f.calls.map(c=>c.options.method)).toEqual(['GET','GET','GET','PUT','GET']);
+ expect(f.calls.every(c=>new URL(c.url).origin==='https://app.workspacex.cn')).toBe(true);
+ expect(f.calls.every(c=>c.options.redirect==='error')).toBe(true);
+ for(const raw of ['http://app.workspacex.cn/api','https://app.workspacex.cn.evil.test/api','https://app.workspacex.cn/api?token=x','https://app.workspacex.cn:8443/api','https://app.workspacex.cn/','https://secret@app.workspacex.cn/api']) expect(()=>activationBaseUrl(raw)).toThrow();
+});

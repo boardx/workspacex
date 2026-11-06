@@ -67,6 +67,8 @@ export const deploymentInputSchema = z.object({
       modelId: identifier,
       apiKeySecretRef: secretRef,
     }).strict(),
+    // Explicit capability: absent leaves the tariff writer unavailable. No app/owner fallback.
+    billingTariffProfile: z.object({ passwordSecretRef: secretRef }).strict().optional(),
     asrProfile: z.object({
       recordingTurnSilenceMs: z.number().int().min(200).max(2000).optional(),
       provider: identifier,

@@ -191,3 +191,44 @@ it("keeps Memory runtime and schema-owner credentials separate from API and Agen
   expect(Object.keys(maps.api).some(key => key.startsWith("MEMORY_DB_"))).toBe(false);
   expect(maps.memoryMigration.MEMORY_STORE_DATABASE_URL).toBe(maps.agent.MEMORY_STORE_DATABASE_URL);
 });
+
+it("projects an explicit dedicated tariff credential only to API and never provisions it", async () => {
+ const config = deploymentExample("starter");
+ config.provision.billingTariffProfile = { passwordSecretRef: "env:TARIFF_PASSWORD" };
+ const source = { WORKSPACEX_MODEL_KEY: "model-key", TARIFF_PASSWORD: "dedicated-tariff-password" };
+ const maps = await runtimeEnvironment(config, await directory(), source);
+ expect(maps.api.BILLING_TARIFF_DB_USER).toBe("app_billing_tariff_writer");
+ expect(maps.api.BILLING_TARIFF_DB_PASSWORD).toBe(source.TARIFF_PASSWORD);
+ for (const [service, values] of Object.entries(maps)) {
+  if (service !== "api") expect(JSON.stringify(values)).not.toContain(source.TARIFF_PASSWORD);
+ }
+ delete config.provision.billingTariffProfile;
+ const absent = await runtimeEnvironment(config, await directory(), source);
+ expect(absent.api.BILLING_TARIFF_DB_USER).toBeUndefined();
+ expect(absent.api.BILLING_TARIFF_DB_PASSWORD).toBeUndefined();
+});
+it("rejects missing, short and multiline tariff credentials without emitting their values", async () => {
+ const config = deploymentExample("starter");
+ config.provision.billingTariffProfile = { passwordSecretRef: "env:TARIFF_PASSWORD" };
+ for (const password of [undefined, "short", "private-password\nextra=value", "private-password\0bad", " padded-private-password "]) {
+  await expect(runtimeEnvironment(config, await directory(), { WORKSPACEX_MODEL_KEY: "model-key", TARIFF_PASSWORD: password })).rejects.toThrow();
+ }
+});
+
+it("uses the dedicated production credential with the existing TLS transport and rejects role-secret reuse", async () => {
+ const config = deploymentExample("production");
+ config.provision.billingTariffProfile = { passwordSecretRef: "env:TARIFF_PASSWORD" };
+ const source = {
+  WORKSPACEX_MODEL_KEY: "model-key", TARIFF_PASSWORD: "dedicated-tariff-password",
+  WORKSPACEX_DATABASE: JSON.stringify({ host: "db.example.com", database: "workspacex", user: "app_rw", password: "application-password-123", diagnosticsUser: "app_diag_ro", diagnosticsPassword: "diagnostics-password-123", caFile: "/run/certs/ca.pem" }),
+  WORKSPACEX_MIGRATION: JSON.stringify({ host: "db.example.com", database: "workspacex", user: "owner", password: "migration-password-123" }),
+  WORKSPACEX_REDIS: JSON.stringify({ host: "redis.example.com", password: "redis-password-123", caFile: "/run/certs/redis.pem" }),
+ };
+ const root = await directory();
+ const maps = await runtimeEnvironment(config, root, source);
+ expect(maps.api).toMatchObject({BILLING_TARIFF_DB_USER:"app_billing_tariff_writer",BILLING_TARIFF_DB_PASSWORD:source.TARIFF_PASSWORD, PGSSLMODE:"verify-full", PGSSLROOTCERT:"/run/certs/ca.pem"});
+ for(const [service,values] of Object.entries(maps)) if(service!=="api") expect(JSON.stringify(values)).not.toContain(source.TARIFF_PASSWORD);
+ for(const password of ["application-password-123","diagnostics-password-123","migration-password-123"]) {
+  await expect(runtimeEnvironment(config,root,{...source,TARIFF_PASSWORD:password})).rejects.toThrow("BILLING_TARIFF_CONFIGURATION_INVALID");
+ }
+});

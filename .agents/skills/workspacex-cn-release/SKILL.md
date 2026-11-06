@@ -170,3 +170,16 @@ requires real measurement and does not extend an approved attempt's deadline.
 ## Directory-only data-preserving partial release (#5752)
 
 When the human explicitly requires preserving existing data and adding no permissions, the separately reviewed [directory Web-only contract](../../../docs/operations/directory-web-only-release.md) may be used for this exact five-file backport. It records per-service source/image identity and does not claim the unified-source invariant or full-release receipts. Full-release rules remain unchanged. Its required build, baseline CAS, unchanged backend container/start-time proof, Web rollback and public-browser checks are implemented in `scripts/web-only-release.py`; no bare manual Compose invocation is accepted.
+
+### Global image tariff activation (#6314)
+
+A deployed image revision does not establish billing readiness: an empty global
+image schedule rejects image admission, and an API without its dedicated tariff
+writer cannot activate that schedule. Read both live facts before attributing the
+failure to the provider. Use the explicit API-only `billingTariffProfile` secret
+reference and authenticated global CAS activation; never fall back to app/owner
+writes, organization tariffs or copied Devapp credentials. Role LOGIN/password
+provisioning is a separate authorization boundary. The preparation and recovery
+limits are recorded in `docs/evidence/cn-image-tariff-6314/preparation.md`;
+runtime-environment and image-activation CLI regressions cover this failure before
+release. These tests do not constitute production activation or generation proof.
