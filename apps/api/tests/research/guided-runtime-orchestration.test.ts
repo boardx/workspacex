@@ -132,3 +132,44 @@ describe("durable research orchestration", () => {
     expect(rejected.modelCalls.at(-1)?.status).toBe("failed");
   });
 });
+
+describe('explicit materials-only research', () => {
+  it('persists materials policy and never invokes external search or reading', async () => {
+    const f = fixture();
+    const policy = { mode: 'materials', domains: [], internalSourceIds: [], revision: 1 } as const;
+    expect(C.GuidedResearchSourcePolicy.safeParse(policy).success).toBe(true);
+    f.state.sourcePolicy = C.GuidedResearchSourcePolicy.parse(policy);
+    f.state.tasks = [{ id: 't', sectionId: 'o', query: 'must not search this', status: 'pending', attempts: 0, errorCode: null }];
+    const search = vi.fn(async () => []), read = vi.fn();
+    const service = new GuidedRuntimeService(f.store, { complete: vi.fn() }, { search, read }, { provider: 'test', id: 'test' });
+    const result = await service.execute(f.actor, f.session, { sessionId: 'session', node: 'research', action: 'start', requestId: 'materials-only', expectedVersion: 0 });
+    expect(search).not.toHaveBeenCalled(); expect(read).not.toHaveBeenCalled();
+    expect(result.sourcePolicy).toEqual(policy);
+    expect(result.sources).toEqual([]);
+    expect(result.errorCode).toBe("RESEARCH_SOURCES_REQUIRED");
+    expect(PersistedResearchRuntimeSchema.parse(result).sourcePolicy).toEqual(policy);
+  });
+});
+it('filters outside sources from materials-only evidence, retaining authorized internal material', async () => {
+  const { sourceAllowedByPolicy } = await import('../../src/application/research/guided-source-policy');
+  const policy = C.GuidedResearchSourcePolicy.parse({ mode: 'materials', domains: ['example.com'], internalSourceIds: ['allowed'], revision: 2 });
+  expect(sourceAllowedByPolicy({ id: 'external', url: 'https://example.com/report' }, policy)).toBe(false);
+  expect(sourceAllowedByPolicy({ id: 'internal:allowed', url: 'https://example.com/report' }, policy)).toBe(false);
+  expect(sourceAllowedByPolicy({ id: 'internal:allowed', url: 'https://internal.workspacex.local/artifacts/allowed' }, policy)).toBe(true);
+  expect(sourceAllowedByPolicy({ id: 'internal:denied', url: 'https://internal.workspacex.local/artifacts/denied' }, policy)).toBe(false);
+});
+it('durably applies explicit materials mode before any research command', async () => {
+ const f = fixture();
+ const service = new GuidedRuntimeService(f.store, { complete: vi.fn() }, { search: vi.fn() }, { provider: 'test', id: 'test' });
+ const policy = C.GuidedResearchSourcePolicy.parse({ mode: 'materials', domains: [], internalSourceIds: [], revision: 1 });
+ const result = await service.execute(f.actor, f.session, { sessionId: 'session', node: 'brief', action: 'refine_source_policy', requestId: 'set-policy', expectedVersion: 0, expectedRevision: 0, idempotencyKey: 'set-policy', sourcePolicy: policy });
+ expect(result.errorCode).toBeNull(); expect(result.sourcePolicy).toEqual(policy);
+ expect(f.writes.at(-1)?.sourcePolicy).toEqual(policy);
+});
+it('rejects manual external URL before search in materials mode', async () => {
+ const f = fixture(); f.state.sourcePolicy = { mode: 'materials', domains: [], internalSourceIds: [], revision: 1 };
+ const search = vi.fn();
+ const service = new GuidedRuntimeService(f.store, { complete: vi.fn() }, { search }, { provider: 'test', id: 'test' });
+ const result = await service.execute(f.actor, f.session, { sessionId: 'session', node: 'research', action: 'add_source', requestId: 'external-url', expectedVersion: 0, sourceUrl: 'https://example.com/unwanted' });
+ expect(search).not.toHaveBeenCalled(); expect(result.errorCode).toBe('RESEARCH_SOURCE_POLICY_INVALID');
+});

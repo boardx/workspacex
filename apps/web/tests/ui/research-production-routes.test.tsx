@@ -4,7 +4,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ResearchNewRoute } from "@/components/research-studio/research-new-route";
 import { ResearchIntake } from "@/components/research-studio/research-intake";
 import { ResearchStageRoute } from "@/components/research-studio/research-stage-route";
-import { createGuidedResearchSession, getGuidedResearchSession, getResearchRuntime, runGuidedResearchSkillTurn } from "@/lib/guided-research-api";
+import { createGuidedResearchSession, getGuidedResearchSession, getResearchRuntime, executeResearchRuntime, runGuidedResearchSkillTurn } from "@/lib/guided-research-api";
 import { updateGuidedResearchMetadata } from "@/lib/live-guided-research-api";
 import { apiRequest, getStoredSessionToken } from "@/lib/api-client";
 import { readResearchMemory, writeResearchMemory } from "@/lib/guided-research-memory";
@@ -17,7 +17,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 vi.mock("@/components/research-studio/guided-research-live", () => ({ GuidedResearchLive: ({ sessionId, researchName, visualStage, initialNode, onBack, onLoadRetry }: { sessionId: string; researchName: string; visualStage: string; initialNode: string; onBack: () => void; onLoadRetry?: () => void }) => <div data-testid="production-live" data-session={sessionId} data-name={researchName} data-stage={visualStage} data-node={initialNode}><button onClick={onBack}>返回列表</button><button onClick={onLoadRetry}>重试加载</button></div> }));
 vi.mock("@/lib/guided-research-api", () => ({ createGuidedResearchSession: vi.fn(), getResearchRuntime: vi.fn(), executeResearchRuntime: vi.fn(), confirmResearchBrief: vi.fn(), executeGuidedResearchNodeCommand: vi.fn(), getGuidedResearchSession: vi.fn(), runGuidedResearchSkillTurn: vi.fn() }));
 
-beforeEach(() => { vi.resetAllMocks(); vi.mocked(getGuidedResearchSession).mockResolvedValue({ title: "创建时的研究名称" } as never); sessionStorage.clear(); localStorage.clear(); });
+beforeEach(() => { vi.resetAllMocks(); vi.mocked(executeResearchRuntime).mockImplementation(async input => { const prior = await vi.mocked(getResearchRuntime).mock.results.at(-1)?.value; return { ...prior, version: (prior?.version ?? 0) + 1, sourcePolicy: input.sourcePolicy, errorCode: null }; }); vi.mocked(getGuidedResearchSession).mockResolvedValue({ title: "创建时的研究名称" } as never); sessionStorage.clear(); localStorage.clear(); });
 
 it("imports a text file into the requirement while preserving existing input", async () => {
   render(<ResearchNewRoute />);

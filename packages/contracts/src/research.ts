@@ -1024,7 +1024,7 @@ export const GuidedResearchIntent = z.object({
   successCriteria: z.array(z.string().trim().min(1).max(1000)).min(1).max(20),
 }).strict();
 export const GuidedResearchSourcePolicy = z.object({
-  mode: z.enum(["restrict", "prioritize", "open"]),
+  mode: z.enum(["restrict", "prioritize", "open", "materials"]),
   domains: z.array(z.string().trim().min(1).max(253)).max(50),
   internalSourceIds: z.array(z.string().min(1)).max(100),
   revision: z.number().int().nonnegative(),

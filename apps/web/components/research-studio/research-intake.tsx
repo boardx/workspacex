@@ -15,7 +15,7 @@ import { WorkflowActionButton, WorkflowActionBar } from "./research-workflow-act
 import { ResearchLoading } from "./guided-research-presentation";
 import { GuidedResearchStepLayout } from "./guided-research-step-layout";
 import type { GuidedResearchCreateDraft } from "./create-guided-research-dialog";
-import { createGuidedResearchSession, getResearchRuntime, confirmResearchBrief, executeGuidedResearchNodeCommand, getGuidedResearchSession, runGuidedResearchSkillTurn, type GuidedResearchSession, type GuidedResearchWorkflowProjection } from "@/lib/guided-research-api";
+import { createGuidedResearchSession, getResearchRuntime, executeResearchRuntime, confirmResearchBrief, executeGuidedResearchNodeCommand, getGuidedResearchSession, runGuidedResearchSkillTurn, type GuidedResearchSession, type GuidedResearchWorkflowProjection } from "@/lib/guided-research-api";
 type Brief = GuidedResearchSession["brief"];
 type Step = "home" | "brief" | "directions" | "outline" | "search" | "report";
 const briefShape = researchContract.GuidedResearchBrief.shape;
@@ -43,7 +43,7 @@ function cleanStaleCreateIdempotencyKeys(now: number): void {
   }
 }
 
-function pendingCreateIdempotencyKey(intent: GuidedResearchCreateDraft & { brief: Brief }): { key: string; storageKey: string } {
+function pendingCreateIdempotencyKey(intent: GuidedResearchCreateDraft & { brief: Brief; sourceMode?: string }): { key: string; storageKey: string } {
   const now = Date.now();
   cleanStaleCreateIdempotencyKeys(now);
   let tabId = window.sessionStorage.getItem(CREATE_IDEMPOTENCY_TAB_KEY);
@@ -82,6 +82,7 @@ export function ResearchIntake({ sessionId, session, workflow, onSession, onWork
 }) {
   const { t } = useI18n();
   const [brief, setBrief] = React.useState(initialBrief);
+  const [sourceMode, setSourceMode] = React.useState<"materials" | "open">("open");
   const [detailsOpen, setDetailsOpen] = React.useState(false);
   const optionalErrors = (Object.keys(optionalBriefLabels) as (keyof typeof optionalBriefLabels)[])
     .filter((key) => brief[key].trim().length > briefShape[key].maxLength!);
@@ -166,7 +167,7 @@ export function ResearchIntake({ sessionId, session, workflow, onSession, onWork
         onNavigate("outline", sessionId);
         return;
       }
-      const pending = pendingCreateIdempotencyKey({ ...createDraft, brief: confirmedBrief });
+      const pending = pendingCreateIdempotencyKey({ ...createDraft, brief: confirmedBrief, sourceMode });
       const createdSession = await createGuidedResearchSession({ ...createDraft, title: createDraft.title || DEFAULT_RESEARCH_NAME, tags: [...createDraft.tags], idempotencyKey: pending.key, collaboratorUserIds: [], brief: confirmedBrief });
       if (!active.current) return;
       if (onCreated) {
@@ -184,12 +185,19 @@ export function ResearchIntake({ sessionId, session, workflow, onSession, onWork
         try { runtime = await getResearchRuntime(createdSession.sessionId); } catch { /* Live offers read-only recovery. */ }
       }
       if (!active.current) return;
+      if (!runtime) throw new Error("RESEARCH_WORKFLOW_UNAVAILABLE");
+      const policyRequest = `source-policy-${createdSession.sessionId}`;
+      runtime = await executeResearchRuntime({ sessionId: createdSession.sessionId, node: runtime.currentNode,
+        action: "refine_source_policy", requestId: policyRequest, expectedVersion: runtime.version,
+        expectedRevision: runtime.planRevision ?? 0, idempotencyKey: policyRequest,
+        sourcePolicy: { mode: sourceMode, domains: runtime.sourcePolicy?.domains ?? [], internalSourceIds: runtime.sourcePolicy?.internalSourceIds ?? [], revision: (runtime.sourcePolicy?.revision ?? 0) + 1 } });
+      if (runtime.errorCode || runtime.sourcePolicy?.mode !== sourceMode) throw new Error("RESEARCH_SOURCE_POLICY_INVALID");
       window.localStorage.removeItem(pending.storageKey);
       window.sessionStorage.removeItem(CREATE_DRAFT_KEY);
       onClear?.();
       onSession(createdSession);
       const node = runtime?.currentNode;
-      onNavigate(runtime?.version === 0 || !runtime ? "outline" : node === "research" ? "search" : node ?? "outline", createdSession.sessionId);
+      onNavigate(runtime?.version === 0 || runtime?.currentNode === "brief" || !runtime ? "outline" : node === "research" ? "search" : node ?? "outline", createdSession.sessionId);
     } catch {
       if (active.current) setSubmitFailed(true);
     } finally {
@@ -210,6 +218,11 @@ export function ResearchIntake({ sessionId, session, workflow, onSession, onWork
         <Card className="flex rounded-xl"><CardContent className="flex w-full flex-col gap-3 p-4 sm:p-5">
           <h2 className="text-xl font-bold">{t("research.intake.heading")}</h2>
           <div className="flex min-h-56 flex-1 flex-col rounded-lg border border-border p-4">
+            {!sessionId && <fieldset className="mb-4 flex flex-wrap gap-4 text-sm"><legend className="mb-2 font-medium">研究来源</legend>
+              <label><input type="radio" name="research-source-mode" checked={sourceMode === "materials"} onChange={() => setSourceMode("materials")} /> 仅使用本次材料</label>
+              <label><input type="radio" name="research-source-mode" checked={sourceMode === "open"} onChange={() => setSourceMode("open")} /> 允许联网检索</label>
+              <p className="w-full text-xs text-muted-foreground">仅材料模式需要已关联的可核验资料，不会访问外部网页。输入描述和导入文字仅作为研究需求，不会自动成为可核验来源；资料不足时仅提示证据缺口。</p>
+            </fieldset>}
             <Textarea value={voicePreview ? (brief.goal ? `${brief.goal}\n\n${voicePreview}` : voicePreview) : brief.goal} readOnly={voiceBusy || importBusy} maxLength={Math.max(goalLimit, brief.goal.length)} onChange={(event) => patch("goal", event.target.value)} data-testid="research-brief-goal" aria-label={t("research.intake.goal")} aria-invalid={brief.goal.length > goalLimit || undefined} aria-describedby={brief.goal.length > goalLimit ? "research-goal-error" : undefined} className="min-h-48 flex-1 resize-y border-0 p-0 text-sm leading-relaxed shadow-none focus-visible:ring-2" placeholder={t("research.intake.placeholder")} />
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <InterviewVoiceInput sessionToken={authSession?.sessionToken ?? ""} disabled={submitting || importBusy} onAppend={appendInput} onPreview={setVoicePreview} onBusyChange={setVoiceBusy} />

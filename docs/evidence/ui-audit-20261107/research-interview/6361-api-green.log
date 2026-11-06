@@ -1,0 +1,14 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/api
+
+ ✓ tests/research/guided-report-evidence.test.ts (23 tests) 905ms
+   ✓ verified report evidence coverage > keeps healthy chunks of a partially rejected source in the original 23-batch geometry 792ms
+ ✓ tests/research/guided-runtime-orchestration.test.ts (10 tests) 407ms
+ ✓ tests/research/guided-plan-repair.test.ts (13 tests) 304ms
+ ✓ tests/research/guided-research-design.test.ts (7 tests) 15ms
+
+ Test Files  4 passed (4)
+      Tests  53 passed (53)
+   Start at  04:18:57
+   Duration  19.97s (transform 5.71s, setup 0ms, collect 15.14s, tests 1.63s, environment 2ms, prepare 991ms)
+

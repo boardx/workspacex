@@ -1,4 +1,5 @@
 "use client";
+import { isUnstartedResearch } from "@/lib/guided-research-bootstrap";
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { ResearchReportFileActions } from "@/components/report-files/research-report-file-actions";
@@ -220,7 +221,7 @@ function GuidedResearchLiveSession({ sessionId, researchName, onBack, onLoadRetr
     const cached = loadAttempt === 0 ? baseline ?? readResearchMemory(sessionId, cacheScope)?.runtime : undefined;
     const targetOf = (next: Runtime) => {
       const requested = preferredNode.current;
-      const startingPlan = (requested === "directions" || requested === "outline") && next.version === 0 && !next.legacyCheckpoint && !next.errorCode;
+      const startingPlan = (requested === "directions" || requested === "outline") && isUnstartedResearch(next) && !next.legacyCheckpoint && !next.errorCode;
       const executing = !baseline && next.busy && (!next.leaseUntil || Date.parse(next.leaseUntil) > Date.now());
       return executing ? next.currentNode : startingPlan ? "outline" : requested && (next.availableNodes.includes(requested) || requested === loadingNodeRef.current) ? requested : next.currentNode;
     };
@@ -352,7 +353,7 @@ function GuidedResearchLiveSession({ sessionId, researchName, onBack, onLoadRetr
   React.useEffect(() => {
     // Only a newly created session on the confirmed destination can bootstrap.
     // Persisted busy/failed sessions are restored, never replayed on refresh.
-    if (validatedRoute !== routeValidationKey || !state || bootstrapStarted.current || !["directions", "outline"].includes(initialNode ?? "") || state.version !== 0 || state.currentNode !== "brief" || state.busy || state.errorCode || state.legacyCheckpoint) return;
+    if (validatedRoute !== routeValidationKey || !state || bootstrapStarted.current || !["directions", "outline"].includes(initialNode ?? "") || !isUnstartedResearch(state) || state.currentNode !== "brief" || state.busy || state.errorCode || state.legacyCheckpoint) return;
     bootstrapStarted.current = true;
     void run("prepare_plan", { node: "brief", draft: { node: "brief", value: state.brief } });
   });
@@ -578,7 +579,7 @@ return <GuidedResearchSixStepShell researchName={guidedResearchHeading(state, re
         {recovery.draft && <Button variant="outline" disabled={!recovery.synchronized || processing || !state.availableNodes.includes(recovery.node)} onClick={() => finishRecovery(true)}>{node === "report" ? t("research.recovery.editContent") : t("research.recovery.editDraft")}</Button>}
       </div>
     </div></details>}
-    {(error || (node === state.currentNode && state.errorCode)) && <p role="alert" className="text-12 text-destructive">{t(error ?? errors[state.errorCode!] ?? "research.error.previous")}</p>}
+    {(error || (node === state.currentNode && state.errorCode)) && <p role="alert" className="text-12 text-destructive">{state.sourcePolicy?.mode === "materials" && state.errorCode === "RESEARCH_SOURCES_REQUIRED" ? "本次材料不足以支持研究结论。当前已保留材料范围，未联网补充；请补充可核验材料后继续。" : t(error ?? errors[state.errorCode!] ?? "research.error.previous")}</p>}
     {!readingReport && node !== "research" && state.legacyCheckpoint && <details className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-12 text-muted-foreground"><summary>{t("research.legacy.heading")}</summary><p className="mt-2">{t("research.legacy.status", { status: t(state.legacyCheckpoint.status === "completed" ? "ui.completed" : "ui.inProgress") })}</p><p>{t("research.legacy.topic", { topic: state.legacyCheckpoint.brief.topic })}</p><ul>{state.legacyCheckpoint.directions.versions.at(-1)?.items.map((item) => <li key={item.id}>{item.title}：{item.description}</li>)}</ul><ul>{state.legacyCheckpoint.outline.versions.at(-1)?.items.map((item) => <li key={item.id}>{item.title}：{item.questions.join("；")}</li>)}</ul></details>}
     {expired && !recovery && !error && !state.errorCode && <p role="alert" className="text-12 text-destructive">{t("research.live.interrupted")}</p>}
         {reportVisible && !processing && !readingReport && <GuidedResearchEvidenceWarning state={state} />}
