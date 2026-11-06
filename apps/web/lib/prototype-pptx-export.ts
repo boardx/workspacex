@@ -205,11 +205,34 @@ function lay(n: Node, x: number, y: number, w: number, c: Ctx): Laid {
     }
     // design-delta `prototype-board`：底板一块浅灰框，便签 / 形状按中心坐标画成色块。
     // 连线暂不画——PPT 这一层的形状里没有线段，加线要再开一种形状（范围外，见 PR 说明）。
-    // HTML 页：PPT 里没有 HTML 的位置，放一块灰底 + 这页的文字摘要；完整版面请用 HTML 导出。
+    // HTML 页保留文字与语义表格；完整版面请用 HTML 或 PNG 导出。
     case "html": {
-      const h = 4 * k;
-      return { h, shapes: [{ kind: "box", x, y, w, h, text: designHtmlPage.htmlPageVisibleText(n.props.html).slice(0, 300), pt: 10 * k, fill: PANEL, color: MUTED }] };
+      // HTML prototypes carry real semantic tables too. Convert those into the
+      // same native nodes used by structured prototypes, rather than a summary.
+      const parts: Node[] = [];
+      const html = n.props.html.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, "");
+      const plain = (value: string) => designHtmlPage.htmlPageVisibleText(value).trim();
+      const prose = (value: string) => {
+        const content = plain(value);
+        if (content) parts.push({ type: "text", props: { content } });
+      };
+      let offset = 0;
+      for (const match of html.matchAll(/<table\b[^>]*>([\s\S]*?)<\/table>/gi)) {
+        prose(html.slice(offset, match.index));
+        const rows = [...match[1]!.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)]
+          .map((tr) => [...tr[1]!.matchAll(/<t[hd]\b[^>]*>([\s\S]*?)<\/t[hd]>/gi)].map((cell) => plain(cell[1]!)))
+          .filter((cells) => cells.length > 0);
+        if (rows.length) {
+          const width = Math.max(...rows.map((r) => r.length));
+          const padded = rows.map((r) => Array.from({ length: width }, (_, i) => r[i] ?? ""));
+          parts.push({ type: "table", props: { columns: padded[0]!, rows: padded.slice(1) } });
+        }
+        offset = match.index! + match[0].length;
+      }
+      prose(html.slice(offset));
+      return column(parts.map((part) => (yy: number) => lay(part, x, yy, w, c)), y, 0.15, c);
     }
+
     case "board": {
       const h = ({ sm: 1.6, md: 2.6, lg: 3.8, fill: 3.8 } as const)[n.props.height ?? "md"] * k;
       const W = { sticky: 24, shape: 20, text: 30 } as const;

@@ -109,3 +109,18 @@ describe("buildPrototypePptx", () => {
     expect(prototypePptxFileName("Deck", new Date(2026, 8, 24))).toBe("Deck-slides-2026-09-24.pptx");
   });
 });
+
+
+describe("HTML prototype editable export", () => {
+  it("keeps semantic tables editable and preserves text beyond 300 characters", async () => {
+    const p = project();
+    p.frames = ["资料列表"];
+    p.prototype = [{ type: "html", props: { html: `<style>td{color:red}</style><h1>资料列表</h1><table><thead><tr><th>名称</th><th>类型</th></tr></thead><tbody><tr><td>访谈记录</td><td>PDF</td></tr></tbody></table><p>${"完整需求".repeat(100)}末尾目标</p>` } }] as never;
+    const files = unzip(Buffer.from(await buildPrototypePptx(p)));
+    const slide = files.get("ppt/slides/slide1.xml")!;
+    expect(slide).toContain("<a:tbl>");
+    expect(slide).toContain("访谈记录");
+    expect(slide).toContain("末尾目标");
+    expect(slide).not.toContain("color:red");
+  });
+});
