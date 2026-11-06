@@ -1,7 +1,7 @@
 "use client";
 import { interviewCategoryText } from "@/lib/interview-category-text";
 import { useI18n } from "@/lib/i18n/provider";
-import type { MessageKey } from "@/lib/i18n/messages";
+import { INTERVIEW_STATUS_LABEL } from "@/lib/interview-status-copy";
 
 import * as React from "react";
 import Link from "next/link";
@@ -37,16 +37,7 @@ type LoadState<T> =
   | { kind: "ready"; items: readonly T[] }
   | { kind: "error"; reason: string };
 
-const STATUS_LABEL: Record<DigitalInterviewHistoryRow["status"], MessageKey> = {
-  draft: "itv.status.draft",
-  topic_pending: "itv.status.topic_pending",
-  experts_pending: "itv.status.experts_pending",
-  questions_pending: "itv.status.questions_pending",
-  running: "itv.status.running",
-  report_pending: "itv.status.report_pending",
-  completed: "itv.status.completed",
-  failed: "itv.status.failed",
-};
+
 
 function reasonOf(error: unknown): string {
   if (error instanceof ApiError) return error.reasonCode ?? error.message;
@@ -274,7 +265,7 @@ function HistoryCard({ item, onChanged }: { item: DigitalInterviewHistoryRow; on
   const action = historyPrimaryAction(item, t);
   const completion = item.expertCount > 0 ? Math.min(100, Math.round(item.completedExpertCount / item.expertCount * 100)) : null;
   return <StudioHistoryCard testId={`itv-history-card-${item.interviewId}`} title={item.name}
-    status={<Badge tone="neutral">{t(STATUS_LABEL[item.status])}</Badge>} description={item.topic} tags={item.tags}
+    status={<Badge tone="neutral">{t(INTERVIEW_STATUS_LABEL[item.status])}</Badge>} description={item.topic} tags={item.tags}
     metadata={<><span className="inline-flex items-center gap-1.5"><Users className="size-4" aria-hidden />{item.expertCount > 0 ? t("itv.experts.completed", { completed: item.completedExpertCount, total: item.expertCount }) : t("itv.experts.noneSelected")}</span><time dateTime={item.updatedAt} className="inline-flex items-center gap-1.5"><CalendarDays className="size-4" aria-hidden />{new Date(item.updatedAt).toLocaleDateString(locale)}</time></>}
     primaryAction={<ActionButton asChild variant="primary"><Link href={action.href}>{action.label}<ArrowRight className="size-4" aria-hidden /></Link></ActionButton>}
     management={<InterviewHistoryCardActions item={item} onChanged={onChanged} />}>
