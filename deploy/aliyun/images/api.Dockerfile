@@ -46,7 +46,7 @@ RUN set -eu; for entry in \
   test -r ../../packages/contracts/package.json; \
   test -r ../../skills/localizations/work-stack-v2.json; \
   test -n "$(find migrations -maxdepth 1 -type f -print -quit)"; \
-  node --import tsx --input-type=module -e "await import('zod')"; \
+  node --import tsx --input-type=module -e "await import('zod'); const {loadInterviewReportSkill}=await import('./src/infrastructure/skill/interview-report-skill.ts'); const {FileSkillStarterPackSource,resolveSkillStarterPackRoot}=await import('./src/infrastructure/skill/file-skill-starter-pack-source.ts'); await loadInterviewReportSkill(new FileSkillStarterPackSource(resolveSkillStarterPackRoot()))"; \
   node --import tsx scripts/verify-official-role-packs.ts
 EXPOSE 3200
 CMD ["node", "--import", "tsx", "src/main.ts"]
