@@ -1,0 +1,33 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/api
+
+ ❯ tests/design-workbench/project-lifecycle.test.ts (62 tests | 1 failed) 65ms
+   × appendProjectChat > B5.2 模型在：回复来自模型；合法 writeback 直接写回 problem/criteria/frames，applied 如实；返回的是写回后的项目 11ms
+     → expected '新背景' to contain '旧背景'
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/design-workbench/project-lifecycle.test.ts > appendProjectChat > B5.2 模型在：回复来自模型；合法 writeback 直接写回 problem/criteria/frames，applied 如实；返回的是写回后的项目
+AssertionError: expected '新背景' to contain '旧背景'
+
+Expected: "旧背景"
+Received: "新背景"
+
+ ❯ tests/design-workbench/project-lifecycle.test.ts:338:33
+    336|     const out = await appendProjectChat({ ...deps(repo), ai }, { proje…
+    337|     expect(out.reply).toEqual({ source: "model", applied: ["problem", …
+    338|     expect(out.project.problem).toContain("旧背景");
+       |                                 ^
+    339|     expect(out.project.problem).toContain("新背景");
+    340|     expect(out.project.criteria).toEqual(["原目标可搜索资料", "导出成…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 61 passed (62)
+   Start at  03:28:30
+   Duration  3.32s (transform 2.03s, setup 0ms, collect 3.01s, tests 65ms, environment 0ms, prepare 80ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.design-html-unit.config.ts tests/design-workbench/project-lifecycle.test.ts
