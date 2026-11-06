@@ -6,7 +6,7 @@ import { BoardSyncIndicator, type BoardSyncVisualState, type BoardSyncPhase } fr
 const harness = vi.hoisted(() => ({ state: null as ((value: WhiteboardConnectionState) => void) | null, retry: vi.fn(), close: vi.fn(), update:vi.fn(), confirm:vi.fn(), readUndo:vi.fn(), clearUndo:vi.fn(), recordUndo:vi.fn(), organizeUndo:null as unknown, organizeOnUndone:null as null|(()=>void), editor:null as null|{organizeFitRequest?:unknown;followViewport:unknown;onViewportObserved?:(viewport:{x:number;y:number;zoom:number})=>void;onManualViewportChange:()=>void} }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }), useSearchParams:()=>new URLSearchParams() }));
 vi.mock("@/components/session/session-provider", () => ({ useOptionalSession: () => ({ session: { userId: "owner-1" } }) }));
-vi.mock("@/lib/live-whiteboard", () => ({ getBoard: vi.fn(async () => ({ id: "00000000-0000-4000-8000-000000000007", name: "协作板", ownerId: "owner-1", role: "owner", archived: false, createdAt: "2026-09-26T00:00:00.000Z", updatedAt: "2026-09-26T00:00:00.000Z" })) }));
+vi.mock("@/lib/live-whiteboard", () => ({ updateBoard: vi.fn(async (_id:string,input:{name:string}) => ({id:_id,name:input.name})), getBoard: vi.fn(async () => ({ id: "00000000-0000-4000-8000-000000000007", name: "协作板", ownerId: "owner-1", role: "owner", archived: false, createdAt: "2026-09-26T00:00:00.000Z", updatedAt: "2026-09-26T00:00:00.000Z" })) }));
 vi.mock("@/lib/whiteboard-provider", () => ({ WhiteboardProvider: class { constructor(_doc: unknown, _id: string, callback: (value: WhiteboardConnectionState) => void) { harness.state = callback; } awareness() {} retryNow = harness.retry; close = harness.close; } }));
 vi.mock("@/components/whiteboard/collaborative-editor", () => ({ CollaborativeEditor: (props: { dockExtension?:React.ReactNode;status:string;syncState?:BoardSyncVisualState;syncPhase?:BoardSyncPhase;syncDetails?:string;onRetrySync?:()=>void;readOnly:boolean;commentsReadOnly:boolean;organizeFitRequest?:unknown;followViewport:unknown;onViewportObserved?:(viewport:{x:number;y:number;zoom:number})=>void;onManualViewportChange:()=>void }) => {harness.editor=props;return <div data-testid="editor-status" data-comments-readonly={String(props.commentsReadOnly)} data-sync-phase={props.syncPhase}>{props.status}<BoardSyncIndicator status={props.status} syncState={props.syncState} syncPhase={props.syncPhase} syncDetails={props.syncDetails} readOnly={props.readOnly} onRetry={props.onRetrySync}/>{props.dockExtension}</div>;} }));
 vi.mock("@/components/whiteboard/board-organize-controls",()=>({BoardOrganizeControls:({onProposal,undo,onUndone}:{onProposal:(value:unknown)=>void;undo:unknown;onUndone:()=>void})=>{harness.organizeUndo=undo;harness.organizeOnUndone=onUndone;return <button onClick={()=>onProposal({proposalId:'local-proposal'})}>Generate test proposal</button>;}}));
@@ -15,7 +15,7 @@ vi.mock("@/lib/whiteboard-operation-client",()=>({readPresentation:vi.fn(async()
 
 vi.mock("@/components/whiteboard/board-ai-proposal-panel",()=>({BoardAIProposalPanel:({onConfirm}:{onConfirm:()=>void})=><button onClick={onConfirm}>Confirm test proposal</button>}));
 import { LiveBoard } from "@/components/whiteboard/live-board";
-import { getBoard } from "@/lib/live-whiteboard";
+import { getBoard, updateBoard } from "@/lib/live-whiteboard";
 import { readPresentation } from "@/lib/whiteboard-operation-client";
 const online: WhiteboardConnectionState = { phase: "online", pending: 0, role: "owner", archived: false, peers: [], reason: null, epoch:1, retryAttempt: 0, duplicateAcks: 0, lastAckSequence: 12, lastAckReceipt:null };
 
@@ -154,4 +154,14 @@ it('acknowledges a delayed presentation before publishing viewport under the com
   await act(async()=>{await vi.advanceTimersByTimeAsync(100);});
   expect(harness.update).toHaveBeenCalledWith(pollingState.boardId,'default',{type:'viewport',actorId:'owner-1',expectedRevision:7,viewport:{x:0,y:0,zoom:1.2}},null);
  }finally{cleanup();if(original)vi.mocked(readPresentation).mockImplementation(original);vi.useRealTimers();}
+});
+
+it("persists an editor title change through the board API",async()=>{
+ render(<LiveBoard boardId="00000000-0000-4000-8000-000000000007"/>);
+ await waitFor(()=>expect(harness.state).not.toBeNull());
+ act(()=>harness.state?.(online));
+ const editor=harness.editor as unknown as {onTitleChange?:(name:string)=>void};
+ expect(editor.onTitleChange).toBeTypeOf('function');
+ await act(async()=>editor.onTitleChange?.('新白板名称'));
+ expect(updateBoard).toHaveBeenCalledWith('00000000-0000-4000-8000-000000000007',{name:'新白板名称'});
 });
