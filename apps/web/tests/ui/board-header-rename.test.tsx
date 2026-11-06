@@ -19,3 +19,10 @@ it('locks the name field until the rename request finishes and allows retry afte
  await waitFor(()=>expect(input).toBeEnabled());
  fireEvent.blur(input);expect(save).toHaveBeenCalledTimes(2);
 });
+
+it('does not commit a partially composed IME title on Enter',()=>{
+ const save=vi.fn();render(<BoardEditorHeader {...props} onTitleChange={save}/>);
+ const input=open();input.focus();fireEvent.change(input,{target:{value:'正在组合的中文名称'}});
+ fireEvent.keyDown(input,{key:'Enter',isComposing:true,keyCode:229});
+ expect(save).not.toHaveBeenCalled();
+});
