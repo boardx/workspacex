@@ -23,6 +23,7 @@ export function useRunTrace(agent: AbstractAgent, threadId: string | null) {
    * `onToolCallStartEvent` below. */
   const [toolCallMessageIds, setToolCallMessageIds] = React.useState<ReadonlySet<string>>(() => new Set());
   const currentRun = React.useRef<string | null>(null);
+  const [, refreshLiveIdentity] = React.useReducer((revision: number) => revision + 1, 0);
   /** Message ids whose run was not yet known when their first event arrived.
    * `currentRun` is established by the durable execution events, and a tool call
    * or text message can start before the first of them lands on the wire. Without
@@ -52,12 +53,12 @@ export function useRunTrace(agent: AbstractAgent, threadId: string | null) {
   }, []);
   React.useEffect(() => {
     const { unsubscribe } = agent.subscribe({
-      onRunStartedEvent: () => { currentRun.current = null; unbound.current = []; },
+      onRunStartedEvent: () => { currentRun.current = null; unbound.current = []; refreshLiveIdentity(); },
       onCustomEvent: ({ event }) => {
         if (event.name !== AGUI_EXECUTION_EVENT_NAME) return;
         const parsed = parseExecutionEvent(event.value);
         if (!parsed) return;
-        currentRun.current = parsed.runId;
+        if (currentRun.current !== parsed.runId) { currentRun.current = parsed.runId; refreshLiveIdentity(); }
         if (unbound.current.length) {
           const pending = unbound.current;
           unbound.current = [];
@@ -175,5 +176,5 @@ export function useRunTrace(agent: AbstractAgent, threadId: string | null) {
   const bindMessages = React.useCallback((messages: readonly { id: string; agentRunId?: string | null }[]) => {
     setMessageRuns((previous) => ({ ...previous, ...Object.fromEntries(messages.filter((message) => message.agentRunId).map((message) => [message.id, message.agentRunId!])) }));
   }, []);
-  return { events, messageRuns, toolCallMessageIds, hydrate, acceptedRunEpoch, append, bindMessages };
+  return { events, messageRuns, toolCallMessageIds, hydrate, acceptedRunEpoch, append, bindMessages, liveRunId: currentRun.current };
 }

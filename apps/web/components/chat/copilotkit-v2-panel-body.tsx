@@ -1402,7 +1402,7 @@ function useCopilotKitV2PanelController({
    * 此前什么都听不到。这里只播**状态迁移**（开始/结束），不播每一帧耗时——
    * 每秒念一次"已耗时 7 秒"会把 live region 变成噪声源。
    */
-  const announcement = selectAnnouncementRun(runTrace.events, runRestore, observedRunId);
+  const announcement = selectAnnouncementRun(runTrace.events, runRestore, runTrace.liveRunId);
   useChatRunAnnouncements({
     scope: JSON.stringify([draftSession?.currentOrgId ?? orgId, draftSession?.userId, resolvedChatThreadId ?? threadId]),
     busy: runIsRunning, waiting: pendingPermission !== null,

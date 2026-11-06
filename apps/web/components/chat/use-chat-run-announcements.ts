@@ -8,19 +8,17 @@ import type { TraceStore } from "@/lib/chat-workbench/run-trace";
 
 const activeStatuses = new Set(["running", "queued", "paused", "awaiting_tool_permission", "awaiting_plan_confirmation", "writeback_pending"]);
 
-/** Event time, not delayed hydration arrival or a sticky Inspector id, identifies the current run. */
-export function selectAnnouncementRun(events: TraceStore, restored: { runId: string | null; status: string | null }, observedRunId: string | null) {
-  const statuses = Object.entries(events).flatMap(([runId, entries]) => {
-    const event = [...entries].reverse().find((item) => item.kind === "status");
-    return event?.kind === "status" ? [{ runId, event }] : [];
-  }).sort((a, b) => b.event.emittedAt.localeCompare(a.event.emittedAt));
-  const active = statuses.find(({ event }) => activeStatuses.has(event.status));
-  const restore = () => ({ runId: restored.runId, status: restored.status,
-    proof: restored.runId && restored.status ? `${restored.runId}:restore:${restored.status}` : null });
-  const latest = active ?? statuses[0];
-  if (!active && restored.runId && activeStatuses.has(restored.status ?? "")) return restore();
-  if (latest) return { runId: latest.runId, status: latest.event.status, proof: `${latest.runId}:${latest.event.seq}:${latest.event.status}` };
-  return restored.runId ? restore() : { runId: observedRunId, status: null, proof: null };
+/** Only a live custom event or active authoritative restoration can establish identity. */
+export function selectAnnouncementRun(events: TraceStore, restored: { runId: string | null; status: string | null }, liveRunId: string | null) {
+  const event = [...(events[liveRunId ?? ""] ?? [])].reverse().find((item) => item.kind === "status");
+  const live = { runId: liveRunId, status: event?.kind === "status" ? event.status : null,
+    proof: liveRunId && event?.kind === "status" ? `${liveRunId}:${event.seq}:${event.status}` : null };
+  if (activeStatuses.has(live.status ?? "")) return live;
+  if (restored.runId && activeStatuses.has(restored.status ?? "")) return {
+    runId: restored.runId, status: restored.status, proof: `${restored.runId}:restore:${restored.status}`,
+  };
+  // Historical hydrate() data and sticky Inspector IDs never establish a completion source.
+  return live;
 }
 
 export interface ChatRunAnnouncementInput {

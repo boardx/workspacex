@@ -43,9 +43,27 @@ it("prefers the latest actual chat run over an old externally observed run", () 
     old: [{ kind: "status", runId: "old", seq: 20, emittedAt: "2026-11-06T08:00:00Z", status: "succeeded" }],
     current: [{ kind: "status", runId: "current", seq: 1, emittedAt: "2026-11-06T08:01:00Z", status: "running" }],
   } as never;
-  expect(selectAnnouncementRun(events, { runId: "old", status: "succeeded" }, "old")).toMatchObject({ runId: "current", status: "running" });
+  expect(selectAnnouncementRun(events, { runId: "old", status: "succeeded" }, "current")).toMatchObject({ runId: "current", status: "running" });
   const terminal = { ...events as object, current: [{ kind: "status", runId: "current", seq: 30, emittedAt: "2026-11-06T08:02:00Z", status: "succeeded" }] } as never;
-  expect(selectAnnouncementRun(terminal, { runId: "old", status: "succeeded" }, "old")).toMatchObject({ runId: "current", status: "succeeded" });
+  expect(selectAnnouncementRun(terminal, { runId: "old", status: "succeeded" }, "current")).toMatchObject({ runId: "current", status: "succeeded" });
+  expect(selectAnnouncementRun(terminal, { runId: "old", status: "succeeded" }, null)).toEqual({ runId: null, status: null, proof: null });
+});
+
+it("ignores late historical hydration when activity begins without a live identity", () => {
+  const { rerender } = renderHook((props: ChatRunAnnouncementInput) => useChatRunAnnouncements(props), { initialProps: base });
+  vi.mocked(announceToChat).mockClear();
+  rerender({ ...base, busy: true });
+  const history = { old: [{ kind: "status", runId: "old", seq: 20, emittedAt: "2026-11-06T08:00:00Z", status: "succeeded" }] } as never;
+  const selected = selectAnnouncementRun(history, { runId: null, status: null }, null);
+  rerender({ ...base, runId: selected.runId, terminalStatus: selected.status, terminalProof: selected.proof });
+  expect(announceToChat).not.toHaveBeenCalledWith("本次处理已结束，请查看任务结果。");
+});
+
+it("lets an active restoration replace a stale completed live stream and clears restored idle", () => {
+  const history = { old: [{ kind: "status", runId: "old", seq: 20, emittedAt: "2026-11-06T08:00:00Z", status: "succeeded" }] } as never;
+  const selected = selectAnnouncementRun(history, { runId: "restored", status: "paused" }, "old");
+  expect(selected).toMatchObject({ runId: "restored", status: "paused" });
+  expect(selectAnnouncementRun(history, { runId: null, status: null }, null)).toMatchObject({ runId: null, status: null });
 });
 
 it("distinguishes pause, cancellation and failure, and clears the old thread announcement", () => {
