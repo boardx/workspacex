@@ -20,9 +20,13 @@ clears stale text while waiting for durable evidence.
 Local verification on base `33f3bd0313dcfef86a9240e93dbb203bdee3a76b` plus patch:
 
 - `WORKSPACEX_WEB_TEST_MAX_WORKERS=2 pnpm --filter web exec vitest run tests/ui/chat-run-announcements.test.tsx tests/ui/copilotkit-v2-run-restore-on-remount.test.tsx tests/lib/copilotkit-v2-run-restore-bounded.test.tsx tests/ui/i18n-chat-composer-continuity.test.tsx`:
-  4 files / 23 tests passed. Covers approval/resume with idle SDK, unknown stream
+  4 files / 25 tests passed. Covers approval/resume with idle SDK, unknown stream
   endings, historical-terminal negative, pause/cancel/failure, thread changes,
   language changes and existing restore/composer continuity.
+- Independent review found delayed hydration could change an old terminal's
+  proof without a new run, and an old Inspector run ID could mask later ordinary
+  Chat runs. Two added counterexamples first failed, then passed after explicit
+  active-run binding and event-time selection replaced the sticky ID priority.
 - Full Web lint and final typecheck passed. Initial typecheck caught a wrong
   pending-approval variable name, corrected before final verification.
 

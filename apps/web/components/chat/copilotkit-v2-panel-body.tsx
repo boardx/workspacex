@@ -53,7 +53,7 @@ import { type AssistantMessageLandingValue } from "@/components/chat/copilotkit-
 
 
 
-import { useChatRunAnnouncements } from "@/components/chat/use-chat-run-announcements";
+import { selectAnnouncementRun, useChatRunAnnouncements } from "@/components/chat/use-chat-run-announcements";
 
 import { useAguiFileEvents } from "@/lib/agui-file-events";
 import { useAguiPlanTodos } from "@/lib/agui-plan-todos";
@@ -1402,17 +1402,12 @@ function useCopilotKitV2PanelController({
    * 此前什么都听不到。这里只播**状态迁移**（开始/结束），不播每一帧耗时——
    * 每秒念一次"已耗时 7 秒"会把 live region 变成噪声源。
    */
-  const announcementRunId = observedRunId ?? runRestore.runId ?? interjectionRun.runId;
-  const announcementEvent = [...(runTrace.events[announcementRunId ?? ""] ?? [])].reverse().find((event) => event.kind === "status");
-  const announcementStatus = announcementEvent?.kind === "status" ? announcementEvent.status
-    : runRestore.runId === announcementRunId ? runRestore.status : null;
+  const announcement = selectAnnouncementRun(runTrace.events, runRestore, observedRunId);
   useChatRunAnnouncements({
     scope: JSON.stringify([draftSession?.currentOrgId ?? orgId, draftSession?.userId, resolvedChatThreadId ?? threadId]),
     busy: runIsRunning, waiting: pendingPermission !== null,
-    paused: announcementStatus === "paused", hasError: Boolean(error), locale: displayLocale,
-    terminalStatus: announcementStatus,
-    terminalProof: announcementRunId && announcementStatus
-      ? `${announcementRunId}:${announcementEvent?.seq ?? "restore"}:${announcementStatus}` : null,
+    paused: announcement.status === "paused", hasError: Boolean(error), locale: displayLocale,
+    runId: announcement.runId, terminalStatus: announcement.status, terminalProof: announcement.proof,
   });
 
   /** CK-P4 —— 最近一次真的发出去的用户消息，供错误横幅上的「重试」重发。
