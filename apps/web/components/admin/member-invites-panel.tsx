@@ -9,13 +9,12 @@ import { AdminModal, Toast } from "./panel";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { ApiError } from "@/lib/api-client";
 import { memberFailure, type MemberFeedback } from "@/lib/admin-member-copy";
-import { buildActivationLink } from "@/lib/activation-link";
 import {
   listOrgMembers, listOrgInvites, resendOrgInvite,
   type ListOrgMembersOut, type ListOrgInvitesOut,
 } from "@/lib/live-org-admin";
 import {
-  InviteMemberForm, inviteStatusLabel, OneTimeActivationLink, type OneTimeLink,
+  InviteMemberForm, inviteStatusLabel,
 } from "@/components/org-admin/org-admin-screen";
 
 /**
@@ -27,7 +26,7 @@ import {
  * （`listOrgMembers` / `listOrgInvites` / `resendOrgInvite`）。
  *
  * ⚠ 这不是把「组织成员」那一屏的邀请管理重做一遍：邀请的创建复用已导出、已有
- * 测试覆盖的 `InviteMemberForm`；批准/拒绝（双人复核）与撤销仍只在 `/org-admin/invites`
+ * 测试覆盖的 `InviteMemberForm`；撤销仍只在 `/org-admin/invites`
  * 一处——这里只做「谁在候场」的摘要 + 重发，避免同一套邀请状态机在两处各写一份
  * （AGENTS.md：同一事实不得声明在两处）。
  */
@@ -53,7 +52,6 @@ function OrgMemberInvitesPanel({ orgId }: { orgId: string }) {
   const [invitesDenied, setInvitesDenied] = React.useState(false);
   const [loadError, setLoadError] = React.useState<MemberFeedback | null>(null);
   const [inviteOpen, setInviteOpen] = React.useState(false);
-  const [oneTimeLink, setOneTimeLink] = React.useState<OneTimeLink | null>(null);
   const [toast, setToast] = React.useState<MemberFeedback | null>(null);
   const [busyId, setBusyId] = React.useState<string | null>(null);
 
@@ -96,12 +94,14 @@ function OrgMemberInvitesPanel({ orgId }: { orgId: string }) {
     try {
       const out = await resendOrgInvite(orgId, inviteId);
       if (!mounted.current) return;
-      setOneTimeLink({ email, url: buildActivationLink(out.activationToken, window.location.origin), kind: "resent" });
       setToast((): MemberFeedback => (t) => t("adminMemberQuotas.resent", { email, seconds: out.cooldownSec }));
       await load();
     } catch (err) {
       if (!mounted.current) return;
-      setToast((): MemberFeedback => (t, locale) => err instanceof ApiError && err.status === 404 ? t("adminMemberQuotas.inviteMissing") : t("adminMemberQuotas.resendFailed", { error: memberFailure(err, locale) }));
+      setToast((): MemberFeedback => (t, locale) => err instanceof ApiError && err.reasonCode === "MAIL_UNAVAILABLE"
+        ? t("orgMembers.emailIsUnavailableTheInvitationIsRecordedAsSend")
+        : err instanceof ApiError && err.status === 404 ? t("adminMemberQuotas.inviteMissing") : t("adminMemberQuotas.resendFailed", { error: memberFailure(err, locale) }));
+      await load();
     } finally {
       if (mounted.current) setBusyId(null);
     }
@@ -152,7 +152,7 @@ function OrgMemberInvitesPanel({ orgId }: { orgId: string }) {
         <Card>
           <CardContent className="flex flex-col divide-y divide-border pt-2">
             {pendingInvites.map((inv) => {
-              const canResend = inv.status === "pending" || inv.status === "send-failed";
+              const canResend = inv.status === "pending" || inv.status === "send-failed" || inv.status === "awaiting-review";
               return (
                 <div
                   key={inv.inviteId}
@@ -187,8 +187,6 @@ function OrgMemberInvitesPanel({ orgId }: { orgId: string }) {
         </Card>
       )}
 
-      {oneTimeLink && <OneTimeActivationLink link={oneTimeLink} onDismiss={() => setOneTimeLink(null)} />}
-
       <p className="text-10 text-muted-foreground">
         {t("adminMemberQuotas.linkContext")}
       </p>
@@ -203,9 +201,9 @@ function OrgMemberInvitesPanel({ orgId }: { orgId: string }) {
           <InviteMemberForm
             orgId={orgId}
             onSucceeded={() => {}}
-            onNotice={(notice) => { setToast((): MemberFeedback => notice.text); if (notice.tone === "success") { setInviteOpen(false); void load(); } }}
+            onNotice={(notice) => { setToast((): MemberFeedback => notice.text); if (notice.tone === "success") setInviteOpen(false); void load(); }}
             onFailed={() => {}}
-            onLink={(link) => setOneTimeLink(link)}
+            onLink={() => {}}
           />
         </AdminModal>
       )}

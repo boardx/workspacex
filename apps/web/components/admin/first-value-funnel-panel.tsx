@@ -62,7 +62,6 @@ export function FirstValueFunnelPanel() {
     <section className="flex flex-col gap-2" data-testid="admin-first-value-funnel">
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="text-14 font-semibold">{t("adminOverview.firstValue")}</h2>
-        <Badge tone="outline">{t("adminOverview.liveData")}</Badge>
         <span className="text-11 text-muted-foreground">
           {t("adminOverview.firstValueHint")}
         </span>

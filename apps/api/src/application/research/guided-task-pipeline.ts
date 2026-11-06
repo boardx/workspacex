@@ -74,6 +74,8 @@ export async function executeTaskPipeline(state: ResearchRuntime, persist: Runti
   budget: SearchBudget, complete: PipelineComplete, metrics?: (result: PipelineMetrics) => void): Promise<void> {
   const started = Date.now(), initialModels = state.modelCalls.length;
   const negativeCache = new NegativeSourceScreenCache();
+  const discovered = new Set<string>(), readUrls = new Set<string>(), screenedUrls = new Set<string>();
+  let reading = 0, screening = 0;
   let firstSourceMs: number | null = null;
   let materialUpgradesRejected = 0;
   let stopped = false, failure: unknown;
@@ -102,17 +104,38 @@ export async function executeTaskPipeline(state: ResearchRuntime, persist: Runti
     let pending = documents.get(key);
     if (!pending) {
       pending = readPermit(async () => {
-        const result = await budget.run(() => search.read!(url, { signal })); check();
-        C.GuidedResearchDocument.parse({ ...result, url, retrievedAt: new Date().toISOString(), contentHash: createHash("sha256").update(result.text).digest("hex") });
-        return result;
+        await commit(async () => { discovered.add(key); reading++; await publishProgress(); });
+        try {
+          const result = await budget.run(() => search.read!(url, { signal })); check();
+          C.GuidedResearchDocument.parse({ ...result, url, retrievedAt: new Date().toISOString(), contentHash: createHash("sha256").update(result.text).digest("hex") });
+          await commit(async () => { readUrls.add(key); await publishProgress(); });
+          return result;
+        } finally {
+          reading--;
+          if (!stopped && !budget.signal.aborted) await commit(publishProgress);
+        }
       });
       documents.set(key, pending);
       void pending.catch(() => { if (documents.get(key) === pending) documents.delete(key); });
     }
     const result = await pending; check(); return result;
   };
-  const updateProgress = () => { state.progress = { executionVersion: state.version, stage: "searching", completed: state.tasks.filter(task => ["succeeded", "failed"].includes(task.status)).length, total: state.tasks.length }; };
-  const save = async () => { updateProgress(); await persist(); persist.observe({ type: "snapshot", state: structuredClone(state) }); };
+  const updateProgress = () => { state.progress = { executionVersion: state.version, stage: "searching", completed: state.tasks.filter(task => ["succeeded", "failed"].includes(task.status)).length, total: state.tasks.length, sourceCounts: { discovered: discovered.size, read: readUrls.size, screened: screenedUrls.size, reading, screening } }; };
+  let lastProgressAt = 0, lastProgressPhase = "idle";
+  const acquisitionPhase = () => reading ? "reading" : screening ? "screening" : "idle";
+  const save = async () => {
+    updateProgress(); await persist();
+    lastProgressAt = Date.now(); lastProgressPhase = acquisitionPhase();
+    persist.observe({ type: "snapshot", state: structuredClone(state) });
+  };
+  // Publish only persisted snapshots so polling and SSE agree on one revision.
+  // Phase starts are immediate; rapid per-source completions coalesce into the
+  // next ordinary checkpoint rather than serializing a DB write per counter.
+  const publishProgress = async () => {
+    const phase = acquisitionPhase();
+    if (phase === "idle" || (phase === lastProgressPhase && Date.now() - lastProgressAt < 250)) return;
+    await save();
+  };
   const taskError = (error: unknown) => {
     const code = error instanceof ResearchRuntimeError ? error.reasonCode : "RESEARCH_SEARCH_UNAVAILABLE";
     return isRecoverableSearchFailure(code) ? "RESEARCH_SEARCH_UNAVAILABLE" : code;
@@ -167,7 +190,15 @@ export async function executeTaskPipeline(state: ResearchRuntime, persist: Runti
       source.addedByUser = false;
       delete source.presentation;
     }
-    const screened = await screenResearchSources(state, candidates, model(true), { adaptive: true, signal, negativeCache }); check();
+    await commit(async () => { screening += candidates.length; await publishProgress(); });
+    let screened: Source[];
+    try {
+      screened = await screenResearchSources(state, candidates, model(true), { adaptive: true, signal, negativeCache }); check();
+      await commit(async () => { for (const source of candidates) screenedUrls.add(normalizedResearchUrl(source.url)); await publishProgress(); });
+    } finally {
+      screening -= candidates.length;
+      if (!stopped && !budget.signal.aborted) await commit(publishProgress);
+    }
     const denied = upgraded.filter(source => {
       const retained = screened.find(item => item.id === source.id);
       const required = [...sourceTaskIds(previous.get(source.id)!), ...(task ? [task.id] : [])];
@@ -196,44 +227,43 @@ export async function executeTaskPipeline(state: ResearchRuntime, persist: Runti
     chapterSourceTarget(state, task.sectionId) - chapterUrls(task.sectionId).size,
     task.questionId ? MIN_SOURCE_TARGET - readableUrls([task.id]).size : Infinity,
   ));
-  const compute = async (task: Task, query: string, primary: boolean): Promise<{ sources: Source[]; errorCode: string | null; release: () => void }> => {
+  const compute = async (task: Task, query: string, primary: boolean): Promise<{ sources: Source[]; errorCode: string | null }> => {
     check();
     const hits = await budget.run(() => search.search(query, { signal })); check();
-    if (!hits.length) return { sources: [], errorCode: "RESEARCH_SEARCH_EMPTY", release: () => {} };
-    const release = await lockUrls(hits.map(hit => hit.url));
-    try {
-      const candidates = [...new Map(hits.map(hit => {
-        const key = normalizedResearchUrl(hit.url);
-        const existing = state.sources.find(source => normalizedResearchUrl(source.url) === key);
-        const source: Source = existing ? structuredClone(existing) : C.GuidedResearchSource.parse({ ...hit, id: randomUUID(), taskId: task.id, taskIds: [task.id], retrievedAt: new Date().toISOString(), decision: "accepted" });
-        const cached = existing?.relevanceBasis === sourceRelevanceBasis(state, source) && sourceTaskIds(source).includes(task.id);
-        return [key, source.decision === "excluded" || cached ? source : { ...source, taskId: task.id, taskIds: [task.id], addedByUser: false }] as const;
-      })).values()];
-      const sources: Source[] = [];
-      // Read provider-ranked candidates in small windows. Once enough approved
-      // documents exist, remaining discovery hits need no download or model scan.
-      // Every admitted source still passes the complete relevance gate.
-      const target = task.questionId ? MIN_SOURCE_TARGET : chapterSourceTarget(state, task.sectionId);
-      for (let offset = 0; offset < candidates.length;) {
-        check();
-        // Supplements fill the chapter's current remaining quota after every
-        // committed batch. Primary/recovery attempts still validate their own
-        // material; stale retained documents cannot short-circuit a retry.
-        const approved = new Set(sources.filter(source => source.decision === "accepted" && source.document
-          && sourceTaskIds(source).includes(task.id)).map(source => normalizedResearchUrl(source.url))).size;
-        const remaining = !primary && search.read ? supplementAllowance(task) : target - approved;
-        if (search.read && remaining <= 0) break;
-        const windowSize = search.read ? Math.min(READ_WORKERS, remaining) : candidates.length;
-        const batch = candidates.slice(offset, offset + windowSize); offset += batch.length;
+    if (!hits.length) return { sources: [], errorCode: "RESEARCH_SEARCH_EMPTY" };
+    // Reserve only the next admitted window. Unread discovery tails must not
+    // hold unrelated chapters behind a URL they will never actually consume.
+    const uniqueHits = [...new Map(hits.map(hit => [normalizedResearchUrl(hit.url), hit])).values()];
+    await commit(async () => { for (const hit of uniqueHits) discovered.add(normalizedResearchUrl(hit.url)); await publishProgress(); });
+    const sources: Source[] = [];
+    const target = task.questionId ? MIN_SOURCE_TARGET : chapterSourceTarget(state, task.sectionId);
+    for (let offset = 0; offset < uniqueHits.length;) {
+      check();
+      const approved = new Set(sources.filter(source => source.decision === "accepted" && source.document
+        && sourceTaskIds(source).includes(task.id)).map(source => normalizedResearchUrl(source.url))).size;
+      const remaining = !primary && search.read ? supplementAllowance(task) : target - approved;
+      if (search.read && remaining <= 0) break;
+      const windowSize = search.read ? Math.min(READ_WORKERS, remaining) : uniqueHits.length;
+      const batchHits = uniqueHits.slice(offset, offset + windowSize); offset += batchHits.length;
+      const release = await lockUrls(batchHits.map(hit => hit.url));
+      try {
+        // Material identity and prior associations are selected after acquiring
+        // this window, so a preceding shared-URL writer cannot be overwritten.
+        const batch = batchHits.map(hit => {
+          const existing = state.sources.find(source => normalizedResearchUrl(source.url) === normalizedResearchUrl(hit.url));
+          const source: Source = existing ? structuredClone(existing) : C.GuidedResearchSource.parse({ ...hit, id: randomUUID(), taskId: task.id, taskIds: [task.id], retrievedAt: new Date().toISOString(), decision: "accepted" });
+          const cached = existing?.relevanceBasis === sourceRelevanceBasis(state, source) && sourceTaskIds(source).includes(task.id);
+          return source.decision === "excluded" || cached ? source : { ...source, taskId: task.id, taskIds: [task.id], addedByUser: false };
+        });
         const screened = await readAndScreen(batch, task);
         sources.push(...screened);
         await commit(async () => {
           merge(screened); await save();
           if (screened.some(source => source.decision === "accepted") && firstSourceMs === null) firstSourceMs = Date.now() - started;
         });
-      }
-      return { sources, errorCode: sources.some(source => source.decision !== "excluded" && sourceTaskIds(source).includes(task.id)) ? null : "RESEARCH_SEARCH_NO_RELEVANT_SOURCES", release };
-    } catch (error) { release(); throw error; }
+      } finally { release(); }
+    }
+    return { sources, errorCode: sources.some(source => source.decision !== "excluded" && sourceTaskIds(source).includes(task.id)) ? null : "RESEARCH_SEARCH_NO_RELEVANT_SOURCES" };
   };
   const attempt = async (task: Task, query: string, primary: boolean) => {
     let record!: Attempt;
@@ -244,19 +274,18 @@ export async function executeTaskPipeline(state: ResearchRuntime, persist: Runti
       await save();
     });
     let result: { sources: Source[]; errorCode: string | null };
-    let release = () => {};
-    try { const computed = await compute(task, query, primary); result = computed; release = computed.release; }
+    try { result = await compute(task, query, primary); }
     catch (error) { check(); result = { sources: [], errorCode: taskError(error) }; }
-    try { await commit(async () => {
+    await commit(async () => {
       merge(result.sources);
       record.status = result.errorCode ? "failed" : "succeeded"; record.errorCode = result.errorCode;
       if (primary) { task.status = record.status; task.errorCode = record.errorCode; }
       await save();
       if (result.sources.some(source => source.decision === "accepted") && firstSourceMs === null) firstSourceMs = Date.now() - started;
-    }); } finally { release(); }
+    });
     return result.errorCode;
   };
-  const sectionOrder = new Map(state.outline.map(section => [section.id, section.order]));
+  const sectionOrder = new Map([...state.outline].sort((a, b) => a.order - b.order).map((section, index) => [section.id, index]));
   const ordered = [...state.tasks].sort((a, b) => (sectionOrder.get(a.sectionId) ?? Infinity) - (sectionOrder.get(b.sectionId) ?? Infinity));
   const work = async (task: Task) => {
     if (task.status === "succeeded") return false;
@@ -291,26 +320,9 @@ export async function executeTaskPipeline(state: ResearchRuntime, persist: Runti
     check();
   };
   try {
-    // Stable plan order is an execution boundary, not only a dispatch sort.
-    // Unknown/legacy task sections remain in the tail rather than disappearing.
-    const groups = new Map<string, { section?: ResearchRuntime["outline"][number]; tasks: Task[] }>();
-    for (const section of [...state.outline].sort((a, b) => a.order - b.order)) {
-      if (!groups.has(section.id)) groups.set(section.id, { section, tasks: [] });
-    }
-    for (const task of ordered) {
-      if (!groups.has(task.sectionId)) groups.set(task.sectionId, { tasks: [] });
-      groups.get(task.sectionId)!.tasks.push(task);
-    }
+    // Stable dispatch order does not impose a completion barrier between
+    // independent chapters. All primaries/recoveries share the same task quota.
     const pendingSources = state.sources.filter(source => source.decision === "accepted" && !source.document && (!source.documentError || source.documentError === "unavailable"));
-    const sourceGroups = new Map([...groups.keys()].map(id => [id, [] as Source[]]));
-    const unscopedSources: Source[] = [];
-    for (const source of pendingSources) {
-      // Shared material belongs to its earliest associated plan; review it once.
-      const ids = new Set(sourceTaskIds(source));
-      const owner = [...groups].find(([, group]) => group.tasks.some(task => ids.has(task.id)));
-      if (owner) sourceGroups.get(owner[0])!.push(source);
-      else unscopedSources.push(source);
-    }
     const reviewPersisted = async (sources: Source[]) => {
       if (!search.read) return;
       await workers(sources, async source => {
@@ -321,25 +333,20 @@ export async function executeTaskPipeline(state: ResearchRuntime, persist: Runti
         } finally { release(); }
       });
     };
-    for (const [sectionId, { section, tasks }] of groups) {
-      check();
-      await reviewPersisted(sourceGroups.get(sectionId)!);
-      await fairTaskWork(tasks, TASK_WORKERS, work, recover, check, stop);
-      // The chapter's existing supplements finish in the same boundary. Shared
-      // provider/read/cache limits still belong to the entire execution.
-      if (search.read && section?.enabled) {
-        const count = () => chapterUrls(section.id).size;
-        for (const { task, query } of scopedSupplementQueries(state, section, ordered)) {
-          check(); if (count() >= chapterSourceTarget(state, section.id)) break;
-          if (!supplementAllowance(task)) continue;
-          if ((task.searchAttempts ?? []).some(record => record.query.trim().toLowerCase() === query.trim().toLowerCase()) || (task.searchAttempts?.length ?? 0) >= C.GUIDED_RESEARCH_SEARCH_ATTEMPT_LIMIT) continue;
-          await attempt(task, query, false);
-        }
+    await reviewPersisted(pendingSources);
+    await fairTaskWork(ordered, TASK_WORKERS, work, recover, check, stop);
+    // Supplements for independent sections may overlap, but each section fills
+    // its own remaining quota sequentially against already committed sources.
+    await workers([...state.outline].filter(section => section.enabled).sort((a, b) => a.order - b.order), async section => {
+      if (!search.read) return;
+      for (const { task, query } of scopedSupplementQueries(state, section, ordered)) {
+        check(); if (chapterUrls(section.id).size >= chapterSourceTarget(state, section.id)) break;
+        if (!supplementAllowance(task)) continue;
+        if ((task.searchAttempts ?? []).some(record => record.query.trim().toLowerCase() === query.trim().toLowerCase()) || (task.searchAttempts?.length ?? 0) >= C.GUIDED_RESEARCH_SEARCH_ATTEMPT_LIMIT) continue;
+        await attempt(task, query, false);
       }
-      await writes; check();
-    }
-    // Legacy/user sources without a task association must not preempt plan work.
-    await reviewPersisted(unscopedSources);
+    });
+    await writes; check();
     if (state.tasks.some(task => task.status === "failed")) throw new ResearchRuntimeError("RESEARCH_SEARCH_PARTIAL_FAILURE");
   } catch (error) {
     // All workers have drained. Mark issued work interrupted before the service's

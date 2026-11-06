@@ -1,17 +1,8 @@
 import { issueInvitationSession } from "./issue-invitation-session";
 import type { LoginOutput } from "./login";
-/**
- * `ActivateViaOrgInviteLink`（shared-invite-links delta）—— 持链接者自助加入。
- *
- * 与 `activateOrgMember` 的三处刻意差异：
- *   ① 邮箱**自填**（共享链接不指向任何邮箱），由本文件 `normalizeEmail` 后交仓储查重
- *     ——已有账号 → `INVITE_ALREADY_MEMBER`（拍板①明确拒绝、不重复建号，OA12②）。
- *   ② 只有建新号一条分支：existing-account 加入不在本 delta 范围（OA12②）。
- *   ③ 令牌先 hash 再交仓储——仓储与库都**不见明文**（delta 对照表）。
- *
- * 相同的纪律原样保留：口令策略复用 phase-00 同一个 `checkPassword`；哈希在事务外算
- * （bcrypt cost-12 不进锁）；会话在事务之后签发（Redis 挂了 ⇒ 成员建好但没会话，
- * 重新登录可恢复——两种残缺里可恢复的那一种）。
+/** Shared invitation joins support both new accounts and authenticated existing users.
+ * Role comes from the stored link; membership/use-count updates are atomic.
+ * Existing user identity is supplied by the guarded accept route, never the body.
  */
 import type { PasswordHasher, SessionTokenStore, TokenFactory } from "./ports";
 import type { OrgInviteLinkRepository } from "./org-invite-link-ports";
@@ -31,11 +22,18 @@ export interface ActivateViaOrgInviteLinkDeps {
   readonly now?: () => Date;
 }
 
-export interface ActivateViaOrgInviteLinkInput {
+export type ActivateViaOrgInviteLinkInput = {
   readonly token: string;
   readonly email: string;
   readonly profile: { readonly name: string; readonly password: string };
-}
+  readonly existingUserId?: never;
+} | {
+  readonly token: string;
+  /** From authenticated principal, never request body. */
+  readonly existingUserId: string;
+  readonly email?: never;
+  readonly profile?: never;
+};
 
 export interface ActivateViaOrgInviteLinkOutput {
   readonly userId: string;
@@ -51,18 +49,18 @@ export async function activateViaOrgInviteLink(
 ): Promise<ActivateViaOrgInviteLinkOutput> {
   const now = (deps.now ?? (() => new Date()))();
 
-  const rejection = checkPassword(input.profile.password);
-  if (rejection !== null) throw new PasswordPolicyError(rejection);
-
+  let account: {userId:string;displayName:string;passwordHash:string} | null = null;
+  if (!input.existingUserId) {
+    if (!input.profile) throw new OrgAdminError("INVITE_NOT_FOUND");
+    const rejection = checkPassword(input.profile.password);
+    if (rejection !== null) throw new PasswordPolicyError(rejection);
+    account = {userId:newUserId(),displayName:input.profile.name,passwordHash:await deps.hasher.hash(input.profile.password)};
+  }
   const result = await deps.repo.activate({
-    tokenHash: hashOrgInviteLinkToken(input.token),
-    now,
-    email: normalizeEmail(input.email),
-    newAccount: {
-      userId: newUserId(),
-      displayName: input.profile.name,
-      passwordHash: await deps.hasher.hash(input.profile.password),
-    },
+    tokenHash: hashOrgInviteLinkToken(input.token), now,
+    email: input.email ? normalizeEmail(input.email) : "",
+    newAccount: account,
+    ...(input.existingUserId ? {existingUserId:input.existingUserId} : {}),
   });
 
   if (!result.ok) {

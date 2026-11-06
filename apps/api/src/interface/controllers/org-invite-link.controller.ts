@@ -35,7 +35,6 @@ import { orgAdmin as C } from "@repo/contracts";
 import { createOrgInviteLink } from "../../application/auth/create-org-invite-link";
 import { listOrgInviteLinks } from "../../application/auth/list-org-invite-links";
 import { revokeOrgInviteLink } from "../../application/auth/revoke-org-invite-link";
-import { reviewOrgInviteLink } from "../../application/auth/review-org-invite-link";
 import { activateViaOrgInviteLink } from "../../application/auth/activate-via-org-invite-link";
 import { OrgAdminError } from "../../application/auth/org-invite-errors";
 import { AuthError, PasswordPolicyError } from "../../application/auth/errors";
@@ -179,26 +178,26 @@ export class OrgInviteLinkController {
     @Body(new ZodBodyPipe(REVIEW_ORG_INVITE_LINK_SCHEMA)) body: ReviewBody,
     @CurrentPrincipal() principal: Principal,
   ) {
-    const { orgId, orgRole } = await this.resolveOrgRole(principal, orgIdParam);
+    await this.resolveOrgRole(principal, orgIdParam);
+    throw new ConflictException({reasonCode:"VERSION_CHANGED"});
+  }
+
+  @Post("/org-invites/accept-via-link")
+  async accept(
+    @Body(new ZodBodyPipe(C.operations.acceptOrgInviteLink.in)) body: {token:string},
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    assertPrincipal(principal);
     try {
-      const out = await reviewOrgInviteLink(
-        { repo: this.repo },
-        {
-          orgId,
-          reviewerId: principal.userId,
-          reviewerOrgRole: orgRole,
-          linkId: linkIdParam,
-          decision: body.decision,
-        },
+      const out = await activateViaOrgInviteLink(
+        {repo:this.repo,hasher:this.hasher,sessions:this.sessions,tokens:this.tokens},
+        {token:body.token,existingUserId:principal.userId},
       );
-      return {
-        status: out.status,
-        // 批准签发那一次回传给批准人（reviewAdminInvite D2 的同一语义）。
-        linkToken: out.linkToken,
-        expiresAt: out.expiresAt === null ? null : out.expiresAt.toISOString(),
-      };
+      return {...out,teamId:""};
     } catch (e) {
-      throw this.mapAdminError(e);
+      if (e instanceof OrgAdminError) throw new BadRequestException({reasonCode:e.reasonCode});
+      if (e instanceof AuthError && e.reason === "AUTH_SERVICE_UNAVAILABLE") throw new ServiceUnavailableException({reasonCode:e.reason});
+      throw e;
     }
   }
 

@@ -1,0 +1,18 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/2e5d/workspacex/apps/api
+
+[db-isolation] db=workspacex_enterprise_generation_6316 capacity=100 current=6 required=32
+stdout | tests/billing/member-credit-quota-pg.test.ts
+[member-credit-fixture-retention] {"org":"member-credit-52b8354c-876f-4402-b403-3d12c986807f","other":"member-credit-52b8354c-876f-4402-b403-3d12c986807f-other","user":"member-credit-52b8354c-876f-4402-b403-3d12c986807f-user"}
+
+ ✓ tests/billing/member-credit-quota-pg.test.ts (8 tests) 21045ms
+ ✓ tests/billing/member-credit-quota.test.ts (9 tests) 10ms
+ ✓ tests/billing/member-credit-continuation.test.ts (4 tests) 9ms
+ ✓ tests/billing/member-credit-quota-controller.test.ts (3 tests) 7ms
+
+ Test Files  4 passed (4)
+      Tests  24 passed (24)
+   Start at  18:51:24
+   Duration  26.43s (transform 1.34s, setup 32ms, collect 3.38s, tests 21.07s, environment 1ms, prepare 239ms)
+
+[db-isolation] db=workspacex_enterprise_generation_6316 peak_connections=4

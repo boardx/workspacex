@@ -13,6 +13,7 @@ import { getInterviewGenerationSession, subscribeInterviewGeneration, runIntervi
 import { InterviewReportGeneration } from "./interview-report-generation";
 import { InterviewStepHeader, InterviewStepActions } from "./interview-step-header";
 import { interviewReportFailureKey } from "@/lib/interview-report-failure";
+import { interviewExpertDisplayNames } from "./interview-transcript-display";
 
 export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySelectedExpertIds, onVersionChange, onReport, reportPin, onBusyChange, onRunningStepChange }: {
   readonly interviewId: string; readonly step: "runs" | "report";
@@ -152,7 +153,7 @@ export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySe
   if (step === "report" && source && reportPin && (!document || document.documentId !== reportPin.documentId || document.version !== reportPin.version)) return <p role="alert" className="rounded-lg border border-border p-5">{t("itv.results.pinChanged")}</p>;
   const execution = source?.execution;
   const experts = source?.documents.find((item) => item.step === "experts");
-  const names = new Map(experts ? interviewMarkdown.projectInterviewMarkdownExperts(experts).map((expert) => [expert.expertId, expert.displayName]) : []);
+  const names = experts ? interviewExpertDisplayNames(experts) : new Map<string, string>();
   // Before the first `start` command there is no durable execution row yet. Keep
   // the confirmed expert anchors visible in that state instead of rendering an
   // empty progress column; the start action will create the tasks from these IDs.
@@ -192,7 +193,7 @@ export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySe
   }
   if (!source && !error) return <><InterviewStepHeader title={step === "runs" ? t("itv.runs.title") : t("itv.report.title")} /><p role="status" className="animate-pulse rounded-xl border border-border p-8 text-sm text-muted-foreground">{step === "runs" ? t("itv.results.loadingRuns") : t("itv.results.loadingReport")}</p></>;
   if (step === "report" && generatingReport && session && !document) return <InterviewReportGeneration session={session} />;
-  const reportRetry = step === "report" && !generatingReport && (state?.status === "failed" || error) ? <ActionButton variant="primary" loading={pending} disabled={pending || !sourceRuns.length || sourceRuns.some((run) => run.status !== "completed")} onClick={() => void generateReport()}>{t("itv.results.continueReport")}</ActionButton> : null;
+  const reportRetry = step === "report" && !generatingReport && (!document || state?.status === "failed" || error) ? <ActionButton variant="primary" loading={pending} disabled={pending || !sourceRuns.length || sourceRuns.some((run) => run.status !== "completed")} onClick={() => void generateReport()}>{t("itv.results.continueReport")}</ActionButton> : null;
   return <div>
     {step === "report" && generatingReport && session && document && <InterviewReportGeneration session={session} />}
     {error && <div role="alert" className="mb-4 rounded-lg border border-destructive/20 p-4 text-sm text-destructive"><p>{t(error)}</p><ActionButton variant="outline" className="mt-3" disabled={pending} onClick={() => void loadInterviewMarkdown(interviewId).then((next) => { receive(next); setVerifiedRevision(next.revisionId); setError(""); }).catch(() => setError("itv.results.reloadFailed"))}>{t("itv.results.reload")}</ActionButton></div>}

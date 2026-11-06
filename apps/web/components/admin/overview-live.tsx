@@ -172,7 +172,6 @@ function OverviewLiveInner({ orgId }: { orgId: string | null }) {
       <section className="flex flex-col gap-2" data-testid="admin-overview-anomalies">
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="text-14 font-semibold">{t("adminOverview.limitEvents")}</h2>
-          <Badge tone="outline" data-testid="admin-overview-anomalies-live">{t("adminOverview.liveData")}</Badge>
           <span className="text-11 text-muted-foreground">
             {t("adminOverview.limitHint")}
           </span>
@@ -226,7 +225,6 @@ function OverviewLiveInner({ orgId }: { orgId: string | null }) {
       <section className="flex flex-col gap-2" data-testid="admin-overview-activity">
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="text-14 font-semibold">{t("adminOverview.activityStream")}</h2>
-          <Badge tone="outline" data-testid="admin-overview-activity-live">{t("adminOverview.liveData")}</Badge>
         </div>
         <Card>
           <CardContent className="flex flex-col pt-2">
@@ -276,7 +274,6 @@ function MetricCard(props: {
       <CardContent className="flex flex-col gap-1.5 pt-4">
         <div className="flex items-center gap-1.5">
           <span className="text-12 text-muted-foreground">{props.label}</span>
-          <Badge tone="outline">{t("adminOverview.liveData")}</Badge>
         </div>
         <span className="text-24 font-semibold tracking-tight">
           {/* 读不到时显示 —— 而不是 0。「查询失败」与「本月真的是 0」是两件事，

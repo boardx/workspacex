@@ -60,7 +60,7 @@ export function readRealtimeModelConfig(env: NodeJS.ProcessEnv = process.env): R
 }
 
 const FRIENDLY: Record<ErrorReason, string> = {
-  CREDIT_REQUIRED: "额度不足，请充值后重新开始通话",
+  CREDIT_REQUIRED: "Credit 余额或成员月度额度不足，请确认额度或联系组织管理员后重新开始通话",
   CREDIT_ACCOUNTING_UNAVAILABLE: "暂时无法确认语音用量，请稍后重试",
   NOT_CONFIGURED: "实时语音模型尚未配置，请联系管理员",
   AGENT_UNAVAILABLE: "这个数字人暂不可用，可能尚未发布或你没有使用权限",
@@ -113,7 +113,7 @@ function serve(client: WebSocket, principal: Principal, deps: RealtimeDigitalHum
   const billing = new RealtimeVoiceAccounting(deps.usage, principal, model);
   const accountingFailure = (error: unknown): void => {
     const reason = error instanceof CreditConsumptionError && error.code === "credit_required" ? "CREDIT_REQUIRED" : "CREDIT_ACCOUNTING_UNAVAILABLE";
-    send({type:"session.error",reason,message:FRIENDLY[reason],...(reason === "CREDIT_REQUIRED" && error instanceof CreditConsumptionError ? {credit:{code:"credit_required" as const,ownerType:error.ownerType,ownerId:error.ownerId,rechargePath:error.rechargePath}} : {})});
+    send({type:"session.error",reason,message:error instanceof CreditConsumptionError && error.reason==="member_monthly_limit"?"本月成员 Credit 额度不足，请联系组织管理员调整月度额度。":FRIENDLY[reason],...(reason === "CREDIT_REQUIRED" && error instanceof CreditConsumptionError ? {credit:{code:"credit_required" as const,ownerType:error.ownerType,ownerId:error.ownerId,rechargePath:error.rechargePath,...(error.reason?{reason:error.reason}:{})}} : {})});
     close();client.close();
   };
   const finishBilling = (aborted = false) => billing.finish(aborted).catch(accountingFailure);

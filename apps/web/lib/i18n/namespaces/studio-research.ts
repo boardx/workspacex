@@ -77,7 +77,7 @@ export const studioResearchEn: Record<keyof typeof studioResearchZhCN, string> =
   "voice.keep": "Keep confirmed transcript",
   "voice.discard": "Discard transcript",
   "voice.error.generic": "Voice input failed. Try again later or enter text manually.",
-  "voice.error.CREDIT_REQUIRED": "Insufficient credits. Check your billing account and add credits to continue voice input.",
+  "voice.error.CREDIT_REQUIRED": "Insufficient Credit balance or member monthly allowance. Check your allowance or contact an organization administrator to continue voice input.",
   "voice.error.CREDIT_ACCOUNTING_UNAVAILABLE": "Billing is temporarily unavailable. Try again later or contact an administrator.",
   "voice.error.ASR_PROVIDER_UNAVAILABLE": "Voice transcription is temporarily unavailable. Try again later.",
   "voice.error.ASR_NOT_CONFIGURED": "Voice transcription is not configured in this environment. Enter text manually.",

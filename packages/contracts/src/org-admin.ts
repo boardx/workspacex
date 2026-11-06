@@ -31,11 +31,16 @@ import { z } from "zod";
 import { OrgRole, PermissionReason, PermissionDecision, ProjectRole } from "./identity";
 import { AUTH_POLICY, AuthenticatedSession, EmailAddress } from "./auth";
 
+/** Canonical landing page and token parameters shared by email and browser invitation links. */
+export const INVITATION_ACTIVATION_PATH = "/auth/activate";
+export const INVITATION_TOKEN_PARAM = "t";
+export const INVITATION_SHARED_TOKEN_PARAM = "lt";
+
 /* ─────────────────────────── 枚举 ─────────────────────────── */
 
 /**
- * 邀请生命周期。`awaiting-review` 是 O-28 ⑥ 双人复核的落点：
- * **`orgRole = "admin"` 的邀请在被另一名管理员批准前不签发 token**（I-3）。
+ * Invitation lifecycle. awaiting-review is retained for historical records only.
+ * New invitations are ordinary members, delivered by email without peer review (#6316).
  *
  * ⚠ 刻意**没有** `accepted`：激活成功后邀请行的终态是 `used`，
  *   而「这个人现在是不是成员」的事实在 `org_members`，不在邀请表。两处会漂移。
@@ -381,8 +386,8 @@ export const operations = {
   /**
    * `InviteOrgMember` —— 管理员邀请一个人进组织
    *
-   * ⚠ **`orgRole = "admin"` 时返回 `awaiting-review` 而不是 `pending`，且此时不签发 token**
-   *   （I-3 / O-28 ⑥）：提权动作被单个被盗账号执行即等于整个组织沦陷。
+   * New invitations always record ordinary consultant membership, regardless of a legacy requested role.
+   * Success means the mail provider accepted this attempt; acceptance by the invitee remains required.
    * ⚠ 幂等：同 `(orgId, email)` 重复提交返回既有 `inviteId`，**不新建行、不重复扣额度**。
    * ⚠ `email` 是 `auth.EmailAddress`（invite-link-and-reads delta ③）：服务端权威校验，
    *   `a@` 这类垃圾在契约层 400 拒绝、不落库——前端预检只是体验优化，不是防线。
@@ -391,7 +396,7 @@ export const operations = {
     method: "POST",
     path: "/organizations/:orgId/invites",
     in: z
-      .object({ orgId: z.string(), email: EmailAddress, orgRole: OrgRole, teamId: z.string() })
+      .object({ orgId: z.string(), email: EmailAddress, orgRole: OrgRole.default("consultant"), teamId: z.string() })
       .strict(),
     out: z
       .object({
@@ -401,17 +406,7 @@ export const operations = {
         quotaReserved: z.number().int().nonnegative(),
         /** ⚠ 恒为 false 当 `status = "awaiting-review"`——双人复核前不签发（I-3） */
         tokenIssued: z.boolean(),
-        /**
-         * 一次性激活令牌明文（invite-link-and-reads delta ①，coord-main 2026-08-11 裁决 A：
-         * 邮件通道未接通期间，链接由发起邀请的管理员**当面/自行转交**受邀人）。
-         *
-         * ⚠ **只在签发的这一次响应里出现**：`OrgInvite` 实体与 `listOrgInvites` 恒不含它，
-         *   幂等重放（`quotaReserved = 0`）与 `awaiting-review`（I-3）时为 null——
-         *   重放若把既有令牌再吐一次，等于任何管理员都能凭「再邀一次」读走别人的激活链接。
-         * ⚠ 这不与「token 不进响应体」的旧安全注释矛盾，是**取代**它：旧注释防的是
-         *   「任何管理员随时可读他人链接」（列表/重放路径，仍然封死）；能发起邀请的本来
-         *   就是 admin，把**他自己刚签发**的令牌回传给他一次，不扩大任何读面。
-         */
+        /** Compatibility field, now null: the activation bearer is delivered only by email. */
         activationToken: z.string().nullable(),
       })
       .strict(),
@@ -481,12 +476,8 @@ export const operations = {
     out: z.object({
       newTokenIssued: z.boolean(),
       cooldownSec: z.number().int().nonnegative(),
-      /**
-       * 新签发的一次性激活令牌明文（invite-link-and-reads delta ①，同 `inviteOrgMember.
-       * out.activationToken` 的裁决与约束）：只在**这一次**重发响应里出现，旧令牌已当场
-       * 作废（I-6），列表/重放拿不到它。走到成功分支即已签发，恒非空。
-       */
-      activationToken: z.string(),
+      /** Compatibility field, now null; the fresh bearer is delivered by email. */
+      activationToken: z.string().nullable(),
     }).strict(),
     err: [
       "RATE_LIMITED",
@@ -575,12 +566,8 @@ export const operations = {
   /**
    * `CreateOrgInviteLink` —— 管理员建一条共享邀请链接。
    *
-   * ⚠ 拍板③：`orgRole = "admin"` 时返回 `pending-review` 且 `linkToken` 为 null——
-   *   令牌**此刻不存在**（同 I-3 的落地形状），另一位管理员批准后才签发。
-   *   非 admin 角色即建即用（`active` + 明文令牌一次性回传）。
-   * ⚠ `expiresAt`：`pending-review` 时为 null——有效期窗口从**批准**起算，不从建链
-   *   起算（否则复核拖几天等于变相缩短链接寿命，且「已过期的待复核链接」是个
-   *   谁也说不清的状态）。
+   * New links are immediately active and grant ordinary consultant membership.
+   * Historical pending-review links can be replaced; the review endpoint is retired.
    * ⚠ 建链**不占席位配额**：配额闸在加入时（`activateViaOrgInviteLink`），一条上限 50
    *   的链接不等于预定了 50 个座位。
    */
@@ -722,6 +709,22 @@ export const operations = {
    *   加入后的管理动作，不是链接属性；一条链接绑定一个团队会让它在团队重组后
    *   变成一枚指向已删除团队的凭据）。
    */
+  /** Authenticated existing accounts explicitly accept; identity comes only from the guard. */
+  acceptOrgInvite: {
+    method: "POST", path: "/org-invites/accept",
+    in: z.object({ token: z.string().min(1) }).strict(),
+    out: z.object({ userId: z.string(), orgId: z.string(), orgRole: OrgRole, teamId: z.string(),
+      sessionId: z.string(), session: AuthenticatedSession }).strict(),
+    err: ["INVITE_NOT_FOUND", "INVITE_ALREADY_MEMBER", "QUOTA_EXHAUSTED", "AUTH_SERVICE_UNAVAILABLE"] as const,
+  },
+  acceptOrgInviteLink: {
+    method: "POST", path: "/org-invites/accept-via-link",
+    in: z.object({ token: z.string().min(1) }).strict(),
+    out: z.object({ userId: z.string(), orgId: z.string(), orgRole: OrgRole, teamId: z.string(),
+      sessionId: z.string(), session: AuthenticatedSession }).strict(),
+    err: ["INVITE_NOT_FOUND", "INVITE_ALREADY_MEMBER", "QUOTA_EXHAUSTED", "AUTH_SERVICE_UNAVAILABLE"] as const,
+  },
+
   activateViaOrgInviteLink: {
     method: "POST",
     path: "/org-invites/activate-via-link",
@@ -2096,9 +2099,9 @@ export const KNOWN_CONTRACT_GAPS = {
    * ② `INVITE_ALREADY_MEMBER` 在 `activateViaOrgInviteLink` 上的语义扩展为
    *    「该邮箱已有账号（无论是否本组织成员）」——链接激活只走建新号分支，
    *    已有账号的人该去登录；细分「已注册未入组」需要 existing-account 分支，
-   *    不在本 delta 范围。
+   *    已由 #6316 的 guarded acceptOrgInviteLink 补齐。
    */
-  OA12: "shared-invite-links: (1) accounts created via a shared link get email_verified_at = activation time even though the self-typed email is unproven — an unverified account is a dead end at login while the mail channel is not connected (see the delta's contract.md for the risk boundary); (2) INVITE_ALREADY_MEMBER on activateViaOrgInviteLink covers 'this email already has an account' whether or not it is a member of this org — the link flow only creates new accounts, an existing-account join branch is out of scope",
+  OA12: "shared-invite-links: (1) accounts created via a shared link get email_verified_at = activation time even though the self-typed email is unproven — an unverified account is a dead end at login while the mail channel is not connected (see the delta's contract.md for the risk boundary); (2) INVITE_ALREADY_MEMBER on activateViaOrgInviteLink covers 'this email already has an account' whether or not it is a member of this org — the link flow only creates new accounts, authenticated existing-account joining is supported by acceptOrgInviteLink (#6316)",
   /**
    * **member-role-management delta 落地时的一处裁定，需人类签核确认。**
    *

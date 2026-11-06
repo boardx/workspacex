@@ -712,7 +712,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     if (exception instanceof CreditConsumptionError) {
       this.logger.info("credit_consumption_request_refused", {traceId,code:exception.code});
       const guidance=exception.code === "credit_required" ? CreditRequiredBody.safeParse({code:exception.code,
-        ownerType:exception.ownerType,ownerId:exception.ownerId,rechargePath:exception.rechargePath,traceId}) : null;
+        ownerType:exception.ownerType,ownerId:exception.ownerId,rechargePath:exception.rechargePath,...(exception.reason?{reason:exception.reason}:{}),traceId}) : null;
       if(guidance?.success)res.status(402).json(guidance.data);
       else res.status(503).json({code:"credit_accounting_unavailable",traceId});
       return;

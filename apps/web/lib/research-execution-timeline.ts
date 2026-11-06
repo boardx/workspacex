@@ -21,13 +21,15 @@ export function researchExecutionTimeline(state: Runtime, interrupted = false, l
   const currentProgress = state.progress?.executionVersion === state.version;
   const searching = displayWork && currentProgress && state.progress?.stage === 'searching' && tasks.some(task => task.status === 'running' || task.searchAttempts?.some(attempt => attempt.status === 'running'));
   const search: ExecutionStatus = searching ? 'running' : failedSearch ? 'failed' : tasks.length && tasks.every(task => task.status === 'succeeded') ? 'completed' : 'pending';
+  const sourceCounts = currentProgress ? state.progress?.sourceCounts : undefined;
+  const acquiring = displayWork && Boolean(sourceCounts && (sourceCounts.reading || sourceCounts.screening));
   const lastReading = state.activity?.slice().reverse().find(event => event.stage === 'reading');
   const failedDocument = accepted.some(source => source.documentError);
   // Legacy history has no execution identity and cannot prove active work.
   const preparingSources = lastReading?.executionVersion === state.version && lastReading.status === 'started';
   const reading = displayWork && state.currentNode === 'report' && (currentProgress && state.progress?.stage === 'organizing' || preparingSources);
   const evidenceRunning = displayWork && timeline.some(step => step.stage === 'evidence' && ['running', 'retrying'].includes(step.status));
-  const document: ExecutionStatus = evidenceRunning ? 'running' : accepted.length && accepted.every(source => source.document) && !failedDocument ? 'completed' : reading ? 'running' : failedDocument ? 'warning' : 'pending';
+  const document: ExecutionStatus = evidenceRunning || acquiring ? 'running' : accepted.length && accepted.every(source => source.document) && !failedDocument ? 'completed' : reading ? 'running' : failedDocument ? 'warning' : 'pending';
   const chapterStatuses = timeline.filter(step => step.stage === 'chapter').map(chapter => {
     const review = timeline.find(step => step.stage === 'review' && step.sectionId === chapter.sectionId);
     if (chapter.status === 'completed' && review?.status === 'pending') return 'running';
@@ -40,7 +42,7 @@ export function researchExecutionTimeline(state: Runtime, interrupted = false, l
   const finished = Boolean(state.report && state.completed && validation === 'completed' && !state.reportDraft && !state.reportQualityWarnings?.length && !state.busy && !state.errorCode && !interrupted && state.controlStatus !== 'paused');
   const rows: ExecutionRow[] = [
     { id: 'search', title: translate(locale, "research.timeline.search"), status: active(search) },
-    { id: 'documents', title: translate(locale, "research.timeline.documents"), status: active(document), ...(accepted.length ? { detail: translate(locale, "research.timeline.readSources", { read: accepted.filter(source => source.document).length, count: accepted.length }) } : {}) },
+    { id: 'documents', title: translate(locale, "research.timeline.documents"), status: active(document), ...(sourceCounts ? { detail: translate(locale, "research.timeline.acquisitionCounts", sourceCounts) } : accepted.length ? { detail: translate(locale, "research.timeline.readSources", { read: accepted.filter(source => source.document).length, count: accepted.length }) } : {}) },
     { id: 'chapters', title: translate(locale, "research.timeline.chapters"), status: active(aggregate(chapterStatuses)),
       detail: timeline.filter(step => (step.stage === 'chapter' || step.stage === 'review') && ['running', 'retrying'].includes(step.status))
         .map(step => state.outline.find(section => section.id === step.sectionId)?.title).filter((title, index, titles) => title && titles.indexOf(title) === index).join('、') || undefined },

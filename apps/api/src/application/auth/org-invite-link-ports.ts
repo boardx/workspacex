@@ -23,7 +23,7 @@ export interface CreateOrgInviteLinkInput {
   readonly orgRole: string;
   readonly expiry: OrgInviteLinkExpiryKind;
   readonly maxUses: number | null;
-  /** `pending` ⟺ admin 级（拍板③）。由用例经 `needsDualReview` 推出，仓储不再判一次。 */
+  /** New links are active ordinary-member grants; pending-review is historical only. */
   readonly status: StoredLinkStatus;
   /** `null` ⟺ `status = "pending-review"`（令牌不存在，同 I-3 的落地形状）。 */
   readonly tokenHash: string | null;
@@ -87,11 +87,12 @@ export interface ActivateViaOrgInviteLinkInput {
   readonly now: Date;
   /** 邮箱已由用例规范化（`normalizeEmail`）。 */
   readonly email: string;
+  readonly existingUserId?: string;
   readonly newAccount: {
     readonly userId: string;
     readonly displayName: string;
     readonly passwordHash: string;
-  };
+  } | null;
 }
 
 export interface OrgInviteLinkGrant {

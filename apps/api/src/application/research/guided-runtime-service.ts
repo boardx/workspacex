@@ -297,6 +297,16 @@ export class GuidedRuntimeService {
       reportPartial: state.reportPartial ?? false, messages: state.messages.slice(-20) };
   }
   private async generate(state: ResearchRuntime, node: Node, persist: RuntimePersistence, instruction?: string, resume = false) {
+    // For a named brief the generated topic would be discarded below, and all
+    // other fields are already retained verbatim. Validate/commit that same
+    // scope without paying for an external request that cannot change it.
+    if (node === "brief" && state.brief.topic.trim() !== C.DEFAULT_RESEARCH_NAME) {
+      const draft = C.GuidedResearchRuntimeDraft.parse({ node, value: state.brief });
+      validateGeneratedResearchDesign(node, draft.value);
+      applyDraft(state, draft);
+      if (!state.generatedNodes.includes(node)) state.generatedNodes.push(node);
+      return;
+    }
     const reportStarted = performance.now();
     const reportMetrics = reportPerformance(event => this.debugTrace?.record({
       traceId: persist.requestId ?? state.sessionId, kind: "research.report.performance", level: event.failed ? "warn" : "info",

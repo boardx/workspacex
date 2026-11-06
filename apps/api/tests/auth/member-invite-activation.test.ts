@@ -153,7 +153,7 @@ async function readInvite(inviteId: string) {
 }
 
 describe("① 管理员邀请：待激活行按服务端指派的角色与团队落库", () => {
-  it("邮箱规范化后落库，status=pending，sent_at 已写（= 已入出站队列）", async () => {
+  it("邮箱规范化后落库，等待真实邮件投递时 sent_at 为空", async () => {
     const out = await invite();
     expect(out.status).toBe("pending");
     expect(out.tokenIssued).toBe(true);
@@ -165,7 +165,7 @@ describe("① 管理员邀请：待激活行按服务端指派的角色与团队
     expect(row.org_role).toBe("consultant");
     expect(row.team_id).toBe(fixture.teams.energy);
     expect(row.status).toBe("pending");
-    expect(row.sent_at).not.toBeNull();
+    expect(row.sent_at).toBeNull();
     expect(row.used_by_user_id).toBeNull();
   });
 
@@ -177,18 +177,15 @@ describe("① 管理员邀请：待激活行按服务端指派的角色与团队
     expect(n.rows[0].n).toBe(0);
   });
 
-  it("I-3 / O-28 ⑥：邀请管理员 → awaiting-review，**且不签发令牌**", async () => {
+  it("requesting admin creates an ordinary pending invitation, without review", async () => {
     const out = await invite({ email: "carol@f10main.test", orgRole: "admin" });
-    expect(out.status).toBe("awaiting-review");
-    expect(out.tokenIssued).toBe(false);
-    expect(out.token).toBeNull();
-
-    const tokens = await asApp(ORG, (c) =>
-      c.query("SELECT count(*)::int AS n FROM org_invite_tokens WHERE invite_id = $1", [out.inviteId]),
-    );
-    // 「状态写着待批」与「链接没发出去」是两件事，这里断言的是后者。
-    expect(tokens.rows[0].n).toBe(0);
+    expect(out.status).toBe("pending");
+    expect(out.tokenIssued).toBe(true);
+    expect(out.token).not.toBeNull();
+    const tokens = await asApp(ORG, (c) => c.query("SELECT count(*)::int AS n FROM org_invite_tokens WHERE invite_id=$1", [out.inviteId]));
+    expect(tokens.rows[0].n).toBe(1);
     const row = await readInvite(out.inviteId);
+    expect(row.org_role).toBe("consultant");
     expect(row.sent_at).toBeNull();
   });
 
@@ -203,9 +200,13 @@ describe("① 管理员邀请：待激活行按服务端指派的角色与团队
     expect(n.rows[0].n).toBe(1);
   });
 
-  it("I-5 冲突：同邮箱但**换了角色**的第二次提交是 INVITE_DUPLICATE，不是重放", async () => {
-    await invite();
-    await expect(invite({ orgRole: "lead" })).rejects.toMatchObject({ reasonCode: "INVITE_DUPLICATE" });
+  it("a requested role change still replays the same ordinary-member invitation", async () => {
+    const first = await invite();
+    const replay = await invite({ orgRole: "lead" });
+    expect(replay.inviteId).toBe(first.inviteId);
+    expect(replay.tokenIssued).toBe(false);
+    expect(replay.token).toBeNull();
+    expect((await readInvite(first.inviteId)).org_role).toBe("consultant");
   });
 
   it("已经是成员的邮箱 → INVITE_ALREADY_MEMBER（引导去登录，不是「重复邀请」）", async () => {

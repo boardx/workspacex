@@ -60,6 +60,25 @@ describe("Markdown task execution", () => {
     expect(index.filter(item=>item.taskKey === null).every(item=>item.expertId === null)).toBe(true);
     expect(document.evidenceMode).toBe("simulated");
   });
+  it("resumes only the failed expert fragment without leaking completed peers", async () => {
+    await store.control({...input, expectedVersion: await version(), action: "start"});
+    const claim = (await store.claim(input))!;
+    await store.finish({...input, claimId: claim.claimId, results: claim.tasks.map(task => ({
+      expertId: task.expertId, markdown: task.expertId === "teacher" ? "TEACHER_PARTIAL" : "PRINCIPAL_COMPLETE",
+      failed: task.expertId === "teacher",
+    }))});
+    const complete = vi.fn(async (request: {user: string}) => {
+      expect(request.user).toContain("TEACHER_PARTIAL");
+      expect(request.user).not.toContain("PRINCIPAL_COMPLETE");
+      expect(request.user).toContain("最近一次备课？");
+      expect(request.user).not.toContain("具体反例？");
+      return {text: "教师续答"};
+    });
+    const result = await executeInterviewMarkdown({repo:new PgDigitalInterviewRepository(db),scope:new PgInterviewScopeRepository(db),decisions:new UuidDecisionIdFactory(),reader,store,modelProvider:"test",modelId:"test",model:{complete}}, {...input, expectedVersion: await version(), action: "retry"});
+    expect(complete).toHaveBeenCalledTimes(1);
+    expect(result.execution?.status).toBe("completed");
+    expect(result.documents.find(d => d.step === "runs")?.markdown).toContain("PRINCIPAL_COMPLETE");
+  });
   it("previews an authorized virtual persona as unsaved Markdown and rejects stale versions", async () => {
     let modelCalls = 0;
     let proposal = "# 采购顾问\n\n## 专业角色\n采购研究员\n\n## 专业领域\n采购\n\n## 研究关注\n否决链\n\n## 观点风格\n审慎\n\n## 简介\n模拟画像\n\n## 局限与材料边界\n非真人证据";
@@ -129,7 +148,12 @@ describe("Markdown task execution", () => {
   it("calls the actual model port with confirmed Markdown, retains failure, and only reports after tasks complete", async () => {
     let calls=0;
     const deps={repo:new PgDigitalInterviewRepository(db),scope:new PgInterviewScopeRepository(db),decisions:new UuidDecisionIdFactory(),reader,store,modelProvider:"test",modelId:"test",model:{complete:async(request:{user:string;system:string})=>{
-      expect(request.user).toContain("最近一次备课？");expect(request.system).toContain("Markdown");
+      if (request.user.includes("simulate_expert_teacher")) {
+        expect(request.user).toContain("最近一次备课？"); expect(request.user).not.toContain("具体反例？");
+      } else {
+        expect(request.user).toContain("具体反例？"); expect(request.user).not.toContain("最近一次备课？");
+      }
+      expect(request.system).toContain("Markdown");
       calls++;return calls===1?{text:"### 已保存部分\n回答 🧪",truncated:true}:{text:"\n### 剩余回答\n具体反例"};
     }}};
     const first=await executeInterviewMarkdown(deps,{...input,expectedVersion:await version(),action:"start"});

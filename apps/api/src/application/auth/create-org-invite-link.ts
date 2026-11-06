@@ -1,17 +1,8 @@
-/**
- * `CreateOrgInviteLink`（shared-invite-links delta，拍板①③）—— 编排。
- *
- * 做的三件事：① 越权判定（只有组织管理员能建链）② 由被授予角色推出「进不进复核」
- * 与「签不签令牌」（`needsDualReview`——与单人邀请**同一条**函数，O-28⑥ 的同一个
- * 判据不写第二份）③ 令牌生成 + hash（明文只在返回值里出现，随响应回传一次后消失）。
- *
- * ⚠ admin 级链接：status = pending-review、令牌**不生成**——两个值一起算出来，
- *   「待复核但令牌存在」在本文件里连表达都表达不出来（同 invite-org-member.ts）。
- * ⚠ expiresAt 只在即建即用时计算：待复核链接的窗口从**批准**起算（契约头注的理由）。
+/** Create an immediately active ordinary-member shared invitation.
+ * Tokens remain hashed at rest and expiry/count limits remain authoritative on acceptance.
  */
 import {
   hashOrgInviteLinkToken,
-  needsDualReview,
   newOrgInviteLinkId,
   newOrgInviteLinkToken,
   ORG_INVITE_LINK_EXPIRY_MS,
@@ -51,22 +42,21 @@ export async function createOrgInviteLink(
   if (input.actorOrgRole !== "admin") throw new OrgAdminError("PROJECT_ROLE_INSUFFICIENT");
 
   const now = (deps.now ?? (() => new Date()))();
-  const pending = needsDualReview(input.orgRole);
-  const token = pending ? null : newOrgInviteLinkToken();
-  const expiresAt = pending ? null : new Date(now.getTime() + ORG_INVITE_LINK_EXPIRY_MS[input.expiry]);
+  const token = newOrgInviteLinkToken();
+  const expiresAt = new Date(now.getTime() + ORG_INVITE_LINK_EXPIRY_MS[input.expiry]);
   const linkId = newOrgInviteLinkId();
 
   await deps.repo.create({
     linkId,
     orgId: input.orgId,
     actorId: input.actorId,
-    orgRole: input.orgRole,
+    orgRole: "consultant",
     expiry: input.expiry,
     maxUses: input.maxUses,
-    status: pending ? "pending-review" : "active",
-    tokenHash: token === null ? null : hashOrgInviteLinkToken(token),
+    status: "active",
+    tokenHash: hashOrgInviteLinkToken(token),
     expiresAt,
   });
 
-  return { linkId, status: pending ? "pending-review" : "active", linkToken: token, expiresAt };
+  return { linkId, status: "active", linkToken: token, expiresAt };
 }

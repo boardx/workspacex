@@ -278,6 +278,11 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
   it("uses and persists unsaved editor changes before calling the model", async () => {
     const edited = { ...brief, topic: "New research topic" };
     await run("generate", { draft: { node: "brief", value: edited } });
+    expect(calls).toEqual([]); // Named metadata needs no redundant provider request.
+    expect((await service.get(actor, session)).brief).toEqual(edited);
+    await run("confirm"); // The first dependent model receives the persisted edit.
+    expect(state.errorCode).toBeNull();
+    expect(calls).toEqual(["directions"]);
     expect(seenBriefs[0]).toEqual(edited);
   });
   it("serves authorized runtime commands over HTTP and rejects cross-step payloads", async () => {
@@ -391,7 +396,7 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
     const reviewed = { ...state.report!, summary: "Reviewed evidence summary" };
     await run("complete", { draft: { node: "report", value: reviewed } });
     expect(state.report).toEqual(reviewed);
-    expect(state.errorCode).toBeNull(); expect(state.completed).toBe(true); expect(calls).toEqual(["brief", "directions", "outline", "report", "report", "report", "report"]);
+    expect(state.errorCode).toBeNull(); expect(state.completed).toBe(true); expect(calls).toEqual(["directions", "outline", "report", "report", "report", "report"]);
     expect(state.researchPlan).toBeNull();
     const restored = await new GuidedRuntimeService(new PgGuidedRuntimeStore(db), model, search).get(actor, session);
     expect(restored).toEqual(state); expect(restored.report!.sections[0]!.sourceIds).toEqual([sourceId]);
@@ -424,10 +429,10 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
     expect(state.currentNode).toBe("directions"); expect(state.errorCode).toBe("RESEARCH_WORKFLOW_UNAVAILABLE");
     expect((await service.get(actor, session)).currentNode).toBe("directions");
     await service.execute(actor, session, command);
-    expect(calls).toEqual(["brief", "directions"]);
+    expect(calls).toEqual(["directions"]);
     failModelNode = undefined; await run("retry");
     expect(state.currentNode).toBe("directions"); expect(state.errorCode).toBeNull();
-    expect(calls).toEqual(["brief", "directions", "directions"]);
+    expect(calls).toEqual(["directions", "directions"]);
   });
   it("exposes the destination loading state while the confirmation model request is pending", async () => {
     await run("generate"); blockModel = true;
@@ -596,9 +601,9 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
     await expect(service.execute(actor, session, { ...command, requestId: randomUUID() })).rejects.toMatchObject({ reasonCode: "RESEARCH_WORKFLOW_BUSY" });
     releaseModel!(); state = await first;
     const replay = await service.execute(actor, session, command);
-    expect(replay.version).toBe(state.version); expect(calls).toEqual(["brief", "directions"]);
+    expect(replay.version).toBe(state.version); expect(calls).toEqual(["directions"]);
     await expect(service.execute(actor, session, { ...command, requestId: randomUUID() })).rejects.toMatchObject({ reasonCode: "RESEARCH_GRAPH_VERSION_CONFLICT" });
-    expect(calls).toEqual(["brief", "directions"]);
+    expect(calls).toEqual(["directions"]);
     await expect(service.execute(actor, session, { ...command, message: "different input" })).rejects.toMatchObject({ reasonCode: "RESEARCH_IDEMPOTENCY_REPLAY_MISMATCH" });
   });
 });

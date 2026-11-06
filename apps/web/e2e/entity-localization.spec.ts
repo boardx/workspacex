@@ -4,6 +4,7 @@ import { ENTITY_LOCALIZATION_E2E, PLATFORM_MEMBERS_E2E, TELEMETRY_HISTORY_E2E } 
 import { agentRole, aiUsage, homeConfig, orgAdmin, skills, wave2Runtime, workflowCapabilityGrants as WG, auth as platformLogin, platformMembers as PM, instanceTelemetry as T } from "@repo/contracts";
 import { EntityLocalizationAdminView } from "@repo/contracts/entity-localization";
 import { SkillFileSnapshot, operations as fileOperations } from "@repo/contracts/skill-file-edit";
+import { extractFirstLink, waitForMail } from "./support/mail-loopback";
 
 async function login(page: Page, admin: boolean) {
   await page.goto("/login");
@@ -455,7 +456,7 @@ test("an installed organization explicitly updates authored titles without chang
   } finally { await memberContext.close(); }
 });
 
-test("organization members and invitations retain source data across locales", async ({ page, browser }, testInfo) => {
+test("organization members and invitations retain source data across locales", async ({ page, browser, baseURL }, testInfo) => {
   // Same multi-account invitation/activation budget as core-journey-02.
   test.setTimeout(120_000);
   const email = `org-locale-${randomUUID()}@example.test`;
@@ -472,19 +473,23 @@ test("organization members and invitations retain source data across locales", a
   expect(response.status()).toBe(201);
   const requestBody = response.request().postDataJSON() as Record<string, unknown>;
   expect(requestBody).toMatchObject({ email, orgRole: "consultant", teamId: "" });
-  await expect(page.getByTestId("org-admin-invite-link-once-note")).toContainText("only once");
-  const activationUrl = await page.getByTestId("org-admin-invite-link-url").inputValue();
+  expect((await response.json()).activationToken).toBeNull();
+  await expect(page.getByTestId("org-admin-invite-link-block")).toHaveCount(0);
+  const mail = await waitForMail({ to: email, timeoutMs: 30_000 });
+  const activationUrl = extractFirstLink(mail, "/auth/activate");
+  expect(activationUrl.origin).toBe(new URL(baseURL!).origin);
+  expect(activationUrl.pathname).toBe("/auth/activate");
+  expect(activationUrl.searchParams.get("t")).toBeTruthy();
+  await expect(page.getByText(email, { exact: true })).toBeVisible();
   await page.getByTestId("language-switcher").first().selectOption("zh-CN");
   await expect(page.getByRole("heading", { name: "邀请", exact: true })).toBeVisible();
-  await expect(page.getByTestId("org-admin-invite-link-url")).toHaveValue(activationUrl);
-  await expect(page.getByTestId("org-admin-invite-link-once-note")).toContainText("只显示这一次");
-  await page.getByTestId("org-admin-invite-link-dismiss").click();
+  await expect(page.getByText(email, { exact: true })).toBeVisible();
   await expect(page.getByTestId("org-admin-invite-link-block")).toHaveCount(0);
 
   const inviteeContext = await browser.newContext();
   try {
     const invitee = await inviteeContext.newPage();
-    await invitee.goto(activationUrl);
+    await invitee.goto(activationUrl.toString());
     await invitee.getByTestId("activate-name").fill(displayName);
     await invitee.getByTestId("activate-pwd").fill(`Org-Locale-${randomUUID()}!`);
     await invitee.getByTestId("activate-submit").click();

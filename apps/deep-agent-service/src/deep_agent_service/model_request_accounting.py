@@ -52,6 +52,8 @@ class CreditRuntimeUsageError(RuntimeUsageError):
         self.payload = {"code": payload["code"]}
         if payload["code"] == "credit_required" and payload.get("ownerType") in ("user", "team") and isinstance(payload.get("ownerId"), str):
             self.payload.update(ownerType=payload["ownerType"], ownerId=payload["ownerId"])
+            if payload.get("reason") == "member_monthly_limit":
+                self.payload["reason"] = "member_monthly_limit"
         super().__init__(payload["code"])
 
 

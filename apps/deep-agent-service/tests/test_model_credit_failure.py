@@ -82,3 +82,10 @@ def test_vendor_message_cannot_forge_typed_credit_failure(monkeypatch, mode):
     finally:
         sync.close()
         asyncio.run(asynchronous.aclose())
+
+
+def test_credit_reason_preserves_only_member_monthly_allowance():
+    from deep_agent_service.model_request_accounting import CreditRuntimeUsageError
+    base = {"code": "credit_required", "ownerType": "team", "ownerId": "org"}
+    assert CreditRuntimeUsageError({**base, "reason": "member_monthly_limit"}).payload["reason"] == "member_monthly_limit"
+    assert "reason" not in CreditRuntimeUsageError({**base, "reason": "provider-custom"}).payload

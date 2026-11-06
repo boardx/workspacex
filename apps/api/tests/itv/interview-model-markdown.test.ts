@@ -37,3 +37,18 @@ describe("Markdown model context", () => {
     expect(context).toContain("模拟证据");
   });
 });
+
+it("limits each expert task to its own profile and questions while retaining shared research", () => {
+  const sources = [
+    document("# 用户原始需求\n完整足球研究范围"),
+    { ...document("## [教师](#expert-teacher)\n教师画像\n\n## [校长](#expert-principal)\n校长画像"), step: "experts" as const },
+    { ...document("## [教师](#expert-teacher)\n最近一次备课？\n\n## [校长](#expert-principal)\n校长预算反例？"), step: "outline" as const },
+  ];
+  const context = buildInterviewMarkdownModelContext({ operation: "simulate_expert_teacher", expertId: "teacher", sources: sources.map(document => ({ document, status: "confirmed" as const })) });
+  expect(context).toContain("完整足球研究范围");
+  expect(context).toContain("教师画像");
+  expect(context).toContain("最近一次备课？");
+  expect(context).not.toContain("校长画像");
+  expect(context).not.toContain("校长预算反例？");
+  expect(sources[2]!.markdown).toContain("校长预算反例？");
+});

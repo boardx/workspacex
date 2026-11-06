@@ -30,7 +30,7 @@ export interface CreateOrgInviteInput {
   readonly email: string;
   readonly orgRole: string;
   readonly teamId: string | null;
-  /** `pending` | `awaiting-review`，由 `initialInviteStatus` 推出，仓储不再判一次。 */
+  /** New invitations use pending; awaiting-review is retained for historical records. */
   readonly status: "pending" | "awaiting-review";
   /**
    * `null` ⟺ `status = "awaiting-review"`（I-3：双人复核前不签发）。

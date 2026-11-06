@@ -172,3 +172,5 @@ chat 只负责把执行状态（含工具调用）渲染出来、把用户输入
 - 2026-11-04（#6215）：CK-P8 archived fixture 的 route 必须只匹配当前线程 getThread pathname（保留 query）、只处理 GET，不能宽拦 `/agents` 等轮询。精确 trace 显示全部只读断言已过后，无关 route.fetch 仍在途，context 释放后 response.json 才报 disposed；结束前 unregister 自己的 handler 并等待在途工作，错误照常传播，不吞错/扩超时。反例与真实原 spec 结果见 `evidence/chat-archived-fixture-6215`（尚需按其收据确认当前验证状态）。
 
 - 2026-11-05（#6244）：历史失败的显示偏好按组织/会话/run/attempt 隔离，仅终态失败消费隐藏值；重试只复用当前错误横幅对应 run 的恢复路径，不能把历史 run 卡片连到最新计划。失败计划移入执行过程详情时，保留成功/运行中原展示与未完成步骤事实。
+
+- 2026-11-06：SDK isRunning=false 可能只是审批停流，不是业务完成；播报应复用持久执行/审批/恢复状态，只有当前run新终态证明才能结算本次活动，历史终态及另一run恢复状态不能拼成新任务完成。切换组织/用户/线程须清空旧播报（issue #6321）。

@@ -76,6 +76,7 @@ const SUBTASK_BOUNDARIES = new Set([
 const ALLOWLIST = new Map([
 
 
+
   [
     "src/infrastructure/work-content/pg-content-skill-instructions.ts",
     "Issue #4862: reads executable SKILL.md only from the Workflow's exact published Skill version in its tenant; this is runtime definition loading after Workflow start admission, not retrieval of user context. Skills have no ACL ObjectRef kind. No interface imports this adapter; ModelContentSkillRunner consumes it only inside the admitted Workflow runtime. tests/work-content/pinned-skill-instructions.test.ts restricts its tables, tenant binding, fixed-version predicate and import boundary; problem-to-prd-real-loopback-e2e.test.ts verifies imported content, version isolation and cross-tenant denial. Remove this exemption if those guards are removed or the adapter gains a user-facing/context read path.",
@@ -178,7 +179,7 @@ const ALLOWLIST = new Map([
   ],
   [
     "src/infrastructure/auth/pg-org-invite-repository.ts",
-    "F10 org-member activation: the row it reads from `org_invites` is the AUTHORITY FOR THE GRANT, not content being disclosed to a requester -- and on this path there is no requester to judge, because the caller is an anonymous visitor holding an activation token who does not yet belong to any organization. `disclose()` demands a requester and produces a decision; 'may this person read the row that decides what they are about to be granted' has no answer, so guarding it would be circular in exactly the way the identity repository's entry describes. What replaces the decision is that the invite row's CONTENT never leaves the file: `activate()` returns only the grant (userId / orgId / orgRole / teamId), never `email` and never `invited_by`; the email is used solely as an INSERT parameter for the credential row the activation creates. ⚠ The exemption is valid ONLY while that stays true, so it is not left as a claim: tests/auth/member-invite-activation.test.ts asserts the returned grant carries no invite-content field, and asserts it is load-bearing by widening the return. If that test is deleted, this entry must go with it.",
+    "F10 org-member activation: the row it reads from `org_invites` is the AUTHORITY FOR THE GRANT, not content being disclosed to a requester -- and on this path there is no requester to judge, because the caller is an anonymous visitor holding an activation token who does not yet belong to any organization. `disclose()` demands a requester and produces a decision; 'may this person read the row that decides what they are about to be granted' has no answer, so guarding it would be circular in exactly the way the identity repository's entry describes. Activation returns only the grant (userId / orgId / orgRole / teamId), never `email` or `invited_by`. #6316 additionally permits findDeliveryRecipient to project only email to the internal transactional-mail adapter, after exact tenant/invite/pending/live-token/expiry matching and upstream organization-admin authorization; there is no recipient-read endpoint or caller-visible row. recordDeliveryOutcome locks the same invitation before matching the current token, so an old attempt cannot change a newer resend. tests/auth/org-invitation-members.test.ts cover transport delivery, failure and token invalidation; remove/re-review this exception if the recipient projection or its gates change. ⚠ Activation's no-content return remains load-bearing: tests/auth/member-invite-activation.test.ts asserts the returned grant carries no invite-content field, and asserts it is load-bearing by widening the return. If that test is deleted, this entry must go with it.",
   ],
   [
     "src/infrastructure/auth/pg-org-invite-link-repository.ts",
@@ -656,7 +657,7 @@ for (const root of ROOTS) {
     const body = readFileSync(file, "utf8");
     if(TEAM_FINANCIAL_BOUNDARIES.has(rel)){
       const errors=checkTeamFinancialBoundary(rel,body,p=>readFileSync(join(API,p),"utf8"));
-      for(const evidence of ["scripts/tests/team-financial-boundary.test.mjs","tests/billing/team-checkout-http.test.ts","tests/billing/team-settlement-edge-pg.test.ts","tests/billing/team-ai-admission-pg.test.ts"]){if(!existsSync(join(API,evidence)))errors.push(`Team financial counterexamples missing: ${evidence}`);}
+      for(const evidence of ["scripts/tests/team-financial-boundary.test.mjs","tests/billing/team-checkout-http.test.ts","tests/billing/team-settlement-edge-pg.test.ts","tests/billing/team-ai-admission-pg.test.ts","tests/billing/member-credit-quota-controller.test.ts","tests/billing/member-credit-quota-pg.test.ts"]){if(!existsSync(join(API,evidence)))errors.push(`Team financial counterexamples missing: ${evidence}`);}
       if(!teamConsumersChecked){teamConsumersChecked=true;errors.push(...checkTeamFinancialConsumers(walk(join(API,"src")).map(p=>({path:relative(API,p).split(sep).join("/"),source:readFileSync(p,"utf8")}))));}
       for(const error of errors){console.error(`✗ ${rel}: ${error}`);fail++;}
       continue;

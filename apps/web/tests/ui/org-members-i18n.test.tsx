@@ -39,12 +39,14 @@ describe("organization member and invitation localization", () => {
     vi.stubGlobal("fetch", fetch);
     const onLink = vi.fn();
     const onFailed = vi.fn();
-    bilingual(<InviteMemberForm orgId="org-locale" onSucceeded={vi.fn()} onFailed={onFailed} onLink={onLink} />);
+    const onSucceeded = vi.fn();
+    bilingual(<InviteMemberForm orgId="org-locale" onSucceeded={onSucceeded} onFailed={onFailed} onLink={onLink} />);
     expect(screen.getByLabelText("Invitee email")).toBeVisible();
     fireEvent.change(screen.getByTestId("org-admin-invite-email"), { target: { value: " Author+原文@example.test " } });
     fireEvent.click(screen.getByTestId("org-admin-invite-submit"));
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(onLink).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(onSucceeded).toHaveBeenCalledWith("Invitation email sent. The invitation link is valid for 7 days."));
+    expect(onLink).not.toHaveBeenCalled();
     expect(onFailed).not.toHaveBeenCalled();
     expect(JSON.parse(String(fetch.mock.calls[0]![1]?.body))).toEqual({ orgId: "org-locale", email: "Author+原文@example.test", orgRole: "consultant", teamId: "" });
   });

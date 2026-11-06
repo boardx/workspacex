@@ -65,3 +65,7 @@ description: 用户访谈流程与数字访谈能力；修改访谈主题、专�
 - 2026-10-23：步骤条完成态不能以空数组代替尚未加载的 canonical 状态；跨 stage 用当前访谈 layout 的身份隔离投影保留，初载未知与失败重试独立表示，新修订用返回状态立即清除下游完成。浏览器 HTTP 夹具必须放行 Next RSC 路由请求，否则硬导航会伪造缓存丢失（#5890，docs/evidence/interview-ui-5890）。
 
 - 2026-10-28：跨步骤缓存必须共享 canonical source、metadata 与目录，不能只缓存完成图标；后台 GET 需统一报告身份/版本 guard，错误状态使用独立 key。dirty Markdown 与专家弹窗各自保存编辑基线，遇远端变化不得用最新 CAS 静默重放旧字段。可见轮询与 focus/online 刷新应只读且去重，身份切换销毁 scope（#5967，docs/evidence/interview-session-5967）。
+
+- 2026-11-06：报告模型调用前两次 context 后即失败时，核对 professional report 的技能加载，而非直接调模型参数；生产镜像必须打包 starter-packs、显式配置读取根目录并在镜像构建中用真实摘要校验器读取报告技能。回答展示只过滤已识别的生成标题和前置声明，专家角色来自已保存专家字段，保留 canonical 原文及锚点（#6330，docs/evidence/interview-6330/README.md）。
+
+- 2026-11-06：执行单个专家时只发送该专家的已确认experts/outline节选，共享intake/analysis保留；续写只取该expertId的可信answerSpans且校验文档/片段hash，不能把全部runs作为partial。访谈页同名重复可能是另一任务里生成的无锚点专家标题；只读投影去掉该外来分组及其发现，不能在同级普通标题处恢复，更不能改写canonical正文或报告证据身份。开头模拟声明按用户要求在记录页隐藏（#6337，docs/evidence/interview-expert-scope-6337/README.md）。
