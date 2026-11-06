@@ -6,13 +6,17 @@
  * 同 `deep-research-agent-bootstrap-chat.test.ts` 那份证据的形状与强度：新组织
  * bootstrap 出来，不做任何 agent 管理操作，直接能在 chat 里选到"图片生成"这个 agent、
  * 发消息、真实执行成功——执行侧是 `BailianImageProvider` 对着一个 stub 的 DashScope
- * HTTP 服务完整走一遍"提交任务 → 轮询到终态 → 取图片 URL"，且要求至少轮询两次才转
+ * HTTP 服务完整走一遍"提交任务 → 轮询到终态 → HTTPS图片 → 持久附件"，且要求至少轮询两次才转
  * 终态，证明轮询循环本身被真实走过。
  */
 import { randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import { createServer as createHttpsServer } from "node:https";
+import { readFileSync } from "node:fs";
+import type dns from "node:dns";
 import type { AddressInfo } from "node:net";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { testTlsMaterial } from "../support/tls";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import pg from "pg";
 import { migrate } from "../../src/infrastructure/db/migrator";
@@ -25,6 +29,19 @@ import type { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { toOrgId } from "../../src/domain/org-id";
 import { ensureRedis } from "../support/auth";
 import { dropDatabaseAfterDraining } from "../support/drop-database";
+import { addOrgMember } from "../support/db";
+
+// Test-only DNS/CA seams connect the real guarded HTTPS downloader to our fixture.
+// Production endpoint/address validation remains unchanged; this is not CN supplier evidence.
+vi.mock("../../src/infrastructure/agent-run/generated-image-downloader", async (original) => {
+  const actual = await original<typeof import("../../src/infrastructure/agent-run/generated-image-downloader")>();
+  return { ...actual, createGeneratedImageDownloader: () => actual.createGeneratedImageDownloader({
+    connectTimeoutMs: 5000, extraTrustedCa: testTlsMaterial().cert,
+    seams: { lookup: ((_host: string, options: { all?: boolean }, callback: (error: null, address: unknown, family?: number) => void) => {
+      callback(null, options.all ? [{ address: "127.0.0.1", family: 4 }] : "127.0.0.1", 4);
+    }) as unknown as typeof dns.lookup, checkAddress: () => {} },
+  }) };
+});
 
 process.env.KERNEL_QUIET = "1";
 process.env.KERNEL_AGENT_RUN_AUTOSTART = "0";
@@ -36,13 +53,15 @@ const ORIGINAL_TARIFF_ENV=Object.fromEntries(["BILLING_TARIFF_DB_USER","BILLING_
 const DATABASE = `wsx_image_gen_${process.pid}_${Date.now()}`;
 const CHAT_MODEL_PROVIDER = "wave2-loopback-image-gen";
 const TASK_ID = `task-${randomUUID()}`;
-const IMAGE_URL = "https://dashscope-result-bj.oss-cn-beijing.aliyuncs.com/i662-image-gen-test.png";
+let IMAGE_URL = "";
+const IMAGE_BYTES = readFileSync(new URL("../fixtures/generated-image/square.png", import.meta.url));
 
 let app: NestExpressApplication;
 let databasePort: PgDatabase;
 let base = "";
 let chatModelServer: Server;
 let bailianServer: Server;
+let imageServer: ReturnType<typeof createHttpsServer>;
 let taskPollCount = 0;
 
 function ownerConfig(database: string) {
@@ -89,6 +108,12 @@ async function startBailianServer(): Promise<string> {
 
 beforeAll(async () => {
   ensureRedis();
+  imageServer = createHttpsServer(testTlsMaterial(), (_request, response) => {
+    response.writeHead(200, { "content-type": "image/png", "content-length": IMAGE_BYTES.length });
+    response.end(IMAGE_BYTES);
+  });
+  await new Promise<void>((resolve) => imageServer.listen(0, "127.0.0.1", resolve));
+  IMAGE_URL = `https://allowed.example:${(imageServer.address() as AddressInfo).port}/image.png`;
   const chatModelBase = await startChatModelServer();
   const bailianBase = await startBailianServer();
   process.env.KERNEL_MODEL_PROVIDER = CHAT_MODEL_PROVIDER;
@@ -121,6 +146,7 @@ afterAll(async () => {
   await databasePort?.close();
   await new Promise<void>((resolve) => chatModelServer.close(() => resolve()));
   await new Promise<void>((resolve) => bailianServer.close(() => resolve()));
+  await new Promise<void>((resolve) => imageServer.close(() => resolve()));
   const admin = await adminClient();
   try { await dropDatabaseAfterDraining(admin, DATABASE); }
   finally {
@@ -134,7 +160,7 @@ afterAll(async () => {
 }, 30_000);
 
 describe("#662 直接后续：新组织 bootstrap 出来就有一个能用的图片生成 agent", () => {
-  it("不做任何 agent 管理操作，直接进 chat → 选中图片生成 → 发消息 → 真实走完轮询 → markdown 图片写回", async () => {
+  it("不做任何 agent 管理操作，选中图片生成后走完轮询、HTTPS下载及鉴权图片附件恢复", async () => {
     const bootstrap = await fetch(`${base}/auth/bootstrap`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -195,10 +221,26 @@ describe("#662 直接后续：新组织 bootstrap 出来就有一个能用的图
     // 轮询循环真的被走过，不是第一次查询就判定终态。
     expect(taskPollCount).toBeGreaterThanOrEqual(3);
 
-    /* ── 最终回复是 markdown 图片语法，不是纯文字 ── */
+    /* ── Supplier URL stays out of prose; bytes persist as authenticated message attachments. ── */
     const messagesRes = await fetch(`${base}/chat/threads/${threadId}/messages`, { headers: principal });
     const { messages } = (await messagesRes.json()) as { messages: { authorKind: string; text: string }[] };
     const reply = messages.find((m) => m.authorKind === "agent");
-    expect(reply?.text).toBe(`![${prompt}](${IMAGE_URL})`);
+    expect(reply?.text).not.toContain(IMAGE_URL);
+    const listUrl = `${base}/chat/threads/${threadId}/attachments`;
+    const attachments = await fetch(listUrl, { headers: principal });
+    expect(attachments.status).toBe(200);
+    const { items } = await attachments.json() as { items: { id: string; mime: string; bytes: number; filename: string }[] };
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ mime: "image/png", filename: "generated-image.png", bytes: IMAGE_BYTES.length });
+    const contentUrl = `${listUrl}/${items[0]!.id}/content`;
+    for (let read = 0; read < 2; read += 1) {
+      const content = await fetch(contentUrl, { headers: principal });
+      expect(content.status).toBe(200);
+      expect(Buffer.from(await content.arrayBuffer())).toEqual(IMAGE_BYTES);
+    }
+    expect((await fetch(contentUrl)).status).toBe(401);
+    const colleague = `image-colleague-${randomUUID()}`;
+    await addOrgMember(orgId, colleague, "consultant", null);
+    expect((await fetch(contentUrl, { headers: { "x-kernel-test-principal": `${colleague}:${orgId}` } })).status).toBe(404);
   });
 });

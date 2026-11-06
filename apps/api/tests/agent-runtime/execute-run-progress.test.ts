@@ -135,6 +135,14 @@ function progressProvider(
 }
 
 describe("#742 executeClaimed: completeWithProgress branch", () => {
+  it("preserves already archived image provider attachments through script processing and writeback", async () => {
+    const store = fakeStore(baseRun({ modelProvider: "bailian-image", skillVersionIds: [] }), []);
+    const files = [{ name: "generated-image.png", mime: "image/png", sizeBytes: 123, objectKey: "agent-run-outputs/test/image.png" }];
+    await executeQueuedRuns(deps(store, { complete: async () => ({ text: "图片已生成", files }) }), { orgId: ORG });
+    expect(store.failedWith).toBeNull();
+    expect(store.output).toMatchObject({ text: "图片已生成", files });
+  });
+
   it("records each progress event as a real tool_call step, in order, before the terminal model_called step", async () => {
     const run = baseRun();
     const store = fakeStore(run);

@@ -145,6 +145,7 @@ import {PgImageRequestAccounting} from "./infrastructure/auth/pg-image-request-a
 import { DefaultStandardImageService } from "./infrastructure/agent-run/standard-image-service";
 import { StandardImageController } from "./interface/controllers/standard-image.controller";
 import { createGeneratedImageDownloader } from "./infrastructure/agent-run/generated-image-downloader";
+import { DurableImageModelProvider } from "./infrastructure/agent-run/durable-image-model-provider";
 import { selectImageProvider } from "./infrastructure/agent-run/select-image-provider";
 import { STANDARD_SCHEDULE, SCHEDULED_RUN_NOTIFIER, type ScheduledRunNotifier } from "./application/agent-run/standard-schedule";
 import { PgBossScheduler, type ScheduleWake } from "./infrastructure/agent-run/pg-boss-scheduler";
@@ -2268,7 +2269,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
       // `modelProvider` 字符串分派，不是"配一个、其它 fallback 过去"——见该类头注，这是
       // `ConfiguredModelProvider` "no fallback" 纪律在多 provider 场景下的延伸，不是放弃它。
       provide: MODEL_CALL_PORT,
-      useFactory: (db:DatabasePort,configuration:AiQuotaRuntimeConfiguration|null) => {
+      useFactory: (db:DatabasePort,configuration:AiQuotaRuntimeConfiguration|null,objects:ObjectStore) => {
         const chatConfig = readModelProviderConfig();
         const loopbackAliases = readLoopbackProviderAliases(process.env, chatConfig);
         const chatPort = new ConfiguredModelProvider(chatConfig, loopbackAliases);
@@ -2291,11 +2292,11 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
            */
           ...(capabilityAvailability(readDeploymentEdition(), "image-generation") === "absent"
             ? []
-            : [[BAILIAN_IMAGE_PROVIDER_NAME, new BailianImageProvider(readBailianImageProviderConfig(),new PgCreditImageAdmission(db),false)] as const]),
+            : [[BAILIAN_IMAGE_PROVIDER_NAME, new DurableImageModelProvider(new BailianImageProvider(readBailianImageProviderConfig(),new PgCreditImageAdmission(db),false),objects,createGeneratedImageDownloader())] as const]),
         ], loopbackAliases, chatPort)), kernelServed);
         return creditModelGateway(guardCoreModelCalls(raw,createCoreModelRuntimeGuard(db,new VerifiedOrgCoreModelAvailability(db,configuration,raw))),db,creditUsageMeter(db));
       },
-      inject:[DATABASE_PORT,AI_QUOTA_RUNTIME_CONFIGURATION],
+      inject:[DATABASE_PORT,AI_QUOTA_RUNTIME_CONFIGURATION,OBJECT_STORE],
     },
     {
       // 追问建议（`ChatFollowUpSuggestionsController`）固定走这个标准 provider，不看
