@@ -104,7 +104,8 @@ export class PgOrgInviteRepository implements OrgInviteRepository, OrgInvitation
 
   /* ─────────────────────────── 邀请 ─────────────────────────── */
 
-  /** Mail receives only the recipient for the exact newly issued, live token. */
+  /** #6316 reviewed egress: only internal mail receives the recipient for this exact live token.
+   * Activation return values still never disclose invitation content to callers. */
   async findDeliveryRecipient(input:{orgId:OrgId;inviteId:string;token:string}):Promise<{email:string}|null> {
     return this.db.withTenant(input.orgId,async s=>(await s.query<{email:string}>(
       `SELECT i.email FROM org_invites i JOIN org_invite_tokens t ON t.invite_id=i.id
