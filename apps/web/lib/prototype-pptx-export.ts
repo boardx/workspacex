@@ -219,9 +219,28 @@ function lay(n: Node, x: number, y: number, w: number, c: Ctx): Laid {
       let offset = 0;
       for (const match of html.matchAll(/<table\b[^>]*>([\s\S]*?)<\/table>/gi)) {
         prose(html.slice(offset, match.index));
-        const rows = [...match[1]!.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)]
-          .map((tr) => [...tr[1]!.matchAll(/<t[hd]\b[^>]*>([\s\S]*?)<\/t[hd]>/gi)].map((cell) => plain(cell[1]!)))
-          .filter((cells) => cells.length > 0);
+        for (const caption of match[1]!.matchAll(/<caption\b[^>]*>([\s\S]*?)<\/caption>/gi)) prose(caption[1]!);
+        const sourceRows = [...match[1]!.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)];
+        const rows: string[][] = sourceRows.map(() => []);
+        const span = (attrs: string, key: string, max: number) => {
+          const value = attrs.match(new RegExp(`(?:^|\\s)${key}\\s*=\\s*(?:"(\\d+)"|'(\\d+)'|(\\d+))`, "i"));
+          const count = Number(value?.[1] ?? value?.[2] ?? value?.[3] ?? 1);
+          return Number.isFinite(count) ? Math.min(max, Math.max(1, count)) : 1;
+        };
+        sourceRows.forEach((tr, ri) => {
+          let column = 0;
+          for (const cell of tr[1]!.matchAll(/<t[hd]\b([^>]*)>([\s\S]*?)<\/t[hd]>/gi)) {
+            while (rows[ri]![column] !== undefined) column++;
+            const width = span(cell[1]!, "colspan", 1000);
+            const height = span(cell[1]!, "rowspan", sourceRows.length - ri);
+            // Materialize occupied span slots as empty editable cells. A later
+            // row starts after those slots, so its text keeps the original column.
+            for (let dy = 0; dy < height; dy++) for (let dx = 0; dx < width; dx++) {
+              rows[ri + dy]![column + dx] = dy === 0 && dx === 0 ? plain(cell[2]!) : "";
+            }
+            column += width;
+          }
+        });
         if (rows.length) {
           const width = Math.max(...rows.map((r) => r.length));
           const padded = rows.map((r) => Array.from({ length: width }, (_, i) => r[i] ?? ""));

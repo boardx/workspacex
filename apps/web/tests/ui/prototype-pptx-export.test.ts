@@ -124,3 +124,18 @@ describe("HTML prototype editable export", () => {
     expect(slide).not.toContain("color:red");
   });
 });
+
+describe("HTML table fidelity regression", () => {
+  it("retains visible table captions as editable text", async () => {
+    const p = project();
+    p.frames = ["风险"];
+    p.prototype = [{type:"html",props:{html:'<table><caption>关键风险结论</caption><tr><th>项目</th></tr><tr><td>风险</td></tr></table>'}}] as never;
+    const files = unzip(Buffer.from(await buildPrototypePptx(p)));
+    expect(files.get("ppt/slides/slide1.xml")).toContain("关键风险结论");
+  });
+  it("keeps rowspan and colspan occupied cells from shifting subsequent columns", () => {
+    const shapes = layoutSlide({type:"html",props:{html:'<table><tr><th colspan="2">资料指标</th></tr><tr><th>团队</th><th>指标</th></tr><tr><td rowspan="2">研发</td><td>质量</td></tr><tr><td>效率</td></tr></table>'}},"表格","000000");
+    const table=shapes.find((shape)=>shape.kind==="table");
+    expect(table?.kind === "table" && table.rows).toEqual([["资料指标",""],["团队","指标"],["研发","质量"],["","效率"]]);
+  });
+});
