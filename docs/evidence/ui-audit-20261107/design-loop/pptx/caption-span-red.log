@@ -1,0 +1,26 @@
+caption AssertionError [ERR_ASSERTION]: false == true
+    at main (/private/tmp/pptx-caption-check-20261107/check.ts:7:14) {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '=='
+}
+rowspan AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
++ actual - expected
+
+  [
++   '效率',
+    '',
+-   '效率'
+  ]
+
+    at main (/private/tmp/pptx-caption-check-20261107/check.ts:8:14) {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: [Array],
+  expected: [Array],
+  operator: 'deepStrictEqual'
+}
+Error: 2 failed
+    at main (/private/tmp/pptx-caption-check-20261107/check.ts:9:20)

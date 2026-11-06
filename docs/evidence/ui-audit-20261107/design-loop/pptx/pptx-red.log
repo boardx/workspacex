@@ -1,0 +1,38 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+
+ ❯ tests/ui/prototype-pptx-export.test.ts (6 tests | 1 failed) 177ms
+   × HTML prototype editable export > keeps semantic tables editable and preserves text beyond 300 characters 10ms
+     → expected '<?xml version="1.0" encoding="UTF-8" …' to contain '<a:tbl>'
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/prototype-pptx-export.test.ts > HTML prototype editable export > keeps semantic tables editable and preserves text beyond 300 characters
+AssertionError: expected '<?xml version="1.0" encoding="UTF-8" …' to contain '<a:tbl>'
+
+- Expected
++ Received
+
+- <a:tbl>
++ <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
++ <p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld name="Slide 1"><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr><p:sp><p:nvSpPr><p:cNvPr id="3" name="Text 0"></p:cNvPr><p:cNvSpPr/><p:nvPr></p:nvPr></p:nvSpPr><p:spPr><a:xfrm><a:off x="457200" y="742950"/><a:ext cx="8229600" cy="3657600"/></a:xfrm><a:prstGeom prst="rect"><a:avLst></a:avLst></a:prstGeom><a:solidFill><a:srgbClr val="F3F4F6"/></a:solidFill><a:ln w="9525"><a:solidFill><a:srgbClr val="D1D5DB"/></a:solidFill></a:ln></p:spPr><p:txBody><a:bodyPr wrap="square" rtlCol="0" anchor="ctr"></a:bodyPr><a:lstStyle/><a:p><a:pPr algn="ctr" indent="0" marL="0"><a:buNone/></a:pPr><a:r><a:rPr lang="en-US" sz="1000" dirty="0"><a:solidFill><a:srgbClr val="6B7280"/></a:solidFill></a:rPr><a:t>资料列表 名称 类型 访谈记录 PDF 完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求完整需求</a:t></a:r><a:endParaRPr lang="en-US" sz="1000" dirty="0"/></a:p></p:txBody></p:sp></p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>
+
+ ❯ tests/ui/prototype-pptx-export.test.ts:121:19
+    119|     const files = unzip(Buffer.from(await buildPrototypePptx(p)));
+    120|     const slide = files.get("ppt/slides/slide1.xml")!;
+    121|     expect(slide).toContain("<a:tbl>");
+       |                   ^
+    122|     expect(slide).toContain("访谈记录");
+    123|     expect(slide).toContain("末尾目标");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 5 passed (6)
+   Start at  03:23:33
+   Duration  2.46s (transform 964ms, setup 187ms, collect 1.36s, tests 177ms, environment 0ms, prepare 55ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/prototype-pptx-export.test.ts

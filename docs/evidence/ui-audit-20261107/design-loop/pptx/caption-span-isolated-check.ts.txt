@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+async function main() {
+ const {layoutSlide}=await import(process.argv[2] === 'before'?'./before.ts':'./after.ts');
+ const caption=layoutSlide({type:'html',props:{html:'<table><caption>关键风险结论</caption><tr><th>项目</th></tr><tr><td>风险</td></tr></table>'}},'table','000000');
+ const row=layoutSlide({type:'html',props:{html:'<table><tr><th>团队</th><th>指标</th></tr><tr><td rowspan="2">研发</td><td>质量</td></tr><tr><td>效率</td></tr></table>'}},'table','000000').find((s:any)=>s.kind==='table');
+ let failures=0;
+ try {assert.ok(JSON.stringify(caption).includes('关键风险结论'));}catch(e){console.error('caption',e);failures++;}
+ try {assert.deepEqual(row.rows.at(-1),['','效率']);}catch(e){console.error('rowspan',e);failures++;}
+ if(failures)throw Error(`${failures} failed`);
+ console.log('PASS caption + rowspan in isolated /tmp patch, live files untouched');
+}
+main().catch(e=>{console.error(e);process.exitCode=1});
