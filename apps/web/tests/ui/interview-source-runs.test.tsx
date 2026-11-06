@@ -231,3 +231,40 @@ it("keeps embedded other-expert headings readable without changing their canonic
  expect(display).not.toContain("(#expert-persona-b)");
  expect(display).toContain("回答：模型内嵌内容。");
 });
+
+it("renders each saved expert once and hides generated notices and copied foreign groups", () => {
+  const experts = [
+    { expertId: "security", displayName: "赵翰林（网络安全专家）", status: "completed" as const, completedQuestions: 1, totalQuestions: 1 },
+    { expertId: "devops", displayName: "吴俊杰（DevOps专家）", status: "completed" as const, completedQuestions: 1, totalQuestions: 1 },
+  ];
+  const markdown = "## [赵翰林（网络安全专家）](#expert-security)\n\n> **证据边界声明**：以下回答基于模拟专家画像生成，需真人验证。\n\n1. 您什么时候审计？\n\n安全原始回答。\n\n## [吴俊杰（DevOps专家）](#expert-devops)\n\n*声明：以下回答基于模拟画像生成，属于推演性技术观点。*\n\n1. 您什么时候部署？\n\n运维原始回答。\n\n# 赵翰林（网络安全专家）\n\n*声明：以下回答基于模拟画像生成，属于推演性技术观点。*\n\n1. 您什么时候审计？\n\n错误复制的安全回答。\n\n## 核心发现\n\n- 错误复制的发现。";
+  const document = { documentId: "duplicate-runs", step: "runs" as const, version: 1, contentHash: "a".repeat(64), evidenceMode: "simulated" as const, references: [], markdown };
+  render(<InterviewRunsStep runs={experts} document={document} pending={false} onGenerateReport={vi.fn()} />);
+  expect(screen.getAllByRole("heading", { name: "赵翰林（网络安全专家）" })).toHaveLength(1);
+  expect(screen.getAllByRole("button", { name: "1. 您什么时候审计？" })).toHaveLength(1);
+  expect(screen.getByRole("button", { name: "1. 您什么时候部署？" })).toBeVisible();
+  expect(screen.queryByText(/证据边界声明|声明：以下回答/u)).not.toBeInTheDocument();
+  expect(screen.queryByText("错误复制的安全回答。")).not.toBeInTheDocument();
+  expect(screen.queryByText("错误复制的发现。")).not.toBeInTheDocument();
+  expect(document.markdown).toBe(markdown);
+});
+
+it("does not reattribute a copied peer's same-level findings to the current expert", () => {
+  const markdown = "## [吴俊杰（运维）](#expert-wu)\n\n吴的原始回答。\n\n## 赵翰林（安全）\n\n赵的重复回答。\n\n## 核心发现\n\n- 赵的重复发现。\n\n## [赵翰林（安全）](#expert-zhao)\n\n赵的有效回答。";
+  const display = interviewTranscriptDisplay(markdown, true, [
+    { expertId: "wu", displayName: "吴俊杰（运维）" }, { expertId: "zhao", displayName: "赵翰林（安全）" },
+  ]);
+  expect(display).toContain("吴的原始回答。");
+  expect(display).not.toContain("赵的重复发现。");
+  expect(display).not.toContain("赵的重复回答。");
+  expect(display).toContain("赵的有效回答。");
+});
+
+it("does not hide the current expert's answer when two saved profiles share a display name", () => {
+  const markdown = "## [同名专家（顾问）](#expert-second)\n\n# 同名专家（顾问）\n\n1. 如何验证？\n\n第二位专家的有效回答。";
+  const display = interviewTranscriptDisplay(markdown, true, [
+    {expertId: "first", displayName: "同名专家（顾问）"}, {expertId: "second", displayName: "同名专家（顾问）"},
+  ]);
+  expect(display).toContain("第二位专家的有效回答。");
+  expect(display).toContain("1. 如何验证？");
+});

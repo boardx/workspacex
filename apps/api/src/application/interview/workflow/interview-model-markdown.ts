@@ -7,11 +7,23 @@ export type InterviewMarkdownModelSource = Readonly<{
   status: ArtifactStatus;
 }>;
 
+/** A read-only excerpt of the current expert's confirmed document section.
+ * Preserve canonical bytes/version outside this model-only projection. */
+function expertSection(document: interviewMarkdown.InterviewMarkdownDocument, expertId: string): string {
+  const sections = interviewMarkdown.parseInterviewMarkdown(document).blocks.filter(block =>
+    block.links.some(link => /^#expert-[a-zA-Z0-9_-]+$/u.test(link.url)));
+  const matching = sections.flatMap((block, index) => block.links.some(link => link.url === `#expert-${expertId}`)
+    ? [document.markdown.slice(block.start, sections[index + 1]?.start ?? document.markdown.length)] : []);
+  if (!matching.length) throw new Error("EXPERT_MARKDOWN_SECTION_REQUIRED");
+  return matching.join("\n\n");
+}
+
 /** Sources must already have passed actor visibility and current-version checks.
  * This formatter never authorizes content or derives confirmation from prose.
  */
 export function buildInterviewMarkdownModelContext(input: {
   operation: string;
+  expertId?: string;
   sources: readonly InterviewMarkdownModelSource[];
 }): string {
   const confirmed = input.sources.filter(({ status }) => status === "confirmed" || status === "completed");
@@ -32,8 +44,8 @@ export function buildInterviewMarkdownModelContext(input: {
         document.references.length
           ? document.references.map((reference) => `- 锚点：${reference.anchor} · 文档：${metadata(reference.documentId)} · 版本：${reference.version}`).join("\n")
           : "当前文档没有受控引用；不得编造引用。",
-        "### 原始 Markdown 正文",
-        document.markdown,
+        input.expertId && ["experts", "outline"].includes(document.step) ? "### 当前专家的原始 Markdown 节选" : "### 原始 Markdown 正文",
+        input.expertId && ["experts", "outline"].includes(document.step) ? expertSection(document, input.expertId) : document.markdown,
       ].join("\n\n");
     }),
   ].join("\n\n");
