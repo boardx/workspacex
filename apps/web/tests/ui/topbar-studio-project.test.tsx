@@ -20,7 +20,7 @@ it.each(["/studio/survey/new", "/studio/survey/saved/design", "/rec", "/studio/d
  expect(screen.queryByTestId("role-bar-project")).toBeNull();
  expect(screen.queryByTestId("role-preview-switcher")).toBeNull();
 });
-it.each([[], [{ id: "other", name: "另一个项目" }]])("unlisted project never creates context or a role", async items => {
+it.each([{ items: [] }, { items: [{ id: "other", name: "另一个项目" }] }])("unlisted project never creates context or a role", async ({ items }) => {
  nav.pathname = "/studio/survey/new";
  api.listProjects.mockResolvedValue(items);
  render(bar());
