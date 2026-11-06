@@ -85,11 +85,11 @@ describe('preinstalled fullstack CI runtime', () => {
     expect(() => assertRuntimeCommand('directory', ['--', 'pnpm', 'run', 'verify:digital-directory-cards'])).not.toThrow();
     expect(() => assertRuntimeCommand('directory', ['--', 'pnpm', 'run', 'verify:fullstack-smoke'])).toThrow();
     expect(() => assertRuntimeCommand('directory', ['--', 'pnpm', 'run', 'verify:digital-directory-cards', '--grep', 'one'])).toThrow();
-    const workflow = readFileSync(new URL('../../.github/workflows/harness-verify.yml', import.meta.url), 'utf8');
+    const workflow = readFileSync(new URL('../../.github/workflows/harness-acceptance.yml', import.meta.url), 'utf8');
     expect(workflow).toContain('ci-fullstack-runtime.mjs directory -- pnpm run verify:digital-directory-cards');
   });
   it('retains full commands and evidence within a bounded complete-run budget', () => {
-    const workflow = readFileSync(new URL('../../.github/workflows/harness-verify.yml', import.meta.url), 'utf8');
+    const workflow = readFileSync(new URL('../../.github/workflows/harness-acceptance.yml', import.meta.url), 'utf8');
     const tail=workflow.slice(workflow.indexOf('  fullstack-smoke:'));
     const lane=tail.slice(0,/\n  [a-z0-9-]+:\n/.exec(tail)?.index??tail.length);
     // The 222-case execution plus setup/evidence exhausted 40m (#5832).
@@ -111,7 +111,7 @@ describe('preinstalled fullstack CI runtime', () => {
 });
 
 it('accepts actual sticky and geometry workflow commands with first-failure limits',()=>{
- for(const file of ['harness-verify','harness-acceptance']){
+ for(const file of ['harness-acceptance']){
   const source=readFileSync(`.github/workflows/${file}.yml`,'utf8');
   const commands=[...source.matchAll(/ci-fullstack-runtime\.mjs (sticky|geometry) (-- [^\n]+)/g)];
   expect(commands).toHaveLength(2);

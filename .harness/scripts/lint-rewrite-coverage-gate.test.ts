@@ -19,8 +19,7 @@ const WORKFLOW = join(__dirname, "..", "..", ".github", "workflows", "harness-ve
 interface Step { name?: string; run?: string }
 interface Job { if?: string; steps?: Step[] }
 
-function prJobs(): Record<string, Job> {
-  const doc = parse(readFileSync(WORKFLOW, "utf8")) as { jobs: Record<string, Job> };
+function prJobs(doc = parse(readFileSync(WORKFLOW, "utf8")) as { jobs: Record<string, Job> }): Record<string, Job> {
   return Object.fromEntries(
     Object.entries(doc.jobs).filter(([, job]) => {
       const cond = job.if ?? "";
@@ -41,8 +40,17 @@ describe("rewrite-coverage 门在 PR 门控上（#2490）", () => {
     expect(hits, "PR 门控里没有任何 step 跑 lint-rewrite-coverage——门又回到了只在 main 的 e2e-full 里红的位置").not.toEqual([]);
   });
 
-  it("反空转：workflow 里确实存在被本测试排除的非 PR job（否则过滤器是空转的）", () => {
-    const doc = parse(readFileSync(WORKFLOW, "utf8")) as { jobs: Record<string, Job> };
-    expect(Object.keys(doc.jobs).length).toBeGreaterThan(Object.keys(prJobs()).length);
+  it("反空转：用明确正反样例证明过滤器排除非 PR job，而不要求真实工作流保留无用任务", () => {
+    const doc = {jobs:{
+      pr:{if:"github.event_name == 'pull_request'"},
+      unconditional:{},
+      notPr:{if:"github.event_name != 'pull_request'"},
+      scheduled:{if:"github.event_name == 'schedule'"},
+      manual:{if:"github.event_name == 'workflow_dispatch'"},
+      push:{if:"github.event_name == 'push'"},
+    }};
+    expect(Object.keys(prJobs(doc))).toEqual(['pr','unconditional']);
+    // A broken no-op filter would retain the four excluded examples.
+    expect(Object.keys(doc.jobs)).toHaveLength(6);
   });
 });
