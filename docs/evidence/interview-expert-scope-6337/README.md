@@ -24,3 +24,5 @@ Full PostgreSQL interview suite attempted with2workers: a fixture INSERT in virt
 The CN browser inspection was pre-fix diagnosis. No authenticated post-deploy browser evidence or real-provider generation has been claimed. The current branch requires PR checks and release before it affects CN.
 
 Final full serial database regression:87files passed,1050tests passed/1existing skip,164.87s, peak25connections. API/web typecheck, API lint and git diff --check passed. Owned interview6337 PostgreSQL container/network removed with compose down.
+
+Additional UI regression: two distinct saved expert IDs may share a display name. Prefer the current attributed ID before considering a same-name heading foreign, so legitimate answers are never hidden merely by name collision. RED→GREEN case added; canonical data unchanged.

@@ -259,3 +259,12 @@ it("does not reattribute a copied peer's same-level findings to the current expe
   expect(display).not.toContain("赵的重复回答。");
   expect(display).toContain("赵的有效回答。");
 });
+
+it("does not hide the current expert's answer when two saved profiles share a display name", () => {
+  const markdown = "## [同名专家（顾问）](#expert-second)\n\n# 同名专家（顾问）\n\n1. 如何验证？\n\n第二位专家的有效回答。";
+  const display = interviewTranscriptDisplay(markdown, true, [
+    {expertId: "first", displayName: "同名专家（顾问）"}, {expertId: "second", displayName: "同名专家（顾问）"},
+  ]);
+  expect(display).toContain("第二位专家的有效回答。");
+  expect(display).toContain("1. 如何验证？");
+});

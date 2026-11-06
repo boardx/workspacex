@@ -65,7 +65,8 @@ export function interviewTranscriptDisplay(
     const heading = text.match(/^(#{1,6})\s+(.+?)\s*#*$/u);
     const normalize = (value: string) => value.replace(/[（(]/gu, "(").replace(/[）)]/gu, ")").replace(/\s+/gu, "");
     const namedExpert = simulated && heading && heading[1]!.length <= wrapperDepth
-      ? experts.find(item => normalize(item.displayName) === normalize(heading[2]!)) : undefined;
+      ? experts.find(item => item.expertId === attributedExpert && normalize(item.displayName) === normalize(heading[2]!))
+        ?? experts.find(item => normalize(item.displayName) === normalize(heading[2]!)) : undefined;
     // A copied peer section may contain ordinary same-level insight headings.
     // Only returning to the current expert (or its saved wrapper above) ends it.
     if (foreignSection && namedExpert?.expertId !== attributedExpert) return [];
