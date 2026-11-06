@@ -1,3 +1,4 @@
+// @global-scope-fixture table:credit_global_native_tariffs: fixed fake provider/model keys use idempotent seeding; the isolated test database owns cleanup, never organization deletion of shared prices.
 import {randomUUID} from "node:crypto";
 import {beforeAll,afterAll,it,expect,vi} from "vitest";
 import {Configuration} from "@repo/contracts/ai-policy";
@@ -11,7 +12,7 @@ import {PgDatabase} from "../../src/infrastructure/db/pg-database";
 import {appConfig} from "../../src/infrastructure/db/pg-config";
 import {addChatThread} from "../support/chat-db";
 import {seedAgentRun} from "../support/agent-run-db";
-import {ensureDatabase,migrateOnce,seedOrg,addOrgMember,asApp,resetOrgs} from "../support/db";
+import {ensureDatabase,migrateOnce,seedOrg,addOrgMember,asApp,asOwner,resetOrgs} from "../support/db";
 /** Real PostgreSQL ledger acceptance. Native tariffs and reported supplier counts are test fixtures;
  * this suite does not dispatch a provider or prove deployment pricing/model availability. */
 let db:PgDatabase;const orgs:string[]=[];
@@ -26,8 +27,8 @@ async function fixture(plan:"ordinary"|"enterprise"="ordinary",tokens:string|nul
  const configuration=Configuration.parse({window,ordinaryTokensPerUser:tokens,costMicrosPerUser:cost,currency:"CNY",
   prices:[{modelId:"dummy-token",modelProvider:"dummy",runtimeModelId:"dummy-token-runtime",inputMicrosPerMillion:"1",outputMicrosPerMillion:"1",cachedInputMicrosPerMillion:"1",maxInputTokens:1,maxOutputTokens:1}],
   nativePrices:[{modelId:formalModelId,modelProvider:"native-fixture",runtimeModelId:runtimeModelId,unit,quantum:quantum.toString(),microsPerQuantum:rate,maxQuantity:maxQuantity.toString()}],fallbackModelIds:[],maxAttempts:1});
+  await asOwner(owner=>owner.query("INSERT INTO credit_global_native_tariffs(model_provider,model_id,unit,quantum,hundredths_per_quantum,version) VALUES('native-fixture',$1,$2,$3,1,'fixture-credit-v1') ON CONFLICT DO NOTHING",[runtimeModelId,unit,quantum.toString()]));
  const priceVersion=randomUUID();await asApp(org,async c=>{
-  await c.query("INSERT INTO credit_native_tariffs(org_id,model_provider,model_id,unit,quantum,hundredths_per_quantum,version) VALUES($1,'native-fixture',$2,$3,$4,1,'fixture-credit-v1')",[org,runtimeModelId,unit,quantum.toString()]);
   await c.query("INSERT INTO organization_plans(org_id,plan,version,updated_by) VALUES($1,$2,1,$3)",[org,plan,user]);
   await c.query("INSERT INTO organization_ai_policy_changes(id,org_id,version,configuration,price_version,actor_id,reason) VALUES($1,$2,1,$3::jsonb,$4,$5,$6)",[randomUUID(),org,JSON.stringify(configuration),priceVersion,user,"native ledger acceptance fixture"]);
   await c.query("INSERT INTO organization_ai_policies(org_id,version,configuration,price_version,updated_by) VALUES($1,1,$2::jsonb,$3,$4)",[org,JSON.stringify(configuration),priceVersion,user]);

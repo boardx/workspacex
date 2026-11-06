@@ -4,9 +4,9 @@
 const exact=text=>new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"));
 export const modelMetadataPermissionBoundaries=new Map([
  ["src/infrastructure/billing/resolve-native-credit-tariff.ts", {
-  tables:["credit_native_tariffs"],
-  reason:"#6268: financial tariff metadata only. Receives the existing tenant transaction from PgCreditConsumption after authenticated membership/payer checks; exact org/provider/model/unit lookup remains tenant RLS scoped. Unified image models read only the global schedule and never legacy org prices. No content or tariff rows leave the reservation boundary. global-image-tariff-pg.test.ts and credit-consumption-pg.test.ts verify real reservations, membership rejection, both payers and frozen settlement.",
-  checks:[[null,exact("WHERE org_id=$1 AND model_provider=$2 AND model_id=$3 AND unit=$4")],["src/infrastructure/billing/pg-credit-consumption.ts",exact("const tariff=await resolveNativeCreditTariff(s,orgId,input.modelProvider,input.modelId,native.unit)")],["tests/billing/global-image-tariff-pg.test.ts",exact("old markup cannot override either payer")]],
+  tables:[],globalCalls:0,globalTables:["credit_global_image_schedule","credit_global_native_tariffs"],
+  reason:"#6268: financial tariff metadata only. Receives the existing tenant transaction from PgCreditConsumption after authenticated membership/payer checks; provider/model/unit lookup reads the two disjoint global authorities within that admitted transaction. Bailian-image reads only the image CAS schedule; every other provider reads the CHECK-protected nonimage store. No legacy organization-price fallback exists. No content or tariff rows leave the reservation boundary. global-image-tariff-pg.test.ts and credit-consumption-pg.test.ts verify real reservations, membership rejection, both payers and frozen settlement.",
+  checks:[[null,exact("WHERE model_provider=$1 AND model_id=$2 AND unit=$3")],["src/infrastructure/billing/pg-credit-consumption.ts",exact("const tariff=await resolveNativeCreditTariff(s,orgId,input.modelProvider,input.modelId,native.unit)")],["tests/billing/global-image-tariff-pg.test.ts",exact("old markup cannot override either payer")]],
  }],
   ["src/infrastructure/billing/pg-auxiliary-model-accounting.ts", {
     tables:["auxiliary_model_operations","auxiliary_model_requests"],
@@ -40,9 +40,9 @@ export const modelMetadataPermissionBoundaries=new Map([
     checks:[[null,exact("WHERE request_id=$1 AND org_id=$2")],[null,exact("row.user_id !== usage.userId")],[null,exact("credit_receipt_provenance_mismatch")],[null,exact("credit_receipt_replay_mismatch")]],
   }],
   ["src/infrastructure/billing/pg-native-credit-tariff-repository.ts", {
-    tables:["credit_native_tariffs"],
-    reason:"#5877: native credit prices are tenant financial metadata, not content. Public controller passes authenticated principal to NativeCreditTariffService, which checks the actual platform operator before any read/write. Tenant RLS isolates organization prices; immutable audit records actor and old/new price. native-credit-tariff-pg.test.ts and consumption-settings.test.ts prove operator refusal and tenant isolation.",
-    checks:[[null,exact("this.db.withTenant(toOrgId(orgId)")],["src/application/billing/native-credit-tariff-service.ts",exact("if(!await this.isOperator(principal.userId))throw new ConsumptionSettingsForbidden()")],[null,exact("INSERT INTO credit_native_tariff_changes")]],
+    tables:["credit_packages"],globalCalls:2,globalTables:["credit_global_native_tariffs","credit_global_native_tariff_changes"],
+    reason:"#6290: user-approved global per-model retail prices contain no tenant content. Exactly two global operations list non-bailian prices or atomically upsert through the separately credentialed shared tariff writer. The existing image CN-catalog read retains its tenant context and signed operator gate. The existing authoritative platform operator check precedes every call. No organization membership grants pricing authority, no org override remains, and the SQL boundary refuses all other tables or extra global operations. Real PostgreSQL native-credit-tariff-pg.test.ts proves same global price across wallets/new orgs, immutable old snapshots, operator refusal and legacy write denial.",
+    checks:[[null,exact("this.db.withoutTenant(")],["src/application/billing/native-credit-tariff-service.ts",exact("if(!await this.isOperator(principal.userId))throw new ConsumptionSettingsForbidden()")],[null,exact("INSERT INTO credit_global_native_tariff_changes")],[null,exact("if(!this.writer)throw new NativeTariffWriterUnavailable()")]],
   }],
   ["src/infrastructure/model/platform-test-wiring.ts", {
     tables:["organization_plans", "organization_ai_policies"],

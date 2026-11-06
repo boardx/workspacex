@@ -49,12 +49,15 @@ it('app identity cannot mutate global prices; provisioned password writer activa
  await expect(writer.withoutTenant(s=>s.query('DELETE FROM credit_global_image_tariff_changes'))).rejects.toThrow();
 });
 it('existing/new org rows are unnecessary and old markup cannot override either payer',async()=>{
- await asApp(personal,c=>c.query("INSERT INTO credit_native_tariffs(org_id,model_provider,model_id,unit,quantum,hundredths_per_quantum,version) VALUES($1,'bailian-image','qwen-image-3.0','image',1,99999,'old-temporary-markup')",[personal]));
- const schedule=await repo.list(),rate=schedule.items.find(r=>r.modelId==='qwen-image-3.0')!.hundredthsPerQuantum;
- for(const [org,id,owner] of [[personal,'personal','user'],[team,'team','team']] as const){
-  await reader.withTenant(org,s=>credits.reserveInSession(s,org,start(id)));
-  expect(await asOwner(async c=>(await c.query('SELECT r.native_rate::text rate,w.owner_type FROM credit_consumption_requests r JOIN credit_wallets w USING(wallet_id) WHERE request_id=$1',[start(id).requestId])).rows[0])).toEqual({rate,owner_type:owner});
+ await asOwner(c=>c.query("INSERT INTO credit_native_tariffs_legacy(org_id,model_provider,model_id,unit,quantum,hundredths_per_quantum,version) VALUES($1,'bailian-image','qwen-image-3.0','image',1,99999,'old-temporary-markup')",[personal]));
+ const schedule=await repo.list();
+ for(const [org,id,owner] of [[personal,'personal','user'],[team,'team','team']] as const)for(const row of schedule.items){
+  const input={...start(row.modelId==='qwen-image-3.0'?id:`${id}-${row.modelId}`),modelId:row.modelId};
+  await reader.withTenant(org,s=>credits.reserveInSession(s,org,input));
+  expect(await asOwner(async c=>(await c.query('SELECT r.native_rate::text rate,w.owner_type FROM credit_consumption_requests r JOIN credit_wallets w USING(wallet_id) WHERE request_id=$1',[input.requestId])).rows[0])).toEqual({rate:row.hundredthsPerQuantum,owner_type:owner});
  }
+ expect(await asApp(personal,async c=>(await c.query("SELECT count(*)::int n FROM credit_global_native_tariffs WHERE model_provider='bailian-image'")).rows[0].n)).toBe(0);
+ expect(await asApp(personal,async c=>(await c.query("SELECT model_provider,model_id,unit FROM credit_native_tariffs GROUP BY model_provider,model_id,unit HAVING count(*)>1")).rows)).toEqual([]);
  await expect(reader.withTenant(personal,s=>credits.reserveInSession(s,personal,{...start('unknown'),modelId:'unknown'}))).rejects.toThrow('credit_native_tariff_missing');
 });
 it('a global price update leaves replay and settlement on the original snapshot with one debit',async()=>{
@@ -94,7 +97,8 @@ it('provisioning rejects both membership directions before granting login',async
 it('a newly created organization after activation reserves all three global models without organization tariffs',async()=>{
  const newOrg=toOrgId(`${prefix}-created-after-activation`);
  await seedOrg({orgId:newOrg,projectId:`${newOrg}-project`});await addOrgMember(newOrg,user,'admin',null);
- expect(await new PgNativeCreditTariffRepository(reader).list(newOrg)).toEqual([]);
+ expect((await new PgNativeCreditTariffRepository(reader).list(newOrg)).every(row=>row.modelProvider!=='bailian-image')).toBe(true);
+ expect(await asOwner(async c=>(await c.query('SELECT count(*)::int n FROM credit_native_tariffs_legacy WHERE org_id=$1',[newOrg])).rows[0].n)).toBe(0);
  const schedule=await repo.list();
  for(const row of schedule.items){
   const input={...start(`new-org-${row.modelId}`),modelId:row.modelId};

@@ -1,0 +1,22 @@
+[stack-admission] load1=24.33 cores=10 perCore=2.43 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw3okcwl-fe70f3aa-e6927e5c6814 db=wsx_e6927e5c68142a4a57bc compose=wsx-e6927e5c68142a4a57bc pg=20284 redis=21284 api=24284 web=25284 sandbox=26284 model=27284 deep-agent=28284 asr=29284 vision=30284 loopback-sandbox=31284 mail=19284
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/e6f1/workspacex/apps/api
+
+[db-isolation] db=wsx_e6927e5c68142a4a57bc capacity=100 current=6 required=32
+ ✓ tests/billing/global-native-force-replay-pg.test.ts (15 tests | 14 skipped) 39001ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 14 skipped (15)
+   Start at  23:08:24
+   Duration  49.03s (transform 2.07s, setup 0ms, collect 3.29s, tests 39.00s, environment 0ms, prepare 162ms)
+
+[db-isolation] db=wsx_e6927e5c68142a4a57bc peak_connections=4
+[timing] pnpm --filter @repo/api exec vitest run --config vitest.exclusive.config.ts tests/billing/global-native-force-replay-pg.test.ts -t repeat migration validates permissions
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：50s
+  清理：3s
+  总计：53s

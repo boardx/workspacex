@@ -403,6 +403,9 @@ jobs:
       - name: 迁移幂等（无视版本表强制重放）
         run: pnpm --filter api run migrate:check
 
+      - name: API exclusive DDL fixtures (serial, required)
+        run: pnpm --filter @repo/api exec vitest run --config vitest.exclusive.config.ts --no-file-parallelism --maxWorkers=1 --minWorkers=1 --bail=1
+
       - name: 清掉本次运行的数据库
         if: always()
         run: |

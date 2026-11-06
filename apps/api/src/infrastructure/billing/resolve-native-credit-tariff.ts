@@ -9,5 +9,5 @@ export async function resolveNativeCreditTariff(s:TenantSession,orgId:string,pro
   const tariff=schedule.items.find(item=>item.modelProvider===provider&&item.modelId===model&&item.unit===unit);
   return tariff?{quantum:tariff.quantum,hundredths_per_quantum:tariff.hundredthsPerQuantum,version:tariff.version}:undefined;
  }
- return (await s.query<{quantum:string;hundredths_per_quantum:string;version:string}>('SELECT quantum::text,hundredths_per_quantum::text,version FROM credit_native_tariffs WHERE org_id=$1 AND model_provider=$2 AND model_id=$3 AND unit=$4',[orgId,provider,model,unit])).rows[0];
+ return (await s.query<{quantum:string;hundredths_per_quantum:string;version:string}>('SELECT quantum::text,hundredths_per_quantum::text,version FROM credit_global_native_tariffs WHERE model_provider=$1 AND model_id=$2 AND unit=$3',[provider,model,unit])).rows[0];
 }

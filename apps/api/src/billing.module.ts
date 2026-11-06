@@ -114,10 +114,11 @@ import { PgBillingOrderExpiryStore } from "./infrastructure/billing/pg-billing-o
       inject: [DATABASE_PORT, DeploymentBillingConfig, LOGGER_PORT] },
     { provide: BillingCatalogService, useFactory: (db:DatabasePort,config: DeploymentBillingConfig) => new BillingCatalogService(config,new PgBillingCatalogRepository(db)), inject: [DATABASE_PORT,DeploymentBillingConfig] },
     {provide:CreditUsageReplayWorker,useFactory:(db:DatabasePort,logger:LoggerPort)=>new CreditUsageReplayWorker(db,logger),inject:[DATABASE_PORT,LOGGER_PORT]},
-    {provide:GlobalImageTariffService,useFactory:(db:DatabasePort,credentials:CredentialRepository,platformAdmins:PlatformAdminRepository)=>{
-      const cfg=billingTariffWriterConfig();return new GlobalImageTariffService(new PgGlobalImageTariffRepository(db,cfg?new PgDatabase(cfg):null),userId=>isRequestorPlatformOperator({credentials,platformAdmins},userId));
-    },inject:[DATABASE_PORT,CREDENTIAL_REPOSITORY,PLATFORM_ADMIN_REPOSITORY]},
-    {provide:NativeCreditTariffService,useFactory:(db:DatabasePort,credentials:CredentialRepository,platformAdmins:PlatformAdminRepository)=>new NativeCreditTariffService(new PgNativeCreditTariffRepository(db),userId=>isRequestorPlatformOperator({credentials,platformAdmins},userId)),inject:[DATABASE_PORT,CREDENTIAL_REPOSITORY,PLATFORM_ADMIN_REPOSITORY]},
+    {provide:"BILLING_TARIFF_WRITER",useFactory:()=>{const cfg=billingTariffWriterConfig();return cfg?new PgDatabase(cfg):null;}},
+    {provide:GlobalImageTariffService,useFactory:(db:DatabasePort,credentials:CredentialRepository,platformAdmins:PlatformAdminRepository,writer:DatabasePort|null)=>{
+      return new GlobalImageTariffService(new PgGlobalImageTariffRepository(db,writer),userId=>isRequestorPlatformOperator({credentials,platformAdmins},userId));
+    },inject:[DATABASE_PORT,CREDENTIAL_REPOSITORY,PLATFORM_ADMIN_REPOSITORY,"BILLING_TARIFF_WRITER"]},
+    {provide:NativeCreditTariffService,useFactory:(db:DatabasePort,credentials:CredentialRepository,platformAdmins:PlatformAdminRepository,writer:DatabasePort|null)=>new NativeCreditTariffService(new PgNativeCreditTariffRepository(db,writer),userId=>isRequestorPlatformOperator({credentials,platformAdmins},userId)),inject:[DATABASE_PORT,CREDENTIAL_REPOSITORY,PLATFORM_ADMIN_REPOSITORY,"BILLING_TARIFF_WRITER"]},
     {provide:APP_INTERCEPTOR,useClass:CreditExecutionContextInterceptor},
     {provide:ConsumptionSettingsService,useFactory:(db:DatabasePort,credentials:CredentialRepository,platformAdmins:PlatformAdminRepository)=>new ConsumptionSettingsService(new PgConsumptionSettingsRepository(db),userId=>isRequestorPlatformOperator({credentials,platformAdmins},userId)),inject:[DATABASE_PORT,CREDENTIAL_REPOSITORY,PLATFORM_ADMIN_REPOSITORY]},
     { provide: PersonalStripeWebhookStore, useFactory: (db: DatabasePort, config: DeploymentBillingConfig, logger: LoggerPort) => {
