@@ -57,8 +57,14 @@ recheck, audit and independent readback remain in use.
    `apps/api/scripts/provision-billing-tariff-writer.ts`, with migration identity
    confined to that job. This enables LOGIN: it is NOT part of this preparation.
    Do not grant memberships, superuser, bypass-RLS or application-role writes.
-4. Validate the deployment input/schema and generate the API runtime using the
-   profile above. Activate through the reviewed canonical lane with identity,
+4. Separately prepare/install and verify the frozen trusted host renderer/control
+   tools and validated private configuration through the approved configuration
+   lane. The current image-release consumer has no checkout and does not install
+   this renderer merely by deploying application images. Current host tool/input
+   readiness has NOT been established. Any new root entry or private input copy
+   requires its exact approval; do not silently expand an installed policy.
+   Then validate the deployment input/schema and generate the API runtime using
+   the profile above. Activate through the reviewed canonical lane with identity,
    lock, snapshot and readiness checks. No credentials enter Agent/Web/bootstrap.
 5. Obtain an existing CN platform-operator session token through the normal login
    flow, store it privately, and establish the read-only quote organization ID.
@@ -111,3 +117,21 @@ if that boundary is reached.
 - `pnpm harness tick` could not run because COORD_GATEWAY_URL is not configured.
   Readiness/active-features projections were refreshed; this direct user incident
   is intentionally outside the readiness queue.
+
+## Latest execution boundary
+
+The human reiterated: no new accounts; add missing configuration first. No role
+or credential was created/enabled. The missing profile is prepared in source;
+no usable dedicated credential has been established on the live API.
+
+Independent read-only review of `55e008df26e718268d23f304f648b40b8f1c3b18`
+found no blocking code/credential-isolation issue. It requested the host-tool
+clarification above. CLI `quoteSource` still says `live-devapp-catalog` for CN;
+verify the explicitly selected validated origin rather than treating that old
+label as environment evidence.
+
+Push verification was interrupted after 11m39s during extreme local load (~400).
+Turbo reported 27/29 successful tasks, and its interrupt exit unexpectedly allowed
+the push. This is NOT full typecheck/lint success; API/Web typechecks remain
+unconfirmed. No `--no-verify` was used. Retain the draft boundary and require CI
+before merge or tool installation. No owned test/deployment processes remain.
