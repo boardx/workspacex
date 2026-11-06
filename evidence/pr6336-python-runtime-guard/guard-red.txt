@@ -1,0 +1,35 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/2e5d/workspacex
+
+ ❯ .harness/scripts/lint-ci-python-runtime.test.ts (2 tests | 1 failed) 35ms
+   × 跑 apps/api 默认套件的 CI job 必须自带 Python 运行时（#2972） > 命中的每个 job 都在 apps/deep-agent-service 下 uv sync 24ms
+     → expected [ Array(1) ] to deeply equal []
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  .harness/scripts/lint-ci-python-runtime.test.ts > 跑 apps/api 默认套件的 CI job 必须自带 Python 运行时（#2972） > 命中的每个 job 都在 apps/deep-agent-service 下 uv sync
+AssertionError: expected [ Array(1) ] to deeply equal []
+
+- Expected
++ Received
+
+- Array []
++ Array [
++   "harness-verify.yml / job verify-web-tests：跑了「node .github/scripts/run-affected-tests.mjs」但没装 Python 运行时",
++ ]
+
+ ❯ .harness/scripts/lint-ci-python-runtime.test.ts:105:7
+    103|     expect(
+    104|       offenders.map(([file, job, line]) => `${file} / job ${job}：跑了…
+    105|     ).toEqual([]);
+       |       ^
+    106|   });
+    107| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  04:08:07
+   Duration  8.90s (transform 288ms, setup 0ms, collect 6.24s, tests 35ms, environment 0ms, prepare 317ms)
+

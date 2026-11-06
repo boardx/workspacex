@@ -161,11 +161,13 @@ test('a selected unit failure cannot turn into an empty or successful affected r
 });
 
 test('web shards execute the whole selected web task with dependency builds and never other packages', () => {
-  for (const shard of ['1/4', '2/4', '3/4', '4/4']) {
-    const r = recording([web, cloud], { env: { IS_FORK_PR: 'false', CI_AFFECTED_WEB_SHARD: shard, PLAYWRIGHT_BROWSERS_PATH: '/runner/browsers' } });
-    r.run();
-    assert.equal(r.calls.length, 3);
-    assert.deepEqual(r.calls[2].args, ['turbo', 'run', 'test', '--filter=web', '--', `--shard=${shard}`, '--bail=1']);
+  for (const fork of ['true', 'false']) {
+    for (const shard of ['1/4', '2/4', '3/4', '4/4']) {
+      const r = recording([web, cloud, {taskId:'@repo/api#test',command:'vitest run'}], { env: { IS_FORK_PR: fork, CI_AFFECTED_WEB_SHARD: shard, PLAYWRIGHT_BROWSERS_PATH: '/runner/browsers' } });
+      r.run();
+      assert.equal(r.calls.length, 3);
+      assert.deepEqual(r.calls[2].args, ['turbo', 'run', 'test', '--filter=web', '--', `--shard=${shard}`, '--bail=1']);
+    }
   }
 });
 test('web shards do no test work when executable web task is not affected', () => {
