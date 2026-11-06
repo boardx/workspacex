@@ -24,15 +24,14 @@ const DEMO_BADGE_TEXT = "演示数据 · 等 phase-03 F15";
 afterEach(() => cleanup());
 
 describe("总览屏：F162 落地后整屏真数据", () => {
-  it("四块真指标 + 活动流都带「真数据」标记", () => {
+  it("保留真实指标和活动区域，不显示真数据徽章", () => {
     render(<OverviewScreen state="default" />);
-    for (const testid of [
-      "admin-overview-metric-tokens", "admin-overview-metric-members", "admin-overview-metric-anomaly",
-    ]) {
-      expect(screen.getByTestId(testid).textContent, testid).toContain("真数据");
+    for (const testid of ["admin-overview-metric-tokens", "admin-overview-metric-members", "admin-overview-metric-anomaly"]) {
+      expect(screen.getByTestId(testid)).toBeTruthy();
     }
-    expect(screen.getByTestId("admin-overview-activity-live").textContent).toContain("真数据");
-    expect(screen.getByTestId("admin-overview-anomalies-live").textContent).toContain("真数据");
+    expect(document.body.textContent).not.toContain("真数据");
+    expect(screen.queryByTestId("admin-overview-activity-live")).toBeNull();
+    expect(screen.queryByTestId("admin-overview-anomalies-live")).toBeNull();
   });
 
   it("不再出现演示数据标记 —— 那正是这次要摘掉的东西", () => {

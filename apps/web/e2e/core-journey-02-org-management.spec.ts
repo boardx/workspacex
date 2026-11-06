@@ -22,6 +22,7 @@
  */
 import { expect, test, type Page } from "@playwright/test";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
+import { extractFirstLink, waitForMail } from "./support/mail-loopback";
 
 async function loginAsAdmin(page: Page): Promise<void> {
   await page.goto("/login");
@@ -31,17 +32,14 @@ async function loginAsAdmin(page: Page): Promise<void> {
   await expect(page).toHaveURL(/\/home$/);
 }
 
-test("旅程②：组织管理员邀请一位新成员 → 受邀人用一次性链接激活账号 → 出现在成员列表里", async ({ page, browser }) => {
+test("旅程②：组织管理员邀请一位新成员 → 受邀人用邮件链接激活账号 → 出现在成员列表里", async ({ page, browser, baseURL }) => {
   test.setTimeout(120_000);
   const unique = Date.now();
 
   await loginAsAdmin(page);
 
   /* ── ① 邀请一位新成员 ────────────────────────────────────────────────
-     ⚠ 邀请角色用非 admin（默认 `member`）：邀请 admin 需要双人复核
-     （`org-admin-invite-dual-review-note`），链接不会立刻签发，那是另一条更复杂的
-     旅程，不在本条覆盖范围内——本条要证的是"邀请→激活→出现在组织里"这条主链路
-     本身，不是复核细节。
+     邀请默认普通成员，不需要另一位管理员复核；受邀人通过邮件确认加入。
      邀请表单在独立路由 `/org-admin/invites` 下（issue #2615 拆平后，不再是
      `/org-admin` 单页里的一个 tab）。 */
   const inviteEmail = `journey02-invite-${unique}@example.test`;
@@ -56,12 +54,14 @@ test("旅程②：组织管理员邀请一位新成员 → 受邀人用一次性
   const inviteResponse = await inviteResponsePromise;
   expect(inviteResponse.ok(), "邀请提交必须成功").toBeTruthy();
 
-  // ── 一次性激活链接出现，且**只会出现这一次**（界面自己的承诺，见组件头注） ──
-  await expect(page.getByTestId("org-admin-invite-link-block")).toBeVisible();
-  const activationUrl = await page.getByTestId("org-admin-invite-link-url").inputValue();
-  expect(activationUrl, "必须真的拿到一条激活链接，不是空字符串").toContain("/auth/activate");
-  await page.getByTestId("org-admin-invite-link-dismiss").click();
+  // ── 受邀人的真实出站邮件提供链接；管理员页面不再展示 bearer ──
+  expect((await inviteResponse.json()).activationToken).toBeNull();
   await expect(page.getByTestId("org-admin-invite-link-block")).toHaveCount(0);
+  const mail = await waitForMail({ to: inviteEmail, timeoutMs: 30_000 });
+  const activationUrl = extractFirstLink(mail, "/auth/activate");
+  expect(activationUrl.origin).toBe(new URL(baseURL!).origin);
+  expect(activationUrl.pathname).toBe("/auth/activate");
+  expect(activationUrl.searchParams.get("t")).toBeTruthy();
 
   /* ── ② 受邀人在**独立浏览器上下文**里打开激活链接、建账号 ──────────────────
      独立 context 而不是复用同一个 page：受邀人与邀请人是两个不同的人，同一个
@@ -69,7 +69,7 @@ test("旅程②：组织管理员邀请一位新成员 → 受邀人用一次性
      里"并发登录会互相踢设备会话"那条纪律同一个理由——两个人本来就该是两个会话。 */
   const inviteeContext = await browser.newContext();
   const inviteePage = await inviteeContext.newPage();
-  await inviteePage.goto(activationUrl);
+  await inviteePage.goto(activationUrl.toString());
   await expect(inviteePage.getByTestId("activate-form")).toBeVisible();
   // 默认就是「新建账号」模式（受邀人还没有 workspacex 账号）——组件没有 aria-pressed，
   // 靠"姓名"输入框默认就可见来判断当前落在 new 分支（实测：该组件只用 Button

@@ -1,22 +1,9 @@
-/**
- * `InviteOrgMember` (F10 / UC-1.6) —— 编排。不知道 HTTP，不知道 PostgreSQL。
- *
- * ## 这里做的三件事，和刻意没做的一件
- *
- * 做：① 越权判定（只有管理员能邀）② 由被邀角色推出初始状态与「签不签令牌」（I-3）
- *     ③ 邮箱规范化。
- * 不做：**发信**。usecases.md 说邮件异步、接口 1 秒内返回 pending，送达结果由
- * `sentAt` 与 `status` 表达；而 `MAIL_UNAVAILABLE` 要求「记录标 send-failed，
- * 不产生可激活链接假象（V12）」。本 feature 落地的是**出站队列的位置**
- * （`org_invites.sent_at` 为 NULL = 还没发出去），投递器本身不在 F10 里——
- * 与 phase-00 的 `email_verification_tokens` 完全相同的处境，并且同样**明说**，
- * 而不是绑一个「记个日志然后返回成功」的 Mailer：那种实现会让
- * `sentAt` 上的承诺变成一句没有任何测试能戳穿的谎。
+/** Organization admins invite ordinary members immediately, without peer review.
+ * The controller delivers the newly issued bearer through OrgInvitationDelivery;
+ * sent_at is written only after the transactional mail provider accepts it.
  */
 import { normalizeEmail } from "../../domain/auth/registration";
 import {
-  initialInviteStatus,
-  needsDualReview,
   newOrgInviteId,
   newOrgInviteToken,
   ORG_INVITE_LINK_VALIDITY_MS,
@@ -78,11 +65,10 @@ export async function inviteOrgMember(
   if (input.actorOrgRole !== "admin") throw new OrgAdminError("PROJECT_ROLE_INSUFFICIENT");
 
   const now = (deps.now ?? (() => new Date()))();
-  const status = initialInviteStatus(input.orgRole);
+  const status = "pending" as const;
 
-  // I-3：待复核的管理员邀请不签发令牌。两个值一起算出来，
-  // 所以「status 是 awaiting-review 但 token 非空」在本文件里连表达都表达不出来。
-  const token = needsDualReview(input.orgRole) ? null : newOrgInviteToken();
+  // Legacy clients cannot use an invitation to grant administrative privileges.
+  const token = newOrgInviteToken();
   const tokenExpiresAt =
     token === null ? null : new Date(now.getTime() + ORG_INVITE_LINK_VALIDITY_MS);
 
@@ -91,7 +77,7 @@ export async function inviteOrgMember(
     orgId: input.orgId,
     actorId: input.actorId,
     email: normalizeEmail(input.email),
-    orgRole: input.orgRole,
+    orgRole: "consultant",
     teamId: input.teamId,
     status,
     token,

@@ -1,0 +1,21 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/2e5d/workspacex/apps/api
+
+[db-isolation] db=workspacex_invite_ci_fix_6316 capacity=100 current=6 required=32
+ ✓ tests/kernel/permission-propagation-six-paths.test.ts (31 tests) 29201ms
+   ✓ lint-permission-paths: counter-proof > audited model metadata premises reject every removed authority and content expansion 993ms
+   ✓ lint-permission-paths: counter-proof > scans the real source tree and derives a real table list (not the exit code) 2295ms
+   ✓ lint-permission-paths: counter-proof > rejects a permission-blind read from outside infrastructure 625ms
+   ✓ lint-permission-paths: counter-proof > rejects a raw read even when it IS in infrastructure -- the folder is not the rule 606ms
+   ✓ lint-permission-paths: counter-proof > does NOT over-fire on the correct shape 607ms
+   ✓ lint-permission-paths: counter-proof > survey exemption admits only owner-scoped reads and secret-gated public projections 328ms
+   ✓ lint-permission-paths: counter-proof > the allowlist stays short, and every entry carries a real argument 2787ms
+ ✓ tests/auth/org-invitation-members.test.ts (7 tests) 1663ms
+   ✓ delivers through transactional mail and records provider acceptance without exposing the token to administrators 326ms
+
+ Test Files  2 passed (2)
+      Tests  38 passed (38)
+   Start at  16:36:58
+   Duration  34.16s (transform 1.23s, setup 13ms, collect 1.93s, tests 30.86s, environment 0ms, prepare 103ms)
+
+[db-isolation] db=workspacex_invite_ci_fix_6316 peak_connections=7

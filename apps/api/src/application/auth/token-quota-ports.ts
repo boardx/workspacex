@@ -1,3 +1,4 @@
+import type {MemberCreditQuotaRepository} from "./member-credit-quota-port";
 /**
  * F160 / F161 —— token 额度与用量的读写端口。
  *
@@ -39,6 +40,8 @@ export interface OrgQuotaSnapshot {
 }
 
 export interface TokenQuotaRepository {
+  /** Additive credit policy; legacy token-only adapters remain compatible. */
+  readonly creditQuotas?: MemberCreditQuotaRepository;
   /** 读整屏：组织额度 + 逐人额度 + 逐人本月已用，一次给全。 */
   readSnapshot(orgId: OrgId): Promise<OrgQuotaSnapshot>;
 

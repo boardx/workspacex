@@ -177,3 +177,5 @@ export * as entityLocalization from "./entity-localization";
 export * as packLocalization from "./pack-localization";
 
 export * as portablePackage from "./portable-package";
+
+export * as memberCreditQuota from "./member-credit-quota";

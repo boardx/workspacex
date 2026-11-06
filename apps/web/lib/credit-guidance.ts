@@ -1,6 +1,7 @@
+import type {CreditRequiredReason} from "@repo/contracts/billing-consumption";
 /** Shared presentation only: never retries a model request or changes its owner. */
 export const CREDIT_FAILURE_EVENT = "workspacex:credit-failure";
-export type CreditGuidance = { code: "credit_required" | "credit_accounting_unavailable"; ownerType?: "user" | "team"; rechargePath?: string };
+export type CreditGuidance = { code: "credit_required" | "credit_accounting_unavailable"; ownerType?: "user" | "team"; rechargePath?: string; reason?: CreditRequiredReason };
 export function creditGuidance(raw: unknown): CreditGuidance | null {
  if (!raw || typeof raw !== "object") return null;
  const data = raw as Record<string, unknown>;
@@ -12,6 +13,7 @@ export function creditGuidance(raw: unknown): CreditGuidance | null {
  const ownerId = typeof data.ownerId === "string" && data.ownerId ? data.ownerId : undefined;
  // Construct from verified account fields, never follow arbitrary error payload URLs.
  const expected = ownerType === "team" && ownerId ? `/billing?ownerType=team&ownerId=${encodeURIComponent(ownerId)}&purchase=1` : ownerType === "user" && ownerId ? "/billing?purchase=1" : undefined;
+ if(data.reason === "member_monthly_limit" || data.failureReason === "member_monthly_limit")return {code,ownerType,reason:"member_monthly_limit"};
  return {code, ownerType, ...(expected && data.rechargePath === expected ? {rechargePath:expected} : {})};
 }
 export function notifyCreditFailure(raw: unknown): boolean {

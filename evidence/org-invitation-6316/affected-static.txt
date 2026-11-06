@@ -1,0 +1,11 @@
+Command: TURBO_SCM_BASE=<merge-base origin/main HEAD> pnpm turbo run typecheck lint --affected --concurrency=1
+Exit: 0
+
+@repo/api:typecheck: > tsc --noEmit
+@repo/api:typecheck:
+
+ Tasks:    27 successful, 27 total
+Cached:    12 cached, 27 total
+  Time:    5m19.572s
+
+ WARNING  no output files found for task @repo/dev-mode-accounts#build. Please check your `outputs` key in `turbo.json`

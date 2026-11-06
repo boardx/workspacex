@@ -50,6 +50,7 @@ description: >
 3. 交付：`verify --sprint` 门控；PR 描述里写清对鉴权/权限面的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-11-06：组织邀请按人类要求取消复核，新邀请固定普通成员（consultant），邮件投递使用既有事务邮件端口；已有账号用 guarded accept 路由明确确认，单人邀请必须绑定 credentials 邮箱、共享链接重复加入不重复扣使用次数。企业成员默认月度 Credit 上限独立于 Token 配额，不发放钱包资金；未知成本调用预留余额度并在真实回执后检查，不能承诺回执间绝无超额（issue #6316；evidence/org-invitation-6316/）。
 - 2026-11-06：组织导出清单须按同一应用连接的 PostgreSQL SELECT ACL 枚举可读租户表；org_id 外键不代表 app 可读，内部历史归档撤权后不得切特权账号、吞错误或伪报零行。保留普通租户表计数完整、active/disabled 管理员真实 HTTP 与跨组织归档拒读反例（issue #6290 / PR #6298）。
 - 2026-11-04：排查 run 行锁要追到 `PgDatabase.inTx` 的 `currentRunLease` 隐式围栏，不能只看仓储显式 SQL；真实 PG 并发反例须带 `withRunLease`。run 键不变时用相容的 `FOR NO KEY UPDATE` 保持写者/租约接管互斥并允许计费 FK `KEY SHARE`；改锁后同时验证 takeover 等待提交、过期/旧 epoch 在执行事务体前被拒绝（issue #6235，`docs/evidence/chat-event-metering-deadlock-6235/`）。
 - 2026-11-04：后台配额/用量说明先核对 canonical `apps/api/src/infrastructure/auth/pg-token-quota-repository.ts` 聚合及 F159 迁移，不从调用失败推导 Token 为零；通用错误文案复用 `apps/web/lib/design-failure.ts` → `http-failure-text.ts`，语义反馈回调在渲染时接收当前 locale。对应反例与回归：`apps/web/tests/ui/admin-member-quotas-i18n.test.tsx`、`ai-usage-i18n.test.tsx`（issue #6212）。

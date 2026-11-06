@@ -1,4 +1,5 @@
 "use client";
+import { MemberCreditQuotaPanel } from "./member-credit-quota-panel";
 import { useI18n } from "@/lib/i18n/provider";
 import * as React from "react";
 import { Gauge, RefreshCw } from "lucide-react";
@@ -48,6 +49,11 @@ function quotaTone(pct: number): "primary" | "warning" | "destructive" {
 type Row = GetTokenQuotasOut["members"][number];
 
 export function MemberQuotaTab() {
+  const orgId = useOptionalSession()?.session?.currentOrgId;
+  return <div className="flex flex-col gap-5">{orgId && <MemberCreditQuotaPanel key={orgId} orgId={orgId} />}<TokenQuotaTab /></div>;
+}
+
+function TokenQuotaTab() {
   const { t, locale } = useI18n();
   const fmtTokens = (n: number) => formatMemberTokens(n, locale);
   // ⚠ 用 `useOptionalSession`：本组件挂在 `/admin/members` 这块屏里，而那块屏的既有

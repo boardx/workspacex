@@ -1240,6 +1240,7 @@ export class ModelCallError extends Error {
     readonly retryDisposition?: "rate-limited" | "temporarily-unavailable",
     /** Exact adapter-owned content rejection; never permission to retry or change providers. */
     readonly contentRejection?: "content-policy",
+    readonly creditReason?: import("@repo/contracts/billing-consumption").CreditRequiredReason,
   ) {
     super(code);
     this.name = "ModelCallError";
@@ -1589,6 +1590,8 @@ export interface ReportedUsage {
  * 「有人在注释旁边真的写了一条 INSERT」这种最像真的情形。
  */
 export interface TokenUsageMeterPort {
+  /** Called after committed streaming usage; a limit signal must not roll back its receipt. */
+  assertCreditContinuation?(orgId: OrgId, userId: string, requestId: string): Promise<void>;
   /** Durable start marker before provider dispatch; failed starts must prevent dispatch. */
   startRequest?(orgId: OrgId, input: {
     /** Trusted dispatch bound; absent keeps unknown usage held and cannot admit strict preflight. */

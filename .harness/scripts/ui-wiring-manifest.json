@@ -556,7 +556,6 @@
         "auth/org-invite-errors",
         "auth/remove-org-member",
         "auth/resend-org-invite",
-        "auth/review-admin-invite",
         "auth/revoke-org-invite",
         "auth/set-org-member-role",
         "auth/set-token-quota",
@@ -587,7 +586,6 @@
         "auth/errors",
         "auth/list-org-invite-links",
         "auth/org-invite-errors",
-        "auth/review-org-invite-link",
         "auth/revoke-org-invite-link"
       ]
     },

@@ -5,11 +5,10 @@ import { useI18n } from "@/lib/i18n/provider";
 import { translate, type MessageKey, type MessageParams } from "@/lib/i18n/messages";
 import { describeFailure } from "@/lib/design-failure";
 import type { Locale } from "@/lib/i18n/locale";
-import { orgMembersZhCN } from "@/lib/i18n/namespaces/org-members";
 type Translator = (key: MessageKey, params?: MessageParams) => string;
 type Feedback = (t: Translator, locale?: Locale) => string;
 type LocalizedNotice = { tone: "success" | "error"; text: Feedback };
-import { AlertTriangle, Ban, Camera, Check, ChevronDown, Copy, Hourglass, Mail, RotateCcw, Send, Settings, UserCog, X } from "lucide-react";
+import { AlertTriangle, Ban, Camera, ChevronDown, Copy, Mail, RotateCcw, Send, Settings, UserCog } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { useSession } from "@/components/session/session-provider";
@@ -35,7 +34,7 @@ import {
   listOrgMembers, listOrgInvites,
   setOrgMemberRole,
   updateOrganization, uploadOrgAvatar,
-  inviteOrgMember, resendOrgInvite, revokeOrgInvite, reviewAdminInvite,
+  inviteOrgMember, resendOrgInvite, revokeOrgInvite,
   assignSkillReviewerFunction, revokeSkillReviewerFunction, listSkillReviewerFunctions,
   type ListOrgMembersOut, type ListOrgInvitesOut, type UpdateOrganizationOut,
   type SkillReviewerFunctionValue,
@@ -507,8 +506,8 @@ export function MembersTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean
 
 /** 与 `admin/member-invites-panel.tsx`（`/admin` 成员与配额屏的待处理邀请摘要）共用——
  *  邀请状态的文案单源，别在第二处再抄一份。 */
-const INVITE_STATUS_KEYS = { pending: "orgMembers.pendingAcceptance", "awaiting-review": "orgMembers.awaitingReview", revoked: "orgMembers.revoked", used: "orgMembers.used", "send-failed": "orgMembers.sendFailed" } as const;
-export const INVITE_STATUS_LABEL: Record<string, string> = Object.fromEntries(Object.entries(INVITE_STATUS_KEYS).map(([status, key]) => [status, orgMembersZhCN[key]]));
+const INVITE_STATUS_KEYS = { pending: "orgMembers.pendingAcceptance", "awaiting-review": "invitation.needsResend", revoked: "orgMembers.revoked", used: "orgMembers.used", "send-failed": "orgMembers.sendFailed" } as const;
+export const INVITE_STATUS_LABEL: Record<string, string> = Object.fromEntries(Object.entries(INVITE_STATUS_KEYS).map(([status, key]) => [status, translate("zh-CN", key)]));
 export function inviteStatusLabel(status: string, t: Translator) {
   const key = Object.prototype.hasOwnProperty.call(INVITE_STATUS_KEYS, status) ? INVITE_STATUS_KEYS[status as keyof typeof INVITE_STATUS_KEYS] : undefined;
   return key ? t(key) : status;
@@ -755,7 +754,7 @@ const orgRoleOptions = (t: Translator): ReadonlyArray<{ id: OrgRole; label: stri
 
 // export 仅供 `tests/ui/org-admin-invite-form-novalidate.test.tsx` 机械钉 noValidate（两次复发的 bug），别在别处 import。
 export function InviteMemberForm({
-  orgId, onSucceeded, onFailed, onLink, onNotice,
+  orgId, onSucceeded, onFailed, onNotice,
 }: {
   orgId: string;
   onSucceeded: (text: string) => void;
@@ -767,7 +766,7 @@ export function InviteMemberForm({
 }) {
   const { t, locale } = useI18n();
   const [email, setEmail] = React.useState("");
-  const [orgRole, setOrgRole] = React.useState<OrgRole>("consultant");
+  const orgRole = "consultant" as const;
   const [submitting, setSubmitting] = React.useState(false);
   const [fieldError, setFieldError] = React.useState<Feedback | null>(null);
 
@@ -793,17 +792,12 @@ export function InviteMemberForm({
     try {
       const out = await inviteOrgMember({ orgId, email: trimmed, orgRole, teamId: NO_TEAM });
       setEmail("");
-      if (out.status === "awaiting-review") {
-        report("success", (t) => t("orgMembers.adminInviteReceived", { email: trimmed }));
-      } else if (out.quotaReserved === 0) {
-        // 幂等重放：服务端刻意不把既有令牌再吐一次（否则任何管理员都能凭「再邀一次」
-        // 读走别人的激活链接），所以这里也没有链接可展示。
+      if (out.status === "send-failed") {
+        report("error", (t) => t("orgMembers.emailIsUnavailableTheInvitationIsRecordedAsSend"));
+      } else if (out.tokenIssued === false || out.quotaReserved === 0) {
         report("success", (t) => t("orgMembers.anIdenticalInvitationAlreadyExistsNoInvitationWasCreated"));
       } else {
         report("success", (t) => t("orgMembers.invitationCreatedTheActivationLinkIsValidFor7"));
-        if (out.activationToken !== null) {
-          onLink({ email: trimmed, url: buildActivationLink(out.activationToken, window.location.origin), kind: "invited" });
-        }
       }
     } catch (err) {
       // delta ③：契约层的邮箱 400（`ZodBodyPipe` validation_failed，path = email）
@@ -851,27 +845,11 @@ export function InviteMemberForm({
             <p role="alert" data-testid="err-invite-email" className="text-10 text-destructive">{fieldError(t, locale)}</p>
           ) : null}
         </div>
-        <div className="flex w-32 flex-col gap-1">
-          <Label id="org-admin-invite-role-label">{t("orgMembers.organizationRole")}</Label>
-          <PopoverSelect
-            value={orgRole}
-            options={orgRoleOptions(t)}
-            onSelect={(id) => setOrgRole(id as OrgRole)}
-            disabled={submitting}
-            testid="org-admin-invite-role"
-            ariaLabel={t("orgMembers.organizationRole")}
-          />
-        </div>
       </div>
-
-      {orgRole === "admin" && (
-        <p className="text-10 text-muted-foreground" data-testid="org-admin-invite-dual-review-note">
-          {t("orgMembers.administratorInvitationsRequireReviewByAnotherAdministratorTheActivation")}</p>
-      )}
 
       <div className="flex items-center justify-between gap-2">
         <p className="text-10 text-muted-foreground">
-          {t("orgMembers.emailDeliveryIsNotConnectedAfterInvitingTheActivation")}<strong>{t("orgMembers.once")}</strong>{t("orgMembers.copyItAndSendItToTheInvitee")}</p>
+          {t("invitation.ordinaryMemberNote")}</p>
         <Button
           type="submit"
           size="sm"
@@ -888,7 +866,7 @@ export function InviteMemberForm({
 }
 
 function InviteRow({
-  orgId, invite, currentUserId, onChanged, onSucceeded, onFailed, onLink,
+  orgId, invite, onChanged, onSucceeded, onFailed,
 }: {
   orgId: string;
   invite: ListOrgInvitesOut["invites"][number];
@@ -903,17 +881,8 @@ function InviteRow({
   const [busy, setBusy] = React.useState(false);
   const [confirmingRevoke, setConfirmingRevoke] = React.useState(false);
 
-  // 状态门与后端一致（`pg-org-invite-repository.ts`）：
-  //   重发：pending / send-failed（awaiting-review 重发会绕过双人复核，后端拒）
-  //   撤销：revoked（幂等）与 used（人已进来）之外都可以；已翻状态的不给按钮
-  //   复核：仅 awaiting-review，且**发起人不渲染批准/拒绝**（delta ②，coord-main 裁决）：
-  //   I-4 自批必被后端 403，此前列表不含发起人 id、只能渲染一颗点了必失败的死按钮，
-  //   现在契约带 `invitedByUserId`，发起人视角直接换成等待说明。
-  const canResend = invite.status === "pending" || invite.status === "send-failed";
-  const canRevoke = invite.status === "pending" || invite.status === "awaiting-review" || invite.status === "send-failed";
-  const isInitiator = currentUserId !== null && invite.invitedByUserId === currentUserId;
-  const canReview = invite.status === "awaiting-review" && !isInitiator;
-  const waitingPeerReview = invite.status === "awaiting-review" && isInitiator;
+  const canResend = ["pending", "send-failed", "awaiting-review"].includes(invite.status);
+  const canRevoke = canResend;
 
   async function run(action: () => Promise<Feedback>) {
     setBusy(true);
@@ -923,7 +892,7 @@ function InviteRow({
       onChanged();
     } catch (err) {
       onFailed((t, locale) => describeInviteFailure(err, t, locale));
-      if (err instanceof ApiError && err.reasonCode === "VERSION_CHANGED") onChanged();
+      if (err instanceof ApiError && (err.reasonCode === "VERSION_CHANGED" || err.reasonCode === "MAIL_UNAVAILABLE")) onChanged();
     } finally {
       setBusy(false);
       setConfirmingRevoke(false);
@@ -941,62 +910,12 @@ function InviteRow({
         <span className="ml-auto text-10 text-muted-foreground" data-testid={`org-admin-invite-${invite.inviteId}-expires`}>
           {new Date(invite.expiresAt).toLocaleDateString(locale)} {t("orgMembers.expires")}</span>
         <div className="flex shrink-0 items-center gap-1.5">
-          {waitingPeerReview && (
-            <span
-              className="flex items-center gap-1 text-10 text-muted-foreground"
-              data-testid={`org-admin-invite-${invite.inviteId}-waiting-peer-review`}
-            >
-              <Hourglass aria-hidden className="h-3 w-3" />
-              {t("orgMembers.yourInvitationIsWaitingForAnotherAdministratorSReview")}</span>
-          )}
-          {canReview && (
-            <>
-              <Button
-                type="button" size="xs" variant="primary" disabled={busy}
-                onClick={() =>
-                  run(async () => {
-                    // D2 裁决 A：批准响应带一次性 activationToken（与 delta ① 同一语义），
-                    // 批准人当场拿到链接转交——不再逼他撞 60 秒重发冷却。
-                    const out = await reviewAdminInvite({ orgId, inviteId: invite.inviteId, decision: "approve", reason: null });
-                    if (out.activationToken !== null) {
-                      onLink({
-                        email: invite.email,
-                        url: buildActivationLink(out.activationToken, window.location.origin),
-                        kind: "approved",
-                      });
-                    }
-                    return (t) => t("orgMembers.adminInviteApproved", { email: invite.email });
-                  })
-                }
-                data-testid={`org-admin-invite-${invite.inviteId}-approve`}
-              >
-                <Check aria-hidden className="h-3 w-3" />
-                {t("orgMembers.approve")}</Button>
-              <Button
-                type="button" size="xs" variant="outline" disabled={busy}
-                onClick={() =>
-                  run(async () => {
-                    await reviewAdminInvite({ orgId, inviteId: invite.inviteId, decision: "reject", reason: null });
-                    return (t) => t("orgMembers.adminInviteRejected", { email: invite.email });
-                  })
-                }
-                data-testid={`org-admin-invite-${invite.inviteId}-reject`}
-              >
-                <X aria-hidden className="h-3 w-3" />
-                {t("orgMembers.reject")}</Button>
-            </>
-          )}
           {canResend && (
             <Button
               type="button" size="xs" variant="ghost" disabled={busy}
               onClick={() =>
                 run(async () => {
                   const out = await resendOrgInvite(orgId, invite.inviteId);
-                  onLink({
-                    email: invite.email,
-                    url: buildActivationLink(out.activationToken, window.location.origin),
-                    kind: "resent",
-                  });
                   return (t) => t("orgMembers.invitationResent", { email: invite.email, seconds: out.cooldownSec });
                 })
               }
@@ -1118,7 +1037,7 @@ function InvitesTab({
             void load();
           }}
           onFailed={(text) => setBanner({ tone: "error", text: () => text })}
-          onNotice={(notice) => { setBanner(notice); if (notice.tone === "success") void load(); }}
+          onNotice={(notice) => { setBanner(notice); void load(); }}
           onLink={onOneTimeLink}
         />
       )}

@@ -1,3 +1,4 @@
+import {ORG_INVITATION_DELIVERY,type OrgInvitationDelivery} from "../../application/auth/org-invitation-delivery";
 /**
  * F10 的两条路由（UC-1.6）。协议适配，判断全在 `application`。
  *
@@ -32,6 +33,7 @@ import {
   Param,
   Post,
   Query,
+  Optional,
 } from "@nestjs/common";
 import { orgAdmin as C } from "@repo/contracts";
 import { inviteOrgMember } from "../../application/auth/invite-org-member";
@@ -86,6 +88,7 @@ export class OrgInviteController {
     @Inject(PASSWORD_HASHER) private readonly hasher: PasswordHasher,
     @Inject(SESSION_TOKEN_STORE) private readonly sessions: SessionTokenStore,
     @Inject(TOKEN_FACTORY) private readonly tokens: TokenFactory,
+    @Optional() @Inject(ORG_INVITATION_DELIVERY) private readonly delivery?: OrgInvitationDelivery,
   ) {}
 
   @Post("/organizations/:orgId/invites")
@@ -114,27 +117,46 @@ export class OrgInviteController {
           teamId: body.teamId.length > 0 ? body.teamId : null,
         },
       );
-      // ⚠ `activationToken`：**只在签发的这一次响应里回传**（invite-link-and-reads
-      //   delta ①，coord-main 2026-08-11 裁决 A）。旧注释「token 不进响应体」防的是
-      //   「任何管理员随时可读他人链接」——那条线仍然封死：列表（`listOrgInvites`）
-      //   恒不含 token，幂等重放时用例层已把 token 置 null（见 invite-org-member.ts
-      //   末尾），`awaiting-review` 根本没签发。能发起邀请的本来就是 admin，把他自己
-      //   刚签发的令牌回传给他**一次**、由他转交受邀人，不扩大任何可再读的面——
-      //   在邮件通道接通之前，这是链接送达受邀人的唯一诚实通道。
+      if(out.token){
+        if(!this.delivery)throw new OrgAdminError("MAIL_UNAVAILABLE");
+        await this.delivery.deliver({orgId,inviteId:out.inviteId,token:out.token});
+      }
+      // Email owns delivery; no activation bearer is exposed to the administrator.
       return {
         inviteId: out.inviteId,
         status: out.status,
         quotaReserved: out.quotaReserved,
         tokenIssued: out.tokenIssued,
-        activationToken: out.token,
+        activationToken: null,
       };
     } catch (e) {
       if (e instanceof OrgAdminError) {
+        if (e.reasonCode === "MAIL_UNAVAILABLE") throw new ServiceUnavailableException({reasonCode:e.reasonCode});
         if (e.reasonCode === "PROJECT_ROLE_INSUFFICIENT") {
           throw new ForbiddenException({ reasonCode: e.reasonCode });
         }
         throw new ConflictException({ reasonCode: e.reasonCode });
       }
+      throw e;
+    }
+  }
+
+  @Post("/org-invites/accept")
+  async accept(
+    @Body(new ZodBodyPipe(C.operations.acceptOrgInvite.in)) body: {token:string},
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    assertPrincipal(principal);
+    try {
+      const out = await activateOrgMember(
+        {repo:this.repo,hasher:this.hasher,sessions:this.sessions,tokens:this.tokens},
+        {token:body.token,mode:"existing-account",profile:null,existingUserId:principal.userId,
+         untrustedClaims:{orgId:null,orgRole:null,teamId:null}},
+      );
+      return {userId:out.userId,orgId:out.orgId,orgRole:out.orgRole,teamId:out.teamId??"",sessionId:out.sessionId,session:out.session};
+    } catch (e) {
+      if (e instanceof OrgAdminError) throw new BadRequestException({reasonCode:e.reasonCode});
+      if (e instanceof AuthError && e.reason === "AUTH_SERVICE_UNAVAILABLE") throw new ServiceUnavailableException({reasonCode:e.reason});
       throw e;
     }
   }

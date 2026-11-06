@@ -1,3 +1,4 @@
+import type {OrgInvitationDeliveryStore} from "../../application/auth/org-invitation-delivery";
 import { lockCapacityEpoch, lockOrganizationCapacity, commercialSeatAvailable, readCommercialCapacity } from "../org-capacity/pg-commercial-capacity";
 /**
  * `OrgInviteRepository` on PostgreSQL —— **I-1 与 I-2 真正住在这个文件里**。
@@ -98,10 +99,33 @@ interface InviteRow {
   status: string;
 }
 
-export class PgOrgInviteRepository implements OrgInviteRepository {
+export class PgOrgInviteRepository implements OrgInviteRepository, OrgInvitationDeliveryStore {
   constructor(private readonly db: DatabasePort) {}
 
   /* ─────────────────────────── 邀请 ─────────────────────────── */
+
+  /** #6316 reviewed egress: only internal mail receives the recipient for this exact live token.
+   * Activation return values still never disclose invitation content to callers. */
+  async findDeliveryRecipient(input:{orgId:OrgId;inviteId:string;token:string}):Promise<{email:string}|null> {
+    return this.db.withTenant(input.orgId,async s=>(await s.query<{email:string}>(
+      `SELECT i.email FROM org_invites i JOIN org_invite_tokens t ON t.invite_id=i.id
+       WHERE i.id=$1 AND i.org_id=$2 AND i.status='pending' AND t.token=$3
+        AND t.consumed_at IS NULL AND t.expires_at>now()`,
+      [input.inviteId,input.orgId,input.token])).rows[0]??null);
+  }
+
+  async recordDeliveryOutcome(input:{orgId:OrgId;inviteId:string;token:string;delivered:boolean}):Promise<void> {
+    const {orgId,inviteId,token,delivered}=input;
+    await this.db.withTenant(orgId,async s=>{
+      // Same lock order as resend and acceptance. An older attempt cannot alter a newer token.
+      await s.query('SELECT id FROM org_invites WHERE id=$1 FOR UPDATE',[inviteId]);
+      await s.query(`UPDATE org_invites i SET status=$4,sent_at=CASE WHEN $4='pending' THEN now() ELSE NULL END
+       WHERE i.id=$1 AND i.org_id=$2 AND i.status='pending'
+        AND EXISTS(SELECT 1 FROM org_invite_tokens t WHERE t.invite_id=i.id AND t.token=$3 AND t.consumed_at IS NULL)`,
+       [inviteId,orgId,token,delivered?'pending':'send-failed']);
+      if(!delivered)await s.query('UPDATE org_invite_tokens SET consumed_at=now() WHERE invite_id=$1 AND token=$2 AND consumed_at IS NULL',[inviteId,token]);
+    });
+  }
 
   async create(input: CreateOrgInviteInput): Promise<CreateOrgInviteResult> {
     try {
@@ -208,11 +232,8 @@ export class PgOrgInviteRepository implements OrgInviteRepository {
               input.teamId,
               input.status,
               input.actorId,
-              // I-3：待复核的邀请**没有发出去**，所以 sent_at 为 NULL。
-              // 迁移里的 CHECK 会在这条规则被绕过时拒绝写入。
-              // ⚠ 非 NULL 时的语义是「已入站出站队列」，不是「SMTP 接受了」——
-              // 投递器不在 F10 范围内（见 invite-org-member.ts 文件头）。
-              input.status === "awaiting-review" ? null : new Date(),
+              // Provider acceptance is recorded separately by OrgInvitationMailDelivery.
+              null,
             ],
           );
         } catch (e) {
@@ -335,6 +356,8 @@ export class PgOrgInviteRepository implements OrgInviteRepository {
     const actual = { orgId: invite.org_id, orgRole: invite.org_role, teamId: invite.team_id };
 
     if (input.existingUserId !== null) {
+      const credential = await s.query<{email: string}>("SELECT email FROM credentials WHERE user_id=$1", [input.existingUserId]);
+      if (credential.rows[0]?.email !== invite.email) throw new Rollback("not-found");
       const existing = await s.query("SELECT 1 FROM org_memberships WHERE org_id=$1 AND user_id=$2", [orgId,input.existingUserId]);
       if (existing.rows.length) throw new Rollback("already-member");
     }
@@ -533,12 +556,8 @@ export class PgOrgInviteRepository implements OrgInviteRepository {
     const row = res.rows[0];
     if (row === undefined) throw new Rollback("not-found");
 
-    // 可重发的两种状态：
-    //   `pending`      正常的「链接发出去了但对方没点」。
-    //   `send-failed`  上一次投递失败——重发正是为它准备的动作。
-    // 其余三种一律拒：`awaiting-review`（I-3：复核前**不签发**，重发会绕过整条双人复核）、
-    // `revoked`、`used`。
-    if (row.status !== "pending" && row.status !== "send-failed") {
+    // Pending, failed and historical review entries can be resent as ordinary members.
+    if (row.status !== "pending" && row.status !== "send-failed" && row.status !== "awaiting-review") {
       throw new Rollback("not-resendable");
     }
 
@@ -586,10 +605,9 @@ export class PgOrgInviteRepository implements OrgInviteRepository {
       [input.token, row.id, input.orgId, input.tokenExpiresAt, input.now],
     );
 
-    // `send-failed` 重新回到 `pending`：链接又发出去了。`sent_at` 一并更新。
-    await s.query(`UPDATE org_invites SET status = 'pending', sent_at = $2 WHERE id = $1`, [
+    // Delivery outcome is pending until the new bearer is accepted by the provider.
+    await s.query(`UPDATE org_invites SET status = 'pending', org_role = 'consultant', sent_at = NULL WHERE id = $1`, [
       row.id,
-      input.now,
     ]);
 
     return { ok: true, newTokenIssued: true, cooldownSec: input.cooldownSeconds };

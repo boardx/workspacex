@@ -1,3 +1,4 @@
+import {assertMemberCreditQuota} from "./member-credit-quota";
 import {resolveNativeCreditTariff} from './resolve-native-credit-tariff';
 import {lockTeamFinancialOwner} from "./team-financial-owner";
 import {prepareTeamCreditAdmission} from "./team-credit-admission";
@@ -79,6 +80,9 @@ export class PgCreditConsumption {
    if(input.callPurpose==="native-image"||input.callPurpose==="native-asr")throw this.error(p,"credit_native_bound_missing");
   }
   if(reserved>limit)throw this.error(p,"credit_request_bound_unrepresentable");
+  const hasTokenBound=extended.maximumTokens!=null||admission?.maximum_tokens!=null;
+  const hasCreditBound=(native!==undefined||hasTokenBound)&&(!extended.tokenBoundRequired||hasTokenBound);
+  if(p.ownerType==="team")reserved=await assertMemberCreditQuota(s,orgId,input.userId,reserved,hasCreditBound);
   const inserted=await s.query(`INSERT INTO credit_consumption_requests(request_id,org_id,user_id,wallet_id,model_provider,model_id,run_id,start_facts,reserved_hundredths,tariff_version,native_unit,native_quantum,native_rate) VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,$10,$11,$12,$13) ON CONFLICT(request_id) DO NOTHING RETURNING request_id`,[input.requestId,orgId,input.userId,wallet.wallet_id,input.modelProvider,input.modelId,input.runId,facts({...immutable,maximumTokenBound:extended.maximumTokens??null,nativeMaximumBound:extended.nativeMaximum??null,tokenBoundRequired:extended.tokenBoundRequired??false}),reserved.toString(),version,native?.unit??null,quantum?.toString()??null,rate?.toString()??null]);
   if(!inserted.rows.length)throw this.error(p,"credit_start_replay_mismatch");
   await s.query("UPDATE credit_wallets SET held_hundredths=held_hundredths+$2,unbounded_requests=unbounded_requests+$3 WHERE wallet_id=$1",[wallet.wallet_id,reserved.toString(),reserved===0n?1:0]);

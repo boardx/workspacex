@@ -1,31 +1,6 @@
-/**
- * #363（可做的那一半）—— `ResendOrgInvite` / `RevokeOrgInvite` 两条**孤儿契约操作**
- * 接上路由。契约 `org-admin.ts:341` / `:357` 早就存在，controller 里此前零命中。
- *
- * ⚠ 本文件**不覆盖** `GET /organizations/:orgId/members` 与 `…/invites`（列成员 / 列邀请）：
- *   那两条**契约里根本没有**，新增契约操作要走 ADR-023 的设计签核，而
- *   `design-signoff.md` 的 status 只有人类能改。#363 不因本文件关闭。
- *
- * ## 三条反证，写在这里而不是留给下一个人重新想
- *
- * A（授权断的是**调用点**，不是名字在不在文件里）：`NON-ADMIN` 那两个 it 断言的是
- *   **副作用没发生**——顾问调用 resend 之后 `org_invite_tokens` 的行数纹丝不动、
- *   调用 revoke 之后 `status` 仍是 `pending`。把 `resend-org-invite.ts` /
- *   `revoke-org-invite.ts` 里那行 `if (actorOrgRole !== "admin") throw` **注释掉**，
- *   这两条当场红：顾问的调用会成功，令牌多一行、状态翻成 revoked。
- *   ⚠ 刻意**不**写 `expect(source).toContain("actorOrgRole")` 这一类断言——今天有一颗
- *     钉子正是这么写的，命中的是私有方法**定义本身**，把调用整行注释掉依然全绿。
- *
- * C（令牌只在签发那一次响应里出现——2026-08-11 随 coord-main 裁决 A 反转）：
- *   原断言是「resend 返回体不含令牌值」；裁决 A（invite-link-and-reads delta ①）把
- *   它改成两半：**签发那一次**响应里的 `activationToken` 与库里在案的活令牌是同一枚
- *   （正例），而**再查列表**（第二个管理员视角）搜不到那个值（「随时可再读」仍封死，
- *   搜的是值本身不是字段名）。旧断言防的威胁没有被放松，只是把「一次」从 0 改成 1。
- *
- * B（红落在目标那一步之后）：每个 describe 里的断言按「先证明前提成立、再证明目标」
- *   排列——例如反证 A 的两个 it 都先 `expect(before).toBe(...)` 确认起始状态，
- *   再调用、再断言副作用。摘掉授权后红的是最后那条，前面的仍绿。
- */
+/** Resend/revoke authorization and token lifecycle against PostgreSQL.
+ * Resend delivers the new token through the mail port, returns no bearer to an
+ * administrator, revokes the previous token, and preserves list non-disclosure. */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { orgAdmin as C } from "@repo/contracts";
 import { auth as A } from "@repo/contracts";
@@ -54,6 +29,7 @@ const HOOK_TIMEOUT_MS = 60_000;
 
 let db: PgDatabase;
 let repo: PgOrgInviteRepository;
+const deliveredTokens: string[] = [];
 let controller: OrgAdminManagementController;
 
 /**
@@ -142,6 +118,7 @@ beforeAll(async () => {
     null as never,  // F160 token 额度仓储：本文件不调那三条路由,
     null as never,  // F162 限额规则仓储：本文件不调那五条路由
     null as never,  // issue #852 delta：skill 审核人职能仓储：本文件不调那三条路由
+    { deliver: async ({ token }) => { deliveredTokens.push(token); } },
   );
 }, HOOK_TIMEOUT_MS);
 
@@ -151,6 +128,7 @@ afterAll(async () => {
 }, HOOK_TIMEOUT_MS);
 
 beforeEach(async () => {
+  deliveredTokens.length = 0;
   await resetOrgs(ORG, OTHER_ORG);
   await seedOrg({ orgId: ORG, projectId: `${ORG}-p` });
   await seedOrg({ orgId: OTHER_ORG, projectId: `${OTHER_ORG}-p` });
@@ -242,16 +220,20 @@ describe("ResendOrgInvite —— I-6", () => {
     });
   });
 
-  it("`awaiting-review` 的管理员邀请不可重发（I-3：复核前不签发）", async () => {
+  it("legacy awaiting-review invitations resend as ordinary members without approval", async () => {
     const inviteId = await newInvite("adm@363.test", "admin");
+    await asOwner(async (c) => {
+      await c.query("DELETE FROM org_invite_tokens WHERE invite_id=$1", [inviteId]);
+      await c.query("UPDATE org_invites SET status='awaiting-review', org_role='admin', sent_at=NULL WHERE id=$1", [inviteId]);
+    });
     expect(await inviteStatus(inviteId)).toBe("awaiting-review");
-    expect(await tokenRows(inviteId)).toEqual([]);
-
-    expect(
-      await catchHttp(() => controller.resend(ORG, inviteId, { orgId: ORG, inviteId }, principal(ADMIN_B))),
-    ).toEqual({ status: 409, body: { reasonCode: "VERSION_CHANGED" } });
-
-    expect(await tokenRows(inviteId), "重发不得绕过双人复核签出令牌").toEqual([]);
+    const out = await controller.resend(ORG, inviteId, { orgId: ORG, inviteId }, principal(ADMIN_B));
+    expect(out.activationToken).toBeNull();
+    expect(out.newTokenIssued).toBe(true);
+    expect(await inviteStatus(inviteId)).toBe("pending");
+    expect(deliveredTokens).toEqual([await liveToken(inviteId)]);
+    const row = await asOwner((c) => c.query("SELECT org_role FROM org_invites WHERE id=$1", [inviteId]));
+    expect(row.rows[0].org_role).toBe("consultant");
   });
 });
 
@@ -398,14 +380,8 @@ describe("防枚举 —— 不存在的 id 与够不到的 id 不可区分", () 
 
 /* ═══════ 反证 C：令牌只在签发那一次响应里出现 ═══════ */
 
-/**
- * 2026-08-11 改写（invite-link-and-reads delta ①，coord-main 裁决 A）：原断言是
- * 「resend 返回体不含令牌值」，裁决把它反转为「**签发那一次**返回令牌，此外任何
- * 可再读的地方都拿不到」。旧断言防的威胁（任何管理员随时可读他人链接）由下面
- * 第二条守住：**再查列表拿不到 token**——那才是「随时可再读」的形状。
- */
-describe("TOKEN ONLY ONCE 反证 C", () => {
-  it("resend 的返回体带 activationToken（正是库里那枚新令牌），key 集合逐字等于契约 out", async () => {
+describe("mail-only token delivery and administrator non-disclosure", () => {
+  it("resend delivers the live token through mail and exposes no bearer in its response", async () => {
     const inviteId = await newInvite("echo@363.test");
     await ageTokens(inviteId, A.AUTH_POLICY.resendCooldownSeconds + 1);
 
@@ -413,8 +389,9 @@ describe("TOKEN ONLY ONCE 反证 C", () => {
     const token = await liveToken(inviteId);
     expect(token.length, "前提：库里确实有一枚可搜的令牌").toBeGreaterThan(20);
 
-    // 裁决 A 正例：响应里的令牌与库里在案的活令牌是同一枚——不是第二枚、不是旧的。
-    expect(out.activationToken).toBe(token);
+    // The exact live bearer reaches the delivery port; the admin only receives delivery success.
+    expect(out.activationToken).toBeNull();
+    expect(deliveredTokens).toEqual([token]);
     expect(Object.keys(out).sort()).toEqual(Object.keys(C.operations.resendOrgInvite.out.shape).sort());
   });
 
@@ -422,12 +399,14 @@ describe("TOKEN ONLY ONCE 反证 C", () => {
     const inviteId = await newInvite("once@363.test");
     await ageTokens(inviteId, A.AUTH_POLICY.resendCooldownSeconds + 1);
     const out = await controller.resend(ORG, inviteId, { orgId: ORG, inviteId }, principal(ADMIN));
-    expect(out.activationToken.length, "前提：这次签发确实带出了令牌").toBeGreaterThan(20);
+    expect(out.activationToken).toBeNull();
+    const deliveredToken = deliveredTokens.at(-1)!;
+    expect(deliveredToken.length).toBeGreaterThan(20);
 
     // 🔴 搜的是**值**，不是字段名——一个叫 `activationLink` 的字段也藏不住。
     // 用第二个管理员查：正是旧注释担心的那个角色（「任何一个管理员把别人的链接读出来」）。
     const listed = await controller.listInvites(ORG, principal(ADMIN_B));
-    expect(JSON.stringify(listed)).not.toContain(out.activationToken);
+    expect(JSON.stringify(listed)).not.toContain(deliveredToken);
     // 且每行的 key 集合逐字等于契约（`.strict()` 在协议层再守一遍）。
     for (const row of listed.invites) {
       expect(Object.keys(row).sort()).toEqual(

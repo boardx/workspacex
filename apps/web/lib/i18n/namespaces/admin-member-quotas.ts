@@ -1,4 +1,12 @@
 export const adminMemberQuotasZhCN = {
+  "adminMemberQuotas.creditTitle": "成员月度 Credit 额度",
+  "adminMemberQuotas.creditDefault": "每人每月默认 {amount} Credit，管理员可逐人调整。额度不会发放钱包余额。",
+  "adminMemberQuotas.creditMonth": "账期：{month}（UTC 自然月，每月重新计算用量）",
+  "adminMemberQuotas.creditUsage": "本月已用 {used} / {limit} Credit",
+  "adminMemberQuotas.creditHeld": "进行中预留：{amount} Credit",
+  "adminMemberQuotas.creditLabel": "每月 Credit 额度（0 表示禁止新增消费）",
+  "adminMemberQuotas.creditLoadError": "无法读取 Credit 额度",
+
   "adminMemberQuotas.noOrg": "尚未选择组织。",
   "adminMemberQuotas.loadingQuota": "正在读取配额…",
   "adminMemberQuotas.allocated": "已分配配额",
@@ -28,7 +36,7 @@ export const adminMemberQuotasZhCN = {
   "adminMemberQuotas.invitesDenied": "待处理邀请仅组织管理员可见。",
   "adminMemberQuotas.resending": "重发中…",
   "adminMemberQuotas.resend": "重发",
-  "adminMemberQuotas.inviteSubtitle": "发一条一次性激活链接；入场即带好组织角色。",
+  "adminMemberQuotas.inviteSubtitle": "通过邮件邀请普通成员加入组织。",
   "adminMemberQuotas.boundary": "你作为管理员看不到什么",
   "adminMemberQuotas.privateLayer": "个人层 · 只有计数（内容不可见、不可搜索、不可导出、不进 AI 检索）",
   "adminMemberQuotas.loading": "读取中…",
@@ -54,14 +62,14 @@ export const adminMemberQuotasZhCN = {
   "adminMemberQuotas.available": "组织未分配余量 {amount} token。",
   "adminMemberQuotas.allocatedHelp": "已分配 {amount} token。调到低于这个数会被拒绝——「谁被砍」由你决定，服务端不会替你截断任何人的额度。",
   "adminMemberQuotas.orgMissing": "这个组织找不到了，请重新选择组织。",
-  "adminMemberQuotas.resent": "已对 {email} 重发；旧链接立即失效（冷却 {seconds} 秒）",
+  "adminMemberQuotas.resent": "邀请邮件已重新发送至 {email}；旧链接立即失效（冷却 {seconds} 秒）",
   "adminMemberQuotas.inviteMissing": "这条邀请找不到了，请刷新成员列表。",
   "adminMemberQuotas.resendFailed": "重发失败：{error}",
   "adminMemberQuotas.membersFailed": "成员数据读取失败：{error}",
   "adminMemberQuotas.rosterSummary": "成员 {members} 人 · 活跃 {active} 人",
   "adminMemberQuotas.pending": " · 待处理邀请 {count} 条",
   "adminMemberQuotas.invitedBy": "由 {name} 邀请",
-  "adminMemberQuotas.linkContext": "激活链接一次性、有有效期；链接携带的组织 / 角色以服务端为准，篡改无效。",
+  "adminMemberQuotas.linkContext": "邀请通过邮件送达，受邀者确认后以普通成员身份加入组织；未收到邮件可重新发送。",
   "adminMemberQuotas.privateFailed": "个人层计数读取失败：{error}",
   "adminMemberQuotas.privateCount": "私有条目 {count} 条",
   "adminMemberQuotas.boundaryExplanation": "这不是缺失功能，是产品的硬约束。个人层是三层记忆里唯一对管理员封闭的一层——顾问敢把半成品判断写进系统，前提是这一层组织管理员看不到、agent 也读不到。",
@@ -71,10 +79,18 @@ export const adminMemberQuotasZhCN = {
   "adminMemberQuotas.shelldenialReason": "成员与配额仅组织管理员可见；顾问只能通过『看我的访问记录』查看自己的访问历史。",
   "adminMemberQuotas.shellsuccessMessage": "已为吴桐单独提额至 5.0M；本次操作已记入审计",
   "adminMemberQuotas.shellQuotaError": "提额失败：目标额度超过组织剩余额度（1,380 万 tokens），请先调整组织总额度",
-  "adminMemberQuotas.orgManagement": "成员/邀请的批准、拒绝与撤销双人复核，组织资料，在「组织成员」管理（已接真实后端）。这里是配额与「管理员看不到什么」这两块——组织级邀请管理不重复做。"
+  "adminMemberQuotas.orgManagement": "成员、邀请和组织资料在「组织成员」中管理。这里可调整成员额度，并查看管理员的数据访问范围。"
 } as const;
 
 export const adminMemberQuotasEn: Record<keyof typeof adminMemberQuotasZhCN, string> = {
+  "adminMemberQuotas.creditTitle": "Member monthly Credit limits",
+  "adminMemberQuotas.creditDefault": "Each member defaults to {amount} Credits per month. Administrators can adjust individual limits. Limits do not add wallet funds.",
+  "adminMemberQuotas.creditMonth": "Period: {month} (UTC calendar month; usage resets monthly)",
+  "adminMemberQuotas.creditUsage": "Used this month: {used} / {limit} Credits",
+  "adminMemberQuotas.creditHeld": "Reserved by active requests: {amount} Credits",
+  "adminMemberQuotas.creditLabel": "Monthly Credit limit (0 blocks new spending)",
+  "adminMemberQuotas.creditLoadError": "Could not load Credit limits",
+
   "adminMemberQuotas.noOrg": "No organization selected.",
   "adminMemberQuotas.loadingQuota": "Loading quota data…",
   "adminMemberQuotas.allocated": "Allocated quota",
@@ -104,7 +120,7 @@ export const adminMemberQuotasEn: Record<keyof typeof adminMemberQuotasZhCN, str
   "adminMemberQuotas.invitesDenied": "Only organization administrators can view pending invitations.",
   "adminMemberQuotas.resending": "Resending…",
   "adminMemberQuotas.resend": "Resend",
-  "adminMemberQuotas.inviteSubtitle": "Send a one-time activation link with the organization role included.",
+  "adminMemberQuotas.inviteSubtitle": "Invite an ordinary member to the organization by email.",
   "adminMemberQuotas.boundary": "What administrators cannot see",
   "adminMemberQuotas.privateLayer": "Personal layer · counts only (content is hidden, not searchable, not exportable and excluded from AI retrieval)",
   "adminMemberQuotas.loading": "Loading…",
@@ -130,14 +146,14 @@ export const adminMemberQuotasEn: Record<keyof typeof adminMemberQuotasZhCN, str
   "adminMemberQuotas.available": "Unallocated organization budget: {amount} tokens.",
   "adminMemberQuotas.allocatedHelp": "{amount} tokens allocated. A lower budget will be rejected. You decide whose quota to reduce; the server will not truncate member quotas.",
   "adminMemberQuotas.orgMissing": "Organization not found. Select another organization.",
-  "adminMemberQuotas.resent": "Resent to {email}; the old link is immediately invalid (cooldown: {seconds} seconds)",
+  "adminMemberQuotas.resent": "Invitation email resent to {email}; the old link is immediately invalid (cooldown: {seconds} seconds)",
   "adminMemberQuotas.inviteMissing": "Invitation not found. Refresh the member list.",
   "adminMemberQuotas.resendFailed": "Could not resend: {error}",
   "adminMemberQuotas.membersFailed": "Could not load member data: {error}",
   "adminMemberQuotas.rosterSummary": "Members: {members} · Active: {active}",
   "adminMemberQuotas.pending": " · Pending invitations: {count}",
   "adminMemberQuotas.invitedBy": "Invited by {name}",
-  "adminMemberQuotas.linkContext": "Activation links are single-use and expire. The server determines the organization and role; changing the link has no effect.",
+  "adminMemberQuotas.linkContext": "Invitations are delivered by email. Invitees confirm joining as ordinary members; resend if the email has not arrived.",
   "adminMemberQuotas.privateFailed": "Could not load personal-layer counts: {error}",
   "adminMemberQuotas.privateCount": "Private entries: {count}",
   "adminMemberQuotas.boundaryExplanation": "This is a product constraint. The personal layer is the only memory layer closed to administrators. Consultants can record unfinished thinking because neither organization administrators nor agents can read it.",
@@ -147,5 +163,5 @@ export const adminMemberQuotasEn: Record<keyof typeof adminMemberQuotasZhCN, str
   "adminMemberQuotas.shelldenialReason": "Members and quotas are only visible to organization administrators. Consultants can view their own access history.",
   "adminMemberQuotas.shellsuccessMessage": "Quota for 吴桐 increased to 5.0M; this action was recorded in the audit log",
   "adminMemberQuotas.shellQuotaError": "Could not increase quota: the requested amount exceeds the remaining organization budget (13.8M tokens). Adjust the organization budget first.",
-  "adminMemberQuotas.orgManagement": "Manage member and invitation approval, rejection, revocation review and organization details in Organization members (connected to the live backend). This screen covers quotas and administrator visibility boundaries."
+  "adminMemberQuotas.orgManagement": "Manage members, invitations and organization details in Organization members. Adjust member quotas and view administrator data access boundaries here."
 };
