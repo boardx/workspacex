@@ -53,3 +53,14 @@ it("binds explicit search and type controls only to the named table across neste
   expect(document.querySelectorAll<HTMLElement>('table[data-prototype-table="docs"] tbody tr')[1]!.style.display).toBe("");
   expect(document.querySelector<HTMLElement>('table[data-prototype-table="other"] tr')!.style.display).toBe("");
 });
+
+it('leaves ancestor data-goto navigation in charge without opening local details',()=>{
+ document.body.innerHTML='<table><tbody><tr data-goto="1" data-link="row"><td>资料</td><td><button>打开</button></td></tr></tbody></table>';
+ new Function(PROTOTYPE_TABLE_INTERACTIONS)();document.querySelector('button')!.click();
+ expect(document.querySelector('[role="dialog"]')).toBeNull();
+});
+it('matches explicit fields exactly when their values start with all',()=>{
+ document.body.innerHTML='<select data-prototype-filter="docs" data-prototype-column="owner"><option>全部</option><option>Allan</option><option>Betty</option></select><table data-prototype-table="docs"><thead><tr><th data-prototype-column="owner">负责人</th></tr></thead><tbody><tr><td data-prototype-column="owner">Allan</td></tr><tr><td data-prototype-column="owner">Betty</td></tr></tbody></table>';
+ new Function(PROTOTYPE_TABLE_INTERACTIONS)();const select=document.querySelector('select')!;select.value='Allan';select.dispatchEvent(new Event('change'));
+ expect(document.querySelectorAll<HTMLElement>('tbody tr')[1]!.style.display).toBe('none');
+});

@@ -33,3 +33,9 @@ RED 与 GREEN 日志在本目录。真实审计项目由主会话人工复测；
 主会话全量typecheck暴露 flatMap 将 column 仅推断为string，legacy分支null引起后续unknown级联。仅为flatMap显式标注结果元素类型 `{ select: HTMLSelectElement; column: string | null; index: number }`，不改变运行时逻辑。
 
 单文件语义类型验证（非全量、未与prepush争用）：`pnpm --filter web exec tsc --noEmit --strict --skipLibCheck --target ES2022 --lib ES2022,DOM --types react lib/prototype-table-interactions.ts`，type-red.log退出1复现三处错误，type-green.log退出0；定向交互+iframe回归type-regression.log 8/8通过。全量类型门由主会话统一执行，尚未宣称通过。
+
+## 独立review两反例返工（5d8f2fa16 后）
+
+data-goto 优先检查改为 event target.closest，覆盖祖先tr的导航，不再同时弹本地详情。全部过滤改为isAllOption只认空value与精确保留token（全部/所有/全部类型/所有类型/all/any/all types/any type）；Allan等前缀属于普通数据，精确匹配字段。
+
+正式增加review两反例并实际RED（navigation-token-red.log，2 failed+3 passed），最小修复后交互5+iframe5共10/10（navigation-token-green.log）。单文件严格语义tsc退出0（navigation-token-type.log），git diff --check通过。没有全量tsc或Git写操作。精确源码仍为prototype-table-interactions.ts与其对应测试；本证据目录同步更新。

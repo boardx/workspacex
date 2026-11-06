@@ -1,6 +1,10 @@
 /** Trusted, self-contained local table interactions. Used inside the existing
  * nonce bridge in both live preview and HTML export; never runs model code. */
 function tableInteractions(): void {
+  // Empty value and these exact reserved values mean no filter. Prefixes are
+  // ordinary data (for example Allan or Anything), never an all-items command.
+  const isAllOption = (option: HTMLOptionElement | undefined) => option !== undefined &&
+    (option.value.trim() === "" || /^(全部|所有|全部类型|所有类型|all|any|all types|any type)$/i.test(option.value.trim()));
   const tables = Array.from(document.querySelectorAll("table"));
   for (const table of tables) {
     const rows = Array.from(table.querySelectorAll<HTMLTableRowElement>("tbody tr")).filter((row) => row.querySelector("td"));
@@ -24,7 +28,7 @@ function tableInteractions(): void {
       if (explicit) return column && (index >= 0 || rows.some((row) => Array.from(row.cells).some((cell) => cell.getAttribute("data-prototype-column") === column))) ? [{ select, column, index }] : [];
       // Legacy prototypes: infer only an actual type selector whose options all
       // match the type column. Sort/owner controls must never become filters.
-      const options = Array.from(select.options).map((option) => option.textContent?.trim().toLocaleLowerCase() ?? "").filter((value) => value && !/^(全部|所有|all|any)/i.test(value));
+      const options = Array.from(select.options).filter((option) => !isAllOption(option)).map((option) => option.textContent?.trim().toLocaleLowerCase() ?? "").filter(Boolean);
       return typeIndex >= 0 && options.length && options.every((value) => typeValues.has(value)) ? [{ select, column: null, index: typeIndex }] : [];
     });
     const status = document.createElement("p");
@@ -38,7 +42,7 @@ function tableInteractions(): void {
           const option = select.selectedOptions[0];
           const value = (option?.textContent ?? select.value).trim();
           const cell = column ? Array.from(row.cells).find((cell) => cell.getAttribute("data-prototype-column") === column) ?? row.cells[index] : row.cells[index];
-          return !value || /^(全部|所有|all|any)/i.test(value) || cell?.textContent?.trim().toLocaleLowerCase() === value.toLocaleLowerCase();
+          return isAllOption(option) || cell?.textContent?.trim().toLocaleLowerCase() === value.toLocaleLowerCase();
         });
         row.style.display = show ? "" : "none";
         if (show) count++;
@@ -50,7 +54,7 @@ function tableInteractions(): void {
     table.addEventListener("click", (event) => {
       const target = event.target as Element | null;
       const button = target?.closest("button, a");
-      if (!button || button.hasAttribute("data-goto") || !/^(打开|查看|open|view)$/i.test(button.textContent?.trim() ?? "")) return;
+      if (!button || target?.closest("[data-goto]") || !/^(打开|查看|open|view)$/i.test(button.textContent?.trim() ?? "")) return;
       if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
       const row = button.closest("tr");
       if (!row) return;
