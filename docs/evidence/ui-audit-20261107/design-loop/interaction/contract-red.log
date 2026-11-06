@@ -1,0 +1,28 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/packages/contracts
+
+ ❯ tests/design-html-page.test.ts (20 tests | 1 failed) 69ms
+   × retains safe explicit table/search/filter column bindings and drops selector payloads 12ms
+     → expected '<table data-ref="r1"><tr data-ref="r2…' to contain 'data-prototype-table="docs"'
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/design-html-page.test.ts > retains safe explicit table/search/filter column bindings and drops selector payloads
+AssertionError: expected '<table data-ref="r1"><tr data-ref="r2…' to contain 'data-prototype-table="docs"'
+
+Expected: "data-prototype-table="docs""
+Received: "<table data-ref="r1"><tr data-ref="r2"><th data-ref="r3">类型</th></tr></table><input data-ref="r4" /><select data-ref="r5"><option>PDF</option></select>"
+
+ ❯ tests/design-html-page.test.ts:170:17
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 19 passed (20)
+   Start at  03:54:20
+   Duration  2.37s (transform 1.13s, setup 0ms, collect 1.71s, tests 69ms, environment 0ms, prepare 141ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/packages/contracts:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/design-html-page.test.ts

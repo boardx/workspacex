@@ -197,6 +197,12 @@ export function sanitizeHtmlPage(input: string): SanitizedHtmlPage {
       if (key === REF_ATTR) continue; // 重编，不信输入里的
       if (key === GOTO_ATTR) { if (/^\d{1,2}$/.test(raw.trim())) goto = raw.trim(); continue; }
       if (key === LINK_ATTR) { if (/^[A-Za-z0-9_-]{1,32}$/.test(raw.trim())) link = raw.trim(); continue; }
+      // Declarative local table bindings only; values are identifiers, never selectors/code.
+      if (["data-prototype-table", "data-prototype-search", "data-prototype-filter", "data-prototype-column"].includes(key)) {
+        if (/^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(raw)) attrs += ` ${key}="${escapeAttr(raw)}"`;
+        else note(`属性 ${key}`);
+        continue;
+      }
       if (key.startsWith("aria-") && /^[a-z-]+$/.test(key)) { attrs += ` ${key}="${escapeAttr(raw)}"`; continue; }
 
       const allowed = isSvg ? SVG_ATTRS.has(key) : GLOBAL_ATTRS.has(key) || (perTag?.has(key) ?? false);

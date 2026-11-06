@@ -1,0 +1,14 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+
+ ✓ tests/ui/prototype-table-interactions.test.tsx (1 test) 131ms
+stderr | tests/ui/prototype-html-page-interaction.test.tsx > HTML 页：iframe 消息 → 画布行为 > 预览态：goto 消息 ⇒ 跳到 links 里那一页
+Warning: `ReactDOMTestUtils.act` is deprecated in favor of `React.act`. Import `act` from `react` instead of `react-dom/test-utils`. See https://react.dev/warnings/react-dom-test-utils for more info.
+
+ ✓ tests/ui/prototype-html-page-interaction.test.tsx (5 tests) 103ms
+
+ Test Files  2 passed (2)
+      Tests  6 passed (6)
+   Start at  03:30:21
+   Duration  4.06s (transform 1.41s, setup 308ms, collect 2.07s, tests 235ms, environment 2.01s, prepare 320ms)
