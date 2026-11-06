@@ -1,0 +1,43 @@
+{
+  "recordedAtUTC": "2026-10-17T12:05:08.448507+00:00",
+  "base": "f966a06416edffe4746061390f70adbb2aa2777c",
+  "expiryDocumentationCommit": "5365342dd14480e7dc654cc26de83f278d82c063",
+  "productionCalls": 0,
+  "productionAccepted": false,
+  "candidateExpiredAt": "2026-10-17T11:48:36.413148Z",
+  "pythonSourceUnchangedDuringAndAfterTests": true,
+  "workflowChangeAfterTests": "Adds expanded suites to the same read-only PR CI; exact-head GitHub execution is pending.",
+  "localPassedSuites": 22,
+  "localPassedTestCases": 229,
+  "legacyEnvironmentLimitedSuite": {
+    "name": "test_cn_release_conditional_writer_adapter.py",
+    "tests": 12,
+    "failures": 1,
+    "errors": 5,
+    "reason": "UNSAFE_PARENT: local / owner UID 65534 outside allowed (0,1000); existing protected store unchanged"
+  },
+  "canonicalProofModesPassed": [
+    "legacy-attempt-1",
+    "BC-v3-attempt-2"
+  ],
+  "frozenHandoffPatchSha256": "ac98711c5a0fe6f2c0d7c6dae72ad8ffb7e75852ae38fd5fcd4086f13f4d5aa2",
+  "githubSourceValidation": {
+    "head": "384c3b7830cfb2afcdb7eee70f30f37d08fe50c8",
+    "run": 39031167276,
+    "attempt": 1,
+    "job": 117391736657,
+    "conclusion": "success",
+    "suiteCount": 23,
+    "testCases": 241,
+    "requiredTestsSkipped": 0,
+    "canonicalProofModesPassed": [
+      "legacy-attempt-1",
+      "BC-v3-attempt-2"
+    ],
+    "realDockerSixStage": "PASSED",
+    "cleanupVerified": true,
+    "productionAccepted": false,
+    "sourceIsBC": false,
+    "originalLogSha256": "9f9d406842750efc1a14efa6b29a4693d0621a1ed0ba2997d3a1ac5e5187db7e"
+  }
+}

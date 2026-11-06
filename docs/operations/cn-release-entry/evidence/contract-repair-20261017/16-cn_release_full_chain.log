@@ -1,0 +1,11 @@
+test_a5_wait_does_not_reset_original_release_clock (test_cn_release_full_chain.FullChain.test_a5_wait_does_not_reset_original_release_clock) ... ok
+test_a5_wrong_generation_blocks_before_clear_or_business (test_cn_release_full_chain.FullChain.test_a5_wrong_generation_blocks_before_clear_or_business) ... ok
+test_lost_publish_response_never_reissues_mutation (test_cn_release_full_chain.FullChain.test_lost_publish_response_never_reissues_mutation) ... ok
+test_rds_lost_response_reconciles_original_job_without_second_create (test_cn_release_full_chain.FullChain.test_rds_lost_response_reconciles_original_job_without_second_create) ... ok
+test_real_materializers_and_entry_seventeen_stage_a5_pause_resume (test_cn_release_full_chain.FullChain.test_real_materializers_and_entry_seventeen_stage_a5_pause_resume) ... ok
+test_stop_timeout_retains_hold_and_never_starts_backup_or_switch (test_cn_release_full_chain.FullChain.test_stop_timeout_retains_hold_and_never_starts_backup_or_switch) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 12.876s
+
+OK

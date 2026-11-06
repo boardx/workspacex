@@ -1,0 +1,81 @@
+name: Fixed CN release isolated tests
+on:
+  pull_request:
+    paths:
+      - scripts/fixed-cn-*
+      - scripts/fixed_cn_*.py
+      - scripts/cn_image_candidate.py
+      - scripts/cn_image_archive.py
+      - tests/test_fixed_cn_bundle.py
+      - tests/test_fixed_cn_remote.py
+      - tests/test_fixed_cn_phases.py
+      - tests/test_cn_release_safety_gates.py
+      - tests/test_cn_release_phase_gates.py
+      - tests/test_cn_hk_*.py
+      - scripts/cn-hk-*.py
+      - scripts/cn-release-safety-gates.py
+      - scripts/cn-release-fixed-driver.py
+      - scripts/cn-release-stage-router.py
+      - scripts/cn-release-installation-closure.py
+      - scripts/cn-release-approval-plan.py
+      - tests/test_cn_release_approval_plan.py
+      - tests/test_cn_mvp_installation_closure.py
+      - tests/test_cn_release_fixed_driver.py
+      - tests/test_cn_release_stage_router.py
+      - scripts/minimal-docker-release.py
+      - tests/test_fixed_cn_release.py
+      - tests/test_minimal_docker_release*.py
+      - .github/workflows/fixed-cn-release-tests.yml
+permissions:
+  contents: read
+jobs:
+  simulation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Static checks and isolated stage integration
+        run: |
+          python3 -m py_compile scripts/fixed-cn-release.py tests/test_fixed_cn_release.py
+          sh -n scripts/fixed-cn-readonly-probe.sh
+          python3 scripts/fixed-cn-release.py probe-hash
+          python3 -m unittest discover -s tests -p 'test_fixed_cn_remote.py' -v
+          python3 -m unittest discover -s tests -p 'test_fixed_cn_phases.py' -v
+          python3 -m unittest discover -s tests -p 'test_cn_release_safety_gates.py' -v
+          python3 -m unittest discover -s tests -p 'test_cn_release_phase_gates.py' -v
+          python3 -m unittest discover -s tests -p 'test_cn_release_fixed_driver.py' -v
+          python3 -m unittest discover -s tests -p 'test_cn_release_stage_router.py' -v
+          python3 -m unittest discover -s tests -p 'test_cn_mvp_installation_closure.py' -v
+          python3 -m unittest discover -s tests -p 'test_cn_release_approval_plan.py' -v
+          python3 -m unittest discover -s tests -p 'test_cn_hk_failure_evidence.py' -v
+          python3 -m unittest discover -s tests -p 'test_cn_hk_original_artifact_upload.py' -v
+          python3 -I -B tests/test_cn_hk_proof_integration.py
+          python3 -I -B tests/test_cn_hk_proof_integration.py --attempt-two
+          python3 -m unittest discover -s tests -p 'test_fixed_cn_bundle.py' -v
+          python3 -m unittest discover -s tests -p 'test_fixed_cn_release.py' -v
+          python3 -m unittest discover -s tests -p 'test_minimal_docker_release.py' -v
+          python3 -m unittest discover -s tests -p 'test_cn_hk_v3_bindings.py' -v
+          python3 -m unittest discover -s tests -p 'test_cn_hk_rebound_bindings.py' -v
+          python3 -m unittest discover -s tests -p 'test_cn_release_fixed_workflow.py' -v
+          python3 -m unittest discover -s tests -p 'test_cn_release_full_chain.py' -v
+          python3 -m unittest discover -s tests -p 'test_cn_release_rds_backup.py' -v
+          python3 -m unittest discover -s tests -p 'test_cn_release_runtime_router.py' -v
+          python3 -m unittest discover -s tests -p 'test_cn_release_conditional_writer_adapter.py' -v
+          python3 -m unittest discover -s tests -p 'test_cn_release_acquire_router.py' -v
+          python3 -m unittest discover -s tests -p 'test_cn_release_failure_isolation.py' -v
+          python3 -m unittest discover -s tests -p 'test_cn_release_promotion_recovery.py' -v
+      - name: Real isolated Docker fixture
+        run: python3 -I -B tests/test_minimal_docker_release_real.py --output "$RUNNER_TEMP/fixed-cn-real"
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: fixed-cn-simulation-${{ github.run_id }}
+          path: |
+            /tmp/fixed-cn-simulation-evidence
+            ${{ runner.temp }}/fixed-cn-real/**/*.json
+            ${{ runner.temp }}/fixed-cn-real/*.log
+          retention-days: 7
+          if-no-files-found: error

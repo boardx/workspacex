@@ -10,7 +10,10 @@ def put(p,v):
 def validate_binding(original,p,template_raw):
  control=original['producerControl']
  assert re.fullmatch('[a-f0-9]{40}',control) and p['controlRevision']==p['verifierRevision']==control
- assert type(original['sourceRun'])is int and original['sourceRun']>0 and p['runId']==original['sourceRun'] and p['runAttempt']==1 and p['repositoryId']==1000328649
+ attempt=original.get('sourceRunAttempt',1)
+ assert type(attempt)is int and attempt in (1,2)
+ assert original['kind']=='hk-original-artifact-transfer-v3' or ('sourceRunAttempt'not in original and attempt==1)
+ assert type(original['sourceRun'])is int and original['sourceRun']>0 and p['runId']==original['sourceRun'] and p['runAttempt']==attempt and p['repositoryId']==1000328649
  assert set(original['artifacts'])==set(p['artifactIds'])=={'plan','set','api','web','agent','sandbox','postgres'}
  assert all(p['artifactIds'][k]==v['id']for k,v in original['artifacts'].items())
  expiry=datetime.datetime.fromisoformat(original['expiresAt'].replace('Z','+00:00'))

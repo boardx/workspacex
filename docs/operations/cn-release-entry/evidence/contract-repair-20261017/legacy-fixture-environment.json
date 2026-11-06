@@ -1,0 +1,22 @@
+{
+  "euid": 1000,
+  "ancestors": [
+    {
+      "path": "/",
+      "uid": 65534,
+      "mode": "0o755"
+    },
+    {
+      "path": "/workspace",
+      "uid": 1000,
+      "mode": "0o755"
+    },
+    {
+      "path": "/tmp",
+      "uid": 65534,
+      "mode": "0o1777"
+    }
+  ],
+  "unchangedProtectedStore": true,
+  "boundary": "Local legacy conditional writer fixture rejects foreign-owned root ancestry; no production reader/permission checks relaxed. Exact-head GitHub Linux rerun required."
+}

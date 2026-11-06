@@ -1,0 +1,535 @@
+{
+  "sourceUnchangedDuringTests": true,
+  "results": [
+    {
+      "command": [
+        "python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_fixed_cn_remote.py",
+        "-v"
+      ],
+      "exitCode": 0,
+      "seconds": 12.706,
+      "summary": [
+        "Ran 24 tests in 12.394s",
+        "OK"
+      ],
+      "log": "00-fixed_cn_remote.log"
+    },
+    {
+      "command": [
+        "python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_fixed_cn_phases.py",
+        "-v"
+      ],
+      "exitCode": 0,
+      "seconds": 7.465,
+      "summary": [
+        "Ran 11 tests in 6.986s",
+        "OK"
+      ],
+      "log": "01-fixed_cn_phases.log"
+    },
+    {
+      "command": [
+        "python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_cn_release_safety_gates.py",
+        "-v"
+      ],
+      "exitCode": 0,
+      "seconds": 0.142,
+      "summary": [
+        "Ran 10 tests in 0.018s",
+        "OK"
+      ],
+      "log": "02-cn_release_safety_gates.log"
+    },
+    {
+      "command": [
+        "python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_cn_release_phase_gates.py",
+        "-v"
+      ],
+      "exitCode": 0,
+      "seconds": 0.173,
+      "summary": [
+        "Ran 7 tests in 0.005s",
+        "OK"
+      ],
+      "log": "03-cn_release_phase_gates.log"
+    },
+    {
+      "command": [
+        "python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_cn_release_fixed_driver.py",
+        "-v"
+      ],
+      "exitCode": 0,
+      "seconds": 1.175,
+      "summary": [
+        "Ran 18 tests in 0.965s",
+        "OK"
+      ],
+      "log": "04-cn_release_fixed_driver.log"
+    },
+    {
+      "command": [
+        "python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_cn_release_stage_router.py",
+        "-v"
+      ],
+      "exitCode": 0,
+      "seconds": 0.495,
+      "summary": [
+        "Ran 6 tests in 0.332s",
+        "OK"
+      ],
+      "log": "05-cn_release_stage_router.log"
+    },
+    {
+      "command": [
+        "python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_cn_mvp_installation_closure.py",
+        "-v"
+      ],
+      "exitCode": 0,
+      "seconds": 0.245,
+      "summary": [
+        "Ran 5 tests in 0.103s",
+        "OK"
+      ],
+      "log": "06-cn_mvp_installation_closure.log"
+    },
+    {
+      "command": [
+        "python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_cn_release_approval_plan.py",
+        "-v"
+      ],
+      "exitCode": 0,
+      "seconds": 1.537,
+      "summary": [
+        "Ran 10 tests in 1.276s",
+        "OK"
+      ],
+      "log": "07-cn_release_approval_plan.log"
+    },
+    {
+      "command": [
+        "python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_cn_hk_original_artifact_upload.py",
+        "-v"
+      ],
+      "exitCode": 0,
+      "seconds": 0.24,
+      "summary": [
+        "Ran 17 tests in 0.068s",
+        "OK"
+      ],
+      "log": "08-cn_hk_original_artifact_upload.log"
+    },
+    {
+      "command": [
+        "python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_cn_hk_failure_evidence.py",
+        "-v"
+      ],
+      "exitCode": 0,
+      "seconds": 0.172,
+      "summary": [
+        "Ran 2 tests in 0.020s",
+        "OK"
+      ],
+      "log": "09-cn_hk_failure_evidence.log"
+    },
+    {
+      "command": [
+        "python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_fixed_cn_bundle.py",
+        "-v"
+      ],
+      "exitCode": 0,
+      "seconds": 0.49,
+      "summary": [
+        "Ran 9 tests in 0.178s",
+        "OK"
+      ],
+      "log": "10-fixed_cn_bundle.log"
+    },
+    {
+      "command": [
+        "python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_fixed_cn_release.py",
+        "-v"
+      ],
+      "exitCode": 0,
+      "seconds": 7.509,
+      "summary": [
+        "Ran 11 tests in 7.303s",
+        "OK"
+      ],
+      "log": "11-fixed_cn_release.log"
+    },
+    {
+      "command": [
+        "python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_minimal_docker_release.py",
+        "-v"
+      ],
+      "exitCode": 0,
+      "seconds": 36.552,
+      "summary": [
+        "Ran 13 tests in 36.385s",
+        "OK"
+      ],
+      "log": "12-minimal_docker_release.log"
+    },
+    {
+      "command": [
+        "python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_cn_hk_v3_bindings.py",
+        "-v"
+      ],
+      "exitCode": 0,
+      "seconds": 0.184,
+      "summary": [
+        "Ran 3 tests in 0.008s",
+        "OK"
+      ],
+      "log": "13-cn_hk_v3_bindings.log"
+    },
+    {
+      "command": [
+        "python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_cn_hk_rebound_bindings.py",
+        "-v"
+      ],
+      "exitCode": 0,
+      "seconds": 0.203,
+      "summary": [
+        "Ran 5 tests in 0.013s",
+        "OK"
+      ],
+      "log": "14-cn_hk_rebound_bindings.log"
+    },
+    {
+      "command": [
+        "python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_cn_release_fixed_workflow.py",
+        "-v"
+      ],
+      "exitCode": 0,
+      "seconds": 0.179,
+      "summary": [
+        "Ran 2 tests in 0.047s",
+        "OK"
+      ],
+      "log": "15-cn_release_fixed_workflow.log"
+    },
+    {
+      "command": [
+        "python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_cn_release_full_chain.py",
+        "-v"
+      ],
+      "exitCode": 0,
+      "seconds": 13.242,
+      "summary": [
+        "Ran 6 tests in 12.876s",
+        "OK"
+      ],
+      "log": "16-cn_release_full_chain.log"
+    },
+    {
+      "command": [
+        "python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_cn_release_rds_backup.py",
+        "-v"
+      ],
+      "exitCode": 0,
+      "seconds": 0.302,
+      "summary": [
+        "Ran 31 tests in 0.145s",
+        "OK"
+      ],
+      "log": "17-cn_release_rds_backup.log"
+    },
+    {
+      "command": [
+        "python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_cn_release_runtime_router.py",
+        "-v"
+      ],
+      "exitCode": 0,
+      "seconds": 0.582,
+      "summary": [
+        "Ran 1 test in 0.418s",
+        "OK"
+      ],
+      "log": "18-cn_release_runtime_router.log"
+    },
+    {
+      "command": [
+        "python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_cn_release_conditional_writer_adapter.py",
+        "-v"
+      ],
+      "exitCode": 1,
+      "seconds": 26.039,
+      "summary": [
+        "Ran 12 tests in 25.728s",
+        "FAILED (failures=1, errors=5)"
+      ],
+      "log": "19-cn_release_conditional_writer_adapter.log"
+    },
+    {
+      "command": [
+        "python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_cn_release_acquire_router.py",
+        "-v"
+      ],
+      "exitCode": 0,
+      "seconds": 3.493,
+      "summary": [
+        "Ran 3 tests in 3.217s",
+        "OK"
+      ],
+      "log": "20-cn_release_acquire_router.log"
+    },
+    {
+      "command": [
+        "python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_cn_release_failure_isolation.py",
+        "-v"
+      ],
+      "exitCode": 0,
+      "seconds": 0.214,
+      "summary": [
+        "Ran 12 tests in 0.063s",
+        "OK"
+      ],
+      "log": "21-cn_release_failure_isolation.log"
+    },
+    {
+      "command": [
+        "python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_cn_release_promotion_recovery.py",
+        "-v"
+      ],
+      "exitCode": 0,
+      "seconds": 12.403,
+      "summary": [
+        "Ran 23 tests in 12.139s",
+        "OK"
+      ],
+      "log": "22-cn_release_promotion_recovery.log"
+    },
+    {
+      "command": [
+        "python",
+        "-I",
+        "-B",
+        "tests/test_cn_hk_proof_integration.py"
+      ],
+      "exitCode": 0,
+      "seconds": 1.468,
+      "summary": [],
+      "log": "23-proof1.log"
+    },
+    {
+      "command": [
+        "python",
+        "-I",
+        "-B",
+        "tests/test_cn_hk_proof_integration.py",
+        "--attempt-two"
+      ],
+      "exitCode": 0,
+      "seconds": 1.604,
+      "summary": [],
+      "log": "24-proof2.log"
+    },
+    {
+      "command": [
+        "sh",
+        "-n",
+        "scripts/fixed-cn-readonly-probe.sh"
+      ],
+      "exitCode": 0,
+      "seconds": 0.003,
+      "summary": [],
+      "log": "25-shell.log"
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exitCode": 0,
+      "seconds": 0.029,
+      "summary": [],
+      "log": "26-diff.log"
+    }
+  ]
+}

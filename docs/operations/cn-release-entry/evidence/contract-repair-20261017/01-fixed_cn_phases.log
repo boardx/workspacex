@@ -1,0 +1,16 @@
+test_a3_pause_then_explicit_continuation_then_a5_pause (test_fixed_cn_phases.Phases.test_a3_pause_then_explicit_continuation_then_a5_pause) ... ok
+test_actual_two_phase_hold_then_fresh_approval_then_same_clock_resume (test_fixed_cn_phases.Phases.test_actual_two_phase_hold_then_fresh_approval_then_same_clock_resume) ... ok
+test_changed_journal_prefix_or_stale_checkpoint_fails_closed (test_fixed_cn_phases.Phases.test_changed_journal_prefix_or_stale_checkpoint_fails_closed) ... ok
+test_current_one_shot_cannot_skip_preparation_for_new_scope (test_fixed_cn_phases.Phases.test_current_one_shot_cannot_skip_preparation_for_new_scope) ... ok
+test_expired_approval_and_changed_root_or_tool_no_resume (test_fixed_cn_phases.Phases.test_expired_approval_and_changed_root_or_tool_no_resume) ... ok
+test_lost_ack_no_pause_no_replay_even_with_different_output (test_fixed_cn_phases.Phases.test_lost_ack_no_pause_no_replay_even_with_different_output) ... ok
+test_missing_safety_completion_stops_before_business (test_fixed_cn_phases.Phases.test_missing_safety_completion_stops_before_business) ... ok
+test_no_future_writer_hash_or_pre_hold_approval (test_fixed_cn_phases.Phases.test_no_future_writer_hash_or_pre_hold_approval) ... ok
+test_timeout_ack_recovered_readonly_without_resubmit (test_fixed_cn_phases.Phases.test_timeout_ack_recovered_readonly_without_resubmit) ... ok
+test_transport_scope_cannot_be_approved_before_future_pause_hash (test_fixed_cn_phases.Phases.test_transport_scope_cannot_be_approved_before_future_pause_hash) ... ok
+test_waiting_a3_cannot_be_used_as_a5_prepare (test_fixed_cn_phases.Phases.test_waiting_a3_cannot_be_used_as_a5_prepare) ... ok
+
+----------------------------------------------------------------------
+Ran 11 tests in 6.986s
+
+OK

@@ -59,8 +59,43 @@ class Router:
             e.need(e.digest(e.read(path,1048576))==self.a['codeFiles'][relative],'GENERATOR_CODE_PIN')
             self.modules[key]=module(path,'fixed_'+key)
         return self.modules[key]
+    def safety_required(self):
+        return self.a['identity']['sourceRevision']=='bc3d1254ce05c915801fb73fe6698072730a051c'
+    def safety_module(self):
+        relative='scripts/cn-release-safety-gates.py';path=ROOT/relative
+        e.need(e.digest(e.read(path,1048576))==self.a['codeFiles'][relative],'SAFETY_CODE_PIN')
+        if 'safety-gates' not in self.modules:self.modules['safety-gates']=module(path,'fixed_safety_gates')
+        return self.modules['safety-gates']
+    def safety_evidence(self):
+        return self.safety_module().consume(self.release,self.a,self.evidence('backup',True),
+            self.evidence('rds-backup'),e.read(INPUTS/self.release/'migrationDiff.json'),e.read)
+    def completed_safety(self,release):
+        e.need(release==self.release,'SAFETY_RELEASE_SCOPE')
+        value=e.decode(e.read(self.base/'safety-consumed/evidence.json'))
+        e.need(value['releaseSha256']==release and value['identity']==self.a['identity']
+            and value['hostBackupSha256']==e.digest(self.evidence('backup',True))
+            and value['rdsBackupSha256']==e.digest(self.evidence('rds-backup')),'SAFETY_RECEIPT_CHANGED')
+        return value
+    def waiting_checkpoint(self,release,stage,receipts):
+        e.need(release==self.release and self.safety_required(),'CHECKPOINT_SCOPE')
+        host=self.evidence('backup',True);rds=self.evidence('rds-backup');backup=e.decode(rds)
+        result=dict(kind='cn-fixed-release-checkpoint-v1',releaseSha256=release,
+            identity=self.a['identity'],target=self.a['target'],stage=stage,
+            checkpointAt=e.now().isoformat(),lastReceiptSha256=receipts[-1]['receiptSha256'],
+            hostBackupSha256=e.digest(host),rdsBackupSha256=e.digest(rds),
+            holdGeneration=backup['holdGeneration'],backupId=str(backup['backupId']))
+        if stage=='clear-hold':
+            inputs=self.terminal_inputs();safe=e.decode(e.read(self.base/'safety-consumed/evidence.json'))
+            result.update(bindingSha256=e.digest(inputs['binding']),holdRawSha256=e.digest(inputs['hold']),
+                switchReceiptSha256=e.digest(inputs['switchReceipt']),heldHealthSha256=e.digest(self.evidence('acceptance')),
+                restoreReceiptSha256=safe['restoreReceiptSha256'],sqlReceiptSha256=safe['sqlReceiptSha256'],
+                safetyApprovalSha256=safe['approvalSha256'])
+        return result
     def preflight(self,release):
         e.need(release==self.release,'RELEASE_CHANGED')
+        if self.safety_required():
+            gate=self.safety_module();gate.policy(self.a)
+            for path in (gate.APPROVALS,gate.APPROVALS/'by-release',gate.EVIDENCE):e.directory(path)
         e.need(self.a['runtimeStage']['remoteRoot']==self.a['writerResume']['remoteRoot'],'ONE_RUNTIME_ROOT')
         required=set(MODULES.values())|{'scripts/cn-release-stage-contract.py','scripts/cn-release-generated-commands.py',
             'scripts/cn-release-fixed-driver.py','scripts/cn-release-stage-router.py','.harness/scripts/vm/cn-release-advance.py',
@@ -79,7 +114,7 @@ class Router:
         for name,h in self.a['codeFiles'].items():
             path=Path(name);e.need(not path.is_absolute() and '..' not in path.parts,'CODE_PATH')
             e.need(e.digest(e.read(ROOT/path,1048576))==h,'CODE_CLOSURE_CHANGED')
-        self.conditional_writer()
+        if not self.safety_required():self.conditional_writer()
         contracts={stage:self.contract(stage) for stage in e.STAGES}
         for stage,(observer,verifier) in contracts.items():
             e.need(self.a['runtime']['stageObserverSha256'][stage]==e.digest(observer)
@@ -145,9 +180,19 @@ class Router:
         return producer.complete(release,mode)
     def admission(self,release,stage):
         e.need(release==self.release,'RELEASE_CHANGED')
+        if self.safety_required() and stage in ('switch-stage','switch'):
+            value=self.safety_evidence()
+            if value is None:return 'WAITING_FOR_A3_A4_EVIDENCE'
+            record=self.base/'safety-consumed/evidence.json'
+            if record.exists():
+                original=e.decode(e.read(record))
+                e.need({k:v for k,v in original.items() if k!='consumedAt'}==
+                       {k:v for k,v in value.items() if k!='consumedAt'},'SAFETY_RECEIPT_CHANGED')
+                value=original
+            self.install_record(record.parent,{'evidence.json':e.encode(value)})
         if stage=='clear-hold':
             pointer=Path('/etc/workspacex-cn/writer-resume-approvals/by-release')/(release+'.json')
-            conditional=self.conditional_writer()
+            conditional=None if self.safety_required() else self.conditional_writer()
             # Once claimed, a partial derived pointer must never become an
             # unrelated static approval or reset its budget under a new policy.
             if conditional is not None:conditional.disposition(release,enabled=True)

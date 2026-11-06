@@ -1,0 +1,23 @@
+test_reconcile_not_started_fails_cli (test_cn_release_fixed_driver.DriverCliTests.test_reconcile_not_started_fails_cli) ... ok
+test_run_completed_is_not_business_acceptance_claim (test_cn_release_fixed_driver.DriverCliTests.test_run_completed_is_not_business_acceptance_claim) ... ok
+test_run_unknown_preserves_stage_and_fails_cli (test_cn_release_fixed_driver.DriverCliTests.test_run_unknown_preserves_stage_and_fails_cli) ... ok
+test_run_waiting_preserves_stage_and_fails_cli (test_cn_release_fixed_driver.DriverCliTests.test_run_waiting_preserves_stage_and_fails_cli) ... ok
+test_status_is_readonly_success_even_incomplete (test_cn_release_fixed_driver.DriverCliTests.test_status_is_readonly_success_even_incomplete) ... ok
+test_blueprint_is_prepare_only_and_never_invokes_driver_router (test_cn_release_fixed_driver.DriverTests.test_blueprint_is_prepare_only_and_never_invokes_driver_router) ... ok
+test_changed_post_execution_receipt_blocks_next (test_cn_release_fixed_driver.DriverTests.test_changed_post_execution_receipt_blocks_next) ... ok
+test_deadline_cannot_generate_next_package (test_cn_release_fixed_driver.DriverTests.test_deadline_cannot_generate_next_package) ... ok
+test_execution_exception_prevents_later_generation (test_cn_release_fixed_driver.DriverTests.test_execution_exception_prevents_later_generation) ... ok
+test_explicit_mvp_hook_after_switch_before_held_acceptance (test_cn_release_fixed_driver.DriverTests.test_explicit_mvp_hook_after_switch_before_held_acceptance) ... ok
+test_explicit_reconcile_does_not_start_next_stage (test_cn_release_fixed_driver.DriverTests.test_explicit_reconcile_does_not_start_next_stage) ... ok
+test_full_order_original_clock_and_prior_hash (test_cn_release_fixed_driver.DriverTests.test_full_order_original_clock_and_prior_hash) ... ok
+test_missing_terminal_originals_cannot_report_chain_completed (test_cn_release_fixed_driver.DriverTests.test_missing_terminal_originals_cannot_report_chain_completed) ... ok
+test_mvp_completion_after_all_seventeen_admitted_stages (test_cn_release_fixed_driver.DriverTests.test_mvp_completion_after_all_seventeen_admitted_stages) ... ok
+test_mvp_unavailable_hook_never_clears_hold (test_cn_release_fixed_driver.DriverTests.test_mvp_unavailable_hook_never_clears_hold) ... ok
+test_readonly_status_does_not_generate (test_cn_release_fixed_driver.DriverTests.test_readonly_status_does_not_generate) ... ok
+test_repeated_run_does_not_repeat_mutation (test_cn_release_fixed_driver.DriverTests.test_repeated_run_does_not_repeat_mutation) ... ok
+test_unknown_never_advances_or_automatically_recovers (test_cn_release_fixed_driver.DriverTests.test_unknown_never_advances_or_automatically_recovers) ... ok
+
+----------------------------------------------------------------------
+Ran 18 tests in 1.063s
+
+OK

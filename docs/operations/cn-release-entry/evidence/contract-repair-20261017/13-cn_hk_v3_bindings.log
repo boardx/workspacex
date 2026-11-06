@@ -1,0 +1,8 @@
+test_new_source_requires_exact_actual_plan (test_cn_hk_v3_bindings.V3.test_new_source_requires_exact_actual_plan) ... ok
+test_retry_not_allowed (test_cn_hk_v3_bindings.V3.test_retry_not_allowed) ... ok
+test_v2_not_relaxed (test_cn_hk_v3_bindings.V3.test_v2_not_relaxed) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.008s
+
+OK

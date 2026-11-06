@@ -1,0 +1,14 @@
+test_copy_drift_retains_failure_intent (test_fixed_cn_bundle.Bundle.test_copy_drift_retains_failure_intent) ... ok
+test_expiry_missing_artifact_stale_observation (test_fixed_cn_bundle.Bundle.test_expiry_missing_artifact_stale_observation) ... ok
+test_local_stage_cli (test_fixed_cn_bundle.Bundle.test_local_stage_cli) ... ok
+test_original_receipt_expiry_not_refreshed (test_fixed_cn_bundle.Bundle.test_original_receipt_expiry_not_refreshed) ... ok
+test_prior_build_attempt_rejected_before_output (test_fixed_cn_bundle.Bundle.test_prior_build_attempt_rejected_before_output) ... ok
+test_real_bytes_manifest_and_replay (test_fixed_cn_bundle.Bundle.test_real_bytes_manifest_and_replay) ... ok
+test_tampered_archive_before_copy (test_fixed_cn_bundle.Bundle.test_tampered_archive_before_copy) ... ok
+test_wrong_candidate_or_control_no_output (test_fixed_cn_bundle.Bundle.test_wrong_candidate_or_control_no_output) ... ok
+test_exact_existing_entries_and_separate_approval (test_fixed_cn_bundle.HostCommands.test_exact_existing_entries_and_separate_approval) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.178s
+
+OK

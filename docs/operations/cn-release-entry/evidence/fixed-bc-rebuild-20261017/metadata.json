@@ -1,0 +1,93 @@
+{
+  "artifacts": [
+    {
+      "expires_at": "2026-10-18T10:55:11Z",
+      "id": 12098488839,
+      "name": "cn-image-candidate-set-38852606085-2",
+      "size_in_bytes": 5237
+    },
+    {
+      "expires_at": "2026-10-18T10:47:12Z",
+      "id": 12098721188,
+      "name": "cn-candidate-plan-38852606085-2",
+      "size_in_bytes": 1007
+    },
+    {
+      "expires_at": "2026-10-18T10:49:51Z",
+      "id": 12098931537,
+      "name": "cn-image-candidate-api-38852606085-2",
+      "size_in_bytes": 984192341
+    },
+    {
+      "expires_at": "2026-10-18T10:53:28Z",
+      "id": 12099095539,
+      "name": "cn-image-candidate-web-38852606085-2",
+      "size_in_bytes": 394182973
+    },
+    {
+      "expires_at": "2026-10-18T10:48:37Z",
+      "id": 12099085102,
+      "name": "cn-image-candidate-agent-38852606085-2",
+      "size_in_bytes": 410873957
+    },
+    {
+      "expires_at": "2026-10-18T10:52:15Z",
+      "id": 12097988874,
+      "name": "cn-image-candidate-sandbox-38852606085-2",
+      "size_in_bytes": 1577550220
+    },
+    {
+      "expires_at": "2026-10-18T10:49:40Z",
+      "id": 12098123225,
+      "name": "cn-image-candidate-postgres-38852606085-2",
+      "size_in_bytes": 460160021
+    },
+    {
+      "expires_at": "2026-10-18T10:49:51Z",
+      "id": 12099050719,
+      "name": "cn-image-candidate-metadata-api-38852606085-2",
+      "size_in_bytes": 2434
+    },
+    {
+      "expires_at": "2026-10-18T10:53:28Z",
+      "id": 12099155151,
+      "name": "cn-image-candidate-metadata-web-38852606085-2",
+      "size_in_bytes": 2078
+    },
+    {
+      "expires_at": "2026-10-18T10:48:36Z",
+      "id": 12098069973,
+      "name": "cn-image-candidate-metadata-agent-38852606085-2",
+      "size_in_bytes": 2037
+    },
+    {
+      "expires_at": "2026-10-18T10:52:14Z",
+      "id": 12097864053,
+      "name": "cn-image-candidate-metadata-sandbox-38852606085-2",
+      "size_in_bytes": 2915
+    },
+    {
+      "expires_at": "2026-10-18T10:49:39Z",
+      "id": 12098013406,
+      "name": "cn-image-candidate-metadata-postgres-38852606085-2",
+      "size_in_bytes": 2384
+    }
+  ],
+  "blockers": [
+    "NO_APPROVED_CLOUD_IDENTITY",
+    "NEW_PROBE_REQUIRES_SEPARATE_APPROVAL",
+    "UNKNOWN_PRODUCTION_SQL_COMPATIBILITY",
+    "A1_A4_NOT_EXECUTED",
+    "NO_PRODUCTION_TRANSFER_OR_BUSINESS_EVIDENCE"
+  ],
+  "control": "5acebbb6741ed13c6379407aa0529c0eb8695b72",
+  "downloadVerified": false,
+  "expectedSource": "bc3d1254ce05c915801fb73fe6698072730a051c",
+  "kind": "github-metadata-only",
+  "observedAt": "2026-10-17T10:55:49.986094+00:00",
+  "productionExecuted": false,
+  "ready": false,
+  "run": 38852606085,
+  "runAttempt": 2,
+  "sourceBytesVerified": false
+}

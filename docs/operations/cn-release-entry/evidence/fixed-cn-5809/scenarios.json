@@ -1,0 +1,165 @@
+[
+  {
+    "case": "test_candidate_mismatch_no_calls/mismatch/result.json",
+    "status": "SIMULATION_FAILED",
+    "failedStage": "candidate",
+    "code": "FIXED_SOURCE_MISMATCH",
+    "completedStages": [],
+    "productionAccepted": false
+  },
+  {
+    "case": "test_complete_chain/chain/result.json",
+    "status": "SIMULATION_PASSED",
+    "failedStage": null,
+    "code": null,
+    "completedStages": [
+      "candidate",
+      "readonly-preflight",
+      "image-transfer",
+      "compose-image-only",
+      "health",
+      "business"
+    ],
+    "productionAccepted": false
+  },
+  {
+    "case": "test_each_stage_failure_stops/failed-business/result.json",
+    "status": "SIMULATION_FAILED",
+    "failedStage": "business",
+    "code": "INJECTED_FAILURE",
+    "completedStages": [
+      "candidate",
+      "readonly-preflight",
+      "image-transfer",
+      "compose-image-only",
+      "health"
+    ],
+    "productionAccepted": false
+  },
+  {
+    "case": "test_each_stage_failure_stops/failed-candidate/result.json",
+    "status": "SIMULATION_FAILED",
+    "failedStage": "candidate",
+    "code": "INJECTED_FAILURE",
+    "completedStages": [],
+    "productionAccepted": false
+  },
+  {
+    "case": "test_each_stage_failure_stops/failed-compose-image-only/result.json",
+    "status": "SIMULATION_FAILED",
+    "failedStage": "compose-image-only",
+    "code": "INJECTED_FAILURE",
+    "completedStages": [
+      "candidate",
+      "readonly-preflight",
+      "image-transfer"
+    ],
+    "productionAccepted": false
+  },
+  {
+    "case": "test_each_stage_failure_stops/failed-health/result.json",
+    "status": "SIMULATION_FAILED",
+    "failedStage": "health",
+    "code": "INJECTED_FAILURE",
+    "completedStages": [
+      "candidate",
+      "readonly-preflight",
+      "image-transfer",
+      "compose-image-only"
+    ],
+    "productionAccepted": false
+  },
+  {
+    "case": "test_each_stage_failure_stops/failed-image-transfer/result.json",
+    "status": "SIMULATION_FAILED",
+    "failedStage": "image-transfer",
+    "code": "INJECTED_FAILURE",
+    "completedStages": [
+      "candidate",
+      "readonly-preflight"
+    ],
+    "productionAccepted": false
+  },
+  {
+    "case": "test_each_stage_failure_stops/failed-readonly-preflight/result.json",
+    "status": "SIMULATION_FAILED",
+    "failedStage": "readonly-preflight",
+    "code": "INJECTED_FAILURE",
+    "completedStages": [
+      "candidate"
+    ],
+    "productionAccepted": false
+  },
+  {
+    "case": "test_missing_evidence/missing/result.json",
+    "status": "SIMULATION_FAILED",
+    "failedStage": "candidate",
+    "code": "EVIDENCE_MISSING",
+    "completedStages": [],
+    "productionAccepted": false
+  },
+  {
+    "case": "test_repeat_cannot_replay/once/result.json",
+    "status": "SIMULATION_FAILED",
+    "failedStage": "candidate",
+    "code": "EVIDENCE_MISSING",
+    "completedStages": [],
+    "productionAccepted": false
+  },
+  {
+    "case": "test_stage_timeout/timeout/result.json",
+    "status": "SIMULATION_FAILED",
+    "failedStage": "candidate",
+    "code": "STAGE_TIMEOUT",
+    "completedStages": [],
+    "productionAccepted": false
+  },
+  {
+    "case": "test_wrong_evidence_binding/control/result.json",
+    "status": "SIMULATION_FAILED",
+    "failedStage": "candidate",
+    "code": "EVIDENCE_IDENTITY_MISMATCH",
+    "completedStages": [],
+    "productionAccepted": false
+  },
+  {
+    "case": "test_wrong_evidence_binding/passed/result.json",
+    "status": "SIMULATION_FAILED",
+    "failedStage": "candidate",
+    "code": "EVIDENCE_BINDING_OR_FAILURE",
+    "completedStages": [],
+    "productionAccepted": false
+  },
+  {
+    "case": "test_wrong_evidence_binding/run/result.json",
+    "status": "SIMULATION_FAILED",
+    "failedStage": "candidate",
+    "code": "EVIDENCE_IDENTITY_MISMATCH",
+    "completedStages": [],
+    "productionAccepted": false
+  },
+  {
+    "case": "test_wrong_evidence_binding/simulation/result.json",
+    "status": "SIMULATION_FAILED",
+    "failedStage": "candidate",
+    "code": "EVIDENCE_BINDING_OR_FAILURE",
+    "completedStages": [],
+    "productionAccepted": false
+  },
+  {
+    "case": "test_wrong_evidence_binding/source/result.json",
+    "status": "SIMULATION_FAILED",
+    "failedStage": "candidate",
+    "code": "EVIDENCE_BINDING_OR_FAILURE",
+    "completedStages": [],
+    "productionAccepted": false
+  },
+  {
+    "case": "test_wrong_evidence_binding/stage/result.json",
+    "status": "SIMULATION_FAILED",
+    "failedStage": "candidate",
+    "code": "EVIDENCE_BINDING_OR_FAILURE",
+    "completedStages": [],
+    "productionAccepted": false
+  }
+]

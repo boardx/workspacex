@@ -77,7 +77,10 @@ def coordinate(release,approval,router,*,mode='run',executor=None,clock=e.now,tr
             if mode!='run':return {'status':'NOT_STARTED','stage':stage,'completed':receipts}
             e.need(clock()<e.instant(approval['expiresAt']),'RELEASE_DEADLINE')
             admission=router.admission(release,stage)
-            if admission is not None:return {'status':admission,'stage':stage,'completed':receipts,'intentCreated':False}
+            if admission is not None:
+                result={'status':admission,'stage':stage,'completed':receipts,'intentCreated':False}
+                if getattr(router,'safety_required',lambda:False)():result['checkpoint']=router.waiting_checkpoint(release,stage,receipts)
+                return result
             request=router.generate(release,stage,previous)
         package_identity(request,approval,stage,previous,release,transport)
         current=executor('status',request,attempt)
@@ -89,11 +92,14 @@ def coordinate(release,approval,router,*,mode='run',executor=None,clock=e.now,tr
         elif current['status']=='NOT_STARTED':
             if mode!='run':return {'status':'NOT_STARTED','stage':stage,'completed':receipts}
             e.need(clock()<e.instant(approval['expiresAt']),'RELEASE_DEADLINE')
-            if stage=='clear-hold':
+            if stage in ('switch-stage','switch','clear-hold'):
                 # A durable generated package is not a permanent writer grant.
                 # Recheck policy revocation even when lookup found the package.
                 admission=router.admission(release,stage)
-                if admission is not None:return {'status':admission,'stage':stage,'completed':receipts,'intentCreated':False}
+                if admission is not None:
+                    result={'status':admission,'stage':stage,'completed':receipts,'intentCreated':False}
+                    if getattr(router,'safety_required',lambda:False)():result['checkpoint']=router.waiting_checkpoint(release,stage,receipts)
+                    return result
             current=executor('advance',request,attempt)
         e.need(current['status']=='COMPLETED','ENTRY_NOT_COMPLETED')
         # Re-read through the original status path after execution, including
@@ -109,6 +115,7 @@ def coordinate(release,approval,router,*,mode='run',executor=None,clock=e.now,tr
                     'terminal':terminal,'productionAcceptanceClaimedByDriver':False}
     result={'status':'CHAIN_COMPLETED','completed':receipts,'requestedAt':approval['identity']['requestedAt'],
             'deadlineAt':approval['identity']['deadlineAt'],'productionAcceptanceClaimedByDriver':False}
+    if getattr(router,'safety_required',lambda:False)():result['safetyEvidence']=router.completed_safety(release)
     if terminal is not None:result['terminalProposal']=terminal
     return result
 

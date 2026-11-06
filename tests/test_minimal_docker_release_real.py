@@ -5,6 +5,7 @@ Only this fixture's labeled containers/networks/images are removed. No prune.
 """
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -25,7 +26,7 @@ LABEL = 'wsx.minimal.fixture'
 SERVER = '''from http.server import BaseHTTPRequestHandler, HTTPServer
 class Handler(BaseHTTPRequestHandler):
  def do_GET(self):
-  self.send_response(200);self.send_header('Content-Type','application/json');self.end_headers();self.wfile.write(b'{"trustworthy":true,"fixture":true}')
+  self.send_response(200);self.send_header('Content-Type','application/json');self.end_headers();self.wfile.write(b'{"title":"isolated report","blocks":[{"text":"fixture output"}]}' if self.path=='/business/output' else b'{"trustworthy":true,"fixture":true}')
  def log_message(self,*args):pass
 HTTPServer(('0.0.0.0',8080),Handler).serve_forever()
 '''
@@ -142,7 +143,48 @@ class Fixture:
         require(self.live(compose)==before,'SCHEMA_REJECTION_SWITCHED_CONTAINERS')
         write(self.out/'schema-rejection.json',{'passed':True,'actualContainerIdsUnchanged':True,'code':rejection['code']})
         configpath=self.out/'config.json';write(configpath,config)
-        self.run(cli+['--config',str(configpath),'--manifest',str(manifest),'--output',str(self.out/'applied'),'--apply'],timeout=150)
+        spec=importlib.util.spec_from_file_location('fixed',ROOT/'scripts/fixed-cn-release.py')
+        fixed=importlib.util.module_from_spec(spec);spec.loader.exec_module(fixed)
+        def stage(name,timeout):
+            detail={}
+            if name=='candidate':
+                for role in ROLES:
+                    row=self.j('image','inspect',candidate[role])[0]
+                    require(row['Config']['Labels']['org.opencontainers.image.revision']==NEW_SOURCE,'FIXTURE_CANDIDATE_SOURCE')
+                detail={'actualSyntheticRevision':NEW_SOURCE,'sourceIsBC':False}
+            elif name=='readonly-preflight':
+                require(self.live(compose)==before,'PRECHECK_DRIFT')
+                detail={'composeSha256':sha(composefile),'envSha256':sha(envfile)}
+            elif name=='image-transfer':
+                archives=self.out/'original-archives';archives.mkdir()
+                destination=self.out/'transferred-archives';destination.mkdir()
+                value=json.loads(manifest.read_text())
+                for role in ROLES:
+                    original=archives/(role+'.tar');copied=destination/original.name
+                    self.d('image','save','--output',str(original),self.images[candidate[role]],timeout=timeout)
+                    shutil.copyfile(original,copied)
+                    require(sha(original)==sha(copied),'REAL_ARCHIVE_COPY_HASH')
+                    value['images'][role]['archiveSha256']=sha(copied)
+                manifest.write_text(json.dumps(value))
+                config['manifestSha256']=sha(manifest);configpath.write_text(json.dumps(config))
+                detail={'fiveDockerSaveArchives':True,'destinationHashesVerified':True,'remoteTransfer':False}
+            elif name=='compose-image-only':
+                self.run(cli+['--config',str(configpath),'--manifest',str(manifest),'--output',str(self.out/'applied'),'--apply'],timeout=timeout)
+                detail=json.loads((self.out/'applied/receipt.json').read_text())
+                require(detail['status']=='SUCCEEDED','APPLY_RECEIPT')
+            elif name in ('health','business'):
+                url=config['health']['url'] if name=='health' else 'http://127.0.0.1:'+str(port)+'/business/output'
+                opener=urllib.request.build_opener(urllib.request.ProxyHandler({}))
+                with opener.open(url,timeout=5) as response:
+                    raw=response.read(65537);require(response.status==200 and len(raw)<=65536,'FIXTURE_HTTP')
+                body=json.loads(raw)
+                if name=='health':require(body=={'trustworthy':True,'fixture':True},'REAL_HEALTH_BODY')
+                else:require(body['title']=='isolated report' and body['blocks'][0]['text']=='fixture output','REAL_OUTPUT_BODY')
+                detail={'httpStatus':200,'bodySha256':hashlib.sha256(raw).hexdigest(),'actualSyntheticRevision':NEW_SOURCE,'sourceIsBC':False}
+            return fixed.raw(dict(stage=name,source=fixed.SOURCE,control=fixed.CONTROL,run=fixed.RUN,
+                                  simulation=True,passed=True,details=detail))
+        chain=fixed.simulate(self.out/'chain',stage)
+        require(chain['status']=='SIMULATION_PASSED','REAL_SIX_STAGE_CHAIN')
         receipt=json.loads((self.out/'applied/receipt.json').read_text());require(receipt['status']=='SUCCEEDED','APPLY_RECEIPT')
         after=self.live(compose)
         require(all(after[s]['running'] and after[s]['imageId']==candidate[r] and after[s]['containerId']!=before[s]['containerId'] for s,r in SERVICES.items()),'ACTUAL_IMAGE_SWITCH_NOT_PROVEN')
@@ -172,6 +214,7 @@ class Fixture:
         next_path=self.out/'next-config.json';write(next_path,next_config)
         self.run(cli+['--config',str(next_path),'--manifest',str(manifest),'--output',str(self.out/'after-recovery'),'--apply'],timeout=150)
         return {'status':'PASSED','realDocker':True,'realCompose':True,'realHttp':True,'syntheticImageProvenance':True,
+                'sixStageChain':'SIMULATION_PASSED','realDockerSaveTransfer':True,'realHttpBusinessOutput':True,
                 'productionAccepted':False,'sourceIsBC':False,'baselineSource':BASE_SOURCE,'candidateSource':NEW_SOURCE,
                 'before':before,'after':after,'schemaDriftRejectedWithoutSwitch':True,'automaticRollbackVerified':True,'releaseAfterRollbackVerified':True,'elapsedSeconds':time.monotonic()-self.start}
     def cleanup(self):

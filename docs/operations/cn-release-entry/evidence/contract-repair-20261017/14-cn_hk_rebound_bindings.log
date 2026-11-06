@@ -1,0 +1,10 @@
+test_actual_source_admission_reads_success_recipe_plan_and_rechecks (test_cn_hk_rebound_bindings.Rebound.test_actual_source_admission_reads_success_recipe_plan_and_rechecks) ... ok
+test_before_after_drift_and_source_plan_hash_reject (test_cn_hk_rebound_bindings.Rebound.test_before_after_drift_and_source_plan_hash_reject) ... ok
+test_new_run_plan_uses_exact_prefix_legacy_stays_fixed (test_cn_hk_rebound_bindings.Rebound.test_new_run_plan_uses_exact_prefix_legacy_stays_fixed) ... ok
+test_proof_template_run_control_ids_hashes_and_expiry_are_bound (test_cn_hk_rebound_bindings.Rebound.test_proof_template_run_control_ids_hashes_and_expiry_are_bound) ... ok
+test_workflow_admits_source_before_oidc_and_does_not_expand_permissions (test_cn_hk_rebound_bindings.Rebound.test_workflow_admits_source_before_oidc_and_does_not_expand_permissions) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.013s
+
+OK

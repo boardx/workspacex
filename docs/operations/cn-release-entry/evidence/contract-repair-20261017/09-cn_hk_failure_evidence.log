@@ -1,0 +1,7 @@
+test_failed_transfer_always_retains_only_bounded_diagnostics (test_cn_hk_failure_evidence.FailureEvidence.test_failed_transfer_always_retains_only_bounded_diagnostics) ... ok
+test_real_child_disconnect_preserves_intent_without_secret_or_retry (test_cn_hk_failure_evidence.FailureEvidence.test_real_child_disconnect_preserves_intent_without_secret_or_retry) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.020s
+
+OK

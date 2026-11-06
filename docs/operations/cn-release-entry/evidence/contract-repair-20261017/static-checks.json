@@ -1,0 +1,26 @@
+{
+  "pythonFiles": [
+    "scripts/cn-release-safety-gates.py",
+    "scripts/fixed_cn_phases.py",
+    "tests/test_cn_release_phase_gates.py",
+    "tests/test_cn_release_safety_gates.py",
+    "tests/test_fixed_cn_phases.py",
+    "scripts/cn-hk-generate-proof.py",
+    "scripts/cn-hk-original-artifact-upload.py",
+    "scripts/cn-release-approval-plan.py",
+    "scripts/cn-release-fixed-driver.py",
+    "scripts/cn-release-installation-closure.py",
+    "scripts/cn-release-stage-router.py",
+    "scripts/fixed_cn_receipts.py",
+    "scripts/fixed_cn_remote.py",
+    "tests/test_cn_hk_original_artifact_upload.py",
+    "tests/test_cn_hk_proof_integration.py",
+    "tests/test_cn_release_approval_plan.py",
+    "tests/test_fixed_cn_remote.py"
+  ],
+  "workflowContentsReadOnly": true,
+  "workflowExactPrHead": true,
+  "productionA0A6Gray": true,
+  "historicalBuildGreen": true,
+  "fourColorOverride": true
+}

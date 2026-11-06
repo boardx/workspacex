@@ -23,7 +23,7 @@ class Tests(unittest.TestCase):
   self.assertFalse(set(p)&u.REBOUND_FIELDS);self.assertEqual(p['sourceRun'],u.RUN)
   self.assertEqual(p['producerControl'],u.CONTROL)
   self.assertEqual(p['prefix'],f'runs/{u.RUN}/1/')
- def test_checked_in_plan_schema_and_actual_code_closure(self):
+ def test_checked_in_historical_plan_cannot_authorize_changed_code(self):
   from unittest.mock import patch
   p=json.loads(PLAN.read_bytes())
   os.environ.update(REVIEWED_ROLE_ARN=p['uploaderRoleArn'],
@@ -33,7 +33,7 @@ class Tests(unittest.TestCase):
    @classmethod
    def now(cls,tz=None):return expiry-datetime.timedelta(seconds=1)
   # Freeze observation time, never rewrite the reviewed plan's deadline/pins.
-  with patch.object(u.datetime,'datetime',Clock):u.validate_plan(p)
+  with patch.object(u.datetime,'datetime',Clock),self.assertRaisesRegex(ValueError,'HK_TRANSFER_REJECTED'):u.validate_plan(p)
   if p['kind']=='hk-original-artifact-transfer-v2':
    self.assertEqual(p['sourceRevision'],u.SOURCE)
    template=PLAN.with_name('hk-revalidation-template.json').read_bytes()
@@ -45,6 +45,54 @@ class Tests(unittest.TestCase):
   with patch.object(u,'gh',return_value={}),self.assertRaises(ValueError):
    # The actual plan cannot admit absent provider run identity.
    with patch.object(u.datetime,'datetime',Clock):u.validate_source_run(p)
+ def v3(self):
+  p=self.plan();p.update(kind='hk-original-artifact-transfer-v3',sourceRun=38852606085,sourceRunAttempt=2,
+      producerControl='5acebbb6741ed13c6379407aa0529c0eb8695b72',sourceRevision='bc3d1254ce05c915801fb73fe6698072730a051c',
+      prefix='runs/38852606085/2/',producerWorkflowSha256='a'*64,candidatePlanRawSha256='b'*64,revalidationTemplateSha256='c'*64)
+  return p
+ def test_exact_attempt_two_plan_metadata_and_proof_binding(self):
+  from unittest.mock import patch
+  p=self.v3();u.validate_plan(p);record=p['artifacts']['api']
+  value=dict(id=record['id'],name='cn-image-candidate-api-38852606085-2',expired=False,size_in_bytes=record['bytes'],
+      digest='sha256:'+record['sha256'],workflow_run=dict(id=p['sourceRun'],head_sha=p['producerControl'],repository_id=1000328649,head_repository_id=1000328649))
+  with patch.object(u,'gh',return_value=value):u.metadata('api',record,p)
+  value['name']=value['name'][:-1]+'1'
+  with patch.object(u,'gh',return_value=value),self.assertRaises(ValueError):u.metadata('api',record,p)
+  spec=importlib.util.spec_from_file_location('proof2',UPLOADER.with_name('cn-hk-generate-proof.py'));proof=importlib.util.module_from_spec(spec);spec.loader.exec_module(proof)
+  template=dict(controlRevision=p['producerControl'],verifierRevision=p['producerControl'],runId=p['sourceRun'],runAttempt=2,repositoryId=1000328649,
+      artifactIds={k:v['id']for k,v in p['artifacts'].items()},producerWorkflowSha256=p['producerWorkflowSha256'],candidatePlanRawSha256=p['candidatePlanRawSha256'])
+  raw=json.dumps(template).encode();p['revalidationTemplateSha256']=u.sha(raw);proof.validate_binding(p,template,raw)
+  template['runAttempt']=1
+  with self.assertRaises(AssertionError):proof.validate_binding(p,template,raw)
+ def test_attempt_two_provider_path_and_original_zip(self):
+  from unittest.mock import patch
+  import io,base64
+  p=self.v3();raw=json.dumps(dict(sourceRevision=p['sourceRevision'],controlRevision=p['producerControl'])).encode()
+  data=io.BytesIO()
+  with zipfile.ZipFile(data,'w')as z:z.writestr('cn-candidate-plan.json',raw)
+  archive=data.getvalue();p['candidatePlanRawSha256']=u.sha(raw);p['producerWorkflowSha256']=u.sha(b'workflow')
+  p['artifacts']['plan']=dict(id=999,bytes=len(archive),sha256=u.sha(archive));calls=[]
+  run=dict(id=p['sourceRun'],run_attempt=2,head_sha=p['producerControl'],status='completed',conclusion='success',event='workflow_dispatch',head_branch='main',path=u.WORKFLOW,
+      repository=dict(id=1000328649,full_name=u.REPO),head_repository=dict(id=1000328649))
+  meta=dict(id=999,name='cn-candidate-plan-38852606085-2',expired=False,size_in_bytes=len(archive),digest='sha256:'+u.sha(archive),
+      workflow_run=dict(id=p['sourceRun'],head_sha=p['producerControl'],repository_id=1000328649,head_repository_id=1000328649))
+  def gh(path,output=None,limit=None):
+   calls.append(path)
+   if output is not None:output.write_bytes(archive);return
+   if '/attempts/'in path:return run
+   if '/contents/'in path:return dict(encoding='base64',content=base64.b64encode(b'workflow').decode())
+   return meta
+  with patch.object(u,'gh',side_effect=gh):u.validate_source_run(p)
+  self.assertIn('/repos/'+u.REPO+'/actions/runs/38852606085/attempts/2',calls)
+  self.assertFalse(any('/attempts/1'in path for path in calls))
+  run['run_attempt']=1
+  with patch.object(u,'gh',side_effect=gh),self.assertRaises(ValueError):u.validate_source_run(p)
+ def test_attempt_scope_cannot_be_latest_or_foreign_prefix(self):
+  for attempt in (True,0,3,'latest'):
+   p=self.v3();p['sourceRunAttempt']=attempt
+   with self.assertRaises(ValueError):u.validate_plan(p)
+  p=self.v3();p['prefix']='runs/38852606085/1/'
+  with self.assertRaises(ValueError):u.validate_plan(p)
  def test_fixed_source(self):
   p=self.plan();u.validate_plan(p);p['sourceRun']+=1
   with self.assertRaises(ValueError):u.validate_plan(p)

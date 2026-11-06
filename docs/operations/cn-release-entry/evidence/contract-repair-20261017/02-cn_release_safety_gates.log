@@ -1,0 +1,15 @@
+test_four_sql_unknown_mismatch_or_mutation_rejected (test_cn_release_safety_gates.Safety.test_four_sql_unknown_mismatch_or_mutation_rejected) ... ok
+test_honest_nonempty_diff_never_becomes_empty_compatibility (test_cn_release_safety_gates.Safety.test_honest_nonempty_diff_never_becomes_empty_compatibility) ... ok
+test_missing_independent_pointer_is_wait_not_backup_restore_claim (test_cn_release_safety_gates.Safety.test_missing_independent_pointer_is_wait_not_backup_restore_claim) ... ok
+test_missing_pinned_receipt_is_not_wait_or_success (test_cn_release_safety_gates.Safety.test_missing_pinned_receipt_is_not_wait_or_success) ... ok
+test_passed_flags_without_original_proof_closure_never_suffice (test_cn_release_safety_gates.Safety.test_passed_flags_without_original_proof_closure_never_suffice) ... ok
+test_policy_requires_four_pinned_sources_and_isolated_target (test_cn_release_safety_gates.Safety.test_policy_requires_four_pinned_sources_and_isolated_target) ... ok
+test_restore_and_sql_time_order_and_original_epoch (test_cn_release_safety_gates.Safety.test_restore_and_sql_time_order_and_original_epoch) ... ok
+test_restore_epoch_target_backup_and_readback_must_match (test_cn_release_safety_gates.Safety.test_restore_epoch_target_backup_and_readback_must_match) ... ok
+test_root_approval_scope_hash_and_window (test_cn_release_safety_gates.Safety.test_root_approval_scope_hash_and_window) ... ok
+test_same_epoch_original_backups_and_four_sql_mapping (test_cn_release_safety_gates.Safety.test_same_epoch_original_backups_and_four_sql_mapping) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 0.018s
+
+OK

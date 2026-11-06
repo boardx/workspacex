@@ -82,6 +82,12 @@ in `tests/test_cn_release_fixed_driver.py` check the process exit, not only a
 returned dictionary. `CHAIN_COMPLETED` still does not itself claim business
 acceptance.
 
+A Cloud Assistant command ending with driver exit 2 is a terminal process, not a completed
+release. Preserve the bounded original stdout and failed-command evidence; never turn it into
+a success receipt or automatically resubmit. Read-only reconciliation may restore missing local
+receipts for execution within its original approval window after expiry, but cannot advance stages.
+`tests/test_fixed_cn_remote.py` covers this boundary and raw approval/evidence binding.
+
 A failed HK PUT may already have reached OSS. Always retain the bounded sanitized
 intent, worker result, and pipeline/proof failure records for one day, including
 on workflow failure. Never upload ZIPs, credentials, raw SDK errors, or temporary
@@ -170,3 +176,23 @@ requires real measurement and does not extend an approved attempt's deadline.
 ## Directory-only data-preserving partial release (#5752)
 
 When the human explicitly requires preserving existing data and adding no permissions, the separately reviewed [directory Web-only contract](../../../docs/operations/directory-web-only-release.md) may be used for this exact five-file backport. It records per-service source/image identity and does not claim the unified-source invariant or full-release receipts. Full-release rules remain unchanged. Its required build, baseline CAS, unchanged backend container/start-time proof, Web rollback and public-browser checks are implemented in `scripts/web-only-release.py`; no bare manual Compose invocation is accepted.
+
+
+### Fixed BC staged approvals and original proof consumption
+
+A newly generated switch package is not A3/A4 admission. Fixed BC must consume
+independently root-approved same-epoch isolated restore and all four pinned SQL
+compatibility observations, including original raw proof closure, before both
+switch staging and actual switch. Repeated checks must preserve the first
+immutable consumption record despite different check timestamps, while rejecting
+changed evidence. See `tests/test_cn_release_phase_gates.py` for the real router
+regression and `tests/test_cn_release_safety_gates.py` for invalid evidence cases.
+
+Do not precompute actual held receipt hashes for writer approval. The explicit
+phase adapter waits for original A3/A4 and A5 checkpoints, binds fresh approvals
+to actual provider finish/hold bytes, and never auto-resumes an uncertain command.
+`tests/test_fixed_cn_phases.py` covers phase order, replay and read-only recovery.
+The [adapter contract](../../../docs/operations/cn-release-entry/phase-adapter.md)
+describes protected inputs and the independent observer/approval trust boundary.
+Passing these fixtures does not verify production capture, tool installation,
+cloud identity, SQL/restore safety or real business acceptance.

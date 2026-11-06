@@ -1,0 +1,610 @@
+simulation	Set up job	﻿2026-10-17T12:05:36.5610037Z Current runner version: '2.337.0'
+simulation	Set up job	2026-10-17T12:05:36.5650183Z ##[group]Runner Image Provisioner
+simulation	Set up job	2026-10-17T12:05:36.5651082Z Hosted Compute Agent
+simulation	Set up job	2026-10-17T12:05:36.5651614Z Version: 20261012.601
+simulation	Set up job	2026-10-17T12:05:36.5652129Z Commit: f3dc54e1fb89da6852db922499a0233137369e1d
+simulation	Set up job	2026-10-17T12:05:36.5652811Z Build Date: 2026-10-12T17:48:21Z
+simulation	Set up job	2026-10-17T12:05:36.5653367Z Worker ID: {6e33c64f-15cb-4e67-a41c-86f0c7e6d4f6}
+simulation	Set up job	2026-10-17T12:05:36.5653981Z Region: northcentralus
+simulation	Set up job	2026-10-17T12:05:36.5654589Z Cloud: Azure
+simulation	Set up job	2026-10-17T12:05:36.5655038Z ##[endgroup]
+simulation	Set up job	2026-10-17T12:05:36.5656268Z ##[group]Operating System
+simulation	Set up job	2026-10-17T12:05:36.5656780Z Ubuntu
+simulation	Set up job	2026-10-17T12:05:36.5657221Z 24.04.5
+simulation	Set up job	2026-10-17T12:05:36.5657735Z LTS
+simulation	Set up job	2026-10-17T12:05:36.5658163Z ##[endgroup]
+simulation	Set up job	2026-10-17T12:05:36.5658683Z ##[group]Runner Image
+simulation	Set up job	2026-10-17T12:05:36.5659173Z Image: ubuntu-24.04
+simulation	Set up job	2026-10-17T12:05:36.5659648Z Version: 20261012.334.1
+simulation	Set up job	2026-10-17T12:05:36.5660671Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261012.334/images/ubuntu/Ubuntu2404-Readme.md
+simulation	Set up job	2026-10-17T12:05:36.5662170Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261012.334
+simulation	Set up job	2026-10-17T12:05:36.5662987Z ##[endgroup]
+simulation	Set up job	2026-10-17T12:05:36.5663915Z ##[group]GITHUB_TOKEN Permissions
+simulation	Set up job	2026-10-17T12:05:36.5665685Z Contents: read
+simulation	Set up job	2026-10-17T12:05:36.5666196Z Metadata: read
+simulation	Set up job	2026-10-17T12:05:36.5666739Z ##[endgroup]
+simulation	Set up job	2026-10-17T12:05:36.5668724Z Secret source: Actions
+simulation	Set up job	2026-10-17T12:05:36.5669589Z Cache mode: write
+simulation	Set up job	2026-10-17T12:05:36.5670571Z Prepare workflow directory
+simulation	Set up job	2026-10-17T12:05:36.5936625Z Prepare all required actions
+simulation	Set up job	2026-10-17T12:05:36.5975932Z Getting action download info
+simulation	Set up job	2026-10-17T12:05:36.8039032Z Download action repository 'actions/checkout@v5' (SHA:fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09)
+simulation	Set up job	2026-10-17T12:05:36.8886961Z Download action repository 'actions/upload-artifact@v6' (SHA:b7c566a772e6b6bfb58ed0dc250532a479d7789f)
+simulation	Set up job	2026-10-17T12:05:37.1577442Z Complete job name: simulation
+simulation	Run actions/checkout@v5	﻿2026-10-17T12:05:37.2262872Z ##[group]Run actions/checkout@v5
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.2263827Z with:
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.2264331Z   persist-credentials: false
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.2265073Z   ref: 384c3b7830cfb2afcdb7eee70f30f37d08fe50c8
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.2265805Z   repository: boardx/workspacex
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.2271115Z   token: ***
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.2271637Z   ssh-strict: true
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.2272173Z   ssh-user: git
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.2272682Z   clean: true
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.2273226Z   sparse-checkout-cone-mode: true
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.2273876Z   fetch-depth: 1
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.2274399Z   fetch-tags: false
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.2274951Z   show-progress: true
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.2275487Z   lfs: false
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.2275987Z   submodules: false
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.2276529Z   set-safe-directory: true
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.2277149Z   allow-unsafe-pr-checkout: false
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.2278115Z ##[endgroup]
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.3096213Z Syncing repository: boardx/workspacex
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.3098141Z ##[group]Getting Git version info
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.3099149Z Working directory is '/home/runner/work/workspacex/workspacex'
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.3100667Z [command]/usr/bin/git version
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.3172774Z git version 2.55.0
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.3187928Z ##[endgroup]
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.3201080Z Temporarily overriding HOME='/home/runner/work/_temp/262fc554-d39d-4267-b622-9ba3caf49375' before making global git config changes
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.3202941Z Adding repository directory to the temporary git global config as a safe directory
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.3205723Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/workspacex/workspacex
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.3247289Z Deleting the contents of '/home/runner/work/workspacex/workspacex'
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.3251563Z ##[group]Initializing the repository
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.3255195Z [command]/usr/bin/git init /home/runner/work/workspacex/workspacex
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.3568198Z hint: Using 'master' as the name for the initial branch. This default branch name
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.3570242Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.3571580Z hint: to use in all of your new repositories, which will suppress this warning,
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.3572369Z hint: call:
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.3572835Z hint:
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.3573387Z hint: 	git config --global init.defaultBranch <name>
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.3574023Z hint:
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.3574612Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.3575474Z hint: 'development'. The just-created branch can be renamed via this command:
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.3576825Z hint:
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.3577436Z hint: 	git branch -m <name>
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.3577974Z hint:
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.3578614Z hint: Disable this message with "git config set advice.defaultBranchName false"
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.3579735Z Initialized empty Git repository in /home/runner/work/workspacex/workspacex/.git/
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.3581721Z [command]/usr/bin/git remote add origin https://github.com/boardx/workspacex
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.3622053Z ##[endgroup]
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.3622700Z ##[group]Disabling automatic garbage collection
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.3625185Z [command]/usr/bin/git config --local gc.auto 0
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.3655091Z ##[endgroup]
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.3655848Z ##[group]Setting up auth
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.3661568Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.3692995Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.4020348Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.4050545Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.4235843Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.4264945Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.4451785Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.4486305Z ##[endgroup]
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.4487101Z ##[group]Fetching the repository
+simulation	Run actions/checkout@v5	2026-10-17T12:05:37.4493737Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin 384c3b7830cfb2afcdb7eee70f30f37d08fe50c8
+simulation	Run actions/checkout@v5	2026-10-17T12:05:49.7132017Z From https://github.com/boardx/workspacex
+simulation	Run actions/checkout@v5	2026-10-17T12:05:49.7132893Z  * branch              384c3b7830cfb2afcdb7eee70f30f37d08fe50c8 -> FETCH_HEAD
+simulation	Run actions/checkout@v5	2026-10-17T12:05:49.7137145Z ##[endgroup]
+simulation	Run actions/checkout@v5	2026-10-17T12:05:49.7137794Z ##[group]Determining the checkout info
+simulation	Run actions/checkout@v5	2026-10-17T12:05:49.7138438Z ##[endgroup]
+simulation	Run actions/checkout@v5	2026-10-17T12:05:49.7143892Z [command]/usr/bin/git sparse-checkout disable
+simulation	Run actions/checkout@v5	2026-10-17T12:05:49.7188341Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+simulation	Run actions/checkout@v5	2026-10-17T12:05:49.7214601Z ##[group]Checking out the ref
+simulation	Run actions/checkout@v5	2026-10-17T12:05:49.7217228Z [command]/usr/bin/git checkout --progress --force 384c3b7830cfb2afcdb7eee70f30f37d08fe50c8
+simulation	Run actions/checkout@v5	2026-10-17T12:05:50.7501138Z Updating files:  66% (13236/19880)
+simulation	Run actions/checkout@v5	2026-10-17T12:05:50.9149855Z Updating files:  67% (13320/19880)
+simulation	Run actions/checkout@v5	2026-10-17T12:05:51.0169763Z Updating files:  68% (13519/19880)
+simulation	Run actions/checkout@v5	2026-10-17T12:05:51.0487840Z Updating files:  69% (13718/19880)
+simulation	Run actions/checkout@v5	2026-10-17T12:05:51.0857417Z Updating files:  70% (13916/19880)
+simulation	Run actions/checkout@v5	2026-10-17T12:05:51.0989194Z Updating files:  71% (14115/19880)
+simulation	Run actions/checkout@v5	2026-10-17T12:05:51.1125825Z Updating files:  72% (14314/19880)
+simulation	Run actions/checkout@v5	2026-10-17T12:05:51.1228946Z Updating files:  73% (14513/19880)
+simulation	Run actions/checkout@v5	2026-10-17T12:05:51.1335012Z Updating files:  74% (14712/19880)
+simulation	Run actions/checkout@v5	2026-10-17T12:05:51.2056679Z Updating files:  75% (14910/19880)
+simulation	Run actions/checkout@v5	2026-10-17T12:05:51.2259366Z Updating files:  76% (15109/19880)
+simulation	Run actions/checkout@v5	2026-10-17T12:05:51.2717966Z Updating files:  77% (15308/19880)
+simulation	Run actions/checkout@v5	2026-10-17T12:05:51.3274476Z Updating files:  78% (15507/19880)
+simulation	Run actions/checkout@v5	2026-10-17T12:05:51.5087308Z Updating files:  79% (15706/19880)
+simulation	Run actions/checkout@v5	2026-10-17T12:05:51.7210072Z Updating files:  80% (15904/19880)
+simulation	Run actions/checkout@v5	2026-10-17T12:05:51.7395159Z Updating files:  81% (16103/19880)
+simulation	Run actions/checkout@v5	2026-10-17T12:05:51.9021623Z Updating files:  81% (16133/19880)
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.1662703Z Updating files:  82% (16302/19880)
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.4599545Z Updating files:  83% (16501/19880)
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.5022814Z Updating files:  84% (16700/19880)
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.5540049Z Updating files:  85% (16898/19880)
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.5898355Z Updating files:  86% (17097/19880)
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.6262691Z Updating files:  87% (17296/19880)
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.6713266Z Updating files:  88% (17495/19880)
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.7181945Z Updating files:  89% (17694/19880)
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.7404122Z Updating files:  90% (17892/19880)
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.7666640Z Updating files:  90% (18055/19880)
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.8059245Z Updating files:  91% (18091/19880)
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.8197464Z Updating files:  92% (18290/19880)
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.8255410Z Updating files:  93% (18489/19880)
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.8343829Z Updating files:  94% (18688/19880)
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.8552444Z Updating files:  95% (18886/19880)
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.8664596Z Updating files:  96% (19085/19880)
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.8902709Z Updating files:  97% (19284/19880)
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.9008395Z Updating files:  98% (19483/19880)
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.9114426Z Updating files:  99% (19682/19880)
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.9114893Z Updating files: 100% (19880/19880)
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.9115239Z Updating files: 100% (19880/19880), done.
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.9269643Z Note: switching to '384c3b7830cfb2afcdb7eee70f30f37d08fe50c8'.
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.9270039Z 
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.9270279Z You are in 'detached HEAD' state. You can look around, make experimental
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.9271159Z changes and commit them, and you can discard any commits you make in this
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.9272223Z state without impacting any branches by switching back to a branch.
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.9272561Z 
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.9272792Z If you want to create a new branch to retain commits you create, you may
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.9273353Z do so (now or later) by using -c with the switch command. Example:
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.9273686Z 
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.9273777Z   git switch -c <new-branch-name>
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.9273922Z 
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.9274015Z Or undo this operation with:
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.9274180Z 
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.9274261Z   git switch -
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.9274374Z 
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.9274563Z Turn off this advice by setting config variable advice.detachedHead to false
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.9274856Z 
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.9275074Z HEAD is now at 384c3b78 fix(release): bind fixed BC phased approvals and original safety evidence
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.9354857Z ##[endgroup]
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.9397795Z [command]/usr/bin/git log -1 --format=%H
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.9423272Z 384c3b7830cfb2afcdb7eee70f30f37d08fe50c8
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.9431457Z ##[group]Removing auth
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.9434440Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.9461444Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.9664326Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.9685895Z http.https://github.com/.extraheader
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.9691797Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.9723216Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.9922210Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+simulation	Run actions/checkout@v5	2026-10-17T12:05:52.9948244Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+simulation	Run actions/checkout@v5	2026-10-17T12:05:53.0143576Z ##[endgroup]
+simulation	Static checks and isolated stage integration	﻿2026-10-17T12:05:53.0380196Z ##[group]Run python3 -m py_compile scripts/fixed-cn-release.py tests/test_fixed_cn_release.py
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:53.0381110Z [36;1mpython3 -m py_compile scripts/fixed-cn-release.py tests/test_fixed_cn_release.py[0m
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:53.0381511Z [36;1msh -n scripts/fixed-cn-readonly-probe.sh[0m
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:53.0381799Z [36;1mpython3 scripts/fixed-cn-release.py probe-hash[0m
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:53.0382147Z [36;1mpython3 -m unittest discover -s tests -p 'test_fixed_cn_remote.py' -v[0m
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:53.0382542Z [36;1mpython3 -m unittest discover -s tests -p 'test_fixed_cn_phases.py' -v[0m
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:53.0382942Z [36;1mpython3 -m unittest discover -s tests -p 'test_cn_release_safety_gates.py' -v[0m
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:53.0383397Z [36;1mpython3 -m unittest discover -s tests -p 'test_cn_release_phase_gates.py' -v[0m
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:53.0383816Z [36;1mpython3 -m unittest discover -s tests -p 'test_cn_release_fixed_driver.py' -v[0m
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:53.0384215Z [36;1mpython3 -m unittest discover -s tests -p 'test_cn_release_stage_router.py' -v[0m
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:53.0384666Z [36;1mpython3 -m unittest discover -s tests -p 'test_cn_mvp_installation_closure.py' -v[0m
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:53.0385091Z [36;1mpython3 -m unittest discover -s tests -p 'test_cn_release_approval_plan.py' -v[0m
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:53.0385500Z [36;1mpython3 -m unittest discover -s tests -p 'test_cn_hk_failure_evidence.py' -v[0m
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:53.0385927Z [36;1mpython3 -m unittest discover -s tests -p 'test_cn_hk_original_artifact_upload.py' -v[0m
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:53.0386313Z [36;1mpython3 -I -B tests/test_cn_hk_proof_integration.py[0m
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:53.0386660Z [36;1mpython3 -I -B tests/test_cn_hk_proof_integration.py --attempt-two[0m
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:53.0387061Z [36;1mpython3 -m unittest discover -s tests -p 'test_fixed_cn_bundle.py' -v[0m
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:53.0387453Z [36;1mpython3 -m unittest discover -s tests -p 'test_fixed_cn_release.py' -v[0m
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:53.0387849Z [36;1mpython3 -m unittest discover -s tests -p 'test_minimal_docker_release.py' -v[0m
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:53.0388252Z [36;1mpython3 -m unittest discover -s tests -p 'test_cn_hk_v3_bindings.py' -v[0m
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:53.0388638Z [36;1mpython3 -m unittest discover -s tests -p 'test_cn_hk_rebound_bindings.py' -v[0m
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:53.0389054Z [36;1mpython3 -m unittest discover -s tests -p 'test_cn_release_fixed_workflow.py' -v[0m
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:53.0389462Z [36;1mpython3 -m unittest discover -s tests -p 'test_cn_release_full_chain.py' -v[0m
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:53.0389857Z [36;1mpython3 -m unittest discover -s tests -p 'test_cn_release_rds_backup.py' -v[0m
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:53.0390261Z [36;1mpython3 -m unittest discover -s tests -p 'test_cn_release_runtime_router.py' -v[0m
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:53.0390928Z [36;1mpython3 -m unittest discover -s tests -p 'test_cn_release_conditional_writer_adapter.py' -v[0m
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:53.0391393Z [36;1mpython3 -m unittest discover -s tests -p 'test_cn_release_acquire_router.py' -v[0m
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:53.0391846Z [36;1mpython3 -m unittest discover -s tests -p 'test_cn_release_failure_isolation.py' -v[0m
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:53.0392290Z [36;1mpython3 -m unittest discover -s tests -p 'test_cn_release_promotion_recovery.py' -v[0m
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:53.0592025Z shell: /usr/bin/bash -e {0}
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:53.0592282Z ##[endgroup]
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:53.1258025Z {
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:53.1258386Z   "executionApproved": false,
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:53.1258958Z   "path": "/home/runner/work/workspacex/workspacex/scripts/fixed-cn-readonly-probe.sh",
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:53.1259522Z   "productionExecuted": false,
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:53.1260001Z   "sha256": "b4545e0f468bff7e381426c8e9670867d84ee0cd48dc85008639de9291855159"
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:53.1260989Z }
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:53.8697861Z test_actual_nonzero_wait_preserves_output_without_success_or_retry (test_fixed_cn_remote.Remote.test_actual_nonzero_wait_preserves_output_without_success_or_retry) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:54.3713072Z test_bad_approval_or_scope_zero_calls (test_fixed_cn_remote.Remote.test_bad_approval_or_scope_zero_calls) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:54.8728125Z test_bad_writer_and_build_proof_before_effects (test_fixed_cn_remote.Remote.test_bad_writer_and_build_proof_before_effects) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:55.3742931Z test_business_approval_late_or_candidate_packet_mismatch (test_fixed_cn_remote.Remote.test_business_approval_late_or_candidate_packet_mismatch) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:55.9624749Z test_business_failures_not_health_success (test_fixed_cn_remote.Remote.test_business_failures_not_health_success) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:56.4794700Z test_business_readback_bytes_must_match (test_fixed_cn_remote.Remote.test_business_readback_bytes_must_match) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:57.0281365Z test_complete_approved_pipeline_actual_rpc_and_readback (test_fixed_cn_remote.Remote.test_complete_approved_pipeline_actual_rpc_and_readback) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:57.5372298Z test_expired_approval_readonly_recovery_preserves_original_execution_window (test_fixed_cn_remote.Remote.test_expired_approval_readonly_recovery_preserves_original_execution_window) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:58.0387303Z test_expired_original_build_attempt_cannot_authorize_rebuild (test_fixed_cn_remote.Remote.test_expired_original_build_attempt_cannot_authorize_rebuild) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:58.5444503Z test_late_success_is_not_accepted (test_fixed_cn_remote.Remote.test_late_success_is_not_accepted) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:59.0459708Z test_later_principal_and_expired_writer_rejected_before_effects (test_fixed_cn_remote.Remote.test_later_principal_and_expired_writer_rejected_before_effects) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:05:59.5507708Z test_lost_submit_response_never_retries (test_fixed_cn_remote.Remote.test_lost_submit_response_never_retries) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:00.0523706Z test_no_ambient_credential_fallback (test_fixed_cn_remote.Remote.test_no_ambient_credential_fallback) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:00.5595843Z test_no_missing_or_reordered_a0_a6_stage (test_fixed_cn_remote.Remote.test_no_missing_or_reordered_a0_a6_stage) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:01.0611711Z test_original_authorization_evidence_required_before_effects (test_fixed_cn_remote.Remote.test_original_authorization_evidence_required_before_effects) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:01.5876527Z test_provider_failure_identity_truncation_and_exit (test_fixed_cn_remote.Remote.test_provider_failure_identity_truncation_and_exit) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:02.0947487Z test_readonly_reconcile_never_submits (test_fixed_cn_remote.Remote.test_readonly_reconcile_never_submits) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:02.6027874Z test_reconcile_never_overwrites_changed_original_receipt (test_fixed_cn_remote.Remote.test_reconcile_never_overwrites_changed_original_receipt) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:03.1101198Z test_root_waiting_stops_before_any_business_call (test_fixed_cn_remote.Remote.test_root_waiting_stops_before_any_business_call) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:03.6172802Z test_running_deadline_preserves_ack_then_readonly_reconcile (test_fixed_cn_remote.Remote.test_running_deadline_preserves_ack_then_readonly_reconcile) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:04.1186926Z test_sdk_debug_rejected_before_sdk_import_or_identity_call (test_fixed_cn_remote.Remote.test_sdk_debug_rejected_before_sdk_import_or_identity_call) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:04.6202044Z test_standalone_entry_original_and_candidate_binding_before_effects (test_fixed_cn_remote.Remote.test_standalone_entry_original_and_candidate_binding_before_effects) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:05.1217746Z test_unknown_or_changed_sql_blocks_before_remote_submit (test_fixed_cn_remote.Remote.test_unknown_or_changed_sql_blocks_before_remote_submit) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:05.6232127Z test_unsupported_iam_or_cancel_never_sent (test_fixed_cn_remote.Remote.test_unsupported_iam_or_cancel_never_sent) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:05.6232939Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:05.6233065Z ----------------------------------------------------------------------
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:05.6233426Z Ran 24 tests in 12.369s
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:05.6233539Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:05.6233613Z OK
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:06.2664583Z test_a3_pause_then_explicit_continuation_then_a5_pause (test_fixed_cn_phases.Phases.test_a3_pause_then_explicit_continuation_then_a5_pause) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:06.7926692Z test_actual_two_phase_hold_then_fresh_approval_then_same_clock_resume (test_fixed_cn_phases.Phases.test_actual_two_phase_hold_then_fresh_approval_then_same_clock_resume) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:07.3009453Z test_changed_journal_prefix_or_stale_checkpoint_fails_closed (test_fixed_cn_phases.Phases.test_changed_journal_prefix_or_stale_checkpoint_fails_closed) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:07.8024853Z test_current_one_shot_cannot_skip_preparation_for_new_scope (test_fixed_cn_phases.Phases.test_current_one_shot_cannot_skip_preparation_for_new_scope) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:08.3112983Z test_expired_approval_and_changed_root_or_tool_no_resume (test_fixed_cn_phases.Phases.test_expired_approval_and_changed_root_or_tool_no_resume) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:08.8179961Z test_lost_ack_no_pause_no_replay_even_with_different_output (test_fixed_cn_phases.Phases.test_lost_ack_no_pause_no_replay_even_with_different_output) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:09.3356760Z test_missing_safety_completion_stops_before_business (test_fixed_cn_phases.Phases.test_missing_safety_completion_stops_before_business) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:09.8444994Z test_no_future_writer_hash_or_pre_hold_approval (test_fixed_cn_phases.Phases.test_no_future_writer_hash_or_pre_hold_approval) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:11.3573711Z test_timeout_ack_recovered_readonly_without_resubmit (test_fixed_cn_phases.Phases.test_timeout_ack_recovered_readonly_without_resubmit) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:11.8658262Z test_transport_scope_cannot_be_approved_before_future_pause_hash (test_fixed_cn_phases.Phases.test_transport_scope_cannot_be_approved_before_future_pause_hash) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.3746477Z test_waiting_a3_cannot_be_used_as_a5_prepare (test_fixed_cn_phases.Phases.test_waiting_a3_cannot_be_used_as_a5_prepare) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.3747138Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.3747331Z ----------------------------------------------------------------------
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.3747792Z Ran 11 tests in 6.657s
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.3747964Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.3748054Z OK
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.4315169Z test_four_sql_unknown_mismatch_or_mutation_rejected (test_cn_release_safety_gates.Safety.test_four_sql_unknown_mismatch_or_mutation_rejected) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.4318102Z test_honest_nonempty_diff_never_becomes_empty_compatibility (test_cn_release_safety_gates.Safety.test_honest_nonempty_diff_never_becomes_empty_compatibility) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.4321177Z test_missing_independent_pointer_is_wait_not_backup_restore_claim (test_cn_release_safety_gates.Safety.test_missing_independent_pointer_is_wait_not_backup_restore_claim) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.4324681Z test_missing_pinned_receipt_is_not_wait_or_success (test_cn_release_safety_gates.Safety.test_missing_pinned_receipt_is_not_wait_or_success) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.4330765Z test_passed_flags_without_original_proof_closure_never_suffice (test_cn_release_safety_gates.Safety.test_passed_flags_without_original_proof_closure_never_suffice) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.4335240Z test_policy_requires_four_pinned_sources_and_isolated_target (test_cn_release_safety_gates.Safety.test_policy_requires_four_pinned_sources_and_isolated_target) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.4349114Z test_restore_and_sql_time_order_and_original_epoch (test_cn_release_safety_gates.Safety.test_restore_and_sql_time_order_and_original_epoch) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.4376983Z test_restore_epoch_target_backup_and_readback_must_match (test_cn_release_safety_gates.Safety.test_restore_epoch_target_backup_and_readback_must_match) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.4389342Z test_root_approval_scope_hash_and_window (test_cn_release_safety_gates.Safety.test_root_approval_scope_hash_and_window) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.4395809Z test_same_epoch_original_backups_and_four_sql_mapping (test_cn_release_safety_gates.Safety.test_same_epoch_original_backups_and_four_sql_mapping) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.4396348Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.4396658Z ----------------------------------------------------------------------
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.4397274Z Ran 10 tests in 0.011s
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.4397498Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.4397718Z OK
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.5126703Z test_bc_writer_wait_never_materializes_conditional_approval (test_cn_release_phase_gates.InstalledAdmission.test_bc_writer_wait_never_materializes_conditional_approval) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.5128744Z test_real_router_waits_then_records_exact_consumed_evidence (test_cn_release_phase_gates.InstalledAdmission.test_real_router_waits_then_records_exact_consumed_evidence) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.5143825Z test_repeated_live_gate_checks_preserve_first_record_and_reject_drift (test_cn_release_phase_gates.InstalledAdmission.test_repeated_live_gate_checks_preserve_first_record_and_reject_drift) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.5155538Z test_actual_driver_three_boundaries_then_same_clock_completion (test_cn_release_phase_gates.RootPhases.test_actual_driver_three_boundaries_then_same_clock_completion) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.5159692Z test_pre_generated_switch_package_cannot_bypass_missing_a3 (test_cn_release_phase_gates.RootPhases.test_pre_generated_switch_package_cannot_bypass_missing_a3) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.5161341Z test_readonly_status_does_not_generate_or_approve (test_cn_release_phase_gates.RootPhases.test_readonly_status_does_not_generate_or_approve) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.5165228Z test_revocation_after_staging_stops_actual_switch (test_cn_release_phase_gates.RootPhases.test_revocation_after_staging_stops_actual_switch) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.5165644Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.5165768Z ----------------------------------------------------------------------
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.5166045Z Ran 7 tests in 0.004s
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.5166166Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.5166233Z OK
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.6511192Z test_reconcile_not_started_fails_cli (test_cn_release_fixed_driver.DriverCliTests.test_reconcile_not_started_fails_cli) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.7185790Z test_run_completed_is_not_business_acceptance_claim (test_cn_release_fixed_driver.DriverCliTests.test_run_completed_is_not_business_acceptance_claim) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.7856867Z test_run_unknown_preserves_stage_and_fails_cli (test_cn_release_fixed_driver.DriverCliTests.test_run_unknown_preserves_stage_and_fails_cli) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.8533268Z test_run_waiting_preserves_stage_and_fails_cli (test_cn_release_fixed_driver.DriverCliTests.test_run_waiting_preserves_stage_and_fails_cli) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.9868087Z test_status_is_readonly_success_even_incomplete (test_cn_release_fixed_driver.DriverCliTests.test_status_is_readonly_success_even_incomplete) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.9889017Z test_blueprint_is_prepare_only_and_never_invokes_driver_router (test_cn_release_fixed_driver.DriverTests.test_blueprint_is_prepare_only_and_never_invokes_driver_router) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.9892534Z test_changed_post_execution_receipt_blocks_next (test_cn_release_fixed_driver.DriverTests.test_changed_post_execution_receipt_blocks_next) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.9894705Z test_deadline_cannot_generate_next_package (test_cn_release_fixed_driver.DriverTests.test_deadline_cannot_generate_next_package) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.9897553Z test_execution_exception_prevents_later_generation (test_cn_release_fixed_driver.DriverTests.test_execution_exception_prevents_later_generation) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.9902235Z test_explicit_mvp_hook_after_switch_before_held_acceptance (test_cn_release_fixed_driver.DriverTests.test_explicit_mvp_hook_after_switch_before_held_acceptance) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.9904499Z test_explicit_reconcile_does_not_start_next_stage (test_cn_release_fixed_driver.DriverTests.test_explicit_reconcile_does_not_start_next_stage) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.9908803Z test_full_order_original_clock_and_prior_hash (test_cn_release_fixed_driver.DriverTests.test_full_order_original_clock_and_prior_hash) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.9912754Z test_missing_terminal_originals_cannot_report_chain_completed (test_cn_release_fixed_driver.DriverTests.test_missing_terminal_originals_cannot_report_chain_completed) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.9916851Z test_mvp_completion_after_all_seventeen_admitted_stages (test_cn_release_fixed_driver.DriverTests.test_mvp_completion_after_all_seventeen_admitted_stages) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.9920150Z test_mvp_unavailable_hook_never_clears_hold (test_cn_release_fixed_driver.DriverTests.test_mvp_unavailable_hook_never_clears_hold) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.9921838Z test_readonly_status_does_not_generate (test_cn_release_fixed_driver.DriverTests.test_readonly_status_does_not_generate) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.9928051Z test_repeated_run_does_not_repeat_mutation (test_cn_release_fixed_driver.DriverTests.test_repeated_run_does_not_repeat_mutation) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.9930611Z test_unknown_never_advances_or_automatically_recovers (test_cn_release_fixed_driver.DriverTests.test_unknown_never_advances_or_automatically_recovers) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.9931099Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.9931230Z ----------------------------------------------------------------------
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.9931521Z Ran 18 tests in 0.409s
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.9931631Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:12.9931703Z OK
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:13.1594179Z test_actual_packages_all_stages_bind_prior_and_authority (test_cn_release_stage_router.RouterTests.test_actual_packages_all_stages_bind_prior_and_authority) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:13.1651287Z test_context_tamper_blocks_lookup (test_cn_release_stage_router.RouterTests.test_context_tamper_blocks_lookup) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:13.1658216Z test_generated_verifier_executes_the_pinned_source_bytes (test_cn_release_stage_router.RouterTests.test_generated_verifier_executes_the_pinned_source_bytes) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:13.1674690Z test_generation_failure_not_retried (test_cn_release_stage_router.RouterTests.test_generation_failure_not_retried) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:13.1727850Z test_other_publication_attempt_same_source_rejected (test_cn_release_stage_router.RouterTests.test_other_publication_attempt_same_source_rejected) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:13.4661693Z test_real_entry_process_chain_pauses_at_a5_and_resumes_without_replay (test_cn_release_stage_router.RouterTests.test_real_entry_process_chain_pauses_at_a5_and_resumes_without_replay) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:13.4662476Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:13.4662606Z ----------------------------------------------------------------------
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:13.4662907Z Ran 6 tests in 0.402s
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:13.4663031Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:13.4663096Z OK
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:13.5455513Z test_cloud_rebuild_pins_entire_canonical_package_without_workstation_path (test_cn_mvp_installation_closure.CloudWrappers.test_cloud_rebuild_pins_entire_canonical_package_without_workstation_path) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:13.5538139Z test_unapproved_arguments_reject_before_any_privileged_file_or_import (test_cn_mvp_installation_closure.CloudWrappers.test_unapproved_arguments_reject_before_any_privileged_file_or_import) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:13.5913408Z test_denied_duplicate_symlink_and_invalid_hash_never_verify_old_state (test_cn_mvp_installation_closure.ProbeInstallationContract.test_denied_duplicate_symlink_and_invalid_hash_never_verify_old_state) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:13.5994070Z test_real_collect_result_consumed_by_installation_generator (test_cn_mvp_installation_closure.ProbeInstallationContract.test_real_collect_result_consumed_by_installation_generator) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:13.6198354Z test_valid_hash_and_legacy_probe_shapes (test_cn_mvp_installation_closure.ProbeInstallationContract.test_valid_hash_and_legacy_probe_shapes) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:13.6199031Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:13.6199166Z ----------------------------------------------------------------------
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:13.6199447Z Ran 5 tests in 0.083s
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:13.6199561Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:13.6199879Z OK
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:13.8821734Z test_complete_parameters_and_code_closure_fit_and_contract_paths_match (test_cn_release_approval_plan.ApprovalPlanTests.test_complete_parameters_and_code_closure_fit_and_contract_paths_match) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:13.9214442Z test_complete_request_limit_cannot_be_hidden_by_small_manifest_reference (test_cn_release_approval_plan.ApprovalPlanTests.test_complete_request_limit_cannot_be_hidden_by_small_manifest_reference) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:13.9597369Z test_fixed_bc_requires_explicit_phase_policy_before_proposal (test_cn_release_approval_plan.ApprovalPlanTests.test_fixed_bc_requires_explicit_phase_policy_before_proposal) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:14.0081521Z test_inline_sdk_and_missing_static_inputs_rejected (test_cn_release_approval_plan.ApprovalPlanTests.test_inline_sdk_and_missing_static_inputs_rejected) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:14.0394702Z test_inventory_rejects_missing_and_symlinked_dependencies (test_cn_release_approval_plan.ApprovalPlanTests.test_inventory_rejects_missing_and_symlinked_dependencies) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:14.0781483Z test_mvp_cannot_label_an_old_acquire_as_new_build (test_cn_release_approval_plan.ApprovalPlanTests.test_mvp_cannot_label_an_old_acquire_as_new_build) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:14.1192093Z test_mvp_metadata_preserves_canonical_driver_and_acquire_compatibility (test_cn_release_approval_plan.ApprovalPlanTests.test_mvp_metadata_preserves_canonical_driver_and_acquire_compatibility) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:14.1698376Z test_phase_proposal_preserves_independent_policy_and_journal_without_grant (test_cn_release_approval_plan.ApprovalPlanTests.test_phase_proposal_preserves_independent_policy_and_journal_without_grant) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:14.2167380Z test_single_inventory_pins_wrappers_code_and_source_runtime_boundary (test_cn_release_approval_plan.ApprovalPlanTests.test_single_inventory_pins_wrappers_code_and_source_runtime_boundary) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:14.2673517Z test_stage_input_schema_pinned_and_arbitrary_paths_rejected (test_cn_release_approval_plan.ApprovalPlanTests.test_stage_input_schema_pinned_and_arbitrary_paths_rejected) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:14.2757270Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:14.2757521Z ----------------------------------------------------------------------
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:14.2757955Z Ran 10 tests in 0.526s
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:14.2758124Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:14.2758256Z OK
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:14.3425230Z test_failed_transfer_always_retains_only_bounded_diagnostics (test_cn_hk_failure_evidence.FailureEvidence.test_failed_transfer_always_retains_only_bounded_diagnostics) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:14.3852985Z test_real_child_disconnect_preserves_intent_without_secret_or_retry (test_cn_hk_failure_evidence.FailureEvidence.test_real_child_disconnect_preserves_intent_without_secret_or_retry) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:14.3853591Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:14.3853725Z ----------------------------------------------------------------------
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:14.3854041Z Ran 2 tests in 0.043s
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:14.3854153Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:14.3854225Z OK
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:14.4426037Z test_attempt_scope_cannot_be_latest_or_foreign_prefix (test_cn_hk_original_artifact_upload.Tests.test_attempt_scope_cannot_be_latest_or_foreign_prefix) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:14.4600383Z test_attempt_two_provider_path_and_original_zip (test_cn_hk_original_artifact_upload.Tests.test_attempt_two_provider_path_and_original_zip) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:14.4601401Z test_bucket_principal (test_cn_hk_original_artifact_upload.Tests.test_bucket_principal) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:14.4624853Z test_checked_in_historical_plan_cannot_authorize_changed_code (test_cn_hk_original_artifact_upload.Tests.test_checked_in_historical_plan_cannot_authorize_changed_code) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:14.4631999Z test_exact_attempt_two_plan_metadata_and_proof_binding (test_cn_hk_original_artifact_upload.Tests.test_exact_attempt_two_plan_metadata_and_proof_binding) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:14.4635427Z test_fixed_source (test_cn_hk_original_artifact_upload.Tests.test_fixed_source) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:14.4637395Z test_foreign_endpoint (test_cn_hk_original_artifact_upload.Tests.test_foreign_endpoint) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:14.4639886Z test_gh_oversize_kills (test_cn_hk_original_artifact_upload.Tests.test_gh_oversize_kills) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:14.4642247Z test_legacy_fixture_does_not_inherit_live_v2_fields (test_cn_hk_original_artifact_upload.Tests.test_legacy_fixture_does_not_inherit_live_v2_fields) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:14.4643165Z test_nine_exact_resources (test_cn_hk_original_artifact_upload.Tests.test_nine_exact_resources) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:14.4645917Z test_official_sdk_lock (test_cn_hk_original_artifact_upload.Tests.test_official_sdk_lock) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:14.4658434Z test_plan_object_and_permission_drift_rejected (test_cn_hk_original_artifact_upload.Tests.test_plan_object_and_permission_drift_rejected) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:14.4660494Z test_plan_trust_writer_reader_contract (test_cn_hk_original_artifact_upload.Tests.test_plan_trust_writer_reader_contract) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:14.4661345Z test_sdk_session_no_redirect (test_cn_hk_original_artifact_upload.Tests.test_sdk_session_no_redirect) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:14.4682041Z test_trust_api_action_subject_provider_drift_rejected (test_cn_hk_original_artifact_upload.Tests.test_trust_api_action_subject_provider_drift_rejected) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:14.4684227Z test_unbound_role (test_cn_hk_original_artifact_upload.Tests.test_unbound_role) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:14.4686285Z test_wrong_prefix (test_cn_hk_original_artifact_upload.Tests.test_wrong_prefix) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:14.4686605Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:14.4686729Z ----------------------------------------------------------------------
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:14.4686997Z Ran 17 tests in 0.027s
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:14.4687116Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:14.4687181Z OK
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:15.4262907Z attempt 1: PASS real --acquire reuse + --cached verifier with synthetic 7ZIP/fake metadata; proof admission + all tar verification; original bytes unchanged; no cloud
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:16.9769501Z attempt 2: PASS real --acquire reuse + --cached verifier with synthetic 7ZIP/fake metadata; proof admission + all tar verification; original bytes unchanged; no cloud
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:17.2135466Z test_copy_drift_retains_failure_intent (test_fixed_cn_bundle.Bundle.test_copy_drift_retains_failure_intent) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:17.4128979Z test_expiry_missing_artifact_stale_observation (test_fixed_cn_bundle.Bundle.test_expiry_missing_artifact_stale_observation) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:17.8719676Z test_local_stage_cli (test_fixed_cn_bundle.Bundle.test_local_stage_cli) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:17.8752691Z test_original_receipt_expiry_not_refreshed (test_fixed_cn_bundle.Bundle.test_original_receipt_expiry_not_refreshed) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:17.8781546Z test_prior_build_attempt_rejected_before_output (test_fixed_cn_bundle.Bundle.test_prior_build_attempt_rejected_before_output) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:18.3073930Z test_real_bytes_manifest_and_replay (test_fixed_cn_bundle.Bundle.test_real_bytes_manifest_and_replay) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:18.3108183Z test_tampered_archive_before_copy (test_fixed_cn_bundle.Bundle.test_tampered_archive_before_copy) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:18.3136550Z test_wrong_candidate_or_control_no_output (test_fixed_cn_bundle.Bundle.test_wrong_candidate_or_control_no_output) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:18.3142861Z test_exact_existing_entries_and_separate_approval (test_fixed_cn_bundle.HostCommands.test_exact_existing_entries_and_separate_approval) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:18.3143469Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:18.3143665Z ----------------------------------------------------------------------
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:18.3143951Z Ran 9 tests in 1.262s
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:18.3144077Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:18.3144183Z OK
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:18.3970731Z test_expired_even_if_github_flag_false (test_fixed_cn_release.Admission.test_expired_even_if_github_flag_false) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:18.3971840Z test_metadata_does_not_claim_ready (test_fixed_cn_release.Admission.test_metadata_does_not_claim_ready) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:18.3972896Z test_missing_duplicate_and_empty_artifacts (test_fixed_cn_release.Admission.test_missing_duplicate_and_empty_artifacts) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:18.3974225Z test_wrong_control_or_run (test_fixed_cn_release.Admission.test_wrong_control_or_run) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:18.8999585Z test_candidate_mismatch_no_calls (test_fixed_cn_release.Integration.test_candidate_mismatch_no_calls) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:22.8713138Z test_complete_chain (test_fixed_cn_release.Integration.test_complete_chain) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:23.3736682Z test_each_stage_failure_stops (test_fixed_cn_release.Integration.test_each_stage_failure_stops) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:23.8751449Z test_missing_evidence (test_fixed_cn_release.Integration.test_missing_evidence) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:24.3766238Z test_repeat_cannot_replay (test_fixed_cn_release.Integration.test_repeat_cannot_replay) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:24.8781184Z test_stage_timeout (test_fixed_cn_release.Integration.test_stage_timeout) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:25.3798845Z test_wrong_evidence_binding (test_fixed_cn_release.Integration.test_wrong_evidence_binding) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:25.3799252Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:25.3799391Z ----------------------------------------------------------------------
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:25.3799668Z Ran 11 tests in 6.983s
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:25.3799785Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:25.3799850Z OK
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:25.5520659Z test_slow_health_has_wall_clock_deadline_and_restores_timer (test_minimal_docker_release.DeadlineTests.test_slow_health_has_wall_clock_deadline_and_restores_timer) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:28.2929970Z test_apply_success_real_cli_http_no_forbidden_commands (test_minimal_docker_release.Tests.test_apply_success_real_cli_http_no_forbidden_commands) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:30.2974584Z test_compose_env_drift_rejected (test_minimal_docker_release.Tests.test_compose_env_drift_rejected) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:32.3018094Z test_default_plan_real_cli_never_switches (test_minimal_docker_release.Tests.test_default_plan_real_cli_never_switches) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:33.8051490Z test_empty_schema_is_not_compatibility (test_minimal_docker_release.Tests.test_empty_schema_is_not_compatibility) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:34.3069675Z test_existing_canonical_lock_busy_zero_docker_calls (test_minimal_docker_release.Tests.test_existing_canonical_lock_busy_zero_docker_calls) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:38.6844774Z test_http_failure_preserves_failure_receipt_no_retry (test_minimal_docker_release.Tests.test_http_failure_preserves_failure_receipt_no_retry) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:42.1908560Z test_late_health_success_is_rejected (test_minimal_docker_release.Tests.test_late_health_success_is_rejected) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:44.1953356Z test_live_wrong_image_is_immediate_failure (test_minimal_docker_release.Tests.test_live_wrong_image_is_immediate_failure) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:45.6987638Z test_schema_drift_rejects_before_switch (test_minimal_docker_release.Tests.test_schema_drift_rejects_before_switch) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:48.9936726Z test_starting_then_healthy_does_not_repeat_up (test_minimal_docker_release.Tests.test_starting_then_healthy_does_not_repeat_up) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:53.0003863Z test_unhealthy_deadline_never_repeats_up (test_minimal_docker_release.Tests.test_unhealthy_deadline_never_repeats_up) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:54.0025933Z test_wrong_source_rejects_before_switch (test_minimal_docker_release.Tests.test_wrong_source_rejects_before_switch) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:54.0026416Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:54.0026542Z ----------------------------------------------------------------------
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:54.0026813Z Ran 13 tests in 28.559s
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:54.0026926Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:54.0026989Z OK
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:54.0765934Z test_new_source_requires_exact_actual_plan (test_cn_hk_v3_bindings.V3.test_new_source_requires_exact_actual_plan) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:54.0767363Z test_retry_not_allowed (test_cn_hk_v3_bindings.V3.test_retry_not_allowed) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:54.0769551Z test_v2_not_relaxed (test_cn_hk_v3_bindings.V3.test_v2_not_relaxed) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:54.0771337Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:54.0771939Z ----------------------------------------------------------------------
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:54.0772344Z Ran 3 tests in 0.004s
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:54.0772464Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:54.0772529Z OK
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:54.1527665Z test_actual_source_admission_reads_success_recipe_plan_and_rechecks (test_cn_hk_rebound_bindings.Rebound.test_actual_source_admission_reads_success_recipe_plan_and_rechecks) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:54.1549308Z test_before_after_drift_and_source_plan_hash_reject (test_cn_hk_rebound_bindings.Rebound.test_before_after_drift_and_source_plan_hash_reject) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:54.1555744Z test_new_run_plan_uses_exact_prefix_legacy_stays_fixed (test_cn_hk_rebound_bindings.Rebound.test_new_run_plan_uses_exact_prefix_legacy_stays_fixed) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:54.1559025Z test_proof_template_run_control_ids_hashes_and_expiry_are_bound (test_cn_hk_rebound_bindings.Rebound.test_proof_template_run_control_ids_hashes_and_expiry_are_bound) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:54.1560730Z test_workflow_admits_source_before_oidc_and_does_not_expand_permissions (test_cn_hk_rebound_bindings.Rebound.test_workflow_admits_source_before_oidc_and_does_not_expand_permissions) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:54.1561543Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:54.1561716Z ----------------------------------------------------------------------
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:54.1562107Z Ran 5 tests in 0.011s
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:54.1562268Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:54.1562355Z OK
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:54.2088493Z test_invalid_lane_mode_and_cross_lane_authority_never_invoke_sudo (test_cn_release_fixed_workflow.WorkflowRoutingTests.test_invalid_lane_mode_and_cross_lane_authority_never_invoke_sudo) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:54.2198292Z test_only_fixed_release_and_fresh_recovery_arguments_reach_sudo (test_cn_release_fixed_workflow.WorkflowRoutingTests.test_only_fixed_release_and_fresh_recovery_arguments_reach_sudo) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:54.2199148Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:54.2199327Z ----------------------------------------------------------------------
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:54.2199713Z Ran 2 tests in 0.018s
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:54.2199898Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:54.2199989Z OK
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:55.8853696Z test_a5_wait_does_not_reset_original_release_clock (test_cn_release_full_chain.FullChain.test_a5_wait_does_not_reset_original_release_clock) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:57.3750272Z test_a5_wrong_generation_blocks_before_clear_or_business (test_cn_release_full_chain.FullChain.test_a5_wrong_generation_blocks_before_clear_or_business) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:58.2350961Z test_lost_publish_response_never_reissues_mutation (test_cn_release_full_chain.FullChain.test_lost_publish_response_never_reissues_mutation) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:06:59.8581767Z test_rds_lost_response_reconciles_original_job_without_second_create (test_cn_release_full_chain.FullChain.test_rds_lost_response_reconciles_original_job_without_second_create) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:01.4512840Z test_real_materializers_and_entry_seventeen_stage_a5_pause_resume (test_cn_release_full_chain.FullChain.test_real_materializers_and_entry_seventeen_stage_a5_pause_resume) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.6625845Z test_stop_timeout_retains_hold_and_never_starts_backup_or_switch (test_cn_release_full_chain.FullChain.test_stop_timeout_retains_hold_and_never_starts_backup_or_switch) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.6713871Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.6714152Z ----------------------------------------------------------------------
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.6714592Z Ran 6 tests in 8.366s
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.6714780Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.6714855Z OK
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.7506841Z test_changed_or_extra_or_missing_file_rejected (test_cn_release_rds_backup.SdkManifestTests.test_changed_or_extra_or_missing_file_rejected) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.7515491Z test_directory_symlink_even_unlisted_rejected (test_cn_release_rds_backup.SdkManifestTests.test_directory_symlink_even_unlisted_rejected) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.7525914Z test_exact_private_manifest_and_files_pass (test_cn_release_rds_backup.SdkManifestTests.test_exact_private_manifest_and_files_pass) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.7537620Z test_file_symlink_and_mode_rejected (test_cn_release_rds_backup.SdkManifestTests.test_file_symlink_and_mode_rejected) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.9009852Z test_large_real_file_map_external_authority_stays_small (test_cn_release_rds_backup.SdkManifestTests.test_large_real_file_map_external_authority_stays_small) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.9062990Z test_manifest_bound_and_path_escape_rejected (test_cn_release_rds_backup.SdkManifestTests.test_manifest_bound_and_path_escape_rejected) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.9073239Z test_manifest_hash_schema_and_inline_map_rejected (test_cn_release_rds_backup.SdkManifestTests.test_manifest_hash_schema_and_inline_map_rejected) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.9083144Z test_unlisted_file_rejected (test_cn_release_rds_backup.SdkManifestTests.test_unlisted_file_rejected) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.9093099Z test_unsafe_directory_and_manifest_link_rejected (test_cn_release_rds_backup.SdkManifestTests.test_unsafe_directory_and_manifest_link_rejected) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.9116301Z test_absent_dispatch_cannot_be_reconciled_from_other_snapshot (test_cn_release_rds_backup.Tests.test_absent_dispatch_cannot_be_reconciled_from_other_snapshot) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.9123731Z test_action_budget_uses_original_deadline_not_fixed_120 (test_cn_release_rds_backup.Tests.test_action_budget_uses_original_deadline_not_fixed_120) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.9167938Z test_action_polls_reads_without_second_create (test_cn_release_rds_backup.Tests.test_action_polls_reads_without_second_create) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.9223587Z test_backup_pending_after_120_seconds_can_finish_once (test_cn_release_rds_backup.Tests.test_backup_pending_after_120_seconds_can_finish_once) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.9240067Z test_create_once_unknown_does_not_retry (test_cn_release_rds_backup.Tests.test_create_once_unknown_does_not_retry) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.9281750Z test_cross_minute_completion (test_cn_release_rds_backup.Tests.test_cross_minute_completion) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.9324547Z test_exact_job_mapping_and_independent_observer (test_cn_release_rds_backup.Tests.test_exact_job_mapping_and_independent_observer) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.9342672Z test_fixed_verifier_rechecks_observer_and_manifest (test_cn_release_rds_backup.Tests.test_fixed_verifier_rechecks_observer_and_manifest) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.9367343Z test_malformed_job_missing_backup_id_rejected (test_cn_release_rds_backup.Tests.test_malformed_job_missing_backup_id_rejected) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.9402940Z test_minute_precision_backup_start (test_cn_release_rds_backup.Tests.test_minute_precision_backup_start) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.9433021Z test_other_success_snapshot_does_not_match_job (test_cn_release_rds_backup.Tests.test_other_success_snapshot_does_not_match_job) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.9473717Z test_paginated_original_responses_preserved (test_cn_release_rds_backup.Tests.test_paginated_original_responses_preserved) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.9523666Z test_pending_and_failed_observer_reject (test_cn_release_rds_backup.Tests.test_pending_and_failed_observer_reject) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.9546171Z test_pending_at_deadline_stops_no_retry (test_cn_release_rds_backup.Tests.test_pending_at_deadline_stops_no_retry) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.9552936Z test_permission_missing_blocks_before_cloud (test_cn_release_rds_backup.Tests.test_permission_missing_blocks_before_cloud) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.9559477Z test_preflight_checks_both_read_apis (test_cn_release_rds_backup.Tests.test_preflight_checks_both_read_apis) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.9565451Z test_provider_counts_reject_bool_negative_and_nondecimal (test_cn_release_rds_backup.Tests.test_provider_counts_reject_bool_negative_and_nondecimal) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.9598968Z test_same_second_precision_and_minute_upper_bound (test_cn_release_rds_backup.Tests.test_same_second_precision_and_minute_upper_bound) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.9671604Z test_saved_receipt_flags_and_evidence_tamper_reject (test_cn_release_rds_backup.Tests.test_saved_receipt_flags_and_evidence_tamper_reject) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.9679715Z test_stale_stop_blocks_before_intent (test_cn_release_rds_backup.Tests.test_stale_stop_blocks_before_intent) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.9689846Z test_wrong_input_hash_blocks_create (test_cn_release_rds_backup.Tests.test_wrong_input_hash_blocks_create) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.9709713Z test_wrong_job_response_reject (test_cn_release_rds_backup.Tests.test_wrong_job_response_reject) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.9710512Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.9710716Z ----------------------------------------------------------------------
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.9711120Z Ran 31 tests in 0.223s
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.9711279Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:02.9711375Z OK
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:03.4192447Z test_four_real_runtime_router_generators_from_original_receipt_chain (test_cn_release_runtime_router.RuntimeRouterTests.test_four_real_runtime_router_generators_from_original_receipt_chain) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:03.4193427Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:03.4193614Z ----------------------------------------------------------------------
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:03.4194013Z Ran 1 test in 0.377s
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:03.4194199Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:03.4194294Z OK
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:05.2965282Z test_actual_adapter_then_router_consumes_exact_approval (test_cn_release_conditional_writer_adapter.AdapterTests.test_actual_adapter_then_router_consumes_exact_approval) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:06.7942687Z test_changed_chain_fails_before_claim (test_cn_release_conditional_writer_adapter.AdapterTests.test_changed_chain_fails_before_claim) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:08.2679202Z test_old_release_without_new_closure_cannot_enable_policy (test_cn_release_conditional_writer_adapter.AdapterTests.test_old_release_without_new_closure_cannot_enable_policy) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:09.7606523Z test_public_default_is_disabled (test_cn_release_conditional_writer_adapter.AdapterTests.test_public_default_is_disabled) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:11.2985857Z test_second_call_never_reuses_claim (test_cn_release_conditional_writer_adapter.AdapterTests.test_second_call_never_reuses_claim) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:13.0316173Z test_actual_route_automatically_materializes_then_completes (test_cn_release_conditional_writer_adapter.RouterTests.test_actual_route_automatically_materializes_then_completes) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:14.6761023Z test_existing_static_approval_has_priority_without_claim (test_cn_release_conditional_writer_adapter.RouterTests.test_existing_static_approval_has_priority_without_claim) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:16.7510587Z test_generated_package_revocation_blocks_before_advance (test_cn_release_conditional_writer_adapter.RouterTests.test_generated_package_revocation_blocks_before_advance) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:18.8548826Z test_generated_static_package_retains_compatible_execution (test_cn_release_conditional_writer_adapter.RouterTests.test_generated_static_package_retains_compatible_execution) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:20.3421568Z test_missing_policy_keeps_waiting_without_claim (test_cn_release_conditional_writer_adapter.RouterTests.test_missing_policy_keeps_waiting_without_claim) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:21.9229882Z test_pointer_before_decision_crash_is_not_static_approval (test_cn_release_conditional_writer_adapter.RouterTests.test_pointer_before_decision_crash_is_not_static_approval) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:23.4998422Z test_policy_replacement_cannot_reset_release_consumption (test_cn_release_conditional_writer_adapter.RouterTests.test_policy_replacement_cannot_reset_release_consumption) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:23.5085230Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:23.5085620Z ----------------------------------------------------------------------
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:23.5086023Z Ran 12 tests in 19.993s
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:23.5086189Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:23.5086277Z OK
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:24.4546938Z test_actual_consume_and_publication_context_and_contract (test_cn_release_acquire_router.RouterIntegration.test_actual_consume_and_publication_context_and_contract) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:24.7229517Z test_existing_generated_file_tamper_refuses_context (test_cn_release_acquire_router.RouterIntegration.test_existing_generated_file_tamper_refuses_context) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:25.5016246Z test_reconciled_consume_generates_actual_next_publication (test_cn_release_acquire_router.RouterIntegration.test_reconciled_consume_generates_actual_next_publication) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:25.5100937Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:25.5101214Z ----------------------------------------------------------------------
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:25.5101835Z Ran 3 tests in 1.910s
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:25.5101957Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:25.5102022Z OK
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:25.5959034Z test_drift_refuses_before_destination_or_source_mutation (test_cn_release_failure_isolation.BackupFiles.test_drift_refuses_before_destination_or_source_mutation) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:25.5984131Z test_exact_real_copy_and_distinct_names_preserve_us (test_cn_release_failure_isolation.BackupFiles.test_exact_real_copy_and_distinct_names_preserve_us) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:25.5999500Z test_partial_io_failure_retained_and_no_blind_replay (test_cn_release_failure_isolation.BackupFiles.test_partial_io_failure_retained_and_no_blind_replay) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:25.6005716Z test_symlink_cannot_read_other_region (test_cn_release_failure_isolation.BackupFiles.test_symlink_cannot_read_other_region) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:25.6022237Z test_real_binder_rejects_required_or_changed_migration_before_outputs (test_cn_release_failure_isolation.MigrationAdmission.test_real_binder_rejects_required_or_changed_migration_before_outputs) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:25.6024355Z test_missing_candidate_never_stops_services (test_cn_release_failure_isolation.RuntimeFailures.test_missing_candidate_never_stops_services) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:25.6029455Z test_mixed_foreign_image_and_us_project_refuse_rollback (test_cn_release_failure_isolation.RuntimeFailures.test_mixed_foreign_image_and_us_project_refuse_rollback) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:25.6044422Z test_start_partial_failure_keeps_hold_and_cannot_claim_business (test_cn_release_failure_isolation.RuntimeFailures.test_start_partial_failure_keeps_hold_and_cannot_claim_business) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:25.6264266Z test_stop_timeout_keeps_intent_without_success_or_second_stop (test_cn_release_failure_isolation.RuntimeFailures.test_stop_timeout_keeps_intent_without_success_or_second_stop) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:25.6362818Z test_switch_empty_or_duplicate_inspect_cannot_record_success (test_cn_release_failure_isolation.RuntimeFailures.test_switch_empty_or_duplicate_inspect_cannot_record_success) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:25.6427802Z test_switch_exact_five_records_runtime_only_and_cn_commands (test_cn_release_failure_isolation.RuntimeFailures.test_switch_exact_five_records_runtime_only_and_cn_commands) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:25.6645278Z test_switch_rejects_wrong_name_project_restarting_and_mixed_images (test_cn_release_failure_isolation.RuntimeFailures.test_switch_rejects_wrong_name_project_restarting_and_mixed_images) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:25.6646320Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:25.6646627Z ----------------------------------------------------------------------
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:25.6647117Z Ran 12 tests in 0.070s
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:25.6647345Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:25.6647607Z OK
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:26.1975734Z test_actual_child_exit_with_empty_receipt_recovers_no_overwrite (test_cn_release_promotion_recovery.RecoveryTests.test_actual_child_exit_with_empty_receipt_recovers_no_overwrite) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:26.5890127Z test_actual_child_exit_with_final_newline_missing_recovers_exact_bytes (test_cn_release_promotion_recovery.RecoveryTests.test_actual_child_exit_with_final_newline_missing_recovers_exact_bytes) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:27.0001398Z test_actual_child_exit_with_half_receipt_recovers_no_overwrite (test_cn_release_promotion_recovery.RecoveryTests.test_actual_child_exit_with_half_receipt_recovers_no_overwrite) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:27.2694108Z test_actual_lock_contention_creates_no_intent_or_rename (test_cn_release_promotion_recovery.RecoveryTests.test_actual_lock_contention_creates_no_intent_or_rename) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:27.8316092Z test_actual_process_exit_after_rename_recovers_exact_bytes_readonly (test_cn_release_promotion_recovery.RecoveryTests.test_actual_process_exit_after_rename_recovers_exact_bytes_readonly) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:28.1682691Z test_actual_router_empty_receipt_calls_full_recovery (test_cn_release_promotion_recovery.RecoveryTests.test_actual_router_empty_receipt_calls_full_recovery) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:28.5026821Z test_actual_router_partial_receipt_calls_full_recovery (test_cn_release_promotion_recovery.RecoveryTests.test_actual_router_partial_receipt_calls_full_recovery) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:28.8400253Z test_actual_router_publication_route_uses_physical_recovery_not_redownload (test_cn_release_promotion_recovery.RecoveryTests.test_actual_router_publication_route_uses_physical_recovery_not_redownload) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:29.1677667Z test_delegation_pinned_recovery_calls_complete_observer_without_writes (test_cn_release_promotion_recovery.RecoveryTests.test_delegation_pinned_recovery_calls_complete_observer_without_writes) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:29.5617520Z test_final_receipt_normal_path_matches_prepared_recovery (test_cn_release_promotion_recovery.RecoveryTests.test_final_receipt_normal_path_matches_prepared_recovery) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:29.8949383Z test_intent_cannot_extend_original_canonical_expiry (test_cn_release_promotion_recovery.RecoveryTests.test_intent_cannot_extend_original_canonical_expiry) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:30.1609814Z test_legacy_partial_state_never_selects_a_new_consumer (test_cn_release_promotion_recovery.RecoveryTests.test_legacy_partial_state_never_selects_a_new_consumer) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:30.4887784Z test_no_repromotion_or_download_on_existing_inbox (test_cn_release_promotion_recovery.RecoveryTests.test_no_repromotion_or_download_on_existing_inbox) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:30.8070118Z test_nonprefix_trailing_bytes_or_different_valid_receipt_reject (test_cn_release_promotion_recovery.RecoveryTests.test_nonprefix_trailing_bytes_or_different_valid_receipt_reject) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:31.0897502Z test_original_exact_base_rejects_actual_empty_receipt (test_cn_release_promotion_recovery.RecoveryTests.test_original_exact_base_rejects_actual_empty_receipt) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:31.3781602Z test_original_exact_base_rejects_actual_partial_receipt (test_cn_release_promotion_recovery.RecoveryTests.test_original_exact_base_rejects_actual_partial_receipt) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:31.7091657Z test_partial_file_changed_during_canonical_read_is_not_admitted (test_cn_release_promotion_recovery.RecoveryTests.test_partial_file_changed_during_canonical_read_is_not_admitted) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:31.9824451Z test_partial_prefix_cannot_extend_request_deadline (test_cn_release_promotion_recovery.RecoveryTests.test_partial_prefix_cannot_extend_request_deadline) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:32.2850261Z test_partial_prefix_requires_intent_and_actual_lock (test_cn_release_promotion_recovery.RecoveryTests.test_partial_prefix_requires_intent_and_actual_lock) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:32.5580647Z test_prepare_without_rename_is_never_success (test_cn_release_promotion_recovery.RecoveryTests.test_prepare_without_rename_is_never_success) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:32.8285549Z test_recovery_retains_request_deadline_and_observer_pin (test_cn_release_promotion_recovery.RecoveryTests.test_recovery_retains_request_deadline_and_observer_pin) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:33.1751901Z test_source_bundle_presence_and_intent_mutation_during_validation_reject (test_cn_release_promotion_recovery.RecoveryTests.test_source_bundle_presence_and_intent_mutation_during_validation_reject) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:33.5252478Z test_wrong_intent_original_receipt_tar_and_ttl_reject (test_cn_release_promotion_recovery.RecoveryTests.test_wrong_intent_original_receipt_tar_and_ttl_reject) ... ok
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:33.5338776Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:33.5339292Z ----------------------------------------------------------------------
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:33.5339735Z Ran 23 tests in 7.785s
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:33.5339902Z 
+simulation	Static checks and isolated stage integration	2026-10-17T12:07:33.5340009Z OK
+simulation	Real isolated Docker fixture	﻿2026-10-17T12:07:33.5611377Z ##[group]Run python3 -I -B tests/test_minimal_docker_release_real.py --output "$RUNNER_TEMP/fixed-cn-real"
+simulation	Real isolated Docker fixture	2026-10-17T12:07:33.5612119Z [36;1mpython3 -I -B tests/test_minimal_docker_release_real.py --output "$RUNNER_TEMP/fixed-cn-real"[0m
+simulation	Real isolated Docker fixture	2026-10-17T12:07:33.5669018Z shell: /usr/bin/bash -e {0}
+simulation	Real isolated Docker fixture	2026-10-17T12:07:33.5669235Z ##[endgroup]
+simulation	Real isolated Docker fixture	2026-10-17T12:08:01.1299766Z {"after": {"agent": {"containerId": "3cf6044a71166aaa381b5e8d649efec89420a969587b8cbd02c88c82d7636dfe", "imageId": "sha256:e6a7afeb950f9a5c9fdefb1a8807d9a221111d1359c648d1a3d46aedcfd4bfaa", "running": true}, "api": {"containerId": "72be790f09d02dce95f2bbfbb809c0799ed3cf81884d594899f5a995fc0c53a4", "imageId": "sha256:9c46f35c7823ac448431ea9c632fbfe5a57467d3d479587a02917aac2ec364dc", "running": true}, "sandbox": {"containerId": "b5484380d63f342dc5385900d2f8287827100f8699b3c6646d7e4f2d0db93457", "imageId": "sha256:ce8a719066f07da227ea7cc5edc17a6adca8a06c26ec53d9605068348c5ad638", "running": true}, "sandbox-sessions": {"containerId": "912b81c7cfeda031b121843e8b3bb500133ff674b8659124d19e4308916629b0", "imageId": "sha256:ce8a719066f07da227ea7cc5edc17a6adca8a06c26ec53d9605068348c5ad638", "running": true}, "web": {"containerId": "f560d786bf44e727684ea07e4a5da728cb6240f2c0a2d36d090d199e9abae447", "imageId": "sha256:50dc14b2f699b38c62ffc15659583cf447bf76a97d82038da08e1dafcf6e5e9d", "running": true}}, "baselineSource": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "before": {"agent": {"containerId": "b48076f2bd3b1e12cdf562d935de8877e51e3b9fa6d3c27af3e7e966b6d98ae2", "imageId": "sha256:3f9a7569ad1d081f366544f69f748f1fa696bb153e3208733a2b245feeb86c10", "running": true}, "api": {"containerId": "44e3d8a66f0052f24ec9acaed0b8a5bb50af582b325015b350adbd9769918f39", "imageId": "sha256:4b4a3cdb9fc3ed2d0013bac0f3269b094956db278f0af3a16ab11d69e23797ae", "running": true}, "sandbox": {"containerId": "b45c669d0e4079642ec827dc9ff5f1e9b83dc8348c6006251c3639eec0a4ea65", "imageId": "sha256:7577265bbb926b66748fd510ccc21737a43fe4ae97ffb39c34caf9fb9497703f", "running": true}, "sandbox-sessions": {"containerId": "5d0d5c3ffc3806ac5b8f13fb2eba7b28bf845f074f7c960b566a59fce94f1634", "imageId": "sha256:7577265bbb926b66748fd510ccc21737a43fe4ae97ffb39c34caf9fb9497703f", "running": true}, "web": {"containerId": "e85b8e96233db948c86c372fd4cd701c0bafb923654adcff344da8cc9c262720", "imageId": "sha256:f44e6884fb16620e21a50b0c3ce2da9be1ead566ab465ddb8fa5293ca72aa03d", "running": true}}, "candidateSource": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "cleanupVerified": true, "elapsedSeconds": 26.244910412999957, "productionAccepted": false, "realCompose": true, "realDocker": true, "realDockerSaveTransfer": true, "realHttp": true, "realHttpBusinessOutput": true, "schemaDriftRejectedWithoutSwitch": true, "sixStageChain": "SIMULATION_PASSED", "sourceIsBC": false, "status": "PASSED", "syntheticImageProvenance": true}
+simulation	Run actions/upload-artifact@v6	﻿2026-10-17T12:08:01.1497587Z ##[group]Run actions/upload-artifact@v6
+simulation	Run actions/upload-artifact@v6	2026-10-17T12:08:01.1497829Z with:
+simulation	Run actions/upload-artifact@v6	2026-10-17T12:08:01.1498011Z   name: fixed-cn-simulation-39031167276
+simulation	Run actions/upload-artifact@v6	2026-10-17T12:08:01.1498462Z   path: /tmp/fixed-cn-simulation-evidence
+simulation	Run actions/upload-artifact@v6	/home/runner/work/_temp/fixed-cn-real/**/*.json
+simulation	Run actions/upload-artifact@v6	/home/runner/work/_temp/fixed-cn-real/*.log
+simulation	Run actions/upload-artifact@v6	
+simulation	Run actions/upload-artifact@v6	2026-10-17T12:08:01.1498907Z   retention-days: 7
+simulation	Run actions/upload-artifact@v6	2026-10-17T12:08:01.1499087Z   if-no-files-found: error
+simulation	Run actions/upload-artifact@v6	2026-10-17T12:08:01.1499277Z   compression-level: 6
+simulation	Run actions/upload-artifact@v6	2026-10-17T12:08:01.1499450Z   overwrite: false
+simulation	Run actions/upload-artifact@v6	2026-10-17T12:08:01.1499621Z   include-hidden-files: false
+simulation	Run actions/upload-artifact@v6	2026-10-17T12:08:01.1499812Z ##[endgroup]
+simulation	Run actions/upload-artifact@v6	2026-10-17T12:08:01.3076184Z Multiple search paths detected. Calculating the least common ancestor of all paths
+simulation	Run actions/upload-artifact@v6	2026-10-17T12:08:01.3077817Z The least common ancestor is /. This will be the root directory of the artifact
+simulation	Run actions/upload-artifact@v6	2026-10-17T12:08:01.3078334Z With the provided path, there will be 280 files uploaded
+simulation	Run actions/upload-artifact@v6	2026-10-17T12:08:01.3083046Z Artifact name is valid!
+simulation	Run actions/upload-artifact@v6	2026-10-17T12:08:01.3083406Z Root directory input is valid!
+simulation	Run actions/upload-artifact@v6	2026-10-17T12:08:01.5672968Z Beginning upload of artifact content to blob storage
+simulation	Run actions/upload-artifact@v6	2026-10-17T12:08:01.9346834Z Uploaded bytes 225183
+simulation	Run actions/upload-artifact@v6	2026-10-17T12:08:01.9644622Z Finished uploading artifact content to blob storage!
+simulation	Run actions/upload-artifact@v6	2026-10-17T12:08:01.9645171Z SHA256 digest of uploaded artifact zip is e8575431e7e3ddec5309eb1a904eaad4b3f53ef54c6544544c904def93e31a19
+simulation	Run actions/upload-artifact@v6	2026-10-17T12:08:01.9646729Z Finalizing artifact upload
+simulation	Run actions/upload-artifact@v6	2026-10-17T12:08:02.2677307Z Artifact fixed-cn-simulation-39031167276.zip successfully finalized. Artifact ID 12100720830
+simulation	Run actions/upload-artifact@v6	2026-10-17T12:08:02.2678296Z Artifact fixed-cn-simulation-39031167276 has been successfully uploaded! Final size is 225183 bytes. Artifact ID is 12100720830
+simulation	Run actions/upload-artifact@v6	2026-10-17T12:08:02.2696486Z Artifact download URL: https://github.com/boardx/workspacex/actions/runs/39031167276/artifacts/12100720830
+simulation	Post Run actions/checkout@v5	﻿2026-10-17T12:08:02.2869738Z Post job cleanup.
+simulation	Post Run actions/checkout@v5	2026-10-17T12:08:02.3525483Z [command]/usr/bin/git version
+simulation	Post Run actions/checkout@v5	2026-10-17T12:08:02.3559432Z git version 2.55.0
+simulation	Post Run actions/checkout@v5	2026-10-17T12:08:02.3591202Z Temporarily overriding HOME='/home/runner/work/_temp/b4f87d46-9365-40c0-b40b-908bc5899ec1' before making global git config changes
+simulation	Post Run actions/checkout@v5	2026-10-17T12:08:02.3592013Z Adding repository directory to the temporary git global config as a safe directory
+simulation	Post Run actions/checkout@v5	2026-10-17T12:08:02.3595837Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/workspacex/workspacex
+simulation	Post Run actions/checkout@v5	2026-10-17T12:08:02.3627695Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+simulation	Post Run actions/checkout@v5	2026-10-17T12:08:02.3656317Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+simulation	Post Run actions/checkout@v5	2026-10-17T12:08:02.3885753Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+simulation	Post Run actions/checkout@v5	2026-10-17T12:08:02.3916434Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+simulation	Post Run actions/checkout@v5	2026-10-17T12:08:02.4141964Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+simulation	Post Run actions/checkout@v5	2026-10-17T12:08:02.4177424Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+simulation	Complete job	﻿2026-10-17T12:08:02.4521225Z Cleaning up orphan processes

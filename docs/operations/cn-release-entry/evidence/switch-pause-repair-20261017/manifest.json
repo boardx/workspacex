@@ -1,0 +1,17 @@
+{
+  "recordedAtUTC": "2026-10-17T12:20:00.238524+00:00",
+  "base": "75d65b402c8483cbe3b4c55f515bf003e807e521",
+  "localSuites": 22,
+  "localTestCases": 230,
+  "allSelectedTestsPassed": true,
+  "canonicalProofModesPassed": [
+    1,
+    2
+  ],
+  "pythonSourceUnchangedDuringAndAfterTests": true,
+  "legacyConditionalWriterLocalBoundary": "Not rerun locally: unchanged protected store rejects foreign-owned container root. Original failure retained under contract-repair-20261017; the suite remains required in GitHub CI.",
+  "gitHubForThisEdit": "Pending new exact-head run; historical 241-test receipts do not cover this edit.",
+  "productionCalls": 0,
+  "productionAccepted": false,
+  "candidateExpiredAt": "2026-10-17T11:48:36.413148Z"
+}

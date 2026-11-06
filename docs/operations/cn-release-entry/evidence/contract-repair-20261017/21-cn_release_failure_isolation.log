@@ -1,0 +1,17 @@
+test_drift_refuses_before_destination_or_source_mutation (test_cn_release_failure_isolation.BackupFiles.test_drift_refuses_before_destination_or_source_mutation) ... ok
+test_exact_real_copy_and_distinct_names_preserve_us (test_cn_release_failure_isolation.BackupFiles.test_exact_real_copy_and_distinct_names_preserve_us) ... ok
+test_partial_io_failure_retained_and_no_blind_replay (test_cn_release_failure_isolation.BackupFiles.test_partial_io_failure_retained_and_no_blind_replay) ... ok
+test_symlink_cannot_read_other_region (test_cn_release_failure_isolation.BackupFiles.test_symlink_cannot_read_other_region) ... ok
+test_real_binder_rejects_required_or_changed_migration_before_outputs (test_cn_release_failure_isolation.MigrationAdmission.test_real_binder_rejects_required_or_changed_migration_before_outputs) ... ok
+test_missing_candidate_never_stops_services (test_cn_release_failure_isolation.RuntimeFailures.test_missing_candidate_never_stops_services) ... ok
+test_mixed_foreign_image_and_us_project_refuse_rollback (test_cn_release_failure_isolation.RuntimeFailures.test_mixed_foreign_image_and_us_project_refuse_rollback) ... ok
+test_start_partial_failure_keeps_hold_and_cannot_claim_business (test_cn_release_failure_isolation.RuntimeFailures.test_start_partial_failure_keeps_hold_and_cannot_claim_business) ... ok
+test_stop_timeout_keeps_intent_without_success_or_second_stop (test_cn_release_failure_isolation.RuntimeFailures.test_stop_timeout_keeps_intent_without_success_or_second_stop) ... ok
+test_switch_empty_or_duplicate_inspect_cannot_record_success (test_cn_release_failure_isolation.RuntimeFailures.test_switch_empty_or_duplicate_inspect_cannot_record_success) ... ok
+test_switch_exact_five_records_runtime_only_and_cn_commands (test_cn_release_failure_isolation.RuntimeFailures.test_switch_exact_five_records_runtime_only_and_cn_commands) ... ok
+test_switch_rejects_wrong_name_project_restarting_and_mixed_images (test_cn_release_failure_isolation.RuntimeFailures.test_switch_rejects_wrong_name_project_restarting_and_mixed_images) ... ok
+
+----------------------------------------------------------------------
+Ran 12 tests in 0.063s
+
+OK
