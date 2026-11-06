@@ -175,6 +175,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # Scan PR heads before merge; full-regression-core only runs this after merge.
+      - name: Verify distributed official-role dependency packs
+        run: node --test tests/official-role-image-packs.test.mjs
+
       - name: Scan tracked source for new credential patterns
         run: pnpm run lint:oss-secret-scan
 
