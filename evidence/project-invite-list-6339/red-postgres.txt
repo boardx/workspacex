@@ -1,0 +1,70 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/2e5d/workspacex/apps/api
+
+[db-isolation] db=wsx_invited_project_6339 capacity=100 current=6 required=32
+ ❯ tests/project/project-invitations-pg.test.ts (17 tests | 2 failed | 15 skipped) 16345ms
+   × PgProjectInvitationRepository（真实 PG） > 共享邀请加入后，新请求仍列出通用项目，并保留租户、成员及归档边界 265ms
+     → expected [] to deeply equal [ { id: 'org-pinv-p1', …(5) } ]
+   × PgProjectInvitationRepository（真实 PG） > 通用项目 owner 可列出，管理者去重，移出后的普通成员不再列出 257ms
+     → expected [] to deeply equal [ 'org-pinv-p1' ]
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/project/project-invitations-pg.test.ts > PgProjectInvitationRepository（真实 PG） > 共享邀请加入后，新请求仍列出通用项目，并保留租户、成员及归档边界
+AssertionError: expected [] to deeply equal [ { id: 'org-pinv-p1', …(5) } ]
+
+- Expected
++ Received
+
+- Array [
+-   Object {
+-     "id": "org-pinv-p1",
+-     "kind": "general",
+-     "name": "北极星项目",
+-     "readOnlyReason": null,
+-     "status": "active",
+-     "tags": Array [],
+-   },
+- ]
++ Array []
+
+ ❯ tests/project/project-invitations-pg.test.ts:288:28
+    286|         token: link.inviteUrl.split("invite=")[1]!, userId: EXISTING,
+    287|       });
+    288|       expect(await list()).toEqual([{
+       |                            ^
+    289|         id: PROJECT, name: "北极星项目", kind: "general", status: "act…
+    290|       }]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/project/project-invitations-pg.test.ts > PgProjectInvitationRepository（真实 PG） > 通用项目 owner 可列出，管理者去重，移出后的普通成员不再列出
+AssertionError: expected [] to deeply equal [ 'org-pinv-p1' ]
+
+- Expected
++ Received
+
+- Array [
+-   "org-pinv-p1",
+- ]
++ Array []
+
+ ❯ tests/project/project-invitations-pg.test.ts:315:48
+    313|       repo: new PgProjectListRepository(db), identity: new PgIdentityR…
+    314|     }, { orgId: ORG_ID, actorId: userId });
+    315|     expect((await list(OWNER)).map(p => p.id)).toEqual([PROJECT]);
+       |                                                ^
+    316|     const link = await issueProjectInviteLink(deps, owner());
+    317|     await acceptProjectInvitation({ invitations: repo, now }, {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 15 skipped (17)
+   Start at  23:42:07
+   Duration  19.22s (transform 1.17s, setup 8ms, collect 1.55s, tests 16.34s, environment 0ms, prepare 55ms)
+
+[db-isolation] db=wsx_invited_project_6339 peak_connections=3
+undefined
+/Users/shenyangjun/.codex/worktrees/2e5d/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/project/project-invitations-pg.test.ts --testNamePattern 共享邀请加入后|通用项目 owner 可列出 --maxWorkers=1 --minWorkers=1
