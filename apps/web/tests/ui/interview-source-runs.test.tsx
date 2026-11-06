@@ -1,7 +1,7 @@
 import * as React from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import { interviewTranscriptDisplay } from "@/components/itv/interview-transcript-display";
+import { interviewExpertDisplayNames, interviewTranscriptDisplay } from "@/components/itv/interview-transcript-display";
 import { InterviewRunsStep } from "@/components/itv/interview-runs-step";
 afterEach(cleanup);
 it("keeps report actions in one footer after the saved transcript without a second progress hero", () => {
@@ -203,4 +203,31 @@ it("preserves saved execution and insights while question answers collapse indep
   expect(document.markdown).toBe(markdown);
   expect(document.version).toBe(2);
   expect(document.contentHash).toBe("c".repeat(64));
+});
+
+it.each(["访谈回复", "访谈回答", "访谈记录"])("hides generated %s titles and italic notices while retaining answers", (kind) => {
+  const id = "persona-screenshot";
+  const markdown = `## [张浩宇（AI 专家）](#expert-${id})\n\n# 张浩宇（${id}）${kind}\n\n*声明：以下回答基于模拟专家画像生成，属于模拟证据，需真人验证。本内容不代表真实任职经历，不构成真人证据。*\n\n### 问题一\n\n回答：保留专家自己的判断。`;
+  const display = interviewTranscriptDisplay(markdown, true);
+  expect(display).not.toContain(`张浩宇（${id}）${kind}`);
+  expect(display).not.toContain("声明：");
+  expect(display).toContain("张浩宇（AI 专家）");
+  expect(display).toContain("回答：保留专家自己的判断。");
+  expect(interviewTranscriptDisplay(markdown, false)).toBe(markdown);
+});
+
+it.each(["专业角色：AI 专家", "### 专业角色\n\nAI 专家"])("projects names and roles from saved expert fields: %s", (fields) => {
+ const labels = interviewExpertDisplayNames({documentId:"experts",step:"experts",version:1,contentHash:"a".repeat(64),evidenceMode:"simulated",references:[],markdown:`## [张浩宇](#expert-persona-x)\n\n${fields}\n\n### 简介\n\n其他背景。`});
+ expect(labels.get("persona-x")).toBe("张浩宇（AI 专家）");
+ const display = interviewTranscriptDisplay("## [张浩宇](#expert-persona-x)\n\n回答：原文。",true,[{expertId:"persona-x",displayName:labels.get("persona-x")!}]);
+ expect(display).toContain("[张浩宇（AI 专家）](#expert-persona-x)");
+});
+
+it("keeps embedded other-expert headings readable without changing their canonical attribution", () => {
+ const markdown="## [甲](#expert-persona-a)\n\n回答：甲的回答。\n\n# 乙（persona-b）访谈回答\n\n回答：模型内嵌内容。";
+ const display=interviewTranscriptDisplay(markdown,true,[{expertId:"persona-a",displayName:"甲（研究员）"},{expertId:"persona-b",displayName:"乙（架构师）"}]);
+ expect(display).toContain("# 乙（架构师）");
+ expect(display).not.toContain("乙（persona-b）访谈回答");
+ expect(display).not.toContain("(#expert-persona-b)");
+ expect(display).toContain("回答：模型内嵌内容。");
 });

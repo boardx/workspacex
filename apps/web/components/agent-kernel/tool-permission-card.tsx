@@ -90,6 +90,10 @@ export function ToolPermissionCard({
           <pre data-testid="perm-command" className="w-full min-w-0 max-w-full overflow-x-auto rounded-control bg-muted p-2 text-11">
             <code className="font-mono">{req.command}</code>
           </pre>
+          <p data-testid="perm-review-guidance" className="text-12 text-muted-foreground">
+            {t(req.command.includes("[TRUNCATED]") || req.command.endsWith("…")
+              ? "chatPermissions.reviewTruncated" : "chatPermissions.reviewSummary")}
+          </p>
         </div>
         <div className="flex items-start gap-1.5 rounded-control bg-muted p-2 text-11 text-muted-foreground">
           <ShieldCheck aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />

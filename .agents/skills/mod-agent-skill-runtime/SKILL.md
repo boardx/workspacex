@@ -55,6 +55,8 @@ MCP 接线、模型路由、context-pack、provenance；不含对话 UI 本身�
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-11-06：图片工具归档了结果，不代表显式图片 Agent 也归档；后者曾直接返回百炼临时 URL。模型适配器应校验真实像素、持久化并回读，再经既有 RunOutputFile/消息附件写回，执行器不能在脚本处理后丢掉 provider 文件。下载/归档失败不重试收费生成；历史 URL 与 CN 发布后刷新验收另计（issue #6319）。
+- 2026-11-06：官方角色要约能返回不代表依赖包已随生产镜像发货；CN 容器实际缺 starter-packs 且未配置 root，导入如约 404。镜像应显式 COPY/ENV，并在最终运行层用真实导入源校验要约全量坐标、摘要与角色固定内容；源码/数据库通过不能替代 CN 发布后对话验收（issue #6318）。
 - 2026-11-05：Qwen3生图不能只替换旧Wanx模型名；异步endpoint/input.messages/output.choices与output_image_count均不同，Z则同步且prompt_extend改变价格。profile须在收费意图持久化前解析固定model/size，默认general快照读取latest published，用户旧pin保留；真实PNG解码与真实模型/收费/发布证据分开（issue #6245）。
 - 2026-11-05：内部模型准入携带完整 serializedBody，契约允许 200 万字符，但 Nest 默认 JSON parser 只有 100 KiB；读技能/历史后会在 controller 前报 PayloadTooLargeError，SDK 包成 APIConnectionError，重试同上下文仍失败。必须在 Nest 默认 parser 前为 admission 单路由注册从契约推导的有界 parser，真实 HTTP 覆盖转义极值和其他路由仍受限；不要把历史 terminal ownership 拒绝误判成当前 admission 根因（issue #6241）。
 - 2026-10-14：W027 的旧 G1 放在生成阶段上，但 runtime 在 work 之前开门，不能审阅尚不存在的计划。新不可变 v2 把生成与 review 分节点，门预览从已提交输出读取并绑定服务器摘要；判据 SHA256 由服务器确定性计算，不能要求语言模型猜算。真实 PG 固定方法导入/审批拒绝/恢复验证与真实模型专业质量分开，缺提纲/田野适配器显式失败（Refs #4922，digital-phase-one-20261014）。
@@ -163,3 +165,5 @@ MCP 接线、模型路由、context-pack、provenance；不含对话 UI 本身�
 - 2026-11-04：custom HTTP clients/base URL 会关闭已安装 LangChain SDK 的流式用量默认值；用真实 SDK 与未预读的 HTTP 字节流验证 provider 请求选项及同一物理请求的终端 receipt，不能只把带 usage 的 fixture 喂给 parser。同步/异步流式与非流式四条 wire 回归见 tests/test_model_stream_usage.py（issue #6230）。
 
 - 2026-11-04：真实 OpenAI SDK 遇完整 SSE `[DONE]` 后会先关闭 response，未必把底层 HTTP 流读到 EOF；Accounting stream 的 close 不能无条件记 failed。以完整独立 SSE 终止事件及成功 HTTP 状态判完成，保留截断、取消、错误事件、未知 usage 和重复 close 的单终端幂等，真实 SDK 与反例见 issue #6232。
+
+- 2026-11-06：DeepAgents 0.7.6 的 execute ToolMessage.status 只证明 transport；须读结构化 artifact.exit_code，未知不能记成功。shell 管道需 pipefail 才能保留前段失败，但不得顺带开启 errexit；禁止安装/联网的提示注入测试只证明装配，不证明真实模型服从（issue #6322；docs/testing/cn-chat-command-outcomes-6322.md）。

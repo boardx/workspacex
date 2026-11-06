@@ -40,6 +40,11 @@ export function bubblewrapArguments(workspace: string, skills: string, inputs?: 
     "--chdir", "/workspace"];
 }
 
+/** A pipeline is successful only when every stage succeeds; explicit recovery remains allowed. */
+export function sessionShellArguments(command: string): string[] {
+  return ["/bin/bash", "--noprofile", "--norc", "-o", "pipefail", "-c", command];
+}
+
 export class BubblewrapProvider implements SessionExecutionProvider {
   constructor(private readonly binary = "/usr/bin/bwrap", private readonly filter = "/opt/sandbox/session-seccomp.bpf") {}
 
@@ -50,8 +55,8 @@ export class BubblewrapProvider implements SessionExecutionProvider {
       // This only executes a fixed, trusted probe; actual policy is also probed per execution.
       const result = await this.run(["--unshare-all", "--unshare-user", "--die-with-parent",
         "--new-session", "--cap-drop", "ALL", "--ro-bind", "/usr", "/usr",
-        "--ro-bind", "/lib", "/lib", "--ro-bind-try", "/lib64", "/lib64",
-        "--clearenv", "--", "/usr/bin/true"], "probe", 5000, new AbortController().signal);
+        "--ro-bind", "/lib", "/lib", "--ro-bind-try", "/lib64", "/lib64", "--ro-bind", "/bin", "/bin",
+        "--clearenv", "--", ...sessionShellArguments("! (false | true)")], "probe", 5000, new AbortController().signal);
       return result.exitCode === 0;
     } catch { return false; }
   }
@@ -59,7 +64,7 @@ export class BubblewrapProvider implements SessionExecutionProvider {
   execute(input: SessionExecutionInput): Promise<SessionExecutionResult> {
     if (process.platform !== "linux") throw new Error("SESSION_EXECUTION_UNAVAILABLE");
     return this.run([...bubblewrapArguments(input.workspace, input.skills, input.inputs),
-      "--", "/bin/sh", "-c", input.command], input.executionId, input.timeoutMs, input.signal);
+      "--", ...sessionShellArguments(input.command)], input.executionId, input.timeoutMs, input.signal);
   }
 
   private async run(args: string[], executionId: string, timeoutMs: number, signal: AbortSignal): Promise<SessionExecutionResult> {
