@@ -24,6 +24,9 @@ Local evidence (base `33f3bd0313dcfef86a9240e93dbb203bdee3a76b` plus patch):
   `pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter @repo/api exec vitest run tests/agent-runtime/execute-run-progress.test.ts tests/agent-runtime/agui-file-events-real-db.test.ts`,
   38/38 passed, database `wsx_7f7e39008e6033b47dc3`.
 - Full API lint passed. API typecheck recorded separately in PR validation.
+- Initial CI shard5 caught the existing executor line-count gate (1395 vs1393).
+  Provider script/file outputs were then kept in one completion snapshot instead
+  of parallel state variables, without changing the size gate or its assertions.
 
 The image tests inject deterministic supplier output and download ports; they
 do not call the paid CN supplier. PostgreSQL coverage verifies existing
