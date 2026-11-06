@@ -1,0 +1,33 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+
+ ❯ tests/ui/survey-results-i18n.test.tsx (19 tests | 1 failed) 1430ms
+   ✓ retains raw search text, focus, selection and quality-filter identity when controls change language 502ms
+   × exports the same selected canonical Markdown bytes and filename in both languages 56ms
+     → expected [] to have a length of 2 but got +0
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/survey-results-i18n.test.tsx > exports the same selected canonical Markdown bytes and filename in both languages
+AssertionError: expected [] to have a length of 2 but got +0
+
+- Expected
++ Received
+
+- 2
++ 0
+
+ ❯ tests/ui/survey-results-i18n.test.tsx:91:19
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 18 passed (19)
+   Start at  05:19:42
+   Duration  7.61s (transform 2.34s, setup 237ms, collect 4.31s, tests 1.43s, environment 1.25s, prepare 73ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/survey-results-i18n.test.tsx

@@ -11,9 +11,9 @@ export async function surveyResponseMarkdown(responses:SurveyResponse[],question
      return `- ${escape(file.name)} · ${file.sizeBytes} bytes · ${escape(file.mime)} · 附件 ID: ${escape(id)}`;
     }))).join('\n');
    }
-   return `### ${escape(q.title)}\n\n${value}`;
+   return `### ${q.title}\n\n${value}`;
   }));
-  return [`## 答卷 ${escape(response.id)}`,`提交时间：${response.submittedAt}`,`用时：${response.durationSeconds} 秒`,`分析状态：${response.analysis==='excluded'?'已排除':'纳入分析'}`,...answers].join('\n\n');
+  return [`## 答卷 ${response.id}`,`提交时间：${response.submittedAt}`,`用时：${response.durationSeconds} 秒`,`分析状态：${response.analysis==='excluded'?'已排除':'纳入分析'}`,...answers].join('\n\n');
  }));
  return ['# 问卷答卷',...rows].join('\n\n');
 }
