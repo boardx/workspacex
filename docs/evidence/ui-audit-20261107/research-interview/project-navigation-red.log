@@ -1,0 +1,39 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+
+ ❯ tests/ui/interview-markdown-workbench.test.tsx (10 tests | 1 failed | 9 skipped) 160ms
+   × retains project context across stage and return navigation 159ms
+     → expected last "spy" call to have been called with [ Array(1) ]
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/interview-markdown-workbench.test.tsx > retains project context across stage and return navigation
+AssertionError: expected last "spy" call to have been called with [ Array(1) ]
+
+- Expected
++ Received
+
+  Array [
+-   "/itv/itv-route-7/outline?projectId=prj-review",
++   "/itv/itv-route-7/outline",
+  ]
+
+ ❯ tests/ui/interview-markdown-workbench.test.tsx:118:16
+    116|   render(<InterviewMarkdownWorkbench identity={identity} step="intake"…
+    117|   fireEvent.click(screen.getByRole("button", { name: /访谈问题/ }));
+    118|   expect(push).toHaveBeenLastCalledWith('/itv/itv-route-7/outline?proj…
+       |                ^
+    119|   fireEvent.click(screen.getByRole("button", { name: /返回/ }));
+    120|   expect(push).toHaveBeenLastCalledWith('/itv?tab=history&projectId=pr…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 9 skipped (10)
+   Start at  03:51:18
+   Duration  3.53s (transform 1.26s, setup 167ms, collect 1.92s, tests 160ms, environment 804ms, prepare 49ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/interview-markdown-workbench.test.tsx -t retains project context

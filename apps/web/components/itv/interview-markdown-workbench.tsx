@@ -2,6 +2,7 @@
 import { useI18n } from "@/lib/i18n/provider";
 import * as React from "react";
 import { useInterviewSource } from "./interview-session-provider";
+import { withProjectId } from "@/components/project/project-links";
 import { useRouter } from "next/navigation";
 import type { DigitalInterviewWorkflowView } from "@/lib/interview-api";
 import { loadInterviewMarkdown, branchInterviewMarkdown, type InterviewMarkdownEnvelope } from "@/lib/interview-markdown-api";
@@ -57,7 +58,9 @@ export function InterviewMarkdownWorkbench({ identity, step, reportPin }: { iden
   }, []);
   function navigate(path: string) {
     if (dirty.current && !window.confirm(t("itv.unsaved"))) return;
-    dirty.current = false; router.push(path);
+    dirty.current = false;
+    const projectId = new URLSearchParams(window.location.search).get("projectId") ?? identity.scope.projectId;
+    router.push(withProjectId(path, projectId));
   }
   const onContinue = (next: string) => navigate(`/itv/${encodeURIComponent(identity.interviewId)}/${next}`);
   async function revise() {
