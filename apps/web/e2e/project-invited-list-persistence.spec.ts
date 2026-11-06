@@ -63,7 +63,8 @@ test("受邀通用项目：返回全部项目、刷新和全新会话登录后�
     await returning.goto("/projects");
     await expect(returning.getByTestId("projects-list").getByText(name, { exact: true })).toBeVisible();
     await expect(returning.getByText(privateName, { exact: true })).toHaveCount(0);
-    await returning.getByTestId("projects-list").getByText(name, { exact: true }).click();
+    await returning.getByTestId(`projects-card-${projectId}-enter`).click();
+    await expect(returning).toHaveURL(new RegExp(`/projects/${projectId}(?:\\?|$)`));
     await expect(returning.getByTestId("project-title")).toHaveText(name);
     await returning.screenshot({ path: info.outputPath("joined-project-after-new-login.png"), fullPage: true });
   } finally {
