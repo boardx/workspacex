@@ -191,6 +191,34 @@ export function LiveSurveyWorkspace({
           template: runtime.template,
         }));
   useSurveyUnsavedNavigation(dirty);
+  const previousCollectionStep = React.useRef(step);
+  // Refresh collection data on return and while viewing results. Never replace local edits.
+  React.useEffect(() => {
+    if (surveyId === "new" || !runtime || dirty || busy) return;
+    let active = true;
+    let pending = false;
+    const reload = async () => {
+      if (pending || document.visibilityState === "hidden") return;
+      pending = true;
+      try {
+        const next = await surveyRequest(`/surveys/${encodeURIComponent(surveyId)}`, {}, SurveyRuntimeSchema);
+        if (active) setRuntime(next);
+      } catch { /* Keep the last successful snapshot; manual refresh exposes errors. */ }
+      finally { pending = false; }
+    };
+    window.addEventListener("focus", reload);
+    document.addEventListener("visibilitychange", reload);
+    if (previousCollectionStep.current !== step && step === "responses") void reload();
+    previousCollectionStep.current = step;
+    const timer = window.setInterval(reload, 15_000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", reload);
+      document.removeEventListener("visibilitychange", reload);
+    };
+  }, [surveyId, runtime, dirty, busy, step]);
+
   const execute = async (action: () => Promise<void>, nextOperation: "saving" | "processing" = "processing") => {
     if (lock.current) return;
     lock.current = true;

@@ -447,3 +447,24 @@ it('keeps ordinary report template title edits unsaved until explicit save',asyn
  expect(request).toHaveBeenCalledTimes(1);
  expect(screen.getByLabelText('报告标题')).toHaveValue('仅预览的新标题');
 });
+
+it('reloads remote answers on window focus without a full page reload',async()=>{
+ request.mockResolvedValue(runtime());
+ render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="responses"/>);
+ await screen.findByRole('region',{name:'答卷列表'});
+ const calls=request.mock.calls.length;
+ fireEvent(window,new Event('focus'));
+ await waitFor(()=>expect(request.mock.calls.length).toBeGreaterThan(calls));
+});
+it('updates waiting collection status when the scheduled start boundary passes',async()=>{
+ vi.useFakeTimers({toFake:['setTimeout','clearTimeout','Date']});
+ try {
+  const now=Date.now();
+  const publication={token:'token',status:'collecting' as const,startsAt:new Date(now+1000).toISOString(),expiresAt:new Date(now+60000).toISOString(),questions:runtime().questions};
+  request.mockResolvedValue(runtime({status:'collecting',publication}));
+  await act(async()=>{render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="publish"/>);});
+  expect(screen.getByRole('heading',{name:'问卷等待开始'})).toBeInTheDocument();
+  await act(async()=>{await vi.advanceTimersByTimeAsync(1002);});
+  expect(screen.getByRole('heading',{name:'问卷正在回收中'})).toBeInTheDocument();
+ }finally{vi.useRealTimers();}
+});
