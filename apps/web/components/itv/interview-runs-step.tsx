@@ -56,7 +56,8 @@ export function InterviewRunsStep({ runs, document, pending, generatingReport = 
       ? [document!.markdown.slice(block.start, attributed[index + 1]?.start ?? document!.markdown.length)] : [],
   ).join("\n\n");
   const displayMarkdown = summaryMarkdown ? interviewTranscriptDisplay(summaryMarkdown, document?.evidenceMode === "simulated", runs) : undefined;
-  const insights = document && projection ? savedInsights(document, projection).filter((item) => !expert || item.expertId === expert) : [];
+  const displayDocument = document && displayMarkdown ? { ...document, markdown: displayMarkdown } : null;
+  const insights = displayDocument ? savedInsights(displayDocument, interviewMarkdown.parseInterviewMarkdown(displayDocument)).filter((item) => !expert || item.expertId === expert) : [];
   const total = runs.reduce((sum, run) => sum + run.totalQuestions, 0);
   const completed = runs.filter((run) => run.status === "completed").length;
   const answered = runs.reduce((sum, run) => sum + Math.min(run.completedQuestions, run.totalQuestions), 0);
