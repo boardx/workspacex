@@ -8,6 +8,7 @@ COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.
 COPY --chown=node:node patches ./patches
 COPY --chown=node:node packages ./packages
 COPY --chown=node:node skills/localizations ./skills/localizations
+COPY --chown=node:node skills/starter-packs ./skills/starter-packs
 COPY --chown=node:node apps/api ./apps/api
 COPY --chown=node:node apps/local-asr-gateway ./apps/local-asr-gateway
 COPY --chown=node:node apps/skill-sandbox ./apps/skill-sandbox
@@ -27,6 +28,7 @@ ARG SOURCE_REVISION
 RUN test "${#SOURCE_REVISION}" = 40
 LABEL org.opencontainers.image.revision=$SOURCE_REVISION
 ENV NODE_ENV=production
+ENV SKILL_STARTER_PACK_ROOT=/opt/workspacex/skills/starter-packs
 USER node
 WORKDIR /opt/workspacex/apps/api
 RUN set -eu; for entry in \
@@ -44,6 +46,7 @@ RUN set -eu; for entry in \
   test -r ../../packages/contracts/package.json; \
   test -r ../../skills/localizations/work-stack-v2.json; \
   test -n "$(find migrations -maxdepth 1 -type f -print -quit)"; \
-  node --import tsx --input-type=module -e "await import('zod')"
+  node --import tsx --input-type=module -e "await import('zod')"; \
+  node --import tsx scripts/verify-official-role-packs.ts
 EXPOSE 3200
 CMD ["node", "--import", "tsx", "src/main.ts"]
