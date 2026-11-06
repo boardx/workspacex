@@ -152,7 +152,9 @@ type LiveBuffers = { readonly topic: string; readonly researchBrief: DigitalInte
 type PendingNavigation = { readonly step?: DigitalInterviewStep; readonly workbenchStep?: WorkbenchStep; readonly href?: string } | null;
 
 function workbenchHref(interviewId: string, step: WorkbenchStep) {
-  return `/itv/${encodeURIComponent(interviewId)}/${step}`;
+  const path = `/itv/${encodeURIComponent(interviewId)}/${step}`;
+  const projectId = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("projectId");
+  return projectId ? `${path}?projectId=${encodeURIComponent(projectId)}` : path;
 }
 
 function buffersFrom(view: DigitalInterviewWorkflowView): LiveBuffers {
@@ -274,7 +276,11 @@ export function PersistentDigitalInterviewWorkflow({ initialView, initialWorkben
     }
     if (next?.workbenchStep) setActiveWorkbenchStep(next.workbenchStep);
     else if (next?.step) setActiveWorkbenchStep(workbenchStepFor(next.step));
-    if (next?.href) router.push(next.href);
+    if (next?.href) {
+      const projectId = new URLSearchParams(window.location.search).get("projectId") ?? view.scope.projectId;
+      const href = next.href;
+      router.push(projectId && !new URL(href, window.location.origin).searchParams.has("projectId") ? `${href}${href.includes("?") ? "&" : "?"}projectId=${encodeURIComponent(projectId)}` : href);
+    }
   }
 
   function discardAndNavigate() {
