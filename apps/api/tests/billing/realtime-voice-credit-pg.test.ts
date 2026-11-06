@@ -1,6 +1,8 @@
+import {BILLING_ACCOUNTING_GENERATION as generation} from "../../src/domain/billing/billing-generation";
+import {PgMemberCreditQuotaRepository} from "../../src/infrastructure/billing/pg-member-credit-quota-repository";
 import {aiUsage as C} from "@repo/contracts";
 import {PgAiUsageRepository} from "../../src/infrastructure/auth/pg-ai-usage-repository";
-import {beforeAll,afterAll,expect,it} from "vitest";
+import {beforeAll,beforeEach,afterAll,expect,it} from "vitest";
 import {createServer,type Server} from "node:http";
 import {WebSocket,WebSocketServer} from "ws";
 import {mkdtemp,readdir,rm} from "node:fs/promises";
@@ -15,7 +17,8 @@ import {appConfig} from "../../src/infrastructure/db/pg-config";
 import {PgTokenUsageRepository} from "../../src/infrastructure/auth/pg-token-usage-repository";
 import {attachRealtimeDigitalHumanGateway} from "../../src/interface/ws/realtime-digital-human.gateway";
 import {toOrgId} from "../../src/domain/org-id";
-const prefix="voicebill-"+randomUUID().slice(0,8),user=prefix+"-user",personal=toOrgId(prefix+"-personal"),team=toOrgId(prefix+"-team");
+const prefix="voicebill-"+randomUUID().slice(0,8),user=prefix+"-user",personal=toOrgId(prefix+"-personal");
+let team=toOrgId(prefix+"-team");const teams:string[]=[];
 let db:PgDatabase,server:Server,upstream:WebSocketServer,gateway:WebSocketServer,url:string;
 let meter:DurableCreditUsageMeter;
 let directory:string,holdStart:Promise<void>|null=null,entered=false,heldRequest="";
@@ -24,17 +27,21 @@ const providers:WebSocket[]=[],clients:WebSocket[]=[];
 beforeAll(async()=>{
  ensureDatabase();await migrateOnce();db=new PgDatabase(appConfig());
  await seedOrg({orgId:personal,kind:"personal-local",ownerUserId:user,projectId:personal+"-p"});await addOrgMember(personal,user,"admin",null);
- await seedOrg({orgId:team,projectId:team+"-p"});await addOrgMember(team,user,"admin",null);
  await asApp(personal,c=>c.query("INSERT INTO credit_wallets(owner_type,owner_id,balance) VALUES('user',$1,-0.01)",[user]));
- await asApp(team,c=>c.query("INSERT INTO credit_wallets(owner_type,owner_id,balance) VALUES('team',$1,-1)",[team]));
  upstream=new WebSocketServer({port:0,host:"127.0.0.1"});await new Promise<void>(resolve=>upstream.on("listening",resolve));const addr=upstream.address();if(typeof addr==="string"||!addr)throw Error("listener");
  upstream.on("connection",socket=>{providers.push(socket);socket.on("message",raw=>{const event=JSON.parse(String(raw));if(event.type==="session.update")socket.send(JSON.stringify({type:"session.updated"}));});});
  directory=await mkdtemp(join(tmpdir(),"voice-credit-spool-"));meter=new DurableCreditUsageMeter(new PgTokenUsageRepository(db),{directory});
- const usage:TokenUsageMeterPort={startRequest:async(context,input)=>{await meter.startRequest(context,input);if(holdStart){heldRequest=input.requestId;entered=true;await holdStart;}},record:(context,input)=>meter.record(context,input)};
+ const usage:TokenUsageMeterPort={startRequest:async(context,input)=>{await meter.startRequest(context,input);if(holdStart){heldRequest=input.requestId;entered=true;await holdStart;}},record:(context,input)=>meter.record(context,input),assertCreditContinuation:(context,userId,requestId)=>meter.assertCreditContinuation(context,userId,requestId)};
  server=createServer();gateway=attachRealtimeDigitalHumanGateway(server,{principals:{resolve:async (h:{authorization?:string})=>({userId:user,orgId:h.authorization==="Bearer team"?team:personal})},usage,config:()=>({baseUrl:`ws://127.0.0.1:${addr.port}/realtime`,apiKey:"test-key",model:"voice-model",defaultVoice:"Tina",voiceMap:{}})} as never);
  await new Promise<void>(resolve=>server.listen(0,"127.0.0.1",resolve));const a=server.address();if(typeof a==="string"||!a)throw Error("listener");url=`ws://127.0.0.1:${a.port}/chat/realtime-digital-human`;
 });
-afterAll(async()=>{for(const c of clients)c.terminate();for(const p of providers)p.terminate();await new Promise<void>(r=>gateway.close(()=>r()));await new Promise<void>(r=>server.close(()=>r()));await new Promise<void>(r=>upstream.close(()=>r()));await asOwner(async c=>{await c.query("DELETE FROM credit_consumption_requests WHERE org_id=ANY($1::text[])",[[personal,team]]);await c.query("DELETE FROM organizations WHERE id=ANY($1::text[])",[[personal,team]]);await c.query("DELETE FROM credit_transactions WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_id=ANY($1::text[]))",[[user,team]]);await c.query("DELETE FROM credit_wallets WHERE owner_id=ANY($1::text[])",[[user,team]]);});await db.close();if(directory)await rm(directory,{recursive:true,force:true});});
+// Unknown provider receipts retain real allowance holds; isolate organizational cases rather than erase those facts.
+beforeEach(async()=>{
+ team=toOrgId(prefix+"-team-"+randomUUID().slice(0,8));teams.push(team);
+ await seedOrg({orgId:team,projectId:team+"-p"});await addOrgMember(team,user,"admin",null);
+ await asApp(team,c=>c.query("INSERT INTO credit_wallets(owner_type,owner_id,balance) VALUES('team',$1,-1)",[team]));
+});
+afterAll(async()=>{for(const c of clients)c.terminate();for(const p of providers)p.terminate();await new Promise<void>(r=>gateway.close(()=>r()));await new Promise<void>(r=>server.close(()=>r()));await new Promise<void>(r=>upstream.close(()=>r()));await asOwner(async c=>{await c.query("DELETE FROM credit_consumption_requests WHERE org_id=ANY($1::text[])",[[personal,...teams]]);await c.query("DELETE FROM organizations WHERE id=ANY($1::text[])",[[personal,...teams]]);await c.query("DELETE FROM credit_transactions WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_id=ANY($1::text[]))",[[user,...teams]]);await c.query("DELETE FROM credit_wallets WHERE owner_id=ANY($1::text[])",[[user,...teams]]);});await db.close();if(directory)await rm(directory,{recursive:true,force:true});});
 async function connect(token="personal"){
  const client=new WebSocket(url,["bearer."+token]),frames:Record<string,unknown>[]=[];clients.push(client);client.on("message",raw=>frames.push(JSON.parse(String(raw))));
  await new Promise<void>((resolve,reject)=>{client.once("open",resolve);client.once("error",reject);});client.send(JSON.stringify({type:"session.start",boardId:"fixture-board"}));return {client,frames};
@@ -64,14 +71,14 @@ it("allows enterprise debt and retains confirmed charges as pending when another
 it("keeps confirmed usage pending after an abrupt drop while a response is still active",async()=>{
  const {client,frames}=await connect("team");await expect.poll(()=>frames.some(x=>x.type==="session.ready")).toBe(true);const socket=providers.at(-1)!;
  socket.send(JSON.stringify({type:"response.created",response:{id:"still-active"}}));done(socket,"before-drop",10);
- await expect.poll(()=>balance(team,team)).toBe("-2.01");client.terminate();
+ await expect.poll(()=>balance(team,team)).toBe("-1.01");client.terminate();
  await expect.poll(async()=>(await asApp(team,c=>c.query("SELECT state,debited_hundredths::text AS debit FROM credit_consumption_requests WHERE org_id=$1 ORDER BY created_at DESC LIMIT 1",[team]))).rows[0]).toEqual({state:"pending",debit:"1"});
 });
 it("rejects conflicting provider response replay without another debit",async()=>{
  const {frames}=await connect("team");await expect.poll(()=>frames.some(x=>x.type==="session.ready")).toBe(true);const socket=providers.at(-1)!;
- done(socket,"conflict",1);await expect.poll(()=>balance(team,team)).toBe("-2.02");done(socket,"conflict",2);
+ done(socket,"conflict",1);await expect.poll(()=>balance(team,team)).toBe("-1.01");done(socket,"conflict",2);
  await expect.poll(()=>frames.some(x=>x.reason==="CREDIT_ACCOUNTING_UNAVAILABLE")).toBe(true);
- expect(await balance(team,team)).toBe("-2.02");
+ expect(await balance(team,team)).toBe("-1.01");
 });
 it.each(["disconnect","stop"] as const)("settles a confirmed nondispatch and releases its durable slot on %s during admission",async action=>{
  let release!:()=>void;holdStart=new Promise<void>(r=>{release=r;});entered=false;const before=providers.length;
@@ -97,4 +104,25 @@ it.each(["disconnect","stop"] as const)("settles a confirmed nondispatch and rel
   expect(providers).toHaveLength(before);
   if(action==="stop")await expect.poll(()=>client.readyState).toBe(WebSocket.CLOSED);
  }finally{release();holdStart=null;}
+});
+
+it("stops explicit Enterprise voice at actual monthly usage and resumes after an administrator adjustment",async()=>{
+ const priorEpoch=await asOwner(async c=>(await c.query('SELECT generation,activated_at FROM billing_pricing_epoch WHERE singleton')).rows[0]);
+ await asOwner(c=>c.query('UPDATE billing_pricing_epoch SET generation=$1,activated_at=clock_timestamp() WHERE singleton',[generation]));
+ try{
+ await asApp(team,c=>c.query("INSERT INTO organization_plans(org_id,plan,version,updated_by,billing_generation) VALUES($1,'enterprise',1,$2,$3)",[team,user,generation]));
+ const quotas=new PgMemberCreditQuotaRepository(db);await quotas.setCreditQuota(team,user,1,user);
+ const {client,frames}=await connect("team");await expect.poll(()=>frames.some(x=>x.type==="session.ready")).toBe(true);
+ done(providers.at(-1)!,"member-limit",1000);
+ await expect.poll(()=>frames.some(x=>(x.credit as {reason?:string}|undefined)?.reason==="member_monthly_limit")).toBe(true);
+ await expect.poll(()=>client.readyState).toBe(WebSocket.CLOSED);
+ expect(await balance(team,team)).toBe("-2.00");
+ await expect.poll(async()=>(await asApp(team,c=>c.query("SELECT state,debited_hundredths::text AS debit FROM credit_consumption_requests WHERE org_id=$1",[team]))).rows[0]).toEqual({state:"settled",debit:"100"});
+ const before=providers.length,blocked=await connect("team");
+ await expect.poll(()=>blocked.frames.some(x=>(x.credit as {reason?:string}|undefined)?.reason==="member_monthly_limit")).toBe(true);expect(providers).toHaveLength(before);
+ await quotas.setCreditQuota(team,user,2,user);
+ const resumed=await connect("team");await expect.poll(()=>resumed.frames.some(x=>x.type==="session.ready")).toBe(true);
+ done(providers.at(-1)!,"resumed-no-cost",0);resumed.client.send(JSON.stringify({type:"session.stop"}));
+ await expect.poll(()=>resumed.client.readyState).toBe(WebSocket.CLOSED);
+ }finally{await asOwner(c=>c.query('UPDATE billing_pricing_epoch SET generation=$1,activated_at=$2 WHERE singleton',[priorEpoch.generation,priorEpoch.activated_at]));}
 });

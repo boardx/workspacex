@@ -1,11 +1,13 @@
+import {BILLING_ACCOUNTING_GENERATION} from "../../domain/billing/billing-generation";
+import {isLocalOrg} from "../../domain/identity/local-org";
 import {DEFAULT_MEMBER_MONTHLY_CREDITS} from '@repo/contracts/member-credit-quota';
 import type {TenantSession} from '../../application/ports/database.port';
 import type {OrgId} from '../../domain/org-id';
 import {CreditConsumptionError,creditHundredths} from '../../application/billing/credit-consumption';
 
 export async function enterpriseCreditPlan(s:TenantSession,orgId:OrgId):Promise<boolean>{
- const row=(await s.query<{plan:string}>('SELECT plan FROM organization_plans WHERE org_id=$1',[orgId])).rows[0];
- return row?.plan==='enterprise';
+ const row=(await s.query<{plan:string|null;kind:string;billing_generation:string|null}>('SELECT p.plan,p.billing_generation,o.kind FROM organizations o LEFT JOIN organization_plans p ON p.org_id=o.id WHERE o.id=$1',[orgId])).rows[0];
+ return row?.plan==='enterprise'&&row.billing_generation===BILLING_ACCOUNTING_GENERATION&&!isLocalOrg(row.kind);
 }
 /** Actual debit time determines the month. Outstanding holds survive the boundary and already-debited
  * streaming amounts are subtracted from the hold so they are never counted twice. */

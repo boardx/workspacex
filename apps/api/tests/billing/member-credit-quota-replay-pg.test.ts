@@ -1,3 +1,4 @@
+import {BILLING_ACCOUNTING_GENERATION as generation} from "../../src/domain/billing/billing-generation";
 import {readFileSync} from 'node:fs';
 import {randomUUID} from 'node:crypto';
 import {afterAll,beforeAll,expect,it} from 'vitest';
@@ -14,7 +15,7 @@ beforeAll(async()=>{
  ensureDatabase();await migrateOnce();await seedOrg({orgId:org,projectId:`${org}-project`});
  await asApp(org,async c=>{
   for(const user of ['zero','custom','default'])await c.query("INSERT INTO org_memberships(org_id,user_id,org_role) VALUES($1,$2,'consultant')",[org,`${org}-${user}`]);
-  await c.query("INSERT INTO organization_plans(org_id,plan,version,updated_by) VALUES($1,'enterprise',1,'replay-fixture')",[org]);
+  await c.query("INSERT INTO organization_plans(org_id,plan,version,updated_by,billing_generation) VALUES($1,'enterprise',1,'replay-fixture',$2)",[org,generation]);
  });
  await repo.setCreditQuota(org,`${org}-zero`,0,'replay-admin');
  await repo.setCreditQuota(org,`${org}-custom`,2500,'replay-admin');

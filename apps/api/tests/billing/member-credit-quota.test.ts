@@ -1,10 +1,11 @@
+import {BILLING_ACCOUNTING_GENERATION as generation} from "../../src/domain/billing/billing-generation";
 import {describe,it,expect,vi} from 'vitest';
 import {assertMemberCreditQuota, readMemberCreditUsage} from '../../src/infrastructure/billing/member-credit-quota';
 import type {TenantSession} from '../../src/application/ports/database.port';
 import type {OrgId} from '../../src/domain/org-id';
 const org='org' as OrgId;
-function session(plan='enterprise',quota:string|null=null,used='0',held='0') {
- const query=vi.fn(async(sql:string)=>({rows:sql.includes('organization_plans')?[{plan}]:sql.includes('monthly_limit')?[{monthly_limit:quota}]:[{used_hundredths:used,held_hundredths:held,unbounded:'0'}]}));
+function session(plan='enterprise',quota:string|null=null,used='0',held='0',kind='organization',billingGeneration:string|null=generation) {
+ const query=vi.fn(async(sql:string)=>({rows:sql.includes('organization_plans')?[{plan,kind,billing_generation:billingGeneration}]:sql.includes('monthly_limit')?[{monthly_limit:quota}]:[{used_hundredths:used,held_hundredths:held,unbounded:'0'}]}));
  return {query} as unknown as TenantSession;
 }
 describe('enterprise member monthly Credit admission',()=>{
@@ -26,7 +27,7 @@ describe('enterprise member monthly Credit admission',()=>{
   await expect(assertMemberCreditQuota(session('enterprise',null,'50000','25000'),org,'user',0n,false)).resolves.toBe(25000n);
   await expect(assertMemberCreditQuota(session('enterprise','0'),org,'user',0n,false)).rejects.toMatchObject({code:'credit_required',reason:'member_monthly_limit'});
   await expect(assertMemberCreditQuota(session('enterprise',null,'0','100000'),org,'user',0n,false)).rejects.toMatchObject({code:'credit_required'});
-  await expect(assertMemberCreditQuota(session('team'),org,'user',999999n,false)).resolves.toBe(999999n);
+  await expect(assertMemberCreditQuota(session('ordinary'),org,'user',999999n,false)).resolves.toBe(999999n);
  });
  it('reads ledger settlement month in explicit UTC and retains holds across month boundaries',async()=>{
   const s=session();await readMemberCreditUsage(s,org,'user');
@@ -45,4 +46,12 @@ it('preserves typed member-limit guidance while keeping ordinary wallet failures
  const wallet=creditErrorGuidance(new CreditConsumptionError('credit_required','user','user'));
  expect(wallet).toEqual({reason:'CREDIT_REQUIRED',credit:{code:'credit_required',ownerType:'user',ownerId:'user',rechargePath:'/billing?purchase=1'}});
  expect(CreditRequiredBody.safeParse({code:'credit_required',ownerType:'team',ownerId:'org',rechargePath:'/billing',reason:'upstream-custom'}).success).toBe(false);
+});
+
+it('does not enforce member defaults in personal-local even if stale Enterprise metadata exists',async()=>{
+ await expect(assertMemberCreditQuota(session('enterprise',null,'0','0','personal-local'),org,'user',999999n,false)).resolves.toBe(999999n);
+});
+
+it.each([null,'stale-generation'])('does not apply an Enterprise member cap to missing/stale billing generation %s',async billingGeneration=>{
+ await expect(assertMemberCreditQuota(session('enterprise','0','0','0','organization',billingGeneration),org,'user',999999n,false)).resolves.toBe(999999n);
 });

@@ -892,7 +892,7 @@ function InviteRow({
       onChanged();
     } catch (err) {
       onFailed((t, locale) => describeInviteFailure(err, t, locale));
-      if (err instanceof ApiError && ["VERSION_CHANGED", "MAIL_UNAVAILABLE"].includes(err.reasonCode ?? "")) onChanged();
+      if (err instanceof ApiError && (err.reasonCode === "VERSION_CHANGED" || err.reasonCode === "MAIL_UNAVAILABLE")) onChanged();
     } finally {
       setBusy(false);
       setConfirmingRevoke(false);

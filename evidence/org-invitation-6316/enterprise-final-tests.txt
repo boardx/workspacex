@@ -1,0 +1,26 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/2e5d/workspacex/apps/api
+
+[db-isolation] db=workspacex_enterprise_final_6316 capacity=100 current=6 required=32
+ ✓ tests/billing/credit-consumption-pg.test.ts (16 tests) 16594ms
+stdout | tests/billing/member-credit-quota-pg.test.ts
+[member-credit-fixture-retention] {"org":"member-credit-38be28b0-059a-4902-98a3-ce6a00df9b84","other":"member-credit-38be28b0-059a-4902-98a3-ce6a00df9b84-other","user":"member-credit-38be28b0-059a-4902-98a3-ce6a00df9b84-user"}
+
+ ✓ tests/billing/member-credit-quota-pg.test.ts (7 tests) 1677ms
+ ✓ tests/billing/realtime-voice-credit-pg.test.ts (8 tests) 2889ms
+   ✓ bills cumulative provider response usage once, completes into debt and blocks a new connection 408ms
+   ✓ allows enterprise debt and retains confirmed charges as pending when another response lacks usage 361ms
+   ✓ settles a confirmed nondispatch and releases its durable slot on disconnect during admission 362ms
+   ✓ stops explicit Enterprise voice at actual monthly usage and resumes after an administrator adjustment 381ms
+ ✓ tests/billing/credit-payer-fallback-pg.test.ts (10 tests) 1570ms
+ ✓ tests/billing/credit-admission-policy-pg.test.ts (6 tests) 1081ms
+ ✓ tests/billing/member-credit-quota.test.ts (7 tests) 8ms
+ ✓ tests/billing/member-credit-continuation.test.ts (4 tests) 7ms
+ ✓ tests/billing/member-credit-quota-controller.test.ts (3 tests) 6ms
+
+ Test Files  8 passed (8)
+      Tests  61 passed (61)
+   Start at  18:41:20
+   Duration  31.39s (transform 1.50s, setup 54ms, collect 4.90s, tests 23.83s, environment 1ms, prepare 459ms)
+
+[db-isolation] db=workspacex_enterprise_final_6316 peak_connections=4
