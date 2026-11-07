@@ -2,6 +2,9 @@
 import * as React from "react";
 import { type LucideIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useI18n } from "@/lib/i18n/provider";
+import { interviewStatusMessageKey } from "@/lib/interview-status-copy";
+import type { ProjectResourceKind } from "@/lib/live-project-resources";
 import { ResourceCard } from "@/components/ui/resource-card";
 
 /**
@@ -13,7 +16,7 @@ import { ResourceCard } from "@/components/ui/resource-card";
  * 焦点环落在整卡上；菜单与操作区抬到 z-10，不被吃掉点击。`linkTestId` 放在那条 `<a>` 上。
  */
 export function ProjectContentCard({
-  href, linkTestId, cardTestId, icon: Icon, title, typeLabel, status, meta, menu, footer,
+  href, linkTestId, cardTestId, icon: Icon, title, typeLabel, status, resourceKind, meta, menu, footer,
 }: {
   href: string;
   linkTestId: string;
@@ -22,6 +25,7 @@ export function ProjectContentCard({
   title: string;
   typeLabel: string;
   status?: string | null;
+  resourceKind?: ProjectResourceKind;
   /** 次要信息行（更新时间 / 副标题）。 */
   meta?: React.ReactNode;
   /** 右上角「更多」菜单（如移出项目）；没有就不画。 */
@@ -29,6 +33,9 @@ export function ProjectContentCard({
   /** 底部操作区（如对话的可见范围选择）。 */
   footer?: React.ReactNode;
 }) {
+  const { t } = useI18n();
+  const statusKey = status && resourceKind === "interview" ? interviewStatusMessageKey(status) : null;
+  const statusLabel = resourceKind === "interview" ? statusKey ? t(statusKey) : null : status;
   return (
     <ResourceCard
       testId={cardTestId}
@@ -42,7 +49,7 @@ export function ProjectContentCard({
           <Icon aria-hidden className="h-4 w-4" />
         </span>
       }
-      badges={status ? <Badge tone="neutral">{status}</Badge> : undefined}
+      badges={statusLabel ? <Badge tone="neutral">{statusLabel}</Badge> : undefined}
       menu={menu}
       meta={meta ? <span className="min-w-0 truncate">{meta}</span> : undefined}
       actions={footer}

@@ -28,8 +28,9 @@ export default function ResearchPage({
   const view = resolveRsView(searchParams.as);
   const screen = resolveRsScreen(searchParams.screen);
   // 新的研究首页是 /research 默认落点；既有已签 Research Studio 屏仍可由 ?screen=… 显式进入。
-  // `?session=` 直达某条会话（项目页资源列表就是这么链过来的）：没有 flow 也按引导流程恢复。
-  const flow = searchParams.screen ? undefined : resolveGuidedResearchStep(searchParams.flow ?? (searchParams.session ? "brief" : undefined));
+  // Session-only links resume the authorized runtime node; an explicit flow remains a browsing request.
+  // The home flow with a session omits initialNode in GuidedResearchFlow.
+  const flow = searchParams.screen ? undefined : resolveGuidedResearchStep(searchParams.flow);
   // 研究成员模型是 owner/collaborator（U-1 B），与项目四角色无关；身份用组织层即可。
   const identity = mockIdentity(searchParams.org ?? "org-yuanyang", null);
 

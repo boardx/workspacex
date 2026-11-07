@@ -27,6 +27,7 @@ import { ResearchDesignPreview } from "./guided-research-design-editor";
 import { GuidedResearchStepLayout } from "./guided-research-step-layout";
 import { GuidedResearchMarkdownWorkspace } from "./guided-research-markdown-workspace";
 import { GuidedResearchSixStepShell } from "./guided-research-six-step-shell";
+import { withProjectId } from "@/components/project/project-links";
 import { guidedResearchRoute } from "@/lib/guided-research-routes";
 import { GuidedResearchEntryPanel } from "./guided-research-entry-panel";
 import { ResearchChaptersWorkspace } from "./research-chapters-workspace";
@@ -189,8 +190,8 @@ function GuidedResearchLiveSession({ sessionId, researchName, onBack, onLoadRetr
   React.useEffect(() => {
     if (!state) return;
     const stage = toGuidedResearchVisualStage({ currentNode: viewedNode, availableNodes: state.availableNodes }).current;
-    const path = guidedResearchRoute(sessionId, stage);
-    if (window.location.pathname !== path) window.history.replaceState({}, "", path);
+    const path = withProjectId(guidedResearchRoute(sessionId, stage), new URLSearchParams(window.location.search).get("projectId"));
+    if (`${window.location.pathname}${window.location.search}` !== path) window.history.replaceState({}, "", path);
   }, [viewedNode, loadingNode, browsing, chaptersOpen, sessionId, state]);
   const restoreVisualRoute = (stage: GuidedResearchVisualStage) => {
     const snapshot = snapshotRef.current;
@@ -556,7 +557,7 @@ function GuidedResearchLiveSession({ sessionId, researchName, onBack, onLoadRetr
     if ((state.availableNodes.includes(next) || next === loadingNode || stage === "chapters" && state.availableNodes.includes("research"))) {
       setChaptersOpen(false);
       navigate(next);
-      window.history.pushState({}, "", guidedResearchRoute(sessionId, stage));
+      window.history.pushState({}, "", withProjectId(guidedResearchRoute(sessionId, stage), new URLSearchParams(window.location.search).get("projectId")));
     }
   };
   const conversation = <GuidedResearchConversation embedded node={node} messages={state.messages} message={message} onMessageChange={setMessage} busy={busy} processing={processing}

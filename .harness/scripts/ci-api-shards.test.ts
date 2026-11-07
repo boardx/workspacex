@@ -31,7 +31,7 @@ describe('API isolated shard coverage',()=>{
   expect(read('../../apps/api/vitest.config.ts')).toMatch(/maxWorkers:\s*1/);
   expect(read('../../apps/api/vitest.config.ts')).toMatch(/minWorkers:\s*1/);
   expect(workflow.jobs['gates-fast'].steps.some((step:any)=>step.run==='node .harness/scripts/ci-api-shards.mjs --verify')).toBe(true);
-  for(const lane of ['native-document-chain','native-runtime-lane','gates-runtime','prototype-audit','design-loop-e2e'])expect(workflow.jobs['backend-required'].needs).toContain(lane);
+  for(const lane of ['native-document-chain','native-runtime-lane','gates-runtime','prototype-audit','design-loop-e2e'])expect(workflow.jobs['backend-full-result'].needs).toContain(lane);
   expect(test.steps.find((step:any)=>step.name==='清掉本次运行的数据库').if).toBe('always()');
  });
  it.each([{schemaVersion:1,count:0},{schemaVersion:1,count:1.5},{schemaVersion:1,count:33},{schemaVersion:2,count:8},{schemaVersion:1,count:8,extra:true}])('rejects invalid policy %j',(input)=>expect(()=>shardPlan(input)).toThrow());
@@ -60,14 +60,14 @@ it('preserves two real workspace projects sharing the same module through disjoi
 const exclusiveCommand='pnpm --filter @repo/api exec vitest run --config vitest.exclusive.config.ts --no-file-parallelism --maxWorkers=1 --minWorkers=1 --bail=1';
 function assertRequiredExclusive(jobs:any){
  const runtime=jobs['gates-runtime'],steps=runtime.steps;
- expect(jobs['backend-required'].needs).toContain('gates-runtime');
+ expect(jobs['backend-full-result'].needs).toContain('gates-runtime');
  expect(runtime['timeout-minutes']).toBe(15);
  expect(runtime.env.WORKSPACEX_DB).toBe('wsx_ci_${{ github.run_id }}_runtime');
  const index=steps.findIndex((step:any)=>step.run===exclusiveCommand);
  const migration=steps.findIndex((step:any)=>step.run==='pnpm --filter api run migrate:check');
  expect(migration).toBeGreaterThanOrEqual(0);expect(index).toBeGreaterThan(migration);
  expect(index).toBeLessThan(steps.findIndex((step:any)=>step.name==='清掉本次运行的数据库'));
- expect(steps[index].if).toBeUndefined();expect(steps[index]['continue-on-error']).toBeUndefined();
+ expect(steps[index].if).toBe("inputs.api_source != 'acceptance-base'");expect(steps[index]['continue-on-error']).toBeUndefined();
  expect(runtime['continue-on-error']).toBeUndefined();
  expect(steps.find((step:any)=>step.name==='清掉本次运行的数据库').if).toBe('always()');
 }
@@ -77,7 +77,7 @@ it('makes exclusive API collection a serial nonoptional step of an existing requ
   (jobs:any)=>{jobs['gates-runtime'].steps=jobs['gates-runtime'].steps.filter((step:any)=>step.run!==exclusiveCommand);},
   (jobs:any)=>{jobs['gates-runtime'].steps.find((step:any)=>step.run===exclusiveCommand).if='false';},
   (jobs:any)=>{jobs['gates-runtime'].steps.find((step:any)=>step.run===exclusiveCommand)['continue-on-error']=true;},
-  (jobs:any)=>{jobs['backend-required'].needs=jobs['backend-required'].needs.filter((name:string)=>name!=='gates-runtime');},
+  (jobs:any)=>{jobs['backend-full-result'].needs=jobs['backend-full-result'].needs.filter((name:string)=>name!=='gates-runtime');},
  ]){const broken=JSON.parse(JSON.stringify(workflow.jobs));mutate(broken);expect(()=>assertRequiredExclusive(broken)).toThrow();}
 });
 it('actually collects exclusive files once and rejects both missing exclusion and missing exclusive include',()=>{

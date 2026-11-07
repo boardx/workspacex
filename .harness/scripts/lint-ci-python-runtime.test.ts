@@ -91,11 +91,11 @@ for (const file of workflowFiles) {
 
 describe("跑 apps/api 默认套件的 CI job 必须自带 Python 运行时（#2972）", () => {
   it("检测器确实命中了 job —— 一条都没命中说明门空转了", () => {
-    // 反空转：`e2e-full`（verify:full）、`verify-affected`（turbo run test --affected）、
-    // `gates-test`（--filter api exec vitest run）三条是已知必须被命中的。
+    // v5: default API execution belongs to hourly base shards and standalone manual backend.
+    // Lightweight affected units deliberately do not start the default Python/DB suite.
     const names = covered.map(([, job]) => job);
     expect(names).toContain("base-api-shards");
-    expect(names).toContain("verify-affected");
+    expect(names).not.toContain("verify-affected");
     expect(names).toContain("gates-test");
   });
 

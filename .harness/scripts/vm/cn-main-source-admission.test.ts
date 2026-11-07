@@ -32,9 +32,9 @@ describe('exact main CI admission',()=>{
 
 it('actual CLI passes bound facts and rejects drift without a success receipt',()=>{const dir=mkdtempSync(join(tmpdir(),'cn-main-admission-'));try{const file=join(dir,'facts.json');for(const red of [false,true]){const f=facts();if(red)f.mergeTree=parent;writeFileSync(file,JSON.stringify(f),{mode:0o600});const result=spawnSync(process.execPath,['--import','tsx','.harness/scripts/vm/cn-main-source-admission.mjs',source,repo,file],{encoding:'utf8'});expect(result.status).toBe(red?1:0);expect(result.stdout.includes('CN_MAIN_SOURCE_ADMISSION_JSON=')).toBe(!red)}}finally{rmSync(dir,{recursive:true,force:true})}});
 
-// The actual committed workflow uses a dynamic matrix, not the literal fixture above.
-function committedWorkflowFacts(){const f:any=facts();f.deploymentWorkflow=parseYaml(readFileSync('.github/workflows/backend-gates.yml','utf8'));f.sourceShardPolicy=JSON.parse(readFileSync('.harness/api-test-shards.json','utf8'));f.sourceShardHelperSha256=createHash('sha256').update(readFileSync('.harness/scripts/ci-api-shards.mjs')).digest('hex');f.sourceChecks=f.sourceChecks.filter((c:any)=>c.name!=='gates-test');for(let n=1;n<=f.sourceShardPolicy.count;n++)f.sourceChecks.push(check(`gates-test (${n})`,source,100+n));f.sourceChecks.push(check('api-test-plan',source,200));return f;}
-it('admits all actual committed dynamic shards and binds the single source plan',()=>{const f=committedWorkflowFacts();const r=validateMainSourceAdmission(source,repo,f);expect(r.dynamicShardPlan.shards).toEqual(Array.from({length:f.sourceShardPolicy.count},(_,i)=>i+1));expect(r.runtimeChecks.some((c:any)=>c.name==='api-test-plan')).toBe(true)});
+// The frozen historical v4 workflow uses a dynamic matrix, not the literal fixture above.
+function committedWorkflowFacts(){const f:any=facts();f.deploymentWorkflow=JSON.parse(readFileSync('.harness/scripts/fixtures/backend-gates-v4.json','utf8'));f.sourceShardPolicy=JSON.parse(readFileSync('.harness/api-test-shards.json','utf8'));f.sourceShardHelperSha256=createHash('sha256').update(readFileSync('.harness/scripts/ci-api-shards.mjs')).digest('hex');f.sourceChecks=f.sourceChecks.filter((c:any)=>c.name!=='gates-test');for(let n=1;n<=f.sourceShardPolicy.count;n++)f.sourceChecks.push(check(`gates-test (${n})`,source,100+n));f.sourceChecks.push(check('api-test-plan',source,200));return f;}
+it('admits all historical v4 dynamic shards and binds the single source plan',()=>{const f=committedWorkflowFacts();const r=validateMainSourceAdmission(source,repo,f);expect(r.dynamicShardPlan.shards).toEqual(Array.from({length:f.sourceShardPolicy.count},(_,i)=>i+1));expect(r.runtimeChecks.some((c:any)=>c.name==='api-test-plan')).toBe(true)});
 it.each(['missing-plan','missing-last-shard','red-last-shard','helper-drift','expression-drift','output-drift','invalid-count'])('fails closed actual workflow closure %s',mode=>{const f=committedWorkflowFacts();if(mode==='missing-plan')f.sourceChecks=f.sourceChecks.filter((c:any)=>c.name!=='api-test-plan');if(mode==='missing-last-shard')f.sourceChecks=f.sourceChecks.filter((c:any)=>c.name!==`gates-test (${f.sourceShardPolicy.count})`);if(mode==='red-last-shard')f.sourceChecks.find((c:any)=>c.name===`gates-test (${f.sourceShardPolicy.count})`).conclusion='failure';if(mode==='helper-drift')f.sourceShardHelperSha256='0'.repeat(64);if(mode==='expression-drift')f.deploymentWorkflow.jobs['gates-test'].strategy.matrix.shard='${{ fromJSON(needs.other.outputs.shards) }}';if(mode==='output-drift')f.deploymentWorkflow.jobs['api-test-plan'].outputs.shards='${{ steps.other.outputs.shards }}';if(mode==='invalid-count')f.sourceShardPolicy.count=33;expect(()=>validateMainSourceAdmission(source,repo,f)).toThrow()});
 
 it('binds complete raw runtime observations including timestamps/head/app/status, with stable API ordering',()=>{const f:any=committedWorkflowFacts();const first=validateMainSourceAdmission(source,repo,f).rawEvidenceSha256;f.sourceChecks.reverse();expect(validateMainSourceAdmission(source,repo,f).rawEvidenceSha256).toBe(first);f.sourceChecks[0].started_at='2026-10-01T00:00:01Z';expect(validateMainSourceAdmission(source,repo,f).rawEvidenceSha256).not.toBe(first)});
@@ -74,4 +74,46 @@ it.each(['full-route','preflight-scope','checkout','extra-step','source-output']
  if(mode==='extra-step')planner.steps.push({run:'echo unsafe'});
  if(mode==='source-output')planner.outputs.source_sha='unbound';
  expect(()=>validateMainSourceAdmission(source,repo,f)).toThrow('MAIN_SOURCE_DYNAMIC_SHARD_CLOSURE');
+});
+
+import {CURRENT_POLICY} from '../lib/ci-check-policy.mjs';
+function lightweightFacts(){
+ const f=queuedFacts();f.sourcePolicy=structuredClone(CURRENT_POLICY);f.associatedPrs[0].base.ref='develop';f.queueRuns[0].head_branch=`gh-readonly-queue/develop/pr-1-${head}`;f.queueRuns[0].path='.github/workflows/harness-verify.yml';
+ f.queueChecks=CURRENT_POLICY.requiredChecks.map((n:string,i:number)=>({...check(n,source,1000+i),check_suite:{id:901},details_url:`https://github.com/${repo}/actions/runs/900/job/${2000+i}`}));
+ f.validationWorkflow=parseYaml(readFileSync('.github/workflows/harness-verify.yml','utf8'));
+ f.sourceLightweightHelperSha256=createHash('sha256').update(readFileSync('.harness/scripts/ci-lightweight.mjs')).digest('hex');
+ return f;
+}
+it('admits v5 exact merged queue compile/unit/static evidence without falsely claiming full regression',()=>{
+ const receipt=validateMainSourceAdmission(source,repo,lightweightFacts());
+ expect(receipt.verificationMode).toBe('lightweight');expect(receipt.fullRegression).toBe(false);
+ expect(receipt.runtimeChecks.map((x:any)=>x.name).sort()).toEqual([...CURRENT_POLICY.requiredChecks].sort());
+});
+it.each(['wrong-workflow','missing-check','skipped','helper-drift','aggregate-drift','fake-compile','fake-units','missing-workflow'])('rejects v5 source proof drift %s',mode=>{
+ const f=lightweightFacts();
+ if(mode==='wrong-workflow')f.queueRuns[0].path='.github/workflows/harness-acceptance.yml';
+ if(mode==='missing-check')f.queueChecks.pop();if(mode==='skipped')f.queueChecks[0].conclusion='skipped';
+ if(mode==='helper-drift')f.sourceLightweightHelperSha256='0'.repeat(64);
+ if(mode==='aggregate-drift')f.validationWorkflow.jobs['queue-ready'].needs.pop();
+ if(mode==='fake-compile')f.validationWorkflow.jobs['verify-full-compile'].steps=f.validationWorkflow.jobs['verify-full-compile'].steps.filter((x:any)=>x.run!=='pnpm turbo run build');
+ if(mode==='fake-units')f.validationWorkflow.jobs['verify-affected'].steps=[];
+ if(mode==='missing-workflow')delete f.validationWorkflow;
+ expect(()=>validateMainSourceAdmission(source,repo,f)).toThrow();
+});
+
+import {mkdirSync,realpathSync} from 'node:fs';
+it('executes v5 source admission in a minimal offline runtime and rejects a missing v5 helper without a receipt',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'cn-v5-offline-'));
+ try{
+  const files=['.harness/scripts/vm/cn-main-source-admission.mjs','.harness/scripts/ci-api-shards.mjs','.harness/scripts/lib/pr-queue.ts','.harness/scripts/lib/pr-green.ts','.harness/scripts/lib/merge-queue.ts','.harness/scripts/lib/ci-check-policy.mjs','.harness/config/ci-check-policy.json','.harness/scripts/vendor/yaml-2.9.0/parser.mjs','.harness/scripts/ci-lightweight.mjs'];
+  for(const file of files){mkdirSync(join(dir,file,'..'),{recursive:true});writeFileSync(join(dir,file),readFileSync(file));}
+  const file=join(dir,'facts.json');writeFileSync(file,JSON.stringify(lightweightFacts()));
+  const run=()=>spawnSync(process.execPath,['--experimental-strip-types',realpathSync(join(dir,'.harness/scripts/vm/cn-main-source-admission.mjs')),source,repo,file],{cwd:dir,env:{...process.env,NODE_PATH:''},encoding:'utf8'});
+  const good=run();expect(good.status,good.stderr).toBe(0);const receipt=JSON.parse(good.stdout.split('CN_MAIN_SOURCE_ADMISSION_JSON=')[1]);expect(receipt.verificationMode).toBe('lightweight');expect(receipt.fullRegression).toBe(false);
+  rmSync(join(dir,'.harness/scripts/ci-lightweight.mjs'));const missing=run();expect(missing.status).not.toBe(0);expect(missing.stderr).toContain('MAIN_SOURCE_LIGHTWEIGHT_HELPER_UNAVAILABLE');expect(missing.stdout).not.toContain('CN_MAIN_SOURCE_ADMISSION_JSON=');
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});
+
+it('preserves historical v1–4 receipt shape instead of rehashing old attestations with v5 metadata',()=>{
+ const receipt=validateMainSourceAdmission(source,repo,facts());expect(receipt).not.toHaveProperty('verificationMode');expect(receipt).not.toHaveProperty('fullRegression');
 });

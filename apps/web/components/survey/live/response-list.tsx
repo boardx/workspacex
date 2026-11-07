@@ -7,6 +7,9 @@ import { formatSurveyAnswer, isSurveyPageElement } from "@repo/contracts/survey"
 import type { survey } from "@repo/contracts";
 import { Button } from "@/components/ui/button";
 import { downloadSurveyAttachment } from "@/lib/survey/runtime-client";
+import { SurveyAttachmentMetadataSchema } from "@repo/contracts/survey";
+import { surveyRequest } from "@/lib/survey/runtime-client";
+import { surveyResponseMarkdown } from "@/lib/survey/response-markdown";
 import { Input } from "@/components/ui/input";
 
 export function filterSurveyResponses(
@@ -79,23 +82,26 @@ export function LiveResponseList({
   const item = filtered.find((r) => r.id === selected);
   const selectedIndex = filtered.findIndex((r) => r.id === selected);
   const selectResponse = (id: string) => { setExclusionReason(""); setSelected(id); };
-  const exportMarkdown = () => {
-    const markdown = ['# 问卷答卷', ...exportRows.map((response) => [
-      `## 答卷 ${response.id}`, `提交时间：${response.submittedAt}`, `用时：${response.durationSeconds} 秒`,
-      `分析状态：${response.analysis === 'excluded' ? '已排除' : '纳入分析'}`, ...questions.filter(q => !isSurveyPageElement(q)).map(q => {
-        const answer = response.answers.find(a => a.questionId === q.id);
-        return `### ${q.title}\n\n${answer ? formatSurveyAnswer(q, answer.value) : '未填写'}`;
-      }),
-    ].join('\n\n'))].join('\n\n');
+  const [exporting, setExporting] = React.useState(false);
+  const exportMarkdown = async () => {
+    setExporting(true); setDownloadError(null);
+    try {
+    const markdown = await surveyResponseMarkdown(exportRows, questions, (responseId, id) => {
+      if (!surveyId) throw new Error(surveyRuntimeMessages.attachmentAccess);
+      return surveyRequest(`/surveys/${encodeURIComponent(surveyId)}/responses/${encodeURIComponent(responseId)}/attachments/${encodeURIComponent(id)}/metadata`, {}, SurveyAttachmentMetadataSchema);
+    });
     const url = URL.createObjectURL(new Blob([markdown], { type: 'text/markdown;charset=utf-8' }));
     const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'survey-responses.md';
     document.body.appendChild(anchor);
     try { anchor.click(); } finally { anchor.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
+    } catch (error) { setDownloadError({ responseId: "export", error: error instanceof Error ? error : surveyRuntimeMessages.attachmentFallback }); }
+    finally { setExporting(false); }
   };
   return (
     <div data-testid="survey-response-review-layout" className="grid items-start gap-5 p-5 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
       <section aria-label={t("survey.results.responseList")} className="min-w-0 space-y-4 rounded-lg border border-border bg-card p-5">
       <div className="flex flex-wrap gap-4">
+        {downloadError?.responseId === "export" && <p role="alert">{displaySurveyRuntimeError(downloadError.error,t,locale)}</p>}
         <p className="text-18 font-semibold">{t("survey.results.responseCount", { count: responses.length })}</p>
       </div>
       <div aria-label={t("survey.results.responseGroups")} className="flex flex-wrap gap-2">
@@ -113,7 +119,7 @@ export function LiveResponseList({
             setPage(0);
           }}
         />
-        <Button variant="outline" disabled={busy || exportRows.length === 0} onClick={exportMarkdown}>{selectedIds.length ? t("survey.results.exportSelected") : t("survey.results.exportMarkdown")}</Button>
+        <Button variant="outline" disabled={busy || exporting || exportRows.length === 0} onClick={() => void exportMarkdown()}>{selectedIds.length ? t("survey.results.exportSelected") : t("survey.results.exportMarkdown")}</Button>
       </div>
       <div className="overflow-auto">
         <table className="w-full text-left text-12">

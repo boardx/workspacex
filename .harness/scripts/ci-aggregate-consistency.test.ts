@@ -1,59 +1,16 @@
-import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
-
-/**
- * `backend-required` 的两处声明必须一致：workflow 的 `needs` 与
- * `.harness/config/ci-check-policy.json` 的 `aggregates`。
- *
- * ⚠ 这条是 2026-09-09 接入 `prototype-audit` 时**差点踩进去**的坑：
- * `ci-backend-required.mjs` 判的是**策略文件**里的依赖列表，不是 workflow 的 `needs`。
- * 只往 `needs` 里加一个 job，它会被跑、会红，但 `backend-required` **根本不看它**——
- * 一道「量了但不判」的门，比没有门更坏，因为它看起来是有的。
- *
- * 反过来也一样：只往策略里加而 workflow 没有这个 job，`needs` 里拿不到它的结果，
- * 聚合器会把 `undefined !== 'success'` 判成失败，`backend-required` 永远红。
- *
- * 本仓那条「同一事实不得声明在两处」——这里两处都必须存在（一处给 GitHub 调度、
- * 一处给版本化策略），所以配一道机械门控让它们不许漂移。
- */
-describe("backend-required 的依赖：workflow 与策略文件不许漂移", () => {
-  const workflow = readFileSync(".github/workflows/backend-gates.yml", "utf8");
-  const policy = JSON.parse(readFileSync(".harness/config/ci-check-policy.json", "utf8")) as {
-    aggregates: Record<string, string[]>;
-  };
-
-  const needsLine = workflow
-    .split("\n")
-    .find((l) => l.trim().startsWith("needs: [") && l.includes("gates-fast"));
-
-  it("解析得到 workflow 的 needs（解析不出就红，不许静默跳过）", () => {
-    expect(needsLine, "找不到 backend-required 的 needs 行——解析器与 workflow 漂移了").toBeDefined();
-  });
-
-  it("两处的依赖集合逐项相等", () => {
-    const fromWorkflow = (needsLine ?? "")
-      .slice((needsLine ?? "").indexOf("[") + 1, (needsLine ?? "").lastIndexOf("]"))
-      .split(",")
-      .map((s) => s.trim())
-      .filter((s) => s !== "");
-    const fromPolicy = policy.aggregates["backend-required"] ?? [];
-
-    expect(fromWorkflow.length, "workflow 的 needs 解析成空集——拒绝下判断").toBeGreaterThan(0);
-    expect([...fromWorkflow].sort()).toEqual([...fromPolicy].sort());
-  });
-
-  it("prototype-audit 在两处都在（截图审计门真的会拦合并）", () => {
-    expect(workflow).toContain("prototype-audit:");
-    expect(policy.aggregates["backend-required"]).toContain("prototype-audit");
-  });
-
-  /*
-   * 2026-09-22：`design-loop-e2e` 接进来时**真的踩进了**上面文件头预言的那个坑——
-   * 只往 workflow 的 `needs` 里加，没往策略里加，于是它会被跑、会红，而
-   * `backend-required` 根本不看它。补这一条，和 prototype-audit 同形。
-   */
-  it("design-loop-e2e 在两处都在（设计工作台那三条 spec 真的会拦合并）", () => {
-    expect(workflow).toContain("design-loop-e2e:");
-    expect(policy.aggregates["backend-required"]).toContain("design-loop-e2e");
-  });
+import {readFileSync} from 'node:fs';
+import {parse} from 'yaml';
+import {expect,it} from 'vitest';
+import {aggregateFailures,CURRENT_POLICY} from './lib/ci-check-policy.mjs';
+it('binds current lightweight aggregate to every real mandatory producer without silent gaps',()=>{
+ const w=parse(readFileSync('.github/workflows/harness-verify.yml','utf8'));
+ const members=CURRENT_POLICY.aggregates['queue-ready'];expect(w.jobs['queue-ready'].needs).toEqual(members);
+ expect(members).toEqual(CURRENT_POLICY.requiredChecks.filter(n=>n!=='queue-ready'));
+ const results=Object.fromEntries(members.map(name=>[name,{result:'success'}]));expect(aggregateFailures('queue-ready',results)).toEqual([]);
+ for(const name of members)for(const result of ['failure','cancelled','skipped',undefined])expect(aggregateFailures('queue-ready',{...results,[name]:{result}})).toEqual([name]);
+});
+it('preserves actual heavy backend design and native gates in hourly full aggregation',()=>{
+ const w=parse(readFileSync('.github/workflows/backend-gates.yml','utf8'));
+ for(const name of ['e2e-core-loop','prototype-audit','design-loop-e2e','native-document-chain','native-runtime-lane','gates-test'])expect(w.jobs['backend-full-result'].needs).toContain(name);
+ expect(w.on.pull_request).toBeUndefined();expect(w.on.merge_group).toBeUndefined();
 });

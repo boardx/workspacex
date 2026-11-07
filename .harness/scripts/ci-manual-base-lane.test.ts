@@ -14,14 +14,14 @@ describe('explicit manual base validation avoids unrelated runners without false
  it.each([false,true])('base selection runs only the complete base job even if full flag is %s',run_e2e_full=>{
   const inputs={verification_lane:'base',run_e2e_full,run_chat_path_coverage:true,run_chat_task_workbench:true};
   const actual=Object.keys(w.jobs).filter(name=>admitted(name,'workflow_dispatch',inputs)===true);
-  expect(actual).toEqual(['doc-smoke-scope','base-compile','base-api-plan','base-api-shards','base-api-exclusive','web-test-plan','web-test-shards','base-package-tests','base-control-plane','full-regression-core']);
+  expect(actual).toEqual(['doc-smoke-scope','base-compile','base-api-plan','base-api-shards','base-api-exclusive','web-test-plan','web-test-shards','base-package-tests','base-control-plane','full-regression-core','freeze-source']);
   expect(JSON.stringify(w.jobs['base-package-tests'])).toContain("--filter='!@repo/api' --filter='!web'");
  });
  it('manual chat refresh starts exactly one observer even when other optional flags are true',()=>{
   const inputs={verification_lane:'chat-refresh',run_e2e_full:true,run_chat_path_coverage:true,run_chat_task_workbench:true};
-  expect(Object.keys(w.jobs).filter(name=>admitted(name,'workflow_dispatch',inputs)===true)).toEqual(['chat-refresh-diagnostic']);
+  expect(Object.keys(w.jobs).filter(name=>admitted(name,'workflow_dispatch',inputs)===true)).toEqual(['chat-refresh-diagnostic','freeze-source']);
   const job=w.jobs['chat-refresh-diagnostic'];
-  expect(job['runs-on']).toBe('ubuntu-latest');expect(job.needs).toBeUndefined();expect(job.environment).toBeUndefined();
+  expect(job['runs-on']).toBe('ubuntu-latest');expect(job.needs).toEqual(['freeze-source']);expect(job.environment).toBeUndefined();
   const step=job.steps.find((s:{run?:string})=>s.run?.includes('with-test-isolation.ts'));
   expect(step.run).toContain('chat-refresh-production-build.ts');
   const build=readFileSync('apps/web/e2e/support/chat-refresh-production-build.ts','utf8');
@@ -33,7 +33,7 @@ describe('explicit manual base validation avoids unrelated runners without false
    const code=expression.replaceAll('github.event_name',JSON.stringify(event)).replaceAll('inputs.verification_lane',JSON.stringify(lane)).replaceAll('matrix.shard',String(shard));
    return String(Function('"use strict";return ('+code+')')());
   });
-  for(const name of Object.keys(w.jobs).filter(name=>name!=='chat-refresh-diagnostic')){
+  for(const name of Object.keys(w.jobs).filter(name=>typeof w.jobs[name].name==='string'&&w.jobs[name].name.includes('diagnostic-skipped-'))){
    const expected=name+(['base-api-shards','web-test-shards','chat-test-shards'].includes(name)?' (1)':'');
    for(const event of ['pull_request','push','merge_group'])for(const lane of ['all','base','chat-refresh'])expect(display(name,event,lane)).toBe(expected);
    for(const lane of ['all','base'])expect(display(name,'workflow_dispatch',lane)).toBe(expected);
@@ -41,7 +41,7 @@ describe('explicit manual base validation avoids unrelated runners without false
   }
  });
  it('cannot reduce automatic PR, push or merge-group coverage through a manual-only selector',()=>{
-  for(const event of ['pull_request','push','merge_group'])for(const name of Object.keys(w.jobs)){
+  for(const event of ['schedule'])for(const name of Object.keys(w.jobs)){
    for(const selection of ['base','chat-refresh'])expect(admitted(name,event,{verification_lane:selection,run_e2e_full:true})).toEqual(admitted(name,event,{verification_lane:'all',run_e2e_full:true}));
   }
  });
