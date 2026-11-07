@@ -22,7 +22,7 @@ describe('full regression preserves all independent lane verdicts', () => {
     const commands = ['pnpm run verify:digital-directory-cards', 'pnpm run verify:fullstack-product', 'pnpm run verify:fullstack-board', "--filter='!@repo/api' --filter='!web'", 'ci-chat-shards.mjs --record' , 'pnpm run verify:self-service-profile'];
     expect(FULL_REGRESSION_LANES).toHaveLength(commands.length);
     for (const command of commands) {
-      const matches = Object.keys(workflow.jobs).filter(name => workflow.jobs[name].steps.some((s: {run?: string}) => s.run?.includes(command)));
+      const matches = Object.keys(workflow.jobs).filter(name => workflow.jobs[name].steps?.some((s: {run?: string}) => s.run?.includes(command)));
       expect(matches).toHaveLength(1);
     }
     const results = { ...success(), 'fullstack-smoke': { result: 'success', outputs: { verdict: 'success' } } };
@@ -86,13 +86,13 @@ describe('acceptance workflow topology', () => {
     expect(automatic.on.workflow_dispatch).toBeUndefined();
     expect(workflow.on.pull_request).toBeUndefined();
     expect(workflow.on.push).toBeUndefined();
-    expect(workflow.on.merge_group.branches).toEqual(['develop']);
+    expect(workflow.on.merge_group).toBeUndefined();expect(workflow.on.schedule).toEqual([{cron:'17 * * * *'}]);
     for (const id of ['full-regression-core', 'e2e-full', 'base-api-plan', 'base-api-shards', 'base-api-exclusive', 'chat-read', 'self-service-profile', 'chat-path-coverage', 'chat-task-workbench']) {
       expect(automatic.jobs[id]).toBeUndefined();
       expect(workflow.jobs[id]).toBeDefined();
     }
     for (const id of ['verify-full-compile', 'board-smoke', 'directory-smoke', 'fullstack-smoke']) {
-      if(id==='verify-full-compile')expect(automatic.jobs[id].if).toContain("github.event_name == 'pull_request' || github.event_name == 'merge_group'");
+      if(id==='verify-full-compile')expect(automatic.jobs[id].if).toBeUndefined();
       else expect(automatic.jobs[id]).toBeUndefined();
       expect(workflow.jobs[id==='verify-full-compile'?'base-compile':id]).toBeDefined();
     }

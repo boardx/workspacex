@@ -30,13 +30,7 @@ it('binds the actual policy bytes and expands migrations and unclassified UI',()
  expect(planImpact(['docs/a.md'],policy).policyDigest).not.toBe(planImpact(['docs/a.md'],policy+'\n').policyDigest);
  for(const path of ['apps/api/migrations/001.sql','apps/web/components/new-area/a.tsx','docs/executable.ts'])expect(planImpact([path]).mode).toBe('full');
 });
-it('a failed shadow lookup reports full fallback without preventing existing validation',()=>{
- const steps=parse(readFileSync('.github/workflows/harness-verify.yml','utf8')).jobs['verify-affected'].steps;
- const step=steps.find((s:any)=>s.name?.startsWith('Report shadow'));
- const dir=mkdtempSync(join(tmpdir(),'ci-shadow-fallback-'));
- try{
-  execFileSync('bash',['-c',step.run],{env:{...process.env,CI_SCOPE_BASE_SHA:'0'.repeat(40),GITHUB_SHA:'a'.repeat(40),RUNNER_TEMP:dir,GITHUB_STEP_SUMMARY:join(dir,'summary')}});
-  expect(JSON.parse(readFileSync(join(dir,'ci-test-plan.json'),'utf8'))).toMatchObject({mode:'full',shadow:true,error:'SHADOW_PLAN_UNAVAILABLE'});
-  expect(steps.find((s:any)=>s.name==='Retain shadow impact plan')['continue-on-error']).toBe(true);
- }finally{rmSync(dir,{recursive:true,force:true});}
+it('keeps historical shadow planning diagnostic-only and uses explicit real lightweight tests for current merge policy',()=>{
+ const job=parse(readFileSync('.github/workflows/harness-verify.yml','utf8')).jobs['verify-affected'];
+ expect(JSON.stringify(job)).not.toContain('SHADOW_PLAN_UNAVAILABLE');expect(JSON.stringify(job)).toContain('ci-lightweight.mjs units');expect(job['continue-on-error']).toBeUndefined();
 });

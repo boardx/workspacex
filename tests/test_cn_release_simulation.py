@@ -1,4 +1,4 @@
-import importlib.util,json,os,subprocess,sys,tempfile,unittest
+import ast,importlib.util,json,os,re,subprocess,sys,tempfile,unittest
 from pathlib import Path
 from unittest.mock import patch
 ROOT=Path(__file__).resolve().parents[1]
@@ -74,7 +74,11 @@ class SimulationTests(unittest.TestCase):
   self.assertIn('if: always()',text);self.assertIn('persist-credentials: false',text)
  def test_targeted_heavy_contracts_have_independent_matrix_jobs(self):
   text=(ROOT/'.github/workflows/cn-release-simulation.yml').read_text()
-  self.assertIn("options: ['all', 'release', 'targeted', 'linux-application-recovery-complete', 'linux-six-business', 'linux-boundary-reap']",text)
+  lane=re.search(r"(?ms)^      lane:\n(.*?)(?=^      [a-z_]+:|\Z)",text)
+  self.assertIsNotNone(lane)
+  options=re.search(r"(?m)^        options:\s*(\[[^\r\n]*\])\s*$",lane.group(1))
+  self.assertIsNotNone(options)
+  self.assertEqual(ast.literal_eval(options.group(1)),['all','release','targeted','linux-application-recovery-complete','linux-six-business','linux-boundary-reap'])
   self.assertIn('fail-fast: false',text)
   self.assertIn('sim.workflow_plan(',text)
   self.assertIn('suite: ${{ fromJSON(needs.plan.outputs.suites) }}',text)

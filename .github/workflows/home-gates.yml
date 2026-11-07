@@ -21,7 +21,7 @@ name: home-gates
 
 on:
   pull_request:
-    branches: [develop]
+    branches: [ develop ]
     paths:
       - 'apps/home/**'
       - 'deploy/aliyun/home_cn_language_package.py'
@@ -30,7 +30,7 @@ on:
       - 'deploy/aliyun/test-home-cn-icp.mjs'
       - '.github/workflows/home-gates.yml'
   push:
-    branches: [develop]
+    branches: [ develop ]
     paths:
       - 'apps/home/**'
       - 'deploy/aliyun/home_cn_language_package.py'
@@ -40,9 +40,11 @@ on:
       - '.github/workflows/home-gates.yml'
   workflow_dispatch:
 
+  workflow_call: {}
 concurrency:
-  group: home-gates-${{ github.ref }}
-  cancel-in-progress: true
+  group: home-gates-full-${{ github.run_id }}
+  cancel-in-progress: false
+  queue: single
 
 # 外部 action 的版本钉在 `.harness/scripts/workflow-actions-node24.test.ts` 的
 # 审计清单里（Node 24 运行时）。本文件第一版写的是 `@v4`，`verify-control-plane`
@@ -130,3 +132,4 @@ jobs:
           name: home-manual-evidence
           path: apps/home/test-results/manual/
           if-no-files-found: ignore
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'

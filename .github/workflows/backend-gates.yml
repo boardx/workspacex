@@ -1,61 +1,32 @@
+# Full regression only: reusable by hourly acceptance, also available manually.
 # Backend validation only. DevApp deployment is owned by image-release.yml.
 name: backend-gates
 
 on:
-  # ⚠ 2026-08-26（#485 / #1656）：补上 `pull_request`。在此之前本 workflow 只在
-  # **合入之后**开火，后果不是「慢一点」，是这几道门**在能便宜修复的时点上完全不设防**：
-  #   · gates-fast   —— `harness doctor --strict`、`lint-contract-source`、`lint-arch-deps`、
-  #                      `lint-edition-capabilities`
-  #   · gates-test   —— apps/api 全套单测/集成测试（4 分片）
-  #   · gates-runtime—— RLS 强制隔离反证、三道运行时门、迁移幂等
-  #   · e2e-core-loop—— 核心闭环八步（唯一接入发布门的浏览器 e2e）
-  # 其中 `lint-contract-source` **只**在本 workflow 里跑（apps/api 自己的 lint 链里没有），
-  # 所以它过去在 PR 阶段是零覆盖的。
-  #
-  # 实测后果（#485 记录）：backend-gates 在 main 上连红三次，每次都被下一个 PR 直接
-  # 盖过去；后来者不可能知道自己正在往一棵红树上合，因为红是在他合完之后才亮的。
-  # #1656 记录了另一半：跨包扫描的门（`no-builtin-capability-lists` 住在 api 却扫
-  # apps/web/lib/mock/**）被 PR 侧的 `turbo --affected` 判为「未受影响」而跳过，
-  # 违规长出来合进 main，由下一个改 api 的人替它红。本 workflow 不带 `--affected`，
-  # 因此加上 PR 触发同时补掉这个洞。
-  #
-  # 成本（用真实 run 数据核过，不是估算）：四个 gate job 互不 `needs`，并行跑，
-  # wall clock ≈ 最慢的 gates-test 分片。近三次 main run 实测 8m16s / 6m54s / 6m46s。
-  # 全部在 GitHub 托管 `ubuntu-latest` 上——本仓是 **PUBLIC**，托管 runner 的 Linux
-  # 分钟数免费且不限量。#485 原文写的「自建 runner 上每个 PR 多跑 ~11-20 分钟」是
-  # 在这些 job 还钉在自建 runner 上时写的，#615 挪走之后那条已经过期。
-  #
-  # fork PR：三个 gates job 早就带着 `if: ... head.repo.full_name == github.repository`，
-  # e2e-core-loop 本次补齐同一条。`deploy` 的 `if:` 只认 refs/heads/main 与 refs/tags/v*，
-  # PR 的 ref 是 refs/pull/N/merge ⇒ 自建 runner 与部署路径在 PR 上天然不可达。
-  pull_request:
-    branches: [develop]
-  # 2026-09-21（#3238 第 1 条）：合并队列的候选组。三个 gates job 与 e2e-core-loop 的
-  # `if` 写的是「不是 PR，或者是同仓 PR」——merge_group 天然落进第一支，候选组上会跑
-  # **完整**验证，不需要逐个改条件。要改的是下面两处：
-  #   · `backend-required`（聚合 required check）原本只在 pull_request 上跑，候选组上
-  #     会是 SKIPPED ⇒ 队列永远等不到这道门，PR 卡死在队列里（#848 那种「声明了必需、
-  #     却永不产出结论」的同款失效，只是换成队列版本）；
-  #   · `deploy` 必须显式排除 merge_group——候选组还没合入 main，部署它等于发布一个
-  #     可能马上被踢出队列的组合。
-  # 事件字段的解析规则在 `.harness/scripts/lib/merge-queue.ts`，本文件由
-  # merge-queue.test.ts 机械核对。队列没开时本事件永不触发，这段接线是惰性的。
-  merge_group:
-    branches: [develop]
   workflow_dispatch:
     inputs:
       deploy_skill_files_preview:
-        description: 'Deploy the authorized Skill multi-file test candidate to devapp after gates pass'
+        description: Deploy the authorized Skill multi-file test candidate to devapp after gates pass
         type: boolean
         default: false
       expected_skill_files_sha:
-        description: 'Exact reviewed candidate SHA; must equal this workflow run SHA'
+        description: Exact reviewed candidate SHA; must equal this workflow run SHA
         type: string
-        default: ''
+        default: ""
       deploy_capabilities_preview:
-        description: 'Deploy the authorized standard-capabilities core preview to devapp after gates pass'
+        description: Deploy the authorized standard-capabilities core preview to devapp after gates pass
         type: boolean
         default: false
+  workflow_call:
+    inputs:
+      api_source:
+        type: string
+        default: local
+        required: false
+      api_source_sha:
+        type: string
+        default: ""
+        required: false
 
 # 同一 ref 内只跑一个：`gates` 会 DROP DATABASE，`WORKSPACEX_DB` 按 run id 分库已经
 # 做了隔离，但排队更省心，也更容易读日志。挪到托管 runner 后并发度不再受制于
@@ -73,8 +44,9 @@ on:
 # 自成一组。deploy job 自己有 `workspacex-devapp-deploy` 组（cancel-in-progress: false），
 # 多个 main run 到了部署那一步仍串行，不会并发写同一台机器。
 concurrency:
-  group: ${{ github.event_name == 'pull_request' && format('backend-gates-{0}', github.ref) || format('backend-gates-{0}-{1}', github.ref, github.run_id) }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: backend-gates-full-${{ github.run_id }}
+  cancel-in-progress: false
+  queue: single
 
 env:
   CI_SCOPE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
@@ -123,7 +95,6 @@ jobs:
         run: node .harness/scripts/devapp-deploy-scope.mjs
       - name: Verify full disjoint API shard discovery
         run: node .harness/scripts/ci-api-shards.mjs --verify
-
 
       # #115: 裸 `pnpm --filter api run typecheck` 绕过 turbo.json 的
       # `typecheck: { dependsOn: ["^build"] }`——@repo/fabric-markdown 的类型故意走
@@ -181,7 +152,7 @@ jobs:
       base_sha: ${{ env.CI_SCOPE_BASE_SHA }}
     steps:
       - uses: actions/checkout@v5
-        with: {fetch-depth: 0, persist-credentials: false}
+        with: { fetch-depth: 0, persist-credentials: false }
       - id: plan
         run: node .harness/scripts/ci-api-shards.mjs --plan
       # Reuse the exact-source AST boundary for PRs. Protected queue/release
@@ -194,22 +165,22 @@ jobs:
         if: steps.preflight.outputs.candidate == 'true'
       - uses: actions/setup-node@v5
         if: steps.preflight.outputs.candidate == 'true'
-        with: {node-version-file: .nvmrc, cache: pnpm}
+        with: { node-version-file: .nvmrc, cache: pnpm }
       - run: pnpm install --frozen-lockfile
         if: steps.preflight.outputs.candidate == 'true'
       - id: regression
         run: node .harness/scripts/ci-targeted-ui.mjs ${{ github.event_name != 'pull_request' && '--full' || '' }}
 
-
   gates-test:
     needs: api-test-plan
     runs-on: ubuntu-latest
-    if: (github.event_name != 'pull_request' || needs.api-test-plan.outputs.mode == 'full') && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    if: inputs.api_source != 'acceptance-base'
     timeout-minutes: 20
     strategy:
       fail-fast: true # Stop remaining shards after the first failure.
       matrix:
         shard: ${{ fromJSON(needs.api-test-plan.outputs.shards) }}
+      max-parallel: 4
     env:
       # 分片间必须各自独立的库名，同一 run_id 下多个 job 并发起，不加 shard 索引
       # 会撞库名——`WORKSPACEX_DB` 是隔离边界，见 #538。
@@ -393,19 +364,15 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-
       - name: RLS 强制隔离（反证：绕过应用层过滤跨租户读 0 行）
         run: apps/api/scripts/verify-rls.sh
-
       - name: 三道运行时门控（双向断言 + 生产不可达）
         run: apps/api/scripts/verify-runtime-gates.sh
-
       - name: 迁移幂等（无视版本表强制重放）
         run: pnpm --filter api run migrate:check
-
       - name: API exclusive DDL fixtures (serial, required)
         run: pnpm --filter @repo/api exec vitest run --config vitest.exclusive.config.ts --no-file-parallelism --maxWorkers=1 --minWorkers=1 --bail=1
-
+        if: inputs.api_source != 'acceptance-base'
       - name: 清掉本次运行的数据库
         if: always()
         run: |
@@ -547,22 +514,45 @@ jobs:
           name: design-loop-e2e-${{ github.run_id }}
           path: apps/web/test-results/
           if-no-files-found: ignore
-
-  # Stable merge check: full routes require all shards; proven UI routes require
-  # a deliberate matrix skip. All other backend lanes must actually pass.
-  # Fork PRs with skipped trusted jobs fail closed and require trusted validation.
-  backend-required:
-    # #3238：候选组（merge_group）也必须出结论——这是 required check，候选组上 SKIPPED
-    # 就是队列永久卡住。ci-backend-required validates the exact-source route and
-    # rejects every unexpected skip, failure or cancellation.
-    if: always() && !cancelled() && (github.event_name == 'pull_request' || github.event_name == 'merge_group')
-    needs: [api-test-plan, gates-fast, gates-test, native-document-chain, native-runtime-lane, gates-runtime, e2e-core-loop, prototype-audit, design-loop-e2e]
+  backend-full-result:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    if: always()
+    needs:
+      - api-test-plan
+      - gates-fast
+      - gates-test
+      - native-document-chain
+      - native-runtime-lane
+      - gates-runtime
+      - e2e-core-loop
+      - prototype-audit
+      - design-loop-e2e
     steps:
       - uses: actions/checkout@v5
-      - name: Require applicable backend verification
-        env:
-          CI_BACKEND_RESULTS: ${{ toJSON(needs) }}
-          CI_SOURCE_SHA: ${{ github.sha }}
-        run: node .harness/scripts/ci-backend-required.mjs
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - env:
+          CI_FULL_NEEDS: ${{ toJSON(needs) }}
+          API_SOURCE: ${{ inputs.api_source }}
+          API_SOURCE_SHA: ${{ inputs.api_source_sha }}
+        run: |-
+          node --input-type=module - <<'NODE'
+          import {readFileSync} from 'node:fs';
+          import {parse} from './.harness/scripts/vendor/yaml-2.9.0/parser.mjs';
+          const expected=parse(readFileSync('.github/workflows/backend-gates.yml','utf8')).jobs['backend-full-result'].needs;
+          const needs=JSON.parse(process.env.CI_FULL_NEEDS);
+          if(Object.keys(needs).sort().join()!==[...expected].sort().join())throw Error('BACKEND_FULL_PRODUCER_SET');
+          const base=process.env.API_SOURCE==='acceptance-base';
+          if(base&&(!/^[a-f0-9]{40}$/.test(process.env.API_SOURCE_SHA??'')||process.env.API_SOURCE_SHA!==process.env.GITHUB_SHA))throw Error('API_SOURCE_SHA_MISMATCH');
+          for(const [name,job]of Object.entries(needs)){
+           if(name==='gates-test'&&base){if(job.result!=='skipped')throw Error('API_SOURCE_ROLE_MISMATCH');}
+           else if(job.result!=='success')throw Error('BACKEND_FULL_INCOMPLETE:'+name);
+          }
+          console.log(base?'Backend runtime/native checks passed; default+exclusive API execution belongs to same-SHA acceptance full-regression-core prerequisite.':'All local backend full-regression producers passed.');
+          NODE
