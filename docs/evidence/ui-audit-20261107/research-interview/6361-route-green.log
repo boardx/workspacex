@@ -1,0 +1,25 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+
+ ✓ tests/ui/research-production-routes.test.tsx (27 tests) 9247ms
+   ✓ imports a text file into the requirement while preserving existing input 1401ms
+   ✓ reports unsupported files without losing the requirement 341ms
+   ✓ lets a visual embedding own confirmation without creating persisted research 557ms
+   ✓ keeps a typed intake when returning to the list is cancelled 1015ms
+   ✓ preserves the creation key on failure and resumes the actual server node 483ms
+   ✓ only applies a real assistant proposal after explicit user adoption 1503ms
+   ✓ creates research from a 101-character requirement using a contract-valid default title 350ms
+   ✓ creates research from a 123-character requirement using a contract-valid default title 346ms
+   ✓ creates research from a 200-character requirement using a contract-valid default title 469ms
+   ✓ creates research from a 11540-character requirement using a contract-valid default title 519ms
+   ✓ keeps one primary intake action while retaining all optional research fields 337ms
+ ✓ tests/ui/research-intake-source-mode.test.tsx (2 tests) 1136ms
+   ✓ persists materials source mode before opening the plan 947ms
+ ✓ tests/guided-research-bootstrap.test.ts (1 test) 4ms
+
+ Test Files  3 passed (3)
+      Tests  30 passed (30)
+   Start at  04:12:53
+   Duration  48.52s (transform 11.08s, setup 4.18s, collect 22.08s, tests 10.39s, environment 7.79s, prepare 947ms)
+

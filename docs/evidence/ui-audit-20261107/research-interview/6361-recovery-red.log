@@ -1,0 +1,244 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+
+ ❯ tests/ui/research-intake-source-mode.test.tsx (6 tests | 4 failed) 1785ms
+   ✓ persists materials source mode before opening the plan 440ms
+   × does not navigate after leaving while the source policy write is pending 147ms
+     → expected "spy" to not be called at all, but actually been called 1 times
+
+Received:
+
+  1st spy call:
+
+    Array [
+      "outline",
+      "grs-mode",
+    ]
+
+
+Number of calls: 1
+
+   × reuses an already persisted matching policy without a second steering command 1030ms
+     → expected "spy" to be called with arguments: [ 'outline', 'grs-mode' ]
+
+Received:
+
+
+
+Number of calls: 0
+
+
+Ignored nodes: comments, script, style
+<html>
+  <head />
+  <body>
+    <div>
+      <section
+        aria-busy="true"
+        class="min-w-0"
+        data-testid="research-step-loading"
+      >
+        <div
+          aria-atomic="true"
+          aria-live="polite"
+          class="flex items-start gap-3 rounded-lg border border-border bg-card p-5 text-card-foreground sm:p-6"
+          role="status"
+        >
+          <span
+            class="gap-1 rounded-control text-10 font-medium transition-colors duration-200 bg-accent text-accent-foreground flex h-10 w-10 shrink-0 items-center justify-center rounded-full p-0"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-loader-circle h-5 w-5 animate-spin motion-reduce:animate-none"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M21 12a9 9 0 1 1-6.219-8.56"
+              />
+            </svg>
+          </span>
+          <div
+            class="min-w-0 space-y-2"
+          >
+            <h2
+              class="text-18 font-semibold tracking-tight text-background-foreground"
+            >
+              正在解析研究主题
+            </h2>
+            <p
+              class="text-13 leading-relaxed text-muted-foreground"
+            >
+              正在整理导入的需求，完成后可确认研究主题。
+            </p>
+            <p
+              class="text-12 text-muted-foreground"
+            >
+              完成后会自动显示结果
+            </p>
+          </div>
+        </div>
+      </section>
+    </div>
+  </body>
+</html>
+   × binds policy command identity to the loaded version 0 36ms
+     → expected { sessionId: 'grs-mode', …(7) } to match object { …(3) }
+(9 matching properties omitted from actual)
+   × binds policy command identity to the loaded version 2 37ms
+     → expected { sessionId: 'grs-mode', …(7) } to match object { …(3) }
+(9 matching properties omitted from actual)
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/research-intake-source-mode.test.tsx > does not navigate after leaving while the source policy write is pending
+AssertionError: expected "spy" to not be called at all, but actually been called 1 times
+
+Received:
+
+  1st spy call:
+
+    Array [
+      "outline",
+      "grs-mode",
+    ]
+
+
+Number of calls: 1
+
+ ❯ tests/ui/research-intake-source-mode.test.tsx:42:24
+     40|  finish({ ...runtime, version: 1, sourcePolicy: { mode: 'open' } });
+     41|  await waitFor(() => expect(m.execute).toHaveResolved());
+     42|  expect(view.next).not.toHaveBeenCalled();
+       |                        ^
+     43| });
+     44| it('reuses an already persisted matching policy without a second steer…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  tests/ui/research-intake-source-mode.test.tsx > reuses an already persisted matching policy without a second steering command
+AssertionError: expected "spy" to be called with arguments: [ 'outline', 'grs-mode' ]
+
+Received:
+
+
+
+Number of calls: 0
+
+
+Ignored nodes: comments, script, style
+<html>
+  <head />
+  <body>
+    <div>
+      <section
+        aria-busy="true"
+        class="min-w-0"
+        data-testid="research-step-loading"
+      >
+        <div
+          aria-atomic="true"
+          aria-live="polite"
+          class="flex items-start gap-3 rounded-lg border border-border bg-card p-5 text-card-foreground sm:p-6"
+          role="status"
+        >
+          <span
+            class="gap-1 rounded-control text-10 font-medium transition-colors duration-200 bg-accent text-accent-foreground flex h-10 w-10 shrink-0 items-center justify-center rounded-full p-0"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-loader-circle h-5 w-5 animate-spin motion-reduce:animate-none"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M21 12a9 9 0 1 1-6.219-8.56"
+              />
+            </svg>
+          </span>
+          <div
+            class="min-w-0 space-y-2"
+          >
+            <h2
+              class="text-18 font-semibold tracking-tight text-background-foreground"
+            >
+              正在解析研究主题
+            </h2>
+            <p
+              class="text-13 leading-relaxed text-muted-foreground"
+            >
+              正在整理导入的需求，完成后可确认研究主题。
+            </p>
+            <p
+              class="text-12 text-muted-foreground"
+            >
+              完成后会自动显示结果
+            </p>
+          </div>
+        </div>
+      </section>
+    </div>
+  </body>
+</html>
+ ❯ tests/ui/research-intake-source-mode.test.tsx:48:40
+     46|  m.get.mockResolvedValue({ sessionId: 'grs-mode', version: 1, currentN…
+     47|  const view = begin();
+     48|  await waitFor(() => expect(view.next).toHaveBeenCalledWith('outline',…
+       |                                        ^
+     49|  expect(m.execute).not.toHaveBeenCalled();
+     50| });
+ ❯ runWithExpensiveErrorDiagnosticsDisabled ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  tests/ui/research-intake-source-mode.test.tsx > binds policy command identity to the loaded version 0
+ FAIL  tests/ui/research-intake-source-mode.test.tsx > binds policy command identity to the loaded version 2
+AssertionError: expected { sessionId: 'grs-mode', …(7) } to match object { …(3) }
+(9 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  Object {
+    "expectedVersion": 0,
+-   "idempotencyKey": "source-policy-grs-mode-0-open",
+-   "requestId": "source-policy-grs-mode-0-open",
++   "idempotencyKey": "source-policy-grs-mode",
++   "requestId": "source-policy-grs-mode",
+  }
+
+ ❯ tests/ui/research-intake-source-mode.test.tsx:57:38
+     55|  const view = begin();
+     56|  await waitFor(() => expect(view.next).toHaveBeenCalled());
+     57|  expect(m.execute.mock.calls[0]![0]).toMatchObject({ requestId: `sourc…
+       |                                      ^
+     58| });
+     59|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 2 passed (6)
+   Start at  05:42:59
+   Duration  8.96s (transform 3.30s, setup 203ms, collect 5.22s, tests 1.79s, environment 938ms, prepare 121ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/research-intake-source-mode.test.tsx

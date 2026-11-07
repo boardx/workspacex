@@ -1,0 +1,13 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+
+ ✓ tests/ui/guided-research-visual-contract.test.tsx (8 tests) 1821ms
+   ✓ F180 signed guided-research visual contract > removes the secondary menu from guided research while retaining it for legacy Studio 369ms
+   ✓ F180 signed guided-research visual contract > keeps one work canvas and a collapsible assistant on guided steps 793ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  05:47:44
+   Duration  8.16s (transform 3.24s, setup 131ms, collect 5.09s, tests 1.82s, environment 791ms, prepare 63ms)
+

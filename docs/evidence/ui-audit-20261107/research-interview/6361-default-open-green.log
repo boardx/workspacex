@@ -1,0 +1,16 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+
+ ✓ tests/ui/research-production-routes.test.tsx (27 tests) 2477ms
+   ✓ imports a text file into the requirement while preserving existing input 643ms
+   ✓ only applies a real assistant proposal after explicit user adoption 342ms
+ ✓ tests/ui/research-intake-source-mode.test.tsx (2 tests) 429ms
+   ✓ persists materials source mode before opening the plan 359ms
+ ✓ tests/guided-research-bootstrap.test.ts (1 test) 2ms
+
+ Test Files  3 passed (3)
+      Tests  30 passed (30)
+   Start at  04:26:25
+   Duration  14.51s (transform 3.64s, setup 706ms, collect 7.10s, tests 2.91s, environment 2.24s, prepare 325ms)
+

@@ -1,0 +1,11 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+
+ ✓ tests/ui/research-intake-source-mode.test.tsx (6 tests) 503ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  05:45:34
+   Duration  6.10s (transform 2.10s, setup 140ms, collect 3.27s, tests 503ms, environment 874ms, prepare 118ms)
+

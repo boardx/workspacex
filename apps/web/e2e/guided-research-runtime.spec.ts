@@ -152,7 +152,9 @@ test("research persists the confirmed-question pipeline through the real UI, API
   expect(runtime.errorCode).toBeNull();
   expect(runtime.reportEvidenceWarnings).toEqual([]);
   expect(runtime.intent).toBeFalsy();
-  expect(runtime.sourcePolicy).toBeFalsy();
+  // Intake persists the explicitly selected default before opening the plan.
+  expect(runtime.sourcePolicy).toEqual({ mode: "open", domains: [], internalSourceIds: [], revision: 1 });
+  expect(submittedCommands.filter(command => command.action === "refine_source_policy")).toHaveLength(1);
   expect(runtime.questionEvidence.length).toBeGreaterThan(0);
   expect(runtime.coverage.every((item: { status: string }) => item.status === "answered")).toBe(true);
   expect(runtime.claimEvidence.length).toBeGreaterThan(0);

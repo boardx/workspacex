@@ -135,6 +135,23 @@ describe("live research workspace", () => {
     expect(screen.queryByText(/正在处理/)).not.toBeInTheDocument();
     expect(screen.queryByTestId("guided-research-source-evidence")).not.toBeInTheDocument();
   });
+  it.each([
+    { label: "terminal materials failure", errorCode: "RESEARCH_SOURCES_REQUIRED", controlStatus: "running" as const },
+    { label: "paused research", errorCode: null, controlStatus: "paused" as const },
+    { label: "idle pending tasks", errorCode: null, controlStatus: "running" as const },
+  ])("does not announce search running for $label", async ({ errorCode, controlStatus }) => {
+    const state = runtimeFixture("research");
+    state.sourcePolicy = { mode: "materials", domains: [], internalSourceIds: [], revision: 1 };
+    state.busy = false; state.errorCode = errorCode; state.controlStatus = controlStatus; state.sources = [];
+    state.tasks = [{ ...state.tasks[0]!, status: "pending", attempts: 0, errorCode: null }];
+    vi.mocked(getResearchRuntime).mockResolvedValue(state);
+    render(<GuidedResearchLive sessionId="grs-live" onBack={vi.fn()} />);
+    await screen.findByTestId("research-flow-search");
+    if (errorCode) expect(await screen.findByRole("alert")).toHaveTextContent("本次材料不足");
+    expect(screen.queryByText("检索仍在进行，任务结束后可生成报告。")).not.toBeInTheDocument();
+    expect(state.tasks).toHaveLength(1); expect(state.tasks[0]!.status).toBe("pending");
+    expect(executeResearchRuntime).not.toHaveBeenCalled();
+  });
   it("offers a durable resume action for a previously paused research session", async () => {
     const paused: GuidedResearchRuntime = { ...initial, currentNode: "research", availableNodes: ["brief", "directions", "outline", "research"],
       controlStatus: "paused", planRevision: 3,

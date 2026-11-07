@@ -51,6 +51,12 @@ function createdSession(sessionId: string) {
   };
 }
 
+function unstartedRuntime(sessionId: string) {
+  const state = runtimeFixture("brief", sessionId);
+  if (!state.sourcePolicy) throw new Error("fixture_requires_source_policy");
+  return { ...state, sourcePolicy: state.sourcePolicy, version: 0, directions: [], outline: [], generatedNodes: [], modelCalls: [], tasks: [], sources: [] };
+}
+
 beforeEach(() => {
   window.localStorage.clear();
   window.sessionStorage.clear();
@@ -59,8 +65,14 @@ beforeEach(() => {
   getGuidedResearchSession.mockReset();
   getResearchRuntime.mockReset();
   executeResearchRuntime.mockReset();
-  getResearchRuntime.mockImplementation(async (sessionId: string) => ({ ...runtimeFixture("brief", sessionId), version: 0 }));
-  executeResearchRuntime.mockImplementation(async ({ sessionId }: { sessionId: string }) => runtimeFixture("directions", sessionId));
+  getResearchRuntime.mockImplementation(async (sessionId: string) => unstartedRuntime(sessionId));
+  executeResearchRuntime.mockImplementation(async ({ sessionId, action, sourcePolicy }: { sessionId: string; action?: string; sourcePolicy?: ReturnType<typeof runtimeFixture>["sourcePolicy"] }) => {
+    if (action === "refine_source_policy") {
+      const previous = await getResearchRuntime.mock.results.at(-1)?.value;
+      return { ...previous, version: previous.version + 1, sourcePolicy, errorCode: null };
+    }
+    return runtimeFixture("directions", sessionId);
+  });
   finishGuidedResearchCollection.mockReset();
   completeGuidedResearchSession.mockReset();
   updateGuidedResearchMetadata.mockReset();
@@ -268,6 +280,9 @@ describe("F168 guided research home live data", () => {
   });
   it("creates a persisted session before entering directions", async () => {
     createGuidedResearchSession.mockResolvedValueOnce(createdSession("grs-new"));
+    const persisted = unstartedRuntime("grs-new");
+    executeResearchRuntime.mockResolvedValueOnce({ ...persisted, version: 1,
+      sourcePolicy: { ...persisted.sourcePolicy, mode: "open", revision: persisted.sourcePolicy.revision + 1 } });
     const onStepChange = vi.fn();
     window.sessionStorage.setItem("wsx.guidedResearch.createDraft", JSON.stringify({
       title: "欧洲储能进入研究", tags: ["欧洲", "储能"],
@@ -285,26 +300,39 @@ describe("F168 guided research home live data", () => {
       brief: expect.objectContaining({ topic: "新的研究主题" }),
     }));
     await waitFor(() => expect(onStepChange).toHaveBeenCalledWith("outline", "grs-new"));
+    expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({
+      sessionId: "grs-new", node: "brief", action: "refine_source_policy", expectedVersion: 0,
+      expectedRevision: persisted.planRevision,
+      sourcePolicy: { ...persisted.sourcePolicy, mode: "open", revision: persisted.sourcePolicy.revision + 1 },
+    }));
+    expect(executeResearchRuntime.mock.invocationCallOrder[0]!).toBeLessThan(onStepChange.mock.invocationCallOrder[0]!);
   });
 
-  it("confirms the initial brief once and keeps the next step loading until the model response", async () => {
+  it("persists source policy before preparing the plan once and keeps the model response pending", async () => {
     createGuidedResearchSession.mockResolvedValueOnce(createdSession("grs-entry"));
-    getResearchRuntime.mockImplementation(async (sessionId: string) => ({ ...runtimeFixture("brief", sessionId), version: 0, brief: { ...runtimeFixture("brief").brief, goal: "核对具体政策" } }));
+    const initial = { ...unstartedRuntime("grs-entry"), brief: { ...runtimeFixture("brief").brief, goal: "核对具体政策" } };
+    const persisted = { ...initial, version: 1, sourcePolicy: { ...initial.sourcePolicy, mode: "open" as const, revision: 2 } };
+    getResearchRuntime.mockResolvedValue(initial);
     let resolve!: (value: ReturnType<typeof runtimeFixture>) => void;
-    executeResearchRuntime.mockReturnValue(new Promise((done) => { resolve = done; }));
+    executeResearchRuntime.mockImplementationOnce(async () => { getResearchRuntime.mockResolvedValue(persisted); return persisted; })
+      .mockReturnValueOnce(new Promise((done) => { resolve = done; }));
     render(<GuidedResearchFlow step="brief" />);
     fireEvent.change(screen.getByTestId("research-brief-goal"), { target: { value: "核对具体政策" } });
     fireEvent.click(screen.getByTestId("research-confirm-brief"));
     expect(screen.getByText("正在分析研究需求…")).toBeInTheDocument();
     expect(screen.getByTestId("research-step-plan")).toHaveAttribute("aria-current", "step");
     expect(screen.getByTestId("research-step-plan")).toHaveAttribute("aria-disabled", "true");
-    await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledTimes(1));
-    expect(vi.mocked(executeResearchRuntime).mock.calls.map(([input]) => input)).toContainEqual(expect.objectContaining({
-      sessionId: "grs-entry", node: "brief", action: "prepare_plan", expectedVersion: 0,
+    await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledTimes(2));
+    expect(executeResearchRuntime.mock.calls[0]![0]).toMatchObject({
+      sessionId: "grs-entry", node: "brief", action: "refine_source_policy", expectedVersion: 0,
+      sourcePolicy: persisted.sourcePolicy,
+    });
+    expect(executeResearchRuntime.mock.calls[1]![0]).toMatchObject({
+      sessionId: "grs-entry", node: "brief", action: "prepare_plan", expectedVersion: 1,
       draft: { node: "brief", value: expect.objectContaining({ goal: "核对具体政策" }) },
-    }));
+    });
     expect(window.location.pathname).toBe("/research/grs-entry/plan");
-    resolve(runtimeFixture("outline", "grs-entry"));
+    resolve({ ...runtimeFixture("outline", "grs-entry"), sourcePolicy: persisted.sourcePolicy });
     await screen.findByTestId("guided-research-plan-panel");
   });
 
@@ -315,33 +343,44 @@ describe("F168 guided research home live data", () => {
     render(<GuidedResearchFlow step="brief" onStepChange={navigate} />);
     fireEvent.click(screen.getByTestId("research-confirm-brief"));
     await waitFor(() => expect(navigate).toHaveBeenCalledWith("search", "grs-existing"));
-    expect(executeResearchRuntime).not.toHaveBeenCalled();
+    expect(executeResearchRuntime).toHaveBeenCalledTimes(1);
+    expect(executeResearchRuntime.mock.calls[0]![0]).toMatchObject({ node: "research", action: "refine_source_policy", sourcePolicy: { mode: "open" } });
+    expect(executeResearchRuntime.mock.calls.some(([input]) => input.action === "prepare_plan")).toBe(false);
   });
 
-  it("recovers a lost model response by reading the created session without replay", async () => {
+  it("recovers a lost model response after persisting policy without replaying the model", async () => {
     createGuidedResearchSession.mockResolvedValueOnce(createdSession("grs-lost"));
-    getResearchRuntime.mockResolvedValueOnce({ ...runtimeFixture("brief", "grs-lost"), version: 0 })
-      .mockResolvedValueOnce({ ...runtimeFixture("brief", "grs-lost"), version: 0 })
-      .mockResolvedValueOnce({ ...runtimeFixture("directions", "grs-lost"), errorCode: "RESEARCH_MODEL_UNAVAILABLE" });
-    executeResearchRuntime.mockRejectedValueOnce(new Error("response lost"));
+    const initial = unstartedRuntime("grs-lost");
+    const persisted = { ...initial, version: 1, sourcePolicy: { ...initial.sourcePolicy, mode: "open" as const, revision: 2 } };
+    getResearchRuntime.mockResolvedValueOnce(initial).mockResolvedValueOnce(persisted)
+      .mockResolvedValueOnce({ ...runtimeFixture("directions", "grs-lost"), sourcePolicy: persisted.sourcePolicy, errorCode: "RESEARCH_MODEL_UNAVAILABLE" });
+    executeResearchRuntime.mockResolvedValueOnce(persisted).mockRejectedValueOnce(new Error("response lost"));
     render(<GuidedResearchFlow step="brief" />);
     fireEvent.click(screen.getByTestId("research-confirm-brief"));
     await screen.findByRole("alert");
     expect(window.location.pathname).toBe("/research/grs-lost/plan");
     expect(createGuidedResearchSession).toHaveBeenCalledTimes(1);
-    expect(executeResearchRuntime).toHaveBeenCalledTimes(1);
+    expect(executeResearchRuntime.mock.calls.map(([input]) => input.action)).toEqual(["refine_source_policy", "prepare_plan"]);
     expect(getResearchRuntime).toHaveBeenCalledTimes(3);
   });
 
-  it("keeps the created session reachable if both runtime reads fail", async () => {
-    createGuidedResearchSession.mockResolvedValueOnce(createdSession("grs-offline"));
+  it("retains the create identity when runtime reads fail and retries policy before navigating", async () => {
+    createGuidedResearchSession.mockResolvedValue(createdSession("grs-offline"));
     getResearchRuntime.mockRejectedValue(new Error("offline"));
     const navigate = vi.fn();
     render(<GuidedResearchFlow step="brief" onStepChange={navigate} />);
     fireEvent.click(screen.getByTestId("research-confirm-brief"));
-    await waitFor(() => expect(navigate).toHaveBeenCalledWith("outline", "grs-offline"));
+    await screen.findByRole("alert");
+    expect(navigate).not.toHaveBeenCalled();
     expect(createGuidedResearchSession).toHaveBeenCalledTimes(1);
     expect(executeResearchRuntime).not.toHaveBeenCalled();
+    const key = createGuidedResearchSession.mock.calls[0]![0].idempotencyKey;
+    getResearchRuntime.mockResolvedValue({ ...runtimeFixture("brief", "grs-offline"), version: 0 });
+    fireEvent.click(screen.getByTestId("research-confirm-brief"));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith("outline", "grs-offline"));
+    expect(navigate).toHaveBeenCalledTimes(1);
+    expect(createGuidedResearchSession.mock.calls.map(([input]) => input.idempotencyKey)).toEqual([key, key]);
+    expect(executeResearchRuntime.mock.calls.map(([input]) => input.action)).toEqual(["refine_source_policy"]);
   });
 
   it.each(["create", "confirm"] as const)("ignores a delayed %s after leaving the entry screen", async (phase) => {
@@ -357,10 +396,11 @@ describe("F168 guided research home live data", () => {
     if (phase === "confirm") await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledTimes(1));
     fireEvent.click(screen.getByTestId("research-flow-back"));
     expect(await screen.findByTestId("research-flow-home")).toBeInTheDocument();
-    await act(async () => { resolve(phase === "create" ? createdSession("grs-abandoned") : runtimeFixture("directions", "grs-abandoned")); });
+    await act(async () => { resolve(phase === "create" ? createdSession("grs-abandoned") : { ...runtimeFixture("brief", "grs-abandoned"), version: 1, sourcePolicy: { ...runtimeFixture().sourcePolicy, mode: "open", revision: 2 } }); });
     await waitFor(() => expect(screen.getByTestId("research-flow-home")).toBeInTheDocument());
     expect(executeResearchRuntime).toHaveBeenCalledTimes(phase === "create" ? 0 : 1);
-    expect(Object.keys(window.localStorage).some((key) => key.startsWith("wsx.guidedResearch.createIdempotencyKey."))).toBe(phase === "create");
+    // No navigation published this identity: keep its key for an idempotent retry.
+    expect(Object.keys(window.localStorage).some((key) => key.startsWith("wsx.guidedResearch.createIdempotencyKey."))).toBe(true);
   });
 
   it("uses the session URL to restore the server-authored stage", async () => {
@@ -506,4 +546,83 @@ it("renders projected default-name topics without full runtime fan-out", async (
   render(<GuidedResearchFlow step="home" />);
   expect(await screen.findByText("保存的主题49")).toBeInTheDocument();
   expect(getResearchRuntime).not.toHaveBeenCalled();
+});
+
+it("reuses an already persisted matching policy after leaving without replaying policy or model work", async () => {
+  const initial = unstartedRuntime("grs-policy-replay");
+  const persisted = { ...initial, version: 1, planRevision: initial.planRevision! + 1,
+    sourcePolicy: { ...initial.sourcePolicy, mode: "open" as const, revision: initial.sourcePolicy.revision + 1 } };
+  createGuidedResearchSession.mockResolvedValue(createdSession("grs-policy-replay"));
+  getResearchRuntime.mockResolvedValue(initial);
+  let finish!: (value: typeof persisted) => void;
+  executeResearchRuntime.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }))
+    .mockRejectedValueOnce(new Error("RESEARCH_IDEMPOTENCY_REPLAY_MISMATCH"));
+  const abandoned = vi.fn();
+  const first = render(<GuidedResearchFlow step="brief" onStepChange={abandoned} />);
+  fireEvent.click(screen.getByTestId("research-confirm-brief"));
+  await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledTimes(1));
+  const key = createGuidedResearchSession.mock.calls[0]![0].idempotencyKey;
+  first.unmount();
+  await act(async () => { finish(persisted); });
+  expect(abandoned).not.toHaveBeenCalled();
+  getResearchRuntime.mockResolvedValue(persisted);
+  const next = vi.fn();
+  render(<GuidedResearchFlow step="brief" onStepChange={next} />);
+  fireEvent.click(screen.getByTestId("research-confirm-brief"));
+  await waitFor(() => expect(next).toHaveBeenCalledWith("outline", "grs-policy-replay"));
+  expect(next).toHaveBeenCalledTimes(1);
+  expect(createGuidedResearchSession.mock.calls.map(([input]) => input.idempotencyKey)).toEqual([key, key]);
+  expect(executeResearchRuntime).toHaveBeenCalledTimes(1);
+  expect(executeResearchRuntime.mock.calls[0]![0].action).toBe("refine_source_policy");
+});
+
+it("binds policy command identity to the restored version and selection without replaying model work", async () => {
+  const initial = unstartedRuntime("grs-policy-mode");
+  const savedOpen = { ...initial, version: 1, planRevision: initial.planRevision! + 1,
+    sourcePolicy: { ...initial.sourcePolicy, mode: "open" as const, revision: 2 } };
+  const savedMaterials = { ...savedOpen, version: 2, planRevision: savedOpen.planRevision + 1,
+    sourcePolicy: { ...savedOpen.sourcePolicy, mode: "materials" as const, revision: 3 } };
+  // A restored identity can be returned by the idempotent create API for each mount.
+  createGuidedResearchSession.mockResolvedValue(createdSession("grs-policy-mode"));
+  getResearchRuntime.mockResolvedValue(initial);
+  executeResearchRuntime.mockResolvedValueOnce(savedOpen)
+    .mockRejectedValueOnce(new Error("transport response lost"))
+    .mockResolvedValueOnce(savedMaterials);
+  const next = vi.fn();
+  const first = render(<GuidedResearchFlow step="brief" onStepChange={next} />);
+  fireEvent.click(screen.getByTestId("research-confirm-brief"));
+  await waitFor(() => expect(next).toHaveBeenCalledTimes(1));
+  first.unmount();
+  getResearchRuntime.mockResolvedValue(savedOpen);
+  const second = render(<GuidedResearchFlow step="brief" onStepChange={next} />);
+  fireEvent.click(screen.getByRole("radio", { name: "仅使用本次材料" }));
+  fireEvent.click(screen.getByTestId("research-confirm-brief"));
+  await screen.findByRole("alert");
+  expect(next).toHaveBeenCalledTimes(1);
+  second.unmount();
+  const third = render(<GuidedResearchFlow step="brief" onStepChange={next} />);
+  fireEvent.click(screen.getByRole("radio", { name: "仅使用本次材料" }));
+  fireEvent.click(screen.getByTestId("research-confirm-brief"));
+  await waitFor(() => expect(next).toHaveBeenCalledTimes(2));
+  const commands = executeResearchRuntime.mock.calls.map(([input]) => input);
+  expect(commands.map(command => command.action)).toEqual(["refine_source_policy", "refine_source_policy", "refine_source_policy"]);
+  expect(commands[0]).toMatchObject({ expectedVersion: 0, expectedRevision: initial.planRevision, sourcePolicy: { mode: "open" } });
+  expect(commands[1]).toMatchObject({ expectedVersion: 1, expectedRevision: savedOpen.planRevision, sourcePolicy: { mode: "materials" } });
+  expect(commands[1].requestId).not.toBe(commands[0].requestId);
+  expect(commands[1].idempotencyKey).not.toBe(commands[0].idempotencyKey);
+  expect(commands[2].requestId).toBe(commands[1].requestId);
+  expect(commands[2].idempotencyKey).toBe(commands[1].idempotencyKey);
+  expect(createGuidedResearchSession.mock.calls[2]![0].idempotencyKey).toBe(createGuidedResearchSession.mock.calls[1]![0].idempotencyKey);
+  third.unmount();
+});
+
+it("keeps a restored model failure reachable when its source policy already matches", async () => {
+  createGuidedResearchSession.mockResolvedValueOnce(createdSession("grs-failed-model"));
+  getResearchRuntime.mockResolvedValueOnce({ ...runtimeFixture("research", "grs-failed-model"),
+    sourcePolicy: { ...runtimeFixture().sourcePolicy, mode: "open" }, errorCode: "RESEARCH_MODEL_UNAVAILABLE" });
+  const next = vi.fn();
+  render(<GuidedResearchFlow step="brief" onStepChange={next} />);
+  fireEvent.click(screen.getByTestId("research-confirm-brief"));
+  await waitFor(() => expect(next).toHaveBeenCalledWith("search", "grs-failed-model"));
+  expect(executeResearchRuntime).not.toHaveBeenCalled();
 });

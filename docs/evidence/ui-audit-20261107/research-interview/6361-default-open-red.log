@@ -1,0 +1,51 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+
+ ❯ tests/ui/research-intake-source-mode.test.tsx (2 tests | 2 failed) 670ms
+   × persists materials source mode before opening the plan 567ms
+     → expect(element).toBeChecked()
+
+Received element is not checked:
+  <input
+  name="research-source-mode"
+  type="radio"
+/>
+   × persists open source mode before opening the plan 101ms
+     → expect(element).toBeChecked()
+
+Received element is not checked:
+  <input
+  name="research-source-mode"
+  type="radio"
+/>
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/research-intake-source-mode.test.tsx > persists materials source mode before opening the plan
+ FAIL  tests/ui/research-intake-source-mode.test.tsx > persists open source mode before opening the plan
+Error: expect(element).toBeChecked()
+
+Received element is not checked:
+  <input
+  name="research-source-mode"
+  type="radio"
+/>
+ ❯ tests/ui/research-intake-source-mode.test.tsx:17:56
+     15|  render(<ResearchIntake session={null} workflow={null} onPending={vi.f…
+     16|  fireEvent.change(screen.getByTestId('research-brief-goal'), { target:…
+     17|  expect(screen.getByRole('radio', { name: '允许联网检索' })).toBeCheck…
+       |                                                        ^
+     18|  if (mode === 'materials') fireEvent.click(screen.getByRole('radio', {…
+     19|  fireEvent.click(screen.getByTestId('research-confirm-brief'));
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed (2)
+   Start at  04:25:54
+   Duration  15.56s (transform 4.79s, setup 1.41s, collect 7.60s, tests 670ms, environment 3.38s, prepare 1.38s)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/research-intake-source-mode.test.tsx
