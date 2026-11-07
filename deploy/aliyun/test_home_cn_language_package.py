@@ -90,12 +90,21 @@ class PackageTest(unittest.TestCase):
             self.assertIn(ICP_NUMBER, (output / name).read_text())
         self.assertEqual(fingerprints(self.source), before)
 
-    def test_future_domain_is_disabled_and_targets_canonical_www(self):
-        future = CONFIG['domains']['workspacex.cn']
-        self.assertFalse(future['enabled'])
-        self.assertEqual(future['destination'], CONFIG['marketingOrigin'])
-        self.assertEqual(future['filingVerification'], 'pending-new-filing-coverage')
-        self.assertIn('official-filing-coverage', future['requires'])
+    def test_primary_domain_and_login_compatibility(self):
+        self.assertEqual(CONFIG['marketingOrigin'], 'https://workspacex.cn')
+        self.assertEqual(ICP_NUMBER, '粤ICP备2021115740号-2')
+        for host in ['boardx.com.cn', 'www.boardx.com.cn']:
+            self.assertEqual(CONFIG['domains'][host]['destination'], CONFIG['marketingOrigin'])
+        for name in ['login.html', 'login/index.html']:
+            html = (self.output / name).read_text()
+            self.assertIn('0;url=https://app.boardx.com.cn/login', html)
+            self.assertIn('href="https://app.boardx.com.cn/login"', html)
+        self.assertIn('/login https://app.boardx.com.cn/login 302',
+                      (self.output / '_redirects').read_text())
+        self.assertIn('location.search + location.hash',
+                      (self.output / 'assets/js/cn-login.js').read_text())
+        self.assertIn('https://workspacex.cn/en/privacy?x=1#p', transform_html(
+            '<a href="https://www.boardx.com.cn/privacy?x=1#p">old</a>', '/', '/'))
 
     def test_release_marker_keeps_sha_and_identifies_verified_cn_domain(self):
         marker = self.source / '.well-known/workspacex-release.json'
@@ -108,7 +117,7 @@ class PackageTest(unittest.TestCase):
         self.assertEqual(result['commit'], original['commit'])
         self.assertEqual(result['project'], 'workspacex-home-cn')
         self.assertEqual(result['region'], 'cn')
-        self.assertEqual(result['filingCoverage'], 'verified-aliyun-existing-domain-record')
+        self.assertEqual(result['filingCoverage'], CONFIG['domains']['workspacex.cn']['filingVerification'])
         self.assertEqual(json.loads(marker.read_text()), original)
 
     def test_links_assets_metadata_and_manual_choice(self):
@@ -120,9 +129,9 @@ class PackageTest(unittest.TestCase):
             self.assertIn('src="/assets/js/site.js"', text)
             self.assertIn('href="#main"', text)
             self.assertIn('href="https://app.boardx.com.cn/"', text)
-            self.assertIn('hreflang="x-default" href="https://www.boardx.com.cn/"', text)
+            self.assertIn('hreflang="x-default" href="https://workspacex.cn/"', text)
             self.assertNotIn('https://workspacex.us/', text)
-        self.assertIn('rel="canonical" href="https://www.boardx.com.cn/en/"',
+        self.assertIn('rel="canonical" href="https://workspacex.cn/en/"',
                       (self.output / 'en/index.html').read_text())
         self.assertIn('href="/en/privacy" hreflang="en"',
                       (self.output / 'privacy.html').read_text())
@@ -193,11 +202,11 @@ class PackageTest(unittest.TestCase):
             self.assertIn(f'<html lang="{language}"', text)
             self.assertIn('href="/en/aidt/" hreflang="en"', text)
             self.assertIn('href="/zh/aidt/" hreflang="zh-Hans"', text)
-            self.assertIn('hreflang="x-default" href="https://www.boardx.com.cn/aidt/"', text)
+            self.assertIn('hreflang="x-default" href="https://workspacex.cn/aidt/"', text)
             self.assertIn('href="/assets/css/aidt.css"', text)
             canonical = relative.removesuffix('index.html')
-            self.assertIn(f'rel="canonical" href="https://www.boardx.com.cn/{canonical}"', text)
-            self.assertIn(f'<loc>https://www.boardx.com.cn/{canonical}</loc>', (output / 'sitemap.xml').read_text())
+            self.assertIn(f'rel="canonical" href="https://workspacex.cn/{canonical}"', text)
+            self.assertIn(f'<loc>https://workspacex.cn/{canonical}</loc>', (output / 'sitemap.xml').read_text())
         self.assertEqual(fingerprints(self.source), before)
 
 

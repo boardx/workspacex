@@ -18,7 +18,8 @@ ORIGIN = CONFIG['marketingOrigin']
 SOURCE_ORIGIN = 'https://workspacex.us'
 SOURCE_APP_ORIGIN = 'https://devapp.boardx.us'
 APP_ORIGIN = 'https://app.boardx.com.cn'
-ICP_NUMBER = '粤ICP备2021115740号'
+ICP_NUMBER = CONFIG['domains'][urlsplit(ORIGIN).netloc]['websiteFilingNumber']
+LOGIN_URL = CONFIG['appLoginUrl']
 ICP_QUERY = 'https://beian.miit.gov.cn/'
 
 
@@ -47,7 +48,7 @@ def mapped_url(value, original_path):
     if parsed.scheme in ('http', 'https') and parsed.netloc == urlsplit(SOURCE_APP_ORIGIN).netloc:
         return APP_ORIGIN + urlunsplit(('', '', parsed.path, parsed.query, parsed.fragment))
     if parsed.scheme not in ('https', 'http') or parsed.netloc not in (
-            'workspacex.us', 'www.boardx.com.cn'):
+            'workspacex.us', 'www.boardx.com.cn', 'boardx.com.cn', urlsplit(ORIGIN).netloc):
         return value
     path = EN_PATHS.get(parsed.path, parsed.path)
     result = urlunsplit(('', '', path, parsed.query, parsed.fragment))
@@ -119,6 +120,21 @@ def build_cn_package(source, destination):
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(transform_html(pages[name], '/' + name, '/en' + canonical, en_paths))
         (destination / name).write_text(transform_html(pages[chinese], '/' + chinese, canonical, en_paths))
+    # ESA static hosting need not interpret Cloudflare's _redirects. Supply a
+    # real page at both common login paths, with a no-JS fallback and visible link.
+    login = ('<!doctype html><html lang="zh-Hans"><head><meta charset="utf-8">'
+             '<meta name="viewport" content="width=device-width, initial-scale=1">'
+             f'<noscript><meta http-equiv="refresh" content="0;url={LOGIN_URL}"></noscript>'
+             f'<link rel="canonical" href="{LOGIN_URL}">'
+             '<title>登录 WorkspaceX</title>'
+             '<script src="/assets/js/cn-login.js" defer></script>'
+             '</head><body><main><h1>正在前往中国应用登录页</h1>'
+             f'<p><a href="{LOGIN_URL}">继续登录 WorkspaceX</a></p></main></body></html>')
+    (destination / 'login').mkdir(exist_ok=True)
+    (destination / 'login.html').write_text(login)
+    (destination / 'login/index.html').write_text(login)
+    (destination / 'assets/js/cn-login.js').write_text(
+        'location.replace(' + json.dumps(LOGIN_URL) + ' + location.search + location.hash);\n')
     # Never insert this into shared sources or decide from browser language.
     for page in destination.rglob('*.html'):
         page.write_text(add_icp_footer(page.read_text()))
@@ -131,7 +147,8 @@ def build_cn_package(source, destination):
     redirects = destination / '_redirects'
     lines = redirects.read_text().splitlines()
     lines = [line for line in lines if not re.match(r'^/en(?:\s|/\*)', line)]
-    redirects.write_text('\n'.join(lines) + '\n/en /en/ 301\n')
+    redirects.write_text('\n'.join(lines) + '\n/en /en/ 301\n'
+                         + f'/login {LOGIN_URL} 302\n/login/ {LOGIN_URL} 302\n')
     # Both the source module and deployed bundle use the same explicit English fallback.
     for path in (destination / 'assets/js').glob('*.js'):
         text = path.read_text()

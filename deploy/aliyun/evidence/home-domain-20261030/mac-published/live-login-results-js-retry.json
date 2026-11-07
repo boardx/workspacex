@@ -1,0 +1,18 @@
+[
+  {
+    "input": "https://www.boardx.com.cn/login",
+    "js": true,
+    "finalUrl": "https://app.boardx.com.cn/login",
+    "appStatus": 200,
+    "title": "WorkspaceX",
+    "pass": true
+  },
+  {
+    "input": "https://boardx.com.cn/login",
+    "js": true,
+    "finalUrl": "https://app.boardx.com.cn/login",
+    "appStatus": 200,
+    "title": "WorkspaceX",
+    "pass": true
+  }
+]

@@ -1,0 +1,33 @@
+✔ PRs, non-main refs and wrong account never reach Cloudflare (1.902241ms)
+✔ domain mismatch refuses to publish (22.962279ms)
+✔ success records exact SHA, new deployment and previous rollback target (5.761774ms)
+✔ failed verification rolls back own deployment: {"smokeFails":true} (1.802854ms)
+✔ failed verification rolls back own deployment: {"wrongPublicSha":true} (2.343873ms)
+✔ a competing publisher is never rolled back (0.616241ms)
+✔ a different publisher of the same SHA and another deployment ID is never rolled back (0.597483ms)
+✔ unknown own deployment ID fails closed without rollback (0.482603ms)
+✔ packaging rejects a real dirty tracked home source from its nested working directory (43.513356ms)
+✔ workflow permits production only for main push, validates first, retains evidence (0.594308ms)
+✔ custom-domain propagation retries within a bounded budget before success (2.19927ms)
+✔ last marker concurrent production mutation cannot report verified: {"id":"cccccccc-cccc-cccc-cccc-cccccccccccc"} (1.154746ms)
+✔ last marker concurrent production mutation cannot report verified: {"deployment_trigger":{"metadata":{"commit_hash":"cccccccccccccccccccccccccccccccccccccccc"}}} (0.799361ms)
+✔ last marker concurrent production mutation cannot report verified: {"latest_stage":{"status":"failure"}} (0.924626ms)
+✔ shared verification deadline expires across origins and preserves rollback budget (0.85987ms)
+✔ synchronous subprocess receives remaining shared budget and hard termination (1.581747ms)
+✔ wall clock rollback cannot extend the production deadline or rollback reserve (0.637272ms)
+✔ same path across domains is valid; repeated full URL is a loop (0.836656ms)
+✔ query changes are distinct URLs; relative loops and hop budget remain failures (0.450806ms)
+✔ domain verification rejects lost path/query, temporary redirects and target loops (0.790759ms)
+✔ publication verifies the new custom domain, not just the deployment URL (0.779212ms)
+✔ domain verification rejects a later 200 after query removed (0.208348ms)
+✔ domain verification rejects a later 200 after old domain returned (0.217201ms)
+✔ domain verification rejects a later 200 after HTTPS downgraded (0.204141ms)
+✔ domain verification preserves encoded paths and query byte representation (0.324059ms)
+ℹ tests 25
+ℹ suites 0
+ℹ pass 25
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 151.018217
