@@ -24,9 +24,14 @@ it('CI runner commands bail internally instead of waiting for the remaining case
 it('test matrices cancel remaining shards and cancelable jobs do not ignore workflow cancellation',()=>{
  for(const file of ['harness-verify','harness-acceptance','backend-gates']){
   const workflow=parse(readFileSync(`.github/workflows/${file}.yml`,'utf8'));
-  for(const job of Object.values(workflow.jobs) as any[]){
+  for(const [name,job] of Object.entries(workflow.jobs) as [string,any][]){
    if(job.strategy?.matrix)expect(job.strategy['fail-fast']).toBe(true);
-   if(job.if?.includes('always()'))expect(job.if).toContain('!cancelled()');
+   if(job.if?.includes('always()')){
+    const terminal=new Map([['harness-verify/queue-ready','ci-lightweight.mjs queue'],['harness-acceptance/hourly-full-result','ci-hourly-result.mjs'],['backend-gates/backend-full-result','BACKEND_FULL_PRODUCER_SET']]);
+    const strict=terminal.get(`${file}/${name}`);
+    if(strict){expect(Array.isArray(job.needs)&&job.needs.length>0).toBe(true);expect(JSON.stringify(job.steps)).toContain(strict);expect(JSON.stringify(job.steps)).toContain('${{ toJSON(needs) }}');expect(job['continue-on-error']).toBeUndefined();}
+    else expect(job.if).toContain('!cancelled()');
+   }
    for(const step of job.steps??[])if(step.run?.includes('turbo run typecheck lint'))expect(step.run).not.toContain('--continue');
   }
  }
@@ -88,6 +93,6 @@ it('skill workflow command reaches isolation guard with its fixed first-failure 
  const command=workflow.jobs['skill-files-e2e'].steps.find((s:any)=>s.run?.includes('studio-skill-files-e2e.mjs')).run;
  const args=command.slice(command.indexOf('scripts/studio-skill-files-e2e.mjs')).trim().split(/\s+/);
  const env={...process.env};delete env.WORKSPACEX_DB;
- const result=spawnSync(process.execPath,args,{env,encoding:'utf8',timeout:15000});
+ const result=spawnSync(process.execPath,['--import','tsx',...args],{env,encoding:'utf8',timeout:15000});
  expect(result.status,result.stderr).toBe(1);expect(result.stderr).toContain('test-isolation');expect(result.stderr).not.toContain('Only the fixed');
 });
