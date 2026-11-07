@@ -930,3 +930,59 @@ test("report repair retains saved candidate through failure and refresh", async 
   expect(current.documents.find(item => item.step === "report")?.contentHash).toBe(candidateHash);
   await captureRuntimeEvidence(page, testInfo, "report-repair-refresh-retained.png");
 });
+
+
+test("restoring a question edit then regenerating shows a new reviewable draft", async ({ page }) => {
+  const outline = { documentId: "restored-generation-outline", step: "outline" as const, version: 1,
+    markdown: "## [合成护理专家](#expert-restored-generation)\n\n1. 原始问题？\n",
+    contentHash: "a".repeat(64), evidenceMode: "simulated" as const, references: [] };
+  let current = interviewMarkdown.InterviewMarkdownEnvelope.parse({ ...source, version: 5,
+    documents: [...source.documents, outline], states: [...source.states.map(state => ({ ...state, status: "confirmed" })),
+      { documentId: outline.documentId, status: "draft", failure: null }] });
+  const sequence: string[] = [];
+  await page.addInitScript(() => {
+    localStorage.setItem("wsx.sessionToken", "e2e-token");
+    localStorage.setItem("wsx.session", JSON.stringify({ version: 1, userId: "user-e2e", orgs: ["org-e2e"], currentOrgId: "org-e2e", expiresAt: "2099-01-01T00:00:00.000Z" }));
+  });
+  await page.route("**/identity/me**", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ org: { id: "org-e2e", name: "E2E", kind: "organization", team: null, modelPolicy: "any" }, orgRole: "lead", teamId: null, projectRole: null, groupId: null, displayName: "E2E User", avatarUrl: null }) }));
+  await page.route("**/interviews/digital/itv-quality-e2e", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ...view, currentStep: "outline" }) }));
+  await page.route("**/interviews/digital/experts", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: [] }) }));
+  await page.route("**/interviews/digital/itv-quality-e2e/markdown", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(current) }));
+  await page.route("**/interviews/digital/itv-quality-e2e/markdown/outline/generate", route => {
+    expect(route.request().postDataJSON()).toEqual({ expectedVersion: 5, expectedDocumentVersion: 1 });
+    sequence.push("generate");
+    current = interviewMarkdown.InterviewMarkdownEnvelope.parse({ ...current, version: 6,
+      documents: current.documents.map(doc => doc.documentId === outline.documentId ? { ...doc, version: 2,
+        markdown: "## [合成护理专家](#expert-restored-generation)\n\n1. 新生成问题？\n" } : doc) });
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(current) });
+  });
+  await page.route("**/interviews/digital/itv-quality-e2e/markdown/outline/confirm", route => {
+    expect(route.request().postDataJSON()).toEqual({ expectedVersion: 6, expectedDocumentVersion: 2 });
+    sequence.push("confirm");
+    current = interviewMarkdown.InterviewMarkdownEnvelope.parse({ ...current, version: 7,
+      states: current.states.map(state => state.documentId === outline.documentId ? { ...state, status: "confirmed" } : state) });
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(current) });
+  });
+  await page.route("**/interviews/digital/itv-quality-e2e/markdown/execution", route => {
+    expect(route.request().postDataJSON()).toEqual({ expectedVersion: 7, action: "start" });
+    sequence.push("start");
+    current = interviewMarkdown.InterviewMarkdownEnvelope.parse({ ...current, version: 8,
+      execution: { status: "paused", tasks: [{ expertId: "restored-generation", status: "pending", errorCode: null }] } });
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(current) });
+  });
+  await page.goto("/itv/itv-quality-e2e/outline");
+  const question = page.getByRole("textbox", { name: "编辑问题 1", exact: true });
+  await expect(question).toHaveValue("原始问题？");
+  await question.fill("临时修改？"); await question.fill("原始问题？");
+  await page.getByRole("button", { name: "生成访谈问题", exact: true }).click();
+  await expect(question).toHaveValue("新生成问题？");
+  expect(sequence).toEqual(["generate"]);
+  expect(current.states.find(state => state.documentId === outline.documentId)?.status).toBe("draft");
+  await expect(page).toHaveURL(/\/outline$/u);
+  await page.getByRole("button", { name: "确认问题并开始访谈", exact: true }).click();
+  await expect(page).toHaveURL(/\/runs$/u);
+  expect(sequence).toEqual(["generate", "confirm", "start"]);
+  await page.reload();
+  await expect(page.getByTestId("itv-workbench-step-runs")).toHaveAttribute("aria-current", "step");
+  expect(sequence).toEqual(["generate", "confirm", "start"]);
+});

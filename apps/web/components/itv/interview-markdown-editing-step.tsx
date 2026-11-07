@@ -192,6 +192,9 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
     onGenerate: () => {
       if (immutable) { setError("itv.editing.immutable"); return; }
       if (markdown.trim() && markdown !== saved?.markdown) { setError("itv.editing.saveFirst"); return; }
+      // Restoring an edit to the saved text leaves no unsaved draft. Release the
+      // dirty baseline so accepted generation snapshots can update this editor.
+      dirty.current = false; draftBase.current = null; callbacks.current.onDirtyChange(false);
       setGenerating(true);
       void action(async () => {
         await generateStep(step);
