@@ -28,6 +28,7 @@ from langchain_core.messages import ToolMessage
 from typing_extensions import NotRequired
 
 from .native_tool_authority import NativeToolAuthority, ToolAuthority, ToolAuthorityError
+from .native_tool_review import NativeHumanInTheLoop
 from .native_sandbox_dispatch import NativeSandboxDispatch
 from .native_task_observation import NativeTaskObservation
 from .harness import build_middleware
@@ -224,8 +225,8 @@ def create_native_graph(
                     "description": "Text-only reasoning and drafting. No tools, files, skills or code execution.",
                     "runnable": create_agent(model, tools=[], system_prompt="Provide text-only reasoning or drafting. You have no tools, files, skills, or code execution.")},
                    *([file_delegation_subagent(model, sandbox, delegated_inputs, tool_authority, file_authority)] if delegated_inputs else [])],
-        middleware=[_ReportToolOutcomeFailures(), _BoundSkillsMiddleware(backend, binding, activity, pinned_skills), activity, *middleware, *([snapshot] if snapshot is not None else []), NativeSandboxDispatch(sandbox.id, binding_guard=binding_guard), authority_middleware, NativeTaskObservation()],
-        checkpointer=checkpointer, store=store, interrupt_on=interrupt_on,
+        middleware=[_ReportToolOutcomeFailures(), _BoundSkillsMiddleware(backend, binding, activity, pinned_skills), activity, *middleware, *([snapshot] if snapshot is not None else []), NativeSandboxDispatch(sandbox.id, binding_guard=binding_guard), authority_middleware, NativeTaskObservation(), NativeHumanInTheLoop(interrupt_on=interrupt_on)],
+        checkpointer=checkpointer, store=store, interrupt_on={},
     )
 
     verify_native_tool_identities(graph)
