@@ -515,6 +515,7 @@ function GuidedResearchLiveSession({ sessionId, researchName, onBack, onLoadRetr
   const proposalEdited = Boolean(proposal && JSON.stringify(draft) !== JSON.stringify(proposal.draft));
   const displayReport = draft?.node === "report" ? draft.value : state.report;
   const researchPending = state.tasks.some((task) => task.status === "pending" || (task.status === "running" && !expired));
+  const researchRunning = researchPending && state.busy && !expired && !state.errorCode && state.controlStatus !== "paused";
   const researchFailed = state.tasks.some((task) => task.status === "failed");
   const usableSources = state.sources.some((source) => source.decision !== "excluded");
   const researchBlocked = node === "research" && (researchPending || !state.tasks.length || !usableSources);
@@ -614,7 +615,7 @@ return <GuidedResearchSixStepShell researchName={guidedResearchHeading(state, re
           metrics={null}
           limitation={null}
         />}
-        {researchBlocked && !waiting && <p role="status" className="text-12 text-muted-foreground">{researchPending ? t("research.live.searchRunning") : t("research.live.searchRequired")}</p>}
+        {researchBlocked && !waiting && !error && !state.errorCode && !expired && state.controlStatus !== "paused" && <p role="status" className="text-12 text-muted-foreground">{researchRunning ? t("research.live.searchRunning") : t("research.live.searchRequired")}</p>}
 
         </>}
         {viewedNode === "report" && !chaptersOpen && <GuidedResearchReportHistory state={state} />}
