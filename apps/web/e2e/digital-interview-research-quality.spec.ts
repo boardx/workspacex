@@ -760,7 +760,7 @@ test("report stream exposes partial output before completion and survives stage 
 /** Append to research-quality.spec.ts only after integration source is restored.
  * UI contract: routed envelopes and deferred synthetic model response; no external LLM/DB claim.
  */
-test("expert confirmation shows question generation then automatically starts saved questions once", async ({ page }, testInfo) => {
+test("expert confirmation generates draft questions and starts saved questions once after user confirmation", async ({ page }, testInfo) => {
   const expertId = "direct-start-expert";
   const expertMarkdown = `# 专家选择\n\n## [合成护理专家](#expert-${expertId})\n\n仅供受控流程验证。`;
   let current = interviewMarkdown.InterviewMarkdownEnvelope.parse({ ...source,
@@ -769,6 +769,7 @@ test("expert confirmation shows question generation then automatically starts sa
   let resolveGeneration!: () => void;
   const generationGate = new Promise<void>(resolve => { resolveGeneration = resolve; });
   let generationCalls = 0;
+  let outlineSaveCalls = 0;
   let outlineConfirmCalls = 0;
   let starts = 0;
   const sequence: string[] = [];
@@ -798,19 +799,29 @@ test("expert confirmation shows question generation then automatically starts sa
       states: [...current.states, { documentId: "direct-start-outline", status: "draft", failure: null }] });
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(current) });
   });
+  await page.route("**/interviews/digital/itv-quality-e2e/markdown/outline", route => {
+    expect(route.request().method()).toBe("POST");
+    const markdown = `## [合成护理专家](#expert-${expertId})\n\n1. 上次交接发生了什么？\n`;
+    expect(route.request().postDataJSON()).toEqual({ markdown, expectedVersion: 6, expectedDocumentVersion: 1 });
+    outlineSaveCalls++; sequence.push("outline-save");
+    current = interviewMarkdown.InterviewMarkdownEnvelope.parse({ ...current, version: 7,
+      documents: current.documents.map(doc => doc.documentId === "direct-start-outline" ? { ...doc, version: 2, markdown,
+        contentHash: createHash("sha256").update(markdown).digest("hex") } : doc) });
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(current) });
+  });
   await page.route("**/interviews/digital/itv-quality-e2e/markdown/outline/confirm", route => {
     outlineConfirmCalls++; sequence.push("outline-confirm");
-    expect(route.request().postDataJSON()).toEqual({ expectedVersion: 6, expectedDocumentVersion: 1 });
-    current = interviewMarkdown.InterviewMarkdownEnvelope.parse({ ...current, version: 7,
+    expect(route.request().postDataJSON()).toEqual({ expectedVersion: 7, expectedDocumentVersion: 2 });
+    current = interviewMarkdown.InterviewMarkdownEnvelope.parse({ ...current, version: 8,
       states: current.states.map(state => state.documentId === "direct-start-outline" ? { ...state, status: "confirmed" } : state) });
     return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(current) });
   });
   await page.route("**/interviews/digital/itv-quality-e2e/markdown/execution", route => {
-    expect(route.request().postDataJSON()).toEqual({ expectedVersion: 7, action: "start" });
+    expect(route.request().postDataJSON()).toEqual({ expectedVersion: 8, action: "start" });
     expect(current.states.find(state => state.documentId === "direct-start-outline")?.status).toBe("confirmed");
     starts++; sequence.push("execution-start");
     // A paused owned fixture avoids an automatic advance loop; start dispatch itself is asserted exactly.
-    current = interviewMarkdown.InterviewMarkdownEnvelope.parse({ ...current, version: 8,
+    current = interviewMarkdown.InterviewMarkdownEnvelope.parse({ ...current, version: 9,
       execution: { status: "paused", tasks: [{ expertId, status: "pending", errorCode: null }] } });
     return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(current) });
   });
@@ -821,13 +832,20 @@ test("expert confirmation shows question generation then automatically starts sa
   await expect(page.getByTestId("itv-workbench-step-outline")).toHaveAttribute("aria-current", "step");
   // Confirm actual restored integration's loading selector/text before applying draft.
   await expect(page.getByRole("status").filter({ hasText: "正在为 1 位专家生成问题" })).toBeVisible();
-  expect(outlineConfirmCalls).toBe(0); expect(starts).toBe(0);
+  expect(outlineSaveCalls).toBe(0); expect(outlineConfirmCalls).toBe(0); expect(starts).toBe(0);
   await captureRuntimeEvidence(page, testInfo, "questions-generating-before-direct-start.png");
   resolveGeneration();
+  await expect(page.getByRole("textbox", { name: "编辑问题 1", exact: true })).toHaveValue("上次交接发生了什么？");
+  await expect(page).toHaveURL(/\/outline$/u);
+  expect(outlineSaveCalls).toBe(0); expect(outlineConfirmCalls).toBe(0); expect(starts).toBe(0);
+  expect(current.states.find(state => state.documentId === "direct-start-outline")?.status).toBe("draft");
+  expect(sequence).toEqual(["experts-confirm", "outline-generate"]);
+  await page.getByRole("button", { name: "确认问题并开始访谈", exact: true }).click();
   await expect(page).toHaveURL(/\/runs$/u);
   await expect.poll(() => starts).toBe(1);
+  expect(outlineSaveCalls).toBe(1);
   expect(outlineConfirmCalls).toBe(1);
-  expect(sequence).toEqual(["experts-confirm", "outline-generate", "outline-confirm", "execution-start"]);
+  expect(sequence).toEqual(["experts-confirm", "outline-generate", "outline-save", "outline-confirm", "execution-start"]);
   await page.reload();
   await expect(page.getByTestId("itv-workbench-step-runs")).toHaveAttribute("aria-current", "step");
   expect(starts).toBe(1);
