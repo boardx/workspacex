@@ -1,7 +1,7 @@
 # Fixed-request CN release plan
 
 Canonical plan and seven-step diagram for request `01a0ffe2-1628-7388-8735-7dd051b70032`.
-Updated 2026-10-17 UTC for issue #5809. This reuses the existing persistent entry plan location;
+Updated 2026-11-07 UTC for the PR #5810 review-state receipt (issue #5809). This reuses the existing persistent entry plan location;
 previous entries described other candidates/host sessions and do not authorize this request.
 No matching fixed-request A0–A6 diagram was found in the existing entry documentation;
 the seven labels below come from the user's explicit task, not inferred production evidence.
@@ -619,3 +619,26 @@ compilation, diagram and diff checks. The new phase suite has 12 tests, includin
 [evidence/switch-pause-repair-20261017](evidence/switch-pause-repair-20261017/verification.md).
 New exact-head GitHub CI and real Docker results must be taken from the PR checks/receipt comment;
 the earlier 241-test result is not attributed to this follow-up. No production status changes.
+
+
+## Code-review status receipt (2026-11-07 UTC)
+
+[PR #5810](https://github.com/boardx/workspacex/pull/5810) changed from draft to ready
+for review at **2026-11-07T18:28:14Z**, as recorded by its GitHub timeline. The reviewed
+head is **`b7076b5d41a36ff372fd9a61435f458c4b42a0e2`**. The
+[Codex code-review receipt](https://github.com/boardx/workspacex/pull/5810#issuecomment-6711340193)
+records completion at **2026-11-07T18:31:05.580460Z**, with no findings and no unresolved
+findings for that exact head. The trigger is `Draft marked ready`; the PR is open and
+`draft=false` at this observation. This supersedes older draft-status descriptions only.
+
+This is **code-review evidence only**, not a security-review result, production release
+receipt or business acceptance. It does not authorize merge or change the fixed application
+source, producer control, build attempt or expired candidate window. No new production
+receipt is established by the review. The existing seven-step diagram is unchanged:
+B0 remains historically green; C0, toolkit upload/install K0, application-image upload I0
+and A0–A6 remain gray, with no production acceptance purple. Production remains NO-GO.
+
+This update changes only this plan's date and the review-status record. It performs no
+production invocation, deployment, migration, permission change, restore, cleanup or
+cancellation. The existing distinction between tested tool code, installed toolkit,
+transferred application images and accepted production behavior remains in force.
