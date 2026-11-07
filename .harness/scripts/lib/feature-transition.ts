@@ -113,9 +113,7 @@ export interface Finding {
 }
 
 /**
- * 尾行 commit 取不到对象时的提示（不判红）。
- * 缺席是**歧义**而不是造假证据：浅克隆取不到、PR squash 合并后原 commit 也不再存在。
- * 把歧义判红会让正常 PR 大面积误伤，所以这里只提示；真正的牙齿是上面那几条硬判。
+ * 非阻断诊断信息。见证对象缺失属于 attestation_unverifiable，必须拒绝；不能只提示。
  */
 export interface Note {
   readonly phaseDir: string;
@@ -228,25 +226,17 @@ function checkProvenance(
         `verify 当时不在 git 仓库里跑，这份日志没有可追溯的见证。`
     );
   }
-  if (oracle.exists(commit) && !oracle.isAncestorOfHead(commit) &&
+  if (!oracle.exists(commit)) {
+    return mk("attestation_unverifiable",
+      `尾行 commit ${commit.slice(0,12)} 在本仓取不到对象，无法核对见证血统；必须取得原对象后验证，不能降级为 warning。`);
+  }
+  if (!oracle.isAncestorOfHead(commit) &&
       !oracle.isSquashIntegrated?.(commit, h.logPath, h.evidenceBlob)) {
     return mk(
       "attestation_unverifiable",
       `\`evidence/${h.id}.verify.log\` 的尾行 commit ${commit.slice(0, 12)} 存在，但不在 head 的血统里——` +
         `也没有完整树等价的 squash 集成证明。这份证据见证的是另一条历史，不是本次改动。`
     );
-  }
-  if (!oracle.exists(commit)) {
-    return {
-      finding: null,
-      note: {
-        phaseDir,
-        featureId: h.id,
-        message:
-          `尾行 commit ${commit.slice(0, 12)} 在本仓取不到对象，无法核对血统` +
-          `（浅克隆或原 commit 已被 squash）。不判红：缺席是歧义，不是造假证据。`,
-      },
-    };
   }
   return { finding: null, note: null };
 }

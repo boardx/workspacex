@@ -1,5 +1,9 @@
 # Persistent CN release entry (#5623)
 
+2026-10-18 follow-up: [complete automation/measurement iteration plan](../cn-release-iteration-plan.md).
+That implementation increment preserves the original A0–A6 evidence boundaries; it does not
+renew the expired BC candidate, execute production stages or supersede existing approvals.
+
 Implement a bounded executor and parameterized continuation generators on the existing Shanghai runner. Preserve canonical admission and stage bindings. Persist intent before execution, supervise the actual process tree, and reconcile uncertain writes without replay. Complete the one-request whole-chain connection and real public acceptance before claiming the user's goal achieved.
 
 ```mermaid
