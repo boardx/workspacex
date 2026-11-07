@@ -13,3 +13,9 @@ Read-only PG diagnosis confirmed the current canonical revision/execution were c
 ![The same project interview now shows completed](6377-interview-completed.png)
 
 Full integrated checks and required CI still govern merge. Independent same-account session comments are audit evidence, not FormalApproval.
+
+## Static wiring follow-up
+
+CI correctly rejected a new type-only dependency from the shared display helper through interview-api into mock helpers. The status type now derives directly from the canonical interview.DigitalInterviewStatus schema with z.infer. No enum, mapping value, runtime behavior, gate manifest or exemption changed.
+
+The real lint-ui-wiring command was reproduced RED on the candidate and GREEN after the dependency fix. The integrated repository also passed: 137 routes, 168 controllers, existing wiring/mock counts unchanged. Related author UI/canonical tests passed 6/6; independent canonical/unknown/prototype tests passed 2/2 and strict scoped TypeScript passed. The already recorded real browser completion label exercises unchanged emitted UI behavior. Full CI remains required on the final PR head.
