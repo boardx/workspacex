@@ -11,18 +11,13 @@
 name: local-windows
 
 on:
-  pull_request:
-    branches: [develop]
-    paths:
-      - 'packages/local-runtime/**'
-      - 'apps/desktop/**'
-      - 'scripts/local-bundle/**'
-      - '.github/workflows/local-windows.yml'
   workflow_dispatch:
 
+  workflow_call: {}
 concurrency:
-  group: local-windows-${{ github.ref }}
-  cancel-in-progress: true
+  group: local-windows-full-${{ github.run_id }}
+  cancel-in-progress: false
+  queue: single
 
 jobs:
   core-stack:

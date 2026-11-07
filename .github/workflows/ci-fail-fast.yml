@@ -1,25 +1,11 @@
 name: CI fail fast supervisor
 on:
-  workflow_run:
-    workflows: ["harness-verify", "harness-acceptance", "backend-gates"]
-    types: [in_progress]
+  workflow_dispatch: null
 permissions:
   contents: read
-  actions: write
-concurrency:
-  group: ci-fail-fast-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
-  cancel-in-progress: false
 jobs:
-  supervise:
+  retired-monitor:
     runs-on: ubuntu-latest
-    timeout-minutes: 180
     steps:
-      # workflow_run is privileged: only execute the exact trusted workflow revision.
-      - uses: actions/checkout@v5
-        with:
-          ref: ${{ github.workflow_sha }}
-          persist-credentials: false
-      - name: Stop this validation run after its first failed job
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: node .harness/scripts/ci-fail-fast.mjs
+      - run: echo "Per-run long-lived supervision retired. Lightweight DAG publishes its
+          failure; hourly workflow_run reports full-regression failures."

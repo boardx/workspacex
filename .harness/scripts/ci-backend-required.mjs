@@ -1,10 +1,10 @@
 import {resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {aggregateFailures} from './lib/ci-check-policy.mjs';
+import {aggregateFailures,CURRENT_POLICY} from './lib/ci-check-policy.mjs';
 
 /** A skip is valid only for the unselected API matrix, never as a passing test. */
-export function backendFailures(results, sourceSha, baseSha) {
-  const failed = new Set(aggregateFailures('backend-required', results));
+export function backendFailures(results, sourceSha, baseSha, policy=CURRENT_POLICY) {
+  const failed = new Set(aggregateFailures('backend-required', results, policy));
   const planner = results?.['api-test-plan'];
   const proof = planner?.outputs;
   const validSha = value => /^[a-f0-9]{40}$/.test(value ?? '') && !/^0+$/.test(value);

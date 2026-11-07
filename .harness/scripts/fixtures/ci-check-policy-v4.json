@@ -1,0 +1,36 @@
+{
+  "version": 4,
+  "requiredChecks": [
+    "verify-control-plane",
+    "verify-affected",
+    "verify-full-compile",
+    "merge-gate",
+    "backend-required",
+    "queue-ready"
+  ],
+  "aggregates": {
+    "backend-required": [
+      "api-test-plan",
+      "gates-fast",
+      "gates-test",
+      "native-document-chain",
+      "native-runtime-lane",
+      "gates-runtime",
+      "e2e-core-loop",
+      "prototype-audit",
+      "design-loop-e2e"
+    ]
+  },
+  "allowedMergeMethods": [
+    "merge",
+    "squash"
+  ],
+  "deferredChecks": [
+    "visual-deferred"
+  ],
+  "independentChecks": [
+    "native-board",
+    "meeting-room"
+  ],
+  "sourceVerificationEvent": "merge_group"
+}
