@@ -120,7 +120,7 @@ export function TabGeneralOverview({ projectId, tabHref }: {
             const Icon = QUICK_ACTION_CATALOG[actionKey].icon;
             return <ModuleEntryCard key={key} href={tabHref("content", key)}
               testId={`project-general-overview-count-${key}`} label={contentTypeLabel(key, locale)}
-              icon={<Icon aria-hidden className="h-4 w-4" />} description={t(`action.${actionKey}.description`)}
+              icon={<Icon aria-hidden className="h-4 w-4" />} description={t("projectOverview.moduleHint", { type: contentTypeLabel(key, locale) })}
               count={index.ready ? index.counts[key] : "—"} />;
           })}
         </ModuleEntryGrid>
