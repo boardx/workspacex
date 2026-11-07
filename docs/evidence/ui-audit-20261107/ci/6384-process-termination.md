@@ -1,0 +1,11 @@
+# #6384: prove owned process termination in Linux containers
+
+Same locked Playwright image sha256:02bbb2155cd7109e3e9c741941097ed1608cf8b6fa44ee2595896da2bdc1f471, CI Node22.23.4, tail PID1 without init reproduced both original CI failures: normal grandchild cleanup deadline and owned success timeout. /proc sampling showed the parent gone, grandchild Z/PPID1/same PGID and kill(pid,0) still successful after6100ms; original cleanup reported incomplete after5562ms with only deadZ left. A running R control remained observable. This is termination evidence, not a claim that PID1 reaped an orphan.
+
+Linux ownership checks distinguish proven Z/X entries from executable processes. Live members still keep the process group observable. Unreadable/malformed state remains conservative; stat ENOENT/ESRCH falls back to kill0 and only an actual ESRCH proves absence. Non-Linux retains its prior signal probe. The diagnostic tests reuse the same helper; wrapper-uncaught injects the original exception after observing child readiness instead of a fixed300ms startup assumption. No timeout, signal escalation, cleanup requirement or CI gate was relaxed.
+
+Base: develop cdfdb8e728824e09857d02fa19b33c0d6ae166ac. Actual original targeted tests RED2/2; final same-container two suites GREEN16/16 exit0. New live-orphan, EACCES, stat-ENOENT-live and real exited-PID ESRCH controls pass. Both changed support scripts pass node --check. Local Docker is amd64 emulation on arm64, not identical CI load/hardware. Own reproduction container and namespace were removed.
+
+An initial review blocked ENOENT handling that could misclassify a live PID under an unreadable proc view. That candidate was not pushed; the final fallback and counterexamples close the finding. Separate reviewer independently accepted the final R2 patch. Raw local evidence: /tmp/process-lifecycle-cdfdb8/{red-tests.log,red-proc-node22.log,green-r2.log,handoff-6384.md}. Initial image-default Node24 scratch output and marker-race run are not counted as CI-exact success.
+
+This PR is independent of OOXML issue6383 and queued PR6336: no changes to their branches, runtime/workflow feature, product UI or model behavior. Required final-head and merge-group CI remain mandatory.

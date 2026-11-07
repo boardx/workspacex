@@ -3,7 +3,7 @@ import {spawn,spawnSync} from 'node:child_process';
 import {mkdtempSync,mkdirSync,readFileSync,existsSync,rmSync,writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {expect,it} from 'vitest';
+import {expect,it,vi} from 'vitest';
 const require=createRequire(import.meta.url),ownerPath=require.resolve('../e2e/support/chat-refresh-owned-process.cjs'),owner=require(ownerPath);
 const sleep=(ms:number)=>new Promise(r=>setTimeout(r,ms));
 async function until(fn:()=>boolean,budget=7000){const end=Date.now()+budget;while(!fn()){if(Date.now()>end)throw Error('owned fixture deadline');await sleep(20);}}
@@ -39,4 +39,38 @@ it('an interrupted zero exit cannot represent completed scenarios',()=>{
  expect(owner.comparisonExitCode({code:0,interrupted:true})).toBe(1);
  expect(owner.comparisonExitCode({code:0,interrupted:false})).toBe(0);
  expect(owner.comparisonExitCode({code:7,interrupted:true})).toBe(7);
+});
+
+it('keeps a live orphan observable until owned cleanup terminates it',async()=>{
+ const dir=mkdtempSync(join(tmpdir(),'chat-live-orphan-')),marker=join(dir,'pid');
+ const code=`const{spawn}=require('node:child_process');const fs=require('node:fs');const child=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{detached:true,stdio:'ignore'});fs.writeFileSync(${JSON.stringify(marker)},String(child.pid));child.unref();`;
+ const parent=spawn(process.execPath,['-e',code],{stdio:'ignore'});
+ let pid=0;const scope=owner.scopeHash('live-orphan-review');
+ try{
+  await new Promise<void>(resolve=>parent.once('exit',()=>resolve()));
+  pid=Number(readFileSync(marker,'utf8'));
+  writeFileSync(join(dir,'service-launcher.jsonl'),JSON.stringify({event:'child-start',scopeHash:scope,ownerPid:parent.pid,pgid:pid})+'\n');
+  expect(owner.processActive(pid)).toBe(true);
+  expect(owner.processActive(-pid)).toBe(true);
+  expect(owner.remaining(dir,scope).groups).toContain(pid);
+  await owner.cleanupOwned(dir,scope,()=>{});
+  expect(owner.processActive(pid)).toBe(false);
+  expect(owner.remaining(dir,scope).groups).toEqual([]);
+ }finally{if(pid)try{process.kill(-pid,'SIGKILL');}catch{}rmSync(dir,{recursive:true,force:true});}
+},10000);
+
+it.skipIf(process.platform!=='linux')('does not declare unreadable process state terminated',()=>{
+ const fs=require('node:fs');const read=vi.spyOn(fs,'readFileSync').mockImplementation(()=>{throw Object.assign(new Error('denied'),{code:'EACCES'});});
+ try{expect(owner.processActive(process.pid)).toBe(true);expect(owner.processActive(-process.pid)).toBe(true);}finally{read.mockRestore();}
+});
+
+it.skipIf(process.platform!=='linux')('keeps a live PID and uncertain group alive when stat temporarily returns ENOENT',()=>{
+ const fs=require('node:fs');const read=vi.spyOn(fs,'readFileSync').mockImplementation(()=>{throw Object.assign(new Error('stat raced'),{code:'ENOENT'});});
+ try{expect(owner.processActive(process.pid)).toBe(true);expect(owner.processActive(-process.pid)).toBe(true);}finally{read.mockRestore();}
+});
+it.skipIf(process.platform!=='linux')('confirms a genuinely exited PID gone with ESRCH after missing stat',async()=>{
+ const child=spawn(process.execPath,['-e','process.exit(0)'],{stdio:'ignore'});await new Promise<void>(resolve=>child.once('exit',()=>resolve()));
+ expect(()=>process.kill(child.pid!,0)).toThrow(expect.objectContaining({code:'ESRCH'}));
+ const fs=require('node:fs');const read=vi.spyOn(fs,'readFileSync').mockImplementation(()=>{throw Object.assign(new Error('gone'),{code:'ENOENT'});});
+ try{expect(owner.processActive(child.pid)).toBe(false);}finally{read.mockRestore();}
 });

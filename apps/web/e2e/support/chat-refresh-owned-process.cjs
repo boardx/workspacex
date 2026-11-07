@@ -4,7 +4,27 @@ const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypt
 const core=require('./chat-refresh-diagnostic-core.cjs');
 const scopeHash=id=>crypto.createHash('sha256').update(id).digest('hex');
 const valid=n=>Number.isSafeInteger(n)&&n>1;
-const alive=id=>{try{process.kill(id,0);return true;}catch(e){return e.code!=='ESRCH';}};
+// Linux PID 1 may not reap orphaned children. Z/X entries cannot execute or
+// keep service sockets open, but kill(pid, 0) (including a process group) still sees them.
+// This proves termination, not waitpid/reaping; unreadable state stays conservative.
+const signalAlive=id=>{try{process.kill(id,0);return true;}catch(e){return e.code!=='ESRCH';}};
+function alive(id){
+ if(process.platform!=='linux')return signalAlive(id);
+ const read=pid=>{
+  const stat=fs.readFileSync(`/proc/${pid}/stat`,'utf8');
+  const fields=stat.slice(stat.lastIndexOf(')')+2).trim().split(/\s+/);
+  if(!/^[A-Z]$/.test(fields[0])||!/^\d+$/.test(fields[2]))throw Error('owned_process_state_invalid');
+  return {active:fields[0]!=='Z'&&fields[0]!=='X',group:Number(fields[2])};
+ };
+ if(id>0){try{return read(id).active;}catch(e){return e.code==='ENOENT'||e.code==='ESRCH'?signalAlive(id):true;}}
+ try{
+  for(const pid of fs.readdirSync('/proc').filter(name=>/^\d+$/.test(name))){
+   try{const state=read(pid);if(state.group===-id&&state.active)return true;}
+   catch(e){if(e.code!=='ENOENT'&&e.code!=='ESRCH')return true;if(signalAlive(Number(pid)))return true;}
+  }
+  return false;
+ }catch{return true;}
+}
 function signal(id,value){try{process.kill(id,value);}catch(e){if(e.code!=='ESRCH')throw Error('owned_process_signal_failed');}}
 function starts(directory,scope){
  const rows=[];
@@ -53,7 +73,7 @@ async function runOwned(command,args,options){
 function claimDist(output){if(fs.existsSync(output))throw Error('fresh isolated production dist required');fs.mkdirSync(output,{mode:0o700});return fs.lstatSync(output);}
 const comparisonExitCode=result=>result.interrupted?(result.code||1):result.code;
 const scenarioArguments=argv=>{if(!Array.isArray(argv)||!argv.length||argv.some(a=>typeof a!=='string'))throw Error('explicit original Playwright arguments required');return [...argv];};
-module.exports={scenarioArguments,scopeHash,starts,remaining,cleanupOwned,killRecorded,runOwned,claimDist,comparisonExitCode};
+module.exports={processActive:alive,scenarioArguments,scopeHash,starts,remaining,cleanupOwned,killRecorded,runOwned,claimDist,comparisonExitCode};
 if(require.main===module){
  const directory=path.resolve('apps/web/e2e/__evidence__/chat-refresh-diagnostics');
  const entry=fs.readFileSync(path.join(directory,'production-build.jsonl'),'utf8').split('\n').filter(Boolean).map(JSON.parse).filter(r=>r.event==='comparison-start').at(-1);

@@ -23,7 +23,7 @@ let stopped=false;
 function killGroup(signal){write({event:'child-group-signal',pgid:child.pid,signal});try{if(process.platform!=='win32'&&child.pid)process.kill(-child.pid,signal);else child.kill(signal);}catch{}}
 function stop(signal='SIGTERM'){
  if(stopped)return;stopped=true;killGroup(signal);
- // Keep the supervisor alive until its owned process group has been reaped.
+ // Allow group termination/escalation before supervisor exit; orphan reaping belongs to PID 1.
  setTimeout(()=>killGroup('SIGKILL'),3000);
 }
 process.once('exit',()=>killGroup('SIGKILL'));
