@@ -84,9 +84,9 @@ it("exports the same selected canonical Markdown bytes and filename in both lang
   vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) { filenames.push(this.download); });
   try {
     showList([response(), response({ id: "raw-response-1" })]); fireEvent.click(screen.getByRole("checkbox", { name: "选择答卷 raw-response-0" }));
-    vi.useFakeTimers(); fireEvent.click(screen.getByRole("button", { name: "导出所选 Markdown" })); act(() => vi.runAllTimers()); vi.useRealTimers(); language("en");
+    vi.useFakeTimers(); await act(async () => { fireEvent.click(screen.getByRole("button", { name: "导出所选 Markdown" })); }); act(() => vi.runAllTimers()); vi.useRealTimers(); language("en");
     expect(screen.getByRole("checkbox", { name: "Select response raw-response-0" })).toBeChecked();
-    vi.useFakeTimers(); fireEvent.click(screen.getByRole("button", { name: "Export selected Markdown" })); act(() => vi.runAllTimers()); vi.useRealTimers();
+    vi.useFakeTimers(); await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Export selected Markdown" })); }); act(() => vi.runAllTimers()); vi.useRealTimers();
     const text = (blob: Blob) => new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(reader.error); reader.readAsText(blob); });
     expect(blobs).toHaveLength(2); const actual = await Promise.all(blobs.map(text));
     expect(actual).toEqual(Array(2).fill("# 问卷答卷\n\n## 答卷 raw-response-0\n\n提交时间：2026-11-04T06:00:00.000Z\n\n用时：20 秒\n\n分析状态：纳入分析\n\n### 原问题 {count}\n\n原回答 {name}"));

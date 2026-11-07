@@ -1,0 +1,15 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+
+ ✓ tests/ui/survey-results-i18n.test.tsx (19 tests) 1573ms
+   ✓ retains raw search text, focus, selection and quality-filter identity when controls change language 450ms
+ ✓ tests/ui/survey-response-review.test.tsx (6 tests) 656ms
+   ✓ separates excluded analysis from normal quality and shows adjacent real details 358ms
+ ✓ tests/ui/survey-response-export.test.ts (1 test) 7ms
+
+ Test Files  3 passed (3)
+      Tests  26 passed (26)
+   Start at  05:24:03
+   Duration  12.62s (transform 2.48s, setup 511ms, collect 5.31s, tests 2.24s, environment 2.33s, prepare 341ms)
+
