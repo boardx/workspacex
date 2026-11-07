@@ -2,6 +2,7 @@ import { ConflictException, type ArgumentsHost } from "@nestjs/common";
 import { research } from "@repo/contracts";
 import { describe, expect, it, vi } from "vitest";
 import { AllExceptionsFilter } from "../../src/interface/filters/all-exceptions.filter";
+import type { ErrorLogPort } from "../../src/application/ports/error-log.port";
 
 function responseFor(body: string | object) {
   const json = vi.fn();
@@ -10,9 +11,11 @@ function responseFor(body: string | object) {
     getRequest: () => ({ traceId: "research-runtime-error" }),
     getResponse: () => ({ status, json }),
   }) } as unknown as ArgumentsHost;
-  const filter = new AllExceptionsFilter({ info: vi.fn(), error: vi.fn() });
+  const errorLog: ErrorLogPort = { record: vi.fn().mockResolvedValue(undefined), list: vi.fn(), getLifecycle: vi.fn(), updateLifecycle: vi.fn() };
+  const filter = new AllExceptionsFilter({ info: vi.fn(), error: vi.fn() }, errorLog);
   filter.catch(new ConflictException(body), host);
   expect(status).toHaveBeenCalledWith(409);
+  expect(errorLog.record).not.toHaveBeenCalled();
   return json.mock.calls[0]![0];
 }
 
