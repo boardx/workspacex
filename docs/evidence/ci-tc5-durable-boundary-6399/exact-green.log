@@ -1,0 +1,18 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.13.7, pytest-9.1.1, pluggy-1.6.0 -- /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/deep-agent-service/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /private/tmp/tc5-24654a/apps/deep-agent-service
+configfile: pyproject.toml
+plugins: langsmith-0.11.0, timeout-2.4.0, anyio-4.14.2
+timeout: 120.0s
+timeout method: thread
+timeout func_only: False
+collecting ... collected 5 items
+
+tests/golden/test_tc5_checkpoint_kill_recovery.py::test_checkpoint_barrier_requires_completed_result_and_pending_second_call PASSED [ 20%]
+tests/golden/test_tc5_checkpoint_kill_recovery.py::test_checkpoint_barrier_times_out_when_ready_has_no_committed_checkpoint PASSED [ 40%]
+tests/golden/test_tc5_checkpoint_kill_recovery.py::test_checkpoint_barrier_reads_cold_every_poll_and_never_reuses_a_reader PASSED [ 60%]
+tests/golden/test_tc5_checkpoint_kill_recovery.py::test_checkpoint_barrier_rejects_latest_pending_writes_until_exact_id_is_durable PASSED [ 80%]
+tests/golden/test_tc5_checkpoint_kill_recovery.py::test_tc5_sigkill_midrun_then_resume_and_time_travel PASSED [100%]
+
+============================== 5 passed in 3.75s ===============================
