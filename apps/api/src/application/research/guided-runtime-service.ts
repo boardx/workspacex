@@ -448,6 +448,7 @@ export class GuidedRuntimeService {
       if (!state.generatedNodes.includes("research")) state.generatedNodes.push("research");
       appendActivity(state, "searching", "已按本次材料完成来源筛选，未访问外部网页", "succeeded");
       await persist();
+      if (state.tasks.some(task => task.status === "failed")) throw new ResearchRuntimeError("RESEARCH_SEARCH_PARTIAL_FAILURE");
       return;
     }
     // A previous command may have finalized after a progress write failed. This

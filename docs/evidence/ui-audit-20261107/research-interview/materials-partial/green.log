@@ -1,0 +1,12 @@
+
+ RUN  v2.1.9 /private/tmp/fix-6372-material-partial/apps/api
+
+ ✓ tests/research/guided-report-partial-coverage.test.ts (62 tests) 36ms
+ ✓ tests/research/guided-runtime-orchestration.test.ts (12 tests) 131ms
+ ✓ tests/research/guided-partial-report-recovery.test.ts (13 tests) 28ms
+
+ Test Files  3 passed (3)
+      Tests  87 passed (87)
+   Start at  02:20:06
+   Duration  3.38s (transform 1.24s, setup 0ms, collect 2.65s, tests 196ms, environment 0ms, prepare 156ms)
+

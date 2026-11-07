@@ -173,3 +173,42 @@ it('rejects manual external URL before search in materials mode', async () => {
  const result = await service.execute(f.actor, f.session, { sessionId: 'session', node: 'research', action: 'add_source', requestId: 'external-url', expectedVersion: 0, sourceUrl: 'https://example.com/unwanted' });
  expect(search).not.toHaveBeenCalled(); expect(result.errorCode).toBe('RESEARCH_SOURCE_POLICY_INVALID');
 });
+
+it.each(['generate_report', 'retry'] as const)('keeps mixed materials coverage eligible for independent report gates on %s', async action => {
+  const f = fixture();
+  f.state.currentNode = 'outline'; f.state.executionGoal = 'report';
+  f.state.generatedNodes = ['brief','directions','outline'];
+  f.state.outline.push({id:'uncovered',title:'Costs',questions:['What future costs?'],enabled:true,order:1});
+  f.state.sourcePolicy = {mode:'materials',domains:[],internalSourceIds:['artifact-1'],revision:1};
+  f.state.tasks = [
+    {id:'covered-task',sectionId:'o',query:'Policy',status:'pending',attempts:0,errorCode:null},
+    {id:'missing-task',sectionId:'uncovered',query:'Costs',status:'pending',attempts:0,errorCode:null},
+  ];
+  const {createHash}=await import('node:crypto');
+  const text='The approved internal policy requires permits.';
+  const url='https://internal.workspacex.local/artifacts/artifact-1';
+  const contentHash=createHash('sha256').update(text).digest('hex');
+  f.state.sources=[{id:'internal:artifact-1',taskId:'covered-task',taskIds:['covered-task'],title:'Internal policy',url,content:text,retrievedAt:'2026-11-07',decision:'accepted',document:{url,text,retrievedAt:'2026-11-07',contentHash,contentKind:'text',truncated:false}}];
+  const search=vi.fn(async()=>[]),read=vi.fn();
+  const reportInputs:string[]=[];
+  const model={complete:vi.fn(async(input:{user:string})=>{
+    const context=JSON.parse(input.user);
+    if(context.researchStage==='source_relevance') return {text:JSON.stringify({evaluations:context.chunks.map((chunk:{sourceId:string;chunkId:string;quoteOptions:{quoteRef:string}[]})=>({sourceId:chunk.sourceId,chunkId:chunk.chunkId,irrelevant:false,matches:[{questionId:context.questions[0].id,quoteRef:chunk.quoteOptions[0]!.quoteRef,insight:'Permit evidence only',relevance:'direct'}]}))})};
+    reportInputs.push(input.user);
+    // Deliberately invalid report output: partial search is admission, never publication.
+    return {text:'{}'};
+  })};
+  const access={authorizedSourceIds:vi.fn(async()=>['artifact-1']),loadAuthorizedSources:vi.fn(async()=>[{id:'artifact-1',title:'Internal policy',content:text,retrievedAt:'2026-11-07',contentHash}])};
+  const service=new GuidedRuntimeService(f.store,model,{search,read},{provider:'test',id:'test'},model,access);
+  const result=await service.execute(f.actor,f.session,{sessionId:'session',node:'outline',action,requestId:`partial-${action}`,expectedVersion:0});
+  expect(result.tasks.map(task=>task.status)).toEqual(['succeeded','failed']);
+  expect(result.tasks[1]!.errorCode).toBe('RESEARCH_SEARCH_NO_RELEVANT_SOURCES');
+  expect(result.reportPartial).toBe(true);
+  expect(result.currentNode).toBe('report');
+  expect(reportInputs.length).toBeGreaterThan(0);
+  expect(result.errorCode).not.toBe('RESEARCH_TASKS_INCOMPLETE');
+  expect(result.errorCode).not.toBeNull();expect(result.completed).toBe(false);expect(result.report).toBeNull();
+  expect(result.sources.map(source=>source.id)).toEqual(['internal:artifact-1']);
+  expect(search).not.toHaveBeenCalled();expect(read).not.toHaveBeenCalled();
+  expect(f.writes.some(state=>state.reportPartial===true&&state.currentNode==='report')).toBe(true);
+});
