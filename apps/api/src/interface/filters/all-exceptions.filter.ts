@@ -421,6 +421,9 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string; cu
 
   const researchError = research.ResearchError.safeParse(raw);
   if (researchError.success) return { reasonCode: researchError.data };
+  // Runtime-only errors come from the operation contract, not a second enum.
+  const guidedRuntimeError = research.operations.executeGuidedResearchRuntime.err.find((code) => code === raw);
+  if (guidedRuntimeError) return { reasonCode: guidedRuntimeError };
 
   /**
    * F109: `chat.ChatError`, the NINTH closed enum —— 同一个 bug 第五次发生。
