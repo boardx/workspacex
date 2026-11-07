@@ -56,7 +56,7 @@ it('does not issue a late cancellation after its monitoring budget expires',asyn
 });
 it('executes only a trusted workflow revision with no candidate artifacts or installation',()=>{
  const w=parse(readFileSync('.github/workflows/ci-fail-fast.yml','utf8'));
- expect(w.on.workflow_run.workflows).toEqual(watchedWorkflows());expect(w.on.workflow_run.types).toEqual(['in_progress']);expect(w.permissions).toEqual({contents:'read',actions:'write'});
+ expect(w.on.workflow_run.workflows).toEqual(watchedWorkflows());expect(w.on.workflow_run.types).toEqual(['in_progress']);expect(w.permissions).toEqual({contents:'read',actions:'write',checks:'write'});
  const steps=w.jobs.supervise.steps;expect(steps[0].with).toEqual({ref:'${{ github.workflow_sha }}','persist-credentials':false});expect(steps).toHaveLength(2);
  expect(JSON.stringify(steps)).not.toMatch(/download-artifact|head_sha|head_branch|npm install|pnpm install/);expect(watchedWorkflows()).not.toContain(w.name);
  for(const file of ['harness-verify','harness-acceptance','backend-gates'])expect(watchedWorkflows()).toContain(parse(readFileSync(`.github/workflows/${file}.yml`,'utf8')).name);
@@ -106,4 +106,36 @@ it('does not exempt matching scorecard names outside the manual acceptance workf
   const f=fixture();f.event.workflow_run.name=name;f.read.mockImplementation(async path=>path.includes('/jobs?')?{jobs:[{...job(),name:'chat-task-workbench'}]}:{...f.event.workflow_run});
   expect(await supervise(f)).toMatchObject({status:'cancel_requested'});
  }
+});
+
+it('publishes the actual queue failure before cancelling aggregate jobs',async()=>{
+ const candidate={...run,event:'merge_group',head_branch:'gh-readonly-queue/develop/pr-1-abcdef0'};
+ const actual={...job(),name:'fullstack-smoke',head_sha:run.head_sha};
+ const read=vi.fn(async path=>{
+  if(/\/actions\/workflows\/20$/.test(path))return {id:20,path:'.github/workflows/harness-acceptance.yml',state:'active'};
+  if(path.includes('/git/ref/'))return {object:{sha:run.head_sha}};
+  if(path.includes('/actions/jobs/'))return actual;
+  if(path.includes('/check-runs'))return {total_count:0,check_runs:[]};
+  if(path.includes('/runs?'))return {total_count:1,workflow_runs:[candidate]};
+  if(path.includes('/jobs?'))return {jobs:[actual]};
+  return candidate;
+ });
+ const write=vi.fn(async(path)=>({status:path.endsWith('/check-runs')?201:202}));
+ await expect(supervise({event:{...event(),workflow_run:candidate},repository:run.repository.full_name,read,write})).resolves.toMatchObject({status:'cancel_requested'});
+ expect(write.mock.calls.map(x=>x[0])).toEqual(['repos/boardx/workspacex/check-runs','repos/boardx/workspacex/actions/runs/10/cancel']);
+ expect(write.mock.calls[0][1]).toMatchObject({head_sha:run.head_sha,conclusion:'failure'});
+});
+it('never cancels a newer attempt that appears while an existing queue failure is inspected',async()=>{
+ const candidate={...run,event:'merge_group',head_branch:'gh-readonly-queue/develop/pr-1-abcdef0'};
+ const actual={...job(),name:'fullstack-smoke',head_sha:run.head_sha};let superseded=false;
+ const read=vi.fn(async path=>{
+  if(/\/actions\/workflows\/20$/.test(path))return {id:20,path:'.github/workflows/harness-acceptance.yml',state:'active'};
+  if(path.includes('/git/ref/'))return {object:{sha:run.head_sha}};
+  if(path.includes('/actions/jobs/'))return actual;
+  if(path.includes('/check-runs')){superseded=true;return {total_count:1,check_runs:[{external_id:`queue-reject:10:1:${run.head_sha}`,name:'queue-ready',head_sha:run.head_sha,status:'completed',conclusion:'failure',app:{slug:'github-actions'}}]};}
+  if(path.includes('/runs?'))return {total_count:1,workflow_runs:[candidate]};
+  if(path.includes('/jobs?'))return {jobs:[actual]};
+  return {...candidate,run_attempt:superseded?2:1};
+ });
+ const write=vi.fn();await expect(supervise({event:{...event(),workflow_run:candidate},repository:run.repository.full_name,read,write})).rejects.toThrow('ATTEMPT_CHANGED');expect(write).not.toHaveBeenCalled();
 });
