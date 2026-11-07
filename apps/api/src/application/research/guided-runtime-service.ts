@@ -62,6 +62,7 @@ export function assertInternalSourceAccess(requested: readonly string[], authori
 }
 type SourcePolicy = NonNullable<ResearchRuntime["sourcePolicy"]>;
 export async function searchWithSourcePolicy(search: GuidedSearchPort, query: string, policy?: SourcePolicy) {
+  if (policy?.mode === "materials") return [];
   if (!policy || policy.mode === "open") return search.search(query);
   const domains = sourcePolicyDomains(policy);
   if (!domains.length) return search.search(query);
@@ -345,7 +346,7 @@ export class GuidedRuntimeService {
       traceId: persist.requestId ?? state.sessionId, kind: "research.report.evidence_attempt", level: event.failed ? "warn" : "info",
       msg: "Report evidence validation attempt", durationMs: event.durationMs, data: { sessionId: state.sessionId, ...event },
     }), event => reportMetrics.record({ ...event, ...(["first_prose", "first_approved_chapter", "report"].includes(event.stage)
-      ? { durationMs: Math.max(0, performance.now() - reportStarted) } : {}) })) : await this.completeJson(state, node, `Generate the ${node} step. Output exactly ${node === "brief" ? '{"topic":string}' : shapes[node]}. ${node === "brief" ? "Do not repeat goal, focus, timeRange or region; the server retains the complete original brief. " : ""}${researchDesignInstruction(node)} For reports cover every enabled outline section exactly once; cite only provided accepted source IDs in sourceIds; do not put URLs or bracket citation markers in prose; state evidence limitations. When reportPartial is true, explicitly identify failed-query coverage gaps from evidenceGaps and do not claim exhaustive research.`, { brief: state.brief, ...(node === "outline" ? { directions: state.directions.filter((item) => item.enabled) } : {}), instruction }, persist, (generated) => {
+      ? { durationMs: Math.max(0, performance.now() - reportStarted) } : {}) })) : await this.completeJson(state, node, `Generate the ${node} step. Output exactly ${node === "brief" ? '{"topic":string}' : shapes[node]}. ${node === "brief" ? "Do not repeat goal, focus, timeRange or region; the server retains the complete original brief. " : ""}${researchDesignInstruction(node)} For reports cover every enabled outline section exactly once; cite only provided accepted source IDs in sourceIds; do not put URLs or bracket citation markers in prose; state evidence limitations. When reportPartial is true, explicitly identify failed-query coverage gaps from evidenceGaps and do not claim exhaustive research.`, { brief: state.brief, sourcePolicy: state.sourcePolicy ?? null, ...(node === "outline" ? { directions: state.directions.filter((item) => item.enabled) } : {}), instruction }, persist, (generated) => {
       const candidate = C.GuidedResearchRuntimeDraft.safeParse({ node, value: node === "brief"
         ? { ...state.brief, topic: (generated as Partial<ResearchRuntime["brief"]> | null)?.topic } : generated });
       if (!candidate.success) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
@@ -378,7 +379,7 @@ export class GuidedRuntimeService {
   }
   private async readSourceDocuments(state: ResearchRuntime, persist: RuntimePersistence, options: { retryTransient?: boolean; budget?: SearchBudget } = {}) {
     if (!this.search.read) return;
-    const accepted = state.sources.filter((source) => source.decision === "accepted");
+    const accepted = state.sources.filter((source) => source.decision === "accepted" && sourceAllowedByPolicy(source, state.sourcePolicy));
     await collectSourceDocuments(accepted, (url) => options.budget ? options.budget.run(signal => this.search.read!(url, { signal }), GUIDED_READ_CALL_BUDGET_MS, "RESEARCH_DOCUMENT_TIMEOUT") : this.search.read!(url), persist, { ...options, signal: options.budget?.signal });
     if (accepted.length && !accepted.some((source) => source.document)) throw new ResearchRuntimeError("RESEARCH_DOCUMENTS_UNREADABLE");
   }
@@ -389,7 +390,7 @@ export class GuidedRuntimeService {
     const planningBudget = new SearchBudget(GUIDED_PLAN_BUDGET_MS, "RESEARCH_PLAN_TIME_BUDGET_EXCEEDED", budget?.signal);
     let result: Awaited<ReturnType<typeof generateResearchPlan>>;
     try {
-      result = await generateResearchPlan({ brief: state.brief, directions: state.directions.filter((item) => item.enabled), outline: state.outline.filter((item) => item.enabled) }, state.outline.filter((item) => item.enabled).map((item) => item.id),
+      result = await generateResearchPlan({ brief: state.brief, sourcePolicy: state.sourcePolicy ?? null, directions: state.directions.filter((item) => item.enabled), outline: state.outline.filter((item) => item.enabled) }, state.outline.filter((item) => item.enabled).map((item) => item.id),
         (system, context, validate) => this.completeJson(state, "research", system, context, persist, validate, extractJson, planningBudget));
     } finally { planningBudget.dispose(); }
     invalidate(state, "research");
@@ -431,6 +432,25 @@ export class GuidedRuntimeService {
   }
   private async executeSearchWithinBudget(state: ResearchRuntime, persist: RuntimePersistence, internalSources: Awaited<ReturnType<GuidedInternalSourceAccessPort["loadAuthorizedSources"]>>, budget: SearchBudget, search: GuidedSearchPort) {
     appendActivity(state, "searching", "按来源策略开始检索", "started");
+    if (state.sourcePolicy?.mode === "materials") {
+      if (!state.tasks.length) state.tasks = tasksFromConfirmedQuestions(state);
+      await this.addInternalSources(state, internalSources, persist);
+      // Tightening the active material boundary cannot carry outside source text into screening.
+      state.sources = state.sources.filter(source => sourceAllowedByPolicy(source, state.sourcePolicy));
+      await persist();
+      if (!state.sources.some(source => source.decision === "accepted" && source.document)) throw new ResearchRuntimeError("RESEARCH_SOURCES_REQUIRED");
+      await this.reviewSources(state, persist, budget);
+      for (const task of state.tasks) {
+        const covered = state.sources.some(source => source.decision === "accepted" && source.document && sourceTaskIds(source).includes(task.id));
+        task.status = covered ? "succeeded" : "failed";
+        task.errorCode = covered ? null : "RESEARCH_SEARCH_NO_RELEVANT_SOURCES";
+      }
+      if (!state.generatedNodes.includes("research")) state.generatedNodes.push("research");
+      appendActivity(state, "searching", "已按本次材料完成来源筛选，未访问外部网页", "succeeded");
+      await persist();
+      if (state.tasks.some(task => task.status === "failed")) throw new ResearchRuntimeError("RESEARCH_SEARCH_PARTIAL_FAILURE");
+      return;
+    }
     // A previous command may have finalized after a progress write failed. This
     // explicit search entry also covers approved start/retry proposals.
     for (const task of state.tasks) {
@@ -505,6 +525,7 @@ export class GuidedRuntimeService {
     }
     if (!command.sourceUrl || command.sourceUrl.length > 1000) throw new ResearchRuntimeError("RESEARCH_SOURCE_URL_INVALID");
     const url = normalizedSourceUrl(command.sourceUrl);
+    if (!sourceAllowedByPolicy({ url }, state.sourcePolicy)) throw new ResearchRuntimeError("RESEARCH_SOURCE_POLICY_INVALID");
     const existing = state.sources.find((source) => normalizedSourceUrl(source.url) === url);
     if (existing) {
       if (existing.decision === "accepted" && existing.addedByUser) return;

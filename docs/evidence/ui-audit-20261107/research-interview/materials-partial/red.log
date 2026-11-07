@@ -1,0 +1,36 @@
+
+ RUN  v2.1.9 /private/tmp/fix-6372-material-partial/apps/api
+
+ ❯ tests/research/guided-runtime-orchestration.test.ts (12 tests | 2 failed | 10 skipped) 35ms
+   × keeps mixed materials coverage eligible for independent report gates on generate_report 29ms
+     → expected false to be true // Object.is equality
+   × keeps mixed materials coverage eligible for independent report gates on retry 5ms
+     → expected false to be true // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/research/guided-runtime-orchestration.test.ts > keeps mixed materials coverage eligible for independent report gates on generate_report
+ FAIL  tests/research/guided-runtime-orchestration.test.ts > keeps mixed materials coverage eligible for independent report gates on retry
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/research/guided-runtime-orchestration.test.ts:206:32
+    204|   expect(result.tasks.map(task=>task.status)).toEqual(['succeeded','fa…
+    205|   expect(result.tasks[1]!.errorCode).toBe('RESEARCH_SEARCH_NO_RELEVANT…
+    206|   expect(result.reportPartial).toBe(true);
+       |                                ^
+    207|   expect(result.currentNode).toBe('report');
+    208|   expect(reportInputs.length).toBeGreaterThan(0);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 10 skipped (12)
+   Start at  02:19:29
+   Duration  1.81s (transform 1.06s, setup 0ms, collect 1.59s, tests 35ms, environment 0ms, prepare 52ms)
+

@@ -47,6 +47,13 @@ export class PgGuidedRuntimeStore implements GuidedRuntimeStore {
       if (state.busy && Date.parse(state.leaseUntil ?? "") > Date.now()) throw new ResearchRuntimeError("RESEARCH_WORKFLOW_BUSY");
       if (state.version !== command.expectedVersion) throw new ResearchRuntimeError("RESEARCH_GRAPH_VERSION_CONFLICT");
       if (!state.availableNodes.includes(command.node)) throw new ResearchRuntimeError("RESEARCH_NODE_LOCKED");
+      // Version zero can also restore a legacy later stage. Only the actual initial
+      // runtime may bootstrap policy; matching request replays have already returned.
+      if (command.action === "refine_source_policy" && command.node === "brief"
+        && (state.version !== 0 || state.currentNode !== "brief" || state.legacyCheckpoint != null
+          || state.availableNodes.length !== 1 || state.availableNodes[0] !== "brief")) {
+        throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
+      }
       if (state.busy) {
         state.tasks = state.tasks.map((task) => ({
           ...task,

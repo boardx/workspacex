@@ -1,4 +1,5 @@
 // Explicit HTTP provider double for the full-stack research test, never a runtime fallback.
+import { research as C } from "@repo/contracts";
 export function guidedResearchReply(system: string, user: string): string | null {
   if (!system.includes("You are a research assistant.") && !system.includes("You are an independent evidence reviewer.")) return null;
   const context = JSON.parse(user);
@@ -7,8 +8,14 @@ export function guidedResearchReply(system: string, user: string): string | null
     return { sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant,
       matches: irrelevant ? [] : chunk.questionIds.map((questionId) => ({ questionId, quoteRef: chunk.quoteOptions[0]!.quoteRef, insight: "受控测试摘要提供该任务的政策证据。", relevance: "direct" })) };
   }) });
-  const node = context.reportStage ? "report" : system.includes("Create a concrete web research plan") ? "research" : /Generate the (\w+) step/.exec(system)?.[1] ?? context.targetNode;
+  const materialsPlan = context.sourcePolicy?.mode === "materials" && system.includes("Create a concrete supplied-material analysis plan");
+  const node = context.reportStage ? "report" : (materialsPlan || system.includes("Create a concrete web research plan")) ? "research" : /Generate the (\w+) step/.exec(system)?.[1] ?? context.targetNode;
   let value: unknown = context.brief;
+  // Controlled topic derivation for the default-name UI lane; no model-quality claim.
+  if (node === "brief" && context.brief.topic.trim() === C.DEFAULT_RESEARCH_NAME) {
+    const goal = context.brief.goal.trim();
+    value = { topic: (goal.split(/[。！？.!?\n]/u).map((part: string) => part.trim()).find(Boolean) ?? goal).slice(0, C.GuidedResearchBrief.shape.topic.maxLength!) };
+  }
   if (node === "directions") value = [{ id: "d-e2e", title: "并网政策", description: "核对实际并网要求", enabled: true, order: 0 }];
   if (node === "outline") value = [
     { id: "o-e2e", title: "并网政策研究", questions: ["政策有哪些要求？"], enabled: true, order: 0 },
@@ -21,6 +28,16 @@ export function guidedResearchReply(system: string, user: string): string | null
     objective: "明确政策约束对进入决策的影响", analysisApproach: "比较适用范围并区分已证实要求与缺口", expectedOutput: "带证据局限的实施建议",
     subsections: ["Evidence", "Analysis", "Recommendations"].map((title, index) => ({ id: `${item.id}-${index}`, title, questions: [["政策证据说明什么？"], ["对项目有什么影响？"], ["下一步需要验证什么？"]][index] })) }));
   if (node === "research") value = { overview: "核对并网政策与执行差异", optimizedQuestion: "哪些并网政策证据支持进入决策？", tasks: context.outline.map((section: { id: string }) => ({ sectionId: section.id, title: "核对政策证据", objective: "比较官方并网政策与实际执行", deliverables: ["政策依据和执行限制"], query: "grid storage policy evidence" })) };
+  // This is an analysis plan, not a claim that material exists or has been verified.
+  // The real materials runtime still enforces authorized sources and missing-evidence gates.
+  if (node === "research" && materialsPlan) value = {
+    overview: "仅分析本次授权材料，材料不足时保留缺口",
+    optimizedQuestion: "本次材料能支持哪些结论，哪些问题仍缺少证据？",
+    tasks: context.outline.map((section: { id: string; title: string }) => ({
+      sectionId: section.id, title: "分析本次材料", objective: `核对本次材料对${section.title}的支持与缺口`,
+      deliverables: ["材料支持的分析与证据缺口"], query: `分析本次材料：${section.title}`,
+    })),
+  };
   if (node === "report" && ["chapter", "chapter_revision"].includes(context.reportStage)) {
     const id = context.sources[0].alias ?? context.sources[0].id;
     value = { sectionId: context.section.id, body: [

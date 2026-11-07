@@ -1024,7 +1024,7 @@ export const GuidedResearchIntent = z.object({
   successCriteria: z.array(z.string().trim().min(1).max(1000)).min(1).max(20),
 }).strict();
 export const GuidedResearchSourcePolicy = z.object({
-  mode: z.enum(["restrict", "prioritize", "open"]),
+  mode: z.enum(["restrict", "prioritize", "open", "materials"]),
   domains: z.array(z.string().trim().min(1).max(253)).max(50),
   internalSourceIds: z.array(z.string().min(1)).max(100),
   revision: z.number().int().nonnegative(),
@@ -1154,7 +1154,11 @@ export const GuidedResearchRuntimeCommand = z.object({
 }, "composite execution requires an authorized stage and explicit same-stage draft, without partial or steering overrides")
 .refine((command) => command.action !== "save_chapters" || (command.node === "outline" && command.draft?.node === "outline" && !command.message && !command.proposalId), "chapter saves require an explicit outline draft").refine((command) => command.allowPartialResearch === undefined || (command.node === "research" && ["confirm", "complete"].includes(command.action)), "partial research requires explicit research completion").refine((command) => !command.draft || command.node === command.draft.node, "draft must target the requested node")
   .refine((command) => !["pause", "resume", "refine_scope", "refine_source_policy", "resolve_conflict"].includes(command.action)
-    || ((command.action === "refine_scope" ? ["outline", "research"].includes(command.node) : ["pause", "resume"].includes(command.action) ? ["research", "report"].includes(command.node) : command.node === "research")
+    || ((command.action === "refine_scope" ? ["outline", "research"].includes(command.node) : ["pause", "resume"].includes(command.action) ? ["research", "report"].includes(command.node)
+      : command.node === "research" || (command.action === "refine_source_policy" && command.node === "brief"
+        && command.expectedVersion === 0 && command.expectedRevision === 0 && command.sourcePolicy?.revision === 1
+        && [command.draft, command.message, command.proposalId, command.intent, command.sourceUrl, command.sourceId,
+          command.conflictId, command.conflictResolution, command.conflictResolutionAction, command.allowPartialResearch].every(value => value === undefined)))
       && command.expectedRevision !== undefined && Boolean(command.idempotencyKey)), "steering commands require an editable plan node, expected revision and idempotency key")
   .refine((command) => command.action !== "refine_source_policy" || Boolean(command.sourcePolicy), "source policy refinement requires a source policy")
   .refine((command) => command.action !== "resolve_conflict" || (command.node === "research" && Boolean(command.conflictId) && Boolean(command.conflictResolutionAction) && Boolean(command.conflictResolution)

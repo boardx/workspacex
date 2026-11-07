@@ -1,0 +1,33 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/api
+
+ ❯ tests/research/guided-runtime-orchestration.test.ts (7 tests | 1 failed | 6 skipped) 13ms
+   × explicit materials-only research > persists materials policy and never invokes external search or reading 12ms
+     → expected false to be true // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/research/guided-runtime-orchestration.test.ts > explicit materials-only research > persists materials policy and never invokes external search or reading
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/research/guided-runtime-orchestration.test.ts:140:68
+    138|     const f = fixture();
+    139|     const policy = { mode: 'materials', domains: [], internalSourceIds…
+    140|     expect(C.GuidedResearchSourcePolicy.safeParse(policy).success).toB…
+       |                                                                    ^
+    141|     f.state.sourcePolicy = C.GuidedResearchSourcePolicy.parse(policy);
+    142|     f.state.tasks = [{ id: 't', sectionId: 'o', query: 'must not searc…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 6 skipped (7)
+   Start at  03:55:52
+   Duration  2.03s (transform 1.21s, setup 0ms, collect 1.83s, tests 13ms, environment 0ms, prepare 46ms)
+

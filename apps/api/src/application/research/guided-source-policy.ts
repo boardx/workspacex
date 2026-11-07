@@ -14,12 +14,13 @@ export function internalSourceReference(id: string) {
   return { id: `${internalIdPrefix}${id}`, url: `${internalOrigin}/artifacts/${encodeURIComponent(id)}` };
 }
 export function sourceAllowedByPolicy(source: { url: string; id?: string }, policy?: Policy): boolean {
-  if (!policy || policy.mode !== "restrict") return true;
+  if (!policy || (policy.mode !== "restrict" && policy.mode !== "materials")) return true;
   const domains = sourcePolicyDomains(policy);
   if (policy.internalSourceIds.some((id) => {
     const reference = internalSourceReference(id);
     return source.id === reference.id && source.url === reference.url;
   })) return true;
+  if (policy.mode === "materials") return false;
   const url = new URL(source.url);
   if (source.id?.startsWith(internalIdPrefix) || url.hostname.replace(/\.$/, "") === new URL(internalOrigin).hostname) return false;
   const host = url.hostname.toLowerCase().replace(/^www\./, "");

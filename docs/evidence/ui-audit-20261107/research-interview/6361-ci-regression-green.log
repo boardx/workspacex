@@ -1,0 +1,24 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+
+stderr | tests/ui/guided-research-home-live.test.tsx > F168 guided research home live data > renders server history and resumes from the server-authored stage
+Not implemented: navigation to another Document
+
+ ✓ tests/ui/guided-research-home-live.test.tsx (32 tests) 2655ms
+ ✓ tests/ui/research-production-routes.test.tsx (26 tests) 2067ms
+   ✓ imports a text file into the requirement while preserving existing input 497ms
+ ✓ tests/ui/research-entry-i18n.test.tsx (11 tests) 1236ms
+   ✓ research entry locale is presentation-only > translates list status/actions while preserving raw data, filtering, sorting and request count 482ms
+ ✓ tests/ui/guided-research-flow.test.tsx (21 tests) 2622ms
+   ✓ guided research session routing and lifecycle > shows the research plan without the removed scope cards 319ms
+   ✓ guided research session routing and lifecycle > preserves an unsent assistant message when leaving is cancelled 358ms
+   ✓ guided research session routing and lifecycle > guards browser history navigation while an assistant message is unsent 406ms
+ ✓ tests/ui/research-intake-source-mode.test.tsx (6 tests) 473ms
+ ✓ tests/guided-research-bootstrap.test.ts (1 test) 2ms
+
+ Test Files  6 passed (6)
+      Tests  97 passed (97)
+   Start at  05:45:48
+   Duration  25.60s (transform 3.28s, setup 980ms, collect 9.47s, tests 9.06s, environment 3.79s, prepare 509ms)
+

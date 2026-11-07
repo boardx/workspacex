@@ -48,7 +48,7 @@ export async function generateResearchPlan(context: object, allowedSectionIds: s
   let repair: { previousOutput: string; issues: Issue[]; allowedSectionIds: string[] } | undefined;
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const value = await complete(instruction, { ...context, allowedSectionIds, ...(repair ? { repair } : {}) }, (output) => { parsePlan(output, allowedSectionIds); });
+      const value = await complete((context as { sourcePolicy?: { mode: string } }).sourcePolicy?.mode === "materials" ? instruction.replace("concrete web research plan", "concrete supplied-material analysis plan (external web retrieval is forbidden; identify missing material explicitly)") : instruction, { ...context, allowedSectionIds, ...(repair ? { repair } : {}) }, (output) => { parsePlan(output, allowedSectionIds); });
       return parsePlan(value, allowedSectionIds);
     } catch (error) {
       if (!(error instanceof InvalidPlanOutput) || attempt === 1) throw error;

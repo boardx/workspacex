@@ -13,13 +13,13 @@ import { runtimeFixture } from "../guided-runtime-fixture";
 import { InterviewVoiceInput } from "@/components/itv/interview-voice-input";
 import type { AsrDraftStreamHandlers } from "@/lib/live-asr-draft";
 
-const api = vi.hoisted(() => ({ list: vi.fn(), create: vi.fn(), runtime: vi.fn(), skill: vi.fn(), voice: vi.fn() }));
+const api = vi.hoisted(() => ({ list: vi.fn(), create: vi.fn(), runtime: vi.fn(), execute: vi.fn(), skill: vi.fn(), voice: vi.fn() }));
 vi.mock("@/lib/live-asr-draft", async (original) => ({ ...await original<typeof import("@/lib/live-asr-draft")>(), openAsrDraftStream: api.voice }));
 let voiceHandlers: AsrDraftStreamHandlers;
 vi.mock("@/lib/guided-research-api", async (original) => ({
   ...await original<typeof import("@/lib/guided-research-api")>(),
   listGuidedResearchSessions: api.list, createGuidedResearchSession: api.create,
-  getResearchRuntime: api.runtime, runGuidedResearchSkillTurn: api.skill,
+  getResearchRuntime: api.runtime, executeResearchRuntime: api.execute, runGuidedResearchSkillTurn: api.skill,
 }));
 
 function Language() {
@@ -42,6 +42,10 @@ function session(overrides: Partial<GuidedResearchSession> = {}): GuidedResearch
 beforeEach(() => {
   vi.clearAllMocks(); localStorage.clear(); sessionStorage.clear();
   api.list.mockResolvedValue({ items: [] }); api.runtime.mockResolvedValue({ ...runtimeFixture("brief", "created"), version: 0 });
+  api.execute.mockImplementation(async (input) => {
+    const previous = await api.runtime.mock.results.at(-1)?.value;
+    return { ...previous, version: previous.version + 1, sourcePolicy: input.sourcePolicy, errorCode: null };
+  });
   vi.stubGlobal("WebSocket", class {}); vi.stubGlobal("AudioContext", class {});
   Object.defineProperty(navigator, "mediaDevices", { configurable: true, value: { getUserMedia: vi.fn() } });
   api.voice.mockImplementation(async (handlers: AsrDraftStreamHandlers) => { voiceHandlers = handlers; return { stop: async () => undefined }; });
@@ -131,6 +135,9 @@ describe("research entry locale is presentation-only", () => {
     expect(api.create).toHaveBeenCalledTimes(1); expect(api.create.mock.calls[0]![0]).toBe(submitted);
     await act(async () => finish(session({ sessionId: "created" })));
     await waitFor(() => expect(navigate).toHaveBeenCalledWith("outline", "created"));
+    expect(api.execute).toHaveBeenCalledTimes(1);
+    expect(api.execute.mock.calls[0]![0]).toMatchObject({ sessionId: "created", action: "refine_source_policy", sourcePolicy: { mode: "open" } });
+    expect(api.execute.mock.invocationCallOrder[0]!).toBeLessThan(navigate.mock.invocationCallOrder[0]!);
   });
 
   it("retranslates import validation and retains the original requirement", async () => {
