@@ -760,7 +760,7 @@ test("report stream exposes partial output before completion and survives stage 
 /** Append to research-quality.spec.ts only after integration source is restored.
  * UI contract: routed envelopes and deferred synthetic model response; no external LLM/DB claim.
  */
-test("expert confirmation shows question generation then automatically starts saved questions once", async ({ page }, testInfo) => {
+test("expert confirmation generates draft questions and starts saved questions once after user confirmation", async ({ page }, testInfo) => {
   const expertId = "direct-start-expert";
   const expertMarkdown = `# 专家选择\n\n## [合成护理专家](#expert-${expertId})\n\n仅供受控流程验证。`;
   let current = interviewMarkdown.InterviewMarkdownEnvelope.parse({ ...source,
@@ -824,6 +824,12 @@ test("expert confirmation shows question generation then automatically starts sa
   expect(outlineConfirmCalls).toBe(0); expect(starts).toBe(0);
   await captureRuntimeEvidence(page, testInfo, "questions-generating-before-direct-start.png");
   resolveGeneration();
+  await expect(page.getByRole("textbox", { name: "编辑问题 1", exact: true })).toHaveValue("上次交接发生了什么？");
+  await expect(page).toHaveURL(/\/outline$/u);
+  expect(outlineConfirmCalls).toBe(0); expect(starts).toBe(0);
+  expect(current.states.find(state => state.documentId === "direct-start-outline")?.status).toBe("draft");
+  expect(sequence).toEqual(["experts-confirm", "outline-generate"]);
+  await page.getByRole("button", { name: "确认问题并开始访谈", exact: true }).click();
   await expect(page).toHaveURL(/\/runs$/u);
   await expect.poll(() => starts).toBe(1);
   expect(outlineConfirmCalls).toBe(1);
