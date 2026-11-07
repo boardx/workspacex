@@ -51,13 +51,25 @@ it('keeps both real selected browser producers inside heavy E2E resource admissi
 
 it.each([['full-regression-core','base'],['e2e-full','e2e']])('accepts actual %s workflow needs in both regression modes',(name,kind)=>{
  const job=load('harness-acceptance').jobs[name];
- for(const mode of ['full','targeted-ui']){
+ for(const event of ['pull_request','merge_group','workflow_dispatch'])for(const mode of ['full','targeted-ui']){
   const selected=kind==='base'?['base-compile','base-control-plane',...UI_PRODUCERS]:['full-regression-core',...UI_PRODUCERS];
+  const apiProducers=['base-api-plan','base-api-shards','base-api-exclusive'];
+  // Producer conditions are the source of activation; baseline and dedup queue
+  // topologies differ, while the route checker must agree with its own workflow.
+  const probe={eventName:event,ref:'refs/heads/develop',baseBranch:'develop',regressionMode:'targeted-ui'};
+  const apiActive=apiProducers.filter(producer=>{
+   const activation=evaluateIf(load('harness-acceptance').jobs[producer].if,probe,{needsResults:new Map([['doc-smoke-scope','success'],['base-api-plan','success'],['base-api-shards','success']])});
+   expect([true,false]).toContain(activation);return activation===true;
+  });
+  if(kind==='base')selected.push(...apiActive);
   const actual=Object.fromEntries(job.needs.map((key:string)=>{
    if(key==='doc-smoke-scope')return [key,{result:'success',outputs:{mode,plan_digest:'a'.repeat(64)}}];
    const active=mode==='full'?!UI_PRODUCERS.includes(key):selected.includes(key);
    return [key,{result:active?'success':'skipped',outputs:active?{verdict:'success'}:{}}];
   }));
-  expect(requireRoute(kind,actual).mode).toBe(mode);
+  expect(requireRoute(kind,actual,event).mode).toBe(mode);
+  if(kind==='base'&&mode==='targeted-ui')for(const producer of apiActive)for(const result of ['failure','cancelled','skipped']){
+   expect(()=>requireRoute(kind,{...actual,[producer]:{...actual[producer],result}},event)).toThrow('ROUTED_PRODUCER_REJECTED');
+  }
  }
 });
