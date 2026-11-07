@@ -1,0 +1,22 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/2e5d/workspacex
+
+ ✓ .harness/scripts/ci-base-api.test.ts (25 tests) 636ms
+ ✓ .harness/scripts/ci-api-shards.test.ts (17 tests) 8767ms
+   ✓ API isolated shard coverage > verifies actual complete Vitest discovery using the installed sequencer 2416ms
+   ✓ preserves two real workspace projects sharing the same module through disjoint shards 2103ms
+   ✓ actually collects exclusive files once and rejects both missing exclusion and missing exclusive include 4206ms
+ ✓ .harness/scripts/lint-ci-python-runtime.test.ts (6 tests) 8ms
+ ✓ .harness/scripts/lint-ci-workflow-concurrency.test.ts (20 tests) 29ms
+ ✓ .harness/scripts/ci-web-shards.test.ts (3 tests) 10284ms
+   ✓ covers actual Web ts and tsx identities exactly 1745ms
+   ✓ runs exact real fixture shards and rejects missing, duplicate and tampered evidence 8534ms
+ ✓ .harness/scripts/ci-targeted-wiring.test.ts (6 tests) 321ms
+ ✓ .harness/scripts/ci-targeted-routing.test.ts (4 tests) 485ms
+   ✓ actual CLI retains full prerequisites and cannot accept UI merely from green job results 437ms
+
+ Test Files  7 passed (7)
+      Tests  81 passed (81)
+   Start at  04:14:25
+   Duration  28.19s (transform 695ms, setup 0ms, collect 2.01s, tests 20.53s, environment 2ms, prepare 1.33s)
+

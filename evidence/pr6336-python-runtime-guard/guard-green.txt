@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/2e5d/workspacex
+
+ ✓ .harness/scripts/lint-ci-python-runtime.test.ts (6 tests) 10ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  04:10:48
+   Duration  1.66s (transform 137ms, setup 0ms, collect 666ms, tests 10ms, environment 0ms, prepare 142ms)
+

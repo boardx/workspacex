@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -158,4 +158,144 @@ test('a validated local UI plan executes the selected real unit runner instead o
 test('a selected unit failure cannot turn into an empty or successful affected run',()=>{
  const r=recording([],{env:{GITHUB_SHA:'a'.repeat(40),GITHUB_RUN_ID:'12',GITHUB_RUN_ATTEMPT:'1',RUNNER_TEMP:'/runner/temp'},targetedPlan:()=>({mode:'targeted-ui'}),runSelectedUnit:()=>{throw Error('actual selected failure')}});
  assert.throws(()=>r.run(),/actual selected failure/);
+});
+
+test('web shards execute the whole selected web task with dependency builds and never other packages', () => {
+  for (const fork of ['true', 'false']) {
+    for (const shard of ['1/4', '2/4', '3/4', '4/4']) {
+      const r = recording([web, cloud, {taskId:'@repo/api#test',command:'vitest run'}], { env: { IS_FORK_PR: fork, CI_AFFECTED_WEB_SHARD: shard, PLAYWRIGHT_BROWSERS_PATH: '/runner/browsers' } });
+      r.run();
+      assert.equal(r.calls.length, 3);
+      assert.deepEqual(r.calls[2].args, ['turbo', 'run', 'test', '--filter=web', '--', `--shard=${shard}`, '--bail=1']);
+    }
+  }
+});
+test('web shards do no test work when executable web task is not affected', () => {
+  const r = recording([cloud], { env: { CI_AFFECTED_WEB_SHARD: '1/4' } }); r.run();
+  assert.equal(r.calls.length, 1);
+});
+test('invalid web shard cannot fall back to repeated full affected execution', () => {
+  for (const shard of ['0/4', '5/4', '1/3', '1', '1/4 --passWithNoTests']) {
+    const r = recording([], { env: { CI_AFFECTED_WEB_SHARD: shard } });
+    assert.throws(r.run, /INVALID_WEB_SHARD/);
+  }
+});
+test('aggregate excludes web only after all dedicated web producers succeeded, preserving fork API fallback', () => {
+  for (const fork of ['true', 'false']) {
+    const r = recording([web], { env: { IS_FORK_PR: fork, CI_AFFECTED_WEB_SHARDS_RESULT: 'success' }, coreCli: () => { throw Error('web preparation belongs to shards'); } });
+    r.run(); assert.equal(r.calls.length, 2);
+    assert.deepEqual(r.calls[1].args, [...r.calls[0].args.slice(0, -1), '--filter=!web', '--', '--bail=1']);
+    assert.equal(r.calls[1].args.includes('--filter=!@repo/api'), fork === 'false');
+  }
+});
+test('failed, cancelled, missing or skipped producers cannot yield a full-route aggregate success', () => {
+  for (const result of ['failure', 'cancelled', '', 'skipped', 'unknown']) {
+    const r = recording([], { env: { CI_AFFECTED_WEB_SHARDS_RESULT: result } });
+    assert.throws(r.run, /WEB_SHARDS_NOT_SUCCESSFUL/);
+  }
+});
+
+test('stable aggregate requires every web shard and fails closed on missing producer evidence', async () => {
+  const { parse } = await import('yaml');
+  const w = parse(readFileSync(new URL('../workflows/harness-verify.yml', import.meta.url), 'utf8'));
+  const shard = w.jobs['verify-web-tests'], aggregate = w.jobs['verify-affected'];
+  assert.deepEqual(shard.strategy.matrix.shard, [1, 2, 3, 4]);
+  assert.equal(shard.strategy['fail-fast'], true);
+  assert.equal(shard['continue-on-error'], undefined);
+  assert.equal(shard.needs, 'doc-smoke-scope');
+  const { sealedImage } = await import('../../.harness/scripts/ci-fullstack-runtime.mjs');
+  const catalog = JSON.parse(readFileSync(new URL('../../.harness/playwright-runtime-images.json', import.meta.url), 'utf8'));
+  const requireWeb = createRequire(new URL('../../apps/web/package.json', import.meta.url));
+  assert.equal(shard.container.image, sealedImage(requireWeb('playwright-core/package.json').version, catalog));
+  assert.equal(shard['runs-on'], 'ubuntu-24.04');
+  assert.match(shard.if, /github.event_name != 'pull_request' \|\| needs.doc-smoke-scope.outputs.mode != 'targeted-ui'/);
+  assert.deepEqual(aggregate.needs, ['doc-smoke-scope', 'verify-web-tests']);
+  assert.match(aggregate.if, /^always\(\)/);
+  const step = shard.steps.find(s => s.name === 'Complete affected web test shard');
+  const remaining = aggregate.steps.find(s => s.name === '受影响模块 test');
+  assert.equal(step.run, 'node .github/scripts/run-affected-tests.mjs');
+  assert.equal(step.env.CI_AFFECTED_WEB_SHARD, '${{ matrix.shard }}/4');
+  assert.equal(remaining.env.CI_AFFECTED_WEB_SHARDS_RESULT, '${{ needs.verify-web-tests.result }}');
+  for (const key of ['TURBO_SCM_BASE', 'WORKSPACEX_DB', 'IS_FORK_PR']) assert.equal(step.env[key], remaining.env[key]);
+  assert.equal(shard.steps[0].with['fetch-depth'], 0);
+  const guard = aggregate.steps[0];
+  assert.equal(guard['continue-on-error'], undefined);
+  assert.equal(guard.if, undefined);
+  const command = /^node -e "([^"]+)"$/.exec(guard.run.trim());
+  assert.ok(command, 'guard must remain one directly executable Node expression');
+  const evaluateGuard = new Function('process', command[1]);
+  for (const event of ['pull_request', 'merge_group', 'push']) for (const scope of ['success', 'failure', 'cancelled', 'skipped', '']) {
+    for (const mode of ['full', 'targeted-ui', 'unknown', '']) {
+      for (const webResult of ['success', 'failure', 'cancelled', 'skipped', '']) {
+        let passed = true;
+        try { evaluateGuard({env: {EVENT_NAME: event, SCOPE_RESULT: scope, SCOPE_MODE: mode, WEB_RESULT: webResult}, exit:()=>{throw Error('rejected');}}); } catch { passed = false; }
+        assert.equal(passed, scope === 'success' && webResult === (event === 'pull_request' && mode === 'targeted-ui' ? 'skipped' : 'success'));
+      }
+    }
+  }
+});
+
+test('installed Vitest executes four disjoint shards with the exact complete test union', async () => {
+  const { mkdtempSync, writeFileSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const directory = mkdtempSync(join(tmpdir(), 'wsx-web-shard-proof-'));
+  const cli = fileURLToPath(new URL('../../node_modules/vitest/vitest.mjs', import.meta.url));
+  try {
+    writeFileSync(join(directory, 'vitest.config.mjs'), 'export default {test:{include:["*.test.js"],globals:true,maxWorkers:1,minWorkers:1}}');
+    for (let i = 0; i < 8; i++) writeFileSync(join(directory, `${i}.test.js`), `test('case ${i}',()=>expect(${i}+1).toBe(${i+1}));`);
+    const seen = new Set();
+    for (let shard = 1; shard <= 4; shard++) {
+      const output = join(directory, `${shard}.json`);
+      const r = spawnSync(process.execPath, [cli, 'run', `--shard=${shard}/4`, '--reporter=json', `--outputFile=${output}`, '--bail=1'], { cwd: directory, encoding: 'utf8', timeout: 15000 });
+      assert.ifError(r.error); assert.equal(r.status, 0, r.stderr);
+      const report = JSON.parse(readFileSync(output, 'utf8'));
+      assert.equal(report.success, true); assert.equal(report.numTotalTests, 2);
+      for (const result of report.testResults) { assert.ok(!seen.has(result.name)); seen.add(result.name); }
+    }
+    assert.deepEqual([...seen].map(name => basename(name)).sort(), Array.from({length:8},(_,i)=>`${i}.test.js`));
+    const config = readFileSync(new URL('../../apps/web/vitest.config.ts', import.meta.url), 'utf8');
+    assert.doesNotMatch(config, /\bsequencer\s*:/);
+    assert.equal(JSON.parse(readFileSync(new URL('../../apps/web/package.json', import.meta.url), 'utf8')).scripts.test, 'vitest run');
+  } finally { rmSync(directory, {recursive:true,force:true}); }
+});
+
+
+test('sealed web shards probe the installed browser without APT or browser downloads', () => {
+  const r = recording([web], { env: {CI_AFFECTED_WEB_SHARD:'1/4',CI_AFFECTED_BROWSER_PREINSTALLED:'1',PLAYWRIGHT_BROWSERS_PATH:'/ms-playwright'}, coreCli:()=>{throw Error('no installation');} });
+  r.run(); assert.equal(r.calls.length, 3);
+  assert.match(r.calls[1].args.at(-1), /chromium.launch/);
+  assert.ok(!JSON.stringify(r.calls).includes('--with-deps'));
+});
+test('merge-group web shards force complete selection instead of repeating targeted unit proofs', () => {
+  let options;
+  const r = recording([], {env:{CI_AFFECTED_WEB_SHARD:'1/4',CI_AFFECTED_WEB_FORCE_FULL:'true'},targetedPlan:input=>{options=input;return {mode:'full'};}});
+  r.run(); assert.equal(options.enabled,false);
+});
+
+test('container runtime trusts only its checkout under the active Git global config', async () => {
+  const { parse } = await import('yaml');
+  const { mkdtempSync, mkdirSync, realpathSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const w = parse(readFileSync(new URL('../workflows/harness-verify.yml', import.meta.url), 'utf8'));
+  const steps = w.jobs['verify-web-tests'].steps;
+  const trust = steps.find(s => s.name === 'Trust checkout under container runtime HOME');
+  assert.ok(trust);
+  assert.equal(trust.if, undefined); assert.equal(trust['continue-on-error'], undefined);
+  assert.ok(steps.indexOf(trust) > steps.findIndex(s => s.uses?.startsWith('actions/checkout@')));
+  assert.ok(steps.indexOf(trust) < steps.findIndex(s => s.name === 'Complete affected web test shard'));
+  const directory = realpathSync(mkdtempSync(join(tmpdir(), 'wsx-git-owner-')));
+  try {
+    const checkout = join(directory, 'checkout'), unrelated = join(directory, 'unrelated');
+    mkdirSync(checkout); mkdirSync(unrelated);
+    const env = {...process.env,GIT_CONFIG_GLOBAL:join(directory,'runtime.gitconfig'),GIT_CONFIG_NOSYSTEM:'1',GIT_TEST_ASSUME_DIFFERENT_OWNER:'1',GITHUB_WORKSPACE:checkout};
+    for (const cwd of [checkout, unrelated]) {
+      const init = spawnSync('git', ['init','--quiet'], {cwd,env,encoding:'utf8'}); assert.equal(init.status,0,init.stderr);
+      const before = spawnSync('git', ['status','--porcelain'], {cwd,env,encoding:'utf8'});
+      assert.notEqual(before.status,0); assert.match(before.stderr,/dubious ownership/);
+    }
+    const fix = spawnSync('sh',['-ec',trust.run],{cwd:checkout,env,encoding:'utf8'}); assert.equal(fix.status,0,fix.stderr);
+    const after = spawnSync('git',['status','--porcelain'],{cwd:checkout,env,encoding:'utf8'});assert.equal(after.status,0,after.stderr);
+    const other = spawnSync('git',['status','--porcelain'],{cwd:unrelated,env,encoding:'utf8'});assert.notEqual(other.status,0);assert.match(other.stderr,/dubious ownership/);
+    const entries=spawnSync('git',['config','--global','--get-all','safe.directory'],{env,encoding:'utf8'});assert.equal(entries.stdout.trim(),checkout);
+  } finally {rmSync(directory,{recursive:true,force:true});}
 });

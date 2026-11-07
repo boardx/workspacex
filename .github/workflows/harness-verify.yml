@@ -399,10 +399,57 @@ jobs:
   # 与 verify-control-plane 并行——两者互不依赖（一个测控制平面本身，一个测
   # 业务包），拆开跑 wall-clock ≈ 两者较慢的那个，不是相加。这是本 issue
   # 唯一动的并行拆分，见上面 verify-control-plane 顶部注释里的范围说明。
+  # Complete affected web suite across independent runners; the stable aggregate below
+  # fails if any producer fails. Browser assertions and Turbo dependency builds stay real.
+  verify-web-tests:
+    needs: doc-smoke-scope
+    if: github.event_name != 'schedule' && github.event_name != 'workflow_dispatch' && (github.event_name != 'pull_request' || needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright@sha256:02bbb2155cd7109e3e9c741941097ed1608cf8b6fa44ee2595896da2bdc1f471
+    timeout-minutes: 20
+    strategy:
+      fail-fast: true
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Trust checkout under container runtime HOME
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git rev-parse --show-toplevel
+      - name: Complete affected web test shard
+        env:
+          TURBO_SCM_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event_name == 'merge_group' && github.event.merge_group.base_sha || github.event.before }}
+          WORKSPACEX_DB: workspacex
+          PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+          CI_AFFECTED_BROWSER_PREINSTALLED: "1"
+          CI_AFFECTED_WEB_FORCE_FULL: ${{ github.event_name != 'pull_request' }}
+          IS_FORK_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+          CI_AFFECTED_WEB_SHARD: ${{ matrix.shard }}/4
+        run: node .github/scripts/run-affected-tests.mjs
+
   verify-affected:
-    if: github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
+    needs: [doc-smoke-scope, verify-web-tests]
+    if: always() && !cancelled() && github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
+      - name: Require successful scope and complete web producers
+        env:
+          SCOPE_RESULT: ${{ needs.doc-smoke-scope.result }}
+          SCOPE_MODE: ${{ needs.doc-smoke-scope.outputs.mode }}
+          EVENT_NAME: ${{ github.event_name }}
+          WEB_RESULT: ${{ needs.verify-web-tests.result }}
+        run: |
+          node -e "if(process.env.SCOPE_RESULT !== 'success' || (process.env.EVENT_NAME === 'pull_request' && process.env.SCOPE_MODE === 'targeted-ui' ? process.env.WEB_RESULT !== 'skipped' : process.env.WEB_RESULT !== 'success')) process.exit(1)"
       - name: Checkout
         uses: actions/checkout@v5
         with:
@@ -474,6 +521,7 @@ jobs:
       # 跑一遍，不可接受的是不跑）。
       - name: 受影响模块 test
         env:
+          CI_AFFECTED_WEB_SHARDS_RESULT: ${{ needs.verify-web-tests.result }}
           TURBO_SCM_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event_name == 'merge_group' && github.event.merge_group.base_sha || github.event.before }}
           # #538 隔离门要求显式声明目标库（WORKSPACEX_DB 缺席 ⇒ setup 阶段直接拒绝）。
           # 这里声明 "workspacex" 是**诚实的**，不是绕门：GitHub 托管 runner 是独占的
