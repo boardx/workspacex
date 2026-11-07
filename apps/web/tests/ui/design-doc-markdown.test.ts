@@ -166,3 +166,11 @@ describe("迭代 38：交付文档里不许再说机器话", () => {
     }
   });
 });
+
+
+it("exports the first user brief in goals even when a legacy summary contains only the last edit", () => {
+  const brief = "资料列表必须支持名称搜索、类型筛选、打开详情和无匹配空态";
+  const md = buildDesignDocMarkdown({...base,problem:"把按钮改为绿色",criteria:["布局清晰"],chat:[{role:"user",text:brief,at:"2026-11-07T00:00:00Z"},{role:"ai",text:"完成",at:"2026-11-07T00:00:01Z",source:"model"},{role:"user",text:"把按钮改为绿色",at:"2026-11-07T00:00:02Z"}]},NOW);
+  const beforeOutline = md.split("## 原型")[0]!;
+  expect(beforeOutline).toContain(brief);
+});

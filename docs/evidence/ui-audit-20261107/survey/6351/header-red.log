@@ -1,0 +1,44 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+
+ ❯ tests/ui/board-header-rename.test.tsx (2 tests | 1 failed) 232ms
+   × locks the name field until the rename request finishes and allows retry after failure 53ms
+     → expect(element).toBeDisabled()
+
+Received element is not disabled:
+  <input
+  aria-label="白板名称"
+  class="flex h-9 min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"
+  value="新名称"
+/>
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/board-header-rename.test.tsx > locks the name field until the rename request finishes and allows retry after failure
+Error: expect(element).toBeDisabled()
+
+Received element is not disabled:
+  <input
+  aria-label="白板名称"
+  class="flex h-9 min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"
+  value="新名称"
+/>
+ ❯ tests/ui/board-header-rename.test.tsx:17:57
+     15|  render(<BoardEditorHeader {...props} onTitleChange={save}/>);
+     16|  const input=open();fireEvent.change(input,{target:{value:'新名称'}});…
+     17|  expect(save).toHaveBeenCalledWith('新名称');expect(input).toBeDisable…
+       |                                                         ^
+     18|  await act(async()=>fail(new Error('保存失败')));
+     19|  await waitFor(()=>expect(input).toBeEnabled());
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  03:51:52
+   Duration  3.97s (transform 1.28s, setup 122ms, collect 1.99s, tests 232ms, environment 661ms, prepare 163ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/board-header-rename.test.tsx

@@ -351,6 +351,7 @@ export function ProjectResourceSection({ projectId, kind, canWrite, initialLinkO
                 title={it.title}
                 typeLabel={label}
                 status={it.status}
+                resourceKind={it.kind}
                 meta={t("projectResources.itemMeta", { updated: formatDate(it.updatedAt, locale), linked: formatDate(it.linkedAt, locale) })}
                 menu={canWrite && linkable ? (
                   <Menu>

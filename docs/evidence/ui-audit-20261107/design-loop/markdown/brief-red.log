@@ -1,0 +1,83 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/api
+
+ ❯ tests/design-workbench/project-lifecycle.test.ts (67 tests | 3 failed) 49ms
+   × original design brief retention > persists the first brief from the real create-then-chat path even if the model omits problem 7ms
+     → expected '' to contain '资料列表必须支持名称搜索、类型筛选、打开详情和无匹配空态'
+   × original design brief retention > keeps original and avoids repeated summaries () 1ms
+     → expected '原始要求\n\n新增空态\n\n' to be '原始要求\n\n新增空态' // Object.is equality
+   × original design brief retention > keeps original and avoids repeated summaries (新增空态) 0ms
+     → expected '原始要求\n\n新增空态\n\n新增空态' to be '原始要求\n\n新增空态' // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/design-workbench/project-lifecycle.test.ts > original design brief retention > persists the first brief from the real create-then-chat path even if the model omits problem
+AssertionError: expected '' to contain '资料列表必须支持名称搜索、类型筛选、打开详情和无匹配空态'
+
+- Expected
++ Received
+
+- 资料列表必须支持名称搜索、类型筛选、打开详情和无匹配空态
+
+ ❯ tests/design-workbench/project-lifecycle.test.ts:986:36
+    984|     const brief = "资料列表必须支持名称搜索、类型筛选、打开详情和无匹…
+    985|     const result = await appendProjectChat({ ...deps(repo), ai }, {pro…
+    986|     expect(result.project.problem).toContain(brief);
+       |                                    ^
+    987|     expect(result.project.criteria).toContain(brief);
+    988|     expect(ai.calls[0]?.problem).toContain(brief);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  tests/design-workbench/project-lifecycle.test.ts > original design brief retention > keeps original and avoids repeated summaries ()
+AssertionError: expected '原始要求\n\n新增空态\n\n' to be '原始要求\n\n新增空态' // Object.is equality
+
+- Expected
++ Received
+
+  原始要求
+
+  新增空态
++
++
+
+ ❯ tests/design-workbench/project-lifecycle.test.ts:996:36
+    994|     ai.answer = {text:"继续",source:"model",writeback: summary === und…
+    995|     const result = await appendProjectChat({...deps(repo),ai},{project…
+    996|     expect(result.project.problem).toBe("原始要求\n\n新增空态");
+       |                                    ^
+    997|     expect(result.project.problem).not.toContain("把按钮改为绿色");
+    998|     expect(result.project.criteria).toEqual(["按类型精确筛选"]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  tests/design-workbench/project-lifecycle.test.ts > original design brief retention > keeps original and avoids repeated summaries (新增空态)
+AssertionError: expected '原始要求\n\n新增空态\n\n新增空态' to be '原始要求\n\n新增空态' // Object.is equality
+
+- Expected
++ Received
+
+  原始要求
+
+  新增空态
++
++ 新增空态
+
+ ❯ tests/design-workbench/project-lifecycle.test.ts:996:36
+    994|     ai.answer = {text:"继续",source:"model",writeback: summary === und…
+    995|     const result = await appendProjectChat({...deps(repo),ai},{project…
+    996|     expect(result.project.problem).toBe("原始要求\n\n新增空态");
+       |                                    ^
+    997|     expect(result.project.problem).not.toContain("把按钮改为绿色");
+    998|     expect(result.project.criteria).toEqual(["按类型精确筛选"]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 64 passed (67)
+   Start at  03:50:58
+   Duration  2.30s (transform 1.36s, setup 0ms, collect 2.06s, tests 49ms, environment 0ms, prepare 50ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.design-html-unit.config.ts tests/design-workbench/project-lifecycle.test.ts

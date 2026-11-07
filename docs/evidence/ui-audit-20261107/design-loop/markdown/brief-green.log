@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/api
+
+ ✓ tests/design-workbench/project-lifecycle.test.ts (68 tests) 42ms
+ ✓ tests/design-workbench/html-page-generation.test.ts (39 tests) 46ms
+
+ Test Files  2 passed (2)
+      Tests  107 passed (107)
+   Start at  03:57:39
+   Duration  2.33s (transform 1.06s, setup 0ms, collect 1.91s, tests 88ms, environment 0ms, prepare 91ms)

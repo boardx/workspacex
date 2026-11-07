@@ -1,0 +1,30 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+
+ ❯ tests/ui/survey-response-export.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/survey-response-export.test.ts [ tests/ui/survey-response-export.test.ts ]
+Error: Cannot find module '@/lib/survey/response-markdown' imported from '/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/tests/ui/survey-response-export.test.ts'.
+
+- If you rely on tsconfig.json's "paths" to resolve modules, please install "vite-tsconfig-paths" plugin to handle module resolution.
+- Make sure you don't have relative aliases in your Vitest config. Use absolute paths instead. Read more: https://vitest.dev/guide/common-errors
+ ❯ tests/ui/survey-response-export.test.ts:2:31
+      1| import {expect,it,vi} from 'vitest';
+      2| import {surveyResponseMarkdown} from '@/lib/survey/response-markdown';
+       |                               ^
+      3| it('exports original attachment filename plus stable identifier instea…
+      4|  const read=vi.fn(async()=>({attachmentId:'file-id',name:'用户反馈.pdf…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  03:33:36
+   Duration  2.20s (transform 109ms, setup 553ms, collect 0ms, tests 0ms, environment 0ms, prepare 907ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/survey-response-export.test.ts

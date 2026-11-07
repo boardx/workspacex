@@ -8,3 +8,10 @@ describe("真实项目上下文", () => {
     expect(resolveProjectContext("/chat", "real-id")).toEqual({ id: "real-id", name: "real-id" });
   });
 });
+
+it.each(["/studio/survey/new", "/rec", "/studio/design-workbench", "/itv/live", "/research/new", "/studio/research"])("%s parses an explicit candidate, without asserting authorization", path => {
+  expect(resolveProjectContext(path, "real-id")).toEqual({ id: "real-id", name: "real-id" });
+});
+it.each(["/settings", "/admin", "/research-other", "/studio/survey-other"])("%s ignores arbitrary project query", path => {
+  expect(resolveProjectContext(path, "injected-id")).toBeNull();
+});

@@ -86,6 +86,10 @@ export const SurveyReportSectionSchema = z.object({
   chartType: SurveyChartTypeSchema.optional(),
 });
 
+export const SurveyAttachmentMetadataSchema = z.object({
+  attachmentId: z.string().min(1), name: z.string().min(1), mime: z.string().min(1), sizeBytes: z.number().int().nonnegative(),
+});
+
 export const SurveyResponseSchema = z.object({
   id: z.string().min(1),
   collectionBatchId: z.string().min(1).optional(),

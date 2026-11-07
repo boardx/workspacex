@@ -1,0 +1,18 @@
+
+> web@0.1.0 test /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+> vitest run "tests/ui/i18n-chat-skill-mount.test.tsx" "tests/ui/chat-skill-mount-panel-auto-close.test.tsx" "tests/ui/agent-detail.test.tsx" "tests/ui/agent-detail-workflow-entry.test.tsx"
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+
+ ✓ tests/ui/chat-skill-mount-panel-auto-close.test.tsx (9 tests) 326ms
+ ✓ tests/ui/i18n-chat-skill-mount.test.tsx (4 tests) 464ms
+   ✓ searches manually opened skills by task description, clears no-match, and mounts the selected identity 327ms
+ ✓ tests/ui/agent-detail-workflow-entry.test.tsx (5 tests) 405ms
+ ✓ tests/ui/agent-detail.test.tsx (10 tests) 756ms
+
+ Test Files  4 passed (4)
+      Tests  28 passed (28)
+   Start at  03:53:48
+   Duration  8.42s (transform 3.41s, setup 1.64s, collect 16.56s, tests 1.95s, environment 7.91s, prepare 564ms)

@@ -177,6 +177,7 @@ export function QuestionMaterial({
       ) : (
         <label className="block text-12">
           {t("survey.design.chooseFile")}
+          {accept && <span className="mt-1 block text-muted-foreground">{t("survey.design.acceptedFormats", { formats: accept })}</span>}
           <Input
             type="file"
             aria-label={t("survey.design.chooseFile")}

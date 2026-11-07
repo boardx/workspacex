@@ -1,0 +1,12 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+
+ ✓ tests/ui/survey-upload-hint.test.tsx (1 test) 214ms
+ ✓ tests/ui/survey-question-controls-i18n.test.tsx (41 tests) 1679ms
+   ✓ keeps a bulk option draft and stable option IDs while localizing its controls 301ms
+
+ Test Files  2 passed (2)
+      Tests  42 passed (42)
+   Start at  03:29:34
+   Duration  7.78s (transform 2.30s, setup 620ms, collect 6.88s, tests 1.89s, environment 2.60s, prepare 307ms)
