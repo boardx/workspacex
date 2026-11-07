@@ -1,7 +1,10 @@
 import type { MessageKey } from "@/lib/i18n/messages";
-import type { DigitalInterviewHistoryRow } from "@/lib/interview-api";
+import type { interview } from "@repo/contracts";
+import type { z } from "zod";
 
-export const INTERVIEW_STATUS_LABEL: Record<DigitalInterviewHistoryRow["status"], MessageKey> = {
+type DigitalInterviewStatus = z.infer<typeof interview.DigitalInterviewStatus>;
+
+export const INTERVIEW_STATUS_LABEL: Record<DigitalInterviewStatus, MessageKey> = {
   draft: "itv.status.draft",
   topic_pending: "itv.status.topic_pending",
   experts_pending: "itv.status.experts_pending",
@@ -15,5 +18,5 @@ export const INTERVIEW_STATUS_LABEL: Record<DigitalInterviewHistoryRow["status"]
 export function interviewStatusMessageKey(status: string): MessageKey | null {
   if (status === "archived") return "itv.live.archived";
   return Object.prototype.hasOwnProperty.call(INTERVIEW_STATUS_LABEL, status)
-    ? INTERVIEW_STATUS_LABEL[status as DigitalInterviewHistoryRow["status"]] : null;
+    ? INTERVIEW_STATUS_LABEL[status as DigitalInterviewStatus] : null;
 }
