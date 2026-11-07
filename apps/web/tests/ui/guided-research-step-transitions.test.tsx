@@ -8,7 +8,7 @@ import { runtimeFixture } from "../guided-runtime-fixture";
 
 vi.mock("@/lib/guided-research-api", () => ({ getResearchRuntime: vi.fn(), getResearchRuntimeProgress: vi.fn(), executeResearchRuntime: vi.fn() }));
 afterEach(() => vi.useRealTimers());
-beforeEach(() => { vi.resetAllMocks(); window.history.replaceState({}, "", "/research/grs-live/import"); });
+beforeEach(() => { vi.resetAllMocks(); vi.mocked(getResearchRuntimeProgress).mockRejectedValue(new Error("validation unavailable")); window.history.replaceState({}, "", "/research/grs-live/import"); });
 
 describe("step-aligned research transitions", () => {
   it("browses the plan during research and preserves the selected page after completion", async () => {

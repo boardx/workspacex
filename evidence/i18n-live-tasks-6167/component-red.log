@@ -1,0 +1,2559 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ❯ tests/ui/tasks-i18n.test.tsx (4 tests | 4 failed) 3274ms
+   × retranslates task copy/date and retains raw fields and the unsaved create draft without reloading 217ms
+     → Unable to find an accessible element with the role "heading" and name "My today"
+
+Here are the accessible roles:
+
+  combobox:
+
+  Name "Language":
+  [36m<select[39m
+    [33maria-label[39m=[32m"Language"[39m
+    [33mclass[39m=[32m"max-w-full rounded-control border border-border bg-card px-2 py-1 text-12 text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"language-switcher"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  option:
+
+  Name "简体中文":
+  [36m<option[39m
+    [33mlang[39m=[32m"zh-CN"[39m
+    [33mvalue[39m=[32m"zh-CN"[39m
+  [36m/>[39m
+
+  Name "English":
+  [36m<option[39m
+    [33mlang[39m=[32m"en"[39m
+    [33mvalue[39m=[32m"en"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  banner:
+
+  Name "":
+  [36m<header[39m
+    [33mclass[39m=[32m"flex flex-wrap items-start justify-between gap-3"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "我的今天":
+  [36m<h1[39m
+    [33mclass[39m=[32m"text-20 font-semibold tracking-tight"[39m
+  [36m/>[39m
+
+  Name "等我判断":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-14 font-semibold"[39m
+  [36m/>[39m
+
+  Name "今天该我推进":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-14 font-semibold"[39m
+  [36m/>[39m
+
+  Name "原文 {title}":
+  [36m<h3[39m
+    [33mclass[39m=[32m"text-13 font-medium"[39m
+  [36m/>[39m
+
+  Name "AI 正在替我跑":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-14 font-semibold"[39m
+  [36m/>[39m
+
+  Name "下一步轮到别人":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-14 font-semibold"[39m
+  [36m/>[39m
+
+  Name "我的其他待办":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-14 font-semibold"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+    [33mdata-testid[39m=[32m"tasks-live-section-empty-awaiting_my_judgment"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+    [33mdata-testid[39m=[32m"tasks-live-section-empty-ai_running_for_me"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+    [33mdata-testid[39m=[32m"tasks-live-section-empty-waiting_on_others"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-12"[39m
+    [33mdata-testid[39m=[32m"tasks-summary-low-sample-demo"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-10 text-muted-foreground"[39m
+    [33mdata-testid[39m=[32m"tasks-summary-coefficient-note"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-11 font-medium text-background-foreground"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "＋ 新建任务":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"tasks-new-task-live"[39m
+  [36m/>[39m
+
+  Name "提交验收":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"tasks-live-advance-task"[39m
+  [36m/>[39m
+
+  Name "退回上一步":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"tasks-live-block-task"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  article:
+
+  Name "":
+  [36m<article[39m
+    [33mclass[39m=[32m"flex flex-col gap-1.5 rounded-md border border-border bg-card p-3 shadow-sm"[39m
+    [33mdata-testid[39m=[32m"tasks-live-card-task"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  contentinfo:
+
+  Name "":
+  [36m<footer[39m
+    [33mclass[39m=[32m"flex flex-col gap-1.5 rounded-md border border-border-subtle bg-panel p-3"[39m
+    [33mdata-testid[39m=[32m"tasks-today-summary"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<select[39m
+      [33maria-label[39m=[32m"Language"[39m
+      [33mclass[39m=[32m"max-w-full rounded-control border border-border bg-card px-2 py-1 text-12 text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"language-switcher"[39m
+    [36m>[39m
+      [36m<option[39m
+        [33mlang[39m=[32m"zh-CN"[39m
+        [33mvalue[39m=[32m"zh-CN"[39m
+      [36m>[39m
+        [0m简体中文[0m
+      [36m</option>[39m
+      [36m<option[39m
+        [33mlang[39m=[32m"en"[39m
+        [33mvalue[39m=[32m"en"[39m
+      [36m>[39m
+        [0mEnglish[0m
+      [36m</option>[39m
+    [36m</select>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col gap-5 p-5"[39m
+      [33mdata-testid[39m=[32m"tasks-live-board"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"flex flex-wrap items-start justify-between gap-3"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col gap-1"[39m
+        [36m>[39m
+          [36m<h1[39m
+            [33mclass[39m=[32m"text-20 font-semibold tracking-tight"[39m
+          [36m>[39m
+            [0m我的今天[0m
+          [36m</h1>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+          [36m>[39m
+            [0m最重要的是什么 · 下一步轮到谁 · 什么在等我判断。[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+          [33mdata-testid[39m=[32m"tasks-new-task-live"[39m
+        [36m>[39m
+          [0m＋ 新建任务[0m
+        [36m</button>[39m
+      [36m</header>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-col gap-6"[39m
+      [36m>[39m
+        [36m<section[39m
+          [33mclass[39m=[32m"flex flex-col gap-2"[39m
+          [33mdata-testid[39m=[32m"tasks-live-section-awaiting_my_judgment"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex items-baseline gap-2"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"text-14 font-semibold"[39m
+            [36m>[39m
+              [0m等我判断[0m
+            [36m</h2>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"tasks-live-section-count-awaiting_my_judgment"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+            [36m>[39m
+              [0m（[0m
+              [0m需要你接受或验收[0m
+              [0m）[0m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+            [33mdata-testid[39m=[32m"tasks-live-section-empty-awaiting_my_judgment"[39m
+          [36m>[39m
+            [0m没有等你的事[0m
+          [36m</p>[39m
+        [36m</section>[39m
+        [36m<section[39m
+          [33mclass[39m=[32m"flex flex-col gap-2"[39m
+          [33mdata-testid[39m=[32m"tasks-live-section-my_push_today"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex items-baseline gap-2"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"text-14 font-semibold"[39m
+            [36m>[39m
+              [0m今天该我推进[0m
+            [36m</h2>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"tasks-live-section-count-my_push_today"[39m
+            [36m>[39m
+              [0m1[0m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-col gap-2"[39m
+          [36m>[39m
+            [36m<article[39m
+              [33mclass[39m=[32m"flex flex-col gap-1.5 rounded-md border border-border bg-card p-3 shadow-sm"[39m
+              [33mdata-testid[39m=[32m"tasks-live-card-task"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex flex-wrap items-center gap-2"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-warning-tint text-warning-tint-foreground"[39m
+                  [33mdata-testid[39m=[32m"tasks-risk-badge"[39m
+                [36m>[39m
+                  [0mR2[0m
+                [36m</span>[39m
+                [36m<h3[39m
+                  [33mclass[39m=[32m"text-13 font-medium"[39m
+                [36m>[39m
+                  [0m原文 {title}[0m
+                [36m</h3>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"ml-auto text-10 text-muted-foreground"[39m
+                [36m>[39m
+                  [0m12/31/2026[0m
+                [36m</span>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex flex-wrap items-center gap-2 text-10 text-muted-foreground"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"inline-flex items-center gap-1"[39m
+                  [33mdata-testid[39m=[32m"tasks-owner-line"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"inline-flex shrink-0 items-center justify-center rounded-full font-medium transition-colors duration-200 bg-accent text-accent-foreground h-5 w-5 text-9 overflow-hidden p-0"[39m
+                  [36m>[39m
+                    [0m我[0m
+                  [36m</span>[39m
+                  [0m负责人 [0m
+                  [0m我[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-ai-tint text-ai-tint-foreground"[39m
+                  [33mdata-testid[39m=[32m"tasks-executor-badge"[39m
+                [36m>[39m
+                  [0m原文 {Agent} 在跑[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mdata-testid[39m=[32m"tasks-waiting-on"[39m
+                [36m>[39m
+                  [0m在等 [0m
+                  [0m原文 {Person}[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-warning-tint text-warning-tint-foreground"[39m
+                [36m>[39m
+                  [0m未同步[0m
+                [36m</span>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"mt-0.5 flex items-center gap-2"[39m
+              [36m>[39m
+                [36m<button[39m
+                  [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+                  [33mdata-testid[39m=[32m"tasks-live-advance-task"[39m
+                [36m>[39m
+                  [0m提交验收[0m
+                [36m</button>[39m
+                [36m<button[39m
+                  [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12"[39m
+                  [33mdata-testid[39m=[32m"tasks-live-block-task"[39m
+                [36m>[39m
+                  [0m退回上一步[0m
+                [36m</button>[39m
+              [36m</div>[39m
+            [36m</article>[39m
+          [36m</div>[39m
+        [36m</section>[39m
+        [36m<section[39m
+          [33mclass[39m=[32m"flex flex-col gap-2"[39m
+          [33mdata-testid[39m=[32m"tasks-live-section-ai_running_for_me"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex items-baseline gap-2"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"text-14 font-semibold"[39m
+            [36m>[39m
+              [0mAI 正在替我跑[0m
+            [36m</h2>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"tasks-live-section-count-ai_running_for_me"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+            [36m>[39m
+              [0m（[0m
+              [0m只给一行摘要[0m
+              [0m）[0m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+            [33mdata-testid[39m=[32m"tasks-live-section-empty-ai_running_for_me"[39m
+          [36m>[39m
+            [0m没有等你的事[0m
+          [36m</p>[39m
+        [36m</section>[39m
+        [36m<section[39m
+          [33mclass[39m=[32m"flex flex-col gap-2"[39m
+          [33mdata-testid[39m=[32m"tasks-live-section-waiting_on_others"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex items-baseline gap-2"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"text-14 font-semibold"[39m
+            [36m>[39m
+              [0m下一步轮到别人[0m
+            [36m</h2>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"tasks-live-section-count-waiting_on_others"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+            [33mdata-testid[39m=[32m"tasks-live-section-empty-waiting_on_others"[39m
+          [36m>[39m
+            [0m没有等你的事[0m
+          [36m</p>[39m
+        [36m</section>[39m
+        [36m<section[39m
+          [33mclass[39m=[32m"flex flex-col gap-2"[39m
+          [33mdata-testid[39m=[32m"tasks-live-other-tasks"[39m
+        [36m>[39m
+          [36m<h2[39m
+            [33mclass[39m=[32m"text-14 font-semibold"[39m
+          [36m>[39m
+            [0m我的其他待办[0m
+          [36m</h2>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+          [36m>[39m
+            [0m未进入今日分区的任务仍可在这里回查，包括未设置截止日期的任务。[0m
+          [36m</p>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+          [36m>[39m
+            [0m没有其他待办[0m
+          [36m</p>[39m
+        [36m</section>[39m
+        [36m<footer[39m
+          [33mclass[39m=[32m"flex flex-col gap-1.5 rounded-md border border-border-subtle bg-panel p-3"[39m
+          [33mdata-testid[39m=[32m"tasks-today-summary"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-12"[39m
+            [33mdata-testid[39m=[32m"tasks-summary-low-sample-demo"[39m
+          [36m>[39m
+            [0m今日 AI 完成 [0m
+            [0m1[0m
+            [0m 项 · [0m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-warning"[39m
+            [36m>[39m
+              [0m样本不足，暂不折算人时[0m
+            [36m</span>[39m
+          [36m</p>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-10 text-muted-foreground"[39m
+            [33mdata-testid[39m=[32m"tasks-summary-coefficient-note"[39m
+          [36m>[39m
+            [0m折算系数、口径表版本与最小样本量阈值由组织可配口径表提供；样本不足或口径表未配置时不显示折算值，不编造数字。[0m
+          [36m</p>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-11 font-medium text-background-foreground"[39m
+          [36m>[39m
+            [0m责任人始终是人——AI 只拿到行动权，不承担验收。[0m
+          [36m</p>[39m
+        [36m</footer>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × preserves the original create payload and retranslates a stored failure without resubmitting 1029ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  The service is temporarily unavailable
+Received:
+  服务暂时不可用，稍后再试一次
+
+Ignored nodes: comments, script, style
+[36m<html[39m
+  [33mlang[39m=[32m"en"[39m
+[36m>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<select[39m
+        [33maria-label[39m=[32m"Language"[39m
+        [33mclass[39m=[32m"max-w-full rounded-control border border-border bg-card px-2 py-1 text-12 text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+        [33mdata-testid[39m=[32m"language-switcher"[39m
+      [36m>[39m
+        [36m<option[39m
+          [33mlang[39m=[32m"zh-CN"[39m
+          [33mvalue[39m=[32m"zh-CN"[39m
+        [36m>[39m
+          [0m简体中文[0m
+        [36m</option>[39m
+        [36m<option[39m
+          [33mlang[39m=[32m"en"[39m
+          [33mvalue[39m=[32m"en"[39m
+        [36m>[39m
+          [0mEnglish[0m
+        [36m</option>[39m
+      [36m</select>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-col gap-5 p-5"[39m
+        [33mdata-testid[39m=[32m"tasks-live-board"[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex flex-wrap items-start justify-between gap-3"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-col gap-1"[39m
+          [36m>[39m
+            [36m<h1[39m
+              [33mclass[39m=[32m"text-20 font-semibold tracking-tight"[39m
+            [36m>[39m
+              [0m我的今天[0m
+            [36m</h1>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0m最重要的是什么 · 下一步轮到谁 · 什么在等我判断。[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-col gap-2 rounded-md border border-border-subtle bg-card p-3"[39m
+            [33mdata-testid[39m=[32m"tasks-new-task-form"[39m
+          [36m>[39m
+            [36m<label[39m
+              [33mclass[39m=[32m"text-12 font-medium text-muted-foreground block"[39m
+              [33mfor[39m=[32m"new-task-title"[39m
+            [36m>[39m
+              [0m任务标题[0m
+            [36m</label>[39m
+            [36m<input[39m
+              [33mclass[39m=[32m"flex h-9 min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"[39m
+              [33mdata-testid[39m=[32m"tasks-new-task-title"[39m
+              [33mid[39m=[32m"new-task-title"[39m
+              [33mplaceholder[39m=[32m"描述需要完成的事"[39m
+              [33mvalue[39m=[32m"  原文 {task}  "[39m
+            [36m/>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex flex-wrap gap-2"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"space-y-1"[39m
+              [36m>[39m
+                [36m<label[39m
+                  [33mclass[39m=[32m"text-12 font-medium text-muted-foreground block"[39m
+                  [33mfor[39m=[32m"new-task-due"[39m
+                [36m>[39m
+                  [0m截止日期（可选）[0m
+                [36m</label>[39m
+                [36m<input[39m
+                  [33mclass[39m=[32m"flex h-9 min-w-0 w-full rounded-control bg-card text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed rounded-md border border-border-subtle px-2 py-1 text-12"[39m
+                  [33mdata-testid[39m=[32m"tasks-new-task-due"[39m
+                  [33mid[39m=[32m"new-task-due"[39m
+                  [33mtype[39m=[32m"date"[39m
+                  [33mvalue[39m=[32m""[39m
+                [36m/>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"space-y-1"[39m
+              [36m>[39m
+                [36m<label[39m
+                  [33mclass[39m=[32m"text-12 font-medium text-muted-foreground block"[39m
+                  [33mfor[39m=[32m"new-task-risk"[39m
+                [36m>[39m
+                  [0m风险等级（可选）[0m
+                [36m</label>[39m
+                [36m<select[39m
+                  [33mclass[39m=[32m"rounded-md border border-border-subtle px-2 py-1 text-12"[39m
+                  [33mdata-testid[39m=[32m"tasks-new-task-risk"[39m
+                  [33mid[39m=[32m"new-task-risk"[39m
+                [36m>[39m
+                  [36m<option[39m
+                    [33mvalue[39m=[32m""[39m
+                  [36m>[39m
+                    [0m风险等级（可选）[0m
+                  [36m</option>[39m
+                  [36m<option[39m
+                    [33mvalue[39m=[32m"R1"[39m
+                  [36m>[39m
+                    [0mR1[0m
+                  [36m</option>[39m
+                  [36m<option[39m
+                    [33mvalue[39m=[32m"R2"[39m
+                  [36m>[39m
+                    [0mR2[0m
+                  [36m</option>[39m
+                  [36m<option[39m
+                    [33mvalue[39m=[32m"R3"[39m
+                  [36m>[39m
+                    [0mR3[0m
+                  [36m</option>[39m
+                [36m</select>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-11 text-destructive"[39m
+              [33mdata-testid[39m=[32m"tasks-new-task-error"[39m
+              [33mrole[39m=[32m"alert"[39m
+            [36m>[39m
+              [0m服务暂时不可用，稍后再试一次[0m
+            [36m</p>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-center gap-2"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+                [33mdata-testid[39m=[32m"tasks-new-task-submit"[39m
+              [36m>[39m
+                [0m创建[0m
+              [36m</button>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors ...
+   × keeps forward/backward enums and the existing audit reason; failure prefixes update live 1014ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Could not advance
+Received:
+  推进失败：连不上服务器，检查一下网络再试
+
+Ignored nodes: comments, script, style
+[36m<html[39m
+  [33mlang[39m=[32m"en"[39m
+[36m>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<select[39m
+        [33maria-label[39m=[32m"Language"[39m
+        [33mclass[39m=[32m"max-w-full rounded-control border border-border bg-card px-2 py-1 text-12 text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+        [33mdata-testid[39m=[32m"language-switcher"[39m
+      [36m>[39m
+        [36m<option[39m
+          [33mlang[39m=[32m"zh-CN"[39m
+          [33mvalue[39m=[32m"zh-CN"[39m
+        [36m>[39m
+          [0m简体中文[0m
+        [36m</option>[39m
+        [36m<option[39m
+          [33mlang[39m=[32m"en"[39m
+          [33mvalue[39m=[32m"en"[39m
+        [36m>[39m
+          [0mEnglish[0m
+        [36m</option>[39m
+      [36m</select>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-col gap-5 p-5"[39m
+        [33mdata-testid[39m=[32m"tasks-live-board"[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex flex-wrap items-start justify-between gap-3"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-col gap-1"[39m
+          [36m>[39m
+            [36m<h1[39m
+              [33mclass[39m=[32m"text-20 font-semibold tracking-tight"[39m
+            [36m>[39m
+              [0m我的今天[0m
+            [36m</h1>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0m最重要的是什么 · 下一步轮到谁 · 什么在等我判断。[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+            [33mdata-testid[39m=[32m"tasks-new-task-live"[39m
+          [36m>[39m
+            [0m＋ 新建任务[0m
+          [36m</button>[39m
+        [36m</header>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-12 text-destructive"[39m
+          [33mdata-testid[39m=[32m"tasks-live-error"[39m
+          [33mrole[39m=[32m"alert"[39m
+        [36m>[39m
+          [0m推进失败：连不上服务器，检查一下网络再试[0m
+        [36m</p>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col gap-6"[39m
+        [36m>[39m
+          [36m<section[39m
+            [33mclass[39m=[32m"flex flex-col gap-2"[39m
+            [33mdata-testid[39m=[32m"tasks-live-section-awaiting_my_judgment"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-baseline gap-2"[39m
+            [36m>[39m
+              [36m<h2[39m
+                [33mclass[39m=[32m"text-14 font-semibold"[39m
+              [36m>[39m
+                [0m等我判断[0m
+              [36m</h2>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+                [33mdata-testid[39m=[32m"tasks-live-section-count-awaiting_my_judgment"[39m
+              [36m>[39m
+                [0m0[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+              [36m>[39m
+                [0m（[0m
+                [0m需要你接受或验收[0m
+                [0m）[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"tasks-live-section-empty-awaiting_my_judgment"[39m
+            [36m>[39m
+              [0m没有等你的事[0m
+            [36m</p>[39m
+          [36m</section>[39m
+          [36m<section[39m
+            [33mclass[39m=[32m"flex flex-col gap-2"[39m
+            [33mdata-testid[39m=[32m"tasks-live-section-my_push_today"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-baseline gap-2"[39m
+            [36m>[39m
+              [36m<h2[39m
+                [33mclass[39m=[32m"text-14 font-semibold"[39m
+              [36m>[39m
+                [0m今天该我推进[0m
+              [36m</h2>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+                [33mdata-testid[39m=[32m"tasks-live-section-count-my_push_today"[39m
+              [36m>[39m
+                [0m1[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex flex-col gap-2"[39m
+            [36m>[39m
+              [36m<article[39m
+                [33mclass[39m=[32m"flex flex-col gap-1.5 rounded-md border border-border bg-card p-3 shadow-sm"[39m
+                [33mdata-testid[39m=[32m"tasks-live-card-task"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"flex flex-wrap items-center gap-2"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-warning-tint text-warning-tint-foreground"[39m
+                    [33mdata-testid[39m=[32m"tasks-risk-badge"[39m
+                  [36m>[39m
+                    [0mR2[0m
+                  [36m</span>[39m
+                  [36m<h3[39m
+                    [33mclass[39m=[32m"text-13 font-medium"[39m
+                  [36m>[39m
+                    [0m原文 {title}[0m
+                  [36m</h3>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"ml-auto text-10 text-muted-foreground"[39m
+                  [36m>[39m
+                    [0m12/31/2026[0m
+                  [36m</span>[39m
+                [36m</div>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"flex flex-wrap items-center gap-2 text-10 text-muted-foreground"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"inline-flex items-center gap-1"[39m
+                    [33mdata-testid[39m=[32m"tasks-owner-line"[39m
+                  [36m>[39m
+                    [36m<span[39m
+                      [33maria-hidden[39m=[32m"true"[39m
+                      [33mclass[39m=[32m"inline-flex shrink-0 items-center justify-center rounded-full font-medium transition-colors duration-200 bg-accent text-accent-foreground h-5 w-5 text-9 overflow-hidden p-0"[39m
+                    [36m>[39m
+                      [0m我[0m
+                    [36m</span>[39m
+                    [0m负责人 [0m
+                    [0m我[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-ai-tint text-ai-tint-foreground"[39m
+                    [33mdata-testid[39m=[32m"tasks-executor-badge"[39m
+                  [36m>[39m
+                    [0m原文 {Agent} 在跑[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mdata-testid[39m=[32m"tasks-waiting-on"[39m
+                  [36m>[39m
+                    [0m在等 [0m
+                    [0m原文 {Person}[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-warning-tint text-warning-tint-foreground"[39m
+                  [36m>[39m
+                    [0m未同步[0m
+                  [36m</span>[39m
+                [36m</div>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"mt-0.5 flex items-center gap-2"[39m
+                [36m>[39m
+                  [36m<button[39m
+                    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+                    [33mdata-testid[39m=[32m"tasks-live-advance-task"[39m
+                  [36m>[39m
+                    [0m提交验收[0m
+                  [36m</button>[39m
+                  [36m<button[39m
+                    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12"[39m
+                    [33mdata-testid[39m=[32m"tasks-live-block-task"[39m
+                  [36m>[39m
+                    [0m退回上一步[0m
+                  [36m</button>[39m
+                [36m</div>[39m
+              [36m</article>[39m
+            [36m</div>[39m
+          [36m</section>[39m
+          [36m<section[39m
+            [33mclass[39m=[32m"flex flex-col gap-2"[39m
+            [33mdata-testid[39m=[32m"tasks-live-section-ai_running_for_me"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-baseline gap-2"[39m
+            [36m>[39m
+              [36m<h2[39m
+                [33mclass[39m=[32m"text-14 font-semibold"[39m
+              [36m>[39m
+                [0mAI 正在替我跑[0m
+              [36m</h2>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+                [33mdata-testid[39m=[32m"tasks-live-section-count-ai_running_for_me"[39m
+              [36m>[39m
+                [0m0[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+              [36m>[39m
+                [0m（[0m
+                [0m只给一行摘要[0m
+                [0m）[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"tasks-live-section-empty-ai_running_for_me"[39m
+            [36m>[39m
+              [0m没有等你的事[0m
+            [36m</p>[39m
+          [36m</section>[39m
+          [36m<section[39m
+            [33mclass[39m=[32m"flex flex-col gap-2"[39m
+            [33mdata-testid[39m=[32m"tasks-live-section-waiting_on_others"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-baseline gap-2"[39m
+            [36m>[39m
+              [36m<h2[39m
+                [33mclass[39m=[32m"text-14 font-semibold"[39m
+              [36m>[39m
+                [0m下一步轮到别人[0m
+              [36m</h2>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+                [33mdata-testid[39m=[32m"tasks-live-section-count-waiting_on_others"[39m
+              [36m>[39m
+                [0m0[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"tasks-live-section-empty-waiting_on_others"[39m
+            [36m>[39m
+              [0m没有等你的事[0m
+            [36m</p>[39m
+          [36m</section>[39m
+          [36m<section[39m
+            [33mclass[39m=[32m"flex flex-col gap-2"[39m
+            [33mdata-testid[39m=[32m"tasks-live-other-tasks"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"text-14 font-semibold"[39m
+            [36m>[39m
+              [0m我的其他待办[0m
+            [36m</h2>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+            [36m>[39m
+              [0m未进入今日分区的任务仍可在这里回查，包括未设置截止日期的任务。[0m
+            [36m</p>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+            [36m>[39m
+              [0m没有其他待办[0m
+            [36m</p>[39m
+          [36m</section>[39m
+          [36m<footer[39m
+            [33mclass[39m=[32m"flex flex-col gap-1.5 rounded-md border border-border-subtle bg-panel p-3"[39m
+            [33mdata-testid[39m=[32m"tasks-today-summary"[39m
+          [36m>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12"[39m
+              [33mdata-testid[39m=[32m"tasks-summary-low-sample-demo"[39m
+            [36m>[39m
+              [0m今日 AI 完成 [0m
+              [0m1[0m
+              [0m 项 · [0m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-warning"[39m
+              [36m>[39m
+                [0m样本不足，暂不折算人时[0m
+              [36m</span>[39m
+            [36m</p>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-10 text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"tasks-summary-coefficient-note"[39m
+            [36m>[39m
+              [0m折算系数、口径表版本与最小样本量阈值由组织可配口径表提供；样本不足或口径表未配置时不显示折算值，不编造数字。[0m
+            [36m</p>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-11 font-medium text-background-foreground"[39m
+            [36m>[39m
+              [0m责任人始终是人——AI 只拿到行动权，不承担验收。[0m
+            [36m</p>[39m
+          [36m</footer>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</body>[39m
+[36m</html>[39m
+   × retranslates a failed secondary list read without replaying it or losing the today cards 1013ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Could not load other tasks
+Received:
+  我的其他待办未进入今日分区的任务仍可在这里回查，包括未设置截止日期的任务。未能读取其他任务：操作太频繁了，等一下再试重试读取其他任务
+
+Ignored nodes: comments, script, style
+[36m<html[39m
+  [33mlang[39m=[32m"en"[39m
+[36m>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<select[39m
+        [33maria-label[39m=[32m"Language"[39m
+        [33mclass[39m=[32m"max-w-full rounded-control border border-border bg-card px-2 py-1 text-12 text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+        [33mdata-testid[39m=[32m"language-switcher"[39m
+      [36m>[39m
+        [36m<option[39m
+          [33mlang[39m=[32m"zh-CN"[39m
+          [33mvalue[39m=[32m"zh-CN"[39m
+        [36m>[39m
+          [0m简体中文[0m
+        [36m</option>[39m
+        [36m<option[39m
+          [33mlang[39m=[32m"en"[39m
+          [33mvalue[39m=[32m"en"[39m
+        [36m>[39m
+          [0mEnglish[0m
+        [36m</option>[39m
+      [36m</select>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-col gap-5 p-5"[39m
+        [33mdata-testid[39m=[32m"tasks-live-board"[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex flex-wrap items-start justify-between gap-3"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-col gap-1"[39m
+          [36m>[39m
+            [36m<h1[39m
+              [33mclass[39m=[32m"text-20 font-semibold tracking-tight"[39m
+            [36m>[39m
+              [0m我的今天[0m
+            [36m</h1>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0m最重要的是什么 · 下一步轮到谁 · 什么在等我判断。[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+            [33mdata-testid[39m=[32m"tasks-new-task-live"[39m
+          [36m>[39m
+            [0m＋ 新建任务[0m
+          [36m</button>[39m
+        [36m</header>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col gap-6"[39m
+        [36m>[39m
+          [36m<section[39m
+            [33mclass[39m=[32m"flex flex-col gap-2"[39m
+            [33mdata-testid[39m=[32m"tasks-live-section-awaiting_my_judgment"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-baseline gap-2"[39m
+            [36m>[39m
+              [36m<h2[39m
+                [33mclass[39m=[32m"text-14 font-semibold"[39m
+              [36m>[39m
+                [0m等我判断[0m
+              [36m</h2>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+                [33mdata-testid[39m=[32m"tasks-live-section-count-awaiting_my_judgment"[39m
+              [36m>[39m
+                [0m0[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+              [36m>[39m
+                [0m（[0m
+                [0m需要你接受或验收[0m
+                [0m）[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"tasks-live-section-empty-awaiting_my_judgment"[39m
+            [36m>[39m
+              [0m没有等你的事[0m
+            [36m</p>[39m
+          [36m</section>[39m
+          [36m<section[39m
+            [33mclass[39m=[32m"flex flex-col gap-2"[39m
+            [33mdata-testid[39m=[32m"tasks-live-section-my_push_today"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-baseline gap-2"[39m
+            [36m>[39m
+              [36m<h2[39m
+                [33mclass[39m=[32m"text-14 font-semibold"[39m
+              [36m>[39m
+                [0m今天该我推进[0m
+              [36m</h2>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+                [33mdata-testid[39m=[32m"tasks-live-section-count-my_push_today"[39m
+              [36m>[39m
+                [0m1[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex flex-col gap-2"[39m
+            [36m>[39m
+              [36m<article[39m
+                [33mclass[39m=[32m"flex flex-col gap-1.5 rounded-md border border-border bg-card p-3 shadow-sm"[39m
+                [33mdata-testid[39m=[32m"tasks-live-card-task"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"flex flex-wrap items-center gap-2"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-warning-tint text-warning-tint-foreground"[39m
+                    [33mdata-testid[39m=[32m"tasks-risk-badge"[39m
+                  [36m>[39m
+                    [0mR2[0m
+                  [36m</span>[39m
+                  [36m<h3[39m
+                    [33mclass[39m=[32m"text-13 font-medium"[39m
+                  [36m>[39m
+                    [0m原文 {title}[0m
+                  [36m</h3>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"ml-auto text-10 text-muted-foreground"[39m
+                  [36m>[39m
+                    [0m12/31/2026[0m
+                  [36m</span>[39m
+                [36m</div>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"flex flex-wrap items-center gap-2 text-10 text-muted-foreground"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"inline-flex items-center gap-1"[39m
+                    [33mdata-testid[39m=[32m"tasks-owner-line"[39m
+                  [36m>[39m
+                    [36m<span[39m
+                      [33maria-hidden[39m=[32m"true"[39m
+                      [33mclass[39m=[32m"inline-flex shrink-0 items-center justify-center rounded-full font-medium transition-colors duration-200 bg-accent text-accent-foreground h-5 w-5 text-9 overflow-hidden p-0"[39m
+                    [36m>[39m
+                      [0m我[0m
+                    [36m</span>[39m
+                    [0m负责人 [0m
+                    [0m我[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-ai-tint text-ai-tint-foreground"[39m
+                    [33mdata-testid[39m=[32m"tasks-executor-badge"[39m
+                  [36m>[39m
+                    [0m原文 {Agent} 在跑[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mdata-testid[39m=[32m"tasks-waiting-on"[39m
+                  [36m>[39m
+                    [0m在等 [0m
+                    [0m原文 {Person}[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-warning-tint text-warning-tint-foreground"[39m
+                  [36m>[39m
+                    [0m未同步[0m
+                  [36m</span>[39m
+                [36m</div>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"mt-0.5 flex items-center gap-2"[39m
+                [36m>[39m
+                  [36m<button[39m
+                    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+                    [33mdata-testid[39m=[32m"tasks-live-advance-task"[39m
+                  [36m>[39m
+                    [0m提交验收[0m
+                  [36m</button>[39m
+                  [36m<button[39m
+                    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12"[39m
+                    [33mdata-testid[39m=[32m"tasks-live-block-task"[39m
+                  [36m>[39m
+                    [0m退回上一步[0m
+                  [36m</button>[39m
+                [36m</div>[39m
+              [36m</article>[39m
+            [36m</div>[39m
+          [36m</section>[39m
+          [36m<section[39m
+            [33mclass[39m=[32m"flex flex-col gap-2"[39m
+            [33mdata-testid[39m=[32m"tasks-live-section-ai_running_for_me"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-baseline gap-2"[39m
+            [36m>[39m
+              [36m<h2[39m
+                [33mclass[39m=[32m"text-14 font-semibold"[39m
+              [36m>[39m
+                [0mAI 正在替我跑[0m
+              [36m</h2>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+                [33mdata-testid[39m=[32m"tasks-live-section-count-ai_running_for_me"[39m
+              [36m>[39m
+                [0m0[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+              [36m>[39m
+                [0m（[0m
+                [0m只给一行摘要[0m
+                [0m）[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"tasks-live-section-empty-ai_running_for_me"[39m
+            [36m>[39m
+              [0m没有等你的事[0m
+            [36m</p>[39m
+          [36m</section>[39m
+          [36m<section[39m
+            [33mclass[39m=[32m"flex flex-col gap-2"[39m
+            [33mdata-testid[39m=[32m"tasks-live-section-waiting_on_others"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-baseline gap-2"[39m
+            [36m>[39m
+              [36m<h2[39m
+                [33mclass[39m=[32m"text-14 font-semibold"[39m
+              [36m>[39m
+                [0m下一步轮到别人[0m
+              [36m</h2>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+                [33mdata-testid[39m=[32m"tasks-live-section-count-waiting_on_others"[39m
+              [36m>[39m
+                [0m0[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"tasks-live-section-empty-waiting_on_others"[39m
+            [36m>[39m
+              [0m没有等你的事[0m
+            [36m</p>[39m
+          [36m</section>[39m
+          [36m<section[39m
+            [33mclass[39m=[32m"flex flex-col gap-2"[39m
+            [33mdata-testid[39m=[32m"tasks-live-other-tasks"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"text-14 font-semibold"[39m
+            [36m>[39m
+              [0m我的其他待办[0m
+            [36m</h2>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+            [36m>[39m
+              [0m未进入今日分区的任务仍可在这里回查，包括未设置截止日期的任务。[0m
+            [36m</p>[39m
+            [36m<div[39m
+              [33mrole[39m=[32m"alert"[39m
+            [36m>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"text-12 text-destructive"[39m
+              [36m>[39m
+                [0m未能读取其他任务：操作太频繁了，等一下再试[0m
+              [36m</p>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+              [36m>[39m
+                [0m重试读取其他任务[0m
+              [36m</button>[39m
+            [36m</div>[39m
+          [36m</section>[39m
+          [36m<footer[39m
+            [33mclass[39m=[32m"flex flex-col gap-1.5 rounded-md border border-border-subtle bg-panel p-3"[39m
+            [33mdata-testid[39m=[32m"tasks-today-summary"[39m
+          [36m>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12"[39m
+              [33mdata-testid[39m=[32m"tasks-summary-low-sample-demo"[39m
+            [36m>[39m
+              [0m今日 AI 完成 [0m
+              [0m1[0m
+              [0m 项 · [0m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-warning"[39m
+              [36m>[39m
+                [0m样本不足，暂不折算人时[0m
+              [36m</span>[39m
+            [36m</p>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-10 text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"tasks-summary-coefficient-note"[39m
+            [36m>[39m
+              [0m折算系数、口径表版本与最小样本量阈值由组织可配口径表提供；样本不足或口径表未配置时不显示折算值，不编造数字。[0m
+            [36m</p>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-11 font-medium text-background-foreground"[39m
+            [36m>[39m
+              [0m责任人始终是人——AI 只拿到行动权，不承担验收。[0m
+            [36m</p>[39m
+          [36m</footer>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</body>[39m
+[36m</html>[39m
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/tasks-i18n.test.tsx > retranslates task copy/date and retains raw fields and the unsaved create draft without reloading
+TestingLibraryElementError: Unable to find an accessible element with the role "heading" and name "My today"
+
+Here are the accessible roles:
+
+  combobox:
+
+  Name "Language":
+  [36m<select[39m
+    [33maria-label[39m=[32m"Language"[39m
+    [33mclass[39m=[32m"max-w-full rounded-control border border-border bg-card px-2 py-1 text-12 text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"language-switcher"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  option:
+
+  Name "简体中文":
+  [36m<option[39m
+    [33mlang[39m=[32m"zh-CN"[39m
+    [33mvalue[39m=[32m"zh-CN"[39m
+  [36m/>[39m
+
+  Name "English":
+  [36m<option[39m
+    [33mlang[39m=[32m"en"[39m
+    [33mvalue[39m=[32m"en"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  banner:
+
+  Name "":
+  [36m<header[39m
+    [33mclass[39m=[32m"flex flex-wrap items-start justify-between gap-3"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "我的今天":
+  [36m<h1[39m
+    [33mclass[39m=[32m"text-20 font-semibold tracking-tight"[39m
+  [36m/>[39m
+
+  Name "等我判断":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-14 font-semibold"[39m
+  [36m/>[39m
+
+  Name "今天该我推进":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-14 font-semibold"[39m
+  [36m/>[39m
+
+  Name "原文 {title}":
+  [36m<h3[39m
+    [33mclass[39m=[32m"text-13 font-medium"[39m
+  [36m/>[39m
+
+  Name "AI 正在替我跑":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-14 font-semibold"[39m
+  [36m/>[39m
+
+  Name "下一步轮到别人":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-14 font-semibold"[39m
+  [36m/>[39m
+
+  Name "我的其他待办":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-14 font-semibold"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+    [33mdata-testid[39m=[32m"tasks-live-section-empty-awaiting_my_judgment"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+    [33mdata-testid[39m=[32m"tasks-live-section-empty-ai_running_for_me"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+    [33mdata-testid[39m=[32m"tasks-live-section-empty-waiting_on_others"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-12"[39m
+    [33mdata-testid[39m=[32m"tasks-summary-low-sample-demo"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-10 text-muted-foreground"[39m
+    [33mdata-testid[39m=[32m"tasks-summary-coefficient-note"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-11 font-medium text-background-foreground"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "＋ 新建任务":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"tasks-new-task-live"[39m
+  [36m/>[39m
+
+  Name "提交验收":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"tasks-live-advance-task"[39m
+  [36m/>[39m
+
+  Name "退回上一步":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"tasks-live-block-task"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  article:
+
+  Name "":
+  [36m<article[39m
+    [33mclass[39m=[32m"flex flex-col gap-1.5 rounded-md border border-border bg-card p-3 shadow-sm"[39m
+    [33mdata-testid[39m=[32m"tasks-live-card-task"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  contentinfo:
+
+  Name "":
+  [36m<footer[39m
+    [33mclass[39m=[32m"flex flex-col gap-1.5 rounded-md border border-border-subtle bg-panel p-3"[39m
+    [33mdata-testid[39m=[32m"tasks-today-summary"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<select[39m
+      [33maria-label[39m=[32m"Language"[39m
+      [33mclass[39m=[32m"max-w-full rounded-control border border-border bg-card px-2 py-1 text-12 text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"language-switcher"[39m
+    [36m>[39m
+      [36m<option[39m
+        [33mlang[39m=[32m"zh-CN"[39m
+        [33mvalue[39m=[32m"zh-CN"[39m
+      [36m>[39m
+        [0m简体中文[0m
+      [36m</option>[39m
+      [36m<option[39m
+        [33mlang[39m=[32m"en"[39m
+        [33mvalue[39m=[32m"en"[39m
+      [36m>[39m
+        [0mEnglish[0m
+      [36m</option>[39m
+    [36m</select>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col gap-5 p-5"[39m
+      [33mdata-testid[39m=[32m"tasks-live-board"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"flex flex-wrap items-start justify-between gap-3"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col gap-1"[39m
+        [36m>[39m
+          [36m<h1[39m
+            [33mclass[39m=[32m"text-20 font-semibold tracking-tight"[39m
+          [36m>[39m
+            [0m我的今天[0m
+          [36m</h1>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+          [36m>[39m
+            [0m最重要的是什么 · 下一步轮到谁 · 什么在等我判断。[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+          [33mdata-testid[39m=[32m"tasks-new-task-live"[39m
+        [36m>[39m
+          [0m＋ 新建任务[0m
+        [36m</button>[39m
+      [36m</header>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-col gap-6"[39m
+      [36m>[39m
+        [36m<section[39m
+          [33mclass[39m=[32m"flex flex-col gap-2"[39m
+          [33mdata-testid[39m=[32m"tasks-live-section-awaiting_my_judgment"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex items-baseline gap-2"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"text-14 font-semibold"[39m
+            [36m>[39m
+              [0m等我判断[0m
+            [36m</h2>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"tasks-live-section-count-awaiting_my_judgment"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+            [36m>[39m
+              [0m（[0m
+              [0m需要你接受或验收[0m
+              [0m）[0m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+            [33mdata-testid[39m=[32m"tasks-live-section-empty-awaiting_my_judgment"[39m
+          [36m>[39m
+            [0m没有等你的事[0m
+          [36m</p>[39m
+        [36m</section>[39m
+        [36m<section[39m
+          [33mclass[39m=[32m"flex flex-col gap-2"[39m
+          [33mdata-testid[39m=[32m"tasks-live-section-my_push_today"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex items-baseline gap-2"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"text-14 font-semibold"[39m
+            [36m>[39m
+              [0m今天该我推进[0m
+            [36m</h2>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"tasks-live-section-count-my_push_today"[39m
+            [36m>[39m
+              [0m1[0m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-col gap-2"[39m
+          [36m>[39m
+            [36m<article[39m
+              [33mclass[39m=[32m"flex flex-col gap-1.5 rounded-md border border-border bg-card p-3 shadow-sm"[39m
+              [33mdata-testid[39m=[32m"tasks-live-card-task"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex flex-wrap items-center gap-2"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-warning-tint text-warning-tint-foreground"[39m
+                  [33mdata-testid[39m=[32m"tasks-risk-badge"[39m
+                [36m>[39m
+                  [0mR2[0m
+                [36m</span>[39m
+                [36m<h3[39m
+                  [33mclass[39m=[32m"text-13 font-medium"[39m
+                [36m>[39m
+                  [0m原文 {title}[0m
+                [36m</h3>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"ml-auto text-10 text-muted-foreground"[39m
+                [36m>[39m
+                  [0m12/31/2026[0m
+                [36m</span>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex flex-wrap items-center gap-2 text-10 text-muted-foreground"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"inline-flex items-center gap-1"[39m
+                  [33mdata-testid[39m=[32m"tasks-owner-line"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"inline-flex shrink-0 items-center justify-center rounded-full font-medium transition-colors duration-200 bg-accent text-accent-foreground h-5 w-5 text-9 overflow-hidden p-0"[39m
+                  [36m>[39m
+                    [0m我[0m
+                  [36m</span>[39m
+                  [0m负责人 [0m
+                  [0m我[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-ai-tint text-ai-tint-foreground"[39m
+                  [33mdata-testid[39m=[32m"tasks-executor-badge"[39m
+                [36m>[39m
+                  [0m原文 {Agent} 在跑[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mdata-testid[39m=[32m"tasks-waiting-on"[39m
+                [36m>[39m
+                  [0m在等 [0m
+                  [0m原文 {Person}[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-warning-tint text-warning-tint-foreground"[39m
+                [36m>[39m
+                  [0m未同步[0m
+                [36m</span>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"mt-0.5 flex items-center gap-2"[39m
+              [36m>[39m
+                [36m<button[39m
+                  [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+                  [33mdata-testid[39m=[32m"tasks-live-advance-task"[39m
+                [36m>[39m
+                  [0m提交验收[0m
+                [36m</button>[39m
+                [36m<button[39m
+                  [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12"[39m
+                  [33mdata-testid[39m=[32m"tasks-live-block-task"[39m
+                [36m>[39m
+                  [0m退回上一步[0m
+                [36m</button>[39m
+              [36m</div>[39m
+            [36m</article>[39m
+          [36m</div>[39m
+        [36m</section>[39m
+        [36m<section[39m
+          [33mclass[39m=[32m"flex flex-col gap-2"[39m
+          [33mdata-testid[39m=[32m"tasks-live-section-ai_running_for_me"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex items-baseline gap-2"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"text-14 font-semibold"[39m
+            [36m>[39m
+              [0mAI 正在替我跑[0m
+            [36m</h2>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"tasks-live-section-count-ai_running_for_me"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+            [36m>[39m
+              [0m（[0m
+              [0m只给一行摘要[0m
+              [0m）[0m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+            [33mdata-testid[39m=[32m"tasks-live-section-empty-ai_running_for_me"[39m
+          [36m>[39m
+            [0m没有等你的事[0m
+          [36m</p>[39m
+        [36m</section>[39m
+        [36m<section[39m
+          [33mclass[39m=[32m"flex flex-col gap-2"[39m
+          [33mdata-testid[39m=[32m"tasks-live-section-waiting_on_others"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex items-baseline gap-2"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"text-14 font-semibold"[39m
+            [36m>[39m
+              [0m下一步轮到别人[0m
+            [36m</h2>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"tasks-live-section-count-waiting_on_others"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+            [33mdata-testid[39m=[32m"tasks-live-section-empty-waiting_on_others"[39m
+          [36m>[39m
+            [0m没有等你的事[0m
+          [36m</p>[39m
+        [36m</section>[39m
+        [36m<section[39m
+          [33mclass[39m=[32m"flex flex-col gap-2"[39m
+          [33mdata-testid[39m=[32m"tasks-live-other-tasks"[39m
+        [36m>[39m
+          [36m<h2[39m
+            [33mclass[39m=[32m"text-14 font-semibold"[39m
+          [36m>[39m
+            [0m我的其他待办[0m
+          [36m</h2>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+          [36m>[39m
+            [0m未进入今日分区的任务仍可在这里回查，包括未设置截止日期的任务。[0m
+          [36m</p>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+          [36m>[39m
+            [0m没有其他待办[0m
+          [36m</p>[39m
+        [36m</section>[39m
+        [36m<footer[39m
+          [33mclass[39m=[32m"flex flex-col gap-1.5 rounded-md border border-border-subtle bg-panel p-3"[39m
+          [33mdata-testid[39m=[32m"tasks-today-summary"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-12"[39m
+            [33mdata-testid[39m=[32m"tasks-summary-low-sample-demo"[39m
+          [36m>[39m
+            [0m今日 AI 完成 [0m
+            [0m1[0m
+            [0m 项 · [0m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-warning"[39m
+            [36m>[39m
+              [0m样本不足，暂不折算人时[0m
+            [36m</span>[39m
+          [36m</p>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-10 text-muted-foreground"[39m
+            [33mdata-testid[39m=[32m"tasks-summary-coefficient-note"[39m
+          [36m>[39m
+            [0m折算系数、口径表版本与最小样本量阈值由组织可配口径表提供；样本不足或口径表未配置时不显示折算值，不编造数字。[0m
+          [36m</p>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-11 font-medium text-background-foreground"[39m
+          [36m>[39m
+            [0m责任人始终是人——AI 只拿到行动权，不承担验收。[0m
+          [36m</p>[39m
+        [36m</footer>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/tasks-i18n.test.tsx:22:17
+     20| it("retranslates task copy/date and retains raw fields and the unsaved…
+     21|   show(); await screen.findByTestId("tasks-live-card-task");
+     22|   expect(screen.getByRole("heading", { name: "My today" })).toBeTruthy…
+       |                 ^
+     23|   expect(screen.getByTestId("tasks-live-card-task")).toHaveTextContent…
+     24|   expect(screen.getByTestId("tasks-executor-badge")).toHaveTextContent…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  tests/ui/tasks-i18n.test.tsx > preserves the original create payload and retranslates a stored failure without resubmitting
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  The service is temporarily unavailable
+Received:
+  服务暂时不可用，稍后再试一次
+
+Ignored nodes: comments, script, style
+[36m<html[39m
+  [33mlang[39m=[32m"en"[39m
+[36m>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<select[39m
+        [33maria-label[39m=[32m"Language"[39m
+        [33mclass[39m=[32m"max-w-full rounded-control border border-border bg-card px-2 py-1 text-12 text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+        [33mdata-testid[39m=[32m"language-switcher"[39m
+      [36m>[39m
+        [36m<option[39m
+          [33mlang[39m=[32m"zh-CN"[39m
+          [33mvalue[39m=[32m"zh-CN"[39m
+        [36m>[39m
+          [0m简体中文[0m
+        [36m</option>[39m
+        [36m<option[39m
+          [33mlang[39m=[32m"en"[39m
+          [33mvalue[39m=[32m"en"[39m
+        [36m>[39m
+          [0mEnglish[0m
+        [36m</option>[39m
+      [36m</select>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-col gap-5 p-5"[39m
+        [33mdata-testid[39m=[32m"tasks-live-board"[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex flex-wrap items-start justify-between gap-3"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-col gap-1"[39m
+          [36m>[39m
+            [36m<h1[39m
+              [33mclass[39m=[32m"text-20 font-semibold tracking-tight"[39m
+            [36m>[39m
+              [0m我的今天[0m
+            [36m</h1>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0m最重要的是什么 · 下一步轮到谁 · 什么在等我判断。[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-col gap-2 rounded-md border border-border-subtle bg-card p-3"[39m
+            [33mdata-testid[39m=[32m"tasks-new-task-form"[39m
+          [36m>[39m
+            [36m<label[39m
+              [33mclass[39m=[32m"text-12 font-medium text-muted-foreground block"[39m
+              [33mfor[39m=[32m"new-task-title"[39m
+            [36m>[39m
+              [0m任务标题[0m
+            [36m</label>[39m
+            [36m<input[39m
+              [33mclass[39m=[32m"flex h-9 min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"[39m
+              [33mdata-testid[39m=[32m"tasks-new-task-title"[39m
+              [33mid[39m=[32m"new-task-title"[39m
+              [33mplaceholder[39m=[32m"描述需要完成的事"[39m
+              [33mvalue[39m=[32m"  原文 {task}  "[39m
+            [36m/>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex flex-wrap gap-2"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"space-y-1"[39m
+              [36m>[39m
+                [36m<label[39m
+                  [33mclass[39m=[32m"text-12 font-medium text-muted-foreground block"[39m
+                  [33mfor[39m=[32m"new-task-due"[39m
+                [36m>[39m
+                  [0m截止日期（可选）[0m
+                [36m</label>[39m
+                [36m<input[39m
+                  [33mclass[39m=[32m"flex h-9 min-w-0 w-full rounded-control bg-card text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed rounded-md border border-border-subtle px-2 py-1 text-12"[39m
+                  [33mdata-testid[39m=[32m"tasks-new-task-due"[39m
+                  [33mid[39m=[32m"new-task-due"[39m
+                  [33mtype[39m=[32m"date"[39m
+                  [33mvalue[39m=[32m""[39m
+                [36m/>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"space-y-1"[39m
+              [36m>[39m
+                [36m<label[39m
+                  [33mclass[39m=[32m"text-12 font-medium text-muted-foreground block"[39m
+                  [33mfor[39m=[32m"new-task-risk"[39m
+                [36m>[39m
+                  [0m风险等级（可选）[0m
+                [36m</label>[39m
+                [36m<select[39m
+                  [33mclass[39m=[32m"rounded-md border border-border-subtle px-2 py-1 text-12"[39m
+                  [33mdata-testid[39m=[32m"tasks-new-task-risk"[39m
+                  [33mid[39m=[32m"new-task-risk"[39m
+                [36m>[39m
+                  [36m<option[39m
+                    [33mvalue[39m=[32m""[39m
+                  [36m>[39m
+                    [0m风险等级（可选）[0m
+                  [36m</option>[39m
+                  [36m<option[39m
+                    [33mvalue[39m=[32m"R1"[39m
+                  [36m>[39m
+                    [0mR1[0m
+                  [36m</option>[39m
+                  [36m<option[39m
+                    [33mvalue[39m=[32m"R2"[39m
+                  [36m>[39m
+                    [0mR2[0m
+                  [36m</option>[39m
+                  [36m<option[39m
+                    [33mvalue[39m=[32m"R3"[39m
+                  [36m>[39m
+                    [0mR3[0m
+                  [36m</option>[39m
+                [36m</select>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-11 text-destructive"[39m
+              [33mdata-testid[39m=[32m"tasks-new-task-error"[39m
+              [33mrole[39m=[32m"alert"[39m
+            [36m>[39m
+              [0m服务暂时不可用，稍后再试一次[0m
+            [36m</p>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-center gap-2"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+                [33mdata-testid[39m=[32m"tasks-new-task-submit"[39m
+              [36m>[39m
+                [0m创建[0m
+              [36m</button>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors ...
+ ❯ tests/ui/tasks-i18n.test.tsx:49:74
+     47|   fireEvent.change(screen.getByTestId("tasks-new-task-risk"), { target…
+     48|   fireEvent.click(screen.getByTestId("tasks-new-task-submit"));
+     49|   await waitFor(() => expect(screen.getByTestId("tasks-new-task-error"…
+       |                                                                          ^
+     50|   locale("zh-CN");
+     51|   expect(screen.getByTestId("tasks-new-task-error")).toHaveTextContent…
+ ❯ runWithExpensiveErrorDiagnosticsDisabled ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  tests/ui/tasks-i18n.test.tsx > keeps forward/backward enums and the existing audit reason; failure prefixes update live
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Could not advance
+Received:
+  推进失败：连不上服务器，检查一下网络再试
+
+Ignored nodes: comments, script, style
+[36m<html[39m
+  [33mlang[39m=[32m"en"[39m
+[36m>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<select[39m
+        [33maria-label[39m=[32m"Language"[39m
+        [33mclass[39m=[32m"max-w-full rounded-control border border-border bg-card px-2 py-1 text-12 text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+        [33mdata-testid[39m=[32m"language-switcher"[39m
+      [36m>[39m
+        [36m<option[39m
+          [33mlang[39m=[32m"zh-CN"[39m
+          [33mvalue[39m=[32m"zh-CN"[39m
+        [36m>[39m
+          [0m简体中文[0m
+        [36m</option>[39m
+        [36m<option[39m
+          [33mlang[39m=[32m"en"[39m
+          [33mvalue[39m=[32m"en"[39m
+        [36m>[39m
+          [0mEnglish[0m
+        [36m</option>[39m
+      [36m</select>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-col gap-5 p-5"[39m
+        [33mdata-testid[39m=[32m"tasks-live-board"[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex flex-wrap items-start justify-between gap-3"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-col gap-1"[39m
+          [36m>[39m
+            [36m<h1[39m
+              [33mclass[39m=[32m"text-20 font-semibold tracking-tight"[39m
+            [36m>[39m
+              [0m我的今天[0m
+            [36m</h1>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0m最重要的是什么 · 下一步轮到谁 · 什么在等我判断。[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+            [33mdata-testid[39m=[32m"tasks-new-task-live"[39m
+          [36m>[39m
+            [0m＋ 新建任务[0m
+          [36m</button>[39m
+        [36m</header>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-12 text-destructive"[39m
+          [33mdata-testid[39m=[32m"tasks-live-error"[39m
+          [33mrole[39m=[32m"alert"[39m
+        [36m>[39m
+          [0m推进失败：连不上服务器，检查一下网络再试[0m
+        [36m</p>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col gap-6"[39m
+        [36m>[39m
+          [36m<section[39m
+            [33mclass[39m=[32m"flex flex-col gap-2"[39m
+            [33mdata-testid[39m=[32m"tasks-live-section-awaiting_my_judgment"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-baseline gap-2"[39m
+            [36m>[39m
+              [36m<h2[39m
+                [33mclass[39m=[32m"text-14 font-semibold"[39m
+              [36m>[39m
+                [0m等我判断[0m
+              [36m</h2>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+                [33mdata-testid[39m=[32m"tasks-live-section-count-awaiting_my_judgment"[39m
+              [36m>[39m
+                [0m0[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+              [36m>[39m
+                [0m（[0m
+                [0m需要你接受或验收[0m
+                [0m）[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"tasks-live-section-empty-awaiting_my_judgment"[39m
+            [36m>[39m
+              [0m没有等你的事[0m
+            [36m</p>[39m
+          [36m</section>[39m
+          [36m<section[39m
+            [33mclass[39m=[32m"flex flex-col gap-2"[39m
+            [33mdata-testid[39m=[32m"tasks-live-section-my_push_today"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-baseline gap-2"[39m
+            [36m>[39m
+              [36m<h2[39m
+                [33mclass[39m=[32m"text-14 font-semibold"[39m
+              [36m>[39m
+                [0m今天该我推进[0m
+              [36m</h2>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+                [33mdata-testid[39m=[32m"tasks-live-section-count-my_push_today"[39m
+              [36m>[39m
+                [0m1[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex flex-col gap-2"[39m
+            [36m>[39m
+              [36m<article[39m
+                [33mclass[39m=[32m"flex flex-col gap-1.5 rounded-md border border-border bg-card p-3 shadow-sm"[39m
+                [33mdata-testid[39m=[32m"tasks-live-card-task"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"flex flex-wrap items-center gap-2"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-warning-tint text-warning-tint-foreground"[39m
+                    [33mdata-testid[39m=[32m"tasks-risk-badge"[39m
+                  [36m>[39m
+                    [0mR2[0m
+                  [36m</span>[39m
+                  [36m<h3[39m
+                    [33mclass[39m=[32m"text-13 font-medium"[39m
+                  [36m>[39m
+                    [0m原文 {title}[0m
+                  [36m</h3>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"ml-auto text-10 text-muted-foreground"[39m
+                  [36m>[39m
+                    [0m12/31/2026[0m
+                  [36m</span>[39m
+                [36m</div>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"flex flex-wrap items-center gap-2 text-10 text-muted-foreground"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"inline-flex items-center gap-1"[39m
+                    [33mdata-testid[39m=[32m"tasks-owner-line"[39m
+                  [36m>[39m
+                    [36m<span[39m
+                      [33maria-hidden[39m=[32m"true"[39m
+                      [33mclass[39m=[32m"inline-flex shrink-0 items-center justify-center rounded-full font-medium transition-colors duration-200 bg-accent text-accent-foreground h-5 w-5 text-9 overflow-hidden p-0"[39m
+                    [36m>[39m
+                      [0m我[0m
+                    [36m</span>[39m
+                    [0m负责人 [0m
+                    [0m我[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-ai-tint text-ai-tint-foreground"[39m
+                    [33mdata-testid[39m=[32m"tasks-executor-badge"[39m
+                  [36m>[39m
+                    [0m原文 {Agent} 在跑[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mdata-testid[39m=[32m"tasks-waiting-on"[39m
+                  [36m>[39m
+                    [0m在等 [0m
+                    [0m原文 {Person}[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-warning-tint text-warning-tint-foreground"[39m
+                  [36m>[39m
+                    [0m未同步[0m
+                  [36m</span>[39m
+                [36m</div>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"mt-0.5 flex items-center gap-2"[39m
+                [36m>[39m
+                  [36m<button[39m
+                    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+                    [33mdata-testid[39m=[32m"tasks-live-advance-task"[39m
+                  [36m>[39m
+                    [0m提交验收[0m
+                  [36m</button>[39m
+                  [36m<button[39m
+                    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12"[39m
+                    [33mdata-testid[39m=[32m"tasks-live-block-task"[39m
+                  [36m>[39m
+                    [0m退回上一步[0m
+                  [36m</button>[39m
+                [36m</div>[39m
+              [36m</article>[39m
+            [36m</div>[39m
+          [36m</section>[39m
+          [36m<section[39m
+            [33mclass[39m=[32m"flex flex-col gap-2"[39m
+            [33mdata-testid[39m=[32m"tasks-live-section-ai_running_for_me"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-baseline gap-2"[39m
+            [36m>[39m
+              [36m<h2[39m
+                [33mclass[39m=[32m"text-14 font-semibold"[39m
+              [36m>[39m
+                [0mAI 正在替我跑[0m
+              [36m</h2>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+                [33mdata-testid[39m=[32m"tasks-live-section-count-ai_running_for_me"[39m
+              [36m>[39m
+                [0m0[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+              [36m>[39m
+                [0m（[0m
+                [0m只给一行摘要[0m
+                [0m）[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"tasks-live-section-empty-ai_running_for_me"[39m
+            [36m>[39m
+              [0m没有等你的事[0m
+            [36m</p>[39m
+          [36m</section>[39m
+          [36m<section[39m
+            [33mclass[39m=[32m"flex flex-col gap-2"[39m
+            [33mdata-testid[39m=[32m"tasks-live-section-waiting_on_others"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-baseline gap-2"[39m
+            [36m>[39m
+              [36m<h2[39m
+                [33mclass[39m=[32m"text-14 font-semibold"[39m
+              [36m>[39m
+                [0m下一步轮到别人[0m
+              [36m</h2>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+                [33mdata-testid[39m=[32m"tasks-live-section-count-waiting_on_others"[39m
+              [36m>[39m
+                [0m0[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"tasks-live-section-empty-waiting_on_others"[39m
+            [36m>[39m
+              [0m没有等你的事[0m
+            [36m</p>[39m
+          [36m</section>[39m
+          [36m<section[39m
+            [33mclass[39m=[32m"flex flex-col gap-2"[39m
+            [33mdata-testid[39m=[32m"tasks-live-other-tasks"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"text-14 font-semibold"[39m
+            [36m>[39m
+              [0m我的其他待办[0m
+            [36m</h2>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+            [36m>[39m
+              [0m未进入今日分区的任务仍可在这里回查，包括未设置截止日期的任务。[0m
+            [36m</p>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+            [36m>[39m
+              [0m没有其他待办[0m
+            [36m</p>[39m
+          [36m</section>[39m
+          [36m<footer[39m
+            [33mclass[39m=[32m"flex flex-col gap-1.5 rounded-md border border-border-subtle bg-panel p-3"[39m
+            [33mdata-testid[39m=[32m"tasks-today-summary"[39m
+          [36m>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12"[39m
+              [33mdata-testid[39m=[32m"tasks-summary-low-sample-demo"[39m
+            [36m>[39m
+              [0m今日 AI 完成 [0m
+              [0m1[0m
+              [0m 项 · [0m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-warning"[39m
+              [36m>[39m
+                [0m样本不足，暂不折算人时[0m
+              [36m</span>[39m
+            [36m</p>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-10 text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"tasks-summary-coefficient-note"[39m
+            [36m>[39m
+              [0m折算系数、口径表版本与最小样本量阈值由组织可配口径表提供；样本不足或口径表未配置时不显示折算值，不编造数字。[0m
+            [36m</p>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-11 font-medium text-background-foreground"[39m
+            [36m>[39m
+              [0m责任人始终是人——AI 只拿到行动权，不承担验收。[0m
+            [36m</p>[39m
+          [36m</footer>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</body>[39m
+[36m</html>[39m
+ ❯ tests/ui/tasks-i18n.test.tsx:60:70
+     58|   show(); await screen.findByTestId("tasks-live-card-task");
+     59|   fireEvent.click(screen.getByTestId("tasks-live-advance-task"));
+     60|   await waitFor(() => expect(screen.getByTestId("tasks-live-error")).t…
+       |                                                                      ^
+     61|   expect(api.change).toHaveBeenLastCalledWith("task", "review");
+     62|   locale("zh-CN"); expect(screen.getByTestId("tasks-live-error")).toHa…
+ ❯ runWithExpensiveErrorDiagnosticsDisabled ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  tests/ui/tasks-i18n.test.tsx > retranslates a failed secondary list read without replaying it or losing the today cards
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Could not load other tasks
+Received:
+  我的其他待办未进入今日分区的任务仍可在这里回查，包括未设置截止日期的任务。未能读取其他任务：操作太频繁了，等一下再试重试读取其他任务
+
+Ignored nodes: comments, script, style
+[36m<html[39m
+  [33mlang[39m=[32m"en"[39m
+[36m>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<select[39m
+        [33maria-label[39m=[32m"Language"[39m
+        [33mclass[39m=[32m"max-w-full rounded-control border border-border bg-card px-2 py-1 text-12 text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+        [33mdata-testid[39m=[32m"language-switcher"[39m
+      [36m>[39m
+        [36m<option[39m
+          [33mlang[39m=[32m"zh-CN"[39m
+          [33mvalue[39m=[32m"zh-CN"[39m
+        [36m>[39m
+          [0m简体中文[0m
+        [36m</option>[39m
+        [36m<option[39m
+          [33mlang[39m=[32m"en"[39m
+          [33mvalue[39m=[32m"en"[39m
+        [36m>[39m
+          [0mEnglish[0m
+        [36m</option>[39m
+      [36m</select>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-col gap-5 p-5"[39m
+        [33mdata-testid[39m=[32m"tasks-live-board"[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex flex-wrap items-start justify-between gap-3"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-col gap-1"[39m
+          [36m>[39m
+            [36m<h1[39m
+              [33mclass[39m=[32m"text-20 font-semibold tracking-tight"[39m
+            [36m>[39m
+              [0m我的今天[0m
+            [36m</h1>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0m最重要的是什么 · 下一步轮到谁 · 什么在等我判断。[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+            [33mdata-testid[39m=[32m"tasks-new-task-live"[39m
+          [36m>[39m
+            [0m＋ 新建任务[0m
+          [36m</button>[39m
+        [36m</header>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col gap-6"[39m
+        [36m>[39m
+          [36m<section[39m
+            [33mclass[39m=[32m"flex flex-col gap-2"[39m
+            [33mdata-testid[39m=[32m"tasks-live-section-awaiting_my_judgment"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-baseline gap-2"[39m
+            [36m>[39m
+              [36m<h2[39m
+                [33mclass[39m=[32m"text-14 font-semibold"[39m
+              [36m>[39m
+                [0m等我判断[0m
+              [36m</h2>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+                [33mdata-testid[39m=[32m"tasks-live-section-count-awaiting_my_judgment"[39m
+              [36m>[39m
+                [0m0[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+              [36m>[39m
+                [0m（[0m
+                [0m需要你接受或验收[0m
+                [0m）[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"tasks-live-section-empty-awaiting_my_judgment"[39m
+            [36m>[39m
+              [0m没有等你的事[0m
+            [36m</p>[39m
+          [36m</section>[39m
+          [36m<section[39m
+            [33mclass[39m=[32m"flex flex-col gap-2"[39m
+            [33mdata-testid[39m=[32m"tasks-live-section-my_push_today"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-baseline gap-2"[39m
+            [36m>[39m
+              [36m<h2[39m
+                [33mclass[39m=[32m"text-14 font-semibold"[39m
+              [36m>[39m
+                [0m今天该我推进[0m
+              [36m</h2>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+                [33mdata-testid[39m=[32m"tasks-live-section-count-my_push_today"[39m
+              [36m>[39m
+                [0m1[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex flex-col gap-2"[39m
+            [36m>[39m
+              [36m<article[39m
+                [33mclass[39m=[32m"flex flex-col gap-1.5 rounded-md border border-border bg-card p-3 shadow-sm"[39m
+                [33mdata-testid[39m=[32m"tasks-live-card-task"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"flex flex-wrap items-center gap-2"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-warning-tint text-warning-tint-foreground"[39m
+                    [33mdata-testid[39m=[32m"tasks-risk-badge"[39m
+                  [36m>[39m
+                    [0mR2[0m
+                  [36m</span>[39m
+                  [36m<h3[39m
+                    [33mclass[39m=[32m"text-13 font-medium"[39m
+                  [36m>[39m
+                    [0m原文 {title}[0m
+                  [36m</h3>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"ml-auto text-10 text-muted-foreground"[39m
+                  [36m>[39m
+                    [0m12/31/2026[0m
+                  [36m</span>[39m
+                [36m</div>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"flex flex-wrap items-center gap-2 text-10 text-muted-foreground"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"inline-flex items-center gap-1"[39m
+                    [33mdata-testid[39m=[32m"tasks-owner-line"[39m
+                  [36m>[39m
+                    [36m<span[39m
+                      [33maria-hidden[39m=[32m"true"[39m
+                      [33mclass[39m=[32m"inline-flex shrink-0 items-center justify-center rounded-full font-medium transition-colors duration-200 bg-accent text-accent-foreground h-5 w-5 text-9 overflow-hidden p-0"[39m
+                    [36m>[39m
+                      [0m我[0m
+                    [36m</span>[39m
+                    [0m负责人 [0m
+                    [0m我[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-ai-tint text-ai-tint-foreground"[39m
+                    [33mdata-testid[39m=[32m"tasks-executor-badge"[39m
+                  [36m>[39m
+                    [0m原文 {Agent} 在跑[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mdata-testid[39m=[32m"tasks-waiting-on"[39m
+                  [36m>[39m
+                    [0m在等 [0m
+                    [0m原文 {Person}[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-warning-tint text-warning-tint-foreground"[39m
+                  [36m>[39m
+                    [0m未同步[0m
+                  [36m</span>[39m
+                [36m</div>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"mt-0.5 flex items-center gap-2"[39m
+                [36m>[39m
+                  [36m<button[39m
+                    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+                    [33mdata-testid[39m=[32m"tasks-live-advance-task"[39m
+                  [36m>[39m
+                    [0m提交验收[0m
+                  [36m</button>[39m
+                  [36m<button[39m
+                    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12"[39m
+                    [33mdata-testid[39m=[32m"tasks-live-block-task"[39m
+                  [36m>[39m
+                    [0m退回上一步[0m
+                  [36m</button>[39m
+                [36m</div>[39m
+              [36m</article>[39m
+            [36m</div>[39m
+          [36m</section>[39m
+          [36m<section[39m
+            [33mclass[39m=[32m"flex flex-col gap-2"[39m
+            [33mdata-testid[39m=[32m"tasks-live-section-ai_running_for_me"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-baseline gap-2"[39m
+            [36m>[39m
+              [36m<h2[39m
+                [33mclass[39m=[32m"text-14 font-semibold"[39m
+              [36m>[39m
+                [0mAI 正在替我跑[0m
+              [36m</h2>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+                [33mdata-testid[39m=[32m"tasks-live-section-count-ai_running_for_me"[39m
+              [36m>[39m
+                [0m0[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+              [36m>[39m
+                [0m（[0m
+                [0m只给一行摘要[0m
+                [0m）[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"tasks-live-section-empty-ai_running_for_me"[39m
+            [36m>[39m
+              [0m没有等你的事[0m
+            [36m</p>[39m
+          [36m</section>[39m
+          [36m<section[39m
+            [33mclass[39m=[32m"flex flex-col gap-2"[39m
+            [33mdata-testid[39m=[32m"tasks-live-section-waiting_on_others"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-baseline gap-2"[39m
+            [36m>[39m
+              [36m<h2[39m
+                [33mclass[39m=[32m"text-14 font-semibold"[39m
+              [36m>[39m
+                [0m下一步轮到别人[0m
+              [36m</h2>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+                [33mdata-testid[39m=[32m"tasks-live-section-count-waiting_on_others"[39m
+              [36m>[39m
+                [0m0[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"tasks-live-section-empty-waiting_on_others"[39m
+            [36m>[39m
+              [0m没有等你的事[0m
+            [36m</p>[39m
+          [36m</section>[39m
+          [36m<section[39m
+            [33mclass[39m=[32m"flex flex-col gap-2"[39m
+            [33mdata-testid[39m=[32m"tasks-live-other-tasks"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"text-14 font-semibold"[39m
+            [36m>[39m
+              [0m我的其他待办[0m
+            [36m</h2>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+            [36m>[39m
+              [0m未进入今日分区的任务仍可在这里回查，包括未设置截止日期的任务。[0m
+            [36m</p>[39m
+            [36m<div[39m
+              [33mrole[39m=[32m"alert"[39m
+            [36m>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"text-12 text-destructive"[39m
+              [36m>[39m
+                [0m未能读取其他任务：操作太频繁了，等一下再试[0m
+              [36m</p>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+              [36m>[39m
+                [0m重试读取其他任务[0m
+              [36m</button>[39m
+            [36m</div>[39m
+          [36m</section>[39m
+          [36m<footer[39m
+            [33mclass[39m=[32m"flex flex-col gap-1.5 rounded-md border border-border-subtle bg-panel p-3"[39m
+            [33mdata-testid[39m=[32m"tasks-today-summary"[39m
+          [36m>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12"[39m
+              [33mdata-testid[39m=[32m"tasks-summary-low-sample-demo"[39m
+            [36m>[39m
+              [0m今日 AI 完成 [0m
+              [0m1[0m
+              [0m 项 · [0m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-warning"[39m
+              [36m>[39m
+                [0m样本不足，暂不折算人时[0m
+              [36m</span>[39m
+            [36m</p>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-10 text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"tasks-summary-coefficient-note"[39m
+            [36m>[39m
+              [0m折算系数、口径表版本与最小样本量阈值由组织可配口径表提供；样本不足或口径表未配置时不显示折算值，不编造数字。[0m
+            [36m</p>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-11 font-medium text-background-foreground"[39m
+            [36m>[39m
+              [0m责任人始终是人——AI 只拿到行动权，不承担验收。[0m
+            [36m</p>[39m
+          [36m</footer>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</body>[39m
+[36m</html>[39m
+ ❯ tests/ui/tasks-i18n.test.tsx:72:76
+     70|   api.list.mockRejectedValue(new ApiError(429, null, {}));
+     71|   show(); await screen.findByTestId("tasks-live-card-task");
+     72|   await waitFor(() => expect(screen.getByTestId("tasks-live-other-task…
+       |                                                                            ^
+     73|   locale("zh-CN"); expect(screen.getByTestId("tasks-live-other-tasks")…
+     74|   expect(api.list).toHaveBeenCalledTimes(1); expect(screen.getByTestId…
+ ❯ runWithExpensiveErrorDiagnosticsDisabled ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+ Test Files  1 failed (1)
+      Tests  4 failed (4)
+   Start at  07:14:52
+   Duration  6.31s (transform 1.02s, setup 194ms, collect 1.57s, tests 3.27s, environment 1.04s, prepare 65ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/tasks-i18n.test.tsx --maxWorkers=1 --minWorkers=1

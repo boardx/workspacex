@@ -43,6 +43,7 @@ feature 领进 sprint → harness sync --apply 建 issue → 分支 worker/<owne
   完就撒手。规则与例外见 `.harness/instructions/ad-hoc-fix-pr-sop.md`（2026-09-03 人类指令）。
 
 ## 开工流程(每轮会话开始)
+开发基线与 PR 目标遵循 `.harness/instructions/project/PROJECT.md` 的「开发集成默认」；旧流程文字中的分支名不覆盖该项目约定。
 0. **先确认角色,角色决定 loop 策略,不可跳过**:main coordinator → 先用 `coordinator` skill
    (挂 5 分钟 loop);某模块的 module coordinator → 先用 `module-coordinator` skill(15 分钟);
    都不是 → 你是 worker,loop 由 `agent-bootstrap.md` 第 3.5 步挂(15 分钟)。三条路径都跑

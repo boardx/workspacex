@@ -1,0 +1,13 @@
+{
+  "name": "testid",
+  "command": [
+    "pnpm",
+    "run",
+    "lint:e2e-testid-gate"
+  ],
+  "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61",
+  "exitCode": 0,
+  "seconds": 3.591,
+  "rawLogLocalPath": "/tmp/6214-visual-private-f8/testid.log",
+  "rawLogSha256": "db660ac043e77748dd542309c1ef190e24181d6bf76b473a6cb436f7959f1594"
+}

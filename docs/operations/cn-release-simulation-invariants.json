@@ -1,0 +1,37 @@
+{
+  "kind": "cn-release-isolated-invariant-registry-v1",
+  "invariants": [
+    {
+      "id": "no-false-green",
+      "requiredCaseIds": [
+        "test_cn_release_simulation.SimulationTests.test_skip_and_expected_failure_cannot_report_green",
+        "test_cn_release_simulation.SimulationTests.test_empty_or_missing_stats_fail_closed"
+      ],
+      "scope": "Only named isolated assertions; not an exhaustive global or cloud safety monitor."
+    },
+    {
+      "id": "exact-clean-source",
+      "requiredCaseIds": [
+        "test_cn_release_simulation.SimulationTests.test_ten_rounds_dirty_tree_is_rejected",
+        "test_cn_release_simulation.SimulationTests.test_source_status_is_bounded_redacted_and_never_excludes_cache"
+      ],
+      "scope": "Only named isolated assertions; not an exhaustive global or cloud safety monitor."
+    },
+    {
+      "id": "local-descendants-contained",
+      "requiredCaseIds": [
+        "linux_domain_contract",
+        "linux_entry_contract"
+      ],
+      "scope": "Only named isolated assertions; not an exhaustive global or cloud safety monitor."
+    },
+    {
+      "id": "production-acceptance-not-forged",
+      "requiredCaseIds": [
+        "test_cn_release_fixed_driver.DriverCliTests.test_run_completed_is_not_business_acceptance_claim",
+        "test_cn_release_isolated_acceptance.AcceptanceTests.test_complete_synthetic_isolated_evidence_never_accepts_production"
+      ],
+      "scope": "Only named isolated assertions; not an exhaustive global or cloud safety monitor."
+    }
+  ]
+}

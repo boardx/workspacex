@@ -1,0 +1,19 @@
+{
+  "source": "17b3733cbbc40d6aa7a1138f5e80ef2d13265061",
+  "originalSource": "89a6c5a4d6e0d5bf6add1177a2c41b440baf8f83",
+  "originalJob": "https://github.com/boardx/workspacex/actions/runs/39055248426/job/117461788092",
+  "originalRawLogSha256": "117b4a7e15c295ce718a92fbb5595c8c866b26c2a2dfde0478f52ca0b1d7e22d",
+  "originalFailure": "survey R1 response.json navigation-released response body, failed on first attempt and built-in retry",
+  "localR1": {
+    "exit": 0,
+    "passed": 1,
+    "command": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded e2e/survey-complete-flow.spec.ts --grep 'R1 \u95ee\u5377\u4f53\u9a8c\uff1a\u7a7a\u5217\u8868'"
+  },
+  "typecheckExit": 0,
+  "lintExit": 0,
+  "ownedCompose": "wsx-efd54b8f78c2c2527d05",
+  "ownedComposeRemaining": 0,
+  "currentCi": "pending",
+  "ossExit": 0,
+  "sourceReview": "SOURCE ACCEPT 17b3733cbbc40d6aa7a1138f5e80ef2d13265061"
+}

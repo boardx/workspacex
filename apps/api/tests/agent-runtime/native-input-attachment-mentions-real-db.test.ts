@@ -72,6 +72,7 @@ afterAll(async () => { await db?.close(); await resetOrgs(org); await rm(root, {
 it("沙箱 /inputs：正文 @ 点名的同作者历史附件被挂载；未点名 / 他人 / agent / 前缀同名的都不在", async () => {
   const reader = new PgNativeRunInputs(db, objects, { repo: new PgIdentityRepository(db), ids: { next: () => randomUUID() }, chat: new PgChatRepository(db) });
   const set = await reader.read({ orgId: org, parentRunId: run, attemptId: run + ":0", leaseEpoch: 1 });
+  expect(set.owner).toEqual({ orgId: org, userId: "actor" });
   expect(set.manifest.map((f) => f.attachmentId)).toEqual([ids.mentioned]);
   expect(set.manifest[0]).toMatchObject({ filename: MENTIONED, mediaType: "image/png", sizeBytes: png.length });
   expect(set.files[0]?.contentBase64).toBe(png.toString("base64"));

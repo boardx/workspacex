@@ -16,6 +16,14 @@ function fixture(t) {
  return {git,put,commit,before,root,prove(sha,delta={}){return proveControlOnly({eventName:'push',ref:'refs/heads/main',sha,event:{before,after:sha,ref:'refs/heads/main'},git,...delta});}};
 }
 test('exact regular control change may skip',t=>{const f=fixture(t);f.put('scripts/cn_image_archive.py');assert.equal(f.prove(f.commit()).skip,true);});
+test('develop control-only proof skips and still checks exact event bindings',t=>{
+ const f=fixture(t);f.put('scripts/cn_image_archive.py');const sha=f.commit();
+ const ref='refs/heads/develop';const event={before:f.before,after:sha,ref};
+ assert.equal(f.prove(sha,{ref,event}).skip,true);
+ assert.equal(f.prove(sha,{ref,event:{...event,forced:true}}).skip,false);
+ assert.equal(f.prove(sha,{ref,event:{...event,ref:'refs/heads/main'}}).skip,false);
+ assert.equal(f.prove(sha,{ref:'refs/heads/main-cn',event:{...event,ref:'refs/heads/main-cn'}}).skip,false);
+});
 for(const path of ['apps/api/src/main.ts','packages/cloud-deploy/src/cn-fast-safe-release.ts','pnpm-lock.yaml','control-runtime/package.json','scripts/unknown.py','.github/workflows/backend-gates.yml','.harness/scripts/devapp-deploy-scope.mjs','scripts/cn_image_archive.py\nother','scripts/cn_іmage_archive.py']) {
  test(`unknown/application/dependency/policy path retains deploy: ${JSON.stringify(path)}`,t=>{const f=fixture(t);f.put('scripts/cn_image_archive.py');f.put(path);assert.equal(f.prove(f.commit()).skip,false);});
 }

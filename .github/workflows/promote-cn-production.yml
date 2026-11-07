@@ -4,6 +4,16 @@ name: promote-cn-production
 on:
   workflow_dispatch:
     inputs:
+      promotion_mode:
+        description: "Manual promotion or activation of an already advanced main-cn target"
+        type: choice
+        options: [manual, branch-push]
+        default: manual
+      release_mode:
+        description: "App-only requires frozen no-mutation compatibility and the existing prepared/tag admission"
+        type: choice
+        options: [standard, app-only]
+        default: standard
       release_sha:
         description: "Exact 40-character main commit with a complete validated host-prepared receipt"
         required: true
@@ -24,8 +34,12 @@ permissions:
   actions: write
   contents: write
 
+env:
+  PROMOTION_MODE: ${{ inputs.promotion_mode || 'manual' }}
+  RELEASE_MODE: ${{ inputs.release_mode }}
+
 # Admission, activation, and promotion are one serialized transaction. GitHub's
-# main-cn ref is the final commit record, after production and browser acceptance.
+# Manual promotions write main-cn after acceptance; branch-push activates its current target.
 concurrency:
   group: workspacex-cn-production-deploy
   cancel-in-progress: false
@@ -36,8 +50,22 @@ jobs:
     timeout-minutes: 3
     outputs:
       request_sha256: ${{ steps.identity.outputs.request_sha256 }}
+      already_active: ${{ steps.identity.outputs.already_active }}
     steps:
+      - &app_only_tools
+        name: Require pre-staged root-owned app-only control snapshot
+        if: inputs.release_mode == 'app-only'
+        shell: bash
+        env:
+          TOOL_REVISION: ${{ inputs.release_sha }}
+        working-directory: ${{ github.workspace }}
+        run: |
+          guard=/usr/local/lib/workspacex-cn/cn-app-only-guard.py
+          [[ -f "$guard" && ! -L "$guard" && "$(stat -c '%u:%a' "$guard")" == 0:755 ]] || exit 3
+          cmp --silent "/opt/workspacex-cn/app-only-tools/$TOOL_REVISION/.harness/scripts/vm/cn-app-only-guard.py" "$guard" || exit 3
+          /usr/bin/python3 -I -S -B "$guard" "/opt/workspacex-cn/app-only-tools/$TOOL_REVISION" "$TOOL_REVISION"
       - uses: actions/checkout@v5
+        if: inputs.release_mode != 'app-only'
         with:
           ref: ${{ inputs.release_sha }}
           fetch-depth: 0
@@ -50,25 +78,51 @@ jobs:
           EXPECTED_MAIN_CN: ${{ inputs.expected_main_cn_sha }}
           ATTEMPT_ID: ${{ inputs.release_attempt_id }}
           GH_TOKEN: ${{ github.token }}
+          RELEASE_MODE: ${{ inputs.release_mode }}
+        working-directory: ${{ inputs.release_mode == 'app-only' && format('/opt/workspacex-cn/app-only-tools/{0}', inputs.release_sha) || github.workspace }}
         run: |
           set -euo pipefail
+          verify_flags=()
+          if [[ "${RELEASE_MODE:-standard}" == app-only ]]; then verify_flags=(--app-only); fi
           [[ "${GITHUB_REF}" == refs/tags/cn-prepared-* && "${REVISION}" == "${GITHUB_SHA}" ]] || { echo "::error::CN_PROMOTION_NOT_READY_IDENTITY"; exit 1; }
           [[ "${REVISION}" =~ ^[a-f0-9]{40}$ && "${EXPECTED_MAIN_CN}" =~ ^[a-f0-9]{40}$ && "${ATTEMPT_ID}" =~ ^[a-z0-9][a-z0-9._-]{0,127}$ ]] || { echo "::error::CN_PROMOTION_NOT_READY_INPUT"; exit 2; }
-          github_main_cn=$(git rev-parse origin/main-cn)
-          [[ "${github_main_cn}" == "${EXPECTED_MAIN_CN}" || "${github_main_cn}" == "${REVISION}" ]] || { echo "::error::CN_PROMOTION_NOT_READY_BASELINE"; exit 3; }
+          [[ "${PROMOTION_MODE}" == manual || "${PROMOTION_MODE}" == branch-push ]] || { echo "::error::invalid promotion_mode"; exit 2; }
+          github_main_cn=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main-cn" --jq .object.sha)
+          if [[ "${PROMOTION_MODE}" == branch-push ]]; then
+            [[ "${github_main_cn}" == "${REVISION}" ]] || { echo "::error::CN_BRANCH_PUSH_TARGET_CHANGED"; exit 3; }
+          else
+            [[ "${github_main_cn}" == "${EXPECTED_MAIN_CN}" || "${github_main_cn}" == "${REVISION}" ]] || { echo "::error::CN_PROMOTION_NOT_READY_BASELINE"; exit 3; }
+          fi
+          git merge-base --is-ancestor "${EXPECTED_MAIN_CN}" "${REVISION}" || { echo "::error::CN_PROMOTION_NOT_READY_ANCESTRY"; exit 1; }
           git merge-base --is-ancestor "${REVISION}" origin/main || { echo "::error::CN_PROMOTION_NOT_READY_MAIN"; exit 1; }
           cmp --silent .harness/scripts/vm/verify-cn-release-promotion.sh /usr/local/bin/workspacex-cn-verify-promotion || { echo "::error::CN_TRUSTED_ENTRYPOINT_DRIFT"; exit 1; }
+          # Only actual exact-attempt runtime acceptance can complete a replay.
+          # This read-only result skips admission; it creates no native deployment.
+          if [[ "${PROMOTION_MODE}" == branch-push && "${RELEASE_MODE:-standard}" == standard ]]; then
+            cmp --silent .harness/scripts/vm/deploy-cn-production.sh /usr/local/bin/workspacex-cn-deploy || { echo "::error::CN_TRUSTED_ENTRYPOINT_DRIFT"; exit 1; }
+            if sudo -n /usr/local/bin/workspacex-cn-deploy --verify-active "${REVISION}" "${ATTEMPT_ID}"; then
+              [[ "$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main-cn" --jq .object.sha)" == "${REVISION}" ]] || { echo "::error::CN_BRANCH_PUSH_TARGET_CHANGED"; exit 3; }
+              echo "already_active=true" >> "${GITHUB_OUTPUT}"
+              echo "Exact release and attempt already active; read-only browser verification passed. No new deployment admission or activation." >> "${GITHUB_STEP_SUMMARY}"
+              exit 0
+            fi
+          fi
+          echo "already_active=false" >> "${GITHUB_OUTPUT}"
           set +e
           identity_file=$(mktemp)
           trap 'rm -f "${identity_file}"' EXIT
-          sudo -n /usr/local/bin/workspacex-cn-verify-promotion "${REVISION}" "${EXPECTED_MAIN_CN}" "${ATTEMPT_ID}" > "${identity_file}"
+          sudo -n /usr/local/bin/workspacex-cn-verify-promotion "${verify_flags[@]}" "${REVISION}" "${EXPECTED_MAIN_CN}" "${ATTEMPT_ID}" > "${identity_file}"
           status=$?
           set -e
           [[ ${status} -eq 0 ]] || { echo "::error::CN_PROMOTION_NOT_READY: complete exact preparation and live gates first"; exit "${status}"; }
           node --experimental-strip-types .harness/scripts/vm/cn-frozen-release-identity.mjs verify-dispatch "${identity_file}"
-  # This is the only human approval. The immutable protected tag keeps
+          if [[ "${RELEASE_MODE:-standard}" == app-only ]]; then
+            sudo -n /usr/local/bin/workspacex-cn-deploy --app-only-check "${REVISION}" "${ATTEMPT_ID}"
+          fi
+  # Machine admission uses the protected environment without human approval. The tag keeps
   # release_sha == GITHUB_SHA and native Deployment.sha truthful when main advances.
   admit:
+    if: needs.readiness.outputs.already_active != 'true'
     needs: readiness
     environment: production-cn-promotion
     runs-on: [self-hosted, linux, workspacex-cn-production]
@@ -79,49 +133,14 @@ jobs:
       attempt_id: ${{ steps.release.outputs.attempt_id }}
       request_sha256: ${{ needs.readiness.outputs.request_sha256 }}
     steps:
+      - *app_only_tools
       - name: Check out the exact candidate from GitHub
+        if: inputs.release_mode != 'app-only'
         uses: actions/checkout@v5
         with:
           ref: ${{ inputs.release_sha }}
           fetch-depth: 0
           persist-credentials: false
-
-      - name: Verify one-approval GitHub production governance
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          promotion_json=$(mktemp)
-          promotion_policies_json=$(mktemp)
-          activation_json=$(mktemp)
-          policies_json=$(mktemp)
-          rulesets_json=$(mktemp)
-          ruleset_details=$(mktemp)
-          trap 'rm -f "${promotion_json}" "${promotion_policies_json}" "${activation_json}" "${policies_json}" "${rulesets_json}" "${ruleset_details}"' EXIT
-
-          # Exact environment/tag policies are revalidated by the shared identity gate.
-          # The main-cn branch rules below still require native successful admission.
-          gh api "repos/${GITHUB_REPOSITORY}/rulesets?includes_parents=true&per_page=100" > "${rulesets_json}"
-          while read -r id; do
-            gh api "repos/${GITHUB_REPOSITORY}/rulesets/${id}" >> "${ruleset_details}"
-            printf '\n' >> "${ruleset_details}"
-          done < <(node -e 'for(const v of require(process.argv[1]))if(v.target==="branch"&&v.enforcement==="active")console.log(v.id)' "${rulesets_json}")
-          node - "${ruleset_details}" <<'NODE'
-          const fs=require("node:fs");
-          const values=fs.readFileSync(process.argv[2],"utf8").trim().split(/\n+/).filter(Boolean).map(JSON.parse);
-          const applies=value=>{
-            const refs=value.conditions?.ref_name;
-            return Array.isArray(refs?.include)&&refs.include.includes("refs/heads/main-cn")&&!(refs.exclude??[]).includes("refs/heads/main-cn");
-          };
-          const rules=values.filter(applies).flatMap(value=>value.rules??[]);
-          const deployments=rules.find(rule=>rule.type==="required_deployments")?.parameters?.required_deployment_environments??[];
-          const types=new Set(rules.map(rule=>rule.type));
-          if(!deployments.includes("production-cn-promotion")||!types.has("deletion")){
-            console.error("::error::main-cn ruleset must require production-cn-promotion and block deletion");
-            process.exit(1);
-          }
-          NODE
 
       - name: Validate immutable GitHub inputs
         id: release
@@ -130,8 +149,11 @@ jobs:
           REVISION: ${{ inputs.release_sha }}
           EXPECTED_MAIN_CN: ${{ inputs.expected_main_cn_sha }}
           ATTEMPT_ID: ${{ inputs.release_attempt_id }}
+        working-directory: ${{ inputs.release_mode == 'app-only' && format('/opt/workspacex-cn/app-only-tools/{0}', inputs.release_sha) || github.workspace }}
         run: |
           set -euo pipefail
+          verify_flags=()
+          if [[ "${RELEASE_MODE:-standard}" == app-only ]]; then verify_flags=(--app-only); fi
           [[ "${GITHUB_REF}" == refs/tags/cn-prepared-* ]] || { echo "::error::promotion must use the frozen protected release tag"; exit 1; }
           [[ "${REVISION}" =~ ^[a-f0-9]{40}$ ]] || { echo "::error::release_sha must be a full lowercase commit SHA"; exit 1; }
           [[ "${EXPECTED_MAIN_CN}" =~ ^[a-f0-9]{40}$ ]] || { echo "::error::expected_main_cn_sha must be a full lowercase commit SHA"; exit 1; }
@@ -150,8 +172,11 @@ jobs:
 
       - name: Fail closed if privileged entrypoints drifted
         shell: bash
+        working-directory: ${{ inputs.release_mode == 'app-only' && format('/opt/workspacex-cn/app-only-tools/{0}', inputs.release_sha) || github.workspace }}
         run: |
           set -euo pipefail
+          verify_flags=()
+          if [[ "${RELEASE_MODE:-standard}" == app-only ]]; then verify_flags=(--app-only); fi
           declare -A trusted=(
             [.harness/scripts/vm/build-cn-release-candidate.sh]=/usr/local/bin/workspacex-cn-build-candidate
             [.harness/scripts/vm/deploy-cn-production.sh]=/usr/local/bin/workspacex-cn-deploy
@@ -179,8 +204,11 @@ jobs:
         shell: bash
         env:
           REVISION: ${{ steps.release.outputs.revision }}
+        working-directory: ${{ inputs.release_mode == 'app-only' && format('/opt/workspacex-cn/app-only-tools/{0}', inputs.release_sha) || github.workspace }}
         run: |
           set -euo pipefail
+          verify_flags=()
+          if [[ "${RELEASE_MODE:-standard}" == app-only ]]; then verify_flags=(--app-only); fi
           repository=/opt/workspacex-cn/repository
           GIT_NO_LAZY_FETCH=1 git -C "${repository}" cat-file -e "${REVISION}^{commit}" || { echo "::error::CN_FROZEN_RELEASE_OFFLINE_SOURCE_NOT_READY"; exit 3; }
           git -C "${repository}" merge-base --is-ancestor "${REVISION}" origin/main || { echo "::error::CN_FROZEN_RELEASE_MAIN_LINEAGE"; exit 3; }
@@ -193,12 +221,15 @@ jobs:
           ATTEMPT_ID: ${{ steps.release.outputs.attempt_id }}
           EXPECTED_REQUEST_SHA256: ${{ needs.readiness.outputs.request_sha256 }}
           GH_TOKEN: ${{ github.token }}
+        working-directory: ${{ inputs.release_mode == 'app-only' && format('/opt/workspacex-cn/app-only-tools/{0}', inputs.release_sha) || github.workspace }}
         run: |
           set -euo pipefail
+          verify_flags=()
+          if [[ "${RELEASE_MODE:-standard}" == app-only ]]; then verify_flags=(--app-only); fi
           set +e
           identity_file=$(mktemp)
           trap 'rm -f "${identity_file}"' EXIT
-          sudo -n /usr/local/bin/workspacex-cn-verify-promotion "${REVISION}" "${EXPECTED_MAIN_CN}" "${ATTEMPT_ID}" > "${identity_file}"
+          sudo -n /usr/local/bin/workspacex-cn-verify-promotion "${verify_flags[@]}" "${REVISION}" "${EXPECTED_MAIN_CN}" "${ATTEMPT_ID}" > "${identity_file}"
           verify_status=$?
           set -e
           if [[ ${verify_status} -eq 3 ]]; then
@@ -213,16 +244,17 @@ jobs:
 
   # The admission job must finish successfully first. GitHub then records a
   # successful production-cn-promotion deployment for this exact GITHUB_SHA.
-  # This job activates and browser-verifies production before main-cn becomes
-  # the durable public record. production-cn has no reviewer, so there is still
-  # exactly one human approval.
+  # This job activates and browser-verifies production with machine gates.
+  # Neither production environment requires a human reviewer.
   promote:
     needs: admit
     environment: production-cn
     runs-on: [self-hosted, linux, workspacex-cn-production]
     timeout-minutes: 10
     steps:
+      - *app_only_tools
       - uses: actions/checkout@v5
+        if: inputs.release_mode != 'app-only'
         with:
           ref: ${{ needs.admit.outputs.revision }}
           fetch-depth: 0
@@ -232,16 +264,20 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_MODE: ${{ inputs.release_mode }}
           REVISION: ${{ needs.admit.outputs.revision }}
           EXPECTED_MAIN_CN: ${{ needs.admit.outputs.expected_main_cn }}
           ATTEMPT_ID: ${{ needs.admit.outputs.attempt_id }}
           EXPECTED_REQUEST_SHA256: ${{ needs.admit.outputs.request_sha256 }}
+        working-directory: ${{ inputs.release_mode == 'app-only' && format('/opt/workspacex-cn/app-only-tools/{0}', inputs.release_sha) || github.workspace }}
         run: |
           set -euo pipefail
+          verify_flags=()
+          if [[ "${RELEASE_MODE:-standard}" == app-only ]]; then verify_flags=(--app-only); fi
           [[ "${REVISION}" =~ ^[a-f0-9]{40}$ && "${EXPECTED_MAIN_CN}" =~ ^[a-f0-9]{40}$ && "${ATTEMPT_ID}" =~ ^[a-z0-9][a-z0-9._-]{0,127}$ ]] || { echo "::error::admission outputs are invalid"; exit 1; }
           identity_file=$(mktemp)
           trap 'rm -f "${identity_file}"' EXIT
-          sudo -n /usr/local/bin/workspacex-cn-verify-promotion "${REVISION}" "${EXPECTED_MAIN_CN}" "${ATTEMPT_ID}" > "${identity_file}"
+          sudo -n /usr/local/bin/workspacex-cn-verify-promotion "${verify_flags[@]}" "${REVISION}" "${EXPECTED_MAIN_CN}" "${ATTEMPT_ID}" > "${identity_file}"
           [[ "${EXPECTED_REQUEST_SHA256}" =~ ^[a-f0-9]{64}$ ]] || { echo "::error::CN_FROZEN_RELEASE_READINESS_DIGEST_MISSING"; exit 3; }
           node --experimental-strip-types .harness/scripts/vm/cn-frozen-release-identity.mjs verify-admission "${identity_file}"
           rm -f "${identity_file}"
@@ -251,18 +287,29 @@ jobs:
           [[ -d "${cache}" && ! -L "${cache}" && "$(git -C "${cache}" rev-parse --is-bare-repository)" == true ]] || { echo "::error::CN_SOURCE_CACHE_UNTRUSTED"; exit 1; }
           [[ "$(git -C "${repository}" remote get-url origin)" == "${cache}" ]] || { echo "::error::CN_RELEASE_ORIGIN_DRIFT"; exit 1; }
           current=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main-cn" --jq .object.sha)
-          if [[ "${current}" == "${REVISION}" ]]; then
+          if [[ "${PROMOTION_MODE}" == manual && "${current}" == "${REVISION}" ]]; then
             local_main_cn=$(git -C "${cache}" rev-parse refs/heads/main-cn)
             [[ "${local_main_cn}" == "${REVISION}" ]] || { echo "::error::already-promoted GitHub ref disagrees with the China source mirror"; exit 1; }
             git -C "${repository}" fetch --no-tags origin main main-cn
-            sudo -n /usr/local/bin/workspacex-cn-deploy --verify-active "${REVISION}" "${ATTEMPT_ID}"
+            if [[ "${RELEASE_MODE:-standard}" == app-only ]]; then
+              sudo -n /usr/local/bin/workspacex-cn-deploy --app-only-commit "${REVISION}" "${ATTEMPT_ID}"
+            else
+              sudo -n /usr/local/bin/workspacex-cn-deploy --verify-active "${REVISION}" "${ATTEMPT_ID}"
+            fi
             echo "result=already-promoted" >> "${GITHUB_OUTPUT}"
             exit 0
           fi
 
-          [[ "${current}" == "${EXPECTED_MAIN_CN}" ]] || { echo "::error::main-cn changed after approval; start a new promotion with the new baseline"; exit 1; }
-          sudo -n /usr/local/bin/workspacex-cn-verify-promotion "${REVISION}" "${EXPECTED_MAIN_CN}" "${ATTEMPT_ID}"
+          expected_remote=${EXPECTED_MAIN_CN}
+          if [[ "${PROMOTION_MODE}" == branch-push ]]; then expected_remote=${REVISION}; fi
+          [[ "${current}" == "${expected_remote}" ]] || { echo "::error::main-cn changed after admission; prepare a new promotion for the current target"; exit 1; }
+          sudo -n /usr/local/bin/workspacex-cn-verify-promotion "${verify_flags[@]}" "${REVISION}" "${EXPECTED_MAIN_CN}" "${ATTEMPT_ID}"
           git -C "${repository}" merge-base --is-ancestor "${EXPECTED_MAIN_CN}" "${REVISION}" || { echo "::error::main-cn update is not a fast-forward"; exit 1; }
+          app_runtime_state=ready
+          if [[ "${RELEASE_MODE:-standard}" == app-only ]]; then
+            app_result=$(sudo -n /usr/local/bin/workspacex-cn-deploy --app-only-check "${REVISION}" "${ATTEMPT_ID}")
+            app_runtime_state=$(printf '%s' "$app_result" | node -e 'let s="";process.stdin.on("data",v=>s+=v);process.stdin.on("end",()=>{const v=JSON.parse(s);if(!["ready","verified"].includes(v.status))process.exit(1);process.stdout.write(v.status)})')
+          fi
           activated=0
           graphql_input=""
           remote_commit_attempted=0
@@ -278,16 +325,21 @@ jobs:
               exit "${status}"
             fi
             if [[ "${activated}" == 1 ]]; then
+              if [[ "${RELEASE_MODE:-standard}" == app-only ]]; then
+                sudo -n /usr/local/bin/workspacex-cn-deploy --app-only-rollback "${REVISION}" "${ATTEMPT_ID}" || { echo "::error::CN_POST_ACTIVATION_CAS_ROLLBACK_UNPROVEN"; exit 1; }
+              else
               sudo -n /usr/local/bin/workspacex-cn-deploy --rollback "${REVISION}" "${ATTEMPT_ID}" || {
                 echo "::error::CN_POST_ACTIVATION_CAS_ROLLBACK_UNPROVEN"
                 exit 1
               }
+              fi
             fi
             git -C "${cache}" update-ref refs/heads/main-cn "${EXPECTED_MAIN_CN}" "${REVISION}" || true
             git -C "${repository}" fetch --no-tags origin main main-cn || true
             exit "${status}"
           }
           trap rollback EXIT
+          if [[ "${RELEASE_MODE:-standard}" == app-only && "${app_runtime_state}" == verified ]]; then activated=1; fi
           local_main_cn=$(git -C "${cache}" rev-parse refs/heads/main-cn)
           if [[ "${local_main_cn}" == "${EXPECTED_MAIN_CN}" ]]; then
             git -C "${cache}" update-ref refs/heads/main-cn "${REVISION}" "${EXPECTED_MAIN_CN}"
@@ -301,20 +353,38 @@ jobs:
             exit 1
           }
 
-          sudo -n /usr/local/bin/workspacex-cn-deploy "${REVISION}" "${ATTEMPT_ID}"
+          # Refuse an obsolete branch-push target immediately before activation.
+          if [[ "${PROMOTION_MODE}" == branch-push ]]; then
+            [[ "$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main-cn" --jq .object.sha)" == "${REVISION}" ]] || { echo "::error::CN_BRANCH_PUSH_TARGET_CHANGED"; exit 1; }
+          fi
+          # CN_LOCAL_PROMOTION_PREACTIVATION_END
+          if [[ "${RELEASE_MODE:-standard}" == app-only ]]; then
+            if [[ "${app_runtime_state}" == ready ]]; then
+              sudo -n /usr/local/bin/workspacex-cn-deploy --app-only "${REVISION}" "${ATTEMPT_ID}"
+            fi
+          else
+            sudo -n /usr/local/bin/workspacex-cn-deploy "${REVISION}" "${ATTEMPT_ID}"
+          fi
           activated=1
 
           repository_id=$(gh api "repos/${GITHUB_REPOSITORY}" --jq .node_id)
           graphql_input=$(mktemp)
-          node - "${graphql_input}" "${repository_id}" "${EXPECTED_MAIN_CN}" "${REVISION}" <<'NODE'
+          node - "${graphql_input}" "${repository_id}" "${expected_remote}" "${REVISION}" <<'NODE'
           const fs=require("node:fs");
           const [path,repositoryId,beforeOid,afterOid]=process.argv.slice(2);
           const query="mutation($repositoryId:ID!,$refUpdates:[RefUpdate!]!){updateRefs(input:{repositoryId:$repositoryId,refUpdates:$refUpdates}){clientMutationId}}";
           const variables={repositoryId,refUpdates:[{name:"refs/heads/main-cn",beforeOid,afterOid,force:false}]};
           fs.writeFileSync(path,JSON.stringify({query,variables}),{mode:0o600});
           NODE
-          remote_commit_attempted=1
-          gh api graphql --input "${graphql_input}" > "${graphql_input}.response"
+          if [[ "${RELEASE_MODE:-standard}" == app-only ]]; then
+            publication=$(sudo -n /usr/local/bin/workspacex-cn-deploy --app-only-check "${REVISION}" "${ATTEMPT_ID}")
+            publication_seconds=$(printf '%s' "$publication" | node -e 'let s="";process.stdin.on("data",v=>s+=v);process.stdin.on("end",()=>{const v=JSON.parse(s),n=Math.floor((Date.parse(v.publicationDeadline)-Date.now())/1000);if(v.status!=="verified"||v.publicationWindowOpen!==true||!Number.isSafeInteger(n)||n<=0||n>1800)process.exit(1);process.stdout.write(n)})')
+            remote_commit_attempted=1
+            timeout --signal=TERM --kill-after=1s "${publication_seconds}s" gh api graphql --input "${graphql_input}" > "${graphql_input}.response"
+          else
+            remote_commit_attempted=1
+            gh api graphql --input "${graphql_input}" > "${graphql_input}.response"
+          fi
           node - "${graphql_input}.response" <<'NODE'
           const fs=require("node:fs"),value=JSON.parse(fs.readFileSync(process.argv[2],"utf8"));
           if(value.errors?.length||!value.data?.updateRefs)process.exit(1);
@@ -326,6 +396,9 @@ jobs:
             echo "::error::main-cn strict CAS did not converge to the exact release SHA"
             exit 1
           }
+          if [[ "${RELEASE_MODE:-standard}" == app-only ]]; then
+            sudo -n /usr/local/bin/workspacex-cn-deploy --app-only-commit "${REVISION}" "${ATTEMPT_ID}"
+          fi
           activated=0
           trap - EXIT
           echo "result=activated-and-promoted" >> "${GITHUB_OUTPUT}"
@@ -333,5 +406,8 @@ jobs:
             echo "### CN production release accepted"
             echo "- Exact SHA: \`${REVISION}\`"
             echo "- Production: trusted activation and browser gate passed"
+            if [[ "${RELEASE_MODE:-standard}" == app-only ]]; then
+              echo "- Scope: lightweight Web/API availability; full business acceptance is not claimed"
+            fi
             echo "- main-cn: strict GraphQL CAS completed after production acceptance"
           } >> "${GITHUB_STEP_SUMMARY}"

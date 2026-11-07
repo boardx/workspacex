@@ -1,0 +1,203 @@
+[
+  {
+    "groups": [
+      {
+        "actions": [
+          {
+            "bg": "rgb(255, 255, 255)",
+            "color": "rgb(32, 31, 29)",
+            "height": 36,
+            "role": "secondary",
+            "text": "返回",
+            "top": 36,
+            "width": 96
+          },
+          {
+            "bg": "rgb(32, 31, 29)",
+            "color": "rgb(255, 255, 255)",
+            "height": 36,
+            "role": "primary",
+            "text": "继续",
+            "top": 80,
+            "width": 343
+          }
+        ],
+        "name": "直接操作",
+        "paddingTop": "8px",
+        "topBorder": "0px",
+        "width": 343
+      },
+      {
+        "actions": [
+          {
+            "bg": "rgb(255, 255, 255)",
+            "color": "rgb(32, 31, 29)",
+            "height": 36,
+            "role": "secondary",
+            "text": "生成 PDF",
+            "top": 876,
+            "width": 96
+          },
+          {
+            "bg": "rgb(255, 255, 255)",
+            "color": "rgb(32, 31, 29)",
+            "height": 36,
+            "role": "secondary",
+            "text": "生成 Word",
+            "top": 876,
+            "width": 96
+          },
+          {
+            "bg": "rgb(32, 31, 29)",
+            "color": "rgb(255, 255, 255)",
+            "height": 36,
+            "role": "primary",
+            "text": "下一步",
+            "top": 920,
+            "width": 343
+          }
+        ],
+        "name": "报告操作",
+        "paddingTop": "8px",
+        "topBorder": "0px",
+        "width": 343
+      }
+    ],
+    "scrollWidth": 375,
+    "viewport": 375
+  },
+  {
+    "groups": [
+      {
+        "actions": [
+          {
+            "bg": "rgb(255, 255, 255)",
+            "color": "rgb(32, 31, 29)",
+            "height": 36,
+            "role": "secondary",
+            "text": "返回",
+            "top": 36,
+            "width": 96
+          },
+          {
+            "bg": "rgb(32, 31, 29)",
+            "color": "rgb(255, 255, 255)",
+            "height": 36,
+            "role": "primary",
+            "text": "继续",
+            "top": 36,
+            "width": 112
+          }
+        ],
+        "name": "直接操作",
+        "paddingTop": "8px",
+        "topBorder": "0px",
+        "width": 736
+      },
+      {
+        "actions": [
+          {
+            "bg": "rgb(255, 255, 255)",
+            "color": "rgb(32, 31, 29)",
+            "height": 36,
+            "role": "secondary",
+            "text": "生成 PDF",
+            "top": 456,
+            "width": 96
+          },
+          {
+            "bg": "rgb(255, 255, 255)",
+            "color": "rgb(32, 31, 29)",
+            "height": 36,
+            "role": "secondary",
+            "text": "生成 Word",
+            "top": 456,
+            "width": 96
+          },
+          {
+            "bg": "rgb(32, 31, 29)",
+            "color": "rgb(255, 255, 255)",
+            "height": 36,
+            "role": "primary",
+            "text": "下一步",
+            "top": 456,
+            "width": 112
+          }
+        ],
+        "name": "报告操作",
+        "paddingTop": "8px",
+        "topBorder": "0px",
+        "width": 736
+      }
+    ],
+    "scrollWidth": 768,
+    "viewport": 768
+  },
+  {
+    "groups": [
+      {
+        "actions": [
+          {
+            "bg": "rgb(255, 255, 255)",
+            "color": "rgb(32, 31, 29)",
+            "height": 36,
+            "role": "secondary",
+            "text": "返回",
+            "top": 36,
+            "width": 96
+          },
+          {
+            "bg": "rgb(32, 31, 29)",
+            "color": "rgb(255, 255, 255)",
+            "height": 36,
+            "role": "primary",
+            "text": "继续",
+            "top": 36,
+            "width": 112
+          }
+        ],
+        "name": "直接操作",
+        "paddingTop": "8px",
+        "topBorder": "0px",
+        "width": 1248
+      },
+      {
+        "actions": [
+          {
+            "bg": "rgb(255, 255, 255)",
+            "color": "rgb(32, 31, 29)",
+            "height": 36,
+            "role": "secondary",
+            "text": "生成 PDF",
+            "top": 456,
+            "width": 96
+          },
+          {
+            "bg": "rgb(255, 255, 255)",
+            "color": "rgb(32, 31, 29)",
+            "height": 36,
+            "role": "secondary",
+            "text": "生成 Word",
+            "top": 456,
+            "width": 96
+          },
+          {
+            "bg": "rgb(32, 31, 29)",
+            "color": "rgb(255, 255, 255)",
+            "height": 36,
+            "role": "primary",
+            "text": "下一步",
+            "top": 456,
+            "width": 112
+          }
+        ],
+        "name": "报告操作",
+        "paddingTop": "8px",
+        "topBorder": "0px",
+        "width": 1248
+      }
+    ],
+    "scrollWidth": 1280,
+    "viewport": 1280
+  }
+]

@@ -1,3 +1,4 @@
+import {attachmentExtractionPresentation} from "../../application/chat/attachment-extraction-presentation";
 /**
  * #946 · V9-a F150 —— `AttachmentCommandRepository` 的 PostgreSQL 实现。
  * 走 `DatabasePort.withTenant`（RLS 租户会话），与 pg-chat-message-command-repository 同一套。
@@ -71,9 +72,9 @@ export class PgChatAttachmentRepository implements AttachmentCommandRepository {
     const row = await this.db.withTenant(orgId, async (s) => {
       const r = await s.query<{
         id: string; storage_ref: string; filename: string; mime: string;
-        bytes: string; created_at: string;
+        bytes: string; created_at: string; extraction_status?:string; extraction_error?:string|null;
       }>(
-        `SELECT id, storage_ref, filename, mime, bytes, created_at::text AS created_at
+        `SELECT id, storage_ref, filename, mime, bytes, created_at::text AS created_at, extraction_status, extraction_error
            FROM chat_message_attachments
           WHERE org_id = $1 AND thread_id = $2 AND id = $3 AND cancelled_at IS NULL`,
         [orgId, threadId, attachmentId],
@@ -83,7 +84,7 @@ export class PgChatAttachmentRepository implements AttachmentCommandRepository {
       // bytes 是 bigint（pg 回字符串）——转成 number（≤25MB 远在安全整数内）。
       return {
         id: hit.id, orgId, threadId, storageRef: hit.storage_ref, filename: hit.filename,
-        mime: hit.mime, bytes: Number(hit.bytes), createdAt: hit.created_at,
+        mime: hit.mime, bytes: Number(hit.bytes), createdAt: hit.created_at, ...attachmentExtractionPresentation(hit.extraction_status,hit.extraction_error),
       } satisfies AttachmentRow;
     });
     return guard({ kind: "project", id: `personal:${threadId}` }, row);
@@ -111,9 +112,9 @@ export class PgChatAttachmentRepository implements AttachmentCommandRepository {
     return this.db.withTenant(orgId, async (s) => {
       const r = await s.query<{
         id: string; storage_ref: string; filename: string; mime: string;
-        bytes: string; created_at: string; message_id: string;
+        bytes: string; created_at: string; extraction_status?:string; extraction_error?:string|null; message_id: string;
       }>(
-        `SELECT id, storage_ref, filename, mime, bytes, created_at::text AS created_at, message_id
+        `SELECT id, storage_ref, filename, mime, bytes, created_at::text AS created_at, extraction_status, extraction_error, message_id
            FROM chat_message_attachments
           WHERE org_id = $1 AND thread_id = $2 AND message_id IS NOT NULL
           ORDER BY created_at DESC`,
@@ -121,7 +122,7 @@ export class PgChatAttachmentRepository implements AttachmentCommandRepository {
       );
       return r.rows.map((hit) => ({
         id: hit.id, orgId, threadId, storageRef: hit.storage_ref, filename: hit.filename,
-        mime: hit.mime, bytes: Number(hit.bytes), createdAt: hit.created_at, messageId: hit.message_id,
+        mime: hit.mime, bytes: Number(hit.bytes), createdAt: hit.created_at, ...attachmentExtractionPresentation(hit.extraction_status,hit.extraction_error), messageId: hit.message_id,
       } satisfies SentAttachmentRow));
     });
   }

@@ -1,0 +1,134 @@
+{
+  "schemaVersion": 1,
+  "issue": 5761,
+  "parentIssue": 5756,
+  "sourceHead": "9d90805ef9976591c8e69b3bc7c54be78bd348d1",
+  "baseMain": "a43467714",
+  "sharedOriginal": "71b6ced6c02e24daa9b3e808a2cbb19570e868f4",
+  "sharedCherryPick": "3f4cad085",
+  "data": "Isolated synthetic fixture only; authenticated Next/Nest/PostgreSQL, no model commands or generation.",
+  "verification": [
+    {
+      "command": "./init.sh",
+      "result": "quick path passed; full repo validation not claimed"
+    },
+    {
+      "command": "pnpm --filter web exec vitest run tests/ui/interview-studio-home.test.tsx tests/ui/interview-expert-library.test.tsx tests/ui/interview-create-project-scope.test.tsx tests/ui/research-workflow-actions.test.tsx tests/ui/interview-workflow-actions.test.tsx tests/ui/interview-markdown-workbench.test.tsx",
+      "exitCode": 0,
+      "passed": 51
+    },
+    {
+      "command": "pnpm --filter web typecheck",
+      "exitCode": 0
+    },
+    {
+      "command": "pnpm --filter web exec eslint components/itv/interview-studio-home.tsx components/itv/digital-interview-create-modal.tsx components/itv/interview-expert-library.tsx components/itv/interview-expert-profile-fields.tsx",
+      "exitCode": 0
+    },
+    {
+      "command": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded --workers=1 interview-expert-library-live.spec.ts study-workflow-actions.spec.ts",
+      "exitCode": 0,
+      "passed": 2,
+      "duration": "5m4s including cleanup",
+      "isolation": "run-mv9mzhxd-9e7db4b2-fcef1b302d27",
+      "compose": "wsx-fcef1b302d27a6f35a6f"
+    }
+  ],
+  "visualWidths": [
+    375,
+    768,
+    1280
+  ],
+  "observed": {
+    "workflowButtonHeight": 36,
+    "secondaryMinWidth": 96,
+    "mobileModalPrimaryFullWidth": true,
+    "desktopModalPrimaryContentWidth": true,
+    "reportNestedExportNoOverflow": true,
+    "fullExpertProfileSavedAndReloaded": true,
+    "keyboardTabEscapeReturnFocus": true,
+    "modelRunsBefore": 0,
+    "modelRunsAfter": 0,
+    "modelRequestsBefore": 0,
+    "modelRequestsAfter": 0
+  },
+  "limits": [
+    "Busy/save failure uses deferred UI unit fixture, not a production failure.",
+    "expert-form-validation-error-375.png captures the alert immediately after inserting it; the scrollable form save button lies partly below that frame. The same live test subsequently scrolls, saves all fields, reloads and verifies stored values.",
+    "No claim of PDF/Word generation or file quality acceptance in this UI-only task."
+  ],
+  "screenshots": [
+    {
+      "file": "add-expert-1280.png",
+      "sha256": "714b1bec5399a9c12cbcec384e6eae493b6ffe84a6264279eff0b6390f4396c7"
+    },
+    {
+      "file": "add-expert-375.png",
+      "sha256": "a7e9131837b90950079034f37b87a4c96022a484c1952f2fe8128597e5ddbd5e"
+    },
+    {
+      "file": "add-expert-768.png",
+      "sha256": "87e3977d57e35350b5b0b9749b275e4c062a20ae5f56478203cd479434cffadc"
+    },
+    {
+      "file": "builtin-full-1280.png",
+      "sha256": "ca9d299800ac9e047e3507ab54bd60e255289f3efdde0906cd97309022e696f0"
+    },
+    {
+      "file": "builtin-full-375.png",
+      "sha256": "2220bd16babd3ca406a8b1fed3ab3fb967d22794998965b6179522888ad371a3"
+    },
+    {
+      "file": "builtin-full-768.png",
+      "sha256": "675ea4eb87ea24100e5922616ece5fe4c83e310f32bdfadba4501ed28e283286"
+    },
+    {
+      "file": "create-compact-1280.png",
+      "sha256": "0efbaec98ef53d319e1e92da83ef78c109c05e8876f9f186c863e5ef54007a19"
+    },
+    {
+      "file": "create-compact-375.png",
+      "sha256": "bbec4a7fa5850853815ca440f3e3c7caef47596cd89bed55ac876e7c23b66c8e"
+    },
+    {
+      "file": "create-compact-768.png",
+      "sha256": "4623a4925690c0567437daf8ebb75d74d44b17cc3dd3ba42d616c15972edd706"
+    },
+    {
+      "file": "custom-full-form.png",
+      "sha256": "d3c30f2914091ff6b51ec71556c1afb8877de2abc39134916bd74181c2498af4"
+    },
+    {
+      "file": "custom-full-reloaded.png",
+      "sha256": "aeeb1d84d7dbb6017b6e545dd0a9335f78a2e1af5a94510cb2ee50a8c70caf3f"
+    },
+    {
+      "file": "expert-form-validation-error-375.png",
+      "sha256": "0856ceb5bb04838fe10d5384deaed79e7453ff56cc76bcf06095649af442399b"
+    },
+    {
+      "file": "history-compact-1280.png",
+      "sha256": "61b5cd29314e1557d0f7c6f22870637dcc3d0208a75a0a4563c424678402acf5"
+    },
+    {
+      "file": "history-compact-375.png",
+      "sha256": "48e882e5b92ed531bb05cfca652d3746bd40292954fc8bec2157941986e64edb"
+    },
+    {
+      "file": "history-compact-768.png",
+      "sha256": "4bd2b7f7b63e243e91c01f9ee0cee31c769c32b9a2ad8bd9928cf794ce546282"
+    },
+    {
+      "file": "report-nested-actions-1280.png",
+      "sha256": "f50b8b47cb50dfa25004d193fbb6b705a473c38db4d05fbfa53bd422a98e7188"
+    },
+    {
+      "file": "report-nested-actions-375.png",
+      "sha256": "cb1932f4d7f9da0d44e8d5600d2dbe4efffeac891e5297781073810bd86a4c67"
+    },
+    {
+      "file": "report-nested-actions-768.png",
+      "sha256": "ddaf791276bfffa37a289b0e7ec67f7a00715184351db7382e43b0b9908358b7"
+    }
+  ]
+}

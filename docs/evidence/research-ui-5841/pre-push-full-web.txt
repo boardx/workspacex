@@ -1,0 +1,40 @@
+==> [harness] pre-push: 受影响模块 typecheck/lint（turbo --affected；跳过用 git push --no-verify）
+• turbo 2.10.5
+
+   • Packages in scope: //, web
+   • Running typecheck, lint in 2 packages
+   • Remote caching disabled, using shared worktree cache
+
+@repo/dev-mode-accounts:build: cache hit, replaying logs fa013fd89bfd9b51
+@repo/dev-mode-accounts:build: 
+@repo/dev-mode-accounts:build: > @repo/dev-mode-accounts@0.1.0 build /Users/shenyangjun/.codex/worktrees/799b/workspacex/packages/dev-mode-accounts
+@repo/dev-mode-accounts:build: > tsc --noEmit
+@repo/dev-mode-accounts:build: 
+@repo/fabric-markdown:build: cache hit, replaying logs c324c51199c35bc2
+@repo/fabric-markdown:build: 
+@repo/fabric-markdown:build: > @repo/fabric-markdown@0.1.0 build /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/packages/fabric-markdown
+@repo/fabric-markdown:build: > tsc -p tsconfig.build.json
+@repo/fabric-markdown:build: 
+web:lint: cache miss, executing 37c8e612c3639ba2
+web:typecheck: cache miss, executing c8a2371c5e150471
+web:typecheck: 
+web:typecheck: > web@0.1.0 typecheck /Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/web
+web:typecheck: > tsc --noEmit
+web:typecheck: 
+web:lint: 
+web:lint: > web@0.1.0 lint /Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/web
+web:lint: > next lint --max-warnings 0 && node scripts/gen-light-scope.mjs --check && ./scripts/lint-design.sh
+web:lint: 
+web:lint: ✔ No ESLint warnings or errors
+web:lint: ✅ gen-light-scope: .wx-light 与 :root 一致（53 个 token）
+web:lint: 
+web:lint: ✅ lint-design：全部通过（扫描 app components lib）
+
+ Tasks:    4 successful, 4 total
+Cached:    2 cached, 4 total
+  Time:    1m34.832s 
+
+  ℹ 本地只跑了 typecheck/lint。单元测试与 backend-gates（RLS 反证 / 运行时门 /
+    迁移幂等 / 契约单源 / 洋葱分层 / core-loop e2e）在 PR 的 CI 上跑——本地绿 ≠ CI 绿。
+To https://github.com/boardx/workspacex.git
+   0acfa6628..0333a9562  worker/coord-deep-research-5841-ui -> worker/coord-deep-research-5841-ui

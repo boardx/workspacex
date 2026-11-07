@@ -1,0 +1,14 @@
+{
+  "name": "web-type",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "typecheck"
+  ],
+  "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61",
+  "exitCode": 0,
+  "seconds": 13.4,
+  "rawLogLocalPath": "/tmp/6214-visual-private-f8/web-type.log",
+  "rawLogSha256": "cd5788cc155241ad0932956ca7dd287ae173e2f213993b615bdafdcb93bc7ce4"
+}

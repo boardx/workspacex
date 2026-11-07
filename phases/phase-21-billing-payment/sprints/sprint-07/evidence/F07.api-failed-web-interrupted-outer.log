@@ -1,0 +1,9 @@
+
+> agentic-harness-template@ harness /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> tsx .harness/scripts/cli.ts "verify" "--sprint" "21/07" "--owner" "coord-voice"
+
+==> 验证 F07 — 过期订单定时关闭任务
+✓ 通过: pnpm --filter api exec vitest run tests/billing/order-close-task.test.ts
+  高风险命中 2 处：apps/api/migrations/20261015120000_billing_payment_receipts.sql ⟵ apps/api/migrations/**; packages/contracts/src/billing-credits.ts ⟵ packages/contracts/**
+==> 运行基础验证（风险档=high_risk）: pnpm -w run verify:release
+ ELIFECYCLE  Command failed with exit code 130.

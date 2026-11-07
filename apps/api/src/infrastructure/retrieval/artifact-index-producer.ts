@@ -10,5 +10,5 @@ import {PgArtifactIndexSource} from './pg-artifact-index-source';
 import {PgArtifactIndexWriter} from './pg-artifact-index-writer';
 export function createArtifactIndexProducer(db:DatabasePort,objects:ObjectStore,embeddings?:EmbeddingPort):IndexArtifactVersion{
  const source=new PgArtifactIndexSource(db,new PgArtifactRepository(db),objects,{repo:new PgIdentityRepository(db),ids:{next:()=>randomUUID()}});
- return new IndexArtifactVersion(source,new PgArtifactIndexWriter(db,source),embeddings,process.env.KERNEL_RETRIEVAL_REQUEST_ACCOUNTING_ENABLED==="1"?new PgArtifactEmbeddingAccounting(db):undefined);
+ return new IndexArtifactVersion(source,new PgArtifactIndexWriter(db,source),embeddings,new PgArtifactEmbeddingAccounting(db));
 }

@@ -1,0 +1,13 @@
+[stack-admission] load1=2.84 cores=10 perCore=0.28 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw1haiap-b831df18-a615a40b9334 db=wsx_a615a40b9334adaf78ce compose=wsx-a615a40b9334adaf78ce pg=20107 redis=21107 api=24107 web=25107 sandbox=26107 model=27107 deep-agent=28107 asr=29107 vision=30107 loopback-sandbox=31107 mail=19107
+Listing tests:
+  [entity-localization] › entity-localization.spec.ts:435:5 › organization home configuration preserves drafts, real previews and recommendation snapshots across locales
+Total: 1 test in 1 file
+[timing] pnpm --filter web exec playwright test --config playwright.entity-localization.config.ts --list -g organization home configuration preserves
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1s
+  清理：0s
+  总计：1s

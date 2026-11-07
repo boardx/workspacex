@@ -49,3 +49,16 @@ describe("useAsrDraft.errorReason", () => {
     expect(hook.result.current.errorReason).toBeNull();
   });
 });
+
+it.each(["CREDIT_REQUIRED","CREDIT_ACCOUNTING_UNAVAILABLE"])("credit failure %s preserves input and never automatically reconnects",async(reason)=>{
+ const transcript=vi.fn();let handlers:AsrDraftStreamHandlers|undefined;
+ openAsrDraftStream.mockImplementation(async(value:AsrDraftStreamHandlers)=>{handlers=value;return{stop:vi.fn()};});
+ const hook=renderHook(()=>useAsrDraft({onTranscript:transcript,getBaseText:()=>"保留原来的问题",sessionToken:"t",autoReconnect:true}));
+ await act(async()=>{hook.result.current.start();await Promise.resolve();await Promise.resolve();});
+ act(()=>handlers!.onError(reason as "CREDIT_REQUIRED"|"CREDIT_ACCOUNTING_UNAVAILABLE"));
+ expect(hook.result.current.status).toBe("error");expect(hook.result.current.errorReason).toBe(reason);expect(hook.result.current.reconnecting).toBe(false);expect(openAsrDraftStream).toHaveBeenCalledTimes(1);expect(transcript).not.toHaveBeenCalled();
+});
+it("credit rejection during capture startup remains terminal instead of becoming a retryable provider failure",async()=>{
+ openAsrDraftStream.mockRejectedValue(new Error("CREDIT_REQUIRED"));const hook=renderHook(()=>useAsrDraft({onTranscript:vi.fn(),getBaseText:()=>"draft",sessionToken:"t",autoReconnect:true}));
+ await act(async()=>{hook.result.current.start();await Promise.resolve();await Promise.resolve();});expect(hook.result.current.errorReason).toBe("CREDIT_REQUIRED");expect(hook.result.current.reconnecting).toBe(false);expect(openAsrDraftStream).toHaveBeenCalledTimes(1);
+});

@@ -1,3 +1,4 @@
+import { buildLocalizedOfficialPack, DISPLAY_METADATA_VERSION } from "../../domain/localization/authored-display-metadata";
 import type { PendingSkillBinding } from "@repo/contracts/agent-role";
 import type { TenantSession } from "../../application/ports/database.port";
 import type { OfficialAgentStarterPack } from "../../domain/agent/starter-pack";
@@ -14,8 +15,10 @@ export async function resolveOfficialRoleSkillRefs(
   orgId: string,
   pack: OfficialAgentStarterPack,
 ): Promise<ReadonlyMap<string, ResolvedOfficialRoleSkills>> {
-  const current = pack.packId === OFFICIAL_AGENT_ROLE_PACK_ID && pack.packVersion === OFFICIAL_AGENT_ROLE_PACK_VERSION &&
-    pack.packDigest === buildOfficialAgentRolePack().packDigest;
+  const current = pack.packId === OFFICIAL_AGENT_ROLE_PACK_ID && (
+    (pack.schemaVersion === 1 && pack.packVersion === OFFICIAL_AGENT_ROLE_PACK_VERSION && pack.packDigest === buildOfficialAgentRolePack().packDigest) ||
+    (pack.schemaVersion === 2 && pack.packVersion === DISPLAY_METADATA_VERSION && pack.packDigest === buildLocalizedOfficialPack().packDigest)
+  );
   const result = new Map<string, ResolvedOfficialRoleSkills>();
   for (const agent of pack.agents) {
     // Other signed packs retain their existing explicit-version validation; no global Skill fallback.

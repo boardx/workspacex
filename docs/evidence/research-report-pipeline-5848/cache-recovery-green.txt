@@ -1,0 +1,11 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/api
+
+ ✓ tests/research/guided-runtime-private-ledger.test.ts (10 tests) 4917ms
+   ✓ private evidence never crosses the public runtime boundary > controller GET, commands, SSE and polling exclude ledger with knownFields=false 4757ms
+ ✓ tests/research/guided-report-evidence-cache.test.ts (13 tests) 240ms
+
+ Test Files  2 passed (2)
+      Tests  23 passed (23)
+   Start at  22:02:30
+   Duration  26.51s (transform 6.03s, setup 0ms, collect 19.17s, tests 5.16s, environment 1ms, prepare 883ms)

@@ -1,0 +1,84 @@
+{
+  "sourceHead": "fbbd0beb6d82e6b36280f8de1c9020d2f74b20d4",
+  "checkoutMerge": "0c3302f60c357fae13f68403b6bc696ef5b3f0e1",
+  "checkoutParents": [
+    "ef49474134137e7d07cef97577d4799fbd9c0eb8",
+    "fbbd0beb6d82e6b36280f8de1c9020d2f74b20d4"
+  ],
+  "runId": 41914710802,
+  "jobId": 126871517321,
+  "artifactId": 13363529431,
+  "artifactZipSha256": "c7688dd47088b551902aaecdffc6b4b804cf1e0748e4180d57e1d0ece64dbd17",
+  "nativeStats": {
+    "startTime": "2026-11-04T21:19:45.965Z",
+    "duration": 548789.443,
+    "expected": 96,
+    "skipped": 119,
+    "unexpected": 1,
+    "flaky": 0
+  },
+  "globalErrors": 1,
+  "effectiveCiWorkers": 2,
+  "existingCiRetries": 1,
+  "surveyCases": [
+    {
+      "title": "survey locale preserves real author publishing, anonymous file submission, review, report and PostgreSQL identities",
+      "tests": [
+        {
+          "project": "seeded",
+          "status": "unexpected",
+          "expectedStatus": "passed",
+          "attempts": [
+            {
+              "retry": 0,
+              "status": "failed",
+              "duration": 19183
+            },
+            {
+              "retry": 1,
+              "status": "failed",
+              "duration": 19239
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "survey template locale preserves real CAS saves, independent copies, report bindings, undo and raw JSON exports",
+      "tests": [
+        {
+          "project": "seeded",
+          "status": "skipped",
+          "expectedStatus": "passed",
+          "attempts": []
+        }
+      ]
+    },
+    {
+      "title": "survey intake locale preserves real file bytes, one configured proposal, corrected Markdown and explicit application retry",
+      "tests": [
+        {
+          "project": "seeded",
+          "status": "skipped",
+          "expectedStatus": "passed",
+          "attempts": []
+        }
+      ]
+    }
+  ],
+  "wholeSurveyAcceptance": false,
+  "actualSurveyPng": 28,
+  "allPngIndividuallyViewed": true,
+  "rawPrivate": true,
+  "firstFailure": "Author line235 awaited filename but actual uploadPOST400 invalid_file. Both retry0 and1 fail; template andAI have no attempts.",
+  "confirmedDriverPrerequisite": "Actual immutable publication allowedExtensions=[pdf,png,jpg], nottxt; maxFiles3/maxFileBytes8388608 untouched. Existing policy correctly rejects text/plain.",
+  "clientFixture": {
+    "name": "raw-attachment-{name}.txt",
+    "mime": "text/plain",
+    "bytes": 55,
+    "sha256": "85c305b7d6247a4d13386736b33e2d0aa165f03625d36e6d8682336077fdb372",
+    "originalBytesAndHeaderBoundaryMatch": true,
+    "usesReturnedSessionAndPublishedQuestion": true
+  },
+  "minimalFix": "Real editor Advanced rules txt checkbox before save/publication; retain originalrawdata and all upload/governance/report/PG assertions. No production API/rule/transport change."
+}

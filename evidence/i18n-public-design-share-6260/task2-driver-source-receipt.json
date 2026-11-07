@@ -1,0 +1,93 @@
+{
+  "sources": {
+    "apps/web/components/design-loop/shared-design-view.tsx": "18109a1aae2abf11d5220aa24f128f945f62f256d69f71c8a2d9b45bf6f460e6",
+    "apps/web/components/design-loop/prototype-canvas.tsx": "4ed042ca723a6424b512fd42c43d320acf672a1758f70ff78b6431dd1152faea",
+    "apps/web/lib/human-time.ts": "aad98b2ea2dbd2768b30f43c228b4a82740e87d15a6519eebb30b122534e92f0",
+    "apps/web/lib/i18n/messages/en.ts": "04357e319226a562ad2e630c44bd78f8e88d7acddb633120a6ce9c98d078a7b8",
+    "apps/web/lib/i18n/messages/zh-CN.ts": "a149a9a79890ab4320aca3e514f9ed502f8d5eba56d9524ad0585df023c43200",
+    "apps/web/lib/i18n/namespaces/public-design-share.ts": "597fe188f76e84f8841368025464dd6774851cae57f1a2e54fa12f6ab12241e9",
+    "apps/web/tests/ui/public-design-share-i18n.test.tsx": "ab02e940907861a05e8505b16021b88f020edc3c15bb4dae1f7741328dc5c6cb",
+    "apps/web/tests/lib/human-time-i18n.test.ts": "78024a1d7711e414fd0c2ef8d59331517eda692b0c15807241546a90fcc8fcc9",
+    "apps/web/e2e/i18n-public-design-share.spec.ts": "9a1c6f68c138603724e17dcb9f880a98046085eae546c2a4aeeeacfbdae6c4a6",
+    "apps/web/playwright.fullstack-smoke.config.ts": "485411fd80610684dbe892f357b0a9aa571bf31898b40064d404e38e10394ac2"
+  },
+  "steps": [
+    {
+      "name": "driver-lint",
+      "exit": 0,
+      "seconds": 2.01613725
+    },
+    {
+      "name": "type",
+      "exit": 0,
+      "seconds": 9.544709125
+    },
+    {
+      "name": "testid",
+      "exit": 0,
+      "seconds": 3.9905722089999998
+    },
+    {
+      "name": "wiring",
+      "exit": 0,
+      "seconds": 4.346387250000001
+    },
+    {
+      "name": "specgate",
+      "exit": 0,
+      "seconds": 48.879267166000005
+    },
+    {
+      "name": "list",
+      "exit": 0,
+      "seconds": 2.621149458000005
+    }
+  ],
+  "cleanup": {
+    "containers": 0,
+    "volumes": 0,
+    "listeners": {
+      "PGPORT": 0,
+      "REDIS_PORT": 0,
+      "MINIO_PORT": 0,
+      "MINIO_CONSOLE_PORT": 0,
+      "WORKSPACEX_API_PORT": 0,
+      "WORKSPACEX_WEB_PORT": 0,
+      "SKILL_SANDBOX_PORT": 0,
+      "WORKSPACEX_MODEL_PROVIDER_PORT": 0,
+      "WORKSPACEX_DEEP_AGENT_PROVIDER_PORT": 0,
+      "WORKSPACEX_ASR_PROVIDER_PORT": 0,
+      "WORKSPACEX_VISION_PROVIDER_PORT": 0,
+      "WORKSPACEX_LOOPBACK_SANDBOX_PORT": 0,
+      "WORKSPACEX_MAIL_PROVIDER_PORT": 0
+    }
+  },
+  "exit": 0,
+  "head": "be794898378e9dc18f8f757a1963bf8dbfd1c207",
+  "actualDiscovery": [
+    {
+      "file": "i18n-public-design-share.spec.ts",
+      "title": "public design share real publication, locale/navigation and revocation 1280",
+      "project": "seeded",
+      "timeout": 30000
+    },
+    {
+      "file": "i18n-public-design-share.spec.ts",
+      "title": "public design share real publication, locale/navigation and revocation 375",
+      "project": "seeded",
+      "timeout": 30000
+    }
+  ],
+  "discoveryOnly": true,
+  "browserExecuted": false,
+  "nativeVerdicts": "UNRUN",
+  "privateLogs": {
+    "driver-lint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "type": "e9b019d37db080d36b121892b06e0818b37e0b4f08f68f45cd0110befa237e7e",
+    "testid": "6237a39aa91213047aa4d8bd3d19ad48379a003a81288d8766434edbbdb5ff5e",
+    "wiring": "ac5e2424575394a05e7c0fa3c66023760a438a4c1e5b5e5f36b8e51359b0c900",
+    "specgate": "a8769e81015a856b9e5e93d2bb028d6c9ebbba61c8067250986bb150040d199b",
+    "list": "2c6b9b39ee1a91a2f605b8ac074a43e23aa4e8dbf16a9fecbfac9ca1786c516d"
+  },
+  "listReportSha256": "a2aba0ee6a54675eca1d323dd4323a7e50ce11fc8f96aaac0ec869668f987ce7"
+}

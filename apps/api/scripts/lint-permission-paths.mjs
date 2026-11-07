@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {TEAM_FINANCIAL_BOUNDARIES,checkTeamFinancialBoundary,checkTeamFinancialConsumers} from "./lib/team-financial-boundary.mjs";
 import { SKILL_FILE_EDIT_PATH, checkSkillFileEditBoundary } from "./lib/skill-file-edit-boundary.mjs";
 import { MCP_CREDENTIAL_BOUNDARIES, checkMcpCredentialBoundary } from './lib/mcp-credential-boundary.mjs';
 /**
@@ -33,7 +34,7 @@ import { MCP_CREDENTIAL_BOUNDARIES, checkMcpCredentialBoundary } from './lib/mcp
 import { workbenchBoundaries, verifyWorkbenchBoundaries } from "./workbench-permission-boundaries.mjs";
 import { whiteboardPermissionBoundaries, verifyWhiteboardPermissionBoundaries } from "./whiteboard-permission-boundaries.mjs";
 import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
-import { join, relative, dirname } from "node:path";
+import { join, relative, dirname, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { WORKBENCH_REPOSITORIES, checkWorkbenchRepository } from "./lib/workbench-repository-boundary.mjs";
 import { MEMORY_PROOF_PATH, checkMemoryProof } from "./lib/memory-proof-boundary.mjs";
@@ -41,6 +42,8 @@ import { MCP_EXECUTION_BOUNDARIES, checkMcpExecutionBoundary } from "./lib/mcp-e
 import { ARTIFACT_INDEX_WRITER_PATH, checkArtifactIndexWriter } from "./lib/artifact-index-writer-boundary.mjs";
 import { STANDARD_TOOL_RUN_PATH, checkStandardToolRun } from "./lib/standard-tool-run-boundary.mjs";
 import { STANDARD_SCHEDULE_PATH, checkStandardSchedule } from "./lib/standard-schedule-boundary.mjs";
+import { ENTERPRISE_FINANCIAL_PATHS, checkEnterpriseFinancialBoundary } from "./lib/enterprise-financial-boundary.mjs";
+import { COMMERCIAL_CAPACITY_PATH, checkCommercialCapacity } from "./lib/commercial-capacity-boundary.mjs";
 import { SCHEDULE_NOTIFICATIONS_PATH, checkScheduleNotifications } from "./lib/schedule-notifications-boundary.mjs";
 import { NOTIFICATION_CENTER_PATH, NOTIFICATION_MIGRATION_PATH, NOTIFYING_RUN_EVENT_BUS_PATH, checkNotificationCenter, checkNotificationDedupIndex, checkNotifyingRunEventBus } from "./lib/notification-center-boundary.mjs";
 import { WORKBENCH_BOUNDARIES, checkWorkbenchPermissionBoundary } from "./lib/workbench-permission-boundary.mjs";
@@ -71,6 +74,7 @@ const SUBTASK_BOUNDARIES = new Set([
   "src/infrastructure/agent-run/subtask-run-executor.ts",
 ]);
 const ALLOWLIST = new Map([
+
 
 
   [
@@ -175,7 +179,7 @@ const ALLOWLIST = new Map([
   ],
   [
     "src/infrastructure/auth/pg-org-invite-repository.ts",
-    "F10 org-member activation: the row it reads from `org_invites` is the AUTHORITY FOR THE GRANT, not content being disclosed to a requester -- and on this path there is no requester to judge, because the caller is an anonymous visitor holding an activation token who does not yet belong to any organization. `disclose()` demands a requester and produces a decision; 'may this person read the row that decides what they are about to be granted' has no answer, so guarding it would be circular in exactly the way the identity repository's entry describes. What replaces the decision is that the invite row's CONTENT never leaves the file: `activate()` returns only the grant (userId / orgId / orgRole / teamId), never `email` and never `invited_by`; the email is used solely as an INSERT parameter for the credential row the activation creates. ⚠ The exemption is valid ONLY while that stays true, so it is not left as a claim: tests/auth/member-invite-activation.test.ts asserts the returned grant carries no invite-content field, and asserts it is load-bearing by widening the return. If that test is deleted, this entry must go with it.",
+    "F10 org-member activation: the row it reads from `org_invites` is the AUTHORITY FOR THE GRANT, not content being disclosed to a requester -- and on this path there is no requester to judge, because the caller is an anonymous visitor holding an activation token who does not yet belong to any organization. `disclose()` demands a requester and produces a decision; 'may this person read the row that decides what they are about to be granted' has no answer, so guarding it would be circular in exactly the way the identity repository's entry describes. Activation returns only the grant (userId / orgId / orgRole / teamId), never `email` or `invited_by`. #6316 additionally permits findDeliveryRecipient to project only email to the internal transactional-mail adapter, after exact tenant/invite/pending/live-token/expiry matching and upstream organization-admin authorization; there is no recipient-read endpoint or caller-visible row. recordDeliveryOutcome locks the same invitation before matching the current token, so an old attempt cannot change a newer resend. tests/auth/org-invitation-members.test.ts cover transport delivery, failure and token invalidation; remove/re-review this exception if the recipient projection or its gates change. ⚠ Activation's no-content return remains load-bearing: tests/auth/member-invite-activation.test.ts asserts the returned grant carries no invite-content field, and asserts it is load-bearing by widening the return. If that test is deleted, this entry must go with it.",
   ],
   [
     "src/infrastructure/auth/pg-org-invite-link-repository.ts",
@@ -199,7 +203,7 @@ const ALLOWLIST = new Map([
   ],
   [
     "src/infrastructure/project/pg-project-list-repository.ts",
-    "F122 listProjects (UC-P2), extended by F185 (2026-08-16 delta, tags): its two segments are judged by `project_memberships` (member) and `org_memberships.org_role` (managed) -- the IDENTITY DATA a decision would be made from, not `acl_bindings`. Guarding it with `authorize()`/`disclose()` would be circular in exactly the way the `pg-identity-repository.ts` entry above describes, and pushing a `project` ref through `authorize` for a listing whose whole point is 'which containers does this membership/role make visible' would ask the wrong question. D-18 already draws the line this file stays on: appearing in the list is NOT content read access, so the six fields it returns (id/name/kind/status/orgStatus/tags) carry no content, no summary, no count -- only container identity, the two facts (`status`, `orgStatus`) `domain/project/readonly-reason.ts` needs to derive `readOnlyReason`, and (as of F185) the caller's own free-text tags on their own visible containers, which is the same category of non-content metadata `status` already was. ⚠ The exemption is valid only while this file stays a pure projection of those two membership/role tables plus `organizations.status` plus `project_tags.tag` (a correlated `array_agg` sub-select, never a JOIN that could pull in another table's content) -- adding any artifact/segment/content read here would need its own decision through `guard()`.",
+    "F122 listProjects (UC-P2), extended by F185 (2026-08-16 delta, tags): its two segments are judged by the project-kind-specific `project_memberships` / `general_project_members` (member; actor and tenant constrained, #6339) and `org_memberships.org_role` (managed) -- the IDENTITY DATA a decision would be made from, not `acl_bindings`. Guarding it with `authorize()`/`disclose()` would be circular in exactly the way the `pg-identity-repository.ts` entry above describes, and pushing a `project` ref through `authorize` for a listing whose whole point is 'which containers does this membership/role make visible' would ask the wrong question. D-18 already draws the line this file stays on: appearing in the list is NOT content read access, so the six fields it returns (id/name/kind/status/orgStatus/tags) carry no content, no summary, no count -- only container identity, the two facts (`status`, `orgStatus`) `domain/project/readonly-reason.ts` needs to derive `readOnlyReason`, and (as of F185) the caller's own free-text tags on their own visible containers, which is the same category of non-content metadata `status` already was. ⚠ The exemption is valid only while this file stays a pure projection of those two membership/role tables plus `organizations.status` plus `project_tags.tag` (a correlated `array_agg` sub-select, never a JOIN that could pull in another table's content) -- adding any artifact/segment/content read here would need its own decision through `guard()`.",
   ],
   [
     "src/infrastructure/project/pg-project-overview-repository.ts",
@@ -633,6 +637,7 @@ const ROOTS = process.argv.slice(2).length ? process.argv.slice(2) : [join(API, 
 
 let fail = 0;
 let scanned = 0;
+let teamConsumersChecked=false;
 
 // `FROM x` / `JOIN x` / `INTO x` / `UPDATE x` / `DELETE FROM x`. Deliberately SQL-keyword
 // anchored: a bare identifier match would fire on the word `projects` in prose. This
@@ -650,6 +655,13 @@ for (const root of ROOTS) {
     scanned++;
     const rel = relative(API, file);
     const body = readFileSync(file, "utf8");
+    if(TEAM_FINANCIAL_BOUNDARIES.has(rel)){
+      const errors=checkTeamFinancialBoundary(rel,body,p=>readFileSync(join(API,p),"utf8"));
+      for(const evidence of ["scripts/tests/team-financial-boundary.test.mjs","tests/billing/team-checkout-http.test.ts","tests/billing/team-settlement-edge-pg.test.ts","tests/billing/team-ai-admission-pg.test.ts","tests/billing/member-credit-quota-controller.test.ts","tests/billing/member-credit-quota-pg.test.ts"]){if(!existsSync(join(API,evidence)))errors.push(`Team financial counterexamples missing: ${evidence}`);}
+      if(!teamConsumersChecked){teamConsumersChecked=true;errors.push(...checkTeamFinancialConsumers(walk(join(API,"src")).map(p=>({path:relative(API,p).split(sep).join("/"),source:readFileSync(p,"utf8")}))));}
+      for(const error of errors){console.error(`✗ ${rel}: ${error}`);fail++;}
+      continue;
+    }
     if (SUBTASK_BOUNDARIES.has(rel)) {
       for (const evidence of ["scripts/tests/subtask-permission-boundary.test.mjs", "tests/agent-runtime/subtask-run-store-real-db.test.ts"]) {
         if (!existsSync(join(API, evidence))) { console.error(`✗ ${rel}: required boundary evidence missing: ${evidence}`); fail++; }
@@ -690,6 +702,26 @@ for (const root of ROOTS) {
     if (rel === SCHEDULE_NOTIFICATIONS_PATH) {
       const errors = checkScheduleNotifications(body);
       if (!existsSync(join(API, "scripts/tests/schedule-notifications-boundary.test.mjs"))) errors.push("schedule notification authorization counterexamples missing");
+      for (const error of errors) { console.error(`✗ ${rel}: ${error}`); fail++; }
+      continue;
+    }
+    if (ENTERPRISE_FINANCIAL_PATHS.has(rel)) {
+      // #6108: closed internal mutation/receipt metadata, never tenant-content access.
+      const consumers = walk(join(API, "src")).map(file => ({ path: relative(API, file).split(sep).join("/"), source: readFileSync(file, "utf8") }));
+      const errors = checkEnterpriseFinancialBoundary(rel, body, consumers);
+      for (const evidence of ["scripts/tests/enterprise-financial-boundary.test.mjs", "tests/billing/enterprise-grant.pg.test.ts", "tests/billing/enterprise-management.http.test.ts"]) {
+        if (!existsSync(join(API, evidence))) errors.push(`Enterprise boundary evidence missing: ${evidence}`);
+      }
+      for (const error of errors) { console.error(`✗ ${rel}: ${error}`); fail++; }
+      continue;
+    }
+    if (rel === COMMERCIAL_CAPACITY_PATH) {
+      // #6107: internal admission decision, not ACL content. Raw rows/additional SQL stay red.
+      const consumers = walk(join(API, "src")).map(file => ({ path: relative(API, file).split(sep).join("/"), source: readFileSync(file, "utf8") }));
+      const errors = checkCommercialCapacity(body, consumers);
+      for (const evidence of ["scripts/tests/commercial-capacity-boundary.test.mjs", "tests/org-capacity/commercial-capacity-pg.test.ts", "tests/org-capacity/commercial-capacity-http.test.ts"]) {
+        if (!existsSync(join(API, evidence))) errors.push(`capacity boundary evidence missing: ${evidence}`);
+      }
       for (const error of errors) { console.error(`✗ ${rel}: ${error}`); fail++; }
       continue;
     }

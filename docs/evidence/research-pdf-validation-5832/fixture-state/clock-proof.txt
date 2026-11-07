@@ -1,0 +1,2 @@
+{"fixture": "original", "configuredReadinessSeconds": 2, "perReadinessCommandSchedulingDelaySeconds": 0.12, "delayedCommands": 30, "totalReleaseSeconds": 10.894, "receiptCode": "READINESS_DEADLINE", "upCount": 1, "automaticRetry": false}
+{"fixture": "atomic", "configuredReadinessSeconds": 2, "perReadinessCommandSchedulingDelaySeconds": 0.12, "delayedCommands": 30, "totalReleaseSeconds": 10.336, "receiptCode": "READINESS_DEADLINE", "upCount": 1, "automaticRetry": false}

@@ -1,0 +1,9 @@
+import base from '/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/playwright.fullstack-smoke.config';
+const root='/Users/shenyangjun/.codex/worktrees/548a/workspacex';
+const selected=[
+ {name:'board-unified-desktop',testMatch:['board-viewport-persistence.spec.ts']},
+ {name:'seeded-github-import',testMatch:['board-feedback-20261005.spec.ts'],grep:/nearby native double-click/},
+ {name:'github-import-retest',original:'seeded-github-import',testMatch:['core-journey-03-skill-lifecycle-chat.spec.ts','skill-agent-import-usecase-audit.spec.ts']},
+ {name:'project-results-shots',testMatch:['project-results-shots.spec.ts']},
+];
+export default {...base,testDir:root+'/apps/web/e2e',workers:1,fullyParallel:false,retries:0,outputDir:root+'/evidence/e2e-all-visible-20261028/repair-final/browser',reporter:[['list'],['json',{outputFile:root+'/evidence/e2e-all-visible-20261028/repair-final/results.json'}]],use:{...base.use,headless:false},projects:selected.map(s=>({...base.projects!.find(p=>p.name===(s.original??s.name))!,name:s.name,testMatch:s.testMatch,...('grep'in s?{grep:s.grep}:{}),dependencies:[],workers:1,fullyParallel:false})),webServer:(base.webServer as any[]).map(s=>({...s,cwd:root+'/apps/web'}))};

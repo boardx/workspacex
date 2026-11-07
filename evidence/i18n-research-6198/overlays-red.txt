@@ -1,0 +1,94 @@
+Observed process exit code: 1
+Raw log SHA-256: 554e880ab476c59b1ab0424826c0645446c309bf5957f9d34a5e28bd57f0b219
+
+
+ ❯ tests/ui/research-overlays-i18n.test.tsx (4 tests | 4 failed) 257ms
+   × keeps assistant focus and raw draft while localizing labels and preserving the original suggestion payload 152ms
+     → Unable to find an accessible element with the role "button" and name "Close research assistant"
+
+Here are the accessible roles:
+</body>
+   × translates the execution projection while retaining raw active chapter titles and runtime bytes 37ms
+     → Unable to find an accessible element with the role "heading" and name "Research execution"
+
+Here are the accessible roles:
+</body>
+   × keeps a chapter draft and selection through locale changes and saves raw chapter text once 46ms
+     → Unable to find an accessible element with the role "textbox" and name "Chapter title"
+
+Here are the accessible roles:
+</body>
+   × preserves raw Markdown during pending save and retranslates its controlled failure 22ms
+     → Unable to find an accessible element with the role "button" and name "Save Markdown"
+
+Here are the accessible roles:
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/research-overlays-i18n.test.tsx > keeps assistant focus and raw draft while localizing labels and preserving the original suggestion payload
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Close research assistant"
+
+Here are the accessible roles:
+
+</body>
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/research-overlays-i18n.test.tsx:19:24
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  tests/ui/research-overlays-i18n.test.tsx > translates the execution projection while retaining raw active chapter titles and runtime bytes
+TestingLibraryElementError: Unable to find an accessible element with the role "heading" and name "Research execution"
+
+Here are the accessible roles:
+
+</body>
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/research-overlays-i18n.test.tsx:37:17
+     35|   const original = JSON.stringify(state);
+     36|   show(<GuidedResearchExecutionTimeline state={state} />);
+     37|   expect(screen.getByRole("heading", { name: "Research execution", exa…
+
+ FAIL  tests/ui/research-overlays-i18n.test.tsx > keeps a chapter draft and selection through locale changes and saves raw chapter text once
+TestingLibraryElementError: Unable to find an accessible element with the role "textbox" and name "Chapter title"
+
+Here are the accessible roles:
+
+</body>
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/research-overlays-i18n.test.tsx:46:24
+     44|   const state = runtimeFixture("outline"); const save = vi.fn();
+     45|   show(<ResearchChaptersWorkspace runtime={state} disabled={false} onS…
+     46|   const input = screen.getByRole("textbox", { name: "Chapter title", e…
+
+ FAIL  tests/ui/research-overlays-i18n.test.tsx > preserves raw Markdown during pending save and retranslates its controlled failure
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Save Markdown"
+
+Here are the accessible roles:
+
+</body>
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/research-overlays-i18n.test.tsx:62:26
+     60|   const raw = `${document.markdown}\n原始 Markdown {count}`;
+     61|   fireEvent.change(input, { target: { value: raw } });
+     62|   fireEvent.click(screen.getByRole("button", { name: "Save Markdown", …
+
+ Test Files  1 failed (1)
+      Tests  4 failed (4)
+   Start at  01:15:16
+   Duration  2.54s (transform 948ms, setup 102ms, collect 1.47s, tests 257ms, environment 498ms, prepare 42ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/apps/web:

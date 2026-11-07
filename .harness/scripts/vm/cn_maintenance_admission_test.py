@@ -27,7 +27,7 @@ class MaintenanceAdmissionTests(unittest.TestCase):
   self.binding_path=self.root/'binding.json'
   self.profile_path=self.root/'profile.json'
   self.evidence_path=self.root/'recovery.json'
-  self.value={'schemaVersion':1,'mode':'maintenance-operational-preactivate','applicationRevision':IDENTITY['sourceRevision'],'baselineRevision':IDENTITY['baselineRevision'],'migrationPlanSha256':IDENTITY['migrationPlanSha256'],'attemptId':'fixture','toolRevision':'a'*40,'toolRoot':'/opt/workspacex-cn/release-tools/'+'a'*40,'release':'2026.10.3-cn.1','filesSha256':{k:'d'*64 for k in tool.FILES},'applicationSource':{'path':'/var/lib/workspacex-cn/build-sources/'+'9'*40+'.git','ref':'refs/heads/candidate','treeSha':'e'*40,'inventorySha256':'f'*64},'maintenanceOptIn':a.OPT_IN,'holdGeneration':hold['generation'],'holdSha256':hold['sha256']}
+  self.value={'schemaVersion':1,'mode':'maintenance-operational-preactivate','applicationRevision':IDENTITY['sourceRevision'],'baselineRevision':IDENTITY['baselineRevision'],'migrationPlanSha256':IDENTITY['migrationPlanSha256'],'attemptId':'fixture','toolRevision':'a'*40,'toolRoot':'/var/lib/workspacex-cn/auto-preparation-tools/'+'a'*40,'release':'2026.10.3-cn.1','filesSha256':{k:'d'*64 for k in tool.FILES},'applicationSource':{'path':'/var/lib/workspacex-cn/build-sources/'+'9'*40+'.git','ref':'refs/heads/candidate','treeSha':'e'*40,'inventorySha256':'f'*64},'maintenanceOptIn':a.OPT_IN,'holdGeneration':hold['generation'],'holdSha256':hold['sha256']}
   self.value.update({key:'6'*64 for key in ('sealSha256','manifestSha256','prebuildSha256')})
   self.profile={'toolRevision':self.value['toolRevision'],'filesSha256':self.value['filesSha256'],'maintenanceRecoveryVerifier':{'sourcePath':a.VERIFIER_SOURCE,'installedPath':a.VERIFIER,'sha256':a.digest(VERIFIER_FIXTURE.encode())}}
   self.sync()
@@ -122,8 +122,12 @@ class MaintenanceAdmissionTests(unittest.TestCase):
     self.assertEqual(result.stdout.decode().splitlines(),want)
   baseline=(D/'fixtures/collect-cn-release-preflight.original.sh').read_text()
   current=(D/'collect-cn-release-preflight.sh').read_text()
-  start='bootstrap_out="$work/bootstrap.out"';end='output_dir="$INPUT_ROOT/$revision/$attempt_id"'
-  self.assertEqual(baseline[baseline.index(start):baseline.index(end)],current[current.index(start):current.index(end)])
+  # Automatic target selection and owned limits were added independently; the
+  # actual read-only compatibility entrypoints retain their exact legacy bytes.
+  entry='--entrypoint node "$api_image" --import tsx scripts/provision-admin-compatibility.ts'
+  before=[line for line in baseline.splitlines() if entry in line]
+  after=[line.replace('"${auto_probe_flags[@]}" ','') for line in current.splitlines() if entry in line]
+  self.assertEqual(len(before),2);self.assertEqual(after,before)
  def test_collector_verifier_only_dispatch_new_explicit_flag(self):
   for name in ['collect-cn-release-preflight.sh','verify-cn-release-preflight.sh']:
    text=(D/name).read_text();self.assertIn('${1:-} == --maintenance',text);self.assertIn('binding_family=maintenance-bindings',text);self.assertNotIn('clearMaintenanceHold',text)

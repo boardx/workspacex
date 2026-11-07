@@ -1,0 +1,26 @@
+{
+  "verdict": "ACCEPT_FOR_ISOLATED_LINUX_VALIDATION",
+  "reviewer": "independent build_reuse_audit agent; root also reviewed and repeated tests",
+  "sha256": {
+    "scripts/cn-release-simulation-unit.py": "6f0b01390870200576484ced9d8de46a7b8de94e6e2ccd7230f1c3ec27624d7b",
+    "scripts/cn-release-simulation-ci.py": "12a3767ff8de5721c4561b6dc8d39fbc42344a0f2a35fcf1a29336da1faaa874",
+    "tests/test_cn_release_simulation_unit.py": "aacfd74594716f076531a006a06b144f4f66056b9b68646aa946e584abc1f8dd",
+    "tests/test_cn_release_simulation_ci.py": "4fd26f3e25681572379d64f2d74126f122a7ba59c6b5b6116d4870e638e25e38"
+  },
+  "independentTests": {
+    "resourceUnit": 14,
+    "simulationCI": 12
+  },
+  "constraints": [
+    "supervisor and daemon recovery stay outside unit",
+    "kernel limits and InvocationID/PID/startticks/inode readback",
+    "unknown start never redispatched",
+    "venv interpreter and setup Node preserved",
+    "Docker3GiB reserve is not aggregate enforcement"
+  ],
+  "remaining": [
+    "actual Linux systemd validation",
+    "runner shutdown cause remains unconfirmed",
+    "complete simulation and final ten rounds not accepted"
+  ]
+}

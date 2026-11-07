@@ -8,6 +8,10 @@ import unittest
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
+# The sidecar deliberately admits an immutable historical tool/profile pair.
+# Model that installed case file with its exact archived Git blob rather than
+# substituting the latest working-tree browser. The production pins stay frozen.
+HISTORICAL_CASE = ROOT/'tests/fixtures/cn-maintenance-browser-aa367861.cjs'
 spec = importlib.util.spec_from_file_location('target_business', ROOT/'scripts/cn-release-target-business.py')
 m = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(m)
@@ -29,6 +33,7 @@ class SyntheticObserver:
     def private(self,path):
         path=Path(path)
         if path.parent == self.APPROVALS: return b'synthetic-approval'
+        if path == ROOT/m.CASE_FILE: return HISTORICAL_CASE.read_bytes()
         if path == ROOT/m.SELF or str(path) in [str(ROOT/k) for k in m.PINS]: return path.read_bytes()
         if path.name == 'receipt.json':
             result=self.raw()
@@ -109,6 +114,12 @@ class TargetBusiness(unittest.TestCase):
     def test_local_checkout_is_not_trusted_installed_adapter(self):
         with self.assertRaises(m.TargetBlocked): m.execute('a'*64,'observe')
     def test_original_source_pins_match(self):
-        for name,pin in m.PINS.items(): self.assertEqual(m.sha((ROOT/name).read_bytes()),pin,name)
+        for name,pin in m.PINS.items():
+            path=HISTORICAL_CASE if name==m.CASE_FILE else ROOT/name
+            self.assertEqual(m.sha(path.read_bytes()),pin,name)
+    def test_current_browser_cannot_satisfy_historical_tool_profile(self):
+        original=self.o.private
+        with patch.object(self.o,'private',side_effect=lambda path: (ROOT/m.CASE_FILE).read_bytes() if Path(path)==ROOT/m.CASE_FILE else original(path)):
+            self.blocked('TOOL_OR_CASE_PIN_CHANGED',True)
 
 if __name__ == '__main__': unittest.main()

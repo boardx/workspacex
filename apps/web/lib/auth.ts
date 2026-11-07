@@ -5,7 +5,7 @@
  *
  * 类型与 `live-projects.ts` 同一条纪律：从 `@repo/contracts` 推导，不重新声明。
  */
-import { auth } from "@repo/contracts";
+import * as auth from "@repo/contracts/auth";
 import type { z } from "zod";
 import { ApiError, apiRequest } from "./api-client";
 

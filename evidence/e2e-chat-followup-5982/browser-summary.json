@@ -1,0 +1,322 @@
+{
+  "runtime": "local production build; headed Chromium; one worker; deterministic upstream",
+  "stats": {
+    "startTime": "2026-10-29T12:48:37.528Z",
+    "duration": 341302.973,
+    "expected": 22,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "exitCode": 0,
+  "cases": [
+    {
+      "titlePath": [
+        "agent-chat-core-paths.spec.ts",
+        "简单聊天：一轮问答落入真实数据库，刷新后仍恢复同一条回复"
+      ],
+      "file": "agent-chat-core-paths.spec.ts",
+      "line": 77,
+      "project": "chat-read",
+      "outcome": "expected",
+      "actualStatuses": [
+        "passed"
+      ],
+      "durationMs": 16420
+    },
+    {
+      "titlePath": [
+        "agent-chat-core-paths.spec.ts",
+        "多轮对话：第二轮在同一线程引用第一轮输入，并分别持久化两个 run"
+      ],
+      "file": "agent-chat-core-paths.spec.ts",
+      "line": 104,
+      "project": "chat-read",
+      "outcome": "expected",
+      "actualStatuses": [
+        "passed"
+      ],
+      "durationMs": 13290
+    },
+    {
+      "titlePath": [
+        "agent-workbench-control-acceptance.spec.ts",
+        "两个页面裁决同一审批：只有一个赢家，一条持久最终回复"
+      ],
+      "file": "agent-workbench-control-acceptance.spec.ts",
+      "line": 28,
+      "project": "chat-read",
+      "outcome": "expected",
+      "actualStatuses": [
+        "passed"
+      ],
+      "durationMs": 8821
+    },
+    {
+      "titlePath": [
+        "agent-workbench-control-acceptance.spec.ts",
+        "待审批阶段取消：真实终态持久化，旧审批不能恢复任务"
+      ],
+      "file": "agent-workbench-control-acceptance.spec.ts",
+      "line": 63,
+      "project": "chat-read",
+      "outcome": "expected",
+      "actualStatuses": [
+        "passed"
+      ],
+      "durationMs": 5612
+    },
+    {
+      "titlePath": [
+        "agent-workbench-control-acceptance.spec.ts",
+        "刷新和切换后仍处理同一持久审批请求"
+      ],
+      "file": "agent-workbench-control-acceptance.spec.ts",
+      "line": 82,
+      "project": "chat-read",
+      "outcome": "expected",
+      "actualStatuses": [
+        "passed"
+      ],
+      "durationMs": 9315
+    },
+    {
+      "titlePath": [
+        "chat-diagram-save-reopen-roundtrip.spec.ts",
+        "G2 生成画像 → 最大化编辑保存 → reload 重开看到保存版提示条 → 回到原始版"
+      ],
+      "file": "chat-diagram-save-reopen-roundtrip.spec.ts",
+      "line": 108,
+      "project": "chat-read",
+      "outcome": "expected",
+      "actualStatuses": [
+        "passed"
+      ],
+      "durationMs": 10107
+    },
+    {
+      "titlePath": [
+        "chat-diagram-save-reopen-roundtrip.spec.ts",
+        "只读预览挂载即读回：保存后立即可见 + reload 不点最大化也可见（issue #1668）"
+      ],
+      "file": "chat-diagram-save-reopen-roundtrip.spec.ts",
+      "line": 278,
+      "project": "chat-read",
+      "outcome": "expected",
+      "actualStatuses": [
+        "passed"
+      ],
+      "durationMs": 11282
+    },
+    {
+      "titlePath": [
+        "chat-path-a5-cold-start-first-paint.spec.ts",
+        "@path:A5 冷启动首屏：全新会话第一次进 /chat 就能输入，不停在骨架屏"
+      ],
+      "file": "chat-path-a5-cold-start-first-paint.spec.ts",
+      "line": 31,
+      "project": "chat-read",
+      "outcome": "expected",
+      "actualStatuses": [
+        "passed"
+      ],
+      "durationMs": 1767
+    },
+    {
+      "titlePath": [
+        "copilotkit-v2-run-restore-after-switch.spec.ts",
+        "提交任务→切走→切回：run 事件流不可用时，恢复仍靠权威读收尾，回复出现且不谎称『没能确认』"
+      ],
+      "file": "copilotkit-v2-run-restore-after-switch.spec.ts",
+      "line": 49,
+      "project": "chat-read",
+      "outcome": "expected",
+      "actualStatuses": [
+        "passed"
+      ],
+      "durationMs": 20028
+    },
+    {
+      "titlePath": [
+        "copilotkit-v2-runtime-adapter.spec.ts",
+        "CopilotRuntime 适配器真实转发到 deep-agent loopback，wire 上的回复文字可核对"
+      ],
+      "file": "copilotkit-v2-runtime-adapter.spec.ts",
+      "line": 109,
+      "project": "chat-read",
+      "outcome": "expected",
+      "actualStatuses": [
+        "passed"
+      ],
+      "durationMs": 3513
+    },
+    {
+      "titlePath": [
+        "copilotkit-v2-runtime-adapter.spec.ts",
+        "CopilotRuntime 适配器真实转发 Authorization——清空 token 后同一条路由必须失败"
+      ],
+      "file": "copilotkit-v2-runtime-adapter.spec.ts",
+      "line": 233,
+      "project": "chat-read",
+      "outcome": "expected",
+      "actualStatuses": [
+        "passed"
+      ],
+      "durationMs": 3618
+    },
+    {
+      "titlePath": [
+        "copilotkit-v2-runtime-adapter.spec.ts",
+        "DA-19b markdown/mermaid 消息渲染——真的渲成结构化 DOM 与 fabric canvas，不是原始语法文本"
+      ],
+      "file": "copilotkit-v2-runtime-adapter.spec.ts",
+      "line": 293,
+      "project": "chat-read",
+      "outcome": "expected",
+      "actualStatuses": [
+        "passed"
+      ],
+      "durationMs": 13467
+    },
+    {
+      "titlePath": [
+        "copilotkit-v2-runtime-adapter.spec.ts",
+        "DA-19g 多轮上下文——第二轮回复真的引用第一轮的用户原文，不是各轮互相失忆"
+      ],
+      "file": "copilotkit-v2-runtime-adapter.spec.ts",
+      "line": 402,
+      "project": "chat-read",
+      "outcome": "expected",
+      "actualStatuses": [
+        "passed"
+      ],
+      "durationMs": 5045
+    },
+    {
+      "titlePath": [
+        "copilotkit-v2-thread-persistence.spec.ts",
+        "发消息→整页刷新→消息仍在（URL 绑定的持久化 chatThreadId）"
+      ],
+      "file": "copilotkit-v2-thread-persistence.spec.ts",
+      "line": 77,
+      "project": "chat-read",
+      "outcome": "expected",
+      "actualStatuses": [
+        "passed"
+      ],
+      "durationMs": 17739
+    },
+    {
+      "titlePath": [
+        "copilotkit-v2-thread-persistence.spec.ts",
+        "新建对话→线程列表出现两条→切换回第一条→历史正确恢复"
+      ],
+      "file": "copilotkit-v2-thread-persistence.spec.ts",
+      "line": 97,
+      "project": "chat-read",
+      "outcome": "expected",
+      "actualStatuses": [
+        "passed"
+      ],
+      "durationMs": 32048
+    },
+    {
+      "titlePath": [
+        "copilotkit-v2-thread-persistence.spec.ts",
+        "裸路由 /chat 落地（未选中任何线程）时点击侧栏已有对话 ⇒ 真实导航切换到该线程"
+      ],
+      "file": "copilotkit-v2-thread-persistence.spec.ts",
+      "line": 146,
+      "project": "chat-read",
+      "outcome": "expected",
+      "actualStatuses": [
+        "passed"
+      ],
+      "durationMs": 17382
+    },
+    {
+      "titlePath": [
+        "copilotkit-v2-thread-persistence.spec.ts",
+        "已选中某条线程时切换到另一条 ⇒ 不发生整页硬导航，左栏骨架屏全程不出现"
+      ],
+      "file": "copilotkit-v2-thread-persistence.spec.ts",
+      "line": 183,
+      "project": "chat-read",
+      "outcome": "expected",
+      "actualStatuses": [
+        "passed"
+      ],
+      "durationMs": 34816
+    },
+    {
+      "titlePath": [
+        "copilotkit-v2-uiux-shots.spec.ts",
+        "空态 + 移动端宽度：桌面/375px 两档截图，375 不横向溢出"
+      ],
+      "file": "copilotkit-v2-uiux-shots.spec.ts",
+      "line": 67,
+      "project": "chat-read",
+      "outcome": "expected",
+      "actualStatuses": [
+        "passed"
+      ],
+      "durationMs": 6029
+    },
+    {
+      "titlePath": [
+        "copilotkit-v2-uiux-shots.spec.ts",
+        "多轮对话 + markdown 回复 + 追问建议：桌面截图"
+      ],
+      "file": "copilotkit-v2-uiux-shots.spec.ts",
+      "line": 83,
+      "project": "chat-read",
+      "outcome": "expected",
+      "actualStatuses": [
+        "passed"
+      ],
+      "durationMs": 13024
+    },
+    {
+      "titlePath": [
+        "copilotkit-v2-uiux-shots.spec.ts",
+        "工具调用卡（多步剧本）：桌面截图"
+      ],
+      "file": "copilotkit-v2-uiux-shots.spec.ts",
+      "line": 102,
+      "project": "chat-read",
+      "outcome": "expected",
+      "actualStatuses": [
+        "passed"
+      ],
+      "durationMs": 19109
+    },
+    {
+      "titlePath": [
+        "copilotkit-v2-uiux-shots.spec.ts",
+        "错误横幅：真实失败链路下的视觉层级截图"
+      ],
+      "file": "copilotkit-v2-uiux-shots.spec.ts",
+      "line": 113,
+      "project": "chat-read",
+      "outcome": "expected",
+      "actualStatuses": [
+        "passed"
+      ],
+      "durationMs": 3941
+    },
+    {
+      "titlePath": [
+        "copilotkit-v2-uiux-shots.spec.ts",
+        "工具权限确认弹层：等待裁决态截图（issue #2767 起为 F08 ToolPermissionCard 四选一）"
+      ],
+      "file": "copilotkit-v2-uiux-shots.spec.ts",
+      "line": 123,
+      "project": "chat-read",
+      "outcome": "expected",
+      "actualStatuses": [
+        "passed"
+      ],
+      "durationMs": 5046
+    }
+  ]
+}

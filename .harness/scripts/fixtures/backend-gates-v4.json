@@ -1,0 +1,563 @@
+{
+  "name": "backend-gates",
+  "on": {
+    "pull_request": {
+      "branches": [
+        "develop"
+      ]
+    },
+    "merge_group": {
+      "branches": [
+        "develop"
+      ]
+    },
+    "workflow_dispatch": {
+      "inputs": {
+        "deploy_skill_files_preview": {
+          "description": "Deploy the authorized Skill multi-file test candidate to devapp after gates pass",
+          "type": "boolean",
+          "default": false
+        },
+        "expected_skill_files_sha": {
+          "description": "Exact reviewed candidate SHA; must equal this workflow run SHA",
+          "type": "string",
+          "default": ""
+        },
+        "deploy_capabilities_preview": {
+          "description": "Deploy the authorized standard-capabilities core preview to devapp after gates pass",
+          "type": "boolean",
+          "default": false
+        }
+      }
+    }
+  },
+  "concurrency": {
+    "group": "${{ github.event_name == 'pull_request' && format('backend-gates-{0}', github.ref) || format('backend-gates-{0}-{1}', github.ref, github.run_id) }}",
+    "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+  },
+  "env": {
+    "CI_SCOPE_BASE_SHA": "${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}"
+  },
+  "jobs": {
+    "gates-fast": {
+      "runs-on": "ubuntu-latest",
+      "outputs": {
+        "skip_devapp": "${{ steps.devapp-scope.outputs.skip_devapp }}"
+      },
+      "if": "github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository",
+      "timeout-minutes": 15,
+      "steps": [
+        {
+          "uses": "actions/checkout@v5",
+          "with": {
+            "fetch-depth": 0
+          }
+        },
+        {
+          "name": "Setup pnpm",
+          "uses": "pnpm/action-setup@v4.4.0"
+        },
+        {
+          "name": "Setup Node",
+          "uses": "actions/setup-node@v5",
+          "with": {
+            "node-version-file": ".nvmrc",
+            "cache": "pnpm"
+          }
+        },
+        {
+          "run": "pnpm install --frozen-lockfile"
+        },
+        {
+          "name": "Test conservative DevApp scope proof",
+          "run": "node --test .harness/scripts/devapp-deploy-scope.selftest.mjs"
+        },
+        {
+          "name": "Prove exact main deployment scope",
+          "id": "devapp-scope",
+          "run": "node .harness/scripts/devapp-deploy-scope.mjs"
+        },
+        {
+          "name": "Verify full disjoint API shard discovery",
+          "run": "node .harness/scripts/ci-api-shards.mjs --verify"
+        },
+        {
+          "name": "typecheck / lint",
+          "if": "github.event_name == 'workflow_dispatch'",
+          "run": "pnpm turbo run typecheck lint --filter=@repo/api"
+        },
+        {
+          "name": "审计链体检（严格模式）",
+          "env": {
+            "GH_TOKEN": "${{ github.token }}",
+            "CI_SCOPE_BASE_SHA": "${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}"
+          },
+          "run": "node .harness/scripts/ci-change-scope.mjs doctor"
+        },
+        {
+          "name": "契约单源 / 洋葱分层",
+          "run": "node .harness/scripts/lint-contract-source.mjs\nnode .harness/scripts/lint-arch-deps.mjs apps/api/src\n# 2026-09-22：本地版↔在线版能力差异矩阵的落地门控。矩阵只被界面读就会变成装饰，\n# 而这类漂移的代价是「界面说不可用、后端照旧出网」（实测：本地版声明不出网，\n# `selectImageProvider` 却返回 bailian 指向公网 DashScope）。\nnode .harness/scripts/lint-edition-capabilities.mjs\n"
+        }
+      ]
+    },
+    "api-test-plan": {
+      "runs-on": "ubuntu-latest",
+      "if": "github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository",
+      "timeout-minutes": 5,
+      "outputs": {
+        "count": "${{ steps.plan.outputs.count }}",
+        "shards": "${{ steps.plan.outputs.shards }}",
+        "mode": "${{ steps.regression.outputs.mode }}",
+        "plan_digest": "${{ steps.regression.outputs.plan_digest }}",
+        "source_sha": "${{ github.sha }}",
+        "base_sha": "${{ env.CI_SCOPE_BASE_SHA }}"
+      },
+      "steps": [
+        {
+          "uses": "actions/checkout@v5",
+          "with": {
+            "fetch-depth": 0,
+            "persist-credentials": false
+          }
+        },
+        {
+          "id": "plan",
+          "run": "node .harness/scripts/ci-api-shards.mjs --plan"
+        },
+        {
+          "id": "preflight",
+          "if": "github.event_name == 'pull_request'",
+          "run": "node .harness/scripts/ci-targeted-ui.mjs --preflight"
+        },
+        {
+          "uses": "pnpm/action-setup@v4.4.0",
+          "if": "steps.preflight.outputs.candidate == 'true'"
+        },
+        {
+          "uses": "actions/setup-node@v5",
+          "if": "steps.preflight.outputs.candidate == 'true'",
+          "with": {
+            "node-version-file": ".nvmrc",
+            "cache": "pnpm"
+          }
+        },
+        {
+          "run": "pnpm install --frozen-lockfile",
+          "if": "steps.preflight.outputs.candidate == 'true'"
+        },
+        {
+          "id": "regression",
+          "run": "node .harness/scripts/ci-targeted-ui.mjs ${{ github.event_name != 'pull_request' && '--full' || '' }}"
+        }
+      ]
+    },
+    "gates-test": {
+      "needs": "api-test-plan",
+      "runs-on": "ubuntu-latest",
+      "if": "(github.event_name != 'pull_request' || needs.api-test-plan.outputs.mode == 'full') && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)",
+      "timeout-minutes": 20,
+      "strategy": {
+        "fail-fast": true,
+        "matrix": {
+          "shard": "${{ fromJSON(needs.api-test-plan.outputs.shards) }}"
+        }
+      },
+      "env": {
+        "WORKSPACEX_DB": "wsx_ci_${{ github.run_id }}_test_${{ matrix.shard }}"
+      },
+      "steps": [
+        {
+          "uses": "actions/checkout@v5",
+          "with": {
+            "fetch-depth": 1,
+            "fetch-tags": false
+          }
+        },
+        {
+          "name": "Setup pnpm",
+          "uses": "pnpm/action-setup@v4.4.0"
+        },
+        {
+          "name": "Setup Node",
+          "uses": "actions/setup-node@v5",
+          "with": {
+            "node-version-file": ".nvmrc",
+            "cache": "pnpm"
+          }
+        },
+        {
+          "run": "pnpm install --frozen-lockfile"
+        },
+        {
+          "uses": "astral-sh/setup-uv@v7.0.0",
+          "with": {
+            "version": "0.12.5"
+          }
+        },
+        {
+          "name": "Install locked Python runtime for cross-language API integration tests",
+          "working-directory": "apps/deep-agent-service",
+          "run": "uv sync --frozen --extra dev"
+        },
+        {
+          "name": "起 postgres",
+          "run": "docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel up -d postgres"
+        },
+        {
+          "name": "单元与集成测试（含 RLS、两层交集、契约响应校验）—— shard ${{ matrix.shard }}/${{ needs.api-test-plan.outputs.count }}",
+          "run": "pnpm --filter api exec vitest run --shard=${{ matrix.shard }}/${{ needs.api-test-plan.outputs.count }} --bail=1"
+        },
+        {
+          "name": "清掉本次运行的数据库",
+          "if": "always()",
+          "run": "docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel exec -T postgres \\\n  psql -U postgres -d postgres -c \"DROP DATABASE IF EXISTS ${WORKSPACEX_DB} WITH (FORCE)\" || true\n"
+        }
+      ]
+    },
+    "native-document-chain": {
+      "runs-on": "ubuntu-latest",
+      "if": "github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository",
+      "timeout-minutes": 35,
+      "env": {
+        "WORKSPACEX_DB": "wsx_ci_${{ github.run_id }}_native_document",
+        "WX_NATIVE_SANDBOX_CONTAINER": "wx-native-document-skill-sandbox-sessions-1"
+      },
+      "steps": [
+        {
+          "uses": "actions/checkout@v5"
+        },
+        {
+          "uses": "pnpm/action-setup@v4.4.0"
+        },
+        {
+          "uses": "actions/setup-node@v5",
+          "with": {
+            "node-version-file": ".nvmrc",
+            "cache": "pnpm"
+          }
+        },
+        {
+          "run": "pnpm install --frozen-lockfile"
+        },
+        {
+          "uses": "astral-sh/setup-uv@v7.0.0",
+          "with": {
+            "version": "0.12.5"
+          }
+        },
+        {
+          "run": "uv sync --frozen --extra dev",
+          "working-directory": "apps/deep-agent-service"
+        },
+        {
+          "name": "Load dedicated session AppArmor policy",
+          "run": "sudo apparmor_parser -r -W apps/skill-sandbox/security/docker-apparmor-sessions\n"
+        },
+        {
+          "name": "Build and start the actual isolated document sandbox",
+          "run": "docker compose -p wx-native-document -f apps/skill-sandbox/docker-compose.sessions.yml -f apps/skill-sandbox/security/compose.apparmor-ci.yml up -d --build\nfor attempt in $(seq 1 30); do\n  if docker exec \"$WX_NATIVE_SANDBOX_CONTAINER\" test -S /run/sessions/skill-sandbox.sock; then exit 0; fi\n  sleep 1\ndone\nexit 1\n"
+        },
+        {
+          "name": "Verify actual policy and user-code isolation",
+          "run": "docker inspect --format '{{.AppArmorProfile}} {{json .HostConfig.SecurityOpt}}' \"$WX_NATIVE_SANDBOX_CONTAINER\"\ntest \"$(docker inspect --format '{{.AppArmorProfile}}' \"$WX_NATIVE_SANDBOX_CONTAINER\")\" = workspacex-native-sessions\ndocker compose -p wx-native-document -f apps/skill-sandbox/docker-compose.sessions.yml -f apps/skill-sandbox/security/compose.apparmor-ci.yml run --rm --no-deps \\\n  -e SKILL_SANDBOX_SOCKET=/tmp/isolation-check.sock \\\n  --volume \"$PWD/apps/skill-sandbox/tests/session-container.mjs:/session-test.mjs:ro\" \\\n  --entrypoint node skill-sandbox-sessions /session-test.mjs\n"
+        },
+        {
+          "name": "Start isolated PostgreSQL",
+          "run": "docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel up -d postgres"
+        },
+        {
+          "name": "Actual document parse and cached-source revocation",
+          "run": "pnpm --filter api exec vitest run --config vitest.native-document.config.ts --bail=1"
+        },
+        {
+          "name": "Capture bounded AppArmor denials",
+          "if": "failure()",
+          "run": "sudo dmesg | grep 'apparmor=\"DENIED\"' | tail -40 || true"
+        },
+        {
+          "name": "Release owned infrastructure",
+          "if": "always()",
+          "run": "docker compose -p wx-native-document -f apps/skill-sandbox/docker-compose.sessions.yml -f apps/skill-sandbox/security/compose.apparmor-ci.yml down --volumes\ndocker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel down --volumes\nsudo apparmor_parser -R apps/skill-sandbox/security/docker-apparmor-sessions\n"
+        }
+      ]
+    },
+    "native-runtime-lane": {
+      "runs-on": "ubuntu-latest",
+      "if": "github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository",
+      "timeout-minutes": 25,
+      "env": {
+        "WORKSPACEX_DB": "wsx_ci_${{ github.run_id }}_native_runtime",
+        "WX_NATIVE_SANDBOX_CONTAINER": "wx-native-runtime-skill-sandbox-sessions-1",
+        "KERNEL_NATIVE_RUNTIME": "1"
+      },
+      "steps": [
+        {
+          "uses": "actions/checkout@v5"
+        },
+        {
+          "uses": "pnpm/action-setup@v4.4.0"
+        },
+        {
+          "uses": "actions/setup-node@v5",
+          "with": {
+            "node-version-file": ".nvmrc",
+            "cache": "pnpm"
+          }
+        },
+        {
+          "run": "pnpm install --frozen-lockfile"
+        },
+        {
+          "uses": "astral-sh/setup-uv@v7.0.0",
+          "with": {
+            "version": "0.12.5"
+          }
+        },
+        {
+          "run": "uv sync --frozen --extra dev",
+          "working-directory": "apps/deep-agent-service"
+        },
+        {
+          "name": "Load dedicated session AppArmor policy",
+          "run": "sudo apparmor_parser -r -W apps/skill-sandbox/security/docker-apparmor-sessions\n"
+        },
+        {
+          "name": "起真实的隔离原生会话沙箱容器",
+          "run": "docker compose -p wx-native-runtime -f apps/skill-sandbox/docker-compose.sessions.yml -f apps/skill-sandbox/security/compose.apparmor-ci.yml up -d --build\nfor attempt in $(seq 1 30); do\n  if docker exec \"$WX_NATIVE_SANDBOX_CONTAINER\" test -S /run/sessions/skill-sandbox.sock; then exit 0; fi\n  sleep 1\ndone\nexit 1\n"
+        },
+        {
+          "name": "起隔离 PostgreSQL",
+          "run": "docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel up -d postgres"
+        },
+        {
+          "name": "原生准入下的真实 pins → 真实沙箱会话（#3051 /",
+          "run": "pnpm --filter @repo/api exec vitest run --config vitest.native-runtime-lane.config.ts --bail=1"
+        },
+        {
+          "name": "真实沙箱发现上游前言名的 skill（#3065 的数据形态）",
+          "working-directory": "apps/deep-agent-service",
+          "run": "uv run --extra dev pytest tests/test_native_skill_activity.py -v"
+        },
+        {
+          "name": "Capture bounded AppArmor denials",
+          "if": "failure()",
+          "run": "sudo dmesg | grep 'apparmor=\"DENIED\"' | tail -40 || true"
+        },
+        {
+          "name": "Release owned infrastructure",
+          "if": "always()",
+          "run": "docker compose -p wx-native-runtime -f apps/skill-sandbox/docker-compose.sessions.yml -f apps/skill-sandbox/security/compose.apparmor-ci.yml down --volumes\ndocker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel exec -T postgres \\\n  psql -U postgres -d postgres -c \"DROP DATABASE IF EXISTS ${WORKSPACEX_DB} WITH (FORCE)\" || true\ndocker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel down --volumes\nsudo apparmor_parser -R apps/skill-sandbox/security/docker-apparmor-sessions\n"
+        }
+      ]
+    },
+    "gates-runtime": {
+      "runs-on": "ubuntu-latest",
+      "if": "github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository",
+      "timeout-minutes": 15,
+      "env": {
+        "WORKSPACEX_DB": "wsx_ci_${{ github.run_id }}_runtime"
+      },
+      "steps": [
+        {
+          "uses": "actions/checkout@v5",
+          "with": {
+            "fetch-depth": 1,
+            "fetch-tags": false
+          }
+        },
+        {
+          "name": "Setup pnpm",
+          "uses": "pnpm/action-setup@v4.4.0"
+        },
+        {
+          "name": "Setup Node",
+          "uses": "actions/setup-node@v5",
+          "with": {
+            "node-version-file": ".nvmrc",
+            "cache": "pnpm"
+          }
+        },
+        {
+          "run": "pnpm install --frozen-lockfile"
+        },
+        {
+          "name": "RLS 强制隔离（反证：绕过应用层过滤跨租户读 0 行）",
+          "run": "apps/api/scripts/verify-rls.sh"
+        },
+        {
+          "name": "三道运行时门控（双向断言 + 生产不可达）",
+          "run": "apps/api/scripts/verify-runtime-gates.sh"
+        },
+        {
+          "name": "迁移幂等（无视版本表强制重放）",
+          "run": "pnpm --filter api run migrate:check"
+        },
+        {
+          "name": "API exclusive DDL fixtures (serial, required)",
+          "run": "pnpm --filter @repo/api exec vitest run --config vitest.exclusive.config.ts --no-file-parallelism --maxWorkers=1 --minWorkers=1 --bail=1"
+        },
+        {
+          "name": "清掉本次运行的数据库",
+          "if": "always()",
+          "run": "docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel exec -T postgres \\\n  psql -U postgres -d postgres -c \"DROP DATABASE IF EXISTS ${WORKSPACEX_DB} WITH (FORCE)\" || true\n"
+        }
+      ]
+    },
+    "e2e-core-loop": {
+      "runs-on": "ubuntu-latest",
+      "if": "github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository",
+      "timeout-minutes": 20,
+      "steps": [
+        {
+          "uses": "actions/checkout@v5",
+          "with": {
+            "fetch-depth": 0
+          }
+        },
+        {
+          "name": "Setup pnpm",
+          "uses": "pnpm/action-setup@v4.4.0"
+        },
+        {
+          "name": "Setup Node",
+          "uses": "actions/setup-node@v5",
+          "with": {
+            "node-version-file": ".nvmrc",
+            "cache": "pnpm"
+          }
+        },
+        {
+          "run": "pnpm install --frozen-lockfile"
+        },
+        {
+          "name": "核心闭环八步（唯一接入发布门的浏览器 e2e spec）",
+          "shell": "bash",
+          "run": "mkdir -p phases/phase-01-run-a-project/evidence/ci\nset +e\nnode .harness/scripts/ci-fullstack-runtime.mjs core-loop -- pnpm run verify:core-loop 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/core-loop.log\nstatus=${PIPESTATUS[0]}\nset -e\nexit \"$status\"\n"
+        },
+        {
+          "name": "Upload core-loop evidence (success or failure)",
+          "if": "always()",
+          "uses": "actions/upload-artifact@v6",
+          "with": {
+            "name": "backend-gates-core-loop-evidence-${{ github.run_id }}",
+            "path": "phases/phase-01-run-a-project/evidence/ci/core-loop.log\napps/web/test-results/\n",
+            "if-no-files-found": "error"
+          }
+        }
+      ]
+    },
+    "prototype-audit": {
+      "runs-on": "ubuntu-latest",
+      "if": "github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository",
+      "timeout-minutes": 15,
+      "steps": [
+        {
+          "uses": "actions/checkout@v5"
+        },
+        {
+          "name": "Setup pnpm",
+          "uses": "pnpm/action-setup@v4.4.0"
+        },
+        {
+          "name": "Setup Node",
+          "uses": "actions/setup-node@v5",
+          "with": {
+            "node-version-file": ".nvmrc",
+            "cache": "pnpm"
+          }
+        },
+        {
+          "run": "pnpm install --frozen-lockfile"
+        },
+        {
+          "run": "pnpm --filter web exec playwright install --with-deps chromium"
+        },
+        {
+          "name": "原型截图审计（机器硬判 ≥ 80）",
+          "run": "pnpm run verify:prototype-audit"
+        },
+        {
+          "name": "Upload prototype audit screenshots",
+          "if": "always()",
+          "uses": "actions/upload-artifact@v6",
+          "with": {
+            "name": "prototype-audit-${{ github.run_id }}",
+            "path": "apps/web/test-results/prototype-audit/",
+            "if-no-files-found": "error"
+          }
+        }
+      ]
+    },
+    "design-loop-e2e": {
+      "runs-on": "ubuntu-latest",
+      "if": "github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository",
+      "timeout-minutes": 20,
+      "steps": [
+        {
+          "uses": "actions/checkout@v5"
+        },
+        {
+          "name": "Setup pnpm",
+          "uses": "pnpm/action-setup@v4.4.0"
+        },
+        {
+          "name": "Setup Node",
+          "uses": "actions/setup-node@v5",
+          "with": {
+            "node-version-file": ".nvmrc",
+            "cache": "pnpm"
+          }
+        },
+        {
+          "run": "pnpm install --frozen-lockfile"
+        },
+        {
+          "run": "pnpm --filter web exec playwright install --with-deps chromium"
+        },
+        {
+          "name": "设计工作台 e2e（响应式 / 原型主链路 / 分享）",
+          "run": "pnpm run verify:design-loop"
+        },
+        {
+          "name": "Upload design-loop e2e artifacts",
+          "if": "always()",
+          "uses": "actions/upload-artifact@v6",
+          "with": {
+            "name": "design-loop-e2e-${{ github.run_id }}",
+            "path": "apps/web/test-results/",
+            "if-no-files-found": "ignore"
+          }
+        }
+      ]
+    },
+    "backend-required": {
+      "if": "always() && !cancelled() && (github.event_name == 'pull_request' || github.event_name == 'merge_group')",
+      "needs": [
+        "api-test-plan",
+        "gates-fast",
+        "gates-test",
+        "native-document-chain",
+        "native-runtime-lane",
+        "gates-runtime",
+        "e2e-core-loop",
+        "prototype-audit",
+        "design-loop-e2e"
+      ],
+      "runs-on": "ubuntu-latest",
+      "timeout-minutes": 5,
+      "steps": [
+        {
+          "uses": "actions/checkout@v5"
+        },
+        {
+          "name": "Require applicable backend verification",
+          "env": {
+            "CI_BACKEND_RESULTS": "${{ toJSON(needs) }}",
+            "CI_SOURCE_SHA": "${{ github.sha }}"
+          },
+          "run": "node .harness/scripts/ci-backend-required.mjs"
+        }
+      ]
+    }
+  }
+}

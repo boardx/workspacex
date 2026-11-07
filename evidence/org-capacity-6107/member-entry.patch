@@ -1,0 +1,203 @@
+diff --git a/apps/api/src/application/auth/activate-org-member.ts b/apps/api/src/application/auth/activate-org-member.ts
+index 1dfde3e8c..068cc110a 100644
+--- a/apps/api/src/application/auth/activate-org-member.ts
++++ b/apps/api/src/application/auth/activate-org-member.ts
+@@ -113,6 +113,7 @@ export async function activateOrgMember(
+   });
+ 
+   if (!result.ok) {
++    if (result.reason === "quota-exhausted") throw new OrgAdminError("QUOTA_EXHAUSTED");
+     // ⚠ 四种失效一个码（V10）。`already-member` 是另一回事：它要引导用户去登录，
+     // 而且它不泄露任何「这个组织存在吗」之外的信息——调用者手里本来就有一枚有效令牌。
+     throw new OrgAdminError(
+diff --git a/apps/api/src/application/auth/org-invite-ports.ts b/apps/api/src/application/auth/org-invite-ports.ts
+index 35e469077..1b3947acc 100644
+--- a/apps/api/src/application/auth/org-invite-ports.ts
++++ b/apps/api/src/application/auth/org-invite-ports.ts
+@@ -118,7 +118,7 @@ export type ActivateOrgInviteResult =
+    * 分开就是把「这个组织存在吗」做成一个探测器（V10）。与 `InviteCodeInvalidError`
+    * 同一条理由，同一种取舍。
+    */
+-  | { readonly ok: false; readonly reason: "not-found" | "already-member" };
++  | { readonly ok: false; readonly reason: "not-found" | "already-member" | "quota-exhausted" };
+ 
+ /* ─────────────────── 重发 / 撤销（#363：契约里有、路由上没有） ─────────────────── */
+ 
+diff --git a/apps/api/src/infrastructure/auth/pg-org-invite-link-repository.ts b/apps/api/src/infrastructure/auth/pg-org-invite-link-repository.ts
+index 5cdc683bd..137f3949e 100644
+--- a/apps/api/src/infrastructure/auth/pg-org-invite-link-repository.ts
++++ b/apps/api/src/infrastructure/auth/pg-org-invite-link-repository.ts
+@@ -1,3 +1,4 @@
++import { lockOrganizationCapacity, commercialSeatAvailable } from "../org-capacity/pg-commercial-capacity";
+ /**
+  * `OrgInviteLinkRepository` on PostgreSQL —— 共享链接的 I-1 / I-2 住在这个文件里。
+  *
+@@ -274,6 +275,8 @@ export class PgOrgInviteLinkRepository implements OrgInviteLinkRepository {
+     const orgId: OrgId = toOrgId(tokenRow.org_id_hint);
+     await s.query("SELECT set_config('app.current_org', $1, true)", [orgId]);
+ 
++    await lockOrganizationCapacity(s, orgId);
++
+     // (3) 🔴 授予的唯一来源 + 多次语义的串行点。FOR UPDATE 把并发加入串行在链接行上；
+     //     状态 / 过期 / 上限三种失效在同一个 WHERE 之外逐条判——但都映射同一个
+     //     Rollback("not-found")（V10：五种失效对外逐字节相同）。
+@@ -303,6 +306,9 @@ export class PgOrgInviteLinkRepository implements OrgInviteLinkRepository {
+ 
+     // (4) I-9 配额硬闸（拍板①）：锁组织行再数座位——与 create@pg-org-invite-repository
+     //     同一形状、同一"数出来不存出来"的账本纪律。
++    const available = await commercialSeatAvailable(s, orgId);
++    if (available === false) throw new Rollback("quota-exhausted");
++    if (available === null) {
+     const quota = await s.query<{ seat_quota: string }>(
+       `SELECT seat_quota FROM organizations WHERE id = $1 FOR UPDATE`,
+       [orgId],
+@@ -319,6 +325,7 @@ export class PgOrgInviteLinkRepository implements OrgInviteLinkRepository {
+     );
+     const usedSeats = Number(usedMembers.rows[0]?.n ?? 0) + Number(usedInvites.rows[0]?.n ?? 0);
+     if (usedSeats >= seatQuota) throw new Rollback("quota-exhausted");
++    }
+ 
+     // (5) 建号。邮箱查重靠 credentials 的唯一约束，不是先查后插（两步窗口下两路
+     //     并发同邮箱都能查到「没有」）。已有账号 → already-member（OA12②：明确拒绝、
+diff --git a/apps/api/src/infrastructure/auth/pg-org-invite-repository.ts b/apps/api/src/infrastructure/auth/pg-org-invite-repository.ts
+index 9acbf1728..2ead1f04a 100644
+--- a/apps/api/src/infrastructure/auth/pg-org-invite-repository.ts
++++ b/apps/api/src/infrastructure/auth/pg-org-invite-repository.ts
+@@ -1,3 +1,4 @@
++import { lockCapacityEpoch, lockOrganizationCapacity, commercialSeatAvailable, readCommercialCapacity } from "../org-capacity/pg-commercial-capacity";
+ /**
+  * `OrgInviteRepository` on PostgreSQL —— **I-1 与 I-2 真正住在这个文件里**。
+  *
+@@ -105,6 +106,7 @@ export class PgOrgInviteRepository implements OrgInviteRepository {
+   async create(input: CreateOrgInviteInput): Promise<CreateOrgInviteResult> {
+     try {
+       return await this.db.withTenant(input.orgId, async (s) => {
++        await lockOrganizationCapacity(s, input.orgId);
+         // (1) 已经是成员的人不能被邀请（`INVITE_ALREADY_MEMBER`，引导去登录）。
+         //
+         // ⚠ 这一步与 (2) 的顺序不能反。反过来的话，一个已是成员的邮箱会先撞上
+@@ -158,6 +160,10 @@ export class PgOrgInviteRepository implements OrgInviteRepository {
+         // ⚠ 座位数是**数出来的**，不是存出来的：count(org_memberships) + count(未失效
+         //   org_invites)。没有第二本账本要跟这两张表保持同步——那正是本仓五次
+         //   「同一事实两处声明」漂移的形状，这里刻意不重蹈。
++        const commercial = await readCommercialCapacity(s, input.orgId);
++        if (commercial.kind === "invalid") throw new Rollback("quota-exhausted");
++        // Commercial invitations reserve nothing; admission checks actual memberships.
++        if (commercial.kind === "legacy") {
+         const quota = await s.query<{ seat_quota: string }>(
+           `SELECT seat_quota FROM organizations WHERE id = $1 FOR UPDATE`,
+           [input.orgId],
+@@ -176,6 +182,7 @@ export class PgOrgInviteRepository implements OrgInviteRepository {
+         // I-9 逐字：「组织未分配额度为 0 时一律失败，且不产生任何 OrgInvite 行」——
+         // 这条判断必须发生在下面的 INSERT **之前**，本函数到这里为止还没有写过任何行。
+         if (usedSeats >= seatQuota) throw new Rollback("quota-exhausted");
++        }
+ 
+         // (2) 邀请行。并发第二路在这里撞 `org_invites_live_uniq`（I-5）。
+         //
+@@ -269,7 +276,7 @@ export class PgOrgInviteRepository implements OrgInviteRepository {
+       const grant = await this.db.withoutTenant((s) => this.activateAll(s, input));
+       return { ok: true, grant };
+     } catch (e) {
+-      if (e instanceof Rollback && (e.reason === "not-found" || e.reason === "already-member")) {
++      if (e instanceof Rollback && (e.reason === "not-found" || e.reason === "already-member" || e.reason === "quota-exhausted")) {
+         return { ok: false, reason: e.reason };
+       }
+       throw e;
+@@ -277,6 +284,7 @@ export class PgOrgInviteRepository implements OrgInviteRepository {
+   }
+ 
+   private async activateAll(s: TenantSession, input: ActivateOrgInviteInput) {
++    await lockCapacityEpoch(s);
+     // (1) 核销令牌 —— 条件 UPDATE，一条语句同时判「存在 / 未核销 / 未过期」。
+     //
+     // 三种失效在同一个 WHERE 里，所以它们**由构造**产生同一个零行结果（V10），
+@@ -317,6 +325,13 @@ export class PgOrgInviteRepository implements OrgInviteRepository {
+     //   不进返回值。ALLOWLIST 里那条例外的前提就是这一点（见文件头）。
+     const actual = { orgId: invite.org_id, orgRole: invite.org_role, teamId: invite.team_id };
+ 
++    await lockOrganizationCapacity(s, orgId);
++    if (input.existingUserId !== null) {
++      const existing = await s.query("SELECT 1 FROM org_memberships WHERE org_id=$1 AND user_id=$2", [orgId,input.existingUserId]);
++      if (existing.rows.length) throw new Rollback("already-member");
++    }
++    if (await commercialSeatAvailable(s, orgId) === false) throw new Rollback("quota-exhausted");
++
+     // (4) 账号。新账号在这条路径上**直接是已验证的**——O-28 ⑤：点击一次性激活链接
+     //     即足以证明邮箱所有权，不再二次发信。
+     //
+diff --git a/apps/api/src/infrastructure/org-capacity/pg-commercial-capacity.ts b/apps/api/src/infrastructure/org-capacity/pg-commercial-capacity.ts
+index a1dabab2e..38b551095 100644
+--- a/apps/api/src/infrastructure/org-capacity/pg-commercial-capacity.ts
++++ b/apps/api/src/infrastructure/org-capacity/pg-commercial-capacity.ts
+@@ -4,8 +4,11 @@ import { BILLING_ACCOUNTING_GENERATION, BILLING_PRICING_EPOCH_LOCK } from "../..
+ import { requireActivePricingEpoch } from "../billing/personal-pricing-epoch";
+ 
+ /** Every license writer and member admission uses epoch -> org -> plan/license -> wallet. */
+-export async function lockOrganizationCapacity(s: TenantSession, orgId: string): Promise<void> {
++export async function lockCapacityEpoch(s: TenantSession): Promise<void> {
+   await s.query("SELECT pg_advisory_xact_lock_shared(hashtextextended($1,0))", [BILLING_PRICING_EPOCH_LOCK]);
++}
++export async function lockOrganizationCapacity(s: TenantSession, orgId: string): Promise<void> {
++  await lockCapacityEpoch(s);
+   const org = await s.query("SELECT id FROM organizations WHERE id=$1 FOR UPDATE", [orgId]);
+   if (!org.rows.length) throw new Error("Organization capacity unavailable");
+ }
+diff --git a/apps/api/src/infrastructure/project/pg-project-invitation-repository.ts b/apps/api/src/infrastructure/project/pg-project-invitation-repository.ts
+index 88e4e731e..279a373b2 100644
+--- a/apps/api/src/infrastructure/project/pg-project-invitation-repository.ts
++++ b/apps/api/src/infrastructure/project/pg-project-invitation-repository.ts
+@@ -1,3 +1,4 @@
++import { lockOrganizationCapacity, commercialSeatAvailable } from "../org-capacity/pg-commercial-capacity";
+ /**
+  * `ProjectInvitationRepository` 的 PostgreSQL 实现（#4787 通用项目邀请）。
+  *
+@@ -420,6 +421,8 @@ export class PgProjectInvitationRepository implements ProjectInvitationRepositor
+         const email = isEmailKind ? row.email : cmd.linkEmail;
+         if (email === null) throw new Rollback("email-required");
+ 
++        await this.assertSeatAvailable(s, orgId);
++
+         try {
+           await s.query(
+             `INSERT INTO credentials (user_id, email, display_name, password_hash, email_verified_at)
+@@ -431,7 +434,6 @@ export class PgProjectInvitationRepository implements ProjectInvitationRepositor
+           throw e;
+         }
+ 
+-        await this.assertSeatAvailable(s, orgId);
+         await this.insertOrgMembership(s, cmd.userId, orgId);
+         await this.insertCollaborator(s, cmd.userId, row);
+ 
+@@ -482,6 +484,7 @@ export class PgProjectInvitationRepository implements ProjectInvitationRepositor
+     if (hit === undefined) return null;
+     // ⚠ `org_id_hint` 到此为止：它决定去哪个租户里找，不决定答案是什么。
+     await s.query("SELECT set_config('app.current_org', $1, true)", [hit.org_id_hint]);
++    if (lock) await lockOrganizationCapacity(s, hit.org_id_hint);
+ 
+     const res = await s.query<InvitationRow & { project_name: string; inviter_name: string }>(
+       `SELECT i.id, i.org_id, i.project_id, i.kind, i.email, i.status, i.expires_at, i.accepted_by,
+@@ -545,6 +548,10 @@ export class PgProjectInvitationRepository implements ProjectInvitationRepositor
+    * 已是成员的人不占新座位，调用方只在要新增组织成员时才调。
+    */
+   private async assertSeatAvailable(s: TenantSession, orgId: OrgId): Promise<void> {
++    await lockOrganizationCapacity(s, orgId);
++    const available = await commercialSeatAvailable(s, orgId);
++    if (available === false) throw new Rollback("quota");
++    if (available === true) return;
+     const quota = await s.query<{ seat_quota: string }>(`SELECT seat_quota FROM organizations WHERE id = $1 FOR UPDATE`, [orgId]);
+     const seatQuota = Number(quota.rows[0]?.seat_quota ?? 0);
+     const members = await s.query<{ n: string }>(`SELECT count(*)::text AS n FROM org_memberships WHERE org_id = $1`, [orgId]);
+diff --git a/packages/contracts/src/org-admin.ts b/packages/contracts/src/org-admin.ts
+index 031b3f2d9..a0b7d518f 100644
+--- a/packages/contracts/src/org-admin.ts
++++ b/packages/contracts/src/org-admin.ts
+@@ -545,7 +545,7 @@ export const operations = {
+         session: AuthenticatedSession,
+       })
+       .strict(),
+-    err: ["INVITE_NOT_FOUND", "INVITE_ALREADY_MEMBER", "VERSION_CHANGED", "AUTH_SERVICE_UNAVAILABLE"] as const,
++    err: ["INVITE_NOT_FOUND", "INVITE_ALREADY_MEMBER", "QUOTA_EXHAUSTED", "VERSION_CHANGED", "AUTH_SERVICE_UNAVAILABLE"] as const,
+   },
+ 
+   /* ══ 一.二、组织共享邀请链接（shared-invite-links delta，人类 2026-08-13 三条拍板）══

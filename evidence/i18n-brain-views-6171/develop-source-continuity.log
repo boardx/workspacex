@@ -1,0 +1,8 @@
+apps/web/components/brain/brain-screen.tsx 73c2a851ed4061f93bfa203492849e01108ee80d unchanged
+apps/web/components/brain/session-memory.tsx ead3038291a7836d6e9b00fe26a3b78cfec1c45b unchanged
+apps/web/components/brain/shared-layers.tsx 8049c125ee8d58aa4ae81888e1dc372bf0306514 unchanged
+apps/web/lib/i18n/namespaces/brain-views.ts 0a367f6afc17651e59b1f6d1706e5b8e05d3e89f unchanged
+apps/web/tests/brain/brain-navigation-i18n.test.tsx ab24e6da07d1b489899773f3e52993c71981687f unchanged
+apps/web/e2e/i18n-brain-navigation.spec.ts 727055fa30e1aaaf80c93e7a44ef9e10f0eebde4 unchanged
+apps/web/scripts/verify-brain-seed-replay.ts 0383097b2cedcf8ecdb5e9b06978250dd48a8ecb unchanged
+apps/web/e2e/fullstack-smoke-fixture.ts 5a08fc0f1677a8246ffb324f3dd7867e70231725 unchanged

@@ -134,21 +134,18 @@ for pair in \
   [[ -f "$installed" && ! -L "$installed" ]] && cmp --silent "$source_path" "$installed" || fail "trusted entrypoint drift"
 done
 
-active_compose=$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project.config_files"}}' workspacex-cn-api-1)
-[[ "$active_compose" == "$RUNTIME_ROOT"/*/compose.json ]] || fail "active runtime baseline is untrusted"
-baseline_runtime=${active_compose%/compose.json}
-baseline_sha=${baseline_runtime#"$RUNTIME_ROOT"/}
+# All active Compose files are protected and rendered offline. Source identity
+# comes from the four actual immutable images, never a legacy directory name.
+baseline_identity=$(python3 /usr/local/lib/workspacex-cn/cn_compose_baseline.py describe) || fail "active runtime baseline is untrusted"
+baseline_runtime=$(node -e 'process.stdout.write(JSON.parse(process.argv[1]).baselineRuntime)' "$baseline_identity")
+baseline_sha=$(node -e 'process.stdout.write(JSON.parse(process.argv[1]).sourceRevision)' "$baseline_identity")
 [[ "$baseline_sha" =~ ^[a-f0-9]{40}$ ]] || fail "active baseline SHA is invalid"
 if [[ "$operational" == 1 ]]; then
   [[ "$(node -e 'process.stdout.write(require(process.argv[1]).baselineRevision)' "$operational_binding")" == "$baseline_sha" ]] || fail "operational active baseline differs"
 fi
-baseline_secrets="$baseline_runtime/secrets"
+baseline_secrets=$(node -e 'process.stdout.write(JSON.parse(process.argv[1]).stableIdentity.directory)' "$baseline_identity")
 legacy_flag=()
-if [[ -e "$baseline_runtime/stable-secret-directory.ref" ]]; then
-  private_root_file "$baseline_runtime/stable-secret-directory.ref"
-  baseline_secrets=$(tr -d '\n' < "$baseline_runtime/stable-secret-directory.ref")
-  [[ "$baseline_secrets" == "$STABLE_SECRETS" ]] || fail "baseline stable secret directory drift"
-else
+if [[ "$(node -e 'process.stdout.write(String(JSON.parse(process.argv[1]).stableIdentity.legacy))' "$baseline_identity")" == true ]]; then
   legacy_flag=(--legacy-baseline)
 fi
 # Compute the exact diff before claiming affected-service evidence. Rebuild all
@@ -300,9 +297,23 @@ else
   private_root_file "$migration_plan"
   # The isolated database must already exist and have completed the approved migrations.
   # This collector creates no databases, runs no migrations, and never redirects to another endpoint.
-  node /usr/local/lib/workspacex-cn/cn-bootstrap-baseline-source.mjs --shadow "$REPOSITORY_DIR" "$revision" "$baseline_sha" "$migration_plan" "$work/bootstrap.env" /usr/local/lib/workspacex-cn/cn-bootstrap-baseline.cjs "$manifest" || fail "isolated post-migration target is unproven"
-  mv "$work/bootstrap.env.shadow" "$work/bootstrap.env"
-  network=$(docker inspect --format '{{range $name,$settings := .NetworkSettings.Networks}}{{$name}}{{"\n"}}{{end}}' workspacex-cn-api-1 | head -n1)
+  auto_target="/var/lib/workspacex-cn/auto-preparation/$revision/$attempt_id/isolated-target.json"
+  auto_probe_flags=()
+  if [[ -e "$auto_target" || -L "$auto_target" ]]; then
+    # This fixed root producer binds a separate internal Docker network and
+    # disposable PostgreSQL. Production endpoint/TLS rules below stay intact.
+    cmp --silent "$TOOL_SOURCE_DIR/.harness/scripts/vm/cn-auto-isolated-target.mjs" /usr/local/lib/workspacex-cn/cn-auto-isolated-target.mjs || fail "trusted isolated target verifier drift"
+    network=$(node /usr/local/lib/workspacex-cn/cn-auto-isolated-target.mjs "$revision" "$baseline_sha" "$attempt_id" "$work/bootstrap.env") || fail "actual local isolated target is unproven"
+    [[ "$network" =~ ^wsx-autop-[a-f0-9]{20}-net$ ]] || fail "isolated network identity invalid"
+    auto_owner=${network#wsx-autop-}; auto_owner=${auto_owner%-net}
+    # The independent preparation cleanup must also reclaim a Docker daemon
+    # probe if cancellation kills this collector before its EXIT trap runs.
+    auto_probe_flags=(--label "wsx.auto.owner=$auto_owner" --memory=512m --cpus=.3 --pids-limit=128 --cap-drop=ALL --security-opt=no-new-privileges)
+  else
+    node /usr/local/lib/workspacex-cn/cn-bootstrap-baseline-source.mjs --shadow "$REPOSITORY_DIR" "$revision" "$baseline_sha" "$migration_plan" "$work/bootstrap.env" /usr/local/lib/workspacex-cn/cn-bootstrap-baseline.cjs "$manifest" || fail "isolated post-migration target is unproven"
+    mv "$work/bootstrap.env.shadow" "$work/bootstrap.env"
+    network=$(docker inspect --format '{{range $name,$settings := .NetworkSettings.Networks}}{{$name}}{{"\n"}}{{end}}' workspacex-cn-api-1 | head -n1)
+  fi
   [[ -n "$network" ]] || fail "bootstrap network unavailable"
   bootstrap_container="wsx-cn-bootstrap-${attempt_id}"
   ca_mount=()
@@ -312,8 +323,8 @@ else
     ca_mount=(--mount "type=bind,src=$ca_path,dst=$ca_path,readonly")
   fi
   # Static import/input smoke has no data-plane connectivity or writable rootfs.
-  timeout 30s docker run --rm --pull=never --network=none --read-only --tmpfs /tmp --name "$bootstrap_container" --env-file "$work/bootstrap.env" "${ca_mount[@]}" -e "CN_BOOTSTRAP_PHASE=$phase" -e "CN_BOOTSTRAP_SOURCE_SHA=$revision" -e "CN_BOOTSTRAP_IMAGE_DIGEST=$api_digest" --entrypoint node "$api_image" --import tsx scripts/provision-admin-compatibility.ts --static >"$work/bootstrap-static.out" || fail "bootstrap target static entrypoint failed"
-  timeout 50s docker run --rm --pull=never --network "$network" --read-only --tmpfs /tmp --name "$bootstrap_container" --env-file "$work/bootstrap.env" "${ca_mount[@]}" -e "CN_BOOTSTRAP_PHASE=$phase" -e "CN_BOOTSTRAP_SOURCE_SHA=$revision" -e "CN_BOOTSTRAP_IMAGE_DIGEST=$api_digest" --entrypoint node "$api_image" --import tsx scripts/provision-admin-compatibility.ts >"$bootstrap_out" || fail "bootstrap target compatibility failed"
+  timeout 30s docker run --rm --pull=never "${auto_probe_flags[@]}" --network=none --read-only --tmpfs /tmp --name "$bootstrap_container" --env-file "$work/bootstrap.env" "${ca_mount[@]}" -e "CN_BOOTSTRAP_PHASE=$phase" -e "CN_BOOTSTRAP_SOURCE_SHA=$revision" -e "CN_BOOTSTRAP_IMAGE_DIGEST=$api_digest" --entrypoint node "$api_image" --import tsx scripts/provision-admin-compatibility.ts --static >"$work/bootstrap-static.out" || fail "bootstrap target static entrypoint failed"
+  timeout 50s docker run --rm --pull=never "${auto_probe_flags[@]}" --network "$network" --read-only --tmpfs /tmp --name "$bootstrap_container" --env-file "$work/bootstrap.env" "${ca_mount[@]}" -e "CN_BOOTSTRAP_PHASE=$phase" -e "CN_BOOTSTRAP_SOURCE_SHA=$revision" -e "CN_BOOTSTRAP_IMAGE_DIGEST=$api_digest" --entrypoint node "$api_image" --import tsx scripts/provision-admin-compatibility.ts >"$bootstrap_out" || fail "bootstrap target compatibility failed"
   ! docker inspect "$bootstrap_container" >/dev/null 2>&1 || fail "bootstrap temporary container cleanup unproven"
   bootstrap_container=""
 fi

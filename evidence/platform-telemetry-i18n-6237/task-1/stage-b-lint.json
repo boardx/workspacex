@@ -1,0 +1,21 @@
+{
+  "source": "f7f8ca20f0a85777f206f90eb7b603cc4bdd7082",
+  "gate": "lint",
+  "command": [
+    "pnpm",
+    "exec",
+    "eslint",
+    "components/admin/telemetry-settings-screen.tsx",
+    "lib/i18n/namespaces/telemetry-settings.ts",
+    "lib/i18n/messages/en.ts",
+    "lib/i18n/messages/zh-CN.ts",
+    "tests/ui/telemetry-settings-i18n.test.tsx",
+    "--max-warnings",
+    "0"
+  ],
+  "exit": 0,
+  "seconds": 3.29,
+  "rawPrivate": true,
+  "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "summary": []
+}

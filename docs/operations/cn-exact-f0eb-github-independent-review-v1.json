@@ -1,0 +1,48 @@
+{
+  "kind": "independent-exact-f0eb-github-review-v1",
+  "reviewer": "browser_linux_integration",
+  "verdict": "ACCEPT_FOR_ISOLATED_GITHUB_CI",
+  "files": {
+    "scripts/cn-exact-f0eb-github.py": "d213e1e706478d12d1913ba883eeca83481bb88a23dd34752b76d7ee570afe77",
+    "tests/test_cn_exact_f0eb_github.py": "a1d9a682e849b88603ea1b259a7ea08d367085b1de241819ed985658c4447659",
+    ".github/workflows/cn-exact-f0eb-preflight.yml": "e676a485d066d45bef55dd17ac7ada896512d5fbf311b362a3849e4ce304c43d",
+    "tests/fixtures/cn-exact-candidate/preserved-wrappers.json": "7865dcb7dd231ceaf6516a7c5f8f3c60154f6eb7cb3ee96315ff962f05964800"
+  },
+  "blockingFindings": [],
+  "resolvedFindings": [
+    {
+      "issue": "Root clean environment cannot assume trust of runner-owned checkout",
+      "resolution": "Exact ROOT and ROOT/.git safe.directory arguments for source rev-parse and clone; no global or wildcard trust."
+    },
+    {
+      "issue": "Parent Docker commands inherited GitHub read token",
+      "resolution": "Serial run defaults remove GH_TOKEN and GITHUB_TOKEN before child creation and restore parent afterwards; only three explicit GitHub metadata/download calls opt in. Real subprocess synthetic-token regression passed."
+    }
+  ],
+  "validation": {
+    "independentTests": 12,
+    "passed": 12,
+    "seconds": 0.099,
+    "toolReceipt": "b52a99",
+    "command": "python3.12 -B -m unittest discover -s tests -p test_cn_exact_f0eb_github.py",
+    "finalHashRecheckReceipt": "196119",
+    "realLinuxExecuted": false,
+    "dockerLoadExecuted": false,
+    "artifactsDownloaded": false
+  },
+  "reviewedControls": [
+    "Fixed same-repository PR branch, label and first attempt; exact checked-out head; read-only workflow permissions.",
+    "Seven historical ZIP metadata pins before and after transfer plus exact byte size/digest; original source and candidate-set pins.",
+    "New private root-owned directory and owned cgroup with read-back process memory 3 GiB, swap zero, pids 128 and 2 CPU quota.",
+    "Shared worker command deadline; outer timeout, process-domain cleanup before bounded daemon cleanup.",
+    "Unknown load retains durable claim and owned directory with unverified cleanup; no retry.",
+    "Known complete receipt permits only five exact original tags absent from before-image inventory; live identity inspection, no force, image-ID deletion or prune.",
+    "Token removed from non-GitHub children; whitelisted bounded report files; no application services started."
+  ],
+  "limitations": [
+    "Actual GitHub artifact availability, Linux controllers, disk capacity and Docker load remain to be verified in CI.",
+    "Docker daemon is outside the process cgroup; 3 GiB is not a Docker daemon memory bound.",
+    "This preflight/load workflow does not start five services, run six business journeys, refresh release proof or establish production readiness.",
+    "Unknown Docker load is deliberately unverified and retained; successful-path cleanup is not a guarantee after arbitrary job termination."
+  ]
+}

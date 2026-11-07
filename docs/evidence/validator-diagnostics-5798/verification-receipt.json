@@ -1,0 +1,14 @@
+{
+  "source": "f60a9f1aef6adf36a0b5119738327af3901a963f",
+  "independentReview": "SOURCE ACCEPT f60a9f1aef6adf36a0b5119738327af3901a963f",
+  "files": 6,
+  "testsPassed": 46,
+  "apiTypecheckExit": 0,
+  "apiLintExit": 0,
+  "credentialScanExit": 0,
+  "ownedIsolationCleaned": true,
+  "originalFaultReproduced": false,
+  "originalRootCause": "unknown",
+  "budgetsChanged": false,
+  "billingCodeChanged": false
+}

@@ -183,3 +183,24 @@ it('ships standard-methods 1.5.2 content: the platform org receives design-metho
     'references/cards-discover.md', 'references/method-index.md', 'references/templates.md'];
   expect(rows.rows.map(r => [r.path, r.bytes])).toEqual(paths.map(p => [p, designMethodsBytes(p)]));
 }, 300000);
+
+it('puts the authored Qwen visual skill in the actual general-assistant enabled snapshot',async()=>{
+ ensureDatabase();await migrateOnce();const seeded=await ensurePlatformSkillCatalogSeeded();if(!seeded.ok)throw seeded.error;
+ const {PgDatabase}=await import('../../src/infrastructure/db/pg-database');
+ const {appConfig}=await import('../../src/infrastructure/db/pg-config');
+ const {PgEnabledSkillVersionReader}=await import('../../src/infrastructure/skill/pg-enabled-skill-version-reader');
+ const {PgAgentRunRepository}=await import('../../src/infrastructure/agent-run/pg-agent-run-repository');
+ const {discloseDecided}=await import('../../src/application/security/permission-filter');
+ const {toOrgId}=await import('../../src/domain/org-id');
+ const orgId='qwen-snapshot-'+randomUUID();await seedOrg({orgId,projectId:'project-'+orgId});const db=new PgDatabase(appConfig());
+ try{
+  const guarded=await new PgEnabledSkillVersionReader(db).currentEnabledSkillVersionIds(toOrgId(orgId),{projectId:'project-'+orgId,threadId:'thread-'+orgId});
+  const disclosed=discloseDecided(guarded,{allowed:true,decisionId:'qwen-snapshot'} as never);
+  if(!('payload' in disclosed))throw new Error('snapshot not disclosed');
+  const content=await new PgAgentRunRepository(db).readPinnedSkills(toOrgId(orgId),disclosed.payload);
+  const visual=content.filter(skill=>skill.stableName==='visual-content');expect(visual).toHaveLength(1);
+  expect(visual[0]!.content).toContain('version: 1.0.2');
+  for(const name of ['qwen-image-3.0','qwen-image-3.0-pro','z-image-turbo','wx_image_generate','wx_artifact_publish'])expect(visual[0]!.content).toContain(name);
+  expect(visual[0]!.content).toBe(readFileSync(new URL('../../../../skills/standard-visual/visual-content/SKILL.md',import.meta.url),'utf8'));
+ }finally{await db.close();await resetOrgs([orgId]);}
+},120000);

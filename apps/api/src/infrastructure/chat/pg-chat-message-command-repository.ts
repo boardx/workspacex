@@ -1,3 +1,4 @@
+import {attachmentExtractionPresentation} from "../../application/chat/attachment-extraction-presentation";
 import { agentSkillScopeForStableName } from "../../domain/agent/skill-scope";
 import { sameRunSkillScope } from "../../application/chat/agent-skill-scope";
 import { PUBLISHED_AGENT_ENABLED, PUBLISHED_AGENT_VERSION_MATCH } from "../agent/published-agent-sql";
@@ -196,9 +197,9 @@ export class PgChatMessageCommandRepository implements ChatMessageCommandReposit
     if (messageIds.length === 0) return out;
     await this.db.withTenant(orgId, async (s) => {
       const r = await s.query<{
-        message_id: string; id: string; filename: string; mime: string; bytes: string; created_at: Date;
+        message_id: string; id: string; filename: string; mime: string; bytes: string; created_at: Date; extraction_status?:string; extraction_error?:string|null;
       }>(
-        `SELECT message_id, id, filename, mime, bytes, created_at
+        `SELECT message_id, id, filename, mime, bytes, created_at, extraction_status, extraction_error
            FROM chat_message_attachments
           WHERE org_id = $1 AND message_id = ANY($2::text[])
           ORDER BY created_at ASC, id ASC`,
@@ -209,7 +210,7 @@ export class PgChatMessageCommandRepository implements ChatMessageCommandReposit
         // bytes 是 bigint（pg 回字符串）——转成 number（≤25MB 远在安全整数内）。
         list.push({
           id: row.id, filename: row.filename, mime: row.mime,
-          bytes: Number(row.bytes), createdAt: row.created_at.toISOString(),
+          bytes: Number(row.bytes), createdAt: row.created_at.toISOString(), ...attachmentExtractionPresentation(row.extraction_status,row.extraction_error),
         });
         out.set(row.message_id, list);
       }

@@ -17,7 +17,8 @@ export default defineConfig({
     // 的准入不靠 skip 靠这份 exclude——skip 会让"这条车道到底跑没跑"变成看不见的事，
     // 而 vitest.native-runtime-lane.config.ts 用 `exclude: []` 把它选回来，且在缺任一
     // 前置时**抛错**而不是跳过。
-    exclude: ["tests/report-files/native-live.test.ts", "tests/recording/personal-transcription-persistence.test.ts", "tests/agent-runtime/native-full-chain.test.ts", "tests/agent-runtime/standard-document-locators-http.test.ts", "tests/agent-runtime/native-runtime-lane.test.ts"],
+    // Global native migration/replay fixtures run only in the required exclusive segment.
+    exclude: ["tests/billing/member-credit-quota-replay-pg.test.ts", "tests/billing/global-native-force-replay-pg.test.ts", "tests/billing/native-credit-tariff-pg.test.ts", "tests/agent-runtime/qwen-image-pillow-live.test.ts", "tests/report-files/native-live.test.ts", "tests/recording/personal-transcription-persistence.test.ts", "tests/agent-runtime/native-full-chain.test.ts", "tests/agent-runtime/standard-document-locators-http.test.ts", "tests/agent-runtime/native-runtime-lane.test.ts"],
     globalSetup: ["tests/support/db-global-setup.ts"],
     setupFiles: ["tests/support/db-file-cleanup.ts"],
     /**

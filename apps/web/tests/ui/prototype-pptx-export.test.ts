@@ -109,3 +109,33 @@ describe("buildPrototypePptx", () => {
     expect(prototypePptxFileName("Deck", new Date(2026, 8, 24))).toBe("Deck-slides-2026-09-24.pptx");
   });
 });
+
+
+describe("HTML prototype editable export", () => {
+  it("keeps semantic tables editable and preserves text beyond 300 characters", async () => {
+    const p = project();
+    p.frames = ["资料列表"];
+    p.prototype = [{ type: "html", props: { html: `<style>td{color:red}</style><h1>资料列表</h1><table><thead><tr><th>名称</th><th>类型</th></tr></thead><tbody><tr><td>访谈记录</td><td>PDF</td></tr></tbody></table><p>${"完整需求".repeat(100)}末尾目标</p>` } }] as never;
+    const files = unzip(Buffer.from(await buildPrototypePptx(p)));
+    const slide = files.get("ppt/slides/slide1.xml")!;
+    expect(slide).toContain("<a:tbl>");
+    expect(slide).toContain("访谈记录");
+    expect(slide).toContain("末尾目标");
+    expect(slide).not.toContain("color:red");
+  });
+});
+
+describe("HTML table fidelity regression", () => {
+  it("retains visible table captions as editable text", async () => {
+    const p = project();
+    p.frames = ["风险"];
+    p.prototype = [{type:"html",props:{html:'<table><caption>关键风险结论</caption><tr><th>项目</th></tr><tr><td>风险</td></tr></table>'}}] as never;
+    const files = unzip(Buffer.from(await buildPrototypePptx(p)));
+    expect(files.get("ppt/slides/slide1.xml")).toContain("关键风险结论");
+  });
+  it("keeps rowspan and colspan occupied cells from shifting subsequent columns", () => {
+    const shapes = layoutSlide({type:"html",props:{html:'<table><tr><th colspan="2">资料指标</th></tr><tr><th>团队</th><th>指标</th></tr><tr><td rowspan="2">研发</td><td>质量</td></tr><tr><td>效率</td></tr></table>'}},"表格","000000");
+    const table=shapes.find((shape)=>shape.kind==="table");
+    expect(table?.kind === "table" && table.rows).toEqual([["资料指标",""],["团队","指标"],["研发","质量"],["","效率"]]);
+  });
+});

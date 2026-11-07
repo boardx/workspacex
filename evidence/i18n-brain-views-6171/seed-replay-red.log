@@ -1,0 +1,108 @@
+[stack-admission] load1=3.39 cores=10 perCore=0.34 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw001uof-da309c11-10ba05c98c5e db=wsx_10ba05c98c5e28162223 compose=wsx-10ba05c98c5e28162223 pg=20633 redis=21633 api=24633 web=25633 sandbox=26633 model=27633 deep-agent=28633 asr=29633 vision=30633 loopback-sandbox=31633 mail=19633
+ Image localhost/workspacex-postgres-age:pg16-age1.6.0 Building
+#1 [internal] load local bake definitions
+#1 reading from stdin 666B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 2.76kB done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/pgvector/pgvector:pg16
+#3 DONE 0.0s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.0s
+
+#5 [1/2] FROM docker.io/pgvector/pgvector:pg16@sha256:ad2e18408bf447f62092a8a5259e7df10505c5a0360bd1a1853ac8b8b0763da2
+#5 resolve docker.io/pgvector/pgvector:pg16@sha256:ad2e18408bf447f62092a8a5259e7df10505c5a0360bd1a1853ac8b8b0763da2 done
+#5 DONE 0.0s
+
+#6 [2/2] RUN set -eux;     apt_host="deb.debian.org"; apt_host="${apt_host%%/*}";     sed -Ei "s#//deb\.debian\.org#//${apt_host}#g" /etc/apt/sources.list.d/debian.sources;     apt-get update;     apt-get install -y --no-install-recommends       build-essential ca-certificates git flex bison postgresql-server-dev-16;     git init /tmp/age;     git -C /tmp/age fetch --depth 1 "https://github.com/apache/age.git" "2db2f060c4c9265a14d40f007eb8c56febf31e4c";     git -C /tmp/age checkout FETCH_HEAD;     test "$(git -C /tmp/age rev-parse HEAD)" = "2db2f060c4c9265a14d40f007eb8c56febf31e4c";     make -C /tmp/age;     make -C /tmp/age install;     rm -rf /tmp/age;     apt-get purge -y --auto-remove build-essential git flex bison postgresql-server-dev-16;     rm -rf /var/lib/apt/lists/*
+#6 CACHED
+
+#7 exporting to image
+#7 exporting layers done
+#7 exporting manifest sha256:a63a062cdc27f12d99808367de7a84659efc4295167391bfd83acc4d67cf7447 done
+#7 exporting config sha256:18d451df8932429f3035fce33cefb23008202b4512663e7d3e4f52e7e87e3bc0 done
+#7 exporting attestation manifest sha256:d556d281d30f0a316ddcc18d418de5d01c4e20d5395c34a31fbe2e2c612b764d done
+#7 exporting manifest list sha256:582d17f91f7cfccc748f2ef411e0f85096987ad5cab49e326a7de91830600b02
+#7 exporting manifest list sha256:582d17f91f7cfccc748f2ef411e0f85096987ad5cab49e326a7de91830600b02 done
+#7 naming to localhost/workspacex-postgres-age:pg16-age1.6.0 done
+#7 unpacking to localhost/workspacex-postgres-age:pg16-age1.6.0 0.0s done
+#7 DONE 0.1s
+
+#8 resolving provenance for metadata file
+#8 DONE 0.0s
+ Image localhost/workspacex-postgres-age:pg16-age1.6.0 Built
+ Network wsx-10ba05c98c5e28162223_default Creating
+ Network wsx-10ba05c98c5e28162223_default Created
+ Container wsx-10ba05c98c5e28162223-postgres-1 Creating
+ Container wsx-10ba05c98c5e28162223-redis-1 Creating
+ Container wsx-10ba05c98c5e28162223-minio-1 Creating
+ Container wsx-10ba05c98c5e28162223-minio-1 Created
+ Container wsx-10ba05c98c5e28162223-postgres-1 Created
+ Container wsx-10ba05c98c5e28162223-redis-1 Created
+ Container wsx-10ba05c98c5e28162223-postgres-1 Starting
+ Container wsx-10ba05c98c5e28162223-minio-1 Starting
+ Container wsx-10ba05c98c5e28162223-redis-1 Starting
+ Container wsx-10ba05c98c5e28162223-redis-1 Started
+ Container wsx-10ba05c98c5e28162223-postgres-1 Started
+ Container wsx-10ba05c98c5e28162223-minio-1 Started
+ Container wsx-10ba05c98c5e28162223-minio-1 Waiting
+ Container wsx-10ba05c98c5e28162223-redis-1 Waiting
+ Container wsx-10ba05c98c5e28162223-postgres-1 Waiting
+ Container wsx-10ba05c98c5e28162223-minio-1 Healthy
+ Container wsx-10ba05c98c5e28162223-redis-1 Healthy
+ Container wsx-10ba05c98c5e28162223-postgres-1 Healthy
+[fullstack-fixture] recording thread=thread-466-of-da309c11-10ba05c98c5e title=FULLSTACK_RECORDING_THREAD_of-da309c11-10ba05c98c5e
+[fullstack-fixture] db=wsx_10ba05c98c5e28162223 project=project-fullstack-of-da309c11-10ba05c98c5e sentinel=FULLSTACK_SENTINEL_of-da309c11-10ba05c98c5e.md
+[brain-seed-replay] seed1 exit=0
+[fullstack-fixture] recording thread=thread-466-of-da309c11-10ba05c98c5e title=FULLSTACK_RECORDING_THREAD_of-da309c11-10ba05c98c5e
+[fullstack-fixture] db=wsx_10ba05c98c5e28162223 project=project-fullstack-of-da309c11-10ba05c98c5e sentinel=FULLSTACK_SENTINEL_of-da309c11-10ba05c98c5e.md
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/client.js:652
+          Error.captureStackTrace(err)
+                ^
+
+error: duplicate key value violates unique constraint "credentials_pkey"
+    at /Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/client.js:652:17
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async asOwner (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/api/tests/support/db.ts:250:12)
+    at async <anonymous> (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/api/scripts/seed-fullstack-smoke.ts:602:1) {
+  length: 237,
+  severity: 'ERROR',
+  code: '23505',
+  detail: 'Key (user_id)=(user-brain-of-da309c11-10ba05c98c5e) already exists.',
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: 'public',
+  table: 'credentials',
+  column: undefined,
+  dataType: undefined,
+  constraint: 'credentials_pkey',
+  file: 'nbtinsert.c',
+  line: '666',
+  routine: '_bt_check_unique'
+}
+
+Node.js v22.14.0
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: tsx scripts/seed-fullstack-smoke.ts
+[brain-seed-replay] seed2 exit=1
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: tsx scripts/verify-brain-seed-replay.ts
+[timing] pnpm --filter web exec tsx scripts/verify-brain-seed-replay.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：28s
+  清理：1s
+  总计：29s

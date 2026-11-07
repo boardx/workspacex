@@ -1,0 +1,26 @@
+{
+  "sourceSha": "4f81b76e600bb404d8ce6e52dd2d4694d23ee68a",
+  "mode": "static",
+  "eslint": {
+    "exit": 0,
+    "seconds": 2.45
+  },
+  "init": {
+    "exit": 0,
+    "seconds": 8.58
+  },
+  "testid": {
+    "exit": 0,
+    "seconds": 3.47
+  },
+  "spec-gate": {
+    "exit": 0,
+    "seconds": 35.16
+  },
+  "browser-list": {
+    "exit": 1,
+    "seconds": 1.02,
+    "log": "browser-list-first-unwrapped.txt"
+  },
+  "totalSeconds": 50.67
+}

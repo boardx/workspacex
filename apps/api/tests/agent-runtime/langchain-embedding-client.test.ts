@@ -14,8 +14,10 @@ it('real internal HTTP carries actual input and only service credential; rejects
  });server.listen(0,'127.0.0.1');await once(server,'listening');
  try{
   const client=new LangChainEmbeddingClient({baseUrl:`http://127.0.0.1:${(server.address() as AddressInfo).port}`,internalKey:'service-only',model:'explicit',modelVersion:'v1'});
-  expect(await client.embed('actual 中文 text')).toEqual([0.5,0.25]);expect(seen[0]).toEqual({path:'/internal/retrieval/embeddings',key:'service-only',body:{texts:['actual 中文 text']}});
-  for(mode of ['identity','redirect','oversize']){const before=calls;await expect(client.embed('source')).rejects.toThrow('embedding_unavailable');expect(calls).toBe(before+1);}
+  const accounting={kind:'knowledge-index' as const,orgId:'org',operationId:'4f57b512-c877-4d90-8f38-b2c6ed184bfd'};
+  await expect(client.embed('unowned')).rejects.toThrow('retrieval_accounting_owner_required');expect(calls).toBe(0);
+  expect(await client.embed('actual 中文 text',accounting)).toEqual([0.5,0.25]);expect(seen[0]).toEqual({path:'/internal/retrieval/embeddings',key:'service-only',body:{texts:['actual 中文 text'],accounting}});
+  for(mode of ['identity','redirect','oversize']){const before=calls;await expect(client.embed('source',accounting)).rejects.toThrow('embedding_unavailable');expect(calls).toBe(before+1);}
   expect(JSON.stringify(client)).not.toContain('service-only');
  }finally{server.closeAllConnections();await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));}
 });

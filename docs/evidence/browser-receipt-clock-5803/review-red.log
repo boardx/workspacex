@@ -1,0 +1,45 @@
+[stack-admission] load1=5.00 cores=10 perCore=0.50 running=0/2
+[test-isolation] id=run-mvb5xs6f-86a4f16c-0dff87003ec8 db=wsx_0dff87003ec85c53641e compose=wsx-0dff87003ec85c53641e pg=20048 redis=21048 api=24048 web=25048 sandbox=26048 model=27048 deep-agent=28048 asr=29048 vision=30048 loopback-sandbox=31048 mail=19048
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_0dff87003ec85c53641e capacity=100 current=6 required=32
+ ❯ tests/agent-runtime/browser-execution-receipts-real-db.test.ts (9 tests | 1 failed) 8713ms
+   ✓ timeout rejects late completion and keeps an honest unknown receipt across restart (host clock offset 1000 ms) 315ms
+   × reads the claim deadline after real connection setup, within the same transaction 223ms
+     → browser receipt refused
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent-runtime/browser-execution-receipts-real-db.test.ts > reads the claim deadline after real connection setup, within the same transaction
+error: browser receipt refused
+ ❯ ../../node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/client.js:652:17
+ ❯ Object.query src/infrastructure/db/pg-database.ts:62:21
+     60|         async query<R = Record<string, unknown>>(sql: string, params: …
+     61|           assertConnected();
+     62|           const r = await client.query(sql, params as unknown[]);
+       |                     ^
+     63|           assertConnected();
+     64|           return { rows: r.rows as R[] } satisfies QueryResult<R>;
+ ❯ src/infrastructure/agent-run/pg-browser-execution-receipts.ts:31:20
+ ❯ PgDatabase.inTx src/infrastructure/db/pg-database.ts:74:19
+ ❯ tests/agent-runtime/browser-execution-receipts-real-db.test.ts:86:10
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 passed (9)
+   Start at  00:09:25
+   Duration  12.52s (transform 172ms, setup 4ms, collect 69ms, tests 8.71s, environment 0ms, prepare 34ms)
+
+[db-isolation] db=wsx_0dff87003ec85c53641e peak_connections=3
+undefined
+/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/agent-runtime/browser-execution-receipts-real-db.test.ts
+[timing] pnpm --filter api exec vitest run tests/agent-runtime/browser-execution-receipts-real-db.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：13s
+  清理：0s
+  总计：14s

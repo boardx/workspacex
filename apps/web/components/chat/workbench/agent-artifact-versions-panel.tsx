@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import Image from "next/image";
 import { Download, FileText, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -7,10 +8,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { getAgentRun, isTerminalRunStatus } from "@/lib/agent-run";
-import { continueAgentArtifact, diffArtifactLines, fetchArtifactContent, isTextArtifact, listAgentArtifacts,
+import { ARTIFACT_DIFF_LINE_LIMIT, continueAgentArtifact, diffArtifactLines, fetchArtifactContent, isTextArtifact, listAgentArtifacts,
   type AgentArtifact } from "@/lib/chat-workbench/agent-artifacts";
 
 const PREVIEW_BYTES=256*1024;
+type ArtifactErrorKey = "artifactVersions.requestUnconfirmed" | "artifactVersions.loadFailed" | "artifactVersions.adjustInstructions" | "artifactVersions.progressFailed";
+type ArtifactRunNoticeKey = "artifactVersions.accepted" | "artifactVersions.running" | "artifactVersions.paused" | "artifactVersions.awaitingPermission" | "artifactVersions.succeeded" | "artifactVersions.failed" | "artifactVersions.cancelled";
 export interface AgentArtifactVersionsPanelProps {
   readonly threadId: string; readonly projectId?: string | null; readonly sessionToken?: string;
   readonly refreshKey?: string | number;
@@ -23,16 +26,17 @@ export interface AgentArtifactVersionsPanelProps {
   readonly onCountChange?: (count: number | null) => void;
 }
 export function AgentArtifactVersionsPanel({threadId,projectId,sessionToken,refreshKey,onRunStarted,canEdit=false,embedded=false,onCountChange}:AgentArtifactVersionsPanelProps) {
+  const { t } = useI18n();
   const [artifacts,setArtifacts]=React.useState<AgentArtifact[]>([]);
   const [loadedThreadId,setLoadedThreadId]=React.useState<string|null>(null);
   const inputId=React.useId();
   const currentThread=React.useRef(threadId);currentThread.current=threadId;
   const [artifactId,setArtifactId]=React.useState("");
   const [version,setVersion]=React.useState<number|null>(null);
-  const [loading,setLoading]=React.useState(true),[error,setError]=React.useState<string|null>(null);
+  const [loading,setLoading]=React.useState(true),[error,setError]=React.useState<{readonly key:ArtifactErrorKey}|null>(null);
   const [reload,setReload]=React.useState(0),[instruction,setInstruction]=React.useState("");
   const [submitting,setSubmitting]=React.useState(false),[activeRun,setActiveRun]=React.useState<string|null>(null);
-  const [runNotice,setRunNotice]=React.useState("");
+  const [runNotice,setRunNotice]=React.useState<{readonly key:ArtifactRunNoticeKey}|null>(null);
   const requestRef=React.useRef<{signature:string;id:string}|null>(null);
   const latestOnRunStarted=React.useRef(onRunStarted);latestOnRunStarted.current=onRunStarted;
   const artifact=loadedThreadId===threadId?(artifacts.find(item=>item.artifactId===artifactId)??artifacts[0]):undefined;
@@ -41,11 +45,11 @@ export function AgentArtifactVersionsPanel({threadId,projectId,sessionToken,refr
   const count=loading||error||loadedThreadId!==threadId?null:artifacts.length;
   React.useEffect(()=>{latestOnCountChange.current?.(count);},[count]);
 
-  React.useEffect(()=>{setArtifacts([]);setLoadedThreadId(null);setArtifactId("");setVersion(null);setInstruction("");setActiveRun(null);setRunNotice("");setSubmitting(false);requestRef.current=null;},[threadId]);
+  React.useEffect(()=>{setArtifacts([]);setLoadedThreadId(null);setArtifactId("");setVersion(null);setInstruction("");setActiveRun(null);setRunNotice(null);setSubmitting(false);requestRef.current=null;},[threadId]);
   React.useEffect(()=>{
     const abort=new AbortController();setLoading(true);setError(null);
     void listAgentArtifacts(threadId,projectId,sessionToken,abort.signal).then(values=>{if(!abort.signal.aborted){setArtifacts(values);setLoadedThreadId(threadId);}})
-      .catch(()=>{if(!abort.signal.aborted)setError("无法加载成果，请重试。");}).finally(()=>{if(!abort.signal.aborted)setLoading(false);});
+      .catch(()=>{if(!abort.signal.aborted)setError({key:"artifactVersions.loadFailed"});}).finally(()=>{if(!abort.signal.aborted)setLoading(false);});
     return()=>abort.abort();
   },[threadId,projectId,sessionToken,refreshKey,reload]);
   React.useEffect(()=>{
@@ -57,13 +61,13 @@ export function AgentArtifactVersionsPanel({threadId,projectId,sessionToken,refr
         if(abort.signal.aborted)return;
         if(isTerminalRunStatus(run.status)){
           setActiveRun(null);
-          if(run.status==="succeeded"){setRunNotice("新版本已生成。");setVersion(null);setInstruction("");requestRef.current=null;setReload(v=>v+1);}
-          else {setRunNotice(run.status==="cancelled"?"修改已停止，旧版本保留。":"修改未完成，旧版本保留。");setError("可以调整要求后重新提交修改。");requestRef.current=null;}
+          if(run.status==="succeeded"){setRunNotice({key:"artifactVersions.succeeded"});setVersion(null);setInstruction("");requestRef.current=null;setReload(v=>v+1);}
+          else {setRunNotice({key:run.status==="cancelled"?"artifactVersions.cancelled":"artifactVersions.failed"});setError({key:"artifactVersions.adjustInstructions"});requestRef.current=null;}
           return;
         }
-        setRunNotice(run.status==="paused"?"修改已暂停，请在任务中继续。":run.status==="awaiting_tool_permission"?"等待确认，请在任务中处理。":"正在生成新版本，原版本保持不变。");
+        setRunNotice({key:run.status==="paused"?"artifactVersions.paused":run.status==="awaiting_tool_permission"?"artifactVersions.awaitingPermission":"artifactVersions.running"});
         timer=setTimeout(()=>void poll(),1500);
-      }catch{if(!abort.signal.aborted)setError("暂时无法读取修改进度，点击刷新继续查看。");}
+      }catch{if(!abort.signal.aborted)setError({key:"artifactVersions.progressFailed"});}
     };void poll();return()=>{abort.abort();if(timer)clearTimeout(timer);};
   },[activeRun,sessionToken,reload]);
 
@@ -76,17 +80,17 @@ export function AgentArtifactVersionsPanel({threadId,projectId,sessionToken,refr
     try{
       const result=await continueAgentArtifact(artifact.artifactId,selected.version,instruction,requestRef.current.id,sessionToken);
       if(currentThread.current!==submittedThread)return;
-      setActiveRun(result.runId);setRunNotice("修改已受理，正在生成新版本。");latestOnRunStarted.current?.(result.runId);
-    }catch{if(currentThread.current===submittedThread)setError("修改请求未确认，请重试。重试不会重复创建任务。");}
+      setActiveRun(result.runId);setRunNotice({key:"artifactVersions.accepted"});latestOnRunStarted.current?.(result.runId);
+    }catch{if(currentThread.current===submittedThread)setError({key:"artifactVersions.requestUnconfirmed"});}
     finally{if(currentThread.current===submittedThread)setSubmitting(false);}
   }
   if(embedded&&!loading&&!error&&!artifacts.length&&!runNotice)return null;
-  return <section className="min-w-0 space-y-3" aria-label="成果与版本" data-testid="agent-artifact-versions-panel">
-    {!embedded&&<div className="flex items-center justify-between gap-2"><h3 className="text-13 font-medium">成果与版本</h3>
-      <Button variant="ghost" size="sm" aria-label="刷新成果与修改进度" onClick={()=>setReload(v=>v+1)}><RefreshCw className="h-4 w-4"/></Button></div>}
-    {loading&&!embedded&&<p role="status" data-testid="loading" className="flex items-center gap-2 text-13 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin"/>正在读取成果…</p>}
-    {error&&<div role="alert" data-testid="err-artifacts" className="rounded-container border border-border p-3 text-13">{error}<Button variant="ghost" size="sm" onClick={()=>setReload(v=>v+1)}>刷新</Button></div>}
-    {!embedded&&!loading&&!artifacts.length&&!error&&<p data-testid="empty" className="rounded-container border border-dashed border-border p-4 text-13 text-muted-foreground">任务生成的文件会显示在这里，可查看历史版本并继续修改。</p>}
+  return <section className="min-w-0 space-y-3" aria-label={t("artifactVersions.title")} data-testid="agent-artifact-versions-panel">
+    {!embedded&&<div className="flex items-center justify-between gap-2"><h3 className="text-13 font-medium">{t("artifactVersions.title")}</h3>
+      <Button variant="ghost" size="sm" aria-label={t("artifactVersions.refreshProgress")} onClick={()=>setReload(v=>v+1)}><RefreshCw className="h-4 w-4"/></Button></div>}
+    {loading&&!embedded&&<p role="status" data-testid="loading" className="flex items-center gap-2 text-13 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin"/>{t("artifactVersions.loading")}</p>}
+    {error&&<div role="alert" data-testid="err-artifacts" className="rounded-container border border-border p-3 text-13">{t(error.key)}<Button variant="ghost" size="sm" onClick={()=>setReload(v=>v+1)}>{t("artifactVersions.refresh")}</Button></div>}
+    {!embedded&&!loading&&!artifacts.length&&!error&&<p data-testid="empty" className="rounded-container border border-dashed border-border p-4 text-13 text-muted-foreground">{t("artifactVersions.empty")}</p>}
     {artifact&&selected&&<>
       <Select data-testid="artifact-picker" options={artifacts.map(item=>({value:item.artifactId,label:item.name}))} value={artifact.artifactId}
         onValueChange={id=>{setArtifactId(id);setVersion(null);}}/>
@@ -94,21 +98,22 @@ export function AgentArtifactVersionsPanel({threadId,projectId,sessionToken,refr
         {/* TW-P1-4 的「版本」锚点。此前挂在上面那行 `<h3>成果与版本</h3>` 上——标题在
             就算「版本能力齐」。套在真正能切版本的这个选择器外层：没有版本可切时它整个
             不存在，锚点也就不该在。内层保留 `artifact-version-picker` 给既有两条测试。 */}
-        <span className="flex min-w-0 flex-1" data-testid="chat-task-workbench-artifact-versions"><Select data-testid="artifact-version-picker" className="min-w-0 flex-1" options={[...artifact.versions].reverse().map(item=>({value:String(item.version),label:`版本 ${item.version}${item.basedOnVersion?` · 基于版本 ${item.basedOnVersion}`:""}`}))}
+        <span className="flex min-w-0 flex-1" data-testid="chat-task-workbench-artifact-versions"><Select data-testid="artifact-version-picker" className="min-w-0 flex-1" options={[...artifact.versions].reverse().map(item=>({value:String(item.version),label:item.basedOnVersion?t("artifactVersions.basedVersion",{version:item.version,base:item.basedOnVersion}):t("artifactVersions.version",{version:item.version})}))}
           value={String(selected.version)} onValueChange={value=>setVersion(Number(value))}/></span></div>
       <ArtifactPreview key={`${artifact.artifactId}:${selected.version}`} artifact={artifact} version={selected.version} sessionToken={sessionToken}/>
       <p className="line-clamp-3 text-11 text-muted-foreground" title={selected.changeNote}>{selected.changeNote}</p>
-      {canEdit&&<div className="space-y-2"><Label htmlFor={inputId}>基于版本 {selected.version} 继续修改</Label>
+      {canEdit&&<div className="space-y-2"><Label htmlFor={inputId}>{t("artifactVersions.editLabel",{version:selected.version})}</Label>
         <Textarea id={inputId} data-testid="artifact-edit-instruction" value={instruction} onChange={event=>setInstruction(event.target.value)}
-          placeholder="描述要修改的内容，例如：保留结构，精简结论。" disabled={submitting||!!activeRun}/>
+          placeholder={t("artifactVersions.editPlaceholder")} disabled={submitting||!!activeRun}/>
         <Button data-testid="artifact-continue" size="sm" onClick={()=>void submit()} disabled={!instruction.trim()||submitting||!!activeRun}>
-          {submitting?<Loader2 className="h-4 w-4 animate-spin"/>:null}{submitting?"正在提交…":"生成新版本"}</Button></div>}
+          {submitting?<Loader2 className="h-4 w-4 animate-spin"/>:null}{t(submitting?"artifactVersions.submitting":"artifactVersions.generate")}</Button></div>}
     </>}
-    {runNotice&&<p role="status" className="text-13 text-muted-foreground">{runNotice}</p>}
+    {runNotice&&<p role="status" className="text-13 text-muted-foreground">{t(runNotice.key)}</p>}
   </section>;
 }
 
 function ArtifactPreview({artifact,version,sessionToken}:{artifact:AgentArtifact;version:number;sessionToken?:string}) {
+  const { t } = useI18n();
   const [blob,setBlob]=React.useState<Blob|null>(null),[url,setUrl]=React.useState<string|null>(null);
   const [text,setText]=React.useState<string|null>(null),[error,setError]=React.useState(false),[retry,setRetry]=React.useState(0);
   const compareAbort=React.useRef<AbortController|null>(null);
@@ -133,18 +138,18 @@ function ArtifactPreview({artifact,version,sessionToken}:{artifact:AgentArtifact
       if(!abort.signal.aborted){const result=diffArtifactLines(priorText,text);setDiff({...result,truncated:result.truncated||prior.size>PREVIEW_BYTES||!!blob&&blob.size>PREVIEW_BYTES});}
     }catch{if(!abort.signal.aborted)setError(true);}finally{if(!abort.signal.aborted)setDiffBusy(false);}
   }
-  if(error)return <div role="alert" className="text-13">此版本暂时无法读取。<Button variant="ghost" size="sm" onClick={()=>setRetry(v=>v+1)}>重试预览</Button></div>;
-  if(!url)return <p role="status" className="text-13 text-muted-foreground">正在读取版本…</p>;
+  if(error)return <div role="alert" className="text-13">{t("artifactVersions.previewFailed")}<Button variant="ghost" size="sm" onClick={()=>setRetry(v=>v+1)}>{t("artifactVersions.retryPreview")}</Button></div>;
+  if(!url)return <p role="status" className="text-13 text-muted-foreground">{t("artifactVersions.loadingVersion")}</p>;
   return <div className="space-y-2">
-    <div className="flex flex-wrap gap-2"><Button data-testid="chat-task-workbench-artifact-export" variant="outline" size="sm" onClick={()=>{const anchor=document.createElement("a");anchor.href=url;anchor.download=artifact.name;anchor.click();}}><Download className="h-4 w-4"/>下载此版本</Button>
-      {isTextArtifact(artifact.name)&&base&&<Button variant="ghost" size="sm" disabled={diffBusy} onClick={()=>void compare()}>与版本 {base} 比较</Button>}</div>
+    <div className="flex flex-wrap gap-2"><Button data-testid="chat-task-workbench-artifact-export" variant="outline" size="sm" onClick={()=>{const anchor=document.createElement("a");anchor.href=url;anchor.download=artifact.name;anchor.click();}}><Download className="h-4 w-4"/>{t("artifactVersions.download")}</Button>
+      {isTextArtifact(artifact.name)&&base&&<Button variant="ghost" size="sm" disabled={diffBusy} onClick={()=>void compare()}>{t("artifactVersions.compare",{version:base})}</Button>}</div>
     {diff?<div data-testid="artifact-text-diff" className="max-h-64 overflow-auto rounded-container border border-border p-3 font-mono text-11">
-      {diff.lines.map((line,index)=><div key={index} className="whitespace-pre-wrap break-all" aria-label={line.kind==="added"?"新增":line.kind==="removed"?"删除":"未变"}>{line.kind==="added"?"+ ":line.kind==="removed"?"− ":"  "}{line.text}</div>)}
-      {diff.truncated&&<p className="font-sans text-muted-foreground">比较限于前 600 行及每版前 256 KB，完整内容请下载查看。</p>}</div>
+      {diff.lines.map((line,index)=><div key={index} className="whitespace-pre-wrap break-all" aria-label={t(line.kind==="added"?"artifactVersions.added":line.kind==="removed"?"artifactVersions.removed":"artifactVersions.unchanged")}>{line.kind==="added"?"+ ":line.kind==="removed"?"− ":"  "}{line.text}</div>)}
+      {diff.truncated&&<p className="font-sans text-muted-foreground">{t("artifactVersions.comparisonLimit",{lines:ARTIFACT_DIFF_LINE_LIMIT,kib:PREVIEW_BYTES/1024})}</p>}</div>
       :text!==null?<pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-container border border-border p-3 text-11">{text}</pre>
-      :artifact.kind==="png"?<Image unoptimized src={url} width={1024} height={768} alt={`${artifact.name}，版本 ${version}`} className="max-h-64 w-full rounded-container object-contain"/>
-      :artifact.kind==="pdf"?<iframe src={url} title={`${artifact.name}，版本 ${version}`} className="h-64 w-full rounded-container border border-border"/>
-      :<p className="rounded-container border border-border p-3 text-13 text-muted-foreground">此格式可下载查看；历史版本均保留。</p>}
-    {blob&&blob.size>PREVIEW_BYTES&&isTextArtifact(artifact.name)&&<p className="text-11 text-muted-foreground">预览仅显示前 256 KB，完整内容请下载。</p>}
+      :artifact.kind==="png"?<Image unoptimized src={url} width={1024} height={768} alt={t("artifactVersions.mediaTitle",{name:artifact.name,version})} className="max-h-64 w-full rounded-container object-contain"/>
+      :artifact.kind==="pdf"?<iframe src={url} title={t("artifactVersions.mediaTitle",{name:artifact.name,version})} className="h-64 w-full rounded-container border border-border"/>
+      :<p className="rounded-container border border-border p-3 text-13 text-muted-foreground">{t("artifactVersions.unsupported")}</p>}
+    {blob&&blob.size>PREVIEW_BYTES&&isTextArtifact(artifact.name)&&<p className="text-11 text-muted-foreground">{t("artifactVersions.previewLimit",{kib:PREVIEW_BYTES/1024})}</p>}
   </div>;
 }

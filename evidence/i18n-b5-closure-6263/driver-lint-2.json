@@ -1,0 +1,17 @@
+{
+  "name": "driver-lint-2",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "eslint",
+    "e2e/i18n-research-entry.spec.ts"
+  ],
+  "source": "cbcf73c5ef02e5e3026d1a1294f048b58324320b",
+  "sourceAfter": "cbcf73c5ef02e5e3026d1a1294f048b58324320b",
+  "sourceStable": true,
+  "exitCode": 0,
+  "seconds": 2.89,
+  "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

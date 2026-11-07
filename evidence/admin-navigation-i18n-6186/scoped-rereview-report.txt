@@ -1,0 +1,9 @@
+# Scoped re-review — AdminNav #6186
+
+Reviewed exact HEAD `2d93462e0db89ae078e8cc09c170f326069aeb47` against previously reviewed `8c225e3110c6043a014f2ab73ac5531866d7420b`.
+
+**Original P2 closed. No residual actionable finding introduced by this diff.**
+
+The only changed file is `apps/web/e2e/entity-localization.spec.ts`. At line 274, the anchored whole-link text assertion now accepts precisely the translated member label and unavailable em dash, allowing intervening whitespace. The added line independently requires the count span's English accessible name, `Members count unavailable`. This matches the reviewed component's label/count children and the absence of `org-members` from the live count source keys. It does not weaken the check into accepting arbitrary link text or remove the count requirement. All product files and unit tests are unchanged.
+
+Validation boundary: source diff inspected only; no browser or heavy checks executed in this review. Target browser-spec ESLint success was reported by the owner, not independently rerun. Browser acceptance, screenshots and the previously listed full typecheck/init/pre-push gates remain pending. Closing this source finding does not assert a passing browser run or delivery completion.

@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { saveAsOrgTemplate, describeSaveAsOrgTemplateError } from "@/lib/live-workflow-orchestration";
@@ -41,10 +42,11 @@ export function SaveAsOrgTemplateAction({
   /** 保存成功后的回调（例如给上层一个可以透传给外部 toast 的真实文案）。 */
   onSaved?: (out: { workflowTemplateId: string; name: string }) => void;
 }) {
+  const { locale, t } = useI18n();
   const [open, setOpen] = React.useState(false);
   const [name, setName] = React.useState("");
   const [busy, setBusy] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<{ kind: "required" } | { kind: "cause"; cause: unknown } | null>(null);
   const [success, setSuccess] = React.useState<{ workflowTemplateId: string; name: string } | null>(null);
 
   const startOpen = () => {
@@ -60,7 +62,7 @@ export function SaveAsOrgTemplateAction({
   async function submit() {
     const trimmed = name.trim();
     if (trimmed === "") {
-      setError("模板名称不能为空");
+      setError({ kind: "required" });
       return;
     }
     setBusy(true);
@@ -71,7 +73,7 @@ export function SaveAsOrgTemplateAction({
       setOpen(false);
       onSaved?.({ workflowTemplateId: out.workflowTemplateId, name: trimmed });
     } catch (e) {
-      setError(describeSaveAsOrgTemplateError(e));
+      setError({ kind: "cause", cause: e });
     } finally {
       setBusy(false);
     }
@@ -86,7 +88,8 @@ export function SaveAsOrgTemplateAction({
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="组织模板名称"
+              placeholder={t("projectPrep.templateName")}
+              aria-label={t("projectPrep.templateName")}
               className="h-8 w-48 text-11"
               data-testid={`${testIdPrefix}-name`}
             />
@@ -97,22 +100,22 @@ export function SaveAsOrgTemplateAction({
               onClick={() => void submit()}
               data-testid={`${testIdPrefix}-submit`}
             >
-              {busy ? "保存中…" : "保存"}
+              {busy ? t("projectPrep.saving") : t("projectPrep.save")}
             </Button>
             <Button size="sm" variant="ghost" disabled={busy} onClick={cancel} data-testid={`${testIdPrefix}-cancel`}>
-              取消
+              {t("projectPrep.cancel")}
             </Button>
           </div>
         )}
 
       {error !== null && (
         <p role="alert" className="text-10 text-destructive" data-testid={`${testIdPrefix}-error`}>
-          {error}
+          {error.kind === "required" ? t("projectPrep.templateNameRequired") : describeSaveAsOrgTemplateError(error.cause, locale)}
         </p>
       )}
       {success !== null && (
         <p className="text-10 text-success" data-testid={`${testIdPrefix}-success`}>
-          已另存为组织模板「{success.name}」· id {success.workflowTemplateId}
+          {t("projectPrep.templateSaved", { name: success.name, id: success.workflowTemplateId })}
         </p>
       )}
     </>

@@ -9,31 +9,23 @@
 name: self-host-upgrade-drill
 
 on:
-  pull_request:
-    paths:
-      - compose.yaml
-      - selfhost.env.example
-      - apps/api/docker-compose.deploy.yml
-      - apps/api/docker-compose.minio-image.yml
-      - apps/api/docker/**
-      - apps/api/migrations/**
-      - apps/skill-sandbox/Dockerfile
-      - apps/skill-sandbox/security/**
-      - '**/Dockerfile'
-      - scripts/upgrade.sh
-      - scripts/self-host-upgrade-drill.sh
-      - packages/cloud-deploy/src/starter-backup*
-      - .github/workflows/self-host-upgrade-drill.yml
   workflow_dispatch:
     inputs:
       old_ref:
         description: 'Old version to upgrade from (tag/commit). Empty = merge-base with origin/main, or HEAD~1 on main'
         type: string
         default: ''
+  workflow_call:
+    inputs:
+      old_ref:
+        type: string
+        default: ""
+        required: false
 
 concurrency:
-  group: self-host-upgrade-drill-${{ github.ref }}
-  cancel-in-progress: true
+  group: self-host-upgrade-drill-full-${{ github.run_id }}
+  cancel-in-progress: false
+  queue: single
 
 permissions:
   contents: read

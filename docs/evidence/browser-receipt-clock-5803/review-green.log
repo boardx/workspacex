@@ -1,0 +1,22 @@
+[stack-admission] load1=5.81 cores=10 perCore=0.58 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvb5zfou-cd6ab1d4-e287a48863cb db=wsx_e287a48863cb3fde08cb compose=wsx-e287a48863cb3fde08cb pg=20296 redis=21296 api=24296 web=25296 sandbox=26296 model=27296 deep-agent=28296 asr=29296 vision=30296 loopback-sandbox=31296 mail=19296
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_e287a48863cb3fde08cb capacity=100 current=6 required=32
+ ✓ tests/agent-runtime/browser-execution-receipts-real-db.test.ts (9 tests) 9250ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  00:10:42
+   Duration  13.30s (transform 201ms, setup 6ms, collect 110ms, tests 9.25s, environment 0ms, prepare 61ms)
+
+[db-isolation] db=wsx_e287a48863cb3fde08cb peak_connections=3
+[timing] pnpm --filter api exec vitest run tests/agent-runtime/browser-execution-receipts-real-db.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：14s
+  清理：0s
+  总计：14s

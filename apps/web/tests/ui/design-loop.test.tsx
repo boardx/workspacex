@@ -37,10 +37,11 @@ vi.mock("@/lib/api-client", async () => {
   const actual = await vi.importActual<typeof import("@/lib/api-client")>("@/lib/api-client");
   return { ...actual, apiRequest: (...a: unknown[]) => apiRequest(...a) };
 });
+const navQuery = vi.hoisted(() => ({ value: "" }));
 vi.mock("next/navigation", () => ({
   usePathname: () => "/chat",
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => new URLSearchParams(navQuery.value),
 }));
 vi.mock("@/lib/live-asr-draft", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/live-asr-draft")>()),
@@ -50,6 +51,8 @@ vi.mock("@/lib/live-asr-draft", async (importOriginal) => ({
 import * as React from "react";
 import { FeedbackDialog } from "@/components/feedback/feedback-dialog";
 import { DesignLoopInboxScreen, INBOX_REFRESH_MS } from "@/components/design-loop/inbox-screen";
+import { PreviewSessionProvider } from "@/components/session/session-provider";
+import { FeedbackProvider } from "@/components/feedback/feedback-provider";
 import { DesignLoopInboxAdminScreen } from "@/components/admin/design-loop-screens";
 import { DesignWorkbenchHome } from "@/components/design-loop/workbench-screen";
 import { DESIGN_WORKBENCH_STARTERS } from "@/lib/live-design-workbench";
@@ -66,7 +69,7 @@ import { humanTime as when } from "@/lib/human-time";
 import type { InboxItem } from "@/lib/live-inbox";
 import type { DesignProject } from "@/lib/live-design-workbench";
 
-afterEach(() => { cleanup(); vi.resetAllMocks(); });
+afterEach(() => { cleanup(); vi.resetAllMocks(); navQuery.value = ""; });
 
 type Call = [string, { method?: string; body?: Record<string, unknown>; query?: Record<string, string | undefined> } | undefined];
 const callsTo = (path: string, method = "GET") =>
@@ -846,7 +849,7 @@ describe("UC-17.8 B3.7：关联标可点击跳转并高亮", () => {
 
   it("生产落点 DesignLoopInboxAdminScreen：跳转后 URL 带 ?open=<目标 id>", async () => {
     mockInbox(linkedPair());
-    render(<DesignLoopInboxAdminScreen state="default" />);
+    render(<PreviewSessionProvider><FeedbackProvider><DesignLoopInboxAdminScreen state="default" /></FeedbackProvider></PreviewSessionProvider>);
     const card = await screen.findByTestId("inbox-card-B-1");
     fireEvent.click(within(card).getByTestId("link-generated-B-1"));
     await waitFor(() => expect(screen.getByTestId("inbox-drawer")).toHaveTextContent("方案一"));
@@ -5526,5 +5529,73 @@ describe("详情页底栏的「更新于」", () => {
     // ⭐ 反证锚点：改回 `toLocaleDateString("zh-CN")` ⇒ 这两条红。
     expect(bar.textContent).toContain("更新于 3 分钟前");
     expect(bar.textContent).not.toMatch(/\d{4}\/\d{1,2}\/\d{1,2}/);
+  });
+});
+
+
+describe("explicit triage entry scope and saved recovery", () => {
+  it.each(["org-local", "org-yuanyang"])("entry follows existing projected org role in %s", async (orgId) => {
+    mockInbox([]);
+    render(<PreviewSessionProvider orgId={orgId}><FeedbackProvider><DesignLoopInboxAdminScreen state="default" /></FeedbackProvider></PreviewSessionProvider>);
+    await screen.findByTestId("design-loop-inbox");
+    if (orgId === "org-local") expect(screen.getByTestId("inbox-new-feedback")).toHaveTextContent("新建反馈并分诊");
+    else expect(screen.queryByTestId("inbox-new-feedback")).toBeNull();
+  });
+  it.each(["default", "dep-failed", "denied"] as const)("saved target missing in %s retains actual ID and read-only retry link", async (state) => {
+    mockInbox([]);
+    render(<DesignLoopInboxScreen state={state} openId="saved-id" savedFeedbackId="saved-id" />);
+    const notice = await screen.findByTestId("inbox-saved-open-failed");
+    expect(notice).toHaveTextContent("已保存，无法打开收件箱");
+    expect(notice).toHaveTextContent("saved-id");
+    expect(within(notice).getByRole("link")).toHaveAttribute("href", "/platform-admin/inbox?open=saved-id");
+    expect(apiRequest.mock.calls.some(([, opts]) => opts?.method === "POST")).toBe(false);
+  });
+  it("arbitrary open query is not evidence of a successful save", async () => {
+    mockInbox([]);
+    render(<DesignLoopInboxScreen openId="not-saved" />);
+    await screen.findByTestId("design-loop-inbox");
+    expect(screen.queryByTestId("inbox-saved-open-failed")).toBeNull();
+  });
+});
+
+
+describe("inbox URL changes preserve linked pagination", () => {
+  it("production linked URL update keeps page two, search and list view without refetch", async () => {
+    mockInbox(linkedPair());
+    const fallback = apiRequest.getMockImplementation()!;
+    apiRequest.mockImplementation(async (path: string, opts?: { query?: Record<string, string> }) => {
+      if (path === "/inbox") return { items: opts?.query?.cursor ? [designItem()] : [feedbackItem({ resolvedByDesignId: "d1" })], nextCursor: opts?.query?.cursor ? null : "page-two", sources: { exception: "included" } };
+      return fallback(path, opts);
+    });
+    const app = <PreviewSessionProvider><FeedbackProvider><DesignLoopInboxAdminScreen state="default" /></FeedbackProvider></PreviewSessionProvider>;
+    const { rerender } = render(app);
+    await screen.findByTestId("inbox-card-B-1");
+    fireEvent.click(screen.getByTestId("inbox-view-list"));
+    fireEvent.change(screen.getByTestId("inbox-search"), { target: { value: "needle" } });
+    await waitFor(() => expect(callsTo("/inbox").at(-1)?.[1]?.query?.q).toBe("needle"));
+    fireEvent.click(await screen.findByTestId("inbox-load-more"));
+    await screen.findByTestId("inbox-row-D-1");
+    const reads = callsTo("/inbox").length;
+    fireEvent.click(within(screen.getByTestId("inbox-row-B-1")).getByTestId("link-generated-B-1"));
+    navQuery.value = new URL(window.location.href).search;
+    // Mimic Next's useSearchParams update after history.replaceState.
+    rerender(<PreviewSessionProvider><FeedbackProvider><DesignLoopInboxAdminScreen state="default" /></FeedbackProvider></PreviewSessionProvider>);
+    expect(await screen.findByTestId("inbox-drawer")).toHaveTextContent("方案一");
+    expect(screen.getByTestId("inbox-row-D-1")).toBeVisible();
+    expect(screen.getByTestId("inbox-view-list")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("inbox-search")).toHaveValue("needle");
+    expect(callsTo("/inbox")).toHaveLength(reads);
+  });
+  it("new saved feedback refreshes the current route once and opens the server ID", async () => {
+    mockInbox([feedbackItem()]);
+    const { rerender } = render(<DesignLoopInboxScreen />);
+    await screen.findByTestId("inbox-card-B-1");
+    const reads = callsTo("/inbox").length;
+    mockInbox([feedbackItem({ id: "saved-new", code: "B-NEW", title: "刚保存" }), feedbackItem()]);
+    rerender(<DesignLoopInboxScreen openId="saved-new" savedFeedbackId="saved-new" />);
+    expect(await screen.findByTestId("inbox-drawer")).toHaveTextContent("刚保存");
+    expect(callsTo("/inbox")).toHaveLength(reads + 1);
+    rerender(<DesignLoopInboxScreen openId="saved-new" savedFeedbackId="saved-new" />);
+    expect(callsTo("/inbox")).toHaveLength(reads + 1);
   });
 });

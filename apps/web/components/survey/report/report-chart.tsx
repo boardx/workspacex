@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useI18n } from "@/lib/i18n/provider";
+import type { Locale } from "@/lib/i18n/locale";
+import { translate } from "@/lib/i18n/messages";
 import * as echarts from "echarts/core";
 import { BarChart, LineChart, RadarChart } from "echarts/charts";
 import { GridComponent, LegendComponent, TooltipComponent, AriaComponent } from "echarts/components";
 import { SVGRenderer } from "echarts/renderers";
-import { reportNumber, REPORT_COLORS } from "./report-format";
+import { reportNumber, REPORT_COLORS, SURVEY_CHART_DEFAULT_SERIES } from "./report-format";
 import type { survey } from "@repo/contracts";
 
 echarts.use([BarChart, LineChart, RadarChart, GridComponent, LegendComponent, TooltipComponent, AriaComponent, SVGRenderer]);
@@ -21,34 +24,37 @@ export function reportChartLabels(block: survey.CompiledSurveyBlock) {
     return [label, row.group].filter(Boolean).join(" · ");
   });
 }
-export function reportChartOptions(block: survey.CompiledSurveyBlock): echarts.EChartsCoreOption {
+const legendFormatter = (block: survey.CompiledSurveyBlock, locale: Locale) => (name: string) =>
+  name === SURVEY_CHART_DEFAULT_SERIES && !block.rows.some(row => row.group === SURVEY_CHART_DEFAULT_SERIES)
+    ? translate(locale, "survey.results.chartData") : name;
+export function reportChartOptions(block: survey.CompiledSurveyBlock, locale: Locale = "zh-CN"): echarts.EChartsCoreOption {
   const labels = reportChartLabels(block);
   const base = {
     animation: false,
     color: REPORT_COLORS,
     textStyle: { fontFamily: "sans-serif", fontSize: 12 },
     aria: { enabled: true },
-    tooltip: { trigger: "item", renderMode: "richText", valueFormatter: (value: unknown) => typeof value === "number" ? reportNumber(value) : Array.isArray(value) ? value.map(item => typeof item === "number" ? reportNumber(item) : "—").join("、") : "—" },
+    tooltip: { trigger: "item", renderMode: "richText", valueFormatter: (value: unknown) => typeof value === "number" ? reportNumber(value, locale) : Array.isArray(value) ? value.map(item => typeof item === "number" ? reportNumber(item, locale) : "—").join(locale === "en" ? ", " : "、") : "—" },
   };
   if (block.type === "bar") return {
     ...base,
     grid: { left: 12, right: 55, top: 12, bottom: 24, containLabel: true },
     xAxis: { type: "value", minInterval: ["distribution", "count"].includes(block.statistic) ? 1 : undefined, splitLine: { lineStyle: { color: "#e8eeec" } } },
     yAxis: { type: "category", inverse: true, data: labels, axisTick: { show: false }, axisLine: { show: false }, axisLabel: { formatter: wrap, color: "#405450", lineHeight: 18 } },
-    series: [{ type: "bar", colorBy: ["distribution", "percentage"].includes(block.statistic) ? "data" : "series", data: block.rows.map(row => row.value), barMaxWidth: 22, itemStyle: { borderRadius: 3 }, label: { show: true, position: "right", formatter: (params: { value: unknown }) => typeof params.value === "number" ? reportNumber(params.value) : "" } }],
+    series: [{ type: "bar", colorBy: ["distribution", "percentage"].includes(block.statistic) ? "data" : "series", data: block.rows.map(row => row.value), barMaxWidth: 22, itemStyle: { borderRadius: 3 }, label: { show: true, position: "right", formatter: (params: { value: unknown }) => typeof params.value === "number" ? reportNumber(params.value, locale) : "" } }],
   };
   const categories = [...new Set(block.rows.map(row => row.label))];
-  const groups = [...new Set(block.rows.map(row => row.group ?? "数据"))];
-  const series = groups.map(name => ({ name, values: categories.map(label => block.rows.find(row => row.label === label && (row.group ?? "数据") === name)?.value ?? null) }));
+  const groups = [...new Set(block.rows.map(row => row.group ?? SURVEY_CHART_DEFAULT_SERIES))];
+  const series = groups.map(name => ({ name, values: categories.map(label => block.rows.find(row => row.label === label && (row.group ?? SURVEY_CHART_DEFAULT_SERIES) === name)?.value ?? null) }));
   if (block.type === "radar") return {
     ...base,
-    legend: { bottom: 0, type: "scroll" },
+    legend: { bottom: 0, type: "scroll", ...(locale === "en" ? { formatter: legendFormatter(block, locale) } : {}) },
     radar: { radius: "58%", indicator: categories.map(name => ({ name: wrap(name), min: Math.min(0, ...block.rows.map(row => row.value)), max: Math.max(1, ...block.rows.map(row => row.value)) })), axisName: { color: "#405450" } },
     series: [{ type: "radar", data: series.map(item => ({ name: item.name, value: item.values })), areaStyle: { opacity: 0.08 } }],
   };
   return {
     ...base,
-    legend: { bottom: 0, type: "scroll" },
+    legend: { bottom: 0, type: "scroll", ...(locale === "en" ? { formatter: legendFormatter(block, locale) } : {}) },
     grid: { left: 15, right: 30, top: 20, bottom: 65, containLabel: true },
     xAxis: { type: "category", data: categories, axisLabel: { formatter: wrap } },
     yAxis: { type: "value" },
@@ -66,15 +72,26 @@ export function reportChartSvg(block: survey.CompiledSurveyBlock) {
 }
 
 export function SurveyReportChart({ block }: { block: survey.CompiledSurveyBlock }) {
+  const { locale } = useI18n();
   const ref = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<ReturnType<typeof echarts.init> | null>(null);
   useEffect(() => {
     if (!ref.current || !block.rows.length) return;
     const chart = echarts.init(ref.current, undefined, { renderer: "svg" });
-    chart.setOption(reportChartOptions(block));
+    chartRef.current = chart;
     const observer = new ResizeObserver(() => chart.resize());
     observer.observe(ref.current);
-    return () => { observer.disconnect(); chart.dispose(); };
+    return () => { observer.disconnect(); chart.dispose(); if (chartRef.current === chart) chartRef.current = null; };
   }, [block]);
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    const options = reportChartOptions(block, locale);
+    const legend = options.legend as Record<string, unknown> | undefined;
+    // Stable canonical series names retain legend selection; explicitly replace
+    // the display formatter when returning from English to Chinese.
+    chart.setOption(legend ? { ...options, legend: { ...legend, formatter: legendFormatter(block, locale) } } : options);
+  }, [block, locale]);
   if (!block.rows.length) return null;
   return <div ref={ref} data-chart={block.type} role="img" aria-label={block.title} style={{ width: "100%", height: reportChartHeight(block) }} />;
 }

@@ -1,0 +1,44 @@
+[stack-admission] load1=6.56 cores=10 perCore=0.66 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvxyl07d-f353de44-1bb293a5e74b db=wsx_1bb293a5e74b300509d8 compose=wsx-1bb293a5e74b300509d8 pg=20037 redis=21037 api=24037 web=25037 sandbox=26037 model=27037 deep-agent=28037 asr=29037 vision=30037 loopback-sandbox=31037 mail=19037
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_1bb293a5e74b300509d8 capacity=100 current=6 required=32
+ ❯ tests/billing/personal-credit-terms-pg.test.ts (9 tests | 1 failed | 8 skipped) 29634ms
+   × AI admission reconciles a due personal term before deciding whether debt blocks the request 260ms
+     → insufficient_credit
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/personal-credit-terms-pg.test.ts > AI admission reconciles a due personal term before deciding whether debt blocks the request
+CreditConsumptionError: insufficient_credit
+ ❯ PgCreditConsumption.error src/infrastructure/billing/pg-credit-consumption.ts:22:134
+     20|   return isLocalOrg(row.kind)?{ownerType:"user",ownerId:userId}:{owner…
+     21|  }
+     22|  private error(p:Payer,message:string,code:"credit_required"|"credit_a…
+       |                                                                                                                                      ^
+     23|  async reserveInSession(s:TenantSession,orgId:OrgId,input:Start):Promi…
+     24|   const p=await this.payer(s,orgId,input.userId);
+ ❯ PgCreditConsumption.reserveInSession src/infrastructure/billing/pg-credit-consumption.ts:32:75
+ ❯ PgDatabase.inTx src/infrastructure/db/pg-database.ts:74:19
+ ❯ tests/billing/personal-credit-terms-pg.test.ts:103:3
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 skipped (9)
+   Start at  23:02:14
+   Duration  39.08s (transform 2.28s, setup 21ms, collect 3.00s, tests 29.63s, environment 0ms, prepare 120ms)
+
+[db-isolation] db=wsx_1bb293a5e74b300509d8 peak_connections=3
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/personal-credit-terms-pg.test.ts -t AI admission
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/personal-credit-terms-pg.test.ts -t AI admission
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：41s
+  清理：1s
+  总计：42s

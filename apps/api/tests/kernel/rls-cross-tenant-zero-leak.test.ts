@@ -88,6 +88,24 @@ beforeEach(async () => {
 });
 
 describe("I-4: reads", () => {
+  it("the catalog retains the legacy archive, denied with populated rows in A, B and unset contexts", async () => {
+    expect((await tenantTables()).some(row=>row.table==="credit_native_tariffs_legacy")).toBe(true);
+    await asOwner(async c=>{
+      await c.query(`INSERT INTO credit_native_tariffs_legacy
+        (org_id,model_provider,model_id,unit,quantum,hundredths_per_quantum,version)
+        VALUES($1,'rls-archive-probe','retail','millisecond',1000,1,'private-a'),
+              ($2,'rls-archive-probe','retail','millisecond',1000,2,'private-b')`,[A,B]);
+      expect((await c.query<{n:string}>("SELECT count(*)::text n FROM credit_native_tariffs_legacy WHERE org_id=ANY($1)",[[A,B]])).rows[0]!.n).toBe("2");
+    });
+    for(const context of [A,B,null])await asApp(context,async c=>{
+      await c.query("SAVEPOINT archive_read_denial");
+      await expect(c.query("SELECT * FROM credit_native_tariffs_legacy")).rejects.toMatchObject({code:"42501"});
+      await c.query("ROLLBACK TO SAVEPOINT archive_read_denial");
+      await c.query("RELEASE SAVEPOINT archive_read_denial");
+      expect((await c.query<{alive:number}>("SELECT 1 AS alive")).rows[0]?.alive).toBe(1);
+    });
+  });
+
   it("sees zero foreign rows in EVERY tenant-carrying table, with both tenants populated", async () => {
     const tables = await tenantTables();
     // Non-vacuity first. An empty list would make the loop below pass without executing.
@@ -96,8 +114,8 @@ describe("I-4: reads", () => {
     const foreign = await asApp(A, async (c) => {
       const out: string[] = [];
       for (const { table, col } of tables) {
-        if(table === "platform_organization_access_events") {
-          // Write-only audit is more restrictive than row filtering; prove SELECT denial.
+        if(table === "platform_organization_access_events" || table === "credit_native_tariffs_legacy") {
+          // Internal audit/archive denial is stronger than row filtering; prove it without removing catalog coverage.
           await c.query("SAVEPOINT audit_read_denial");
           await expect(c.query(`SELECT * FROM ${table}`)).rejects.toMatchObject({code:"42501"});
           await c.query("ROLLBACK TO SAVEPOINT audit_read_denial");
@@ -144,8 +162,8 @@ describe("I-4: reads", () => {
     const nonEmpty = await asApp(null, async (c) => {
       const out: string[] = [];
       for (const { table, col } of tables) {
-        if(table === "platform_organization_access_events") {
-          // Write-only audit is more restrictive than row filtering; prove SELECT denial.
+        if(table === "platform_organization_access_events" || table === "credit_native_tariffs_legacy") {
+          // Internal audit/archive denial is stronger than row filtering; prove it without removing catalog coverage.
           await c.query("SAVEPOINT audit_read_denial");
           await expect(c.query(`SELECT * FROM ${table}`)).rejects.toMatchObject({code:"42501"});
           await c.query("ROLLBACK TO SAVEPOINT audit_read_denial");

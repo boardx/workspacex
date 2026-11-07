@@ -1,21 +1,30 @@
+import {Logger} from "@nestjs/common";
+import {CreditConsumptionError} from "../../application/billing/credit-consumption";
+import {creditUsageMeter} from "../billing/credit-usage-meter";
 import type {IdentityRepository} from '../../application/identity/ports';
 import type {RecordingUnitOfWork} from '../../application/recording/session-lifecycle-ports';
 import type {DatabasePort,TenantSession} from '../../application/ports/database.port';
 import type {AsrRequestAccounting} from '../../application/recording/asr-request-accounting';
 import {PgPersonalTranscriptionRepository} from '../recording/pg-personal-transcription-repository';
 import {resolveRuntimeModelOwner} from './pg-runtime-model-usage-repository';
-import {PgTokenUsageRepository} from './pg-token-usage-repository';
+// Never log arbitrary error messages, SQL, model credentials or voice/transcript content.
+const admissionReasons=new Set(['credit_native_tariff_missing','credit_receipt_store_unavailable','credit_payer_provenance_missing','team_license_accounting_unavailable','credit_wallet_unavailable','insufficient_credit','credit_native_bound_missing','ASR_ACCOUNTING_OWNER_DENIED']);
 export class PgAsrRequestAccounting implements AsrRequestAccounting {
+ private readonly logger=new Logger(PgAsrRequestAccounting.name);
  constructor(private readonly db:DatabasePort,private readonly repositories?:(scoped:DatabasePort)=>{identities:IdentityRepository;recording:RecordingUnitOfWork}){}
  async start(context:Parameters<AsrRequestAccounting['start']>[0],input:Parameters<AsrRequestAccounting['start']>[1]){
   const owner=await this.db.withTenant(context.orgId,async s=>{
    const scoped=this.scoped(context.orgId,s);
    const owner=await this.readOwner(context,s);
-   await new PgTokenUsageRepository(scoped).startRequest(context.orgId,{...input,userId:owner.user_id,runId:owner.root_run_id,projectId:owner.project_id,threadId:owner.thread_id,agentId:owner.agent_id,executionAttemptId:context.kind==='run'?context.attemptId:null,executionLeaseEpoch:context.kind==='run'?context.leaseEpoch:undefined,subtaskId:owner.subtask_id,callPurpose:'native-asr'});
+   await creditUsageMeter(scoped).startRequest(context.orgId,{...input,userId:owner.user_id,runId:owner.root_run_id,projectId:owner.project_id,threadId:owner.thread_id,agentId:owner.agent_id,executionAttemptId:context.kind==='run'?context.attemptId:null,executionLeaseEpoch:context.kind==='run'?context.leaseEpoch:undefined,subtaskId:owner.subtask_id,callPurpose:'native-asr',nativeMaximum:{unit:'millisecond',quantity:input.maximumDurationMs??300000n}});
    return owner;
+  }).catch(error=>{
+   const reason=error instanceof Error&&admissionReasons.has(error.message)?error.message:error instanceof CreditConsumptionError?error.code:'asr_admission_unavailable';
+   this.logger.warn({event:'asr_credit_admission_refused',reason,requestId:input.requestId});
+   throw error;
   });
-  return {terminal:async(receipt:Parameters<Awaited<ReturnType<AsrRequestAccounting['start']>>['terminal']>[0])=>{
-   await new PgTokenUsageRepository(this.db).record(context.orgId,{eventId:input.requestId,userId:owner.user_id,runId:owner.root_run_id,subtaskId:owner.subtask_id,projectId:owner.project_id,threadId:owner.thread_id,agentId:owner.agent_id,modelProvider:input.modelProvider,modelId:input.modelId,callPurpose:'native-asr',requestStartedAt:input.startedAt,requestEndedAt:receipt.endedAt,executionAttemptId:context.kind==='run'?context.attemptId:undefined,outcome:receipt.outcome,totalSource:'unknown',tokensTotal:0,promptTokens:null,completionTokens:null,
+  return {maximumDurationMs:input.maximumDurationMs??300000n,terminal:async(receipt:Parameters<Awaited<ReturnType<AsrRequestAccounting['start']>>['terminal']>[0])=>{
+   await creditUsageMeter(this.db).record(context.orgId,{eventId:input.requestId,userId:owner.user_id,runId:owner.root_run_id,subtaskId:owner.subtask_id,projectId:owner.project_id,threadId:owner.thread_id,agentId:owner.agent_id,modelProvider:input.modelProvider,modelId:input.modelId,callPurpose:'native-asr',requestStartedAt:input.startedAt,requestEndedAt:receipt.endedAt,executionAttemptId:context.kind==='run'?context.attemptId:undefined,outcome:receipt.outcome,totalSource:'unknown',tokensTotal:0,promptTokens:null,completionTokens:null,
     nativeUsage:{unit:'millisecond',quantity:receipt.queuedDurationMs,source:receipt.queuedDurationMs===null?'unknown':'estimated'}});
   }};
  }

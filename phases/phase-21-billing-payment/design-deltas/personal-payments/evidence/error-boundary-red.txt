@@ -1,0 +1,61 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+ ❯ tests/billing/global-error-boundary.test.ts (6 tests | 1 failed) 29ms
+   × billing errors in the production global boundary > preserves a declared pricing conflict without exposing arbitrary exception data 7ms
+     → expected "spy" to be called with arguments: [ { error: 'conflict', …(2) } ]
+
+Received: 
+
+  1st spy call:
+
+  Array [
+    Object {
+-     "code": "idempotency_conflict",
+      "error": "conflict",
+      "traceId": "pricing-trace",
+    },
+  ]
+
+
+Number of calls: 1
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/global-error-boundary.test.ts > billing errors in the production global boundary > preserves a declared pricing conflict without exposing arbitrary exception data
+AssertionError: expected "spy" to be called with arguments: [ { error: 'conflict', …(2) } ]
+
+Received: 
+
+  1st spy call:
+
+  Array [
+    Object {
+-     "code": "idempotency_conflict",
+      "error": "conflict",
+      "traceId": "pricing-trace",
+    },
+  ]
+
+
+Number of calls: 1
+
+ ❯ tests/billing/global-error-boundary.test.ts:31:18
+     29|     const filter = new AllExceptionsFilter({ info: vi.fn(), error: vi.…
+     30|     filter.catch(new PersonalCheckoutHttpException("idempotency_confli…
+     31|     expect(json).toHaveBeenCalledWith({ error: "conflict", traceId: "p…
+       |                  ^
+     32|   });
+     33| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 5 passed (6)
+   Start at  00:52:33
+   Duration  3.48s (transform 1.76s, setup 0ms, collect 3.04s, tests 29ms, environment 0ms, prepare 103ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.billing-provider.config.ts tests/billing/global-error-boundary.test.ts

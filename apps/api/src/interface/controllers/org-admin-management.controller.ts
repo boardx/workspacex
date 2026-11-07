@@ -1,3 +1,6 @@
+import {ORG_INVITATION_DELIVERY,type OrgInvitationDelivery} from "../../application/auth/org-invitation-delivery";
+import {EnterpriseCreditPlanRequired} from "../../application/auth/member-credit-quota-port";
+import {SetMemberCreditQuota} from "@repo/contracts/member-credit-quota";
 /**
  * F11 的三条路由（UC-1.6 R10 / O-28 ⑥ / O-29 ②④⑤）+ #363 补接的两条孤儿契约操作。
  * 协议适配，判断全在 `application`。
@@ -41,6 +44,7 @@ import {
   Body,
   ConflictException,
   Controller,
+  Optional,
   ForbiddenException,
   Get,
   Header,
@@ -62,7 +66,6 @@ import { removeOrgMember } from "../../application/auth/remove-org-member";
 import { setOrgMemberRole } from "../../application/auth/set-org-member-role";
 import { resendOrgInvite } from "../../application/auth/resend-org-invite";
 import { revokeOrgInvite } from "../../application/auth/revoke-org-invite";
-import { reviewAdminInvite } from "../../application/auth/review-admin-invite";
 import { listOrgMembers } from "../../application/auth/list-org-members";
 import { getTokenQuotas } from "../../application/auth/get-token-quotas";
 import { getUsageReport } from "../../application/auth/get-usage-report";
@@ -253,6 +256,7 @@ export class OrgAdminManagementController {
     @Inject(TOKEN_QUOTA_REPOSITORY) private readonly quotas: TokenQuotaRepository & UsageAggregateRepository,
     @Inject(LIMIT_RULE_REPOSITORY) private readonly limits: LimitRuleRepository,
     @Inject(SKILL_CONTRACT_REPOSITORY) private readonly skillRepos: SkillContractRepositoryFactory,
+    @Optional() @Inject(ORG_INVITATION_DELIVERY) private readonly delivery?: OrgInvitationDelivery,
   ) {}
 
   private async requireAdminRole(principal: Principal, orgIdParam: string) {
@@ -270,24 +274,8 @@ export class OrgAdminManagementController {
     @Body(new ZodBodyPipe(REVIEW_ADMIN_INVITE_SCHEMA)) body: ReviewBody,
     @CurrentPrincipal() principal: Principal,
   ) {
-    const { orgId, orgRole } = await this.requireAdminRole(principal, orgIdParam);
-    try {
-      const out = await reviewAdminInvite(
-        { repo: this.invites },
-        {
-          orgId,
-          reviewerId: principal.userId,
-          reviewerOrgRole: orgRole,
-          inviteId: inviteIdParam,
-          decision: body.decision,
-        },
-      );
-      // D2 裁决 A：批准那一次响应回传 activationToken（reject/重放为 null），
-      // 语义同 inviteOrgMember/resendOrgInvite——见契约 reviewAdminInvite.out 注释。
-      return { status: out.status, tokenIssued: out.tokenIssued, activationToken: out.activationToken };
-    } catch (e) {
-      throw toHttpException(e);
-    }
+    await this.requireAdminRole(principal, orgIdParam);
+    throw new ConflictException({reasonCode:"VERSION_CHANGED"});
   }
 
   /**
@@ -310,13 +298,13 @@ export class OrgAdminManagementController {
         { repo: this.invites },
         { orgId, actorId: principal.userId, actorOrgRole: orgRole, inviteId: inviteIdParam },
       );
-      // 契约 `out` 逐字三个字段（invite-link-and-reads delta ①）：`activationToken`
-      // 只在这一次重发响应里出现——旧令牌已作废（I-6），列表/重放拿不到它。
-      // 回传给刚触发签发的 admin 一次，是邮件通道接通前链接送达受邀人的唯一诚实通道。
+      if(!this.delivery)throw new OrgAdminError("MAIL_UNAVAILABLE");
+      await this.delivery.deliver({orgId,inviteId:inviteIdParam,token:out.activationToken});
+      // The email provider has accepted this attempt; bearer stays out of admin responses.
       return {
         newTokenIssued: out.newTokenIssued,
         cooldownSec: out.cooldownSec,
-        activationToken: out.activationToken,
+        activationToken: null,
       };
     } catch (e) {
       throw toHttpException(e);
@@ -481,6 +469,29 @@ export class OrgAdminManagementController {
     const { orgId, orgRole } = await this.requireAdminRole(principal, orgIdParam);
     if (orgRole !== "admin") throw new ForbiddenException({ reasonCode: "FORBIDDEN" });
     return { orgId, orgRole };
+  }
+
+  @Get("/organizations/:orgId/credit-quotas")
+  async creditQuotas(@Param("orgId") orgIdParam: string, @CurrentPrincipal() principal: Principal) {
+    const { orgId } = await this.requireOrgAdmin(principal, orgIdParam);
+    if (!this.quotas.creditQuotas) throw new HttpException({reasonCode:"DEPENDENCY_UNAVAILABLE"}, 503);
+    return this.quotas.creditQuotas.readCreditQuotas(orgId);
+  }
+
+  @Patch("/organizations/:orgId/credit-quotas/:userId")
+  async setCreditQuota(
+    @Param("orgId") orgIdParam: string, @Param("userId") userId: string,
+    @Body(new ZodBodyPipe(SetMemberCreditQuota)) body: {monthlyLimit:number},
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    const {orgId} = await this.requireOrgAdmin(principal, orgIdParam);
+    if (!this.quotas.creditQuotas) throw new HttpException({reasonCode:"DEPENDENCY_UNAVAILABLE"}, 503);
+    try { return await this.quotas.creditQuotas.setCreditQuota(orgId,userId,body.monthlyLimit,principal.userId); }
+    catch(error) {
+      if(error instanceof MemberNotFoundError)throw new NotFoundException({reasonCode:"MEMBER_NOT_FOUND"});
+      if(error instanceof EnterpriseCreditPlanRequired)throw new ConflictException({reasonCode:"ENTERPRISE_REQUIRED"});
+      throw error;
+    }
   }
 
   @Get("/organizations/:orgId/token-quotas")
@@ -773,6 +784,7 @@ function toHttpException(e: unknown) {
     // 409 CONFLICT 对一次「冷却还没过」是误导性的——客户端读到冲突会去重试或提示用户
     // 「状态已变」，而正确的反应是**等一会儿再来**，那正是 429 的语义。
     // ⚠ 它只出现在 `resendOrgInvite.err` 里，所以这一行影响不到本文件其余四条路由。
+    if (e.reasonCode === "MAIL_UNAVAILABLE") return new HttpException({reasonCode:e.reasonCode}, HttpStatus.SERVICE_UNAVAILABLE);
     if (e.reasonCode === "RATE_LIMITED") {
       return new HttpException({ reasonCode: e.reasonCode }, HttpStatus.TOO_MANY_REQUESTS);
     }

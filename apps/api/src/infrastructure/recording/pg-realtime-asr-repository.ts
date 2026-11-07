@@ -1,5 +1,5 @@
+import {creditUsageMeter} from "../billing/credit-usage-meter";
 import {createHash} from "node:crypto";
-import {PgTokenUsageRepository} from "../auth/pg-token-usage-repository";
 import {parseExactNativeDecimal} from "../../domain/agent-run/ai-billable-unit";
 import type { DatabasePort } from "../../application/ports/database.port";
 import type { AsrUsageEvent, AsrUsageMeter, RealtimeAsrTicket, RealtimeAsrTicketStore } from "../../application/recording/personal-realtime-asr";
@@ -46,7 +46,7 @@ export class PgAsrUsageMeter implements AsrUsageMeter {
       // This existing gateway measure rounds accepted PCM duration; it is an estimate of billed time,
       // not provider-reported charge. Never price it as authoritative or invent Token counts.
       const quantity=parseExactNativeDecimal(String(e.durationSeconds),3);
-      await new PgTokenUsageRepository(scoped).record(e.orgId,{eventId:"asr:"+createHash("sha256").update(JSON.stringify([String(e.orgId),e.providerTaskId,e.captureId])).digest("hex"),
+      await creditUsageMeter(scoped).record(e.orgId,{eventId:"asr:"+createHash("sha256").update(JSON.stringify([String(e.orgId),e.providerTaskId,e.captureId])).digest("hex"),
         userId:e.ownerUserId,runId:null,projectId:null,modelProvider:this.nativeLedgerProvider,modelId:e.model,
         totalSource:"not-applicable",tokensTotal:0,promptTokens:null,completionTokens:null,outcome:"succeeded",
         nativeUsage:{unit:"millisecond",quantity,source:quantity===null?"unknown":"estimated"}});
@@ -57,8 +57,7 @@ export class PgAsrUsageMeter implements AsrUsageMeter {
 
 /** Keep the legacy event while avoiding a second sole-ledger receipt per actual WS. */
 export function configuredAsrUsageMeter(db:DatabasePort,env:Readonly<Record<string,string|undefined>>):AsrUsageMeter {
-  const mirror=env.KERNEL_NATIVE_USAGE_LEDGER_ENABLED==="1"&&env.KERNEL_ASR_REQUEST_ACCOUNTING_ENABLED!=="1";
-  const provider=(env.KERNEL_ASR_PROVIDER??"").trim();
-  if(mirror&&(!provider||!(env.KERNEL_ASR_MODEL??"").trim()))throw new Error("NATIVE_ASR_LEDGER_BINDING_UNCONFIGURED");
-  return new PgAsrUsageMeter(db,mirror?provider:undefined);
+  // Actual WebSocket accounting is mandatory; this legacy metric must not debit twice.
+  void env;
+  return new PgAsrUsageMeter(db);
 }

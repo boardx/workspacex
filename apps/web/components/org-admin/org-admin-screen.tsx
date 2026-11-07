@@ -1,7 +1,14 @@
 "use client";
 
 import * as React from "react";
-import { AlertTriangle, Ban, Camera, Check, ChevronDown, Copy, Hourglass, Mail, RotateCcw, Send, Settings, UserCog, X } from "lucide-react";
+import { useI18n } from "@/lib/i18n/provider";
+import { translate, type MessageKey, type MessageParams } from "@/lib/i18n/messages";
+import { describeFailure } from "@/lib/design-failure";
+import type { Locale } from "@/lib/i18n/locale";
+type Translator = (key: MessageKey, params?: MessageParams) => string;
+type Feedback = (t: Translator, locale?: Locale) => string;
+type LocalizedNotice = { tone: "success" | "error"; text: Feedback };
+import { AlertTriangle, Ban, Camera, ChevronDown, Copy, Mail, RotateCcw, Send, Settings, UserCog } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { useSession } from "@/components/session/session-provider";
@@ -17,7 +24,7 @@ import { useAuthedImageSrc } from "@/lib/use-authed-image-src";
 import { invalidateOrgAvatar } from "@/components/shell/org-menu";
 import { contractFieldIssues } from "@/lib/auth";
 import { buildActivationLink } from "@/lib/activation-link";
-import { ORG_ROLE_LABEL, type OrgRole } from "@/lib/identity";
+import { type OrgRole } from "@/lib/identity";
 import { auth as authContract } from "@repo/contracts";
 import { SharedInviteLinksSection, type SharedLinkReveal } from "@/components/org-admin/shared-invite-links";
 import { StandingToolGrantsSection } from "@/components/org-admin/standing-tool-grants";
@@ -27,7 +34,7 @@ import {
   listOrgMembers, listOrgInvites,
   setOrgMemberRole,
   updateOrganization, uploadOrgAvatar,
-  inviteOrgMember, resendOrgInvite, revokeOrgInvite, reviewAdminInvite,
+  inviteOrgMember, resendOrgInvite, revokeOrgInvite,
   assignSkillReviewerFunction, revokeSkillReviewerFunction, listSkillReviewerFunctions,
   type ListOrgMembersOut, type ListOrgInvitesOut, type UpdateOrganizationOut,
   type SkillReviewerFunctionValue,
@@ -110,11 +117,12 @@ function OrgAdminShell({
 
 /** `/org-admin/members` —— 成员，与 `/admin`（总览）平级。 */
 export function OrgMembersScreen() {
+  const { t } = useI18n();
   const { session, identity } = useSession();
   const orgId = session?.currentOrgId ?? null;
   const isAdmin = identity?.orgRole === "admin";
   return (
-    <OrgAdminShell active="org-members" icon={UserCog} title="成员">
+    <OrgAdminShell active="org-members" icon={UserCog} title={t("orgMembers.members")}>
       {orgId ? <MembersTab orgId={orgId} isAdmin={isAdmin} /> : <LoadingSkeleton rows={3} />}
     </OrgAdminShell>
   );
@@ -122,6 +130,7 @@ export function OrgMembersScreen() {
 
 /** `/org-admin/invites` —— 邀请，与 `/admin`（总览）平级。 */
 export function OrgInvitesScreen() {
+  const { t } = useI18n();
   const { session, identity } = useSession();
   const orgId = session?.currentOrgId ?? null;
   const isAdmin = identity?.orgRole === "admin";
@@ -133,7 +142,7 @@ export function OrgInvitesScreen() {
   // 共享链接的一次性明文展示（shared-invite-links delta）：同一条 D1 纪律。
   const [sharedLinkReveal, setSharedLinkReveal] = React.useState<SharedLinkReveal | null>(null);
   return (
-    <OrgAdminShell active="org-invites" icon={Mail} title="邀请">
+    <OrgAdminShell active="org-invites" icon={Mail} title={t("orgMembers.invitations")}>
       {orgId ? (
         <InvitesTab
           orgId={orgId}
@@ -152,11 +161,12 @@ export function OrgInvitesScreen() {
 
 /** `/org-admin/profile` —— 组织资料，与 `/admin`（总览）平级；仅组织 admin 能读到内容。 */
 export function OrgProfileScreen() {
+  const { t } = useI18n();
   const { session, identity } = useSession();
   const orgId = session?.currentOrgId ?? null;
   const isAdmin = identity?.orgRole === "admin";
   return (
-    <OrgAdminShell active="org-profile" icon={Settings} title="组织资料">
+    <OrgAdminShell active="org-profile" icon={Settings} title={t("adminNavigation.item.org-profile")}>
       {orgId ? <OrgProfileTab orgId={orgId} /> : <LoadingSkeleton rows={4} />}
       {/* issue #3068 —— 「以后都允许」此前无任何撤销路径，卡片文案却承诺"下次弹出改选
           拒绝以撤销"（那个弹层再也不会出现）。这里是那句文案现在指向的真实入口；
@@ -183,22 +193,22 @@ function LoadingSkeleton({ rows }: { rows: number }) {
  * 成员/邀请/组织资料三个屏共用——按数据类型（成员/邀请/组织资料）给出不同的
  * 404/403 提示文案。
  */
-function describeFailureFor(failure: unknown, notFoundHint: string, forbiddenHint: string): string {
+function describeFailureFor(failure: unknown, notFoundHint: string, forbiddenHint: string, t: Translator = (key, params) => translate("zh-CN", key, params)): string {
   if (failure instanceof ApiError) {
-    if (failure.status === 401) return "登录已失效（HTTP 401），请重新登录。";
-    if (failure.status === 403) return `${forbiddenHint}（HTTP 403）。`;
-    if (failure.status === 404) return `${notFoundHint}（HTTP 404）。`;
-    return `${failure.reasonCode ?? "加载失败"}（HTTP ${failure.status}）`;
+    if (failure.status === 401) return t("orgMembers.yourSessionHasExpiredHTTP401SignInAgain");
+    if (failure.status === 403) return t("orgMembers.httpForbidden", { hint: forbiddenHint });
+    if (failure.status === 404) return t("orgMembers.httpNotFound", { hint: notFoundHint });
+    return t("orgMembers.httpFailure", { reason: failure.reasonCode ?? t("orgMembers.operationFailed"), status: failure.status });
   }
-  return failure instanceof Error ? failure.message : "加载失败，请稍后重试。";
+  return failure instanceof Error ? failure.message : t("orgMembers.couldNotLoadTryAgainLater");
 }
 
 /* ═══════════════════════════════ 成员（#363，真实数据） ═══════════════════════════════ */
 
-const REVIEWER_FUNCTION_OPTIONS: ReadonlyArray<{ id: string; label: string }> = [
-  { id: "", label: "无审核职能" },
-  { id: "methodology-reviewer", label: "方法论审核人" },
-  { id: "security-reviewer", label: "安全评审人" },
+const reviewerFunctionOptions = (t: Translator): ReadonlyArray<{ id: string; label: string }> => [
+  { id: "", label: t("orgMembers.noReviewerFunction") },
+  { id: "methodology-reviewer", label: t("orgMembers.methodologyReviewer") },
+  { id: "security-reviewer", label: t("orgMembers.securityReviewer") },
 ];
 
 /**
@@ -224,8 +234,9 @@ function ReviewerFunctionPicker({
   current: SkillReviewerFunctionValue | null;
   onChanged: (userId: string, next: SkillReviewerFunctionValue | null) => void;
 }) {
+  const { t } = useI18n();
   const [busy, setBusy] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<unknown>(null);
 
   const handleSelect = async (id: string) => {
     const value = id as SkillReviewerFunctionValue | "";
@@ -240,7 +251,7 @@ function ReviewerFunctionPicker({
         onChanged(userId, value);
       }
     } catch (err) {
-      setError(err instanceof ApiError ? (err.reasonCode ?? `http_${err.status}`) : "操作失败");
+      setError(err);
     } finally {
       setBusy(false);
     }
@@ -256,16 +267,16 @@ function ReviewerFunctionPicker({
       <div className="w-full sm:w-36">
         <PopoverSelect
           value={current ?? ""}
-          options={REVIEWER_FUNCTION_OPTIONS}
+          options={reviewerFunctionOptions(t)}
           onSelect={(id) => void handleSelect(id)}
           disabled={busy}
           testid={`org-admin-member-${userId}-reviewer-function`}
-          ariaLabel="Skill 审核人职能"
+          ariaLabel={t("orgMembers.skillReviewerFunction")}
         />
       </div>
-      {error && (
+      {error !== null && (
         <span className="text-10 text-destructive" data-testid={`org-admin-member-${userId}-reviewer-function-error`}>
-          {error}
+          {error instanceof ApiError ? (error.reasonCode ?? `http_${error.status}`) : t("orgMembers.operationFailed")}
         </span>
       )}
     </div>
@@ -284,21 +295,21 @@ function ReviewerFunctionPicker({
  * 失败文案按契约 `setOrgMemberRole.err` 逐码翻译：`LAST_ADMIN` 是这块屏唯一需要用户
  * 改变动作顺序的码（先提一个新 admin），必须说清楚，不能只显示码。
  */
-function describeRoleChangeFailure(failure: unknown): string {
+function describeRoleChangeFailure(failure: unknown, t: Translator): string {
   if (failure instanceof ApiError) {
     switch (failure.reasonCode) {
       case "LAST_ADMIN":
-        return "这是组织里最后一名管理员，不能降级：先把另一位成员设为管理员，再来改这一位。";
+        return t("orgMembers.thisIsTheOrganizationSLastAdministratorAssignAnother");
       case "MEMBER_NOT_FOUND":
-        return "这个人已不是本组织成员（可能刚被移除），请刷新名单。";
+        return t("orgMembers.thisPersonIsNoLongerAMemberRefreshThe");
       case "PROJECT_ROLE_INSUFFICIENT":
       case "NO_ORG_MEMBERSHIP":
-        return "只有组织管理员能调整成员角色。";
+        return t("orgMembers.onlyOrganizationAdministratorsCanChangeMemberRoles");
       default:
-        return `${failure.reasonCode ?? "操作失败"}（HTTP ${failure.status}）`;
+        return t("orgMembers.httpFailure", { reason: failure.reasonCode ?? t("orgMembers.operationFailed"), status: failure.status });
     }
   }
-  return failure instanceof Error ? failure.message : "操作失败，请稍后重试。";
+  return failure instanceof Error ? failure.message : t("orgMembers.theOperationFailedTryAgainLater");
 }
 
 function OrgRolePicker({
@@ -309,8 +320,9 @@ function OrgRolePicker({
   current: OrgRole;
   onChanged: (userId: string, next: OrgRole, previous: OrgRole) => void;
 }) {
+  const { t } = useI18n();
   const [busy, setBusy] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<unknown>(null);
 
   const handleSelect = async (id: string) => {
     const next = id as OrgRole;
@@ -321,7 +333,7 @@ function OrgRolePicker({
       const out = await setOrgMemberRole(orgId, userId, next);
       onChanged(userId, out.orgRole, out.previousOrgRole);
     } catch (err) {
-      setError(describeRoleChangeFailure(err));
+      setError(err);
     } finally {
       setBusy(false);
     }
@@ -332,16 +344,16 @@ function OrgRolePicker({
       <div className="w-full sm:w-32">
         <PopoverSelect
           value={current}
-          options={ORG_ROLE_OPTIONS}
+          options={orgRoleOptions(t)}
           onSelect={(id) => void handleSelect(id)}
           disabled={busy}
           testid={`org-admin-member-${userId}-org-role`}
-          ariaLabel="组织角色"
+          ariaLabel={t("orgMembers.organizationRole")}
         />
       </div>
-      {error && (
+      {error !== null && (
         <span role="alert" className="text-10 text-destructive" data-testid={`org-admin-member-${userId}-org-role-error`}>
-          {error}
+          {describeRoleChangeFailure(error, t)}
         </span>
       )}
     </div>
@@ -350,8 +362,9 @@ function OrgRolePicker({
 
 /** 导出供测试直接渲染，不必连 `useSession` 一起 mock 出整个 `OrgAdminScreen`。 */
 export function MembersTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean }) {
+  const { t, locale } = useI18n();
   const [state, setState] = React.useState<UiState>("loading");
-  const [failureMessage, setFailureMessage] = React.useState<string | null>(null);
+  const [failureMessage, setFailureMessage] = React.useState<unknown>(null);
   const [out, setOut] = React.useState<ListOrgMembersOut | null>(null);
   // issue #852：`userId → 当前职能` 表。未列出 ⇒ 未指派。仅 admin 会真的发起这条请求
   // ——非 admin 调用 `listSkillReviewerFunctions` 会拿到 403，这里干脆不发那次请求。
@@ -365,7 +378,7 @@ export function MembersTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean
       setOut(result);
       setState(result.members.length === 0 ? "empty" : "default");
     } catch (err) {
-      setFailureMessage(describeFailureFor(err, "组织不存在或当前身份不可见", "当前身份无权读取成员列表"));
+      setFailureMessage(err);
       setState("dep-failed");
     }
     if (isAdmin) {
@@ -383,7 +396,7 @@ export function MembersTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean
     void load();
   }, [load]);
 
-  const [roleBanner, setRoleBanner] = React.useState<string | null>(null);
+  const [roleBanner, setRoleBanner] = React.useState<{ who: string; next: OrgRole; previous: OrgRole } | null>(null);
   React.useEffect(() => {
     if (!roleBanner) return;
     const t = setTimeout(() => setRoleBanner(null), 4000);
@@ -397,7 +410,7 @@ export function MembersTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean
       prev === null ? prev : { members: prev.members.map((m) => (m.userId === userId ? { ...m, orgRole: next } : m)) },
     );
     const who = out?.members.find((m) => m.userId === userId)?.displayName ?? userId;
-    setRoleBanner(`${who}：${ORG_ROLE_LABEL[previous]} → ${ORG_ROLE_LABEL[next]}`);
+    setRoleBanner({ who, next, previous });
   };
 
   const handleReviewerFunctionChanged = (userId: string, next: SkillReviewerFunctionValue | null) => {
@@ -420,8 +433,8 @@ export function MembersTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean
       */}
       <p className="text-11 text-muted-foreground" data-testid="org-admin-members-intro">
         {out !== null && out.members.length === 1
-          ? "这个工作区目前只有你一个人。邀请其他人之后，他们会出现在这里。"
-          : <>组织内的成员。任何组织成员均可查看这份名单{isAdmin ? "；管理员可在此直接调整每个人的组织角色。" : "。"}</>}
+          ? t("orgMembers.youAreTheOnlyPersonInThisWorkspaceInvite")
+          : t(isAdmin ? "orgMembers.membersIntroAdmin" : "orgMembers.membersIntro")}
       </p>
       {roleBanner ? (
         <div
@@ -429,13 +442,13 @@ export function MembersTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean
           data-testid="org-admin-member-role-banner"
           className="rounded-md border border-success/30 bg-success/10 px-3 py-2 text-11 text-success"
         >
-          已更新组织角色：{roleBanner}
+          {t("orgMembers.organizationRoleUpdated")}{t("orgMembers.roleChange", { name: roleBanner.who, previous: t(`role.${roleBanner.previous}`), next: t(`role.${roleBanner.next}`) })}
         </div>
       ) : null}
       <StateShell
         state={state}
-        emptyHint="这个组织还没有其他成员。"
-        depFailure={{ what: failureMessage ?? "成员列表服务暂时不可用", retry: load }}
+        emptyHint={t("orgMembers.thisOrganizationHasNoOtherMembers")}
+        depFailure={{ what: failureMessage !== null ? describeFailureFor(failureMessage, t("orgMembers.organizationUnavailable"), t("orgMembers.memberListForbidden"), t) : t("orgMembers.theMemberListIsTemporarilyUnavailable"), retry: load }}
       >
         <ul className="flex flex-col divide-y divide-border rounded-lg border border-border" data-testid="org-admin-member-list">
           {out?.members.map((m) => (
@@ -459,10 +472,10 @@ export function MembersTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean
                 <OrgRolePicker orgId={orgId} userId={m.userId} current={m.orgRole} onChanged={handleOrgRoleChanged} />
               ) : (
                 <Badge tone={m.orgRole === "admin" ? "danger" : "neutral"} className="ml-1">
-                  {ORG_ROLE_LABEL[m.orgRole]}
+                  {t(`role.${m.orgRole}`)}
                 </Badge>
               )}
-              {m.status === "suspended" && <Badge tone="outline">已停用</Badge>}
+              {m.status === "suspended" && <Badge tone="outline">{t("orgMembers.suspended")}</Badge>}
               {/* issue #852：职能指派仅 admin 可见可改——`listSkillReviewerFunctions` 契约本身
                   就是仅 admin 可读（同「谁能审我」不给提交人看的既定纪律），非 admin 这里
                   不渲染任何东西，不是「看得到但按不动」。 */}
@@ -480,8 +493,7 @@ export function MembersTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean
                 className="basis-full text-right text-10 text-muted-foreground sm:ml-auto sm:basis-auto"
                 data-testid={`org-admin-member-${m.userId}-joined`}
               >
-                {new Date(m.joinedAt).toLocaleDateString("zh-CN")} 加入
-              </span>
+                {new Date(m.joinedAt).toLocaleDateString(locale)} {t("orgMembers.joined")}</span>
             </li>
           ))}
         </ul>
@@ -494,48 +506,47 @@ export function MembersTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean
 
 /** 与 `admin/member-invites-panel.tsx`（`/admin` 成员与配额屏的待处理邀请摘要）共用——
  *  邀请状态的文案单源，别在第二处再抄一份。 */
-export const INVITE_STATUS_LABEL: Record<string, string> = {
-  pending: "待接受",
-  "awaiting-review": "待复核",
-  revoked: "已撤销",
-  used: "已使用",
-  "send-failed": "发送失败",
-};
+const INVITE_STATUS_KEYS = { pending: "orgMembers.pendingAcceptance", "awaiting-review": "invitation.needsResend", revoked: "orgMembers.revoked", used: "orgMembers.used", "send-failed": "orgMembers.sendFailed" } as const;
+export const INVITE_STATUS_LABEL: Record<string, string> = Object.fromEntries(Object.entries(INVITE_STATUS_KEYS).map(([status, key]) => [status, translate("zh-CN", key)]));
+export function inviteStatusLabel(status: string, t: Translator) {
+  const key = Object.prototype.hasOwnProperty.call(INVITE_STATUS_KEYS, status) ? INVITE_STATUS_KEYS[status as keyof typeof INVITE_STATUS_KEYS] : undefined;
+  return key ? t(key) : status;
+}
 
 /**
  * 邀请相关写操作的错误码 → 人话。撑开 `describeFailureFor` 覆盖不到的邀请专属语义
  * （错误码全部来自契约 `inviteOrgMember`/`resendOrgInvite`/`revokeOrgInvite`/
  * `reviewAdminInvite` 的 `err` 声明，不是这里发明的）。
  */
-function describeInviteFailure(failure: unknown): string {
+function describeInviteFailure(failure: unknown, t: Translator, locale: Locale = "zh-CN"): string {
   if (failure instanceof ApiError) {
     switch (failure.reasonCode) {
       case "INVITE_ALREADY_MEMBER":
-        return "该邮箱已是组织成员，无需邀请。";
+        return t("orgMembers.thisEmailAlreadyBelongsToAnOrganizationMemberNo");
       case "INVITE_DUPLICATE":
-        return "该邮箱已有一条未完成的邀请（角色或团队与本次不同）。可在下方列表对它重发，或先撤销再按新角色重新邀请。";
+        return t("orgMembers.thisEmailHasAnUnfinishedInvitationWithADifferent");
       case "QUOTA_EXHAUSTED":
-        return "组织成员配额已用尽，本次邀请未发出。请先释放名额（撤销未使用的邀请或移除成员）再试。";
+        return t("orgMembers.theOrganizationHasNoMemberCapacityLeftNoInvitation");
       case "MAIL_UNAVAILABLE":
-        return "邮件服务不可用：邀请已记录为「发送失败」，不会产生可用链接的假象。邮件服务恢复后可在列表里对它「重发」。";
+        return t("orgMembers.emailIsUnavailableTheInvitationIsRecordedAsSend");
       case "RATE_LIMITED":
-        return `重发太频繁：每 ${authContract.AUTH_POLICY.resendCooldownSeconds} 秒最多一次、24 小时最多 ${authContract.AUTH_POLICY.resendDailyMax} 次。稍后再试。`;
+        return t("orgMembers.resendLimit", { seconds: authContract.AUTH_POLICY.resendCooldownSeconds, count: authContract.AUTH_POLICY.resendDailyMax });
       case "INVITE_SELF_REVIEW_FORBIDDEN":
-        return "不能复核自己发起的邀请（双人复核），需要另一位管理员来批准或拒绝。";
+        return t("orgMembers.youCannotReviewYourOwnInvitationAnotherAdministratorMust");
       case "VERSION_CHANGED":
-        return "邀请状态已发生变化（可能已被其他管理员处理、已使用或已撤销），列表已刷新。";
+        return t("orgMembers.theInvitationChangedWasUsedOrWasRevokedThe");
       case "INVITE_NOT_FOUND":
-        return "邀请不存在或当前身份不可见。";
+        return t("orgMembers.theInvitationDoesNotExistOrIsUnavailableTo");
       case "PROJECT_ROLE_INSUFFICIENT":
-        return "只有组织管理员能执行此操作（HTTP 403）。";
+        return t("orgMembers.onlyOrganizationAdministratorsCanPerformThisActionHTTP403");
       case "NO_ORG_MEMBERSHIP":
-        return "你不是该组织的成员（HTTP 403）。";
+        return t("orgMembers.youAreNotAMemberOfThisOrganizationHTTP");
     }
-    if (failure.status === 401) return "登录已失效（HTTP 401），请重新登录。";
-    if (failure.status === 403) return "当前身份无权执行此操作（HTTP 403）。";
-    return `${failure.reasonCode ?? "操作失败"}（HTTP ${failure.status}）`;
+    if (failure.status === 401) return t("orgMembers.yourSessionHasExpiredHTTP401SignInAgain");
+    if (failure.status === 403) return t("orgMembers.youCannotPerformThisActionHTTP403");
+    return describeFailure(failure, locale);
   }
-  return failure instanceof Error ? failure.message : "操作失败，请稍后重试。";
+  return describeFailure(failure, locale);
 }
 
 /**
@@ -553,6 +564,7 @@ export function PopoverSelect({
   testid: string;
   ariaLabel: string;
 }) {
+  const { t } = useI18n();
   const [open, setOpen] = React.useState(false);
   const containerRef = React.useRef<HTMLDivElement>(null);
   const triggerRef = React.useRef<HTMLButtonElement>(null);
@@ -604,7 +616,7 @@ export function PopoverSelect({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-disabled={disabled}
-        aria-label={`${ariaLabel}，当前：${currentLabel}`}
+        aria-label={t("orgMembers.currentSelection", { label: ariaLabel, value: currentLabel })}
         onClick={() => { if (!disabled) setOpen((v) => !v); }}
         className={cn(
           "h-8 w-full justify-between gap-1 rounded-md pl-2.5 pr-2 text-12 font-normal",
@@ -664,6 +676,7 @@ export type OneTimeLink = {
  *   token），所以文案必须把「只显示这一次」说死，关闭要二次意图（按钮文案本身承担）。
  */
 export function OneTimeActivationLink({ link, onDismiss }: { link: OneTimeLink; onDismiss: () => void }) {
+  const { t } = useI18n();
   const [copyState, setCopyState] = React.useState<"idle" | "copied" | "failed">("idle");
   const inputRef = React.useRef<HTMLInputElement>(null);
 
@@ -684,14 +697,14 @@ export function OneTimeActivationLink({ link, onDismiss }: { link: OneTimeLink; 
       className="flex flex-col gap-2 rounded-lg border border-primary/40 bg-primary/5 p-3"
       data-testid="org-admin-invite-link-block"
       role="region"
-      aria-label="一次性激活链接"
+      aria-label={t("orgMembers.oneTimeActivationLink")}
     >
       <p className="text-12 font-medium">
         {link.kind === "resent"
-          ? `已对 ${link.email} 重发——新的激活链接：`
+          ? t("orgMembers.resentLink", { email: link.email })
           : link.kind === "approved"
-            ? `已批准——${link.email} 的激活链接：`
-            : `${link.email} 的激活链接：`}
+            ? t("orgMembers.approvedLink", { email: link.email })
+            : t("orgMembers.inviteeLink", { email: link.email })}
       </p>
       <div className="flex items-center gap-1.5">
         <Input
@@ -700,33 +713,28 @@ export function OneTimeActivationLink({ link, onDismiss }: { link: OneTimeLink; 
           value={link.url}
           onFocus={(e) => e.currentTarget.select()}
           className="h-8 flex-1 font-mono text-11"
-          aria-label="激活链接（只显示这一次）"
+          aria-label={t("orgMembers.activationLinkShownOnlyOnce")}
           data-testid="org-admin-invite-link-url"
         />
         <Button type="button" size="xs" variant="primary" onClick={() => void copy()} data-testid="org-admin-invite-link-copy">
           <Copy aria-hidden className="h-3 w-3" />
-          {copyState === "copied" ? "已复制" : "复制"}
+          {copyState === "copied" ? t("orgMembers.copied") : t("orgMembers.copy")}
         </Button>
       </div>
       {copyState === "copied" && (
         <p role="status" className="text-10 text-success" data-testid="org-admin-invite-link-copied">
-          已复制到剪贴板，请发给受邀人。
-        </p>
+          {t("orgMembers.copiedToTheClipboardSendItToTheInvitee")}</p>
       )}
       {copyState === "failed" && (
         <p role="alert" className="text-10 text-destructive" data-testid="org-admin-invite-link-copy-failed">
-          浏览器拒绝了自动复制——链接已全选，请按 Ctrl/Cmd+C 手动复制。
-        </p>
+          {t("orgMembers.automaticCopyingWasBlockedTheLinkIsSelectedPress")}</p>
       )}
       <p className="text-10 text-warning" data-testid="org-admin-invite-link-once-note">
-        链接只显示这一次，请立即复制并转交受邀人（邮件通道尚未接通，送达由你完成）。
-        {link.kind === "resent" ? "旧链接已同时作废。" : ""}
-        点「关闭」、刷新或离开本页面后无法找回（切换上方标签页不会丢失），只能用「重发」生成新链接（旧链接将作废）。
-      </p>
+        {t("orgMembers.thisLinkIsShownOnlyOnceCopyItAnd")}{link.kind === "resent" ? t("orgMembers.thePreviousLinkHasAlsoBeenRevoked") : ""}
+        {t("orgMembers.closingRefreshingOrLeavingThisPagePermanentlyHidesThe")}</p>
       <div>
         <Button type="button" size="xs" variant="ghost" onClick={onDismiss} data-testid="org-admin-invite-link-dismiss">
-          我已转交，关闭
-        </Button>
+          {t("orgMembers.iHaveSentItClose")}</Button>
       </div>
     </div>
   );
@@ -740,34 +748,43 @@ export function OneTimeActivationLink({ link, onDismiss }: { link: OneTimeLink; 
  */
 const NO_TEAM = "";
 
-const ORG_ROLE_OPTIONS: ReadonlyArray<{ id: OrgRole; label: string }> = (
+const orgRoleOptions = (t: Translator): ReadonlyArray<{ id: OrgRole; label: string }> => (
   ["consultant", "lead", "compliance", "admin"] as const
-).map((r) => ({ id: r, label: ORG_ROLE_LABEL[r] }));
+).map((r) => ({ id: r, label: t(`role.${r}`) }));
 
 // export 仅供 `tests/ui/org-admin-invite-form-novalidate.test.tsx` 机械钉 noValidate（两次复发的 bug），别在别处 import。
 export function InviteMemberForm({
-  orgId, onSucceeded, onFailed, onLink,
+  orgId, onSucceeded, onFailed, onNotice,
 }: {
   orgId: string;
   onSucceeded: (text: string) => void;
   onFailed: (text: string) => void;
+  /** Internal screen feedback remains translatable; legacy string callbacks stay compatible. */
+  onNotice?: (notice: LocalizedNotice) => void;
   /** 签发成功且响应带一次性 token 时回调（invite-link-and-reads delta ①）。 */
   onLink: (link: OneTimeLink) => void;
 }) {
+  const { t, locale } = useI18n();
   const [email, setEmail] = React.useState("");
-  const [orgRole, setOrgRole] = React.useState<OrgRole>("consultant");
+  const orgRole = "consultant" as const;
   const [submitting, setSubmitting] = React.useState(false);
-  const [fieldError, setFieldError] = React.useState<string | null>(null);
+  const [fieldError, setFieldError] = React.useState<Feedback | null>(null);
+
+  function report(tone: "success" | "error", text: Feedback) {
+    if (onNotice) onNotice({ tone, text });
+    else if (tone === "success") onSucceeded(text(t, locale));
+    else onFailed(text(t, locale));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = email.trim();
     if (trimmed.length === 0) {
-      setFieldError("邮箱不能为空");
+      setFieldError(() => (t: Translator) => t("orgMembers.emailIsRequired"));
       return;
     }
     if (!trimmed.includes("@")) {
-      setFieldError(`「${trimmed}」不是合法邮箱`);
+      setFieldError(() => (t: Translator) => t("orgMembers.invalidEmail", { email: trimmed }));
       return;
     }
     setFieldError(null);
@@ -775,31 +792,22 @@ export function InviteMemberForm({
     try {
       const out = await inviteOrgMember({ orgId, email: trimmed, orgRole, teamId: NO_TEAM });
       setEmail("");
-      if (out.status === "awaiting-review") {
-        onSucceeded(
-          `已受理对 ${trimmed} 的管理员邀请：进入双人复核（待复核），另一位管理员批准后才会签发激活链接。`,
-        );
-      } else if (out.quotaReserved === 0) {
-        // 幂等重放：服务端刻意不把既有令牌再吐一次（否则任何管理员都能凭「再邀一次」
-        // 读走别人的激活链接），所以这里也没有链接可展示。
-        onSucceeded(
-          `该邮箱此前已有相同的邀请，本次返回既有邀请（未新建、未重复扣配额）。需要新链接请在列表里「重发」。`,
-        );
+      if (out.status === "send-failed") {
+        report("error", (t) => t("orgMembers.emailIsUnavailableTheInvitationIsRecordedAsSend"));
+      } else if (out.tokenIssued === false || out.quotaReserved === 0) {
+        report("success", (t) => t("orgMembers.anIdenticalInvitationAlreadyExistsNoInvitationWasCreated"));
       } else {
-        onSucceeded(`邀请已创建，激活链接已签发（7 天有效）——见下方，只显示这一次。`);
-        if (out.activationToken !== null) {
-          onLink({ email: trimmed, url: buildActivationLink(out.activationToken, window.location.origin), kind: "invited" });
-        }
+        report("success", (t) => t("orgMembers.invitationCreatedTheActivationLinkIsValidFor7"));
       }
     } catch (err) {
       // delta ③：契约层的邮箱 400（`ZodBodyPipe` validation_failed，path = email）
       // 映射成能看懂的字段级文案，不掉进「操作失败（HTTP 400）」的兜底。
       if (contractFieldIssues(err)?.some((i) => i.path === "email")) {
-        setFieldError(`「${trimmed}」不是合法邮箱（服务端校验拒绝，未创建邀请）。`);
+        setFieldError(() => (t: Translator) => t("orgMembers.invalidEmailServer", { email: trimmed }));
       } else if (err instanceof ApiError && (err.reasonCode === "INVITE_ALREADY_MEMBER" || err.reasonCode === "INVITE_DUPLICATE")) {
-        setFieldError(describeInviteFailure(err));
+        setFieldError(() => (t: Translator, locale?: Locale) => describeInviteFailure(err, t, locale));
       } else {
-        onFailed(describeInviteFailure(err));
+        report("error", (t, locale) => describeInviteFailure(err, t, locale));
       }
     } finally {
       setSubmitting(false);
@@ -819,7 +827,7 @@ export function InviteMemberForm({
     >
       <div className="flex flex-wrap items-start gap-2">
         <div className="flex min-w-52 flex-1 flex-col gap-1">
-          <Label htmlFor="org-admin-invite-email">受邀人邮箱</Label>
+          <Label htmlFor="org-admin-invite-email">{t("orgMembers.inviteeEmail")}</Label>
           <Input
             id="org-admin-invite-email"
             type="email"
@@ -834,32 +842,14 @@ export function InviteMemberForm({
             aria-invalid={fieldError !== null}
           />
           {fieldError ? (
-            <p role="alert" data-testid="err-invite-email" className="text-10 text-destructive">{fieldError}</p>
+            <p role="alert" data-testid="err-invite-email" className="text-10 text-destructive">{fieldError(t, locale)}</p>
           ) : null}
-        </div>
-        <div className="flex w-32 flex-col gap-1">
-          <Label id="org-admin-invite-role-label">组织角色</Label>
-          <PopoverSelect
-            value={orgRole}
-            options={ORG_ROLE_OPTIONS}
-            onSelect={(id) => setOrgRole(id as OrgRole)}
-            disabled={submitting}
-            testid="org-admin-invite-role"
-            ariaLabel="组织角色"
-          />
         </div>
       </div>
 
-      {orgRole === "admin" && (
-        <p className="text-10 text-muted-foreground" data-testid="org-admin-invite-dual-review-note">
-          邀请管理员需双人复核：提交后进入「待复核」，由另一位管理员批准后才签发激活链接（发起人不能自批）。
-        </p>
-      )}
-
       <div className="flex items-center justify-between gap-2">
         <p className="text-10 text-muted-foreground">
-          邮件通道尚未接通：邀请成功后，激活链接会在下方显示<strong>一次</strong>，由你复制并转交受邀人。
-        </p>
+          {t("invitation.ordinaryMemberNote")}</p>
         <Button
           type="submit"
           size="sm"
@@ -868,7 +858,7 @@ export function InviteMemberForm({
           data-testid="org-admin-invite-submit"
         >
           <Send aria-hidden className="h-3.5 w-3.5" />
-          {submitting ? "邀请中…" : "发出邀请"}
+          {submitting ? t("orgMembers.inviting") : t("orgMembers.sendInvitation")}
         </Button>
       </div>
     </form>
@@ -876,41 +866,33 @@ export function InviteMemberForm({
 }
 
 function InviteRow({
-  orgId, invite, currentUserId, onChanged, onSucceeded, onFailed, onLink,
+  orgId, invite, onChanged, onSucceeded, onFailed,
 }: {
   orgId: string;
   invite: ListOrgInvitesOut["invites"][number];
   /** 当前登录用户 id——判「这条邀请是不是我发起的」（delta ②）。 */
   currentUserId: string | null;
   onChanged: () => void;
-  onSucceeded: (text: string) => void;
-  onFailed: (text: string) => void;
+  onSucceeded: (text: Feedback) => void;
+  onFailed: (text: Feedback) => void;
   onLink: (link: OneTimeLink) => void;
 }) {
+  const { t, locale } = useI18n();
   const [busy, setBusy] = React.useState(false);
   const [confirmingRevoke, setConfirmingRevoke] = React.useState(false);
 
-  // 状态门与后端一致（`pg-org-invite-repository.ts`）：
-  //   重发：pending / send-failed（awaiting-review 重发会绕过双人复核，后端拒）
-  //   撤销：revoked（幂等）与 used（人已进来）之外都可以；已翻状态的不给按钮
-  //   复核：仅 awaiting-review，且**发起人不渲染批准/拒绝**（delta ②，coord-main 裁决）：
-  //   I-4 自批必被后端 403，此前列表不含发起人 id、只能渲染一颗点了必失败的死按钮，
-  //   现在契约带 `invitedByUserId`，发起人视角直接换成等待说明。
-  const canResend = invite.status === "pending" || invite.status === "send-failed";
-  const canRevoke = invite.status === "pending" || invite.status === "awaiting-review" || invite.status === "send-failed";
-  const isInitiator = currentUserId !== null && invite.invitedByUserId === currentUserId;
-  const canReview = invite.status === "awaiting-review" && !isInitiator;
-  const waitingPeerReview = invite.status === "awaiting-review" && isInitiator;
+  const canResend = ["pending", "send-failed", "awaiting-review"].includes(invite.status);
+  const canRevoke = canResend;
 
-  async function run(action: () => Promise<string>) {
+  async function run(action: () => Promise<Feedback>) {
     setBusy(true);
     try {
       const text = await action();
       onSucceeded(text);
       onChanged();
     } catch (err) {
-      onFailed(describeInviteFailure(err));
-      if (err instanceof ApiError && err.reasonCode === "VERSION_CHANGED") onChanged();
+      onFailed((t, locale) => describeInviteFailure(err, t, locale));
+      if (err instanceof ApiError && (err.reasonCode === "VERSION_CHANGED" || err.reasonCode === "MAIL_UNAVAILABLE")) onChanged();
     } finally {
       setBusy(false);
       setConfirmingRevoke(false);
@@ -922,80 +904,25 @@ function InviteRow({
       <div className="flex flex-wrap items-center gap-2">
         <span className="truncate text-13 font-medium">{invite.email}</span>
         <Badge tone={invite.status === "pending" ? "warning" : invite.status === "used" ? "primary" : invite.status === "revoked" ? "outline" : "danger"}>
-          {INVITE_STATUS_LABEL[invite.status] ?? invite.status}
+          {inviteStatusLabel(invite.status, t)}
         </Badge>
-        <span className="text-10 text-muted-foreground">由 {invite.invitedBy} 邀请</span>
+        <span className="text-10 text-muted-foreground">{t("orgMembers.invitedBy", { name: invite.invitedBy })}</span>
         <span className="ml-auto text-10 text-muted-foreground" data-testid={`org-admin-invite-${invite.inviteId}-expires`}>
-          {new Date(invite.expiresAt).toLocaleDateString("zh-CN")} 到期
-        </span>
+          {new Date(invite.expiresAt).toLocaleDateString(locale)} {t("orgMembers.expires")}</span>
         <div className="flex shrink-0 items-center gap-1.5">
-          {waitingPeerReview && (
-            <span
-              className="flex items-center gap-1 text-10 text-muted-foreground"
-              data-testid={`org-admin-invite-${invite.inviteId}-waiting-peer-review`}
-            >
-              <Hourglass aria-hidden className="h-3 w-3" />
-              你发起的邀请：等待另一位管理员复核（不能自批）
-            </span>
-          )}
-          {canReview && (
-            <>
-              <Button
-                type="button" size="xs" variant="primary" disabled={busy}
-                onClick={() =>
-                  run(async () => {
-                    // D2 裁决 A：批准响应带一次性 activationToken（与 delta ① 同一语义），
-                    // 批准人当场拿到链接转交——不再逼他撞 60 秒重发冷却。
-                    const out = await reviewAdminInvite({ orgId, inviteId: invite.inviteId, decision: "approve", reason: null });
-                    if (out.activationToken !== null) {
-                      onLink({
-                        email: invite.email,
-                        url: buildActivationLink(out.activationToken, window.location.origin),
-                        kind: "approved",
-                      });
-                    }
-                    return `已批准对 ${invite.email} 的管理员邀请，激活链接已签发（7 天有效）——见下方，只显示这一次。`;
-                  })
-                }
-                data-testid={`org-admin-invite-${invite.inviteId}-approve`}
-              >
-                <Check aria-hidden className="h-3 w-3" />
-                批准
-              </Button>
-              <Button
-                type="button" size="xs" variant="outline" disabled={busy}
-                onClick={() =>
-                  run(async () => {
-                    await reviewAdminInvite({ orgId, inviteId: invite.inviteId, decision: "reject", reason: null });
-                    return `已拒绝对 ${invite.email} 的管理员邀请。`;
-                  })
-                }
-                data-testid={`org-admin-invite-${invite.inviteId}-reject`}
-              >
-                <X aria-hidden className="h-3 w-3" />
-                拒绝
-              </Button>
-            </>
-          )}
           {canResend && (
             <Button
               type="button" size="xs" variant="ghost" disabled={busy}
               onClick={() =>
                 run(async () => {
                   const out = await resendOrgInvite(orgId, invite.inviteId);
-                  onLink({
-                    email: invite.email,
-                    url: buildActivationLink(out.activationToken, window.location.origin),
-                    kind: "resent",
-                  });
-                  return `已对 ${invite.email} 重发：新链接已签发（见下方，只显示这一次）、旧链接当场作废（冷却 ${out.cooldownSec} 秒）。`;
+                  return (t) => t("orgMembers.invitationResent", { email: invite.email, seconds: out.cooldownSec });
                 })
               }
               data-testid={`org-admin-invite-${invite.inviteId}-resend`}
             >
               <RotateCcw aria-hidden className="h-3 w-3" />
-              重发
-            </Button>
+              {t("orgMembers.resend")}</Button>
           )}
           {canRevoke && !confirmingRevoke && (
             <Button
@@ -1005,8 +932,7 @@ function InviteRow({
               data-testid={`org-admin-invite-${invite.inviteId}-revoke`}
             >
               <Ban aria-hidden className="h-3 w-3" />
-              撤销
-            </Button>
+              {t("orgMembers.revoke")}</Button>
           )}
         </div>
       </div>
@@ -1018,7 +944,7 @@ function InviteRow({
         >
           <div className="flex items-center gap-1.5 text-11 text-destructive">
             <AlertTriangle aria-hidden className="h-3.5 w-3.5 shrink-0" />
-            <span>确认撤销对 {invite.email} 的邀请？其激活链接将立即失效，且不会通知受邀人。</span>
+            <span>{t("orgMembers.revokeTheInvitationTo")}{invite.email} {t("orgMembers.itsActivationLinkWillStopWorkingImmediatelyTheInvitee")}</span>
           </div>
           <div className="flex shrink-0 gap-1.5">
             <Button
@@ -1026,20 +952,19 @@ function InviteRow({
               onClick={() =>
                 run(async () => {
                   await revokeOrgInvite(orgId, invite.inviteId);
-                  return `已撤销对 ${invite.email} 的邀请，激活链接立即失效。`;
+                  return (t) => t("orgMembers.invitationRevoked", { email: invite.email });
                 })
               }
               data-testid={`org-admin-invite-${invite.inviteId}-revoke-confirm-yes`}
             >
-              {busy ? "撤销中…" : "确认撤销"}
+              {busy ? t("orgMembers.revoking") : t("orgMembers.confirmRevocation")}
             </Button>
             <Button
               type="button" size="xs" variant="ghost" disabled={busy}
               onClick={() => setConfirmingRevoke(false)}
               data-testid={`org-admin-invite-${invite.inviteId}-revoke-confirm-no`}
             >
-              取消
-            </Button>
+              {t("orgMembers.cancel")}</Button>
           </div>
         </div>
       )}
@@ -1063,11 +988,12 @@ function InvitesTab({
   oneTimeLink: OneTimeLink | null;
   onOneTimeLink: (link: OneTimeLink | null) => void;
 }) {
+  const { t, locale } = useI18n();
   const { session } = useSession();
   const [state, setState] = React.useState<UiState>("loading");
-  const [failureMessage, setFailureMessage] = React.useState<string | null>(null);
+  const [failureMessage, setFailureMessage] = React.useState<unknown>(null);
   const [out, setOut] = React.useState<ListOrgInvitesOut | null>(null);
-  const [banner, setBanner] = React.useState<{ tone: "success" | "error"; text: string } | null>(null);
+  const [banner, setBanner] = React.useState<LocalizedNotice | null>(null);
 
   const load = React.useCallback(async () => {
     setState("loading");
@@ -1081,7 +1007,7 @@ function InvitesTab({
         setState("denied");
         return;
       }
-      setFailureMessage(describeFailureFor(err, "组织不存在或当前身份不可见", "当前身份无权读取邀请列表"));
+      setFailureMessage(err);
       setState("dep-failed");
     }
   }, [orgId]);
@@ -1099,8 +1025,7 @@ function InvitesTab({
   return (
     <div className="flex flex-col gap-3 pt-3">
       <p className="text-11 text-muted-foreground">
-        发出的邀请及其状态。仅组织管理员可查看——比成员名单更严格（未接受的邀请邮箱不对全体成员开放）。
-      </p>
+        {t("orgMembers.sentInvitationsAndTheirStatusOnlyOrganizationAdministratorsCan")}</p>
 
       {/* 表单跟随标签页同一权限判定：非 admin 会在下方 StateShell 看到真实 403 的无权限态，
           这里就不再渲染一个必然失败的表单（发起邀请后端仅 admin 可做）。 */}
@@ -1108,10 +1033,11 @@ function InvitesTab({
         <InviteMemberForm
           orgId={orgId}
           onSucceeded={(text) => {
-            setBanner({ tone: "success", text });
+            setBanner({ tone: "success", text: () => text });
             void load();
           }}
-          onFailed={(text) => setBanner({ tone: "error", text })}
+          onFailed={(text) => setBanner({ tone: "error", text: () => text })}
+          onNotice={(notice) => { setBanner(notice); void load(); }}
           onLink={onOneTimeLink}
         />
       )}
@@ -1128,15 +1054,15 @@ function InvitesTab({
               : "rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-11 text-destructive"
           }
         >
-          {banner.text}
+          {banner.text(t, locale)}
         </div>
       ) : null}
 
       <StateShell
         state={state}
-        emptyHint="还没有发出过邀请。"
-        depFailure={{ what: failureMessage ?? "邀请列表服务暂时不可用", retry: load }}
-        denial={{ layer: "organization", reason: "邀请列表仅组织管理员可读；你在本组织不是管理员。" }}
+        emptyHint={t("orgMembers.noInvitationsHaveBeenSentYet")}
+        depFailure={{ what: failureMessage !== null ? describeFailureFor(failureMessage, t("orgMembers.organizationUnavailable"), t("orgMembers.inviteListForbidden"), t) : t("orgMembers.theInvitationListIsTemporarilyUnavailable"), retry: load }}
+        denial={{ layer: "organization", reason: t("orgMembers.onlyOrganizationAdministratorsCanViewInvitationsYouAreNot") }}
       >
         <ul className="flex flex-col divide-y divide-border rounded-lg border border-border" data-testid="org-admin-invite-list">
           {out?.invites.map((inv) => (
@@ -1162,7 +1088,7 @@ function InvitesTab({
         />
       )}
       {!isAdmin && state !== "denied" && (
-        <p className="text-10 text-muted-foreground">（当前身份非组织管理员，若上方出现内容属于预览态误判，请以服务端 403 为准。）</p>
+        <p className="text-10 text-muted-foreground">{t("orgMembers.youAreNotAnOrganizationAdministratorIfContentAppears")}</p>
       )}
     </div>
   );
@@ -1179,15 +1105,16 @@ const DESCRIPTION_MAX = 500;
  */
 
 function OrgProfileTab({ orgId }: { orgId: string }) {
+  const { t } = useI18n();
   const { updateOrgName } = useSession();
   const [state, setState] = React.useState<UiState>("loading");
-  const [failureMessage, setFailureMessage] = React.useState<string | null>(null);
+  const [failureMessage, setFailureMessage] = React.useState<Feedback | null>(null);
   const [profile, setProfile] = React.useState<UpdateOrganizationOut | null>(null);
   const [name, setName] = React.useState("");
   const [description, setDescription] = React.useState("");
-  const [invalidFields, setInvalidFields] = React.useState<Record<string, string>>({});
+  const [invalidFields, setInvalidFields] = React.useState<Record<string, Feedback>>({});
   const [avatarUploading, setAvatarUploading] = React.useState(false);
-  const [avatarError, setAvatarError] = React.useState<string | null>(null);
+  const [avatarError, setAvatarError] = React.useState<Feedback | null>(null);
   const [avatarSavedNotice, setAvatarSavedNotice] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -1212,7 +1139,7 @@ function OrgProfileTab({ orgId }: { orgId: string }) {
         setState("denied");
         return;
       }
-      setFailureMessage(describeFailureFor(err, "组织不存在", "当前身份无权编辑组织资料"));
+      setFailureMessage(() => (currentT: Translator) => describeFailureFor(err, currentT("orgProfile.notFound"), currentT("orgProfile.forbidden"), currentT));
       setState("dep-failed");
     }
   }, [orgId]);
@@ -1228,9 +1155,9 @@ function OrgProfileTab({ orgId }: { orgId: string }) {
     const trimmed = name.trim();
     // D4：只收当次真正违反的字段——不是无条件把两条校验文案都传给 StateShell，
     // 否则简介明明合规也会跟着弹出「简介不能超过 500 字」（实测：44/500 字也弹）。
-    const violations: Record<string, string> = {};
-    if (trimmed.length === 0) violations.name = "组织名称不能为空";
-    if (description.length > DESCRIPTION_MAX) violations.description = `简介不能超过 ${DESCRIPTION_MAX} 字`;
+    const violations: Record<string, Feedback> = {};
+    if (trimmed.length === 0) violations.name = (currentT) => currentT("orgProfile.nameRequired");
+    if (description.length > DESCRIPTION_MAX) violations.description = (currentT) => currentT("orgProfile.descriptionLimit", { max: DESCRIPTION_MAX });
     if (Object.keys(violations).length > 0) {
       setInvalidFields(violations);
       setState("invalid");
@@ -1248,7 +1175,7 @@ function OrgProfileTab({ orgId }: { orgId: string }) {
       // （同一份 session-provider 机制：`updateDisplayName` 改自己姓名时的先例）。
       updateOrgName(orgId, out.name);
     } catch (err) {
-      setFailureMessage(describeFailureFor(err, "组织不存在", "当前身份无权编辑组织资料"));
+      setFailureMessage(() => (currentT: Translator) => describeFailureFor(err, currentT("orgProfile.notFound"), currentT("orgProfile.forbidden"), currentT));
       setState("dep-failed");
     }
   }
@@ -1273,15 +1200,15 @@ function OrgProfileTab({ orgId }: { orgId: string }) {
       window.setTimeout(() => setAvatarSavedNotice(false), 2500);
     } catch (err) {
       if (err instanceof ApiError) {
-        if (err.reasonCode === "FILE_TOO_LARGE") setAvatarError("图片超过 5MB 上限，服务端已拒绝，未上传。");
-        else if (err.reasonCode === "UNSUPPORTED_CONTENT_TYPE") setAvatarError("文件内容与声明的图片格式不符（服务端按真实字节校验），未上传。");
-        else setAvatarError(`上传失败：${err.reasonCode ?? err.status}`);
+        if (err.reasonCode === "FILE_TOO_LARGE") setAvatarError(() => (currentT: Translator) => currentT("orgProfile.avatarTooLarge"));
+        else if (err.reasonCode === "UNSUPPORTED_CONTENT_TYPE") setAvatarError(() => (currentT: Translator) => currentT("orgProfile.avatarType"));
+        else setAvatarError(() => (currentT: Translator) => currentT("orgProfile.avatarApiFailed", { reason: err.reasonCode ?? err.status }));
       } else if (err instanceof DOMException && (err.name === "TimeoutError" || err.name === "AbortError")) {
         // 2026-08-11 devapp 实测：请求可能永远不返回（见 live-org-admin.ts 的硬超时）。
         // 超时必须给出明确反馈，不许停在「上传中…」。
-        setAvatarError("上传超时，请重试。");
+        setAvatarError(() => (currentT: Translator) => currentT("orgProfile.avatarTimeout"));
       } else {
-        setAvatarError("上传失败，请稍后重试。");
+        setAvatarError(() => (currentT: Translator) => currentT("orgProfile.avatarFailed"));
       }
     } finally {
       setAvatarUploading(false);
@@ -1300,10 +1227,10 @@ function OrgProfileTab({ orgId }: { orgId: string }) {
       <StateShell
         state={state}
         skeletonRows={4}
-        errors={invalidFields}
-        depFailure={{ what: failureMessage ?? "组织资料服务暂时不可用", retry: load }}
-        denial={{ layer: "organization", reason: "组织资料编辑仅组织管理员可进；你在本组织不是管理员。" }}
-        successMessage="已保存"
+        errors={Object.fromEntries(Object.entries(invalidFields).map(([field, message]) => [field, message(t)]))}
+        depFailure={{ what: failureMessage ? failureMessage(t) : t("orgProfile.unavailable"), retry: load }}
+        denial={{ layer: "organization", reason: t("orgProfile.denied") }}
+        successMessage={t("state.saved")}
       >
         <div className="flex flex-col gap-6">
           <div className="flex items-center gap-3 rounded-lg border border-border bg-panel p-3" data-testid="org-admin-avatar-block">
@@ -1311,12 +1238,12 @@ function OrgProfileTab({ orgId }: { orgId: string }) {
               // eslint-disable-next-line @next/next/no-img-element -- 组织头像来自后端 object store，非 Next 静态资源
               <img
                 src={avatarSrc}
-                alt={`${profile?.name ?? "组织"} 头像`}
+                alt={t("orgProfile.avatarAlt", { name: profile?.name ?? t("ui.organization") })}
                 className="h-9 w-9 rounded-full object-cover"
                 data-testid="org-admin-avatar-image"
               />
             ) : (
-              <Avatar initials={(profile?.name ?? "组").slice(0, 1)} size="lg" />
+              <Avatar initials={(profile?.name ?? t("ui.organization")).slice(0, 1)} size="lg" />
             )}
             <div className="flex flex-col gap-1">
               <input
@@ -1336,17 +1263,17 @@ function OrgProfileTab({ orgId }: { orgId: string }) {
                 data-testid="org-admin-avatar-upload"
               >
                 <Camera aria-hidden className="h-3 w-3" />
-                {avatarUploading ? "上传中…" : "更换头像"}
+                {avatarUploading ? t("orgProfile.avatarUploading") : t("orgProfile.changeAvatar")}
               </Button>
-              <p className="text-10 text-muted-foreground">PNG / JPEG / WebP，最大 5MB。</p>
+              <p className="text-10 text-muted-foreground">{t("orgProfile.avatarHelp")}</p>
               {avatarSavedNotice && (
                 <p role="status" data-testid="org-admin-avatar-saved" className="text-10 text-success">
-                  已上传
+                  {t("orgProfile.avatarSaved")}
                 </p>
               )}
               {avatarError && (
                 <p role="alert" data-testid="org-admin-avatar-error" className="text-10 text-destructive">
-                  {avatarError}
+                  {avatarError(t)}
                 </p>
               )}
             </div>
@@ -1354,7 +1281,7 @@ function OrgProfileTab({ orgId }: { orgId: string }) {
 
           <form className="flex flex-col gap-4" onSubmit={handleSave} data-testid="org-admin-profile-form">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="org-admin-name">组织名称</Label>
+              <Label htmlFor="org-admin-name">{t("orgProfile.name")}</Label>
               <Input
                 id="org-admin-name"
                 value={name}
@@ -1369,7 +1296,7 @@ function OrgProfileTab({ orgId }: { orgId: string }) {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="org-admin-description">组织简介</Label>
+              <Label htmlFor="org-admin-description">{t("orgProfile.description")}</Label>
               <Textarea
                 id="org-admin-description"
                 value={description}
@@ -1383,7 +1310,7 @@ function OrgProfileTab({ orgId }: { orgId: string }) {
                 aria-invalid={state === "invalid" && description.length > DESCRIPTION_MAX}
               />
               <p className="text-10 text-muted-foreground">
-                纯文本，不支持 markdown（{description.length}/{DESCRIPTION_MAX}）。
+                {t("orgProfile.descriptionHelp", { count: description.length, max: DESCRIPTION_MAX })}
               </p>
             </div>
 
@@ -1395,7 +1322,7 @@ function OrgProfileTab({ orgId }: { orgId: string }) {
                 disabled={state === "loading" || !dirty}
                 data-testid="org-admin-profile-save"
               >
-                {state === "loading" ? "保存中…" : "保存"}
+                {state === "loading" ? t("common.saving") : t("common.save")}
               </Button>
             </div>
           </form>

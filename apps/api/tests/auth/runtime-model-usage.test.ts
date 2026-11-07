@@ -1,3 +1,4 @@
+const spool=vi.hoisted(()=>({prepareStart:vi.fn(async()=>{})}));
 import {readFileSync} from "node:fs";
 import {describe,it,expect,vi,afterEach} from "vitest";
 import {RuntimeModelUsageController} from "../../src/interface/controllers/runtime-model-usage.controller";
@@ -8,7 +9,7 @@ import {toOrgId} from "../../src/domain/org-id";
 const org=toOrgId("tenant-a"),requestId="aa945fbd-9383-428d-b80b-b339fc49ea27";
 const start={orgId:org,requestId,attemptId:"run-A:1",leaseEpoch:2,startedAt:"2026-10-04T01:00:00.000Z",modelId:"registered-test",callPurpose:"primary" as const};
 const terminal={orgId:org,requestId,attemptId:start.attemptId,leaseEpoch:2,endedAt:"2026-10-04T01:01:00.000Z",outcome:"failed" as const,usage:{total:20,prompt:12,completion:8}};
-afterEach(()=>vi.unstubAllEnvs());
+afterEach(()=>{vi.unstubAllEnvs();spool.prepareStart.mockReset().mockResolvedValue(undefined);});
 describe("runtime request trusted ownership",()=>{
  it("ownership exemption stays metadata-only and tenant-scoped with no row disclosure",()=>{
   const source=readFileSync(new URL("../../src/infrastructure/auth/pg-runtime-model-usage-repository.ts",import.meta.url),"utf8");
@@ -103,10 +104,30 @@ describe("runtime request trusted ownership",()=>{
  it("disabled private admission and mismatched actual body cap never resolve ownership or write",async()=>{
   const query=vi.fn(),db={withTenant:vi.fn(async(_org:unknown,fn:(s:unknown)=>unknown)=>fn({query}))};
   const payload={...start,logicalCallId:"logical",serializedBody:JSON.stringify({model:start.modelId,max_tokens:100}),outputTokenLimit:10};
-  await expect(new PgRuntimeModelUsageRepository(db as never,{record:vi.fn()} as never).admitRuntimeRequest(org,"run-A",payload)).rejects.toThrow("RUNTIME_AI_ADMISSION_DISABLED");
+  await expect(new PgRuntimeModelUsageRepository(db as never,{record:vi.fn()} as never).admitRuntimeRequest(org,"run-A",payload)).rejects.toThrow("AI_DISPATCH_BINDING_MISMATCH");
   const opts={dependencies:vi.fn(),primaryModelId:vi.fn(),facts:vi.fn()};
   await expect(new PgRuntimeModelUsageRepository(db as never,{record:vi.fn()} as never,undefined,opts).admitRuntimeRequest(org,"run-A",payload)).rejects.toThrow("AI_DISPATCH_BINDING_MISMATCH");
   expect(db.withTenant).not.toHaveBeenCalled();expect(opts.facts).not.toHaveBeenCalled();
  });
 
+});
+
+// This suite owns usage/provenance SQL. Financial transactions are exercised by billing integration tests.
+vi.mock("../../src/infrastructure/billing/pg-credit-consumption",()=>({PgCreditConsumption:class {
+ async reserveInSession(){} async settleInSession(){}
+}}));
+
+// SQL protocol unit fixture: durable filesystem replay has its own real-spool suite.
+vi.mock("../../src/infrastructure/billing/credit-usage-meter",async()=>{
+ const {PgTokenUsageRepository}=await import("../../src/infrastructure/auth/pg-token-usage-repository");
+ return {creditUsageMeter:(db:ConstructorParameters<typeof PgTokenUsageRepository>[0])=>Object.assign(new PgTokenUsageRepository(db),{prepareStart:spool.prepareStart})};
+});
+
+it("private durable start refuses dispatch acknowledgement when receipt capacity is unavailable",async()=>{
+ vi.stubEnv("KERNEL_MODEL_PROVIDER","configured-test");spool.prepareStart.mockRejectedValue(new Error("credit_spool_capacity_exhausted"));
+ const owner={user_id:"trusted-user",project_id:"project",thread_id:"thread",agent_id:"agent",root_run_id:"run-A",subtask_id:null};
+ const query=vi.fn().mockImplementation(async(sql:string)=>({rows:sql.includes("FROM agent_runs")?[owner]:[]}));
+ const repo=new PgRuntimeModelUsageRepository({withTenant:async(_org:unknown,fn:(s:unknown)=>unknown)=>fn({query})} as never,{record:vi.fn()} as never);
+ const dispatch=vi.fn();await expect((async()=>{await repo.startRuntimeRequest(org,"run-A",start);dispatch();})()).rejects.toThrow("credit_spool_capacity_exhausted");
+ expect(dispatch).not.toHaveBeenCalled();expect(query.mock.calls.some(([sql])=>sql.includes("INSERT INTO model_request_starts"))).toBe(false);
 });

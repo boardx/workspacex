@@ -1,0 +1,87 @@
+[
+  {
+    "file": "admin-translation.png",
+    "sha256": "8b94f26a9a714bd57fe7c69d8e1710412caadd51e238a2ee7bd91e3304ac3c3b",
+    "viewed": true
+  },
+  {
+    "file": "member-translation.png",
+    "sha256": "e1fdda81b1bc7d41bfe66180eb028edb3c105c78f15af635fb3e2e2f6c5ea10f",
+    "viewed": true
+  },
+  {
+    "file": "authored-member-zh.png",
+    "sha256": "cda97f98d02399e680982a7d73c6540e4278d9880f9789a38167405a5733d7ea",
+    "viewed": true
+  },
+  {
+    "file": "explicit-display-update.png",
+    "sha256": "0bdbecc06a0e541782ba21abcdb8910c62cbf7c4ec685bbe8c938278b9ddcf56",
+    "viewed": true
+  },
+  {
+    "file": "home-config-banner-1280.png",
+    "sha256": "17d1ffb7f68d5a2b4d810918297e7db2e8f711ebbcff823cad78db161e010de5",
+    "viewed": true
+  },
+  {
+    "file": "home-config-banner-375.png",
+    "sha256": "09d8c827688d594f2821a2606cff2db53d1939142ef6a2dfd5150dc160d6f898",
+    "viewed": true
+  },
+  {
+    "file": "home-config-content-1280.png",
+    "sha256": "3591ea9f7547235a9dfcb78bd4d4cb57058055af859869c87e3d0aa86729bc22",
+    "viewed": true
+  },
+  {
+    "file": "home-config-content-375.png",
+    "sha256": "c04e9cf1fa426f77cfcb9c3f50c34398e1a36b2b3f6beebba6dc75a9c4c795d3",
+    "viewed": true
+  },
+  {
+    "file": "home-config-layout-1280.png",
+    "sha256": "18277d748ab2bf9401f1f6ddd8d77f0bc1238a017349b00e029797c1d7872edc",
+    "viewed": true
+  },
+  {
+    "file": "home-config-layout-375.png",
+    "sha256": "257320ed069525f4a8781aba8bf224bc26d89bd217b3454ecde0722a2069dc6e",
+    "viewed": true
+  },
+  {
+    "file": "home-config-member-denied.png",
+    "sha256": "52842c3e37b45a17b1798ca442e3769690407c1287eddec109b70060624374e4",
+    "viewed": true
+  },
+  {
+    "file": "home-config-member-home.png",
+    "sha256": "c3a24a931198d61a2ae17db62c56400abd1b1a15a8283e5454679c5d285a0246",
+    "viewed": true
+  },
+  {
+    "file": "home-config-preview-1280.png",
+    "sha256": "498baf53bf9961d62e6995c5e27ff91a88089192cb8725a9482f4b0ebf352071",
+    "viewed": true
+  },
+  {
+    "file": "home-config-preview-375.png",
+    "sha256": "95450fd18489dec07e79b4d68b6c1546ab16d2c1a8ecd53504d71be746c9423a",
+    "viewed": true
+  },
+  {
+    "file": "home-config-preview-820.png",
+    "sha256": "84c036a6f2a71d4f6d314072d6e28fd1ceee2b1828e8d2597c1badc48546f210",
+    "viewed": true
+  },
+  {
+    "file": "home-config-theme-1280.png",
+    "sha256": "e80c7a5631d657a863e604b224ef4f5e6115e874e185445b37c4156f5cbaf6cd",
+    "viewed": true
+  },
+  {
+    "file": "home-config-theme-375.png",
+    "sha256": "23455e7f966e8fcbe3950099c9b386084f277d6e74da0738ca58a721757f6111",
+    "viewed": true
+  }
+]

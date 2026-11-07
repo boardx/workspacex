@@ -1,0 +1,62 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/397c/workspacex/apps/web
+
+ ❯ tests/ui/interview-markdown-execution.test.tsx (26 tests | 1 failed | 25 skipped) 136ms
+   × does not authorize a new revision when a failed cached initial read recovers by polling 135ms
+     → expected "spy" to not be called at all, but actually been called 1 times
+
+Received:
+
+  1st spy call:
+
+    Array [
+      "itv-execution-7",
+      Object {
+        "action": "start",
+        "expectedVersion": 10,
+      },
+    ]
+
+
+Number of calls: 1
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/interview-markdown-execution.test.tsx > does not authorize a new revision when a failed cached initial read recovers by polling
+AssertionError: expected "spy" to not be called at all, but actually been called 1 times
+
+Received:
+
+  1st spy call:
+
+    Array [
+      "itv-execution-7",
+      Object {
+        "action": "start",
+        "expectedVersion": 10,
+      },
+    ]
+
+
+Number of calls: 1
+
+ ❯ tests/ui/interview-markdown-execution.test.tsx:351:44
+    349|   expect(screen.getByRole("alert")).toHaveTextContent("文档初始化失败"…
+    350|   await act(async () => { await vi.advanceTimersByTimeAsync(5250); });
+    351|   expect(api.executeInterviewMarkdown).not.toHaveBeenCalled();
+       |                                            ^
+    352|   expect(cache.get<InterviewMarkdownEnvelope>(`source/${source.intervi…
+    353| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 25 skipped (26)
+   Start at  18:43:00
+   Duration  4.65s (transform 1.75s, setup 239ms, collect 2.72s, tests 136ms, environment 1.19s, prepare 82ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/397c/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/interview-markdown-execution.test.tsx -t failed cached initial read --maxWorkers 1 --minWorkers 1

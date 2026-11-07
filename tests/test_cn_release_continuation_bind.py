@@ -170,7 +170,7 @@ class BindTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'OUTPUT_EXISTS'): self.run_bind()
 
     def test_cli_cannot_supply_approval_path(self):
-        r=subprocess.run([sys.executable,str(SCRIPT),'--approval','/tmp/fake'],capture_output=True)
+        r=subprocess.run([sys.executable,'-I','-B',str(SCRIPT),'--approval','/tmp/fake'],capture_output=True)
         self.assertNotEqual(r.returncode,0)
         with patch.object(m,'private_read',return_value=b'approved') as read:
             self.assertEqual(m.load_approval('a'*64),b'approved')

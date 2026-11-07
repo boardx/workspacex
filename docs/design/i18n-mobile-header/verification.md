@@ -1,0 +1,9 @@
+# Verification — #6165
+
+The real browser red failed at 320px before the runtime edit: language picker viewport ratio 0.35992005467414856. The before screenshot visibly crops its right side. The fix changes only flex shrink utilities in TopBar: the organization group may shrink, while its mobile control wrappers and decorative icons retain their size. No provider, handler, role, navigation or data logic changes.
+
+Existing TopBar unit suite: 9/9 passed. Registered real self-service-profile lane: 1/1 passed (53.4s; wrapper 54s plus 1s cleanup). It checks all 320/375/768/1280 widths in zh-CN/en, full viewport intersection and header bounds, click/focus/select behavior, retained unsaved raw draft, mobile organization/feedback geometry and no document overflow. Eight screenshots are retained, including focus ring. Screenshots were visually inspected at mobile and desktop sizes: picker complete, organization name truncates, mobile controls retained; wide layout retains organization and role/hint content.
+
+Owned stacks wsx-081bbb4f3c11b616004a and wsx-4dd51baf55ee01646b6f returned no containers including stopped after wrapper cleanup. The two tests' raw logs and original red screenshot remain under evidence/i18n-mobile-header-6165. This is a shared-shell geometry fix; unrelated page content and the remaining 137-route localization backlog are outside this issue.
+
+Independent review of initial runtime commit found no layout regression and recommended a dedicated account. Added TopBar consultant identity to the existing fixture/config/seed, and extended the existing account-isolation mechanical gate to include this spec (using its canonical fixture name). Isolated latest-develop base ceea2245b browser passed in 54s including cleanup; dedicated-account browser passed in 59s including cleanup. Final screenshots come from the dedicated account. Production change remains only the flex utilities.

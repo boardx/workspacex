@@ -8,62 +8,73 @@
  *
  * ⚠ **但它必须对枚举穷尽**，而且穷尽这件事要机械守着，理由很具体：
  *   漏一个类型，那一行就渲染成空白，而**空白在审计流里读作「这条没事发生」**。
- *   契约加了新类型而这里没跟上，是个静默的错——所以 `Record<ProvenanceEventType, string>`
+ *   契约加了新类型而这里没跟上，是个静默的错——所以 `satisfies Record<ProvenanceEventType, MessageKey>`
  *   的类型约束（编译期）+ `provenance-labels.test.ts` 的逐值断言（运行期）各守一道。
  *   类型约束单独不够：`as` 一下就绕过去了，而 CI 只跑 tsc 不跑人眼。
  */
 import type { ProvenanceEventType } from "./live-provenance";
+import type { Locale } from "./i18n/locale";
+import { translate, type MessageKey } from "./i18n/messages";
 
-export const PROVENANCE_EVENT_LABEL: Record<ProvenanceEventType, string> = {
+const PROVENANCE_EVENT_KEY = {
   /* artifact 束：血缘 */
-  ingested: "摄取了材料",
-  transformed: "转换了材料（OCR / ASR / 摘要 / 向量化）",
-  generated: "用 AI 生成了内容",
-  "human-edited": "人工编辑了草稿",
-  pinned: "定版了一个版本",
-  bound: "把材料绑定到项目环节",
-  unbound: "解绑了材料与项目环节",
-  superseded: "用新版本替代了旧版本",
-  "evidence-withdrawn": "撤回了上游证据",
-  downloaded: "下载了原件",
+  "ingested": "adminOverview.event.ingested",
+  "transformed": "adminOverview.event.transformed",
+  "generated": "adminOverview.event.generated",
+  "human-edited": "adminOverview.event.human-edited",
+  "pinned": "adminOverview.event.pinned",
+  "bound": "adminOverview.event.bound",
+  "unbound": "adminOverview.event.unbound",
+  "superseded": "adminOverview.event.superseded",
+  "evidence-withdrawn": "adminOverview.event.evidence-withdrawn",
+  "downloaded": "adminOverview.event.downloaded",
 
   /* identity 束：治理 */
-  "capability-added": "新增了一项组织能力",
-  "capability-updated": "修改了一项组织能力的配置",
-  "capability-disabled": "停用了一项组织能力",
-  "role-changed": "变更了角色",
-  "team-changed": "变更了团队归属",
-  "admin-project-access": "以审计目的读取了项目内容（已留痕）",
-  "local-export": "把本地组织的内容导出到正式组织",
-  "profile-renamed": "改了自己的显示名",
-  "avatar-changed": "换了头像",
-  "password-changed": "改了密码",
-  "team-created": "新建了团队",
-  "team-renamed": "重命名了团队",
-  "team-deleted": "删除了团队",
+  "capability-added": "adminOverview.event.capability-added",
+  "capability-updated": "adminOverview.event.capability-updated",
+  "capability-disabled": "adminOverview.event.capability-disabled",
+  "role-changed": "adminOverview.event.role-changed",
+  "team-changed": "adminOverview.event.team-changed",
+  "admin-project-access": "adminOverview.event.admin-project-access",
+  "local-export": "adminOverview.event.local-export",
+  "profile-renamed": "adminOverview.event.profile-renamed",
+  "avatar-changed": "adminOverview.event.avatar-changed",
+  "password-changed": "adminOverview.event.password-changed",
+  "team-created": "adminOverview.event.team-created",
+  "team-renamed": "adminOverview.event.team-renamed",
+  "team-deleted": "adminOverview.event.team-deleted",
 
   /* project / chat / 治理补齐（ADR-101） */
-  "project-created": "新建了项目",
-  "project-archived": "归档了项目",
-  "project-unarchived": "取消归档了项目",
-  "agenda-segment-state-changed": "推进了议程环节的状态",
-  "thread-created": "新建了对话",
-  "thread-renamed": "重命名了对话",
-  "thread-deleted": "删除了对话",
-  "thread-visibility-changed": "改了对话的可见范围",
-  "thread-pinned": "置顶了对话",
-  "thread-unpinned": "取消置顶了对话",
-  "integrity-check-failed": "完整性校验未通过",
-  "contact-revealed": "查看了联系人信息",
-  "approval-requested": "发起了一次审批",
-  "approval-decided": "裁决了一次审批",
-  "deletion-requested": "提出了删除请求",
-  "asset-published": "发布了一个资产",
-  "review-accepted": "评审通过",
-  "review-rejected": "评审驳回",
-  "legal-hold-applied": "施加了法务保全",
-  "legal-hold-released": "解除了法务保全",
+  "project-created": "adminOverview.event.project-created",
+  "project-archived": "adminOverview.event.project-archived",
+  "project-unarchived": "adminOverview.event.project-unarchived",
+  "agenda-segment-state-changed": "adminOverview.event.agenda-segment-state-changed",
+  "thread-created": "adminOverview.event.thread-created",
+  "thread-renamed": "adminOverview.event.thread-renamed",
+  "thread-deleted": "adminOverview.event.thread-deleted",
+  "thread-visibility-changed": "adminOverview.event.thread-visibility-changed",
+  "thread-pinned": "adminOverview.event.thread-pinned",
+  "thread-unpinned": "adminOverview.event.thread-unpinned",
+  "integrity-check-failed": "adminOverview.event.integrity-check-failed",
+  "contact-revealed": "adminOverview.event.contact-revealed",
+  "approval-requested": "adminOverview.event.approval-requested",
+  "approval-decided": "adminOverview.event.approval-decided",
+  "deletion-requested": "adminOverview.event.deletion-requested",
+  "asset-published": "adminOverview.event.asset-published",
+  "review-accepted": "adminOverview.event.review-accepted",
+  "review-rejected": "adminOverview.event.review-rejected",
+  "legal-hold-applied": "adminOverview.event.legal-hold-applied",
+  "legal-hold-released": "adminOverview.event.legal-hold-released",
 
   /* 安全 */
-  "unauthorized-attempt": "越权尝试被拦截",
-};
+  "unauthorized-attempt": "adminOverview.event.unauthorized-attempt",
+} as const satisfies Record<ProvenanceEventType, MessageKey>;
+
+/** Locale projection of the same exhaustive authority; callers without a locale keep Chinese. */
+export function provenanceEventLabel(type: ProvenanceEventType, locale: Locale = "zh-CN"): string {
+  return translate(locale, PROVENANCE_EVENT_KEY[type]);
+}
+
+export const PROVENANCE_EVENT_LABEL: Record<ProvenanceEventType, string> = Object.fromEntries(
+  (Object.keys(PROVENANCE_EVENT_KEY) as ProvenanceEventType[]).map((type) => [type, provenanceEventLabel(type)]),
+) as Record<ProvenanceEventType, string>;

@@ -1,0 +1,10 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages
+
+ ✓ .harness/scripts/lint-run-status-view-single-source.test.ts (6 tests) 10ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  04:08:17
+   Duration  550ms (transform 35ms, setup 0ms, collect 29ms, tests 10ms, environment 0ms, prepare 76ms)

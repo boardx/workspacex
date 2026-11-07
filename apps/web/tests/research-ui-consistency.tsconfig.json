@@ -1,0 +1,25 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "incremental": false
+  },
+  "include": [
+    "../components/research-studio/research-floating-assistant.tsx",
+    "../components/research-studio/guided-research-report-workspace.tsx",
+    "../components/research-studio/guided-research-step-layout.tsx",
+    "../components/research-studio/guided-research-six-step-shell.tsx",
+    "../components/research-studio/research-intake.tsx",
+    "../components/research-studio/guided-research-conversation.tsx",
+    "../components/research-studio/guided-research-live.tsx",
+    "./ui/research-ui-consistency.test.tsx",
+    "./ui/research-production-routes.test.tsx",
+    "./ui/guided-research-conversation-live.test.tsx",
+    "../e2e/research-ui-consistency.config.ts",
+    "../e2e/research-ui-consistency.spec.ts",
+    "../next-env.d.ts",
+    "./setup-dom.ts"
+  ],
+  "exclude": [
+    "../node_modules"
+  ]
+}

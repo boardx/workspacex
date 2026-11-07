@@ -1,0 +1,30 @@
+{
+  "name": "green-first",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/survey-results-i18n.test.tsx",
+    "tests/ui/survey-report-editor-i18n.test.tsx",
+    "tests/ui/survey-report-issues-i18n.test.ts",
+    "tests/lib/i18n-resources.test.ts"
+  ],
+  "source": "e5deccd61249fa49b06f308582c250f73da6e7e3",
+  "exitCode": 0,
+  "seconds": 10.695,
+  "rawLogSha256": "144557d197714b1920a41e165e7447d88dd179b1521b04a768c6d257f88d360a",
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "testFiles": 4,
+  "passed": 57,
+  "failed": 0,
+  "skipped": 0,
+  "warnings": 0,
+  "unhandled": 0,
+  "nativeSeconds": 9.34,
+  "classification": "First local new-suite/resource GREEN only. Full type, old adjacent suites and wholeB6 acceptance still pending."
+}

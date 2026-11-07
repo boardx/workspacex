@@ -1,0 +1,127 @@
+{
+  "base": "http://localhost:35890",
+  "head": "fa90116ae14cccd00d12e9a2ca31002f711b9755",
+  "workingTree": "",
+  "boundary": "Real local Next/Chromium; session and HTTP API fixtures, no DB/model/real authentication",
+  "checks": [
+    {
+      "name": "Unified editor, focus ring, visible toolbar, no horizontal overflow",
+      "width": 375,
+      "geometry": {
+        "inputBorder": "0px",
+        "inputRadius": "0px",
+        "parentRing": "rgb(255, 255, 255) 0px 0px 0px 0px, rgba(123, 61, 75, 0.2) 0px 0px 0px 2px, rgba(32, 31, 29, 0.024) 0px 1px 2px 0px",
+        "parentBorder": "rgb(174, 145, 148)",
+        "textareaWidth": 341,
+        "frameWidth": 343
+      },
+      "pass": true
+    },
+    {
+      "name": "Answers initially collapsed; keyboard toggle; selected expert expands only own text; deselect collapses; no overflow",
+      "width": 375,
+      "pass": true
+    },
+    {
+      "name": "Unified editor, focus ring, visible toolbar, no horizontal overflow",
+      "width": 768,
+      "geometry": {
+        "inputBorder": "0px",
+        "inputRadius": "0px",
+        "parentRing": "rgb(255, 255, 255) 0px 0px 0px 0px, rgba(123, 61, 75, 0.2) 0px 0px 0px 2px, rgba(32, 31, 29, 0.024) 0px 1px 2px 0px",
+        "parentBorder": "rgb(211, 206, 201)",
+        "textareaWidth": 734,
+        "frameWidth": 736
+      },
+      "pass": true
+    },
+    {
+      "name": "Answers initially collapsed; keyboard toggle; selected expert expands only own text; deselect collapses; no overflow",
+      "width": 768,
+      "pass": true
+    },
+    {
+      "name": "Unified editor, focus ring, visible toolbar, no horizontal overflow",
+      "width": 1280,
+      "geometry": {
+        "inputBorder": "0px",
+        "inputRadius": "0px",
+        "parentRing": "rgb(255, 255, 255) 0px 0px 0px 0px, rgba(123, 61, 75, 0.2) 0px 0px 0px 2px, rgba(32, 31, 29, 0.024) 0px 1px 2px 0px",
+        "parentBorder": "rgb(211, 205, 200)",
+        "textareaWidth": 1230,
+        "frameWidth": 1232
+      },
+      "pass": true
+    },
+    {
+      "name": "Answers initially collapsed; keyboard toggle; selected expert expands only own text; deselect collapses; no overflow",
+      "width": 1280,
+      "pass": true
+    },
+    {
+      "name": "Delayed outline generation: one status and spinner, no misleading empty state",
+      "width": 375,
+      "pass": true
+    },
+    {
+      "name": "Regeneration keeps previous saved questions visible",
+      "width": 375,
+      "pass": true
+    },
+    {
+      "name": "Delayed outline generation: one status and spinner, no misleading empty state",
+      "width": 768,
+      "pass": true
+    },
+    {
+      "name": "Regeneration keeps previous saved questions visible",
+      "width": 768,
+      "pass": true
+    },
+    {
+      "name": "Delayed outline generation: one status and spinner, no misleading empty state",
+      "width": 1280,
+      "pass": true
+    },
+    {
+      "name": "Regeneration keeps previous saved questions visible",
+      "width": 1280,
+      "pass": true
+    },
+    {
+      "name": "Initial delayed canonical request renders unknown skeleton, never upcoming",
+      "pass": true
+    },
+    {
+      "name": "Canonical failure shows recoverable state error instead of upcoming; retry restores completed",
+      "pass": true
+    },
+    {
+      "name": "Completed cross-stage transition with delayed canonical HTTP never reverts upcoming",
+      "observed": [
+        [],
+        [
+          "completed",
+          "current",
+          "completed",
+          "completed",
+          "completed",
+          "completed"
+        ],
+        [
+          "completed",
+          "running",
+          "completed",
+          "completed",
+          "completed",
+          "completed"
+        ]
+      ],
+      "pass": true
+    },
+    {
+      "name": "New revision retains upstream completed and resets downstream",
+      "pass": true
+    }
+  ]
+}

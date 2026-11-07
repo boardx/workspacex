@@ -49,6 +49,11 @@ const fidelityEmail = required("SSP_E2E_FIDELITY_EMAIL");
 const fidelityPassword = required("SSP_E2E_FIDELITY_PASSWORD");
 const fidelityDisplayName = required("SSP_E2E_FIDELITY_DISPLAY_NAME");
 
+const topbarUserId = required("SSP_E2E_TOPBAR_USER_ID");
+const topbarEmail = required("SSP_E2E_TOPBAR_EMAIL");
+const topbarPassword = required("SSP_E2E_TOPBAR_PASSWORD");
+const topbarDisplayName = required("SSP_E2E_TOPBAR_DISPLAY_NAME");
+
 const seedTeamName = required("SSP_E2E_SEED_TEAM_NAME");
 
 ensureDatabase();
@@ -58,8 +63,8 @@ await asOwner(async (client) => {
   await client.query(
     "DELETE FROM credentials WHERE user_id = ANY($1::text[]) OR email = ANY($2::text[])",
     [
-      [adminUserId, memberUserId, keyboardUserId, orgAdminKeyboardAdminUserId, orgAdminKeyboardMemberUserId, fidelityUserId],
-      [adminEmail, memberEmail, keyboardEmail, orgAdminKeyboardAdminEmail, orgAdminKeyboardMemberEmail, fidelityEmail],
+      [adminUserId, memberUserId, keyboardUserId, orgAdminKeyboardAdminUserId, orgAdminKeyboardMemberUserId, fidelityUserId, topbarUserId],
+      [adminEmail, memberEmail, keyboardEmail, orgAdminKeyboardAdminEmail, orgAdminKeyboardMemberEmail, fidelityEmail, topbarEmail],
     ],
   );
 });
@@ -83,6 +88,8 @@ await addOrgMember(orgId, orgAdminKeyboardMemberUserId, "consultant", null);
 // F15 —— 截图保真度专属账号：admin 角色是 `/org-admin` 两块内容渲染的前提（`isAdmin`）。
 await addOrgMember(orgId, fidelityUserId, "admin", null);
 
+await addOrgMember(orgId, topbarUserId, "consultant", null);
+
 const hasher = new BcryptPasswordHasher();
 const adminPasswordHash = await hasher.hash(adminPassword);
 // 成员账号不通过浏览器登录，密码随便给一个满足策略的占位值即可。
@@ -91,12 +98,13 @@ const keyboardPasswordHash = await hasher.hash(keyboardPassword);
 const orgAdminKeyboardAdminPasswordHash = await hasher.hash(orgAdminKeyboardAdminPassword);
 // 目标成员不通过浏览器登录，密码随便给一个满足策略的占位值即可（同上面 memberPasswordHash 的理由）。
 const orgAdminKeyboardMemberPasswordHash = await hasher.hash("Ssp-e2e-org-admin-keyboard-target-not-logged-in-1930!");
+const topbarPasswordHash = await hasher.hash(topbarPassword);
 const fidelityPasswordHash = await hasher.hash(fidelityPassword);
 await asOwner(async (client) => {
   await client.query(
     `INSERT INTO credentials (user_id, email, display_name, password_hash, email_verified_at)
      VALUES ($1,$2,$3,$4,now()), ($5,$6,$7,$8,now()), ($9,$10,$11,$12,now()),
-            ($13,$14,$15,$16,now()), ($17,$18,$19,$20,now()), ($21,$22,$23,$24,now())`,
+            ($13,$14,$15,$16,now()), ($17,$18,$19,$20,now()), ($21,$22,$23,$24,now()), ($25,$26,$27,$28,now())`,
     [
       adminUserId, adminEmail, adminDisplayName, adminPasswordHash,
       memberUserId, memberEmail, "SSP E2E member", memberPasswordHash,
@@ -104,6 +112,7 @@ await asOwner(async (client) => {
       orgAdminKeyboardAdminUserId, orgAdminKeyboardAdminEmail, orgAdminKeyboardAdminDisplayName, orgAdminKeyboardAdminPasswordHash,
       orgAdminKeyboardMemberUserId, orgAdminKeyboardMemberEmail, orgAdminKeyboardMemberDisplayName, orgAdminKeyboardMemberPasswordHash,
       fidelityUserId, fidelityEmail, fidelityDisplayName, fidelityPasswordHash,
+      topbarUserId, topbarEmail, topbarDisplayName, topbarPasswordHash,
     ],
   );
 });

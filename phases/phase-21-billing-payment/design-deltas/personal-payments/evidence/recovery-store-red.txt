@@ -1,0 +1,33 @@
+[stack-admission] load1=5.61 cores=10 perCore=0.56 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvy6v3i1-7e0ae994-3daa1aecea8a db=wsx_3daa1aecea8aaefa29af compose=wsx-3daa1aecea8aaefa29af pg=20188 redis=21188 api=24188 web=25188 sandbox=26188 model=27188 deep-agent=28188 asr=29188 vision=30188 loopback-sandbox=31188 mail=19188
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_3daa1aecea8aaefa29af capacity=100 current=6 required=32
+ ❯ tests/billing/personal-payment-recovery-pg.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/personal-payment-recovery-pg.test.ts [ tests/billing/personal-payment-recovery-pg.test.ts ]
+Error: Failed to load url ../../src/infrastructure/billing/pg-personal-payment-recovery-store (resolved id: ../../src/infrastructure/billing/pg-personal-payment-recovery-store) in /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api/tests/billing/personal-payment-recovery-pg.test.ts. Does the file exist?
+ ❯ loadAndTransform ../../node_modules/.pnpm/vite@5.4.21_@types+node@22.20.1_terser@5.50.0/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:51969:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  02:54:01
+   Duration  7.25s (transform 509ms, setup 24ms, collect 0ms, tests 0ms, environment 0ms, prepare 127ms)
+
+[db-isolation] db=wsx_3daa1aecea8aaefa29af peak_connections=1
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/personal-payment-recovery-pg.test.ts
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/personal-payment-recovery-pg.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：8s
+  清理：1s
+  总计：9s

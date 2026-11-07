@@ -1,0 +1,1 @@
+PASS: YAML parses; only fullstack-smoke total job budget changes40→50. All other jobs, steps, commands, retries, conditions and continue-on-error are identical.

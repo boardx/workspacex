@@ -1,0 +1,55 @@
+
+Running 7 tests using 1 worker
+
+(node:56389) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 e2e/research-ui-consistency.spec.ts:4:7 › R3 research entry, errors and assistant at 1280 (13.9s)
+  ✓  2 e2e/research-ui-consistency.spec.ts:34:7 › R3 report directory and reference sample at 1280 (11.9s)
+  ✓  3 e2e/research-ui-consistency.spec.ts:4:7 › R3 research entry, errors and assistant at 768 (11.4s)
+  ✓  4 e2e/research-ui-consistency.spec.ts:34:7 › R3 report directory and reference sample at 768 (11.2s)
+  ✓  5 e2e/research-ui-consistency.spec.ts:4:7 › R3 research entry, errors and assistant at 375 (11.0s)
+  ✓  6 e2e/research-ui-consistency.spec.ts:34:7 › R3 report directory and reference sample at 375 (8.0s)
+  ✘  7 e2e/research-ui-consistency.spec.ts:51:5 › R3 fixture navigation uses the real intake, plan and report components without model execution (16.9s)
+Testing stopped early after 1 maximum allowed failures.
+
+
+  1) e2e/research-ui-consistency.spec.ts:51:5 › R3 fixture navigation uses the real intake, plan and report components without model execution 
+
+    Error: expect(page).toHaveURL(expected) failed
+
+    Expected pattern: /stage=research/
+    Received string:  "http://127.0.0.1:3284/research?preview=prototype-fidelity&stage=plan"
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toHaveURL" with timeout 5000ms
+        9 × locator resolved to <html lang="zh-CN" data-edition="cloud">…</html>
+          - unexpected value "http://127.0.0.1:3284/research?preview=prototype-fidelity&stage=plan"
+
+
+      57 |   await expect(page).toHaveURL(/stage=plan/);
+      58 |   await page.getByTestId("research-plan-actions").getByRole("button", { name: "生成报告" }).click();
+    > 59 |   await expect(page).toHaveURL(/stage=research/);
+         |                      ^
+      60 |   await page.getByRole("button", { name: /生成报告/ }).click();
+      61 |   await expect(page.getByTestId("guided-research-report-body")).toBeVisible();
+      62 |   await page.screenshot({ path: info.outputPath("fixture-navigation.png"), fullPage: true });
+        at /Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/web/e2e/research-ui-consistency.spec.ts:59:22
+
+    Error Context: ../../docs/evidence/research-ui-5841/browser-results/research-ui-consistency-R3-9b4d6-nts-without-model-execution/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../docs/evidence/research-ui-5841/browser-results/research-ui-consistency-R3-9b4d6-nts-without-model-execution/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../docs/evidence/research-ui-5841/browser-results/research-ui-consistency-R3-9b4d6-nts-without-model-execution/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    e2e/research-ui-consistency.spec.ts:51:5 › R3 fixture navigation uses the real intake, plan and report components without model execution 
+  6 passed (1.9m)
+  1 error was not a part of any test, see above for details
+undefined
+/Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: playwright test --config e2e/research-ui-consistency.config.ts --max-failures=1

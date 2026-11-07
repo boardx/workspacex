@@ -1,10 +1,7 @@
 name: Native CWD Mechanics Probe
 on:
-  pull_request:
-    paths:
-      - .github/workflows/native-cwd-probe.yml
-      - apps/web/scripts/probe-native-cwd.mjs
   workflow_dispatch:
+  workflow_call: {}
 permissions:
   contents: read
 jobs:
@@ -33,3 +30,7 @@ jobs:
           name: native-cwd-probe-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/native-cwd-probe.json
           if-no-files-found: error
+concurrency:
+  group: native-cwd-probe-full-${{ github.run_id }}
+  cancel-in-progress: false
+  queue: single

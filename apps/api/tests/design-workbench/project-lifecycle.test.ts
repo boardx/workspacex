@@ -313,7 +313,7 @@ describe("对标 R1（#3933）：设计 token 按键合并", () => {
 });
 
 describe("appendProjectChat", () => {
-  it("模型退路：一次调用追加用户消息 + 固定回执两条，AI 记录标 source=fallback，不写回", async () => {
+  it("模型退路：一次调用追加用户消息 + 固定回执两条，AI 记录标 source=fallback，保留首轮原始需求", async () => {
     const repo = new FakeDesignProjectRepo();
     repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1" }));
     const ai = new FakeDesignChat();
@@ -323,25 +323,26 @@ describe("appendProjectChat", () => {
     expect(out.project.chat[0]).toMatchObject({ role: "user", text: "改一下颜色" });
     expect(out.project.chat[0]).not.toHaveProperty("source");
     expect(out.project.chat[1]).toMatchObject({ role: "ai", text: C.DESIGN_WORKBENCH_CHAT_REPLY, source: "fallback" });
-    expect(out.reply).toEqual({ source: "fallback", applied: [], suggestions: [] });
+    expect(out.reply).toEqual({ source: "fallback", applied: ["problem", "criteria"], suggestions: [] });
   });
 
   it("B5.2 模型在：回复来自模型；合法 writeback 直接写回 problem/criteria/frames，applied 如实；返回的是写回后的项目", async () => {
     const repo = new FakeDesignProjectRepo();
-    repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1", name: "导出改版", problem: "旧背景" }));
+    repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1", name: "导出改版", problem: "旧背景", criteria: ["原目标可搜索资料"] }));
     await appendProjectChat({ ...deps(repo), ai: new FakeDesignChat() }, { projectId: "dp-1", ownerId: "u-1", text: "第一句" });
     const ai = new FakeDesignChat();
     ai.answer = { text: "好，验收标准加了导出成功率一条。", source: "model", writeback: { criteria: ["导出成功率 ≥ 99%"], problem: "新背景" } , suggestions: [] };
 
     const out = await appendProjectChat({ ...deps(repo), ai }, { projectId: "dp-1", ownerId: "u-1", text: "把导出成功率写进验收标准" });
     expect(out.reply).toEqual({ source: "model", applied: ["problem", "criteria"], suggestions: [] });
-    expect(out.project.problem).toBe("新背景");
-    expect(out.project.criteria).toEqual(["导出成功率 ≥ 99%"]);
+    expect(out.project.problem).toContain("旧背景");
+    expect(out.project.problem).toContain("新背景");
+    expect(out.project.criteria).toEqual(["原目标可搜索资料", "导出成功率 ≥ 99%"]);
     expect(out.project.frames).toEqual(designProjectRow({ id: "x", ownerId: "u-1" }).frames); // 没写回的不动
     expect(out.project.chat.at(-1)).toMatchObject({ role: "ai", text: "好，验收标准加了导出成功率一条。", source: "model" });
     // 模型看到的是本项目五个字段 + 本项目完整历史（含这次用户消息在末尾）
     const ctx = ai.calls[0];
-    expect(ctx).toMatchObject({ name: "导出改版", problem: "旧背景" });
+    expect(ctx).toMatchObject({ name: "导出改版", problem: "旧背景", criteria: ["原目标可搜索资料"] });
     expect(ctx?.chat.map((c) => c.text)).toEqual(["第一句", C.DESIGN_WORKBENCH_CHAT_REPLY, "把导出成功率写进验收标准"]);
   });
 
@@ -352,7 +353,7 @@ describe("appendProjectChat", () => {
     const ai = new FakeDesignChat();
     ai.answer = { text: "画好了。", source: "model", writeback: { frames: ["被忽略"], prototype: [{ frame: "聊天", root: tree }, { frame: "设置", root: { type: "divider" } }] } , suggestions: [] };
     const out = await appendProjectChat({ ...deps(repo), ai }, { projectId: "dp-1", ownerId: "u-1", text: "画个聊天 UI" });
-    expect(out.reply).toEqual({ source: "model", applied: ["frames", "prototype"], suggestions: [] });
+    expect(out.reply).toEqual({ source: "model", applied: ["problem", "criteria", "frames", "prototype"], suggestions: [] });
     expect(out.project.frames).toEqual(["聊天", "设置"]);
     expect(out.project.prototype).toEqual(designPrototype.ensurePrototypeIds([tree, { type: "divider" }])); // 迭代 1：落库补 id
     expect(ai.calls[0]?.prototype).toEqual([]);
@@ -400,7 +401,7 @@ describe("appendProjectChat", () => {
     const early = new FakeDesignChat();
     early.answer = { text: "改了。", source: "model", writeback: { patch: [{ op: "remove", id: "n1" }], criteria: ["c"] } , suggestions: [] };
     const out0 = await appendProjectChat({ ...deps(repo), ai: early }, { projectId: "dp-1", ownerId: "u-1", text: "删掉" });
-    expect(out0.reply.applied).toEqual(["criteria"]);
+    expect(out0.reply.applied).toEqual(["problem", "criteria"]);
     // 整页写回：模型没写 id ⇒ 落库时补齐
     const whole = new FakeDesignChat();
     whole.answer = { text: "画好了。", source: "model", writeback: { prototype: [{ frame: "聊天", root: { type: "stack", children: [{ type: "text", props: { content: "hi" } }, { type: "button", props: { label: "发送" } }] } }] } , suggestions: [] };
@@ -971,4 +972,41 @@ describe("V57 导入是一次性的，且留痕", () => {
     await expect(importThread(empty.d, { projectId: "dp-1", ownerId: "u-owner", threadId: "th-1" }))
       .rejects.toBeInstanceOf(DesignThreadSummaryUnavailableError);
   });
+});
+
+
+describe("original design brief retention", () => {
+  it("persists the first brief from the real create-then-chat path even if the model omits problem", async () => {
+    const repo = new FakeDesignProjectRepo();
+    const created = await createProject({ ...deps(repo), newProjectId: () => "brief-new" }, { ownerId: "u-1", name: "资料库", template: "ui" });
+    const ai = new FakeDesignChat();
+    ai.answer = { text: "画好了", source: "model", writeback: {criteria: ["布局清晰"]}, suggestions: [] };
+    const brief = "资料列表必须支持名称搜索、类型筛选、打开详情和无匹配空态";
+    const result = await appendProjectChat({ ...deps(repo), ai }, {projectId: created.project.id, ownerId:"u-1", text:brief});
+    expect(result.project.problem).toContain(brief);
+    expect(result.project.criteria).toContain(brief);
+    expect(ai.calls[0]?.problem).toContain(brief);
+  });
+  it.each([undefined, "", "新增空态", "原始要求\n\n新增空态"])("keeps original and avoids repeated summaries (%s)", async (summary) => {
+    const repo = new FakeDesignProjectRepo();
+    repo.seed(designProjectRow({id:"brief-existing",ownerId:"u-1",problem:"原始要求\n\n新增空态",criteria:["按类型精确筛选"],chat:[{role:"user",text:"原始要求",at:"2026-11-07T00:00:00Z"}]}));
+    const ai = new FakeDesignChat();
+    ai.answer = {text:"继续",source:"model",writeback: summary === undefined ? {} : {problem:summary,criteria:[]},suggestions:[]};
+    const result = await appendProjectChat({...deps(repo),ai},{projectId:"brief-existing",ownerId:"u-1",text:"把按钮改为绿色"});
+    expect(result.project.problem).toBe("原始要求\n\n新增空态");
+    expect(result.project.problem).not.toContain("把按钮改为绿色");
+    expect(result.project.criteria).toEqual(["按类型精确筛选"]);
+  });
+});
+
+
+it("retains the original brief when an added summary would exceed the project contract", async () => {
+  const repo = new FakeDesignProjectRepo();
+  const problem = "原".repeat(C.DESIGN_TEXT_MAX_CHARS);
+  repo.seed(designProjectRow({id:"bounded",ownerId:"u-1",problem,criteria:["原目标"]}));
+  const ai = new FakeDesignChat();
+  ai.answer = {text:"继续",source:"model",writeback:{problem:"追加说明"},suggestions:[]};
+  const result = await appendProjectChat({...deps(repo),ai},{projectId:"bounded",ownerId:"u-1",text:"新增说明"});
+  expect(result.project.problem).toBe(problem);
+  expect(result.project.chat.some((turn) => turn.text === "新增说明")).toBe(true);
 });

@@ -132,6 +132,21 @@ def allowlist(raw):
   require(target is None or (isinstance(target,str) and target.startswith('/usr/local/') and '..' not in pathlib.PurePosixPath(target).parts),'TARGET_PATH')
  require(len([v for v in value.values() if v])==len(set(v for v in value.values() if v)),'TARGET_DUPLICATE')
  return value
+def installation_modes(raw):
+ # Old exact tools have no overrides and retain their original0700/0600 contract.
+ tree=ast.parse(raw)
+ def assignment(name):
+  nodes=[n for n in tree.body if isinstance(n,ast.Assign) and any(isinstance(x,ast.Name) and x.id==name for x in n.targets)]
+  require(len(nodes)<=1,'INSTALL_MODE_SINGLE_SOURCE');return None if not nodes else ast.literal_eval(nodes[0].value)
+ files=assignment('FILES');require(isinstance(files,dict) and files,'INSTALL_MODE_FILES')
+ overrides=assignment('INSTALL_MODES')
+ if overrides is None:
+  require(not any(isinstance(n,ast.Assign) and any(isinstance(x,ast.Name) and x.id=='INSTALL_MODES' for x in n.targets) for n in tree.body),'INSTALL_MODE_OVERRIDES');overrides={}
+ require(isinstance(overrides,dict),'INSTALL_MODE_OVERRIDES')
+ for source,mode in overrides.items():
+  require(source in files and files[source] is not None and type(mode) is int and mode in (0o700,0o755),'INSTALL_MODE_AUTHORITY')
+ return {source:format(overrides.get(source,0o700) if target is not None else 0o600,'04o') for source,target in files.items()}
+
 # Keep this pure verifier byte-identical in producer and installer (parity-tested).
 def inventory_json(raw):
  def pairs(items):
@@ -351,7 +366,7 @@ def produce(repo,tool,app,main,inventory,output,provider_receipt=None,expected_p
  git(repo,'merge-base','--is-ancestor',tool,main)
  require(git(repo,'rev-parse',app+'^{commit}').decode().strip()==app,'APP_OBJECT')
  identity_raw=git(repo,'show',tool+':.harness/scripts/vm/cn-build-tool-identity.py')
- files=allowlist(identity_raw)
+ files=allowlist(identity_raw);modes=installation_modes(identity_raw)
  tool_root=tool_root_contract(identity_raw,tool)
  closure=tree_closure(repo,tool,metadata_hash,files)
  previous_raw=safe_file(inventory);previous=json.loads(previous_raw)
@@ -359,7 +374,7 @@ def produce(repo,tool,app,main,inventory,output,provider_receipt=None,expected_p
  old=previous.get('files',{});require(set(old)==set(files),'OLD_INVENTORY_CLOSURE')
  payload={};rows={}
  for source,target in files.items():
-  mode='0700' if target else '0600';row=old[source]
+  mode=modes[source];row=old[source]
   require(row.get('target')==target and isinstance(row.get('present'),bool),'OLD_INVENTORY_IDENTITY')
   if row['present']:require(row.get('mode') in ('0400','0500','0600','0644','0700','0755') and re.fullmatch('[a-f0-9]{64}',row.get('sha256','')) and isinstance(row.get('uid'),int) and isinstance(row.get('gid'),int) and row.get('links')==1 and row.get('regular') is True and row.get('symlink') is False,'OLD_INVENTORY_IDENTITY')
   else:require(all(row.get(k) is None for k in ('sha256','mode','uid','gid','links')),'ABSENT_INVENTORY_VALUES')

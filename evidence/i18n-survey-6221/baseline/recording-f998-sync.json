@@ -1,0 +1,9 @@
+{
+  "source": "a864d04fc9a5553317d28fe94031f07b76ac2296",
+  "surveyProtectedParent": "744271cb7c21282e4b6c882cccac7f3a583ce798",
+  "recordingParent": "f998aadc66a08090302533ed629afdf9a039a47f",
+  "acceptedDevelop": "ec1695d8fd646e004ca40dafbfa8e03bf01f20ef",
+  "entireWebContractsLockAndRootPackageByteModeEquivalentToProtectedSurveyParent": true,
+  "resolvedRegistries": "only retain existing survey imports/spread against incoming empty side; final files equal744",
+  "testBoundary": "Task1 actual65PASS remains source39f32e379; no repeated run or new API/browser claim"
+}

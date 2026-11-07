@@ -1,0 +1,775 @@
+[heavy-e2e-lock] 排到了，等了 0s
+[stack-admission] load1=4.43 cores=10 perCore=0.44 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvsk3bal-40d071b7-1a8a45cbd31a db=wsx_1a8a45cbd31ac8be3704 compose=wsx-1a8a45cbd31ac8be3704 pg=20451 redis=21451 api=24451 web=25451 sandbox=26451 model=27451 deep-agent=28451 asr=29451 vision=30451 loopback-sandbox=31451 mail=19451
+[WebServer] (node:56757) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:56758) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:56764) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:56765) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:56766) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:56772) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:56773) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:56774) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:56780) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:56781) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:56782) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:56788) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:56790) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:56791) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:56797) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  Image localhost/workspacex-postgres-age:pg16-age1.6.0 Building
+[WebServer]  Image localhost/workspacex-postgres-age:pg16-age1.6.0 Built
+[WebServer]  Network wsx-1a8a45cbd31ac8be3704_default Creating
+[WebServer]  Network wsx-1a8a45cbd31ac8be3704_default Created
+[WebServer]  Container wsx-1a8a45cbd31ac8be3704-postgres-1 Creating
+[WebServer]  Container wsx-1a8a45cbd31ac8be3704-redis-1 Creating
+[WebServer]  Container wsx-1a8a45cbd31ac8be3704-postgres-1 Created
+[WebServer]  Container wsx-1a8a45cbd31ac8be3704-redis-1 Created
+[WebServer]  Container wsx-1a8a45cbd31ac8be3704-postgres-1 Starting
+[WebServer]  Container wsx-1a8a45cbd31ac8be3704-redis-1 Starting
+[WebServer]  Container wsx-1a8a45cbd31ac8be3704-redis-1 Started
+[WebServer]  Container wsx-1a8a45cbd31ac8be3704-postgres-1 Started
+[WebServer]  Container wsx-1a8a45cbd31ac8be3704-postgres-1 Waiting
+[WebServer]  Container wsx-1a8a45cbd31ac8be3704-redis-1 Waiting
+[WebServer]  Container wsx-1a8a45cbd31ac8be3704-redis-1 Healthy
+[WebServer]  Container wsx-1a8a45cbd31ac8be3704-postgres-1 Healthy
+[WebServer] (node:56816) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:56832) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:56838) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:56855) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:56883) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:56893) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:56972) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:56978) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[chat-route-warmup] compiling /api/copilotkit/info
+[WebServer] (node:56994) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[chat-route-warmup] compiling /chat
+[WebServer] Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+[chat-route-warmup] compiling /chat/warmup-route-compile-only
+[WebServer] (node:57099) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] Multiple versions of Lit loaded. Loading multiple versions is not recommended. See https://lit.dev/msg/multiple-versions for more information.
+[chat-route-warmup] compiling /login
+[chat-route-warmup] compiling /home
+[chat-route-warmup] compiling /projects
+[WebServer] (node:56978) [DEP0060] DeprecationWarning: The `util._extend` API is deprecated. Please use Object.assign() instead.
+
+Running 17 tests using 1 worker
+
+(node:57134) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:57160) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:57177) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:57181) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:57204) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:57205) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:57245) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+  ✘   1 [chat-path-coverage] › e2e/chat-path-f5-cancel-propagates-to-subtask.spec.ts:90:5 › @path:F5 父 run 取消之后，它派出去的子任务停下来，且不再发布晚到的产物 (2.2m)
+(node:57590) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:57617) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:57631) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:57635) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:57640) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:57675) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:57679) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:57680) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:57693) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:57695) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:57698) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:57713) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:57740) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:57756) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:57931) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:57947) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:57980) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:57981) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58211) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58299) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58345) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58347) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58370) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58596) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58605) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58615) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58620) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58630) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58681) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58682) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58683) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58684) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58685) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58687) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58691) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58692) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58693) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58694) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58730) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58731) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58732) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58740) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58741) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58745) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58782) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58783) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58784) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58785) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58786) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58793) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58797) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58798) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58799) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58800) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58835) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58839) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58840) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58847) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58851) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58858) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58859) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58860) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58864) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58897) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58901) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58902) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58903) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58911) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58912) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58950) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58953) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58957) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58958) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58959) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58968) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58973) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58974) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58975) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58976) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:59053) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:59195) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:59209) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:59294) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:59448) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60304) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60306) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60353) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60354) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60357) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60361) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60364) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60405) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60408) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60409) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60413) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60414) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60421) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60422) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60423) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60424) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60425) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60491) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60492) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60493) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60494) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60496) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60541) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60542) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60543) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60544) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60545) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60553) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60594) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60595) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60596) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60597) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60598) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60600) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60601) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60602) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60603) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60609) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60610) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60611) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60612) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60613) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60648) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60658) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+# deep-agent 计划→执行 成功率
+
+**总成功率 12 / 24（50%）**
+
+每个场景重复 3 次（`PLAN_EXEC_REPEATS` 可调）。
+⚠ 跑在确定性替身上：量的是**我们这条链稳不稳**（竞态、状态污染、跨轮次互踩），
+不是真实模型/网络的抖动。人类说的「低于 60%」发生在真实联网环境，那一层归真实模型车道。
+
+| 场景 | 成功 / 次数 | 成功率 | 中位耗时 | 失败详情 |
+|---|---|---|---|---|
+| 计划多步 | 0 / 3 | 0% | 23s | #1 expect(received).toBe(expected) // Object.is equality；#2 expect(received).toBe(expected) // Object.is equality；#3 expect(received).toBe(expected) // Object.is equality |
+| 计划全部跑完 | 0 / 3 | 0% | 8s | #1 expect(received).toBe(expected) // Object.is equality；#2 expect(received).toBe(expected) // Object.is equality；#3 expect(received).toBe(expected) // Object.is equality |
+| Office · docx | 3 / 3 | 100% | 23s | — |
+| Office · xlsx | 3 / 3 | 100% | 21s | — |
+| Office · pptx | 3 / 3 | 100% | 24s | — |
+| 画布 · 多张 | 0 / 3 | 0% | 9s | #1 expect(received).toBe(expected) // Object.is equality；#2 expect(received).toBe(expected) // Object.is equality；#3 expect(received).toBe(expected) // Object.is equality |
+| 深度研究形态 · 长链多步 | 0 / 3 | 0% | 13s | #1 expect(received).toBe(expected) // Object.is equality；#2 expect(received).toBe(expected) // Object.is equality；#3 expect(received).toBe(expected) // Object.is equality |
+| 混合 · 画布→Office 同线程 | 3 / 3 | 100% | 31s | — |
+
+  ✘   2 [chat-path-coverage] › e2e/deepagent-plan-execute-reliability.spec.ts:277:5 › deep-agent 计划→执行：成功率矩阵 (8.2m)
+(node:60737) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60760) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60763) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60766) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60772) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60773) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   3 [chat-task-workbench] › e2e/chat-task-workbench-a11y.spec.ts:121:5 › TW-A11Y-5：审批弹窗焦点锁定 + Esc 关闭 + 焦点返回原处 (12.8s)
+[WebServer] (node:60777) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60788) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60789) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60791) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   4 [chat-task-workbench] › e2e/chat-task-workbench-inspector.spec.ts:32:5 › TW-P0-4①：右栏提供材料 / 产物 / 运行详情，计划只在消息流显示 (10.6s)
+[WebServer] (node:60796) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60840) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60841) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60842) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60844) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60848) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+  ✘   5 [chat-task-workbench] › e2e/chat-task-workbench-inspector.spec.ts:60:5 › TW-P0-4②：材料与产物自动切换，运行开始保留用户所选页签 (14.5s)
+(node:60851) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60867) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60872) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60876) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60877) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   6 [chat-task-workbench] › e2e/chat-task-workbench-inspector.spec.ts:112:5 › TW-P0-4③：无内容时折叠，不常驻占六分之一屏 (12.5s)
+[WebServer] (node:60880) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60926) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60927) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60930) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60931) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60932) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   7 [chat-task-workbench] › e2e/chat-task-workbench-p1-efficiency.spec.ts:61:5 › TW-P1-1：对话自动命名——线程列表不得一屏全是「新对话」 (14.3s)
+[WebServer] (node:60935) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60940) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60943) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60972) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   8 [chat-task-workbench] › e2e/chat-task-workbench-p1-efficiency.spec.ts:131:5 › TW-P1-2：材料预加载——选线程之前就能加材料 (11.4s)
+[WebServer] (node:60976) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60977) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60978) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61009) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61022) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61023) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61024) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   9 [chat-task-workbench] › e2e/chat-task-workbench-p1-efficiency.spec.ts:169:5 › TW-P1-3：结构化工具事件与子 Agent 摘要在刷新后仍在（持久化侧） (27.3s)
+[WebServer] (node:61027) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61030) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61031) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61032) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  10 [chat-task-workbench] › e2e/chat-task-workbench-p1-efficiency.spec.ts:215:5 › TW-P1-4：产物四件齐（预览 / 来源 / 版本 / 导出） (40.5s)
+(node:61113) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  -  11 [chat-task-workbench] › e2e/chat-task-workbench-p1-efficiency.spec.ts:301:5 › TW-P1-5a：暂停 / 恢复——run 真的在跑的时候控件真实可点
+[WebServer] (node:61131) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61170) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61173) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61174) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61177) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61178) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  12 [chat-task-workbench] › e2e/chat-task-workbench-p1-efficiency.spec.ts:342:5 › TW-P1-5b：重试单步——失败态必须有可操作的恢复入口 (12.9s)
+[WebServer] (node:61181) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61184) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61185) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61186) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61187) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61195) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  13 [chat-task-workbench] › e2e/chat-task-workbench-workflow-states.spec.ts:77:5 › TW-P0-3①：阶段指示器按态出现——需要决策时在、无 run 时不在、收起后仍可触达 (21.5s)
+[WebServer] (node:61247) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61248) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61250) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61251) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61252) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  14 [chat-task-workbench] › e2e/chat-task-workbench-workflow-states.spec.ts:152:5 › TW-P0-3②③：计划面板文案面向用户，且可调顺序 / 删步骤 / 加约束 (11.8s)
+[WebServer] (node:61255) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61267) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61268) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61269) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61270) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61283) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  15 [chat-task-workbench] › e2e/chat-task-workbench-workflow-states.spec.ts:237:5 › TW-P0-3④：复杂任务先确认计划，简单问题不加门槛（条件性确认门） (4.0m)
+(node:61783) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61808) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61813) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61979) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:62012) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:62013) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  16 [chat-task-workbench] › e2e/chat-task-workbench-workflow-states.spec.ts:353:5 › TW-P0-3⑤：执行态显示当前步骤 / 完成比例 / 耗时，且可暂停 (12.2s)
+[WebServer] (node:62016) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:62127) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:62128) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:62135) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:62223) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:62256) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  17 [chat-task-workbench] › e2e/chat-task-workbench-workflow-states.spec.ts:410:5 › TW-P0-3⑥：失败态说明失败步骤，并给出契约支持的重试该步 / 修改输入 (10.7s)
+
+
+  1) [chat-path-coverage] › e2e/chat-path-f5-cancel-propagates-to-subtask.spec.ts:90:5 › @path:F5 父 run 取消之后，它派出去的子任务停下来，且不再发布晚到的产物
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: "cancelled"
+    Received: "failed"
+
+    Call Log:
+    - Timeout 120000ms exceeded while waiting on the predicate
+
+      159 |     .poll(async () => (await listSubtasks(page, parentRunId)).find((one) => one.id === subtaskId)?.status,
+      160 |       { timeout: 120_000, intervals: [500, 1_000, 2_000] })
+    > 161 |     .toBe("cancelled");
+          |      ^
+      162 |
+      163 |   // ── 判据 3：等过"它本该自然完成"的那个点，确认没有晚到的产物 ────────────────
+      164 |   /*
+        at /Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/chat-path-f5-cancel-propagates-to-subtask.spec.ts:161:6
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../../evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-path-f5-cancel-propag-4ff98-取消之后，它派出去的子任务停下来，且不再发布晚到的产物-chat-path-coverage/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../../evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-path-f5-cancel-propag-4ff98-取消之后，它派出去的子任务停下来，且不再发布晚到的产物-chat-path-coverage/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-path-f5-cancel-propag-4ff98-取消之后，它派出去的子任务停下来，且不再发布晚到的产物-chat-path-coverage/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-path-f5-cancel-propag-4ff98-取消之后，它派出去的子任务停下来，且不再发布晚到的产物-chat-path-coverage/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [chat-path-coverage] › e2e/deepagent-plan-execute-reliability.spec.ts:277:5 › deep-agent 计划→执行：成功率矩阵
+
+    Error: 12 次失败：
+    计划多步 #1: expect(received).toBe(expected) // Object.is equality
+    计划全部跑完 #1: expect(received).toBe(expected) // Object.is equality
+    画布 · 多张 #1: expect(received).toBe(expected) // Object.is equality
+    深度研究形态 · 长链多步 #1: expect(received).toBe(expected) // Object.is equality
+    计划多步 #2: expect(received).toBe(expected) // Object.is equality
+    计划全部跑完 #2: expect(received).toBe(expected) // Object.is equality
+    画布 · 多张 #2: expect(received).toBe(expected) // Object.is equality
+    深度研究形态 · 长链多步 #2: expect(received).toBe(expected) // Object.is equality
+    计划多步 #3: expect(received).toBe(expected) // Object.is equality
+    计划全部跑完 #3: expect(received).toBe(expected) // Object.is equality
+    画布 · 多张 #3: expect(received).toBe(expected) // Object.is equality
+    深度研究形态 · 长链多步 #3: expect(received).toBe(expected) // Object.is equality
+
+    expect(received).toHaveLength(expected)
+
+    Expected length: 0
+    Received length: 12
+    Received array:  [{"attempt": 1, "detail": "expect(received).toBe(expected) // Object.is equality", "ms": 23360, "ok": false, "scenario": "计划多步"}, {"attempt": 1, "detail": "expect(received).toBe(expected) // Object.is equality", "ms": 7929, "ok": false, "scenario": "计划全部跑完"}, {"attempt": 1, "detail": "expect(received).toBe(expected) // Object.is equality", "ms": 8654, "ok": false, "scenario": "画布 · 多张"}, {"attempt": 1, "detail": "expect(received).toBe(expected) // Object.is equality", "ms": 12896, "ok": false, "scenario": "深度研究形态 · 长链多步"}, {"attempt": 2, "detail": "expect(received).toBe(expected) // Object.is equality", "ms": 17339, "ok": false, "scenario": "计划多步"}, {"attempt": 2, "detail": "expect(received).toBe(expected) // Object.is equality", "ms": 7338, "ok": false, "scenario": "计划全部跑完"}, {"attempt": 2, "detail": "expect(received).toBe(expected) // Object.is equality", "ms": 9205, "ok": false, "scenario": "画布 · 多张"}, {"attempt": 2, "detail": "expect(received).toBe(expected) // Object.is equality", "ms": 14214, "ok": false, "scenario": "深度研究形态 · 长链多步"}, {"attempt": 3, "detail": "expect(received).toBe(expected) // Object.is equality", "ms": 23411, "ok": false, "scenario": "计划多步"}, {"attempt": 3, "detail": "expect(received).toBe(expected) // Object.is equality", "ms": 11134, "ok": false, "scenario": "计划全部跑完"}, …]
+
+      322 |   // 人类要求：成功率必须 100%。任何一次失败都红，并把整张表留在报告里。
+      323 |   const failed = attempts.filter((a) => a.ok === false);
+    > 324 |   expect(failed, `${String(failed.length)} 次失败：\n${failed.map((f) => `${f.scenario} #${String(f.attempt)}: ${f.detail}`).join("\n")}`).toHaveLength(0);
+          |                                                                                                                                        ^
+      325 | });
+      326 |
+        at /Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/deepagent-plan-execute-reliability.spec.ts:324:136
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../../evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/deepagent-plan-execute-reliability-deep-agent-计划→执行：成功率矩阵-chat-path-coverage/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../../evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/deepagent-plan-execute-reliability-deep-agent-计划→执行：成功率矩阵-chat-path-coverage/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/deepagent-plan-execute-reliability-deep-agent-计划→执行：成功率矩阵-chat-path-coverage/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/deepagent-plan-execute-reliability-deep-agent-计划→执行：成功率矩阵-chat-path-coverage/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) [chat-task-workbench] › e2e/chat-task-workbench-inspector.spec.ts:60:5 › TW-P0-4②：材料与产物自动切换，运行开始保留用户所选页签
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+       at support/workbench-run-evidence.ts:15
+
+      13 |   const token=await page.evaluate(()=>localStorage.getItem("wsx.sessionToken"));
+      14 |   const run=await page.request.get(`/__fullstack_api/agent-runs/${runId}`,{headers:{Authorization:`Bearer ${token}`}});
+    > 15 |   expect(run.ok()).toBe(true);
+         |                    ^
+      16 |   const result=await run.json();
+      17 |   expect(result.status).toBe("succeeded");
+      18 |   expect(result.resultMessageId).toEqual(expect.any(String));
+        at submitWorkbenchRun (/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/support/workbench-run-evidence.ts:15:20)
+        at /Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/chat-task-workbench-inspector.spec.ts:87:3
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../../evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-inspec-73137-0-4②：材料与产物自动切换，运行开始保留用户所选页签-chat-task-workbench/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../../evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-inspec-73137-0-4②：材料与产物自动切换，运行开始保留用户所选页签-chat-task-workbench/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-inspec-73137-0-4②：材料与产物自动切换，运行开始保留用户所选页签-chat-task-workbench/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-inspec-73137-0-4②：材料与产物自动切换，运行开始保留用户所选页签-chat-task-workbench/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4) [chat-task-workbench] › e2e/chat-task-workbench-p1-efficiency.spec.ts:215:5 › TW-P1-4：产物四件齐（预览 / 来源 / 版本 / 导出）
+
+    Error: expect(locator).toContainText(expected) failed
+
+    Locator: getByTestId('chat-task-workbench-artifact-sources')
+    Expected substring: "已挂出处"
+    Received string:    "未挂出处跳到原消息"
+    Timeout: 30000ms
+
+    Call log:
+      - Expect "toContainText" with timeout 30000ms
+      - waiting for getByTestId('chat-task-workbench-artifact-sources')
+        63 × locator resolved to <p data-testid="chat-task-workbench-artifact-sources" class="flex items-center gap-2 border-b border-border-subtle px-3 py-1 text-10 text-muted-foreground">…</p>
+           - unexpected value "未挂出处跳到原消息"
+
+
+      290 |     30_000,
+      291 |   );
+    > 292 |   await expect(page.getByTestId("chat-task-workbench-artifact-sources")).toContainText("已挂出处");
+          |                                                                          ^
+      293 |   await expect(page.getByTestId("chat-inspector-artifact-source-jump")).toBeVisible();
+      294 | });
+      295 |
+        at /Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/chat-task-workbench-p1-efficiency.spec.ts:292:74
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../../evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-p1-efficiency-TW-P1-4：产物四件齐（预览-来源-版本-导出）-chat-task-workbench/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../../evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-p1-efficiency-TW-P1-4：产物四件齐（预览-来源-版本-导出）-chat-task-workbench/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-p1-efficiency-TW-P1-4：产物四件齐（预览-来源-版本-导出）-chat-task-workbench/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-p1-efficiency-TW-P1-4：产物四件齐（预览-来源-版本-导出）-chat-task-workbench/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  5) [chat-task-workbench] › e2e/chat-task-workbench-workflow-states.spec.ts:237:5 › TW-P0-3④：复杂任务先确认计划，简单问题不加门槛（条件性确认门）
+
+    Test timeout of 240000ms exceeded.
+
+    Error: locator.click: Test timeout of 240000ms exceeded.
+    Call log:
+      - waiting for getByTestId('chat-task-workbench-plan-confirm-run')
+        - locator resolved to <button data-testid="chat-task-workbench-plan-confirm-run" class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-ho…>确认执行</button>
+      - attempting click action
+        2 × waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div data-state="open" aria-hidden="true" data-aria-hidden="true" class="fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"></div> intercepts pointer events
+        - retrying click action
+        - waiting 20ms
+        2 × waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div data-state="open" aria-hidden="true" data-aria-hidden="true" class="fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"></div> intercepts pointer events
+        - retrying click action
+          - waiting 100ms
+        419 × waiting for element to be visible, enabled and stable
+            - element is visible, enabled and stable
+            - scrolling into view if needed
+            - done scrolling
+            - <div data-state="open" aria-hidden="true" data-aria-hidden="true" class="fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"></div> intercepts pointer events
+          - retrying click action
+            - waiting 500ms
+        - waiting for element to be visible, enabled and stable
+        - element is visible, enabled and stable
+        - scrolling into view if needed
+        - done scrolling
+
+
+      301 |   // 确认走的是 `decideToolPermission → Command(resume=…)`（恢复停住的那条 run，
+      302 |   // 人类裁决 O-2），不是 `confirmPlan` 新起一条。
+    > 303 |   // The automatic permission dialog overlays the inline plan control. Dismiss it
+          |                                                                  ^
+      304 |   // as a user would, then confirm through the inline action being tested.
+      305 |   const permissionDialog = page.getByTestId("chat-tool-permission-dialog");
+      306 |   await expect(permissionDialog).toBeVisible();
+        at /Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/chat-task-workbench-workflow-states.spec.ts:303:66
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../../evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-workfl-401fd-：复杂任务先确认计划，简单问题不加门槛（条件性确认门）-chat-task-workbench/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../../evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-workfl-401fd-：复杂任务先确认计划，简单问题不加门槛（条件性确认门）-chat-task-workbench/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-workfl-401fd-：复杂任务先确认计划，简单问题不加门槛（条件性确认门）-chat-task-workbench/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-workfl-401fd-：复杂任务先确认计划，简单问题不加门槛（条件性确认门）-chat-task-workbench/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  Slow test file: [chat-path-coverage] › e2e/deepagent-plan-execute-reliability.spec.ts (8.2m)
+  Consider running tests from slow files in parallel. See: https://playwright.dev/docs/test-parallel
+  5 failed
+    [chat-path-coverage] › e2e/chat-path-f5-cancel-propagates-to-subtask.spec.ts:90:5 › @path:F5 父 run 取消之后，它派出去的子任务停下来，且不再发布晚到的产物
+    [chat-path-coverage] › e2e/deepagent-plan-execute-reliability.spec.ts:277:5 › deep-agent 计划→执行：成功率矩阵
+    [chat-task-workbench] › e2e/chat-task-workbench-inspector.spec.ts:60:5 › TW-P0-4②：材料与产物自动切换，运行开始保留用户所选页签
+    [chat-task-workbench] › e2e/chat-task-workbench-p1-efficiency.spec.ts:215:5 › TW-P1-4：产物四件齐（预览 / 来源 / 版本 / 导出）
+    [chat-task-workbench] › e2e/chat-task-workbench-workflow-states.spec.ts:237:5 › TW-P0-3④：复杂任务先确认计划，简单问题不加门槛（条件性确认门）
+  1 skipped
+  11 passed (19.6m)
+undefined
+/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: playwright test --config /tmp/wsx-repair-5978-pass2.config.ts --project=chat-read --project=chat-task-workbench --project=chat-path-coverage chat-task-workbench-p1-efficiency.spec.ts chat-task-workbench-workflow-states.spec.ts chat-task-workbench-inspector.spec.ts chat-task-workbench-a11y.spec.ts chat-path-f5-cancel-propagates-to-subtask.spec.ts deepagent-plan-execute-reliability.spec.ts --grep TW-P1-|TW-P0-3|TW-P0-4|F5|成功率矩阵|TW-A11Y-5
+[timing] pnpm --filter web exec playwright test --config /tmp/wsx-repair-5978-pass2.config.ts --project=chat-read --project=chat-task-workbench --project=chat-path-coverage chat-task-workbench-p1-efficiency.spec.ts chat-task-workbench-workflow-states.spec.ts chat-task-workbench-inspector.spec.ts chat-task-workbench-a11y.spec.ts chat-path-f5-cancel-propagates-to-subtask.spec.ts deepagent-plan-execute-reliability.spec.ts --grep TW-P1-|TW-P0-3|TW-P0-4|F5|成功率矩阵|TW-A11Y-5
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：19m39s
+  清理：1s
+  总计：19m40s

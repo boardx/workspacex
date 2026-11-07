@@ -1,5 +1,10 @@
 # CN fast-safe release lane
 
+The main-cn push trigger and no-reviewer policy now follow
+[ADR-124](../../docs/adr/ADR-124-use-main-cn-as-an-automatic-china-production-desired-release-ref.md).
+main-cn is a desired revision; read native deployment and runtime/browser evidence
+to establish availability. Preparation and activation checks below still apply.
+
 `prepare` and `activate` are separate operations. Preparation may take as long as
 building and pulling the four images requires; it must not change public traffic.
 Activation consumes only a complete, unexpired preparation receipt and has one
@@ -59,6 +64,9 @@ the build cache, but the final manifest still contains four images labelled with
 new exact source revision. Plan B never waives `product` or `unknown` failures.
 
 ### 签名治理收据的实时复核
+
+> **2026-10-24 superseding note：人类已明确要求移除发布治理校验；下述历史治理审计、签名治理回执、完整 bypass 可见性及为这些校验配置 App key/权限的要求，已不再作为共享 CN 自动或手动发布的前置。实际 GitHub 规则强制、native Deployment issuer/当前 attempt、exact source/CI/Devapp、不可变标签和 CAS 机制仍保留。仅替代上述治理 scope，不改变 MVP 设计签核、数据维护授权或新增 root 权限规则。** 具体生效边界见[发布治理移除记录](../../docs/evidence/cn-auto-release-5910/release-governance-removal.md)。
+
 
 签名证明收据来源，不证明 GitHub 当前仍保持原策略。冻结标签、readiness 与 admission 均重新读取两个 environment、完整 deployment policies 和所有 active tag rules（含父组织规则）。公开字段、对象 ID、environment/ruleset `updated_at` 和规则集合必须与受保护的签名收据一致；缺少版本字段或发生漂移即 NOT_READY。只有 GitHub 明确按权限隐藏的 `bypass_actors` 可在上述一致性成立后取签名值，不能把缺失当空数组。
 

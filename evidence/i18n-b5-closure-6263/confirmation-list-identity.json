@@ -1,0 +1,12 @@
+{
+  "source": "cbcf73c5ef02e5e3026d1a1294f048b58324320b",
+  "count": 1,
+  "cases": [
+    {
+      "title": "research query confirmation locale preserves the single real creation request",
+      "project": "seeded",
+      "results": []
+    }
+  ],
+  "discoveryOnly": true
+}

@@ -1,0 +1,8 @@
+{
+  "revision": "HEAD",
+  "worktree": true,
+  "mainOnly": 80,
+  "developOnly": 143,
+  "reviewedOverlap": 1,
+  "errors": []
+}

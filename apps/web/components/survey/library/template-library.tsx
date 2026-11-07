@@ -1,4 +1,7 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
+import type { MessageKey } from "@/lib/i18n/messages";
+import { displaySurveyTemplateMessage } from "@/lib/survey/display-template-message";
 import { WorkflowActionButton } from "@/components/research-studio/research-workflow-actions";
 
 
@@ -25,20 +28,21 @@ import { SurveyLibraryNav } from "./survey-library-nav";
 type Kind = SurveyLibraryTemplate["kind"];
 export function SurveyTemplateLibrary({ kind }: { kind: Kind }) {
   const router = useRouter();
+  const { t, locale } = useI18n();
   const [items, setItems] = React.useState<SurveyLibraryTemplate[]>([]);
   const [query, setQuery] = React.useState("");
   const [loading, setLoading] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
-  const [error, setError] = React.useState("");
-  const [loadError, setLoadError] = React.useState("");
-  const [notice, setNotice] = React.useState("");
+  const [error, setError] = React.useState<Error | string>("");
+  const [loadError, setLoadError] = React.useState<Error | string>("");
+  const [notice, setNotice] = React.useState<MessageKey | null>(null);
   const generation = React.useRef(0);
   const createdDuringLoad = React.useRef<SurveyLibraryTemplate[]>([]);
   const invalidate = React.useCallback(() => {
     generation.current++;
   }, []);
   const locked = React.useRef(false);
-  const label = kind === "question" ? "问卷模板" : "报告模板";
+  const label = t(kind === "question" ? "survey.templates.questionOne" : "survey.templates.reportOne");
   const base =
     kind === "question"
       ? "/studio/survey/question-templates"
@@ -66,7 +70,7 @@ export function SurveyTemplateLibrary({ kind }: { kind: Kind }) {
       }
     } catch (e) {
       if (current === generation.current)
-        setLoadError(e instanceof Error ? e.message : "模板加载失败，请重试。");
+        setLoadError(e instanceof Error ? e : "模板加载失败，请重试。");
     } finally {
       if (current === generation.current) setLoading(false);
     }
@@ -74,7 +78,7 @@ export function SurveyTemplateLibrary({ kind }: { kind: Kind }) {
   React.useEffect(() => {
     setItems([]);
     setQuery("");
-    setNotice("");
+    setNotice(null);
     void refresh();
     return invalidate;
   }, [refresh, invalidate]);
@@ -83,13 +87,13 @@ export function SurveyTemplateLibrary({ kind }: { kind: Kind }) {
     locked.current = true;
     setBusy(true);
     setError("");
-    setNotice("");
+    setNotice(null);
     const current = generation.current;
     try {
       await action(current);
     } catch (e) {
       if (current === generation.current)
-        setError(e instanceof Error ? e.message : "操作未完成，请重试。");
+        setError(e instanceof Error ? e : "操作未完成，请重试。");
     } finally {
       locked.current = false;
       setBusy(false);
@@ -99,7 +103,7 @@ export function SurveyTemplateLibrary({ kind }: { kind: Kind }) {
     execute(async (current) => {
       const body = SurveyTemplateInputSchema.parse({
         kind: item.kind,
-        title: `${item.title.slice(0, 197)} 副本`,
+        title: `${item.title.slice(0, locale === "en" ? SurveyLibraryTemplateSchema.shape.title.maxLength! - t("survey.templates.copySuffix").length : 197)}${t("survey.templates.copySuffix")}`,
         description: item.description,
         questions: item.questions,
         template: item.template,
@@ -111,12 +115,12 @@ export function SurveyTemplateLibrary({ kind }: { kind: Kind }) {
       if (loading) createdDuringLoad.current = [saved, ...createdDuringLoad.current];
       setItems((previous) => [saved, ...previous]);
       setQuery("");
-      setNotice("副本已创建，原模板保持不变。");
+      setNotice("survey.templates.copyCreated");
     });
   const remove = (item: SurveyLibraryTemplate) => {
     if (
       !window.confirm(
-        `删除模板「${item.title}」？已创建的问卷不受影响，此操作不能撤销。`,
+        t("survey.templates.deleteConfirm", { title: item.title }),
       )
     )
       return;
@@ -127,7 +131,7 @@ export function SurveyTemplateLibrary({ kind }: { kind: Kind }) {
       });
       if (current !== generation.current) return;
       setItems((previous) => previous.filter((value) => value.id !== item.id));
-      setNotice("模板已删除。");
+      setNotice("survey.templates.deleted");
     });
   };
   const createSurvey = (item: SurveyTemplateInput) =>
@@ -157,7 +161,7 @@ export function SurveyTemplateLibrary({ kind }: { kind: Kind }) {
     <main className="mx-auto max-w-screen-2xl space-y-7 p-5 text-background-foreground sm:p-7 lg:p-10">
       <header className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
         <div>
-          <h1 className="text-30 font-semibold tracking-tight">{label}</h1>
+          <h1 className="text-30 font-semibold tracking-tight">{t(kind === "question" ? "survey.templates.question" : "survey.templates.report")}</h1>
 
         </div>
         <div className="flex w-full flex-col gap-2 sm:flex-row xl:w-auto">
@@ -167,8 +171,8 @@ export function SurveyTemplateLibrary({ kind }: { kind: Kind }) {
               aria-hidden
             />
             <Input
-              aria-label="搜索模板"
-              placeholder="搜索名称或说明"
+              aria-label={t("survey.templates.search")}
+              placeholder={t("survey.templates.searchPlaceholder")}
               className="w-full pl-9"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
@@ -179,41 +183,41 @@ export function SurveyTemplateLibrary({ kind }: { kind: Kind }) {
             disabled={loading || busy}
             onClick={() => void refresh()}
           >
-            刷新
+            {t("survey.templates.refresh")}
           </Button>
           <WorkflowActionButton variant="primary" disabled={busy} onClick={() => router.push(`${base}/new`)}>
             <Plus className="h-4 w-4" aria-hidden />
-            新建{label}
+            {t("survey.templates.create", { label })}
           </WorkflowActionButton>
         </div>
       </header>
       <div className="flex flex-col gap-6">
         <SurveyLibraryNav active={kind === "question" ? "modules" : "reports"} />
-        <section className="min-w-0 space-y-6" aria-label={`${label}列表`}>
+        <section className="min-w-0 space-y-6" aria-label={t("survey.templates.list", { label })}>
       {(error || loadError) && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-card p-4">
           <p role="alert" className="text-13 text-destructive">
-            {[loadError,error].filter(Boolean).join("；")}
+            {[loadError,error].filter(Boolean).map(message => displaySurveyTemplateMessage(message, t, locale)).join(locale === "en" ? "; " : "；")}
           </p>
           <Button
             variant="outline"
             disabled={loading || busy}
             onClick={() => void refresh()}
           >
-            重试
+            {t("survey.templates.retry")}
           </Button>
         </div>
       )}
       {notice && (
         <p role="status" className="text-13 text-muted-foreground">
-          {notice}
+          {t(notice, { label })}
         </p>
       )}
       <BuiltinTemplateCards items={builtins} base={base} busy={busy} onCopy={item=>void duplicate(item)} onCreate={item=>void createSurvey(item)} />
-      <h2 className="border-t border-border pt-6 text-16 font-semibold">我的模板</h2>
+      <h2 className="border-t border-border pt-6 text-16 font-semibold">{t("survey.templates.mine")}</h2>
       {loading && (
         <p role="status" className="py-8 text-13 text-muted-foreground">
-          正在加载模板…
+          {t("survey.templates.loading")}
         </p>
       )}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -222,33 +226,33 @@ export function SurveyTemplateLibrary({ kind }: { kind: Kind }) {
             key={item.id}
             title={item.title}
             leading={<FileText className="mt-0.5 h-5 w-5 text-primary" aria-hidden />}
-            subtitle={`${item.questions.length} 道${kind === "report" ? "参考" : ""}题目 · ${item.template.sections.length} 个报告章节`}
-            description={<span className="whitespace-pre-wrap break-words">{item.description || "暂无说明"}</span>}
-            meta={<span>更新于 {new Date(item.updatedAt).toLocaleString("zh-CN")}</span>}
+            subtitle={t(kind === "report" ? "survey.templates.referenceCounts" : "survey.templates.counts", { questions: item.questions.length, sections: item.template.sections.length })}
+            description={<span className="whitespace-pre-wrap break-words">{item.description || t("survey.templates.noDescription")}</span>}
+            meta={<span>{t("survey.templates.updated", { date: new Date(item.updatedAt).toLocaleString(locale) })}</span>}
             actions={
               <>
                 <Button asChild size="sm" variant="outline">
-                  <Link href={`${base}/${encodeURIComponent(item.id)}`}>编辑模板</Link>
+                  <Link href={`${base}/${encodeURIComponent(item.id)}`}>{t("survey.templates.edit")}</Link>
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
-                  aria-label="复制模板"
+                  aria-label={t("survey.templates.copyLabel")}
                   disabled={busy || loading}
                   onClick={() => void duplicate(item)}
                 >
                   <Copy className="mr-1 h-3.5 w-3.5" aria-hidden />
-                  复制
+                  {t("survey.templates.copy")}
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
-                  aria-label="删除模板"
+                  aria-label={t("survey.templates.deleteLabel")}
                   disabled={busy || loading}
                   onClick={() => remove(item)}
                 >
                   <Trash2 className="mr-1 h-3.5 w-3.5" aria-hidden />
-                  删除
+                  {t("survey.templates.delete")}
                 </Button>
               </>
             }
@@ -261,11 +265,11 @@ export function SurveyTemplateLibrary({ kind }: { kind: Kind }) {
                   disabled={busy || loading || item.questions.length === 0}
                   onClick={() => void createSurvey(item)}
                 >
-                  用此模板创建问卷
+                  {t("survey.templates.createSurvey")}
                 </Button>
                 {!item.questions.length && (
                   <p className="text-11 text-muted-foreground">
-                    添加至少一道题目后即可创建问卷。
+                    {t("survey.templates.addFirst")}
                   </p>
                 )}
               </>
@@ -280,12 +284,12 @@ export function SurveyTemplateLibrary({ kind }: { kind: Kind }) {
             aria-hidden
           />
           <p className="text-16 font-medium">
-            {items.length ? "没有匹配的模板" : `还没有个人${label}`}
+            {items.length ? t("survey.templates.noMatches") : t("survey.templates.none", { label })}
           </p>
           <p className="mt-2 text-13 text-muted-foreground">
             {items.length
-              ? "试试其他关键词。"
-              : "可以将上方内置模板保存为个人副本，也可以新建模板。"}
+              ? t("survey.templates.otherKeywords")
+              : t("survey.templates.emptyHint")}
           </p>
         </div>
       )}

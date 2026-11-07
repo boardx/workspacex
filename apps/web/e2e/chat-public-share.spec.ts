@@ -1,4 +1,9 @@
 import { expect, test } from '@playwright/test';
+import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
+import {chatPublicShareThreadId} from './chat-public-share-fixture';
+import {boardLogin} from './board-acceptance-support';
+import { LOCALE_COOKIE } from '../lib/i18n/locale';
+import {captureBoardLogin} from './support/board-login-capture.mjs';
 // Browser rendering coverage with a deterministic API response. API persistence/revocation
 // must be verified separately against the real database; this spec makes no such claim.
 const token = 't'.repeat(43);
@@ -34,46 +39,81 @@ test('revoked or nonexistent anonymous link gives an actionable error', async ({
 });
 
 test('real owner publishes, anonymous friends read on phone/desktop, then owner revokes', async ({ page, browser }) => {
-  if (process.env.CHAT_SHARE_REAL_E2E === '1') expect(process.env.CHAT_SHARE_E2E_PASSWORD, 'Real sharing E2E requires its seeded fixture password').toBeTruthy();
-  test.skip(!process.env.CHAT_SHARE_E2E_PASSWORD, 'Requires a seeded real API fixture and password');
   test.setTimeout(120_000);
-  const login = await page.request.post('/__fullstack_api/auth/login', { data: { email: process.env.CHAT_SHARE_E2E_EMAIL ?? 'chat-share-browser@example.test', password: process.env.CHAT_SHARE_E2E_PASSWORD } });
-  if (!login.ok()) {
-    const failure = await login.json().catch(() => ({}));
-    throw new Error(`Login ${login.status()}: ${failure.reasonCode ?? 'unknown failure'}`);
+  const explicitFixture=Boolean(process.env.CHAT_SHARE_E2E_PASSWORD);
+  const login=await captureBoardLogin(page,()=>boardLogin(page,process.env.CHAT_SHARE_E2E_EMAIL??F.email,process.env.CHAT_SHARE_E2E_PASSWORD??F.password));
+  expect(login.posts,'CHAT_SHARE_LOGIN_SINGLE_POST').toBe(1);
+  expect(login.status,'CHAT_SHARE_LOGIN_HTTP_OK').toBe(200);
+  expect(login.jsonParsed,'CHAT_SHARE_LOGIN_JSON').toBe(true);
+  if(!explicitFixture){
+    expect(login.body!==null&&typeof login.body==='object'&&'userId' in login.body&&login.body.userId===F.userId,'CHAT_SHARE_OWNER_ACTOR').toBe(true);
   }
-  const session = await login.json();
-  await page.addInitScript(s => {
-    const revision = s.userId + ':' + crypto.randomUUID();
-    localStorage.setItem('wsx.sessionToken', s.sessionToken);
-    localStorage.setItem('wsx.session', JSON.stringify({ version: 2, revision, userId: s.userId, orgs: s.orgs, currentOrgId: s.orgs[0], expiresAt: s.expiresAt }));
-    localStorage.setItem('wsx.sessionCommit', revision);
-  }, session);
-  await page.goto('/chat/' + (process.env.CHAT_SHARE_E2E_THREAD ?? 't-chat-share-browser'));
+  expect(typeof login.token==='string'&&login.token.length>0,'CHAT_SHARE_REAL_SESSION').toBe(true);
+  const localeTab = await page.context().newPage();
+  await localeTab.goto('/profile');
+  await localeTab.getByTestId('language-switcher').selectOption('en');
+  await page.goto('/chat/' + (process.env.CHAT_SHARE_E2E_THREAD??chatPublicShareThreadId(F.userId)));
+  let sharePosts = 0;
+  page.on('request', r => { if (r.method() === 'POST' && /\/shares(?:\?|$)/.test(r.url())) sharePosts++; });
   await page.getByTestId('chat-share-open').click();
+  await expect(page.getByRole('heading', { name: 'Share conversation' })).toBeVisible();
   await expect(page.getByTestId('chat-share-preview').getByTestId('shared-chat-messages')).toBeVisible();
+  await localeTab.getByTestId('language-switcher').selectOption('zh-CN');
+  await expect(page.getByRole('heading', { name: '分享对话' })).toBeVisible();
+  await localeTab.getByTestId('language-switcher').selectOption('en');
+  await expect(page.getByRole('heading', { name: 'Share conversation' })).toBeVisible();
+  expect(sharePosts).toBe(0);
   await page.getByTestId('chat-share-create').click();
   const link = await page.getByTestId('chat-share-url').inputValue();
   expect(link).toContain('/share/chat/');
+  const linkHandle = await page.getByTestId('chat-share-url').elementHandle();
+  await localeTab.getByTestId('language-switcher').selectOption('zh-CN');
+  await expect(page.getByRole('heading', { name: '分享对话' })).toBeVisible();
+  await localeTab.getByTestId('language-switcher').selectOption('en');
+  await expect(page.getByRole('heading', { name: 'Share conversation' })).toBeVisible();
+  expect(await page.getByTestId('chat-share-url').evaluate((node, previous) => node === previous, linkHandle)).toBe(true);
+  await expect(page.getByTestId('chat-share-url')).toHaveValue(link);
+  expect(sharePosts).toBe(1);
+  await page.bringToFront();
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
   await page.getByTestId('chat-share-copy').click();
-  await expect(page.getByTestId('chat-share-copy')).toHaveText('已复制');
+  await expect(page.getByTestId('chat-share-copy')).toHaveText('Copied');
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(link);
   for (const width of [375, 1440]) {
     const context = await browser.newContext({ viewport: { width, height: 900 } });
+    await context.addCookies([{ name: LOCALE_COOKIE, value: 'en', url: link }]);
     const reader = await context.newPage();
+    let reads = 0;
+    reader.on('request', request => { if (request.url().includes('/chat/shares/')) reads++; });
     const bearerLeaks: string[] = [];
     reader.on('request', request => { if (request.url().includes('/chat/shares/') && request.headers()['authorization']) bearerLeaks.push(request.url()); });
     await reader.goto(link);
     await expect(reader.getByRole('heading', { name: '与朋友分享的对话' })).toBeVisible();
     await expect(reader.getByTestId('shared-chat-messages')).toBeVisible();
+    await expect(reader).toHaveTitle('Shared conversation · WorkspaceX');
+    await expect(reader.getByText('Read-only snapshot · No account needed')).toBeVisible();
+    const rawMessages = await reader.getByTestId('shared-chat-message').allTextContents();
+    await reader.getByTestId('language-switcher').selectOption('zh-CN');
+    await expect(reader.getByText('只读快照 · 无需账号即可查看')).toBeVisible();
+    await reader.getByTestId('language-switcher').selectOption('en');
+    await expect(reader.getByText('Read-only snapshot · No account needed')).toBeVisible();
+    expect(await reader.getByTestId('shared-chat-message').allTextContents()).toEqual(rawMessages);
+    expect(reads).toBe(1);
+    await reader.reload();
+    await expect(reader.getByText('Read-only snapshot · No account needed')).toBeVisible();
+    await expect(reader).toHaveTitle('Shared conversation · WorkspaceX');
     const image = reader.getByRole('img').first();
     await expect(image).toBeVisible();
     await expect.poll(() => image.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth > 0)).toBe(true);
     await expect(reader.locator('[data-testid="shared-chat-message"] pre').first()).toBeVisible();
+    await expect(reader.getByTestId('chat-code-fence-copy').first()).toHaveText('Copy');
+    await expect(reader.getByTestId('chat-code-fence-toggle').first()).toHaveText('Hide code');
+    await expect(reader.getByTestId('chat-code-fence').first()).toContainText('2 lines');
     expect(await reader.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     expect(await reader.evaluate(() => localStorage.getItem('wsx.sessionToken'))).toBeNull();
     expect(bearerLeaks).toEqual([]);
+    expect(await reader.evaluate(()=>(window as typeof window & {shareXss?:boolean}).shareXss)).toBeUndefined();
+    expect(await reader.locator('a[href^="javascript:"]').count()).toBe(0);
     await reader.screenshot({ path: `test-results/chat-public-share-real-${width}.png`, fullPage: true });
     await context.close();
   }
@@ -85,5 +125,9 @@ test('real owner publishes, anonymous friends read on phone/desktop, then owner 
   await reader.goto(link);
   expect((await response).status()).toBe(404);
   await expect(reader.getByTestId('public-chat-share').getByRole('alert')).toContainText('分享链接已失效或不存在');
+  await reader.getByTestId('language-switcher').selectOption('en');
+  await expect(reader.getByTestId('public-chat-share').getByRole('alert')).toContainText('expired or does not exist');
+  await expect(reader.getByRole('button', { name: 'Retry' })).toBeVisible();
   await revoked.close();
+  await localeTab.close();
 });

@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
+import type { MessageKey, MessageParams } from "@/lib/i18n/messages";
 import { CircleAlert, DoorOpen, LoaderCircle, ShieldCheck } from "lucide-react";
 import { auth as authContract, orgAdmin } from "@repo/contracts";
 import { ApiError, apiRequest, getStoredSessionToken } from "@/lib/api-client";
@@ -9,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AuthShell } from "@/components/entry/auth-shell";
-import { useInvitationSession, INVITATION_COMPLETION_MESSAGES, type InvitationCompletion } from "./use-invitation-session";
+import { useInvitationSession, INVITATION_COMPLETION_KEYS, type InvitationCompletion } from "./use-invitation-session";
 
 type ActivateOut = typeof orgAdmin.operations.activateViaOrgInviteLink.out._output;
 
@@ -27,6 +29,8 @@ type ActivateOut = typeof orgAdmin.operations.activateViaOrgInviteLink.out._outp
  * · 已有账号 → 明确拒绝并指向登录（拍板①查重，不重复建号）。
  */
 export function LinkActivation({ token }: { token: string }) {
+  const { t } = useI18n();
+  const [mode, setMode] = React.useState<"new" | "existing">(() => getStoredSessionToken() ? "existing" : "new");
   const [email, setEmail] = React.useState("");
   const [name, setName] = React.useState("");
   const [pwd, setPwd] = React.useState("");
@@ -34,6 +38,8 @@ export function LinkActivation({ token }: { token: string }) {
   const [error, setError] = React.useState<JoinFailure | null>(null);
   const [done, setDone] = React.useState<InvitationCompletion | null>(null);
   const completeSession = useInvitationSession();
+  const hasSession = getStoredSessionToken() !== null;
+  const loginUrl = `/login?next=${encodeURIComponent(`/auth/activate?lt=${encodeURIComponent(token)}`)}`;
 
   if (done) {
     return (
@@ -41,7 +47,7 @@ export function LinkActivation({ token }: { token: string }) {
         <div className="flex flex-col gap-3" data-testid="link-activate-success">
           <p className="flex items-start gap-2 text-13 text-success">
             <ShieldCheck aria-hidden className="mt-0.5 h-4 w-4 shrink-0" />
-            {INVITATION_COMPLETION_MESSAGES[done]}
+            {t(INVITATION_COMPLETION_KEYS[done])}
           </p>
           <Button
             size="sm"
@@ -49,7 +55,7 @@ export function LinkActivation({ token }: { token: string }) {
             onClick={() => window.location.assign(done === "session-failed" ? "/login" : "/projects")}
             data-testid="link-activate-success-continue"
           >
-            {done === "session-failed" ? "前往登录" : "进入工作台"}
+            {done === "session-failed" ? t("account.goToLogin") : t("invitation.workspace")}
           </Button>
         </div>
       </Card>
@@ -66,12 +72,12 @@ export function LinkActivation({ token }: { token: string }) {
     setSubmitting(true);
     const initialToken = getStoredSessionToken();
     try {
-      const result = await apiRequest<ActivateOut>(orgAdmin.operations.activateViaOrgInviteLink.path, {
+      const result = await apiRequest<ActivateOut>((mode === "existing" ? orgAdmin.operations.acceptOrgInviteLink.path : orgAdmin.operations.activateViaOrgInviteLink.path), {
         method: "POST",
-        sessionToken: null,
-        body: { token, email: email.trim(), profile: { name: name.trim(), password: pwd } },
+        sessionToken: mode === "existing" ? initialToken : null,
+        body: mode === "existing" ? { token } : { token, email: email.trim(), profile: { name: name.trim(), password: pwd } },
       });
-      setDone(await completeSession(result.session, initialToken));
+      setDone(await completeSession(result.session, initialToken, mode === "existing"));
     } catch (err) {
       if (err instanceof ApiError && err.reasonCode === "AUTH_SERVICE_UNAVAILABLE") {
         setDone("session-failed");
@@ -84,16 +90,21 @@ export function LinkActivation({ token }: { token: string }) {
   }
 
   const canSubmit =
-    !submitting && email.trim().length > 0 && name.trim().length > 0 && pwd.length > 0;
+    !submitting && (mode === "existing" ? hasSession : email.trim().length > 0 && name.trim().length > 0 && pwd.length > 0);
 
   return (
     <Card>
       <form className="flex flex-col gap-4" onSubmit={submit} data-testid="link-activate-form" noValidate>
+        <div className="flex gap-1.5" data-testid="link-activate-mode">
+          <Button type="button" size="sm" variant={mode === "new" ? "primary" : "outline"} onClick={() => setMode("new")} data-testid="link-activate-mode-new">{t("invitation.newUser")}</Button>
+          <Button type="button" size="sm" variant={mode === "existing" ? "primary" : "outline"} onClick={() => setMode("existing")} data-testid="link-activate-mode-existing">{t("invitation.existingUser")}</Button>
+        </div>
+        {mode === "new" ? <>
         <p className="text-12 text-muted-foreground" data-testid="link-activate-intro">
-          你打开的是一条组织共享邀请链接。填写邮箱、姓名并设置密码，即可创建账号并加入组织。
+          {t("invitation.sharedIntro")}
         </p>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="link-activate-email">邮箱</Label>
+          <Label htmlFor="link-activate-email">{t("invitation.email")}</Label>
           <Input
             id="link-activate-email"
             type="email"
@@ -109,23 +120,23 @@ export function LinkActivation({ token }: { token: string }) {
           />
           {error?.field === "email" && (
             <p role="alert" className="text-10 text-destructive" data-testid="err-link-activate-email">
-              {error.message}
+              {t(error.message, error.params)}
             </p>
           )}
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="link-activate-name">姓名</Label>
+          <Label htmlFor="link-activate-name">{t("invitation.name")}</Label>
           <Input
             id="link-activate-name"
             value={name}
             onChange={(e) => setName(e.currentTarget.value)}
-            placeholder="你的名字"
+            placeholder={t("invitation.namePlaceholder")}
             disabled={submitting}
             data-testid="link-activate-name"
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="link-activate-pwd">设置密码</Label>
+          <Label htmlFor="link-activate-pwd">{t("invitation.setPassword")}</Label>
           <Input
             id="link-activate-pwd"
             type="password"
@@ -134,18 +145,22 @@ export function LinkActivation({ token }: { token: string }) {
               setPwd(e.currentTarget.value);
               if (error?.field === "password") setError(null);
             }}
-            placeholder={`至少 ${authContract.AUTH_POLICY.passwordMinLen} 位`}
+            placeholder={t("account.reset.placeholder", { min: authContract.AUTH_POLICY.passwordMinLen })}
             disabled={submitting}
             aria-invalid={error?.field === "password"}
             data-testid="link-activate-pwd"
           />
           {error?.field === "password" && (
             <p role="alert" className="text-10 text-destructive" data-testid="err-link-activate-pwd">
-              {error.message}
+              {t(error.message, error.params)}
             </p>
           )}
         </div>
 
+        </> : hasSession ? <p className="text-12 text-muted-foreground">{t("invitation.existingHint")}</p> :
+          <p className="text-12 text-muted-foreground" data-testid="link-activate-existing-need-login">
+            {t("invitation.needLogin").split("{login}").map((part, index) => <React.Fragment key={index}>{index > 0 ? <a className="text-primary underline" href={loginUrl}>{t("invitation.loginPage")}</a> : null}{part}</React.Fragment>)}
+          </p>}
         {error && error.field === null && (
           <div
             role="alert"
@@ -154,22 +169,22 @@ export function LinkActivation({ token }: { token: string }) {
           >
             <p className="flex items-start gap-2 text-12 text-destructive">
               <CircleAlert aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              {error.message}
+              {t(error.message, error.params)}
             </p>
             {error.kind === "already-member" && (
               <Button
                 type="button"
                 size="sm"
                 variant="outline"
-                onClick={() => window.location.assign("/login")}
+                onClick={() => window.location.assign(loginUrl)}
                 data-testid="link-activate-goto-login"
               >
-                前往登录
+                {t("account.goToLogin")}
               </Button>
             )}
             {error.kind === "unavailable" && (
               <>
-              <a className="text-primary underline" href="/login">账号已创建？前往登录</a>
+              <a className="text-primary underline" href={loginUrl}>{t("invitation.loginRecovery")}</a>
               <Button
                 type="button"
                 size="sm"
@@ -178,7 +193,7 @@ export function LinkActivation({ token }: { token: string }) {
                 onClick={() => void doSubmit()}
                 data-testid="link-activate-retry"
               >
-                重试
+                {t("state.retry")}
               </Button>
               </>
             )}
@@ -188,10 +203,10 @@ export function LinkActivation({ token }: { token: string }) {
         <Button type="submit" size="lg" variant="primary" disabled={!canSubmit} data-testid="link-activate-submit">
           {submitting ? (
             <>
-              <LoaderCircle aria-hidden className="h-3.5 w-3.5 animate-spin" /> 加入中…
+              <LoaderCircle aria-hidden className="h-3.5 w-3.5 animate-spin" /> {t("invitation.joining")}
             </>
           ) : (
-            "创建账号并加入组织"
+            t(mode === "existing" ? "invitation.confirmJoin" : "invitation.createAndJoin")
           )}
         </Button>
       </form>
@@ -200,11 +215,12 @@ export function LinkActivation({ token }: { token: string }) {
 }
 
 function Card({ children }: { children: React.ReactNode }) {
+  const { t } = useI18n();
   return (
     <AuthShell
       icon={<DoorOpen aria-hidden className="h-5 w-5 text-muted-foreground" />}
-      title="加入组织"
-      footer="授予的角色以服务端链接记录为准；本页不显示组织信息，加入成功后可在工作台看到。"
+      title={t("invitation.sharedTitle")}
+      footer={t("invitation.sharedFooter")}
     >
       {children}
     </AuthShell>
@@ -221,19 +237,19 @@ function Card({ children }: { children: React.ReactNode }) {
 type JoinFailure = {
   kind: "terminal" | "unavailable" | "already-member";
   field: "email" | "password" | null;
-  message: string;
+  message: MessageKey; params?: MessageParams;
 };
 
 function describeJoinFailure(err: unknown): JoinFailure {
   const issues = contractFieldIssues(err);
   if (issues?.some((i) => i.path === "email")) {
-    return { kind: "terminal", field: "email", message: "邮箱格式不正确（服务端校验拒绝，未创建账号）。" };
+    return { kind: "terminal", field: "email", message: "invitation.invalidEmail" };
   }
   if (issues?.some((i) => i.path === "profile.password")) {
     return {
       kind: "terminal",
       field: "password",
-      message: `密码不符合要求：至少 ${authContract.AUTH_POLICY.passwordMinLen} 位，且不能是常见泄露口令。`,
+      message: "account.reset.policy", params: { min: authContract.AUTH_POLICY.passwordMinLen },
     };
   }
   if (err instanceof ApiError) {
@@ -241,14 +257,14 @@ function describeJoinFailure(err: unknown): JoinFailure {
       return {
         kind: "already-member",
         field: null,
-        message: "该邮箱已有账号（或已是组织成员）。共享链接只用于创建新账号——请直接登录；若需要加入本组织，请联系管理员。",
+        message: "invitation.sharedExisting",
       };
     }
     if (err.reasonCode === "QUOTA_EXHAUSTED") {
       return {
         kind: "terminal",
         field: null,
-        message: "组织成员配额已满，暂时无法通过此链接加入。请联系组织管理员调整席位配额后再试。",
+        message: "invitation.quotaFull",
       };
     }
     if (err.reasonCode === "INVITE_NOT_FOUND") {
@@ -256,18 +272,17 @@ function describeJoinFailure(err: unknown): JoinFailure {
       return {
         kind: "terminal",
         field: null,
-        message: "链接无效或已失效（可能已过期、已被作废或人数已满）。请向分享链接的管理员索取新链接。",
+        message: "invitation.sharedInvalid",
       };
     }
     if (err.status >= 500) return { kind: "unavailable", field: null, message: UNAVAILABLE_MESSAGE };
     return {
       kind: "terminal",
       field: null,
-      message: `加入未完成（${err.reasonCode ?? `HTTP ${err.status}`}），请稍后重试。`,
+      message: "invitation.joinIncomplete", params: { reason: err.reasonCode ?? `HTTP ${err.status}` },
     };
   }
   return { kind: "unavailable", field: null, message: UNAVAILABLE_MESSAGE };
 }
 
-const UNAVAILABLE_MESSAGE =
-  "服务暂时不可用（可能正在部署重启），请稍后重试。若账号已创建，请直接前往登录页登录。";
+const UNAVAILABLE_MESSAGE: MessageKey = "invitation.unavailable";

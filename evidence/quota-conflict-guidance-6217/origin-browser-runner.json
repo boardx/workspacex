@@ -1,0 +1,22 @@
+{
+  "exit": 1,
+  "seconds": 237.93,
+  "head": "97b0374ab6e58c022538e2c9a61fe81519f11d28",
+  "command": [
+    "pnpm",
+    "exec",
+    "tsx",
+    ".harness/scripts/with-test-isolation.ts",
+    "--",
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "playwright",
+    "test",
+    "--config",
+    "playwright.entity-localization.config.ts",
+    "-g",
+    "administration quotas retain drafts"
+  ]
+}

@@ -1,0 +1,43 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/team-capacity-6107/apps/api
+
+[db-isolation] db=wsx_c81f89481a3d3d89d37e capacity=100 current=6 required=32
+ ❯ tests/org-capacity/commercial-capacity-pg.test.ts (8 tests | 1 failed | 7 skipped) 105602ms
+   × revocation committed while activation waits for the organization lock prevents every grant side effect 441ms
+     → expected { ok: true, grant: { …(5) } } to deeply equal { ok: false, reason: 'not-found' }
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/org-capacity/commercial-capacity-pg.test.ts > revocation committed while activation waits for the organization lock prevents every grant side effect
+AssertionError: expected { ok: true, grant: { …(5) } } to deeply equal { ok: false, reason: 'not-found' }
+
+- Expected
++ Received
+
+  Object {
+-   "ok": false,
+-   "reason": "not-found",
++   "grant": Object {
++     "orgId": "org-capacity-6107",
++     "orgRole": "consultant",
++     "tamperRecorded": false,
++     "teamId": null,
++     "userId": "revocation-user-04d8664f-c379-41be-bffa-8976ee1d2f67",
++   },
++   "ok": true,
+  }
+
+ ❯ tests/org-capacity/commercial-capacity-pg.test.ts:114:27
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 7 skipped (8)
+   Start at  13:57:04
+   Duration  127.30s (transform 4.44s, setup 31ms, collect 6.87s, tests 105.60s, environment 0ms, prepare 321ms)
+
+[db-isolation] db=wsx_c81f89481a3d3d89d37e peak_connections=5
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/team-capacity-6107/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/org-capacity/commercial-capacity-pg.test.ts -t revocation committed

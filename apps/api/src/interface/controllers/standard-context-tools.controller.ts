@@ -1,3 +1,4 @@
+import {CreditConsumptionError} from "../../application/billing/credit-consumption";
 import {timingSafeEqual} from 'node:crypto';
 import {Body,Controller,Headers,HttpCode,Inject,Param,Post,BadRequestException,UnauthorizedException,ForbiddenException,ServiceUnavailableException} from '@nestjs/common';
 import {StandardContextInvocation} from '@repo/contracts/standard-context-tools';
@@ -27,13 +28,13 @@ export class StandardContextToolsController {
   if(!userId||!locator)throw new ForbiddenException('standard_context_denied');
   const visible=await resolveVisibility({repo:this.identity,ids:this.decisions,chat:this.chat},{orgId,userId,...locator});
   if(visible.kind!=='allow')throw new ForbiddenException('standard_context_denied');
-  const actor={orgId,userId,...locator,...(process.env.KERNEL_RETRIEVAL_REQUEST_ACCOUNTING_ENABLED==="1"?{modelRequestAccounting:{orgId:String(orgId),runId,attemptId:input.attemptId,leaseEpoch:input.leaseEpoch}}:{})};
+  const actor={orgId,userId,...locator,modelRequestAccounting:{orgId:String(orgId),runId,attemptId:input.attemptId,leaseEpoch:input.leaseEpoch}};
   try{switch(input.toolName){
    case 'wx_project_list':return await this.service.projects(actor,input.toolArgs);
    case 'wx_project_read':return await this.service.project(actor,input.toolArgs);
    case 'wx_knowledge_search':return await this.service.search(actor,input.toolArgs);
    case 'wx_knowledge_read':return await this.service.read(actor,input.toolArgs);
    case 'wx_cite':return await this.service.cite(actor,runId,input.toolArgs,this.runs);
-  }}catch{throw new ServiceUnavailableException('standard_context_unavailable_or_refused');}
+  }}catch(error){if(error instanceof CreditConsumptionError)throw error;throw new ServiceUnavailableException('standard_context_unavailable_or_refused');}
  }
 }

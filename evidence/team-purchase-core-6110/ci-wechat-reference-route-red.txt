@@ -1,0 +1,31 @@
+2026-11-02T18:36:16.1287974Z  FAIL  tests/billing/wechat-reference-compatibility.test.ts > reference backend WeChat compatibility > signs Native requests without a platform key and credits unsigned callbacks exactly once
+2026-11-02T18:36:16.1289440Z AssertionError: expected 400 to be 200 // Object.is equality
+2026-11-02T18:36:16.1289791Z 
+2026-11-02T18:36:16.1290176Z - Expected
+2026-11-02T18:36:16.1290484Z + Received
+2026-11-02T18:36:16.1290658Z 
+2026-11-02T18:36:16.1290888Z - 200
+2026-11-02T18:36:16.1291137Z + 400
+2026-11-02T18:36:16.1291252Z 
+2026-11-02T18:36:16.1291784Z  ❯ tests/billing/wechat-reference-compatibility.test.ts:18:52
+2026-11-02T18:36:16.1399781Z      16|     expect(f.state.signedRequests).toBe(1);
+2026-11-02T18:36:16.1400804Z      17|     expect(f.state.requestHeaders[0]?.["wechatpay-serial"]).toBeUndefi…
+2026-11-02T18:36:16.1402569Z      18|     expect((await f.post(notice.body, {})).status).toBe(200);
+2026-11-02T18:36:16.1403271Z        |                                                    ^
+2026-11-02T18:36:16.1404343Z      19|     expect((await f.post(notice.body, {})).status).toBe(200);
+2026-11-02T18:36:16.1405291Z      20|     expect(await ledgerCount(order.orderNo)).toBe(2);
+2026-11-02T18:36:16.1405702Z 
+2026-11-02T18:36:16.1406175Z ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+2026-11-02T18:36:16.1406361Z 
+2026-11-02T18:36:16.1411582Z  Test Files  1 failed | 187 passed (212)
+2026-11-02T18:36:16.1418707Z       Tests  1 failed | 1592 passed | 2 todo (1599)
+2026-11-02T18:36:16.1419306Z    Start at  18:29:08
+2026-11-02T18:36:16.1426185Z    Duration  427.87s (transform 7.51s, setup 802ms, collect 49.51s, tests 349.20s, environment 38ms, prepare 8.16s)
+2026-11-02T18:36:16.1426656Z 
+2026-11-02T18:36:16.1473849Z 
+2026-11-02T18:36:16.1494242Z ##[error]AssertionError: expected 400 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200

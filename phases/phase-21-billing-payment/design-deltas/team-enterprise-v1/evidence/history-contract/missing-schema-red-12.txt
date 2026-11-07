@@ -1,0 +1,96 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts
+
+ ❯ tests/billing-team-history-design.test.ts (12 tests | 12 failed) 7ms
+   × records one paid annual purchase with its monthly quota rather than twelve payments 3ms
+     → Cannot read properties of undefined (reading 'parse')
+   × keeps the recorded add-on quantity distinct from total paid capacity 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects an incomplete or contradictory paid history record {"purpose":"credit_topup"} 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects an incomplete or contradictory paid history record {"additionalSeats":1} 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects an incomplete or contradictory paid history record {"currency":"USD"} 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects an incomplete or contradictory paid history record {"amountMinor":null} 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects an incomplete or contradictory paid history record {"amountMinor":0} 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects an incomplete or contradictory paid history record {"paidAt":null} 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects an incomplete or contradictory paid history record {"receiptRef":""} 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects an incomplete or contradictory paid history record {"ownerId":"org-b"} 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects duplicate purchase or receipt rows without inventing monthly payment entries 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × bounds cursor paging without permitting query-selected organization or generation 0ms
+     → Cannot read properties of undefined (reading 'parse')
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 12 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing-team-history-design.test.ts > records one paid annual purchase with its monthly quota rather than twelve payments
+TypeError: Cannot read properties of undefined (reading 'parse')
+ ❯ tests/billing-team-history-design.test.ts:7:33
+      5| const history={orgId:"org-a",generation:"pricing-v1",asOf:"2026-11-16T…
+      6| it("records one paid annual purchase with its monthly quota rather tha…
+      7|  expect(TeamSubscriptionHistory.parse(history)).toEqual(history);
+       |                                 ^
+      8|  expect(TeamSubscriptionHistory.safeParse({...history,items:[{...item,…
+      9| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/12]⎯
+
+ FAIL  tests/billing-team-history-design.test.ts > keeps the recorded add-on quantity distinct from total paid capacity
+TypeError: Cannot read properties of undefined (reading 'safeParse')
+ ❯ tests/billing-team-history-design.test.ts:12:33
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/12]⎯
+
+ FAIL  tests/billing-team-history-design.test.ts > rejects an incomplete or contradictory paid history record {"purpose":"credit_topup"}
+ FAIL  tests/billing-team-history-design.test.ts > rejects an incomplete or contradictory paid history record {"additionalSeats":1}
+ FAIL  tests/billing-team-history-design.test.ts > rejects an incomplete or contradictory paid history record {"currency":"USD"}
+ FAIL  tests/billing-team-history-design.test.ts > rejects an incomplete or contradictory paid history record {"amountMinor":null}
+ FAIL  tests/billing-team-history-design.test.ts > rejects an incomplete or contradictory paid history record {"amountMinor":0}
+ FAIL  tests/billing-team-history-design.test.ts > rejects an incomplete or contradictory paid history record {"paidAt":null}
+ FAIL  tests/billing-team-history-design.test.ts > rejects an incomplete or contradictory paid history record {"receiptRef":""}
+ FAIL  tests/billing-team-history-design.test.ts > rejects an incomplete or contradictory paid history record {"ownerId":"org-b"}
+TypeError: Cannot read properties of undefined (reading 'safeParse')
+ ❯ tests/billing-team-history-design.test.ts:16:33
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/12]⎯
+
+ FAIL  tests/billing-team-history-design.test.ts > rejects duplicate purchase or receipt rows without inventing monthly payment entries
+TypeError: Cannot read properties of undefined (reading 'safeParse')
+ ❯ tests/billing-team-history-design.test.ts:19:33
+     17| });
+     18| it("rejects duplicate purchase or receipt rows without inventing month…
+     19|  expect(TeamSubscriptionHistory.safeParse({...history,items:[item,item…
+       |                                 ^
+     20|  expect(TeamSubscriptionHistory.safeParse({...history,items:[item,{...…
+     21|  expect(TeamSubscriptionHistory.safeParse({...history,items:[],nextCur…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/12]⎯
+
+ FAIL  tests/billing-team-history-design.test.ts > bounds cursor paging without permitting query-selected organization or generation
+TypeError: Cannot read properties of undefined (reading 'parse')
+ ❯ tests/billing-team-history-design.test.ts:24:26
+     22| });
+     23| it("bounds cursor paging without permitting query-selected organizatio…
+     24|  expect(TeamHistoryQuery.parse({})).toEqual({limit:10});
+       |                          ^
+     25|  expect(TeamHistoryQuery.parse({limit:"50",cursor:"opaque-scope-bound-…
+     26|  for(const query of [{limit:51},{limit:0},{cursor:""},{cursor:"x".repe…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/12]⎯
+
+ Test Files  1 failed (1)
+      Tests  12 failed (12)
+   Start at  08:47:49
+   Duration  410ms (transform 121ms, setup 0ms, collect 143ms, tests 7ms, environment 0ms, prepare 65ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing-team-history-design.test.ts

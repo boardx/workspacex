@@ -1,0 +1,28 @@
+{
+  "name": "red-public",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/survey-public-i18n.test.tsx",
+    "tests/ui/survey-answer-message-i18n.test.ts"
+  ],
+  "source": "d51d21a72352cc8d2a7a917e35d7016dfdfc07be",
+  "exitCode": 1,
+  "seconds": 6.965,
+  "rawLogSha256": "39c6ce42e870c881e8767b210208e5df279fa8d006193b1082eb51d3c706c6c2",
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "testFiles": 2,
+  "tests": 33,
+  "failed": 30,
+  "passed": 3,
+  "warnings": 0,
+  "unhandled": 0,
+  "collectionErrors": 0,
+  "classification": "23 actual-validator canonical guards passed before intended missing-English assertions; 7 public UI failures reach missing switcher/current-language controls/validation. 3 unknown literal cases pass. No fixture/import failures."
+}

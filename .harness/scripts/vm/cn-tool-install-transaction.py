@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Bounded manifest-only install. Import-only fixture API; production has fixed trust roots."""
-import hashlib,json,os,pathlib,stat,fcntl,signal,sys,tempfile
+import ast,hashlib,json,os,pathlib,stat,fcntl,signal,sys,tempfile
 LOCK='/var/lib/workspacex-cn/runtime/release.lock'
 BACKUPS='/var/lib/workspacex-cn/trusted-install-backups'
 def require(ok,code):
@@ -485,6 +485,21 @@ def verify_staged_extension(extension,uid=0,gid=0,boundary=None):
    if f is not None:os.close(f)
    os.close(fd)
 
+def installation_modes(raw):
+ # Old exact tools have no overrides and retain their original0700/0600 contract.
+ tree=ast.parse(raw)
+ def assignment(name):
+  nodes=[n for n in tree.body if isinstance(n,ast.Assign) and any(isinstance(x,ast.Name) and x.id==name for x in n.targets)]
+  require(len(nodes)<=1,'INSTALL_MODE_SINGLE_SOURCE');return None if not nodes else ast.literal_eval(nodes[0].value)
+ files=assignment('FILES');require(isinstance(files,dict) and files,'INSTALL_MODE_FILES')
+ overrides=assignment('INSTALL_MODES')
+ if overrides is None:
+  require(not any(isinstance(n,ast.Assign) and any(isinstance(x,ast.Name) and x.id=='INSTALL_MODES' for x in n.targets) for n in tree.body),'INSTALL_MODE_OVERRIDES');overrides={}
+ require(isinstance(overrides,dict),'INSTALL_MODE_OVERRIDES')
+ for source,mode in overrides.items():
+  require(source in files and files[source] is not None and type(mode) is int and mode in (0o700,0o755),'INSTALL_MODE_AUTHORITY')
+ return {source:format(overrides.get(source,0o700) if target is not None else 0o600,'04o') for source,target in files.items()}
+
 def manifest_targets(m):
  require(isinstance(m.get('files'),dict) and m['files'],'MANIFEST_FILES')
  rows=[]
@@ -523,7 +538,7 @@ def verified_manifest(manifest_path,manifest_hash,admitted_at=None,expected_exte
  m['targets']=manifest_targets(m)
  require(m.get('profileEntries')==[],'LEGACY_PROFILE_PROTOCOL_REJECTED')
  # Trusted root checkout validator is supplied by the exact manifest, never imported from caller paths.
- tool=pathlib.Path(m['toolRoot']);require(str(tool)=='/opt/workspacex-cn/release-tools/'+m['toolRevision'],'TOOL_ROOT')
+ tool=pathlib.Path(m['toolRoot']);require(str(tool) in (prefix+m['toolRevision'] for prefix in ('/var/lib/workspacex-cn/auto-preparation-tools/','/opt/workspacex-cn/release-tools/')),'TOOL_ROOT')
  import subprocess
  env={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','GIT_CONFIG_NOSYSTEM':'1','GIT_CONFIG_GLOBAL':'/dev/null','GIT_NO_LAZY_FETCH':'1','GIT_NO_REPLACE_OBJECTS':'1'}
  for d in (tool,*tool.parents):
@@ -536,8 +551,16 @@ def verified_manifest(manifest_path,manifest_hash,admitted_at=None,expected_exte
  import ast
  tree=ast.parse(code);assignments=[n for n in tree.body if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='FILES' for t in n.targets)]
  require(len(assignments)==1,'FILES_SINGLE_SOURCE');files=ast.literal_eval(assignments[0].value)
- require(set(m['files'])==set(files) and all(m['files'][p]['target']==target and m['files'][p]['mode']==('0700' if target else '0600') for p,target in files.items()),'TARGET_AUTHORITY')
+ modes=installation_modes(code)
+ require(set(m['files'])==set(files) and all(m['files'][p]['target']==target and m['files'][p]['mode']==modes[p] for p,target in files.items()),'TARGET_AUTHORITY')
  require(code==git('show',m['toolRevision']+':.harness/scripts/vm/cn-build-tool-identity.py'),'VALIDATOR_GIT_BINDING')
+ prefixes=[]
+ for node in ast.walk(tree):
+  if isinstance(node,ast.Compare) and isinstance(node.left,ast.Call) and isinstance(node.left.func,ast.Attribute) and node.left.func.attr=='get' and node.left.args and isinstance(node.left.args[0],ast.Constant) and node.left.args[0].value=='toolRoot':
+   for right in node.comparators:
+    if isinstance(right,ast.BinOp) and isinstance(right.op,ast.Add) and isinstance(right.left,ast.Constant) and isinstance(right.left.value,str) and isinstance(right.right,ast.Name) and right.right.id=='tool':prefixes.append(right.left.value)
+ require(len(set(prefixes))==1 and str(tool)==prefixes[0]+m['toolRevision'],'EXACT_TOOL_ROOT_CONTRACT')
+
  require(git('rev-parse','HEAD').decode().strip()==m['toolRevision'] and not git('status','--porcelain'),'TOOL_CHECKOUT')
  git('fsck','--full','--no-reflogs');payloads={}
  for source,row in m['files'].items():

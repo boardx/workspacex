@@ -1,0 +1,12 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/apps/web
+
+ ✓ tests/ui/interview-journey-i18n.test.tsx (10 tests) 385ms
+ ✓ tests/lib/interview-ui-text.test.ts (6 tests) 2ms
+
+ Test Files  2 passed (2)
+      Tests  16 passed (16)
+   Start at  05:07:52
+   Duration  3.75s (transform 1.37s, setup 193ms, collect 2.12s, tests 387ms, environment 526ms, prepare 105ms)
+

@@ -1,6 +1,7 @@
 import { expect, type Page } from "@playwright/test";
-/** Observe the actual AGUI journal identity, then verify the same persisted run. */
-export async function submitWorkbenchRun(page: Page): Promise<{runId:string;resultMessageId:string}> {
+/** Observe the actual AGUI journal identity, then verify the same persisted run.
+ * Fullstack lanes prefix API rewrites; chat-read uses the empty prefix explicitly. */
+export async function submitWorkbenchRun(page: Page, apiPrefix: "" | "/__fullstack_api" = "/__fullstack_api"): Promise<{runId:string;resultMessageId:string}> {
   const responsePromise=page.waitForResponse(response=>response.request().method()==="POST" && /\/api\/copilotkit\/agent\/[^/]+\/run(?:\?|$)/.test(response.url()));
   await page.getByTestId("copilotkit-v2-send").click();
   const response=await responsePromise;
@@ -11,14 +12,34 @@ export async function submitWorkbenchRun(page: Page): Promise<{runId:string;resu
   const runId=events.find(event=>event.type==="CUSTOM" && event.name==="execution_event")?.value?.runId;
   expect(runId).toEqual(expect.any(String));
   const token=await page.evaluate(()=>localStorage.getItem("wsx.sessionToken"));
-  const run=await page.request.get(`/__fullstack_api/agent-runs/${runId}`,{headers:{Authorization:`Bearer ${token}`}});
-  expect(run.ok()).toBe(true);
+  const run=await page.request.get(`${apiPrefix}/agent-runs/${runId}`,{headers:{Authorization:`Bearer ${token}`}});
+  expect(run.ok(), `Run lookup failed: HTTP ${run.status()} at ${run.url()}`).toBe(true);
   const result=await run.json();
   expect(result.status).toBe("succeeded");
   expect(result.resultMessageId).toEqual(expect.any(String));
   return {runId,resultMessageId:result.resultMessageId};
 }
 export async function selectWorkbenchAgent(page:Page,agentId:string):Promise<void>{
-  await page.getByTestId("chat-task-workbench-capability-picker").click();
-  await page.locator(`[data-testid="chat-task-workbench-capability-card"][data-agent-id="${agentId}"]`).click();
+  const picker = page.getByTestId("chat-task-workbench-capability-picker");
+  const popover = page.getByTestId("chat-task-workbench-capability-popover");
+  const card = page.getByTestId("chat-task-workbench-capability-card")
+    .and(page.locator(`[data-agent-id=${JSON.stringify(agentId)}]`));
+  await picker.click();
+  await expect(card).toBeEnabled();
+  const sheet = await popover.getAttribute("data-layout") === "sheet";
+  // Directory/official-role responses can insert rows between pointer positioning
+  // and pointerup. Keyboard activation follows the actual option, not old pixels.
+  await page.mouse.move(0, 0);
+  await card.press("Enter");
+  if (sheet) {
+    await page.getByTestId("chat-task-workbench-capability-detail-choose").click();
+  }
+  await expect(popover).not.toBeVisible();
+  await expect(picker).toHaveAttribute("data-auto-match", "false");
+  // A closed menu alone also describes an outside click. Reopen and verify the
+  // exact id; another selected agent must not satisfy this precondition.
+  await picker.click();
+  await expect(card).toHaveAttribute("aria-selected", "true");
+  await page.keyboard.press("Escape");
+  await expect(popover).not.toBeVisible();
 }

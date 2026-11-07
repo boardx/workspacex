@@ -42,6 +42,9 @@ describe("CN production promotion gate", () => {
     const workflow = readFileSync(join(process.cwd(), ".github/workflows/deploy-cn-production.yml"), "utf8");
     expect(workflow).toContain("workflow_dispatch:");
     expect(workflow).not.toMatch(/^\s{2}push:/m);
+    expect(workflow).not.toContain('queue-release:');
+    expect(workflow).not.toContain('cn-auto-release.mjs prepare');
+    expect(workflow).toContain("deploy:\n    if: github.event_name == 'workflow_dispatch'");
     expect(workflow).not.toContain("pull_request:");
     expect(workflow).toContain("rev-parse origin/main-cn");
     expect(workflow).toContain("release_attempt_id:");

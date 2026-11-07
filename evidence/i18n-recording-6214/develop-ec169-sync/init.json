@@ -1,0 +1,12 @@
+{
+  "name": "init",
+  "command": [
+    "./init.sh"
+  ],
+  "source": "4c6e437d87a6c3839c832130a9bea0980b61cb57",
+  "exitCode": 0,
+  "seconds": 2.934,
+  "rawLogLocalPath": "/tmp/6220-sync-private-ec169/init.log",
+  "rawLogSha256": "b9454ea9b0cef337e754f5577a3ea517168d367f1dafc79e9a75b55ad28d998d",
+  "environment": {}
+}

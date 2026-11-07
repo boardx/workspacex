@@ -1,0 +1,9 @@
+{
+  "issue": 6217,
+  "baseline": "dc9bc31b5658aacd4376ffa3f66e6794293ac953",
+  "originQuotaBuild": "97b0374ab6e58c022538e2c9a61fe81519f11d28",
+  "preservedQuotaEvidence": "6ae85819a7bc7953f0cad3e784594ac2bb933754",
+  "filterBlobInBrowser": "4d1285d218dc1b4f5d3289d0ecb4d28fe9e6939b",
+  "filterBlobInBaseline": "4d1285d218dc1b4f5d3289d0ecb4d28fe9e6939b",
+  "sameFilter": true
+}

@@ -1,0 +1,12 @@
+{
+  "stage": "red",
+  "exitCode": 1,
+  "total": 4,
+  "passed": 3,
+  "failed": 1,
+  "runtimeErrorSuites": "Native JSON does not emit this field; all4 assertions have expected executed statuses, with exactly1 semantic failure in RED and0 in GREEN.",
+  "assertions": 4,
+  "failedTitles": [
+    "covers every unchanged report output group with real-submit-valid balanced answers"
+  ]
+}

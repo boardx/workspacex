@@ -1,0 +1,11 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts
+
+ ✓ tests/billing-subscription.test.ts (10 tests) 6ms
+ ✓ tests/billing-pricing.test.ts (7 tests) 10ms
+
+ Test Files  2 passed (2)
+      Tests  17 passed (17)
+   Start at  16:15:01
+   Duration  559ms (transform 195ms, setup 0ms, collect 254ms, tests 15ms, environment 0ms, prepare 204ms)
+

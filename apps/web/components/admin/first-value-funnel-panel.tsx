@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { ApiError } from "@/lib/api-client";
 import { describeFailure } from "@/lib/design-failure";
 import { getOrgFirstValueFunnel, type OrgFirstValueFunnel } from "@/lib/live-first-value";
+import { useI18n } from "@/lib/i18n/provider";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
 import { cn } from "@/lib/utils";
 
 /**
@@ -17,21 +19,25 @@ import { cn } from "@/lib/utils";
  * 反而会被读成「组织里多少人走到了这一步」。价值时刻那一步取自契约 `FIRST_VALUE_STEP`，
  * 预算取自响应里的 `budgetMinutes`（契约字面量 15），本文件不再声明第二份。
  */
-export const FIRST_VALUE_STEP_LABEL: Record<FV.FirstValueStepValue, string> = {
-  first_sign_in: "首次登录",
-  workspace_opened: "进入工作区",
-  cited_answer_sample: "示例项目拿到带引用的回答",
-  own_material_uploaded: "上传自己的材料",
-  question_on_own_material: "基于自己的材料提问",
-  cited_answer_own_material: "回答引用了自己的材料",
-  citation_opened: "点开引用查看原件",
-};
+const FIRST_VALUE_STEP_KEY = {
+  first_sign_in: "adminOverview.step.first_sign_in",
+  workspace_opened: "adminOverview.step.workspace_opened",
+  cited_answer_sample: "adminOverview.step.cited_answer_sample",
+  own_material_uploaded: "adminOverview.step.own_material_uploaded",
+  question_on_own_material: "adminOverview.step.question_on_own_material",
+  cited_answer_own_material: "adminOverview.step.cited_answer_own_material",
+  citation_opened: "adminOverview.step.citation_opened",
+} as const satisfies Record<FV.FirstValueStepValue, MessageKey>;
 
-const fmtMin = new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 1 });
+export const FIRST_VALUE_STEP_LABEL: Record<FV.FirstValueStepValue, string> = Object.fromEntries(
+  (Object.keys(FIRST_VALUE_STEP_KEY) as FV.FirstValueStepValue[]).map((step) => [step, translate("zh-CN", FIRST_VALUE_STEP_KEY[step])]),
+) as Record<FV.FirstValueStepValue, string>;
 
 export function FirstValueFunnelPanel() {
+  const { t, locale } = useI18n();
+  const fmtMin = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 });
   const [data, setData] = React.useState<OrgFirstValueFunnel | null>(null);
-  const [error, setError] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<{ cause: unknown } | null>(null);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -41,9 +47,7 @@ export function FirstValueFunnelPanel() {
         if (!cancelled) setData(out);
       } catch (err) {
         if (cancelled) return;
-        setError(err instanceof ApiError && err.reasonCode === "NOT_ORG_ADMIN"
-          ? "仅组织管理员可查看价值时刻漏斗。"
-          : `读不到价值时刻漏斗：${describeFailure(err)}`);
+        setError({ cause: err });
       }
     })();
     return () => { cancelled = true; };
@@ -57,42 +61,43 @@ export function FirstValueFunnelPanel() {
   return (
     <section className="flex flex-col gap-2" data-testid="admin-first-value-funnel">
       <div className="flex flex-wrap items-center gap-2">
-        <h2 className="text-14 font-semibold">第一个价值时刻</h2>
-        <Badge tone="outline">真数据</Badge>
+        <h2 className="text-14 font-semibold">{t("adminOverview.firstValue")}</h2>
         <span className="text-11 text-muted-foreground">
-          从本组织首次登录起，到智能体回答第一次引用你们自己上传的材料。数据只留在本实例。
+          {t("adminOverview.firstValueHint")}
         </span>
       </div>
       <Card>
         <CardContent className="flex flex-col gap-3 pt-4">
           {error && (
             <p className="text-12 text-muted-foreground" data-testid="admin-first-value-load-failed">
-              {error}
+              {error.cause instanceof ApiError && error.cause.reasonCode === "NOT_ORG_ADMIN"
+                ? t("adminOverview.firstValueDenied")
+                : t("adminOverview.firstValueFailure", { error: describeFailure(error.cause, locale) })}
             </p>
           )}
-          {!data && !error && <p className="text-12 text-muted-foreground">加载中…</p>}
+          {!data && !error && <p className="text-12 text-muted-foreground">{t("ui.loading")}</p>}
           {empty && (
             <p className="text-12 text-muted-foreground" data-testid="admin-first-value-empty">
-              本组织还没有任何漏斗记录——成员首次登录后这里开始计时。
+              {t("adminOverview.firstValueEmpty")}
             </p>
           )}
           {data && !empty && (
             <>
               <div className="flex flex-wrap items-center gap-2" data-testid="admin-first-value-budget">
-                <span className="text-12">首次登录 → 价值时刻：</span>
+                <span className="text-12">{t("adminOverview.firstValueTiming")}</span>
                 {minutes === null ? (
-                  <Badge tone="neutral" data-testid="admin-first-value-not-reached">尚未到达</Badge>
+                  <Badge tone="neutral" data-testid="admin-first-value-not-reached">{t("adminOverview.notReachedYet")}</Badge>
                 ) : (
                   <>
                     <span className="text-14 font-semibold" data-testid="admin-first-value-minutes">
-                      {fmtMin.format(minutes)} 分钟
+                      {t("adminOverview.minutes", { minutes: fmtMin.format(minutes) })}
                     </span>
                     <Badge tone={overBudget ? "danger" : "success"} data-testid="admin-first-value-verdict">
-                      {overBudget ? "超出预算" : "预算内"}
+                      {overBudget ? t("adminOverview.overBudget") : t("adminOverview.withinBudget")}
                     </Badge>
                   </>
                 )}
-                <span className="text-11 text-muted-foreground">预算 {data.budgetMinutes} 分钟</span>
+                <span className="text-11 text-muted-foreground">{t("adminOverview.budget", { minutes: new Intl.NumberFormat(locale).format(data.budgetMinutes) })}</span>
               </div>
               <ol className="flex flex-col gap-1">
                 {data.steps.map((s, i) => {
@@ -110,19 +115,19 @@ export function FirstValueFunnelPanel() {
                       )}
                     >
                       <span className="w-5 font-mono text-11 text-muted-foreground">{i + 1}</span>
-                      <span className={cn("text-12", isValue && "font-semibold")}>{FIRST_VALUE_STEP_LABEL[s.step]}</span>
+                      <span className={cn("text-12", isValue && "font-semibold")}>{t(FIRST_VALUE_STEP_KEY[s.step])}</span>
                       {isValue && (
                         <Badge tone="primary" data-testid="admin-first-value-moment-badge">
                           <Star aria-hidden className="mr-1 h-3 w-3" />
-                          价值时刻
+                          {t("adminOverview.valueMoment")}
                         </Badge>
                       )}
                       <span className="ml-auto text-11 text-muted-foreground">
                         {s.occurredAt === null
-                          ? "未到达"
+                          ? t("adminOverview.notReached")
                           : since !== null && since >= 0
-                            ? `已到达 · 第 ${fmtMin.format(since)} 分钟`
-                            : "已到达"}
+                            ? t("adminOverview.reachedAt", { minutes: fmtMin.format(since) })
+                            : t("adminOverview.reached")}
                       </span>
                     </li>
                   );

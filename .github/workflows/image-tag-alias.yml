@@ -1,0 +1,43 @@
+name: image-tag-alias
+run-name: Short alias for ${{ inputs.legacy_tag }}
+on:
+  workflow_dispatch:
+    inputs:
+      legacy_tag:
+        description: Existing full SHA-run ID-attempt tag (all five services)
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: image-tag-alias-${{ inputs.legacy_tag }}
+  cancel-in-progress: false
+jobs:
+  alias:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      DOCKER_CONFIG: /tmp/wsx-acr-alias-${{ github.run_id }}-${{ github.run_attempt }}
+      REGISTRY: ${{ vars.WSX_ACR_REGISTRY }}
+      REGISTRY_PREFIX: ${{ vars.WSX_REGISTRY_PREFIX }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Authenticate
+        env:
+          ACR_USERNAME: ${{ secrets.WSX_ACR_USERNAME }}
+          ACR_PASSWORD: ${{ secrets.WSX_ACR_PASSWORD }}
+        run: python3 -B scripts/registry-images.py login
+      - name: Verify and publish identical short aliases
+        env:
+          LEGACY_TAG: ${{ inputs.legacy_tag }}
+        run: python3 -B scripts/alias-registry-images.py --prefix "$REGISTRY_PREFIX" --legacy-tag "$LEGACY_TAG" --output alias.json
+      - uses: actions/upload-artifact@v6
+        with:
+          name: short-tag-alias-${{ github.run_id }}-${{ github.run_attempt }}
+          path: alias.json
+          if-no-files-found: error
+      - name: Remove credentials
+        if: always()
+        run: rm -rf -- "$DOCKER_CONFIG"

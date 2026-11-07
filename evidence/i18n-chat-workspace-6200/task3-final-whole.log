@@ -1,0 +1,469 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+stderr | tests/ui/workbench-task-timeline.test.tsx
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+stderr | tests/ui/workbench-task-timeline.test.tsx > framework task timeline > keeps already visible streamed text when a delayed tool boundary classifies it as progress before END
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+stderr | tests/ui/workbench-task-timeline.test.tsx > framework task timeline > groups multiple assistant messages once, hides progress from answer and reuses registered tool cards
+Agent default not found
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+stderr | tests/ui/workbench-task-timeline.test.tsx > framework task timeline > keeps a registered decision renderer visible outside a collapsed trace
+Agent default not found
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+stderr | tests/ui/workbench-task-timeline.test.tsx > framework task timeline > keeps write_todos audit rows but never projects journal snapshots as duplicate plan cards
+Agent default not found
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+stderr | tests/ui/workbench-task-timeline.test.tsx > framework task timeline > renders the client-minted tool-call message inside the run trace once it is bound to the run
+Agent default not found
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+stderr | tests/ui/workbench-task-timeline.test.tsx > framework task timeline > anchors the run trace above the answer bubble, never on a client-minted tool-call bubble
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+ ✓ tests/ui/workbench-task-timeline.test.tsx (7 tests) 313ms
+ ✓ tests/ui/workbench-restored-approval.test.tsx (16 tests) 506ms
+stderr | tests/ui/copilotkit-v2-run-restore-on-remount.test.tsx
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+stderr | tests/ui/copilotkit-v2-run-restore-on-remount.test.tsx > copilotkit-v2 切会话再切回 ⇒ 未写回的 run 状态不丢失 > 挂载即显示生成中，收到终态推流事件后确认读到终态、指示消失、真实写回的回复被拉回来渲染
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:13502:13
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:9578:25)
+      at fetch (node:internal/deps/undici/undici:10307:25)
+      at fetch (node:internal/deps/undici/undici:13500:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+} { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-run-restore-on-remount.test.tsx > copilotkit-v2 切会话再切回 ⇒ 未写回的 run 状态不丢失 > 挂载时这个 run 其实早就是终态（用户切回来时后端已经写完了）⇒ 不建立任何订阅，不显示生成中
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:13502:13
+    at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:9578:25)
+      at fetch (node:internal/deps/undici/undici:10307:25)
+      at fetch (node:internal/deps/undici/undici:13500:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+} { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-run-restore-on-remount.test.tsx > copilotkit-v2 切会话再切回 ⇒ 未写回的 run 状态不丢失 > 收到终态推流事件但 run 其实是 failed ⇒ 显示错误横幅，不是安静地什么都不发生
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:13502:13
+    at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:9578:25)
+      at fetch (node:internal/deps/undici/undici:10307:25)
+      at fetch (node:internal/deps/undici/undici:13500:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+} { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-run-restore-on-remount.test.tsx > copilotkit-v2 切会话再切回 ⇒ 未写回的 run 状态不丢失 > 终态事件到达后确认读因 401 放弃（bearer 过期）⇒ 如实提示未能核实，不冒充成功也不冒充失败
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:13502:13
+    at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:9578:25)
+      at fetch (node:internal/deps/undici/undici:10307:25)
+      at fetch (node:internal/deps/undici/undici:13500:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+} { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-run-restore-on-remount.test.tsx > revisiting renders verified history while a fresh authoritative read is pending
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:13502:13
+    at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:9578:25)
+      at fetch (node:internal/deps/undici/undici:10307:25)
+      at fetch (node:internal/deps/undici/undici:13500:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+} { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-run-restore-on-remount.test.tsx > revisiting renders verified history while a fresh authoritative read is pending
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:13502:13
+    at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:9578:25)
+      at fetch (node:internal/deps/undici/undici:10307:25)
+      at fetch (node:internal/deps/undici/undici:13500:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+} { runtimeUrl: '/api/copilotkit' }
+
+ ✓ tests/ui/copilotkit-v2-run-restore-on-remount.test.tsx (5 tests) 600ms
+stderr | tests/ui/copilotkit-v2-tool-calls-group.test.tsx
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+stderr | tests/ui/copilotkit-v2-tool-calls-group.test.tsx > copilotkit-v2 工具调用记录收进一个可折叠容器（issue #2408） > 0 次工具调用：不渲染任何分组容器，也不崩溃
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+stderr | tests/ui/copilotkit-v2-tool-calls-group.test.tsx > copilotkit-v2 工具调用记录收进一个可折叠容器（issue #2408） > 1 次工具调用：默认折叠，保留这张卡片
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+stderr | tests/ui/copilotkit-v2-tool-calls-group.test.tsx > copilotkit-v2 工具调用记录收进一个可折叠容器（issue #2408） > 普通工具与计划写入同轮出现时，只把普通工具收进分组
+Agent default not found
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+stderr | tests/ui/copilotkit-v2-tool-calls-group.test.tsx > copilotkit-v2 工具调用记录收进一个可折叠容器（issue #2408） > 点击折叠按钮（鼠标）：内容区加 hidden，但节点仍在 DOM 里，aria-expanded 翻假
+Agent default not found
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+stderr | tests/ui/copilotkit-v2-tool-calls-group.test.tsx > copilotkit-v2 工具调用记录收进一个可折叠容器（issue #2408） > 再次点击（键盘可达的原生 <button>）：折叠后可以再展开回去
+Agent default not found
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+stderr | tests/ui/copilotkit-v2-tool-calls-group.test.tsx > copilotkit-v2 工具调用记录收进一个可折叠容器（issue #2408） > 流式过程中工具调用数量增加：分组容器的计数与内容跟着更新，用户手动收起的状态不会被这次更新重置
+Agent default not found
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+stderr | tests/ui/copilotkit-v2-tool-calls-group.test.tsx > copilotkit-v2 工具调用记录收进一个可折叠容器（issue #2408） > 一轮消息里的 write_todos 不再重复渲染为工具卡
+Agent default not found
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+stderr | tests/ui/copilotkit-v2-tool-calls-group.test.tsx > copilotkit-v2 工具调用记录收进一个可折叠容器（issue #2408） > 单次 write_todos 也由权威计划账本展示，不生成消息工具卡
+Agent default not found
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+ ✓ tests/ui/copilotkit-v2-tool-calls-group.test.tsx (9 tests) 145ms
+stderr | tests/ui/copilotkit-v2-tool-calls-group.test.tsx > copilotkit-v2 工具调用记录收进一个可折叠容器（issue #2408） > 跨消息的 write_todos 也不产生重复计划卡
+Agent default not found
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+stderr | tests/ui/escalation-thread-record.test.tsx
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+stderr | tests/ui/escalation-thread-record.test.tsx > ③ 身份取 run 的持久化 agentId > 刷新后 composer 未选人，回答仍画数字人头像 + 中文称呼，而不是「AI 助手」
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:13502:13
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:9578:25)
+      at fetch (node:internal/deps/undici/undici:10307:25)
+      at fetch (node:internal/deps/undici/undici:13500:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+} { runtimeUrl: '/api/copilotkit' }
+Agent default not found
+
+stderr | tests/ui/escalation-thread-record.test.tsx > ⑤ 已裁决记录 > 回合里留下决定人 · 同意 · 时间 · 说明，刷新后照样从权威读画出来
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:13502:13
+    at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:9578:25)
+      at fetch (node:internal/deps/undici/undici:10307:25)
+      at fetch (node:internal/deps/undici/undici:13500:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+} { runtimeUrl: '/api/copilotkit' }
+Agent default not found
+
+stderr | tests/ui/escalation-thread-record.test.tsx > ② 待决旁白不画 > 带升级调用的那条（「正在提交升级请求。」）整条不渲染
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+stderr | tests/ui/escalation-thread-record.test.tsx > UIUX r4：实时流里的升级前导语 > 正文与升级调用分成两条消息时，调用一到（含裁决后）前导语就不再显示，不等刷新
+Agent default not found
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:13502:13
+    at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:9578:25)
+      at fetch (node:internal/deps/undici/undici:10307:25)
+      at fetch (node:internal/deps/undici/undici:13500:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+} { runtimeUrl: '/api/copilotkit' }
+
+ ✓ tests/ui/escalation-thread-record.test.tsx (9 tests) 314ms
+ ✓ tests/ui/workbench-decided-interrupt-record.test.tsx (7 tests) 180ms
+stderr | tests/ui/workbench-awaiting-plan-queue.test.tsx
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+stderr | tests/ui/workbench-awaiting-plan-queue.test.tsx > restored plan confirmation without active journal trace routes composer input to the next-turn queue
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:13502:13
+    at processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:9578:25)
+      at fetch (node:internal/deps/undici/undici:10307:25)
+      at fetch (node:internal/deps/undici/undici:13500:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/tests/ui/workbench-awaiting-plan-queue.test.tsx:166:12
+      at mockCall (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@vitest+spy@2.1.9/node_modules/@vitest/spy/dist/index.js:61:17)
+      at fetch (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/tinyspy@3.0.2/node_modules/tinyspy/dist/index.js:45:80)
+} { runtimeUrl: '/api/copilotkit' }
+
+ ✓ tests/ui/workbench-awaiting-plan-queue.test.tsx (1 test) 257ms
+stderr | tests/ui/copilotkit-v2-panel-markdown.test.tsx
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+stderr | tests/ui/copilotkit-v2-panel-markdown.test.tsx > CopilotKitV2Panel 的 markdownRenderer slot —— 走 MarkdownMessage，不是 CopilotKit 自带 Streamdown > assistant 消息经 CopilotChatMessageView 渲染：markdown 结构 + mermaid 围栏路由到 ChatDiagramFabric
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:13502:13
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:9578:25)
+      at fetch (node:internal/deps/undici/undici:10307:25)
+      at fetch (node:internal/deps/undici/undici:13500:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+} { runtimeUrl: '/api/copilotkit' }
+Agent default not found
+
+ ✓ tests/ui/copilotkit-v2-panel-markdown.test.tsx (2 tests) 163ms
+stderr | tests/ui/copilotkit-v2-panel-markdown.test.tsx > CopilotKitV2Panel 的 markdownRenderer slot —— 走 MarkdownMessage，不是 CopilotKit 自带 Streamdown > user 消息不经这个 slot（slot 只挂在 assistantMessage 上）
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:13502:13
+    at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:9578:25)
+      at fetch (node:internal/deps/undici/undici:10307:25)
+      at fetch (node:internal/deps/undici/undici:13500:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+} { runtimeUrl: '/api/copilotkit' }
+Agent default not found
+
+ ✓ tests/ui/subtask-run-panel.test.tsx (11 tests) 167ms
+stderr | tests/ui/copilotkit-v2-panel-artifact-landing.test.tsx
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+stderr | tests/ui/copilotkit-v2-panel-artifact-landing.test.tsx > copilotkit-v2-panel 的 assistantMessage slot —— threadId/messageId/bearer 真的到达 MarkdownMessage（issue #2070） > 可归因的 agent 消息：三者非 undefined，且 messageId 是解析出的真实 chat_messages.id
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:13502:13
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:9578:25)
+      at fetch (node:internal/deps/undici/undici:10307:25)
+      at fetch (node:internal/deps/undici/undici:13500:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+} { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-panel-artifact-landing.test.tsx > copilotkit-v2-panel 的 assistantMessage slot —— threadId/messageId/bearer 真的到达 MarkdownMessage（issue #2070） > 不可归因的历史消息（agentRunId 为 null）：messageId 仍是真实 chat_messages.id——落地不要求归因
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:13502:13
+    at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:9578:25)
+      at fetch (node:internal/deps/undici/undici:10307:25)
+      at fetch (node:internal/deps/undici/undici:13500:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+} { runtimeUrl: '/api/copilotkit' }
+
+stderr | tests/ui/copilotkit-v2-panel-artifact-landing.test.tsx > copilotkit-v2-panel 的 assistantMessage slot —— threadId/messageId/bearer 真的到达 MarkdownMessage（issue #2070） > 新对话（chatThreadId=null，还没有真实线程）：threadId 如实是 undefined
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:13502:13
+    at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+    at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:9578:25)
+      at fetch (node:internal/deps/undici/undici:10307:25)
+      at fetch (node:internal/deps/undici/undici:13500:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at AgentRegistry.fetchRuntimeInfo (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+      at AgentRegistry.performRuntimeConnection (file:///Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_encoding@0.1.13_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+} { runtimeUrl: '/api/copilotkit' }
+
+ ✓ tests/ui/copilotkit-v2-panel-artifact-landing.test.tsx (3 tests) 297ms
+ ✓ tests/ui/agent-escalation-card.test.tsx (8 tests) 103ms
+ ✓ tests/ui/copilotkit-v2-agent-interrupts.test.tsx (10 tests) 183ms
+ ✓ tests/agent-kernel/tool-permission-card.test.tsx (14 tests) 100ms
+ ✓ tests/ui/i18n-chat-escalation.test.tsx (4 tests) 226ms
+stderr | tests/ui/run-trace-failed-tool-status.test.tsx
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+stderr | tests/ui/run-trace-failed-tool-status.test.tsx > issue #3204 ① 轨迹外层状态与内层卡片状态同源 > 工具调用失败时，内层卡片不得显示成功态（不得出现绿色对勾）
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+stderr | tests/ui/run-trace-failed-tool-status.test.tsx > issue #3204 ① 轨迹外层状态与内层卡片状态同源 > 工具调用成功时，内层卡片仍是成功态（反面：没有把所有卡片一律染成失败）
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+ ✓ tests/ui/run-trace-failed-tool-status.test.tsx (3 tests) 75ms
+stderr | tests/ui/run-trace-failed-tool-status.test.tsx > issue #3204 ① 轨迹外层状态与内层卡片状态同源 > 工具还在跑时，内层卡片是进行中（反面：没有把未完成态也判成失败）
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+ ✓ tests/ui/i18n-chat-landing.test.tsx (3 tests) 190ms
+stderr | tests/ui/copilotkit-v2-message-landing-toolbar-race.test.tsx
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+stderr | tests/ui/copilotkit-v2-message-landing-toolbar-race.test.tsx > copilotkit-v2 落地入口不再被框架的 isRunning 门永久卡住（issue #2307） > 仍在流式、尚未落库：入口如实不在 DOM 里（不是这条修法要改的行为）
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+stderr | tests/ui/copilotkit-v2-message-landing-toolbar-race.test.tsx > copilotkit-v2 落地入口不再被框架的 isRunning 门永久卡住（issue #2307） > RUN_FINISHED 还没到，但消息已经落库（#2307 的真实竞态）：入口必须在 DOM 里
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+ ✓ tests/ui/copilotkit-v2-message-landing-toolbar-race.test.tsx (3 tests) 85ms
+stderr | tests/ui/copilotkit-v2-message-landing-toolbar-race.test.tsx > copilotkit-v2 落地入口不再被框架的 isRunning 门永久卡住（issue #2307） > 完全空闲：入口在 DOM 里（既有行为不回退）
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+ ✓ tests/ui/i18n-chat-interrupt-forms.test.tsx (4 tests) 208ms
+ ✓ tests/ui/workbench-queue-failure-copy.test.tsx (3 tests) 120ms
+ ✓ tests/ui/workbench-server-queue.test.tsx (4 tests) 190ms
+ ✓ tests/ui/agent-plan-panel.test.tsx (12 tests) 43ms
+ ✓ tests/ui/i18n-chat-restored-permission.test.tsx (2 tests) 224ms
+ ✓ tests/ui/message-citations-live.test.tsx (6 tests) 67ms
+ ✓ tests/ui/i18n-chat-message-queue.test.tsx (3 tests) 179ms
+ ✓ tests/ui/run-trace-source-url.test.tsx (7 tests) 63ms
+ ✓ tests/ui/i18n-chat-permission-display.test.tsx (3 tests) 227ms
+ ✓ tests/ui/i18n-chat-trace-live.test.tsx (3 tests) 131ms
+ ✓ tests/ui/i18n-chat-citations.test.tsx (2 tests) 151ms
+stderr | tests/ui/i18n-chat-tool-renderers.test.tsx
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+stderr | tests/ui/i18n-chat-tool-renderers.test.tsx > uses the actual SDK renderer with translated chrome and unchanged raw file identity
+Agent default not found
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+ ✓ tests/ui/i18n-chat-tool-renderers.test.tsx (2 tests) 161ms
+stderr | tests/ui/i18n-chat-tool-renderers.test.tsx > preserves authoritative failure and raw server result in the actual SDK renderer
+Agent default not found
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+stderr | tests/ui/i18n-chat-tool-disclosure.test.tsx
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+stderr | tests/ui/i18n-chat-tool-disclosure.test.tsx > localizes the canonical legacy-tool disclosure and keeps its raw message/card and stable accessible region
+Agent default not found
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+stderr | tests/ui/i18n-chat-tool-disclosure.test.tsx > keeps collapsed state and canonical count while another raw tool call is projected
+Agent default not found
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+ ✓ tests/ui/i18n-chat-tool-disclosure.test.tsx (2 tests) 183ms
+ ✓ tests/ui/i18n-chat-message-identity.test.tsx (3 tests) 144ms
+ ✓ tests/ui/i18n-chat-subtasks.test.tsx (2 tests) 153ms
+ ✓ tests/ui/i18n-chat-rating.test.tsx (2 tests) 171ms
+ ✓ tests/ui/i18n-chat-run-trace.test.tsx (2 tests) 154ms
+ ✓ tests/ui/run-trace-stopped-status.test.tsx (5 tests) 66ms
+stderr | tests/ui/i18n-chat-suggestions.test.tsx
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+ ✓ tests/ui/i18n-chat-suggestions.test.tsx (1 test) 131ms
+ ✓ tests/ui/i18n-chat-plan-display.test.tsx (2 tests) 126ms
+ ✓ tests/ui/i18n-chat-interjection.test.tsx (2 tests) 118ms
+ ✓ tests/ui/i18n-chat-interrupt-host.test.tsx (2 tests) 161ms
+ ✓ tests/ui/i18n-chat-message-actions.test.tsx (2 tests) 133ms
+ ✓ tests/ui/subtask-run-live-panel.test.tsx (3 tests) 45ms
+ ✓ tests/ui/message-landing-button-variant.test.tsx (1 test) 23ms
+ ✓ tests/ui/workbench-dispatched-queue.test.tsx (1 test) 66ms
+ ✓ tests/lib/chat-workbench/tool-label.test.ts (23 tests) 4ms
+ ✓ tests/lib/tool-result-eviction.test.ts (6 tests) 3ms
+ ✓ tests/chat-tool-label-i18n.test.ts (2 tests) 2ms
+
+ Test Files  46 passed (46)
+      Tests  227 passed (227)
+   Start at  08:59:10
+   Duration  78.43s (transform 2.87s, setup 4.28s, collect 37.72s, tests 7.35s, environment 21.86s, prepare 1.96s)

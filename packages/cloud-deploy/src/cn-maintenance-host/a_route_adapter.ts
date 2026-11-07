@@ -28,7 +28,7 @@ const actionNames = [
 const same = (a: unknown, b: MaintenanceIdentity) => !!a && typeof a === 'object' &&
   Object.keys(a).sort().join(',') === Object.keys(b).sort().join(',') &&
   Object.entries(b).every(([k, v]) => (a as Record<string, unknown>)[k] === v);
-function record(value: any, identity: MaintenanceIdentity, state: string) {
+export function validateHoldRecord(value: any, identity: MaintenanceIdentity, state: string) {
   if (!value || value.schemaVersion !== 1 || value.state !== state || !same(value.identity, identity) ||
     !/^[a-f0-9]{32}$/.test(value.generation) || !/^[a-f0-9]{64}$/.test(value.sha256) ||
     !Number.isSafeInteger(value.device) || !Number.isSafeInteger(value.inode)) throw Error('A_ROUTE_HOLD_READBACK_INVALID');
@@ -68,17 +68,17 @@ export async function bindARouteHostOperations(input: ARouteAdapterInputs): Prom
   return {
     ...result,
     persistMaintenanceHold: async value => {
-      check(value); originalHold = record(await hold('create', identity), identity, 'held');
+      check(value); originalHold = validateHoldRecord(await hold('create', identity), identity, 'held');
     },
     verifyMaintenanceHoldPresent: async value => {
-      check(value); const current = record(await hold('read'), identity, 'held');
+      check(value); const current = validateHoldRecord(await hold('read'), identity, 'held');
       if (originalHold && JSON.stringify(current) !== JSON.stringify(originalHold)) throw Error('A_ROUTE_HOLD_GENERATION_CHANGED');
       originalHold ??= current; // Lost create response is reconciled by independent read.
     },
     clearAndVerifyMaintenanceHold: async value => {
       check(value); if (!originalHold) throw Error('A_ROUTE_HOLD_CAS_INPUT_MISSING');
-      const cleared = record(await hold('clear', originalHold), identity, 'cleared');
-      const current = record(await hold('read'), identity, 'cleared');
+      const cleared = validateHoldRecord(await hold('clear', originalHold), identity, 'cleared');
+      const current = validateHoldRecord(await hold('read'), identity, 'cleared');
       if (JSON.stringify(current) !== JSON.stringify(cleared)) throw Error('A_ROUTE_HOLD_CLEAR_READBACK_CHANGED');
       originalHold = undefined;
     },

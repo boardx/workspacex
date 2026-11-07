@@ -1,0 +1,14 @@
+Root test-only control was hidden by the correct modal aria boundary; query fixed to getByText for synthetic provider switching. Real browser uses actual cross-tab channel. No product change for this issue.
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/ui/workflow-grants-i18n.test.tsx > keeps selected dialog level through locale switches and exposes localized impact and confirm
+ ❯ toggle tests/ui/workflow-grants-i18n.test.tsx:17:45
+     17| const toggle = () => fireEvent.click(screen.getByRole("button", { name…
+ FAIL  tests/ui/workflow-grants-i18n.test.tsx > retranslates a retained API error without leaking its body or resetting the selected level
+ ❯ toggle tests/ui/workflow-grants-i18n.test.tsx:17:45
+     17| const toggle = () => fireEvent.click(screen.getByRole("button", { name…
+ FAIL  tests/ui/workflow-grants-i18n.test.tsx > keeps a pending canonical mutation busy through locale switches until its original result arrives
+ ❯ toggle tests/ui/workflow-grants-i18n.test.tsx:17:45
+     17| const toggle = () => fireEvent.click(screen.getByRole("button", { name…
+ Test Files  1 failed | 2 passed (3)
+      Tests  3 failed | 27 passed (30)
+   Duration  2.51s (transform 493ms, setup 407ms, collect 1.13s, tests 1.14s, environment 1.93s, prepare 314ms)

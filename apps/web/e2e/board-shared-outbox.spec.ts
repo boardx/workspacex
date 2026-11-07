@@ -116,6 +116,11 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   ownerWindowChanged=false;
  };
 
+ // Playwright delivers routed frames through the target realm. Fence that
+ // delivery before debugger suspension; upstream receipt is not downstream proof.
+ let downstreamPaused=false,downstreamBytes=0;
+ const downstream:Array<()=>void>=[],forwardedAcks=new Set<string>();
+ const releaseDownstream=()=>{downstreamPaused=false;for(const send of downstream.splice(0))send();downstreamBytes=0;};
  const ackGate:{routeSocketOrdinal:number|null;releaseAlive:null;updateId:string|null;release:(()=>void)|null;heldAt:number|null;releasedAt:number|null}={routeSocketOrdinal:null,releaseAlive:null,updateId:null,release:null,heldAt:null,releasedAt:null};
  const call=async(method:string,path:string,data?:unknown)=>{const safePath=new URL(path,'http://diagnostic.invalid').pathname,index=http.push({method,path:safePath,status:0})-1;const response=await request.fetch(`${api}${path}`,{method,data,timeout:15_000,headers:{Authorization:`Bearer ${token}`}});const status=response.status();http[index]!.status=status;
   // Record only routing metadata, never credentials, request/response bodies or query strings.
@@ -130,7 +135,7 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   // Keep one real server receipt unacknowledged in the original tab. The
   // original target is later debugger-paused so its lease-renewal timer stops;
   // the unmodified durable claim must expire before the peer replays that ID.
-  // Every other frame is forwarded unchanged to the actual API.
+  // All other real frames retain their bytes/order, including across JS pause.
   await page.routeWebSocket(url=>url.pathname===WHITEBOARD_SYNC.path.replace(':boardId',encodeURIComponent(boardId)),socket=>{
    const socketOrdinal=++nextRouteSocketOrdinal;const server=socket.connectToServer();
    socket.onMessage(message=>server.send(message));
@@ -139,7 +144,13 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
     if(frame.type==='ack'&&frame.updateId&&ackGate.updateId===null){
      ackGate.routeSocketOrdinal=socketOrdinal;ackGate.updateId=frame.updateId;ackGate.heldAt=performance.now();
      ackGate.release=()=>{ackGate.release=null;ackGate.releasedAt=performance.now();socket.send(message);};
-    }else socket.send(message);
+    }else{
+     const send=()=>{socket.send(message);if(frame.type==='ack'&&frame.updateId&&frame.gestureId)forwardedAcks.add(`${frame.updateId}:${frame.gestureId}`);};
+     if(downstreamPaused){
+      const bytes=Buffer.byteLength(message);if(downstream.length>=WHITEBOARD_SYNC.pendingUpdates||downstreamBytes+bytes>WHITEBOARD_SYNC.pendingBytes)throw new Error('OWNED_DOWNSTREAM_BUFFER_LIMIT');
+      downstream.push(send);downstreamBytes+=bytes;
+     }else send();
+    }
    });
   });
   await page.goto(boardUrl(`/studio/board/${boardId}`));await expectBoardSynced(page);mark('board-opened');
@@ -175,6 +186,12 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   // server ACK held, without editing durable records or shortening the lease.
   await expect.poll(()=>ackGate.updateId!==null&&ackGate.release!==null,{timeout:remaining(),message:'Actual contract route must capture one real server ACK'}).toBe(true);
   evidence.ackGate={updateId:ackGate.updateId,held:true,routeSocketOrdinal:ackGate.routeSocketOrdinal,releaseAlive:null};
+  downstreamPaused=true;
+  await expect.poll(()=>{
+   const accepted=new Set(metadata.snapshot().events.filter(event=>event.client==='original'&&event.type==='ack'&&event.direction==='received'&&event.observationBoundary==='provider-accepted').map(event=>`${event.updateId}:${event.gestureId}`));
+   return [...forwardedAcks].every(key=>accepted.has(key));
+  },{timeout:remaining(),message:'Previously forwarded real ACKs must reach the original provider before debugger suspension'}).toBe(true);
+  evidence.forwardedAcksBeforePause=forwardedAcks.size;
   ownerLifecycle=await page.context().newCDPSession(page);
   ownerLifecycle.on('Debugger.paused',onDebuggerPaused);ownerLifecycle.on('Debugger.resumed',onDebuggerResumed);
   await ownerLifecycle.send('Debugger.enable');
@@ -236,6 +253,7 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   await ownerLifecycle.send('Debugger.resume');
   await expect.poll(()=>debuggerEvents.resumed,{timeout:remaining(),message:'Original target must actually report Debugger.resumed'}).toBe(1);ownerPaused=false;mark('original-tab-resumed');
   expect(lifecycleEvents).toEqual({freeze:0,resume:0});evidence.ownerDebuggerEvents={...debuggerEvents};
+  evidence.bufferedFramesDuringPause=downstream.length;releaseDownstream();
   expect(ackGate.release).not.toBeNull();ackGate.release!();mark('original-real-ack-released');
   await restoreOwnerWindow(remaining());
   await captureVisibility('after-resume');
@@ -268,6 +286,8 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   }
   try{await restoreOwnerWindow(5000);}catch(error){lifecycleCleanupErrors.push(`window-restore: ${String(error)}`);}
   try{if(restoreVisibilityNeeded&&ownerLifecycle&&!ownerPaused&&!ownerWindowChanged)await captureVisibility('after-resume');}catch(error){lifecycleCleanupErrors.push(`visibility-after-restore: ${String(error)}`);}
+  try{if(!ownerPaused)releaseDownstream();}
+  catch(error){lifecycleCleanupErrors.push(`downstream: ${String(error)}`);}
   try{ackGate.release?.();}catch(error){lifecycleCleanupErrors.push(`release: ${String(error)}`);}
   if(ownerPaused)lifecycleCleanupErrors.push('counts: OWNER_STILL_PAUSED_NOT_READ');
   else try{if(ownerLifecycle&&!nativeCountsCaptured)await captureNativeCounts();}catch(error){lifecycleCleanupErrors.push(`counts: ${String(error)}`);}

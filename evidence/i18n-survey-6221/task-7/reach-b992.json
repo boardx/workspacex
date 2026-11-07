@@ -1,0 +1,15 @@
+{
+  "name": "reach-b992",
+  "command": [
+    "pnpm",
+    "run",
+    "lint:vitest-config-reachability"
+  ],
+  "source": "080bbba0ee858525f57fedefe42fa68ea938d91b",
+  "exitCode": 0,
+  "seconds": 4.181,
+  "rawLogSha256": "81e4cc456301c57df79f7dd2e5e5859c7aa8d9f2e64b11355570bd874082d671",
+  "sourceAfter": "080bbba0ee858525f57fedefe42fa68ea938d91b",
+  "sourceStable": true,
+  "environment": {}
+}

@@ -1,0 +1,61 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/7ff0/workspacex/apps/web
+
+ ✓ tests/ui/guided-research-memory.test.ts (5 tests) 511ms
+   ✓ retains all steps across navigation and merges metadata without replacing runtime 489ms
+ ✓ tests/ui/guided-research-three-step-live.test.tsx (6 tests) 13208ms
+   ✓ prepares the complete plan once for a newly created confirmed intake 5785ms
+   ✓ restores a legacy research link into the report step without replay, then starts one durable report command 1735ms
+   ✓ keeps a failed historical topic on the plan step until explicit retry 1065ms
+   ✓ keeps unsaved chapter edits through collapse and reopening 1021ms
+   ✓ regenerates from the unlocked server node after saving chapters 967ms
+   ✓ stops showing search loading once the composite server starts report writing 2630ms
+ ✓ tests/ui/guided-research-state-loading.test.tsx (17 tests) 16410ms
+   ✓ hydrates a fresh page from one complete snapshot 3733ms
+   ✓ uses cached step data plus changed fields when returning to another step 625ms
+   ✓ does not apply an old poll patch over newer streamed text and timeline 2855ms
+   ✓ renders cached content before a delayed validation finishes 1002ms
+   ✓ retains edits during route validation and accepts newer backend data 667ms
+   ✓ never displays another research or credential's cached data 372ms
+   ✓ preserves an edit made while a hot-cache read is in flight 402ms
+   ✓ removes cached research after an explicit HTTP 401 access rejection 337ms
+   ✓ removes cached research after an explicit HTTP 403 access rejection 1130ms
+   ✓ removes cached research after an explicit HTTP 404 access rejection 1779ms
+   ✓ protects local edits when validation discovers a remote execution and starts polling 655ms
+   ✓ does not let a delayed navigation read overwrite a newer explicit command 346ms
+   ✓ does not bootstrap from a warm version-zero cache before route validation succeeds 698ms
+   ✓ does not bootstrap from a stale cache when the route read denies access 928ms
+   ✓ bootstraps a newly confirmed warm intake only after successful route validation 392ms
+ ✓ tests/ui/research-production-routes.test.tsx (26 tests) 18903ms
+   ✓ imports a text file into the requirement while preserving existing input 7344ms
+   ✓ reports unsupported files without losing the requirement 462ms
+   ✓ lets a visual embedding own confirmation without creating persisted research 692ms
+   ✓ starts intake empty instead of loading a demonstration brief 498ms
+   ✓ keeps a typed intake when returning to the list is cancelled 966ms
+   ✓ preserves the creation key on failure and resumes the actual server node 584ms
+   ✓ only applies a real assistant proposal after explicit user adoption 3814ms
+   ✓ creates research from a 123-character requirement using a contract-valid default title 302ms
+   ✓ creates research from a 200-character requirement using a contract-valid default title 685ms
+   ✓ creates research from a 2000-character requirement using a contract-valid default title 755ms
+   ✓ creates research from a 11540-character requirement using a contract-valid default title 518ms
+   ✓ keeps one primary intake action while retaining all optional research fields 471ms
+   ✓ shows a single named assistant heading when the intake panel is open 321ms
+ ✓ tests/ui/guided-research-step-transitions.test.tsx (22 tests) 22347ms
+   ✓ step-aligned research transitions > browses the plan during research and preserves the selected page after completion 8360ms
+   ✓ step-aligned research transitions > keeps historical browsing selected when a restored task finishes through polling 500ms
+   ✓ step-aligned research transitions > preserves browsing and retains the submitted draft when an assistant command fails 1554ms
+   ✓ step-aligned research transitions > marks the browsed command step busy when messaging an earlier step 3600ms
+   ✓ step-aligned research transitions > marks a generated report complete without falsely completing failed research 2049ms
+   ✓ step-aligned research transitions > moves brief to its destination before generation finishes 686ms
+   ✓ step-aligned research transitions > moves outline to its destination before generation finishes 572ms
+   ✓ step-aligned research transitions > returns to the pending plan before its outline becomes available 1071ms
+   ✓ step-aligned research transitions > keeps history out of other steps and available beside the current report 819ms
+   ✓ step-aligned research transitions > starts one combined report command instead of requiring intermediate source confirmations 318ms
+   ✓ step-aligned research transitions > keeps edited chapters selected and retrieved evidence available after saving 627ms
+   ✓ persisted topic confirmation while the plan generates > streams an explicitly adopted confirm proposal, while an unadopted proposal never completes the topic 317ms
+
+ Test Files  5 passed (5)
+      Tests  76 passed (76)
+   Start at  18:49:29
+   Duration  138.25s (transform 27.71s, setup 25.15s, collect 95.53s, tests 71.38s, environment 203.72s, prepare 43.30s)

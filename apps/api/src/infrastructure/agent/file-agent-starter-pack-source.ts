@@ -1,3 +1,4 @@
+import { DISPLAY_METADATA_VERSION, buildLocalizedOfficialPack } from "../../domain/localization/authored-display-metadata";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { AgentStarterPackSource } from "../../application/agent-import/ports";
@@ -13,6 +14,7 @@ export class FileAgentStarterPackSource implements AgentStarterPackSource {
   async load(packId: string, packVersion: string): Promise<unknown | null> {
     const fromDisk = await this.loadFromDisk(packId, packVersion);
     if (fromDisk !== null) return fromDisk;
+    if (packId === OFFICIAL_AGENT_ROLE_PACK_ID && packVersion === DISPLAY_METADATA_VERSION) return buildLocalizedOfficialPack();
     if (packId === OFFICIAL_AGENT_ROLE_PACK_ID && packVersion === OFFICIAL_AGENT_ROLE_PACK_VERSION) return buildOfficialAgentRolePack();
     return null;
   }

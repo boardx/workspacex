@@ -1,0 +1,38 @@
+{
+  "sessionId": "personal-transcription-3653d4e5-dd9e-4129-88be-68be7624c309",
+  "projectId": "project-fullstack-yj-1e84fa89-4efe5f254a3e",
+  "contentSha256": "b3b120c337f7266988faec6b09385995c62d296b0c4c852885d170dc3d0f1f4f",
+  "rawName": "原始录音 {count} bb09cad6-afdb-41b4-8734-a38e82d92d22",
+  "renamed": "原始录音 {count} bb09cad6-afdb-41b4-8734-a38e82d92d22 用户改名",
+  "rawTag": "原始标签 {count}",
+  "sockets": 1,
+  "controlFrames": [
+    "{\"type\":\"start\"}",
+    "{\"type\":\"stop\"}"
+  ],
+  "writes": [
+    {
+      "method": "POST",
+      "path": "/recording/realtime-asr/sessions"
+    },
+    {
+      "method": "POST",
+      "path": "/recording/realtime-asr/sessions/personal-transcription-3653d4e5-dd9e-4129-88be-68be7624c309/tickets"
+    },
+    {
+      "method": "PATCH",
+      "path": "/recording/realtime-asr/sessions/personal-transcription-3653d4e5-dd9e-4129-88be-68be7624c309"
+    },
+    {
+      "method": "PATCH",
+      "path": "/recording/realtime-asr/sessions/personal-transcription-3653d4e5-dd9e-4129-88be-68be7624c309/content"
+    },
+    {
+      "method": "DELETE",
+      "path": "/recording/realtime-asr/sessions/personal-transcription-3653d4e5-dd9e-4129-88be-68be7624c309"
+    }
+  ],
+  "durationMs": 2277,
+  "deleted": true,
+  "deletedReadStatus": 404
+}

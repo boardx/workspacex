@@ -1,0 +1,267 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web
+
+ ❯ tests/ui/personal-pricing-checkout.test.tsx (9 tests | 1 failed) 1447ms
+   × redraws a failed QR after refreshing the same pending order without creating a second payment 1042ms
+     → expected "spy" to be called 2 times, but got 1 times
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body[39m
+    [33mdata-scroll-locked[39m=[32m"1"[39m
+    [33mstyle[39m=[32m"pointer-events: none;"[39m
+  [36m>[39m
+    [36m<span[39m
+      [33maria-hidden[39m=[32m"true"[39m
+      [33mdata-aria-hidden[39m=[32m"true"[39m
+      [33mdata-radix-focus-guard[39m=[32m""[39m
+      [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+      [33mtabindex[39m=[32m"0"[39m
+    [36m/>[39m
+    [36m<div[39m
+      [33maria-hidden[39m=[32m"true"[39m
+      [33mdata-aria-hidden[39m=[32m"true"[39m
+    [36m/>[39m
+    [36m<div[39m
+      [33maria-hidden[39m=[32m"true"[39m
+      [33mclass[39m=[32m"fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"[39m
+      [33mdata-aria-hidden[39m=[32m"true"[39m
+      [33mdata-state[39m=[32m"open"[39m
+      [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [36m/>[39m
+    [36m<div[39m
+      [33maria-describedby[39m=[32m"radix-:r2d:"[39m
+      [33maria-labelledby[39m=[32m"radix-:r2c:"[39m
+      [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-h-[90vh] max-w-lg overflow-y-auto"[39m
+      [33mdata-state[39m=[32m"open"[39m
+      [33mdata-testid[39m=[32m"pricing-checkout-dialog"[39m
+      [33mid[39m=[32m"radix-:r2b:"[39m
+      [33mrole[39m=[32m"dialog"[39m
+      [33mstyle[39m=[32m"pointer-events: auto;"[39m
+      [33mtabindex[39m=[32m"-1"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-col gap-1"[39m
+      [36m>[39m
+        [36m<h2[39m
+          [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+          [33mid[39m=[32m"radix-:r2c:"[39m
+        [36m>[39m
+          [0m确认付款[0m
+        [36m</h2>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+          [33mid[39m=[32m"radix-:r2d:"[39m
+        [36m>[39m
+          [0m关闭窗口会保留原订单。付款结果以服务端确认记录为准。[0m
+        [36m</p>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-4"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"break-all text-12 text-muted-foreground"[39m
+        [36m>[39m
+          [0m订单号：[0m
+          [0mbg20261102000000abcdef[0m
+        [36m</p>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-24 font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m¥129.00[0m
+        [36m</p>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-13 text-destructive"[39m
+          [33mrole[39m=[32m"status"[39m
+        [36m>[39m
+          [0m二维码暂时无法显示，请刷新付款状态后重试。[0m
+        [36m</p>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+          [33mdata-testid[39m=[32m"pricing-refresh-payment"[39m
+        [36m>[39m
+          [0m刷新付款状态[0m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<button[39m
+        [33maria-label[39m=[32m"关闭"[39m
+        [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+        [33mdata-testid[39m=[32m"dialog-close"[39m
+        [33mtype[39m=[32m"button"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M18 6 6 18"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"m6 6 12 12"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+      [36m</button>[39m
+    [36m</div>[39m
+    [36m<span[39m
+      [33maria-hidden[39m=[32m"true"[39m
+      [33mdata-aria-hidden[39m=[32m"true"[39m
+      [33mdata-radix-focus-guard[39m=[32m""[39m
+      [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+      [33mtabindex[39m=[32m"0"[39m
+    [36m/>[39m
+  [36m</body>[39m
+[36m</html>[39m
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/personal-pricing-checkout.test.tsx > redraws a failed QR after refreshing the same pending order without creating a second payment
+AssertionError: expected "spy" to be called 2 times, but got 1 times
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body[39m
+    [33mdata-scroll-locked[39m=[32m"1"[39m
+    [33mstyle[39m=[32m"pointer-events: none;"[39m
+  [36m>[39m
+    [36m<span[39m
+      [33maria-hidden[39m=[32m"true"[39m
+      [33mdata-aria-hidden[39m=[32m"true"[39m
+      [33mdata-radix-focus-guard[39m=[32m""[39m
+      [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+      [33mtabindex[39m=[32m"0"[39m
+    [36m/>[39m
+    [36m<div[39m
+      [33maria-hidden[39m=[32m"true"[39m
+      [33mdata-aria-hidden[39m=[32m"true"[39m
+    [36m/>[39m
+    [36m<div[39m
+      [33maria-hidden[39m=[32m"true"[39m
+      [33mclass[39m=[32m"fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"[39m
+      [33mdata-aria-hidden[39m=[32m"true"[39m
+      [33mdata-state[39m=[32m"open"[39m
+      [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [36m/>[39m
+    [36m<div[39m
+      [33maria-describedby[39m=[32m"radix-:r2d:"[39m
+      [33maria-labelledby[39m=[32m"radix-:r2c:"[39m
+      [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-h-[90vh] max-w-lg overflow-y-auto"[39m
+      [33mdata-state[39m=[32m"open"[39m
+      [33mdata-testid[39m=[32m"pricing-checkout-dialog"[39m
+      [33mid[39m=[32m"radix-:r2b:"[39m
+      [33mrole[39m=[32m"dialog"[39m
+      [33mstyle[39m=[32m"pointer-events: auto;"[39m
+      [33mtabindex[39m=[32m"-1"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-col gap-1"[39m
+      [36m>[39m
+        [36m<h2[39m
+          [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+          [33mid[39m=[32m"radix-:r2c:"[39m
+        [36m>[39m
+          [0m确认付款[0m
+        [36m</h2>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+          [33mid[39m=[32m"radix-:r2d:"[39m
+        [36m>[39m
+          [0m关闭窗口会保留原订单。付款结果以服务端确认记录为准。[0m
+        [36m</p>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-4"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"break-all text-12 text-muted-foreground"[39m
+        [36m>[39m
+          [0m订单号：[0m
+          [0mbg20261102000000abcdef[0m
+        [36m</p>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-24 font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m¥129.00[0m
+        [36m</p>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-13 text-destructive"[39m
+          [33mrole[39m=[32m"status"[39m
+        [36m>[39m
+          [0m二维码暂时无法显示，请刷新付款状态后重试。[0m
+        [36m</p>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+          [33mdata-testid[39m=[32m"pricing-refresh-payment"[39m
+        [36m>[39m
+          [0m刷新付款状态[0m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<button[39m
+        [33maria-label[39m=[32m"关闭"[39m
+        [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+        [33mdata-testid[39m=[32m"dialog-close"[39m
+        [33mtype[39m=[32m"button"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M18 6 6 18"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"m6 6 12 12"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+      [36m</button>[39m
+    [36m</div>[39m
+    [36m<span[39m
+      [33maria-hidden[39m=[32m"true"[39m
+      [33mdata-aria-hidden[39m=[32m"true"[39m
+      [33mdata-radix-focus-guard[39m=[32m""[39m
+      [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+      [33mtabindex[39m=[32m"0"[39m
+    [36m/>[39m
+  [36m</body>[39m
+[36m</html>[39m
+ ❯ tests/ui/personal-pricing-checkout.test.tsx:71:44
+     69|  mount();fireEvent.click(await screen.findByTestId("pricing-continue-c…
+     70|  fireEvent.click(screen.getByTestId("pricing-refresh-payment"));
+     71|  await waitFor(()=>expect(QRCode.toCanvas).toHaveBeenCalledTimes(2));e…
+       |                                            ^
+     72|  expect(screen.queryByText(/二维码暂时无法显示/)).toBeNull();expect(po…
+     73| });
+ ❯ runWithExpensiveErrorDiagnosticsDisabled ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 passed (9)
+   Start at  04:32:30
+   Duration  4.16s (transform 861ms, setup 174ms, collect 1.35s, tests 1.45s, environment 808ms, prepare 80ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/personal-pricing-checkout.test.tsx

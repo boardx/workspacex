@@ -2,6 +2,7 @@ import {act,renderHook} from "@testing-library/react";
 import {expect,it,vi} from "vitest";
 import * as Y from "yjs";
 import {createWhiteboardDocument,executeCommands,readObjects,SpatialRelationshipCommandPort,WhiteboardUndo,WhiteboardCommandOrigin,type SpatialCommand,type SpatialPrecondition,type WhiteboardObject} from "@repo/whiteboard-core";
+import {connectorGestureSnap} from "@/components/whiteboard/connector-gesture";
 import {useBoardConnectorGesture} from "@/components/whiteboard/use-board-connector-gesture";
 import type {ConnectorHandleKind,ConnectorOverlayPointerEvent} from "@/components/whiteboard/board-connector-handles";
 
@@ -125,4 +126,75 @@ it.each(['from','to'] as const)('held %s still cancels when the remote peer chan
   act(()=>test.result.current.onPointerUp(test.event(end.x,end.y)));
   expect(test.execute).not.toHaveBeenCalled();expect(test.batches()).toBe(0);expect(Y.encodeStateAsUpdate(test.doc)).toEqual(latest);
  }finally{test.destroy();}
+});
+
+// The final pointerup may jump beyond the last rendered snap cue. A peer
+// invalidating that old cue must not veto a different, valid release target.
+it.each(['locked','deleted'] as const)('release-only retarget ignores obsolete %s snap, but rejects staying on it',change=>{
+ for(const rerender of [false,true])for(const leave of [false,true]){
+  const test=setup();
+  try{
+   const destination:WhiteboardObject={id:'d',schemaVersion:1,kind:'sticky',geometry:{x:700,y:200,width:100,height:80,rotation:0},text:'D',style:{},parentId:null,orderKey:'d'};
+   executeCommands(test.doc,[{type:'create',object:destination}],{});
+   test.rerender({...test.props,objects:readObjects(test.doc)});
+   act(()=>test.result.current.onPointerDown('to',null,test.event(300,40)));
+   act(()=>test.result.current.onPointerMove(test.event(500,40)));
+   expect(test.result.current.relationship?.to).toBe('c');
+   executeCommands(test.doc,[change==='locked'?{type:'state',id:'c',locked:true}:{type:'delete',id:'c'}],{});
+   if(rerender)test.rerender({...test.props,objects:readObjects(test.doc)});
+   const latest=readObjects(test.doc);
+   act(()=>test.result.current.onPointerUp(test.event(leave?700:500,leave?240:40)));
+   act(()=>test.result.current.onPointerUp(test.event(700,240)));
+   expect(test.result.current.active).toBe(false);
+   expect(test.execute).toHaveBeenCalledTimes(leave?1:0);
+   expect(test.batches()).toBe(leave?1:0);
+   if(leave){
+    expect(readObjects(test.doc).find(object=>object.id==='edge')!.connector).toMatchObject({from:'a',to:'d',toAnchor:'left'});
+    expect(test.undo.undo()).toBe('undone');expect(readObjects(test.doc)).toEqual(latest);
+   }else expect(readObjects(test.doc)).toEqual(latest);
+  }finally{test.destroy();}
+ }
+});
+
+it.each(['false','throw'] as const)('rejected release (%s) clears preview and leaves canonical intact',rejection=>{
+ const test=setup();
+ try{
+  act(()=>test.result.current.onPointerDown('to',null,test.event(300,40)));
+  act(()=>test.result.current.onPointerMove(test.event(500,40)));
+  const latest=readObjects(test.doc);
+  test.execute.mockImplementationOnce(()=>{if(rejection==='throw')throw new Error('SPATIAL_COMMAND_REJECTED');return false;});
+  act(()=>test.result.current.onPointerUp(test.event(500,40)));
+  act(()=>test.result.current.onPointerUp(test.event(500,40)));
+  expect(test.execute).toHaveBeenCalledOnce();expect(test.props.onFailure).toHaveBeenCalledOnce();
+  expect(test.result.current.active).toBe(false);expect(test.result.current.relationship).toBeNull();
+  expect(test.batches()).toBe(0);expect(readObjects(test.doc)).toEqual(latest);
+ }finally{test.destroy();}
+});
+
+it.each(['locked','deleted'] as const)('live overlapping target wins over the obsolete %s cue geometry',change=>{
+ for(const rerender of [false,true]){
+  const test=setup();
+  try{
+   act(()=>test.result.current.onPointerDown('to',null,test.event(300,40)));
+   act(()=>test.result.current.onPointerMove(test.event(500,40)));
+   expect(test.result.current.relationship?.to).toBe('c');
+   const oldCue=readObjects(test.doc).find(object=>object.id==='c')!;
+   // D arrives under the final pointer. Its valid left anchor is 4 world px
+   // away, whereas revoked C's historical anchor is exactly under the pointer.
+   const destination:WhiteboardObject={...oldCue,id:'d',orderKey:'d',geometry:{...oldCue.geometry,x:496}};
+   executeCommands(test.doc,[change==='locked'?{type:'state',id:'c',locked:true}:{type:'delete',id:'c'},{type:'create',object:destination}],{});
+   const live=readObjects(test.doc);
+   expect(connectorGestureSnap(live,{x:500,y:40},1.65,['edge','a'],false)?.objectId).toBe('d');
+   expect(connectorGestureSnap([...live.filter(object=>object.id!=='c'),oldCue],{x:500,y:40},1.65,['edge','a'],false)?.objectId).toBe('c');
+   if(rerender)test.rerender({...test.props,objects:live});
+   act(()=>test.result.current.onPointerUp(test.event(500,40)));
+   act(()=>test.result.current.onPointerUp(test.event(500,40)));
+   expect(test.execute).toHaveBeenCalledOnce();expect(test.batches()).toBe(1);
+   const edge=readObjects(test.doc).find(object=>object.id==='edge')!;
+   expect(edge.connector).toMatchObject({from:'a',to:'d',toAnchor:'left'});
+   expect(edge.connector).not.toHaveProperty('toPoint');
+   expect(test.result.current.active).toBe(false);expect(test.props.onFailure).not.toHaveBeenCalled();
+   expect(test.undo.undo()).toBe('undone');expect(readObjects(test.doc)).toEqual(live);
+  }finally{test.destroy();}
+ }
 });

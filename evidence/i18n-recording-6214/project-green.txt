@@ -1,0 +1,58 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/apps/web
+
+6:52:09 AM [vite] warning: Duplicate key "rec.project.organization.default" in object literal
+192|    "rec.project.project.override": "项目覆盖值",
+193|    "rec.project.organization.default": "组织默认值",
+194|    "rec.project.organization.default": "）· 组织默认",
+   |    ^
+195|    "rec.project.days.the.resolved.value.and.its.basis": "天。\n                  解析结果与依据一并写入每份材料元数据。",
+196|    "rec.project.do.not.use.for.training": "禁止用于训练",
+
+  Plugin: vite:esbuild
+  File: /Users/shenyangjun/boardx/workspacex/apps/web/lib/i18n/namespaces/recording-project.ts
+6:52:09 AM [vite] warning: Duplicate key "rec.project.organization.default" in object literal
+454|    "rec.project.project.override": "project override",
+455|    "rec.project.organization.default": "organization default",
+456|    "rec.project.organization.default": ") · organization default",
+   |    ^
+457|    "rec.project.days.the.resolved.value.and.its.basis": "days. The resolved value and its basis are stored in each material's metadata.",
+458|    "rec.project.do.not.use.for.training": "Do not use for training",
+
+  Plugin: vite:esbuild
+  File: /Users/shenyangjun/boardx/workspacex/apps/web/lib/i18n/namespaces/recording-project.ts
+ ✓ tests/ui/recording-journey-i18n.test.tsx (10 tests) 455ms
+stderr | tests/ui/recording-controller-i18n.test.tsx > retranslates a created notice without changing the created name or starting capture
+Warning: Encountered two children with the same key, `rec-raw`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version.
+    at div
+    at HistoryState (/Users/shenyangjun/boardx/workspacex/apps/web/components/rec/transcription-history.tsx:559:3)
+    at div
+    at section
+    at TranscriptionHistory (/Users/shenyangjun/boardx/workspacex/apps/web/components/rec/transcription-history.tsx:44:33)
+    at I18nProvider (/Users/shenyangjun/boardx/workspacex/apps/web/lib/i18n/provider.tsx:13:25)
+
+stderr | tests/ui/recording-controller-i18n.test.tsx > retranslates a created notice without changing the created name or starting capture
+Warning: Encountered two children with the same key, `rec-raw`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version.
+    at div
+    at HistoryState (/Users/shenyangjun/boardx/workspacex/apps/web/components/rec/transcription-history.tsx:559:3)
+    at div
+    at section
+    at TranscriptionHistory (/Users/shenyangjun/boardx/workspacex/apps/web/components/rec/transcription-history.tsx:44:33)
+    at I18nProvider (/Users/shenyangjun/boardx/workspacex/apps/web/lib/i18n/provider.tsx:13:25)
+Warning: Encountered two children with the same key, `rec-raw`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version.
+    at div
+    at HistoryState (/Users/shenyangjun/boardx/workspacex/apps/web/components/rec/transcription-history.tsx:559:3)
+    at div
+    at section
+    at TranscriptionHistory (/Users/shenyangjun/boardx/workspacex/apps/web/components/rec/transcription-history.tsx:44:33)
+    at I18nProvider (/Users/shenyangjun/boardx/workspacex/apps/web/lib/i18n/provider.tsx:13:25)
+
+ ✓ tests/ui/recording-controller-i18n.test.tsx (5 tests) 405ms
+ ✓ tests/ui/recording-project-i18n.test.tsx (7 tests) 355ms
+ ✓ tests/ui/audio-input-i18n.test.tsx (2 tests) 183ms
+
+ Test Files  4 passed (4)
+      Tests  24 passed (24)
+   Start at  06:52:07
+   Duration  7.75s (transform 1.20s, setup 365ms, collect 3.12s, tests 1.40s, environment 1.97s, prepare 166ms)

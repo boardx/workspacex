@@ -1,0 +1,8 @@
+{
+  "red": "2 failed / 3 passed; unchanged original design-html.spec.ts; headed Chromium",
+  "scale1": "2 failed / 3 passed; forced device scale factor1 did not solve HTML transformed iframe clicks",
+  "rootCause": "Chromium Playwright opaque-origin iframe coordinate mapping omits CSS scale for inner target bounds: heading width327,height48 unscaled; physical click misses visible iframe. Native event logger sees no event from locator.click; DOM click diagnostic produces select r2 and focus.",
+  "fix": "Test helper maps iframe-local element center through iframe visible DOMRect/client size ratios and calls page.mouse.click; no bridge or application changes; original assertions preserved",
+  "green": "5 passed / 0 failed headed Chromium; 28.5s; normal device launch no scale flag",
+  "cleanup": "Owned webServer and isolation slot released by wrapper; generated tracked files restored; no docker stack started"
+}

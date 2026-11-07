@@ -115,7 +115,7 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
   it("uses the shared Studio list-page density and tag treatment", async () => {
     render(<InterviewStudioHome initialTab="history" />);
 
-    expect(screen.getByTestId("itv-home-page")).toHaveClass("max-w-screen-2xl", "px-5", "py-6");
+    expect(screen.getByTestId("itv-home-page")).toHaveClass("max-w-screen-2xl");
     const card = await screen.findByTestId("itv-history-card-itv-1");
     // PAPER 标准 ResourceCard：圆角、悬停边框反馈、整格等高，保留真实操作入口。
     expect(card).toHaveClass("rounded-card", "hover:border-input", "h-full");
@@ -134,6 +134,17 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
     expect(within(card).getByText("2026/8/12")).toHaveAttribute("datetime", "2026-08-12T03:00:00.000Z");
   });
 
+  it("completed cards emphasize the report without repeating a full progress indicator", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(json({ items: [{ interviewId: "itv-done", kind: "batch", name: "完成访谈", tags: [], topic: null,
+      status: "completed", expertCount: 3, completedExpertCount: 3, primaryAction: "view_report", sourceStep: "report", updatedAt: "2026-10-20T01:00:00.000Z" }] }));
+    render(<InterviewStudioHome />);
+    const card = await screen.findByTestId("itv-history-card-itv-done");
+    expect(within(card).getByText("已完成")).toBeInTheDocument();
+    expect(within(card).getByText("3 / 3 位专家完成")).toBeInTheDocument();
+    expect(within(card).getByRole("link", { name: /查看报告/ })).toHaveAttribute("href", "/itv/itv-done/report");
+    expect(within(card).queryByRole("progressbar")).not.toBeInTheDocument();
+  });
+
   it("does not imply expert completion when no experts have been selected", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(json({ items: [{ interviewId: "itv-zero", kind: "batch", name: "新研究", tags: [], topic: null,
       status: "draft", expertCount: 0, completedExpertCount: 0, primaryAction: "confirm_topic", updatedAt: "2026-09-28T01:00:00.000Z" }] }));
@@ -143,7 +154,7 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
     expect(within(card).getByText("尚未选择专家")).toBeInTheDocument();
   });
 
-  it.each([{ projectId: null }, { projectId: "project night" }])("new creation entries require name and tags before creating a scoped interview $projectId", async ({ projectId }) => {
+  it.each([{ projectId: null }, { projectId: "project night" }])("the header entry opens and reopens scoped creation without a duplicate creation tile $projectId", async ({ projectId }) => {
     render(<InterviewStudioHome initialTab="history" projectId={projectId} />);
     await screen.findByTestId("itv-history-card-itv-1");
     fireEvent.click(screen.getByTestId("itv-create"));
@@ -151,10 +162,28 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
     expect(screen.getByTestId("itv-create-scope")).toHaveTextContent(projectId ? "本项目访谈" : "独立访谈");
     expect(push).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "取消" }));
-    fireEvent.click(screen.getByTestId("itv-create-card"));
+    expect(screen.queryByTestId("itv-create-card")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("itv-create"));
     expect(screen.getByTestId("itv-create-dialog")).toBeVisible();
     expect(push).not.toHaveBeenCalled();
     expect(vi.mocked(fetch).mock.calls.some(([, init]) => init?.method === "POST")).toBe(false);
+  });
+
+  it("selects the default name so typing immediately replaces it", async () => {
+    render(<InterviewStudioHome initialCreateOpen />);
+    const input = await screen.findByLabelText("访谈名称") as HTMLInputElement;
+    await waitFor(() => expect(input).toHaveFocus());
+    expect(input.value.slice(input.selectionStart ?? 0, input.selectionEnd ?? 0)).toBe("未命名访谈");
+  });
+
+  it("returns keyboard focus to the header after dismissing creation", async () => {
+    render(<InterviewStudioHome />);
+    await screen.findByTestId("itv-history-card-itv-1");
+    const trigger = screen.getByTestId("itv-create"); trigger.focus();
+    fireEvent.click(trigger);
+    await waitFor(() => expect(screen.getByLabelText("访谈名称")).toHaveFocus());
+    fireEvent.click(screen.getByRole("button", {name:"取消"}));
+    await waitFor(() => expect(trigger).toHaveFocus());
   });
 
   it("history resumes the saved canonical source step rather than inferring it from legacy status", async () => {
@@ -355,7 +384,8 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
     fireEvent.keyDown(screen.getByTestId("itv-create-tag-input"), { key: "Enter" });
 
     fireEvent.click(screen.getByTestId("itv-create-submit"));
-    expect(await screen.findByRole("alert")).toHaveTextContent("DEPENDENCY_UNAVAILABLE");
+    expect(await screen.findByRole("alert")).toHaveTextContent("服务暂时不可用");
+    expect(screen.getByRole("alert")).not.toHaveTextContent("DEPENDENCY_UNAVAILABLE");
     expect(screen.getByTestId("itv-create-name")).toHaveValue("保留的创建输入");
     fireEvent.click(screen.getByTestId("itv-create-submit"));
     await waitFor(() => {

@@ -4,7 +4,7 @@ import { runtimeFixture } from "../guided-runtime-fixture";
 import { GuidedResearchLive } from "@/components/research-studio/guided-research-live";
 const { read, execute } = vi.hoisted(() => ({ read: vi.fn(), execute: vi.fn() }));
 vi.mock("@/lib/guided-research-api", () => ({ getResearchRuntime: read, getResearchRuntimeProgress: vi.fn(), executeResearchRuntime: execute, mergeResearchProgress: vi.fn((_current, next) => next) }));
-vi.mock("@/lib/guided-research-memory", () => ({ readResearchMemory: () => undefined, writeResearchMemory: vi.fn() }));
+vi.mock("@/lib/guided-research-memory", () => ({ readResearchMemory: () => undefined, getResearchMemoryScope: () => null, writeResearchMemory: vi.fn(), forgetResearchMemory: vi.fn(), readResearchOnce: (_id: string, _kind: string, _scope: string | null, read: () => Promise<unknown>) => read() }));
 beforeEach(() => { vi.clearAllMocks(); localStorage.clear(); sessionStorage.clear(); });
 
 it("prepares the complete plan once for a newly created confirmed intake", async () => {

@@ -1,6 +1,7 @@
 import * as React from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useDialogReturnFocus } from "@/components/chat/workbench/use-dialog-return-focus";
 
@@ -74,4 +75,37 @@ describe("TW-A11Y-5：弹窗关闭后焦点不许留在 BODY", () => {
     composer.remove();
     trigger.remove();
   });
+});
+
+function MountedDialog(): JSX.Element {
+  const [open, setOpen] = React.useState(true);
+  const returnFocus = useDialogReturnFocus(open);
+  return <><textarea data-testid="copilotkit-v2-input" /><Dialog open={open} onOpenChange={setOpen}>
+    <DialogContent onCloseAutoFocus={returnFocus}><DialogTitle>Approval</DialogTitle><DialogDescription>Review request</DialogDescription><button>Approve</button></DialogContent>
+  </Dialog></>;
+}
+
+it("agent-opened Radix dialog returns focus to composer after close", async () => {
+  render(<MountedDialog />);
+  await screen.findByRole("dialog");
+  fireEvent.click(screen.getByTestId("dialog-close"));
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  await waitFor(() => expect(screen.getByTestId("copilotkit-v2-input")).toHaveFocus());
+});
+
+it("never restores to a dialog child captured after Radix auto-focus", () => {
+  const dialog = document.createElement("div");
+  dialog.setAttribute("role", "dialog");
+  const action = document.createElement("button");
+  dialog.appendChild(action);
+  document.body.appendChild(dialog);
+  const composer = document.createElement("textarea");
+  composer.dataset.testid = "copilotkit-v2-input";
+  document.body.appendChild(composer);
+  action.focus();
+  render(<Harness open />);
+  screen.getByTestId("close-trigger").click();
+  expect(composer).toHaveFocus();
+  dialog.remove();
+  composer.remove();
 });

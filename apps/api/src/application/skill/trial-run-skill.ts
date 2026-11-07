@@ -1,3 +1,4 @@
+import {rethrowCreditConsumption} from "../billing/credit-consumption";
 /**
  * 契约 `skills.operations.runTrialRun`（`POST /skill-versions/:versionId/trial-run`，
  * UC-3.1 R3 步骤 4）—— 落地它面向的**模型 A**（`skills`/`skill_versions`/
@@ -167,7 +168,7 @@ export async function trialRunSkill(
       // 试跑没有线程（同 `trialRunAgent`：「试跑 ≠ 私聊」），没有历史可拼。
       history: [],
     });
-  } catch (e) {
+  } catch (e) { rethrowCreditConsumption(e);
     const detail = e instanceof ModelCallError ? e.detail : "unexpected model call failure";
     deps.log("skill trial run model call failed", {
       versionId: input.versionId,

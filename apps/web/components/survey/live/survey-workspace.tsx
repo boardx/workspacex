@@ -1,4 +1,10 @@
 "use client";
+import { displaySurveyReportIssue } from "@/lib/survey/display-report-issue";
+import { surveyRuntimeMessages } from "@/lib/survey/runtime-error-copy";
+import type { MessageKey } from "@/lib/i18n/messages";
+import { displaySurveyRuntimeError, SurveyDesignDiagnosticsError } from "@/lib/survey/display-runtime-error";
+import { displaySurveyDiagnostic } from "@/lib/survey/display-diagnostic";
+import { useI18n } from "@/lib/i18n/provider";
 import { WorkflowActionBar, WorkflowActionButton } from "@/components/research-studio/research-workflow-actions";
 
 import * as React from "react";
@@ -49,28 +55,28 @@ import { surveyPath, type SurveyDestination } from "@/lib/survey/paths";
 import { evaluateSurveyForPublish } from "@repo/contracts/survey-publish-readiness";
 import { WorkflowTimeline } from "./workflow-timeline";
 const STEPS = [
-  ["design", "设计问卷"],
-  ["publish", "发布回收"],
-  ["responses", "查看答卷"],
+  ["design", "survey.workspace.designStep"],
+  ["publish", "survey.workspace.publishStep"],
+  ["responses", "survey.workspace.responsesStep"],
 ] as const;
-const IMPORT_STEPS = [["import", "导入内容"], ...STEPS] as const;
-const BLOCKER_MESSAGES: Record<SurveyPublishBlocker["code"], string> = {
-  QUESTIONS_EMPTY: "问卷至少需要一道题",
-  QUESTION_OPTIONS_EMPTY: "选项题必须包含有效选项",
-  MAPPING_INCOMPLETE: "报告章节尚未覆盖对应题目",
-  LEADING_QUESTION: "题目措辞可能带有诱导性",
-  QUESTION_CONFIG_INVALID: "题目配置不完整或无效",
-  LOGIC_INVALID: "条件显示或跳转规则无效",
+const IMPORT_STEPS = [["import", "survey.workspace.importStep"], ...STEPS] as const;
+const BLOCKER_MESSAGES: Record<SurveyPublishBlocker["code"], MessageKey> = {
+  QUESTIONS_EMPTY: "survey.workspace.blockerEmpty",
+  QUESTION_OPTIONS_EMPTY: "survey.workspace.blockerOptions",
+  MAPPING_INCOMPLETE: "survey.workspace.blockerMapping",
+  LEADING_QUESTION: "survey.workspace.blockerLeading",
+  QUESTION_CONFIG_INVALID: "survey.workspace.blockerConfig",
+  LOGIC_INVALID: "survey.workspace.blockerLogic",
 };
-function collectionStatusLabel(publication: SurveyRuntime["publication"], now: number): string {
+function collectionStatusKey(publication: SurveyRuntime["publication"], now: number): MessageKey {
   const state = publication ? surveyCollectionAccessError(publication, now) : null;
-  return state === "closed" ? "已停止回收" : state === "expired" ? "已到截止时间" : state === "not_started" ? "等待开始" : "正在回收";
+  return state === "closed" ? "survey.workspace.closed" : state === "expired" ? "survey.workspace.expired" : state === "not_started" ? "survey.workspace.pending" : "survey.workspace.collecting";
 }
-function emptyDraft(): SurveyDraftInput {
+function emptyDraft(title: string, reportTitle: string): SurveyDraftInput {
   return {
-    title: "未命名问卷",
+    title,
     questions: [],
-    template: { id: crypto.randomUUID(), title: "问卷分析报告", sections: [] },
+    template: { id: crypto.randomUUID(), title: reportTitle, sections: [] },
   };
 }
 export function LiveSurveyWorkspace({
@@ -88,6 +94,17 @@ export function LiveSurveyWorkspace({
    */
   projectId?: string | null;
 }) {
+  const { t, locale } = useI18n();
+  const creationText = React.useRef(t);
+  creationText.current = t;
+  const displayRecommendation = (code: SurveyPublishBlocker["code"]) => t(({
+    QUESTIONS_EMPTY: "survey.workspace.recommendEmpty",
+    QUESTION_CONFIG_INVALID: "survey.workspace.recommendConfig",
+    QUESTION_OPTIONS_EMPTY: "survey.workspace.recommendOptions",
+    MAPPING_INCOMPLETE: "survey.workspace.recommendMapping",
+    LEADING_QUESTION: "survey.workspace.recommendLeading",
+    LOGIC_INVALID: "survey.workspace.recommendLogic",
+  } as const)[code]);
   const router = useRouter();
   const [runtime, setRuntime] = React.useState<SurveyRuntime | null>(null);
   const [draft, updateDraft] = React.useState<SurveyDraftInput | null>(null);
@@ -95,7 +112,7 @@ export function LiveSurveyWorkspace({
   const [operation, setOperation] = React.useState<"idle" | "saving" | "processing">("idle");
   const [generatingReport, setGeneratingReport] = React.useState(false);
   const [secondaryActionsOpen, setSecondaryActionsOpen] = React.useState(false);
-  const [error, setError] = React.useState("");
+  const [error, setError] = React.useState<string | Error>("");
   const [retryable, setRetryable] = React.useState(false);
   const [blockers, setBlockers] = React.useState<SurveyPublishBlocker[]>([]);
   const [templateAutosaveDraft, setTemplateAutosaveDraft] = React.useState<string | null>(null);
@@ -104,7 +121,7 @@ export function LiveSurveyWorkspace({
     setTemplateAutosaveDraft(null);
     updateDraft(next);
   }, []);
-  const [notice, setNotice] = React.useState("");
+  const [notice, setNotice] = React.useState<MessageKey | "">("");
   const [step, setStep] = React.useState(initialStep);
   const [repairQuestionId, setRepairQuestionId] = React.useState<string | null>(null);
   const [expires, setExpires] = React.useState("");
@@ -145,8 +162,9 @@ export function LiveSurveyWorkspace({
     setRuntime(null);
     setDraft(null);
     if (surveyId === "new") {
-      setDraft(emptyDraft());
-      setMarkdown("# 未命名问卷\n\n## q1 [open]\n请填写您的意见\n");
+      const title = creationText.current("survey.design.untitledSurvey");
+      setDraft(emptyDraft(title, creationText.current("survey.workspace.newReportDefault")));
+      setMarkdown(`# ${title}\n\n## q1 [open]\n${creationText.current("survey.workspace.newFeedbackDefault")}\n`);
       return;
     }
     void surveyRequest(`/surveys/${encodeURIComponent(surveyId)}`, {}, SurveyRuntimeSchema)
@@ -154,7 +172,7 @@ export function LiveSurveyWorkspace({
         if (active) accept(data);
       })
       .catch((e) => {
-        if (active) setError((e as Error).message);
+        if (active) setError(e instanceof Error ? e : surveyRuntimeMessages.operation);
       });
     return () => {
       active = false;
@@ -173,6 +191,34 @@ export function LiveSurveyWorkspace({
           template: runtime.template,
         }));
   useSurveyUnsavedNavigation(dirty);
+  const previousCollectionStep = React.useRef(step);
+  // Refresh collection data on return and while viewing results. Never replace local edits.
+  React.useEffect(() => {
+    if (surveyId === "new" || !runtime || dirty || busy) return;
+    let active = true;
+    let pending = false;
+    const reload = async () => {
+      if (pending || document.visibilityState === "hidden") return;
+      pending = true;
+      try {
+        const next = await surveyRequest(`/surveys/${encodeURIComponent(surveyId)}`, {}, SurveyRuntimeSchema);
+        if (active) setRuntime(next);
+      } catch { /* Keep the last successful snapshot; manual refresh exposes errors. */ }
+      finally { pending = false; }
+    };
+    window.addEventListener("focus", reload);
+    document.addEventListener("visibilitychange", reload);
+    if (previousCollectionStep.current !== step && step === "responses") void reload();
+    previousCollectionStep.current = step;
+    const timer = window.setInterval(reload, 15_000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", reload);
+      document.removeEventListener("visibilitychange", reload);
+    };
+  }, [surveyId, runtime, dirty, busy, step]);
+
   const execute = async (action: () => Promise<void>, nextOperation: "saving" | "processing" = "processing") => {
     if (lock.current) return;
     lock.current = true;
@@ -187,7 +233,7 @@ export function LiveSurveyWorkspace({
       if (e instanceof SurveyPublishBlockedError) { setBlockers(e.blockers); selectStep("design"); }
       else {
         setConflicted(e instanceof SurveyConflictError);
-        setError(e instanceof Error ? e.message : "操作失败，请重试");
+        setError(e instanceof Error ? e : surveyRuntimeMessages.operation);
         setRetryable(e instanceof SurveySystemError);
       }
     } finally {
@@ -197,13 +243,13 @@ export function LiveSurveyWorkspace({
     }
   };
   const save = async () => {
-    if (!draft) throw new Error("尚未加载问卷");
+    if (!draft) throw new Error(surveyRuntimeMessages.notLoaded);
     const sourceParsed = parseSurveyDesignMarkdown(markdown);
-    if (!sourceParsed.ok) throw new Error(sourceParsed.diagnostics.map((entry) => `第 ${entry.line} 行：${entry.message}`).join("；"));
-    if (markdownNeedsApply) throw new Error("请先校对并应用 Markdown，再保存或发布。");
+    if (!sourceParsed.ok) throw new SurveyDesignDiagnosticsError(sourceParsed.diagnostics);
+    if (markdownNeedsApply) throw new Error(surveyRuntimeMessages.applyMarkdown);
     const parsed = SurveyDraftInputSchema.safeParse({ ...draft, title: sourceParsed.draft.title, tags: sourceParsed.draft.tags, questions: sourceParsed.draft.questions });
     if (!parsed.success)
-      throw new Error("请填写问卷、章节及内容标题，并检查选项和图片地址。");
+      throw new Error(surveyRuntimeMessages.invalidDraft);
     const next = runtime ?? await surveyRequest("/surveys", {
         method: "POST",
         body: {
@@ -219,7 +265,7 @@ export function LiveSurveyWorkspace({
     if (next.publication) {
       const persisted = await surveyRequest(`/surveys/${next.id}`, { method: "PUT", body: { ...parsed.data, expectedVersion: next.version } }, SurveyRuntimeSchema);
       accept(persisted);
-      setNotice("报告模板已保存");
+      setNotice("survey.workspace.templateSaved");
       return persisted;
     }
     const persisted = await surveyRequest(`/surveys/${next.id}/source`, { method: "PUT", body: {
@@ -227,14 +273,14 @@ export function LiveSurveyWorkspace({
       documents: { design: markdown, publication: publicationMarkdown, reportTemplate: serializeSurveyReportTemplateMarkdown(parsed.data.template) },
     } }, SurveyRuntimeSchema);
     accept(persisted);
-    setNotice("修改已保存");
+    setNotice("survey.workspace.saved");
     if (surveyId === "new") {
       if (projectId) {
         try {
           await linkProjectResource({ projectId, kind: "survey", resourceId: next.id });
-          setNotice("问卷已创建并挂到项目");
+          setNotice("survey.workspace.createdLinked");
         } catch {
-          setNotice("问卷已创建，但挂到项目失败——可回到项目页用「关联已有问卷」补挂");
+          setNotice("survey.workspace.createdNotLinked");
         }
       }
       router.replace(withProjectId(surveyPath(next.id, step as SurveyDestination), projectId));
@@ -243,7 +289,7 @@ export function LiveSurveyWorkspace({
   };
   const command = async (name: string, extra: Record<string, unknown> = {}) => {
     const current = dirty ? await save() : runtime;
-    if (!current) throw new Error("请先保存问卷");
+    if (!current) throw new Error(surveyRuntimeMessages.saveFirst);
     const action = name === "begin-collection" ? current.status === "ready" ? "start-collection" : "publish" : name;
     const next = await surveyRequest(`/surveys/${current.id}/${action}`, {
         method: "POST",
@@ -251,12 +297,12 @@ export function LiveSurveyWorkspace({
       }, SurveyRuntimeSchema);
     accept(next);
     setBlockers([]);
-    setNotice("操作已完成");
+    setNotice("survey.workspace.operationDone");
   };
   const refresh = () =>
     execute(async () => {
       if (!runtime) return;
-      if (dirty && !window.confirm("刷新将放弃未保存的修改，继续吗？")) return;
+      if (dirty && !window.confirm(t("survey.workspace.refreshConfirm"))) return;
       accept(await surveyRequest(`/surveys/${runtime.id}`, {}, SurveyRuntimeSchema));
     });
   const collectionBatches = runtime?.collectionBatches ?? [];
@@ -308,7 +354,7 @@ export function LiveSurveyWorkspace({
     ? surveyReportShareBlockedReason(runtime.report)
     : undefined;
   const hasImportStep = creationMode === "ai" || initialStep === "import";
-  const workflowSteps = hasImportStep ? IMPORT_STEPS : STEPS;
+  const workflowSteps = (hasImportStep ? IMPORT_STEPS : STEPS).map(([id, key]) => [id, t(key)] as const);
   React.useEffect(() => {
     if (surveyId === "new") return;
     const restoreStep = () => {
@@ -326,7 +372,7 @@ export function LiveSurveyWorkspace({
   const collectionAccessError = selectedPublication ? surveyCollectionAccessError(selectedPublication, collectionNow) : null;
   const collectionExpired = collectionAccessError === "expired";
   const collectionPending = collectionAccessError === "not_started";
-  const collectionLabel = collectionStatusLabel(selectedPublication, collectionNow);
+  const collectionLabel = t(collectionStatusKey(selectedPublication, collectionNow));
   const selectStep = (next: string, targetQuestionId?: string) => {
     setStep(next);
     setRepairQuestionId(targetQuestionId ?? null);
@@ -352,43 +398,44 @@ export function LiveSurveyWorkspace({
         <Button
           variant="ghost"
           onClick={() => {
-            if (!dirty || window.confirm("离开将放弃未保存修改，继续吗？"))
+            if (!dirty || window.confirm(t("survey.workspace.backConfirm")))
               router.push(projectId ? projectResearchHref(projectId, "survey") : "/studio/survey");
           }}
         >
-          {projectId ? "← 返回项目" : "← 返回列表"}
+          {projectId ? t("survey.workspace.backProject") : t("survey.workspace.backList")}
         </Button>
         <div className="min-w-48 flex-1">
           <Input
-            aria-label="问卷名称"
+            aria-label={t("survey.workspace.name")}
             className="max-w-xl border-transparent bg-transparent text-18 font-semibold shadow-none focus-visible:border-border"
-            disabled={busy || !draft}
+            disabled={!draft}
+            readOnly={busy}
             value={draft?.title ?? ""}
             onChange={(e) =>
               draft && (() => { const next = { ...draft, title: e.target.value }; setDraft(next); setMarkdown((text) => text.replace(/^#\s+.*$/m, () => `# ${e.target.value}`)); })()
             }
           />
           <p className="mt-1 text-10 text-muted-foreground">
-            {operation === "saving" ? step === "design" ? "正在自动保存…" : "正在保存…" : dirty
-              ? "有未保存修改"
+            {operation === "saving" ? step === "design" ? t("survey.workspace.autosaving") : t("survey.workspace.saving") : dirty
+              ? t("survey.workspace.unsaved")
               : runtime
-                ? `已保存 · ${new Date(runtime.updatedAt).toLocaleString("zh-CN")}`
-                : "正在加载"}
+                ? t("survey.workspace.savedAt", { date: new Date(runtime.updatedAt).toLocaleString(locale) })
+                : t("survey.workspace.loadingShort")}
           </p>
         </div>
         <div className="relative">
-          <Button variant="outline" aria-expanded={secondaryActionsOpen} aria-controls="survey-secondary-actions" onClick={() => setSecondaryActionsOpen(value => !value)}>更多操作</Button>
+          <Button variant="outline" aria-expanded={secondaryActionsOpen} aria-controls="survey-secondary-actions" onClick={() => setSecondaryActionsOpen(value => !value)}>{t("survey.workspace.more")}</Button>
           {secondaryActionsOpen && (
             <div id="survey-secondary-actions" className="absolute right-0 top-full z-20 mt-2 flex min-w-52 flex-col gap-1 rounded-lg border border-border bg-card p-2 shadow-md">
               {step === "design" && draft && <SurveyTemplateActions saveOnly kind="question" draft={draft} onApply={() => undefined} locked={!!runtime?.publication} disabled={busy || !projectedInSync} />}
-              <Button variant="ghost" className="justify-start" onClick={() => { setSecondaryActionsOpen(false); selectStep("template"); }}>设计报告模板（可选）</Button>
-              {runtime && <Button variant="ghost" className="justify-start" onClick={() => { setSecondaryActionsOpen(false); selectStep("report"); }}>分析报告（可选）</Button>}
-              {runtime?.publication && <SurveyDraftCopy runtime={runtime} disabled={busy} onCreated={id => router.push(surveyPath(id, "design"))} />}
-              <Button variant="ghost" className="justify-start" disabled={busy || !runtime} onClick={() => { setSecondaryActionsOpen(false); void refresh(); }}>刷新</Button>
+              <Button variant="ghost" className="justify-start" onClick={() => { setSecondaryActionsOpen(false); selectStep("template"); }}>{t("survey.workspace.designReportOptional")}</Button>
+              {runtime && <Button variant="ghost" className="justify-start" onClick={() => { setSecondaryActionsOpen(false); selectStep("report"); }}>{t("survey.workspace.reportOptional")}</Button>}
+              {runtime?.publication && <SurveyDraftCopy runtime={runtime} projectId={projectId} disabled={busy} onCreated={id => router.push(withProjectId(surveyPath(id, "design"), projectId))} />}
+              <Button variant="ghost" className="justify-start" disabled={busy || !runtime} onClick={() => { setSecondaryActionsOpen(false); void refresh(); }}>{t("survey.workspace.refresh")}</Button>
             </div>
           )}
         </div>
-        {step === "design" ? <Button variant="primary" disabled={busy || !draft || conflicted} onClick={openPublish}>发布回收</Button> : <Button
+        {step === "design" ? <Button variant="primary" disabled={busy || !draft || conflicted} onClick={openPublish}>{t("survey.workspace.publishStep")}</Button> : <Button
           variant="primary"
           disabled={busy || !draft || !dirty}
           onClick={() =>
@@ -397,7 +444,7 @@ export function LiveSurveyWorkspace({
             }, "saving")
           }
         >
-          {operation === "saving" ? "保存中…" : error && dirty && !conflicted ? "重试保存" : busy ? "处理中…" : "保存修改"}
+          {operation === "saving" ? t("survey.workspace.savingButton") : error && dirty && !conflicted ? t("survey.workspace.retrySave") : busy ? t("survey.workspace.processing") : t("survey.workspace.save")}
         </Button>}
       </header>
       <WorkflowTimeline
@@ -410,53 +457,51 @@ export function LiveSurveyWorkspace({
           role="alert"
           className="m-4 rounded-md border border-destructive/30 p-3 text-12 text-destructive"
         >
-          <p>{error}</p>
+          <p>{displaySurveyRuntimeError(error, t, locale)}</p>
           {step === "design" && dirty && !conflicted && <>
-            <p role="status">保存失败，修改仍保留</p>
-            <Button variant="primary" disabled={busy} onClick={() => void execute(async () => { await save(); }, "saving")}>重试保存</Button>
+            <p role="status">{t("survey.workspace.saveFailed")}</p>
+            <Button variant="primary" disabled={busy} onClick={() => void execute(async () => { await save(); }, "saving")}>{t("survey.workspace.retrySave")}</Button>
           </>}
           {retryable && step === "publish" && runtime?.status === "draft" && (
             <Button
               className="mt-3"
               variant="outline"
               onClick={() => void execute(() => command("begin-collection", collectionScheduleInput(starts, expires)))}
-            >
-              重试发布
-            </Button>
+            >{t("survey.workspace.retryPublish")}</Button>
           )}
         </div>
       )}
       {notice && (
         <p role="status" className={step === "design" ? "sr-only" : "px-5 pt-3 text-12 text-success"}>
-          {notice}
+          {t(notice)}
         </p>
       )}
       {conflicted && runtime && (
-        <section className="m-5 space-y-3 rounded-lg border border-border bg-card p-4" aria-label="版本冲突处理">
-          <p>本地修改仍保留。先读取远端内容进行对比，再明确选择要保留的版本。</p>
+        <section className="m-5 space-y-3 rounded-lg border border-border bg-card p-4" aria-label={t("survey.workspace.conflictRegion")}>
+          <p>{t("survey.workspace.conflictHelp")}</p>
           <Button variant="outline" disabled={busy} onClick={() => void execute(async () => {
             const latest = await surveyRequest(`/surveys/${runtime.id}`, {}, SurveyRuntimeSchema);
             setRemoteVersion(latest);
-          })}>读取最新版本并保留我的修改</Button>
+          })}>{t("survey.workspace.readLatest")}</Button>
           {remoteVersion && <>
-            <textarea aria-label="远端 Markdown" className="min-h-48 w-full rounded-md border border-border p-3 font-mono text-13" readOnly value={remoteVersion.source?.documents.design.markdown ?? serializeSurveyDesignMarkdown(remoteVersion)} />
+            <textarea aria-label={t("survey.workspace.remoteMarkdown")} className="min-h-48 w-full rounded-md border border-border p-3 font-mono text-13" readOnly value={remoteVersion.source?.documents.design.markdown ?? serializeSurveyDesignMarkdown(remoteVersion)} />
             <Button disabled={busy} onClick={() => {
               setRuntime(remoteVersion);
               setSavedMarkdown(remoteVersion.source?.documents.design.markdown ?? serializeSurveyDesignMarkdown(remoteVersion));
               setConflicted(false); setRemoteVersion(null); setError("");
-              setNotice("已保留本地设计与报告模板，请校对后保存；尚未覆盖远端内容。");
-            }}>确认保留本地版本</Button>
+              setNotice("survey.workspace.localKept");
+            }}>{t("survey.workspace.keepLocal")}</Button>
             <Button variant="outline" disabled={busy} onClick={() => {
-              if (window.confirm("使用远端版本将丢弃当前本地修改，继续吗？")) accept(remoteVersion);
-            }}>使用远端版本</Button>
+              if (window.confirm(t("survey.workspace.remoteConfirm"))) accept(remoteVersion);
+            }}>{t("survey.workspace.useRemote")}</Button>
           </>}
         </section>
       )}
-      {!draft && !error && <p className="p-8">正在加载问卷…</p>}
+      {!draft && !error && <p className="p-8">{t("survey.workspace.loading")}</p>}
       {draft && (
         <fieldset disabled={busy} className={`min-w-0 ${step === "design" ? "lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:overflow-hidden" : ""}`}>
-          {step === "import" && (<section className="mx-auto max-w-6xl space-y-5 p-5" aria-label="导入内容步骤">
-            <div><h1 className="text-24 font-semibold">导入内容</h1><p className="mt-1 text-13 text-muted-foreground">描述需求，或上传文件、选择已保存的录音。先校对 AI 生成的 Markdown，再应用到问卷设计。</p></div>
+          {step === "import" && (<section className="mx-auto max-w-6xl space-y-5 p-5" aria-label={t("survey.workspace.importRegion")}>
+            <div><h1 className="text-24 font-semibold">{t("survey.workspace.importStep")}</h1><p className="mt-1 text-13 text-muted-foreground">{t("survey.workspace.importHelp")}</p></div>
             <SurveyAiProposal locked={!!runtime?.publication} onApply={text=>{
               const result=parseSurveyDesignMarkdown(text);if(!result.ok)return;
               const canonical=result.draft.tags===undefined&&draft.tags?.length
@@ -466,40 +511,40 @@ export function LiveSurveyWorkspace({
               clearPendingAiImport(surveyId);
               selectStep("design");
             }}/>
-            <details className="rounded-lg border border-border bg-card p-4"><summary className="cursor-pointer text-13 font-medium">直接编辑 Markdown（可选）</summary>
+            <details className="rounded-lg border border-border bg-card p-4"><summary className="cursor-pointer text-13 font-medium">{t("survey.workspace.editMarkdown")}</summary>
               <div className="mt-4"><MarkdownSurveyEditor value={markdown} locked={!!runtime?.publication} onChange={(text) => { setMarkdown(text); setMarkdownNeedsApply(true); }} onPreview={() => {
                 const result = parseSurveyDesignMarkdown(markdown);
-                if (!result.ok) { setError(result.diagnostics.map((entry) => `第 ${entry.line} 行：${entry.message}`).join("；")); return; }
+                if (!result.ok) { setError(new SurveyDesignDiagnosticsError(result.diagnostics)); return; }
                 setError(""); setDraft({ ...draft, title: result.draft.title, tags: result.draft.tags, questions: result.draft.questions });
                 setMarkdownNeedsApply(false);clearPendingAiImport(surveyId);selectStep("design");
               }} /></div>
             </details>
-            <div className="flex justify-end"><Button variant="outline" onClick={() => {clearPendingAiImport(surveyId);selectStep("design");}}>跳过导入，空白设计</Button></div>
+            <div className="flex justify-end"><Button variant="outline" onClick={() => {clearPendingAiImport(surveyId);selectStep("design");}}>{t("survey.workspace.skipImport")}</Button></div>
           </section>)}
           {(step === "design" || step === "template") && (<>
-            {!designBlockers.length && <section aria-label="设计检查" className="border-b border-success/30 px-5 py-2 text-12 text-success">设计检查通过</section>}
+            {!designBlockers.length && <section aria-label={t("survey.workspace.checks")} className="border-b border-success/30 px-5 py-2 text-12 text-success">{t("survey.workspace.checksPassed")}</section>}
             {designBlockers.length > 0 && (
-              <section aria-label="设计检查" className="rounded-md border border-warning/40 bg-warning/5 p-4">
-                <h2 className="text-14 font-semibold">发现 {designBlockers.length} 项设计问题</h2>
+              <section aria-label={t("survey.workspace.checks")} className="rounded-md border border-warning/40 bg-warning/5 p-4">
+                <h2 className="text-14 font-semibold">{t("survey.workspace.issuesCount", { count: designBlockers.length })}</h2>
                 <div data-testid="survey-design-readiness" className="mt-3 grid gap-2 rounded-md border border-border bg-card p-3 text-12 sm:grid-cols-3">
-                  <p><span className="text-muted-foreground">质量评分 </span>{readiness.qualityScore ?? "未知"}{readiness.qualityScore !== null && " / 100"}</p>
-                  <p><span className="text-muted-foreground">预计填写时间 </span>{readiness.estimatedSeconds === null ? "未知" : `${Math.ceil(readiness.estimatedSeconds / 60)} 分钟`}</p>
-                  <p><span className="text-muted-foreground">预计完成率 </span>{readiness.predictedCompletionRate === null ? "未知" : `${readiness.predictedCompletionRate}%`}</p>
+                  <p><span className="text-muted-foreground">{t("survey.workspace.quality")}{" "}</span>{readiness.qualityScore ?? t("survey.workspace.unknown")}{readiness.qualityScore !== null && " / 100"}</p>
+                  <p><span className="text-muted-foreground">{t("survey.workspace.estimatedTime")}{" "}</span>{readiness.estimatedSeconds === null ? t("survey.workspace.unknown") : t("survey.workspace.minutes", { count: Math.ceil(readiness.estimatedSeconds / 60) })}</p>
+                  <p><span className="text-muted-foreground">{t("survey.workspace.predictedRate")}{" "}</span>{readiness.predictedCompletionRate === null ? t("survey.workspace.unknown") : `${readiness.predictedCompletionRate}%`}</p>
                 </div>
                 <ul className="mt-3 space-y-2 text-12">
                   {readiness.recommendations.map((blocker) => (
                     <li key={`${blocker.code}:${blocker.side}:${blocker.subjectId}`}>
-                      <strong>{BLOCKER_MESSAGES[blocker.code]}</strong>
-                      <span className="ml-2 text-muted-foreground">{draft.questions.find((q) => q.id === blocker.subjectId)?.title ?? draft.template.sections.find((section) => section.id === blocker.subjectId)?.title ?? "问卷"}</span>
+                      <strong>{t(BLOCKER_MESSAGES[blocker.code])}</strong>
+                      <span className="ml-2 text-muted-foreground">{draft.questions.find((q) => q.id === blocker.subjectId)?.title ?? draft.template.sections.find((section) => section.id === blocker.subjectId)?.title ?? t("survey.workspace.survey")}</span>
                       {(blocker.code === "QUESTION_CONFIG_INVALID" || blocker.code === "LOGIC_INVALID") && blocker.missingFields.length > 0 && (
-                        <p className="mt-1 text-muted-foreground">{blocker.missingFields.join("；")}</p>
+                        <p className="mt-1 text-muted-foreground">{blocker.missingFields.map(message => displaySurveyDiagnostic(message, t)).join(locale === "en" ? "; " : "；")}</p>
                       )}
                       <Button
                         type="button"
                         size="sm"
                         variant="outline"
                         className="ml-2"
-                        aria-label={`定位并修复：${blocker.label}`}
+                        aria-label={t("survey.workspace.repairLabel", { action: displayRecommendation(blocker.code) })}
                         onClick={() => {
                           const templateRepair = blocker.code === "MAPPING_INCOMPLETE" || blocker.side === "section";
                           const targetQuestionId = blocker.side === "question"
@@ -510,9 +555,7 @@ export function LiveSurveyWorkspace({
                             targetQuestionId,
                           );
                         }}
-                      >
-                        定位并修复
-                      </Button>
+                      >{t("survey.workspace.repair")}</Button>
                     </li>
                   ))}
                 </ul>
@@ -521,7 +564,7 @@ export function LiveSurveyWorkspace({
           </>)}
           {step === "design" && (<>
             <fieldset disabled={!projectedInSync} className="lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:overflow-hidden">
-            {!projectedInSync && <p className="px-5 text-12 text-muted-foreground">请先预览并应用 Markdown，再编辑题目或应用模板，避免覆盖未应用内容。</p>}
+            {!projectedInSync && <p className="px-5 text-12 text-muted-foreground">{t("survey.workspace.applyBeforeEditing")}</p>}
             <SurveyQuestionEditor
               studioLayout
               surveyTitle={draft.title}
@@ -543,7 +586,7 @@ export function LiveSurveyWorkspace({
                 data-testid="survey-mapping-repair-target"
                 className="border-b border-warning/40 bg-warning/5 px-5 py-3 text-12"
               >
-                待映射题目：{draft.questions.find((question) => question.id === repairQuestionId)?.title ?? repairQuestionId}。请在报告内容块中选择这道题。
+                {t("survey.workspace.mappingTarget", { question: draft.questions.find((question) => question.id === repairQuestionId)?.title ?? repairQuestionId })}
               </p>
             )}
             <FlexibleReportEditor
@@ -555,46 +598,42 @@ export function LiveSurveyWorkspace({
           </>)}
           {step === "publish" && (
             <section className="mx-auto max-w-screen-2xl space-y-4 p-4 sm:p-5 lg:p-6">
-              <h1 className="text-20 font-semibold">发布与回收</h1>
+              <h1 className="text-20 font-semibold">{t("survey.workspace.publishHeading")}</h1>
               <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.8fr)_minmax(18rem,1fr)]">
               <div className="space-y-4">
-              <section aria-label="问卷回收状态" className="rounded-lg border border-border bg-card p-4">
-                <p className="text-12 font-medium text-muted-foreground">{selectedPublication ? "问卷回收状态" : "回收设置"}</p>
-                <h2 className="mt-3 text-24 font-semibold">{selectedPublication ? collectionLabel === "正在回收" ? "问卷正在回收中" : `问卷${collectionLabel}` : "问卷尚未开始回收"}</h2>
-                <p className="mt-2 text-13 text-muted-foreground">{selectedPublication ? collectionExpired || selectedPublication.status === "closed" ? "当前链接不再接受新答卷；历史答卷仍可查看。" : collectionPending ? "回收尚未开始；受访者可在开始时间后填写，开始前不接受答卷或上传。" : "受访者可通过链接或二维码填写；答卷与发布版本对应。" : "设置回收时间后开始回收。开始回收后题目与匿名方式固定。"}</p>
-                {selectedPublication && <p className="mt-4 text-12 text-muted-foreground">发布版本 v{selectedPublication.version}</p>}
-                {selectedPublication && <p className="mt-2 text-13 font-medium">{collectionLabel} · {selectedResponseCount} 份答卷</p>}
-                {selectedPublication && !selectedIsActive && <p className="mt-2 text-12 font-medium text-muted-foreground">历史批次只读</p>}
+              <section aria-label={t("survey.workspace.collectionStatus")} className="rounded-lg border border-border bg-card p-4">
+                <p className="text-12 font-medium text-muted-foreground">{selectedPublication ? t("survey.workspace.collectionStatus") : t("survey.workspace.collectionSettings")}</p>
+                <h2 className="mt-3 text-24 font-semibold">{selectedPublication ? t(collectionAccessError === "closed" ? "survey.workspace.closedHeading" : collectionExpired ? "survey.workspace.expiredHeading" : collectionPending ? "survey.workspace.pendingHeading" : "survey.workspace.collectingHeading") : t("survey.workspace.notCollecting")}</h2>
+                <p className="mt-2 text-13 text-muted-foreground">{selectedPublication ? collectionExpired || selectedPublication.status === "closed" ? t("survey.workspace.closedHelp") : collectionPending ? t("survey.workspace.pendingHelp") : t("survey.workspace.collectingHelp") : t("survey.workspace.unpublishedHelp")}</p>
+                {selectedPublication && <p className="mt-4 text-12 text-muted-foreground">{t("survey.workspace.publishedVersion", { version: selectedPublication.version })}</p>}
+                {selectedPublication && <p className="mt-2 text-13 font-medium">{t("survey.workspace.responsesCount", { state: collectionLabel, count: selectedResponseCount })}</p>}
+                {selectedPublication && !selectedIsActive && <p className="mt-2 text-12 font-medium text-muted-foreground">{t("survey.workspace.historical")}</p>}
               </section>
               {runtime && (runtime.status === "draft" || runtime.status === "ready") ? (
                 <section className="space-y-4 rounded-lg border border-border bg-card p-4">
                   <div>
-                    <h2 className="text-16 font-semibold">回收时间</h2>
-                    {designBlockers.length > 0 && <p className="mt-2 text-12 text-warning">请返回设计，处理 {designBlockers.length} 项问题后开始回收。</p>}
+                    <h2 className="text-16 font-semibold">{t("survey.workspace.schedule")}</h2>
+                    {designBlockers.length > 0 && <p className="mt-2 text-12 text-warning">{t("survey.workspace.fixBeforeCollect", { count: designBlockers.length })}</p>}
                   </div>
                   <CollectionScheduleFields starts={starts} expires={expires} onStartChange={setStarts} onEndChange={setExpires} disabled={busy} />
                   <WorkflowActionBar placement="footer">
-                    <WorkflowActionButton variant="outline" onClick={() => selectStep("design")}>
-                      返回编辑
-                    </WorkflowActionButton>
+                    <WorkflowActionButton variant="outline" onClick={() => selectStep("design")}>{t("survey.workspace.backEditing")}</WorkflowActionButton>
                     <WorkflowActionButton
                       variant="primary"
                       disabled={designBlockers.length > 0}
                       onClick={() => void execute(() => command("begin-collection", collectionScheduleInput(starts, expires)))}
-                    >
-                      开始回收
-                    </WorkflowActionButton>
+                    >{t("survey.workspace.startCollection")}</WorkflowActionButton>
                   </WorkflowActionBar>
                 </section>
               ) : runtime && selectedPublication ? (
                 <>
                   <CollectionOverview runtime={runtime} batchId={selectedBatch?.id} />
-                  <section aria-label="分享问卷" className="space-y-4 rounded-lg border border-border bg-card p-4">
+                  <section aria-label={t("survey.workspace.share")} className="space-y-4 rounded-lg border border-border bg-card p-4">
                     <div>
-                      <h2 className="text-16 font-semibold">分享问卷</h2>
-                      <p className="mt-1 text-12 text-muted-foreground">通过链接或二维码邀请受访者填写。{selectedPublication.startsAt && <>开始 {new Date(selectedPublication.startsAt).toLocaleString("zh-CN")}；</>}截止 {new Date(selectedPublication.expiresAt).toLocaleString("zh-CN")}。</p>
+                      <h2 className="text-16 font-semibold">{t("survey.workspace.share")}</h2>
+                      <p className="mt-1 text-12 text-muted-foreground">{t("survey.workspace.shareHelp")}{" "}{selectedPublication.startsAt && <>{t("survey.workspace.shareStart", { date: new Date(selectedPublication.startsAt).toLocaleString(locale) })}</>}{t("survey.workspace.shareEnd", { date: new Date(selectedPublication.expiresAt).toLocaleString(locale) })}</p>
                     </div>
-                    <Input aria-label="答题链接" readOnly value={link} />
+                    <Input aria-label={t("survey.workspace.responseLink")} readOnly value={link} />
                     <div className="flex flex-wrap items-center gap-4">
                       <SurveyShareCode link={link} />
                       <div className="flex flex-wrap gap-2">
@@ -603,20 +642,16 @@ export function LiveSurveyWorkspace({
                       onClick={() =>
                         void execute(async () => {
                           await navigator.clipboard.writeText(link);
-                          setNotice("链接已复制");
+                          setNotice("survey.workspace.linkCopied");
                         })
                       }
-                    >
-                      复制答题链接
-                    </Button>
+                    >{t("survey.workspace.copyLink")}</Button>
                     <a
                       className="rounded-md border border-border px-4 py-2 text-12"
                       href={link}
                       target="_blank"
                       rel="noreferrer"
-                    >
-                      打开答题页
-                    </a>
+                    >{t("survey.workspace.openForm")}</a>
                       </div>
                     </div>
                   </section>
@@ -626,38 +661,32 @@ export function LiveSurveyWorkspace({
                         onClick={() => {
                           if (
                             window.confirm(
-                              "停止回收后将不再接受新答卷，继续吗？",
+                              t("survey.workspace.stopConfirm"),
                             )
                           )
                             void execute(() => command("close"));
                         }}
-                      >
-                        停止回收
-                      </Button>
+                      >{t("survey.workspace.stopCollection")}</Button>
                     )}
                   {selectedIsActive && selectedPublication.status === "closed" && (
-                    <section aria-label="再次发布设置" className="space-y-4 rounded-lg border border-border bg-card p-4">
-                      <h2 className="text-16 font-semibold">再次发布</h2>
+                    <section aria-label={t("survey.workspace.republishSettings")} className="space-y-4 rounded-lg border border-border bg-card p-4">
+                      <h2 className="text-16 font-semibold">{t("survey.workspace.republish")}</h2>
                       <CollectionScheduleFields starts={starts} expires={expires} onStartChange={setStarts} onEndChange={setExpires} disabled={busy} />
-                      <Button disabled={busy} onClick={() => void execute(() => command("republish", collectionScheduleInput(starts, expires)))}>
-                        再次发布
-                      </Button>
+                      <Button disabled={busy} onClick={() => void execute(() => command("republish", collectionScheduleInput(starts, expires)))}>{t("survey.workspace.republish")}</Button>
                     </section>
                   )}
                 </>
               ) : (
-                <p className="text-12 text-muted-foreground">正在同步发布状态，请刷新后重试。</p>
+                <p className="text-12 text-muted-foreground">{t("survey.workspace.syncStatus")}</p>
               )}
               </div>
-              <aside className="space-y-4" aria-label="回收设置面板">
+              <aside className="space-y-4" aria-label={t("survey.workspace.settingsPanel")}>
                 {runtime && !runtime.publication && <section className="rounded-lg border border-border bg-card p-4">
-                  <label className="flex items-center justify-between gap-4 text-13 font-medium">
-                    匿名填写
-                    <input type="checkbox" disabled={busy} checked={runtime.anonymity === "anonymous"} onChange={event => {
+                  <label className="flex items-center justify-between gap-4 text-13 font-medium">{t("survey.workspace.anonymous")}<input type="checkbox" disabled={busy} checked={runtime.anonymity === "anonymous"} onChange={event => {
                       const anonymity = event.target.checked ? "anonymous" : "identified";
                       void execute(async () => {
                         const current = dirty ? await save() : runtime;
-                        if (!current) throw new Error("请先保存问卷");
+                        if (!current) throw new Error(surveyRuntimeMessages.saveFirst);
                         const next = await surveyRequest(`/surveys/${current.id}`, { method: "PUT", body: {
                           expectedVersion: current.version,
                           draft: { title: current.title, tags: current.tags, questions: current.questions, template: current.template },
@@ -667,18 +696,16 @@ export function LiveSurveyWorkspace({
                       });
                     }} />
                   </label>
-                  <p className="mt-2 text-12 text-muted-foreground">关闭后可收集填写者信息；发布后不可更改。</p>
+                  <p className="mt-2 text-12 text-muted-foreground">{t("survey.workspace.anonymousHelp")}</p>
                 </section>}
                 <SurveyCollectionSettingsEditor markdown={selectedPublication?.sourceSnapshot?.documents.publication.markdown ?? publicationMarkdown} locked={busy || !!selectedPublication} onChange={setPublicationMarkdown}/>
                 {collectionBatches.length > 1 && (
-                  <label className="block rounded-lg border border-border bg-card p-4 text-13">
-                    回收批次
-                    <select aria-label="回收批次" className="mt-3 h-9 w-full rounded-md border border-border bg-background px-3" value={selectedBatch?.id ?? activeBatchId ?? ""} onChange={(event) => setSelectedBatchId(event.target.value)}>
-                      {collectionBatches.map((batch, index) => <option key={batch.id} value={batch.id}>{index + 1}. {collectionStatusLabel(batch, collectionNow)} · {new Date(batch.createdAt).toLocaleString("zh-CN")}</option>)}
+                  <label className="block rounded-lg border border-border bg-card p-4 text-13">{t("survey.workspace.batch")}<select aria-label={t("survey.workspace.batch")} className="mt-3 h-9 w-full rounded-md border border-border bg-background px-3" value={selectedBatch?.id ?? activeBatchId ?? ""} onChange={(event) => setSelectedBatchId(event.target.value)}>
+                      {collectionBatches.map((batch, index) => <option key={batch.id} value={batch.id}>{index + 1}. {t(collectionStatusKey(batch, collectionNow))} · {new Date(batch.createdAt).toLocaleString(locale)}</option>)}
                     </select>
                   </label>
                 )}
-                {selectedPublication && <div className="rounded-lg border border-border bg-card p-4 text-13"><h2 className="font-semibold">已发布设置</h2><p className="mt-3">开始时间：{selectedPublication.startsAt ? new Date(selectedPublication.startsAt).toLocaleString("zh-CN") : "发布后立即开始"}</p><p className="mt-2">截止时间：{new Date(selectedPublication.expiresAt).toLocaleString("zh-CN")}</p><p className="mt-2">匿名填写：{runtime?.anonymity === "anonymous" ? "开启" : "关闭"}</p><p className="mt-2 text-12 text-muted-foreground">这些设置随发布版本冻结，历史答卷不会被修改。</p></div>}
+                {selectedPublication && <div className="rounded-lg border border-border bg-card p-4 text-13"><h2 className="font-semibold">{t("survey.workspace.publishedSettings")}</h2><p className="mt-3">{t("survey.workspace.startPrefix")}{selectedPublication.startsAt ? new Date(selectedPublication.startsAt).toLocaleString(locale) : t("survey.workspace.immediate")}</p><p className="mt-2">{t("survey.workspace.endPrefix")}{new Date(selectedPublication.expiresAt).toLocaleString(locale)}</p><p className="mt-2">{t("survey.workspace.anonymousPrefix")}{runtime?.anonymity === "anonymous" ? t("survey.workspace.on") : t("survey.workspace.off")}</p><p className="mt-2 text-12 text-muted-foreground">{t("survey.workspace.frozenSettings")}</p></div>}
                 {runtime && selectedPublication && <RecentCollectionActivity runtime={runtime} batchId={selectedBatch?.id} />}
               </aside>
               </div>
@@ -729,39 +756,35 @@ export function LiveSurveyWorkspace({
                 })
               }
             />
-            <details aria-label="分析报告（可选）" className="group mx-5 mb-5 rounded-lg border border-border bg-card p-4">
+            <details aria-label={t("survey.workspace.reportOptional")} className="group mx-5 mb-5 rounded-lg border border-border bg-card p-4">
               <summary className="cursor-pointer list-none text-14 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                <span aria-hidden="true" className="mr-2 inline-block transition-transform group-open:rotate-90">›</span>
-                分析报告（可选）
-                <span className="ml-2 text-12 font-normal text-muted-foreground">{runtime?.report ? reportIsStale ? "待更新" : "已生成" : "未生成"}</span>
+                <span aria-hidden="true" className="mr-2 inline-block transition-transform group-open:rotate-90">›</span>{t("survey.workspace.reportOptional")}<span className="ml-2 text-12 font-normal text-muted-foreground">{runtime?.report ? reportIsStale ? t("survey.workspace.pendingUpdate") : t("survey.workspace.generated") : t("survey.workspace.notGenerated")}</span>
               </summary>
               <div className="mt-4 space-y-4 border-t border-border pt-4">
-                <p className="text-12 text-muted-foreground">报告不会影响答卷查看。样本不足时仅展示描述性结果，不生成行动结论。</p>
+                <p className="text-12 text-muted-foreground">{t("survey.workspace.reportHelp")}</p>
                 <p className="text-12 text-muted-foreground">{runtime?.report
-                  ? reportIsStale ? "模板或答卷已有更新，可重新生成报告" : `已基于 ${runtime.responses.filter(response => response.analysis !== 'excluded').length} 份纳入分析的答卷生成`
-                  : "尚未生成；可直接使用默认模板"}</p>
-                <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => selectStep('template')}>设计报告模板</Button><Button variant="outline" onClick={() => selectStep('report')}>{runtime?.report ? "查看分析报告" : "生成分析报告"}</Button></div>
+                  ? reportIsStale ? t("survey.workspace.reportNeedsUpdate") : t("survey.workspace.reportSample", { count: runtime.responses.filter(response => response.analysis !== 'excluded').length })
+                  : t("survey.workspace.reportNotGenerated")}</p>
+                <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => selectStep('template')}>{t("survey.workspace.designReport")}</Button><Button variant="outline" onClick={() => selectStep('report')}>{runtime?.report ? t("survey.workspace.viewReport") : t("survey.workspace.makeAnalysis")}</Button></div>
               </div>
             </details>
           </>)}
           {step === "report" && (
             <section className="mx-auto max-w-5xl space-y-5 p-5">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="w-full text-20 font-semibold sm:w-auto sm:flex-1">
-                  分析报告
-                </h1>
+                <h1 className="w-full text-20 font-semibold sm:w-auto sm:flex-1">{t("survey.workspace.analysisReport")}</h1>
                 <Button variant="primary" aria-busy={generatingReport} onClick={() => void execute(async () => {
                   setGeneratingReport(true);
                   try {
                     await command("report");
-                    setNotice("报告已按最新答卷和报告模板重新生成");
+                    setNotice("survey.workspace.reportRegenerated");
                   } finally { setGeneratingReport(false); }
                 })}>
-                  {generatingReport ? "正在生成报告…" : runtime?.report ? "重新生成报告" : "生成报告"}
+                  {generatingReport ? t("survey.workspace.generatingReport") : runtime?.report ? t("survey.workspace.regenerateReport") : t("survey.workspace.generateReport")}
                 </Button>
                 {runtime?.report && (
                   <>
-                    <Button variant="outline" disabled={!!reportShareBlockedReason} onClick={() => void execute(async () => { downloadReportMarkdown(runtime.report!); })}>导出 Markdown</Button>
+                    <Button variant="outline" disabled={!!reportShareBlockedReason} onClick={() => void execute(async () => { downloadReportMarkdown(runtime.report!); })}>{t("survey.workspace.exportMarkdown")}</Button>
                     <Button
                       variant="outline"
                       disabled={!!reportShareBlockedReason}
@@ -770,9 +793,7 @@ export function LiveSurveyWorkspace({
                           await exportSurveyReportWord(runtime.report!);
                         })
                       }
-                    >
-                      导出 Word
-                    </Button>
+                    >{t("survey.workspace.exportWord")}</Button>
                     <Button
                       variant="outline"
                       disabled={!!reportShareBlockedReason}
@@ -782,9 +803,7 @@ export function LiveSurveyWorkspace({
                             await printSurveyReport(reportRef.current, runtime.report!);
                         })
                       }
-                    >
-                      导出 PDF
-                    </Button>
+                    >{t("survey.workspace.exportPdf")}</Button>
                   </>
                 )}
               </div>
@@ -794,39 +813,34 @@ export function LiveSurveyWorkspace({
                   data-testid="survey-report-share-privacy-warning"
                   role="status"
                 >
-                  {reportShareBlockedReason}
+                  {displaySurveyReportIssue(reportShareBlockedReason, t)}
                 </p>
               )}
               {runtime?.reportGeneratedAt && (
-                <p className="text-12 text-muted-foreground" data-testid="survey-report-generated-at">
-                  生成时间：{new Date(runtime.reportGeneratedAt).toLocaleString("zh-CN")}
+                <p className="text-12 text-muted-foreground" data-testid="survey-report-generated-at">{t("survey.workspace.generatedPrefix")}{new Date(runtime.reportGeneratedAt).toLocaleString(locale)}
                 </p>
               )}
               {!runtime?.report && (
-                <p className="rounded-md bg-muted p-4 text-12">
-                  分析报告是可选项，不影响发布和回收。可以使用默认报告模板，也可以按需设计模板。
-                </p>
+                <p className="rounded-md bg-muted p-4 text-12">{t("survey.workspace.optionalReportHelp")}</p>
               )}
               {compiled?.issues.length ? (
                 <div className="rounded-md border border-warning/30 p-4 text-12">
-                  <p className="font-medium">生成前需要检查</p>
+                  <p className="font-medium">{t("survey.workspace.checkBeforeGenerating")}</p>
                   <ul className="mt-2 list-inside list-disc">
                     {[...new Set(compiled.issues)].map((issue) => (
-                      <li key={issue}>{issue}</li>
+                      <li key={issue}>{displaySurveyReportIssue(issue, t)}</li>
                     ))}
                   </ul>
                 </div>
               ) : null}
               {reportIsStale && (
-                  <p className="text-12 text-muted-foreground">
-                    模板或答卷已有更新，当前展示上次生成的报告。重新生成后更新内容。
-                  </p>
+                  <p className="text-12 text-muted-foreground">{t("survey.workspace.staleReport")}</p>
                 )}
               {runtime?.report && (
                 <div className="rounded-lg bg-muted p-3 sm:p-6">
                   <details className="mb-4 rounded-md border border-border bg-card p-3">
-                    <summary className="cursor-pointer text-13">报告 Markdown</summary>
-                    <textarea aria-label="报告 Markdown" readOnly className="mt-3 min-h-48 w-full rounded-md border border-border bg-card p-3 font-mono text-12" value={surveyReportMarkdown(runtime.report)} />
+                    <summary className="cursor-pointer text-13">{t("survey.workspace.reportMarkdown")}</summary>
+                    <textarea aria-label={t("survey.workspace.reportMarkdown")} readOnly className="mt-3 min-h-48 w-full rounded-md border border-border bg-card p-3 font-mono text-12" value={surveyReportMarkdown(runtime.report)} />
                   </details>
                 <div ref={reportRef}>
                   <SurveyReportDocument report={runtime.report} />

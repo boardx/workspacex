@@ -1,0 +1,13 @@
+22b5993c7190c798146d51c78e8ab55b9f5a864b apps/web/components/admin/panel.tsx
+cdfa23f35d4471be92ed27a64e6e48b683130d52 apps/web/components/org-admin/members-screen.tsx
+067479da0b8bcf3cbd5750a0367f82d53d12626c apps/web/components/org-admin/org-admin-screen.tsx
+9662cd73f123141de737b9e6e244ec0fa00374b0 apps/web/components/org-admin/roster-screen.tsx
+6b27293c0b1075e718e99f99fcd0cd9964a90eaa apps/web/components/org-admin/shared-invite-links.tsx
+f94bc7ec921733e53405fdbd458d2d1c730e08e5 apps/web/e2e/entity-localization.spec.ts
+55bf7c35269f4ad23d974419cd6da47218c37663 apps/web/lib/i18n/namespaces/controls.ts
+913370fe10ca5eaccc23f4a8311bedd33e1f6b72 apps/web/lib/i18n/namespaces/org-members-preview.ts
+8aadc7aff6abff01271d149157a7aa6b9b5c8763 apps/web/lib/i18n/namespaces/org-members.ts
+5cb46194a2dc05c3843f72d1a7204ca53dbaf522 apps/web/lib/i18n/namespaces/org-shared-invites.ts
+f9b57fcee0e4ad696058410eac549909b383ae45 apps/web/tests/ui/org-members-i18n.test.tsx
+acaf9bb60ea9213a343812109dfbebdbfb33fb03 apps/web/tests/ui/org-members-preview-i18n.test.tsx
+daf347dc9b457fe59af3a83c7f7d37660cb4598f apps/web/tests/ui/org-shared-invites-i18n.test.tsx

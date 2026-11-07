@@ -141,6 +141,11 @@ services:
       #   `maxSessions`，容器读到空串就用那个默认（session/schema.ts 的 resolveMaxSessions）。
       #   在这里写一份 `:-16` 等于把同一个事实声明在第二处，本仓已为此栽过五次。
       SKILL_SANDBOX_MAX_SESSIONS: ${SKILL_SANDBOX_MAX_SESSIONS:-}
+      SKILL_SANDBOX_CONCURRENCY: ${SKILL_SANDBOX_CONCURRENCY:-}
+      SKILL_SANDBOX_MAX_QUEUE: ${SKILL_SANDBOX_MAX_QUEUE:-}
+      SKILL_SANDBOX_USER_CONCURRENCY: ${SKILL_SANDBOX_USER_CONCURRENCY:-}
+      SKILL_SANDBOX_USER_MAX_QUEUE: ${SKILL_SANDBOX_USER_MAX_QUEUE:-}
+      SKILL_SANDBOX_QUEUE_WAIT_MS: ${SKILL_SANDBOX_QUEUE_WAIT_MS:-}
     # ⚠ 调大 SKILL_SANDBOX_MAX_SESSIONS 必须同时调大这三项，否则超出的并发不再是一个
     #   说得清的 SESSION_LIMIT 拒绝，而是容器 OOM——把可解释的拒绝换成不可解释的崩溃。
     #   默认值只在这里声明一次（契约管 session 数，compose 管这份容量背后的资源）。
@@ -187,6 +192,11 @@ services:
       #   `maxSessions`，容器读到空串就用那个默认（session/schema.ts 的 resolveMaxSessions）。
       #   在这里写一份 `:-16` 等于把同一个事实声明在第二处，本仓已为此栽过五次。
       SKILL_SANDBOX_MAX_SESSIONS: ${SKILL_SANDBOX_MAX_SESSIONS:-}
+      SKILL_SANDBOX_CONCURRENCY: ${SKILL_SANDBOX_CONCURRENCY:-}
+      SKILL_SANDBOX_MAX_QUEUE: ${SKILL_SANDBOX_MAX_QUEUE:-}
+      SKILL_SANDBOX_USER_CONCURRENCY: ${SKILL_SANDBOX_USER_CONCURRENCY:-}
+      SKILL_SANDBOX_USER_MAX_QUEUE: ${SKILL_SANDBOX_USER_MAX_QUEUE:-}
+      SKILL_SANDBOX_QUEUE_WAIT_MS: ${SKILL_SANDBOX_QUEUE_WAIT_MS:-}
     # ⚠ 调大 SKILL_SANDBOX_MAX_SESSIONS 必须同时调大这三项，否则超出的并发不再是一个
     #   说得清的 SESSION_LIMIT 拒绝，而是容器 OOM——把可解释的拒绝换成不可解释的崩溃。
     #   默认值只在这里声明一次（契约管 session 数，compose 管这份容量背后的资源）。

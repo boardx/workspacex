@@ -1,0 +1,50 @@
+import * as React from "react";
+import { expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { I18nProvider, useI18n } from "@/lib/i18n/provider";
+import { ToolPermissionCard, type ToolPermissionCardRequest } from "@/components/agent-kernel/tool-permission-card";
+import { InterruptDecisionDialog } from "@/components/chat/workbench/interrupt-decision-dialog";
+import type { agentInterrupts } from "@repo/contracts";
+const request: ToolPermissionCardRequest = { risk: "L2", intent: "用户原始意图 {count}", rationale: "原始原因 🌍", command: '{"task":"用户原文","status":"pending"}', affects: "用户指定对象" };
+let changeLanguage: () => void = () => { throw new Error("locale driver not mounted"); };
+function SwitchLanguage() { const { setLocale } = useI18n(); React.useEffect(() => { changeLanguage = () => setLocale("zh-CN"); }, [setLocale]); return <button onClick={() => setLocale("zh-CN")}>switch language</button>; }
+it("localizes permission chrome while preserving raw command and the controlled decision enum", () => {
+  const decide = vi.fn();
+  render(<I18nProvider initialLocale="en"><SwitchLanguage /><ToolPermissionCard request={request} decided={null} onDecide={decide} /></I18nProvider>);
+  const once = screen.getByRole("button", { name: "Allow once" });
+  expect(screen.getByRole("button", { name: "Allow for this run" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Always allow" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Deny" })).toBeTruthy();
+  const command = screen.getByTestId("perm-command"); expect(command.textContent).toBe(request.command);
+  expect(screen.getByTestId("perm-review-guidance")).toHaveTextContent("server-provided argument summary");
+  expect(screen.queryByText("Full command, without truncation")).not.toBeInTheDocument();
+  expect(screen.getByTestId("risk-L2").textContent).toBe("L2 · High risk");
+  fireEvent.click(screen.getByRole("button", { name: "switch language" }));
+  expect(screen.getByRole("button", { name: "仅本次允许" })).toBe(once);
+  expect(screen.getByTestId("perm-command")).toBe(command); expect(command.textContent).toBe(request.command);
+  expect(screen.getByTestId("perm-review-guidance")).toHaveTextContent("参数摘要");
+  expect(decide).not.toHaveBeenCalled();
+  fireEvent.click(once); expect(decide).toHaveBeenCalledWith("once"); expect(decide).toHaveBeenCalledTimes(1);
+});
+it("retranslates an existing local denial record without creating another decision", () => {
+  render(<I18nProvider initialLocale="en"><SwitchLanguage /><ToolPermissionCard request={request} /></I18nProvider>);
+  fireEvent.click(screen.getByRole("button", { name: "Deny" }));
+  const record = screen.getByRole("status");
+  expect(record.textContent).toBe("Denied. The agent will adjust its next steps rather than fail immediately.");
+  fireEvent.click(screen.getByRole("button", { name: "switch language" }));
+  expect(screen.getByRole("status")).toBe(record);
+  expect(record.textContent).toBe("已拒绝。agent 会据此调整后续计划，而不是直接失败。");
+});
+it("keeps a restored intent dialog open across locale changes and Escape remains a non-decision", async () => {
+  const interrupt: agentInterrupts.RestorableInterrupt = { toolName: "confirm_task_intent", args: { requestId: "raw-request", understanding: "用户原始任务 {count}", assumptions: [] } };
+  const decide = vi.fn(async () => {});
+  render(<I18nProvider initialLocale="en"><SwitchLanguage /><InterruptDecisionDialog interrupt={interrupt} pending={false} decide={decide} /></I18nProvider>);
+  const dialog = screen.getByRole("dialog", { name: "Confirm task intent" });
+  act(() => changeLanguage());
+  expect(screen.getByRole("dialog", { name: "确认任务意图" })).toBe(dialog); expect(decide).not.toHaveBeenCalled();
+  fireEvent.keyDown(dialog, { key: "Escape" });
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  expect(decide).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "打开待确认请求" }));
+  expect(screen.getByRole("dialog", { name: "确认任务意图" })).toBeTruthy(); expect(decide).not.toHaveBeenCalled();
+});

@@ -1,3 +1,5 @@
+import {creditErrorGuidance} from "../credit-error-guidance";
+import type {CreditRequiredBody} from "@repo/contracts/billing-consumption";
 import {toOrgId} from "../../domain/org-id";
 /**
  * issue #726 —— `WS /chat/asr-draft`。composer 麦克风按钮的语音转录，**不落库**。
@@ -98,9 +100,9 @@ function serve(ws: WebSocket, deps: AsrDraftGatewayDeps,principal:{userId:string
   let pendingAudio: Uint8Array[] | null = null;
   let pendingBytes = 0;
 
-  const fail = (reason: AsrDraftErrorReason, detail: string): void => {
+  const fail = (reason: AsrDraftErrorReason, detail: string, credit?: typeof CreditRequiredBody._type): void => {
     process.stderr.write(`[asr-draft] ${reason}: ${detail}\n`);
-    send({ type: "asr.error", reason });
+    send({ type: "asr.error", reason, ...(credit?{credit}:{}) });
     upstream?.abort();
     upstream = null;
     ws.close();
@@ -137,6 +139,8 @@ function serve(ws: WebSocket, deps: AsrDraftGatewayDeps,principal:{userId:string
         pendingBytes = 0;
         upstream = session;
       }).catch((e: unknown) => {
+        const billing=creditErrorGuidance(e);
+        if(billing)return fail(billing.reason,"credit admission refused", "credit" in billing?billing.credit:undefined);
         if (e instanceof AsrNotConfiguredError) return fail("ASR_NOT_CONFIGURED", e.configHint);
         fail("ASR_PROVIDER_UNAVAILABLE", (e as Error).message);
       });

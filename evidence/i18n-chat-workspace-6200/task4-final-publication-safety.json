@@ -1,0 +1,53 @@
+{
+  "head": "7fcd35346c933889b760b327bfdae8905567e2f5",
+  "filesScanned": 21,
+  "credentialPatternHits": [],
+  "scope": "exact new Task4 docs and unit logs/receipts only; not historical audit",
+  "whitespaceNormalization": [
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task4-final-attempt1-whole-red.log",
+      "originalPrivatePath": "/tmp/chat6200-task4-final-publication-originals-private/task4-final-attempt1-whole-red.log",
+      "originalSha256": "fbb5bdffcd6e97057eef2f72cd1045a4745b1c5e1bb4ea2cd59e5dbeca0e56b3",
+      "publishedSha256": "a5c6fc59b631aae74eae0035bad9e7e07d427e43230455f26866bf024dca0ea3"
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task4-final-attempt2-type.log",
+      "originalPrivatePath": "/tmp/chat6200-task4-final-publication-originals-private/task4-final-attempt2-type.log",
+      "originalSha256": "e9b019d37db080d36b121892b06e0818b37e0b4f08f68f45cd0110befa237e7e",
+      "publishedSha256": "62543be5fd5bf1824e1a01ed8931f0607450a06735a9cb2ac84b1fb88de5122d"
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task4-final-attempt2-whole.log",
+      "originalPrivatePath": "/tmp/chat6200-task4-final-publication-originals-private/task4-final-attempt2-whole.log",
+      "originalSha256": "66cf0967f3ef040bd501aab2310e1a40104378ab7fa3cbdb39ad53f64371a42b",
+      "publishedSha256": "7523a324345c5e0733a2446e185ee8350d23826806ffb2f6743f4fffc433e279"
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task4-final-postmerge-type.log",
+      "originalPrivatePath": "/tmp/chat6200-task4-final-publication-originals-private/task4-final-postmerge-type.log",
+      "originalSha256": "e9b019d37db080d36b121892b06e0818b37e0b4f08f68f45cd0110befa237e7e",
+      "publishedSha256": "62543be5fd5bf1824e1a01ed8931f0607450a06735a9cb2ac84b1fb88de5122d"
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task4-final-two-causes-targeted-green.log",
+      "originalPrivatePath": "/tmp/chat6200-task4-final-publication-originals-private/task4-final-two-causes-targeted-green.log",
+      "originalSha256": "cd69af49b81ae7e99e63de8bdfec48e88f5891f003b99473cbd01e37e9166acb",
+      "publishedSha256": "fc10e7f12232ca2fa09b385a130af88fa1e7f72ffc9fed42ac89e166d6bc69fc"
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task4-final-whole.log",
+      "originalPrivatePath": "/tmp/chat6200-task4-final-publication-originals-private/task4-final-whole.log",
+      "originalSha256": "fbb5bdffcd6e97057eef2f72cd1045a4745b1c5e1bb4ea2cd59e5dbeca0e56b3",
+      "publishedSha256": "a5c6fc59b631aae74eae0035bad9e7e07d427e43230455f26866bf024dca0ea3"
+    }
+  ],
+  "originalBytesPrivate0700_0600": true,
+  "nonWhitespaceTokensAndVerdictsPreserved": true,
+  "task4Mechanical": {
+    "files": 76,
+    "cases": 532,
+    "exit": 0,
+    "seconds": 150.15
+  },
+  "notChatDelivery": true
+}

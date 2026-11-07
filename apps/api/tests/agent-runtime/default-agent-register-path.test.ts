@@ -119,6 +119,9 @@ beforeAll(async () => {
   ensureRedis();
   const deepAgentBase = await startDeepAgentServer();
   process.env.KERNEL_DEEP_AGENT_BASE_URL = deepAgentBase;
+  // Control-engine fixture performs no inner vendor calls; declare callback capability explicitly.
+  process.env.KERNEL_SUBTASK_CALLBACK_BASE_URL = deepAgentBase;
+  process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY = "private-control-fixture";
   process.env.KERNEL_DEEP_AGENT_POLL_INTERVAL_MS = "50";
   process.env.KERNEL_DEEP_AGENT_TIMEOUT_MS = "10000";
 

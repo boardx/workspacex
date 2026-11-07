@@ -6,10 +6,15 @@ def release_module():
  spec=importlib.util.spec_from_file_location('minimal_release',SCRIPT)
  module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);return module
 FAKE=r'''#!PYTHON
-import io,json,pathlib,sys,tarfile
+import io,json,os,pathlib,sys,tarfile
 P=pathlib.Path(STATE); state=json.loads(P.read_text());args=sys.argv[1:];state['calls'].append(args)
+def persist():
+ temporary=P.with_name(P.name+'.'+str(os.getpid())+'.tmp')
+ try:
+  temporary.write_text(json.dumps(state));os.replace(temporary,P)
+ finally:temporary.unlink(missing_ok=True)
 def done(value=None):
- P.write_text(json.dumps(state))
+ persist()
  if value is not None: print(value if isinstance(value,str) else json.dumps(value))
  raise SystemExit(0)
 def obj(cid):
@@ -40,11 +45,21 @@ if args[0]=='cp':
  data=io.BytesIO()
  with tarfile.open(fileobj=data,mode='w')as t:
   info=tarfile.TarInfo(name);info.size=len(raw);t.addfile(info,io.BytesIO(raw))
- P.write_text(json.dumps(state));sys.stdout.buffer.write(data.getvalue());raise SystemExit(0)
+ persist();sys.stdout.buffer.write(data.getvalue());raise SystemExit(0)
 if args[0]=='rm':
  assert args[1] in state['probes'];del state['probes'][args[1]];done()
 if args[0]=='compose':
- if 'up' in args:state['applied']=True;done()
+ if 'up' in args:
+  if state.get('automaticRecoveryFixture'):state['upCount']=state.get('upCount',0)+1
+  if state.get('automaticRecoveryFixture') and state['upCount']>1:
+   if state.get('rollbackFails'):persist();raise SystemExit(1)
+   state['applied']=False;state['recovered']=True;done()
+  state['applied']=True
+  if state.get('cancelOnUp'):
+   persist();os.kill(os.getppid(),15)
+   import time;time.sleep(30)
+  if state.get('upFails'):persist();raise SystemExit(1)
+  done()
  if 'ps' in args:done('live-'+args[-1])
  if '--hash' in args:done(args[-1]+' hash-'+args[-1])
  if 'config' in args:
@@ -76,8 +91,36 @@ class Tests(unittest.TestCase):
   pin=lambda p:{'path':str(p),'sha256':hashlib.sha256(p.read_bytes()).hexdigest()}
   self.config={'docker':str(docker),'project':'example','manifestSha256':pin(self.mp)['sha256'],'composeFiles':[pin(compose)],'envFile':pin(env),'services':self.state['services'],'health':{'url':f'http://127.0.0.1:{self.server.server_port}/health','expected':{'trustworthy':True}}}
   lock=self.root/'existing-release.lock';lock.write_bytes(b'');lock.chmod(0o600)
-  self.config['lockFile']=str(lock);self.config['readinessTimeoutSeconds']=2
+  self.config['lockFile']=str(lock);self.config['readinessTimeoutSeconds']=10
   self.cp=self.root/'config.json';self.cp.write_text(json.dumps(self.config))
+ def test_resolved_hash_keeps_literal_values_private_and_removes_temporary_model(self):
+  from unittest.mock import Mock
+  m=release_module();d=Mock()
+  model={'name':'example','services':{'api':{'environment':{'VALUE':'literal$credential'}}}}
+  def read(args):
+   self.assertIn('--no-interpolate',args)
+   path=pathlib.Path(args[args.index('--file')+1])
+   self.assertEqual(path.stat().st_mode & 0o777,0o600)
+   self.assertEqual(json.loads(path.read_text()),model)
+   return b'api expected-hash'
+  d.run.side_effect=read
+  self.assertEqual(m.resolved_config_hash(d,model,'example','api',self.root),['api','expected-hash'])
+  self.assertEqual(list(self.root.glob('.resolved-compose-*')),[])
+ def test_resolved_hash_inverts_compose_serialized_dollars_exactly_once(self):
+  from unittest.mock import Mock
+  import copy
+  m=release_module();d=Mock()
+  serialized={'services':{'api':{'environment':{'ONE':'before$$after','TWO':'before$$$$after','BRACED':'$${DO_NOT_EXPAND}','EMPTY':'','NULL':None},'command':['echo','$$SHELL'],'labels':{'literal':'$$LABEL'}}}}
+  unchanged=copy.deepcopy(serialized);semantic=copy.deepcopy(serialized)
+  semantic['services']['api']['environment'].update(ONE='before$after',TWO='before$$after',BRACED='${DO_NOT_EXPAND}')
+  semantic['services']['api']['command']=['echo','$SHELL'];semantic['services']['api']['labels']={'literal':'$LABEL'}
+  def inspect_private_model(args):
+   self.assertIn('--no-interpolate',args);path=pathlib.Path(args[args.index('--file')+1]);self.assertEqual(path.stat().st_mode&0o777,0o600)
+   self.assertEqual(json.loads(path.read_text()),semantic)
+   return b'api actual-live-hash'
+  d.run.side_effect=inspect_private_model
+  self.assertEqual(m.resolved_config_hash(d,serialized,'example','api',self.root),['api','actual-live-hash'])
+  self.assertEqual(serialized,unchanged);self.assertEqual(list(self.root.glob('.resolved-compose-*')),[])
  def tearDown(self):self.server.shutdown();self.server.server_close();self.thread.join();self.temp.cleanup()
  def run_cli(self,apply=False,**updates):
   self.state.update(updates);self.statepath.write_text(json.dumps(self.state))
@@ -87,6 +130,13 @@ class Tests(unittest.TestCase):
  def assert_no_switch(self):self.assertFalse(self.actual['applied']);self.assertFalse(any('up' in a for a in self.actual['calls']))
  def test_default_plan_real_cli_never_switches(self):
   p,r=self.run_cli();self.assertEqual((p.returncode,r['status']),(0,'PLANNED'));self.assert_no_switch();self.assertEqual(self.actual['probes'],{})
+ def test_cn_four_existing_services_without_creating_optional_sandbox(self):
+  del self.state['services']['sandbox-sessions']
+  self.cp.write_text(json.dumps(self.config))
+  p,r=self.run_cli(True)
+  self.assertEqual((p.returncode,r['status']),(0,'SUCCEEDED'))
+  up=next(a for a in self.actual['calls'] if 'up' in a)
+  self.assertEqual(up[up.index('--no-build')+1:],['api','web','agent','sandbox'])
  def test_apply_success_real_cli_http_no_forbidden_commands(self):
   p,r=self.run_cli(True);self.assertEqual((p.returncode,r['status']),(0,'SUCCEEDED'));self.assertTrue((self.root/'attempt/receipt.json').exists())
   ups=[a for a in self.actual['calls']if 'up'in a];self.assertEqual(len(ups),1);self.assertEqual(ups[0][ups[0].index('up'):],['up','--detach','--no-deps','--pull','never','--no-build','api','web','agent','sandbox','sandbox-sessions'])
@@ -94,6 +144,35 @@ class Tests(unittest.TestCase):
    self.assertNotIn(a[0],('run','start','pull','build','exec','down','volume','system'));self.assertNotIn('--force-recreate',a)
    if a[0]=='create':self.assertIn('--pull=never',a)
   self.assertEqual(self.actual['probes'],{});self.assertTrue(r['markerUnchanged'])
+ def test_automatic_rollback_after_partial_compose_failure(self):
+  self.config['automaticRollback']=True;self.config['readinessTimeoutSeconds']=10;self.cp.write_text(json.dumps(self.config))
+  p,r=self.run_cli(True,automaticRecoveryFixture=True,upFails=True)
+  self.assertEqual(p.returncode,1);self.assertEqual(r['status'],'ROLLED_BACK')
+  self.assertTrue(self.actual['recovered']);self.assertFalse(self.actual['applied'])
+  self.assertTrue((self.root/'attempt/rollback.json').exists())
+ def test_rollback_failure_remains_nonzero_and_explicit(self):
+  self.config['automaticRollback']=True;self.config['readinessTimeoutSeconds']=10;self.cp.write_text(json.dumps(self.config))
+  p,r=self.run_cli(True,automaticRecoveryFixture=True,upFails=True,rollbackFails=True)
+  self.assertEqual(p.returncode,1);self.assertEqual(r['status'],'ROLLBACK_FAILED')
+ def test_automatic_rollback_after_readiness_failure(self):
+  self.config['automaticRollback']=True;self.config['readinessTimeoutSeconds']=10;self.cp.write_text(json.dumps(self.config))
+  p,r=self.run_cli(True,automaticRecoveryFixture=True,alwaysUnhealthy=True)
+  self.assertEqual(p.returncode,1);self.assertEqual(r['status'],'ROLLED_BACK')
+  self.assertTrue(self.actual['recovered'])
+ def test_cancellation_restores_previous_images(self):
+  self.config['automaticRollback']=True;self.config['readinessTimeoutSeconds']=10;self.cp.write_text(json.dumps(self.config))
+  p,r=self.run_cli(True,automaticRecoveryFixture=True,cancelOnUp=True)
+  self.assertEqual(p.returncode,1);self.assertEqual(r['status'],'ROLLED_BACK')
+  self.assertEqual(r['code'],'DEPLOYMENT_CANCELLED');self.assertFalse(self.actual['applied'])
+ def test_registry_digest_mismatch_prevents_switch(self):
+  self.manifest['kind']='registry-images-v1'
+  for role,row in self.manifest['images'].items():row['image']='registry.example/team/'+role+'@sha256:'+'a'*64
+  self.mp.write_text(json.dumps(self.manifest));self.config['manifestSha256']=hashlib.sha256(self.mp.read_bytes()).hexdigest();self.cp.write_text(json.dumps(self.config))
+  p,r=self.run_cli(True);self.assertEqual(r['code'],'REGISTRY_DIGEST_MISMATCH');self.assert_no_switch()
+ def test_preflight_failure_never_attempts_rollback(self):
+  self.config['automaticRollback']=True;self.config['readinessTimeoutSeconds']=10;self.cp.write_text(json.dumps(self.config))
+  p,r=self.run_cli(True,automaticRecoveryFixture=True,schemaDrift=True)
+  self.assertEqual(p.returncode,1);self.assertEqual(r['status'],'REJECTED');self.assert_no_switch()
  def test_wrong_source_rejects_before_switch(self):
   p,r=self.run_cli(True,wrongSource=True);self.assertEqual(p.returncode,1);self.assertEqual(r['code'],'IMAGE_SOURCE_MISMATCH');self.assert_no_switch()
  def test_schema_drift_rejects_before_switch(self):
@@ -103,8 +182,10 @@ class Tests(unittest.TestCase):
  def test_compose_env_drift_rejected(self):
   p,r=self.run_cli(True,configDrift=True);self.assertEqual(r['code'],'NON_IMAGE_COMPOSE_CHANGE');self.assert_no_switch()
  def test_starting_then_healthy_does_not_repeat_up(self):
+  self.config['readinessTimeoutSeconds']=10;self.cp.write_text(json.dumps(self.config))
   p,r=self.run_cli(True,starting=True);self.assertEqual(p.returncode,0);self.assertGreaterEqual(r['health']['readinessPolls'],2);self.assertEqual(sum('up'in a for a in self.actual['calls']),1)
  def test_unhealthy_deadline_never_repeats_up(self):
+  self.config['readinessTimeoutSeconds']=2;self.cp.write_text(json.dumps(self.config))
   p,r=self.run_cli(True,alwaysUnhealthy=True);self.assertEqual(p.returncode,1);self.assertEqual(r['code'],'READINESS_DEADLINE');self.assertEqual(sum('up'in a for a in self.actual['calls']),1)
  def test_live_wrong_image_is_immediate_failure(self):
   p,r=self.run_cli(True,deployedWrong=True);self.assertEqual(r['code'],'DEPLOYED_IMAGE_MISMATCH');self.assertEqual(self.actual['postInspect'],1)
@@ -137,4 +218,43 @@ class DeadlineTests(unittest.TestCase):
    self.assertIs(signal.getsignal(signal.SIGALRM),previous)
    remaining,_=signal.getitimer(signal.ITIMER_REAL);self.assertGreater(remaining,28);self.assertLess(remaining,30)
   finally:signal.setitimer(signal.ITIMER_REAL,0);signal.signal(signal.SIGALRM,original)
+class FixtureStateTests(unittest.TestCase):
+ def exercise_interrupted_write(self,kill=False):
+  # Pause the actual fake Docker write after opening/truncating its destination.
+  # The parent reads while the writer is held, without timing-based retries.
+  with tempfile.TemporaryDirectory() as directory:
+   statepath=pathlib.Path(directory)/'state.json'
+   initial={'calls':[],'applied':False,'probes':{}}
+   statepath.write_text(json.dumps(initial))
+   fake=FAKE.replace('PYTHON',sys.executable).replace('STATE',repr(str(statepath)))
+   wrapper="""import pathlib,sys
+original=pathlib.Path.write_text
+def held_write(self,value,*args,**kwargs):
+ with self.open('w') as stream:
+  print('WRITE_OPEN',flush=True)
+  sys.stdin.buffer.read(1)
+  return stream.write(value)
+pathlib.Path.write_text=held_write
+sys.argv=['docker','compose','up']
+exec(FAKE_CODE)
+""".replace('FAKE_CODE',repr(fake))
+   process=subprocess.Popen([sys.executable,'-I','-B','-c',wrapper],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+   try:
+    import select
+    self.assertTrue(select.select([process.stdout],[],[],5)[0],'fake writer did not reach the held write')
+    self.assertEqual(process.stdout.readline(),b'WRITE_OPEN\n')
+    self.assertEqual(json.loads(statepath.read_text()),initial)
+    if kill:
+     process.kill();process.communicate(timeout=5)
+     self.assertEqual(json.loads(statepath.read_text()),initial)
+    else:
+     _,errors=process.communicate(b'x',timeout=5)
+     self.assertEqual(process.returncode,0,errors.decode())
+     self.assertEqual(json.loads(statepath.read_text()),{'calls':[['compose','up']],'applied':True,'probes':{}})
+   finally:
+    if process.poll() is None:process.kill()
+    process.communicate(timeout=5)
+ def test_reader_observes_complete_old_or_new_state(self):self.exercise_interrupted_write()
+ def test_killed_fixture_writer_preserves_complete_old_state(self):self.exercise_interrupted_write(kill=True)
+
 if __name__=='__main__':unittest.main()

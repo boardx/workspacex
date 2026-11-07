@@ -1,0 +1,14 @@
+{
+  "source": "e6dc452f7fd14d3f6f7a3e57dc8f7fd04516deb0",
+  "acceptedParent": "cf77b91708d5a5326ea9824fc68aa4949928a473",
+  "workerParent": "4fd39b42437c10837931a7b2607741fd44501da7",
+  "base": "b992054dd498530092d09a1fa559f0b12a33406b",
+  "workerChangedPaths": 213,
+  "acceptedParentChangedPaths": 52,
+  "overlap": [],
+  "allWorkerAndAcceptedChangesModeBlobPreserved": true,
+  "apiProductAndContractsDiff": [],
+  "transportDiagnosticTestRemoved": true,
+  "templateAndIntakeOriginalCaseBodiesByteExact": true,
+  "uploadFixture": "existing-supported ASCII filename; original Chinese UTF8 bytes unchanged; Chinese filename transport explicitly uncovered"
+}

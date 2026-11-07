@@ -1,3 +1,4 @@
+import {CreditRequiredBody} from "./billing-consumption";
 /**
  * 契约束 `recording` — ③ API 契约（**唯一事实源**）
  *
@@ -1042,6 +1043,8 @@ export type OperationName = keyof Operations;
  *   一个 `UNKNOWN` 会立刻变成所有人的垃圾桶，然后界面上只剩「出错了」。
  */
 export const AsrStreamErrorReason = z.enum([
+  "CREDIT_REQUIRED",
+  "CREDIT_ACCOUNTING_UNAVAILABLE",
   /** 上游不可用 / 不认识的上游故障（服务端日志留原因） */
   "ASR_PROVIDER_UNAVAILABLE",
   /** 本组织没有配置 ASR 提供方 ⇒ 诚实降级，**不偷偷回退到别的提供方** */
@@ -1116,7 +1119,7 @@ export const AsrServerFrame = z.discriminatedUnion("type", [
     text: z.string(),
     lowConfidence: z.boolean(),
   }).strict(),
-  z.object({ type: z.literal("asr.error"), reason: AsrStreamErrorReason }).strict(),
+  z.object({ type: z.literal("asr.error"), reason: AsrStreamErrorReason, credit: CreditRequiredBody.optional() }).strict(),
   z.object({ type: z.literal("asr.finished") }).strict(),
 ]);
 

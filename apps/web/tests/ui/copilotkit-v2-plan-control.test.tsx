@@ -105,6 +105,13 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
     expect(api.confirmPlan).not.toHaveBeenCalled();
   });
 
+  it("等待确认的提案不显示执行进度，确认入口仍可用", async () => {
+    api.fetchPlanLedger.mockResolvedValue(proposalLedger());
+    render(<CopilotKitV2PlanControl threadId="t-proposal-no-progress" />);
+    expect(await screen.findByTestId(PLAN_CONFIRM_RUN_TESTID)).toBeTruthy();
+    expect(screen.queryByTestId("chat-task-workbench-run-progress")).toBeNull();
+  });
+
   it("提案态渲染「提案」标记 —— 与已生效账本视觉可区分（设计 ① 的硬要求）", async () => {
     api.fetchPlanLedger.mockResolvedValue(proposalLedger());
     render(<CopilotKitV2PlanControl threadId="t-proposal-badge" />);

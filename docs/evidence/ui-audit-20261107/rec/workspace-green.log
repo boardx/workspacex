@@ -1,0 +1,1212 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+
+ ✓ tests/ui/rec-local-microphone-check.test.tsx (8 tests) 68ms
+stderr | tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > explains durable transcript and unsaved editor states
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+The above error occurred in the <RealtimeTranscriptionWorkspace> component:
+
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:29:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > explains why editing is unavailable during capture
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+The above error occurred in the <RealtimeTranscriptionWorkspace> component:
+
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:29:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > blocks starting capture while editing and restores it after cancel
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+The above error occurred in the <RealtimeTranscriptionWorkspace> component:
+
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:29:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > keeps capture blocked through pending and failed saves
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+The above error occurred in the <RealtimeTranscriptionWorkspace> component:
+
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:29:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > does not claim an empty transcript is already saved and copyable
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+The above error occurred in the <RealtimeTranscriptionWorkspace> component:
+
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:29:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > allows leaving stale server recording state when the local stream is idle
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+The above error occurred in the <RealtimeTranscriptionWorkspace> component:
+
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:29:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > allows leaving stale server recording state when the local stream is error
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+The above error occurred in the <RealtimeTranscriptionWorkspace> component:
+
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:29:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > keeps an unsaved transcript in place until editing is saved or canceled
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+The above error occurred in the <RealtimeTranscriptionWorkspace> component:
+
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:29:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > prevents leaving during a pending save and enables return after it settles
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+The above error occurred in the <RealtimeTranscriptionWorkspace> component:
+
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:29:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > reports clipboard denial and allows a successful retry
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+The above error occurred in the <RealtimeTranscriptionWorkspace> component:
+
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:29:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > explains unavailable return during recording
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+The above error occurred in the <RealtimeTranscriptionWorkspace> component:
+
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:29:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > explains unavailable return during stopping
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+The above error occurred in the <RealtimeTranscriptionWorkspace> component:
+
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:29:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > requires stopping before renaming because metadata cannot change during a capture
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+The above error occurred in the <RealtimeTranscriptionWorkspace> component:
+
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:29:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > uses the audio meter without a duplicate normal-recording indicator
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+The above error occurred in the <RealtimeTranscriptionWorkspace> component:
+
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:29:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > renames by double click or keyboard, retains failed input, and cancels with Escape
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+The above error occurred in the <RealtimeTranscriptionWorkspace> component:
+
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:29:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > returns keyboard focus to the title after canceling or saving a rename
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+The above error occurred in the <RealtimeTranscriptionWorkspace> component:
+
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:29:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > allows canceling the initial connection
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+The above error occurred in the <RealtimeTranscriptionWorkspace> component:
+
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:29:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > marks only real stop settlement as busy and blocks duplicate stop
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+The above error occurred in the <RealtimeTranscriptionWorkspace> component:
+
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:29:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > focuses the named editor on entry and restores the edit action after saving
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+The above error occurred in the <RealtimeTranscriptionWorkspace> component:
+
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:29:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > keeps failed save drafts editable and retries without an unhandled rejection
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+The above error occurred in the <RealtimeTranscriptionWorkspace> component:
+
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:29:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > clears the local save error when failed editing is canceled
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+The above error occurred in the <RealtimeTranscriptionWorkspace> component:
+
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:29:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > restores editor focus after transcription makes the edit action usable again
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+The above error occurred in the <RealtimeTranscriptionWorkspace> component:
+
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:29:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > does not restore delayed edit focus after the user focuses another control
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+The above error occurred in the <RealtimeTranscriptionWorkspace> component:
+
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:29:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > discards delayed edit focus when the recording session changes
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+The above error occurred in the <RealtimeTranscriptionWorkspace> component:
+
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:29:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > keeps save pending and prevents duplicate submission through shared actions
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+The above error occurred in the <RealtimeTranscriptionWorkspace> component:
+
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:29:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > enables the only start button and invokes the real start action
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+The above error occurred in the <RealtimeTranscriptionWorkspace> component:
+
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:29:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > treats a stopped transcription as resumable instead of completed
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+The above error occurred in the <RealtimeTranscriptionWorkspace> component:
+
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:29:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > renders one body without segment timestamps and copies the whole body
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+The above error occurred in the <RealtimeTranscriptionWorkspace> component:
+
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:29:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > edits and saves the complete body only while recording is stopped
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+The above error occurred in the <RealtimeTranscriptionWorkspace> component:
+
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:29:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > renders interim separately and disables repeated stop while tail results are finishing
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+The above error occurred in the <RealtimeTranscriptionWorkspace> component:
+
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:29:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > distinguishes an interim confirmation from recoverable slow delivery
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+The above error occurred in the <RealtimeTranscriptionWorkspace> component:
+
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:29:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > does not show a stale slow advisory after capture is idle
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+The above error occurred in the <RealtimeTranscriptionWorkspace> component:
+
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:29:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > opens a recoverable error dialog and reconnects without hiding durable text
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+The above error occurred in the <RealtimeTranscriptionWorkspace> component:
+
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:29:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > keeps post-stop refresh errors as an inline alert without offering reconnect
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:71:73)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+The above error occurred in the <RealtimeTranscriptionWorkspace> component:
+
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:29:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > shows the selected microphone and real input level, and locks selection while recording
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:203:114)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/lib/i18n/provider.tsx:8:119)
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:203:114)
+    at renderWithHooks (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+The above error occurred in the <RealtimeTranscriptionWorkspace> component:
+
+    at RealtimeTranscriptionWorkspace (/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web/components/rec/realtime-transcription-workspace.tsx:29:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+ ❯ tests/ui/realtime-transcription-workspace.test.tsx (35 tests | 35 failed) 320ms
+   × RealtimeTranscriptionWorkspace > explains durable transcript and unsaved editor states 60ms
+     → Cannot read properties of undefined (reading 'replace')
+   × RealtimeTranscriptionWorkspace > explains why editing is unavailable during capture 9ms
+     → Cannot read properties of undefined (reading 'replace')
+   × RealtimeTranscriptionWorkspace > blocks starting capture while editing and restores it after cancel 12ms
+     → Cannot read properties of undefined (reading 'replace')
+   × RealtimeTranscriptionWorkspace > keeps capture blocked through pending and failed saves 10ms
+     → Cannot read properties of undefined (reading 'replace')
+   × RealtimeTranscriptionWorkspace > does not claim an empty transcript is already saved and copyable 11ms
+     → Cannot read properties of undefined (reading 'replace')
+   × RealtimeTranscriptionWorkspace > allows leaving stale server recording state when the local stream is idle 7ms
+     → Cannot read properties of undefined (reading 'replace')
+   × RealtimeTranscriptionWorkspace > allows leaving stale server recording state when the local stream is error 7ms
+     → Cannot read properties of undefined (reading 'replace')
+   × RealtimeTranscriptionWorkspace > keeps an unsaved transcript in place until editing is saved or canceled 9ms
+     → Cannot read properties of undefined (reading 'replace')
+   × RealtimeTranscriptionWorkspace > prevents leaving during a pending save and enables return after it settles 8ms
+     → Cannot read properties of undefined (reading 'replace')
+   × RealtimeTranscriptionWorkspace > reports clipboard denial and allows a successful retry 18ms
+     → Cannot read properties of undefined (reading 'replace')
+   × RealtimeTranscriptionWorkspace > explains unavailable return during recording 8ms
+     → Cannot read properties of undefined (reading 'replace')
+   × RealtimeTranscriptionWorkspace > explains unavailable return during stopping 19ms
+     → Cannot read properties of undefined (reading 'replace')
+   × RealtimeTranscriptionWorkspace > requires stopping before renaming because metadata cannot change during a capture 6ms
+     → Cannot read properties of undefined (reading 'replace')
+   × RealtimeTranscriptionWorkspace > uses the audio meter without a duplicate normal-recording indicator 6ms
+     → Cannot read properties of undefined (reading 'replace')
+   × RealtimeTranscriptionWorkspace > renames by double click or keyboard, retains failed input, and cancels with Escape 5ms
+     → Cannot read properties of undefined (reading 'replace')
+   × RealtimeTranscriptionWorkspace > returns keyboard focus to the title after canceling or saving a rename 10ms
+     → Cannot read properties of undefined (reading 'replace')
+   × RealtimeTranscriptionWorkspace > allows canceling the initial connection 6ms
+     → Cannot read properties of undefined (reading 'replace')
+   × RealtimeTranscriptionWorkspace > marks only real stop settlement as busy and blocks duplicate stop 4ms
+     → Cannot read properties of undefined (reading 'replace')
+   × RealtimeTranscriptionWorkspace > focuses the named editor on entry and restores the edit action after saving 4ms
+     → Cannot read properties of undefined (reading 'replace')
+   × RealtimeTranscriptionWorkspace > keeps failed save drafts editable and retries without an unhandled rejection 6ms
+     → Cannot read properties of undefined (reading 'replace')
+   × RealtimeTranscriptionWorkspace > clears the local save error when failed editing is canceled 5ms
+     → Cannot read properties of undefined (reading 'replace')
+   × RealtimeTranscriptionWorkspace > restores editor focus after transcription makes the edit action usable again 4ms
+     → Cannot read properties of undefined (reading 'replace')
+   × RealtimeTranscriptionWorkspace > does not restore delayed edit focus after the user focuses another control 8ms
+     → Cannot read properties of undefined (reading 'replace')
+   × RealtimeTranscriptionWorkspace > discards delayed edit focus when the recording session changes 5ms
+     → Cannot read properties of undefined (reading 'replace')
+   × RealtimeTranscriptionWorkspace > keeps save pending and prevents duplicate submission through shared actions 6ms
+     → Cannot read properties of undefined (reading 'replace')
+   × RealtimeTranscriptionWorkspace > enables the only start button and invokes the real start action 5ms
+     → Cannot read properties of undefined (reading 'replace')
+   × RealtimeTranscriptionWorkspace > treats a stopped transcription as resumable instead of completed 5ms
+     → Cannot read properties of undefined (reading 'replace')
+   × RealtimeTranscriptionWorkspace > renders one body without segment timestamps and copies the whole body 4ms
+     → Cannot read properties of undefined (reading 'replace')
+   × RealtimeTranscriptionWorkspace > edits and saves the complete body only while recording is stopped 4ms
+     → Cannot read properties of undefined (reading 'replace')
+   × RealtimeTranscriptionWorkspace > renders interim separately and disables repeated stop while tail results are finishing 7ms
+     → Cannot read properties of undefined (reading 'replace')
+   × RealtimeTranscriptionWorkspace > distinguishes an interim confirmation from recoverable slow delivery 14ms
+     → Cannot read properties of undefined (reading 'replace')
+   × RealtimeTranscriptionWorkspace > does not show a stale slow advisory after capture is idle 5ms
+     → Cannot read properties of undefined (reading 'replace')
+   × RealtimeTranscriptionWorkspace > opens a recoverable error dialog and reconnects without hiding durable text 5ms
+     → Cannot read properties of undefined (reading 'replace')
+   × RealtimeTranscriptionWorkspace > keeps post-stop refresh errors as an inline alert without offering reconnect 6ms
+     → Cannot read properties of undefined (reading 'replace')
+   × RealtimeTranscriptionWorkspace > shows the selected microphone and real input level, and locks selection while recording 6ms
+     → Cannot read properties of undefined (reading 'replace')
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 35 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > explains durable transcript and unsaved editor states
+ FAIL  tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > explains why editing is unavailable during capture
+ FAIL  tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > blocks starting capture while editing and restores it after cancel
+ FAIL  tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > keeps capture blocked through pending and failed saves
+ FAIL  tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > does not claim an empty transcript is already saved and copyable
+ FAIL  tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > allows leaving stale server recording state when the local stream is idle
+ FAIL  tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > allows leaving stale server recording state when the local stream is error
+ FAIL  tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > keeps an unsaved transcript in place until editing is saved or canceled
+ FAIL  tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > prevents leaving during a pending save and enables return after it settles
+ FAIL  tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > reports clipboard denial and allows a successful retry
+ FAIL  tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > explains unavailable return during recording
+ FAIL  tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > explains unavailable return during stopping
+ FAIL  tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > requires stopping before renaming because metadata cannot change during a capture
+ FAIL  tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > uses the audio meter without a duplicate normal-recording indicator
+ FAIL  tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > renames by double click or keyboard, retains failed input, and cancels with Escape
+ FAIL  tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > returns keyboard focus to the title after canceling or saving a rename
+ FAIL  tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > allows canceling the initial connection
+ FAIL  tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > marks only real stop settlement as busy and blocks duplicate stop
+ FAIL  tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > focuses the named editor on entry and restores the edit action after saving
+ FAIL  tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > keeps failed save drafts editable and retries without an unhandled rejection
+ FAIL  tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > clears the local save error when failed editing is canceled
+ FAIL  tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > restores editor focus after transcription makes the edit action usable again
+ FAIL  tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > does not restore delayed edit focus after the user focuses another control
+ FAIL  tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > discards delayed edit focus when the recording session changes
+ FAIL  tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > keeps save pending and prevents duplicate submission through shared actions
+ FAIL  tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > enables the only start button and invokes the real start action
+ FAIL  tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > treats a stopped transcription as resumable instead of completed
+ FAIL  tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > renders one body without segment timestamps and copies the whole body
+ FAIL  tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > edits and saves the complete body only while recording is stopped
+ FAIL  tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > renders interim separately and disables repeated stop while tail results are finishing
+ FAIL  tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > distinguishes an interim confirmation from recoverable slow delivery
+ FAIL  tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > does not show a stale slow advisory after capture is idle
+ FAIL  tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > opens a recoverable error dialog and reconnects without hiding durable text
+ FAIL  tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > keeps post-stop refresh errors as an inline alert without offering reconnect
+TypeError: Cannot read properties of undefined (reading 'replace')
+ ❯ Module.translate lib/i18n/messages.ts:14:18
+     12|   const message = dictionary[resolved] || zhCN[resolved];
+     13|   // Replace once; replacement text is never parsed as a second templa…
+     14|   return message.replace(/\{(\w+)\}/g, (token, name: string) => params…
+       |                  ^
+     15| }
+     16|
+ ❯ t lib/i18n/provider.tsx:8:119
+ ❯ RealtimeTranscriptionWorkspace components/rec/realtime-transcription-workspace.tsx:71:73
+ ❯ renderWithHooks ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18
+ ❯ mountIndeterminateComponent ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13
+ ❯ beginWork ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16
+ ❯ beginWork$1 ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:27465:14
+ ❯ performUnitOfWork ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:26599:12
+ ❯ workLoopSync ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:26505:5
+ ❯ renderRootSync ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:26473:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/35]⎯
+
+ FAIL  tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > shows the selected microphone and real input level, and locks selection while recording
+TypeError: Cannot read properties of undefined (reading 'replace')
+ ❯ Module.translate lib/i18n/messages.ts:14:18
+     12|   const message = dictionary[resolved] || zhCN[resolved];
+     13|   // Replace once; replacement text is never parsed as a second templa…
+     14|   return message.replace(/\{(\w+)\}/g, (token, name: string) => params…
+       |                  ^
+     15| }
+     16|
+ ❯ t lib/i18n/provider.tsx:8:119
+ ❯ RealtimeTranscriptionWorkspace components/rec/realtime-transcription-workspace.tsx:203:114
+ ❯ renderWithHooks ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18
+ ❯ mountIndeterminateComponent ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13
+ ❯ beginWork ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16
+ ❯ beginWork$1 ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:27465:14
+ ❯ performUnitOfWork ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:26599:12
+ ❯ workLoopSync ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:26505:5
+ ❯ renderRootSync ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:26473:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/35]⎯
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  35 failed | 8 passed (43)
+   Start at  03:42:31
+   Duration  7.37s (transform 2.67s, setup 667ms, collect 4.36s, tests 388ms, environment 3.37s, prepare 258ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/rec-local-microphone-check.test.tsx tests/ui/realtime-transcription-workspace.test.tsx

@@ -5,7 +5,7 @@ import json
 import os
 from pathlib import Path
 import httpx
-from .model_request_accounting import AsyncAccountingTransport, retrieval_accounting_scope, admission_enabled
+from .model_request_accounting import AsyncAccountingTransport, retrieval_accounting_scope, admission_enabled, CreditRuntimeUsageError
 from jsonschema import Draft7Validator,ValidationError
 from langchain_core.documents import Document
 from langchain_classic.retrievers.document_compressors.listwise_rerank import LLMListwiseRerank
@@ -45,6 +45,8 @@ async def rerank_documents(query,candidates, accounting=None):
             if len(ids)!=len(candidates) or len(set(ids))!=len(ids) or set(ids)!={c['id'] for c in candidates}:
                 raise ValueError('invalid ranking')
             return {'model':model,'modelVersion':revision,'ids':ids}
+        except CreditRuntimeUsageError:
+            raise
         except Exception:
             raise RetrievalRerankUnavailable('rerank_unavailable') from None
 
@@ -69,6 +71,8 @@ async def rerank_endpoint(request):
             if len(json.dumps(result).encode())>_L['maxResponseBytes']:
                 raise RetrievalRerankUnavailable('rerank_unavailable')
             return JSONResponse(result)
+    except CreditRuntimeUsageError as error:
+        return JSONResponse(error.payload,status_code=402 if error.payload["code"]=="credit_required" else 503)
     except (ValidationError,ValueError,UnicodeError):
         return JSONResponse({'error':'invalid_rerank_input'},status_code=400)
     except Exception:

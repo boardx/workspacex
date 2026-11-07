@@ -1,0 +1,445 @@
+{
+  "pr": 6199,
+  "sourceHead": "b90f591eca6ae929be9d57d2bc245e15da989b45",
+  "mergedAt": "2026-11-04T01:48:36Z",
+  "mergeCommit": "3644ae2c8213770614866c1c39ac4df2b8920c05",
+  "actualMergedCommitChecks": [
+    {
+      "name": "scope",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012599/job/126322404334"
+    },
+    {
+      "name": "scope",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012852/job/126322405573"
+    },
+    {
+      "name": "scope",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012617/job/126322404448"
+    },
+    {
+      "name": "gates-fast",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012476/job/126322404589"
+    },
+    {
+      "name": "doc-smoke-scope",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012701/job/126322406531"
+    },
+    {
+      "name": "doc-smoke-scope",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012478/job/126322404402"
+    },
+    {
+      "name": "billing-cashier-glue",
+      "status": "COMPLETED",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012599/job/126322567196"
+    },
+    {
+      "name": "journeys",
+      "status": "COMPLETED",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012852/job/126322575578"
+    },
+    {
+      "name": "skill-files-e2e",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012617/job/126322577690"
+    },
+    {
+      "name": "api-test-plan",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012476/job/126322404541"
+    },
+    {
+      "name": "base-compile",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012701/job/126322406422"
+    },
+    {
+      "name": "verify-control-plane",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012478/job/126322404605"
+    },
+    {
+      "name": "security",
+      "status": "COMPLETED",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012852/job/126322574800"
+    },
+    {
+      "name": "native-document-chain",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012476/job/126322404133"
+    },
+    {
+      "name": "base-control-plane",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012701/job/126322406050"
+    },
+    {
+      "name": "verify-affected",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012478/job/126322404695"
+    },
+    {
+      "name": "board-ui-functional",
+      "status": "COMPLETED",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012852/job/126322574770"
+    },
+    {
+      "name": "chat-path-coverage",
+      "status": "COMPLETED",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012701/job/126322408001"
+    },
+    {
+      "name": "native-runtime-lane",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012476/job/126322404435"
+    },
+    {
+      "name": "verify-full-compile",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012478/job/126322404736"
+    },
+    {
+      "name": "storage",
+      "status": "COMPLETED",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012852/job/126322575043"
+    },
+    {
+      "name": "chat-task-workbench",
+      "status": "COMPLETED",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012701/job/126322407988"
+    },
+    {
+      "name": "gates-runtime",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012476/job/126322404456"
+    },
+    {
+      "name": "merge-gate",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012478/job/126322404655"
+    },
+    {
+      "name": "import",
+      "status": "COMPLETED",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012852/job/126322574939"
+    },
+    {
+      "name": "e2e-core-loop",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012476/job/126322404489"
+    },
+    {
+      "name": "board-smoke",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012701/job/126322603258"
+    },
+    {
+      "name": "organization-create",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012478/job/126322404670"
+    },
+    {
+      "name": "api-ws-objectstore",
+      "status": "COMPLETED",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012852/job/126322575040"
+    },
+    {
+      "name": "board-smoke",
+      "status": "COMPLETED",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012478/job/126322711694"
+    },
+    {
+      "name": "prototype-audit",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012476/job/126322404534"
+    },
+    {
+      "name": "directory-smoke",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012701/job/126322603181"
+    },
+    {
+      "name": "directory-smoke",
+      "status": "COMPLETED",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012478/job/126322712580"
+    },
+    {
+      "name": "design-loop-e2e",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012476/job/126322404451"
+    },
+    {
+      "name": "fullstack-smoke",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012701/job/126322603409"
+    },
+    {
+      "name": "fullstack-smoke",
+      "status": "COMPLETED",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012478/job/126322712470"
+    },
+    {
+      "name": "gates-test (1)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012476/job/126322539513"
+    },
+    {
+      "name": "base-api-plan",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012701/job/126322602973"
+    },
+    {
+      "name": "gates-test (2)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012476/job/126322539532"
+    },
+    {
+      "name": "gates-test (3)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012476/job/126322539692"
+    },
+    {
+      "name": "gates-test (4)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012476/job/126322539544"
+    },
+    {
+      "name": "gates-test (5)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012476/job/126322539549"
+    },
+    {
+      "name": "gates-test (6)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012476/job/126322539443"
+    },
+    {
+      "name": "gates-test (7)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012476/job/126322539573"
+    },
+    {
+      "name": "gates-test (8)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012476/job/126322539503"
+    },
+    {
+      "name": "targeted-ui-browser",
+      "status": "COMPLETED",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012478/job/126322712469"
+    },
+    {
+      "name": "backend-required",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012476/job/126327954713"
+    },
+    {
+      "name": "web-test-plan",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012701/job/126322602920"
+    },
+    {
+      "name": "chat-test-plan",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012701/job/126322602931"
+    },
+    {
+      "name": "base-package-tests",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012701/job/126322603309"
+    },
+    {
+      "name": "self-service-profile",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012701/job/126322603263"
+    },
+    {
+      "name": "targeted-ui-unit",
+      "status": "COMPLETED",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012701/job/126322604616"
+    },
+    {
+      "name": "targeted-ui-browser",
+      "status": "COMPLETED",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012701/job/126322604424"
+    },
+    {
+      "name": "base-api-shards (1)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012701/job/126323053675"
+    },
+    {
+      "name": "base-api-shards (2)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012701/job/126323053514"
+    },
+    {
+      "name": "base-api-shards (3)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012701/job/126323053405"
+    },
+    {
+      "name": "base-api-shards (4)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012701/job/126323053399"
+    },
+    {
+      "name": "base-api-shards (5)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012701/job/126323053316"
+    },
+    {
+      "name": "base-api-shards (6)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012701/job/126323053430"
+    },
+    {
+      "name": "base-api-shards (7)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012701/job/126323053336"
+    },
+    {
+      "name": "base-api-shards (8)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012701/job/126323053432"
+    },
+    {
+      "name": "web-test-shards (1)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012701/job/126322996637"
+    },
+    {
+      "name": "web-test-shards (2)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012701/job/126322996700"
+    },
+    {
+      "name": "web-test-shards (3)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012701/job/126322996840"
+    },
+    {
+      "name": "web-test-shards (4)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012701/job/126322996912"
+    },
+    {
+      "name": "chat-test-shards (1)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012701/job/126323029695"
+    },
+    {
+      "name": "chat-test-shards (2)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012701/job/126323029835"
+    },
+    {
+      "name": "base-api-exclusive",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012701/job/126328660255"
+    },
+    {
+      "name": "chat-read",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012701/job/126333191424"
+    },
+    {
+      "name": "full-regression-core",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012701/job/126330201178"
+    },
+    {
+      "name": "e2e-full",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012701/job/126333546288"
+    },
+    {
+      "name": "queue-ready",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/boardx/workspacex/actions/runs/41753012701/job/126333750669"
+    }
+  ],
+  "scope": "project workbench shell/header/tabs/subnav/access only; tab bodies/wizard/workflow still pending",
+  "ciCounts": {
+    "SUCCESS": 57,
+    "SKIPPED": 15
+  }
+}

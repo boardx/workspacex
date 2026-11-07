@@ -1,0 +1,132 @@
+ Image localhost/workspacex-postgres-age:pg16-age1.6.0 Building 
+ Image localhost/workspacex-postgres-age:pg16-age1.6.0 Built 
+ Network wsx-da09-golden-67477_default Creating 
+ Network wsx-da09-golden-67477_default Created 
+ Container wsx-da09-golden-67477-postgres-1 Creating 
+ Container wsx-da09-golden-67477-postgres-1 Created 
+ Container wsx-da09-golden-67477-postgres-1 Starting 
+ Container wsx-da09-golden-67477-postgres-1 Started 
+============================= test session starts ==============================
+platform darwin -- Python 3.13.7, pytest-9.1.1, pluggy-1.6.0
+rootdir: /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/deep-agent-service
+configfile: pyproject.toml
+plugins: langsmith-0.11.0, timeout-2.4.0, anyio-4.14.2
+timeout: 120.0s
+timeout method: thread
+timeout func_only: False
+collected 957 items
+
+tests/golden/test_tc1_long_chain_research.py .                           [  0%]
+tests/golden/test_tc2_sensitive_skill_hitl.py ..                         [  0%]
+tests/golden/test_tc3_fault_injection_and_budget.py ..                   [  0%]
+tests/golden/test_tc4_long_context_recall.py ..                          [  0%]
+tests/golden/test_tc5_checkpoint_kill_recovery.py ....                   [  1%]
+tests/golden/test_tc6_task_mode_plan_first_forced_write_todos.py ....... [  1%]
+                                                                         [  1%]
+tests/golden/test_tc7_interjection_replan.py ......                      [  2%]
+tests/test_accounting_platform_import.py .                               [  2%]
+tests/test_checkpoint_namespace.py ...                                   [  2%]
+tests/test_checkpoint_readiness.py ...                                   [  3%]
+tests/test_deep_agent_postgres_recovery.py ..                            [  3%]
+tests/test_escalate_matter.py ....                                       [  3%]
+tests/test_event_batcher.py ......                                       [  4%]
+tests/test_focused_call_streaming_isolation.py ..                        [  4%]
+tests/test_graph.py ........                                             [  5%]
+tests/test_graph_selector.py ............                                [  6%]
+tests/test_guided_research_graph.py .....                                [  7%]
+tests/test_guided_research_postgres_recovery.py .                        [  7%]
+tests/test_harness.py .................................................. [ 12%]
+...................................                                      [ 16%]
+tests/test_http_app_config.py .                                          [ 16%]
+tests/test_internal_model_chunks_hidden.py ....                          [ 16%]
+tests/test_ledger_connect_retry.py ...                                   [ 17%]
+tests/test_ledger_protocol_stand_in.py .                                 [ 17%]
+tests/test_mcp_snapshot_tools.py ........                                [ 18%]
+tests/test_memory_deployment.py sssss.s                                  [ 18%]
+tests/test_model.py ....................                                 [ 20%]
+tests/test_model_credit_failure.py ............                          [ 22%]
+tests/test_model_request_accounting.py ................................. [ 25%]
+..................................................                       [ 30%]
+tests/test_model_stream_usage.py ....                                    [ 31%]
+tests/test_native_artifact_publish.py .....                              [ 31%]
+tests/test_native_browser_wiring.py ...                                  [ 32%]
+tests/test_native_factory.py ...........s..........                      [ 34%]
+tests/test_native_file_delegation.py ........ss                          [ 35%]
+tests/test_native_file_tools.py ssssssss                                 [ 36%]
+tests/test_native_graph.py ...................s...s                      [ 38%]
+tests/test_native_image_read.py ssssss......                             [ 40%]
+tests/test_native_interaction_tools.py .........                         [ 40%]
+tests/test_native_sandbox_dispatch.py .....s                             [ 41%]
+tests/test_native_session_binding_guard.py .........                     [ 42%]
+tests/test_native_skill_activity.py ...ssss.s.                           [ 43%]
+tests/test_native_skill_execute_activity.py s.                           [ 43%]
+tests/test_native_standard_entries.py .....                              [ 44%]
+tests/test_native_task_observation.py ....                               [ 44%]
+tests/test_native_tool_admission.py ..                                   [ 44%]
+tests/test_native_tool_authority.py ..........................           [ 47%]
+tests/test_native_tool_dispatch.py .................................     [ 51%]
+tests/test_native_tool_failure_reporting.py ...                          [ 51%]
+tests/test_native_tool_identity.py .........                             [ 52%]
+tests/test_native_tool_snapshot.py .......                               [ 53%]
+tests/test_optional_workspace_preview.py ....                            [ 53%]
+tests/test_pinned_model.py .....                                         [ 54%]
+tests/test_plan_confirm_gate.py ...............                          [ 55%]
+tests/test_postgres_checkpointer.py ....                                 [ 56%]
+tests/test_production_dsn_semantics.py ......                            [ 56%]
+tests/test_prompt_pruning.py ...                                         [ 56%]
+tests/test_report_file_completion.py ............                        [ 58%]
+tests/test_request_handoff.py ....                                       [ 58%]
+tests/test_retrieval_embeddings.py .............                         [ 59%]
+tests/test_retrieval_request_accounting.py ...........                   [ 61%]
+tests/test_retrieval_rerank.py ......                                    [ 61%]
+tests/test_role_introduction_classification.py ........                  [ 62%]
+tests/test_role_model_context.py ........                                [ 63%]
+tests/test_run_control.py ....................                           [ 65%]
+tests/test_run_control_reconnect.py ..................                   [ 67%]
+tests/test_runtime_graph_context.py .............                        [ 68%]
+tests/test_safe_cancel.py ..                                             [ 68%]
+tests/test_sandbox_backend.py .....................................      [ 72%]
+tests/test_sandbox_parallel_reads.py s                                   [ 72%]
+tests/test_self_hosted_runtime.py ..................                     [ 74%]
+tests/test_skill_packages.py .............                               [ 76%]
+tests/test_standard_artifact_download.py .                               [ 76%]
+tests/test_standard_audio_tools.py .....                                 [ 76%]
+tests/test_standard_browser_tools.py ...........                         [ 77%]
+tests/test_standard_canvas_tools.py .......                              [ 78%]
+tests/test_standard_context_tools.py ............                        [ 79%]
+tests/test_standard_document_tools.py .......                            [ 80%]
+tests/test_standard_entries_http.py ...                                  [ 80%]
+tests/test_standard_image_tools.py .....                                 [ 81%]
+tests/test_standard_memory.py .ssssss                                    [ 82%]
+tests/test_standard_remember.py ................                         [ 83%]
+tests/test_standard_run_cancel.py .                                      [ 84%]
+tests/test_standard_run_status.py .                                      [ 84%]
+tests/test_standard_schedule.py .                                        [ 84%]
+tests/test_standard_skill_draft.py .....                                 [ 84%]
+tests/test_standard_sql_contract.py ...                                  [ 85%]
+tests/test_standard_sql_database.py sss                                  [ 85%]
+tests/test_standard_subtask_tools.py ......                              [ 85%]
+tests/test_standard_web_tools.py ......                                  [ 86%]
+tests/test_standard_web_unavailable.py ..............                    [ 88%]
+tests/test_start_workflow.py ....                                        [ 88%]
+tests/test_state_poll_session_race.py s                                  [ 88%]
+tests/test_stream_completion.py ....................................     [ 92%]
+tests/test_tool_budget.py ........                                       [ 93%]
+tests/test_tool_progress.py .......                                      [ 93%]
+tests/test_tools.py .................................                    [ 97%]
+tests/test_tracing.py ...                                                [ 97%]
+tests/test_upstream_compat.py ....ss..                                   [ 98%]
+tests/test_web_retry_policy.py ..........                                [ 99%]
+tests/test_web_text_budget.py ....                                       [100%]
+
+=============================== warnings summary ===============================
+.venv/lib/python3.13/site-packages/trustcall/_base.py:46
+  /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/deep-agent-service/.venv/lib/python3.13/site-packages/trustcall/_base.py:46: LangGraphDeprecatedSinceV10: Importing Send from langgraph.constants is deprecated. Please use 'from langgraph.types import Send' instead. Deprecated in LangGraph V1.0 to be removed in V2.0.
+    from langgraph.constants import Send
+
+src/deep_agent_service/standard_sql.py:12
+  /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/deep-agent-service/src/deep_agent_service/standard_sql.py:12: DeprecationWarning: `langchain-community` is being sunset and is no longer actively maintained. See https://github.com/langchain-ai/langchain-community/issues/674 for details and migration guidance toward standalone integration packages.
+    from langchain_community.agent_toolkits.sql.toolkit import SQLDatabaseToolkit
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+============ 912 passed, 45 skipped, 2 warnings in 64.45s (0:01:04) ============

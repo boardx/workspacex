@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
 
 import { SIDE_PANEL_VISIBLE, SIDE_PANEL_VISIBLE_FLEX } from "@/lib/shell/side-panel-visibility";
 import { PanelResizeHandle } from "@/components/shell/panel-resize-handle";
@@ -99,6 +100,7 @@ function SessionAppShell({
   /** Canvas workspace: retain session gating while removing navigation chrome. */
   fullscreen?: boolean;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
 
   // ⚠ 画布模板后台管理刷新掉回根目录一案：这里此前是 `router.replace("/login")`，
@@ -114,17 +116,16 @@ function SessionAppShell({
   }, [router, session.status]);
 
   if (session.status === "loading" || session.status === "anonymous") {
-    return <SessionState testId="session-loading">正在确认登录状态…</SessionState>;
+    return <SessionState testId="session-loading">{t("ui.checkingYourSession")}</SessionState>;
   }
   if (session.status === "dependency-failed" || !session.identity || !session.session) {
     return (
       <SessionState testId="session-dependency-failed">
-        <p>身份服务暂时不可用，登录状态已保留。</p>
+        <p>{t("ui.theIdentityServiceIsUnavailableYourSessionHasBeenPreserved")}</p>
         <div className="flex gap-2">
-          <Button size="sm" onClick={() => void session.retry()}>重试</Button>
+          <Button size="sm" onClick={() => void session.retry()}>{t("ui.retry")}</Button>
           <Button size="sm" variant="ghost" onClick={async () => { await session.logout(); router.replace("/login"); }}>
-            退出登录
-          </Button>
+            {t("ui.signOut")}</Button>
         </div>
       </SessionState>
     );
@@ -190,6 +191,7 @@ export function ShellChrome({
   onSwitchOrganization?: (orgId: string) => Promise<void>;
   onLogout?: () => void;
 }) {
+  const { t } = useI18n();
   const [switching, setSwitching] = React.useState(false);
   // organizations 未传（旧版 identity 直传原型页）时回落到 mock 列表——
   // 这段回落原先住在 TopBar 的 OrgSwitcher 里，切换器并入左上角组织菜单
@@ -392,7 +394,7 @@ export function ShellChrome({
             >
               <PanelResizeHandle
                 edge="right"
-                label="调整左栏宽度"
+                label={t("ui.resizeLeftPanel")}
                 testId="shell-left-resize"
                 width={leftWidth}
                 onWidthChange={(next: number) => {
@@ -402,7 +404,7 @@ export function ShellChrome({
               />
               <button
                 type="button"
-                aria-label="收起左栏"
+                aria-label={t("ui.collapseLeftPanel")}
                 data-testid="shell-left-collapse"
                 onClick={() => togglePanel("left")}
                 className="absolute right-1 top-1 z-10 hidden h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-background-foreground md:flex"
@@ -415,7 +417,7 @@ export function ShellChrome({
           {left && leftCollapsed && (
             <button
               type="button"
-              aria-label="展开左栏"
+              aria-label={t("ui.expandLeftPanel")}
               data-testid="shell-left-expand"
               onClick={() => togglePanel("left")}
               className="hidden w-5 shrink-0 items-center justify-center border-r border-border bg-panel text-muted-foreground transition-colors hover:bg-muted hover:text-background-foreground md:flex"
@@ -435,7 +437,7 @@ export function ShellChrome({
             >
               <PanelResizeHandle
                 edge="left"
-                label="调整右栏宽度"
+                label={t("ui.resizeRightPanel")}
                 testId="shell-right-resize"
                 width={rightWidth}
                 onWidthChange={(next: number) => {
@@ -453,7 +455,7 @@ export function ShellChrome({
               */}
               <button
                 type="button"
-                aria-label="收起右栏"
+                aria-label={t("ui.collapseRightPanel")}
                 data-testid="shell-right-collapse"
                 onClick={() => togglePanel("right")}
                 className={cn("absolute right-1 top-1 z-10 hidden h-6 w-6 items-center justify-center rounded border border-border bg-panel-alt text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-background-foreground", SIDE_PANEL_VISIBLE_FLEX)}
@@ -466,7 +468,7 @@ export function ShellChrome({
           {right && rightCollapsed && (
             <button
               type="button"
-              aria-label="展开右栏"
+              aria-label={t("ui.expandRightPanel")}
               data-testid="shell-right-expand"
               onClick={() => togglePanel("right")}
               className={cn("hidden w-5 shrink-0 items-center justify-center border-l border-border bg-panel-alt text-muted-foreground transition-colors hover:bg-muted hover:text-background-foreground", SIDE_PANEL_VISIBLE_FLEX)}

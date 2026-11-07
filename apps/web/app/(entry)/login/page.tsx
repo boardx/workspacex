@@ -1,3 +1,4 @@
+import { I18nText } from "@/lib/i18n/text";
 import { StatePreviewSwitcher } from "@/components/state/state-shell";
 import { resolvePreviewState, UI_STATE_LABEL } from "@/lib/ui-state";
 import { AuthShell } from "@/components/entry/auth-shell";
@@ -21,8 +22,8 @@ export default function LoginPage({
       <LocalSessionHandoff next={searchParams.next} />
       <AuthShell
         testId="login-main"
-        title="登录 WorkspaceX"
-        description="进入你的战略工作空间。"
+        title={<I18nText message="ui.signInToWorkspacex" />}
+        description={<I18nText message="ui.enterYourStrategicWorkspace" />}
         aside={
           // 仅显式 state 预览链接显示调试工具；正常登录不混入开发控件。
           process.env.NODE_ENV === "production" || searchParams.state === undefined ? null : (

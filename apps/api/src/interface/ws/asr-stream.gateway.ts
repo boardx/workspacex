@@ -1,3 +1,5 @@
+import {creditErrorGuidance} from "../credit-error-guidance";
+import type {CreditRequiredBody} from "@repo/contracts/billing-consumption";
 /**
  * issue #466 —— `WS /recording/sessions/:sessionId/asr-stream`。
  *
@@ -175,10 +177,10 @@ function serve(
   /** 落库串行化：两段 final 同时进来会抢同一个序号，进而抢同一个幂等键。 */
   let writeChain: Promise<unknown> = Promise.resolve();
 
-  const fail = (reason: AsrErrorReason, detail: string): void => {
+  const fail = (reason: AsrErrorReason, detail: string, credit?: typeof CreditRequiredBody._type): void => {
     // detail 只进服务端日志。上游的错误文本可能带着我们不该转发的东西。
     process.stderr.write(`[asr] session=${sessionId} ${reason}: ${detail}\n`);
-    send({ type: "asr.error", reason });
+    send({ type: "asr.error", reason, ...(credit?{credit}:{}) });
     upstream?.abort();
     upstream = null;
     ws.close();
@@ -268,6 +270,8 @@ function serve(
         pendingBytes = 0;
         upstream = session;
       }).catch((e: unknown) => {
+        const billing=creditErrorGuidance(e);
+        if(billing)return fail(billing.reason,"credit admission refused", "credit" in billing?billing.credit:undefined);
         if (e instanceof AsrNotConfiguredError) {
           // 诚实降级：界面显示「未配置转写」，**不是**静默失败、**不是**换个提供方。
           // ⚠ 读 `configHint` 而**不是** `e.message`：`lint-error-leak.mjs` 禁止

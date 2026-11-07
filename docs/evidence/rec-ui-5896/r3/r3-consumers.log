@@ -1,0 +1,38 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/4986/workspacex/apps/web
+
+ ✓ tests/ui/rec-fidelity-gaps.test.tsx (11 tests) 93ms
+ ✓ tests/ui/rec-review-navigation.test.tsx (4 tests) 783ms
+   ✓ project transcription review navigation > keeps interview context when opening speaker review 451ms
+ ✓ tests/ui/create-transcription-focus.test.tsx (4 tests) 1043ms
+   ✓ restores the history trigger after cancel 539ms
+ ✓ tests/ui/rec-session-gating.test.tsx (3 tests) 472ms
+ ✓ tests/ui/realtime-transcription-workspace.test.tsx (35 tests) 2693ms
+   ✓ RealtimeTranscriptionWorkspace > blocks starting capture while editing and restores it after cancel 348ms
+   ✓ RealtimeTranscriptionWorkspace > renames by double click or keyboard, retains failed input, and cancels with Escape 352ms
+ ✓ tests/ui/realtime-transcription-history.test.tsx (33 tests) 9487ms
+   ✓ 实时转录历史工作台 > allows returning after a stale recording cannot be stopped 345ms
+   ✓ 实时转录历史工作台 > does not reconnect after leaving the workspace 1323ms
+   ✓ 实时转录历史工作台 > automatically reconnects a dropped stream and retains saved text without stale events 1081ms
+   ✓ 实时转录历史工作台 > cancels scheduled reconnect when the user stops 1282ms
+   ✓ 实时转录历史工作台 > retries a temporary refresh failure after stopping without reporting ASR failure 387ms
+   ✓ 实时转录历史工作台 > keeps saved text and distinguishes persistent refresh failure from stopping failure 876ms
+   ✓ 实时转录历史工作台 > 卡片菜单可修改名称与标签并刷新真实标签 352ms
+   ✓ 实时转录历史工作台 > 永久删除前二次确认，成功后移除卡片并刷新标签 325ms
+ ✓ tests/ui/personal-transcription-history.test.tsx (33 tests) 10004ms
+   ✓ 实时转录历史工作台 > allows returning after a stale recording cannot be stopped 366ms
+   ✓ 实时转录历史工作台 > does not reconnect after leaving the workspace 1368ms
+   ✓ 实时转录历史工作台 > automatically reconnects a dropped stream and retains saved text without stale events 1079ms
+   ✓ 实时转录历史工作台 > cancels scheduled reconnect when the user stops 1326ms
+   ✓ 实时转录历史工作台 > 点击 API 返回的历史卡片进入对应转录详情 328ms
+   ✓ 实时转录历史工作台 > retries a temporary refresh failure after stopping without reporting ASR failure 509ms
+   ✓ 实时转录历史工作台 > keeps saved text and distinguishes persistent refresh failure from stopping failure 890ms
+   ✓ 实时转录历史工作台 > 卡片菜单可修改名称与标签并刷新真实标签 468ms
+   ✓ 实时转录历史工作台 > 遗留的转录中卡片可以结束状态，也可以直接永久删除 407ms
+
+ Test Files  7 passed (7)
+      Tests  123 passed (123)
+   Start at  14:57:25
+   Duration  18.04s (transform 4.82s, setup 4.01s, collect 25.25s, tests 24.57s, environment 17.36s, prepare 1.34s)
+

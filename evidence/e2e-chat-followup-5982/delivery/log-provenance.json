@@ -1,0 +1,35 @@
+{
+  "normalization": "remove terminal color and trailing whitespace; expand indentation tabs; original command streams remain local",
+  "logs": [
+    {
+      "original": "prebuilt.log",
+      "published": "browser-and-build.log",
+      "originalSha256": "6cdc3b7ed75dcc7590113eee00de84a18131aed2ca2fbd7aae7542b9b8c294fd",
+      "publishedSha256": "d34dea9de2425e9e879a18c8c2ca37aa3b2114c30d464f06bfe77315b2053969"
+    },
+    {
+      "original": "chat-focused-final.log",
+      "published": "chat-unit-27.log",
+      "originalSha256": "fef45cd43d98896653d1ae73db9e77a4f7c20390c7bbe0f5fed2f79480d5f2ae",
+      "publishedSha256": "a89396f02e029088a1e7103a342548d07cd31ee34374e30cf20f05e926daa5cf"
+    },
+    {
+      "original": "direct-import-red.log",
+      "published": "bundle-boundary-red.log",
+      "originalSha256": "38e6de3933e79e6f4d95e75e273a1f114063fdee8e24f2f0f9ee03a0767ce515",
+      "publishedSha256": "7be808d4b7d47db0db0444572645cf84a086016b190eb76633a4dc22dcd6979f"
+    },
+    {
+      "original": "settled-regression-red.log",
+      "published": "settled-guard-red.log",
+      "originalSha256": "71070e35a9d0ea150d3adb6f350e5897fc15e3251c0e36d2ca0ac8da49024f7b",
+      "publishedSha256": "d6154b34321ee801828e6f5783337f77db548eb292bfae8e95b858b0261dec03"
+    },
+    {
+      "original": "survey-expiry-green.log",
+      "published": "survey-unit-21.log",
+      "originalSha256": "2391fd5f56ed95d4a8880d1bbb4db14490bed23804cd4adf963c3cfc48debd59",
+      "publishedSha256": "3fb8edb982369f3d23bb3f1e0a93ecda940d35228908ecfd9e6d063ee5b4fb25"
+    }
+  ]
+}

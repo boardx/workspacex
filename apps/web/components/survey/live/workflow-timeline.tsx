@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
 
 import * as React from "react";
 
@@ -12,8 +13,9 @@ type WorkflowTimelineProps = {
 
 /** Shared workflow navigation used by design, publishing, and response views. */
 export function WorkflowTimeline({ steps, activeStep, onSelect }: WorkflowTimelineProps) {
+  const { t } = useI18n();
   return (
-    <nav aria-label="问卷工作流" className="border-b border-border bg-card">
+    <nav aria-label={t("survey.workspace.workflow")} className="border-b border-border bg-card">
       <div className="mx-auto flex max-w-4xl items-center overflow-x-auto px-5 py-2">
         {steps.map(([id, label], index) => {
           const active = activeStep === id;

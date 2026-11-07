@@ -1,12 +1,13 @@
 "use client";
 import * as React from "react";
+import {useI18n} from "@/lib/i18n/provider";
 import {Bell} from "lucide-react";
 import {Button} from "@/components/ui/button";
 import {cn} from "@/lib/utils";
 import {useIntervalFocusRefresh} from "@/lib/chat-workbench/use-interval-focus-refresh";
 import {useNotificationCenter} from "@/lib/notifications/use-notification-center";
 import {useScheduleNotifications} from "@/lib/chat-workbench/use-schedule-notifications";
-import type {Notification, NotificationKind} from "@repo/contracts/notifications";
+import type {Notification} from "@repo/contracts/notifications";
 export interface TaskNotificationsProps {
   sessionToken?:string;
   /** 通知带 threadId 时点开跳去那个对话。 */
@@ -16,11 +17,10 @@ export interface TaskNotificationsProps {
   /**
    * `sidebar` = 会话列表栏顶部的老位置（`px-3`、弹层贴栏宽向下展开）。
    * `rail` = 最左侧图标导航栏（issue #3246），与 `FeedbackButton` 的 rail 形态同构：
-   * 图标 + 中文标签 + 右上角角标，弹层**向右**展开。
+   * 图标 + 本地化标签 + 右上角角标，弹层**向右**展开。
    */
   variant?:"sidebar"|"rail";
 }
-const kindLabel:Record<NotificationKind,string>={task:"任务",email:"邮件",system:"系统"};
 /**
  * 弹层与触发器的**几何**（宽度 / 展开方向 / 高度上限 / 图标+标签排布）只在这里声明一次。
  *
@@ -73,6 +73,7 @@ export function mergeNotifications(items:readonly Notification[]):MergedNotice[]
  * 三件功能都还在，只是收进弹层。
  */
 export function TaskNotifications({sessionToken,onOpenThread,onRefresh,variant="sidebar"}:TaskNotificationsProps){
+  const {t}=useI18n();
   const center=useNotificationCenter(sessionToken);
   const scheduled=useScheduleNotifications("global",sessionToken);
   const [open,setOpen]=React.useState(false);
@@ -103,9 +104,9 @@ export function TaskNotifications({sessionToken,onOpenThread,onRefresh,variant="
     <Button ref={triggerRef} variant="ghost" size="sm"
       className={NOTIFICATIONS_TRIGGER_CLASS[variant]}
       data-testid="task-notifications-trigger" aria-haspopup="dialog" aria-expanded={open}
-      aria-controls={open?"task-notifications-popover":undefined} aria-label={`任务提醒，${total} 条未读`}
+      aria-controls={open?"task-notifications-popover":undefined} aria-label={t("notifications.triggerUnread",{count:total})}
       onClick={()=>{if(open)close();else setOpen(true);}}>
-      {/* 角标锚在图标上（不是整个按钮上）：rail 形态按钮下面还有一行「提醒」文字，
+      {/* 角标锚在图标上（不是整个按钮上）：rail 形态按钮下面还有一行本地化标签，
           锚按钮会把角标甩到文字右边。两个形态共用同一个锚，不各写一套。 */}
       <span className="relative flex items-center justify-center">
         <Bell className="h-4 w-4"/>
@@ -113,26 +114,26 @@ export function TaskNotifications({sessionToken,onOpenThread,onRefresh,variant="
           className="absolute -right-2 -top-1.5 min-w-4 rounded-full bg-destructive px-1 text-10 leading-4 text-destructive-foreground">{total}</span>}
       </span>
       {/* 未读为 0 时图标仍在，只是不显角标——入口不许时有时无（#3246）。 */}
-      {rail&&<span className="text-10 [@media(max-height:640px)]:hidden">提醒</span>}
+      {rail&&<span className="text-10 [@media(max-height:640px)]:hidden">{t("notifications.rail")}</span>}
     </Button>
     {/* 角标是图形，读屏读的是上面的 aria-label；这一行只负责把变化播报出去。 */}
-    <span className="sr-only" aria-live="polite" aria-atomic="true">{total} 条未读</span>
+    <span className="sr-only" aria-live="polite" aria-atomic="true">{t("notifications.unread",{count:total})}</span>
     {open&&<div ref={popoverRef} id="task-notifications-popover" data-testid="task-notifications-popover"
-      role="dialog" aria-label="任务提醒" tabIndex={-1}
+      role="dialog" aria-label={t("notifications.title")} tabIndex={-1}
       onKeyDown={event=>{if(event.key==="Escape"){event.stopPropagation();close();}}}
       className={cn(NOTIFICATIONS_POPOVER_BASE_CLASS,NOTIFICATIONS_POPOVER_CLASS[variant])}>
-      {center.failed&&<p role="status" className="text-11 text-muted-foreground">暂时无法刷新通知，稍后自动重试。</p>}
-      {scheduled.failed&&<p role="status" className="text-11 text-muted-foreground">定时任务提醒暂时无法同步，请稍后重试。</p>}
+      {center.failed&&<p role="status" className="text-11 text-muted-foreground">{t("notifications.refreshFailed")}</p>}
+      {scheduled.failed&&<p role="status" className="text-11 text-muted-foreground">{t("notifications.scheduleSyncFailed")}</p>}
       {scheduled.notices.map(notice=><div key={notice.factId} className="flex items-center gap-2" data-testid="schedule-notification">
-        <span className="text-13">{notice.code==="authorization_revoked"?"定时任务已停止：访问权限已撤销":"定时任务未能执行"}</span>
-        <Button variant="ghost" size="sm" disabled={scheduled.busy} onClick={()=>void scheduled.markRead(notice.factId)}>标为已读</Button>
+        <span className="text-13">{t(notice.code==="authorization_revoked"?"notifications.scheduleRevoked":"notifications.scheduleFailed")}</span>
+        <Button variant="ghost" size="sm" disabled={scheduled.busy} onClick={()=>void scheduled.markRead(notice.factId)}>{t("notifications.markRead")}</Button>
       </div>)}
-      {scheduled.cursor&&<Button variant="ghost" size="sm" onClick={()=>void scheduled.refresh(scheduled.cursor)}>下一页定时任务提醒</Button>}
-      {total===0&&<p className="text-11 text-muted-foreground">暂无未读提醒</p>}
+      {scheduled.cursor&&<Button variant="ghost" size="sm" onClick={()=>void scheduled.refresh(scheduled.cursor)}>{t("notifications.nextScheduled")}</Button>}
+      {total===0&&<p className="text-11 text-muted-foreground">{t("notifications.empty")}</p>}
       {/* `h-auto` 是为了让长标题折行（不是为了压扁按钮）。24px 最小命中区由 Button base 的
           `min-h-6` 兜底——`h-auto` 只解开上界；这里不重复声明同一个事实（TW-A11Y-2）。 */}
       {unread.map(({head,ids})=>{
-        const label=<><span className="mr-1 text-11 text-muted-foreground">[{kindLabel[head.kind]}]</span>{head.title}
+        const label=<><span className="mr-1 text-11 text-muted-foreground">[{t(`notifications.kind.${head.kind}`)}]</span>{head.title}
           {ids.length>1&&<span className="ml-1 text-11 text-muted-foreground">×{ids.length}</span>}</>;
         // 没有对话可去的通知（邮件/系统）不许伪装成可点条目：点了只会"这一行凭空消失"，
         // 用户没有收到任何去处（#3311）。它走与定时任务提醒同一个体例：正文 + 显式「标为已读」。
@@ -141,7 +142,7 @@ export function TaskNotifications({sessionToken,onOpenThread,onRefresh,variant="
           className="flex w-full items-center justify-between gap-2 py-1 text-left text-13">
           <span className="min-w-0 whitespace-normal">{label}</span>
           <Button variant="ghost" size="sm" className="shrink-0" disabled={center.busy}
-            onClick={()=>void center.markRead([...ids])}>标为已读</Button>
+            onClick={()=>void center.markRead([...ids])}>{t("notifications.markRead")}</Button>
         </div>;
         return <Button key={head.id} variant="ghost" size="sm" data-testid="notification-item"
           data-kind={head.kind} data-occurrences={ids.length}
@@ -156,9 +157,9 @@ export function TaskNotifications({sessionToken,onOpenThread,onRefresh,variant="
             onOpenThread(head.threadId!);
           }}>{label}</Button>;
       })}
-      {unread.length>0&&<Button variant="ghost" size="sm" disabled={center.busy} onClick={()=>void center.markRead()}>全部标为已读</Button>}
-      {read.length>0&&<details className="text-11 text-muted-foreground"><summary className="cursor-pointer">最近已读</summary>
-        {read.map(({head,ids})=><p key={head.id} className="truncate py-0.5">[{kindLabel[head.kind]}] {head.title}{ids.length>1?` ×${ids.length}`:""}</p>)}
+      {unread.length>0&&<Button variant="ghost" size="sm" disabled={center.busy} onClick={()=>void center.markRead()}>{t("notifications.markAllRead")}</Button>}
+      {read.length>0&&<details className="text-11 text-muted-foreground"><summary className="cursor-pointer">{t("notifications.recentRead")}</summary>
+        {read.map(({head,ids})=><p key={head.id} className="truncate py-0.5">[{t(`notifications.kind.${head.kind}`)}] {head.title}{ids.length>1?` ×${ids.length}`:""}</p>)}
       </details>}
     </div>}
   </div>;

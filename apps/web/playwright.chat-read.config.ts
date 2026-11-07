@@ -4,6 +4,7 @@
 // 「不存在这种没人跑的 spec」本身也已成为机械门控：.harness/scripts/lint-spec-gate-coverage.mjs。
 import { defineConfig, devices } from "@playwright/test";
 import path from "node:path";
+import {createHash} from "node:crypto";
 import { CHAT_READ_E2E } from "./e2e/chat-read-fixture";
 
 // 端口不再写死 3211/3198。写死的端口在 CI 上是 #468 那类偶发红（EADDRINUSE）的来源，
@@ -18,6 +19,10 @@ function required(name: string): string {
 
 const apiPort = required("WORKSPACEX_API_PORT");
 const webPort = required("WORKSPACEX_WEB_PORT");
+// Explicit CI production assets; local development remains unchanged.
+const productionComparison = process.env.WSX_CHAT_REFRESH_PRODUCTION_WEB === "1";
+const productionDist = productionComparison ? `.next-chat-refresh-${createHash('sha256').update(required('WORKSPACEX_ISOLATION_ID')).digest('hex').slice(0,16)}` : undefined;
+
 /**
  * 五个确定性上游替身的端口。
  *
@@ -263,7 +268,7 @@ export default defineConfig({
   projects: [
     {
       name: "chat-read",
-      testMatch: /(chat-task-workbench-(?:empty-state|capability-cards|composer|copy|polish|scroll-overshoot)|chat-skill-picker-viewport|chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-canvas-guidance-render|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|agent-chat-core-paths|agent-task-clarification-result|agent-task-planning-hitl|agent-workbench-scroll-acceptance|agent-workbench-control-acceptance|agent-workbench-ui-refinement|agent-workbench-steering-acceptance|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|copilotkit-v2-stream-frame-timing|copilotkit-v2-error-banner|copilotkit-v2-thread-persistence|copilotkit-v2-run-restore-after-switch|copilotkit-v2-agent-switch|copilotkit-v2-attachments|copilotkit-v2-composer-attachment-thumbnails|copilotkit-v2-skill-mount|copilotkit-v2-default-agent|copilotkit-v2-right-panel|copilotkit-v2-materials-drop-upload|copilotkit-v2-persona-archived|copilotkit-v2-uiux-shots|copilotkit-v2-message-actions|copilotkit-v2-roster-landing|chat-keyboard-navigation|chat-path-a5-cold-start-first-paint|chat-path-a3-long-session-fact-survival|chat-path-c4-two-canvases-one-turn|chat-path-c5-consecutive-artifact-turns|chat-path-d4-skill-three-states|chat-path-f6-concurrent-runs|chat-path-f7-upstream-stream-abort|chat-read-plan-surface-visibility|chat-stop-generation-sidebar-status)\.spec\.ts$/,
+      testMatch: /(i18n-chat-workspace|chat-task-workbench-(?:empty-state|capability-cards|composer|copy|polish|scroll-overshoot)|chat-skill-picker-viewport|chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-canvas-guidance-render|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|agent-chat-core-paths|agent-task-clarification-result|agent-task-planning-hitl|agent-workbench-scroll-acceptance|agent-workbench-control-acceptance|agent-workbench-ui-refinement|agent-workbench-steering-acceptance|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|copilotkit-v2-stream-frame-timing|copilotkit-v2-error-banner|copilotkit-v2-thread-persistence|copilotkit-v2-run-restore-after-switch|copilotkit-v2-agent-switch|copilotkit-v2-attachments|copilotkit-v2-composer-attachment-thumbnails|copilotkit-v2-skill-mount|copilotkit-v2-default-agent|copilotkit-v2-right-panel|copilotkit-v2-materials-drop-upload|copilotkit-v2-persona-archived|copilotkit-v2-uiux-shots|copilotkit-v2-message-actions|copilotkit-v2-roster-landing|chat-keyboard-navigation|chat-path-a5-cold-start-first-paint|chat-path-a3-long-session-fact-survival|chat-path-c4-two-canvases-one-turn|chat-path-c5-consecutive-artifact-turns|chat-path-d4-skill-three-states|chat-path-f6-concurrent-runs|chat-path-f7-upstream-stream-abort|chat-read-plan-surface-visibility|chat-stop-generation-sidebar-status)\.spec\.ts$/,
     },
     {
       /**
@@ -579,6 +584,7 @@ export default defineConfig({
         LOOPBACK_DEEP_AGENT_EMPTY_REPLY_TRIGGER: CHAT_READ_E2E.deepAgentEmptyReplyTrigger,
         LOOPBACK_DEEP_AGENT_MARKDOWN_TRIGGER: CHAT_READ_E2E.deepAgentMarkdownTrigger,
         LOOPBACK_DEEP_AGENT_MULTISTEP_TRIGGER: CHAT_READ_E2E.deepAgentMultiStepTrigger,
+        LOOPBACK_DEEP_AGENT_MULTISTEP_STREAM_HOLD_MS: String(CHAT_READ_E2E.deepAgentMultiStepStreamHoldMs),
         // issue #3321 —— 「计划全部跑完、账本 progress 跑满」那一格，见 fixture 里同名头注。
         LOOPBACK_DEEP_AGENT_PLAN_ALL_DONE_TRIGGER: CHAT_READ_E2E.deepAgentPlanAllDoneTrigger,
         // 路径矩阵 F5 / C8 —— 见 `deepAgentSubtaskHoldPolls` 与替身侧 `SUBTASK_HOLD_POLLS` 头注。
@@ -676,8 +682,11 @@ export default defineConfig({
          * `-f ../api/docker-compose.dev.yml` 是同一个相对基准。
          */
         "mkdir -p e2e/__evidence__/chat-path-coverage",
-        "pnpm --filter @repo/api start 2>&1 | tee e2e/__evidence__/chat-path-coverage/api-server.log",
+        (productionComparison || process.env.WSX_CHAT_REFRESH_DIAGNOSTICS === "1")
+          ? "node e2e/support/chat-refresh-diagnostic-server.mjs api pnpm --filter @repo/api start"
+          : "pnpm --filter @repo/api start 2>&1 | tee e2e/__evidence__/chat-path-coverage/api-server.log",
       ].join(" && "),
+      ...((productionComparison || process.env.WSX_CHAT_REFRESH_DIAGNOSTICS === "1") ? {gracefulShutdown:{signal:"SIGTERM" as const,timeout:5000}} : {}),
       url: `http://127.0.0.1:${apiPort}/healthz`,
       timeout: 120_000,
       reuseExistingServer: false,
@@ -829,13 +838,18 @@ export default defineConfig({
       // deep-agent loopback 替身（`CHAT_READ_E2E.deepAgentId`），复用
       // `copilotkit-agui-state-snapshot.spec.ts` 同一条真实 `DeepAgentModelProvider`
       // 代码路径，不是新起一条上游。
-      command: `NEXT_PUBLIC_API_URL=http://127.0.0.1:${webPort} CHAT_READ_E2E_API_ORIGIN=http://127.0.0.1:${apiPort} COPILOTKIT_V2_AGENT_ID=${CHAT_READ_E2E.deepAgentId} NEXT_DIST_DIR=.next-chat-read-e2e next dev -p ${webPort}`,
+      command: productionComparison ? `node e2e/support/chat-refresh-diagnostic-server.mjs next next start -p ${webPort}` : `NEXT_PUBLIC_API_URL=http://127.0.0.1:${webPort} CHAT_READ_E2E_API_ORIGIN=http://127.0.0.1:${apiPort} COPILOTKIT_V2_AGENT_ID=${CHAT_READ_E2E.deepAgentId} NEXT_DIST_DIR=.next-chat-read-e2e ${(productionComparison || process.env.WSX_CHAT_REFRESH_DIAGNOSTICS === "1") ? "node e2e/support/chat-refresh-diagnostic-server.mjs next next" : "next"} dev -p ${webPort}`,
+      ...((productionComparison || process.env.WSX_CHAT_REFRESH_DIAGNOSTICS === "1") ? {gracefulShutdown:{signal:"SIGTERM" as const,timeout:5000}} : {}),
       url: `http://127.0.0.1:${webPort}/login`,
       timeout: 120_000,
       reuseExistingServer: false,
       env: {
         ...process.env,
         NEXT_FONT_GOOGLE_MOCKED_RESPONSES: path.resolve(__dirname, "e2e/support/google-fonts-mock.cjs"),
+        ...(productionComparison ? {
+          NEXT_PUBLIC_API_URL:`http://127.0.0.1:${webPort}`,CHAT_READ_E2E_API_ORIGIN:`http://127.0.0.1:${apiPort}`,
+          COPILOTKIT_V2_AGENT_ID:CHAT_READ_E2E.deepAgentId,NEXT_DIST_DIR:productionDist!,NODE_ENV:"production",WORKSPACEX_RELEASE_BUILD:"0",
+        } : {}),
       },
     },
   ],

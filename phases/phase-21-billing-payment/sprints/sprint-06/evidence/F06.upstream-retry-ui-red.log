@@ -1,0 +1,37 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/web
+
+ ❯ tests/ui/billing-cashier.test.tsx (40 tests | 1 failed) 891ms
+   × F06 explicit creation rejection > allows a manual retry after structured upstream rejection without showing a fake QR 13ms
+     → expected true to be false // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/billing-cashier.test.tsx > F06 explicit creation rejection > allows a manual retry after structured upstream rejection without showing a fake QR
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/ui/billing-cashier.test.tsx:293:85
+    291|   await generate();await screen.findByTestId("billing-refresh-hint");
+    292|   expect(screen.queryByTestId("billing-qr-code-area")).toBeNull();
+    293|   expect((screen.getByTestId("billing-generate-qr") as HTMLButtonEleme…
+       |                                                                                     ^
+    294|   expect(posts).toBe(1);
+    295|   fireEvent.click(screen.getByTestId("billing-generate-qr"));
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 39 passed (40)
+   Start at  23:07:24
+   Duration  3.18s (transform 579ms, setup 176ms, collect 1.03s, tests 891ms, environment 834ms, prepare 42ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/billing-cashier.test.tsx

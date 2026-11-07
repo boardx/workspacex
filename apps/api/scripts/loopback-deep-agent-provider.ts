@@ -40,6 +40,9 @@
  * 让真实的轮询循环真的转一圈，不是首次调用就终态——这本身也是一种取证：证明轮询
  * 逻辑真的在工作，不是恰好一次到位。
  */
+import { multistepPlanMessages } from "./loopback-multistep-plan";
+import { LoopbackRunStreamHold } from "./loopback-run-stream-hold";
+import { LoopbackRunCancellation } from "./loopback-run-cancellation";
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
 import { DEEP_AGENT_HITL_TOOL_NAME } from "@repo/contracts/deep-agent-hitl";
@@ -869,6 +872,8 @@ function chooseOptionReply(record: RunRecord): string {
 }
 
 const runs = new Map<string, RunRecord>();
+const cancellation = new LoopbackRunCancellation();
+const multistepStreamHold = new LoopbackRunStreamHold(Number(process.env.LOOPBACK_DEEP_AGENT_MULTISTEP_STREAM_HOLD_MS ?? "0"));
 
 function readBody(stream: NodeJS.ReadableStream): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -1434,12 +1439,25 @@ const server = createServer((req, res) => {
     return;
   }
 
+  // Production appends ?action=interrupt&wait=true; normalize only this route.
+  const cancelMatch = /^\/threads\/([^/]+)\/runs\/([^/]+)\/cancel$/.exec(new URL(url, "http://loopback").pathname);
+  if (req.method === "POST" && cancelMatch) {
+    const record = runs.get(cancelMatch[1]!);
+    if (!record?.started || cancelMatch[2] !== cancelMatch[1]) {
+      sendJson(res, 404, { error: "unknown run" }); return;
+    }
+    cancellation.cancel(record);
+    sendJson(res, 200, {});
+    return;
+  }
+
   const statusMatch = /^\/threads\/([^/]+)\/runs\/([^/]+)$/.exec(url);
   if (req.method === "GET" && statusMatch) {
     const threadId = statusMatch[1]!;
     const record = runs.get(threadId);
     if (!record) { sendJson(res, 404, { error: "unknown run" }); return; }
     void (async () => {
+    if (cancellation.isCancelled(record)) { sendJson(res, 200, { status: "interrupted" }); return; }
     record.statusPolls += 1;
     if (f2Held(record.userText)) { sendJson(res, 200, { status: "pending" }); return; }
     /*
@@ -1498,6 +1516,7 @@ const server = createServer((req, res) => {
       sendJson(res, 200, { status: "interrupted" });
       return;
     }
+    if (multistepStreamHold.active(record)) { sendJson(res, 200, { status: "pending" }); return; }
     // #742 Gap 1：多步剧本要求更多轮才终态——见 `MULTISTEP_MIN_STATUS_POLLS` 头注。
     const requiredPolls = isSpawnedSubtaskRun(record.userText)
       // 路径矩阵 F5/C8 —— 见 `SUBTASK_HOLD_POLLS` 头注。排在最前：子任务的正文不会
@@ -1602,7 +1621,14 @@ const server = createServer((req, res) => {
     const record = runs.get(threadId);
     if (!record) { sendJson(res, 404, { error: "unknown thread" }); return; }
     res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache" });
+    if (cancellation.isCancelled(record)) { res.end(); return; }
     const streamOpenedAt = Date.now();
+    if (MULTISTEP_TRIGGER !== undefined && record.userText === MULTISTEP_TRIGGER) multistepStreamHold.start(record);
+    if (multistepStreamHold.active(record)) {
+      const plan = multistepPlanMessages(threadId);
+      res.write(`event: updates\ndata: ${JSON.stringify({ model: { messages: [plan.announcement] } })}\n\n`);
+      res.write(`event: updates\ndata: ${JSON.stringify({ tools: { messages: [plan.result] } })}\n\n`);
+    }
     // 多步剧本的流式正文要与 state 的终稿同一口径——否则截图里会出现
     // 「已查询当前时间」这句与多步剧本（从不查时间）自相矛盾的话。
     // DA-19g 真根因修复：`FOLLOWUP_CONTEXT_TRIGGER`/`MARKDOWN_TRIGGER` 两个特殊分支改走
@@ -1662,6 +1688,7 @@ const server = createServer((req, res) => {
       }
       const gatedScroll = [...f2Gates.values()].some((gate) => gate.userText === record.userText);
       if (gatedScroll && record.scrollHalfStep >= f2PauseAt(record.userText) && f2Held(record.userText)) return;
+      if (idx >= pieces.length && multistepStreamHold.active(record)) return;
       if (idx >= pieces.length || (gatedScroll && record.scrollHalfStep < SCROLL_TOTAL_HALF_STEPS)) {
         // 十步滚动剧本：正文发完**流不结束**——真实 LangGraph 的 join 流在图还在跑
         // 工具节点时保持打开，工具落地逐个以 `event: updates` 的 `{"tools": ...}` patch
@@ -1703,14 +1730,15 @@ const server = createServer((req, res) => {
          * 结束了，后者由轮数推进。窗口还没走完就照实不推，让它按 `statusPolls` 自然走完
          * （每次状态轮询 +1，有界，走完照旧进第二次中断 → 终态）。
          */
-        if ((record.holdUntilPoll ?? 0) <= record.statusPolls) record.statusPolls = Number.MAX_SAFE_INTEGER;
+        if ((record.holdUntilPoll ?? 0) <= record.statusPolls || multistepStreamHold.elapsed(record)) record.statusPolls = Number.MAX_SAFE_INTEGER;
         res.end();
         return;
       }
       res.write(`event: messages\ndata: [${JSON.stringify({ id: streamMessageId, content: pieces[idx], type: "AIMessageChunk" })}, {}]\n\n`);
       idx += 1;
     }, STREAM_GAP_MS);
-    req.on("close", () => clearInterval(timer));
+    const unsubscribeCancel = cancellation.subscribe(record, () => { clearInterval(timer); res.end(); });
+    req.on("close", () => { clearInterval(timer); unsubscribeCancel(); });
     return;
   }
 
@@ -1871,22 +1899,7 @@ const server = createServer((req, res) => {
       const readCallId = `read-${threadId}`;
       const searchResult = "找到 3 份文档：A.md B.md C.md";
       const human = { type: "human", content: record.userText };
-      const todosAnnounced = {
-        type: "ai",
-        content: "",
-        tool_calls: [{
-          id: todosCallId,
-          name: "write_todos",
-          args: {
-            todos: [
-              { content: "搜索相关文档", status: "in_progress" },
-              { content: "读取最相关的一份", status: "pending" },
-              { content: "综合结论作答", status: "pending" },
-            ],
-          },
-        }],
-      };
-      const todosAnswered = { type: "tool", tool_call_id: todosCallId, content: "todos updated" };
+      const { announcement: todosAnnounced, result: todosAnswered } = multistepPlanMessages(threadId);
       const searchAnnounced = {
         type: "ai",
         content: "我先搜索文档库，看有哪些相关材料。",
@@ -1945,6 +1958,7 @@ const server = createServer((req, res) => {
       const polls = record.statusPolls;
       const messages: unknown[] = [human, todosAnnounced];
       if (polls >= 2) messages.push(todosAnswered, searchAnnounced);
+      else if (multistepStreamHold.active(record)) messages.push(todosAnswered);
       if (polls >= 4) messages.push(searchAnswered, spawnAnnounced);
       if (polls >= 6) messages.push(spawnAnswered, readAnnounced);
       if (polls >= 8) messages.push(readAnswered, finalReply);

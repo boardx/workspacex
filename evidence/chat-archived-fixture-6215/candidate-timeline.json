@@ -1,0 +1,96 @@
+{
+  "candidate": "0205dfeddb133e301b2d5f8738d1f86b002689f9",
+  "run": 41727331855,
+  "attempt": 1,
+  "job": 126240500579,
+  "events": [
+    {
+      "type": "before",
+      "callId": "expect@41",
+      "title": "Expect \"toBeVisible\"",
+      "startTime": 772013.229
+    },
+    {
+      "type": "after",
+      "callId": "expect@41",
+      "endTime": 772738.936
+    },
+    {
+      "type": "before",
+      "callId": "expect@64",
+      "title": "Expect \"toBeDisabled\"",
+      "startTime": 772741.388
+    },
+    {
+      "type": "after",
+      "callId": "expect@64",
+      "endTime": 772932.854
+    },
+    {
+      "type": "before",
+      "callId": "expect@66",
+      "title": "Expect \"toBeDisabled\"",
+      "startTime": 772933.968
+    },
+    {
+      "type": "after",
+      "callId": "expect@66",
+      "endTime": 773011.016
+    },
+    {
+      "type": "before",
+      "callId": "expect@67",
+      "title": "Expect \"toBeDisabled\"",
+      "startTime": 773011.881
+    },
+    {
+      "type": "before",
+      "callId": "pw:api@68",
+      "title": "GET \"/chat/threads/thr-62553270-4c76-4ec7-b3d8-5609998c00fb/agents\"",
+      "startTime": 773033.7
+    },
+    {
+      "type": "after",
+      "callId": "expect@67",
+      "endTime": 773049.044
+    },
+    {
+      "type": "before",
+      "callId": "expect@69",
+      "title": "Expect \"toHaveCount\"",
+      "startTime": 773049.703
+    },
+    {
+      "type": "after",
+      "callId": "expect@69",
+      "endTime": 773072.742
+    },
+    {
+      "type": "before",
+      "callId": "expect@70",
+      "title": "Expect \"toContainText\"",
+      "startTime": 773073.377
+    },
+    {
+      "type": "after",
+      "callId": "expect@70",
+      "endTime": 773102.081
+    },
+    {
+      "type": "before",
+      "callId": "fixture@73",
+      "title": "Fixture \"context\"",
+      "startTime": 773102.99
+    },
+    {
+      "type": "after",
+      "callId": "pw:api@68",
+      "endTime": 773174.347
+    },
+    {
+      "type": "after",
+      "callId": "fixture@73",
+      "endTime": 773179.357
+    }
+  ]
+}

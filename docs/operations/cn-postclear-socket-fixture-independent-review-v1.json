@@ -1,0 +1,28 @@
+{
+  "kind": "cn-release-independent-code-review-v1",
+  "reviewer": "/root/code_review",
+  "reviewedAt": "2026-10-12T23:42:22.561604+00:00",
+  "disposition": "accepted-for-isolated-linux-validation",
+  "reviewedFiles": {
+    "tests/fixtures/cn-postclear-recovery/README.md": "3276ece158264c529ebbca25e64c9399b886e6073a1096a64dea953896967c6f",
+    "tests/fixtures/cn-postclear-recovery/candidate_actor.py": "61a32d2b3c6bd8d146a17065eac5675de3165a54d64e12ef86d5e44639fa726d",
+    "tests/fixtures/cn-postclear-recovery/postgres_peer.py": "14b263dc1e3222bfe746b770db9c66feb080cdde6be319acccc01e26e78bfdc7",
+    "tests/test_cn_release_postclear_peer.py": "96ab5ea09027830765f0401f69b32c8bc1c3f277a9e2c025222a8f6c64c69781"
+  },
+  "scope": "Synthetic socket witness endpoint fidelity to independently validated actual local PostgreSQL peer; original socket ownership verifier remains unchanged.",
+  "executionEvidence": {
+    "peerPythonPassed": 5,
+    "seconds": 0.074,
+    "postgresExecuted": false,
+    "linuxExecuted": false
+  },
+  "findings": [
+    "Original hard-coded remote endpoint rejects the actual fixture loopback/randomport. New fixture checks each database, loopback raw inet address, exact configured port/systemIdentifier, then changes only remote endpoint fields in original seal_fixture.",
+    "Regression invokes original verify_candidate_backend_seal: prior endpoint, wrongport, foreignaddress and wrong container cgroup remain rejected. Plan peer drift refuses seal generation.",
+    "Actual actor obtains databasePeers by read_peer SQL before fixture selection; production verifier/source transport not modified."
+  ],
+  "remainingValidation": [
+    "Container/process/socket witnesses remain explicitly synthetic, not actual kernel socket ownership proof.",
+    "Full real Linux post-clear recovery must rerun; no whole T24 or production recovery acceptance."
+  ]
+}

@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
+import type { MessageKey, MessageParams } from "@/lib/i18n/messages";
 import { CircleAlert, DoorOpen, LoaderCircle, ShieldCheck } from "lucide-react";
 import { auth as authContract, orgAdmin } from "@repo/contracts";
 import { ApiError, apiRequest, getStoredSessionToken } from "@/lib/api-client";
@@ -10,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AuthShell } from "@/components/entry/auth-shell";
-import { useInvitationSession, INVITATION_COMPLETION_MESSAGES, type InvitationCompletion } from "./use-invitation-session";
+import { useInvitationSession, INVITATION_COMPLETION_KEYS, type InvitationCompletion } from "./use-invitation-session";
 
 type ActivateOut = typeof orgAdmin.operations.activateOrgMember.out._output;
 
@@ -38,7 +40,8 @@ export function InviteActivation({
   token: string | null;
   claims?: ActivationLinkClaims;
 }) {
-  const [mode, setMode] = React.useState<"new" | "existing">("new");
+  const { t } = useI18n();
+  const [mode, setMode] = React.useState<"new" | "existing">(() => getStoredSessionToken() ? "existing" : "new");
   const [name, setName] = React.useState("");
   const [pwd, setPwd] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
@@ -47,13 +50,14 @@ export function InviteActivation({
   const completeSession = useInvitationSession();
 
   const hasSession = getStoredSessionToken() !== null;
+  const loginUrl = `/login?next=${encodeURIComponent(`/auth/activate?t=${encodeURIComponent(token ?? "")}`)}`;
 
   if (!token) {
     return (
       <Card>
         <p role="alert" className="flex items-start gap-2 text-13 text-destructive" data-testid="activate-missing-token">
           <CircleAlert aria-hidden className="mt-0.5 h-4 w-4 shrink-0" />
-          链接不完整，请使用完整的邀请链接。可向邀请你的管理员重新索取。
+          {t("invitation.missingLink")}
         </p>
       </Card>
     );
@@ -65,7 +69,7 @@ export function InviteActivation({
         <div className="flex flex-col gap-3" data-testid="activate-success">
           <p className="flex items-start gap-2 text-13 text-success">
             <ShieldCheck aria-hidden className="mt-0.5 h-4 w-4 shrink-0" />
-            {INVITATION_COMPLETION_MESSAGES[done]}
+            {t(INVITATION_COMPLETION_KEYS[done])}
           </p>
           <Button
             size="sm"
@@ -73,7 +77,7 @@ export function InviteActivation({
             onClick={() => window.location.assign(done === "session-failed" ? "/login" : "/projects")}
             data-testid="activate-success-continue"
           >
-            {done === "session-failed" ? "前往登录" : "进入工作台"}
+            {done === "session-failed" ? t("account.goToLogin") : t("invitation.workspace")}
           </Button>
         </div>
       </Card>
@@ -91,7 +95,7 @@ export function InviteActivation({
     setSubmitting(true);
     const initialToken = getStoredSessionToken();
     try {
-      const result = await apiRequest<ActivateOut>(orgAdmin.operations.activateOrgMember.path, {
+      const result = await apiRequest<ActivateOut>((mode === "existing" ? orgAdmin.operations.acceptOrgInvite.path : orgAdmin.operations.activateOrgMember.path), {
         method: "POST",
         // ⚠ 只进查询串。契约 `activateOrgMember.in` 是 `.strict()` 的，把这三个塞进
         //   body 会被 `ZodBodyPipe` 直接 400——它们本来就不是输入，是留痕材料。
@@ -102,7 +106,7 @@ export function InviteActivation({
         body:
           mode === "new"
             ? { token, mode: "new-account", profile: { name: name.trim(), password: pwd }, sessionId: null }
-            : { token, mode: "existing-account", profile: null, sessionId: initialToken },
+            : { token },
       });
       setDone(await completeSession(result.session, initialToken, mode === "existing"));
     } catch (err) {
@@ -121,27 +125,27 @@ export function InviteActivation({
       <form className="flex flex-col gap-4" onSubmit={submit} data-testid="activate-form">
         <div className="flex gap-1.5" data-testid="activate-mode">
           <Button type="button" size="sm" variant={mode === "new" ? "primary" : "outline"} onClick={() => setMode("new")} data-testid="activate-mode-new">
-            我是新用户
+            {t("invitation.newUser")}
           </Button>
           <Button type="button" size="sm" variant={mode === "existing" ? "primary" : "outline"} onClick={() => setMode("existing")} data-testid="activate-mode-existing">
-            我已有账号
+            {t("invitation.existingUser")}
           </Button>
         </div>
 
         {mode === "new" ? (
           <>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="activate-name">姓名</Label>
-              <Input id="activate-name" value={name} onChange={(e) => setName(e.currentTarget.value)} placeholder="你的名字" disabled={submitting} data-testid="activate-name" />
+              <Label htmlFor="activate-name">{t("invitation.name")}</Label>
+              <Input id="activate-name" value={name} onChange={(e) => setName(e.currentTarget.value)} placeholder={t("invitation.namePlaceholder")} disabled={submitting} data-testid="activate-name" />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="activate-pwd">设置密码</Label>
+              <Label htmlFor="activate-pwd">{t("invitation.setPassword")}</Label>
               <Input
                 id="activate-pwd"
                 type="password"
                 value={pwd}
                 onChange={(e) => setPwd(e.currentTarget.value)}
-                placeholder={`至少 ${authContract.AUTH_POLICY.passwordMinLen} 位`}
+                placeholder={t("account.reset.placeholder", { min: authContract.AUTH_POLICY.passwordMinLen })}
                 disabled={submitting}
                 data-testid="activate-pwd"
               />
@@ -149,11 +153,11 @@ export function InviteActivation({
           </>
         ) : hasSession ? (
           <p className="text-12 text-muted-foreground" data-testid="activate-existing-hint">
-            将以当前登录账号加入邀请对应的组织。授予的角色与团队以邀请记录为准。
+            {t("invitation.existingHint")}
           </p>
         ) : (
           <p className="text-12 text-muted-foreground" data-testid="activate-existing-need-login">
-            当前未登录。请先在<a className="text-primary underline" href="/login">登录页</a>登录，再回到本链接确认加入。
+            {t("invitation.needLogin").split("{login}").map((part, index) => <React.Fragment key={index}>{index > 0 ? <a className="text-primary underline" href={loginUrl}>{t("invitation.loginPage")}</a> : null}{part}</React.Fragment>)}
           </p>
         )}
 
@@ -165,11 +169,11 @@ export function InviteActivation({
           >
             <p className="flex items-start gap-2 text-12 text-destructive">
               <CircleAlert aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              {error.message}
+              {t(error.message, error.params)}
             </p>
             {error.kind === "unavailable" && (
               <>
-              <a className="text-primary underline" href="/login">账号已创建？前往登录</a>
+              <a className="text-primary underline" href={loginUrl}>{t("invitation.loginRecovery")}</a>
               <Button
                 type="button"
                 size="sm"
@@ -178,7 +182,7 @@ export function InviteActivation({
                 onClick={() => void doSubmit()}
                 data-testid="activate-retry"
               >
-                重试
+                {t("state.retry")}
               </Button>
               </>
             )}
@@ -194,12 +198,12 @@ export function InviteActivation({
         >
           {submitting ? (
             <>
-              <LoaderCircle aria-hidden className="h-3.5 w-3.5 animate-spin" /> 激活中…
+              <LoaderCircle aria-hidden className="h-3.5 w-3.5 animate-spin" /> {t("invitation.activating")}
             </>
           ) : mode === "new" ? (
-            "创建账号并加入组织"
+            t("invitation.createAndJoin")
           ) : (
-            "确认加入组织"
+            t("invitation.confirmJoin")
           )}
         </Button>
       </form>
@@ -208,11 +212,12 @@ export function InviteActivation({
 }
 
 function Card({ children }: { children: React.ReactNode }) {
+  const { t } = useI18n();
   return (
     <AuthShell
       icon={<DoorOpen aria-hidden className="h-5 w-5 text-muted-foreground" />}
-      title="激活组织邀请"
-      footer="链接携带的任何组织/角色声明均以服务端邀请记录为准，篡改无效并会被审计。"
+      title={t("invitation.singleTitle")}
+      footer={t("invitation.singleFooter")}
     >
       {children}
     </AuthShell>
@@ -220,41 +225,40 @@ function Card({ children }: { children: React.ReactNode }) {
 }
 
 /** Unavailable responses can arrive after commit; provide retry and password-login recovery. */
-type ActivationFailure = { kind: "unavailable" | "terminal"; message: string };
+type ActivationFailure = { kind: "unavailable" | "terminal"; message: MessageKey; params?: MessageParams };
 
 function describeActivationFailure(err: unknown): ActivationFailure {
   const issues = contractFieldIssues(err);
   if (issues?.some((i) => i.path === "profile.password")) {
     return {
       kind: "terminal",
-      message: `密码不符合要求：至少 ${authContract.AUTH_POLICY.passwordMinLen} 位，且不能是常见泄露口令。`,
+      message: "account.reset.policy", params: { min: authContract.AUTH_POLICY.passwordMinLen },
     };
   }
   if (err instanceof ApiError) {
     if (err.reasonCode === "INVITE_ALREADY_MEMBER") {
-      return { kind: "terminal", message: "你已是该组织成员，直接登录即可。" };
+      return { kind: "terminal", message: "invitation.alreadyMember" };
     }
     if (err.reasonCode === "INVITE_NOT_FOUND") {
       // V10：无效/过期/已用/已撤销四因服务端刻意不可分辨，这里也只说同一句。
       return {
         kind: "terminal",
-        message: "链接无效或已失效（可能已过期、已被使用或已被撤销）。请联系邀请你的管理员重发。",
+        message: "invitation.singleInvalid",
       };
     }
     if (err.status === 401) {
-      return { kind: "terminal", message: "会话已失效，请重新登录后再打开本链接。" };
+      return { kind: "terminal", message: "invitation.sessionExpired" };
     }
     if (err.status >= 500) {
       return { kind: "unavailable", message: UNAVAILABLE_MESSAGE };
     }
     return {
       kind: "terminal",
-      message: `激活未完成（${err.reasonCode ?? `HTTP ${err.status}`}），请稍后重试。`,
+      message: "invitation.activationIncomplete", params: { reason: err.reasonCode ?? `HTTP ${err.status}` },
     };
   }
   // 非 ApiError ⇒ 请求根本没得到一个 HTTP 响应（连接拒绝/断网/超时）。
   return { kind: "unavailable", message: UNAVAILABLE_MESSAGE };
 }
 
-const UNAVAILABLE_MESSAGE =
-  "服务暂时不可用（可能正在部署重启），请稍后重试。若账号已创建，请直接前往登录页登录。";
+const UNAVAILABLE_MESSAGE: MessageKey = "invitation.unavailable";

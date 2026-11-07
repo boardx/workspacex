@@ -17,6 +17,8 @@
  * 是写 provenance 的同一批用例自己定义、自己写入的，不是外部依赖；文案表本身是
  * closed 的，`detail` 缺字段时退化成不带具体值的版本，不会因为字段变化而崩）。
  */
+import type { z } from "zod";
+import { identity } from "@repo/contracts";
 import type { OrgId } from "../../domain/org-id";
 import type { ProvenanceEventRecord, ProvenanceReader } from "../provenance/ports";
 
@@ -24,24 +26,12 @@ export interface ListOwnActivityDeps {
   readonly reader: ProvenanceReader;
 }
 
-export interface ListOwnActivityInput {
-  readonly userId: string;
-  readonly orgId: OrgId;
-  readonly cursor: string | null;
-  readonly limit: number;
-}
-
-export interface OwnActivityEvent {
-  readonly eventId: string;
-  readonly kind: string;
-  readonly occurredAt: string;
-  readonly summary: string;
-}
-
-export interface ListOwnActivityOutput {
-  readonly events: readonly OwnActivityEvent[];
-  readonly nextCursor: string | null;
-}
+export type ListOwnActivityInput = Readonly<z.infer<typeof identity.operations.listOwnActivity.in> & {
+  userId: string;
+  orgId: OrgId;
+}>;
+export type OwnActivityEvent = z.infer<typeof identity.operations.listOwnActivity.out>["events"][number];
+export type ListOwnActivityOutput = Readonly<z.infer<typeof identity.operations.listOwnActivity.out>>;
 
 export async function listOwnActivity(
   deps: ListOwnActivityDeps,
@@ -54,12 +44,13 @@ export async function listOwnActivity(
   });
 
   return {
-    events: page.events.map((e) => ({
-      eventId: e.id,
-      kind: e.type,
-      occurredAt: e.at,
-      summary: summarize(e),
-    })),
+    events: page.events.map((e) => {
+      const display = input.displayFormat === identity.OWN_ACTIVITY_DISPLAY_FORMAT ? activityDisplay(e) : undefined;
+      return {
+        eventId: e.id, kind: e.type, occurredAt: e.at, summary: summarize(e),
+        ...(display === undefined ? {} : { display }),
+      };
+    }),
     nextCursor: page.nextCursor,
   };
 }
@@ -96,5 +87,24 @@ function summarize(e: ProvenanceEventRecord): string {
       // 防御性兜底：理论不该发生（六个类型是 closed enum），但新增事件类型忘记补文案表
       // 时，界面应该退化显示而不是崩掉或显示 `undefined`。
       return `执行了操作：${e.type}`;
+  }
+}
+
+/** Stable templates plus whitelisted values; legacy requests retain the exact old shape. */
+function activityDisplay(e: ProvenanceEventRecord): OwnActivityEvent["display"] {
+  const detail = e.detail ?? {};
+  switch (e.type) {
+    case "profile-renamed":
+      return { code: e.type, params: typeof detail.displayName === "string" ? { displayName: detail.displayName } : {} };
+    case "avatar-changed":
+      return { code: e.type, params: { cleared: detail.cleared === true } };
+    case "password-changed":
+      return { code: e.type, params: {} };
+    case "team-created":
+    case "team-renamed":
+    case "team-deleted":
+      return { code: e.type, params: typeof detail.name === "string" ? { name: detail.name } : {} };
+    default:
+      return undefined;
   }
 }

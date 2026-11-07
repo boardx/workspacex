@@ -174,3 +174,15 @@ def test_capture_cleanup_failure_still_fails_successful_read(monkeypatch):
     monkeypatch.setattr(module.upstream, "_parse_read_output", lambda *args: module.ReadResult(error=None))
     with pytest.raises(SandboxTransportError, match="SESSION_BUSY"):
         sandbox(lambda _: httpx.Response(409, json={"error": "SESSION_BUSY"})).read("/skills/example/SKILL.md")
+
+@pytest.mark.parametrize("status,code", [(429,"CAPACITY_QUEUE_FULL"),(429,"CAPACITY_OWNER_LIMIT"),(503,"CAPACITY_WAIT_TIMEOUT")])
+def test_capacity_rejection_is_sanitized_and_never_replayed(status, code):
+    calls = []
+    def handle(request):
+        calls.append(request)
+        return httpx.Response(status, json={"error":code,"detail":TOKEN})
+    with pytest.raises(SandboxTransportError) as error:
+        sandbox(handle).execute("do-not-replay")
+    assert code in str(error.value)
+    assert TOKEN not in str(error.value)
+    assert len(calls) == 1

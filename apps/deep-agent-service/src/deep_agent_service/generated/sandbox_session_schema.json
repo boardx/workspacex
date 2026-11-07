@@ -12,7 +12,12 @@
     "maxTtlMs": 3600000,
     "defaultTimeoutMs": 120000,
     "maxTimeoutMs": 300000,
-    "maxRequestBytes": 25165824
+    "maxRequestBytes": 25165824,
+    "executionConcurrency": 1,
+    "executionMaxQueue": 16,
+    "executionOwnerConcurrency": 1,
+    "executionOwnerMaxQueue": 3,
+    "executionQueueWaitMs": 15000
   },
   "endpoints": {
     "create": "POST /sessions",
@@ -22,6 +27,12 @@
     "execute": "POST /sessions/:sessionId/executions",
     "cancel": "POST /sessions/:sessionId/executions/:executionId/cancel",
     "destroy": "DELETE /sessions/:sessionId"
+  },
+  "capacityErrors": {
+    "queueFull": "CAPACITY_QUEUE_FULL",
+    "ownerLimit": "CAPACITY_OWNER_LIMIT",
+    "waitTimeout": "CAPACITY_WAIT_TIMEOUT",
+    "cancelled": "CAPACITY_CANCELLED"
   },
   "schemas": {
     "create": {

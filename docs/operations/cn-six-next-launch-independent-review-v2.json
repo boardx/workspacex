@@ -1,0 +1,21 @@
+{
+  "kind": "cn-release-independent-code-review-v1",
+  "reviewer": "/root/code_review",
+  "reviewedAt": "2026-10-12T14:05:40.124967+00:00",
+  "disposition": "accepted",
+  "scope": "Installed pnpm PATH portability regression only; no business configuration change, browser/server/Docker execution or Linux claim.",
+  "reviewedFiles": {
+    "tests/fixtures/cn-six-business/next-launch.test.ts": "002c185e77c276e83bdc810b919bc2268e1ea679e9854e424765f42131a3c005",
+    "tests/test_cn_release_six_next_launch.py": "42b260758a0bf6d8b5b09d13cf9300a0a1c69fb46d809b0aa6d11edc0c5d65c1"
+  },
+  "executionEvidence": {
+    "command": "Python3.12 -B -m unittest discover -s tests -p test_cn_release_six_next_launch.py",
+    "tests": 2,
+    "failures": 0,
+    "seconds": 2.223
+  },
+  "findings": [
+    "Absolute pnpm resolved before filtering PATH; private Node/pnpm-only bin preserves bare-next rejection and real Next version success.",
+    "GitHub-style setup-pnpm node_modules/.bin regression exercises actual installed Node/Next, with private temporary directory cleanup."
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "name": "green-first",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/survey-designer-i18n.test.tsx",
+    "tests/ui/survey-question-controls-i18n.test.tsx"
+  ],
+  "source": "8a8371e4c35609c72bac07a8042a7051ea5cc624",
+  "exitCode": 1,
+  "seconds": 17.559,
+  "rawLogSha256": "eb9d497da1369386559a932dc079af439fe8503d5e9cb1e7dbf82e482a65c44d",
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "tests": 81,
+  "passed": 80,
+  "failed": 1,
+  "failureClassification": "Invalid Markdown parser fixture: JSX string attribute uses literal backslash-n. No product parsing defect shown. Corrected guarded parser cases require RED before display mapping."
+}

@@ -1,0 +1,150 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/ui/i18n-chat-feedback-draft-quota.test.tsx (4 tests) 361ms
+ ❯ tests/ui/i18n-chat-feedback-voice-host.test.tsx (7 tests | 7 failed) 155ms
+   × translates actual feedback host 'connecting' / 'Connecting to speech recognition' while retaining draft, status DOM and explicit actions 66ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Connecting to speech recognition
+Received:
+  正在连接语音识别请稍候，正在申请麦克风并建立连接取消
+   × translates actual feedback host 'listening' / 'Listening' while retaining draft, status DOM and explicit actions 21ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Listening
+Received:
+  正在听 00:07文字实时写入「详细说说」 · 已 4 字 · 说完点「停止」暂停停止
+   × translates actual feedback host 'listening' / 'No sound detected for 12 seconds' while retaining draft, status DOM and explicit actions 15ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  No sound detected for 12 seconds
+Received:
+  12 秒未听到声音请靠近麦克风，或换一个设备 · 静音 5 秒后自动暂停换麦克风停止
+   × translates actual feedback host 'paused' / 'Paused' while retaining draft, status DOM and explicit actions 11ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Paused
+Received:
+  已暂停 00:07已转录 4 字 · 继续录音会接在后面丢弃继续完成
+   × translates actual feedback host 'stopping' / 'Stopping recording' while retaining draft, status DOM and explicit actions 16ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Stopping recording
+Received:
+  正在停止等待最后一段转录落定
+   × translates actual feedback host 'error' / 'Microphone access has not been granted' while retaining draft, status DOM and explicit actions 11ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Microphone access has not been granted
+Received:
+  浏览器未授权麦克风在地址栏左侧的站点设置中允许麦克风，然后重试查看如何开启重试
+   × translates the actual pending structuring status without restarting the transcript POST on locale 14ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  AI is organizing
+Received:
+  AI 整理中…
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/i18n-chat-feedback-voice-host.test.tsx > translates actual feedback host 'connecting' / 'Connecting to speech recognition' while retaining draft, status DOM and explicit actions
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Connecting to speech recognition
+Received:
+  正在连接语音识别请稍候，正在申请麦克风并建立连接取消
+ ❯ tests/ui/i18n-chat-feedback-voice-host.test.tsx:28:177
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+
+ FAIL  tests/ui/i18n-chat-feedback-voice-host.test.tsx > translates actual feedback host 'listening' / 'Listening' while retaining draft, status DOM and explicit actions
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Listening
+Received:
+  正在听 00:07文字实时写入「详细说说」 · 已 4 字 · 说完点「停止」暂停停止
+ ❯ tests/ui/i18n-chat-feedback-voice-host.test.tsx:28:177
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯
+
+ FAIL  tests/ui/i18n-chat-feedback-voice-host.test.tsx > translates actual feedback host 'listening' / 'No sound detected for 12 seconds' while retaining draft, status DOM and explicit actions
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  No sound detected for 12 seconds
+Received:
+  12 秒未听到声音请靠近麦克风，或换一个设备 · 静音 5 秒后自动暂停换麦克风停止
+ ❯ tests/ui/i18n-chat-feedback-voice-host.test.tsx:28:177
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯
+
+ FAIL  tests/ui/i18n-chat-feedback-voice-host.test.tsx > translates actual feedback host 'paused' / 'Paused' while retaining draft, status DOM and explicit actions
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Paused
+Received:
+  已暂停 00:07已转录 4 字 · 继续录音会接在后面丢弃继续完成
+ ❯ tests/ui/i18n-chat-feedback-voice-host.test.tsx:28:177
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯
+
+ FAIL  tests/ui/i18n-chat-feedback-voice-host.test.tsx > translates actual feedback host 'stopping' / 'Stopping recording' while retaining draft, status DOM and explicit actions
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Stopping recording
+Received:
+  正在停止等待最后一段转录落定
+ ❯ tests/ui/i18n-chat-feedback-voice-host.test.tsx:28:177
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯
+
+ FAIL  tests/ui/i18n-chat-feedback-voice-host.test.tsx > translates actual feedback host 'error' / 'Microphone access has not been granted' while retaining draft, status DOM and explicit actions
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Microphone access has not been granted
+Received:
+  浏览器未授权麦克风在地址栏左侧的站点设置中允许麦克风，然后重试查看如何开启重试
+ ❯ tests/ui/i18n-chat-feedback-voice-host.test.tsx:28:177
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/7]⎯
+
+ FAIL  tests/ui/i18n-chat-feedback-voice-host.test.tsx > translates the actual pending structuring status without restarting the transcript POST on locale
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  AI is organizing
+Received:
+  AI 整理中…
+ ❯ tests/ui/i18n-chat-feedback-voice-host.test.tsx:38:74
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/7]⎯
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  7 failed | 4 passed (11)
+   Start at  14:53:23
+   Duration  4.63s (transform 1.15s, setup 213ms, collect 2.30s, tests 515ms, environment 1.07s, prepare 91ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/i18n-chat-feedback-draft-quota.test.tsx tests/ui/i18n-chat-feedback-voice-host.test.tsx --maxWorkers=1 --minWorkers=1

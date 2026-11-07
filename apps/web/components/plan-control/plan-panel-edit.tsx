@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
 import * as React from "react";
 import { CheckCircle2, CircleDot, Circle, GripVertical, X, Plus, RotateCcw, Info, Unlink } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -29,9 +30,6 @@ export const PLAN_STALE_BANNER_TESTID = "chat-task-workbench-plan-stale-banner";
 export const PLAN_PENDING_APPLY_TESTID = "chat-task-workbench-plan-pending-apply";
 export const PLAN_ORPHAN_CONSTRAINT_TESTID = "chat-task-workbench-plan-orphan-constraint";
 
-const STEP_STATUS_LABEL_ZH: Readonly<Record<PlanStepStatus, string>> = {
-  pending: "待执行", in_progress: "进行中", completed: "已完成",
-};
 
 function StepStatusIcon({ status }: { status: PlanStepStatus }): React.JSX.Element {
   const common = "h-4 w-4 shrink-0";
@@ -60,6 +58,7 @@ export interface PlanPanelEditProps {
 export function PlanPanelEdit(
   { steps, onReorder, onDelete, onAddConstraint, onRemoveConstraint, justRemoved, onUndoRemove }: PlanPanelEditProps,
 ): React.JSX.Element {
+  const { t } = useI18n();
   const [addingConstraintFor, setAddingConstraintFor] = React.useState<string | null>(null);
   const [draftText, setDraftText] = React.useState("");
 
@@ -68,8 +67,8 @@ export function PlanPanelEdit(
       <Card data-testid={PLAN_PANEL_EDIT_TESTID} data-plan-mode="edit" className="w-full">
         <CardContent className="flex flex-col gap-2 py-3">
           <div className="flex items-center gap-2">
-            <span className="text-13 font-semibold">当前计划</span>
-            <Badge tone="neutral" className="text-10">{steps.length} 步</Badge>
+            <span className="text-13 font-semibold">{t("chatPlanControl.currentPlan")}</span>
+            <Badge tone="neutral" className="text-10">{t("chatPlanControl.steps", { count: steps.length })}</Badge>
           </div>
           <ol className="flex flex-col gap-1.5">
             {steps.map((step, i) => (
@@ -83,7 +82,7 @@ export function PlanPanelEdit(
                   <span
                     role="button"
                     tabIndex={0}
-                    aria-label={`拖拽调整「${step.content}」顺序，或用 Alt+↑ / Alt+↓`}
+                    aria-label={t("chatPlanControl.reorder", { step: step.content })}
                     data-testid={PLAN_STEP_REORDER_TESTID}
                     onKeyDown={(e) => {
                       if (e.key === "ArrowUp" && e.altKey) onReorder?.(step.planStepId, i - 1);
@@ -95,7 +94,7 @@ export function PlanPanelEdit(
                   </span>
                   <StepStatusIcon status={step.status} />
                   <span className="text-13">{step.content}</span>
-                  <span aria-label={STEP_STATUS_LABEL_ZH[step.status]} className="ml-1 text-10 text-muted-foreground">
+                  <span aria-label={t(`chatPlanControl.step.${step.status}`)} className="ml-1 text-10 text-muted-foreground">
                     {i + 1}/{steps.length}
                   </span>
                   <Button
@@ -103,11 +102,11 @@ export function PlanPanelEdit(
                     variant="ghost"
                     className="ml-auto text-muted-foreground transition-colors duration-fast hover:text-destructive"
                     data-testid={PLAN_STEP_DELETE_TESTID}
-                    aria-label={`移除「${step.content}」`}
+                    aria-label={t("chatPlanControl.removeStep", { step: step.content })}
                     // 无二次确认弹窗——直接触发删除，撤销靠下方的 toast，不是 window.confirm。
                     onClick={() => onDelete?.(step.planStepId)}
                   >
-                    移除
+                    {t("chatPlanControl.remove")}
                   </Button>
                 </div>
                 {step.constraints.map((c) => (
@@ -117,10 +116,10 @@ export function PlanPanelEdit(
                   >
                     <span className="text-11 text-muted-foreground" aria-hidden>↳</span>
                     <span className="text-12 text-background-foreground">{c.text}</span>
-                    <Badge tone="outline" className="text-10">约束</Badge>
+                    <Badge tone="outline" className="text-10">{t("chatPlanControl.constraint")}</Badge>
                     <button
                       type="button"
-                      aria-label={`撤销约束「${c.text}」`}
+                      aria-label={t("chatPlanControl.removeConstraint", { text: c.text })}
                       data-testid={PLAN_CONSTRAINT_REMOVE_TESTID}
                       onClick={() => onRemoveConstraint?.(c.constraintId)}
                       className="ml-auto rounded-control p-0.5 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -132,15 +131,15 @@ export function PlanPanelEdit(
                 {addingConstraintFor === step.planStepId ? (
                   <div className="ml-7 flex flex-col gap-1 rounded-control border border-primary bg-accent/50 px-2.5 py-2">
                     <Label htmlFor={`constraint-${step.planStepId}`} className="text-11 text-muted-foreground">
-                      给「{step.content}」加一条约束
+                      {t("chatPlanControl.addConstraintFor", { step: step.content })}
                     </Label>
                     <div className="flex items-center gap-1.5">
                       <Input
                         id={`constraint-${step.planStepId}`}
                         value={draftText}
                         onChange={(e) => setDraftText(e.target.value)}
-                        placeholder="例如：只用公开可引用的来源"
-                        aria-label={`为「${step.content}」输入约束`}
+                        placeholder={t("chatPlanControl.constraintPlaceholder")}
+                        aria-label={t("chatPlanControl.enterConstraint", { step: step.content })}
                         className="h-7 text-12"
                       />
                       <Button
@@ -154,7 +153,7 @@ export function PlanPanelEdit(
                           setAddingConstraintFor(null);
                         }}
                       >
-                        添加
+                        {t("chatPlanControl.add")}
                       </Button>
                     </div>
                   </div>
@@ -162,11 +161,11 @@ export function PlanPanelEdit(
                   <button
                     type="button"
                     data-testid={PLAN_STEP_ADD_CONSTRAINT_TESTID}
-                    aria-label={`为「${step.content}」加一条约束`}
+                    aria-label={t("chatPlanControl.addConstraintAria", { step: step.content })}
                     onClick={() => { setAddingConstraintFor(step.planStepId); setDraftText(""); }}
                     className="ml-7 flex w-fit items-center gap-1 rounded-control px-1.5 py-0.5 text-11 text-muted-foreground transition-colors duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    <Plus aria-hidden className="h-3 w-3" /> 加一条约束
+                    <Plus aria-hidden className="h-3 w-3" /> {t("chatPlanControl.addConstraint")}
                   </button>
                 )}
               </li>
@@ -181,8 +180,8 @@ export function PlanPanelEdit(
           className="flex items-center gap-2 rounded-control border border-border bg-card px-3 py-2 text-12 shadow-sm"
         >
           <RotateCcw aria-hidden className="h-3.5 w-3.5 text-muted-foreground" />
-          <span>已移除「{justRemoved.content}」</span>
-          <Button size="xs" variant="ghost" className="ml-auto text-primary" onClick={onUndoRemove}>撤销</Button>
+          <span>{t("chatPlanControl.removed", { step: justRemoved.content })}</span>
+          <Button size="xs" variant="ghost" className="ml-auto text-primary" onClick={onUndoRemove}>{t("chatPlanControl.undo")}</Button>
         </div>
       )}
     </div>
@@ -192,6 +191,7 @@ export function PlanPanelEdit(
 export function PlanStaleBanner(
   { onViewDiff, onReapply }: { onViewDiff?: () => void; onReapply?: () => void },
 ): React.JSX.Element {
+  const { t } = useI18n();
   return (
     <div
       data-testid={PLAN_STALE_BANNER_TESTID}
@@ -199,9 +199,9 @@ export function PlanStaleBanner(
       className="flex items-center gap-2 rounded-control border border-ai/25 bg-ai-tint px-2.5 py-2 text-12 text-ai-tint-foreground"
     >
       <Info aria-hidden className="h-3.5 w-3.5 shrink-0" />
-      <span>Agent 刚更新了计划，你的改动没有丢。</span>
-      <Button size="xs" variant="ghost" className="ml-auto" onClick={onViewDiff}>查看差异</Button>
-      <Button size="xs" variant="ghost" onClick={onReapply}>重新应用</Button>
+      <span>{t("chatPlanControl.stale")}</span>
+      <Button size="xs" variant="ghost" className="ml-auto" onClick={onViewDiff}>{t("chatPlanControl.viewChanges")}</Button>
+      <Button size="xs" variant="ghost" onClick={onReapply}>{t("chatPlanControl.reapply")}</Button>
     </div>
   );
 }
@@ -209,6 +209,7 @@ export function PlanStaleBanner(
 export function PlanPendingApplyBanner(
   { onPauseNow }: { onPauseNow?: () => void },
 ): React.JSX.Element {
+  const { t } = useI18n();
   return (
     <div
       data-testid={PLAN_PENDING_APPLY_TESTID}
@@ -217,13 +218,13 @@ export function PlanPendingApplyBanner(
     >
       <Info aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
       <span>
-        Agent 正在执行。你的改动会<b>落到账本、在当前步骤完成后生效</b>，不会改变正在跑的这一步。
+        {t("chatPlanControl.pendingBefore")}<b>{t("chatPlanControl.pendingStrong")}</b>{t("chatPlanControl.pendingAfter")}
         {/*
           * issue #3318 —— 这句「要立刻生效请先暂停」本身就是一个暂停入口，
           * 而且它比按钮更毒：它是在**教用户去用一个不生效的动作**。调用方不给
           * `onPauseNow` 时整句连按钮一起不进 DOM（不是禁用、不是隐藏）。
           */}
-        {onPauseNow && <>要立刻生效请先<Button size="xs" variant="ghost" className="mx-0.5 h-5 px-1 text-warning underline" onClick={onPauseNow}>暂停</Button>。</>}
+        {onPauseNow && <>{t("chatPlanControl.pauseBefore")}<Button size="xs" variant="ghost" className="mx-0.5 h-5 px-1 text-warning underline" onClick={onPauseNow}>{t("chatPlanControl.pause")}</Button>{t("chatPlanControl.pauseAfter")}</>}
       </span>
     </div>
   );
@@ -238,6 +239,7 @@ export interface OrphanConstraintNoticeProps {
 export function OrphanConstraintNotice(
   { text, formerStepContent, onRemove }: OrphanConstraintNoticeProps,
 ): React.JSX.Element {
+  const { t } = useI18n();
   return (
     <div
       data-testid={PLAN_ORPHAN_CONSTRAINT_TESTID}
@@ -245,8 +247,8 @@ export function OrphanConstraintNotice(
       className="flex items-center gap-2 rounded-control border border-warning/30 bg-warning/5 px-2.5 py-2 text-12"
     >
       <Unlink aria-hidden className="h-3.5 w-3.5 shrink-0 text-warning" />
-      <span>1 条约束失去了对应步骤：「{text}」（原属「{formerStepContent}」）</span>
-      <Button size="xs" variant="ghost" className="ml-auto text-primary" onClick={onRemove}>移除</Button>
+      <span>{t("chatPlanControl.orphan", { text, step: formerStepContent })}</span>
+      <Button size="xs" variant="ghost" className="ml-auto text-primary" onClick={onRemove}>{t("chatPlanControl.remove")}</Button>
     </div>
   );
 }

@@ -1,0 +1,20 @@
+{
+  "provider": "dashscope",
+  "modelId": "qwen3.8-max",
+  "calls": 1,
+  "dispatches": 1,
+  "events": [
+    {
+      "phase": "started"
+    },
+    {
+      "phase": "terminal",
+      "outcome": "succeeded"
+    }
+  ],
+  "input": "# 研究需求\n想研究每天晚睡对日常生活的影响，并了解为什么明知不舒服仍晚睡。希望通过访谈区分主动熬夜、轮班工作和照护安排，找到影响睡眠时长的约束。目前尚无受访记录。",
+  "documentVersion": 1,
+  "contentHash": "3d024d17ddfc9a1088d1bc7cdaba4b844c5985e21654c476330ded6e73c8fa27",
+  "missing": [],
+  "persisted": true
+}

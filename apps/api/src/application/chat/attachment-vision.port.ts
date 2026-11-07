@@ -1,7 +1,8 @@
 /**
  * #1560 · P1 —— `AttachmentVisionPort`：把**图片字节**变成「文字转录 + 视觉描述」markdown 的能力边界。
  *
- * 形状刻意与 `AttachmentToMarkdownPort` 同型（`{ok:true,...} | {ok:false, code}`，永不抛），
+ * 供应商失败形状与 `AttachmentToMarkdownPort` 同型（`{ok:true,...} | {ok:false, code}`）；
+ * 计费准入错误保持 CreditConsumptionError，由 worker 记录可操作的额度错误，不能伪装成供应商网络故障。
  * 这样抽取核心 `extractAttachment` 对两条路径的处理是同一套：拿到 markdown → putOnce 全文 →
  * recordExtracted（excerpt 进 DB）。图片抽取**不新开字段、不新开落库路径**（#1560 交付契约）。
  *
@@ -43,7 +44,7 @@ export type VisionResult =
 
 export interface AttachmentVisionPort {
   /**
-   * 对 `bytes`（`mime` 为 png/jpeg/webp）做视觉理解。永不抛：失败一律收敛成 `{ ok:false, code }`。
+   * 对 `bytes`（`mime` 为 png/jpeg/webp）做视觉理解。供应商失败收敛成 `{ ok:false, code }`；计费准入错误保持结构化异常。
    * 实现**不得**在失败时返回空 markdown 冒充成功。
    */
   describeImage(bytes: Uint8Array, mime: string): Promise<VisionResult>;

@@ -1,3 +1,4 @@
+import { lockOrganizationCapacity, commercialSeatAvailable } from "../org-capacity/pg-commercial-capacity";
 /**
  * `OrgInviteLinkRepository` on PostgreSQL —— 共享链接的 I-1 / I-2 住在这个文件里。
  *
@@ -274,6 +275,8 @@ export class PgOrgInviteLinkRepository implements OrgInviteLinkRepository {
     const orgId: OrgId = toOrgId(tokenRow.org_id_hint);
     await s.query("SELECT set_config('app.current_org', $1, true)", [orgId]);
 
+    await lockOrganizationCapacity(s, orgId);
+
     // (3) 🔴 授予的唯一来源 + 多次语义的串行点。FOR UPDATE 把并发加入串行在链接行上；
     //     状态 / 过期 / 上限三种失效在同一个 WHERE 之外逐条判——但都映射同一个
     //     Rollback("not-found")（V10：五种失效对外逐字节相同）。
@@ -297,28 +300,39 @@ export class PgOrgInviteLinkRepository implements OrgInviteLinkRepository {
     if (link.expires_at === null || link.expires_at.getTime() <= input.now.getTime()) {
       throw new Rollback("not-found");
     }
+    if (input.existingUserId) {
+      const current = await s.query<{org_role:string}>("SELECT org_role FROM org_memberships WHERE org_id=$1 AND user_id=$2", [orgId,input.existingUserId]);
+      // Idempotent confirmation never consumes another use, even when this account filled the last slot.
+      if (current.rows[0]) return {userId:input.existingUserId,orgId,orgRole:current.rows[0].org_role};
+      const credential = await s.query("SELECT 1 FROM credentials WHERE user_id=$1", [input.existingUserId]);
+      if (!credential.rows.length) throw new Rollback("not-found");
+    } else if (!input.newAccount) throw new Rollback("not-found");
     if (link.max_uses !== null && Number(link.used_count) >= Number(link.max_uses)) {
       throw new Rollback("not-found");
     }
 
     // (4) I-9 配额硬闸（拍板①）：锁组织行再数座位——与 create@pg-org-invite-repository
     //     同一形状、同一"数出来不存出来"的账本纪律。
-    const quota = await s.query<{ seat_quota: string }>(
-      `SELECT seat_quota FROM organizations WHERE id = $1 FOR UPDATE`,
-      [orgId],
-    );
-    const seatQuota = Number(quota.rows[0]?.seat_quota ?? 0);
-    const usedMembers = await s.query<{ n: string }>(
-      `SELECT count(*)::text AS n FROM org_memberships WHERE org_id = $1`,
-      [orgId],
-    );
-    const usedInvites = await s.query<{ n: string }>(
-      `SELECT count(*)::text AS n FROM org_invites
-        WHERE org_id = $1 AND status IN ('pending', 'awaiting-review', 'send-failed')`,
-      [orgId],
-    );
-    const usedSeats = Number(usedMembers.rows[0]?.n ?? 0) + Number(usedInvites.rows[0]?.n ?? 0);
-    if (usedSeats >= seatQuota) throw new Rollback("quota-exhausted");
+    const available = await commercialSeatAvailable(s, orgId);
+    if (available === false) throw new Rollback("quota-exhausted");
+    if (available === null) {
+      const quota = await s.query<{ seat_quota: string }>(
+        `SELECT seat_quota FROM organizations WHERE id = $1 FOR UPDATE`,
+        [orgId],
+      );
+      const seatQuota = Number(quota.rows[0]?.seat_quota ?? 0);
+      const usedMembers = await s.query<{ n: string }>(
+        `SELECT count(*)::text AS n FROM org_memberships WHERE org_id = $1`,
+        [orgId],
+      );
+      const usedInvites = await s.query<{ n: string }>(
+        `SELECT count(*)::text AS n FROM org_invites
+          WHERE org_id = $1 AND status IN ('pending', 'awaiting-review', 'send-failed')`,
+        [orgId],
+      );
+      const usedSeats = Number(usedMembers.rows[0]?.n ?? 0) + Number(usedInvites.rows[0]?.n ?? 0);
+      if (usedSeats >= seatQuota) throw new Rollback("quota-exhausted");
+    }
 
     // (5) 建号。邮箱查重靠 credentials 的唯一约束，不是先查后插（两步窗口下两路
     //     并发同邮箱都能查到「没有」）。已有账号 → already-member（OA12②：明确拒绝、
@@ -326,7 +340,7 @@ export class PgOrgInviteLinkRepository implements OrgInviteLinkRepository {
     //
     // ⚠ email_verified_at 置为激活时刻：OA12① 的记录在案裁定（未验证账号在登录处
     //   是死路），风险边界见 delta contract.md「待人类确认点」。
-    try {
+    if (input.newAccount) try {
       await s.query(
         `INSERT INTO credentials (user_id, email, display_name, password_hash, email_verified_at)
          VALUES ($1, $2, $3, $4, $5)`,
@@ -343,12 +357,14 @@ export class PgOrgInviteLinkRepository implements OrgInviteLinkRepository {
       throw e;
     }
 
+    const userId = input.existingUserId ?? input.newAccount!.userId;
+
     // (6) 🔴 授予。第 3 个参数恒来自 (3) 的 SELECT；team 恒 NULL（契约头注：共享链接
     //     不预分团队）。
     try {
       await s.query(
         `INSERT INTO org_memberships (user_id, org_id, org_role, team_id) VALUES ($1, $2, $3, NULL)`,
-        [input.newAccount.userId, orgId, link.org_role],
+        [userId, orgId, link.org_role],
       );
     } catch (e) {
       if (uniqueViolationConstraint(e) !== null) throw new Rollback("already-member");
@@ -361,6 +377,6 @@ export class PgOrgInviteLinkRepository implements OrgInviteLinkRepository {
 
     // ⚠ 返回**只有授予值**：不含 created_by、不含计数、不含 email——
     //   ALLOWLIST 例外的前提（文件头），测试钉住。
-    return { userId: input.newAccount.userId, orgId, orgRole: link.org_role };
+    return { userId, orgId, orgRole: link.org_role };
   }
 }

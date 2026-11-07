@@ -1,0 +1,1 @@
+Independent read-only reviewer: no findings at exact SHA a4c691e3180aceb475b2fad6b65d073da4c44b7b against base0a0bfe875. No heavy checks rerun by reviewer. Subsequent amendment adds this evidence and API typecheck output only.

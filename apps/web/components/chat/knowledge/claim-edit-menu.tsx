@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import { MoreHorizontal, Check, Pencil, Trash2, GitBranch, BookmarkPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,6 +40,7 @@ export function ClaimEditMenu({
   onOpenDialog?: (kind: ClaimDialogKind) => void;
   onPromote?: () => void;
 }) {
+  const { t } = useI18n();
   if (!canEdit) return null;
 
   const isConflict = claimTriState(claim.status) === "conflict";
@@ -52,25 +54,25 @@ export function ClaimEditMenu({
         <Button
           variant="ghost"
           size="xs"
-          aria-label="更多"
+          aria-label={t("chatKnowledge.menu.more")}
           data-testid={`kg-claim-edit-trigger-${claim.id}`}
         >
           <MoreHorizontal aria-hidden className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-44" data-testid={`kg-claim-edit-menu-${claim.id}`}>
-        <DropdownMenuLabel>这一条</DropdownMenuLabel>
+        <DropdownMenuLabel>{t("chatKnowledge.menu.thisMemory")}</DropdownMenuLabel>
         <DropdownMenuItem
           disabled={isConflict || isConfirmed}
           data-testid={`kg-action-confirm-${claim.id}`}
           onSelect={() => onConfirm?.()}
         >
           <Check aria-hidden className="mr-2 h-3.5 w-3.5" />
-          确认（对）
+          {t("chatKnowledge.menu.confirm")}
         </DropdownMenuItem>
         {isConflict ? (
           <p className="px-2 py-1 text-10 text-muted-foreground" data-testid={`kg-confirm-blocked-${claim.id}`}>
-            有矛盾的记忆要先选保留哪条才能确认
+            {t("chatKnowledge.menu.blocked")}
           </p>
         ) : null}
         {onPromote ? (
@@ -81,18 +83,18 @@ export function ClaimEditMenu({
               onSelect={() => onPromote()}
             >
               <BookmarkPlus aria-hidden className="mr-2 h-3.5 w-3.5" />
-              记到我的长期记忆
+              {t("chatKnowledge.menu.promote")}
             </DropdownMenuItem>
             {!isConflict && !isConfirmed ? (
               <p className="px-2 pb-1 text-10 text-muted-foreground" data-testid={`kg-promote-confirms-${claim.id}`}>
-                记下后即视为你确认过
+                {t("chatKnowledge.promotion.confirms")}
               </p>
             ) : null}
           </>
         ) : null}
         <DropdownMenuItem data-testid={`kg-action-revise-${claim.id}`} onSelect={() => open("revise")}>
           <Pencil aria-hidden className="mr-2 h-3.5 w-3.5" />
-          改写
+          {t("chatKnowledge.list.rewrite")}
         </DropdownMenuItem>
         <DropdownMenuItem
           disabled={isConflict}
@@ -100,18 +102,18 @@ export function ClaimEditMenu({
           onSelect={() => open("contest")}
         >
           <GitBranch aria-hidden className="mr-2 h-3.5 w-3.5" />
-          标为有矛盾
+          {t("chatKnowledge.action.contest")}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuLabel>相关的人和事</DropdownMenuLabel>
+        <DropdownMenuLabel>{t("chatKnowledge.menu.related")}</DropdownMenuLabel>
         <DropdownMenuItem disabled={!hasObjects} data-testid={`kg-action-merge-${claim.id}`} onSelect={() => open("merge")}>
-          合并
+          {t("chatKnowledge.action.merge")}
         </DropdownMenuItem>
         <DropdownMenuItem disabled={!hasObjects} data-testid={`kg-action-split-${claim.id}`} onSelect={() => open("split")}>
-          拆分
+          {t("chatKnowledge.action.split")}
         </DropdownMenuItem>
         <DropdownMenuItem disabled={!hasObjects} data-testid={`kg-action-rename-${claim.id}`} onSelect={() => open("rename")}>
-          改名
+          {t("chatKnowledge.menu.rename")}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
@@ -120,7 +122,7 @@ export function ClaimEditMenu({
           onSelect={() => open("revoke")}
         >
           <Trash2 aria-hidden className="mr-2 h-3.5 w-3.5" />
-          忘掉这条
+          {t("chatKnowledge.action.revoke")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

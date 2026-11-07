@@ -1,0 +1,57 @@
+[stack-admission] load1=4.07 cores=10 perCore=0.41 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvzomqx6-fbc0a438-9f138153226d db=wsx_9f138153226d7bb4ea91 compose=wsx-9f138153226d7bb4ea91 pg=20635 redis=21635 api=24635 web=25635 sandbox=26635 model=27635 deep-agent=28635 asr=29635 vision=30635 loopback-sandbox=31635 mail=19635
+[WebServer]  Image localhost/workspacex-postgres-age:pg16-age1.6.0 Building
+[WebServer]  Image localhost/workspacex-postgres-age:pg16-age1.6.0 Built
+[WebServer]  Network wsx-9f138153226d7bb4ea91_default Creating
+[WebServer]  Network wsx-9f138153226d7bb4ea91_default Created
+[WebServer]  Container wsx-9f138153226d7bb4ea91-minio-1 Creating
+[WebServer]  Container wsx-9f138153226d7bb4ea91-redis-1 Creating
+[WebServer]  Container wsx-9f138153226d7bb4ea91-postgres-1 Creating
+[WebServer]  Container wsx-9f138153226d7bb4ea91-minio-1 Created
+[WebServer]  Container wsx-9f138153226d7bb4ea91-postgres-1 Created
+[WebServer]  Container wsx-9f138153226d7bb4ea91-redis-1 Created
+[WebServer]  Container wsx-9f138153226d7bb4ea91-minio-1 Starting
+[WebServer]  Container wsx-9f138153226d7bb4ea91-redis-1 Starting
+[WebServer]  Container wsx-9f138153226d7bb4ea91-postgres-1 Starting
+[WebServer]  Container wsx-9f138153226d7bb4ea91-postgres-1 Started
+[WebServer]  Container wsx-9f138153226d7bb4ea91-minio-1 Started
+[WebServer]  Container wsx-9f138153226d7bb4ea91-redis-1 Started
+[WebServer]  Container wsx-9f138153226d7bb4ea91-minio-1 Waiting
+[WebServer]  Container wsx-9f138153226d7bb4ea91-redis-1 Waiting
+[WebServer]  Container wsx-9f138153226d7bb4ea91-postgres-1 Waiting
+[WebServer]  Container wsx-9f138153226d7bb4ea91-redis-1 Healthy
+[WebServer]  Container wsx-9f138153226d7bb4ea91-minio-1 Healthy
+[WebServer]  Container wsx-9f138153226d7bb4ea91-postgres-1 Healthy
+[WebServer] (node:3070) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:3071) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:3209) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:3221) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:3227) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:3286) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:3292) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 1 test using 1 worker
+
+(node:3573) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:3573) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:3292) [DEP0060] DeprecationWarning: The `util._extend` API is deprecated. Please use Object.assign() instead.
+  ✓  1 e2e/self-service-profile.spec.ts:64:7 › 用户个人资料自助服务 › 改姓名刷新后仍在 → 活动记录非空 → 改密码后新密码可登录、旧密码不可 (23.4s)
+
+  1 passed (1.2m)
+[timing] pnpm --filter web exec playwright test --config playwright.self-service-profile.config.ts e2e/self-service-profile.spec.ts --workers=1 --max-failures=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1m11s
+  清理：1s
+  总计：1m12s

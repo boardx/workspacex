@@ -1,0 +1,22 @@
+[stack-admission] load1=2.98 cores=10 perCore=0.30 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvzvpdsn-16d4b26e-d0e59bc8a94e db=wsx_d0e59bc8a94e793501f7 compose=wsx-d0e59bc8a94e793501f7 pg=20552 redis=21552 api=24552 web=25552 sandbox=26552 model=27552 deep-agent=28552 asr=29552 vision=30552 loopback-sandbox=31552 mail=19552
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/api
+
+[db-isolation] db=wsx_d0e59bc8a94e793501f7 capacity=100 current=6 required=32
+ ✓ tests/localization/entity-localization-pg.test.ts (15 tests) 18733ms
+
+ Test Files  1 passed (1)
+      Tests  15 passed (15)
+   Start at  07:17:11
+   Duration  23.82s (transform 987ms, setup 8ms, collect 1.26s, tests 18.73s, environment 0ms, prepare 52ms)
+
+[db-isolation] db=wsx_d0e59bc8a94e793501f7 peak_connections=4
+[timing] pnpm --filter @repo/api exec vitest run tests/localization/entity-localization-pg.test.ts --maxWorkers=1 --minWorkers=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：25s
+  清理：0s
+  总计：25s

@@ -1,3 +1,4 @@
+import {rethrowCreditConsumption} from "../billing/credit-consumption";
 /**
  * CT06 —— 内容线阶段内执行一个已固定版本 Skill 的端口（ADR-118 #9：版本来自实例冻结的 pinnedSkills）。
  * `prior` 是本实例此前各 Skill 阶段的产出。
@@ -58,7 +59,7 @@ function parseJsonObject(text: string): Record<string, unknown> | null {
   try {
     const v: unknown = JSON.parse((fenced ? fenced[1]! : text).trim());
     return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
-  } catch {
+  } catch (creditError) { rethrowCreditConsumption(creditError);
     return null;
   }
 }

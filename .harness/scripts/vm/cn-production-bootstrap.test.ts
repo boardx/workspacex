@@ -114,7 +114,7 @@ printf 'publisher\n'
     expect(deploy).toContain('GIT_NO_LAZY_FETCH=1 git -C "$SOURCE_CACHE" fsck --full --no-reflogs');
     expect(deploy).toContain('GIT_NO_LAZY_FETCH=1 git clone --quiet --no-local --single-branch --branch main --no-checkout "$SOURCE_CACHE" "$stage/checkout"');
     expect(deploy).not.toContain('git clone --quiet --no-local --no-checkout "$REPOSITORY_DIR"');
-    expect(deploy).toContain('install --frozen-lockfile --ignore-scripts --package-import-method=copy');
+    expect(deploy).toContain('COREPACK_ENABLE_NETWORK=0 pnpm --dir "$stage/checkout" install --offline --frozen-lockfile --ignore-scripts --package-import-method=copy');
     expect(deploy).toContain('chmod -R go-w "$stage/checkout"');
     expect(deploy).toContain('mv "$stage/checkout" "$release_checkout"');
     expect(deploy).toContain('pnpm --filter @repo/cloud-deploy prepare-host "$CONFIG_FILE" "$manifest" "$release_checkout" "$runtime"');
@@ -200,14 +200,21 @@ printf 'publisher\n'
     expect(deploy).toContain("stable-secret-preflight \"$baseline_secret_directory\"");
     expect(deploy).toContain("STABLE_SECRET_DIRECTORY=/var/lib/workspacex-cn/stable-secrets");
     expect(deploy.match(/\/var\/lib\/workspacex-cn\/stable-secrets/g)).toHaveLength(1);
-    expect(deploy).toContain('[[ "$baseline_secret_directory" == "$STABLE_SECRET_DIRECTORY" ]]');
+    expect(deploy).toContain('cn_compose_baseline.py stable "$baseline_file"');
+    const helper = readFileSync(resolve(import.meta.dirname, "cn_compose_baseline.py"), "utf8");
+    expect(helper).toContain("require(data[:-1].decode()==str(STABLE))");
+    expect(helper).toContain("protected_directory(STABLE)");
     expect(deploy).toContain('legacy_flag=(--legacy-baseline)');
     expect(deploy).toContain('"$STABLE_SECRET_DIRECTORY" "${legacy_flag[@]}"');
   });
 
   it("restores the exact image and ingress baseline on every activation failure", () => {
     expect(deploy).toContain("trap activation_failure EXIT");
-    expect(deploy).toContain('docker compose -p "$PROJECT_NAME" -f "$compose_file" -f "$override" up -d --remove-orphans');
+    expect(deploy).toContain('cn_compose_baseline.py restore "$baseline_state"');
+    expect(deploy).toContain('cn_compose_baseline.py live-match "$baseline_state"');
+    const helper = readFileSync(resolve(import.meta.dirname, "cn_compose_baseline.py"), "utf8");
+    expect(helper).toContain("compose(files+[str(override)])");
+    expect(helper).toContain("'up','-d','--remove-orphans'");
     expect(deploy).toContain('install -o root -g root -m 0600 "$baseline_nginx" "$NGINX_CONFIG"');
     expect(deploy).toContain("CN_DEPLOY_ROLLBACK_UNPROVEN");
     expect(deploy).toContain("cn-release-browser-smoke.mjs");

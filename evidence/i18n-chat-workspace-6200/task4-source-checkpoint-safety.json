@@ -1,0 +1,11 @@
+{
+  "files": 157,
+  "allPathsAllowlisted": true,
+  "credentialPatternHits": [],
+  "rawTraceArchives": [],
+  "note": "Literal-pattern review of current exact source/docs/unit-output scope, not historical repo audit; no secret values emitted.",
+  "typeLintSourceHashesStillEqual": true,
+  "wholeTask4MechanicalPending": true,
+  "browserPending": true,
+  "purpose": "private source checkpoint, not passing/delivery"
+}

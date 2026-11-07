@@ -1,0 +1,62 @@
+{
+  "apiRequests": 262,
+  "apiTerminal": 262,
+  "nextEvents": [
+    {
+      "at": 1793878357247,
+      "event": "request",
+      "id": 376,
+      "route": "chat-document",
+      "active": 6,
+      "sockets": 11,
+      "pid": 9166
+    },
+    {
+      "at": 1793878357717,
+      "event": "response-finish",
+      "id": 376,
+      "route": "chat-document",
+      "status": 200,
+      "elapsedMs": 470,
+      "active": 3,
+      "sockets": 8,
+      "pid": 9166
+    },
+    {
+      "at": 1793878357834,
+      "event": "request",
+      "id": 384,
+      "route": "chat-layout-chunk",
+      "active": 4,
+      "sockets": 8,
+      "pid": 9166
+    },
+    {
+      "at": 1793878357835,
+      "event": "request",
+      "id": 385,
+      "route": "root-layout-chunk",
+      "active": 5,
+      "sockets": 8,
+      "pid": 9166
+    },
+    {
+      "at": 1793878359048,
+      "event": "response-finish",
+      "id": 385,
+      "route": "root-layout-chunk",
+      "status": 200,
+      "elapsedMs": 1213,
+      "active": 3,
+      "sockets": 10,
+      "pid": 9166
+    }
+  ],
+  "exactSha": "4db4d4075f750e3d7f6d77b591bc43f472703413",
+  "runId": 42018636362,
+  "jobId": 127215435499,
+  "reloadWallMs": 1793878357197.296,
+  "conclusion": "original-refresh-failure-reproduced",
+  "remainingCauseBoundary": "Next dev asset response did not reach browser; lower layer not established",
+  "cleanup": "runner-orphan-reap-observed; launcher-own-cleanup-not-proven"
+}

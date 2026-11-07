@@ -1,0 +1,35 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web
+
+ ✓ tests/ui/pricing-team-catalog-preview.test.ts (4 tests) 39ms
+ ✓ tests/ui/pricing-team-purchase-preview.test.ts (3 tests) 133ms
+ ✓ tests/ui/pricing-team-quote-preview.test.ts (3 tests) 184ms
+ ✓ tests/ui/pricing-team-entitlement-preview.test.ts (3 tests) 199ms
+ ✓ tests/ui/pricing-platform-preview.test.ts (3 tests) 279ms
+ ✓ tests/ui/pricing-team-contract-preview.test.tsx (4 tests) 4700ms
+   ✓ shows purchased capacity and its full monthly pool independently of four current members 794ms
+   ✓ uses the same monthly seat grant in the adopted add-on quote preview 2496ms
+   ✓ opens a US seat quote with Stripe on the first render 931ms
+   ✓ switches an open seat quote from CNY to USD without constructing a WeChat USD quote 477ms
+ ✓ tests/ui/pricing-team-design-gaps.test.tsx (5 tests) 4632ms
+   ✓ shows the seven-member initial quote total rather than a five-seat base price 3112ms
+   ✓ retains Team and the original operation reference until an upgrade succeeds 1020ms
+   ✓ offers platform review while keeping the actual Team status 357ms
+ ✓ tests/ui/pricing-team-history-preview.test.tsx (2 tests) 4830ms
+   ✓ renders one confirmed annual payment from the strict history response 4017ms
+   ✓ preserves the actual expired payment term without presenting it as current entitlement 809ms
+ ✓ tests/ui/pricing-enterprise-contract.test.tsx (7 tests) 8150ms
+   ✓ rejects the overlong reason through the shared contract without modifying the preview balance 3152ms
+   ✓ rejects invalid manual credit 0 without modifying the preview 1072ms
+   ✓ rejects invalid manual credit -1 without modifying the preview 546ms
+   ✓ rejects invalid manual credit 0.5 without modifying the preview 396ms
+   ✓ rejects invalid manual credit 1000001 without modifying the preview 1269ms
+   ✓ applies only the parsed grant receipt to the Enterprise preview row 1196ms
+   ✓ explains retained prepaid Team grants and does not pregrant them during an Enterprise upgrade 511ms
+
+ Test Files  9 passed (9)
+      Tests  34 passed (34)
+   Start at  10:56:44
+   Duration  31.37s (transform 6.44s, setup 27.27s, collect 21.64s, tests 23.15s, environment 46.71s, prepare 10.64s)
+

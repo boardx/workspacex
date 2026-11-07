@@ -1,3 +1,4 @@
+import {SelfAiUsageService} from "../../application/auth/self-ai-usage-service";
 import { Controller,Get,Inject,Param,Query,ForbiddenException } from "@nestjs/common";
 import type { z } from "zod";
 import { aiUsage as C } from "@repo/contracts";
@@ -10,6 +11,14 @@ import { ZodBodyPipe } from "../pipes/zod-body.pipe";
 @Controller()
 export class AiUsageController {
  constructor(@Inject(AI_USAGE_REPOSITORY) private readonly usage:AiUsageRepository,@Inject(IDENTITY_REPOSITORY) private readonly identity:IdentityRepository){}
+ @Get(C.operations.selfSummary.path)
+ async selfSummary(@Query(new ZodBodyPipe(C.Query)) input:z.infer<typeof C.Query>,@CurrentPrincipal() principal:Principal){
+  try{return await new SelfAiUsageService(this.identity,this.usage).summary(principal,input);}catch(e){if(e instanceof AiUsageScopeError)throw new ForbiddenException({reasonCode:e.reasonCode});throw e;}
+ }
+ @Get(C.operations.selfCalls.path)
+ async selfCalls(@Query(new ZodBodyPipe(C.Query)) input:z.infer<typeof C.Query>,@CurrentPrincipal() principal:Principal){
+  try{return await new SelfAiUsageService(this.identity,this.usage).calls(principal,input);}catch(e){if(e instanceof AiUsageScopeError)throw new ForbiddenException({reasonCode:e.reasonCode});throw e;}
+ }
  private async scoped(principal:Principal,orgId:string,input:z.infer<typeof C.Query>){
   assertPrincipal(principal);
   try{return await scopeAiUsage(this.identity,principal,toOrgId(orgId),C.Query.parse(input));}

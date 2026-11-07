@@ -1,0 +1,60 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/c3a4/workspacex/apps/web
+
+ ❯ tests/ui/interview-studio-home.test.tsx (28 tests | 1 failed) 1174ms
+   × F02 第 3 组 UI：访谈 Studio 首屏 > completed cards emphasize the report without repeating a full progress indicator 19ms
+     → expect(element).not.toBeInTheDocument()
+
+expected document not to contain element, found <div
+  aria-label="专家访谈完成进度"
+  aria-valuemax="3"
+  aria-valuemin="0"
+  aria-valuenow="3"
+  aria-valuetext="3 / 3 位专家完成"
+  class="h-2 flex-1 overflow-hidden rounded-full bg-muted"
+  role="progressbar"
+>
+  <div
+    class="h-full rounded-full bg-foreground"
+    style="width: 100%;"
+  />
+</div> instead
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/interview-studio-home.test.tsx > F02 第 3 组 UI：访谈 Studio 首屏 > completed cards emphasize the report without repeating a full progress indicator
+Error: expect(element).not.toBeInTheDocument()
+
+expected document not to contain element, found <div
+  aria-label="专家访谈完成进度"
+  aria-valuemax="3"
+  aria-valuemin="0"
+  aria-valuenow="3"
+  aria-valuetext="3 / 3 位专家完成"
+  class="h-2 flex-1 overflow-hidden rounded-full bg-muted"
+  role="progressbar"
+>
+  <div
+    class="h-full rounded-full bg-foreground"
+    style="width: 100%;"
+  />
+</div> instead
+ ❯ tests/ui/interview-studio-home.test.tsx:145:57
+    143|     expect(within(card).getByText("3 / 3 位专家完成")).toBeInTheDocume…
+    144|     expect(within(card).getByRole("link", { name: /查看报告/ })).toHav…
+    145|     expect(within(card).queryByRole("progressbar")).not.toBeInTheDocum…
+       |                                                         ^
+    146|   });
+    147| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 27 passed (28)
+   Start at  12:51:58
+   Duration  9.88s (transform 1.14s, setup 224ms, collect 1.89s, tests 1.17s, environment 6.16s, prepare 51ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/c3a4/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/interview-studio-home.test.tsx

@@ -94,7 +94,7 @@ describe("reset-password page", () => {
     expect(screen.getByTestId("err-reset-password-pwd").textContent).toContain("至少");
   });
 
-  it("服务不可用 ⇒ 显式重试，且诚实说明令牌不会因此失效", async () => {
+  it("请求结果未知 ⇒ 中性提示，并保留显式重试", async () => {
     fetchMock.mockRejectedValueOnce(new TypeError("Failed to fetch"));
     fetchMock.mockResolvedValueOnce(jsonResponse({ revokedSessionCount: 0 }));
     render(<ResetPassword token="tok-abc" />);
@@ -103,7 +103,7 @@ describe("reset-password page", () => {
     fireEvent.click(screen.getByTestId("reset-password-submit"));
 
     await waitFor(() => expect(screen.getByTestId("reset-password-error-unavailable")).toBeInTheDocument());
-    expect(screen.getByTestId("reset-password-error-unavailable").textContent).toContain("不会消耗你的重置链接");
+    expect(screen.getByTestId("reset-password-error-unavailable").textContent).toContain("暂时无法确认请求结果");
 
     fireEvent.click(screen.getByTestId("reset-password-retry"));
     await waitFor(() => expect(screen.getByTestId("reset-password-success")).toBeInTheDocument());

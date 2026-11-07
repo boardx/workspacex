@@ -1,0 +1,36 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/api
+
+ ❯ tests/research/guided-report-work-queue.test.ts (3 tests | 1 failed) 55ms
+   × keeps source-heavy reports on one four-worker evidence scope 48ms
+     → expected [ [ 'first' ], [ 'first' ], …(10) ] to have a length of 6 but got 12
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/research/guided-report-work-queue.test.ts > keeps source-heavy reports on one four-worker evidence scope
+AssertionError: expected [ [ 'first' ], [ 'first' ], …(10) ] to have a length of 6 but got 12
+
+- Expected
++ Received
+
+- 6
++ 12
+
+ ❯ tests/research/guided-report-work-queue.test.ts:64:18
+     62|   const report = await generateReportChapters(state, model, { provider…
+     63|   expect(report.sections.map(section => section.sectionId)).toEqual(["…
+     64|   expect(scopes).toHaveLength(6);
+       |                  ^
+     65|   expect(scopes.every(scope => scope.join(",") === "first,second,third…
+     66|   expect(peak).toBe(4);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+   Start at  23:11:17
+   Duration  917ms (transform 505ms, setup 0ms, collect 759ms, tests 55ms, environment 0ms, prepare 25ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.research-unit.config.ts tests/research/guided-report-work-queue.test.ts

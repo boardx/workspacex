@@ -1,0 +1,11 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/web
+
+ ✓ tests/ui/workflow-grants-screen.test.tsx (11 tests) 370ms
+ ✓ tests/ui/workflow-grants-i18n.test.tsx (14 tests) 506ms
+
+ Test Files  2 passed (2)
+      Tests  25 passed (25)
+   Start at  05:47:57
+   Duration  2.62s (transform 348ms, setup 400ms, collect 937ms, tests 876ms, environment 1.77s, prepare 166ms)

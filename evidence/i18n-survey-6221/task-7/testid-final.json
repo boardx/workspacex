@@ -1,0 +1,14 @@
+{
+  "name": "testid-final",
+  "command": [
+    "node",
+    ".harness/scripts/lint-e2e-testid-gate.mjs"
+  ],
+  "source": "fda71b3eacd39c379a0d3043207e6db4a63d1ffa",
+  "exitCode": 0,
+  "seconds": 3.559,
+  "rawLogSha256": "a08ee5142204ca89faf4f0e0b279d7651f4fcc61b6e522b648a9e2fc25a868c9",
+  "sourceAfter": "fda71b3eacd39c379a0d3043207e6db4a63d1ffa",
+  "sourceStable": true,
+  "environment": {}
+}

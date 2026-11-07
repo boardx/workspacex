@@ -1,0 +1,10 @@
+{
+  "reviewedSource": "75148e4d6783beadc52cab501b56d3264697e798",
+  "acceptedDevelop": "a00287a86c411c13148294cc2ed4379852949c5d",
+  "actualMergeHead": "4ec1ba1f59455140fe39c964440ee3dfd2b3cefa",
+  "reviewedFourSourceBlobsExact": true,
+  "all35MetadataPathsByteExact": true,
+  "normalMergeNotRebase": true,
+  "noApiContractsConfigWorkflowWorkerDiff": "Only already accepted upstream changes; owner delta remains the reviewed four source/test files plus safe metadata",
+  "runtimeAcceptance": false
+}

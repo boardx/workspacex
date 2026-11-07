@@ -1,0 +1,24 @@
+{
+  "name": "post-ef494-lint",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "eslint",
+    "components/survey/library/template-workspace.tsx",
+    "e2e/i18n-survey-journey.spec.ts",
+    "lib/i18n/messages/en.ts",
+    "lib/i18n/messages/zh-CN.ts",
+    "playwright.fullstack-smoke.config.ts"
+  ],
+  "source": "232421f2a9ff9bdfaaf020b3c3f943c08eabff0a",
+  "exitCode": 0,
+  "seconds": 2.211,
+  "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "sourceAfter": "232421f2a9ff9bdfaaf020b3c3f943c08eabff0a",
+  "sourceStable": true,
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  }
+}

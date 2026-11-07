@@ -1,0 +1,40 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/4986/workspacex/apps/web
+
+ ❯ tests/ui/realtime-transcription-workspace.test.tsx (35 tests | 1 failed) 1570ms
+   × RealtimeTranscriptionWorkspace > does not claim an empty transcript is already saved and copyable 14ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  开始转录
+Received:
+  已保存的正文可复制和编辑；实时识别中的文字以浅色显示。
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > does not claim an empty transcript is already saved and copyable
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  开始转录
+Received:
+  已保存的正文可复制和编辑；实时识别中的文字以浅色显示。
+ ❯ tests/ui/realtime-transcription-workspace.test.tsx:53:57
+     51|     render(<RealtimeTranscriptionWorkspace session={{ ...SESSION, cont…
+     52|     expect(screen.getByTestId("rec-live-copy")).toBeDisabled();
+     53|     expect(screen.getByTestId("rec-live-reading-hint")).toHaveTextCont…
+       |                                                         ^
+     54|     expect(screen.getByTestId("rec-live-reading-hint")).not.toHaveText…
+     55|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 34 passed (35)
+   Start at  14:56:48
+   Duration  5.40s (transform 1.47s, setup 182ms, collect 2.33s, tests 1.57s, environment 788ms, prepare 88ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/4986/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/realtime-transcription-workspace.test.tsx

@@ -521,9 +521,10 @@ export class PgAgentRunRepository implements AgentRunStore {
   async appendExecutionEvent(orgId: OrgId, runId: string, event: ExecutionEventInput): Promise<void> {
     if (event.kind === "skill_activity") event = { ...event, fact: SkillActivityFact.parse(event.fact) };
     await this.db.withTenant(orgId, async (session) => {
-      // Serialize writers across API replicas using the existing run row. The event
-      // becomes visible only after commit, so replay never observes an uncommitted seq.
-      await session.query("SELECT id FROM agent_runs WHERE org_id=$1 AND id=$2 FOR UPDATE", [orgId, runId]);
+      // Serialize event writers without blocking token receipt foreign-key checks.
+      // FOR UPDATE would invert the receipt's org -> run lock order through the
+      // event's org FK. No run key changes here; NO KEY UPDATE still excludes writers.
+      await session.query("SELECT id FROM agent_runs WHERE org_id=$1 AND id=$2 FOR NO KEY UPDATE", [orgId, runId]);
       if (event.kind === "skill_activity") {
         const existing = await session.query<{same:boolean}>(
           `SELECT payload->'fact' = $4::jsonb AS same FROM agent_execution_events

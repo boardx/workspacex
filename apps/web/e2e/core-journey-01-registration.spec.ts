@@ -11,6 +11,7 @@
  */
 import { expect, test, type Page, type APIRequestContext } from "@playwright/test";
 import { readVerificationToken } from "./core-loop-fixture";
+import { extractFirstLink, waitForMail } from "./support/mail-loopback";
 
 interface FreshUser {
   readonly orgName: string;
@@ -29,7 +30,7 @@ function freshUser(tag: string): FreshUser {
   };
 }
 
-async function createInvitation(request: APIRequestContext, kind: "t" | "lt") {
+async function createInvitation(request: APIRequestContext, kind: "t" | "lt", baseURL: string | undefined) {
   const admin = freshUser(`invite-admin-${kind}`);
   const invited = freshUser(`invite-member-${kind}`);
   const api = "/__fullstack_api";
@@ -52,15 +53,26 @@ async function createInvitation(request: APIRequestContext, kind: "t" | "lt") {
       : { orgId, orgRole: "consultant", expiry: "1d", maxUses: 1 },
   });
   expect(invite.ok()).toBe(true);
-  const issued = await invite.json() as { activationToken?: string; linkToken?: string };
-  const inviteToken = kind === "t" ? issued.activationToken : issued.linkToken;
-  expect(Boolean(inviteToken), "真实管理员 API 应签发邀请链接").toBe(true);
+  const issued = await invite.json() as { activationToken?: string | null; linkToken?: string };
+  let inviteToken: string | null | undefined;
+  if (kind === "t") {
+    expect(issued.activationToken, "邮件邀请的 bearer 不应返回给管理员").toBeNull();
+    const mail = await waitForMail({ to: invited.email, timeoutMs: 30_000 });
+    const link = extractFirstLink(mail, "/auth/activate");
+    expect(link.origin, "邀请邮件应指向当前 web 服务").toBe(new URL(baseURL!).origin);
+    expect(link.pathname, "邮件必须提供真实可访问的激活路由").toBe("/auth/activate");
+    inviteToken = link.searchParams.get("t");
+    expect(Boolean(inviteToken), "受邀人收到的邮件应包含可用的邀请链接").toBe(true);
+  } else {
+    inviteToken = issued.linkToken;
+    expect(Boolean(inviteToken), "真实管理员 API 应签发共享邀请链接").toBe(true);
+  }
   return { admin, invited, api, orgId, adminSession, inviteToken: inviteToken! };
 }
 
 for (const kind of ["t", "lt"] as const) {
   test(`旅程①邀请注册：${kind} 激活后直接进入工作台，刷新仍保留正确身份`, async ({ browser, request, baseURL }, testInfo) => {
-    const { invited, api, orgId, adminSession, inviteToken } = await createInvitation(request, kind);
+    const { invited, api, orgId, adminSession, inviteToken } = await createInvitation(request, kind, baseURL);
 
     // A clean context proves the administrator's existing session cannot satisfy the landing assertions.
     const context = await browser.newContext({ baseURL });
@@ -123,7 +135,7 @@ for (const kind of ["t", "lt"] as const) {
 }
 
 test("旅程①邀请注册：真实跨标签页锁保留先提交的密码登录会话", async ({ browser, request, baseURL }, testInfo) => {
-  const { admin, invited, api, orgId, adminSession, inviteToken } = await createInvitation(request, "lt");
+  const { admin, invited, api, orgId, adminSession, inviteToken } = await createInvitation(request, "lt", baseURL);
   const context = await browser.newContext({ baseURL });
   const holder = await context.newPage();
   const loginPage = await context.newPage();

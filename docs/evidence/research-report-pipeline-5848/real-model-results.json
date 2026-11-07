@@ -1,0 +1,309 @@
+{
+  "realModel": true,
+  "production": false,
+  "model": "qwen3.8-max",
+  "provider": "dashscope",
+  "sourceCount": 3,
+  "materials": [
+    {
+      "id": "config",
+      "title": "LangChain configuration excerpt lines58–80",
+      "taskId": "task-concurrency",
+      "url": "https://github.com/langchain-ai/open_deep_research/blob/main/src/open_deep_research/configuration.py#L58",
+      "characters": 859,
+      "sha256": "43acf92f33f6acdfd56ed665a54ccc9744a24ba3b6fde6e96fea99b1dd7d0ab2"
+    },
+    {
+      "id": "supervisor",
+      "title": "LangChain supervisor tools excerpt lines280–324",
+      "taskId": "task-concurrency",
+      "url": "https://github.com/langchain-ai/open_deep_research/blob/main/src/open_deep_research/deep_researcher.py#L280",
+      "characters": 2252,
+      "sha256": "134cfc1596ad9b829841835e361f2e023941bccba253c82ea7e68c4096297154"
+    },
+    {
+      "id": "final",
+      "title": "LangChain compression and final synthesis excerpts",
+      "taskId": "task-synthesis",
+      "url": "https://github.com/langchain-ai/open_deep_research/blob/main/src/open_deep_research/deep_researcher.py#L511",
+      "characters": 3871,
+      "sha256": "f94b3d2fae50d04b3e8e0ca7b9b4848d3814afd1b732f69a44ab5feb06987035"
+    }
+  ],
+  "note": "Fixed official source excerpts, two chapters; not screenshot43-source job. Single sequential observation; provider output is nondeterministic. Baseline first stream marker may include JSON envelope; current first_prose uses prose parser.",
+  "results": [
+    {
+      "label": "baseline",
+      "passed": true,
+      "chapters": 2,
+      "qualityWarnings": 0,
+      "firstProviderDeltaMs": 13050.674458,
+      "firstApprovedMs": 68281.30375,
+      "totalMs": 86838.39600000001,
+      "calls": 12,
+      "inputCharacters": 104463,
+      "reportedTokens": 34194,
+      "peak": 2,
+      "events": [],
+      "initialEvidenceCalls": 1,
+      "evidenceRepairCalls": null
+    },
+    {
+      "label": "current cold",
+      "passed": true,
+      "chapters": 2,
+      "qualityWarnings": 0,
+      "firstProseMs": 5608.738541999992,
+      "firstApprovedMs": 60466.34575000001,
+      "totalMs": 91894.58762500001,
+      "calls": 14,
+      "inputCharacters": 123071,
+      "reportedTokens": 39999,
+      "peak": 2,
+      "events": [
+        {
+          "stage": "evidence",
+          "durationMs": 4492.958958999996,
+          "failed": false,
+          "inputCharacters": 7155,
+          "outputCharacters": 819
+        },
+        {
+          "stage": "first_prose",
+          "failed": false,
+          "durationMs": 5608.738541999992
+        },
+        {
+          "stage": "evidence",
+          "durationMs": 14108.170541,
+          "failed": false,
+          "inputCharacters": 7162,
+          "outputCharacters": 2927
+        },
+        {
+          "stage": "chapter",
+          "sectionId": "concurrency",
+          "durationMs": 16339.274833000003,
+          "failed": false,
+          "inputCharacters": 7113,
+          "outputCharacters": 1470
+        },
+        {
+          "stage": "evidence_revision",
+          "durationMs": 3397.366292000006,
+          "failed": false,
+          "inputCharacters": 3674,
+          "outputCharacters": 683
+        },
+        {
+          "stage": "quality",
+          "sectionId": "concurrency",
+          "durationMs": 4310.12458399999,
+          "failed": false,
+          "inputCharacters": 8458,
+          "outputCharacters": 819
+        },
+        {
+          "stage": "chapter",
+          "sectionId": "synthesis",
+          "durationMs": 21733.232292000015,
+          "failed": false,
+          "inputCharacters": 9285,
+          "outputCharacters": 1915
+        },
+        {
+          "stage": "chapter_revision",
+          "sectionId": "concurrency",
+          "durationMs": 19206.64512500001,
+          "failed": false,
+          "inputCharacters": 12660,
+          "outputCharacters": 1826
+        },
+        {
+          "stage": "quality",
+          "sectionId": "concurrency",
+          "durationMs": 3610.024624999991,
+          "failed": false,
+          "inputCharacters": 9088,
+          "outputCharacters": 688
+        },
+        {
+          "stage": "quality",
+          "sectionId": "synthesis",
+          "durationMs": 5013.2809170000255,
+          "failed": false,
+          "inputCharacters": 10069,
+          "outputCharacters": 939
+        },
+        {
+          "stage": "quality",
+          "sectionId": "concurrency",
+          "durationMs": 7425.8817500000005,
+          "failed": false,
+          "inputCharacters": 5898,
+          "outputCharacters": 1308
+        },
+        {
+          "stage": "quality",
+          "sectionId": "concurrency",
+          "durationMs": 5056.4018750000105,
+          "failed": false,
+          "inputCharacters": 10627,
+          "outputCharacters": 1061
+        },
+        {
+          "stage": "first_approved_chapter",
+          "failed": false,
+          "durationMs": 60464.885292000006
+        },
+        {
+          "stage": "chapter_revision",
+          "sectionId": "synthesis",
+          "durationMs": 22041.969000000012,
+          "failed": false,
+          "inputCharacters": 15173,
+          "outputCharacters": 2031
+        },
+        {
+          "stage": "quality",
+          "sectionId": "synthesis",
+          "durationMs": 4207.615791999997,
+          "failed": false,
+          "inputCharacters": 10242,
+          "outputCharacters": 745
+        },
+        {
+          "stage": "synthesis",
+          "durationMs": 16869.137957999978,
+          "failed": false,
+          "inputCharacters": 6467,
+          "outputCharacters": 1438
+        },
+        {
+          "stage": "report",
+          "failed": false,
+          "durationMs": 91892.97458299999
+        }
+      ],
+      "initialEvidenceCalls": 2,
+      "evidenceRepairCalls": 1
+    },
+    {
+      "label": "current matching evidence",
+      "passed": true,
+      "chapters": 2,
+      "qualityWarnings": 0,
+      "firstProseMs": 1130.5610830000078,
+      "firstApprovedMs": 51093.224749999994,
+      "totalMs": 73356.582084,
+      "calls": 10,
+      "inputCharacters": 92336,
+      "reportedTokens": 30637,
+      "peak": 2,
+      "events": [
+        {
+          "stage": "first_prose",
+          "failed": false,
+          "durationMs": 1130.5610830000078
+        },
+        {
+          "stage": "chapter",
+          "sectionId": "concurrency",
+          "durationMs": 14815.984667000012,
+          "failed": false,
+          "inputCharacters": 7113,
+          "outputCharacters": 1243
+        },
+        {
+          "stage": "quality",
+          "sectionId": "concurrency",
+          "durationMs": 4960.831541000021,
+          "failed": false,
+          "inputCharacters": 7986,
+          "outputCharacters": 927
+        },
+        {
+          "stage": "chapter",
+          "sectionId": "synthesis",
+          "durationMs": 22232.82699999999,
+          "failed": false,
+          "inputCharacters": 9285,
+          "outputCharacters": 1762
+        },
+        {
+          "stage": "quality",
+          "sectionId": "synthesis",
+          "durationMs": 4087.321708000003,
+          "failed": false,
+          "inputCharacters": 9777,
+          "outputCharacters": 754
+        },
+        {
+          "stage": "chapter_revision",
+          "sectionId": "concurrency",
+          "durationMs": 15955.408125000016,
+          "failed": false,
+          "inputCharacters": 12420,
+          "outputCharacters": 1527
+        },
+        {
+          "stage": "quality",
+          "sectionId": "concurrency",
+          "durationMs": 4646.932750000007,
+          "failed": false,
+          "inputCharacters": 8525,
+          "outputCharacters": 821
+        },
+        {
+          "stage": "chapter_revision",
+          "sectionId": "synthesis",
+          "durationMs": 24008.62616700001,
+          "failed": false,
+          "inputCharacters": 14674,
+          "outputCharacters": 2206
+        },
+        {
+          "stage": "quality",
+          "sectionId": "concurrency",
+          "durationMs": 10691.828125,
+          "failed": false,
+          "inputCharacters": 5603,
+          "outputCharacters": 1780
+        },
+        {
+          "stage": "first_approved_chapter",
+          "failed": false,
+          "durationMs": 51093.176958
+        },
+        {
+          "stage": "quality",
+          "sectionId": "synthesis",
+          "durationMs": 4027.9252909999923,
+          "failed": false,
+          "inputCharacters": 10610,
+          "outputCharacters": 781
+        },
+        {
+          "stage": "synthesis",
+          "durationMs": 18975.454625000013,
+          "failed": false,
+          "inputCharacters": 6343,
+          "outputCharacters": 1698
+        },
+        {
+          "stage": "report",
+          "failed": false,
+          "durationMs": 73356.430792
+        }
+      ],
+      "initialEvidenceCalls": 0,
+      "evidenceRepairCalls": 0
+    }
+  ],
+  "baselineRevision": "305c629c4",
+  "configurationNote": "Authorized local model file, production ConfiguredModelProvider with existing withGuidedThinkingPolicy. Secrets are never included.",
+  "acceptanceBoundary": "Direct generateReportChapters comparison with schema/citation/chapter review gates. Does not run source preparation, full API/DB publication readiness or browser acceptance.",
+  "evidenceCountingNote": "Initial evidence requests and evidence_revision requests are separate. Baseline repair count was not recorded (null), never inferred as zero. Total model calls include all actual requests.",
+  "measuredProductRevision": "e4bca695bb32f08b6f3ff9bad7291259cb29fbf2",
+  "subsequentChangeNote": "A later queue-budget correction was validated with fake-clock and cancellation tests; these timings were not rerun on that revision."
+}

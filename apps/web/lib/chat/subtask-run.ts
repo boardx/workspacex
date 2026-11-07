@@ -1,14 +1,21 @@
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+import type { Locale } from "@/lib/i18n/locale";
 import type { subtaskRun as C } from "@repo/contracts";
 
 export type SubtaskRunStatus = C.SubtaskRunStatus;
 export type SubtaskRunView = C.SubtaskRun;
 
+const SUBTASK_STATUS_KEYS: Record<SubtaskRunStatus, MessageKey> = {
+  pending: "chatRuns.pending", running: "chatRuns.running", completed: "chatRuns.completed",
+  failed: "chatRuns.failed", cancelled: "chatRuns.cancelled",
+};
+export function subtaskRunStatusLabel(status: SubtaskRunStatus, locale: Locale = "zh-CN"): string {
+  return translate(locale, SUBTASK_STATUS_KEYS[status]);
+}
 export const SUBTASK_RUN_STATUS_LABEL: Record<SubtaskRunStatus, string> = {
-  pending: "排队中",
-  running: "进行中",
-  completed: "已完成",
-  failed: "出错",
-  cancelled: "已取消",
+  pending: subtaskRunStatusLabel("pending"), running: subtaskRunStatusLabel("running"),
+  completed: subtaskRunStatusLabel("completed"), failed: subtaskRunStatusLabel("failed"),
+  cancelled: subtaskRunStatusLabel("cancelled"),
 };
 
 export const SUBTASK_RUN_STATUS_TONE: Record<

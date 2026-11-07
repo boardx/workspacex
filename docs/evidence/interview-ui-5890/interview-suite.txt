@@ -1,0 +1,101 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/c3a4/workspacex/apps/web
+
+ ✓ tests/ui/interview-markdown-workbench.test.tsx (9 tests) 1847ms
+   ✓ each named workbench stage navigates to its own canonical route without rendering legacy body 490ms
+   ✓ offers retry when canonical completion cannot be loaded 338ms
+ ✓ tests/ui/interview-voice-input.test.tsx (11 tests) 1706ms
+   ✓ keeps interim text local and appends final stop text exactly once 310ms
+ ✓ tests/ui/interview-markdown-intake.test.tsx (9 tests) 1357ms
+   ✓ places input tools beside the editor while keeping confirmation in the footer 459ms
+ ✓ tests/ui/interview-markdown-execution.test.tsx (22 tests) 2646ms
+   ✓ reconciles a failed remounted report request against durable source without manual refresh 376ms
+   ✓ pause remains callable while an advance request is still pending 380ms
+ ✓ tests/ui/interview-source-runs.test.tsx (23 tests) 3335ms
+   ✓ keeps report actions in one footer after the saved transcript without a second progress hero 516ms
+   ✓ expert cards filter by stable attribution while keeping question links 477ms
+   ✓ only projects saved Markdown insight sections and preserves source attribution 493ms
+ ✓ tests/ui/interview-detail-report.test.tsx (10 tests) 3359ms
+   ✓ F06 interview answers to report > lets the user retry a failed first report without leaving the report step 1041ms
+   ✓ F06 interview answers to report > keeps an existing report on cancellation and asks before regeneration 729ms
+   ✓ F06 interview answers to report > shows the preserved report and a failure notice when regeneration fails 513ms
+   ✓ F06 interview answers to report > reconstructs the report from append-only chunks and then loads the final state once 336ms
+ ✓ tests/ui/interview-markdown-create.test.tsx (4 tests) 1586ms
+   ✓ creates project-scoped identity metadata and saves the research body only as canonical Markdown on continue 891ms
+   ✓ retry after failed analysis keeps the same interview and confirmed original text 335ms
+ ✓ tests/ui/interview-workbench-header.test.tsx (6 tests) 589ms
+ ✓ tests/ui/interview-workflow-actions.test.tsx (6 tests) 1345ms
+   ✓ keeps one revision and confirmation footer and blocks duplicate confirmation while truly working 691ms
+   ✓ does not confuse read-only expert controls with active loading 337ms
+ ✓ tests/ui/interview-source-report.test.tsx (8 tests) 820ms
+   ✓ lets a small-screen reader collapse the directory without losing section links 512ms
+ ✓ tests/ui/interview-create-project-scope.test.tsx (3 tests) 877ms
+   ✓ B2-S2 访谈 Studio 带 ?projectId= 新建 ⇒ 访谈归到项目 > 面包屑回项目、scope 是 project、创建后 intake 页续上 projectId 578ms
+ ✓ tests/ui/interview-studio-home.test.tsx (28 tests) 8223ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > renders saved account SVG avatars and edit controls in the expert directory 1486ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 默认显示历史卡，一级标签只有历史访谈与专家列表，新建按钮完整单行 348ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > the header entry opens and reopens scoped creation without a duplicate creation tile null 378ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > the header entry opens and reopens scoped creation without a duplicate creation tile 'project night' 388ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 正式访谈依服务端 canManage 显示菜单，修改和删除调用真实 API client 494ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 本地 Mock 历史卡可编辑名称和标签，无权限的服务端记录隐藏菜单 528ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 删除本地 Mock 历史卡前需要确认 561ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 专家列表同时显示维护的内置画像与正式专家目录 901ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 专家加载失败可重试且不泄露内部错误码 774ms
+ ✓ tests/ui/interview-setup-workflow.test.tsx (27 tests) 8773ms
+   ✓ F04 可点击 Mock 访谈流程 > 确认主题后可点击完成专家、问题、访谈和报告步骤 567ms
+   ✓ F04 可点击 Mock 访谈流程 > 整个访谈流程始终可以返回历史访谈列表 440ms
+   ✓ F04 可点击 Mock 访谈流程 > 从专家目录弹窗搜索并多选添加专家 1439ms
+   ✓ F04 可点击 Mock 访谈流程 > 往返专家步骤时保留编辑，只为新增专家补齐三问 967ms
+   ✓ F04 正式 setup 的显式确认与双层持久化验收门 > 添加专家展示静态专家列表，并把勾选快照随确认命令提交 1168ms
+   ✓ F04 正式 setup 的显式确认与双层持久化验收门 > 模型生成专家和静态专家都可查看详情，且查看操作不触发删除 978ms
+   ✓ F04 正式 setup 的显式确认与双层持久化验收门 > confirms regeneration and leaves the topic draft untouched on cancel 360ms
+   ✓ F04 正式 setup 的显式确认与双层持久化验收门 > warns before regenerating step 2 downstream results 348ms
+ ✓ tests/ui/interview-source-review.test.tsx (2 tests) 498ms
+   ✓ requests changes against exact current document identity without sending or changing body 422ms
+ ✓ tests/ui/interview-expert-library.test.tsx (10 tests) 9926ms
+   ✓ reuses all concrete built-ins without Agent IDs and keeps them visible when custom loading fails 1260ms
+   ✓ saves a custom expert from the current list and immediately displays its durable identity 2469ms
+   ✓ preserves unsafe heading input and refuses persistence with actionable feedback 2217ms
+   ✓ shows the full original built-in profile rather than a shortened biography 484ms
+   ✓ offers the same full profile fields when creating a private expert 853ms
+   ✓ returns focus to the add-expert action after closing the long profile form 487ms
+   ✓ shows real pending state only during a save and preserves the editable profile after failure 1996ms
+ ✓ tests/ui/interview-report-skill-files.test.tsx (8 tests) 1100ms
+   ✓ interview report product Skill actions integration > requests PDF with persisted canonical identity, never browser export 635ms
+ ✓ tests/ui/interview-report-sources.test.tsx (3 tests) 437ms
+   ✓ routes a repeated question citation to the exact saved source and server identity rather than a model role claim 368ms
+ ✓ tests/ui/interview-ui-polish.test.tsx (4 tests) 761ms
+   ✓ collapses answers initially and toggles them without changing saved source 482ms
+ ✓ tests/ui/interview-expert-roles.test.tsx (3 tests) 1331ms
+   ✓ 访谈专家角色卡片 > distinguishes controls when two experts share the same role 919ms
+   ✓ 访谈专家角色卡片 > keeps details available and deletes the selected role without removing another expert 329ms
+ ✓ tests/ui/interview-runs.test.tsx (1 test) 169ms
+ ✓ tests/ui/interview-source-analysis.test.tsx (2 tests) 365ms
+ ✓ tests/ui/interview-research-quality.test.tsx (2 tests) 204ms
+ ✓ tests/ui/interview-create-feedback.test.tsx (2 tests) 374ms
+   ✓ announces and focuses a failed create without losing the name or retry identity 340ms
+ ✓ tests/ui/interview-skill-assistant.test.tsx (1 test) 103ms
+ ✓ tests/ui/interview-markdown-editing.test.tsx (47 tests) 13484ms
+   ✓ confirmed source is read-only and cannot spend a model call on regeneration 875ms
+   ✓ shows every expert question group and uses the left rail only as a scroll shortcut 415ms
+   ✓ a save conflict does not silently rebase local text onto another editor's version 727ms
+   ✓ retries the failed outline after expert confirmation instead of regenerating immutable experts 685ms
+   ✓ virtual expert can be explicitly saved once all fields are complete 939ms
+   ✓ keeps AI virtual-expert proposals unsaved until explicit save 644ms
+   ✓ sends any non-empty description through AI virtual-expert generation 369ms
+   ✓ regenerates an existing empty outline from confirmed experts before navigating 364ms
+   ✓ awaits expert persistence before closing the dialog and keeps fields when saving fails 579ms
+   ✓ edits a saved virtual expert without replacing its stable ID and clears save-first avatar guidance 384ms
+   ✓ persisted add refreshes the source and enables avatar editing without confirming experts 1043ms
+   ✓ confirms generated questions and continues directly to interviewing after expert confirmation 353ms
+   ✓ refreshes conflicted expert versions and retains dialog fields for an explicit retry 1133ms
+   ✓ does not replay completed questions over new revision on the actual outline route 443ms
+   ✓ delivers questions across the real route with generate first 314ms
+   ✓ preserves dirty expert selection when virtual persistence conflicts with a newer source 668ms
+ ✓ tests/ui/interview-immersive-shell.test.tsx (3 tests) 73ms
+
+ Test Files  26 passed (26)
+      Tests  254 passed (254)
+   Start at  13:20:38
+   Duration  21.32s (transform 6.47s, setup 7.95s, collect 57.73s, tests 65.29s, environment 40.42s, prepare 3.31s)

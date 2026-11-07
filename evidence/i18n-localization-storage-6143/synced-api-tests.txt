@@ -1,0 +1,36 @@
+[stack-admission] load1=2.26 cores=10 perCore=0.23 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvzs4eqj-fc525642-1ae6af5b16c5 db=wsx_1ae6af5b16c5a01a912e compose=wsx-1ae6af5b16c5a01a912e pg=20787 redis=21787 api=24787 web=25787 sandbox=26787 model=27787 deep-agent=28787 asr=29787 vision=30787 loopback-sandbox=31787 mail=19787
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/api
+
+[db-isolation] db=wsx_1ae6af5b16c5a01a912e capacity=100 current=6 required=32
+ ✓ tests/agent/agent-directory-controller-http.test.ts (10 tests) 12ms
+ ✓ tests/localization/entity-localization-pg.test.ts (11 tests) 18046ms
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+{"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+{"level":"error","msg":"http exception","traceId":"c250b27f-7d6a-48a9-b933-d860d2278806","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at EntityLocalizationController.run (/Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/api/src/interface/controllers/entity-localization.controller.ts:39:41)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)"}}
+{"level":"error","msg":"http exception","traceId":"3240d4b2-bcd2-4566-89d6-c32b7055ab3c","detail":{"name":"UnprocessableEntityException","message":"Unprocessable Entity Exception","stack":"UnprocessableEntityException: Unprocessable Entity Exception\n    at EntityLocalizationController.target (/Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/api/src/interface/controllers/entity-localization.controller.ts:29:13)\n    at EntityLocalizationController.read (/Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/api/src/interface/controllers/entity-localization.controller.ts:47:25)\n    at EntityLocalizationController.getSkill (/Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/api/src/interface/controllers/entity-localization.controller.ts:63:124)\n    at /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:38:29\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)"}}
+{"level":"error","msg":"http exception","traceId":"f47aefc7-4646-42ae-a17d-964174aa66ac","detail":{"name":"UnprocessableEntityException","message":"Unprocessable Entity Exception","stack":"UnprocessableEntityException: Unprocessable Entity Exception\n    at EntityLocalizationController.run (/Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/api/src/interface/controllers/entity-localization.controller.ts:42:41)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)"}}
+{"level":"error","msg":"http exception","traceId":"0cb56d11-cebc-485a-9da8-f729c81b6b75","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at EntityLocalizationController.run (/Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/api/src/interface/controllers/entity-localization.controller.ts:41:66)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)"}}
+{"level":"error","msg":"http exception","traceId":"2db9a880-0220-43d6-bdcd-acf67c35a4f0","detail":{"name":"NotFoundException","message":"Not Found Exception","stack":"NotFoundException: Not Found Exception\n    at EntityLocalizationController.run (/Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/api/src/interface/controllers/entity-localization.controller.ts:40:40)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)"}}
+{"level":"error","msg":"http exception","traceId":"d38868dd-8cb0-43fa-9bb0-3ac4959a8967","detail":{"name":"NotFoundException","message":"Not Found Exception","stack":"NotFoundException: Not Found Exception\n    at EntityLocalizationController.run (/Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/api/src/interface/controllers/entity-localization.controller.ts:40:40)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)"}}
+ ✓ tests/localization/entity-localization-http.test.ts (4 tests) 10936ms
+ ✓ tests/localization/entity-localization-usecase.test.ts (8 tests) 9ms
+ ✓ tests/localization/entity-localization-controller.test.ts (5 tests) 7ms
+ ✓ tests/localization/entity-display-projection.test.ts (3 tests) 5ms
+
+ Test Files  6 passed (6)
+      Tests  41 passed (41)
+   Start at  05:36:54
+   Duration  37.87s (transform 6.51s, setup 35ms, collect 3.45s, tests 29.01s, environment 1ms, prepare 280ms)
+
+[db-isolation] db=wsx_1ae6af5b16c5a01a912e peak_connections=7
+[timing] pnpm --filter @repo/api exec vitest run tests/localization tests/agent/agent-directory-controller-http.test.ts --maxWorkers=1 --minWorkers=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：39s
+  清理：0s
+  总计：39s

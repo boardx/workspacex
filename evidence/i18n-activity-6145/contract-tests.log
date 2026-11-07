@@ -1,0 +1,9 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/packages/contracts
+
+ ✓ tests/identity-activity-display.test.ts (8 tests) 12ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  04:01:04
+   Duration  999ms (transform 381ms, setup 0ms, collect 437ms, tests 12ms, environment 0ms, prepare 222ms)

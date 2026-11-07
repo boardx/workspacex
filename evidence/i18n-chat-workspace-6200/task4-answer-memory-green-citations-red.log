@@ -1,0 +1,205 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ❯ tests/ui/i18n-chat-citation-detail.test.tsx (7 tests | 7 failed) 88ms
+   × preserves explicit correction payload and raw draft through locale for forgotten 37ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  This is incorrect
+Received:
+  这条不对
+   × preserves explicit correction payload and raw draft through locale for superseded 6ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  This is incorrect
+Received:
+  这条不对
+   × preserves explicit correction payload and raw draft through locale for expired 4ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Outdated
+Received:
+  已过时
+   × keeps owned source-jump missing notice semantic until render without another jump 2ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Jump to source message
+Received:
+  跳到原消息
+   × keeps owned source-jump failed notice semantic until render without another jump 3ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Jump to source message
+Received:
+  跳到原消息
+   × keeps a caller-provided correction error raw and does not repeat it on locale 9ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Confirm
+Received:
+  确认
+   × retains the actual parent API cause for an expired citation with canonical IDs and no locale retry 26ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Only the conversation creator can edit its memories.
+Received:
+  只有对话的创建者可以修改这里的记忆。
+ ❯ tests/ui/i18n-chat-answer-memory-line.test.tsx (5 tests | 1 failed) 162ms
+   × keeps a completed explicit turn undo terminal across locale without a second undo 11ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Undid this turn's saved memories
+Received:
+  已撤销这一轮的记录
+ ❯ tests/ui/i18n-chat-answer-knowledge-footer.test.tsx (3 tests | 3 failed) 58ms
+   × projects only cited raw claims with reviewed labels and stable chip/source callbacks 45ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Fact
+Received:
+  事实
+   × retains expanded reasons and raw path endpoints while translating canonical channel/reason labels 6ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Why it was used
+Received:
+  为什么用到它
+   × localizes only reported degraded channels and project provenance while preserving a raw sharer name 6ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Could not search all your memories
+Received:
+  这次没能查全你的记忆（关联、相似查询暂不可用），回答可能不完整
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 11 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/i18n-chat-answer-knowledge-footer.test.tsx > projects only cited raw claims with reviewed labels and stable chip/source callbacks
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Fact
+Received:
+  事实
+ ❯ tests/ui/i18n-chat-answer-knowledge-footer.test.tsx:13:536
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/11]⎯
+
+ FAIL  tests/ui/i18n-chat-answer-knowledge-footer.test.tsx > retains expanded reasons and raw path endpoints while translating canonical channel/reason labels
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Why it was used
+Received:
+  为什么用到它
+ ❯ tests/ui/i18n-chat-answer-knowledge-footer.test.tsx:14:246
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/11]⎯
+
+ FAIL  tests/ui/i18n-chat-answer-knowledge-footer.test.tsx > localizes only reported degraded channels and project provenance while preserving a raw sharer name
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Could not search all your memories
+Received:
+  这次没能查全你的记忆（关联、相似查询暂不可用），回答可能不完整
+ ❯ tests/ui/i18n-chat-answer-knowledge-footer.test.tsx:15:395
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/11]⎯
+
+ FAIL  tests/ui/i18n-chat-answer-memory-line.test.tsx > keeps a completed explicit turn undo terminal across locale without a second undo
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Undid this turn's saved memories
+Received:
+  已撤销这一轮的记录
+ ❯ tests/ui/i18n-chat-answer-memory-line.test.tsx:23:367
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/11]⎯
+
+ FAIL  tests/ui/i18n-chat-citation-detail.test.tsx > preserves explicit correction payload and raw draft through locale for forgotten
+ FAIL  tests/ui/i18n-chat-citation-detail.test.tsx > preserves explicit correction payload and raw draft through locale for superseded
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  This is incorrect
+Received:
+  这条不对
+ ❯ tests/ui/i18n-chat-citation-detail.test.tsx:23:81
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/11]⎯
+
+ FAIL  tests/ui/i18n-chat-citation-detail.test.tsx > preserves explicit correction payload and raw draft through locale for expired
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Outdated
+Received:
+  已过时
+ ❯ tests/ui/i18n-chat-citation-detail.test.tsx:22:107
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/11]⎯
+
+ FAIL  tests/ui/i18n-chat-citation-detail.test.tsx > keeps owned source-jump missing notice semantic until render without another jump
+ FAIL  tests/ui/i18n-chat-citation-detail.test.tsx > keeps owned source-jump failed notice semantic until render without another jump
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Jump to source message
+Received:
+  跳到原消息
+ ❯ tests/ui/i18n-chat-citation-detail.test.tsx:26:404
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/11]⎯
+
+ FAIL  tests/ui/i18n-chat-citation-detail.test.tsx > keeps a caller-provided correction error raw and does not repeat it on locale
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Confirm
+Received:
+  确认
+ ❯ tests/ui/i18n-chat-citation-detail.test.tsx:27:478
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/11]⎯
+
+ FAIL  tests/ui/i18n-chat-citation-detail.test.tsx > retains the actual parent API cause for an expired citation with canonical IDs and no locale retry
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Only the conversation creator can edit its memories.
+Received:
+  只有对话的创建者可以修改这里的记忆。
+ ❯ tests/ui/i18n-chat-citation-detail.test.tsx:28:903
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/11]⎯
+
+ Test Files  3 failed (3)
+      Tests  11 failed | 4 passed (15)
+   Start at  17:18:03
+   Duration  8.22s (transform 2.07s, setup 416ms, collect 4.41s, tests 308ms, environment 2.13s, prepare 151ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/i18n-chat-answer-memory-line.test.tsx tests/ui/i18n-chat-answer-knowledge-footer.test.tsx tests/ui/i18n-chat-citation-detail.test.tsx --maxWorkers=1 --minWorkers=1

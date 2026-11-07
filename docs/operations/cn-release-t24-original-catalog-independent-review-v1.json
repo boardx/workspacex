@@ -1,0 +1,35 @@
+{
+  "kind": "t24-original-catalog-independent-review-v1",
+  "decision": "ACCEPT_FOR_ISOLATED_LINUX_CI",
+  "reviewer": "browser_linux_integration",
+  "files": {
+    ".harness/scripts/vm/cn-production-recovery-catalog.cjs": "9bae1d0d30b7098c818bc72c63bd2a42a172bef34aef72c3df8f2eb6b489f4e1",
+    "tests/fixtures/cn-postclear-recovery/postgres.ts": "9b7921043a4382c35e6fc688d789880bf3ca0f10bf61abd8668550658a23b903",
+    "tests/fixtures/cn-postclear-recovery/catalog.ts": "1c4133a72ecd600271aae5ccb7d310562a842d4405148f1202b9bc94876c1fd0",
+    "tests/fixtures/cn-postclear-recovery/catalog_test.ts": "38f83099d559e9c41509b7b2b9850505ef4f53e77873017c63902e99b7a5e9eb",
+    "tests/fixtures/cn-postclear-recovery/README.md": "43e3c9acbe56131ddd3ae575b0c32e841cf7c7f08e87c63e163c9f476ee1fe22"
+  },
+  "blockingFindings": [],
+  "reviewed": [
+    "Original production catalog change exports existing collectFacts only; capture/binding/compare/verifyCapture gates unchanged.",
+    "Fixture uses original complete query set, canonicalization and recursive role closure through existing cn_restore_catalog forwarding export.",
+    "Actual client socket loopback/port checked; read-only repeatable-read transaction and search_path pg_catalog; database/user/transaction settings and pg_control_system identifier checked before and after collection.",
+    "Source complete facts retained and target canonical facts compared after exclusive clone restore; before/after and cross-database source drift checks retained.",
+    "originalCaptureProtocolExecuted=false and providerBindingVerified=false accurately distinguish fixture facts from protected original capture/compare authority."
+  ],
+  "validation": {
+    "nodeFixtureTests": 13,
+    "failures": 0,
+    "skips": 0,
+    "durationMilliseconds": 1430.154292,
+    "toolChunk": "6472d7",
+    "originalCatalogMockAssertions": 56,
+    "catalogToolChunk": "9d499d",
+    "realPostgresExecuted": false
+  },
+  "remaining": [
+    "Real isolated Linux PostgreSQL catalog/restore execution required.",
+    "Original protected capture protocol, separate provider instances and production bindings not executed; no production recovery approval.",
+    "Server statement timeout is not total wall-clock connection/cleanup bound; existing outer fixture process deadline remains necessary."
+  ]
+}

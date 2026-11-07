@@ -314,6 +314,10 @@ export class SurveyAttachmentService {
       await this.repo.readOwner(org, survey, owner, response, id),
     );
   }
+  async ownerMetadata(org: OrgId, survey: string, owner: string, response: string, id: string) {
+    const row = await this.repo.readOwner(org, survey, owner, response, id);
+    return { attachmentId: row.attachmentId, name: row.name, mime: row.mime, sizeBytes: row.sizeBytes };
+  }
   private async content(row: StoredSurveyAttachment) {
     const bytes = await this.store.get(row.objectKey);
     if (!bytes) throw new SurveyAttachmentError("not_found");

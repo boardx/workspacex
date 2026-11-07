@@ -1,0 +1,108 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/team-receipt-anchor-6099/apps/api
+
+ ❯ tests/billing/team-recovery-worker.test.ts (3 tests | 2 failed) 37ms
+   × reports sweep failure and releases the guard for retry 24ms
+     → expected "spy" to be called with arguments: [ Array(2) ]
+
+Received: 
+
+  1st spy call:
+
+  Array [
+    "billing_team_recovery_failed",
+    Object {
+-     "err": Object {
+      "stage": "bounded_sweep",
+-     },
+-     "traceId": StringMatching /^team-payment-recovery:/,
+    },
+  ]
+
+
+Number of calls: 1
+
+   × logs completed sweep counts under its own trace 3ms
+     → expected "spy" to be called with arguments: [ 'billing_team_recovery', { …(3) } ]
+
+Received: 
+
+  1st spy call:
+
+  Array [
+    "billing_team_recovery",
+    Object {
+      "failed": 1,
+      "processed": 2,
+-     "traceId": StringMatching /^team-payment-recovery:/,
+    },
+  ]
+
+
+Number of calls: 1
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/team-recovery-worker.test.ts > reports sweep failure and releases the guard for retry
+AssertionError: expected "spy" to be called with arguments: [ Array(2) ]
+
+Received: 
+
+  1st spy call:
+
+  Array [
+    "billing_team_recovery_failed",
+    Object {
+-     "err": Object {
+      "stage": "bounded_sweep",
+-     },
+-     "traceId": StringMatching /^team-payment-recovery:/,
+    },
+  ]
+
+
+Number of calls: 1
+
+ ❯ tests/billing/team-recovery-worker.test.ts:13:55
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/billing/team-recovery-worker.test.ts > logs completed sweep counts under its own trace
+AssertionError: expected "spy" to be called with arguments: [ 'billing_team_recovery', { …(3) } ]
+
+Received: 
+
+  1st spy call:
+
+  Array [
+    "billing_team_recovery",
+    Object {
+      "failed": 1,
+      "processed": 2,
+-     "traceId": StringMatching /^team-payment-recovery:/,
+    },
+  ]
+
+
+Number of calls: 1
+
+ ❯ tests/billing/team-recovery-worker.test.ts:18:38
+     16| it("logs completed sweep counts under its own trace",async()=>{
+     17|  const info=vi.fn(),worker=new TeamPaymentRecoveryWorker({sweep:async(…
+     18|  await worker.runOnce();expect(info).toHaveBeenCalledWith("billing_tea…
+       |                                      ^
+     19| });
+     20| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 1 passed (3)
+   Start at  00:19:09
+   Duration  766ms (transform 84ms, setup 0ms, collect 84ms, tests 37ms, environment 0ms, prepare 179ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/team-receipt-anchor-6099/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.team-core-unit.config.ts tests/billing/team-recovery-worker.test.ts

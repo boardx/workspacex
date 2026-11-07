@@ -1,3 +1,7 @@
+import {withCreditSubject} from "../../src/application/billing/credit-execution-context";
+import {toOrgId} from "../../src/domain/org-id";
+const creditSubject={orgId:toOrgId("vision-credit-org"),userId:"vision-user"};
+const usage={startRequest:vi.fn().mockResolvedValue(undefined),record:vi.fn().mockResolvedValue(undefined)};
 /**
  * #1560 · P1 —— `BailianVisionExtractor` 走**真实 HTTP**（本地 stub 上游）的适配层反证。
  *
@@ -6,7 +10,7 @@
  * 在有 key 的环境单独出证据。这里能证、且必须证的是：请求形状对、每一类上游失败被如实分类、
  * 任何失败都**不产生**一份看起来成功的空产物。
  */
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createServer, type Server } from "node:http";
 import { AddressInfo } from "node:net";
 import {
@@ -36,15 +40,16 @@ beforeAll(async () => {
 
 afterAll(async () => { await new Promise<void>((r) => server.close(() => r())); });
 
-beforeEach(() => { requests = []; nextReply = { status: 200, body: {} }; });
+beforeEach(() => { usage.startRequest.mockReset().mockResolvedValue(undefined);usage.record.mockReset().mockResolvedValue(undefined);requests = []; nextReply = { status: 200, body: {} }; });
 
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a]);
 
 function extractor(over: Partial<ReturnType<typeof readBailianVisionConfig>> = {}) {
-  return new BailianVisionExtractor({
+  const port=new BailianVisionExtractor({
     apiKey: "sk-test", modelId: "qwen-vl-test", baseUrl, timeoutMs: 5_000,
     maxImageBytes: 10 * 1024 * 1024, ...over,
-  });
+  },usage);
+  return {describeImage:(bytes:Uint8Array,mime:string)=>withCreditSubject(creditSubject,()=>port.describeImage(bytes,mime))};
 }
 
 function okReply(text: string): StubReply {
@@ -118,4 +123,25 @@ describe("BailianVisionExtractor（真实 HTTP，stub 上游）", () => {
       .toBe("qwen-vl-plus");
     expect(readBailianVisionConfig({} as NodeJS.ProcessEnv).modelId).toBe(DEFAULT_VISION_MODEL_ID);
   });
+});
+
+
+it("reserves before actual VLM HTTP and stores only actual provider usage",async()=>{
+ nextReply={status:200,body:{output:{text:"【图中文字】\ntext\n【视觉描述】\nimage"},usage:{input_tokens:8,output_tokens:3,total_tokens:11}}};
+ await extractor({maximumInputTokens:100}).describeImage(PNG,"image/png");
+ expect(usage.startRequest).toHaveBeenCalledWith(creditSubject.orgId,expect.objectContaining({userId:"vision-user",maximumTokens:4196,modelProvider:"dashscope-vision"}));
+ expect(usage.record).toHaveBeenCalledWith(creditSubject.orgId,expect.objectContaining({tokensTotal:11,promptTokens:8,completionTokens:3,totalSource:"reported"}));
+ expect(usage.record.mock.calls[0]?.[1].eventId).toBe(usage.startRequest.mock.calls[0]?.[1].requestId);
+});
+it("credit denial prevents VLM HTTP and creates no fake receipt",async()=>{
+ usage.startRequest.mockRejectedValue(new Error("credit_required"));
+ await expect(extractor().describeImage(PNG,"image/png")).rejects.toThrow("credit_required");expect(requests).toHaveLength(0);expect(usage.record).not.toHaveBeenCalled();
+});
+it("missing provider usage remains unknown rather than free zero tokens",async()=>{
+ nextReply=okReply("text");await extractor().describeImage(PNG,"image/png");
+ expect(usage.record).toHaveBeenCalledWith(creditSubject.orgId,expect.objectContaining({tokensTotal:0,totalSource:"unknown",promptTokens:null,completionTokens:null}));
+});
+it("unowned direct VLM transport is refused before HTTP",async()=>{
+ const port=new BailianVisionExtractor({apiKey:"fixture",modelId:"vision",baseUrl,timeoutMs:100,maxImageBytes:100},usage);
+ await expect(port.describeImage(PNG,"image/png")).rejects.toMatchObject({code:"credit_accounting_unavailable"});expect(requests).toHaveLength(0);
 });

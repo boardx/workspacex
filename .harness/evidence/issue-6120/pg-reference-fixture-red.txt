@@ -1,0 +1,43 @@
+[stack-admission] load1=4.85 cores=10 perCore=0.49 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvyymjbj-6b68aeee-ff70d9ca5c9b db=wsx_ff70d9ca5c9b527babee compose=wsx-ff70d9ca5c9b527babee pg=20866 redis=21866 api=24866 web=25866 sandbox=26866 model=27866 deep-agent=28866 asr=29866 vision=30866 loopback-sandbox=31866 mail=19866
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_ff70d9ca5c9b527babee capacity=100 current=6 required=32
+ ❯ tests/billing/product-configuration.integration.ts (1 test | 1 failed) 13400ms
+   × prices new orders from configuration while paid annual grants retain their purchased quantity 90ms
+     → personal_receipt_mismatch
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/product-configuration.integration.ts > prices new orders from configuration while paid annual grants retain their purchased quantity
+Error: personal_receipt_mismatch
+ ❯ PgPersonalPaymentRepository.apply src/infrastructure/billing/pg-personal-payment-repository.ts:59:153
+     57|   private async apply(identity: PaymentIdentity, resolve: (purchase: S…
+     58|     BillingProvider.parse(identity.provider); OrderNo.parse(identity.p…
+     59|     if (typeof identity.paymentRef !== "string" || identity.paymentRef…
+       |                                                                                                                                                         ^
+     60|     return this.db.withoutTenant(async raw => {
+     61|       await raw.query("SET LOCAL statement_timeout='12000ms'"); await …
+ ❯ PgPersonalPaymentRepository.settle src/infrastructure/billing/pg-personal-payment-repository.ts:29:17
+ ❯ tests/billing/product-configuration.integration.ts:61:25
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  15:51:11
+   Duration  17.08s (transform 359ms, setup 9ms, collect 176ms, tests 13.40s, environment 0ms, prepare 55ms)
+
+[db-isolation] db=wsx_ff70d9ca5c9b527babee peak_connections=2
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.billing-cashier.config.ts tests/billing/product-configuration.integration.ts --bail=1
+[timing] pnpm --filter api exec vitest run --config vitest.billing-cashier.config.ts tests/billing/product-configuration.integration.ts --bail=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：18s
+  清理：0s
+  总计：18s

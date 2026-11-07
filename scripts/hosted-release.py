@@ -67,7 +67,8 @@ def write(path, value):
 
 def validate_input(value):
     required = {'schemaVersion', 'sourceRevision', 'release', 'attemptId', 'platform', 'registryPrefix', 'acrRegion', 'acrInstanceId', 'baseImages', 'registryProbeImage'}
-    reject(isinstance(value, dict) and required <= value.keys() and value.keys() <= required | {'packageSources', 'acrEdition'}, 'INVALID_INPUT_FIELDS')
+    reject(isinstance(value, dict) and required <= value.keys() and value.keys() <= required | {'packageSources', 'acrEdition', 'sourceBranch'}, 'INVALID_INPUT_FIELDS')
+    reject(isinstance(value.get('sourceBranch', 'main'), str) and value.get('sourceBranch', 'main') in ('main', 'develop'), 'INVALID_SOURCE_BRANCH')
     reject(type(value['schemaVersion']) is int and value['schemaVersion'] == 1, 'INVALID_SCHEMA')
     reject(isinstance(value['sourceRevision'], str) and re.fullmatch('[a-f0-9]{40}', value['sourceRevision']), 'INVALID_SHA')
     reject(isinstance(value['release'], str) and re.fullmatch(r'v?\d+\.\d+\.\d+(?:-[a-zA-Z0-9]+(?:[.-][a-zA-Z0-9]+)*)?', value['release']), 'INVALID_RELEASE')
@@ -101,7 +102,7 @@ def checkout(plan):
     config = run(['git', 'config', '--local', '--list']).lower()
     reject('extensions.partialclone=' not in config and '.promisor=true' not in config, 'PARTIAL_CHECKOUT')
     run(['git', 'fsck', '--full', '--no-reflogs'])
-    run(['git', 'merge-base', '--is-ancestor', plan['sourceRevision'], 'origin/main'])
+    run(['git', 'merge-base', '--is-ancestor', plan['sourceRevision'], 'origin/' + plan.get('sourceBranch', 'main')])
 
 def load_plan(path):
     plan_bytes = Path(path).read_bytes()

@@ -1,4 +1,4 @@
-# deploy-devportal.yml — 协作平面 CD：main 上 apps/devportal 有新代码 → 自动部署
+# deploy-devportal.yml — 协作平面 CD：在 main 上手动触发发布
 # develop.boardx.us（Cloudflare Pages 项目 devportal，#523 Track A）。
 # 构建链 = next build → @cloudflare/next-on-pages → wrangler pages deploy。
 # 凭据：CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID（Pages 权限即可）。
@@ -8,14 +8,10 @@ name: deploy-devportal
 
 on:
   pull_request:
+    branches: [ develop ]
     paths:
       - "apps/devportal/**"
-      - ".github/workflows/deploy-devportal.yml"
-      - "pnpm-lock.yaml"
-  push:
-    branches: [main]
-    paths:
-      - "apps/devportal/**"
+      - ".github/scripts/devportal-artifact*"
       - ".github/workflows/deploy-devportal.yml"
       - "pnpm-lock.yaml"
   workflow_dispatch: {}
@@ -28,44 +24,58 @@ concurrency:
   group: deploy-devportal-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+env:
+  DEVPORTAL_ARTIFACT_DIR: .ci-artifacts/devportal-pages
+
 jobs:
   validate:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    outputs:
+      producer_attempt: ${{ steps.artifact-identity.outputs.attempt }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-
       - name: Setup pnpm
         uses: pnpm/action-setup@v4.4.0
-
       - name: Setup Node (read .nvmrc)
         uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: pnpm
-
       - name: Install
         run: pnpm install --frozen-lockfile --filter @repo/devportal...
-
+      - name: Verify artifact identity and workflow contracts
+        if: github.event_name == 'pull_request'
+        run: node --test .github/scripts/devportal-artifact.test.mjs
       - name: Typecheck / lint / test
+        if: github.event_name == 'pull_request'
         run: pnpm --filter @repo/devportal run typecheck && pnpm --filter @repo/devportal run lint && pnpm --filter @repo/devportal run test
-
-      - name: Install Playwright Chromium
-        run: pnpm --filter @repo/devportal exec playwright install --with-deps chromium
-
-      - name: E2E (repeatable local gateway fixture)
-        run: pnpm --filter @repo/devportal run e2e
-
       - name: Build Pages artifact (next + next-on-pages)
         working-directory: apps/devportal
         run: |
           pnpm build
           pnpm run pages:build
+      - name: Seal validated Pages artifact
+        id: artifact-identity
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          mkdir -p "$DEVPORTAL_ARTIFACT_DIR"
+          tar -czf "$DEVPORTAL_ARTIFACT_DIR/pages.tar.gz" -C apps/devportal/.vercel/output/static .
+          node .github/scripts/devportal-artifact.mjs seal
+          printf 'attempt=%s\n' "$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
+      - name: Upload validated Pages artifact
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v6
+        with:
+          name: devportal-pages-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.DEVPORTAL_ARTIFACT_DIR }}/
+          if-no-files-found: error
+          retention-days: 7
 
   deploy:
     needs: validate
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -84,15 +94,25 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile --filter @repo/devportal...
 
-      - name: Build Pages artifact
-        working-directory: apps/devportal
+      - name: Download validated Pages artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: devportal-pages-${{ github.run_id }}-${{ needs.validate.outputs.producer_attempt }}
+          path: ${{ env.DEVPORTAL_ARTIFACT_DIR }}
+
+      - name: Verify immutable producer and archive bytes
+        env:
+          DEVPORTAL_PRODUCER_ATTEMPT: ${{ needs.validate.outputs.producer_attempt }}
+        run: node .github/scripts/devportal-artifact.mjs verify
+
+      - name: Restore validated Pages artifact without rebuilding
         run: |
-          pnpm build
-          pnpm run pages:build
+          mkdir -p apps/devportal/.vercel/output/static
+          tar -xzf "$DEVPORTAL_ARTIFACT_DIR/pages.tar.gz" -C apps/devportal/.vercel/output/static
 
       - name: Assert public-layer host configured (D13)
         working-directory: apps/devportal
-        run: node scripts/assert-public-host.mjs --allow-placeholder  # 人类选定公开域名后去掉此参数
+        run: node scripts/assert-public-host.mjs --allow-placeholder # 人类选定公开域名后去掉此参数
 
       - name: Deploy, production smoke, and automatic rollback
         working-directory: apps/devportal

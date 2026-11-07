@@ -1,0 +1,239 @@
+name: image-release
+run-name: "Image release ${{ github.ref_name }} ${{ inputs.tag || format('build run {0}', github.run_id) }}"
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        default: auto
+      tag:
+        type: string
+        default: ''
+      service:
+        type: string
+        default: all
+      build_only:
+        type: boolean
+        default: true
+      source_revision:
+        type: string
+        default: ''
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment (all environments reuse a tag or build the selected branch)"
+        required: true
+        default: auto
+        type: choice
+        options: [auto, devapp, cn, us]
+      service:
+        description: Diagnostic service selector (requires build_only)
+        required: false
+        default: all
+        type: choice
+        options: [all, api, web, agent, sandbox, postgres]
+      build_only:
+        description: Build selected branch without deployment
+        required: false
+        default: false
+        type: boolean
+      tag:
+        description: Existing immutable image tag (empty builds the selected branch)
+        required: false
+        type: string
+      source_revision:
+        description: Optional exact diagnostic source SHA (run from develop with build_only)
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    # All image builds and deployments require an explicit manual dispatch.
+    # Legacy source deployment is retired in backend-gates in this same commit.
+    if: github.event_name == 'workflow_dispatch' && github.ref_type == 'branch'
+    runs-on: ubuntu-24.04
+    outputs:
+      source: ${{ steps.plan.outputs.source }}
+      tag: ${{ steps.plan.outputs.tag }}
+      services: ${{ steps.plan.outputs.services }}
+      target: ${{ steps.plan.outputs.target }}
+      environment: ${{ steps.plan.outputs.environment }}
+      runner: ${{ steps.plan.outputs.runner }}
+      build: ${{ steps.plan.outputs.build }}
+      group: ${{ steps.plan.outputs.target == 'devapp' && 'workspacex-devapp-deploy' || steps.plan.outputs.target == 'us' && 'workspacex-us-production-deploy' || 'workspacex-cn-production-deploy' }}
+      fullset: ${{ steps.plan.outputs.fullset }}
+      node_image: ${{ steps.plan.outputs.node_image }}
+      python_image: ${{ steps.plan.outputs.python_image }}
+      pgvector_image: ${{ steps.plan.outputs.pgvector_image }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          path: control
+      - name: Validate source before checking out a baseline
+        id: source
+        env:
+          DEFAULT_SOURCE: ${{ github.sha }}
+          SOURCE_OVERRIDE: ${{ inputs.source_revision }}
+          BUILD_ONLY: ${{ inputs.build_only }}
+        run: python3 -B control/scripts/registry-images.py source --default "$DEFAULT_SOURCE"
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ steps.source.outputs.source }}
+          persist-credentials: false
+          path: source
+      - name: Resolve immutable tag and environment
+        id: plan
+        working-directory: source
+        env:
+          SOURCE_REVISION: ${{ steps.source.outputs.source }}
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+          EXISTING_TAG: ${{ inputs.tag }}
+          BUILD_ONLY: ${{ inputs.build_only }}
+          BUILD_SERVICE: ${{ inputs.service }}
+          NODE_IMAGE: ${{ vars.WSX_NODE_IMAGE }}
+          PYTHON_IMAGE: ${{ vars.WSX_PYTHON_IMAGE }}
+          PGVECTOR_IMAGE: ${{ vars.WSX_POSTGRES_IMAGE }}
+        run: python3 -B ../control/scripts/registry-images.py plan --source "$SOURCE_REVISION" --resolve-bases
+
+  build:
+    needs: plan
+    if: needs.plan.outputs.build == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: source
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.plan.outputs.services) }}
+    env:
+      DOCKER_CONFIG: /tmp/wsx-acr-build-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.service }}
+      REGISTRY: ${{ vars.WSX_ACR_REGISTRY }}
+      REGISTRY_PREFIX: ${{ vars.WSX_REGISTRY_PREFIX }}
+      NODE_IMAGE: ${{ needs.plan.outputs.node_image }}
+      PYTHON_IMAGE: ${{ needs.plan.outputs.python_image }}
+      PGVECTOR_IMAGE: ${{ needs.plan.outputs.pgvector_image }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          path: control
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.plan.outputs.source }}
+          persist-credentials: false
+          path: source
+      - name: Authenticate to ACR public endpoint
+        env:
+          ACR_USERNAME: ${{ secrets.WSX_ACR_USERNAME }}
+          ACR_PASSWORD: ${{ secrets.WSX_ACR_PASSWORD }}
+        run: python3 -B ../control/scripts/registry-images.py login
+      - name: Build and publish service
+        env:
+          SERVICE: ${{ matrix.service }}
+          IMAGE_TAG: ${{ needs.plan.outputs.tag }}
+          SOURCE_REVISION: ${{ needs.plan.outputs.source }}
+        run: python3 -B ../control/scripts/registry-images.py build --source "$SOURCE_REVISION" --service "$SERVICE" --prefix "$REGISTRY_PREFIX" --tag "$IMAGE_TAG" --output "result/$SERVICE.json"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: release-image-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.service }}
+          path: source/result/*.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Remove registry credentials
+        if: always()
+        run: rm -rf -- "$DOCKER_CONFIG"
+
+  manifest:
+    needs: [plan, build]
+    if: needs.plan.outputs.build == 'true' && needs.plan.outputs.fullset == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          pattern: release-image-${{ github.run_id }}-${{ github.run_attempt }}-*
+          merge-multiple: true
+          path: results
+      - name: Require complete image set from this attempt
+        env:
+          REGISTRY_PREFIX: ${{ vars.WSX_REGISTRY_PREFIX }}
+          IMAGE_TAG: ${{ needs.plan.outputs.tag }}
+          SOURCE_REVISION: ${{ needs.plan.outputs.source }}
+        run: python3 -B scripts/registry-images.py aggregate --source "$SOURCE_REVISION" --directory results --prefix "$REGISTRY_PREFIX" --tag "$IMAGE_TAG" --output release.json
+      - uses: actions/upload-artifact@v6
+        with:
+          name: release-manifest-${{ github.run_id }}-${{ github.run_attempt }}
+          path: release.json
+          if-no-files-found: error
+          retention-days: 90
+
+  deploy:
+    needs: [plan, build, manifest]
+    if: >-
+      always() && !cancelled() && !inputs.build_only && needs.plan.result == 'success' &&
+      github.event_name == 'workflow_dispatch' &&
+      ((needs.plan.outputs.build == 'true' && needs.build.result == 'success' && needs.manifest.result == 'success') ||
+       (needs.plan.outputs.build == 'false' && needs.build.result == 'skipped' && needs.manifest.result == 'skipped'))
+    runs-on: ${{ fromJSON(needs.plan.outputs.runner) }}
+    environment: ${{ needs.plan.outputs.environment }}
+    timeout-minutes: 25
+    concurrency:
+      group: ${{ needs.plan.outputs.group }}
+      cancel-in-progress: false
+    steps:
+      # No checkout or sudo execution of checkout code on production.
+      - name: Show requested immutable image tag
+        env:
+          TARGET_ENVIRONMENT: ${{ needs.plan.outputs.target }}
+          IMAGE_TAG: ${{ needs.plan.outputs.tag }}
+        run: |
+          printf '### Requested deployment\n\nEnvironment: `%s`\n\nImage tag: `%s`\n\nThis is the requested tag; deployment outcome is recorded below in the job log.\n' "$TARGET_ENVIRONMENT" "$IMAGE_TAG" >> "$GITHUB_STEP_SUMMARY"
+      - name: Preflight schema, route release, verify and recover on failure
+        env:
+          TARGET_ENVIRONMENT: ${{ needs.plan.outputs.target }}
+          IMAGE_TAG: ${{ needs.plan.outputs.tag }}
+        run: |
+          set -uo pipefail
+          result=$(mktemp)
+          trap 'rm -f -- "$result"' EXIT
+          set +e
+          sudo -n /usr/local/bin/workspacex-image-release "$TARGET_ENVIRONMENT" "$IMAGE_TAG" | tee "$result"
+          release_status=${PIPESTATUS[0]}
+          set -e
+          python3 - "$result" "$GITHUB_STEP_SUMMARY" <<'PY'
+          import json,re,sys
+          result={}
+          for line in open(sys.argv[1]):
+              try:
+                  row=json.loads(line)
+                  if isinstance(row,dict) and isinstance(row.get('status'),str): result=row
+              except ValueError: pass
+          safe={}
+          for key in ('status','code','stage','route','nextAction'):
+              value=result.get(key)
+              if isinstance(value,str) and re.fullmatch(r'[A-Za-z0-9_-]{1,128}',value): safe[key]=value
+          if result.get('applyAttempted') is False: safe['applyAttempted']=False
+          if result.get('schemaPlanComplete') is False: safe['schemaPlanComplete']=False
+          changes=[]
+          for row in result.get('schemaChanges',[]) if isinstance(result.get('schemaChanges'),list) else []:
+              if not isinstance(row,dict) or row.get('role') not in ('api','agent'): continue
+              change={'role':row['role']}
+              for key in ('added','removed','changed'):
+                  values=row.get(key,[])
+                  if isinstance(values,list): change[key]=[name for name in values if isinstance(name,str) and re.fullmatch(r'[A-Za-z0-9_./-]{1,200}',name)][:100]
+              changes.append(change)
+          if changes: safe['schemaChanges']=changes[:20]
+          with open(sys.argv[2],'a') as out:
+              out.write('\n### Deployment outcome\n\n```json\n'+json.dumps(safe or {'status':'STRUCTURED_RESULT_UNAVAILABLE'},ensure_ascii=True,indent=2)+'\n```\n')
+          PY
+          exit "$release_status"

@@ -1,0 +1,14 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web
+
+ ✓ tests/ui/survey-live-publishing.test.tsx (21 tests) 4147ms
+   ✓ live survey trusted publishing > checks the current design automatically and updates errors after editing 1164ms
+   ✓ live survey trusted publishing > retains authoritative rejection diagnostics after a dirty template is saved 522ms
+   ✓ live survey trusted publishing > shows configuration diagnostics and focuses the image question for repair 362ms
+   ✓ live survey trusted publishing > shows the logic diagnostic and focuses its question for repair 312ms
+
+ Test Files  1 passed (1)
+      Tests  21 passed (21)
+   Start at  20:14:11
+   Duration  14.01s (transform 2.50s, setup 295ms, collect 4.48s, tests 4.15s, environment 2.51s, prepare 550ms)

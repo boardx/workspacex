@@ -3,16 +3,16 @@
  *
  * 最要紧的是**第 1 条的反面**：显式点名了一家、那家没配 key ⇒ 返回 `null`，**不偷偷
  * 回落到另一家**。人明确要 OpenAI 却在跑百炼，比「图像功能没上」难查得多——回执里的
- * `modelRef` 会是 `wanx2.1-t2i-plus`，而没人会去看回执，直到某天有人问"为什么中文
+ * `modelRef` 会是 `qwen-image-3.0`，而没人会去看回执，直到某天有人问"为什么中文
  * 还是糊的"。
  */
 import {expect,it} from 'vitest';
 import {selectImageProvider} from '../../src/infrastructure/agent-run/select-image-provider';
 const env=(o:Record<string,string>)=>o as unknown as NodeJS.ProcessEnv;
 
-it('uses bailian when only bailian is configured — the behaviour before OpenAI existed, unchanged',()=>{
+it('uses bailian when only bailian is configured — the Qwen3 standard model',()=>{
  const s=selectImageProvider(env({KERNEL_MODEL_API_KEY:'dashscope-key'}));
- expect(s?.choice).toBe('bailian');expect(s?.provider.modelRef).toBe('wanx2.1-t2i-plus');
+ expect(s?.choice).toBe('bailian');expect(s?.provider.modelRef).toBe('qwen-image-3.0');
 });
 
 it('uses openai when only openai is configured — no switch needed, so the capability cannot silently vanish',()=>{

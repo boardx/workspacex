@@ -1,0 +1,102 @@
+[stack-admission] load1=3.30 cores=10 perCore=0.33 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvam1anu-c9fd2c30-9fd6ab60f666 db=wsx_9fd6ab60f666905ce566 compose=wsx-9fd6ab60f666905ce566 pg=20920 redis=21920 api=24920 web=25920 sandbox=26920 model=27920 deep-agent=28920 asr=29920 vision=30920 loopback-sandbox=31920 mail=19920
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_9fd6ab60f666905ce566 capacity=100 current=6 required=32
+{"level":"info","msg":"billing_late_paid_order","traceId":"f05-312c2110-71ae-4b01-ba03-5113b432397f","orderNo":"bg20261016065228on1iQq"}
+{"level":"info","msg":"billing_payment_manual_recovery","traceId":"f05-6c6a0782-7d77-4217-acec-235bb8ba7b26","orderNo":"bg20261016065228F57k14","reason":"wallet_limit"}
+{"level":"info","msg":"billing_payment_manual_recovery","traceId":"f05-21dff8d2-e34b-4471-88c5-e09bfee49809","orderNo":"bg20261016065229lR3eP3","reason":"wallet_limit"}
+{"level":"info","msg":"billing_payment_manual_recovery","traceId":"f05-09c0f31d-c1ba-4443-ba86-edc20cdcf3cf","orderNo":"bg20261016065229onYkA6","reason":"wallet_limit"}
+{"level":"info","msg":"billing_payment_manual_recovery","traceId":"f05-8fb495c5-7f69-47e8-9ef1-42da54f1645e","orderNo":"bg20261016065229IJFR6o","reason":"wallet_limit"}
+{"level":"info","msg":"billing_payment_manual_recovery","traceId":"f05-ec5e80ca-9738-4ea7-ba2e-6b79f616d9fe","orderNo":"bg20261016065229fwBpBq","reason":"wallet_limit"}
+{"level":"info","msg":"billing_payment_manual_recovery","traceId":"f05-72924957-9f0e-4428-a74c-383b8f7b91e5","orderNo":"bg20261016065229EaUQuD","reason":"wallet_limit"}
+{"level":"info","msg":"billing_late_paid_order","traceId":"f05-9ca66287-e8c3-42d9-9df7-11eb9112a723","orderNo":"bg20261016065229EaUQuD"}
+ ❯ tests/billing/wechat-notify-outcomes.test.ts (8 tests | 2 failed) 9131ms
+   × F05 terminal timestamps and durable paid-funds recovery > keeps PENDING manual recovery authoritative when a distinct event arrives after capacity is released 107ms
+     → expected { state: 'failed', …(1) } to deeply equal { state: 'failed', …(1) }
+   × F05 terminal timestamps and durable paid-funds recovery > keeps CLOSED manual recovery authoritative when a distinct event arrives after capacity is released 112ms
+     → expected { …(17) } to deeply equal { …(17) }
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/wechat-notify-outcomes.test.ts > F05 terminal timestamps and durable paid-funds recovery > keeps PENDING manual recovery authoritative when a distinct event arrives after capacity is released
+AssertionError: expected { state: 'failed', …(1) } to deeply equal { state: 'failed', …(1) }
+
+- Expected
++ Received
+
+  Object {
+-   "recovery_source_id": "payment-recovery:bg20261016065229fwBpBq",
++   "recovery_source_id": null,
+    "state": "failed",
+  }
+
+ ❯ tests/billing/wechat-notify-outcomes.test.ts:99:59
+     97|     expect(state.ledger).toEqual([]);
+     98|     expect(state.receipts).toHaveLength(2);
+     99|     for (const receipt of state.receipts) expect(receipt).toEqual({ st…
+       |                                                           ^
+    100|   });
+    101| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/billing/wechat-notify-outcomes.test.ts > F05 terminal timestamps and durable paid-funds recovery > keeps CLOSED manual recovery authoritative when a distinct event arrives after capacity is released
+AssertionError: expected { …(17) } to deeply equal { …(17) }
+
+- Expected
++ Received
+
+  Object {
+    "amountFen": 9900,
+    "baseCredits": 1200,
+    "bonusCredits": 120,
+-   "closedAt": "2026-10-16T06:52:29.435Z",
++   "closedAt": null,
+    "createdAt": "2026-10-16T06:52:29.429Z",
+    "currency": "CNY",
+    "expiredAt": "2026-10-16T07:07:29.429Z",
+-   "lastErrorCode": "invalid_amount",
+-   "notifyAt": null,
++   "lastErrorCode": null,
++   "notifyAt": "2026-10-16T06:52:29.463Z",
+    "orderNo": "bg20261016065229EaUQuD",
+    "ownerId": "f04-order-user",
+    "ownerType": "user",
+    "packageId": "f04-order-basic",
+-   "paidAt": null,
++   "paidAt": "2026-10-16T06:52:29.441Z",
+    "provider": "wechat",
+    "qrCodeUrl": "weixin://wxpay/bizpayurl?pr=f04fixture",
+-   "status": "CLOSED",
++   "status": "SUCCESS",
+  }
+
+ ❯ tests/billing/wechat-notify-outcomes.test.ts:90:39
+     88|     expect((await f.post(second.body, second.headers)).status).toBe(20…
+     89|     await f.worker?.runOnce();
+     90|     expect(await read(order.orderNo)).toEqual(manualOrder);
+       |                                       ^
+     91|     const state = await asOwner(async c => ({
+     92|       wallet: (await c.query("SELECT balance,total_purchased FROM cred…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 6 passed (8)
+   Start at  14:52:16
+   Duration  12.84s (transform 617ms, setup 5ms, collect 1.07s, tests 9.13s, environment 0ms, prepare 29ms)
+
+[db-isolation] db=wsx_9fd6ab60f666905ce566 peak_connections=3
+undefined
+/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/wechat-notify-outcomes.test.ts
+[timing] pnpm --filter api exec vitest run tests/billing/wechat-notify-outcomes.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：13s
+  清理：0s
+  总计：14s

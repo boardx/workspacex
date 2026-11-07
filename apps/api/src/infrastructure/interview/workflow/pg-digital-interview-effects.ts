@@ -1,3 +1,5 @@
+import {withCreditSubject} from "../../../application/billing/credit-execution-context";
+import {CreditConsumptionError} from "../../../application/billing/credit-consumption";
 import { createHash } from "node:crypto";
 import type { interviewMarkdown } from "@repo/contracts";
 import type { IdFactory } from "../../../application/artifact/ports";
@@ -284,6 +286,14 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
     private readonly modelProvider: string,
     private readonly modelId: string,
   ) {}
+
+  /** The workflow actor comes from its persisted/authorized execution, never a Persona or prompt. */
+  private billedModel(input:{readonly orgId:string;readonly actorId:string}):ModelCallPort {
+    const subject={orgId:toOrgId(input.orgId),userId:input.actorId};
+    const model:ModelCallPort={complete:request=>withCreditSubject(subject,()=>this.model.complete(request))};
+    if(this.model.completeStream)model.completeStream=(request,onDelta)=>withCreditSubject(subject,()=>this.model.completeStream!(request,onDelta));
+    return model;
+  }
 
   async findReceipt(input: {
     readonly orgId: OrgId; readonly interviewId: string | null;
@@ -618,8 +628,8 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
     if (replayed) return;
     const topic = await this.db.withTenant(toOrgId(input.orgId), async (session) => {
       const result = await session.query<{ topic: string | null }>(
-        "SELECT topic FROM interview_sessions WHERE org_id=$1 AND id=$2",
-        [input.orgId, input.interviewId],
+        `SELECT s.topic FROM interview_sessions s WHERE s.org_id=$1 AND s.id=$2 AND ${DIGITAL_INTERVIEW_ACTOR_VISIBILITY}`,
+        [input.orgId, input.interviewId,input.actorId],
       );
       return result.rows[0]?.topic?.trim() ?? "";
     });
@@ -627,7 +637,7 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
     if (!this.modelProvider || !this.modelId) throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE");
     let experts: readonly GeneratedInterviewExpert[];
     try {
-      const response = await this.model.complete({
+      const response = await this.billedModel(input).complete({
         modelProvider: this.modelProvider,
         modelId: this.modelId,
         system: "你是访谈研究助手。根据访谈主题直接创建 3 至 5 位视角互补的虚拟专家，而不是从已有专家列表选择。专家以专业角色而非虚构姓名标识：displayName 和 role 都使用简洁明确的专业角色称谓，不填写人名；role 应体现与当前主题相关的细分专长，避免泛称“行业专家”或只列普通用户身份。bio 用 1 至 2 句话描述具体专业能力、擅长的研究或实践方法，以及能回答的主题关键问题；不要用空泛资历代替能力，不要编造真实机构任职、荣誉或业绩。各专家应覆盖互补的机制研究、实践实施、成效评估或风险治理视角，根据主题选择而非套用固定职业列表。每位专家必须是与专家列表一致的完整虚拟 Persona 档案，数组字段各给出 2 至 4 条，性格分值为 1 至 10 的整数。只返回 JSON：{\"experts\":[{\"displayName\":\"专业角色称谓\",\"role\":\"简洁的细分专业角色\",\"domains\":[\"专业领域\"],\"category\":\"专家分类\",\"bio\":\"具体专长、方法与主题贡献\",\"location\":\"所在地区\",\"age\":45,\"occupation\":\"职业描述\",\"goals\":[\"目标\"],\"interests\":[\"兴趣\"],\"painPoints\":[\"痛点\"],\"motivations\":[\"动机\"],\"influences\":[\"影响来源\"],\"personalityTraits\":{\"introvertExtrovert\":5,\"analyticalCreative\":7,\"busyTimeRich\":4},\"serviceValue\":\"服务价值说明\",\"typicalAdvice\":\"代表性的建议\"}]}。",
@@ -715,9 +725,8 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         );
       }
       const allowed = await session.query<{ allowed: boolean; topic: string }>(
-        `SELECT EXISTS(SELECT 1 FROM org_memberships WHERE org_id=$1 AND user_id=$2) AS allowed,
-                topic FROM interview_sessions WHERE org_id=$1 AND id=$3`,
-        [input.orgId, input.actorId, input.interviewId],
+        `SELECT true AS allowed,s.topic FROM interview_sessions s WHERE s.org_id=$1 AND s.id=$2 AND ${DIGITAL_INTERVIEW_ACTOR_VISIBILITY}`,
+        [input.orgId, input.interviewId,input.actorId],
       );
       if (!allowed.rows[0]?.allowed) throw new DigitalInterviewWorkflowError("PERMISSION_REVOKED_MIDWAY");
       const experts = await session.query<{
@@ -763,11 +772,11 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
       let answers: Awaited<ReturnType<typeof completeInterviewRunAnswers>>;
       try {
         answers = await completeInterviewRunAnswers({
-          model: this.model, modelProvider: this.modelProvider!, modelId: this.modelId!,
+          model: this.billedModel(input), modelProvider: this.modelProvider!, modelId: this.modelId!,
           topic: snapshot.topic, expert, questions, moderatorPolicy: snapshot.moderatorPolicy,
         });
       } catch (error) {
-        const code = error instanceof InvalidInterviewAnswersError ? "MODEL_OUTPUT_INVALID" : "MODEL_CALL_FAILED";
+        const code = error instanceof CreditConsumptionError ? error.code : error instanceof InvalidInterviewAnswersError ? "MODEL_OUTPUT_INVALID" : "MODEL_CALL_FAILED";
         await this.persistRun(input, expert, questions.length, "failed", [], code);
         return;
       }
@@ -1050,12 +1059,13 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         }),
         history: [],
       } as const;
-      const completion = this.model.completeStream
-        ? await this.model.completeStream(modelInput, async (delta) => {
+      const billedModel=this.billedModel(input);
+      const completion = billedModel.completeStream
+        ? await billedModel.completeStream(modelInput, async (delta) => {
           sawDelta = true;
           for (const event of decoder.push(delta)) await persistEvent(event);
         })
-        : await this.model.complete(modelInput);
+        : await billedModel.complete(modelInput);
       if (!sawDelta) {
         for (const event of decoder.push(completion.text)) await persistEvent(event);
       }
@@ -1121,6 +1131,7 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
           : "DEPENDENCY_UNAVAILABLE";
       const failed = await failGeneration(code);
       if (!snapshot.workflow.report) await input.onProgress?.(failed);
+      if(error instanceof CreditConsumptionError)throw error;
       throw new DigitalInterviewWorkflowError(code);
     }
     try {
@@ -1220,7 +1231,7 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
     if (missingProfiles.length) {
       if (!this.modelProvider || !this.modelId) throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE");
       try {
-        const response = await this.model.complete({
+        const response = await this.billedModel(input).complete({
           modelProvider: this.modelProvider,
           modelId: this.modelId,
           system: "你是资深访谈研究员。请根据访谈主题和每位专家的完整 Persona，分别设计恰好 3 个高度针对性、开放式、非诱导的问题。问题必须体现该专家独有的专业身份、目标、兴趣、痛点、动机、影响来源、性格特征、服务价值或典型建议，不能只替换姓名，也不能让不同专家共用同一模板。只返回 JSON：{\"experts\":[{\"expertId\":\"原样返回输入 ID\",\"questions\":[{\"text\":\"问题\",\"purpose\":\"提问目的\"}]}]}。",

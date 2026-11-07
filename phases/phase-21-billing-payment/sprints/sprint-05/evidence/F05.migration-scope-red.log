@@ -1,0 +1,57 @@
+TAP version 13
+# Subtest: actual migration catalog keeps the historical prefix and includes every reviewed new migration
+not ok 1 - actual migration catalog keeps the historical prefix and includes every reviewed new migration
+  ---
+  duration_ms: 1.727292
+  type: 'test'
+  location: '/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/tests/fixtures/cn-application-recovery/migration-scope.test.ts:1:206'
+  failureType: 'testCodeFailure'
+  error: |-
+    UNREVIEWED_MIGRATION_SUFFIX
+    + actual - expected
+    
+      [
+        '20261006001000_organization_creation_requests.sql',
+        '20261013010000_chat_public_shares.sql',
+        '20261013070000_report_skill_files.sql',
+        '20261014010000_interview_custom_expert_library.sql',
+    +   '20261015120000_billing_payment_receipts.sql'
+      ]
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+    0: '20261006001000_organization_creation_requests.sql'
+    1: '20261013010000_chat_public_shares.sql'
+    2: '20261013070000_report_skill_files.sql'
+    3: '20261014010000_interview_custom_expert_library.sql'
+  actual:
+    0: '20261006001000_organization_creation_requests.sql'
+    1: '20261013010000_chat_public_shares.sql'
+    2: '20261013070000_report_skill_files.sql'
+    3: '20261014010000_interview_custom_expert_library.sql'
+    4: '20261015120000_billing_payment_receipts.sql'
+  operator: 'deepStrictEqual'
+  stack: |-
+    migrationScope (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/tests/fixtures/cn-application-recovery/migration-scope.ts:13:9)
+    TestContext.<anonymous> (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/tests/fixtures/cn-application-recovery/migration-scope.test.ts:6:37)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.start (node:internal/test_runner/test:944:17)
+    startSubtestAfterBootstrap (node:internal/test_runner/harness:296:17)
+  ...
+# Subtest: future or missing migrations cannot silently alter the tested upgrade
+ok 2 - future or missing migrations cannot silently alter the tested upgrade
+  ---
+  duration_ms: 0.734875
+  type: 'test'
+  ...
+1..2
+# tests 2
+# suites 0
+# pass 1
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 220.627125

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { useI18n } from "@/lib/i18n/provider";
 
 type NavigationSurface = EventTarget;
 type SurveyNavigateEvent = Event & { navigationType: string };
@@ -12,8 +13,11 @@ type SurveyNavigateEvent = Event & { navigationType: string };
  */
 export function useSurveyUnsavedNavigation(
   dirty: boolean,
-  message = "离开将放弃未保存的修改，继续吗？",
+  message?: string,
 ): void {
+  const { t } = useI18n();
+  const currentMessage = useRef(message ?? t("survey.workspace.unsavedConfirm"));
+  currentMessage.current = message ?? t("survey.workspace.unsavedConfirm");
   useEffect(() => {
     if (!dirty) return;
     const navigation = (window as unknown as { navigation?: NavigationSurface }).navigation;
@@ -38,12 +42,12 @@ export function useSurveyUnsavedNavigation(
       const target = new URL(link.href, window.location.href);
       if (!["http:", "https:"].includes(target.protocol)) return;
       if (target.origin === location.origin && target.pathname === location.pathname && target.search === location.search) return;
-      if (window.confirm(message)) approve();
+      if (window.confirm(currentMessage.current)) approve();
       else { event.preventDefault(); event.stopImmediatePropagation(); }
     };
     const traverse = (event: Event) => {
       if ((event as SurveyNavigateEvent).navigationType !== "traverse" || event.defaultPrevented || !event.cancelable) return;
-      if (window.confirm(message)) approve();
+      if (window.confirm(currentMessage.current)) approve();
       else event.preventDefault();
     };
     document.addEventListener("click", click, true);
@@ -59,5 +63,5 @@ export function useSurveyUnsavedNavigation(
       navigation?.removeEventListener("navigateerror", resetApproval);
       navigation?.removeEventListener("navigatesuccess", resetApproval);
     };
-  }, [dirty, message]);
+  }, [dirty]);
 }

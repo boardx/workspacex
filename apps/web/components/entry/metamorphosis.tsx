@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import { BUTTERFLY_PATH } from "@/components/chat/run-progress-butterfly";
 import { cn } from "@/lib/utils";
 
@@ -25,9 +26,9 @@ import { cn } from "@/lib/utils";
  *   · 纯装饰图形 `aria-hidden`；三段文案是真实文本，屏幕阅读器按顺序读到。
  */
 const STAGES = [
-  { no: "01", title: "结茧", body: "积累经验与知识", delay: "" },
-  { no: "02", title: "破茧", body: "与 AI 团队协作", delay: "[animation-delay:3s]" },
-  { no: "03", title: "展翅", body: "释放每个人的创造力", delay: "[animation-delay:6s]" },
+  { no: "01", title: "entry.metamorphosis.cocoonTitle", body: "entry.metamorphosis.cocoonBody", delay: "" },
+  { no: "02", title: "entry.metamorphosis.emergeTitle", body: "entry.metamorphosis.emergeBody", delay: "[animation-delay:3s]" },
+  { no: "03", title: "entry.metamorphosis.flyTitle", body: "entry.metamorphosis.flyBody", delay: "[animation-delay:6s]" },
 ] as const;
 
 /** 让 CSS transform-origin 相对元素自身包围盒，而不是整张 SVG 画布。 */
@@ -72,6 +73,7 @@ const GRID_DOTS = (() => {
 })();
 
 export function Metamorphosis({ className }: { className?: string }) {
+  const { t } = useI18n();
   const id = React.useId().replace(/:/g, "");
   const wing = `meta-wing-${id}`;
   const glow = `meta-glow-${id}`;
@@ -178,8 +180,8 @@ export function Metamorphosis({ className }: { className?: string }) {
             </span>
             <span className={cn("flex flex-col gap-0.5 animate-meta-step motion-reduce:animate-none", s.delay)}>
               <span className="text-11 font-medium text-muted-foreground">{s.no}</span>
-              <span className="text-13 font-semibold">{s.title}</span>
-              <span className="text-11 text-muted-foreground">{s.body}</span>
+              <span className="text-13 font-semibold">{t(s.title)}</span>
+              <span className="text-11 text-muted-foreground">{t(s.body)}</span>
             </span>
           </li>
         ))}

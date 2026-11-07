@@ -1,0 +1,20 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_318c114ad4d69af15913 capacity=100 current=6 required=32
+ ✓ tests/billing/credit-grant-precision-pg.test.ts (8 tests) 7405ms
+   ✓ stores and exposes hundredth cumulative grants for user wallets 437ms
+   ✓ stores and exposes hundredth cumulative grants for team wallets 300ms
+   ✓ atomically accumulates independent hundredth increments without losing cents 414ms
+   ✓ keeps the fractional counter through real monthly grant and duplicate delivery 364ms
+   ✓ rejects lifetime-counter overflow before inserting a period and rolls back all writes 447ms
+   ✓ preserves existing hundredths when the actual new-account gift trigger runs 544ms
+   ✓ enforces the nonnegative original counter bound for -0.01 855ms
+   ✓ enforces the nonnegative original counter bound for 2147483647.01 411ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  12:57:39
+   Duration  13.37s (transform 1.66s, setup 27ms, collect 967ms, tests 7.41s, environment 0ms, prepare 313ms)
+
+[db-isolation] db=wsx_318c114ad4d69af15913 peak_connections=4

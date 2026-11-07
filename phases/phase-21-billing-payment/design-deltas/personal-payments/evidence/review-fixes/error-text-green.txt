@@ -1,0 +1,5 @@
+
+> agentic-harness-template@ lint:user-facing-error-text /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui
+> node .harness/scripts/lint-user-facing-error-text.mjs
+
+✅ [user-facing-error-text] 新代码没有内部错误码上屏；存量基线 55 个文件 / 80 处（只准变小）

@@ -1,0 +1,18 @@
+import base from '../../../../apps/web/playwright.fullstack-smoke.config';
+import path from 'node:path';
+const root = path.resolve(__dirname, '../../../..');
+export default {
+  ...base,
+  testDir: __dirname,
+  outputDir: path.join(__dirname, 'results'),
+  reporter: [['list']],
+  projects: [{ name: 'voice-shots', testMatch: ['shots.spec.ts'] }],
+  webServer: (Array.isArray(base.webServer) ? base.webServer : [base.webServer]).map((server: any) => ({
+    ...server,
+    cwd: path.join(root, 'apps/web'),
+    ...(server.command.includes('next build') ? {
+      command: `next dev -p ${process.env.WORKSPACEX_WEB_PORT}`,
+      env: { ...server.env, NEXT_DIST_DIR: '.next-voice-5896-dev' },
+    } : {}),
+  })),
+};

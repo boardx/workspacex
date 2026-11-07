@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createWhiteboardDocument } from "@repo/whiteboard-core";
 import { CollaborativeThinkingEditor } from "@/components/whiteboard/collaborative-thinking-editor";
@@ -136,4 +136,49 @@ it('does not let a detached previous owner clear a newer popover reservation',()
  second.remove();
  fireEvent(window,new CustomEvent('board-inspector-space',{detail:{trigger:second,height:0}}));
  expect(Number.parseFloat(toolbar.style.top)).toBe(72);
+});
+
+
+it("clamps a resize before parent reflow and observes subsequent parent-only resizing", () => {
+  let frameWidth = 1440;
+  const observers: Array<{callback: () => void; nodes: Element[]}> = [];
+  vi.stubGlobal("ResizeObserver", class {
+    nodes: Element[] = [];
+    constructor(readonly callback: () => void) { observers.push(this); }
+    observe(node: Element) { this.nodes.push(node); }
+    disconnect() {}
+  });
+  vi.stubGlobal("innerWidth", 1440);vi.stubGlobal("innerHeight", 900);
+  vi.spyOn(HTMLElement.prototype,"getBoundingClientRect").mockImplementation(function(this:HTMLElement) {
+    const width = this.dataset.testid === "collaborative-editor" ? frameWidth : 432;
+    const height = this.dataset.testid === "collaborative-editor" ? 900 : 54;
+    return {x:0,y:0,left:0,top:0,right:width,bottom:height,width,height,toJSON:()=>({})};
+  });
+  function ResizeFixture() {
+    const positioned = useBoardToolbarPosition({x:1300,y:300,width:100,height:100},{zoom:1,panX:0,panY:0,fitRequest:0});
+    return <section data-testid="collaborative-editor"><aside data-testid="resize-toolbar" ref={positioned.ref} style={positioned.style}/></section>;
+  }
+  render(<ResizeFixture/>);
+  const toolbar=screen.getByTestId("resize-toolbar"),frame=screen.getByTestId("collaborative-editor");
+  expect(observers.some(observer=>observer.nodes.includes(frame))).toBe(true);
+  vi.stubGlobal("innerWidth",1280);
+  fireEvent(window,new Event("resize"));
+  expect(Number.parseFloat(toolbar.style.left)+432).toBeLessThanOrEqual(1280);
+  frameWidth=900;
+  act(()=>observers.at(-1)!.callback());
+  expect(Number.parseFloat(toolbar.style.left)+432).toBeLessThanOrEqual(900);
+});
+
+it("remeasures a newly keyed toolbar while selection geometry remains present", () => {
+  vi.spyOn(HTMLElement.prototype,"getBoundingClientRect").mockImplementation(function(this:HTMLElement) {
+    const width=this.dataset.testid==="collaborative-editor"?1024:Number(this.dataset.measureWidth??400);
+    return {x:0,y:0,left:0,top:0,right:width,bottom:768,width,height:this.dataset.testid==="collaborative-editor"?768:54,toJSON:()=>({})};
+  });
+  function RetargetFixture({identity,width}:{identity:string;width:number}) {
+    const positioned=useBoardToolbarPosition({x:950,y:300,width:100,height:100},{zoom:1,panX:0,panY:0,fitRequest:0});
+    return <section data-testid="collaborative-editor"><aside key={identity} data-testid="retarget-toolbar" data-measure-width={width} ref={positioned.ref} style={positioned.style}/></section>;
+  }
+  const view=render(<RetargetFixture identity="sticky" width={400}/>);
+  view.rerender(<RetargetFixture identity="text" width={432}/>);
+  expect(Number.parseFloat(screen.getByTestId("retarget-toolbar").style.left)+432).toBeLessThanOrEqual(1024);
 });

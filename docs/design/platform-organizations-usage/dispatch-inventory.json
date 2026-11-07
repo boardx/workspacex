@@ -75,7 +75,7 @@
     {
       "id": "kg-query-embedding",
       "source": "apps/api/src/infrastructure/knowledge-graph/pg-knowledge-recall.ts",
-      "anchor": "this.embeddings.embed(query,this.requestAccounting?accounting:undefined)",
+      "anchor": "this.embeddings.embed(query,accounting)",
       "trustedRunReferencePropagationImplemented": true,
       "acceptance": "Exact server run attempt/lease reference; private service HTTP units and tenant negatives. Real PG composition and deployed input-only admission remain pending. Input-only private admission/SDK batch units pass; no live binding or complete-input proof. Distinct identical-body HTTP batches use independent physical UUIDs; callback replay rejects dispatch. Cross-worker business semantic dedup remains unimplemented."
     },

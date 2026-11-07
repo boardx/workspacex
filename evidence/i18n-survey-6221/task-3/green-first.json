@@ -1,0 +1,26 @@
+{
+  "name": "green-first",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/survey-workspace-i18n.test.tsx",
+    "tests/ui/survey-unsaved-navigation-i18n.test.tsx",
+    "tests/ui/survey-runtime-client.test.ts",
+    "tests/lib/i18n-resources.test.ts"
+  ],
+  "source": "ed4418160cb8319ec0db37b31c8a75ba430f3937",
+  "exitCode": 1,
+  "seconds": 11.812,
+  "rawLogSha256": "512fde265856a73e500104c3d2e6e1abf4d100191fe3c586c955b8e80f2bc3f7",
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "testFiles": 4,
+  "passed": 40,
+  "failed": 1,
+  "classification": "Local recovery notice prefix retained differed from specified kept; English resource changed, original assertion retained."
+}

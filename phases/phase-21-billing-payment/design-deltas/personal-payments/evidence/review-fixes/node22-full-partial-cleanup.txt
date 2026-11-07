@@ -1,0 +1,15 @@
+ Container wsx-64681d02d21b9ca03b25-postgres-1 Stopping 
+ Container wsx-64681d02d21b9ca03b25-redis-1 Stopping 
+ Container wsx-64681d02d21b9ca03b25-minio-1 Stopping 
+ Container wsx-64681d02d21b9ca03b25-minio-1 Stopped 
+ Container wsx-64681d02d21b9ca03b25-minio-1 Removing 
+ Container wsx-64681d02d21b9ca03b25-minio-1 Removed 
+ Container wsx-64681d02d21b9ca03b25-postgres-1 Stopped 
+ Container wsx-64681d02d21b9ca03b25-postgres-1 Removing 
+ Container wsx-64681d02d21b9ca03b25-postgres-1 Removed 
+ Container wsx-64681d02d21b9ca03b25-redis-1 Stopped 
+ Container wsx-64681d02d21b9ca03b25-redis-1 Removing 
+ Container wsx-64681d02d21b9ca03b25-redis-1 Removed 
+ Network wsx-64681d02d21b9ca03b25_default Removing 
+ Network wsx-64681d02d21b9ca03b25_default Removed 
+Own wrapper 43114 and descendants stopped; own compose down -v exit0; own stack lease removed; 13 own port markers removed after free-port probes. Other owners untouched.

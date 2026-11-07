@@ -144,7 +144,7 @@ describe("safe source relevance validation diagnostics", () => {
       })).issues).toEqual([{ code, path: [] }]);
     }
   });
-  it("records real screening repair exhaustion from service.perform while preserving sources and terminal semantics", async () => {
+  it("records repair exhaustion while discarding unsafe sources and retaining truthful empty-evidence semantics", async () => {
     const f = fixture();
     f.state.currentNode = "research";
     f.state.reportTimeline = [];
@@ -152,12 +152,11 @@ describe("safe source relevance validation diagnostics", () => {
     f.state.outline = [{ id: "section", title: "Grid", questions: ["Policy?"], order: 0, enabled: true }];
     f.state.tasks = [{ id: "task", sectionId: "section", query: "Grid policy", status: "succeeded", attempts: 1, errorCode: null }];
     f.state.sources = [{ id: "source", taskId: "task", title: "Grid", url: "https://example.org", content: "Synthetic grid policy.", retrievedAt: "now", decision: "accepted" }];
-    const sources = structuredClone(f.state.sources);
     const model = { complete: vi.fn(async () => ({ text: '{"PRIVATE_PROVIDER_BODY_SECRET":' })) };
     const service = new GuidedRuntimeService(f.store, model, { search: vi.fn(async () => []) }, { provider: "test", id: "test" }, model, f.access, { record: f.record } as unknown as DebugTracePort);
     const result = await service.execute(f.actor, f.session, { sessionId: f.session.sessionId, node: "research", action: "complete", requestId: randomUUID(), expectedVersion: 0 }, undefined, f.traceId);
-    expect(result).toMatchObject({ currentNode: "research", busy: false, completed: false, errorCode: "RESEARCH_SOURCE_RELEVANCE_INVALID" });
-    expect(result.sources).toEqual(sources);
+    expect(result).toMatchObject({ currentNode: "research", busy: false, completed: false, errorCode: "RESEARCH_TASKS_INCOMPLETE" });
+    expect(result.sources).toEqual([]);
     expect(result.reportTimeline).toEqual([]);
     expect(model.complete).toHaveBeenCalledTimes(2);
     const inputs = model.complete.mock.calls as unknown as [{ responseSchema?: { name: string; policy: string; schema: { required: string[]; properties: { evaluations: { items: { properties: { matches: { items: { required: string[]; properties: Record<string, unknown> } } } } } } } } }][];
@@ -174,7 +173,7 @@ describe("safe source relevance validation diagnostics", () => {
     const terminal = f.record.mock.calls.map(([event]) => event).filter(event => event.kind === "research.runtime.failed");
     expect(terminal).toHaveLength(1);
     expect(terminal[0]!.data).toMatchObject({ phase: "perform", node: "research", action: "complete", errors: [
-      { type: "ResearchRuntimeError", reasonCode: "RESEARCH_SOURCE_RELEVANCE_INVALID", issues: [{ code: "invalid_json", path: [] }] },
+      { type: "ResearchRuntimeError", reasonCode: "RESEARCH_TASKS_INCOMPLETE" },
     ] });
     expect(JSON.stringify(f.record.mock.calls)).not.toMatch(/PRIVATE_|rawOutput|message/);
   });
@@ -292,7 +291,7 @@ describe("per-call source screening diagnostics", () => {
   it.each(["schema", "semantic"] as const)("records strict %s failures with only safe code/path", async mode => {
     const f = screeningFixture(mode);
     const result = await f.service.execute(f.actor, f.session, f.command, undefined, f.traceId);
-    expect(result.errorCode).toBe("RESEARCH_SOURCE_RELEVANCE_INVALID");
+    expect(result.errorCode).toBe("RESEARCH_TASKS_INCOMPLETE");
     expect(f.model.complete).toHaveBeenCalledTimes(2);
     expect(f.events()).toHaveLength(2);
     expect(f.events()[0]!.data.errors[0].issues).toContainEqual(mode === "schema" ? { code: "invalid_type", path: ["evaluations", 0, "matches"] } : { code: "task_question", path: ["evaluations", 0, "matches", 0, "questionId"] });
@@ -305,11 +304,11 @@ describe("per-call source screening diagnostics", () => {
     expect(f.events()).toEqual([]);
     expect(f.model.complete).toHaveBeenCalledTimes(1);
   });
-  it("a throwing sink preserves repair exhaustion, calls and saved source bytes", async () => {
+  it("a throwing sink cannot admit invalid sources or change bounded repair calls", async () => {
     const f = screeningFixture("invalid", false, true);
     const result = await f.service.execute(f.actor, f.session, f.command, undefined, f.traceId);
-    expect(result.errorCode).toBe("RESEARCH_SOURCE_RELEVANCE_INVALID");
-    expect(result.sources).toEqual(f.state.sources);
+    expect(result.errorCode).toBe("RESEARCH_TASKS_INCOMPLETE");
+    expect(result.sources).toEqual([]);
     expect(f.model.complete).toHaveBeenCalledTimes(2);
     expect(f.events()).toHaveLength(2);
   });
@@ -360,9 +359,9 @@ describe("structured source schema preserves local evidence authority", () => {
     const service = new GuidedRuntimeService(f.store, model, { search: vi.fn(async () => []) }, { provider: "test", id: "test" }, model, f.access);
     const result = await service.execute(f.actor, f.session, { ...f.command, node: "research", action: "complete" });
     expect(result).toMatchObject({ currentNode: "research", completed: false, busy: false });
-    expect(result.errorCode).toBe(kind === "negative" ? "RESEARCH_TASKS_INCOMPLETE" : "RESEARCH_SOURCE_RELEVANCE_INVALID");
+    expect(result.errorCode).toBe("RESEARCH_TASKS_INCOMPLETE");
     expect(model.complete).toHaveBeenCalledTimes(kind === "negative" ? 1 : 2);
     expect(result.modelCalls.every(call => call.status === (kind === "negative" ? "succeeded" : "failed"))).toBe(true);
-    expect(result.sources).toEqual(kind === "negative" ? [] : f.state.sources);
+    expect(result.sources).toEqual([]);
   });
 });

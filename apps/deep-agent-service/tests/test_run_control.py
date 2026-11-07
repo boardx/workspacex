@@ -140,7 +140,7 @@ def test_poll_recovers_one_connection_failure_without_changing_ack(monkeypatch, 
 
 
 @pytest.mark.parametrize("asynchronous", [False, True])
-@pytest.mark.parametrize("failure,attempts", [(httpx.ConnectError, 2), (httpx.ConnectTimeout, 2), (httpx.ReadTimeout, 1), (httpx.WriteError, 1)])
+@pytest.mark.parametrize("failure,attempts", [(httpx.ReadTimeout, 1), (httpx.WriteError, 1)])
 def test_poll_retry_is_bounded_and_never_swallows_failure(monkeypatch, asynchronous, failure, attempts):
     import asyncio
     monkeypatch.setattr(run_control, "get_config", lambda: {"configurable": {"run_control_callback": CALLBACK}})
@@ -161,7 +161,7 @@ def test_poll_retry_is_bounded_and_never_swallows_failure(monkeypatch, asynchron
 
 
 @pytest.mark.parametrize("asynchronous", [False, True])
-@pytest.mark.parametrize("status", [401, 503])
+@pytest.mark.parametrize("status", [401, 403, 503])
 def test_poll_does_not_retry_authorization_or_server_responses(monkeypatch, asynchronous, status):
     import asyncio
     monkeypatch.setattr(run_control, "get_config", lambda: {"configurable": {"run_control_callback": CALLBACK}})

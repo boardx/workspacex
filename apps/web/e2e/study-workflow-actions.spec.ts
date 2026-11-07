@@ -5,7 +5,7 @@ import { createRequire } from "node:module";
 import { execFileSync } from "node:child_process";
 import { test, expect } from "@playwright/test";
 import { research, interviewMarkdown } from "@repo/contracts";
-import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
+import { freshNoModelAccount } from "./no-model-account-fixture";
 // Load the existing test adapter at runtime, so Next's frontend type check does
 // not pull in the API migrator/deployment dependency graph and its Node env types.
 interface AuditClient { query(sql: string, params: readonly unknown[]): Promise<{ rows: Record<string, unknown>[] }> }
@@ -27,13 +27,15 @@ test("research and interview use consistent command controls without model execu
   const baseline = process.env.WX_STUDY_ACTIONS_BASELINE === "1";
   const output = resolve(process.env.WX_STUDY_ACTIONS_EVIDENCE ?? "test-results/study-actions");
   await mkdir(output, { recursive: true });
-  const activity = () => asApp(FULLSTACK_E2E.orgId, c => c.query("SELECT (SELECT count(*) FROM agent_runs WHERE org_id=$1)::int AS runs,(SELECT count(*) FROM model_request_starts WHERE org_id=$1)::int AS requests", [FULLSTACK_E2E.orgId])).then(result => result.rows[0]);
+  const account = await freshNoModelAccount(page);
+  const activity = () => asApp(account.orgId, c => c.query("SELECT (SELECT count(*) FROM agent_runs WHERE org_id=$1)::int AS runs,(SELECT count(*) FROM model_request_starts WHERE org_id=$1)::int AS requests", [account.orgId])).then(result => result.rows[0]);
   const before = await activity();
+  expect(before).toEqual({runs:0,requests:0});
   const modelCommands: string[] = [];
   page.on("request", request => { if (request.method() === "POST" && /runtime\/commands|report-files|\/(?:generate|execute)(?:\/|$)/.test(new URL(request.url()).pathname)) modelCommands.push(new URL(request.url()).pathname); });
   await page.goto("/login");
-  await page.getByTestId("login-email").fill(FULLSTACK_E2E.email);
-  await page.getByTestId("login-password").fill(FULLSTACK_E2E.password);
+  await page.getByTestId("login-email").fill(account.email);
+  await page.getByTestId("login-password").fill(account.password);
   await page.getByTestId("login-submit").click();
   await expect(page).toHaveURL(/\/home$/);
   const token = await page.evaluate(() => localStorage.getItem("wsx.sessionToken"));
@@ -51,7 +53,45 @@ test("research and interview use consistent command controls without model execu
     outline: [{ id: "chapter", title: "采购验证", questions: ["如何核验决策责任？"], enabled: true, order: 0 }],
     report: { title: "采购决策研究", summary: "核验预算授权与采购责任。", introduction: "本报告基于已保存资料。",
       sections: [{ sectionId: "chapter", body: "先追访采购负责人，再核对预算授权。", sourceIds: [] }], conclusion: "优先验证真实采购流程。" } });
-  await asApp(FULLSTACK_E2E.orgId, c => c.query("UPDATE guided_research_runtime SET state=$3::jsonb WHERE org_id=$1 AND session_id=$2", [FULLSTACK_E2E.orgId, session.sessionId, JSON.stringify(saved)]));
+  await asApp(account.orgId, async c => {
+    await c.query("UPDATE guided_research_runtime SET state=$3::jsonb WHERE org_id=$1 AND session_id=$2", [account.orgId, session.sessionId, JSON.stringify(saved)]);
+    // Match PgGuidedRuntimeStore.write's session projection in the same tenant transaction.
+    await c.query("UPDATE guided_research_sessions SET status='completed',stage='report',resume_stage='report',progress=100,source_count=0,brief=$3::jsonb,report_id=$4 WHERE org_id=$1 AND id=$2", [account.orgId, session.sessionId, JSON.stringify(saved.brief), `guided-${session.sessionId}-${saved.revision}`]);
+  });
+  // #5769: authenticated production routes backed by the owned tenant fixture.
+  // Observe saved state only; never submit a generation/export command.
+  for (const width of [375, 768, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/research");
+    await expect(page.getByTestId(`research-history-${session.sessionId}`)).toBeVisible();
+    await page.getByTestId("research-history-search").fill("研究操作一致化验收");
+    await expect(page.getByTestId(`research-history-${session.sessionId}`)).toBeVisible();
+    await page.getByTestId("research-history-sort").click();
+    await expect(page.getByTestId("research-history-sort")).toContainText("最早更新");
+    expect(await page.getByTestId("research-create").evaluate(node => node.getBoundingClientRect().height)).toBe(36);
+    expect(await page.getByTestId(`research-view-${session.sessionId}`).evaluate(node => node.getBoundingClientRect().height)).toBe(36);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: resolve(output, `research-list-${width}.png`), fullPage: true });
+    await page.getByTestId(`research-history-actions-${session.sessionId}`).click();
+    await page.getByTestId(`research-history-edit-${session.sessionId}`).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(page.getByTestId("research-edit-name")).toHaveValue("研究操作一致化验收");
+    await page.screenshot({ path: resolve(output, `research-edit-${width}.png`), fullPage: true });
+    await page.getByRole("button", { name: "取消", exact: true }).click();
+    await page.getByTestId("research-create").click();
+    await expect(page).toHaveURL(/\/research\/new$/);
+    await expect(page.getByTestId("research-confirm-brief")).toBeDisabled();
+    await page.getByTestId("research-flow-back").click();
+    await expect(page).toHaveURL(/\/research$/);
+    await page.getByTestId(`research-view-${session.sessionId}`).click();
+    await expect(page).toHaveURL(new RegExp(`/research/${session.sessionId}/report$`));
+    await page.goto(`/research/${session.sessionId}/plan`);
+    await expect(page.getByTestId("guided-research-plan-panel")).toBeVisible();
+    await expect(page.getByTestId("research-plan-actions")).toHaveCount(1);
+    await expect(page.getByTestId("research-plan-actions").locator('[data-workflow-action-role="primary"]')).toHaveCount(1);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: resolve(output, `research-plan-${width}.png`), fullPage: true });
+  }
   const itvCreated = await page.request.post("/__fullstack_api/interviews/digital", { headers, data: { name: "访谈操作一致化验收", tags: [],
     scope: { kind: "none", projectId: null, researchProjectId: null }, requestId: randomUUID() } });
   expect(itvCreated.ok()).toBeTruthy(); const { interviewId } = await itvCreated.json();
@@ -89,7 +129,7 @@ test("research and interview use consistent command controls without model execu
     await page.screenshot({ path: resolve(output, `${baseline ? "before" : "after"}-${domain}-${width}.png`), fullPage: true });
   }
   if (!baseline) {
-    await asApp(FULLSTACK_E2E.orgId, c => c.query("UPDATE guided_research_runtime SET state=$3::jsonb WHERE org_id=$1 AND session_id=$2", [FULLSTACK_E2E.orgId, session.sessionId, JSON.stringify({ ...saved, completed: false })]));
+    await asApp(account.orgId, c => c.query("UPDATE guided_research_runtime SET state=$3::jsonb WHERE org_id=$1 AND session_id=$2", [account.orgId, session.sessionId, JSON.stringify({ ...saved, completed: false })]));
     await page.goto(`/research/${session.sessionId}/report`);
     const primary = page.getByRole("button", { name: "完成研究", exact: true });
     const secondary = page.getByRole("button", { name: "更多操作", exact: true });
@@ -113,7 +153,7 @@ test("research and interview use consistent command controls without model execu
     metrics.push({ domain: "interview", width: 375, state: "intake-enabled-primary", buttons: await interviewPrimary.evaluate(node => ({ text: node.textContent, height: node.getBoundingClientRect().height, background: getComputedStyle(node).backgroundColor, color: getComputedStyle(node).color })) });
     await page.screenshot({ path: resolve(output, "after-interview-primary-375.png"), fullPage: true });
     const loading = research.GuidedResearchRuntime.parse({ ...state, version: 2, currentNode: "outline", availableNodes: ["brief", "directions", "outline"], generatedNodes: ["brief", "directions"], busy: true, leaseUntil: "2099-01-01T00:00:00Z" });
-    await asApp(FULLSTACK_E2E.orgId, c => c.query("UPDATE guided_research_runtime SET state=$3::jsonb WHERE org_id=$1 AND session_id=$2", [FULLSTACK_E2E.orgId, session.sessionId, JSON.stringify(loading)]));
+    await asApp(account.orgId, c => c.query("UPDATE guided_research_runtime SET state=$3::jsonb WHERE org_id=$1 AND session_id=$2", [account.orgId, session.sessionId, JSON.stringify(loading)]));
     await page.goto(`/research/${session.sessionId}/plan`);
     await expect(page.getByTestId("research-step-loading")).toContainText("正在生成研究计划");
     await expect(page.locator(".animate-spin")).toHaveCount(1);

@@ -1,0 +1,55 @@
+# Full regression only: reusable by hourly acceptance, also available manually.
+name: Billing cashier real integration
+on:
+  workflow_dispatch: null
+  workflow_call: {}
+permissions:
+  contents: read
+concurrency:
+  group: billing-cashier-glue-full-${{ github.run_id }}
+  cancel-in-progress: false
+  queue: single
+jobs:
+  scope:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.scope.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - id: scope
+        run: echo 'changed=true' >> "$GITHUB_OUTPUT"
+  billing-cashier-glue:
+    needs: scope
+    if: needs.scope.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install the API driver's matching Chromium
+        run: pnpm --filter api exec playwright install --with-deps chromium
+      - name: Real Next / Billing API / PostgreSQL / signed merchant and callback
+        run: pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run --config vitest.billing-cashier.config.ts --bail=1
+      - name: Preserve integration evidence, including failures
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: billing-cashier-glue-${{ github.run_id }}
+          path: |
+            phases/phase-21-billing-payment/sprints/sprint-06/evidence/actual-glue/
+            apps/api/test-results/billing-stripe/
+            apps/api/tests/test-results/personal-stripe-pricing/
+            phases/phase-21-billing-payment/design-deltas/personal-payments/evidence/real-browser/
+          if-no-files-found: warn

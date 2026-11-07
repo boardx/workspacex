@@ -232,7 +232,36 @@ class ArchiveCanonicalIntegration(unittest.TestCase):
 
     def test_nonroot_output_is_rejected_without_ownership_fixture(self):
         if os.getuid() == 0:
-            self.skipTest('Nonroot ownership negative case requires a nonroot development process')
+            # Real unprivileged process + real untrusted owner, no ownership mock.
+            # Invoke the same production publication boundary after canonical
+            # CLI work: rejection must occur before reading manifest or seal.
+            import tempfile, shutil, signal
+            untrusted = Path(tempfile.mkdtemp(prefix='wsx-nonroot-publish-', dir='/var/lib'))
+            os.chown(untrusted, 65534, 65534)
+            read_fd, write_fd = os.pipe()
+            pid = os.fork()
+            if pid == 0:
+                os.close(read_fd);signal.alarm(5)
+                try:
+                    os.setgroups([]);os.setgid(65534);os.setuid(65534)
+                    bridge.PUBLISHED_ROOT = untrusted
+                    try:
+                        self.adapter.store_canonical_result(self.build_input, untrusted/'unused-manifest', untrusted/'unused-seal')
+                    except ValueError as error:
+                        if str(error) == 'PUBLISHED_PARENT_TRUST' and os.geteuid() == 65534:
+                            os.write(write_fd, b'rejected');os._exit(0)
+                    os._exit(1)
+                except BaseException:
+                    os._exit(2)
+            os.close(write_fd)
+            try:
+                result = os.read(read_fd, 16);_, status = os.waitpid(pid, 0)
+                self.assertTrue(os.WIFEXITED(status));self.assertEqual(os.WEXITSTATUS(status), 0)
+                self.assertEqual(result, b'rejected');self.assertEqual(list(untrusted.iterdir()), [])
+            finally:
+                os.close(read_fd);shutil.rmtree(untrusted)
+            self.assertFalse(self.output.exists())
+            return
         with self.assertRaisesRegex(ValueError, 'PUBLISHED_PARENT_TRUST'):
             self.adapter.canonical_publish(self.build_input)
         self.assertFalse(self.output.exists())

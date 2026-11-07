@@ -1,0 +1,14 @@
+[heavy-e2e-lock] 排到了，等了 0s
+[stack-admission] load1=3.98 cores=10 perCore=0.40 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw144usb-f16ed6bc-d1e2a59e2a02 db=wsx_d1e2a59e2a025dbc7f10 compose=wsx-d1e2a59e2a025dbc7f10 pg=20678 redis=21678 api=24678 web=25678 sandbox=26678 model=27678 deep-agent=28678 asr=29678 vision=30678 loopback-sandbox=31678 mail=19678
+Listing tests:
+  [seeded] › i18n-research-entry.spec.ts:8:5 › research locale preserves the real intake, plan, saved report and history management journey
+Total: 1 test in 1 file
+[timing] pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded e2e/i18n-research-entry.spec.ts --workers=1 --max-failures=1 --list
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：3s
+  清理：0s
+  总计：3s

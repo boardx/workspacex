@@ -1,0 +1,85 @@
+1) [board-unified-desktop] › e2e/board-menu-layout.spec.ts:46:6 › #5668/#5667 actual Board menus 1440px
+
+    Error: Acceptance requires exact clean source
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: ""
+    Received: "M apps/web/e2e/board-menu-layout.spec.ts
+    ?? docs/evidence/board-menu-subpixel-5834/precision.txt"
+
+       at board-runtime-evidence.ts:13
+
+      11 |   const git = (...args: string[]) => execFileSync('git', args, {cwd: root, encoding: 'utf8'}).trim();
+      12 |   const sha = git('rev-parse', 'HEAD'), dirty = git('status', '--porcelain', '--untracked-files=all');
+    > 13 |   expect(sha).toMatch(/^[a-f0-9]{40}$/); expect(dirty, 'Acceptance requires exact clean source').toBe('');
+         |                                                                                                  ^
+      14 |   if (process.env.BOARD_ACCEPTANCE_SHA) expect(sha).toBe(process.env.BOARD_ACCEPTANCE_SHA);
+      15 |   return sha;
+      16 | }
+        at runtimeSourceIdentity (/Users/shenyangjun/.codex/worktrees/799b/workspacex/apps/web/e2e/board-runtime-evidence.ts:13:98)
+        at /Users/shenyangjun/.codex/worktrees/799b/workspacex/apps/web/e2e/board-menu-layout.spec.ts:48:37
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/fullstack-smoke/board-menu-layout--5668-5667-actual-Board-menus-1440px-board-unified-desktop/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/fullstack-smoke/board-menu-layout--5668-5667-actual-Board-menus-1440px-board-unified-desktop/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/fullstack-smoke/board-menu-layout--5668-5667-actual-Board-menus-1440px-board-unified-desktop/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/fullstack-smoke/board-menu-layout--5668-5667-actual-Board-menus-1440px-board-unified-desktop/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [board-unified-desktop] › e2e/board-menu-layout.spec.ts:46:6 › #5668/#5667 actual Board menus 390px
+
+    Error: Acceptance requires exact clean source
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: ""
+    Received: "M apps/web/e2e/board-menu-layout.spec.ts
+    ?? docs/evidence/board-menu-subpixel-5834/precision.txt"
+
+       at board-runtime-evidence.ts:13
+
+      11 |   const git = (...args: string[]) => execFileSync('git', args, {cwd: root, encoding: 'utf8'}).trim();
+      12 |   const sha = git('rev-parse', 'HEAD'), dirty = git('status', '--porcelain', '--untracked-files=all');
+    > 13 |   expect(sha).toMatch(/^[a-f0-9]{40}$/); expect(dirty, 'Acceptance requires exact clean source').toBe('');
+         |                                                                                                  ^
+      14 |   if (process.env.BOARD_ACCEPTANCE_SHA) expect(sha).toBe(process.env.BOARD_ACCEPTANCE_SHA);
+      15 |   return sha;
+      16 | }
+        at runtimeSourceIdentity (/Users/shenyangjun/.codex/worktrees/799b/workspacex/apps/web/e2e/board-runtime-evidence.ts:13:98)
+        at /Users/shenyangjun/.codex/worktrees/799b/workspacex/apps/web/e2e/board-menu-layout.spec.ts:48:37
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/fullstack-smoke/board-menu-layout--5668-5667-actual-Board-menus-390px-board-unified-desktop/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/fullstack-smoke/board-menu-layout--5668-5667-actual-Board-menus-390px-board-unified-desktop/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/fullstack-smoke/board-menu-layout--5668-5667-actual-Board-menus-390px-board-unified-desktop/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/fullstack-smoke/board-menu-layout--5668-5667-actual-Board-menus-390px-board-unified-desktop/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2 failed
+    [board-unified-desktop] › e2e/board-menu-layout.spec.ts:46:6 › #5668/#5667 actual Board menus 1440px
+    [board-unified-desktop] › e2e/board-menu-layout.spec.ts:46:6 › #5668/#5667 actual Board menus 390px
+undefined
+/Users/shenyangjun/.codex/worktrees/799b/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: playwright test --config playwright.fullstack-smoke.config.ts --project board-unified-desktop --no-deps board-menu-layout.spec.ts
+[timing] pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project board-unified-desktop --no-deps board-menu-layout.spec.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：2m20s
+  清理：1s
+  总计：2m21s

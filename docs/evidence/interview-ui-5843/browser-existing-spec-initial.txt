@@ -1,0 +1,11 @@
+
+Running 3 tests using 1 worker
+
+(node:49730) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 e2e/digital-interview-research-quality.spec.ts:170:5 › new setup opens the canonical intake route content and remains responsive (1.6m)
+(node:52636) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+undefined
+/Users/shenyangjun/.codex/worktrees/c3a4/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command was killed with SIGTERM (Termination): playwright test --config /tmp/interview-ui-5843.config.cjs --grep new setup opens|failed report keeps|prototype journey

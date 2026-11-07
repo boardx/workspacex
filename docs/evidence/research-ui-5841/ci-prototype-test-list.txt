@@ -1,0 +1,38 @@
+Listing tests:
+  [prototype-audit] › prototype-audit.spec.ts:133:9 › 原型截图审计（机器硬判） › detail-prototype-dark 机器分 ≥ 80
+  [prototype-audit] › prototype-audit.spec.ts:133:9 › 原型截图审计（机器硬判） › detail-prototype-light 机器分 ≥ 80
+  [prototype-audit] › prototype-audit.spec.ts:133:9 › 原型截图审计（机器硬判） › board-frame-dark 机器分 ≥ 80
+  [prototype-audit] › prototype-audit.spec.ts:133:9 › 原型截图审计（机器硬判） › board-frame-laptop 机器分 ≥ 80
+  [prototype-audit] › prototype-audit.spec.ts:133:9 › 原型截图审计（机器硬判） › board-stage 机器分 ≥ 80
+  [prototype-audit] › prototype-audit.spec.ts:133:9 › 原型截图审计（机器硬判） › workbench-chrome 机器分 ≥ 80
+  [prototype-audit] › prototype-audit.spec.ts:171:9 › clipping collector › horizontal
+  [prototype-audit] › prototype-audit.spec.ts:171:9 › clipping collector › vertical
+  [prototype-audit] › prototype-audit.spec.ts:171:9 › clipping collector › vertical-ellipsis
+  [prototype-audit] › prototype-audit.spec.ts:171:9 › clipping collector › ellipsis
+  [prototype-audit] › prototype-audit.spec.ts:171:9 › clipping collector › scroll
+  [prototype-audit] › prototype-audit.spec.ts:171:9 › clipping collector › visible
+  [prototype-audit] › prototype-audit.spec.ts:208:9 › 可见文本对比度（WCAG AA，浅色主题） › /preview/live-collab-orchestration 没有低于 AA 的可见文本
+  [prototype-audit] › prototype-audit.spec.ts:208:9 › 可见文本对比度（WCAG AA，浅色主题） › /preview/agent-kernel 没有低于 AA 的可见文本
+  [prototype-audit] › prototype-audit.spec.ts:208:9 › 可见文本对比度（WCAG AA，浅色主题） › /preview/plan-control 没有低于 AA 的可见文本
+  [prototype-audit] › prototype-audit.spec.ts:208:9 › 可见文本对比度（WCAG AA，浅色主题） › /preview/chat-viz 没有低于 AA 的可见文本
+  [prototype-audit] › research-ui-consistency.spec.ts:4:7 › R3 research entry, errors and assistant at 1280
+  [prototype-audit] › research-ui-consistency.spec.ts:35:7 › R3 report directory and reference sample at 1280
+  [prototype-audit] › research-ui-consistency.spec.ts:4:7 › R3 research entry, errors and assistant at 768
+  [prototype-audit] › research-ui-consistency.spec.ts:35:7 › R3 report directory and reference sample at 768
+  [prototype-audit] › research-ui-consistency.spec.ts:4:7 › R3 research entry, errors and assistant at 375
+  [prototype-audit] › research-ui-consistency.spec.ts:35:7 › R3 report directory and reference sample at 375
+  [prototype-audit] › research-ui-consistency.spec.ts:52:5 › R3 fixture intake and plan editing reach sources; report reading is a separate fixed sample
+  [prototype-audit] › whiteboard-preview.spec.ts:7:7 › default at 375px has no document overflow
+  [prototype-audit] › whiteboard-preview.spec.ts:7:7 › default at 768px has no document overflow
+  [prototype-audit] › whiteboard-preview.spec.ts:7:7 › default at 1280px has no document overflow
+  [prototype-audit] › whiteboard-preview.spec.ts:55:7 › renders default visibly
+  [prototype-audit] › whiteboard-preview.spec.ts:55:7 › renders loading visibly
+  [prototype-audit] › whiteboard-preview.spec.ts:55:7 › renders empty visibly
+  [prototype-audit] › whiteboard-preview.spec.ts:55:7 › renders invalid visibly
+  [prototype-audit] › whiteboard-preview.spec.ts:55:7 › renders dep-failed visibly
+  [prototype-audit] › whiteboard-preview.spec.ts:55:7 › renders denied visibly
+  [prototype-audit] › whiteboard-preview.spec.ts:55:7 › renders success visibly
+  [prototype-audit] › whiteboard-preview.spec.ts:63:5 › create, edit, drag, undo and redo a sticky
+  [prototype-audit] › whiteboard-preview.spec.ts:84:5 › connect objects, delete cancellation, Escape, confirmation and undo
+  [prototype-audit] › whiteboard-preview.spec.ts:103:5 › bulk adds nonempty lines and enforces the 50-note limit
+Total: 36 tests in 3 files

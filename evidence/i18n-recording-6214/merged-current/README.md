@@ -1,0 +1,7 @@
+# Current parent-integrated recording verification
+
+Source026d8dcac5c044fcafa8b5c33a5d633b346223b6 incorporates the preserved research/interview parent2dfcf827d via normal mergeeb88c40a5 and the fixed verification-caption follow-up. Protected740 and exact17-file stash98653ef remain retained; restoration proofs are in parent-integration.
+
+Actual fullwebtype0/38.849s;15explicit files208/208PASS/32.359s, one worker. Complete canonical seed/probe/old dictionary-value comparator0 (only four caption keys added),32web-file ESLint, standard init, testid, wiring, withdrawal single-source, Vitest config reachability and fullspec all exit0. Standard isolation wrapper discovers exactly2recording cases/1file; list-scope containers/volumes/all11port listeners dynamically confirmed0. Every original command, actual source/exit/time/raw hash and separately normalized text receipt hash is indexed in validation.json. No timeout/retry/guard/exemption changes.
+
+Independent full actual32-source-file static review at026d is archived one level up. Older206/caption25/c9ad scoped evidence stays historical and is not substituted for these current checks. Actual browser execution, complete image QA, normal push, source CI and develop integration remain pending. No recording service stack has been launched yet. Project preview and interviewee panels are not live permission/withdrawal/API proof; controlled ASR is transport/persistence evidence, not external vendor quality.

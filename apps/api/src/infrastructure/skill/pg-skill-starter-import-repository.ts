@@ -1,3 +1,4 @@
+import { retainSkillExecutionRepresentation, persistPortableImport } from "../localization/pg-portable-import";
 import { randomUUID } from "node:crypto";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import type {
@@ -18,7 +19,7 @@ interface ImportRow {
   status: "pending" | "succeeded" | "failed";
   payload_digest: string;
   result_json: SkillStarterImportResult | null;
-  failure_code: string | null;
+  failure_code: string | null; metadata_only: boolean;
 }
 
 async function findImport(
@@ -27,7 +28,7 @@ async function findImport(
   idempotencyKey: string,
 ): Promise<ImportRow | null> {
   const found = await session.query<ImportRow>(
-    `SELECT id, status, payload_digest, result_json, failure_code
+    `SELECT id, status, payload_digest, result_json, failure_code, metadata_only
        FROM starter_pack_imports
       WHERE org_id = $1 AND idempotency_key = $2`,
     [orgId, idempotencyKey],
@@ -41,7 +42,7 @@ function existingOutcome(
 ): Exclude<ExistingImportOutcome, { readonly kind: "missing" }> {
   if (existing.payload_digest !== payloadDigest) return { kind: "idempotency-conflict" };
   if (existing.status === "succeeded" && existing.result_json) {
-    return { kind: "replayed", result: existing.result_json };
+    return { kind: "replayed", result: existing.result_json, ...(existing.metadata_only ? { metadataOnly: true } : {}) };
   }
   return { kind: "previous-failure", failureCode: existing.failure_code ?? "SKILL_STARTER_PACK_INVALID" };
 }
@@ -139,7 +140,11 @@ export class PgSkillStarterImportRepository implements SkillStarterImportReposit
   }
 
   async persistVerified(input: Parameters<SkillStarterImportRepository["persistVerified"]>[0]) {
-    return this.db.withTenant(input.orgId, async (session): Promise<PersistVerifiedImportOutcome> => {
+    if (input.pack.schemaVersion === 2) return persistPortableImport(this.db, { ...input, kind: "skill", pack: input.pack }, (session, createdIds) => this.persistInSession(input, session, createdIds));
+    return this.db.withTenant(input.orgId, session => this.persistInSession(input, session));
+  }
+
+  private async persistInSession(input: Parameters<SkillStarterImportRepository["persistVerified"]>[0], session: TenantSession, createdIds?: Set<string>): Promise<PersistVerifiedImportOutcome> {
       // Serialize imports per organization. This closes the race between conflict detection
       // and inserts without blocking unrelated tenants.
       await session.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [input.orgId]);
@@ -515,6 +520,7 @@ export class PgSkillStarterImportRepository implements SkillStarterImportReposit
            VALUES ($1,$2,$3,$4,'enabled',$5,$6,$6)`,
           [skillId, input.orgId, skill.stableName, skill.name, input.actorId, importedAt],
         );
+        createdIds?.add(skillId);
         await session.query(
           `INSERT INTO skill_versions
             (id, org_id, skill_id, semantic_label, content_digest, manifest, creator_id,
@@ -553,9 +559,9 @@ export class PgSkillStarterImportRepository implements SkillStarterImportReposit
         // or a selectable row whose immutable definition rolled back.
         await session.query(
           `INSERT INTO capability_listings
-            (id, org_id, kind, name, scope, owner_team_id, enabled, endpoint)
-           VALUES ($1,$2,'skill',$3,'org-wide',NULL,true,NULL)`,
-          [skillId, input.orgId, skill.name],
+            (id, org_id, kind, name, scope, owner_team_id, enabled, endpoint, duty)
+           VALUES ($1,$2,'skill',$3,'org-wide',NULL,true,NULL,$4)`,
+          [skillId, input.orgId, skill.name, "duty" in skill ? skill.duty ?? null : null],
         );
       }
 
@@ -588,6 +594,15 @@ export class PgSkillStarterImportRepository implements SkillStarterImportReposit
         );
       }
 
+      // Preserve the exact legacy hash preimage. JSONB/file tables cannot retain
+      // manifest key order and file-array order; execution versions stay immutable.
+      const owned = await session.query<{ id: string }>("SELECT id FROM skill_versions WHERE org_id=$1 AND id=ANY($2::text[])", [input.orgId,versionIds]);
+      const ownedIds = new Set(owned.rows.map(row => row.id));
+      for (const [index, skill] of input.pack.skills.entries()) {
+        const versionId = versionIds[index]!;
+        if (ownedIds.has(versionId)) await retainSkillExecutionRepresentation(session,input.orgId,versionId,skill);
+      }
+
       const result: SkillStarterImportResult = {
         importId,
         packId: input.pack.packId,
@@ -605,7 +620,6 @@ export class PgSkillStarterImportRepository implements SkillStarterImportReposit
         [importId, input.orgId, JSON.stringify(result)],
       );
       return { kind: "created", result };
-    });
   }
 
   async retireSuperseded(input: Parameters<SkillStarterImportRepository["retireSuperseded"]>[0]) {

@@ -1,0 +1,131 @@
+[stack-admission] load1=8.07 cores=10 perCore=0.81 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvy2edrs-5054c589-41d9478058b8 db=wsx_41d9478058b8c372c14a compose=wsx-41d9478058b8c372c14a pg=20656 redis=21656 api=24656 web=25656 sandbox=26656 model=27656 deep-agent=28656 asr=29656 vision=30656 loopback-sandbox=31656 mail=19656
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_41d9478058b8c372c14a capacity=100 current=6 required=32
+ ❯ tests/billing/personal-checkout-intents-pg.test.ts (7 tests | 1 failed) 31574ms
+   × rejects a partial provider binding and prevents changes to the original price 79ms
+     → promise resolved "Result{ command: 'UPDATE', …(9) }" instead of rejecting
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/personal-checkout-intents-pg.test.ts > rejects a partial provider binding and prevents changes to the original price
+AssertionError: promise resolved "Result{ command: 'UPDATE', …(9) }" instead of rejecting
+
+- Expected
++ Received
+
+- [Error: rejected promise]
++ Result {
++   "RowCtor": null,
++   "_parsers": undefined,
++   "_prebuiltEmptyResultObject": null,
++   "_types": TypeOverrides {
++     "_types": Object {
++       "arrayParser": Object {
++         "create": [Function create],
++       },
++       "builtins": Object {
++         "ABSTIME": 702,
++         "ACLITEM": 1033,
++         "BIT": 1560,
++         "BOOL": 16,
++         "BPCHAR": 1042,
++         "BYTEA": 17,
++         "CHAR": 18,
++         "CID": 29,
++         "CIDR": 650,
++         "CIRCLE": 718,
++         "DATE": 1082,
++         "FLOAT4": 700,
++         "FLOAT8": 701,
++         "GTSVECTOR": 3642,
++         "INET": 869,
++         "INT2": 21,
++         "INT4": 23,
++         "INT8": 20,
++         "INTERVAL": 1186,
++         "JSON": 114,
++         "JSONB": 3802,
++         "MACADDR": 829,
++         "MACADDR8": 774,
++         "MONEY": 790,
++         "NUMERIC": 1700,
++         "OID": 26,
++         "PATH": 602,
++         "PG_DEPENDENCIES": 3402,
++         "PG_LSN": 3220,
++         "PG_NDISTINCT": 3361,
++         "PG_NODE_TREE": 194,
++         "POLYGON": 604,
++         "REFCURSOR": 1790,
++         "REGCLASS": 2205,
++         "REGCONFIG": 3734,
++         "REGDICTIONARY": 3769,
++         "REGNAMESPACE": 4089,
++         "REGOPER": 2203,
++         "REGOPERATOR": 2204,
++         "REGPROC": 24,
++         "REGPROCEDURE": 2202,
++         "REGROLE": 4096,
++         "REGTYPE": 2206,
++         "RELTIME": 703,
++         "SMGR": 210,
++         "TEXT": 25,
++         "TID": 27,
++         "TIME": 1083,
++         "TIMESTAMP": 1114,
++         "TIMESTAMPTZ": 1184,
++         "TIMETZ": 1266,
++         "TINTERVAL": 704,
++         "TSQUERY": 3615,
++         "TSVECTOR": 3614,
++         "TXID_SNAPSHOT": 2970,
++         "UUID": 2950,
++         "VARBIT": 1562,
++         "VARCHAR": 1043,
++         "XID": 28,
++         "XML": 142,
++       },
++       "getTypeParser": [Function getTypeParser],
++       "setTypeParser": [Function setTypeParser],
++     },
++     "binary": Object {},
++     "text": Object {},
++   },
++   "command": "UPDATE",
++   "fields": Array [],
++   "oid": null,
++   "rowAsArray": false,
++   "rowCount": 1,
++   "rows": Array [],
++ }
+
+ ❯ tests/billing/personal-checkout-intents-pg.test.ts:42:147
+     40| it("rejects a partial provider binding and prevents changes to the ori…
+     41|   const f = fixture("partial-binding"), row = await f.reserve();
+     42|   await expect(asApp(org, c => c.query("UPDATE billing_personal_purcha…
+       |                                                                                                                                                   ^
+     43|   await expect(asApp(org, c => c.query("UPDATE billing_personal_purcha…
+     44| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 6 passed (7)
+   Start at  00:49:04
+   Duration  39.15s (transform 618ms, setup 23ms, collect 395ms, tests 31.57s, environment 0ms, prepare 118ms)
+
+[db-isolation] db=wsx_41d9478058b8c372c14a peak_connections=4
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/personal-checkout-intents-pg.test.ts
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/personal-checkout-intents-pg.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：41s
+  清理：1s
+  总计：42s

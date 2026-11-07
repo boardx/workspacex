@@ -1,0 +1,156 @@
+{
+  "head": "8357c6636f4ca48d3f62dfe6709b35c781e8bf46",
+  "sourceSha256": {
+    "apps/web/e2e/i18n-chat-workspace.spec.ts": "4f3372ee5f3c18ac0bed56a863fbe097d3d6b16043d1b80747f92fef93016e5a",
+    "apps/web/playwright.chat-read.config.ts": "d249544199f292eb863d1c93802401699e906de3ee050d801dc126da2b9d571d"
+  },
+  "gates": [
+    {
+      "name": "type",
+      "command": [
+        "pnpm",
+        "--filter",
+        "web",
+        "typecheck"
+      ],
+      "exitCode": 0,
+      "seconds": 58.63
+    },
+    {
+      "name": "lint",
+      "command": [
+        "pnpm",
+        "--filter",
+        "web",
+        "exec",
+        "eslint",
+        "e2e/i18n-chat-workspace.spec.ts",
+        "playwright.chat-read.config.ts"
+      ],
+      "exitCode": 0,
+      "seconds": 2.42
+    },
+    {
+      "name": "testid",
+      "command": [
+        "pnpm",
+        "run",
+        "lint:e2e-testid-gate"
+      ],
+      "exitCode": 0,
+      "seconds": 4.066
+    },
+    {
+      "name": "fullspec",
+      "command": [
+        "pnpm",
+        "run",
+        "lint:spec-gate-coverage"
+      ],
+      "exitCode": 0,
+      "seconds": 48.702
+    },
+    {
+      "name": "wiring",
+      "command": [
+        "pnpm",
+        "run",
+        "lint:ui-wiring"
+      ],
+      "exitCode": 0,
+      "seconds": 4.81
+    },
+    {
+      "name": "list",
+      "command": [
+        "pnpm",
+        "exec",
+        "tsx",
+        ".harness/scripts/with-test-isolation.ts",
+        "--",
+        "pnpm",
+        "--filter",
+        "web",
+        "exec",
+        "playwright",
+        "test",
+        "--config",
+        "playwright.chat-read.config.ts",
+        "--project=chat-read",
+        "e2e/i18n-chat-workspace.spec.ts",
+        "--list",
+        "--workers=1",
+        "--retries=0",
+        "--max-failures=1",
+        "--reporter=json",
+        "--output=/tmp/chat6200-task5-postmerge-source-private/output"
+      ],
+      "exitCode": 0,
+      "seconds": 2.189
+    }
+  ],
+  "browserExecuted": false,
+  "selection": [
+    {
+      "file": "i18n-chat-workspace.spec.ts",
+      "title": "personal sidebar and unsent raw draft survive locale changes at 1280",
+      "project": "chat-read",
+      "timeout": 240000
+    },
+    {
+      "file": "i18n-chat-workspace.spec.ts",
+      "title": "personal sidebar and unsent raw draft survive locale changes at 375",
+      "project": "chat-read",
+      "timeout": 240000
+    },
+    {
+      "file": "i18n-chat-workspace.spec.ts",
+      "title": "active canonical run retains identity, raw draft, selected inspector tab and persisted reply across locale/reload",
+      "project": "chat-read",
+      "timeout": 240000
+    },
+    {
+      "file": "i18n-chat-workspace.spec.ts",
+      "title": "material upload, inline preview and enlarged download retain original bytes across locale changes",
+      "project": "chat-read",
+      "timeout": 240000
+    },
+    {
+      "file": "i18n-chat-workspace.spec.ts",
+      "title": "permission dialog locale switch and Escape submit no decision; explicit once resumes the same canonical run",
+      "project": "chat-read",
+      "timeout": 240000
+    },
+    {
+      "file": "i18n-chat-workspace.spec.ts",
+      "title": "project thread preserves canonical scope, raw project name and return target across locales",
+      "project": "chat-read",
+      "timeout": 240000
+    },
+    {
+      "file": "i18n-chat-workspace.spec.ts",
+      "title": "different seeded principal receives real private-thread 404 and locale changes never grant send access",
+      "project": "chat-read",
+      "timeout": 240000
+    }
+  ],
+  "cleanup": {
+    "compose": "wsx-da850e767d1fc03eb7c1",
+    "containers": 0,
+    "volumes": 0,
+    "listeners": {
+      "20078": 0,
+      "21078": 0,
+      "24078": 0,
+      "25078": 0,
+      "26078": 0,
+      "27078": 0,
+      "28078": 0,
+      "29078": 0,
+      "30078": 0,
+      "31078": 0,
+      "19078": 0
+    }
+  },
+  "discoveryOnly": true
+}

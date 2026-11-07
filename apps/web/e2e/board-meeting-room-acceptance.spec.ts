@@ -1,4 +1,4 @@
-import {roomControls,roomAction,roomZoom} from './support/board-meeting-room-ui';
+import {assertRoomChrome,assertRoomPresentation,roomZoom} from './support/board-meeting-room-ui';
 import {randomUUID} from 'node:crypto';
 import {writeFile} from 'node:fs/promises';
 import {performance} from 'node:perf_hooks';
@@ -18,7 +18,7 @@ test('meeting room real 30 minute presentation, recovery, CAS and revocation lif
   const [owner, display, follower] = await Promise.all(contexts.map(context => context.newPage()));
   const receipts: RoomReceipt[] = [], observationErrors: string[] = [];
   const chunks = observeRuntimeChunks(owner!); const events: RoomEvent[] = [], samples: RoomSample[] = [];
-  let boardId: string | undefined, ownerToken: string | undefined, archived = false;
+  let boardId: string | undefined, ownerToken: string | undefined, archived = false, followerRevoked = false;
   const roomId = `acceptance-${randomUUID()}`, displayActor = `room:${roomId}:meeting-room-display`;
   const record = (type: string, before: number, after: number, detail: unknown, status?: number) => events.push({...roomClock(), type, before, after, detail, detailHash: roomHash(detail), ...(status === undefined ? {} : {status})});
   try {
@@ -35,7 +35,7 @@ test('meeting room real 30 minute presentation, recovery, CAS and revocation lif
       receipts.push({...roomClock(), id: lastReadId, clientId: F.adminUserId, status: response.status(), method: 'GET', state: value}); return value;
     };
     const observations = [observeRoomResponses(owner!, boardId, F.adminUserId, receipts, observationErrors), observeRoomResponses(display!, boardId, F.leadUserId, receipts, observationErrors), observeRoomResponses(follower!, boardId, F.userId, receipts, observationErrors)];
-    const go = async (page: Page, url: string) => {await page.goto(url); await expect(page.getByTestId('collaborative-editor')).toBeVisible({timeout: 30_000}); await roomControls(page);const close=page.getByRole('button',{name:'关闭白板操作',exact:true});if(await close.isVisible())await close.click(); await expect(page.getByTestId('board-fabric-surface').locator('canvas.upper-canvas')).toBeVisible();};
+    const go = async (page: Page, url: string) => {await page.goto(url); await expect(page.getByTestId('collaborative-editor')).toBeVisible({timeout: 30_000}); await assertRoomChrome(page); await expect(page.getByTestId('board-fabric-surface').locator('canvas.upper-canvas')).toBeVisible();};
     await Promise.all([go(owner!, route), go(display!, `${route}&device=meeting-room-display`), go(follower!, route)]);
     for (const page of [owner!, display!, follower!]) await expect(page.getByTestId('board-a11y-object-meeting-anchor')).toHaveAccessibleName('图形：会议室持续内容验证');
     const canonicalContent = await canonicalRows(owner!);
@@ -80,6 +80,38 @@ test('meeting room real 30 minute presentation, recovery, CAS and revocation lif
     const runtimeBefore = await verifyRuntimeIdentity(api, sha, await chunks());
     const roomToken = () => display!.evaluate(key => sessionStorage.getItem(key), `board-room:${boardId}:${roomId}:meeting-room-display`);
     await expect.poll(async () => Boolean(await roomToken())).toBe(true);
+    // Lifecycle setup uses the existing authenticated protocol because playback controls
+    // were deliberately hidden. Viewport publication below still comes from real Fabric input.
+    const pendingWrites = new Set<import('@playwright/test').Request>();
+    for (const page of [owner!, display!, follower!]) {
+      page.on('request', request => {if (request.method() === 'POST' && new URL(request.url()).pathname.endsWith(`/whiteboards/${boardId}/presentation`)) pendingWrites.add(request);});
+      const settled = (request: import('@playwright/test').Request) => {pendingWrites.delete(request);};
+      page.on('requestfinished', settled); page.on('requestfailed', settled);
+    }
+    const roomAction = async (page: Page, name: '开始演示'|'跟随演示者'|'自由浏览'|'交给会议室'|'结束演示') => {
+      await assertRoomChrome(page);
+      const clientId = page === owner ? F.adminUserId : page === display ? F.leadUserId : F.userId;
+      const actorId = page === display ? displayActor : clientId;
+      const token = page === owner ? ownerToken! : page === display ? displayToken : followerToken;
+      let previousRevision: number | undefined, stableReads = 0, before: RoomState | undefined;
+      await expect.poll(async () => {
+        before = await state();
+        stableReads = pendingWrites.size === 0 && before.revision === previousRevision ? stableReads + 1 : 0;
+        previousRevision = before.revision; return stableReads >= 2;
+      }, {timeout: 15_000, intervals: [250, 250, 500]}).toBe(true);
+      const types = {'开始演示':'claim-presenter','跟随演示者':'follow','自由浏览':'leave-follow','交给会议室':'handoff','结束演示':'release-presenter'} as const;
+      const command = {type: types[name], actorId, expectedRevision: before!.revision, ...(name === '交给会议室' ? {toActorId: displayActor} : {})};
+      const reconnectToken = page === display ? await roomToken() : null;
+      if (page === display) expect(reconnectToken).toBeTruthy();
+      // Exactly one CAS write: a conflict is a failure, never silently retried.
+      const response = await boardApi(api, token, 'POST', `/v1/whiteboards/${boardId}/presentation`, {roomId, reconnectToken, command});
+      expect(response.status()).toBe(201);
+      const committed = await response.json() as RoomState;
+      expect(committed.revision).toBe(before!.revision + 1);
+      receipts.push({...roomClock(), id: randomUUID(), clientId, status: response.status(), method: 'POST', command, state: committed});
+      const clients: Array<[Page,string]> = [[owner!,F.adminUserId],[display!,displayActor],...(followerRevoked?[]:[[follower!,F.userId] as [Page,string]])];
+      await Promise.all(clients.map(([client,actor])=>assertRoomPresentation(client,committed,actor)));
+    };
     await roomAction(owner!, '开始演示');
     await expect.poll(async () => (await state()).presenterId).toBe(F.adminUserId);
     let current = await state(); record('claim', 0, current.revision, current);
@@ -106,7 +138,7 @@ test('meeting room real 30 minute presentation, recovery, CAS and revocation lif
         await contexts[1]!.setOffline(false);
         await display!.reload();
         await expect(display!.getByTestId('collaborative-editor')).toBeVisible({timeout: 30_000});
-        await roomControls(display!);
+        await assertRoomChrome(display!);
         await expect.poll(async () => {const token = await roomToken(); return Boolean(token && token !== tokenBeforeReconnect);}).toBe(true);
         // The editor and rotated room token can become ready before the Yjs projection is
         // hydrated. Do not admit a reconnect sample until its canonical content converges.
@@ -152,6 +184,8 @@ test('meeting room real 30 minute presentation, recovery, CAS and revocation lif
     await roomAction(owner!, '跟随演示者');
     await roomZoom(display!,'in'); await expect.poll(async () => (await state()).revision).toBeGreaterThan(current.revision);
     current = await state(); await expect.poll(() => readRoomViewport(owner!)).toEqual(current.viewport);
+    await assertRoomPresentation(follower!,current,F.userId);
+    await expect.poll(() => readRoomViewport(follower!)).toEqual(current.viewport);
     // Following must release when a user deliberately pans; an absent product behavior fails here.
     await follower!.getByTestId('board-tool-hand').click(); const box = await follower!.getByTestId('board-fabric-surface').boundingBox(); expect(box).not.toBeNull();
     await follower!.mouse.move(box!.x + 400, box!.y + 300); await follower!.mouse.down(); await follower!.mouse.move(box!.x + 510, box!.y + 340, {steps: 12}); await follower!.mouse.up();
@@ -161,7 +195,7 @@ test('meeting room real 30 minute presentation, recovery, CAS and revocation lif
       expect(roomHash(await canonicalRows(page))).toBe(contentHash);
     }
     await boardApi(api, ownerToken, 'DELETE', `/whiteboards/${boardId}/members/${encodeURIComponent(F.userId)}`);
-    await expect(follower!.getByTestId('denied')).toBeVisible({timeout: 30_000}); await expect(follower!.getByTestId('collaborative-editor')).toHaveCount(0);
+    await expect(follower!.getByTestId('denied')).toBeVisible({timeout: 30_000}); await expect(follower!.getByTestId('collaborative-editor')).toHaveCount(0); followerRevoked = true;
     current = await state(); record('revoke', current.revision, current.revision, {actorId: F.userId});
     const deniedRead = await api.get(`${apiOrigin()}/v1/whiteboards/${boardId}/presentation?roomId=${encodeURIComponent(roomId)}`, {headers: {authorization: `Bearer ${followerToken}`}});
     receipts.push({...roomClock(), id: randomUUID(), clientId: F.userId, method: 'GET', status: deniedRead.status()});
@@ -173,7 +207,7 @@ test('meeting room real 30 minute presentation, recovery, CAS and revocation lif
     const finalState = await state(); expect(finalState.followers).toEqual([]); record('release', current.revision, finalState.revision, finalState);
     const persistedState = await persistedRoomState(F.orgId, boardId, roomId); expect(persistedState).toEqual(finalState); record('persisted-read', finalState.revision, finalState.revision, persistedState);
     await verifyReloadContent('final-reload');
-    await expect((await roomControls(owner!)).getByRole('button', {name: '开始演示', exact: true})).toBeVisible(); expect(await state()).toEqual(finalState);
+    await assertRoomChrome(owner!); expect(await state()).toEqual(finalState);
     record('reloaded', finalState.revision, finalState.revision, await state());
     await archiveAcceptanceBoard(api, ownerToken, boardId); archived = true; const resource = await (await boardApi(api, ownerToken, 'GET', `/whiteboards/${boardId}`)).json(); expect(resource.archived).toBe(true); record('archived', finalState.revision, finalState.revision, {archived: resource.archived});
     const runtimeAfter = await verifyRuntimeIdentity(api, sha, await chunks());

@@ -1,3 +1,4 @@
+import { localizationAuthorizer } from "../localization/entity-localization";
 import type { IdentityRepository } from "../identity/ports";
 import { agentImportPayloadDigest, InvalidAgentStarterPackError, verifyAgentStarterPack, type StarterToolPolicyViolation } from "../../domain/agent/starter-pack";
 import type { OrgId } from "../../domain/org-id";
@@ -17,16 +18,24 @@ export class AgentStarterSkillVersionMismatchError extends Error {}
 
 export async function importAgentStarterPack(
   deps: { readonly identities: IdentityRepository; readonly packs: AgentStarterPackSource; readonly imports: AgentStarterImportRepository },
-  input: { readonly actorId: string; readonly orgId: OrgId; readonly packId: string; readonly packVersion: string; readonly idempotencyKey: string },
+  input: { readonly actorId: string; readonly orgId: OrgId; readonly packId: string; readonly packVersion: string; readonly idempotencyKey: string; readonly expectedPackDigest?: string },
 ): Promise<{ readonly created: boolean; readonly result: AgentStarterImportResult }> {
   const membership = await deps.identities.findOrgMembership(input.actorId, input.orgId);
   if (!membership || membership.orgRole !== "admin") throw new AgentStarterImportAdminRequiredError();
+  let directPack: ReturnType<typeof verifyAgentStarterPack> | undefined;
+  if (input.expectedPackDigest !== undefined) {
+    const raw = await deps.packs.load(input.packId, input.packVersion);
+    if (raw === null) throw new AgentStarterPackNotFoundError();
+    try { directPack = verifyAgentStarterPack(raw, input); }
+    catch (error) { if (error instanceof InvalidAgentStarterPackError) throw new AgentStarterPackInvalidError(); throw error; }
+    if (directPack.packDigest !== input.expectedPackDigest) throw new AgentStarterPackInvalidError();
+  }
   const payloadDigest = agentImportPayloadDigest(input);
   const existing = await deps.imports.findExisting({ orgId: input.orgId, idempotencyKey: input.idempotencyKey, payloadDigest });
   if (existing.kind === "replayed") return { created: false, result: existing.result };
   if (existing.kind === "idempotency-conflict") throw new AgentStarterImportIdempotencyConflictError();
   // `previous-failure`：失败不是终局（服务端配置/状态可能已修好），往下重新判定；仓储在同一条台账行上接管重试。
-  const raw = await deps.packs.load(input.packId, input.packVersion);
+  const raw = directPack ?? await deps.packs.load(input.packId, input.packVersion);
   if (raw === null) return replayOrThrow(await deps.imports.recordFailure({ ...input, payloadDigest, packDigest: null, failureCode: "AGENT_STARTER_PACK_NOT_FOUND" }));
   let pack;
   try { pack = verifyAgentStarterPack(raw, input); }
@@ -39,7 +48,7 @@ export async function importAgentStarterPack(
     if (outcome.kind === "previous-failure" && violation) throw new AgentStarterToolPolicyInvalidError(violation);
     return replayOrThrow(outcome);
   }
-  const outcome = await deps.imports.persistVerified({ orgId: input.orgId, actorId: input.actorId, idempotencyKey: input.idempotencyKey, payloadDigest, pack });
+  const outcome = await deps.imports.persistVerified({ orgId: input.orgId, actorId: input.actorId, idempotencyKey: input.idempotencyKey, payloadDigest, pack, ...(pack.schemaVersion === 2 ? { localizationAuthorize: localizationAuthorizer(membership, input.actorId) } : {}) });
   if (outcome.kind === "created") return { created: true, result: outcome.result };
   if (outcome.kind === "replayed") return { created: false, result: outcome.result };
   if (outcome.kind === "idempotency-conflict") throw new AgentStarterImportIdempotencyConflictError();

@@ -1,0 +1,13 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/2e5d/workspacex/apps/web
+
+ ✓ tests/ui/credit-consumption.test.tsx (16 tests) 371ms
+ ✓ tests/ui/member-credit-quota.test.tsx (6 tests) 228ms
+ ✓ tests/ui/attachment-credit-guidance.test.tsx (2 tests) 136ms
+ ✓ tests/ui/credit-recharge-entry.test.tsx (2 tests) 110ms
+
+ Test Files  4 passed (4)
+      Tests  26 passed (26)
+   Start at  19:31:33
+   Duration  10.39s (transform 2.17s, setup 517ms, collect 4.52s, tests 845ms, environment 2.75s, prepare 380ms)

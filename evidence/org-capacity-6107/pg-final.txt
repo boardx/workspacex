@@ -1,0 +1,17 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/team-capacity-6107/apps/api
+
+[db-isolation] db=wsx_c81f89481a3d3d89d37e capacity=100 current=6 required=32
+ ✓ tests/org-capacity/commercial-capacity-pg.test.ts (8 tests) 4472ms
+   ✓ distinct invitation paths compete for the final seat with atomic rollback 447ms
+   ✓ full commercial capacity rejects project invitation activation before credentials, gift and outbox 324ms
+   ✓ an initial pending intent constrains actual admission and unknown generations fail closed 365ms
+   ✓ only the matching pure pending intent can be deleted, while paid capacity remains protected by restrictive RLS 430ms
+   ✓ a logged-in project invite cannot add an existing account beyond commercial capacity 339ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  13:59:38
+   Duration  17.70s (transform 5.60s, setup 133ms, collect 8.19s, tests 4.47s, environment 0ms, prepare 367ms)
+
+[db-isolation] db=wsx_c81f89481a3d3d89d37e peak_connections=5

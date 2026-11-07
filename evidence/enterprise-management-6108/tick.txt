@@ -1,0 +1,6 @@
+
+> agentic-harness-template@ harness /Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108
+> tsx .harness/scripts/cli.ts "tick"
+
+✗ COORD_GATEWAY_URL 未配置——tick 需要权威时钟（ADR-014/ADR-017）。见 agent-bootstrap.md 第 3 步。
+ ELIFECYCLE  Command failed with exit code 1.

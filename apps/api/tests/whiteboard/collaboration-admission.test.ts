@@ -10,8 +10,20 @@ import type { WhiteboardRepository } from '../../src/application/whiteboard/port
 import type { WhiteboardCollaborationStore } from '../../src/application/whiteboard/collaboration-ports';
 import { expect, it, vi } from 'vitest';
 import { WhiteboardAdmission } from '../../src/interface/ws/whiteboard-admission';
+import { currentOperationTraceId, withOperationTrace } from '../../src/application/ports/operation-trace';
 const signal = () => new AbortController();
 const deferred = () => { let resolve!: () => void; const promise = new Promise<void>(r => { resolve = r; }); return { promise, resolve }; };
+it('restores each queued operation trace, including an explicitly absent producer context', async () => {
+  const gate = new WhiteboardAdmission(), blocked = deferred(), traceA = randomUUID(), traceB = randomUUID();
+  const first = withOperationTrace(traceA, () => gate.run('same-org', async () => {
+    expect(currentOperationTraceId()).toBe(traceA); await blocked.promise;
+  }, signal().signal));
+  const second = withOperationTrace(traceB, () => gate.run('same-org', async () => currentOperationTraceId(), signal().signal));
+  const third = gate.run('same-org', async () => currentOperationTraceId(), signal().signal);
+  blocked.resolve();
+  await first; expect(await second).toBe(traceB); expect(await third).toBeUndefined();
+  expect(currentOperationTraceId()).toBeUndefined();
+});
 it('admits a benign tenant while fifty noisy board sessions are queued', async () => {
   const gate = new WhiteboardAdmission(), blocked = deferred(), order: number[] = [];
   const noisy = Array.from({length: 50}, (_, index) => gate.run('noisy', async () => { order.push(index); if (!index) await blocked.promise; }, signal().signal));

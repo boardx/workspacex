@@ -203,7 +203,7 @@ describe("F159 token 计量：模型调用是唯一产生用量事实的地方",
     })]);
   });
 
-  it("计量写失败不拖垮这次 run，但**大声留痕**（静默吞才是那个会骗人的错法）", async () => {
+  it("计量写失败明确失败并留痕，不自动重试付费调用", async () => {
     const store = fakeStore(baseRun());
     const model: ModelCallPort = { complete: async () => ({ text: "reply", tokens: 7 }) };
     const brokenMeter: TokenUsageMeterPort = {
@@ -214,7 +214,7 @@ describe("F159 token 计量：模型调用是唯一产生用量事实的地方",
     const n = await executeQueuedRuns(d, { orgId: ORG });
 
     expect(n).toBe(1);
-    expect(store.failedWith).toBeNull();          // 记账缺陷不该变成用户的聊天失败
+    expect(store.failedWith).toBe("MODEL_CALL_FAILED");
     expect(d.log).toHaveBeenCalledWith(
       expect.stringContaining("token usage metering write failed"),
       expect.objectContaining({ runId: "run-1", tokensTotal: 7 }),

@@ -55,6 +55,8 @@ const TERMINAL_RUN_ERROR_DISPOSITION: Record<z.infer<typeof AgentRunError>, Agui
   SKILL_VERSION_UNAVAILABLE: "settled",
   AGENT_VERSION_UNAVAILABLE: "settled",
   MODEL_CALL_FAILED: "settled",
+  CREDIT_REQUIRED: "settled",
+  CREDIT_ACCOUNTING_UNAVAILABLE: "settled",
   CHAT_WRITEBACK_FAILED: "settled",
   TOOL_LOOP_LIMIT_EXCEEDED: "settled",
   KERNEL_UNAVAILABLE: "settled",

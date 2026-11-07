@@ -1,0 +1,10 @@
+
+> agentic-harness-template@ lint:test-shared-grant /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> pnpm exec tsx .harness/scripts/lint-test-shared-grant.mjs
+
+! [test-shared-grant] 4 条存量豁免，待清理（棘轮名单，只许变短）：
+   · apps/api/tests/kernel/admin-audit-access-visible-to-lead.test.ts:219 —— REVOKE INSERT ON provenance_events FROM app_rw
+   · apps/api/tests/kernel/admin-audit-access-visible-to-lead.test.ts:225 —— GRANT INSERT ON provenance_events TO app_rw
+   · apps/api/tests/kernel/provenance-append-only.test.ts:185 —— GRANT DELETE ON organizations TO app_rw
+   · apps/api/tests/kernel/provenance-append-only.test.ts:194 —— REVOKE DELETE ON organizations FROM app_rw
+✓ [test-shared-grant] 3384 个测试文件，13 条授权语句，没有未豁免的共享角色无限定授权（instance-owned=2 shared=4 file-owned=3 database=1 asserted=2 grantee-owned=1）

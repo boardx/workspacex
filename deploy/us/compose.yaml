@@ -1,0 +1,375 @@
+{
+  "name": "workspacex-selfhost",
+  "services": {
+    "web": {
+      "logging": {
+        "driver": "local",
+        "options": {
+          "max-size": "10m",
+          "max-file": "5"
+        }
+      },
+      "pull_policy": "never",
+      "restart": "unless-stopped",
+      "init": true,
+      "cap_drop": [
+        "ALL"
+      ],
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "pids_limit": 256,
+      "image": "${WEB_IMAGE}",
+      "platform": "linux/amd64",
+      "env_file": [
+        {
+          "path": "./web.env",
+          "format": "raw"
+        }
+      ],
+      "ports": [
+        "127.0.0.1:3000:3000"
+      ],
+      "mem_limit": "2g",
+      "cpus": 2
+    },
+    "api": {
+      "logging": {
+        "driver": "local",
+        "options": {
+          "max-size": "10m",
+          "max-file": "5"
+        }
+      },
+      "pull_policy": "never",
+      "restart": "unless-stopped",
+      "init": true,
+      "cap_drop": [
+        "ALL"
+      ],
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "pids_limit": 256,
+      "image": "${API_IMAGE}",
+      "platform": "linux/amd64",
+      "env_file": [
+        {
+          "path": "./api.env",
+          "format": "raw"
+        }
+      ],
+      "ports": [
+        "127.0.0.1:3200:3200"
+      ],
+      "mem_limit": "2g",
+      "cpus": 2,
+      "environment": {
+        "PORT": "3200",
+        "KERNEL_DEEP_AGENT_BASE_URL": "http://agent:8000",
+        "KERNEL_SKILL_SANDBOX_SOCKET": "/run/sandbox/skill-sandbox.sock",
+        "NATIVE_SESSION_SOCKET": "/run/sessions/skill-sandbox.sock",
+        "WORKSPACEX_OBJECT_STORE": "fs",
+        "WORKSPACEX_OBJECT_ROOT": "/var/lib/workspacex/objects"
+      },
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "/etc/workspacex-selfhost/sandbox",
+          "target": "/run/sandbox",
+          "read_only": false,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "/etc/workspacex-selfhost/sessions",
+          "target": "/run/sessions",
+          "read_only": false,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "/etc/workspacex-selfhost/certs",
+          "target": "/run/certs",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "/var/lib/workspacex-selfhost/objects",
+          "target": "/var/lib/workspacex/objects",
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "/var/lib/workspacex-selfhost/credit-receipts",
+          "target": "/var/lib/workspacex/credit-receipts",
+          "bind": {
+            "create_host_path": false
+          }
+        }
+      ]
+    },
+    "agent": {
+      "logging": {
+        "driver": "local",
+        "options": {
+          "max-size": "10m",
+          "max-file": "5"
+        }
+      },
+      "pull_policy": "never",
+      "restart": "unless-stopped",
+      "init": true,
+      "cap_drop": [
+        "ALL"
+      ],
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "pids_limit": 256,
+      "user": "1000:1000",
+      "image": "${AGENT_IMAGE}",
+      "platform": "linux/amd64",
+      "env_file": [
+        {
+          "path": "./agent.env",
+          "format": "raw"
+        }
+      ],
+      "expose": [
+        "8000"
+      ],
+      "mem_limit": "4g",
+      "cpus": 2,
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "/etc/workspacex-selfhost/sessions",
+          "target": "/run/sessions",
+          "read_only": false,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "/etc/workspacex-selfhost/agent-certs",
+          "target": "/run/agent-certs",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "/var/lib/workspacex-selfhost/agent-usage",
+          "target": "/var/lib/workspacex-agent-usage",
+          "bind": {
+            "create_host_path": false
+          }
+        }
+      ]
+    },
+    "sandbox": {
+      "logging": {
+        "driver": "local",
+        "options": {
+          "max-size": "10m",
+          "max-file": "5"
+        }
+      },
+      "pull_policy": "never",
+      "restart": "unless-stopped",
+      "init": true,
+      "cap_drop": [
+        "ALL"
+      ],
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "pids_limit": 128,
+      "image": "${SANDBOX_IMAGE}",
+      "platform": "linux/amd64",
+      "network_mode": "none",
+      "read_only": true,
+      "user": "1000:1000",
+      "mem_limit": "1g",
+      "memswap_limit": "1g",
+      "cpus": 1,
+      "tmpfs": [
+        "/tmp:rw,noexec,nosuid,size=256m,mode=1777"
+      ],
+      "environment": {
+        "SKILL_SANDBOX_SOCKET": "/run/sandbox/skill-sandbox.sock"
+      },
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "/etc/workspacex-selfhost/sandbox",
+          "target": "/run/sandbox",
+          "read_only": false,
+          "bind": {
+            "create_host_path": false
+          }
+        }
+      ],
+      "env_file": [
+        {
+          "path": "/etc/workspacex/sandbox-capacity.env",
+          "required": false,
+          "format": "raw"
+        }
+      ]
+    },
+    "sandbox-sessions": {
+      "logging": {
+        "driver": "local",
+        "options": {
+          "max-size": "10m",
+          "max-file": "5"
+        }
+      },
+      "pull_policy": "never",
+      "restart": "unless-stopped",
+      "init": true,
+      "cap_drop": [
+        "ALL"
+      ],
+      "security_opt": [
+        "no-new-privileges:true",
+        "seccomp=/etc/workspacex-selfhost/docker-seccomp.json",
+        "apparmor=workspacex-native-sessions"
+      ],
+      "pids_limit": 128,
+      "image": "${SANDBOX_IMAGE}",
+      "platform": "linux/amd64",
+      "network_mode": "none",
+      "read_only": true,
+      "user": "1000:1000",
+      "mem_limit": "1g",
+      "memswap_limit": "1g",
+      "cpus": 1,
+      "tmpfs": [
+        "/tmp:rw,noexec,nosuid,size=256m,mode=1777"
+      ],
+      "environment": {
+        "SKILL_SANDBOX_SESSIONS_ONLY": "1",
+        "SKILL_SANDBOX_SOCKET": "/run/sessions/skill-sandbox.sock"
+      },
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "/etc/workspacex-selfhost/sessions",
+          "target": "/run/sessions",
+          "read_only": false,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "/etc/workspacex-selfhost/agent-certs",
+          "target": "/run/agent-certs",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        }
+      ],
+      "env_file": [
+        {
+          "path": "/etc/workspacex/sandbox-capacity.env",
+          "required": false,
+          "format": "raw"
+        }
+      ]
+    },
+    "postgres": {
+      "logging": {
+        "driver": "local",
+        "options": {
+          "max-size": "10m",
+          "max-file": "5"
+        }
+      },
+      "image": "${POSTGRES_IMAGE}",
+      "platform": "linux/amd64",
+      "pull_policy": "never",
+      "restart": "unless-stopped",
+      "env_file": [
+        {
+          "path": "./postgres.env",
+          "format": "raw"
+        }
+      ],
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "/var/lib/workspacex-selfhost/postgres",
+          "target": "/var/lib/postgresql/data",
+          "read_only": false,
+          "bind": {
+            "create_host_path": false
+          }
+        }
+      ],
+      "mem_limit": "2g",
+      "cpus": 2,
+      "pids_limit": 256
+    },
+    "redis": {
+      "logging": {
+        "driver": "local",
+        "options": {
+          "max-size": "10m",
+          "max-file": "5"
+        }
+      },
+      "image": "${REDIS_IMAGE}",
+      "platform": "linux/amd64",
+      "pull_policy": "never",
+      "restart": "unless-stopped",
+      "command": [
+        "redis-server",
+        "/run/secrets/redis.conf"
+      ],
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "/var/lib/workspacex-selfhost/redis",
+          "target": "/data",
+          "read_only": false,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "/etc/workspacex-selfhost/redis.conf",
+          "target": "/run/secrets/redis.conf",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        }
+      ],
+      "mem_limit": "512m",
+      "cpus": 1,
+      "pids_limit": 128
+    }
+  },
+  "networks": {
+    "default": {
+      "name": "workspacex-selfhost-runtime"
+    }
+  }
+}

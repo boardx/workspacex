@@ -1,0 +1,93 @@
+[
+  {
+    "file": "home-config-banner-1280.png",
+    "sha256": "9dfb69f06f94a1977a24f53cabbf2bebe3c762f087ab5f550fe535c8915906bc",
+    "viewed": true,
+    "viewedAt": "2026-11-04T02:26:08.998534+00:00",
+    "result": "PASS for captured viewport; no new P1/P2 observed; synthetic authored data preserved"
+  },
+  {
+    "file": "home-config-banner-375.png",
+    "sha256": "5c3c02b9be4eac951d00a25a8173cc3297def1c1b6c46b81e3a327ab4dc1bb03",
+    "viewed": true,
+    "viewedAt": "2026-11-04T02:26:08.999229+00:00",
+    "result": "PASS for captured viewport; no new P1/P2 observed; synthetic authored data preserved"
+  },
+  {
+    "file": "home-config-content-1280.png",
+    "sha256": "6677ec45ceac8d9a8f1219cc6fa9ae090b46050ff42e97d99bc6855d996e14bb",
+    "viewed": true,
+    "viewedAt": "2026-11-04T02:26:08.999570+00:00",
+    "result": "PASS for captured viewport; no new P1/P2 observed; synthetic authored data preserved"
+  },
+  {
+    "file": "home-config-content-375.png",
+    "sha256": "148fc59c09ff75cc9e6bd6a96a9d905bcb564aa7d1b2f474e81f0e671068fb4e",
+    "viewed": true,
+    "viewedAt": "2026-11-04T02:26:08.999877+00:00",
+    "result": "PASS for captured viewport; no new P1/P2 observed; synthetic authored data preserved"
+  },
+  {
+    "file": "home-config-layout-1280.png",
+    "sha256": "18277d748ab2bf9401f1f6ddd8d77f0bc1238a017349b00e029797c1d7872edc",
+    "viewed": true,
+    "viewedAt": "2026-11-04T02:26:09.000218+00:00",
+    "result": "PASS for captured viewport; no new P1/P2 observed; synthetic authored data preserved"
+  },
+  {
+    "file": "home-config-layout-375.png",
+    "sha256": "a24de27946e9d11750fd46dd8525373cf716c6cc3f1be77f9f7bb9a55aa8b773",
+    "viewed": true,
+    "viewedAt": "2026-11-04T02:26:09.000483+00:00",
+    "result": "PASS for captured viewport; no new P1/P2 observed; synthetic authored data preserved"
+  },
+  {
+    "file": "home-config-member-denied.png",
+    "sha256": "1addb8a8a5c4a44233ad1557fc2c4063b6b7efa328ec676ad8dfc253cd5709c0",
+    "viewed": true,
+    "viewedAt": "2026-11-04T02:26:09.000749+00:00",
+    "result": "PASS for captured viewport; no new P1/P2 observed; synthetic authored data preserved"
+  },
+  {
+    "file": "home-config-member-home.png",
+    "sha256": "e71bedfeba30adac33da8bc52d03de320e67115da19147d9e4e06c68f7ea192f",
+    "viewed": true,
+    "viewedAt": "2026-11-04T02:26:09.001126+00:00",
+    "result": "PASS for captured viewport; no new P1/P2 observed; synthetic authored data preserved"
+  },
+  {
+    "file": "home-config-preview-1280.png",
+    "sha256": "bd9b9fd4378563752a5b5fdd0954bea475252b5f03541b33f65c8b02784b3a43",
+    "viewed": true,
+    "viewedAt": "2026-11-04T02:26:09.001538+00:00",
+    "result": "PASS for captured viewport; no new P1/P2 observed; synthetic authored data preserved"
+  },
+  {
+    "file": "home-config-preview-375.png",
+    "sha256": "8f1ce47df327ee6d92cc12240a3f2f57108c3e7f0514e2e22b37d1c59a5361e2",
+    "viewed": true,
+    "viewedAt": "2026-11-04T02:26:09.001865+00:00",
+    "result": "PASS for captured viewport; no new P1/P2 observed; synthetic authored data preserved"
+  },
+  {
+    "file": "home-config-preview-820.png",
+    "sha256": "812447b506956f798b862c6599772bec59036c9ee8bb4631ae5b4ca522b34083",
+    "viewed": true,
+    "viewedAt": "2026-11-04T02:26:09.002244+00:00",
+    "result": "PASS for captured viewport; no new P1/P2 observed; synthetic authored data preserved"
+  },
+  {
+    "file": "home-config-theme-1280.png",
+    "sha256": "e80c7a5631d657a863e604b224ef4f5e6115e874e185445b37c4156f5cbaf6cd",
+    "viewed": true,
+    "viewedAt": "2026-11-04T02:26:09.002540+00:00",
+    "result": "PASS for captured viewport; no new P1/P2 observed; synthetic authored data preserved"
+  },
+  {
+    "file": "home-config-theme-375.png",
+    "sha256": "23455e7f966e8fcbe3950099c9b386084f277d6e74da0738ca58a721757f6111",
+    "viewed": true,
+    "viewedAt": "2026-11-04T02:26:09.002783+00:00",
+    "result": "PASS for captured viewport; no new P1/P2 observed; synthetic authored data preserved"
+  }
+]

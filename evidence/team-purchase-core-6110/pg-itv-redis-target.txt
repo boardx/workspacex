@@ -1,0 +1,32 @@
+[stack-admission] load1=14.86 cores=10 perCore=1.49 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvzjc88e-5a7ddad3-fdb2a05fecd2 db=wsx_fdb2a05fecd240bc4126 compose=wsx-fdb2a05fecd240bc4126 pg=20111 redis=21111 api=24111 web=25111 sandbox=26111 model=27111 deep-agent=28111 asr=29111 vision=30111 loopback-sandbox=31111 mail=19111
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/team-receipt-anchor-6099/apps/api
+
+[db-isolation] db=wsx_fdb2a05fecd240bc4126 capacity=100 current=6 required=32
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+{"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+(node:20007) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+{"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+{"level":"info","msg":"credit_receipts_pending","traceId":"credit-receipt-replay","pending":1}
+ ✓ tests/itv/digital-interview-setup.test.ts (8 tests | 7 skipped) 118301ms
+   ✓ F04 批量数字专家访谈 — HTTP 持久化验收门 > 显式确认推进主题、专家和问题；Skill 消息与 proposal 使用同一 aggregate version 并可重启恢复 8820ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 7 skipped (8)
+   Start at  01:31:11
+   Duration  133.90s (transform 22.44s, setup 36ms, collect 556ms, tests 118.30s, environment 0ms, prepare 345ms)
+
+[db-isolation] db=wsx_fdb2a05fecd240bc4126 peak_connections=12
+[timing] bash /tmp/team-6110-itv-redis-verification.sh
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：2m25s
+  清理：2s
+  总计：2m27s

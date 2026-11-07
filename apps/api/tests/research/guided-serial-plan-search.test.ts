@@ -31,19 +31,18 @@ function fixture(phase: "primary" | "recovery" | "supplement", parent?: AbortSig
   const run = () => executeTaskPipeline(state, persist, search, budget, complete).then(() => null, error => error);
   return { state, calls, snapshots, search, budget, run, entered, release: () => release() };
 }
-describe("confirmed plan section execution boundaries", () => {
-  it.each(["primary", "recovery", "supplement"] as const)("does not enter a later section while its predecessor %s is unsettled", async phase => {
+describe("parallel confirmed plan acquisition", () => {
+  it.each(["primary", "recovery", "supplement"] as const)("starts an independent section while its predecessor %s is unsettled", async phase => {
     const f = fixture(phase), execution = f.run();
     try {
       await f.entered; await new Promise<void>(resolve => setImmediate(resolve));
-      expect(f.calls).not.toContain("b primary");
-      expect(f.state.tasks[1]!.status).toBe("pending");
+      expect(f.calls).toContain("b primary");
     } finally { f.release(); await execution; f.budget.dispose(); }
     const result = await execution;
     expect(result.reasonCode).toBe("RESEARCH_SEARCH_PARTIAL_FAILURE");
     expect(f.calls).toContain("b primary");
     expect(f.state.tasks.every(task => task.status === "failed")).toBe(true);
-    expect(f.snapshots.some(state => state.tasks[0]!.status === "failed" && state.tasks[1]!.status === "pending")).toBe(true);
+    expect(f.snapshots.some(state => state.tasks[0]!.status === "running" && state.tasks[1]!.status !== "pending")).toBe(true);
     expect(f.state.tasks.every(task => task.searchAttempts?.every(attempt => attempt.status !== "running"))).toBe(true);
   });
 });
@@ -59,10 +58,11 @@ it("retains stable duplicate-order, empty, disabled and unknown section task gro
   const task = f.state.tasks[0]!;
   f.state.tasks = [["unknown", "x1"], ["a", "a"], ["other-unknown", "y"], ["b", "b"], ["unknown", "x2"], ["disabled", "disabled"]].map(([sectionId, id]) => ({ ...task, sectionId: sectionId!, id: id!, query: `${id} primary` }));
   try { expect((await f.run()).reasonCode).toBe("RESEARCH_SEARCH_PARTIAL_FAILURE"); } finally { f.budget.dispose(); }
-  expect(f.calls).toEqual(["b primary", "a primary", "disabled primary", "x1 primary", "x2 primary", "y primary"]);
+  expect(f.calls.slice(0, 2)).toEqual(["b primary", "a primary"]);
+  expect([...f.calls].sort()).toEqual(["b primary", "a primary", "disabled primary", "x1 primary", "x2 primary", "y primary"].sort());
   expect(f.state.tasks.every(task => task.attempts === 1 && task.status === "failed")).toBe(true);
 });
-it("keeps the original parallel primary slots inside one section", async () => {
+it("keeps a global primary limit across sections", async () => {
   const f = fixture("primary"), first = f.state.tasks[0]!;
   f.state.tasks = [0, 1, 2].map(index => ({ ...first, id: `a-${index}` })).concat([f.state.tasks[1]!]);
   const execution = f.run();
@@ -86,13 +86,14 @@ it("aborts before later sections and discards late search results without termin
     const reason = new ResearchRuntimeError("RESEARCH_EXECUTION_INTERRUPTED"); abort.abort(reason);
     expect(await execution).toBe(reason);
     const writes = f.snapshots.length;
-    expect(f.calls).toEqual(["a primary"]); expect(f.state.tasks[1]!.status).toBe("pending");
+    expect(f.calls).toContain("a primary");
+    const calls = [...f.calls];
     f.release(); await new Promise<void>(resolve => setImmediate(resolve));
-    expect(f.snapshots).toHaveLength(writes); expect(f.calls).toEqual(["a primary"]);
+    expect(f.snapshots).toHaveLength(writes); expect(f.calls).toEqual(calls);
   } finally { f.release(); await execution; f.budget.dispose(); }
 });
 
-it("finishes first-section task work before reading a persisted later-section source", async () => {
+it("settles persisted material before publishing new associations", async () => {
   const f = fixture("recovery"); f.release();
   f.state.sources = [{ id: "persisted-b", taskId: "task-b", taskIds: ["task-b"], title: "B source", url: "https://example.org/b", content: "Public policy evidence", retrievedAt: "now", decision: "accepted", addedByUser: true }];
   let release!: () => void, entered!: () => void;
@@ -102,9 +103,8 @@ it("finishes first-section task work before reading a persisted later-section so
   const execution = f.run();
   try {
     await reading;
-    expect(f.calls).toContain("a primary");
-    expect(f.state.tasks[0]!.status).toBe("failed");
-    expect(f.calls).not.toContain("b primary");
+    expect(f.calls).toEqual([]);
+    expect(f.state.tasks[0]!.status).toBe("pending");
     expect(f.state.tasks[1]!.status).toBe("pending");
   } finally { release(); await execution; f.budget.dispose(); }
   expect(f.calls).toContain("b primary");
@@ -118,7 +118,6 @@ it.each(["shared", "unscoped"] as const)("reviews %s persisted material once at 
   f.search.read = vi.fn(async () => { reads.push([...f.calls]); throw new Error("controlled unavailable read"); });
   try { await f.run(); } finally { f.budget.dispose(); }
   expect(reads).toHaveLength(1);
-  if (scope === "shared") expect(reads[0]).toEqual([]);
-  else { expect(reads[0]).toContain("a primary"); expect(reads[0]).toContain("b primary"); }
+  expect(reads[0]).toEqual([]);
   expect(f.calls).toContain("a primary"); expect(f.calls).toContain("b primary");
 });

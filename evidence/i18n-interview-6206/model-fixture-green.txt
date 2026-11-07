@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/apps/api
+
+ ✓ tests/itv/loopback-interview-workflow.test.ts (6 tests) 25ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  03:48:33
+   Duration  1.46s (transform 836ms, setup 0ms, collect 1.25s, tests 25ms, environment 0ms, prepare 43ms)
+

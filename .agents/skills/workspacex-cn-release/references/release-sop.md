@@ -256,6 +256,9 @@ Plan B 必须在发布开始前就准备好：私有 OSS 上有 exact SHA 的完
 
 ## 固定候选 tag 派发（#4919；治理生效后才能使用）
 
+> **2026-10-24 superseding note：人类已明确要求移除发布治理校验；下述历史治理审计、签名治理回执、完整 bypass 可见性及为这些校验配置 App key/权限的要求，已不再作为共享 CN 自动或手动发布的前置。实际 GitHub 规则强制、native Deployment issuer/当前 attempt、exact source/CI/Devapp、不可变标签和 CAS 机制仍保留。仅替代上述治理 scope，不改变 MVP 设计签核、数据维护授权或新增 root 权限规则。** 具体生效边界见[发布治理移除记录](../../../../docs/evidence/cn-auto-release-5910/release-governance-removal.md)。
+
+
 候选必须先包含 `CN_FROZEN_RELEASE_DISPATCHER_V1` 和对应 identity validator。历史候选不能借新 main 的 workflow 改写自己的 source；不兼容返回 `CN_FROZEN_RELEASE_DISPATCHER_NOT_READY`，不得悄悄替换为最新 main。
 
 `prepare-cn-release` 在完整 host verifier、实际 exact-source CI 和 Devapp 证据通过后，创建不可变 annotated tag `cn-prepared-<40位source>-<attempt>`。tag message 绑定完整 prepared 收据原始 hash、manifest、四镜像 digest、baseline、Devapp 证据 hash 和实际验收 run。已经存在的 tag 只允许完全一致的复用，不更新或删除。

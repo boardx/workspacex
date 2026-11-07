@@ -1,0 +1,5 @@
+
+> agentic-harness-template@ lint:spec-gate-coverage /Users/shenyangjun/boardx/workspacex-i18n-agent-skill
+> node .harness/scripts/lint-spec-gate-coverage.mjs
+
+ ELIFECYCLE  Command failed.

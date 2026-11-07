@@ -47,12 +47,12 @@ it('trusted ownership is rederived before start and terminal uses captured origi
  query.mockImplementation(async()=>({rows:[]}));await receipt.terminal({endedAt:new Date().toISOString(),outcome:'failed',usage:{}});
  const start=query.mock.calls.find(c=>c[0].includes('INTO model_request_starts')) as unknown as [string,unknown[]];
  const write=query.mock.calls.find(c=>c[0].includes('INTO token_usage_events')) as unknown as [string,unknown[]];
- expect(start[1][2]).toBe('original');expect(start[1].slice(12)).toEqual([1,null,null]);expect(write[1][2]).toBe('original');expect(write[1][0]).toBe('unique-http');expect(write[1].slice(24)).toEqual(['image',null,'unknown']);
+ expect(start[1][2]).toBe('original');expect(start[1].slice(12)).toEqual([1,null,null,null]);expect(write[1][2]).toBe('original');expect(write[1][0]).toBe('unique-http');expect(write[1].slice(24)).toEqual(['image',null,'unknown']);
 });
 
 it('terminal write failure preserves the already-paid image, blocks later HTTP, never retries model',async()=>{
  const terminal=vi.fn(async()=>{throw new Error('ledger unavailable');}),start=vi.fn(async()=>({terminal})),f=await fixture(200,{}, {start});
- const result=await f.provider.generateImage('prompt',undefined,context);expect(result.delivery).toBe('inline');
+ await expect(f.provider.generateImage('prompt',undefined,context)).rejects.toMatchObject({code:'MODEL_CALL_FAILED'});
  await expect(f.provider.generateImage('prompt',undefined,context)).rejects.toThrow();
  expect(f.paid).toHaveBeenCalledOnce();expect(start).toHaveBeenCalledOnce();expect(terminal).toHaveBeenCalledOnce();
 });
@@ -66,4 +66,15 @@ it('unavailable/foreign ownership cannot create a durable start',async()=>{
  const query=vi.fn(async(_sql:string)=>({rows:[]})),db={withTenant:async(_org:unknown,work:(s:unknown)=>unknown)=>work({query})};
  await expect(new PgImageRequestAccounting(db as never).start(context,{requestId:'foreign',modelId:'fixed-image',startedAt:new Date().toISOString()})).rejects.toThrow('IMAGE_ACCOUNTING_OWNER_DENIED');
  expect(query.mock.calls.every(c=>!(c[0] as unknown as string).includes('INSERT'))).toBe(true);
+});
+
+// This suite owns usage/provenance SQL. Financial transactions are exercised by billing integration tests.
+vi.mock("../../src/infrastructure/billing/pg-credit-consumption",()=>({PgCreditConsumption:class {
+ async reserveInSession(){} async settleInSession(){}
+}}));
+
+// SQL protocol unit fixture: durable filesystem replay has its own real-spool suite.
+vi.mock("../../src/infrastructure/billing/credit-usage-meter",async()=>{
+ const {PgTokenUsageRepository}=await import("../../src/infrastructure/auth/pg-token-usage-repository");
+ return {creditUsageMeter:(db:ConstructorParameters<typeof PgTokenUsageRepository>[0])=>Object.assign(new PgTokenUsageRepository(db),{prepareStart:async()=>undefined})};
 });

@@ -1,0 +1,34 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ❯ tests/ui/i18n-chat-realtime-session.test.tsx (3 tests | 1 failed | 2 skipped) 189ms
+   × keeps English footer sentences separated in both live and muted states 188ms
+     → expected 'You can speak at any time to interrup…' to contain 'interrupt. Voice mode'
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/i18n-chat-realtime-session.test.tsx > keeps English footer sentences separated in both live and muted states
+AssertionError: expected 'You can speak at any time to interrup…' to contain 'interrupt. Voice mode'
+
+Expected: "interrupt. Voice mode"
+Received: "You can speak at any time to interrupt.Voice mode does not currently support tools, skills or workflows. End the call and use text when you need them.The transcript will be saved in this conversation."
+
+ ❯ tests/ui/i18n-chat-realtime-session.test.tsx:47:29
+     45|   const scope=document.getElementById("realtime-voice-session-scope");
+     46|   if(!scope)throw new Error("scope footer missing");
+     47|   expect(scope.textContent).toContain("interrupt. Voice mode");
+       |                             ^
+     48|   expect(scope.textContent).toContain("need them. The transcript");
+     49|   fireEvent.click(screen.getByTestId("realtime-voice-mute"));
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 skipped (3)
+   Start at  04:29:09
+   Duration  3.02s (transform 927ms, setup 157ms, collect 1.48s, tests 189ms, environment 752ms, prepare 45ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/i18n-chat-realtime-session.test.tsx -t keeps English footer sentences

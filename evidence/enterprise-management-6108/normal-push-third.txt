@@ -1,0 +1,151 @@
+==> [harness] pre-push: 受影响模块 typecheck/lint（turbo --affected；跳过用 git push --no-verify）
+[pricing resource limit] normal Turbo tasks run with --concurrency=1
+• turbo 2.10.5
+
+   • Packages in scope: //, @repo/api, @repo/contracts, @repo/desktop, @repo/dev-mode-accounts, @repo/local-runtime, @repo/ops-console, @repo/ops-telemetry, @repo/whiteboard-core, web
+   • Running typecheck, lint in 10 packages
+   • Remote caching disabled
+
+@repo/cloud-deploy:build: cache hit, replaying logs d2a92667c208ed74
+@repo/cloud-deploy:build: 
+@repo/cloud-deploy:build: > @repo/cloud-deploy@0.1.0 build /Users/shenyangjun/.codex/worktrees/72a6/workspacex/packages/cloud-deploy
+@repo/cloud-deploy:build: > tsc --noEmit
+@repo/cloud-deploy:build: 
+@repo/local-runtime:build: cache hit, replaying logs 8b08d8ccc3d8d356
+@repo/local-runtime:build: 
+@repo/local-runtime:build: > @repo/local-runtime@0.1.0 build /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/local-runtime
+@repo/local-runtime:build: > tsc --noEmit
+@repo/local-runtime:build: 
+@repo/skill-sandbox:build: cache hit, replaying logs 8a067388e7ddfa47
+@repo/skill-sandbox:build: 
+@repo/skill-sandbox:build: > @repo/skill-sandbox@0.1.0 build /Users/shenyangjun/.codex/worktrees/72a6/workspacex/apps/skill-sandbox
+@repo/skill-sandbox:build: > tsc --noEmit
+@repo/skill-sandbox:build: 
+@repo/local-asr-gateway:build: cache hit, replaying logs 16ba7203425c02c8
+@repo/local-asr-gateway:build: 
+@repo/local-asr-gateway:build: > @repo/local-asr-gateway@0.1.0 build /Users/shenyangjun/.codex/worktrees/deep-research-trust-console/workspacex/apps/local-asr-gateway
+@repo/local-asr-gateway:build: > tsc --noEmit
+@repo/local-asr-gateway:build: 
+@repo/coord-access:build: cache hit, replaying logs 7e1022316f22738f
+@repo/coord-access:build: 
+@repo/coord-access:build: > @repo/coord-access@0.1.0 build /Users/shenyangjun/.codex/worktrees/deep-research-trust-console/workspacex/packages/coord-access
+@repo/coord-access:build: > tsc --noEmit
+@repo/coord-access:build: 
+@repo/local-runtime:typecheck: cache hit, replaying logs 5e3b2da95ef18839
+@repo/local-runtime:typecheck: 
+@repo/local-runtime:typecheck: > @repo/local-runtime@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/local-runtime
+@repo/local-runtime:typecheck: > tsc --noEmit
+@repo/local-runtime:typecheck: 
+@repo/contracts:typecheck: cache hit, replaying logs 0b936704aa51d5da
+@repo/contracts:typecheck: 
+@repo/contracts:typecheck: > @repo/contracts@0.0.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/packages/contracts
+@repo/contracts:typecheck: > tsc --noEmit
+@repo/contracts:typecheck: 
+@repo/contracts:lint: cache hit, replaying logs eac36de46bbf0b47
+@repo/contracts:lint: 
+@repo/contracts:lint: > @repo/contracts@0.0.0 lint /Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/packages/contracts
+@repo/contracts:lint: > echo '(contracts: 由 lint-contract-source 门控)'
+@repo/contracts:lint: 
+@repo/contracts:lint: (contracts: 由 lint-contract-source 门控)
+@repo/fabric-markdown:build: cache hit, replaying logs 731da9d16c66361e
+@repo/fabric-markdown:build: 
+@repo/fabric-markdown:build: > @repo/fabric-markdown@0.1.0 build /Users/shenyangjun/.codex/worktrees/6712/workspacex/packages/fabric-markdown
+@repo/fabric-markdown:build: > tsc -p tsconfig.build.json
+@repo/fabric-markdown:build: 
+@repo/local-runtime:lint: cache hit, replaying logs a3fae86317fe286f
+@repo/local-runtime:lint: 
+@repo/local-runtime:lint: > @repo/local-runtime@0.1.0 lint /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/local-runtime
+@repo/local-runtime:lint: > echo 'lint: ok'
+@repo/local-runtime:lint: 
+@repo/local-runtime:lint: lint: ok
+@repo/desktop:typecheck: cache hit, replaying logs 6f76422c24ccb071
+@repo/desktop:typecheck: 
+@repo/desktop:typecheck: > @repo/desktop@0.3.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/desktop
+@repo/desktop:typecheck: > tsc --noEmit
+@repo/desktop:typecheck: 
+@repo/desktop:lint: cache hit, replaying logs b439f0a31d948bb6
+@repo/desktop:lint: 
+@repo/desktop:lint: > @repo/desktop@0.3.0 lint /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/desktop
+@repo/desktop:lint: > echo 'lint: ok'
+@repo/desktop:lint: 
+@repo/desktop:lint: lint: ok
+@repo/dev-mode-accounts:build: cache hit, replaying logs c55b1b0f21e10547
+@repo/dev-mode-accounts:build: 
+@repo/dev-mode-accounts:build: > @repo/dev-mode-accounts@0.1.0 build /Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/packages/dev-mode-accounts
+@repo/dev-mode-accounts:build: > tsc --noEmit
+@repo/dev-mode-accounts:build: 
+@repo/dev-mode-accounts:lint: cache hit, replaying logs 0f93b1e6280cbded
+@repo/dev-mode-accounts:lint: 
+@repo/dev-mode-accounts:lint: > @repo/dev-mode-accounts@0.1.0 lint /Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/packages/dev-mode-accounts
+@repo/dev-mode-accounts:lint: > echo 'lint: ok'
+@repo/dev-mode-accounts:lint: 
+@repo/dev-mode-accounts:lint: lint: ok
+@repo/dev-mode-accounts:typecheck: cache hit, replaying logs 2bc359b401740de3
+@repo/dev-mode-accounts:typecheck: 
+@repo/dev-mode-accounts:typecheck: > @repo/dev-mode-accounts@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/packages/dev-mode-accounts
+@repo/dev-mode-accounts:typecheck: > tsc --noEmit
+@repo/dev-mode-accounts:typecheck: 
+@repo/whiteboard-core:lint: cache hit, replaying logs 62b5d8781052feca
+@repo/whiteboard-core:lint: 
+@repo/whiteboard-core:lint: > @repo/whiteboard-core@0.1.0 lint /Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/packages/whiteboard-core
+@repo/whiteboard-core:lint: > tsc --noEmit
+@repo/whiteboard-core:lint: 
+@repo/whiteboard-core:typecheck: cache hit, replaying logs 0bf4d586729aad7f
+@repo/whiteboard-core:typecheck: 
+@repo/whiteboard-core:typecheck: > @repo/whiteboard-core@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/packages/whiteboard-core
+@repo/whiteboard-core:typecheck: > tsc --noEmit
+@repo/whiteboard-core:typecheck: 
+@repo/ops-telemetry:lint: cache hit, replaying logs 43d934f03d480858
+@repo/ops-telemetry:lint: 
+@repo/ops-telemetry:lint: > @repo/ops-telemetry@0.1.0 lint /Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/apps/ops-telemetry
+@repo/ops-telemetry:lint: > echo 'lint: ok'
+@repo/ops-telemetry:lint: 
+@repo/ops-telemetry:lint: lint: ok
+@repo/ops-console:typecheck: cache hit, replaying logs 17fccdf803c3d93d
+@repo/ops-console:typecheck: 
+@repo/ops-console:typecheck: > @repo/ops-console@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/apps/ops-console
+@repo/ops-console:typecheck: > tsc --noEmit
+@repo/ops-console:typecheck: 
+@repo/ops-console:lint: cache hit, replaying logs 2e0a7b4fefa9c24b
+@repo/ops-console:lint: 
+@repo/ops-console:lint: > @repo/ops-console@0.1.0 lint /Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/apps/ops-console
+@repo/ops-console:lint: > echo 'lint: ok'
+@repo/ops-console:lint: 
+@repo/ops-console:lint: lint: ok
+@repo/ops-telemetry:typecheck: cache hit, replaying logs c3ca2eff26b15f93
+@repo/ops-telemetry:typecheck: 
+@repo/ops-telemetry:typecheck: > @repo/ops-telemetry@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/apps/ops-telemetry
+@repo/ops-telemetry:typecheck: > tsc --noEmit
+@repo/ops-telemetry:typecheck: 
+web:lint: cache miss, executing 3c4ae87c9e25019a
+web:lint: 
+web:lint: > web@0.1.0 lint /Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/apps/web
+web:lint: > next lint --max-warnings 0 && node scripts/gen-light-scope.mjs --check && ./scripts/lint-design.sh
+web:lint: 
+web:lint: ✔ No ESLint warnings or errors
+web:lint: ✅ gen-light-scope: .wx-light 与 :root 一致（53 个 token）
+web:lint: 
+web:lint: ✅ lint-design：全部通过（扫描 app components lib）
+@repo/api:typecheck: cache miss, executing 2f97d480af30c4bf
+@repo/api:typecheck: 
+@repo/api:typecheck: > @repo/api@0.0.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/apps/api
+@repo/api:typecheck: > tsc --noEmit
+@repo/api:typecheck: 
+Shutting down Turborepo tasks...
+@repo/api:typecheck:  ELIFECYCLE  Command failed.
+web:typecheck: cache miss, executing 00e5dd892419fc35
+@repo/api:lint: cache miss, executing 605625dea611eca6
+
+ Tasks:    22 successful, 25 total
+Cached:    21 cached, 25 total
+  Time:    10m50.121s 
+
+  ℹ 本地只跑了 typecheck/lint。单元测试与 backend-gates（RLS 反证 / 运行时门 /
+    迁移幂等 / 契约单源 / 洋葱分层 / core-loop e2e）在 PR 的 CI 上跑——本地绿 ≠ CI 绿。
+remote: 
+remote: Create a pull request for 'worker/enterprise-management-6108' on GitHub by visiting:        
+remote:      https://github.com/boardx/workspacex/pull/new/worker/enterprise-management-6108        
+remote: 
+To https://github.com/boardx/workspacex.git
+ * [new branch]          worker/enterprise-management-6108 -> worker/enterprise-management-6108
+branch 'worker/enterprise-management-6108' set up to track 'origin/worker/enterprise-management-6108'.

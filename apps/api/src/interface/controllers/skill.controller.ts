@@ -32,6 +32,7 @@ import {
   GoneException,
   Inject,
   NotFoundException,
+  Optional,
   Param,
   Post,
   Query,
@@ -60,6 +61,9 @@ import type { Principal } from "../../domain/principal";
 import { assertPrincipal } from "../../domain/principal";
 import { toOrgId } from "../../domain/org-id";
 import { CurrentPrincipal } from "../current-principal.decorator";
+import { parseDisplayLocale } from "../parse-display-locale";
+import { ENTITY_LOCALIZATION_REPOSITORY, type EntityLocalizationRepository } from "../../application/localization/entity-localization";
+import { localizeAuthorizedItems, matchesDisplayQuery } from "../../application/localization/localize-authorized-items";
 import { ZodBodyPipe } from "../pipes/zod-body.pipe";
 
 type DisableBody = {
@@ -112,6 +116,7 @@ export class SkillController {
     @Inject(IDENTITY_REPOSITORY) private readonly identities: IdentityRepository,
     @Inject(SKILL_SECURITY_AUDIT) private readonly audit: SecurityAuditPort,
     @Inject(DECISION_ID_FACTORY) private readonly ids: DecisionIdFactory,
+    @Optional() @Inject(ENTITY_LOCALIZATION_REPOSITORY) private readonly localizations?: EntityLocalizationRepository,
   ) {}
 
   /* ─────────────────────── POST /skills（冻结，F192）─────────────────── */
@@ -157,6 +162,7 @@ export class SkillController {
       status: query.status ?? null,
       visibility: query.visibility ?? null,
       q: query.q ?? null,
+      locale: parseDisplayLocale(query.locale),
     });
     this.assertOwnTenant(principal, input.orgId);
 
@@ -183,18 +189,21 @@ export class SkillController {
       .filter((row) => input.source === null || row.source === input.source)
       .filter((row) => input.status === null || row.status === input.status)
       .filter((row) => input.visibility === null || row.visibility === input.visibility)
-      .filter((row) => input.q === null || matchesQuery(row, input.q))
       .map(toListItem);
+    const localized = (await localizeAuthorizedItems(items, { orgId: principal.orgId, kind: "skill", locale: input.locale,
+      idOf: row => row.skillId, versionOf: row => row.currentVersionId, repository: this.localizations }))
+      .filter(row => input.q === null || matchesQuery(row, input.q) || matchesDisplayQuery(row.display, input.q));
 
     // ⚠ 空结果就是 `[]`（A1/V10：前端渲染真实空态，**不生成示例 skill**）。
-    return C.operations.listSkills.out.parse({ items, total: items.length });
+    return C.operations.listSkills.out.parse({ items: localized, total: localized.length });
   }
 
   /* ─────────────────── GET /skills/:skillId ─────────────────── */
 
   @Get("/skills/:skillId")
-  async detail(@CurrentPrincipal() principal: Principal, @Param("skillId") skillId: string) {
+  async detail(@CurrentPrincipal() principal: Principal, @Param("skillId") skillId: string, @Query("locale") localeRaw?: string) {
     assertPrincipal(principal);
+    const locale = parseDisplayLocale(localeRaw);
     const repository = this.repositories.forOrg(principal.orgId);
     const membership = await this.identities.findOrgMembership(
       principal.userId,
@@ -223,9 +232,11 @@ export class SkillController {
     // `skill_contract_reviews`），所以下面不再硬编码 `null` / `false`。
     const scan = await repository.latestScan(detail.bodyVersionId);
     const review = await repository.latestReview(detail.bodyVersionId);
+    const localized = (await localizeAuthorizedItems([toListItem(detail.row)], { orgId: principal.orgId, kind: "skill", locale,
+      idOf: row => row.skillId, versionOf: row => row.currentVersionId, repository: this.localizations }))[0];
 
     return C.operations.getSkillDetail.out.parse({
-      skill: toListItem(detail.row),
+      skill: localized,
       /**
        * ⚠ **本响应正文所属的那一版**，不是 `skill.currentVersionId`（＝生效版本，草稿期 null）。
        *
@@ -400,7 +411,7 @@ export class SkillController {
 }
 
 /** `q` 的匹配面：名称与职责。⚠ 不搜契约正文——那会把未过门禁的提示词泄露进搜索结果。 */
-function matchesQuery(row: SkillContractRow, q: string): boolean {
+function matchesQuery(row: Pick<SkillContractRow, "name" | "duty">, q: string): boolean {
   const needle = q.trim().toLowerCase();
   if (needle === "") return true;
   return (

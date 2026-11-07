@@ -1,0 +1,22 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/ui/email-verification-public.test.tsx (8 tests) 438ms
+ ✓ tests/ui/account-entry-i18n.test.tsx (7 tests) 519ms
+ ✓ tests/ui/reset-password.test.tsx (6 tests) 290ms
+stderr | tests/ui/bootstrap-first-admin.test.tsx > first-user bootstrap on the real registration page > toggling to bootstrap mode creates the first admin, logs in immediately, and persists the real session
+Not implemented: navigation to another Document
+
+stderr | tests/ui/bootstrap-first-admin.test.tsx > first-user bootstrap on the real registration page > recovers login when bootstrap committed but its HTTP response was lost
+Not implemented: navigation to another Document
+
+ ✓ tests/ui/bootstrap-first-admin.test.tsx (4 tests) 275ms
+ ✓ tests/ui/registration-field-errors.test.tsx (5 tests) 254ms
+ ✓ tests/ui/i18n.test.tsx (6 tests) 318ms
+ ✓ tests/lib/i18n-resources.test.ts (5 tests) 28ms
+
+ Test Files  7 passed (7)
+      Tests  41 passed (41)
+   Start at  07:52:51
+   Duration  11.22s (transform 1.18s, setup 711ms, collect 3.75s, tests 2.12s, environment 3.25s, prepare 306ms)

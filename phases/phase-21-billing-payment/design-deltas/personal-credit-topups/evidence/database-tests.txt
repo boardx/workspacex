@@ -1,0 +1,69 @@
+[stack-admission] load1=11.94 cores=10 perCore=1.19 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvxy04rf-63cf6a07-d3a65d19f79a db=wsx_d3a65d19f79a787977ee compose=wsx-d3a65d19f79a787977ee pg=20385 redis=21385 api=24385 web=25385 sandbox=26385 model=27385 deep-agent=28385 asr=29385 vision=30385 loopback-sandbox=31385 mail=19385
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_d3a65d19f79a787977ee capacity=100 current=6 required=32
+{"level":"info","msg":"billing_callback_pending","traceId":"2ed1d757-ad70-4774-ad7d-8eeaebe53316","stage":"credit","providerEventId":"f05-644fd014-9f06-48d3-8b8d-1d217357c64b","orderNo":"bg20261101144647OhJTg9"}
+{"level":"info","msg":"billing_callback_pending","traceId":"99582c89-4944-4c1f-821d-9b1b51e25b86","stage":"credit","providerEventId":"f05-644fd014-9f06-48d3-8b8d-1d217357c64b","orderNo":"bg20261101144647OhJTg9"}
+{"level":"info","msg":"billing_callback_pending","traceId":"0547de05-4c71-48df-9287-6c689d657aa7","stage":"credit","providerEventId":"f05-644fd014-9f06-48d3-8b8d-1d217357c64b","orderNo":"bg20261101144647OhJTg9"}
+{"level":"info","msg":"billing_callback_pending","traceId":"956811a3-e6e1-4046-80c9-df4feb1afa7e","stage":"credit","providerEventId":"f05-644fd014-9f06-48d3-8b8d-1d217357c64b","orderNo":"bg20261101144647OhJTg9"}
+{"level":"info","msg":"billing_callback_pending","traceId":"28f7cd7d-b30d-4030-bba1-7bd6ac06ad67","stage":"credit","providerEventId":"f05-644fd014-9f06-48d3-8b8d-1d217357c64b","orderNo":"bg20261101144647OhJTg9"}
+{"level":"error","msg":"billing_callback_failed","traceId":"0f6e144a-7757-4b8b-ac94-d847362490e8","detail":{"stage":"accept","code":"23505","providerEventId":"f05-227d8b17-a95d-4bca-a246-61b70678e809","orderNo":"bg202611011446491BGbAb"}}
+{"level":"info","msg":"billing_late_paid_order","traceId":"f05-8eea0273-02d4-487e-b756-32d90bd624c5","orderNo":"bg20261101144649cCbU3f"}
+{"level":"info","msg":"database_connection_error","traceId":"database","code":"unknown"}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-fc35ffc3-710a-44cc-8bb4-3f308d8a1075","detail":{"providerEventId":"f05-fc35ffc3-710a-44cc-8bb4-3f308d8a1075","code":"57P01"}}
+{"level":"info","msg":"billing_callback_pending","traceId":"116b48fc-eb9a-4276-bbca-24fcb1eebf22","stage":"credit","providerEventId":"f05-fc35ffc3-710a-44cc-8bb4-3f308d8a1075","orderNo":"bg20261101144650UPFYDn"}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-521cc539-fabf-4750-9d5b-65cbfda6372b","detail":{"providerEventId":"f05-521cc539-fabf-4750-9d5b-65cbfda6372b","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-070cb822-5aef-416f-b006-d5e1ee1f183f","detail":{"providerEventId":"f05-070cb822-5aef-416f-b006-d5e1ee1f183f","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-923e17cd-34c1-402c-a236-cfdcb55c6d33","detail":{"providerEventId":"f05-923e17cd-34c1-402c-a236-cfdcb55c6d33","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-b3974a97-4c95-42bb-b207-9397edcb0d73","detail":{"providerEventId":"f05-b3974a97-4c95-42bb-b207-9397edcb0d73","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-488579d2-5558-4e27-9aa8-c19e120f82fc","detail":{"providerEventId":"f05-488579d2-5558-4e27-9aa8-c19e120f82fc","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-f44cd0f8-51a1-4beb-bf83-2fd2fb0fa57c","detail":{"providerEventId":"f05-f44cd0f8-51a1-4beb-bf83-2fd2fb0fa57c","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-6d1e9c5e-fb6f-4b1f-bab7-cef2210b2a67","detail":{"providerEventId":"f05-6d1e9c5e-fb6f-4b1f-bab7-cef2210b2a67","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-a387881e-7114-4151-a3f1-4f634909093b","detail":{"providerEventId":"f05-a387881e-7114-4151-a3f1-4f634909093b","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-5d1f72e3-75a6-486c-a17d-0f467effd065","detail":{"providerEventId":"f05-5d1f72e3-75a6-486c-a17d-0f467effd065","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-386b776d-ceac-4278-9318-3e125a6e0cab","detail":{"providerEventId":"f05-386b776d-ceac-4278-9318-3e125a6e0cab","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-521cc539-fabf-4750-9d5b-65cbfda6372b","detail":{"providerEventId":"f05-521cc539-fabf-4750-9d5b-65cbfda6372b","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-070cb822-5aef-416f-b006-d5e1ee1f183f","detail":{"providerEventId":"f05-070cb822-5aef-416f-b006-d5e1ee1f183f","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-923e17cd-34c1-402c-a236-cfdcb55c6d33","detail":{"providerEventId":"f05-923e17cd-34c1-402c-a236-cfdcb55c6d33","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-b3974a97-4c95-42bb-b207-9397edcb0d73","detail":{"providerEventId":"f05-b3974a97-4c95-42bb-b207-9397edcb0d73","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-488579d2-5558-4e27-9aa8-c19e120f82fc","detail":{"providerEventId":"f05-488579d2-5558-4e27-9aa8-c19e120f82fc","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-f44cd0f8-51a1-4beb-bf83-2fd2fb0fa57c","detail":{"providerEventId":"f05-f44cd0f8-51a1-4beb-bf83-2fd2fb0fa57c","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-6d1e9c5e-fb6f-4b1f-bab7-cef2210b2a67","detail":{"providerEventId":"f05-6d1e9c5e-fb6f-4b1f-bab7-cef2210b2a67","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-a387881e-7114-4151-a3f1-4f634909093b","detail":{"providerEventId":"f05-a387881e-7114-4151-a3f1-4f634909093b","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-5d1f72e3-75a6-486c-a17d-0f467effd065","detail":{"providerEventId":"f05-5d1f72e3-75a6-486c-a17d-0f467effd065","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-386b776d-ceac-4278-9318-3e125a6e0cab","detail":{"providerEventId":"f05-386b776d-ceac-4278-9318-3e125a6e0cab","code":"event_conflict"}}
+{"level":"info","msg":"billing_payment_manual_recovery","traceId":"f05-b26e2223-d488-440d-ba12-a951b450b0d5","orderNo":"bg20261101144659Qz1dbk","reason":"wallet_limit"}
+ ✓ tests/billing/wechat-notify-crediting.test.ts (14 tests) 45925ms
+   ✓ F05 durable idempotent PostgreSQL crediting > credits base and bonus separately using total price rather than coupon-discounted payer_total 372ms
+   ✓ F05 durable idempotent PostgreSQL crediting > credits once under duplicate and distinct concurrent provider events for one order 608ms
+   ✓ F05 durable idempotent PostgreSQL crediting > does not reuse an event id for a different receipt or order 441ms
+   ✓ F05 durable idempotent PostgreSQL crediting > rejects a merchant transaction reused on a different order 384ms
+   ✓ F05 durable idempotent PostgreSQL crediting > credits at most one order when one merchant transaction races across orders 492ms
+   ✓ F05 durable idempotent PostgreSQL crediting > honors genuine paid funds after local closure and retains the previous close audit 341ms
+   ✓ F05 durable idempotent PostgreSQL crediting > does not create a zero-credit bonus ledger entry 349ms
+   ✓ F05 durable idempotent PostgreSQL crediting > recovers a connection crash before commit from a durable receipt after a new app/pool starts 7179ms
+   ✓ F05 durable idempotent PostgreSQL crediting > does not double credit when the committed success ACK is lost on the network 399ms
+   ✓ F05 durable idempotent PostgreSQL crediting > does not let ten conflicting receipts starve a later valid crash-recovery receipt 1553ms
+   ✓ F05 durable idempotent PostgreSQL crediting > records an explicit permanent wallet limit for manual recovery without partial credit 331ms
+   ✓ credits new CN package credit-cn-10000-v1 exactly once 378ms
+   ✓ credits new CN package credit-cn-50000-v1 exactly once 382ms
+   ✓ credits new CN package credit-cn-200000-v1 exactly once 505ms
+ ✓ tests/billing/stripe-credit-checkout-pg.test.ts (11 tests) 2303ms
+ ✓ tests/billing/reference-package-catalog.test.ts (2 tests) 893ms
+
+ Test Files  3 passed (3)
+      Tests  27 passed (27)
+   Start at  22:46:01
+   Duration  65.40s (transform 3.35s, setup 57ms, collect 6.77s, tests 49.12s, environment 1ms, prepare 434ms)
+
+[db-isolation] db=wsx_d3a65d19f79a787977ee peak_connections=7
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/reference-package-catalog.test.ts tests/billing/stripe-credit-checkout-pg.test.ts tests/billing/wechat-notify-crediting.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1m7s
+  清理：1s
+  总计：1m8s

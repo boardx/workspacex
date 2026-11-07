@@ -1,0 +1,21 @@
+{
+  "baseline": "25e8a6b16a242c2e80a9de54bf4c8dc192d7a814",
+  "source": "49b537ec33ac51ac231997a9667252b2f5dfd279",
+  "sourcePaths": [
+    "apps/web/components/survey/live/response-list.tsx",
+    "apps/web/e2e/i18n-survey-journey.spec.ts",
+    "apps/web/lib/i18n/namespaces/survey-results.ts",
+    "apps/web/tests/ui/survey-results-i18n.test.tsx"
+  ],
+  "templateIntakeAndPreambleByteExact": true,
+  "responseListByteExactAfterReversingOnlyFiveClassChanges": true,
+  "namespaceByteExactAfterReversingOnlyTwoEnglishCopyChanges": true,
+  "noApiContractsWorkflowDiff": true,
+  "e2eAuthorDelta": "Only375 detail ownbounds/scrollWidth and allbutton horizontalbounds assertions added; existing assertions and budgets preserved",
+  "sha256": {
+    "apps/web/components/survey/live/response-list.tsx": "cd6444cc74dcc52fa55cad3926692ab98f2a5f70d9a6471e8c598d1479f8bc26",
+    "apps/web/lib/i18n/namespaces/survey-results.ts": "1fd0cbd162cc17c234f64fd779f5e7dc817bf8695b1540b10286f8d4ab6da843",
+    "apps/web/tests/ui/survey-results-i18n.test.tsx": "fe2278199d99712dd58d22c6c567d369e8a5bfac8f0cb15efdb2be69537cbe45",
+    "apps/web/e2e/i18n-survey-journey.spec.ts": "eeed7551be135db72c0e28eb4d677830316c2417c15920138b32d2a499e9f884"
+  }
+}

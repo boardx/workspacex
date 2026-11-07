@@ -1,0 +1,46 @@
+{
+  "kind": "migration-wrapper-review-and-parser-fix-v1",
+  "reviewer": "browser_linux_integration",
+  "decision": "PARSER_FIX_PENDING_ROOT_INDEPENDENT_REVIEW",
+  "files": {
+    "tests/cn_release_migration_guard_linux.py": "7d81450ef6d8f9d566b9c673e1fb4a8c6529d738892b7e5f8d5e3432a11738c0",
+    "tests/cn_release_migration_terminal_linux.py": "3a8ddfed25d1271537acedb3d713915475daf3a46b95bf21e438ed2231b01af9",
+    "tests/test_cn_release_migration_guard_wrapper.py": "a8db187be990d8db41af8029085e9e696004a98e5cf0db1b0e18b996e8107d78",
+    "tests/test_cn_release_migration_terminal_wrapper.py": "db6b00c4a1e35f93c9e32d8f7e58e234a84f5764ce70167581b8efbbdf11a32f",
+    "tests/cn_release_migration_owner_linux.py": "cf5da91a79a5aeeed23591d3177cced383bc11887f2e0f62699a21386514d937",
+    "tests/fixtures/cn-migration-owner/guard-cases.json": "2c6f5dd486e6145577bcd426495616406146c5903a2f81111414e2dd6bd1af00",
+    "tests/fixtures/cn-migration-owner/terminal-cases.json": "ba065c700e3fd9767e76ab2e8fa5ada7fae18a38198a92b4c37e1b5ecbf9eac8"
+  },
+  "finding": {
+    "counterproof": "Before fix both parsers accepted valid manifest TAP plus extra not ok or Bail out",
+    "toolChunk": "d8fc77",
+    "fix": "Explicit case-insensitive failure/bailout rejection including indented output; original counts, inventory, CLI and deadlines retained.",
+    "author": "browser_linux_integration",
+    "independentReviewerRequired": "root"
+  },
+  "validation": {
+    "wrapperTests": 12,
+    "nodeGuardTests": 51,
+    "nodeTerminalTests": 68,
+    "pythonNativeTests": 19,
+    "failures": 0,
+    "skips": 0,
+    "actualNodeOutputValidatedByFinalParser": true,
+    "realLinuxOwnerPrimitiveExecuted": false,
+    "tools": [
+      "4b6ad8",
+      "facf08",
+      "665f84"
+    ]
+  },
+  "unchangedScopeReview": [
+    "Guard binds fixed three test files and exact 51 unique case names; terminal binds fixed five files and exact ordered68 names. Native19 use fixed2 Python modules; counts and skip/expectedfail/error all gated.",
+    "Terminal Node and Python subprocesses share one180second deadline; kill/reap grace and descendant containment depend on existing outer Domain.",
+    "Owner primitive creates only random current-cgroup child, retains separate owner op group and flock FD9 across actual finite dispatcher timeout, then checks own subtree empty before remove. No systemd or production claim."
+  ],
+  "limitations": [
+    "Four parser-related files now authored by reviewer; root must independently accept them before commit.",
+    "Mac actual Node/Python fixture tests are not Linux cgroup/FD9 evidence.",
+    "No production migration execution or f0eb candidate validation."
+  ]
+}

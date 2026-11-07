@@ -59,13 +59,15 @@ describe("lint-arch-deps", () => {
     expect(scannedCount(r.out)).toBeGreaterThan(0);
   });
 
-  it("the composition root is allowlisted, and the allowlist is short", () => {
+  it("the composition root is allowlisted, and only the reviewed files are exempt", () => {
     const src = execFileSync("node", ["-e", `process.stdout.write(require("fs").readFileSync(${JSON.stringify(GATE)},"utf8"))`], {
       encoding: "utf8",
     });
     const list = /const COMPOSITION_ROOT = new Set\(\[([^\]]*)\]\)/.exec(src)?.[1] ?? "";
-    const entries = list.split(",").map((s) => s.trim()).filter(Boolean);
-    expect(entries.length, "every entry here is a file the layering rules do not protect").toBeLessThanOrEqual(3);
+    const entries = JSON.parse(`[${list}]`) as string[];
+    expect(entries.sort(), "every composition exemption requires explicit review").toEqual([
+      "billing.module.ts", "enterprise-management.wiring.ts", "kernel.module.ts", "localization.module.ts", "main.ts",
+    ]);
   });
 });
 

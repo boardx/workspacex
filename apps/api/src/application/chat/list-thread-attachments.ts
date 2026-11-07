@@ -1,3 +1,4 @@
+import type {Attachment as PublicAttachment} from "@repo/contracts/chat-file-upload";
 /**
  * `listThreadAttachments` —— 右侧栏「材料」列表（#728 D9，人类 2026-08-21 裁决选项 A：
  * 先做「产物 + 材料」两个有真实数据支撑的标签；转录控件保留在消息面板上方，不搬进
@@ -16,7 +17,7 @@ import type { AttachmentCommandRepository } from "./upload-attachment";
 import { resolveVisibility, type ResolveVisibilityDeps } from "./resolve-visibility";
 import { ThreadNotVisibleError } from "./get-thread";
 
-export interface ThreadAttachmentItem {
+export interface ThreadAttachmentItem extends Pick<PublicAttachment,"extractionStatus"|"extractionError"> {
   readonly id: string;
   readonly filename: string;
   readonly mime: string;
@@ -63,6 +64,7 @@ export async function listThreadAttachments(
     bytes: r.bytes,
     createdAt: r.createdAt,
     messageId: r.messageId,
+    ...(r.extractionStatus!==undefined?{extractionStatus:r.extractionStatus,extractionError:r.extractionError}:{}),
   }));
 
   return { items };

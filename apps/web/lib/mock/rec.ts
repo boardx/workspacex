@@ -1,3 +1,5 @@
+import { RECORDING_DISPLAY_ZH, formatRecordingDisplayCopy } from "@/lib/recording-display-copy";
+
 /**
  * `rec`（录音与转写）能力域的 mock 数据 —— UC-5.1 ~ UC-5.4，覆盖 F69~F79（11 feature / 31 点）。
  *
@@ -42,9 +44,9 @@ export const REC_SCREEN_LABEL: Record<RecScreen, string> = {
   prep: "准备室 · 逐人授权",
   live: "实时转录",
   process: "处理状态",
-  verify: "逐字稿校对",
+  verify: RECORDING_DISPLAY_ZH["rec.project.transcript.review"],
   assign: "指派说话人",
-  annotate: "引述与打点",
+  annotate: RECORDING_DISPLAY_ZH["rec.project.quotes.and.markers"],
   retention: "回流与保留期",
 };
 export const REC_SCREEN_UC: Record<RecScreen, string> = {
@@ -67,7 +69,7 @@ export const CARRIERS: Carrier[] = ["workshop", "interview", "thread"];
 export const CARRIER_LABEL: Record<Carrier, string> = {
   workshop: "项目现场（四组并行）",
   interview: "访谈现场",
-  thread: "对话线程",
+  thread: RECORDING_DISPLAY_ZH["rec.project.source.conversation"],
 };
 export function resolveCarrier(raw: string | string[] | undefined): Carrier {
   const v = Array.isArray(raw) ? raw[0] : raw;
@@ -90,7 +92,7 @@ const REC_VIEW_IDS: RecView[] = ["facilitator", "groupLead", "member", "observer
 
 export const REC_VIEWS_BY_CARRIER: Record<Carrier, { id: RecView; label: string; note: string }[]> = {
   workshop: [
-    { id: "facilitator", label: "引导师", note: "可发起、指派、标引述、确认 AI 打点" },
+    { id: "facilitator", label: RECORDING_DISPLAY_ZH["rec.project.role.facilitator"], note: "可发起、指派、标引述、确认 AI 打点" },
     { id: "groupLead", label: "组长", note: "被授权范围内参与，看与自身角色相关结果" },
     { id: "member", label: "组员", note: "参与本组，看本组转录；跨组不可见" },
     { id: "observer", label: "观察者", note: "仅已发布且授权允许时只读脱敏结果" },
@@ -99,10 +101,10 @@ export const REC_VIEWS_BY_CARRIER: Record<Carrier, { id: RecView; label: string;
     { id: "facilitator", label: "主持人", note: "可发起、指派、标引述、确认 AI 打点" },
     { id: "groupLead", label: "联合主持", note: "被授权范围内参与，协助主持人推进访谈" },
     { id: "observer", label: "观察员", note: "仅已发布且授权允许时只读脱敏结果" },
-    { id: "interviewee", label: "受访者", note: "只看自己的授权与撤回，看不到项目内部材料" },
+    { id: "interviewee", label: RECORDING_DISPLAY_ZH["rec.project.role.interviewee"], note: "只看自己的授权与撤回，看不到项目内部材料" },
   ],
   thread: [
-    { id: "facilitator", label: "引导师", note: "可发起、指派、标引述、确认 AI 打点" },
+    { id: "facilitator", label: RECORDING_DISPLAY_ZH["rec.project.role.facilitator"], note: "可发起、指派、标引述、确认 AI 打点" },
     { id: "groupLead", label: "组长", note: "被授权范围内参与，看与自身角色相关结果" },
     { id: "member", label: "组员", note: "参与本组，看本组转录；跨组不可见" },
     { id: "observer", label: "观察者", note: "仅已发布且授权允许时只读脱敏结果" },
@@ -153,11 +155,11 @@ export function isQuotable(s: TranscriptSegment): boolean {
 export type PiiType = z.infer<typeof RecC.PiiType>;
 export const PII_TYPES = RecC.PiiType.options;
 export const PII_LABEL: Record<PiiType, string> = {
-  email: "邮箱地址",
-  phone: "手机号",
-  "id-card": "身份证号",
-  "bank-card": "银行卡号",
-  address: "详细住址",
+  email: RECORDING_DISPLAY_ZH["rec.project.pii.email"],
+  phone: RECORDING_DISPLAY_ZH["rec.project.pii.phone"],
+  "id-card": RECORDING_DISPLAY_ZH["rec.project.pii.id-card"],
+  "bank-card": RECORDING_DISPLAY_ZH["rec.project.pii.bank-card"],
+  address: RECORDING_DISPLAY_ZH["rec.project.pii.address"],
 };
 
 /** 时间码 anchor —— 字段名与契约 `Anchor`（startMs/endMs）对齐，音频段 kind=audio-span。*/
@@ -179,9 +181,9 @@ export interface SegAnchor {
  */
 export type EvidenceNatureView = "personal" | "secondhand" | "opinion";
 export const EVIDENCE_NATURE_LABEL: Record<EvidenceNatureView, string> = {
-  personal: "个人经历",
-  secondhand: "二手转述",
-  opinion: "观点",
+  personal: RECORDING_DISPLAY_ZH["rec.project.evidenceNature.personal"],
+  secondhand: RECORDING_DISPLAY_ZH["rec.project.evidenceNature.secondhand"],
+  opinion: RECORDING_DISPLAY_ZH["rec.project.evidenceNature.opinion"],
 };
 
 export interface TranscriptSegment {
@@ -240,9 +242,9 @@ export function speakerById(id: string | null): Speaker | undefined {
 }
 export function speakerDisplay(id: string | null, view: RecView): string {
   const s = speakerById(id);
-  if (!s) return "出处待补";
+  if (!s) return RECORDING_DISPLAY_ZH["rec.project.source.needed"];
   if (view === "observer") {
-    return s.role === "interviewee" ? "受访者" : s.role === "facilitator" ? "引导师" : s.role === "researcher" ? "研究员" : "参与者";
+    return s.role === "interviewee" ? RECORDING_DISPLAY_ZH["rec.project.role.interviewee"] : s.role === "facilitator" ? RECORDING_DISPLAY_ZH["rec.project.role.facilitator"] : s.role === "researcher" ? RECORDING_DISPLAY_ZH["rec.project.role.researcher"] : RECORDING_DISPLAY_ZH["rec.project.role.member"];
   }
   // 拒绝实名 → 一律用代称（与 entry.ts 同源口径）
   return s.consentRefusedRealname && s.alias ? s.alias : s.realName;
@@ -259,18 +261,18 @@ export const SESSION: Record<Carrier, {
 }> = {
   workshop: {
     title: "远洋 · 欧洲市场进入 · 现场推演", project: "欧洲市场进入", segment: "议程环节：机会发散",
-    connection: "已连接", recording: "四组并行录音中", elapsed: "28:14", planned: "60:00",
-    latencySec: "1.2s", langDir: null, lastSync: "3 秒前",
+    connection: RECORDING_DISPLAY_ZH["rec.project.sessionConnected"], recording: RECORDING_DISPLAY_ZH["rec.project.sessionRecording.workshop"], elapsed: "28:14", planned: "60:00",
+    latencySec: "1.2s", langDir: null, lastSync: formatRecordingDisplayCopy("rec.project.syncSecondsAgo", { count: 3 }),
   },
   interview: {
     title: "第 3 组访谈 · 储能采购决策", project: "欧洲市场进入", segment: "议程环节：深访",
-    connection: "已连接", recording: "录音中", elapsed: "34:12", planned: "60:00",
-    latencySec: "1.8s", langDir: "德→中", lastSync: "刚刚",
+    connection: RECORDING_DISPLAY_ZH["rec.project.sessionConnected"], recording: RECORDING_DISPLAY_ZH["rec.project.sessionRecording.interview"], elapsed: "34:12", planned: "60:00",
+    latencySec: "1.8s", langDir: RECORDING_DISPLAY_ZH["rec.project.sessionLang"], lastSync: RECORDING_DISPLAY_ZH["rec.project.syncJustNow"],
   },
   thread: {
-    title: "欧洲储能进入策略 · 假设梳理", project: "欧洲市场进入", segment: "对话线程",
-    connection: "已连接", recording: "会议转录中", elapsed: "28:14", planned: "—",
-    latencySec: "1.5s", langDir: null, lastSync: "1 秒前",
+    title: "欧洲储能进入策略 · 假设梳理", project: "欧洲市场进入", segment: RECORDING_DISPLAY_ZH["rec.project.source.conversation"],
+    connection: RECORDING_DISPLAY_ZH["rec.project.sessionConnected"], recording: RECORDING_DISPLAY_ZH["rec.project.sessionRecording.thread"], elapsed: "28:14", planned: "—",
+    latencySec: "1.5s", langDir: null, lastSync: formatRecordingDisplayCopy("rec.project.syncSecondsAgo", { count: 1 }),
   },
 };
 
@@ -284,36 +286,36 @@ export interface RecTrack {
 }
 export const TRACKS: Record<Carrier, RecTrack[]> = {
   workshop: [
-    { id: "g1", label: "第 1 组", status: "live", note: "实时 · 不串台" },
-    { id: "g2", label: "第 2 组", status: "live", note: "实时 · 不串台" },
-    { id: "g3", label: "第 3 组", status: "buffering", note: "断网 · 本地缓存中，恢复后补传并标缺口" },
-    { id: "g4", label: "第 4 组", status: "declined", note: "拒绝麦克风 · 本路未录制，不产生转写段" },
+    { id: "g1", label: formatRecordingDisplayCopy("rec.project.trackLabel.group", { count: 1 }), status: "live", note: RECORDING_DISPLAY_ZH["rec.project.trackNote.live"] },
+    { id: "g2", label: formatRecordingDisplayCopy("rec.project.trackLabel.group", { count: 2 }), status: "live", note: RECORDING_DISPLAY_ZH["rec.project.trackNote.live"] },
+    { id: "g3", label: formatRecordingDisplayCopy("rec.project.trackLabel.group", { count: 3 }), status: "buffering", note: RECORDING_DISPLAY_ZH["rec.project.trackNote.buffering"] },
+    { id: "g4", label: formatRecordingDisplayCopy("rec.project.trackLabel.group", { count: 4 }), status: "declined", note: RECORDING_DISPLAY_ZH["rec.project.trackNote.declined"] },
   ],
   interview: [
-    { id: "itv", label: "受访者 P-10", status: "live", note: "实时 · 不串台" },
-    { id: "itr", label: "研究员 林可", status: "live", note: "实时 · 不串台" },
-    { id: "w", label: "受访者 Weber", status: "muted", note: "已关闭麦克风 · 录制已暂停，缺口保留不拼接" },
+    { id: "itv", label: formatRecordingDisplayCopy("rec.project.trackLabel.interviewee", { name: "P-10" }), status: "live", note: RECORDING_DISPLAY_ZH["rec.project.trackNote.live"] },
+    { id: "itr", label: formatRecordingDisplayCopy("rec.project.trackLabel.researcher", { name: "林可" }), status: "live", note: RECORDING_DISPLAY_ZH["rec.project.trackNote.live"] },
+    { id: "w", label: formatRecordingDisplayCopy("rec.project.trackLabel.interviewee", { name: "Weber" }), status: "muted", note: RECORDING_DISPLAY_ZH["rec.project.trackNote.muted"] },
   ],
   thread: [
-    { id: "th", label: "会议音频", status: "live", note: "实时 · 不串台" },
+    { id: "th", label: RECORDING_DISPLAY_ZH["rec.project.trackLabel.meeting"], status: "live", note: RECORDING_DISPLAY_ZH["rec.project.trackNote.live"] },
   ],
 };
 
 export const TRACK_STATUS_LABEL: Record<TrackStatus, string> = {
-  live: "录制中",
-  buffering: "断网缓存",
-  paused: "已暂停",
-  declined: "未录制（拒绝麦克风）",
-  muted: "已关麦（录制已暂停）",
+  live: RECORDING_DISPLAY_ZH["rec.project.track.live"],
+  buffering: RECORDING_DISPLAY_ZH["rec.project.track.buffering"],
+  paused: RECORDING_DISPLAY_ZH["rec.project.track.paused"],
+  declined: RECORDING_DISPLAY_ZH["rec.project.track.declined"],
+  muted: RECORDING_DISPLAY_ZH["rec.project.track.muted"],
 };
 
 /* ── 右栏五标签（UC-5.1 R8：转录 / 执行 / 洞察 / 产物 / 材料）─────────────── */
 export const RIGHT_TABS: { id: string; label: string; count: number | null }[] = [
-  { id: "transcript", label: "转录", count: null },
-  { id: "execution", label: "执行", count: 2 },
-  { id: "insight", label: "洞察", count: 6 },
-  { id: "artifact", label: "产物", count: 3 },
-  { id: "material", label: "材料", count: 12 }, // 第五标签叫「材料」不是「来源」，testid 用 material
+  { id: "transcript", label: RECORDING_DISPLAY_ZH["rec.project.tasks.transcribe"], count: null },
+  { id: "execution", label: RECORDING_DISPLAY_ZH["rec.project.tabs.execution"], count: 2 },
+  { id: "insight", label: RECORDING_DISPLAY_ZH["rec.project.tabs.insight"], count: 6 },
+  { id: "artifact", label: RECORDING_DISPLAY_ZH["rec.project.tabs.artifact"], count: 3 },
+  { id: "material", label: RECORDING_DISPLAY_ZH["rec.project.tabs.material"], count: 12 }, // 第五标签叫「材料」不是「来源」，testid 用 material
 ];
 
 /* ─────────────────────── UC-5.1 逐字稿（实时转录屏）─────────────────────── */
@@ -391,13 +393,12 @@ export const ANON_CHANNELS: AnonChannelCard[] = [
 ];
 
 /** 声纹 embedding 销毁状态（O-14：指派完成即销毁，兜底本场结束后 7 天）*/
+const VOICEPRINT_FALLBACK_DAY = 7;
 export const VOICEPRINT = {
   /** 本场是否已全部指派完成 */
   allAssigned: false,
-  fallbackDay: 7,
-  note:
-    "本场声纹 embedding 属 derived_representations，指派完成即物理删除并写审计；" +
-    "未完成则兜底任务在本场结束第 7 天无条件销毁。存活期远短于材料保留期（180 天）。", // [threshold-ok:retentionMaterial] 说明性对比，非取值
+  fallbackDay: VOICEPRINT_FALLBACK_DAY,
+  note: formatRecordingDisplayCopy("rec.project.voiceprint", { fallback: VOICEPRINT_FALLBACK_DAY, comparison: 180 }), // [threshold-ok:retentionMaterial] Canonical preview comparison, not a retention setting.
 };
 
 /* ─────────────────────── UC-5.3 AI 打点候选队列（打点屏）─────────────────── */
@@ -488,7 +489,7 @@ export const MATERIALS: MaterialRow[] = [
     pinnedByFinalReport: "欧洲市场进入 · 终版报告 v3（2026-06-20 定版）",
   },
   {
-    id: "mat-06", name: "线程音频 · 假设梳理.wav", source: "conversation", segment: "对话线程", sizeBytes: 41_200_004,
+    id: "mat-06", name: "线程音频 · 假设梳理.wav", source: "conversation", segment: RECORDING_DISPLAY_ZH["rec.project.source.conversation"], sizeBytes: 41_200_004,
     storedAt: "2026-06-01", deleteBy: "2026-08-30", retentionDays: 90, resolvedFrom: "project-override", status: "active",
   },
 ];
@@ -521,16 +522,16 @@ export function consentItemsFor(days: number): {
   id: ConsentItemId; label: string; desc: string; granted: boolean;
 }[] {
   return [
-    { id: "record", label: "录音", desc: `只在这场访谈中录，${days} 天后自动删除。`, granted: true },
-    { id: "transcript", label: "转成文字稿", desc: "你可以要一份自己的副本。", granted: true },
+    { id: "record", label: RECORDING_DISPLAY_ZH["rec.project.consentLabel.record"], desc: formatRecordingDisplayCopy("rec.project.consentHelp.record", { days }), granted: true },
+    { id: "transcript", label: RECORDING_DISPLAY_ZH["rec.project.consentLabel.transcript"], desc: RECORDING_DISPLAY_ZH["rec.project.consentHelp.transcript"], granted: true },
     {
-      id: "aiAnalysis", label: "交给 AI 做分析",
-      desc: "参与主题归纳与证据强度计算；拒绝后你的发言只进逐字稿，报告里只能作为直接引述出现。",
+      id: "aiAnalysis", label: RECORDING_DISPLAY_ZH["rec.project.consentLabel.aiAnalysis"],
+      desc: RECORDING_DISPLAY_ZH["rec.project.consentHelp.aiAnalysis"],
       granted: false,
     },
     {
-      id: "realname", label: "在报告中署我的姓名与职务",
-      desc: "未勾选时，报告里一律写成「某物流园区运营总监」，不出现你的名字。",
+      id: "realname", label: RECORDING_DISPLAY_ZH["rec.project.consentLabel.realname"],
+      desc: RECORDING_DISPLAY_ZH["rec.project.consentHelp.realname"],
       granted: false,
     },
   ];

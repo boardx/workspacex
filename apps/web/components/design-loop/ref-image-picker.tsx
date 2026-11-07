@@ -22,6 +22,7 @@ import * as React from "react";
 import { ImagePlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n/provider";
 import { PROTOTYPE_MAX_REF_IMAGES } from "@/lib/live-design-workbench";
 
 export function RefImagePicker({
@@ -33,6 +34,7 @@ export function RefImagePicker({
   readonly onChange: (next: readonly File[]) => void;
   readonly disabled?: boolean;
 }): React.ReactElement {
+  const { t } = useI18n();
   const [dragging, setDragging] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const full = files.length >= PROTOTYPE_MAX_REF_IMAGES;
@@ -53,25 +55,30 @@ export function RefImagePicker({
    * 非图片文件在调用点就被 `filter` 掉。三种情况下用户都是"拖了一下，什么也没发生"，
    * 而他手里那张图恰恰是他这次最想让 AI 看的东西。每一条都说出来。
    */
-  const [note, setNote] = React.useState<string | null>(null);
+  const [note, setNote] = React.useState<
+    | { kind: "imagesOnly" | "full" }
+    | { kind: "extra"; room: number; extra: number }
+    | { kind: "dropped"; added: number; dropped: number }
+    | null
+  >(null);
   const add = (incoming: readonly File[], dropped = 0) => {
     if (disabled) return;
     const room = PROTOTYPE_MAX_REF_IMAGES - files.length;
     if (dropped > 0 && incoming.length === 0) {
-      setNote("这里只收图片（PNG / JPEG / WebP）。");
+      setNote({ kind: "imagesOnly" });
       return;
     }
     if (incoming.length === 0) return;
     if (room <= 0) {
-      setNote(`已经 ${PROTOTYPE_MAX_REF_IMAGES} 张了，去掉一张才能再加。`);
+      setNote({ kind: "full" });
       return;
     }
     const extra = incoming.length - room;
     setNote(
       extra > 0
-        ? `只收下了 ${room} 张——最多 ${PROTOTYPE_MAX_REF_IMAGES} 张，另外 ${extra} 张没加进来。`
+        ? { kind: "extra", room, extra }
         : dropped > 0
-          ? `加了 ${incoming.length} 张；另外 ${dropped} 个不是图片，没收。`
+          ? { kind: "dropped", added: incoming.length, dropped }
           : null,
     );
     onChange([...files, ...incoming.slice(0, room)]);
@@ -95,7 +102,7 @@ export function RefImagePicker({
   return (
     <div className="flex flex-col gap-1" data-testid="ref-image-picker" onPaste={onPaste}>
       <span className="text-11 font-medium text-muted-foreground">
-        参考图（可选，最多 {PROTOTYPE_MAX_REF_IMAGES} 张）
+        {t("workbenchHome.refImages", { count: PROTOTYPE_MAX_REF_IMAGES })}
       </span>
       <div
         onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
@@ -117,7 +124,7 @@ export function RefImagePicker({
             <img src={urls[i] ?? ""} alt={f.name} className="h-12 w-12 rounded-control object-cover" />
             <button
               type="button"
-              aria-label={`移除 ${f.name}`}
+              aria-label={t("workbenchHome.removeImage", { name: f.name })}
               data-testid={`ref-image-remove-${String(i)}`}
               disabled={disabled}
               onClick={() => { setNote(null); onChange(files.filter((_, k) => k !== i)); }}
@@ -132,7 +139,7 @@ export function RefImagePicker({
           onClick={() => inputRef.current?.click()} data-testid="ref-image-pick"
         >
           <ImagePlus aria-hidden className="h-3.5 w-3.5" />
-          {files.length === 0 ? "照着一张图画" : "再加一张"}
+          {t(files.length === 0 ? "workbenchHome.pickImage" : "workbenchHome.addImage")}
         </Button>
         <input
           ref={inputRef} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden
@@ -141,10 +148,15 @@ export function RefImagePicker({
         />
       </div>
       <p className="text-10 text-muted-foreground" data-testid="ref-image-picker-note">
-        {note ??
-          (full
-            ? `已经 ${PROTOTYPE_MAX_REF_IMAGES} 张了，去掉一张才能再加。`
-            : "拖进来、粘贴截图，或点上面的按钮。生成时 AI 会照着它画。")}
+        {note?.kind === "imagesOnly"
+          ? t("workbenchHome.imagesOnly")
+          : note?.kind === "extra"
+            ? t("workbenchHome.imagesExtra", { count: note.room, max: PROTOTYPE_MAX_REF_IMAGES, extra: note.extra })
+            : note?.kind === "dropped"
+              ? t("workbenchHome.imagesDropped", { count: note.added, dropped: note.dropped })
+              : note?.kind === "full" || full
+                ? t("workbenchHome.imagesFull", { count: PROTOTYPE_MAX_REF_IMAGES })
+                : t("workbenchHome.imagesHint")}
       </p>
     </div>
   );

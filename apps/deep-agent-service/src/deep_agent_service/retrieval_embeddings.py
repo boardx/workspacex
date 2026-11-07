@@ -7,7 +7,7 @@ import os
 import time
 from pathlib import Path
 import httpx
-from .model_request_accounting import AsyncAccountingTransport, retrieval_accounting_scope, admission_enabled
+from .model_request_accounting import AsyncAccountingTransport, retrieval_accounting_scope, admission_enabled, CreditRuntimeUsageError
 from jsonschema import Draft7Validator, ValidationError
 from langchain_openai import OpenAIEmbeddings
 from starlette.applications import Starlette
@@ -98,6 +98,8 @@ async def embed_texts(texts, accounting=None):
             if len(vectors)!=len(texts) or len({len(v) for v in vectors})!=1 or any(not math.isfinite(x) for v in vectors for x in v):
                 raise ValueError('invalid embedding')
             return output
+        except CreditRuntimeUsageError:
+            raise
         except Exception:
             raise RetrievalEmbeddingUnavailable('embedding_unavailable') from None
 
@@ -141,6 +143,8 @@ async def embedding_endpoint(request:Request):
             if len(encoded)>_L['maxResponseBytes']:
                 raise RetrievalEmbeddingUnavailable('embedding_unavailable')
             return JSONResponse(result)
+    except CreditRuntimeUsageError as error:
+        return JSONResponse(error.payload,status_code=402 if error.payload["code"]=="credit_required" else 503)
     except (ValueError,UnicodeError,ValidationError):
         return JSONResponse({'error':'invalid_embedding_input'},status_code=400)
     except Exception:

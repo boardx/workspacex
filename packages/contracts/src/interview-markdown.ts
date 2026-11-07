@@ -363,3 +363,44 @@ export function parseInterviewReportAdjacentTableRows(markdown: string, paragrap
   }
   return rows;
 }
+
+/** One vocabulary for analysis generation, completeness checks, and the read-only UI. */
+export const INTERVIEW_ANALYSIS_SECTIONS = [
+  { kind: "goal", title: "研究目标", heading: /研究目标|访谈目标|研究问题/u },
+  { kind: "participants", title: "访谈对象与专家类型", heading: /专家类型|访谈对象|受访者/u },
+  { kind: "scope", title: "研究范围", heading: /研究范围|访谈范围|研究重点/u },
+  { kind: "criteria", title: "成功标准", heading: /成功标准|验收标准/u },
+  { kind: "recommendations", title: "研究建议", heading: /建议|下一步|访谈设计/u },
+  { kind: "hypotheses", title: "待验证假设", heading: /假设|待验证|待核实/u },
+  { kind: "boundaries", title: "适用边界", heading: /边界|局限|限制|不确定/u },
+] as const;
+export const MIN_INTERVIEW_ANALYSIS_ACTIONS = 3;
+export type InterviewAnalysisSectionKind = typeof INTERVIEW_ANALYSIS_SECTIONS[number]["kind"];
+
+/** Heading containers include their nested content exactly once. No generated fallback body. */
+export function projectInterviewAnalysis(document: InterviewMarkdownDocument) {
+  const projection = parseInterviewMarkdown(document);
+  const sections: { headingId: string; title: string; kind: InterviewAnalysisSectionKind | null; markdown: string }[] = [];
+  const present = new Set<InterviewAnalysisSectionKind>();
+  let coveredUntil = -1;
+  projection.blocks.forEach((block, index) => {
+    if (block.start < coveredUntil) return;
+    const rule = block.depth === 2 ? INTERVIEW_ANALYSIS_SECTIONS.find(item => item.heading.test(block.title)) : undefined;
+    const end = rule ? block.end : projection.blocks[index + 1]?.start ?? document.markdown.length;
+    const markdown = document.markdown.slice(block.contentStart, end).trim();
+    const nodes = (parser.parse(markdown) as MarkdownNode).children ?? [];
+    const text = nodes.filter(node => !["heading", "code", "html"].includes(node.type)).map(plainText).join("\n").trim();
+    if (rule) {
+      coveredUntil = end;
+      const actions = nodes.filter(node => node.type === "list").flatMap(node => node.children ?? []).filter(node => plainText(node).trim().length >= 16);
+      const actionable = rule.kind !== "recommendations" || actions.length >= MIN_INTERVIEW_ANALYSIS_ACTIONS;
+      if (actionable && text.length >= 8 && !/^(?:待补充|暂无|无|未提供|未单列|请补充审阅|待生成|TODO|TBD)[。.!！\s]*$/iu.test(text)) present.add(rule.kind);
+    }
+    if (markdown && text) sections.push({ headingId: block.headingId, title: block.title, kind: rule?.kind ?? null, markdown });
+  });
+  // Text before the first heading is still canonical content, including source links.
+  const firstHeading = projection.blocks[0]?.start ?? document.markdown.length;
+  const intro = document.markdown.slice(0, firstHeading).trim();
+  if (intro) sections.unshift({ headingId: "intro", title: "分析说明", kind: null, markdown: intro });
+  return { sections, missing: INTERVIEW_ANALYSIS_SECTIONS.filter(item => !present.has(item.kind)).map(item => item.kind) };
+}

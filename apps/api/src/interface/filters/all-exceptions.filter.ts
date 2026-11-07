@@ -1,3 +1,14 @@
+import {TeamBillingHttpException} from "../controllers/team-billing-http-exception";
+import {EnterpriseHttpException,ENTERPRISE_CACHE_CONTROL} from "../controllers/enterprise-http-exception";
+import {operations as enterpriseOperations,TeamBillingErrorCode} from "@repo/contracts/billing-team";
+import {CreditConsumptionError} from "../../application/billing/credit-consumption";
+import {CreditRequiredBody} from "@repo/contracts/billing-consumption";
+import { SubscriptionHttpException } from "../controllers/subscription-http-exception";
+import { SubscriptionErrorCode } from "@repo/contracts/billing-subscription";
+import { BillingErrorCode } from "@repo/contracts/billing-credits";
+import { BillingHttpException } from "../controllers/billing-http-exception";
+import { PersonalCheckoutHttpException } from "../controllers/personal-checkout-http-exception";
+import { operations as personalPricingOperations } from "@repo/contracts/billing-pricing";
 /**
  * Error boundary -- one of the three mandatory runtime gates in `architecture.md`.
  *
@@ -66,6 +77,7 @@ import { traceIdOf } from "../middleware/trace";
 
 /** status code -> public error code. Closed set: additions go through review. */
 const CODE_BY_STATUS: Readonly<Record<number, string>> = {
+  502: "bad_gateway",
   400: "bad_request",
   401: "unauthenticated",
   403: "forbidden",
@@ -94,6 +106,7 @@ const CODE_BY_STATUS: Readonly<Record<number, string>> = {
   413: "payload_too_large",
   415: "unsupported_media_type",
   422: "unprocessable",
+  429: "rate_limited",
   503: "dependency_unavailable",
 };
 
@@ -126,7 +139,7 @@ const CODE_BY_STATUS: Readonly<Record<number, string>> = {
  * no matter what an exception carries. Adding a third enum here should be a deliberate act;
  * adding a free string must never be one.
  */
-function permissionReasonOf(exception: HttpException): { reasonCode?: string; currentVersionId?: string; detail?: unknown } {
+function permissionReasonOf(exception: HttpException): { reasonCode?: string; currentVersionId?: string; detail?: unknown; remainingTokens?: number; allocated?: number } {
   const body = exception.getResponse();
   if (typeof body !== "object" || body === null) return {};
   const raw = (body as { reasonCode?: unknown }).reasonCode;
@@ -250,7 +263,25 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string; cu
    * outcome, not a collision to be broken.
    */
   const orgAdminReason = orgAdmin.OrgAdminError.safeParse(raw);
-  if (orgAdminReason.success) return { reasonCode: orgAdminReason.data };
+  if (orgAdminReason.success) {
+    // Only these reviewed 409 fields carry quota guidance. Reuse canonical numeric
+    // contracts and project explicitly so private and cross-reason fields stay closed.
+    if (exception.getStatus() === HttpStatus.CONFLICT) {
+      if (orgAdminReason.data === "QUOTA_OVERALLOCATED") {
+        const remaining = orgAdmin.operations.setMemberTokenQuota.in.shape.monthlyLimit.safeParse(
+          (body as { remainingTokens?: unknown }).remainingTokens,
+        );
+        if (remaining.success) return { reasonCode: orgAdminReason.data, remainingTokens: remaining.data };
+      }
+      if (orgAdminReason.data === "BUDGET_BELOW_ALLOCATED") {
+        const allocated = orgAdmin.operations.setOrgTokenBudget.in.shape.monthlyBudget.safeParse(
+          (body as { allocated?: unknown }).allocated,
+        );
+        if (allocated.success) return { reasonCode: orgAdminReason.data, allocated: allocated.data };
+      }
+    }
+    return { reasonCode: orgAdminReason.data };
+  }
 
   /**
    * 组织首页配置（`homeConfig.HomeConfigError`，Refs #4698）：闭集枚举，同上面各条的限制。
@@ -663,6 +694,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const http = host.switchToHttp();
     const res = http.getResponse<Response>();
     const traceId = traceIdOf(http.getRequest());
+    const routePath=http.getRequest<{route?:{path?:unknown}}>().route?.path;
+    const enterpriseRoute=Object.values(enterpriseOperations).some(operation=>operation.path===routePath);
+    const platformFinancialRead=routePath===platformOrganizations.operations.listOrganizations.path||routePath===platformOrganizations.operations.getOrganization.path;
+    if((enterpriseRoute||platformFinancialRead)&&!res.headersSent)res.setHeader("Cache-Control",ENTERPRISE_CACHE_CONTROL);
 
     // A streaming handler (SSE / chunked) that fails after its headers went out cannot get a JSON
     // body: `res.json` would throw ERR_HTTP_HEADERS_SENT out of the filter and take the whole
@@ -671,6 +706,15 @@ export class AllExceptionsFilter implements ExceptionFilter {
     if (res.headersSent) {
       this.logger.error("exception after headers sent; closing response", { traceId, err: exception });
       res.end();
+      return;
+    }
+
+    if (exception instanceof CreditConsumptionError) {
+      this.logger.info("credit_consumption_request_refused", {traceId,code:exception.code});
+      const guidance=exception.code === "credit_required" ? CreditRequiredBody.safeParse({code:exception.code,
+        ownerType:exception.ownerType,ownerId:exception.ownerId,rechargePath:exception.rechargePath,...(exception.reason?{reason:exception.reason}:{}),traceId}) : null;
+      if(guidance?.success)res.status(402).json(guidance.data);
+      else res.status(503).json({code:"credit_accounting_unavailable",traceId});
       return;
     }
 
@@ -689,10 +733,17 @@ export class AllExceptionsFilter implements ExceptionFilter {
     if (exception instanceof HttpException) {
       const status = exception.getStatus();
       this.logger.error("http exception", { traceId, err: exception, status });
+      const permission=permissionReasonOf(exception);
+      const permissionCode=enterpriseRoute?TeamBillingErrorCode.safeParse(permission.reasonCode):null;
       res.status(status).json({
         error: CODE_BY_STATUS[status] ?? "internal_error",
         traceId,
-        ...permissionReasonOf(exception),
+        ...(exception instanceof EnterpriseHttpException && TeamBillingErrorCode.safeParse(exception.enterpriseCode).success ? { code: exception.enterpriseCode } : {}),
+        ...(exception instanceof BillingHttpException && BillingErrorCode.safeParse(exception.billingCode).success ? { code: exception.billingCode } : {}),
+        ...(exception instanceof SubscriptionHttpException && SubscriptionErrorCode.safeParse(exception.subscriptionCode).success ? { code: exception.subscriptionCode } : {}),
+        ...(exception instanceof TeamBillingHttpException && TeamBillingErrorCode.safeParse(exception.billingTeamCode).success ? {code:exception.billingTeamCode} : {}),
+        ...(exception instanceof PersonalCheckoutHttpException && personalPricingOperations.createPersonalCheckout.err.includes(exception.checkoutCode) ? { code: exception.checkoutCode } : {}),
+        ...(permissionCode?.success?{code:permissionCode.data}:permission),
         ...surveyErrorOf(exception),
         ...researchConflictDetailOf(exception),
         ...artifactErrorOf(exception),

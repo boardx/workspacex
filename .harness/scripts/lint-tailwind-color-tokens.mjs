@@ -52,7 +52,6 @@ const LEGACY = [
   { file: "components/itv/digital-interview-workflow.tsx", cls: "text-foreground", count: 4 },
   { file: "components/itv/expert-avatar.tsx", cls: "text-foreground", count: 2 },
   { file: "components/itv/interview-experts-step.tsx", cls: "text-foreground", count: 1 },
-  { file: "components/itv/interview-outline-step.tsx", cls: "text-foreground", count: 1 },
   { file: "components/itv/interview-report-step.tsx", cls: "text-foreground", count: 1 },
   { file: "components/itv/interview-studio-home.tsx", cls: "bg-foreground", count: 1 },
   { file: "components/itv/interview-studio-home.tsx", cls: "text-foreground", count: 1 },

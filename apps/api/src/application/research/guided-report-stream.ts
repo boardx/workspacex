@@ -1,3 +1,4 @@
+import {rethrowCreditConsumption} from "../billing/credit-consumption";
 import type { ModelCallInput, ModelCallPort } from "../agent-run/ports";
 import { ResearchRuntimeError, type ResearchRuntime, type RuntimeObserver } from "./guided-runtime-ports";
 export type RuntimePersistence = (() => Promise<void>) & { requestId: string; traceId?: string; observe: RuntimeObserver };
@@ -50,7 +51,7 @@ export async function streamReport(model: ModelCallPort, input: ModelCallInput, 
     await flush();
     if (failure) throw failure;
     return result;
-  } catch (error) {
+  } catch (error) { rethrowCreditConsumption(error);
     await flush().catch(() => undefined);
     state.reportStream!.status = "failed";
     throw error;

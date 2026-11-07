@@ -5,7 +5,9 @@
  * writes a dedicated tenant, and the browser still reads every value through the real
  * login, identity and Chat HTTP controllers.
  */
+import { seedChatArtifactConsumer } from "./chat-read-artifact-consumer-fixture";
 import { agentDefaults } from "@repo/contracts";
+import {seedChatReadAsrCreditTariff} from "./chat-read-asr-credit-fixture";
 import { defaultAgentE2eCandidates, defaultAgentE2eIdentity } from "./chat-default-agent-e2e-identity";
 import { PgSkillStarterImportRepository } from "../src/infrastructure/skill/pg-skill-starter-import-repository";
 import { importChatReadPdfFixture } from "./chat-read-pdf-fixture-import";
@@ -192,6 +194,8 @@ await asOwner(async (client) => {
 
 await seedOrg({ orgId: ORG_ID, projectId: PROJECT_ID, groupNames: ["readers"] });
 await addOrgMember(ORG_ID, USER_ID, "lead", null);
+// Only isolated fixture setup may configure this global synthetic price.
+await asOwner(session=>seedChatReadAsrCreditTariff(session,ORG_ID));
 const CANVAS_TEMPLATE_ADMIN_ID = `${USER_ID}-canvas-admin`;
 await addOrgMember(ORG_ID, CANVAS_TEMPLATE_ADMIN_ID, "admin", null);
 await addProjectMember(ORG_ID, PROJECT_ID, USER_ID, "facilitator", null);
@@ -936,6 +940,10 @@ await asApp(defaultFixture.orgId, async (client) => {
     }
   }
 });
+
+await seedChatArtifactConsumer({ orgId: ORG_ID, userId: USER_ID, agentId: AGENT_ID,
+  agentVersionId: AGENT_VERSION_ID, modelProvider: AGENT_MODEL_PROVIDER, modelId: AGENT_MODEL_ID,
+  threadId: `${THREAD_ID}-artifact-consumer` });
 
 process.stdout.write(
   `[chat-read-e2e-fixture] seeded org=${ORG_ID} project=${PROJECT_ID} thread=${THREAD_ID} messages=51 `

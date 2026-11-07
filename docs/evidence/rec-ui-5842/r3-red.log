@@ -1,0 +1,985 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/4986/workspacex/apps/web
+
+ ❯ tests/ui/realtime-transcription-workspace.test.tsx (30 tests | 2 failed) 1194ms
+   × RealtimeTranscriptionWorkspace > keeps an unsaved transcript in place until editing is saved or canceled 114ms
+     → expect(element).toBeDisabled()
+
+Received element is not disabled:
+  <button
+  aria-label="返回历史转录"
+  class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-8 w-8 p-0"
+  data-testid="rec-live-back"
+  type="button"
+/>
+   × RealtimeTranscriptionWorkspace > prevents leaving during a pending save and enables return after it settles 13ms
+     → expect(element).toBeDisabled()
+
+Received element is not disabled:
+  <button
+  aria-label="返回历史转录"
+  class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-8 w-8 p-0"
+  data-testid="rec-live-back"
+  type="button"
+/>
+ ❯ tests/ui/realtime-transcription-history.test.tsx (32 tests | 2 failed) 5829ms
+   × 实时转录历史工作台 > offers a single list error and reloads without leaving the page 81ms
+     → expect(element).toHaveFocus()
+
+Expected element with focus:
+  <input
+  class="flex min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed h-9 pl-9"
+  data-testid="rec-history-search"
+  maxlength="100"
+  placeholder="搜索转录名称或标签"
+  value=""
+/>
+Received element with focus:
+  <body>
+  <div>
+    <section
+      class="min-h-full bg-background px-4 py-4 md:px-6"
+      data-testid="rec-history-page"
+    >
+      <div
+        class="mx-auto flex w-full max-w-screen-xl flex-col gap-4 md:gap-6"
+      >
+        <header
+          class="flex flex-col gap-5 md:flex-row md:items-start md:justify-between"
+        >
+          <div
+            class="min-w-0 space-y-2"
+          >
+            <div
+              class="flex items-center gap-2"
+            >
+              <h1
+                class="text-30 font-semibold tracking-tight"
+              >
+                历史转录
+              </h1>
+              <span
+                class="text-18 text-muted-foreground"
+                data-testid="rec-history-count"
+              >
+                ··
+                0
+              </span>
+            </div>
+          </div>
+          <button
+            class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-9 px-3.5 text-13 min-w-28 aria-disabled:bg-disabled aria-disabled:text-disabled-foreground aria-disabled:border-transparent"
+            data-testid="rec-create-open"
+            data-workflow-action-role="primary"
+            type="button"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-plus size-4"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M5 12h14"
+              />
+              <path
+                d="M12 5v14"
+              />
+            </svg>
+            新建
+            转录
+          </button>
+        </header>
+        <div
+          class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
+        >
+          <div
+            class="min-w-0"
+          >
+            <div
+              aria-label="按标签筛选转录"
+              class="flex min-w-0 flex-wrap items-center gap-2"
+              role="group"
+            >
+              <button
+                aria-pressed="true"
+                class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"
+                data-testid="rec-history-tag-all"
+              >
+                全部标签
+              </button>
+              <button
+                aria-pressed="false"
+                class="inline-flex min-h-6 items-center justify-center gap-1.5 rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12 max-w-full whitespace-normal break-all text-left"
+                data-testid="rec-history-tag-客户"
+              >
+                客户
+              </button>
+              <button
+                aria-pressed="false"
+                class="inline-flex min-h-6 items-center justify-center gap-1.5 rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12 max-w-full whitespace-normal break-all text-left"
+                data-testid="rec-history-tag-市场研究"
+              >
+                市场研究
+              </button>
+            </div>
+          </div>
+          <div
+            class="flex shrink-0 flex-col gap-2 sm:flex-row"
+          >
+            <label
+              class="relative block min-w-0 sm:w-64"
+            >
+              <span
+                class="sr-only"
+              >
+                搜索
+                转录
+              </span>
+              <svg
+                aria-hidden="true"
+                class="lucide lucide-search pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <circle
+                  cx="11"
+                  cy="11"
+                  r="8"
+                />
+                <path
+                  d="m21 21-4.3-4.3"
+                />
+              </svg>
+              <input
+                class="flex min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed h-9 pl-9"
+                data-testid="rec-history-search"
+                maxlength="100"
+                placeholder="搜索转录名称或标签"
+                value=""
+              />
+            </label>
+            <button
+              aria-label="当前最近更新，点击切换排序"
+              class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] px-3.5 text-13 h-9"
+              data-testid="rec-history-sort"
+            >
+              <svg
+                aria-hidden="true"
+                class="lucide lucide-arrow-down-wide-narrow size-4"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="m3 16 4 4 4-4"
+                />
+                <path
+                  d="M7 20V4"
+                />
+                <path
+                  d="M11 4h10"
+                />
+                <path
+                  d="M11 8h7"
+                />
+                <path
+                  d="M11 12h4"
+                />
+              </svg>
+              最近更新
+            </button>
+          </div>
+        </div>
+        <div
+          class="grid animate-pulse grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"
+          data-testid="loading"
+        >
+          <div
+            class="h-40 rounded-lg bg-muted"
+          />
+          <div
+            class="h-40 rounded-lg bg-muted"
+          />
+          <div
+            class="h-40 rounded-lg bg-muted"
+          />
+          <div
+            class="h-40 rounded-lg bg-muted"
+          />
+          <div
+            class="h-40 rounded-lg bg-muted"
+          />
+          <div
+            class="h-40 rounded-lg bg-muted"
+          />
+          <div
+            class="h-40 rounded-lg bg-muted"
+          />
+          <div
+            class="h-40 rounded-lg bg-muted"
+          />
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+   × 实时转录历史工作台 > clears an unsuccessful search instead of creating an unrelated transcription 59ms
+     → expect(element).toHaveFocus()
+
+Expected element with focus:
+  <input
+  class="flex min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed h-9 pl-9"
+  data-testid="rec-history-search"
+  maxlength="100"
+  placeholder="搜索转录名称或标签"
+  value=""
+/>
+Received element with focus:
+  <body>
+  <div>
+    <section
+      class="min-h-full bg-background px-4 py-4 md:px-6"
+      data-testid="rec-history-page"
+    >
+      <div
+        class="mx-auto flex w-full max-w-screen-xl flex-col gap-4 md:gap-6"
+      >
+        <header
+          class="flex flex-col gap-5 md:flex-row md:items-start md:justify-between"
+        >
+          <div
+            class="min-w-0 space-y-2"
+          >
+            <div
+              class="flex items-center gap-2"
+            >
+              <h1
+                class="text-30 font-semibold tracking-tight"
+              >
+                历史转录
+              </h1>
+              <span
+                class="text-18 text-muted-foreground"
+                data-testid="rec-history-count"
+              >
+                ··
+                0
+              </span>
+            </div>
+          </div>
+          <button
+            class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-9 px-3.5 text-13 min-w-28 aria-disabled:bg-disabled aria-disabled:text-disabled-foreground aria-disabled:border-transparent"
+            data-testid="rec-create-open"
+            data-workflow-action-role="primary"
+            type="button"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-plus size-4"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M5 12h14"
+              />
+              <path
+                d="M12 5v14"
+              />
+            </svg>
+            新建
+            转录
+          </button>
+        </header>
+        <div
+          class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
+        >
+          <div
+            class="min-w-0"
+          >
+            <div
+              aria-label="按标签筛选转录"
+              class="flex min-w-0 flex-wrap items-center gap-2"
+              role="group"
+            >
+              <button
+                aria-pressed="true"
+                class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"
+                data-testid="rec-history-tag-all"
+              >
+                全部标签
+              </button>
+              <button
+                aria-pressed="false"
+                class="inline-flex min-h-6 items-center justify-center gap-1.5 rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12 max-w-full whitespace-normal break-all text-left"
+                data-testid="rec-history-tag-客户"
+              >
+                客户
+              </button>
+              <button
+                aria-pressed="false"
+                class="inline-flex min-h-6 items-center justify-center gap-1.5 rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12 max-w-full whitespace-normal break-all text-left"
+                data-testid="rec-history-tag-市场研究"
+              >
+                市场研究
+              </button>
+            </div>
+          </div>
+          <div
+            class="flex shrink-0 flex-col gap-2 sm:flex-row"
+          >
+            <label
+              class="relative block min-w-0 sm:w-64"
+            >
+              <span
+                class="sr-only"
+              >
+                搜索
+                转录
+              </span>
+              <svg
+                aria-hidden="true"
+                class="lucide lucide-search pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <circle
+                  cx="11"
+                  cy="11"
+                  r="8"
+                />
+                <path
+                  d="m21 21-4.3-4.3"
+                />
+              </svg>
+              <input
+                class="flex min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed h-9 pl-9"
+                data-testid="rec-history-search"
+                maxlength="100"
+                placeholder="搜索转录名称或标签"
+                value=""
+              />
+            </label>
+            <button
+              aria-label="当前最近更新，点击切换排序"
+              class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] px-3.5 text-13 h-9"
+              data-testid="rec-history-sort"
+            >
+              <svg
+                aria-hidden="true"
+                class="lucide lucide-arrow-down-wide-narrow size-4"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="m3 16 4 4 4-4"
+                />
+                <path
+                  d="M7 20V4"
+                />
+                <path
+                  d="M11 4h10"
+                />
+                <path
+                  d="M11 8h7"
+                />
+                <path
+                  d="M11 12h4"
+                />
+              </svg>
+              最近更新
+            </button>
+          </div>
+        </div>
+        <div
+          class="grid animate-pulse grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"
+          data-testid="loading"
+        >
+          <div
+            class="h-40 rounded-lg bg-muted"
+          />
+          <div
+            class="h-40 rounded-lg bg-muted"
+          />
+          <div
+            class="h-40 rounded-lg bg-muted"
+          />
+          <div
+            class="h-40 rounded-lg bg-muted"
+          />
+          <div
+            class="h-40 rounded-lg bg-muted"
+          />
+          <div
+            class="h-40 rounded-lg bg-muted"
+          />
+          <div
+            class="h-40 rounded-lg bg-muted"
+          />
+          <div
+            class="h-40 rounded-lg bg-muted"
+          />
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+   ✓ 实时转录历史工作台 > does not reconnect after leaving the workspace 1242ms
+   ✓ 实时转录历史工作台 > automatically reconnects a dropped stream and retains saved text without stale events 1041ms
+   ✓ 实时转录历史工作台 > cancels scheduled reconnect when the user stops 1230ms
+   ✓ 实时转录历史工作台 > keeps saved text and distinguishes persistent refresh failure from stopping failure 790ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/realtime-transcription-history.test.tsx > 实时转录历史工作台 > offers a single list error and reloads without leaving the page
+Error: expect(element).toHaveFocus()
+
+Expected element with focus:
+  <input
+  class="flex min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed h-9 pl-9"
+  data-testid="rec-history-search"
+  maxlength="100"
+  placeholder="搜索转录名称或标签"
+  value=""
+/>
+Received element with focus:
+  <body>
+  <div>
+    <section
+      class="min-h-full bg-background px-4 py-4 md:px-6"
+      data-testid="rec-history-page"
+    >
+      <div
+        class="mx-auto flex w-full max-w-screen-xl flex-col gap-4 md:gap-6"
+      >
+        <header
+          class="flex flex-col gap-5 md:flex-row md:items-start md:justify-between"
+        >
+          <div
+            class="min-w-0 space-y-2"
+          >
+            <div
+              class="flex items-center gap-2"
+            >
+              <h1
+                class="text-30 font-semibold tracking-tight"
+              >
+                历史转录
+              </h1>
+              <span
+                class="text-18 text-muted-foreground"
+                data-testid="rec-history-count"
+              >
+                ··
+                0
+              </span>
+            </div>
+          </div>
+          <button
+            class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-9 px-3.5 text-13 min-w-28 aria-disabled:bg-disabled aria-disabled:text-disabled-foreground aria-disabled:border-transparent"
+            data-testid="rec-create-open"
+            data-workflow-action-role="primary"
+            type="button"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-plus size-4"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M5 12h14"
+              />
+              <path
+                d="M12 5v14"
+              />
+            </svg>
+            新建
+            转录
+          </button>
+        </header>
+        <div
+          class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
+        >
+          <div
+            class="min-w-0"
+          >
+            <div
+              aria-label="按标签筛选转录"
+              class="flex min-w-0 flex-wrap items-center gap-2"
+              role="group"
+            >
+              <button
+                aria-pressed="true"
+                class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"
+                data-testid="rec-history-tag-all"
+              >
+                全部标签
+              </button>
+              <button
+                aria-pressed="false"
+                class="inline-flex min-h-6 items-center justify-center gap-1.5 rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12 max-w-full whitespace-normal break-all text-left"
+                data-testid="rec-history-tag-客户"
+              >
+                客户
+              </button>
+              <button
+                aria-pressed="false"
+                class="inline-flex min-h-6 items-center justify-center gap-1.5 rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12 max-w-full whitespace-normal break-all text-left"
+                data-testid="rec-history-tag-市场研究"
+              >
+                市场研究
+              </button>
+            </div>
+          </div>
+          <div
+            class="flex shrink-0 flex-col gap-2 sm:flex-row"
+          >
+            <label
+              class="relative block min-w-0 sm:w-64"
+            >
+              <span
+                class="sr-only"
+              >
+                搜索
+                转录
+              </span>
+              <svg
+                aria-hidden="true"
+                class="lucide lucide-search pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <circle
+                  cx="11"
+                  cy="11"
+                  r="8"
+                />
+                <path
+                  d="m21 21-4.3-4.3"
+                />
+              </svg>
+              <input
+                class="flex min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed h-9 pl-9"
+                data-testid="rec-history-search"
+                maxlength="100"
+                placeholder="搜索转录名称或标签"
+                value=""
+              />
+            </label>
+            <button
+              aria-label="当前最近更新，点击切换排序"
+              class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] px-3.5 text-13 h-9"
+              data-testid="rec-history-sort"
+            >
+              <svg
+                aria-hidden="true"
+                class="lucide lucide-arrow-down-wide-narrow size-4"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="m3 16 4 4 4-4"
+                />
+                <path
+                  d="M7 20V4"
+                />
+                <path
+                  d="M11 4h10"
+                />
+                <path
+                  d="M11 8h7"
+                />
+                <path
+                  d="M11 12h4"
+                />
+              </svg>
+              最近更新
+            </button>
+          </div>
+        </div>
+        <div
+          class="grid animate-pulse grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"
+          data-testid="loading"
+        >
+          <div
+            class="h-40 rounded-lg bg-muted"
+          />
+          <div
+            class="h-40 rounded-lg bg-muted"
+          />
+          <div
+            class="h-40 rounded-lg bg-muted"
+          />
+          <div
+            class="h-40 rounded-lg bg-muted"
+          />
+          <div
+            class="h-40 rounded-lg bg-muted"
+          />
+          <div
+            class="h-40 rounded-lg bg-muted"
+          />
+          <div
+            class="h-40 rounded-lg bg-muted"
+          />
+          <div
+            class="h-40 rounded-lg bg-muted"
+          />
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+ ❯ tests/ui/realtime-transcription-history.test.tsx:157:54
+    155|     retry.focus();
+    156|     fireEvent.click(retry);
+    157|     expect(screen.getByTestId("rec-history-search")).toHaveFocus();
+       |                                                      ^
+    158|     expect(await screen.findByTestId("rec-history-open-europe-entry"))…
+    159|     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  tests/ui/realtime-transcription-history.test.tsx > 实时转录历史工作台 > clears an unsuccessful search instead of creating an unrelated transcription
+Error: expect(element).toHaveFocus()
+
+Expected element with focus:
+  <input
+  class="flex min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed h-9 pl-9"
+  data-testid="rec-history-search"
+  maxlength="100"
+  placeholder="搜索转录名称或标签"
+  value=""
+/>
+Received element with focus:
+  <body>
+  <div>
+    <section
+      class="min-h-full bg-background px-4 py-4 md:px-6"
+      data-testid="rec-history-page"
+    >
+      <div
+        class="mx-auto flex w-full max-w-screen-xl flex-col gap-4 md:gap-6"
+      >
+        <header
+          class="flex flex-col gap-5 md:flex-row md:items-start md:justify-between"
+        >
+          <div
+            class="min-w-0 space-y-2"
+          >
+            <div
+              class="flex items-center gap-2"
+            >
+              <h1
+                class="text-30 font-semibold tracking-tight"
+              >
+                历史转录
+              </h1>
+              <span
+                class="text-18 text-muted-foreground"
+                data-testid="rec-history-count"
+              >
+                ··
+                0
+              </span>
+            </div>
+          </div>
+          <button
+            class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-9 px-3.5 text-13 min-w-28 aria-disabled:bg-disabled aria-disabled:text-disabled-foreground aria-disabled:border-transparent"
+            data-testid="rec-create-open"
+            data-workflow-action-role="primary"
+            type="button"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-plus size-4"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M5 12h14"
+              />
+              <path
+                d="M12 5v14"
+              />
+            </svg>
+            新建
+            转录
+          </button>
+        </header>
+        <div
+          class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
+        >
+          <div
+            class="min-w-0"
+          >
+            <div
+              aria-label="按标签筛选转录"
+              class="flex min-w-0 flex-wrap items-center gap-2"
+              role="group"
+            >
+              <button
+                aria-pressed="true"
+                class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"
+                data-testid="rec-history-tag-all"
+              >
+                全部标签
+              </button>
+              <button
+                aria-pressed="false"
+                class="inline-flex min-h-6 items-center justify-center gap-1.5 rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12 max-w-full whitespace-normal break-all text-left"
+                data-testid="rec-history-tag-客户"
+              >
+                客户
+              </button>
+              <button
+                aria-pressed="false"
+                class="inline-flex min-h-6 items-center justify-center gap-1.5 rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12 max-w-full whitespace-normal break-all text-left"
+                data-testid="rec-history-tag-市场研究"
+              >
+                市场研究
+              </button>
+            </div>
+          </div>
+          <div
+            class="flex shrink-0 flex-col gap-2 sm:flex-row"
+          >
+            <label
+              class="relative block min-w-0 sm:w-64"
+            >
+              <span
+                class="sr-only"
+              >
+                搜索
+                转录
+              </span>
+              <svg
+                aria-hidden="true"
+                class="lucide lucide-search pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <circle
+                  cx="11"
+                  cy="11"
+                  r="8"
+                />
+                <path
+                  d="m21 21-4.3-4.3"
+                />
+              </svg>
+              <input
+                class="flex min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed h-9 pl-9"
+                data-testid="rec-history-search"
+                maxlength="100"
+                placeholder="搜索转录名称或标签"
+                value=""
+              />
+            </label>
+            <button
+              aria-label="当前最近更新，点击切换排序"
+              class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] px-3.5 text-13 h-9"
+              data-testid="rec-history-sort"
+            >
+              <svg
+                aria-hidden="true"
+                class="lucide lucide-arrow-down-wide-narrow size-4"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="m3 16 4 4 4-4"
+                />
+                <path
+                  d="M7 20V4"
+                />
+                <path
+                  d="M11 4h10"
+                />
+                <path
+                  d="M11 8h7"
+                />
+                <path
+                  d="M11 12h4"
+                />
+              </svg>
+              最近更新
+            </button>
+          </div>
+        </div>
+        <div
+          class="grid animate-pulse grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"
+          data-testid="loading"
+        >
+          <div
+            class="h-40 rounded-lg bg-muted"
+          />
+          <div
+            class="h-40 rounded-lg bg-muted"
+          />
+          <div
+            class="h-40 rounded-lg bg-muted"
+          />
+          <div
+            class="h-40 rounded-lg bg-muted"
+          />
+          <div
+            class="h-40 rounded-lg bg-muted"
+          />
+          <div
+            class="h-40 rounded-lg bg-muted"
+          />
+          <div
+            class="h-40 rounded-lg bg-muted"
+          />
+          <div
+            class="h-40 rounded-lg bg-muted"
+          />
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+ ❯ tests/ui/realtime-transcription-history.test.tsx:170:54
+    168|     clear.focus();
+    169|     fireEvent.click(clear);
+    170|     expect(screen.getByTestId("rec-history-search")).toHaveFocus();
+       |                                                      ^
+    171|     expect(screen.getByTestId("rec-history-search")).toHaveValue("");
+    172|     expect(await screen.findByTestId("rec-history-open-europe-entry"))…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > keeps an unsaved transcript in place until editing is saved or canceled
+Error: expect(element).toBeDisabled()
+
+Received element is not disabled:
+  <button
+  aria-label="返回历史转录"
+  class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-8 w-8 p-0"
+  data-testid="rec-live-back"
+  type="button"
+/>
+ ❯ tests/ui/realtime-transcription-workspace.test.tsx:27:49
+     25|     fireEvent.click(screen.getByTestId("rec-live-edit"));
+     26|     fireEvent.change(screen.getByRole("textbox", { name: "逐字稿正文" …
+     27|     expect(screen.getByTestId("rec-live-back")).toBeDisabled();
+       |                                                 ^
+     28|     expect(screen.getByTestId("rec-live-back")).toHaveAccessibleDescri…
+     29|     fireEvent.click(screen.getByTestId("rec-live-back"));
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > prevents leaving during a pending save and enables return after it settles
+Error: expect(element).toBeDisabled()
+
+Received element is not disabled:
+  <button
+  aria-label="返回历史转录"
+  class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-8 w-8 p-0"
+  data-testid="rec-live-back"
+  type="button"
+/>
+ ❯ tests/ui/realtime-transcription-workspace.test.tsx:44:49
+     42|     fireEvent.click(screen.getByTestId("rec-live-edit"));
+     43|     fireEvent.click(screen.getByTestId("rec-live-save"));
+     44|     expect(screen.getByTestId("rec-live-back")).toBeDisabled();
+       |                                                 ^
+     45|     expect(screen.getByTestId("rec-live-back")).toHaveAccessibleDescri…
+     46|     finishSave();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+ Test Files  2 failed (2)
+      Tests  4 failed | 58 passed (62)
+   Start at  13:25:01
+   Duration  9.82s (transform 1.74s, setup 518ms, collect 4.17s, tests 7.02s, environment 2.52s, prepare 148ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/4986/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/realtime-transcription-workspace.test.tsx tests/ui/realtime-transcription-history.test.tsx

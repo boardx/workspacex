@@ -1,0 +1,50 @@
+/** Canonical legacy error messages and their display translations; no request behavior. */
+export const surveyRuntimeErrorCatalogue = {
+  publishBlocked: ["问卷尚未达到发布条件", "The survey is not ready to publish."],
+  anonymity: ["问卷开始回收后不能修改匿名方式。", "Anonymity cannot change after collection starts."],
+  submitted: ["此浏览器已经提交过答卷，感谢您的参与。", "This browser has already submitted a response. Thank you for participating."],
+  transition: ["问卷状态已变化，请刷新后重试。", "The survey state has changed. Refresh and try again."],
+  conflict: ["数据已更新，请刷新后重试。当前未保存的修改仍保留。", "The data has changed. Refresh and try again. Your unsaved changes are retained."],
+  invalidData: ["服务返回了无法识别的数据，请刷新后重试。", "The service returned unrecognized data. Reload and try again."],
+  notStarted: ["问卷尚未开始回收，请在开始时间后再来填写。", "Collection has not started. Return after the start time."],
+  invalidWindow: ["截止时间必须晚于开始时间，请检查回收时间。", "End time must be after start time. Check the collection schedule."],
+  login: ["请先登录后再操作。", "Sign in before continuing."],
+  notFound: ["问卷不存在或没有访问权限。", "The survey does not exist or you do not have access."],
+  closed: ["问卷已关闭、已过期或题目已锁定。", "The survey is closed, expired, or its questions are locked."],
+  rateLimit: ["提交过于频繁，请稍后重试。", "Too many submissions. Wait a moment and try again."],
+  invalidRequest: ["请检查题目、模板配置和有效答卷后重试。", "Check the questions, template configuration, and valid responses, then try again."],
+  network: ["请求未完成，请检查网络后重试。", "The request did not finish. Check your connection and try again."],
+  operation: ["操作失败，请重试", "The operation failed. Try again."],
+  notLoaded: ["尚未加载问卷", "The survey has not loaded yet."],
+  applyMarkdown: ["请先校对并应用 Markdown，再保存或发布。", "Review and apply the Markdown before saving or publishing."],
+  invalidDraft: ["请填写问卷、章节及内容标题，并检查选项和图片地址。", "Enter survey, section, and content titles, and check options and image URLs."],
+  saveFirst: ["请先保存问卷", "Save the survey first."],
+  invalidDates: ["请选择有效的开始和截止时间。", "Choose valid start and end times."],
+  endAfterStart: ["截止时间必须晚于开始时间。", "End time must be after start time."],
+  endFuture: ["截止时间必须晚于当前时间。", "End time must be in the future."],
+  create: ["创建失败，请重试", "Creation failed. Try again."],
+  attachmentLogin: ["请先登录后再下载附件。", "Sign in before downloading attachments."],
+  attachmentExpired: ["登录已过期，请重新登录后下载。", "Your session has expired. Sign in again to download."],
+  attachmentAccess: ["附件不存在或没有访问权限。", "The attachment does not exist or you do not have access."],
+  attachmentNetwork: ["附件下载失败，请检查网络后重试。", "The attachment download failed. Check your connection and try again."],
+  attachmentServer: ["附件下载失败，请稍后重试。", "The attachment download failed. Try again later."],
+  attachmentFallback: ["附件下载失败，请重试。", "The attachment download failed. Try again."],
+  reportConfig: ["请完善章节标题、图片地址和内容块配置", "Complete chapter titles, image URLs, and content block configuration."],
+  templateTooLarge: ["模板文件不能超过 1 MB", "Template files must be 1 MB or smaller."],
+  templateInvalid: ["模板格式不正确，请检查章节、内容块和数据配置", "Invalid template format. Check the chapters, blocks, and data configuration."],
+  templateImport: ["模板导入失败", "Template import failed."],
+  reportImageTimeout: ["图片加载超时，请检查图片地址后重试", "The image took too long to load. Check its URL and try again."],
+  reportImageLoad: ["图片加载失败，请检查图片地址及跨域访问权限", "The image could not load. Check its URL and cross-origin access permissions."],
+  reportCanvasUnavailable: ["图片转换不可用，请使用支持 Canvas 的浏览器", "Image conversion is unavailable. Use a browser that supports Canvas."],
+  reportImageConversion: ["图片转换失败，请检查图片跨域访问权限", "The image could not be converted. Check its cross-origin access permissions."],
+  reportImageMissing: ["图片「{title}」尚未配置，无法完整导出", "Image “{title}” is not configured. The complete report cannot be exported."],
+  reportPrintIncomplete: ["图片加载失败，无法完整打印报告", "An image could not load. The complete report cannot be printed."],
+  reportPrintUnavailable: ["浏览器不支持打印报告", "This browser does not support printing reports."],
+  reportPrintImageLoad: ["图片加载失败，无法打印", "An image could not load. The report cannot be printed."],
+} as const;
+export type SurveyRuntimeErrorId = keyof typeof surveyRuntimeErrorCatalogue;
+/** Keep Error.message stable for callers; translate only when rendering it. */
+export const surveyRuntimeMessages = Object.fromEntries(Object.entries(surveyRuntimeErrorCatalogue).map(([key, pair]) => [key, pair[0]])) as Record<SurveyRuntimeErrorId, string>;
+
+/** Preserve the canonical error identity and interpolate authored text exactly once. */
+export const surveyReportImageMissingMessage = (title: string): string => surveyRuntimeMessages.reportImageMissing.replace("{title}", () => title);

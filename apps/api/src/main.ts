@@ -1,3 +1,7 @@
+import {registerRuntimeAdmissionBodyParser} from "./interface/middleware/runtime-admission-body-parser";
+import { TOKEN_USAGE_METER } from "./application/agent-run/ports";
+import { registerBillingRawBodyParser } from "./interface/middleware/billing-raw-body-parser";
+import { LOGGER_PORT } from "./application/ports/logger.port";
 import { registerGuidedResearchBodyParsers } from "./interface/middleware/guided-research-body-parser";
 import { WHITEBOARD_COLLABORATION_STORE } from './application/whiteboard/collaboration-ports';
 import { WHITEBOARD_REPOSITORY } from './application/whiteboard/ports';
@@ -91,6 +95,8 @@ export async function createApp(): Promise<NestExpressApplication> {
   app.use(traceMiddleware);
   // issue #3082 —— 紧跟 traceMiddleware 之后：每个请求（含被 guard 拒掉的）都进 debug recorder。
   app.use(app.get<DebugRequestRecorder>(DEBUG_REQUEST_RECORDER).middleware);
+  registerRuntimeAdmissionBodyParser(app.getHttpAdapter().getInstance());
+  registerBillingRawBodyParser(app.getHttpAdapter().getInstance());
   registerGuidedResearchBodyParsers(app.getHttpAdapter().getInstance());
   // #3249: one bounded multi-file endpoint needs more than Express's default 100 KiB.
   // Register before Nest installs its default parser; other routes retain their limit.
@@ -198,6 +204,7 @@ function loadLocalEnvFileForDev(): void {
 export function attachStreamingSurfaces(app: NestExpressApplication, options: { realtimeConfig?: RealtimeModelConfig } = {}): void {
   const realtimeConfig = options.realtimeConfig ?? readRealtimeModelConfig();
   attachWhiteboardGateway(app.getHttpServer(), {
+    logger: app.get(LOGGER_PORT),
     principals: app.get(PRINCIPAL_RESOLVER_PORT),
     boards: app.get(WHITEBOARD_REPOSITORY),
     store: app.get(WHITEBOARD_COLLABORATION_STORE),
@@ -218,6 +225,7 @@ export function attachStreamingSurfaces(app: NestExpressApplication, options: { 
     asr: app.get(ASR_PROVIDER),
   });
   attachRealtimeDigitalHumanGateway(app.getHttpServer(), {
+    usage: app.get(TOKEN_USAGE_METER),
     principals: app.get(PRINCIPAL_RESOLVER_PORT),
     config: () => realtimeConfig,
     // Chat 语音模式：线程判权 + 已发布角色解析 + 转写落库（见 `realtime-voice-session.ts`）。

@@ -1,0 +1,8 @@
+apps/web/components/tasks/today-board-live.tsx e791051f1ac8d7710697b4fce196daaa264275ee unchanged
+apps/web/lib/design-failure.ts 0ce71be6ccbe5ec21572fa94739baf217d261a1d unchanged
+apps/web/lib/live-tasks.ts d4198908c9216a7479b3db36d3da39a13157b38d unchanged
+apps/web/lib/i18n/messages/tasks.ts 648593d1933323405be15a403fb959cc77ee0c92 unchanged
+apps/web/lib/i18n/messages/failures.ts b205c96c66f9a64c1307a4bd639bd3e16fc47513 unchanged
+apps/web/tests/ui/tasks-i18n.test.tsx 4508d11315619c74e2866d76756bce8f136c058b unchanged
+apps/web/tests/ui/failure-i18n.test.ts 7d91d93fcb52bcc8107e709cfdc5648f4ded4b0b unchanged
+apps/web/e2e/i18n-live-tasks.spec.ts 3ef90eca07a1c8818384078aa4e7f425d8b82f9f unchanged

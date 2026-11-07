@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
 import * as React from "react";
 import { UserPlus, RotateCcw } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,14 +8,13 @@ import { Badge } from "@/components/ui/badge";
 import { AdminModal, Toast } from "./panel";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { ApiError } from "@/lib/api-client";
-import { describeFailure } from "@/lib/design-failure";
-import { buildActivationLink } from "@/lib/activation-link";
+import { memberFailure, type MemberFeedback } from "@/lib/admin-member-copy";
 import {
   listOrgMembers, listOrgInvites, resendOrgInvite,
   type ListOrgMembersOut, type ListOrgInvitesOut,
 } from "@/lib/live-org-admin";
 import {
-  InviteMemberForm, INVITE_STATUS_LABEL, OneTimeActivationLink, type OneTimeLink,
+  InviteMemberForm, inviteStatusLabel,
 } from "@/components/org-admin/org-admin-screen";
 
 /**
@@ -26,18 +26,20 @@ import {
  * （`listOrgMembers` / `listOrgInvites` / `resendOrgInvite`）。
  *
  * ⚠ 这不是把「组织成员」那一屏的邀请管理重做一遍：邀请的创建复用已导出、已有
- * 测试覆盖的 `InviteMemberForm`；批准/拒绝（双人复核）与撤销仍只在 `/org-admin/invites`
+ * 测试覆盖的 `InviteMemberForm`；撤销仍只在 `/org-admin/invites`
  * 一处——这里只做「谁在候场」的摘要 + 重发，避免同一套邀请状态机在两处各写一份
  * （AGENTS.md：同一事实不得声明在两处）。
  */
 export function MemberInvitesPanel() {
+  const { t } = useI18n();
   const session = useOptionalSession()?.session ?? null;
   const orgId = session?.currentOrgId ?? null;
-  if (!orgId) return <p className="p-3 text-12 text-muted-foreground">尚未选择组织。</p>;
+  if (!orgId) return <p className="p-3 text-12 text-muted-foreground">{t("adminMemberQuotas.noOrg")}</p>;
   return <OrgMemberInvitesPanel key={orgId} orgId={orgId} />;
 }
 
 function OrgMemberInvitesPanel({ orgId }: { orgId: string }) {
+  const { t, locale } = useI18n();
   const mounted = React.useRef(false);
   const loadEpoch = React.useRef(0);
   React.useEffect(() => {
@@ -48,10 +50,9 @@ function OrgMemberInvitesPanel({ orgId }: { orgId: string }) {
   const [members, setMembers] = React.useState<ListOrgMembersOut | null>(null);
   const [invites, setInvites] = React.useState<ListOrgInvitesOut | null>(null);
   const [invitesDenied, setInvitesDenied] = React.useState(false);
-  const [loadError, setLoadError] = React.useState<string | null>(null);
+  const [loadError, setLoadError] = React.useState<MemberFeedback | null>(null);
   const [inviteOpen, setInviteOpen] = React.useState(false);
-  const [oneTimeLink, setOneTimeLink] = React.useState<OneTimeLink | null>(null);
-  const [toast, setToast] = React.useState<string | null>(null);
+  const [toast, setToast] = React.useState<MemberFeedback | null>(null);
   const [busyId, setBusyId] = React.useState<string | null>(null);
 
   const load = React.useCallback(async () => {
@@ -66,7 +67,7 @@ function OrgMemberInvitesPanel({ orgId }: { orgId: string }) {
     } catch (err) {
       if (!current()) return;
       // 失败就说失败，不退回 mock 名单——一屏看起来正常但人是假的，比一条错误消息危险得多。
-      setLoadError(err instanceof ApiError && err.status === 404 ? "这个组织找不到了，请重新选择组织。" : describeFailure(err));
+      setLoadError((): MemberFeedback => (t, locale) => err instanceof ApiError && err.status === 404 ? t("adminMemberQuotas.orgMissing") : memberFailure(err, locale));
       return;
     }
     try {
@@ -81,7 +82,7 @@ function OrgMemberInvitesPanel({ orgId }: { orgId: string }) {
         setInvites(null);
         return;
       }
-      setLoadError(err instanceof ApiError && err.status === 404 ? "这个组织找不到了，请重新选择组织。" : describeFailure(err));
+      setLoadError((): MemberFeedback => (t, locale) => err instanceof ApiError && err.status === 404 ? t("adminMemberQuotas.orgMissing") : memberFailure(err, locale));
     }
   }, [orgId]);
 
@@ -93,29 +94,31 @@ function OrgMemberInvitesPanel({ orgId }: { orgId: string }) {
     try {
       const out = await resendOrgInvite(orgId, inviteId);
       if (!mounted.current) return;
-      setOneTimeLink({ email, url: buildActivationLink(out.activationToken, window.location.origin), kind: "resent" });
-      setToast(`已对 ${email} 重发；旧链接立即失效（冷却 ${out.cooldownSec} 秒）`);
+      setToast((): MemberFeedback => (t) => t("adminMemberQuotas.resent", { email, seconds: out.cooldownSec }));
       await load();
     } catch (err) {
       if (!mounted.current) return;
-      setToast(err instanceof ApiError && err.status === 404 ? "这条邀请找不到了，请刷新成员列表。" : `重发失败：${describeFailure(err)}`);
+      setToast((): MemberFeedback => (t, locale) => err instanceof ApiError && err.reasonCode === "MAIL_UNAVAILABLE"
+        ? t("orgMembers.emailIsUnavailableTheInvitationIsRecordedAsSend")
+        : err instanceof ApiError && err.status === 404 ? t("adminMemberQuotas.inviteMissing") : t("adminMemberQuotas.resendFailed", { error: memberFailure(err, locale) }));
+      await load();
     } finally {
       if (mounted.current) setBusyId(null);
     }
   }
 
-  if (!orgId) return <p className="p-3 text-12 text-muted-foreground">尚未选择组织。</p>;
+  if (!orgId) return <p className="p-3 text-12 text-muted-foreground">{t("adminMemberQuotas.noOrg")}</p>;
   if (loadError) {
     return (
       <Card data-testid="admin-members-load-failed">
         <CardContent className="flex flex-wrap items-center gap-2 p-3 text-12">
-          <span className="text-destructive">成员数据读取失败：{loadError}</span>
-          <Button size="xs" variant="outline" onClick={() => void load()}>重试</Button>
+          <span className="text-destructive">{t("adminMemberQuotas.membersFailed", { error: loadError(t, locale) })}</span>
+          <Button size="xs" variant="outline" onClick={() => void load()}>{t("adminCommon.retry")}</Button>
         </CardContent>
       </Card>
     );
   }
-  if (!members) return <p className="p-3 text-12 text-muted-foreground">正在读取成员…</p>;
+  if (!members) return <p className="p-3 text-12 text-muted-foreground">{t("adminMemberQuotas.loadingMembers")}</p>;
 
   const pendingInvites = (invites?.invites ?? []).filter((i) => i.status !== "used" && i.status !== "revoked");
   const activeCount = members.members.filter((m) => m.status === "active").length;
@@ -124,8 +127,8 @@ function OrgMemberInvitesPanel({ orgId }: { orgId: string }) {
     <section className="flex flex-col gap-2" data-testid="admin-members-list">
       <div className="flex flex-wrap items-center gap-2" data-testid="admin-members-invite-bar">
         <span className="text-11 text-muted-foreground" data-testid="admin-members-roster-count">
-          成员 {members.members.length} 人 · 活跃 {activeCount} 人
-          {invitesDenied ? "" : ` · 待处理邀请 ${pendingInvites.length} 条`}
+          {t("adminMemberQuotas.rosterSummary", { members: members.members.length, active: activeCount })}
+          {invitesDenied ? "" : t("adminMemberQuotas.pending", { count: pendingInvites.length })}
         </span>
         <Button
           size="xs"
@@ -135,13 +138,13 @@ function OrgMemberInvitesPanel({ orgId }: { orgId: string }) {
           data-testid="admin-members-invite-open"
         >
           <UserPlus aria-hidden className="h-3.5 w-3.5" />
-          邀请成员
+          {t("adminMemberQuotas.invite")}
         </Button>
       </div>
 
       {invitesDenied && (
         <p className="text-11 text-muted-foreground" data-testid="admin-members-invites-denied">
-          待处理邀请仅组织管理员可见。
+          {t("adminMemberQuotas.invitesDenied")}
         </p>
       )}
 
@@ -149,7 +152,7 @@ function OrgMemberInvitesPanel({ orgId }: { orgId: string }) {
         <Card>
           <CardContent className="flex flex-col divide-y divide-border pt-2">
             {pendingInvites.map((inv) => {
-              const canResend = inv.status === "pending" || inv.status === "send-failed";
+              const canResend = inv.status === "pending" || inv.status === "send-failed" || inv.status === "awaiting-review";
               return (
                 <div
                   key={inv.inviteId}
@@ -161,9 +164,9 @@ function OrgMemberInvitesPanel({ orgId }: { orgId: string }) {
                     tone={inv.status === "pending" ? "warning" : inv.status === "awaiting-review" ? "outline" : "danger"}
                     data-testid={`admin-member-status-${inv.status}`}
                   >
-                    {INVITE_STATUS_LABEL[inv.status] ?? inv.status}
+                    {inviteStatusLabel(inv.status, t)}
                   </Badge>
-                  <span className="text-11 text-muted-foreground">由 {inv.invitedBy} 邀请</span>
+                  <span className="text-11 text-muted-foreground">{t("adminMemberQuotas.invitedBy", { name: inv.invitedBy })}</span>
                   {canResend && (
                     <Button
                       size="xs"
@@ -174,7 +177,7 @@ function OrgMemberInvitesPanel({ orgId }: { orgId: string }) {
                       data-testid={`admin-member-resend-${inv.inviteId}`}
                     >
                       <RotateCcw aria-hidden className="h-3.5 w-3.5" />
-                      {busyId === inv.inviteId ? "重发中…" : "重发"}
+                      {busyId === inv.inviteId ? t("adminMemberQuotas.resending") : t("adminMemberQuotas.resend")}
                     </Button>
                   )}
                 </div>
@@ -184,30 +187,28 @@ function OrgMemberInvitesPanel({ orgId }: { orgId: string }) {
         </Card>
       )}
 
-      {oneTimeLink && <OneTimeActivationLink link={oneTimeLink} onDismiss={() => setOneTimeLink(null)} />}
-
       <p className="text-10 text-muted-foreground">
-        激活链接一次性、有有效期；链接携带的组织 / 角色
-        <strong className="text-background-foreground">以服务端为准，篡改无效</strong>。
+        {t("adminMemberQuotas.linkContext")}
       </p>
 
       {inviteOpen && (
         <AdminModal
           testid="admin-members-invite-dialog"
-          title="邀请成员"
-          subtitle="发一条一次性激活链接；入场即带好组织角色。"
+          title={t("adminMemberQuotas.invite")}
+          subtitle={t("adminMemberQuotas.inviteSubtitle")}
           onClose={() => setInviteOpen(false)}
         >
           <InviteMemberForm
             orgId={orgId}
-            onSucceeded={(text) => { setToast(text); setInviteOpen(false); void load(); }}
-            onFailed={(text) => setToast(text)}
-            onLink={(link) => setOneTimeLink(link)}
+            onSucceeded={() => {}}
+            onNotice={(notice) => { setToast((): MemberFeedback => notice.text); if (notice.tone === "success") setInviteOpen(false); void load(); }}
+            onFailed={() => {}}
+            onLink={() => {}}
           />
         </AdminModal>
       )}
 
-      <Toast message={toast} testid="admin-members-toast" onDismiss={() => setToast(null)} />
+      <Toast message={toast ? toast(t, locale) : null} testid="admin-members-toast" onDismiss={() => setToast(null)} />
     </section>
   );
 }

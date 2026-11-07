@@ -94,3 +94,31 @@ description: 用户研究计划、资料检索、来源证据和研究报告；�
 - #5546 最终验收：独立普通/缺口审核共享明确 supported_answer / explicit_evidence_gap / omitted_answer wire 含义，成功响应先严格 schema 后映射 canonical；格式修复前同源映射已有负 verdict，防止改写成 gap 假绿。完整段落注册表让 reviewer 检查正文而非只查引文。上一版正式报告须跨失败/续写保留，现有 history reader 必须实际挂在 report 页（包含生成中），previous-锚点/导出动作与当前文档隔离。真实 v10 正常从头生成4章32题，38调用，7坏引用弃用，刷新保持当前/上一版hash；初次v2不可变响应经最终guard离线复核，不能宣称v2运行了后来wire协议（出处：issue #5546、docs/evidence/research-organizing-5546/README.md）。
 
 - #5639：正式保存与检索覆盖必须分离。质量通过且逐题解释证据局限的 reportPartial 报告自动正式交付；保存完成判断依据 formal report、completed 与 validation completed，不由历史来源读取失败、排除批次或终态检索局限反转。真实质量草稿、未保存与执行错误继续阻断完成。实际新会话四章32题本地首次/重新生成通过，重新生成含精确响应复用，不能冒充两个全新模型运行或线上部署验收（出处：docs/evidence/research-formal-completion-5639/README.md）。
+
+- 2026-10-16：旧来源重新评估的某批结果两次严格校验失败，只排除该批，独立健康批继续；不能把格式/语义无效评估写入确定无关缓存或供应商拒绝记录。新候选保留 task 级失败边界，资料全被排除仍不可伪造完成。controller+真实runtime的受控 NDJSON retry/重新生成反证与恢复见 docs/evidence/research-relevance-isolation-5800/README.md（#5800），不代表该线上会话已恢复。
+
+- #5800 补充：旧源弃批若令任务失去全部来源，报告准备须在本次 invalid-output 弃批且 canRecoverPartialReport 验证真实保留文档后，才转既有 reportPartial 路径；保留失败任务、局限说明及独立全文质量门。普通 negative 不触发此恢复，空章节/审核拒绝仍失败；受控 controller 的保存重读反证见同份证据。
+
+- 2026-10-19：研究导出 GET SourceInfo 的 title/notices 不能直接作为严格 POST source；与访谈一样显式投影 kind/id/reportVersion/reportHash，否则 HTTP 前即失败。来源池目标按同源确认问题数扩展到3–9，legacy逐题任务仍只取三源窗口；这是发现目标，不是引用条数或逐题证据完成保证。自动处理的来源细节不叠加到用户进度，正式正文后移除重复资料折叠；真实阻断与正文局限保留。受控浏览器/HTTP双格式证据见 docs/evidence/research-report-delivery-5829/README.md（#5829），不代表新原生文件或线上部署验收。
+
+- #5829 P2复审：补搜必须按当前章节已提交的 accepted document normalized URL 数重算剩余名额，并据此缩小本批读取窗口；已有5/6或8/9只补1。重复URL、未读/排除和否定候选不占新名额；legacy逐题补搜另保留三源预算，primary/recovery仍按本次实际批准材料停，不用历史来源跳过重试验证。RED5/定向31/研究889/原完整生产受控UI/API/PG链路证据见同份README。
+
+- #5829 首击生命周期：异步SourceInfo绑定后，DOM按钮存在不代表passive初始化已完成；共享导出控件若稍后epoch++/abort/clear，会丢掉已发出的合法首次请求。epoch初始化/失效移到轻量layout effect，保留同样source/disabled依赖与卸载保护。真实wrapper+Profiler首commit单击、HTTP-onlymock双格式RED2（POST先通过，结果被清空），完整Web8192/943文件、禁用/卸载晚返回/StrictMode和productionR5证据见同份README；不能只加等待或双击掩盖。
+
+- 2026-10-19：PDF原生run成功但导出INVALID_FILE时，须用同次真实附件和精确input hash重放validator；canonical AST去脚注而提取文本保留 `[^1]`/换行 `[^ 7]` 会把完整段落误判缺失。只按canonical实际脚注ID清理提取AST文本/引用节点的呈现符号，保留代码字面量、原文件和全文/URL/重复/权限门。真实4301927字节PDF离线通过，无新模型调用；旧终态任务不会自动恢复（#5832，docs/evidence/research-pdf-validation-5832/README.md）。
+
+- #5832 review修正：提取器可能不重建代码backticks/fences，不能全局移除同IDmarker。最终保留提取文本不改，以canonical逐段AST text/reference segments精确匹配，仅真实reference位置允许可选打印标记，代码字面量即使成为plain text仍必需。旧patch plain-code RED1、同段引用/代码与错ID/重排/重复反证见同份证据。
+
+- 2026-10-19：报告文件任务仍running时单次GET网络/5xx错误不等于转换失败；保留job身份，用中性进度提示，后续点击只GET原任务。轮询上限也是未完成状态，真实failed/拒绝/下载校验仍走错误路径。GENERATION_FAILED/RUN_INTERRUPTED与旧INVALID_FILE不同，须读取同run工具与安全远端error类别后归因；生成/渲染中间文件不能当作已发布产物（#5837，docs/evidence/research-export-interrupted-5837/README.md）。
+
+- 2026-10-20：研究创建与已保存会话的浮动助手复用研究域 ResearchFloatingAssistant，嵌入式对话用 embedded 去掉重复标题/卡片；目录窄屏可折叠、字段错误须展开并关联。1280/768/375 本地浏览器7项与组件63项留证于 docs/evidence/research-ui-5841/README.md；固定报告样本不代表引擎或数据库验收（#5841、PR #5845）。
+
+- 2026-10-20：真实文档报告可优先准备首章、其余章共享一次证据提取，避免每章重复扫描所有来源。批次完整覆盖与正向账本事实分离；完成记录依赖的精确重复原文位置必须跨去重保留，空间不足时淘汰覆盖记录而非降级核验。来源关联仅排序，不过滤；模型请求共享限额，正文首段计时须排除 JSON 外壳与已保存旧章节。受控对照不等于线上提速（出处：#5848、docs/evidence/research-report-pipeline-5848/README.md）。
+
+- 2026-10-21：报告调度优化须补多批次固定请求耗时反例，不能只凭每题耗时模拟宣称首次总提速；按共享批次数保留共享提取路径，真实单次对照与线上原会话验收分开。模型预算从队列名额授予后开始，但名额须保持至真实 provider promise 结束，即使调用方已超时；排队取消与派发前取消均需验证，provider settle 后的旧流回调不得写入。反证、真实模型口径和最终队列测试见 #5848 同份证据。
+
+- 2026-10-28：研究 route 热切换须先显示已有快照，再以捕获基线合并只读校验；校验与后续轮询都保留未提交草稿，明确放弃时才丢弃。页面缓存及并发读取按 bearer + 当前组织 + 研究隔离，明确 401/403/404 清缓存，离线保留；StrictMode 重挂载可共享同基线的未完成读取，不能缓存已完成响应（出处：issue #5969、docs/evidence/research-route-5969/README.md）。
+
+- #5969 复审：热缓存 version0 只用于立即展示，自动 prepare_plan 必须等待当前 route 后端校验成功；metadata GET 与成功 rename 共用名称写入代际，迟到读取不得回退已保存名称。延迟读取、权限拒绝、后端版本推进及新建正常引导的反证见同份证据。
+
+- 2026-11-06：用户明确以跨章节并行资料获取替代#5421按章串行边界。全局primary/recovery队列共享read/model限额3/2，补搜按章内顺序、章间最多3个worker；URL只锁实际候选窗口，不能预锁未读尾部。命名brief的生成主题原本会被用户值覆盖，因此跳过该无效调用，默认主题仍需生成。进度phase-start先落盘、同phase250ms内合并，不能只用observer证明默认NDJSON+polling可见；受控对照不代表线上时延（#6332，docs/evidence/research-parallel-acquisition-6332/README.md）。

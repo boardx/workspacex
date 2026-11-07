@@ -1,0 +1,64 @@
+[stack-admission] load1=3.27 cores=10 perCore=0.33 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvy5h130-1fd4c023-deded199745e db=wsx_deded199745e3c63ebb0 compose=wsx-deded199745e3c63ebb0 pg=20601 redis=21601 api=24601 web=25601 sandbox=26601 model=27601 deep-agent=28601 asr=29601 vision=30601 loopback-sandbox=31601 mail=19601
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_deded199745e3c63ebb0 capacity=100 current=6 required=32
+ ❯ tests/billing/personal-checkout-intents-pg.test.ts (10 tests | 3 failed) 48410ms
+   × retains a confirmed-closed purchase for idempotent reads while allowing a new Pro purchase 52ms
+     → repository.confirmClosed is not a function
+   × cannot confirm closure against a different owner or Checkout session 43ms
+     → repository.confirmClosed is not a function
+   × keeps fulfilled or manual-review purchases open to financial reconciliation 63ms
+     → repository.confirmClosed is not a function
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/personal-checkout-intents-pg.test.ts > retains a confirmed-closed purchase for idempotent reads while allowing a new Pro purchase
+TypeError: repository.confirmClosed is not a function
+ ❯ tests/billing/personal-checkout-intents-pg.test.ts:81:27
+     79|   const result = { sessionRef: `cs_${original.purchaseRef}`, url: "htt…
+     80|   const bound = await repository.bind(f.principal, original.purchaseRe…
+     81|   expect(await repository.confirmClosed(bound)).toBe(true);
+       |                           ^
+     82|   const first = await repository.find(f.principal, f.request.idempoten…
+     83|   expect(await repository.confirmClosed(bound)).toBe(true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  tests/billing/personal-checkout-intents-pg.test.ts > cannot confirm closure against a different owner or Checkout session
+TypeError: repository.confirmClosed is not a function
+ ❯ tests/billing/personal-checkout-intents-pg.test.ts:92:29
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  tests/billing/personal-checkout-intents-pg.test.ts > keeps fulfilled or manual-review purchases open to financial reconciliation
+TypeError: repository.confirmClosed is not a function
+ ❯ tests/billing/personal-checkout-intents-pg.test.ts:102:29
+    100|     // Test-only owned row mutation; app_rw cannot alter immutable pur…
+    101|     await asOwner(c => c.query(`UPDATE billing_personal_purchases SET …
+    102|     expect(await repository.confirmClosed(bound)).toBe(false);
+       |                             ^
+    103|     expect((await repository.find(f.principal, f.request.idempotencyKe…
+    104|   }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 7 passed (10)
+   Start at  02:15:05
+   Duration  52.53s (transform 263ms, setup 8ms, collect 134ms, tests 48.41s, environment 0ms, prepare 51ms)
+
+[db-isolation] db=wsx_deded199745e3c63ebb0 peak_connections=4
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/personal-checkout-intents-pg.test.ts
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/personal-checkout-intents-pg.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：54s
+  清理：1s
+  总计：55s

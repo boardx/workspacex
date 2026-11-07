@@ -44,8 +44,10 @@ import { CountingDecisionIdFactory } from "../../src/infrastructure/identity/in-
 import { PgIdentityRepository } from "../../src/infrastructure/identity/pg-identity-repository";
 import { PgNonWorkshopMemberRepository } from "../../src/infrastructure/project/pg-non-workshop-member-repository";
 import { PgProjectInvitationRepository } from "../../src/infrastructure/project/pg-project-invitation-repository";
+import { PgProjectListRepository } from "../../src/infrastructure/project/pg-project-list-repository";
+import { listProjects } from "../../src/application/project/list-projects";
 import { FakeProvenanceWriter } from "../support/role-view-fakes";
-import { addCredential, addOrgMember, asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
+import { addCredential, addOrgMember, addProjectMember, asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
 
 const HOOK_TIMEOUT_MS = 120_000;
 const ORG = "org-pinv";
@@ -270,6 +272,58 @@ describe("PgProjectInvitationRepository（真实 PG）", () => {
       reasonCode: "INVITATION_INVALID",
     });
     expect((await lookup(forExisting)).valid).toBe(false);
+  });
+
+  it("共享邀请加入后，新请求仍列出通用项目，并保留租户、成员及归档边界", async () => {
+    const reader = new PgDatabase(appConfig());
+    const list = (userId = EXISTING) => listProjects({
+      repo: new PgProjectListRepository(reader), identity: new PgIdentityRepository(reader),
+    }, { orgId: ORG_ID, actorId: userId });
+    try {
+      expect(await list()).toEqual([]);
+      const link = await issueProjectInviteLink(deps, owner());
+      await acceptProjectInvitation({ invitations: repo, now }, {
+        token: link.inviteUrl.split("invite=")[1]!, userId: EXISTING,
+      });
+      expect(await list()).toEqual([{
+        id: PROJECT, name: "北极星项目", kind: "general", status: "active", readOnlyReason: null, tags: [],
+      }]);
+      expect(await list(STRANGER)).toEqual([]);
+      // Same actor is an administrator in OTHER; that does not expose OTHER's projects here.
+      expect((await list()).map(p => p.id)).not.toContain(OTHER_PROJECT);
+      expect((await list()).map(p => p.id)).not.toContain(PROJECT_2);
+
+      const workshop = `${ORG}-workshop`;
+      await asApp(ORG, async c => {
+        await c.query("INSERT INTO projects (id, org_id, name, kind) VALUES ($1,$2,'受邀工作坊','workshop')", [workshop, ORG]);
+        await c.query("INSERT INTO workshops (id, org_id) VALUES ($1,$2)", [workshop, ORG]);
+      });
+      await addProjectMember(ORG, workshop, EXISTING, "member", null);
+      expect((await list()).map(p => p.id).sort()).toEqual([PROJECT, workshop].sort());
+
+      await asApp(ORG, c => c.query("UPDATE projects SET status='archived' WHERE id=$1", [PROJECT]));
+      expect((await list()).find(p => p.id === PROJECT)).toMatchObject({ status: "archived", readOnlyReason: "archived" });
+    } finally {
+      await reader.close();
+    }
+  });
+
+  it("通用项目 owner 可列出，管理者去重，移出后的普通成员不再列出", async () => {
+    const list = (userId: string) => listProjects({
+      repo: new PgProjectListRepository(db), identity: new PgIdentityRepository(db),
+    }, { orgId: ORG_ID, actorId: userId });
+    expect((await list(OWNER)).map(p => p.id)).toEqual([PROJECT]);
+    const link = await issueProjectInviteLink(deps, owner());
+    await acceptProjectInvitation({ invitations: repo, now }, {
+      token: link.inviteUrl.split("invite=")[1]!, userId: EXISTING,
+    });
+    await asApp(ORG, c => c.query("UPDATE org_memberships SET org_role='admin' WHERE user_id=$1", [EXISTING]));
+    expect((await list(EXISTING)).filter(p => p.id === PROJECT)).toHaveLength(1);
+    await asApp(ORG, async c => {
+      await c.query("UPDATE org_memberships SET org_role='consultant' WHERE user_id=$1", [EXISTING]);
+      await c.query("DELETE FROM general_project_members WHERE user_id=$1 AND project_id=$2", [EXISTING, PROJECT]);
+    });
+    expect(await list(EXISTING)).toEqual([]);
   });
 
   it("接受：已在项目里的 owner 不被降级", async () => {

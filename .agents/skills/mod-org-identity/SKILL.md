@@ -50,6 +50,18 @@ description: >
 3. 交付：`verify --sprint` 门控；PR 描述里写清对鉴权/权限面的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-11-06：组织邀请按人类要求取消复核，新邀请固定普通成员（consultant），邮件投递使用既有事务邮件端口；已有账号用 guarded accept 路由明确确认，单人邀请必须绑定 credentials 邮箱、共享链接重复加入不重复扣使用次数。企业成员默认月度 Credit 上限独立于 Token 配额，不发放钱包资金；未知成本调用预留余额度并在真实回执后检查，不能承诺回执间绝无超额（issue #6316；evidence/org-invitation-6316/）。
+- 2026-11-06：组织导出清单须按同一应用连接的 PostgreSQL SELECT ACL 枚举可读租户表；org_id 外键不代表 app 可读，内部历史归档撤权后不得切特权账号、吞错误或伪报零行。保留普通租户表计数完整、active/disabled 管理员真实 HTTP 与跨组织归档拒读反例（issue #6290 / PR #6298）。
+- 2026-11-04：排查 run 行锁要追到 `PgDatabase.inTx` 的 `currentRunLease` 隐式围栏，不能只看仓储显式 SQL；真实 PG 并发反例须带 `withRunLease`。run 键不变时用相容的 `FOR NO KEY UPDATE` 保持写者/租约接管互斥并允许计费 FK `KEY SHARE`；改锁后同时验证 takeover 等待提交、过期/旧 epoch 在执行事务体前被拒绝（issue #6235，`docs/evidence/chat-event-metering-deadlock-6235/`）。
+- 2026-11-04：后台配额/用量说明先核对 canonical `apps/api/src/infrastructure/auth/pg-token-quota-repository.ts` 聚合及 F159 迁移，不从调用失败推导 Token 为零；通用错误文案复用 `apps/web/lib/design-failure.ts` → `http-failure-text.ts`，语义反馈回调在渲染时接收当前 locale。对应反例与回归：`apps/web/tests/ui/admin-member-quotas-i18n.test.tsx`、`ai-usage-i18n.test.tsx`（issue #6212）。
+- 2026-11-04：组织工作流授权的长文案会同时造成纵向按钮不可达和撤销页横向裁剪；保留共享弹窗边界，在页面所属容器提供滚动、footer 允许换行，并用真实 wheel + Confirm/Cancel 完整入屏断言验收。控制值、API 与权限不随显示修复变化（issue #6207；`evidence/workflow-grants-i18n-6207/browser-first/`、`browser-second/`、`final-run/`）。
+- 2026-11-04：首页配置采用保留挂载状态的标签页时，原生 `hidden` 与无条件 Tailwind `flex` 会发生样式覆盖；应按当前页切换 `flex` / `hidden` 并真实断言非活动面板不可见。只跑完成主链的浏览器绿灯不能替代逐屏截图检查（issue #6204；`evidence/org-home-config-i18n-6204/visibility-red/`）。
+- 2026-11-03：契约 mock 再生成的字节同步不能证明样例有效；新增 schema 类型时需以真实响应 safeParse 校验生成样例，判别联合缺生成支持会默默产出 null（issue #6145）。
+- 2026-11-03：strict 事件响应新增展示元数据需显式版本协商并保留旧摘要回退；query 校验复用 ZodBodyPipe，裸 schema.parse 的 ZodError 不会自动成为400。白名单投影与真实新旧HTTP证据见 issue #6145 / evidence/i18n-activity-6145。
+- 2026-11-03：成员/邀请的真实路由在 `org-admin-screen.tsx`，同名 `members-screen.tsx`/`roster-screen.tsx` 是预览；国际化不能只改预览。角色标签复用共享 `role.*` 字典，错误/反馈保留原始载荷并在渲染时翻译，locale 不进入读取 effect 依赖，避免语言切换重发请求（issue #6179）。
+- 2026-11-02：验证邮件重发不能只依赖24小时注册cookie；过期/换浏览器恢复须先复用登录密码校验与锁定规则，再将可信userId传入事务重发，保持challenge→credential锁顺序、限频与旧链接原子失效；API存活不证明发信配置完整（issue #6085）。
+
+- 2026-11-02：成员加入容量检查必须在同一真实事务内先取计费 epoch 共享锁、再锁组织行，然后读 canonical 商业许可并数实际 membership；新账号创建会触发赠送钱包，因此项目邀请的容量检查要放在 `INSERT credentials` 之前，避免钱包→组织的反向锁序。单邀须在组织锁之后锁定权威邀请，再条件核销 token；重发同样先邀请后 token，避免反向锁序。单邀、共享组织邀、项目邀三个实际写入入口复用 `infrastructure/org-capacity/pg-commercial-capacity.ts`；项目纯来宾不写组织 membership。真实末席跨连接反例与失败零副作用证据见 `evidence/org-capacity-6107/`（issue #6107）。
 - 2026-10-07：现有账号创建组织必须独立于匿名注册；幂等 key 绑定认证用户，组织/管理员成员/系统 Agent/收据共用同一 `withTenant` 事务。套餐缺省保持未配置，不继承来源租户预算/模型；会话列表须在存储锁内合并最新版本避免并发响应覆盖（issue #5494；`evidence/org-create-5494/README.md`）。
 - 2026-09-15：反馈正文 D3 遮蔽后，收件箱侧表标签合并仍可能重新暴露提交人自由文本；共用 `applyTags` 必须保留 `body === null` 的既有披露结果，在标签筛选和 byTag 计数之前清空标签。只测 listFeedback 输出不足，必须覆盖最终 Inbox 列表、私有/共享标签过滤与计数、归档视图（issue #3633）。
 - 2026-09-13：注册入口验收须分别走组织自助注册、单人邀请 `?t=` 与共享邀请 `?lt=`；邀请激活曾调用会话存储却丢弃返回的 bearer，仅回传不能认证的 sessionId，导致完成页仍要求登录。交付应验证标准会话 hydrate、正确组织与刷新持久，且不得覆盖已有/并发切换的账号；会话签发在 PG 激活提交之后，失败不能承诺邀请未消费（出处：issue #3600，前序修复 #3596 / PR #3599 的漏覆盖）。

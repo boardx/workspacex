@@ -1,0 +1,30 @@
+Observed process exit code: 1
+Raw log SHA-256: a0b606a08e4d73ee20517563e43c1e303b7fcbf2063d017e7bd380706a28ff3d
+
+
+    Test timeout of 180000ms exceeded.
+
+    Error: locator.evaluate: Test timeout of 180000ms exceeded.
+    Call log:
+      - waiting for getByTestId('research-flow-progress').getByText('Confirm research details', { exact: true })
+
+
+      42 |           return element.scrollWidth <= element.clientWidth && bounds.left >= cell.left - 1 && bounds.right <= cell.right + 1;
+        at screenshot (/Users/shenyangjun/boardx/workspacex/apps/web/e2e/i18n-research-entry.spec.ts:39:28)
+        at /Users/shenyangjun/boardx/workspacex/apps/web/e2e/i18n-research-entry.spec.ts:157:3
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+
+  1 failed
+    [seeded] › e2e/i18n-research-entry.spec.ts:8:5 › research locale preserves the real intake, plan, saved report and history management journey
+  1 error was not a part of any test, see above for details
+undefined
+/Users/shenyangjun/boardx/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: playwright test --config playwright.fullstack-smoke.config.ts --project=seeded e2e/i18n-research-entry.spec.ts --workers=1 --max-failures=1
+[timing] pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded e2e/i18n-research-entry.spec.ts --workers=1 --max-failures=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：6m56s
+  清理：1s
+  总计：6m57s

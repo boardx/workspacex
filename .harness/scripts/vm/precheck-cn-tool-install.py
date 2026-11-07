@@ -32,6 +32,7 @@ def precheck(repo, package, manifest_sha256, tool, application, main):
     require(git(repo, 'rev-parse', application + '^{commit}').decode().strip() == application, 'APP_OBJECT')
     identity = git(repo, 'show', tool + ':.harness/scripts/vm/cn-build-tool-identity.py')
     files = producer.allowlist(identity)
+    modes = producer.installation_modes(identity)
     require(manifest.get('toolRoot') == producer.tool_root_contract(identity, tool), 'TOOL_ROOT')
     rows = manifest.get('files')
     require(isinstance(rows, dict) and set(rows) == set(files), 'FILES_CLOSURE')
@@ -47,7 +48,7 @@ def precheck(repo, package, manifest_sha256, tool, application, main):
     require(actual == set(files), 'PAYLOAD_CLOSURE')
     for source, target in files.items():
         row = rows[source]
-        require(isinstance(row, dict) and row.get('target') == target and row.get('mode') == ('0700' if target else '0600'), 'TARGET_AUTHORITY')
+        require(isinstance(row, dict) and row.get('target') == target and row.get('mode') == modes[source], 'TARGET_AUTHORITY')
         data = producer.safe_file(payload / source)
         require(data == git(repo, 'show', tool + ':' + source), 'PAYLOAD_GIT_BINDING')
         require(row.get('newSha256') == producer.sha(data) and type(row.get('bytes')) is int and row['bytes'] == len(data), 'PAYLOAD_METADATA')

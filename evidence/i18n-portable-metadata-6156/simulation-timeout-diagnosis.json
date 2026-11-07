@@ -1,0 +1,34 @@
+{
+  "workflowRun": 41562018296,
+  "head": "dad8ac7ef9c10c343381b24d6bd0d4c959be87b1",
+  "testedMergeCommit": "78eb9e56031a58746f1a078afc38a37ef9517da2",
+  "status": "failed",
+  "caseCounts": {
+    "fail": 0,
+    "notrun": 0,
+    "pass": 490,
+    "skip": 0
+  },
+  "failedSuites": [
+    {
+      "suite": "release",
+      "status": "failed",
+      "reason": "timeout",
+      "exitCode": -9,
+      "durationSeconds": 300.076,
+      "cleanup": {
+        "domain": "wsx-simulation-3ddf4d05c5044d0b9277b429949bfa5e",
+        "kind": "linux-cgroup-v2-owned-cleanup",
+        "populated": 0,
+        "removed": true,
+        "verified": true
+      }
+    }
+  ],
+  "sixBusiness": {
+    "verified": true,
+    "journeyCount": 6,
+    "cleanupVerified": true
+  },
+  "note": "No timeout/gate edit. Existing NextLaunch four local no-server probes pass; fresh corrected head must run the simulation again."
+}

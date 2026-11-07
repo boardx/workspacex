@@ -1,0 +1,31 @@
+{
+  "head": "625ec8e3557e1292097f2d559aa94a095c44fc0f",
+  "cleanParent": "c54c30396e90f5d036028dbacdaf696315556cba",
+  "privateOldRef": "private/i18n-recording-6214-raw-evidence",
+  "quarantinedCommits": [
+    "dda94afa0b5f03168938cabe5366c2bfac06bec6",
+    "bf6e0b4e69bed566c51e657ce98df638521ecf2c"
+  ],
+  "blockedRawObjectIds": {
+    "dda94afa0b5f03168938cabe5366c2bfac06bec6:trace.zip": "b1c4820e1944cc8aa2a1297ca45832d1bf910be0",
+    "dda94afa0b5f03168938cabe5366c2bfac06bec6:command.txt": "bb135d12e4c5311cfb88ef69cc11f482f1a0290f",
+    "dda94afa0b5f03168938cabe5366c2bfac06bec6:error-context.md": "413c4f2aa8b59f44228881831a10a1eb35388c70",
+    "bf6e0b4e69bed566c51e657ce98df638521ecf2c:trace.zip": "b1c4820e1944cc8aa2a1297ca45832d1bf910be0",
+    "bf6e0b4e69bed566c51e657ce98df638521ecf2c:command.txt": "373aa4b7b741e851d55d17117f06a27197581237",
+    "bf6e0b4e69bed566c51e657ce98df638521ecf2c:error-context.md": "f8f3e932253e7c1b94ef9b029a4707527423d778"
+  },
+  "reachableObjectCount": 107895,
+  "blockedRawObjectsReachable": false,
+  "remoteUnsafeCommits": {
+    "dda94afa0b5f03168938cabe5366c2bfac06bec6": {
+      "exists": false,
+      "confirmedNotFound404": true
+    },
+    "bf6e0b4e69bed566c51e657ce98df638521ecf2c": {
+      "exists": false,
+      "confirmedNotFound404": true
+    }
+  },
+  "businessAndSpecExactOldHead": true,
+  "scope": "New unpublished recording artifacts only; published ancestor history preserved, not asserted free of legacy traces."
+}

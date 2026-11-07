@@ -1,6 +1,9 @@
 "use client";
 
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
+import { HumanActionDisplayError, describeHumanActionFailure } from "@/lib/knowledge-graph-failure";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { AlertTriangle, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +21,7 @@ export interface ConflictConditions {
  * `onResolve` 抛它 ⇒ 卡片收起成一行说明，不再留着点不动的按钮。`message` 是给人看的话。
  */
 export class ConflictPromptGoneError extends Error {
-  constructor(message: string) {
+  constructor(message: string, readonly displayFailure?: HumanActionDisplayError) {
     super(message);
     this.name = "ConflictPromptGoneError";
   }
@@ -27,16 +30,16 @@ export class ConflictPromptGoneError extends Error {
 /** 契约 `conditions.newer / older` 的上限。 */
 const CONDITION_MAX = 200;
 
-const RESOLVED_NOTE: Record<ConflictResolution, string> = {
-  keep_new: "已改成以新的为准",
-  keep_both: "两条都留下了",
-  ignore: "好的，这处不再提醒",
+const RESOLVED_NOTE: Record<ConflictResolution, MessageKey> = {
+  keep_new: "chatKnowledge.conflict.resolved.new",
+  keep_both: "chatKnowledge.conflict.resolved.both",
+  ignore: "chatKnowledge.conflict.resolved.ignore",
 };
 
 /** issue #4290 低把握改口卡（`kind = possible_change`）的两个出口的结果。 */
-const CHANGE_RESOLVED_NOTE: Record<"keep_new" | "keep_both", string> = {
-  keep_new: "已取代，之后只按新的这条记",
-  keep_both: "两条都保留了",
+const CHANGE_RESOLVED_NOTE: Record<"keep_new" | "keep_both", MessageKey> = {
+  keep_new: "chatKnowledge.conflict.changeResolved.new",
+  keep_both: "chatKnowledge.conflict.changeResolved.both",
 };
 
 /** ISO 时间 → 「9/20」（本地时区）。纯展示格式化，不引入日期库。 */
@@ -67,10 +70,11 @@ export function ConflictPromptCard({
   canResolve: boolean;
   onResolve: (resolution: ConflictResolution, conditions?: ConflictConditions) => Promise<void>;
 }) {
+  const { t, locale } = useI18n();
   const [resolved, setResolved] = React.useState<ConflictResolution | null>(null);
   const [busy, setBusy] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-  const [gone, setGone] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<{ kind: "raw"; text: string } | { kind: "fallback" } | { kind: "owned"; failure: HumanActionDisplayError } | null>(null);
+  const [gone, setGone] = React.useState<ConflictPromptGoneError | null>(null);
   const [showBoth, setShowBoth] = React.useState(false);
   const [newerCond, setNewerCond] = React.useState("");
   const [olderCond, setOlderCond] = React.useState("");
@@ -84,10 +88,10 @@ export function ConflictPromptCard({
       setResolved(resolution);
     } catch (e) {
       if (e instanceof ConflictPromptGoneError) {
-        setGone(e.message);
+        setGone(e);
         return;
       }
-      setError(e instanceof Error && e.message !== "" ? e.message : "没能保存这次选择，请稍后重试。");
+      setError(e instanceof HumanActionDisplayError ? { kind: "owned", failure: e } : e instanceof Error && e.message !== "" ? { kind: "raw", text: e.message } : { kind: "fallback" });
     } finally {
       setBusy(false);
     }
@@ -99,7 +103,7 @@ export function ConflictPromptCard({
     return (
       <p className="mt-2 flex items-center gap-1.5 text-10 text-muted-foreground" data-testid="kg-conflict-resolved">
         <Check aria-hidden className="h-3 w-3 text-success" />
-        {possibleChange && resolved !== "ignore" ? CHANGE_RESOLVED_NOTE[resolved] : RESOLVED_NOTE[resolved]}
+        {t(possibleChange && resolved !== "ignore" ? CHANGE_RESOLVED_NOTE[resolved] : RESOLVED_NOTE[resolved])}
       </p>
     );
   }
@@ -107,7 +111,7 @@ export function ConflictPromptCard({
   if (gone !== null) {
     return (
       <p role="status" className="mt-2 text-10 text-muted-foreground" data-testid="kg-conflict-gone">
-        {gone}
+        {gone.displayFailure ? describeHumanActionFailure(gone.displayFailure.failure, locale) : gone.message}
       </p>
     );
   }
@@ -119,21 +123,21 @@ export function ConflictPromptCard({
       <div className="mt-2 flex flex-col gap-2 rounded-lg border border-warning bg-warning-tint p-3" data-testid="kg-conflict-card" data-kind="possible_change">
         <p className="flex items-start gap-1.5 text-11 text-warning-tint-foreground" data-testid="kg-conflict-text">
           <AlertTriangle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <span>用〈{prompt.newerClaim.statement}〉取代〈{prompt.olderClaim.statement}〉？</span>
+          <span>{t("chatKnowledge.conflict.changePrompt", { newer: prompt.newerClaim.statement, older: prompt.olderClaim.statement })}</span>
         </p>
         {canResolve ? (
           <div className="flex flex-wrap items-center gap-1.5">
             <Button size="xs" variant="secondary" data-testid="kg-conflict-keep-new" disabled={busy} onClick={() => void run("keep_new")}>
-              取代
+              {t("chatKnowledge.conflict.replace")}
             </Button>
             <Button size="xs" variant="outline" data-testid="kg-conflict-keep-both" disabled={busy} onClick={() => void run("keep_both")}>
-              两条都保留
+              {t("chatKnowledge.conflict.keepBothChange")}
             </Button>
           </div>
         ) : null}
         {error !== null ? (
           <p role="alert" className="text-10 text-destructive" data-testid="kg-conflict-error">
-            {error}
+            {error.kind === "owned" ? describeHumanActionFailure(error.failure.failure, locale) : error.kind === "raw" ? error.text : t("chatKnowledge.conflict.failed")}
           </p>
         ) : null}
       </div>
@@ -145,30 +149,30 @@ export function ConflictPromptCard({
       <p className="flex items-start gap-1.5 text-11 text-warning-tint-foreground" data-testid="kg-conflict-text">
         <AlertTriangle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
         <span>
-          这和你 {shortDate(prompt.olderClaim.saidAt)} 说的「{prompt.olderClaim.statement}」不一致。现在你说的是「{prompt.newerClaim.statement}」。
+          {t("chatKnowledge.conflict.prompt", { date: shortDate(prompt.olderClaim.saidAt), older: prompt.olderClaim.statement, newer: prompt.newerClaim.statement })}
         </span>
       </p>
 
       {!canResolve ? null : showBoth ? (
         <div className="flex flex-col gap-1.5" data-testid="kg-conflict-both-conditions">
           <label className="flex flex-col gap-0.5 text-10 text-muted-foreground">
-            新的这条，什么情况下适用？
+            {t("chatKnowledge.conflict.newCondition")}
             <Input
               value={newerCond}
               maxLength={CONDITION_MAX}
               onChange={(e) => setNewerCond(e.target.value)}
-              placeholder="例如：迁移演练通过后"
+              placeholder={t("chatKnowledge.conflict.newPlaceholder")}
               data-testid="kg-conflict-cond-newer"
               className="text-11"
             />
           </label>
           <label className="flex flex-col gap-0.5 text-10 text-muted-foreground">
-            原来那条，什么情况下适用？
+            {t("chatKnowledge.conflict.oldCondition")}
             <Input
               value={olderCond}
               maxLength={CONDITION_MAX}
               onChange={(e) => setOlderCond(e.target.value)}
-              placeholder="例如：演练未通过则保持原计划"
+              placeholder={t("chatKnowledge.conflict.oldPlaceholder")}
               data-testid="kg-conflict-cond-older"
               className="text-11"
             />
@@ -180,17 +184,17 @@ export function ConflictPromptCard({
               disabled={!bothReady || busy}
               onClick={() => void run("keep_both", { newer: newerCond.trim(), older: olderCond.trim() })}
             >
-              保存
+              {t("chatKnowledge.action.save")}
             </Button>
             <Button size="xs" variant="ghost" data-testid="kg-conflict-both-cancel" disabled={busy} onClick={() => setShowBoth(false)}>
-              取消
+              {t("common.cancel")}
             </Button>
           </div>
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-1.5">
           <Button size="xs" variant="secondary" data-testid="kg-conflict-keep-new" disabled={busy} onClick={() => void run("keep_new")}>
-            以新的为准
+            {t("chatKnowledge.conflict.useNew")}
           </Button>
           <Button
             size="xs"
@@ -202,17 +206,17 @@ export function ConflictPromptCard({
               setShowBoth(true);
             }}
           >
-            两条都留
+            {t("chatKnowledge.conflict.keepBoth")}
           </Button>
           <Button size="xs" variant="ghost" data-testid="kg-conflict-ignore" disabled={busy} onClick={() => void run("ignore")}>
-            忽略
+            {t("chatKnowledge.conflict.ignore")}
           </Button>
         </div>
       )}
 
       {error !== null ? (
         <p role="alert" className="text-10 text-destructive" data-testid="kg-conflict-error">
-          {error}
+          {error.kind === "owned" ? describeHumanActionFailure(error.failure.failure, locale) : error.kind === "raw" ? error.text : t("chatKnowledge.conflict.failed")}
         </p>
       ) : null}
     </div>

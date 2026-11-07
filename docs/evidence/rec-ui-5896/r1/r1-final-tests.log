@@ -1,0 +1,23 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/4986/workspacex/apps/web
+
+ ✓ tests/ui/realtime-transcription-workspace.test.tsx (32 tests) 2651ms
+   ✓ RealtimeTranscriptionWorkspace > keeps an unsaved transcript in place until editing is saved or canceled 303ms
+   ✓ RealtimeTranscriptionWorkspace > renames by double click or keyboard, retains failed input, and cancels with Escape 505ms
+   ✓ RealtimeTranscriptionWorkspace > returns keyboard focus to the title after canceling or saving a rename 407ms
+ ✓ tests/ui/realtime-transcription-history.test.tsx (33 tests) 8073ms
+   ✓ 实时转录历史工作台 > allows returning after a stale recording cannot be stopped 385ms
+   ✓ 实时转录历史工作台 > offers a single list error and reloads without leaving the page 435ms
+   ✓ 实时转录历史工作台 > clears an unsuccessful search instead of creating an unrelated transcription 369ms
+   ✓ 实时转录历史工作台 > does not reconnect after leaving the workspace 1274ms
+   ✓ 实时转录历史工作台 > automatically reconnects a dropped stream and retains saved text without stale events 1090ms
+   ✓ 实时转录历史工作台 > cancels scheduled reconnect when the user stops 1268ms
+   ✓ 实时转录历史工作台 > retries a temporary refresh failure after stopping without reporting ASR failure 416ms
+   ✓ 实时转录历史工作台 > keeps saved text and distinguishes persistent refresh failure from stopping failure 905ms
+
+ Test Files  2 passed (2)
+      Tests  65 passed (65)
+   Start at  14:51:13
+   Duration  15.54s (transform 3.32s, setup 950ms, collect 8.33s, tests 10.72s, environment 3.74s, prepare 383ms)
+

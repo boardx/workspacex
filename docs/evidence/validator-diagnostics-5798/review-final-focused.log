@@ -1,0 +1,92 @@
+[stack-admission] load1=3.81 cores=10 perCore=0.38 running=0/2
+[test-isolation] id=run-mvauihng-278a358d-db7ca446acfb db=wsx_db7ca446acfbf3213cb3 compose=wsx-db7ca446acfbf3213cb3 pg=20822 redis=21822 api=24822 web=25822 sandbox=26822 model=27822 deep-agent=28822 asr=29822 vision=30822 loopback-sandbox=31822 mail=19822
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_db7ca446acfbf3213cb3 capacity=100 current=6 required=32
+ ✓ tests/whiteboard/collaboration-persistence.test.ts (8 tests) 23940ms
+   ✓ whiteboard collaboration durable transactions > commits one sequence for concurrent retries and recovers on a fresh DB connection 528ms
+   ✓ whiteboard collaboration durable transactions > #4197: only the authenticated deleting actor restores the durable original identity 1345ms
+   ✓ whiteboard collaboration durable transactions > #4197: a winning concurrent delete invalidates the original actor receipt 1155ms
+   ✓ whiteboard collaboration durable transactions > merges offline concurrent updates and state-vector reads 888ms
+   ✓ whiteboard collaboration durable transactions > denies wrong tenant, viewer writes, stale epoch, revoked members and archives 478ms
+   ✓ whiteboard collaboration durable transactions > rejected updates leave no sequence and rate limits allow idempotent replay 705ms
+   ✓ whiteboard collaboration durable transactions > stores and reloads all 5000 public minimal objects through real validation and PostgreSQL 9349ms
+ ✓ tests/whiteboard/collaboration-ws.test.ts (6 tests) 4873ms
+   ✓ real WebSocket whiteboard collaboration > converges two concurrent Chinese edits, persists ACKs, reopens and deduplicates retry 1430ms
+   ✓ real WebSocket whiteboard collaboration > rejects viewer writes without advancing the durable sequence 494ms
+   ✓ real WebSocket whiteboard collaboration > closes an already connected editor within two seconds of committed revocation 1087ms
+   ✓ real WebSocket whiteboard collaboration > rejects absent and invalid authentication and cross-tenant board access during upgrade 323ms
+   ✓ real WebSocket whiteboard collaboration > rejects over-limit updates before any durable write 492ms
+   ✓ real WebSocket whiteboard collaboration > enforces the WebSocket frame limit independently of JSON schema validation 494ms
+ ✓ tests/whiteboard/collaboration-gateway-gap.test.ts (7 tests) 4410ms
+   ✓ classifies monitor failure NOT_FOUND without leaving revoked clients retrying 1030ms
+   ✓ classifies monitor failure FORBIDDEN without leaving revoked clients retrying 1035ms
+   ✓ classifies monitor failure ARCHIVED without leaving revoked clients retrying 1032ms
+   ✓ classifies monitor failure DEPENDENCY_UNAVAILABLE without leaving revoked clients retrying 1028ms
+ ✓ tests/whiteboard/validator-operation-trace.test.ts (6 tests) 506ms
+ ✓ tests/whiteboard/collaboration-admission.test.ts (9 tests) 1076ms
+   ✓ syncs fifty distinct same-tenant WebSocket sessions and rechecks fresh revocation 1040ms
+ ✓ tests/whiteboard/validator-diagnostics.test.ts (12 tests) 8ms
+stdout | tests/whiteboard/validator-capacity.test.ts > 10k canonical board in real resource-limited validator workers > decodes all 10000 complete canonical objects under bounded worker budgets
+whiteboard-capacity {"snapshotBytes":3356665,"documentStructs":110000,"decodeMs":391}
+
+stdout | tests/whiteboard/validator-capacity.test.ts > 10k canonical board in real resource-limited validator workers > validates a real incremental text edit on a 10000-object document
+whiteboard-capacity {"snapshotBytes":3356665,"documentStructs":110000,"decodeMs":391,"validateMs":791}
+
+stdout | tests/whiteboard/validator-capacity.test.ts > 10k canonical board in real resource-limited validator workers > admits the final normal-sized command batch up to 10000 and rejects one object beyond it
+whiteboard-capacity {"snapshotBytes":3356665,"documentStructs":110000,"decodeMs":391,"validateMs":791,"commandsMs":658}
+
+ ✓ tests/whiteboard/validator-capacity.test.ts (5 tests) 4051ms
+   ✓ 10k canonical board in real resource-limited validator workers > decodes all 10000 complete canonical objects under bounded worker budgets 393ms
+   ✓ 10k canonical board in real resource-limited validator workers > validates a real incremental text edit on a 10000-object document 1173ms
+   ✓ 10k canonical board in real resource-limited validator workers > admits the final normal-sized command batch up to 10000 and rejects one object beyond it 1518ms
+   ✓ 10k canonical board in real resource-limited validator workers > rejects an oversized persisted document on read, diff and raw-update validation 654ms
+{"level":"error","msg":"whiteboard_validator_unavailable","traceId":"f8902ca5-91c2-4533-a74f-3d51390f0d27","detail":{"reason":"worker_deadline","validatorCallId":"f8902ca5-91c2-4533-a74f-3d51390f0d27","mode":"diff","inputBytes":2,"elapsedMs":1,"queueElapsedMs":0,"workerElapsedMs":1}}
+ ✓ tests/whiteboard/update-validator.test.ts (7 tests) 11463ms
+   ✓ isolated whiteboard Yjs validator > returns only live object IDs through the isolated validator 648ms
+   ✓ bounded worker admission > bounds a fifty-request burst, drains rejected admissions and releases all capacity 5049ms
+   ✓ bounded worker admission > drains fifty real initial-connect validations through four concurrent clients 4991ms
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+{"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+{"level":"error","msg":"http exception","traceId":"2187a58e-42b1-4eda-9cf9-7e5b0d04d09f","detail":{"name":"UnauthorizedException","message":"unauthenticated","stack":"UnauthorizedException: unauthenticated\n    at PrincipalGuard.canActivate (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api/src/interface/guards/principal.guard.ts:54:27)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+{"level":"error","msg":"http exception","traceId":"5f5bb8b1-ab5a-4121-8f1b-a21f9e384b31","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at PlatformOperatorGuard.canActivate (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api/src/interface/guards/platform-operator.guard.ts:40:13)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at GuardsConsumer.tryActivate (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/guards/guards-consumer.js:16:17)\n    at canActivateFn (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:135:33)\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:42:31\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"f17c7f28-817d-4e62-97a2-a3302d7151fd","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at PlatformOperatorGuard.canActivate (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api/src/interface/guards/platform-operator.guard.ts:40:13)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at GuardsConsumer.tryActivate (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/guards/guards-consumer.js:16:17)\n    at canActivateFn (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:135:33)\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:42:31\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"87c0fcee-93ef-42a4-a134-e5938279bea9","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at PlatformOperatorGuard.canActivate (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api/src/interface/guards/platform-operator.guard.ts:40:13)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at GuardsConsumer.tryActivate (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/guards/guards-consumer.js:16:17)\n    at canActivateFn (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:135:33)\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:42:31\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"6c93eebd-31d8-4cd0-848a-7ee6bde8a58f","detail":{"name":"UnauthorizedException","message":"unauthenticated","stack":"UnauthorizedException: unauthenticated\n    at PrincipalGuard.canActivate (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api/src/interface/guards/principal.guard.ts:54:27)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+ ✓ tests/diagnostics/debug-trace-http.test.ts (3 tests) 10350ms
+   ✓ debug recorder over HTTP > a guard-rejected request is recorded, persisted, and readable by traceId by a platform superuser 908ms
+   ✓ debug recorder over HTTP > an ordinary org member is refused (403) -- the table has no tenant scope, so org roles cannot open it 847ms
+   ✓ debug recorder over HTTP > the recorder wired by kernel.module is a DebugRecorder with the request middleware attached (memory source works before any flush) 803ms
+ ✓ tests/whiteboard/pgsql-metadata-only-growth.test.ts (11 tests) 26873ms
+   ✓ whiteboard collaboration durable transactions > commits one sequence for concurrent retries and recovers on a fresh DB connection 440ms
+   ✓ whiteboard collaboration durable transactions > #4197: only the authenticated deleting actor restores the durable original identity 1632ms
+   ✓ whiteboard collaboration durable transactions > #4197: a winning concurrent delete invalidates the original actor receipt 1656ms
+   ✓ whiteboard collaboration durable transactions > merges offline concurrent updates and state-vector reads 1132ms
+   ✓ whiteboard collaboration durable transactions > denies wrong tenant, viewer writes, stale epoch, revoked members and archives 583ms
+   ✓ whiteboard collaboration durable transactions > rejected updates leave no sequence and rate limits allow idempotent replay 1040ms
+   ✓ whiteboard collaboration durable transactions > stores and reloads all 5000 public minimal objects through real validation and PostgreSQL 19178ms
+ ✓ tests/whiteboard/operation-compensation-worker.test.ts (3 tests) 3054ms
+   ✓ trusted operation snapshot compensation > restores combined structural and text changes with original IDs and shared field identities 995ms
+   ✓ trusted operation snapshot compensation > compensates panel parenting, layout, style and lock state as one server operation 1683ms
+   ✓ trusted operation snapshot compensation > rejects a before-image containing identity absent from the authoritative document 376ms
+{"level":"error","msg":"whiteboard_validator_unavailable","traceId":"ada3d28f-d6ae-4e80-a486-e45ac8dad8c0","detail":{"reason":"queue_capacity","validatorCallId":"ada3d28f-d6ae-4e80-a486-e45ac8dad8c0","inputBytes":1,"elapsedMs":0}}
+{"level":"error","msg":"whiteboard_validator_unavailable","traceId":"981be05f-4831-40b4-bef1-4bccc2cedacc","detail":{"reason":"queue_capacity","validatorCallId":"981be05f-4831-40b4-bef1-4bccc2cedacc","inputBytes":1,"elapsedMs":0}}
+{"level":"error","msg":"whiteboard_validator_unavailable","traceId":"7890e963-7931-43b7-b8d4-e7680928fc29","detail":{"reason":"queue_deadline","validatorCallId":"7890e963-7931-43b7-b8d4-e7680928fc29","inputBytes":8,"elapsedMs":1}}
+ ✓ tests/whiteboard/validator-queue.test.ts (3 tests) 10ms
+ ✓ tests/billing/global-error-boundary.test.ts (4 tests) 16ms
+
+ Test Files  13 passed (13)
+      Tests  84 passed (84)
+   Start at  18:49:36
+   Duration  100.91s (transform 4.62s, setup 51ms, collect 3.72s, tests 90.63s, environment 1ms, prepare 495ms)
+
+[db-isolation] db=wsx_db7ca446acfbf3213cb3 peak_connections=5
+[timing] pnpm --filter api exec vitest run tests/whiteboard/validator-operation-trace.test.ts tests/whiteboard/validator-diagnostics.test.ts tests/whiteboard/update-validator.test.ts tests/whiteboard/validator-queue.test.ts tests/whiteboard/validator-capacity.test.ts tests/whiteboard/operation-compensation-worker.test.ts tests/whiteboard/collaboration-persistence.test.ts tests/whiteboard/pgsql-metadata-only-growth.test.ts tests/whiteboard/collaboration-gateway-gap.test.ts tests/whiteboard/collaboration-ws.test.ts tests/diagnostics/debug-trace-http.test.ts tests/billing/global-error-boundary.test.ts tests/whiteboard/collaboration-admission.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1m42s
+  清理：1s
+  总计：1m43s

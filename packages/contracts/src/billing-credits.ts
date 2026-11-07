@@ -18,15 +18,15 @@ import { z } from "zod";
 export const BillingOwnerType = z.enum(["user", "team"]);
 export type BillingOwnerType = z.infer<typeof BillingOwnerType>;
 
-/** 支付渠道（**下单**枚举：本束仅微信 Native；Stripe 属 billing-subscription 束）。 */
-export const BillingProvider = z.enum(["wechat"]);
+/** 充值支付渠道：微信 Native 或 Stripe 一次性 Checkout。 */
+export const CREDIT_TOPUP_PRODUCT = "credit_topup_v1";
+export const BillingProvider = z.enum(["wechat", "stripe"]);
 export type BillingProvider = z.infer<typeof BillingProvider>;
 
 /**
- * 渠道启用**读模型**（`GET /billing/config` 的 `enabledProviders`）：比下单枚举宽——
- * Stripe 属 billing-subscription 束，但会出现在这个共享读模型里（要求 03 V4 的入口可用性判据）。
+ * 渠道启用读模型复用支付渠道枚举；具体新购可用性由部署配置统一决定。
  */
-export const BillingEnabledProvider = z.enum(["wechat", "stripe"]);
+export const BillingEnabledProvider = BillingProvider;
 export type BillingEnabledProvider = z.infer<typeof BillingEnabledProvider>;
 
 /** 金额：非负整数分（I-11，禁止浮点参与金额运算）。 */
@@ -35,8 +35,14 @@ export const MoneyFen = z.number().int().nonnegative();
 /** 额度：正整数。 */
 export const CreditsAmount = z.number().int().positive();
 
-/** 订单号：`bg<yyyyMMddHHmmss><6位随机>`，全局唯一（domain.md 值对象）。 */
-export const OrderNo = z.string().regex(/^bg\d{14}[A-Za-z0-9]{6}$/);
+/** Exact hundredth credit values; signed balance records unpaid confirmed consumption. */
+export const CreditBalance = z.number().finite().min(-2147483647).max(2147483647).multipleOf(0.01);
+/** Configurable whole-credit allowance, bounded by the financial quantity type. */
+export const ConfiguredCreditQuantity=CreditBalance.refine(value=>Number.isInteger(value)&&value>0,"positive integer credits required");
+export const CreditLedgerAmount = CreditBalance.refine(value => value > 0, "credit amount must be positive");
+
+/** 商户订单号：充值使用 bg，微信月卡使用 bm，隔离两类商品的商户支付身份。 */
+export const OrderNo = z.string().regex(/^b[gm]\d{14}[A-Za-z0-9]{6}$/);
 
 /** ISO 8601 时间串（毫秒精度）。 */
 export const IsoDateTime = z.string().min(1);
@@ -47,26 +53,31 @@ export const IsoDateTime = z.string().min(1);
 export const BillingOrderStatus = z.enum(["PENDING", "PROCESSING", "SUCCESS", "FAILED", "CLOSED"]);
 export type BillingOrderStatus = z.infer<typeof BillingOrderStatus>;
 
-/** 流水类型（消费类枚举本阶段不引入，不加占位成员）。 */
-export const BillingTransactionType = z.enum(["purchase", "bonus", "grant"]);
+/** 入账与模型消费流水。 */
+export const BillingTransactionType = z.enum(["purchase", "bonus", "grant", "consume", "subscription_grant", "subscription_expire", "welcome_grant", "welcome_expire"]);
 export type BillingTransactionType = z.infer<typeof BillingTransactionType>;
 
 /** 流水方向：+1 入账 / −1 出账（本阶段只有入账，出账为未来语义预留值）。 */
 export const BillingTransactionDirection = z.union([z.literal(1), z.literal(-1)]);
 
 /** 钱包的来源类型（流水去重键的一半，I-2/I-8）。 */
-export const BillingTransactionSourceType = z.enum(["payment_order", "admin_grant"]);
+export const BillingTransactionSourceType = z.enum(["payment_order", "admin_grant", "model_request", "subscription_period", "welcome_period"]);
+
+/** ADR-126: one wallet with independently expiring paid and welcome batches. */
+export const CreditPeriodKind = z.enum(["subscription", "welcome"]);
+export type CreditPeriodKind = z.infer<typeof CreditPeriodKind>;
 
 export const BillingErrorCode = z.enum([
   "payment_provider_not_configured", // E1：渠道未配置（入口不可用；不展示永远失败的二维码）
   "package_not_found", // E8：套餐不存在
   "package_disabled", // E8：套餐已下架/禁用
   "org_billing_disabled", // I-12：组织计费开关关闭时不得新建订单
-  "order_not_found", // R5：订单不存在或调用者无归属权限（不泄露存在性）
+  "order_not_found",
+  "order_not_cancelable", // R5：订单不存在或调用者无归属权限（不泄露存在性）
   "forbidden", // 通用越权（组织主体非 owner/admin、非平台管理员等）
   "wechat_upstream_failed", // E2：微信 Native 下单失败（不落库为订单，I-13）
   "order_not_pending", // 状态机拒绝：目标订单不在可迁移态（含并发抢占失败）
-  "invalid_amount", // 发放额度 ≤0 / 非整数
+  "invalid_amount", // 发放额度 ≤0 / 非整数，或到账超出钱包整数容量
   "reason_required", // 人工发放缺原因
   "owner_not_found", // 计费主体不存在
   "signature_invalid", // E1：微信回调验签失败（不得入账）
@@ -114,23 +125,30 @@ export const BillingOrder = z
     baseCredits: CreditsAmount,
     bonusCredits: z.number().int().nonnegative(),
     currency: z.string().min(1),
-    qrCodeUrl: z.string().min(1), // I-13：订单存在即有二维码（微信下单失败不落库）
+    qrCodeUrl: z.string().min(1).nullable(), // 终态原支付页未知时为空；待支付必须是真实绑定
     createdAt: IsoDateTime,
     paidAt: IsoDateTime.nullable(), // 仅 SUCCESS 后可非空（I-14）
     notifyAt: IsoDateTime.nullable(),
-    expiredAt: IsoDateTime, // createdAt + 15min
+    expiredAt: IsoDateTime.nullable(), // 原支付页真实期限；终态未知时不编造
     closedAt: IsoDateTime.nullable(), // 仅 CLOSED 后可非空
     lastErrorCode: BillingErrorCode.nullable(), // 失败留痕（用户可读错误码）
   })
-  .strict();
+  .strict().superRefine((value,ctx)=>{
+    if((value.status==="PENDING"||value.status==="PROCESSING")&&(value.qrCodeUrl===null||value.expiredAt===null))ctx.addIssue({code:"custom",message:"pending payment requires its original address and expiry"});
+  });
 
 export const CreditWallet = z
   .object({
     ownerType: BillingOwnerType,
     ownerId: z.string().min(1),
-    balance: z.number().int().nonnegative(),
+    balance: CreditBalance,
+    permanentBalance: CreditBalance.optional(),
+    subscriptionCredits: CreditBalance.refine(value => value >= 0).optional(),
+    subscriptionExpiresAt: IsoDateTime.nullable().optional(),
+    reservedCredits: z.number().finite().nonnegative().multipleOf(0.01).optional(),
+    availableBalance: z.number().finite().multipleOf(0.01).optional(),
     totalPurchased: z.number().int().nonnegative(),
-    totalGranted: z.number().int().nonnegative(),
+    totalGranted: CreditBalance.refine(value => value >= 0),
     updatedAt: IsoDateTime,
   })
   .strict();
@@ -140,8 +158,8 @@ export const CreditTransaction = z
     txnId: z.string().min(1),
     type: BillingTransactionType,
     direction: BillingTransactionDirection,
-    credits: CreditsAmount,
-    balanceAfter: z.number().int().nonnegative(), // 账实相符锚点（I-3）
+    credits: CreditLedgerAmount,
+    balanceAfter: CreditBalance, // 账实相符锚点（I-3）
     sourceType: BillingTransactionSourceType,
     sourceId: z.string().min(1), // 订单号 / 发放记录号
     operatorId: z.string().min(1).nullable(), // 人工发放必填（I-8：操作者可查）；其余为 null
@@ -158,7 +176,7 @@ export const OrgBillingSetting = z
   })
   .strict();
 
-/** 微信回调应答：仅此两值（FAIL 促使微信重试）。 */
+/** 微信回调应答。仅已提交终态使用 HTTP 200 + SUCCESS；校验失败 4xx、可重试失败 5xx + FAIL。HTTP 200 + FAIL 不是重试信号。 */
 export const WechatNotifyAck = z
   .object({
     code: z.enum(["SUCCESS", "FAIL"]),
@@ -197,7 +215,10 @@ export const operations = {
         packageId: z.string().min(1),
         provider: BillingProvider,
       })
-      .strict(),
+      .strict()
+      .refine(value => value.ownerType !== "team" || value.ownerId !== undefined, {
+        message: "ownerId is required for a team order", path: ["ownerId"],
+      }),
     out: z.object({ order: BillingOrder }).strict(),
     err: [
       "payment_provider_not_configured",
@@ -216,6 +237,15 @@ export const operations = {
     in: z.object({ orderNo: OrderNo }).strict(),
     out: z.object({ order: BillingOrder }).strict(),
     err: ["order_not_found"] as const,
+  },
+
+  /** Cancel an owned unpaid order only after merchant closure is confirmed. */
+  cancelPaymentOrder: {
+    method: "POST",
+    path: "/billing/orders/:orderNo/cancel",
+    in: z.object({ orderNo: OrderNo }).strict(),
+    out: z.object({ order: BillingOrder }).strict(),
+    err: ["order_not_found", "order_not_cancelable", "payment_provider_not_configured", "wechat_upstream_failed"] as const,
   },
 
   /** UC-BC-5：钱包（无记录返回全零空钱包，不 404）。 */

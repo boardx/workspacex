@@ -1,0 +1,66 @@
+{
+  "originalSource": "ce108e293260d07a124d40909e4500c289799833",
+  "actualBase": "b8532643f2b6faafc66862d678dd8385c28417a7",
+  "files": [
+    {
+      "path": "apps/web/app/share/chat/[token]/page.tsx",
+      "originalBlob": "d59afb6e4f332a03ebdf24b25844d11a1f665633",
+      "currentBlob": "d59afb6e4f332a03ebdf24b25844d11a1f665633",
+      "identical": true
+    },
+    {
+      "path": "apps/web/components/chat/chat-code-fence.tsx",
+      "originalBlob": "8c009a7002f4c67513ec3de4983dcc07d40a11c3",
+      "currentBlob": "8c009a7002f4c67513ec3de4983dcc07d40a11c3",
+      "identical": true
+    },
+    {
+      "path": "apps/web/components/chat/chat-share-button.tsx",
+      "originalBlob": "47e265cdb664166976287661a93c8b0b6cfe6047",
+      "currentBlob": "47e265cdb664166976287661a93c8b0b6cfe6047",
+      "identical": true
+    },
+    {
+      "path": "apps/web/components/chat/public-chat-share-screen.tsx",
+      "originalBlob": "28b25a87f925ee590605ba593f66e7cc5901feff",
+      "currentBlob": "28b25a87f925ee590605ba593f66e7cc5901feff",
+      "identical": true
+    },
+    {
+      "path": "apps/web/components/chat/shared-chat-messages.tsx",
+      "originalBlob": "1e6f0e823670c6dfc8c0d0620b993c8ac0acc8f8",
+      "currentBlob": "1e6f0e823670c6dfc8c0d0620b993c8ac0acc8f8",
+      "identical": true
+    },
+    {
+      "path": "apps/web/e2e/chat-public-share.spec.ts",
+      "originalBlob": "80b6eb4329e1b759d8bba1899a1fc25acb636785",
+      "currentBlob": "80b6eb4329e1b759d8bba1899a1fc25acb636785",
+      "identical": true
+    },
+    {
+      "path": "apps/web/lib/i18n/namespaces/chat-share.ts",
+      "originalBlob": "cfd438683f8db9ba06fe07eb36b36ed3d2b81f4a",
+      "currentBlob": "cfd438683f8db9ba06fe07eb36b36ed3d2b81f4a",
+      "identical": true
+    },
+    {
+      "path": "apps/web/lib/i18n/namespaces/code-fence.ts",
+      "originalBlob": "844f84903f2de33a3038cb2529b644952cf1bc60",
+      "currentBlob": "844f84903f2de33a3038cb2529b644952cf1bc60",
+      "identical": true
+    },
+    {
+      "path": "apps/web/lib/live-chat-share.ts",
+      "originalBlob": "341b293f418c5076520beaaf2ee88ad19cbdd4ff",
+      "currentBlob": "341b293f418c5076520beaaf2ee88ad19cbdd4ff",
+      "identical": true
+    },
+    {
+      "path": "apps/web/tests/ui/chat-share-i18n.test.tsx",
+      "originalBlob": "6e08f5983df4ba86b8824ca0a7bf61171004e6a6",
+      "currentBlob": "6e08f5983df4ba86b8824ca0a7bf61171004e6a6",
+      "identical": true
+    }
+  ]
+}

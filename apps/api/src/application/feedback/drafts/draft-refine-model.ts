@@ -1,3 +1,4 @@
+import {rethrowCreditConsumption} from "../../billing/credit-consumption";
 /**
  * UC-17.8 B5.1 —— 草稿「继续完善」对话的模型端口 + 唯一实现 `ModelDraftRefiner`。
  *
@@ -152,7 +153,7 @@ export class ModelDraftRefiner implements DraftRefineModel {
         }),
       ]);
       return completion.text;
-    } catch (e) {
+    } catch (e) { rethrowCreditConsumption(e);
       const detail = e instanceof ModelCallError ? e.detail : e instanceof Error ? e.message : "unexpected model call failure";
       this.deps.log(`feedback draft refine: ${what} model call failed, falling back`, {
         modelProvider: this.deps.structureModel.provider,
@@ -190,7 +191,7 @@ export class ModelDraftRefiner implements DraftRefineModel {
     let raw: unknown;
     try {
       raw = extractJsonObject(text);
-    } catch (e) {
+    } catch (e) { rethrowCreditConsumption(e);
       this.deps.log("feedback draft refine: summary output was not parseable JSON, keeping draft fields", {
         detail: e instanceof Error ? e.message : "unparseable model output",
       });

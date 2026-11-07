@@ -1,0 +1,19 @@
+{
+  "source": "837ed6d439c87c57660e278ab0d342fae0bb92fa",
+  "independentSourceReview": "SOURCE ACCEPT837ed6d43",
+  "uiTestsPassed": 39,
+  "actualBrowserGluePassed": 1,
+  "browserEntry": "rail-profile-menu -> billing-menu-purchase -> purchase intent -> cashier",
+  "billingHttpIntercepted": false,
+  "merchant": "independent RSA loopback",
+  "identity": "isolated HTTP principal fixture",
+  "webTypecheckExit": 0,
+  "apiTypecheckExit": 0,
+  "webLintExit": 0,
+  "apiLintExit": 0,
+  "credentialScanExit": 0,
+  "productionMerchantAccepted": false,
+  "expiryRegenerationAccepted": false,
+  "ownedResourcesCleaned": true,
+  "historicalFormalSource": "baf90a5fe78284e0324107349f52d062b9488906"
+}

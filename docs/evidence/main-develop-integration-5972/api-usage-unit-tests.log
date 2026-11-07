@@ -1,0 +1,93 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/23d9/workspacex/apps/api
+
+ ✓ tests/agent-runtime/execute-run-progress.test.ts (35 tests) 14ms
+ ✓ tests/auth/ai-context-runtime-wiring.test.ts (21 tests) 31ms
+ ✓ tests/recording/configured-realtime-asr-provider.test.ts (37 tests) 862ms
+ ✓ tests/knowledge-graph/recall-repo-guard.test.ts (12 tests) 790ms
+   ✓ F08 会话记忆召回读取的豁免前提 > (d) 调用链：kernel.module 实例化 → 执行器 → execute-run.ts turnKnowledgeContext（run）→ knowledgeMemoryFor / memoryCardFor（run.threadId / run.requesterUserId） 783ms
+ ✓ tests/auth/artifact-embedding-accounting.test.ts (11 tests) 25ms
+ ✓ tests/auth/token-usage-single-write-path.test.ts (20 tests) 76ms
+ ✓ tests/agent-runtime/stage-two-image-admission.test.ts (33 tests) 26ms
+ ✓ tests/agent-runtime/configured-model-provider-stream.test.ts (20 tests) 230ms
+ ✓ tests/auth/ai-priced-coordinator.test.ts (17 tests) 9ms
+[personal-asr] provider error while stopping: ASR_PROVIDER_UNAVAILABLE / upstream failed
+[personal-asr] provider error while stopping: ASR_PROVIDER_UNAVAILABLE / upstream did not settle the final segment in time
+[personal-asr] provider error while stopping: AUDIO_FORMAT_REJECTED / upstream format detail
+[personal-asr] persist-final failed: Error
+[personal-asr] capture cleanup failed: Error
+ ✓ tests/recording/personal-realtime-asr-gateway.test.ts (11 tests) 25ms
+ ✓ tests/agent-runtime/configured-model-provider-max-output.test.ts (13 tests) 39ms
+ ✓ tests/auth/runtime-admission-composition.test.ts (17 tests) 15ms
+ ✓ tests/auth/runtime-model-usage.test.ts (11 tests) 9ms
+[Nest] 28480  - 10/28/2026, 7:35:29 PM    WARN [ConfiguredRealtimeAsrProvider] ASR_USAGE_TERMINAL_FAILED: unmatched durable start; subsequent sessions blocked in this instance
+[Nest] 28480  - 10/28/2026, 7:35:29 PM    WARN [ConfiguredRealtimeAsrProvider] ASR_USAGE_TERMINAL_FAILED: unmatched durable start; subsequent sessions blocked in this instance
+[Nest] 28480  - 10/28/2026, 7:35:29 PM    WARN [ConfiguredRealtimeAsrProvider] ASR_USAGE_TERMINAL_FAILED: unmatched durable start; subsequent sessions blocked in this instance
+ ✓ tests/auth/asr-request-accounting.test.ts (12 tests) 20ms
+ ✓ tests/auth/ai-policy-configuration.test.ts (11 tests) 17ms
+ ✓ tests/knowledge-graph/recall-vector-fusion.test.ts (14 tests) 915ms
+   ✓ S9: 应用层——向量通道并行、有时限、失败降级 > 问题的嵌入与读候选集并行：候选集还没读完，向量通道就已经开始；时限从候选集读完算起 503ms
+   ✓ S9: 应用层——向量通道并行、有时限、失败降级 > 向量通道超过 400ms ⇒ 按超时降级，这一轮不等它；与图路并行（总耗时≈较慢的一路） 401ms
+ ✓ tests/auth/ai-input-only-bound.test.ts (11 tests) 16ms
+ ✓ tests/auth/stage-two-accounting-boundaries.test.ts (29 tests) 20ms
+[Nest] 28604  - 10/28/2026, 7:35:32 PM    WARN [ConfiguredRealtimeAsrProvider] ASR_USAGE_TERMINAL_FAILED: unmatched durable start; subsequent sessions blocked in this instance
+ ✓ tests/auth/stage-two-audio-admission.test.ts (19 tests) 130ms
+ ✓ tests/kernel/local-org-zero-egress.test.ts (8 tests) 2022ms
+   ✓ I-9: inside a personal-local organization, egress is zero > counter-proof: the SAME call outside the promise is allowed to proceed 2009ms
+ ✓ tests/agent-runtime/standard-audio-tools.test.ts (10 tests) 322ms
+ ✓ tests/auth/input-only-admission-composition.test.ts (8 tests) 18ms
+ ✓ tests/auth/stage-two-native-wiring.test.ts (15 tests) 44ms
+ ✓ tests/agent-runtime/attachment-notice-in-context.test.ts (7 tests) 4ms
+ ✓ tests/auth/child-input-source-provenance.test.ts (4 tests) 6ms
+ ✓ tests/agent-runtime/execute-run-streaming.test.ts (4 tests) 4ms
+ ✓ tests/agent-runtime/subtask-tool-calls.test.ts (8 tests) 10ms
+ ✓ tests/agent-runtime/standard-image-tools.test.ts (8 tests) 23ms
+[Nest] 28637  - 10/28/2026, 7:35:37 PM    WARN [OpenAiImageProvider] IMAGE_USAGE_TERMINAL_FAILED: durable start remains unmatched; subsequent dispatches blocked in this instance
+ ✓ tests/auth/image-request-accounting.test.ts (9 tests) 24ms
+ ✓ tests/auth/platform-usage-boundaries.test.ts (7 tests) 6ms
+ ✓ tests/auth/ai-native-ledger.test.ts (16 tests) 26ms
+[Nest] 28660  - 10/28/2026, 7:35:44 PM    WARN [HttpLocalModelRuntime] LOCAL_USAGE_TERMINAL_FAILED: unmatched durable start; subsequent inference blocked in this instance
+ ✓ tests/auth/local-request-accounting.test.ts (8 tests) 21ms
+ ✓ tests/agent-runtime/native-invocation.test.ts (8 tests) 6ms
+ ✓ tests/agent-runtime/openai-image-provider.test.ts (9 tests) 37ms
+ ✓ tests/agent-runtime/assemble-history.test.ts (10 tests) 3ms
+ ✓ tests/auth/ai-limit-rule-atomic.test.ts (7 tests) 4ms
+ ✓ tests/auth/ai-safe-attempt.test.ts (5 tests) 2ms
+ ✓ tests/auth/ai-model-bound-registry.test.ts (6 tests) 3ms
+ ✓ tests/auth/token-usage-receipt.test.ts (9 tests) 4ms
+ ✓ tests/auth/stage-two-native-partial-settlement.test.ts (4 tests) 13ms
+ ✓ tests/auth/stage-two-audio-tts-specification.test.ts (21 tests) 5ms
+ ✓ tests/recording/file-asr-manual.test.ts (3 tests) 39ms
+ ✓ tests/agent-runtime/stage-two-receipt-recovery.test.ts (17 tests) 4ms
+ ✓ tests/agent-runtime/subtask-cancel.test.ts (4 tests) 3ms
+ ✓ tests/agent-run/execute-run-thin-gateway.test.ts (6 tests) 2ms
+ ✓ tests/agent-runtime/stage-two-image-wiring.test.ts (4 tests) 6ms
+ ✓ tests/retrieval/embedding-cosine-rerank.test.ts (5 tests) 8ms
+ ✓ tests/auth/retrieval-accounting-forwarding.test.ts (6 tests) 10ms
+ ✓ tests/agent-runtime/index-artifact-version.test.ts (8 tests) 3ms
+ ✓ tests/agent-runtime/trim-history-to-budget.test.ts (7 tests) 2ms
+ ✓ tests/auth/kg-accounting-forwarding.test.ts (3 tests) 8ms
+ ✓ tests/auth/ai-member-token-policy.test.ts (4 tests) 3ms
+ ✓ tests/agent-runtime/subtask-signal-isolation.test.ts (1 test) 72ms
+ ✓ tests/recording/personal-realtime-asr-usage.test.ts (3 tests) 2ms
+ ✓ tests/auth/ai-usage-scope.test.ts (4 tests) 5ms
+ ✓ tests/agent-runtime/select-image-provider.test.ts (6 tests) 2ms
+ ✓ tests/kernel/http-local-model-runtime.test.ts (3 tests) 10ms
+ ✓ tests/auth/ai-budget-decision.test.ts (5 tests) 2ms
+ ✓ tests/auth/platform-organization-authorization.test.ts (4 tests) 4ms
+ ✓ tests/auth/unsupported-provider-admission.test.ts (3 tests) 2ms
+ ✓ tests/auth/artifact-embedding-controller.test.ts (2 tests) 4ms
+ ✓ tests/auth/ai-dispatch-inventory.test.ts (1 test) 4ms
+ ✓ tests/auth/ai-native-unit.test.ts (3 tests) 2ms
+ ✓ tests/auth/ai-policy-refusal-commit.test.ts (3 tests) 2ms
+ ✓ tests/auth/ai-coverage-matrix.test.ts (1 test) 2ms
+ ✓ tests/auth/late-usage-enrichment.test.ts (3 tests) 2ms
+ ✓ tests/auth/artifact-embedding-input-proof.test.ts (2 tests) 1ms
+ ✓ tests/auth/limit-rule-exact-admission.test.ts (3 tests) 1ms
+ ✓ tests/recording/personal-realtime-asr-provider-wiring.test.ts (1 test) 2ms
+ ✓ tests/recording/realtime-asr-repo-scope-guard.test.ts (2 tests) 1ms
+
+ Test Files  70 passed (70)
+      Tests  662 passed (662)
+   Start at  19:35:21
+   Duration  31.46s (transform 3.69s, setup 0ms, collect 18.42s, tests 6.08s, environment 5ms, prepare 1.70s)

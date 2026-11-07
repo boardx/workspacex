@@ -1,0 +1,29 @@
+{
+  "baseline": "fbbd0beb6d82e6b36280f8de1c9020d2f74b20d4",
+  "reason": "Prevent maxfail starvation of independent template/AI cases; repair genuine editor fixture prerequisite, not API policy",
+  "orderBefore": [
+    "author",
+    "template",
+    "intake"
+  ],
+  "orderAfter": [
+    "template",
+    "intake",
+    "author"
+  ],
+  "templateBodyBeforeAfterSha256": [
+    "308517aa7e615a3ddcd79c534b79f032b96ddf4853cabf8e4f947748f05b4c71",
+    "308517aa7e615a3ddcd79c534b79f032b96ddf4853cabf8e4f947748f05b4c71"
+  ],
+  "intakeBodyBeforeAfterSha256": [
+    "7d89100d188e4848554475e3091ea74227e6669e50989480084fe883eb3ff6dc",
+    "7d89100d188e4848554475e3091ea74227e6669e50989480084fe883eb3ff6dc"
+  ],
+  "onlyAuthorChange": "Existing Advanced rules txt checkbox + autosave/immutable-publication allowlist assertions; default PDF/image options and count/size controls untouched",
+  "authorFileBytesUploadSubmitGovernance32ResponseReportMdWordPgSuffixByteExact": true,
+  "fileNameAndOriginal55ByteFixturePreserved": true,
+  "originalTimeouts180000Preserved": true,
+  "workerRetryConfigurationUnchanged": true,
+  "sourcePreambleByteExact": true,
+  "noApiContractWorkflowChanges": true
+}

@@ -1,0 +1,1 @@
+保留原worktree和codex/interview-ux-four-rounds checkpoint分支；交付分支codex/interview-ux-four-rounds-main来自main4cc，只含本轮，不含未合并5770旧样式。R1main冲突只适配默认名onFocus select；R2新增focus、R3人话错误、R4长问题换行/窄屏控件。源码618dbff0c已实际验证。报告文件按钮可用不代表Word真实生成终态已验；不重付费模型或启用mic。自有stack标准清理。继续维护所创建PR全CI/review到绿，移交root，不merge/deploy。

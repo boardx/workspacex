@@ -1,0 +1,25 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/lib/i18n-resources.test.ts (5 tests) 48ms
+stderr | tests/ui/bootstrap-first-admin.test.tsx > first-user bootstrap on the real registration page > toggling to bootstrap mode creates the first admin, logs in immediately, and persists the real session
+Not implemented: navigation to another Document
+
+stderr | tests/ui/bootstrap-first-admin.test.tsx > first-user bootstrap on the real registration page > recovers login when bootstrap committed but its HTTP response was lost
+Not implemented: navigation to another Document
+
+ ✓ tests/ui/bootstrap-first-admin.test.tsx (4 tests) 880ms
+ ✓ tests/ui/registration-field-errors.test.tsx (5 tests) 1005ms
+ ✓ tests/ui/reset-password.test.tsx (6 tests) 1239ms
+ ✓ tests/ui/email-verification-public.test.tsx (8 tests) 1573ms
+   ✓ registration verification queue > submits the signed registration API, then exposes queued and rate-limited resend states 354ms
+   ✓ registration verification queue > keeps resend retryable when the queue endpoint is unavailable 491ms
+ ✓ tests/ui/account-entry-i18n.test.tsx (7 tests) 1742ms
+   ✓ preserves registration values and request payload while retranslating a stored field failure 936ms
+   ✓ keeps the queued email original and does not resend on a locale switch 375ms
+
+ Test Files  6 passed (6)
+      Tests  35 passed (35)
+   Start at  05:14:18
+   Duration  6.57s (transform 2.03s, setup 1.81s, collect 12.41s, tests 6.49s, environment 7.07s, prepare 675ms)

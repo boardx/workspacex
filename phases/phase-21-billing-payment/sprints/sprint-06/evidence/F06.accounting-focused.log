@@ -1,0 +1,21 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/web
+
+ ✓ tests/ui/billing-overview.test.tsx (7 tests) 3292ms
+   ✓ 真实计费入口与账户状态 > 个人菜单始终可发现账户入口，不依赖支付凭据 2468ms
+   ✓ 真实计费入口与账户状态 > 未配置渠道仍读取真实钱包和订阅，不显示二维码或虚构额度 404ms
+ ✓ tests/ui/billing-cashier.test.tsx (20 tests) 8373ms
+   ✓ F06 live cashier entry > opens real package selection from configured account 2337ms
+   ✓ F06 live cashier entry > does not invent packages for an empty catalog 534ms
+   ✓ F06 real cashier financial lifecycle > posts only server package identity once during a deferred request 320ms
+   ✓ F06 real cashier financial lifecycle > does not block package selection on wallet outage 362ms
+   ✓ F06 real cashier financial lifecycle > hides expired QR without inventing CLOSED or regenerating an intent 984ms
+   ✓ F06 real cashier financial lifecycle > does not encourage paying again after an accounting failure 946ms
+   ✓ F06 full ledger pagination > keeps existing records and cursor through an error, then deduplicates the last page 480ms
+
+ Test Files  2 passed (2)
+      Tests  27 passed (27)
+   Start at  03:08:13
+   Duration  26.26s (transform 5.53s, setup 1.90s, collect 18.10s, tests 11.66s, environment 8.42s, prepare 776ms)
+

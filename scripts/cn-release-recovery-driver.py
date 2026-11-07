@@ -218,7 +218,7 @@ def main():
             if args.mode!='prepare-seal':seal_mode='reconcile-recovery'if args.mode=='seal-reconcile'else'recover'
         else:
             if not root.exists():
-                if args.mode!='run':print(enc({'status':'NOT_STARTED'}).decode(),end='');return
+                if args.mode!='run':print(enc({'status':'NOT_STARTED'}).decode(),end='');return 0 if args.mode=='status'else 2
                 root.mkdir(mode=0o700);e.fsync_dir(root.parent)
             e.directory(root);result=coordinate(root,{'releaseSha256':args.release,'recoveryApprovalSha256':args.fresh,'identity':a['identity']},ops,e,args.mode)
     finally:os.close(fd)
@@ -226,8 +226,10 @@ def main():
     # read-only contract after acquiring its own lock; a concurrent change blocks.
     if seal_mode:result=e.entry(seal_mode,result['requestSha256'],a['identity']['attemptId'])
     sys.stdout.buffer.write(enc(result))
+    if args.mode in ('run','reconcile'):return 0 if result.get('status')=='RECOVERY_VERIFIED'else 2
+    return 0
 
 if __name__=='__main__':
-    try:main()
+    try:sys.exit(main())
     except Exception:
         print('{"status":"RECOVERY_BLOCKED_OR_UNKNOWN","automaticRetry":false}',file=sys.stderr);sys.exit(1)

@@ -1,0 +1,34 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/apps/web
+
+ ✓ tests/ui/interview-journey-i18n.test.tsx (7 tests) 341ms
+ ✓ tests/ui/interview-secondary-i18n.test.tsx (7 tests) 246ms
+ ✓ tests/ui/interview-controller-i18n.test.tsx (5 tests) 246ms
+ ✓ tests/ui/interview-workspace-i18n.test.tsx (7 tests) 565ms
+ ❯ tests/ui/interview-overlays-i18n.test.tsx (5 tests | 1 failed) 369ms
+   × localizes source-validation scaffolding while retaining exact quotations and identity checks 16ms
+[intermediate output omitted; full log SHA-256 in validation.json]
+   × localizes source-validation scaffolding while retaining exact quotations and identity checks 16ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/ui/interview-overlays-i18n.test.tsx > localizes source-validation scaffolding while retaining exact quotations and identity checks
+TestingLibraryElementError: Unable to find an accessible element with the role "region" and name "Report source quotations"
+ Test Files  1 failed | 5 passed (6)
+      Tests  1 failed | 34 passed (35)
+   Duration  11.27s (transform 1.53s, setup 547ms, collect 4.52s, tests 2.06s, environment 3.10s, prepare 245ms)
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/interview-journey-i18n.test.tsx tests/ui/interview-create-i18n.test.tsx tests/ui/interview-workspace-i18n.test.tsx tests/ui/interview-overlays-i18n.test.tsx tests/ui/interview-controller-i18n.test.tsx tests/ui/interview-secondary-i18n.test.tsx --maxWorkers=1 --minWorkers=1
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/interview-overlays-i18n.test.tsx:46:16
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 5 passed (6)
+      Tests  1 failed | 34 passed (35)
+   Start at  04:21:13
+   Duration  11.27s (transform 1.53s, setup 547ms, collect 4.52s, tests 2.06s, environment 3.10s, prepare 245ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/interview-journey-i18n.test.tsx tests/ui/interview-create-i18n.test.tsx tests/ui/interview-workspace-i18n.test.tsx tests/ui/interview-overlays-i18n.test.tsx tests/ui/interview-controller-i18n.test.tsx tests/ui/interview-secondary-i18n.test.tsx --maxWorkers=1 --minWorkers=1

@@ -1,0 +1,108 @@
+[stack-admission] load1=4.81 cores=10 perCore=0.48 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvaq25sy-83acd931-32113b2b80b1 db=wsx_32113b2b80b12afba2ef compose=wsx-32113b2b80b12afba2ef pg=20059 redis=21059 api=24059 web=25059 sandbox=26059 model=27059 deep-agent=28059 asr=29059 vision=30059 loopback-sandbox=31059 mail=19059
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_32113b2b80b12afba2ef capacity=100 current=6 required=32
+ ❯ tests/whiteboard/validator-diagnostics.test.ts (8 tests | 7 failed) 8ms
+   × safe validator failure diagnostics without changing admission or public codes > distinguishes queue capacity rejection and keeps FIFO capacity available 4ms
+     → expected "error" to be called 1 times, but got 0 times
+   × safe validator failure diagnostics without changing admission or public codes > distinguishes queue wait expiry and releases queued byte/count budgets 1ms
+     → expected "error" to be called 1 times, but got 0 times
+   × safe validator failure diagnostics without changing admission or public codes > retains the hard worker deadline, joins termination and does not log teardown exit as another failure 1ms
+     → expected "error" to be called 1 times, but got 0 times
+   × safe validator failure diagnostics without changing admission or public codes > logs only allowlisted worker error codes: ERR_WORKER_OUT_OF_MEMORY 1ms
+     → expected "error" to be called 1 times, but got 0 times
+   × safe validator failure diagnostics without changing admission or public codes > logs only allowlisted worker error codes: PRIVATE_DOCUMENT_SECRET 0ms
+     → expected "error" to be called 1 times, but got 0 times
+   × safe validator failure diagnostics without changing admission or public codes > distinguishes exit before result, including exit 0 0ms
+     → expected "error" to be called 1 times, but got 0 times
+   × safe validator failure diagnostics without changing admission or public codes > distinguishes exit before result, including exit 1 0ms
+     → expected "error" to be called 1 times, but got 0 times
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/whiteboard/validator-diagnostics.test.ts > safe validator failure diagnostics without changing admission or public codes > distinguishes queue capacity rejection and keeps FIFO capacity available
+AssertionError: expected "error" to be called 1 times, but got 0 times
+ ❯ detail tests/whiteboard/validator-diagnostics.test.ts:24:16
+     22| }
+     23| function detail() {
+     24|   expect(logs).toHaveBeenCalledTimes(1);
+       |                ^
+     25|   const [name, fields] = logs.mock.calls[0]!;
+     26|   expect(name).toBe('whiteboard_validator_unavailable');
+ ❯ tests/whiteboard/validator-diagnostics.test.ts:45:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+
+ FAIL  tests/whiteboard/validator-diagnostics.test.ts > safe validator failure diagnostics without changing admission or public codes > distinguishes queue wait expiry and releases queued byte/count budgets
+AssertionError: expected "error" to be called 1 times, but got 0 times
+ ❯ detail tests/whiteboard/validator-diagnostics.test.ts:24:16
+     22| }
+     23| function detail() {
+     24|   expect(logs).toHaveBeenCalledTimes(1);
+       |                ^
+     25|   const [name, fields] = logs.mock.calls[0]!;
+     26|   expect(name).toBe('whiteboard_validator_unavailable');
+ ❯ tests/whiteboard/validator-diagnostics.test.ts:54:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯
+
+ FAIL  tests/whiteboard/validator-diagnostics.test.ts > safe validator failure diagnostics without changing admission or public codes > retains the hard worker deadline, joins termination and does not log teardown exit as another failure
+AssertionError: expected "error" to be called 1 times, but got 0 times
+ ❯ detail tests/whiteboard/validator-diagnostics.test.ts:24:16
+     22| }
+     23| function detail() {
+     24|   expect(logs).toHaveBeenCalledTimes(1);
+       |                ^
+     25|   const [name, fields] = logs.mock.calls[0]!;
+     26|   expect(name).toBe('whiteboard_validator_unavailable');
+ ❯ tests/whiteboard/validator-diagnostics.test.ts:62:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯
+
+ FAIL  tests/whiteboard/validator-diagnostics.test.ts > safe validator failure diagnostics without changing admission or public codes > logs only allowlisted worker error codes: ERR_WORKER_OUT_OF_MEMORY
+ FAIL  tests/whiteboard/validator-diagnostics.test.ts > safe validator failure diagnostics without changing admission or public codes > logs only allowlisted worker error codes: PRIVATE_DOCUMENT_SECRET
+AssertionError: expected "error" to be called 1 times, but got 0 times
+ ❯ detail tests/whiteboard/validator-diagnostics.test.ts:24:16
+     22| }
+     23| function detail() {
+     24|   expect(logs).toHaveBeenCalledTimes(1);
+       |                ^
+     25|   const [name, fields] = logs.mock.calls[0]!;
+     26|   expect(name).toBe('whiteboard_validator_unavailable');
+ ❯ tests/whiteboard/validator-diagnostics.test.ts:70:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯
+
+ FAIL  tests/whiteboard/validator-diagnostics.test.ts > safe validator failure diagnostics without changing admission or public codes > distinguishes exit before result, including exit 0
+ FAIL  tests/whiteboard/validator-diagnostics.test.ts > safe validator failure diagnostics without changing admission or public codes > distinguishes exit before result, including exit 1
+AssertionError: expected "error" to be called 1 times, but got 0 times
+ ❯ detail tests/whiteboard/validator-diagnostics.test.ts:24:16
+     22| }
+     23| function detail() {
+     24|   expect(logs).toHaveBeenCalledTimes(1);
+       |                ^
+     25|   const [name, fields] = logs.mock.calls[0]!;
+     26|   expect(name).toBe('whiteboard_validator_unavailable');
+ ❯ tests/whiteboard/validator-diagnostics.test.ts:77:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯
+
+ Test Files  1 failed (1)
+      Tests  7 failed | 1 passed (8)
+   Start at  16:44:55
+   Duration  3.75s (transform 233ms, setup 4ms, collect 188ms, tests 8ms, environment 0ms, prepare 31ms)
+
+[db-isolation] db=wsx_32113b2b80b12afba2ef peak_connections=1
+undefined
+/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/whiteboard/validator-diagnostics.test.ts
+[timing] pnpm --filter api exec vitest run tests/whiteboard/validator-diagnostics.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：4s
+  清理：0s
+  总计：5s

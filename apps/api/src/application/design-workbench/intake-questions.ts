@@ -1,3 +1,4 @@
+import {rethrowCreditConsumption} from "../billing/credit-consumption";
 /**
  * 迭代 13（design-delta `design-chat-inputs` §3）—— 新建设计前的**澄清问答**。
  *
@@ -98,14 +99,14 @@ export async function generateIntakeQuestions(
       deps.log("intake: question round truncated, using fallback", {});
       return fallback;
     }
-  } catch (e) {
+  } catch (e) { rethrowCreditConsumption(e);
     deps.log("intake: model call failed, using fallback questions", { detail: e instanceof Error ? e.message : "unknown" });
     return fallback;
   }
   let obj: Record<string, unknown>;
   try {
     obj = extractJsonObject(text) as Record<string, unknown>;
-  } catch {
+  } catch (creditError) { rethrowCreditConsumption(creditError);
     deps.log("intake: model output was not parseable JSON, using fallback", { length: text.length });
     return fallback;
   }

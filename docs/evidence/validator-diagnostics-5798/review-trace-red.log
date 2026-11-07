@@ -1,0 +1,69 @@
+[stack-admission] load1=3.52 cores=10 perCore=0.35 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvatwz1h-aa811ca2-4197c6ea9662 db=wsx_4197c6ea9662332ae85a compose=wsx-4197c6ea9662332ae85a pg=20898 redis=21898 api=24898 web=25898 sandbox=26898 model=27898 deep-agent=28898 asr=29898 vision=30898 loopback-sandbox=31898 mail=19898
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_4197c6ea9662332ae85a capacity=100 current=6 required=32
+ ❯ tests/whiteboard/validator-operation-trace.test.ts (2 tests | 2 failed) 179ms
+   × joins concurrent HTTP validator calls to the real middleware/filter trace despite controller exception wrapping 121ms
+     → expected [] to have a length of 2 but got +0
+   × joins queued WebSocket operation failures to their validator calls without changing public frames 58ms
+     → expected [] to have a length of 2 but got +0
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/whiteboard/validator-operation-trace.test.ts > joins concurrent HTTP validator calls to the real middleware/filter trace despite controller exception wrapping
+AssertionError: expected [] to have a length of 2 but got +0
+
+- Expected
++ Received
+
+- 2
++ 0
+
+ ❯ tests/whiteboard/validator-operation-trace.test.ts:60:24
+     58|     expect(traceId).toMatch(/^[0-9a-f-]{36}$/);
+     59|     const diagnostic = logs.mock.calls.filter(([name, fields]) => name…
+     60|     expect(diagnostic).toHaveLength(2);
+       |                        ^
+     61|     expect(new Set(diagnostic.map(([, fields]) => (fields.err as { val…
+     62|     expect(logs.mock.calls.some(([name, fields]) => name === 'http exc…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/whiteboard/validator-operation-trace.test.ts > joins queued WebSocket operation failures to their validator calls without changing public frames
+AssertionError: expected [] to have a length of 2 but got +0
+
+- Expected
++ Received
+
+- 2
++ 0
+
+ ❯ tests/whiteboard/validator-operation-trace.test.ts:94:21
+     92|   await expect.poll(() => messages.map(items => items.some(item => ite…
+     93|   const enclosing = logs.mock.calls.filter(([name]) => name === 'white…
+     94|   expect(enclosing).toHaveLength(2);
+       |                     ^
+     95|   expect(new Set(enclosing.map(([, fields]) => fields.traceId)).size).…
+     96|   for (const [, fields] of enclosing) {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed (2)
+   Start at  18:32:51
+   Duration  4.05s (transform 626ms, setup 6ms, collect 968ms, tests 179ms, environment 0ms, prepare 30ms)
+
+[db-isolation] db=wsx_4197c6ea9662332ae85a peak_connections=1
+undefined
+/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/whiteboard/validator-operation-trace.test.ts
+[timing] pnpm --filter api exec vitest run tests/whiteboard/validator-operation-trace.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：5s
+  清理：0s
+  总计：5s

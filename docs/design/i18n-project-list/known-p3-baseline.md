@@ -1,0 +1,11 @@
+# Known P3 creation contract baseline — #6163
+
+Latest develop independently checked at `30f0030dbf94c2f8fe24c4771d5513cd4a8db99a`. This session temporarily detached its existing clean worktree at that ref, used the existing fullstack API/PG/seed orchestration with only the unrelated Next webServer removed, and ran exactly one real HTTP test. No runtime source or formal schema was changed.
+
+Lead login passed; actual POST /projects returned HTTP 201 with exactly id,kind,status. Unchanged `project.operations.createProject.out.parse(body)` failed solely at required provenanceEventId. Expected baseline exit 1, command 36s, cleanup 1s. The source probe/config and red log are retained in `evidence/i18n-project-list-6160/`; temporary baseline files were removed and the worktree switched back cleanly. This is an **independent baseline contract failure**, not an internationalization acceptance pass.
+
+[Issue #6163](https://github.com/boardx/workspacex/issues/6163) tracks the remaining defect separately from #6160. Existing historical #101 is closed. Actual lifecycle enum members were already added by ADR-101; older create-project/controller headers saying no member exists are stale. Existing API tests at create-project-atomic-two-rows.test.ts lines 372–440 describe the remaining half and remain untouched. No event ID is invented, no shared event enum/schema/signoff is changed.
+
+Main coordination explicitly scoped B2 acceptance to existing actual id/kind/status plus real list/DB/roles/tags, while keeping the full baseline contract red. The locale test uses a local `knownP3CreateProjectRuntimeOutput` derived strictly from the canonical schema by omitting only provenanceEventId. It first checks the full canonical schema; compatibility is allowed only when its sole error is the missing provenanceEventId, and all other response fields remain strict. Unknown fields or another missing/wrong field fail. The report annotates the remaining gap. A future fully valid response uses the full canonical data.
+
+This slice may pass its **internationalization behavior** acceptance; it cannot claim complete project creation/provenance contract compliance or close #6163. The formal contract failure is never relabeled green.

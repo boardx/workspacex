@@ -1,0 +1,36 @@
+[stack-admission] load1=9.30 cores=10 perCore=0.93 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvxzg8t7-628797c9-268a215bebf1 db=wsx_268a215bebf15fd523ad compose=wsx-268a215bebf15fd523ad pg=20715 redis=21715 api=24715 web=25715 sandbox=26715 model=27715 deep-agent=28715 asr=29715 vision=30715 loopback-sandbox=31715 mail=19715
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_268a215bebf15fd523ad capacity=100 current=6 required=32
+ ✓ tests/billing/personal-credit-terms-pg.test.ts (16 tests) 43495ms
+   ✓ rejects mismatched money, currency, period and replay ownership without changing the wallet 311ms
+   ✓ recovers twelve elapsed periods without reviving expired credits or deleting permanent debt 493ms
+   ✓ advances across all twelve anchored months with a controlled database clock 1039ms
+   ✓ reconciles a fully processed annual term without reentering twelve monthly grants 559ms
+   ✓ periodic sweep grants a due month while isolating a conflicting account 372ms
+   ✓ paginates 101 due owners without losing the second batch 2634ms
+ ✓ tests/billing/credit-consumption-pg.test.ts (16 tests) 3702ms
+   ✓ enterprise debt and concurrent starts remain admitted independently of the legacy preflight flag 313ms
+ ✓ tests/billing/credit-period-lifecycle-pg.test.ts (6 tests) 4729ms
+   ✓ expires only unused monthly credits once and preserves permanent funds 455ms
+   ✓ preserves debt through expiry and a partial recharge 423ms
+   ✓ deduplicates a second invoice for the same subscription period but rejects invoice reassignment 358ms
+ ✓ tests/billing/credit-admission-policy-pg.test.ts (6 tests) 2514ms
+ ✓ tests/billing/credit-periods-pg.test.ts (1 test) 1119ms
+
+ Test Files  5 passed (5)
+      Tests  45 passed (45)
+   Start at  23:26:32
+   Duration  76.70s (transform 2.49s, setup 83ms, collect 7.93s, tests 55.56s, environment 2ms, prepare 696ms)
+
+[db-isolation] db=wsx_268a215bebf15fd523ad peak_connections=6
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/personal-credit-terms-pg.test.ts tests/billing/credit-admission-policy-pg.test.ts tests/billing/credit-consumption-pg.test.ts tests/billing/credit-period-lifecycle-pg.test.ts tests/billing/credit-periods-pg.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1m19s
+  清理：1s
+  总计：1m20s

@@ -1,0 +1,29 @@
+[stack-admission] load1=3.16 cores=10 perCore=0.32 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mv9cwvec-5f5e0781-0d1e1f251ab2 db=wsx_0d1e1f251ab21111eb80 compose=wsx-0d1e1f251ab21111eb80 pg=20861 redis=21861 api=24861 web=25861 sandbox=26861 model=27861 deep-agent=28861 asr=29861 vision=30861 loopback-sandbox=31861 mail=19861
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_0d1e1f251ab21111eb80 capacity=100 current=6 required=32
+ ✓ tests/billing/order-core.test.ts (25 tests) 25194ms
+   ✓ F04 real Native order HTTP and PostgreSQL > does not persist a fake order on timeout-headers 8066ms
+   ✓ F04 real Native order HTTP and PostgreSQL > does not persist a fake order on timeout-body 8101ms
+ ✓ tests/arch-gate.test.ts (7 tests) 476ms
+ ✓ tests/contract-single-source.test.ts (4 tests) 26286ms
+   ✓ contract as single source, backend side > no backend file redefines a contract type 11833ms
+   ✓ the contract gate reaches the backend at all > V10: lint-contract-source scans apps/api, not just the frontend 14382ms
+ ✓ tests/billing/order-ownership.test.ts (6 tests) 961ms
+
+ Test Files  4 passed (4)
+      Tests  42 passed (42)
+   Start at  17:49:07
+   Duration  58.69s (transform 605ms, setup 12ms, collect 1.72s, tests 52.92s, environment 1ms, prepare 115ms)
+
+[db-isolation] db=wsx_0d1e1f251ab21111eb80 peak_connections=3
+[timing] pnpm --filter api exec vitest run tests/billing/order-core.test.ts tests/billing/order-ownership.test.ts tests/arch-gate.test.ts tests/contract-single-source.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：59s
+  清理：0s
+  总计：1m0s

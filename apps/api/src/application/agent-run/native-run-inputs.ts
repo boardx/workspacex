@@ -1,7 +1,9 @@
+import type { Principal } from "../../domain/principal";
 import type { z } from 'zod';
 import type { NativeInputManifest } from '@repo/contracts/native-session-binding';
 import type { ExecutionAuthorityContext } from './tool-execution-authority';
 export interface NativeRunInputSet {
+  readonly owner?: Principal;
   readonly manifest: z.infer<typeof NativeInputManifest>;
   readonly files: readonly { path: string; contentBase64: string }[];
 }

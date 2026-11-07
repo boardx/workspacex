@@ -8,6 +8,8 @@ import { ClaimTriStateBadge } from "./claim-tri-state-badge";
 import { ClaimTimeBadges } from "./claim-time-badges";
 import { ClaimEditMenu } from "./claim-edit-menu";
 import { ClaimActionDialog, type ClaimDialogKind } from "./claim-action-dialog";
+import { useI18n } from "@/lib/i18n/provider";
+import { graphClaimKindLabel } from "@/lib/knowledge-graph-copy";
 import { groupClaimsByKind } from "@/lib/knowledge-graph-view";
 import {
   claimTriState,
@@ -49,6 +51,7 @@ export function KnowledgeList({
   onApply?: (action: KgHumanAction) => Promise<boolean>;
   onPromote?: (claimIds: string[]) => void;
 }) {
+  const { t, locale } = useI18n();
   const groups = groupClaimsByKind(claims);
   const [openWrong, setOpenWrong] = React.useState<Record<string, boolean>>({});
   const [dialog, setDialog] = React.useState<{ kind: ClaimDialogKind; claim: KgClaim } | null>(null);
@@ -61,7 +64,7 @@ export function KnowledgeList({
       {groups.map((g) => (
         <section key={g.kind} data-testid={`kg-group-${g.kind}`}>
           <h3 className="mb-1.5 flex items-center gap-1.5 text-11 font-medium text-muted-foreground">
-            {g.label}
+            {graphClaimKindLabel(g.kind, locale)}
             <span className="rounded-control bg-muted px-1.5 py-0.5 text-10">{g.claims.length}</span>
           </h3>
           <ul className="flex flex-col gap-1.5">
@@ -81,7 +84,7 @@ export function KnowledgeList({
                         className="mt-0.5"
                         checked={selected[c.id] ?? false}
                         onChange={(e) => onToggleSelect?.(c.id, e.target.checked)}
-                        aria-label={`选择 ${c.statement}`}
+                        aria-label={t("chatKnowledge.list.select", { statement: c.statement })}
                         data-testid={`kg-claim-select-${c.id}`}
                       />
                     ) : null}
@@ -93,12 +96,12 @@ export function KnowledgeList({
                     >
                       <span className="text-12 leading-relaxed text-background-foreground">{c.statement}</span>
                       <span className="flex items-center gap-1.5">
-                        <ClaimTriStateBadge status={c.status} />
+                        <ClaimTriStateBadge status={c.status} locale={locale} />
                         <ClaimTimeBadges claim={c} />
                         <span className="flex items-center gap-1 text-10 text-muted-foreground">
                           <FileText aria-hidden className="h-3 w-3" />
-                          证据 {c.supportingCount}
-                          {c.contradictingCount > 0 ? ` · 反对 ${c.contradictingCount}` : ""}
+                          {t("chatKnowledge.list.evidence", { count: c.supportingCount })}
+                          {c.contradictingCount > 0 ? t("chatKnowledge.list.opposing", { count: c.contradictingCount }) : ""}
                         </span>
                       </span>
                     </button>
@@ -123,7 +126,7 @@ export function KnowledgeList({
                         onClick={() => confirm(c.id)}
                       >
                         <Check aria-hidden className="mr-1 h-3 w-3" />
-                        {confirmed ? "你确认过" : "对"}
+                        {confirmed ? t("aboutMemory.tri.confirmed") : t("chatKnowledge.list.correct")}
                       </Button>
                       <Button
                         size="xs"
@@ -133,13 +136,13 @@ export function KnowledgeList({
                         onClick={() => setOpenWrong((s) => ({ ...s, [c.id]: !s[c.id] }))}
                       >
                         <X aria-hidden className="mr-1 h-3 w-3" />
-                        不对
+                        {t("chatKnowledge.list.wrong")}
                       </Button>
                       {openWrong[c.id] ? (
                         <span className="flex flex-wrap items-center gap-1.5" data-testid={`kg-row-wrong-options-${c.id}`}>
                           <Button size="xs" variant="ghost" data-testid={`kg-row-revise-${c.id}`} onClick={() => setDialog({ kind: "revise", claim: c })}>
                             <Pencil aria-hidden className="mr-1 h-3 w-3" />
-                            改写
+                            {t("chatKnowledge.list.rewrite")}
                           </Button>
                           <Button
                             size="xs"
@@ -149,11 +152,11 @@ export function KnowledgeList({
                             onClick={() => { void onApply?.({ type: "revokeClaim", claimId: c.id }); }}
                           >
                             <Trash2 aria-hidden className="mr-1 h-3 w-3" />
-                            忘掉这条
+                            {t("chatKnowledge.action.revoke")}
                           </Button>
                           {/* 行内忘掉不再弹确认框（06-UX R3-4 ≤ 2 次点击），确认框里那句后果改成就地说清楚 */}
                           <span className="basis-full text-10 text-muted-foreground" data-testid={`kg-row-forget-note-${c.id}`}>
-                            忘掉后之后的回答不再用它；记到长期记忆里的那份也会一起忘掉。
+                            {t("chatKnowledge.list.forgetHint")}
                           </span>
                         </span>
                       ) : null}
@@ -185,18 +188,19 @@ export function KnowledgeList({
  * 没有这条能力时不画按钮：一个点了没反应的按钮比没有按钮更坏。
  */
 export function KnowledgeEmpty({ onReindex }: { onReindex?: () => void }) {
+  const { t } = useI18n();
   return (
     <div
       data-testid="empty"
       className="flex flex-col items-center gap-4 rounded-lg border border-dashed border-border py-12 text-center"
     >
       <p className="max-w-xs text-12 text-muted-foreground">
-        对话里提到的人、决定和事实会自动记在这里，你什么都不用做。
-        {onReindex ? "现在还没有——先聊几句，或手动整理一次。" : "现在还没有——先聊几句。"}
+        {t("chatKnowledge.list.emptyIntro")}
+        {onReindex ? t("chatKnowledge.list.emptyWithAction") : t("chatKnowledge.list.empty")}
       </p>
       {onReindex ? (
         <Button size="sm" variant="outline" onClick={onReindex} data-testid="kg-empty-reindex">
-          整理本会话
+          {t("chatKnowledge.list.organize")}
         </Button>
       ) : null}
     </div>

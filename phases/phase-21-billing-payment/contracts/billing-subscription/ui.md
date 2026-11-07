@@ -55,3 +55,7 @@
 
 - 订阅状态的**唯一权威是 webhook**（I-1）：截图中的 syncing 态即"回跳早于 webhook"的诚实呈现，不做乐观假状态。
 - mock 订阅价（¥49/月）为占位值，**不是契约**；计划与价格以 Stripe 侧为准（见 usecases.md Q1）。
+
+## ADR-123 已采纳补充（2026-10-18）
+
+状态、权益、新购和恢复入口按 [状态与付款恢复契约](../../design-deltas/stripe-state-recovery/contract.md) 验收。覆盖全部公开状态、到期取消、无可信 customer、同步不确定503和恢复；异常状态不显示已确认 Pro 或新购入口，trialing 只显示试用中。F08/F09/UI 各自留证，不以配置或单测替代线上验收。

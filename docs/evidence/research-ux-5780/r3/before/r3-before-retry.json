@@ -1,0 +1,14 @@
+{
+  "saveCount": 0,
+  "persistedTitle": "采购验证",
+  "persistedVersion": 1,
+  "attempts": 1,
+  "modelBefore": {
+    "runs": 0,
+    "requests": 0
+  },
+  "modelNow": {
+    "runs": 0,
+    "requests": 0
+  }
+}

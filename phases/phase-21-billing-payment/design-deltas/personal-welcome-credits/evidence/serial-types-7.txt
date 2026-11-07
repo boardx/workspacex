@@ -1,0 +1,45 @@
+• turbo 2.10.5
+
+   • Packages in scope: @repo/api, web
+   • Running typecheck in 2 packages
+   • Remote caching disabled, using shared worktree cache
+
+@repo/local-asr-gateway:build: cache hit, replaying logs 16ba7203425c02c8
+@repo/local-asr-gateway:build:
+@repo/local-asr-gateway:build: > @repo/local-asr-gateway@0.1.0 build /Users/shenyangjun/.codex/worktrees/deep-research-trust-console/workspacex/apps/local-asr-gateway
+@repo/local-asr-gateway:build: > tsc --noEmit
+@repo/local-asr-gateway:build:
+@repo/fabric-markdown:build: cache hit, replaying logs 731da9d16c66361e
+@repo/fabric-markdown:build:
+@repo/fabric-markdown:build: > @repo/fabric-markdown@0.1.0 build /Users/shenyangjun/.codex/worktrees/6712/workspacex/packages/fabric-markdown
+@repo/fabric-markdown:build: > tsc -p tsconfig.build.json
+@repo/fabric-markdown:build:
+@repo/skill-sandbox:build: cache hit, replaying logs 8a067388e7ddfa47
+@repo/skill-sandbox:build:
+@repo/skill-sandbox:build: > @repo/skill-sandbox@0.1.0 build /Users/shenyangjun/.codex/worktrees/72a6/workspacex/apps/skill-sandbox
+@repo/skill-sandbox:build: > tsc --noEmit
+@repo/skill-sandbox:build:
+@repo/cloud-deploy:build: cache hit, replaying logs d2a92667c208ed74
+@repo/cloud-deploy:build:
+@repo/cloud-deploy:build: > @repo/cloud-deploy@0.1.0 build /Users/shenyangjun/.codex/worktrees/72a6/workspacex/packages/cloud-deploy
+@repo/cloud-deploy:build: > tsc --noEmit
+@repo/cloud-deploy:build:
+@repo/dev-mode-accounts:build: cache hit, replaying logs 475b165f2567efd1
+@repo/dev-mode-accounts:build:
+@repo/dev-mode-accounts:build: > @repo/dev-mode-accounts@0.1.0 build /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/dev-mode-accounts
+@repo/dev-mode-accounts:build: > tsc --noEmit
+@repo/dev-mode-accounts:build:
+web:typecheck: cache miss, executing 856a0c59e777a157
+web:typecheck:
+web:typecheck: > web@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web
+web:typecheck: > tsc --noEmit
+web:typecheck:
+@repo/api:typecheck: cache hit, replaying logs b636a03138a81c30
+@repo/api:typecheck:
+@repo/api:typecheck: > @repo/api@0.0.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+@repo/api:typecheck: > tsc --noEmit
+@repo/api:typecheck:
+
+ Tasks:    7 successful, 7 total
+Cached:    6 cached, 7 total
+  Time:    3m38.871s

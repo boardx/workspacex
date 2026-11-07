@@ -31,6 +31,7 @@ import { toOrgId } from "../../src/domain/org-id";
 import {
   addOrgMember,
   asApp,
+  asOwner,
   ensureDatabase,
   migrateOnce,
   resetOrgs,
@@ -203,6 +204,44 @@ describe("V12 ①：停用后全部写被拒，而读仍然通", () => {
 });
 
 describe("V12 ②：仅管理员可导出", () => {
+  it.each(["active", "disabled"] as const)("%s 管理员导出完整可读清单，不暴露内部归档或其他组织行数", async status => {
+    // Setup alone uses the isolated owner; the actual HTTP path retains app_rw.
+    await asOwner(c=>c.query(`INSERT INTO credit_native_tariffs_legacy
+      (org_id,model_provider,model_id,unit,quantum,hundredths_per_quantum,version)
+      VALUES($1,'export-probe','private-retail','millisecond',1000,1,'owner-archive'),
+            ($2,'export-probe','private-retail','millisecond',1000,999,'foreign-archive')`,[FROZEN,LIVE]));
+    expect(await tryWrite(FROZEN,`${FROZEN}-export-extra`)).toBeNull();
+    for(const id of [1,2,3])expect(await tryWrite(LIVE,`${LIVE}-export-extra-${id}`)).toBeNull();
+    const role=await asApp(FROZEN,c=>c.query("SELECT current_user AS current,session_user AS session"));
+    expect(role.rows[0]).toEqual({current:"app_rw",session:"app_rw"});
+    for(const context of [FROZEN,LIVE])await expect(asApp(context,c=>c.query("SELECT * FROM credit_native_tariffs_legacy"))).rejects.toMatchObject({code:"42501"});
+    if(status==="disabled"){const at=new Date();await orgs.disable(toOrgId(FROZEN),at,retentionUntil(at));}
+    const {body}=await login(ADMIN),res=await exportAs(body.sessionToken!,FROZEN);
+    expect(res.status,await res.clone().text()).toBe(200);
+    const out=A.operations.exportOrganization.out.parse(await res.json());
+    expect(out.lifecycle.status).toBe(status);
+    expect(out.tables.some(row=>row.table==="credit_native_tariffs_legacy")).toBe(false);
+    expect(out.tables.find(row=>row.table==="projects")?.rowCount).toBe(2);
+    expect(out.tables.find(row=>row.table==="org_memberships")?.rowCount).toBe(2);
+    expect(out.tables.length).toBeGreaterThan(5);
+    // Independently walk every readable tenant relation, not only the two named examples.
+    const readable=await asOwner(c=>c.query<{table_name:string}>(`SELECT table_name
+      FROM information_schema.tables t WHERE table_schema='public' AND table_type='BASE TABLE'
+      AND EXISTS(SELECT 1 FROM pg_class r WHERE r.oid=to_regclass(quote_ident(t.table_schema)||'.'||quote_ident(t.table_name)) AND r.relkind='r')
+      AND has_table_privilege($1,quote_ident(table_schema)||'.'||quote_ident(table_name),'SELECT')
+      AND EXISTS(SELECT 1 FROM information_schema.key_column_usage k
+        JOIN information_schema.table_constraints f USING(constraint_catalog,constraint_schema,constraint_name)
+        WHERE k.table_catalog=t.table_catalog AND k.table_schema=t.table_schema AND k.table_name=t.table_name AND k.column_name='org_id' AND k.ordinal_position=1
+        AND f.constraint_type='FOREIGN KEY' AND f.table_catalog=k.table_catalog AND f.table_schema=k.table_schema AND f.table_name=k.table_name
+        AND (SELECT count(*) FROM information_schema.key_column_usage k2 WHERE k2.constraint_catalog=k.constraint_catalog AND k2.constraint_schema=k.constraint_schema AND k2.constraint_name=k.constraint_name AND k2.table_catalog=k.table_catalog AND k2.table_schema=k.table_schema AND k2.table_name=k.table_name)=1) ORDER BY table_name`,[appConfig().user]));
+    expect(out.tables.map(row=>row.table).sort()).toEqual(readable.rows.map(row=>row.table_name).sort());
+    for(const {table_name}of readable.rows){
+      if(!/^[a-z_][a-z0-9_]*$/.test(table_name))throw new Error("EXPORT_TEST_TABLE_NAME_INVALID");
+      const actual=await asApp(FROZEN,c=>c.query<{n:string}>(`SELECT count(*)::text n FROM ${table_name} WHERE org_id=$1`,[FROZEN]));
+      expect(out.tables.find(row=>row.table===table_name)?.rowCount,table_name).toBe(Number(actual.rows[0]!.n));
+    }
+  });
+
   it("管理员导出成功，且响应逐条对得上契约", async () => {
     const at = new Date();
     await orgs.disable(toOrgId(FROZEN), at, retentionUntil(at));

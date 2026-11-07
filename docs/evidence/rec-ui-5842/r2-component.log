@@ -1,0 +1,34 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/4986/workspacex/apps/web
+
+ ✓ tests/ui/realtime-transcription-workspace.test.tsx (26 tests) 4840ms
+   ✓ RealtimeTranscriptionWorkspace > reports clipboard denial and allows a successful retry 909ms
+   ✓ RealtimeTranscriptionWorkspace > renames by double click or keyboard, retains failed input, and cancels with Escape 669ms
+   ✓ RealtimeTranscriptionWorkspace > returns keyboard focus to the title after canceling or saving a rename 796ms
+   ✓ RealtimeTranscriptionWorkspace > keeps failed save drafts editable and retries without an unhandled rejection 326ms
+   ✓ RealtimeTranscriptionWorkspace > clears the local save error when failed editing is canceled 398ms
+ ✓ tests/ui/realtime-transcription-history.test.tsx (31 tests) 11452ms
+   ✓ 实时转录历史工作台 > offers a single list error and reloads without leaving the page 889ms
+   ✓ 实时转录历史工作台 > clears an unsuccessful search instead of creating an unrelated transcription 554ms
+   ✓ 实时转录历史工作台 > persists a title rename without replacing live transcript content or tags 552ms
+   ✓ 实时转录历史工作台 > offers manual reconnect after five failed retries and stops retrying 349ms
+   ✓ 实时转录历史工作台 > does not reconnect after leaving the workspace 1409ms
+   ✓ 实时转录历史工作台 > automatically reconnects a dropped stream and retains saved text without stale events 1170ms
+   ✓ 实时转录历史工作台 > cancels scheduled reconnect when the user stops 1363ms
+   ✓ 实时转录历史工作台 > 提交新建转录走真实 API，保留自定义标签并立即进入该场工作台 323ms
+   ✓ 实时转录历史工作台 > 提交时把尚未按回车确认的标签一并传给创建 API 541ms
+   ✓ 实时转录历史工作台 > retries a temporary refresh failure after stopping without reporting ASR failure 364ms
+   ✓ 实时转录历史工作台 > keeps saved text and distinguishes persistent refresh failure from stopping failure 929ms
+   ✓ 实时转录历史工作台 > 卡片菜单可修改名称与标签并刷新真实标签 438ms
+   ✓ 实时转录历史工作台 > 修改后按当前标签重新读取列表，不保留已不匹配的卡片 319ms
+ ✓ tests/ui/create-transcription-focus.test.tsx (4 tests) 1041ms
+   ✓ restores the history trigger after cancel 644ms
+ ✓ tests/ui/rec-review-navigation.test.tsx (4 tests) 730ms
+   ✓ project transcription review navigation > keeps interview context when opening speaker review 482ms
+
+ Test Files  4 passed (4)
+      Tests  65 passed (65)
+   Start at  12:55:21
+   Duration  37.88s (transform 6.78s, setup 2.32s, collect 22.11s, tests 18.06s, environment 15.40s, prepare 1.28s)
+

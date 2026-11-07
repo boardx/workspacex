@@ -1,7 +1,8 @@
 name: archive-bridge-tests
 on:
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [ develop ]
+    types: [ opened, synchronize, reopened, ready_for_review ]
     paths:
       - '.github/workflows/archive-bridge-tests.yml'
       - 'scripts/cn-release-*.py'
@@ -130,6 +131,8 @@ on:
       - '.harness/scripts/vm/cn_tool_install_transaction_test.py'
       - '.harness/scripts/generate-cn-maintenance-identities.py'
       - 'docs/deployment/cn-compose-profile-extension.md'
+  workflow_dispatch: null
+  workflow_call: {}
 permissions:
   contents: read
 jobs:
@@ -139,12 +142,19 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.sha }}
           persist-credentials: false
+          # Fixed release qualification reads original SQL/tool blobs by SHA.
+          fetch-depth: 0
       - uses: actions/setup-node@v5
         with:
           node-version: '22.20.0'
           package-manager-cache: false
+      - uses: pnpm/action-setup@v4.4.0
+      - name: Install locked dependencies for actual source import regressions
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+        run: pnpm install --frozen-lockfile
       - name: Install isolated test runtime
         shell: bash
         run: |
@@ -257,7 +267,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.sha }}
           persist-credentials: false
       - uses: actions/setup-node@v5
         with:
@@ -277,3 +287,8 @@ jobs:
           export CN_TEST_PLAYWRIGHT="$NODE_PATH/playwright"
           export CN_TEST_CHROMIUM="$(node -e 'process.stdout.write(require(process.env.CN_TEST_PLAYWRIGHT).chromium.executablePath())')"
           node --import "$NODE_PATH/tsx/dist/loader.mjs" --test tests/cn-release-business-runner.test.ts tests/cn-release-business-browser.integration.ts
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+concurrency:
+  group: archive-bridge-tests-full-${{ github.run_id }}
+  cancel-in-progress: false
+  queue: single

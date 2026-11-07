@@ -21,11 +21,12 @@ name: deep-agent-tests
 
 on:
   push:
-    branches: [main]
+    branches: [develop]
     paths:
       - "apps/deep-agent-service/**"
       - ".github/workflows/deep-agent-tests.yml"
   pull_request:
+    branches: [develop]
     paths:
       - "apps/deep-agent-service/**"
       - ".github/workflows/deep-agent-tests.yml"

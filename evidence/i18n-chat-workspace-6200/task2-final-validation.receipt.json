@@ -1,0 +1,47 @@
+{
+  "kind": "agent-observed validation receipt",
+  "unit": {
+    "files": 20,
+    "cases": 132,
+    "exitCode": 0,
+    "durationSeconds": 31.98
+  },
+  "webTypeExitCode": 0,
+  "scopedEslint": {
+    "files": 47,
+    "exitCode": 0
+  },
+  "browserAcceptance": "pending Task5",
+  "sourceHashes": {
+    "apps/web/components/chat/attachment-extraction-notice.tsx": "7305eb7c3e14b85ee2873df17d44c9c15e248261ecb361f5e37ebc06f48986cd",
+    "apps/web/components/chat/chat-attachment-preview-modal.tsx": "d8079cda291b2e7078599fd5be7a6cbb35421d9a4de1c22ffb24cb531ffdf3eb",
+    "apps/web/components/chat/chat-attachment-slides-preview.tsx": "90010c227cba2fa7826ad273e31f0aed424965c1398d866aaf0a301e56ab5442",
+    "apps/web/components/chat/chat-attachment-view.tsx": "346987995f400a773b4a80c923754a111f37c06dfe0b8b0e4075dead3db7ae67",
+    "apps/web/components/chat/chat-composer-attachments.tsx": "e99a3ec6827098273ed16dfc1b4ee850faecea06243aacfb3eec4160de256eec",
+    "apps/web/components/chat/chat-realtime-voice-entry.tsx": "5a6bf7932b5c49ac71a67e0248b1847ba7c38a643b465bc28e026c4d3b6fdff3",
+    "apps/web/components/chat/chat-skill-mount-panel.tsx": "f1fd27d37348e4aeedefc0940294f670a799b622d257ad127cd2c18af2afb91e",
+    "apps/web/components/chat/copilotkit-v2-panel-body.tsx": "78580dffc233a3961a98eb5d99703b63ffabbba313eb9aa5e206061213619079",
+    "apps/web/components/chat/realtime-voice-session.tsx": "cff47703399084237d7108ab7190f4a5498a34b4fef6b2a4a9893a30ae6f2482",
+    "apps/web/lib/agent-directory.ts": "66b3db9887facd57c8189716eea78a014d6ff471a2813e0cfebcf9ef914c95f8",
+    "apps/web/lib/i18n/namespaces/chat-attachments.ts": "3753a8722199c73ef50b45f45997e3225469be3dec61ded0a40d58d097f006ab",
+    "apps/web/lib/i18n/namespaces/chat-composer.ts": "ee952e5e7c02228fce11f8640749aefacd87faf838e155bf87978ea265adacc6",
+    "apps/web/lib/i18n/namespaces/chat-message-failures.ts": "3d07912194a9055c085992839b5782ce90124e267c7014d47ceb9264dd222f00",
+    "apps/web/lib/i18n/namespaces/chat-picker.ts": "aab5d7dfdf14aae6f8570862026863cc1557a8f56c3567180de46b1c77486c59",
+    "apps/web/lib/i18n/namespaces/chat-realtime.ts": "a7a0d3a9b17bdce40cf90d014500ee98765fe3a8845a77964cc29a6cbf8a591e",
+    "apps/web/lib/i18n/namespaces/chat-skills.ts": "3e489d7d3ef50efaaf8c8b0013a261c2cebae1642402b96b8657a131c72b8f16",
+    "apps/web/lib/i18n/namespaces/chat.ts": "29ad43e9b424eb30e604b2cda0aed1227fe00072c4220cd10acac06f679c8c87",
+    "apps/web/lib/live-chat.ts": "c4114c7dbf791449f5f6bc4068f26b88e098977b95187c047868bd258109d863",
+    "apps/web/lib/live-omni-conversation.ts": "15a60ccbeed7b880f4dbb36b09b149a363c47c02c4cf2430dd16e355cbf4c622",
+    "apps/web/tests/chat-agent-name-i18n.test.ts": "a1f5f998b50d1a57afd851334939889ac6703353eb2a4a4a4b9c90a6f8798186",
+    "apps/web/tests/chat-message-failure-i18n.test.ts": "bdcd452d5c1e938a9d7c725980d89fe4f51c7c61858fe961226a05bb840866a0",
+    "apps/web/tests/ui/i18n-chat-attachment-preview.test.tsx": "d746c9e2a3c612631104216b76acf088df77843dcca9bc90fa96ed5236262f2e",
+    "apps/web/tests/ui/i18n-chat-attachment-surfaces.test.tsx": "9bc47904716663cd53b62d6d8d0daeda5808b9feaef7afc066715bc84f16cd39",
+    "apps/web/tests/ui/i18n-chat-attachment-view.test.tsx": "0870e450d778338238c0f8ccdb468c457de89884a09cd479cccf60b8f76e3352",
+    "apps/web/tests/ui/i18n-chat-attachments.test.tsx": "3f584fff0609d9a9f410a20a4f690b2f5ad87826f3e4477c2d30572cbc6dfcaf",
+    "apps/web/tests/ui/i18n-chat-capability-picker.test.tsx": "115b3b79f5f9dce6563d1d9ab8253a00d4476cf635f68399af26766486e6372c",
+    "apps/web/tests/ui/i18n-chat-realtime-entry.test.tsx": "97d5cae32633c3175ea0fa642a9c3158fd3b0622f6b71d281bb344fb3c2b5c91",
+    "apps/web/tests/ui/i18n-chat-realtime-session.test.tsx": "8914d4d914ad8d37faf2163d95f521895b3ee864b89af60bd3ee1e7156171c76",
+    "apps/web/tests/ui/i18n-chat-skill-mount.test.tsx": "78111eef3f01fa82ea9ec0d416c9254894f9fc9a5be2ef95814e67749dedc060",
+    "apps/web/tests/ui/i18n-chat-slides-preview.test.tsx": "95e6719398890986890c6f0942d39a0a50ea62f77825c966d7de85bfa868082a"
+  }
+}

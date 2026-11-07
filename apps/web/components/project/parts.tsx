@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import { Lock, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -54,6 +55,7 @@ export function StatChip({
 export function ObserverNotice({
   what, testId,
 }: { what: string; testId?: string }) {
+  const { t } = useI18n();
   return (
     <div
       data-testid={testId}
@@ -61,7 +63,7 @@ export function ObserverNotice({
     >
       <EyeOff aria-hidden className="h-4 w-4 shrink-0" />
       <span className="min-w-0 flex-1">{what}</span>
-      <Badge tone="outline">观察者只读</Badge>
+      <Badge tone="outline">{t("projectPrep.observerBadge")}</Badge>
     </div>
   );
 }
@@ -73,6 +75,7 @@ export function ObserverNotice({
 export function OrgDisabledBanner({
   title, reason, hint,
 }: { title: string; reason: string; hint: string }) {
+  const { t } = useI18n();
   return (
     <div
       role="status"
@@ -83,7 +86,7 @@ export function OrgDisabledBanner({
       <div className="flex min-w-0 flex-col gap-1">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-13 font-medium text-warning-foreground">{title}</span>
-          <Badge tone="warning">全项目只读</Badge>
+          <Badge tone="warning">{t("projectWorkbench.org.readOnly")}</Badge>
         </div>
         <p className="text-12 text-muted-foreground">{reason}</p>
         <p className="text-12 text-muted-foreground">{hint}</p>

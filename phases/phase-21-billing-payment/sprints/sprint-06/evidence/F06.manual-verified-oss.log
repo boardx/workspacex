@@ -1,0 +1,23 @@
+
+> agentic-harness-template@ lint:oss-secret-scan /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> node .harness/scripts/oss-secret-scan.mjs --head-only --baseline .harness/state/oss-secret-scan-baseline.json
+
+可见 commit 数    12235
+扫描范围          仅工作树
+跳过的文件        2881（二进制或超过 2 MB）
+命中              115
+  assigned-secret   110
+  private-key-block 3
+  jwt               1
+  github-token      1
+
+命中明细（只打印规则与位置，不回显完整凭据）：
+  [assigned-secret] commit (工作树)
+  [jwt] commit (工作树)
+  [private-key-block] commit (工作树)
+  [github-token] commit (工作树)
+
+命中不等于泄露，但每一条都要人工确认，并假定该凭据已泄露、立即轮换。
+
+基线 99 条 · 基线外新命中 0 处
+✅ 没有基线外的新命中

@@ -1,0 +1,29 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/api
+
+ ❯ tests/research/guided-report-chapters.test.ts (148 tests | 1 failed | 147 skipped) 59ms
+   × starts first-chapter prose while later chapter evidence is still pending 58ms
+     → expected [ 'first-prose' ] to include 'later-evidence-start'
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/research/guided-report-chapters.test.ts > starts first-chapter prose while later chapter evidence is still pending
+AssertionError: expected [ 'first-prose' ] to include 'later-evidence-start'
+ ❯ tests/research/guided-report-chapters.test.ts:164:19
+    162|   try {
+    163|     await Promise.race([prose, new Promise((_, reject) => setTimeout((…
+    164|     expect(order).toContain("later-evidence-start");
+       |                   ^
+    165|     expect(order).not.toContain("later-evidence-done");
+    166|   } finally { release(); await running; }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 147 skipped (148)
+   Start at  21:55:21
+   Duration  4.52s (transform 2.54s, setup 0ms, collect 4.17s, tests 59ms, environment 0ms, prepare 60ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.research-unit.config.ts tests/research/guided-report-chapters.test.ts -t starts first-chapter prose

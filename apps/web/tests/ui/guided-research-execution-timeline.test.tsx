@@ -13,6 +13,8 @@ it('treats saved formal report limitations as completed after generation and rel
   };
   const view = render(<GuidedResearchExecutionTimeline state={state} />);
   expect(screen.getByRole('status')).toHaveTextContent('执行完成');
+  expect(screen.getByTestId('execution-documents')).toHaveTextContent('已完成');
+  expect(screen.getByTestId('execution-documents')).not.toHaveTextContent('不可用');
   expect(screen.queryByText('部分未完成')).not.toBeInTheDocument();
   expect(screen.getByTestId('execution-validation')).toHaveTextContent('已完成');
   view.rerender(<GuidedResearchExecutionTimeline state={JSON.parse(JSON.stringify(state))} />);
@@ -43,7 +45,7 @@ it('shows active siblings alongside partial search failures', () => {
   ] };
   const view = render(<GuidedResearchExecutionTimeline state={state} />);
   expect(screen.getByTestId('execution-search')).toHaveTextContent('执行中');
-  expect(screen.getByTestId('execution-search')).toHaveTextContent('部分检索失败');
+  expect(screen.getByTestId('execution-search')).not.toHaveTextContent('失败');
   expect(screen.getByRole('status')).toHaveTextContent('正在执行研究计划');
   view.rerender(<GuidedResearchExecutionTimeline state={structuredClone(state)} />);
   expect(screen.getByTestId('execution-search')).toHaveTextContent('执行中');
@@ -60,7 +62,7 @@ it('recognizes a running recovery attempt without erasing its failed task', () =
   }] };
   const view = render(<GuidedResearchExecutionTimeline state={state} />);
   expect(screen.getByTestId('execution-search')).toHaveTextContent('执行中');
-  expect(screen.getByTestId('execution-search')).toHaveTextContent('部分检索失败');
+  expect(screen.getByTestId('execution-search')).not.toHaveTextContent('失败');
   for (const terminal of [{ ...state, busy: false }, { ...state, controlStatus: 'paused' as const }, { ...state, leaseUntil: '2000-01-01T00:00:00Z' }]) {
     view.rerender(<GuidedResearchExecutionTimeline state={terminal} />);
     expect(screen.getByTestId('execution-search')).not.toHaveTextContent('执行中');
@@ -77,9 +79,9 @@ it('keeps live reading visible alongside a source error and preserves report pro
   };
   const view = render(<GuidedResearchExecutionTimeline state={state} />);
   expect(screen.getByTestId('execution-documents')).toHaveTextContent('执行中');
-  expect(screen.getByTestId('execution-documents')).toHaveTextContent('部分来源读取失败');
+  expect(screen.getByTestId('execution-documents')).not.toHaveTextContent('失败');
   view.rerender(<GuidedResearchExecutionTimeline state={{ ...state, busy: false }} />);
-  expect(screen.getByTestId('execution-documents')).toHaveTextContent('部分未完成');
+  expect(screen.getByTestId('execution-documents')).toHaveTextContent('待继续整理');
   expect(screen.getByTestId('execution-documents')).not.toHaveTextContent('执行中');
   expect(state.report).toEqual(base.report);
 });
@@ -91,7 +93,7 @@ it('does not turn a historical reading failure into active reading during a sear
     sources: [{ ...base.sources[0]!, documentError: 'unavailable' }],
     activity: [{ id: 'old', sequence: 1, stage: 'reading', taskId: null, summary: 'old read', occurredAt: '2000-01-01', status: 'started' }],
   }} />);
-  expect(screen.getByTestId('execution-documents')).toHaveTextContent('部分未完成');
+  expect(screen.getByTestId('execution-documents')).toHaveTextContent('待继续整理');
   expect(screen.getByTestId('execution-documents')).not.toHaveTextContent('执行中');
 });
 
@@ -121,10 +123,10 @@ it('requires the current execution stamp after reclaim instead of relabeling old
     activity: [{ id: 'old', sequence: 1, stage: 'reading' as const, taskId: null, summary: 'old read', occurredAt: '2000-01-01', status: 'started' as const, executionVersion: base.version }],
   };
   const view = render(<GuidedResearchExecutionTimeline state={state} />);
-  expect(screen.getByTestId('execution-documents')).toHaveTextContent('部分未完成');
+  expect(screen.getByTestId('execution-documents')).toHaveTextContent('待继续整理');
   view.rerender(<GuidedResearchExecutionTimeline state={{ ...state, activity: [{ ...state.activity[0]!, executionVersion: state.version }] }} />);
   expect(screen.getByTestId('execution-documents')).toHaveTextContent('执行中');
-  expect(screen.getByTestId('execution-documents')).toHaveTextContent('部分来源读取失败');
+  expect(screen.getByTestId('execution-documents')).not.toHaveTextContent('失败');
   view.rerender(<GuidedResearchExecutionTimeline state={{ ...state, activity: [{ ...state.activity[0]!, executionVersion: state.version }], revision: state.revision + 1, leaseUntil: '2099-01-02T00:00:00Z' }} />);
   expect(screen.getByTestId('execution-documents')).toHaveTextContent('执行中');
   view.rerender(<GuidedResearchExecutionTimeline state={{ ...state, progress: { ...state.progress, executionVersion: state.version } }} />);
@@ -157,4 +159,51 @@ it.each(['task', 'recovery', 'document'] as const)('maps expired current %s work
  expect(screen.getByTestId(kind === 'document' ? 'execution-documents' : 'execution-search')).toHaveTextContent('已中断');
  expect(screen.getByRole('status')).toHaveTextContent('执行已中断');
  expect(screen.queryByText('执行中')).not.toBeInTheDocument();
+});
+
+it('shows actual readable source count and current chapter while preparation overlaps writing', () => {
+  const base = runtimeFixture('report');
+  const source = base.sources[0]!;
+  const state = { ...base, report: null, busy: true, leaseUntil: '2099-01-01T00:00:00Z',
+    sources: [{ ...source, document: { text: 'Verified body', contentKind: 'text' as const, contentHash: 'a'.repeat(64), url: source.url, retrievedAt: source.retrievedAt, truncated: false } },
+      { ...source, id: 'pending', document: undefined }],
+    reportTimeline: [
+      { id: 'evidence', stage: 'evidence' as const, status: 'running' as const, attempts: 1, completed: 1, total: 2 },
+      { id: 'chapter:o1', stage: 'chapter' as const, sectionId: 'o1', status: 'running' as const, attempts: 1 },
+    ],
+  };
+  const view = render(<GuidedResearchExecutionTimeline state={state} />);
+  expect(screen.getByTestId('execution-documents')).toHaveTextContent('已读取 1/2 个来源');
+  expect(screen.getByTestId('execution-chapters')).toHaveTextContent('政策章节');
+  expect(screen.getByTestId('execution-documents')).toHaveTextContent('执行中');
+  view.rerender(<GuidedResearchExecutionTimeline state={JSON.parse(JSON.stringify(state))} />);
+  expect(screen.getByTestId('execution-chapters')).toHaveTextContent('政策章节');
+  expect(screen.getByRole('status')).not.toHaveTextContent(/预计|剩余|%/);
+});
+it('shows elapsed time only from a current persisted execution start', () => {
+  const base = runtimeFixture('report');
+  const state = { ...base, report: null, busy: true, leaseUntil: '2099-01-01T00:00:00Z',
+    activity: [{ id: 'start', sequence: 1, executionVersion: base.version, stage: 'reading' as const, taskId: null,
+      summary: '开始读取', status: 'started' as const, occurredAt: new Date(Date.now() - 125000).toISOString() }],
+  };
+  const view = render(<GuidedResearchExecutionTimeline state={state} />);
+  expect(screen.getByTestId('research-execution-timeline')).toHaveTextContent(/已用时 2 分/);
+  view.rerender(<GuidedResearchExecutionTimeline state={{ ...state, version: state.version + 1 }} />);
+  expect(screen.getByTestId('research-execution-timeline')).not.toHaveTextContent('已用时');
+});
+
+it('shows acquisition counts and current screening before an approved source is published', () => {
+  const base = runtimeFixture('research');
+  const state = { ...base, busy: true, leaseUntil: '2099-01-01T00:00:00Z', sources: [],
+    tasks: [{ ...base.tasks[0]!, status: 'running' as const }],
+    progress: { stage: 'searching' as const, executionVersion: base.version, completed: 0, total: 1,
+      sourceCounts: { discovered: 12, read: 3, screened: 0, reading: 0, screening: 3 } },
+  };
+  const view = render(<GuidedResearchExecutionTimeline state={state} />);
+  expect(screen.getByTestId('execution-documents')).toHaveTextContent('执行中');
+  expect(screen.getByTestId('execution-documents')).toHaveTextContent('已发现 12 · 已读取 3 · 已筛选 0');
+  view.rerender(<GuidedResearchExecutionTimeline state={{ ...state, busy: false }} />);
+  expect(screen.getByTestId('execution-documents')).not.toHaveTextContent('执行中');
+  view.rerender(<GuidedResearchExecutionTimeline state={{ ...state, version: base.version + 1 }} />);
+  expect(screen.getByTestId('execution-documents')).not.toHaveTextContent('已发现 12');
 });

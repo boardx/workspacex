@@ -1,0 +1,26 @@
+{
+  "identity": "isolated principal fixture",
+  "merchant": "independent RSA loopback",
+  "initialCreationClock": "Date-only16minutes earlier; restored",
+  "ownedCapacityFixture": 2147483640,
+  "billingHttpIntercepted": false,
+  "orderTimestampsMutated": false,
+  "orderNo": "bg202610161651454Cke5h",
+  "closure": {
+    "beforeStatus": "PENDING",
+    "afterStatus": "CLOSED",
+    "closedAt": "2026-10-16T17:07:45.180Z",
+    "worker": "actual DI lifecycle worker; automatic sweep may have won before observation"
+  },
+  "callbackStatus": 200,
+  "duplicateCallbackStatus": 200,
+  "status": "CLOSED",
+  "lastErrorCode": "invalid_amount",
+  "regenerateVisible": false,
+  "qrVisible": false,
+  "successVisible": false,
+  "nativeRequests": 1,
+  "signedNativeRequests": 1,
+  "ledgerRows": 0,
+  "productionMerchantAccepted": false
+}

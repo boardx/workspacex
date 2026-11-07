@@ -17,6 +17,18 @@ import { join, relative, sep } from "node:path";
 // Explicit work-eval files, not the whole `tests/work-eval/` directory: EV04's gate-status write-back
 // test lives there too and needs PostgreSQL. An entry ending in `/` is a directory prefix, otherwise a file.
 export const DB_FREE_TEST_PREFIXES = [
+  "tests/localization/authored-display-update-usecase.test.ts",
+  "tests/localization/authored-display-fields.test.ts",
+  "tests/localization/authored-display-metadata.test.ts",
+  "tests/localization/portable-import-usecase.test.ts",
+  "tests/localization/portable-source-definition.test.ts",
+  "tests/localization/portable-pack-integrity.test.ts",
+  // Architecture counterproofs only execute filesystem linters against fixture trees.
+  "tests/arch-gate.test.ts",
+  "tests/localization/entity-localization-usecase.test.ts",
+  "tests/localization/entity-localization-controller.test.ts",
+  "tests/localization/entity-display-projection.test.ts",
+  "tests/itv/interview-analysis-generation.test.ts",
   "tests/work-eval/machine-schema-vocabulary.test.ts",
   "tests/agent/pending-skill-display-name.test.ts",
   "tests/work-skill/manifest-frontmatter-lint.test.ts",

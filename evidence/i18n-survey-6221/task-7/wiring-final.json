@@ -1,0 +1,14 @@
+{
+  "name": "wiring-final",
+  "command": [
+    "node",
+    ".harness/scripts/lint-ui-wiring.mjs"
+  ],
+  "source": "fda71b3eacd39c379a0d3043207e6db4a63d1ffa",
+  "exitCode": 0,
+  "seconds": 3.016,
+  "rawLogSha256": "4c253a8712c7e44f913adc38e0dcea6bb75496b0908082a8e80c24acca703a52",
+  "sourceAfter": "fda71b3eacd39c379a0d3043207e6db4a63d1ffa",
+  "sourceStable": true,
+  "environment": {}
+}

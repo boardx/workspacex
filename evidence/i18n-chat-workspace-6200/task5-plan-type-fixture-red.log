@@ -1,0 +1,8 @@
+
+> web@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+> tsc --noEmit
+
+tests/ui/i18n-chat-plan-nested.test.tsx(14,105): error TS2741: Property 'createdAt' is missing in type '{ constraintId: string; text: string; }' but required in type '{ createdAt: string; text: string; constraintId: string; }'.
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  web@0.1.0 typecheck: `tsc --noEmit`
+Exit status 2

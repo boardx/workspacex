@@ -1,0 +1,436 @@
+{
+  "kind": "cn-release-independent-code-review-v1",
+  "reviewer": "/root",
+  "sourceRef": "Independent root delta review: 26-suite SIGKILL integration, canonical PG host query, bounded postclear diagnostics, normal CI dependency setup, actual conditional coverage chain and regenerated source-bound controller. Prior unchanged v11 scope retained; new Linux replay pending.",
+  "reviewedAt": "2026-10-12T13:31:32.498131+00:00",
+  "findings": [
+    {
+      "issueId": "SIM-09",
+      "disposition": "accepted",
+      "reviewedFiles": {
+        "scripts/cn-release-simulation-ci.py": "2ee50a71427709427d2a212fd5a0fb97d93360252b749fdd19a1dd27b6844686",
+        "tests/test_cn_release_simulation_ci.py": "29ae0910461dd217d5a7dfe663fafdeb21c3e2bad9b6c195b8c259d8304ac166",
+        "scripts/cn-release-simulation.py": "39e1e8674f17925e1eb9e6602b78db245f5eb0a05febb87831acbe69637f3b0b",
+        ".github/workflows/cn-release-simulation.yml": "42102012474f06ba20cfe547792f3c70509627479f0c31992dd59c79943c0662",
+        "scripts/cn-release-fullstack-fixture-setup.py": "8baa40a5cf94e4fbc837a42d54b34b8e4cc3da7843e38c6ed60c5ee53bf53632",
+        "tests/test_cn_release_fullstack_fixture_setup.py": "4add6cbb92dc157ac86e262d0017cbd4e47ecb21152e6d20aa39401397fd4be8"
+      },
+      "scope": "Setup Domain outer cleanup remains required before clone removal; distinct unknown cleanup retains clone and blocks. Current simulation outer Domain also must be verified and empty before fixed daemon recovery; API/application exact owners now reside under root-owned /var/lib invocation/api-owners and are recovered alongside all three six-service registries, rather than relying on killed inner finally.",
+      "requiredCounterexampleCaseIds": [
+        "test_cn_release_simulation_ci.CiBootstrap.test_setup_outer_timeout_closes_domain_and_preserves_failure",
+        "test_cn_release_simulation_ci.CiBootstrap.test_setup_missing_cleanup_proof_is_distinct_blocker"
+      ],
+      "executionEvidence": {
+        "localCiBootstrapPassed": 10,
+        "linuxNewSetupPath": "pending checkpoint CI"
+      },
+      "priorIndependentScopeRetained": true,
+      "deltaReviewScope": "Changed integration accepted for development replay only. Existing unchanged review scope retained. No exact candidate or production acceptance."
+    },
+    {
+      "issueId": "SIM-10",
+      "disposition": "accepted",
+      "reviewedFiles": {
+        "scripts/cn-release-simulation.py": "39e1e8674f17925e1eb9e6602b78db245f5eb0a05febb87831acbe69637f3b0b",
+        "tests/test_cn_release_simulation.py": "38a3abd167a799fc26cad200bed44bf9739b84ad94238c51fa2a569021edbee1"
+      },
+      "scope": "Finite export bound derives from same 26-suite and fixed nested file enumerations; 35 SIM14 names per round, no arbitrary paths, existing byte/nofollow/file-mode restrictions retained.",
+      "requiredCounterexampleCaseIds": [
+        "test_cn_release_simulation.SimulationTests.test_report_export_all_ten_rounds_fixed_inventory"
+      ],
+      "executionEvidence": {
+        "independentLocalSimulationTestsPassed": 29,
+        "actualFilesystemExportedFiles": 1479,
+        "unapprovedFileAndRound11Absent": true,
+        "fileModesAndNofollowRegressionPassed": true,
+        "fullLinuxTenRoundSuiteRun": "pending"
+      },
+      "priorIndependentScopeRetained": true,
+      "deltaReviewScope": "Changed integration accepted for development replay only. Existing unchanged review scope retained. No exact candidate or production acceptance."
+    },
+    {
+      "issueId": "SIM-11",
+      "disposition": "accepted",
+      "reviewedFiles": {
+        "tests/test_cn_release_isolated_acceptance.py": "e9fb0737543cb7c8181d98eb00a191351a0d80c657b808358fe057b26434a590",
+        "scripts/cn-release-isolated-acceptance.py": "420cbca988d26e94973a2edfbff2eb993abb4bc1dbc696d799260ce40a2c1df1",
+        "scripts/cn-release-simulation.py": "39e1e8674f17925e1eb9e6602b78db245f5eb0a05febb87831acbe69637f3b0b"
+      },
+      "scope": "Fixed17 standalone aggregate identifiers bind exact source/main and actual runner registration, now including application-recovery. Unknown or wrong source rejects. Synthetic integration main tests registration only. Current evaluator only adds SIM-14/BIZ-01 to required defects; exact-source, independent review, all10round/32requirement gates remain unchanged.",
+      "requiredCounterexampleCaseIds": [
+        "test_cn_release_isolated_acceptance.AcceptanceTests.test_actual_registry_case_ids_exist_in_inventory_sources",
+        "test_cn_release_isolated_acceptance.AcceptanceTests.test_standalone_binding_rejects_unregistered_identifier",
+        "test_cn_release_isolated_acceptance.AcceptanceTests.test_standalone_binding_rejects_wrong_source_mapping"
+      ],
+      "executionEvidence": {
+        "independentAcceptanceTestsPassed": 16,
+        "seconds": 13.743,
+        "originalEighthCiFailure": "ValueError on aggregate dotted-name split; not Linux integration failure"
+      },
+      "priorIndependentScopeRetained": true,
+      "deltaReviewScope": "Changed integration accepted for development replay only. Existing unchanged review scope retained. No exact candidate or production acceptance."
+    },
+    {
+      "issueId": "SIM-12",
+      "disposition": "accepted",
+      "reviewedFiles": {
+        "tests/test_cn_release_boundary_faults.py": "b3503a811ff4931bf454de892d858090751aa25e76cfb5dfcd1927b942aad1fe",
+        "tests/cn_release_boundary_reap_linux.py": "cdcf7784cbac358e87b34b221fa7c2e44f88d79c057cef7733a44cb2e42ab630",
+        "scripts/cn-release-simulation.py": "39e1e8674f17925e1eb9e6602b78db245f5eb0a05febb87831acbe69637f3b0b",
+        "tests/test_cn_release_boundary_reap_diagnostic.py": "4a1cbbf99d15e670c93dc8d494152b4b6068e4328506f795a25eb19205533747"
+      },
+      "scope": "Single-process offline timeout fixture uses exec sleep as directly waitable leader. Strict original timeout/process-group/reconcile assertions retained. Added real Linux subreaper counterexample uses original entry with explicit offline CGROUP_BASE=None, exact owned adopted zombies/SIGKILL waitpid and exec-leader reaping; supervisor is owned cgroup-contained. No original production cgroup gates changed. Final helper explicitly retains shell with background sleep/printed exactPID/builtin wait, rather than depending on shell final-command exec optimization; requires exact self-adopted PID, zombie, SIGKILL waitpid, group disappearance. Bounded diagnostics contain hashes/allowlisted metadata only; workerFailure must be object. This is a mechanism counterexample, not proof of historical cause.",
+      "requiredCounterexampleCaseIds": [
+        "test_cn_release_boundary_faults.BoundaryFaults.test_10_backup_timeout",
+        "linux_boundary_reap_contract"
+      ],
+      "executionEvidence": {
+        "independentOriginalBoundaryTestsPassed": 51,
+        "seconds": 114.45,
+        "linuxNewSubreaperHelper": "pending next actual CI",
+        "historicalCiCauseProven": false,
+        "originalCiDidNotRetainProcSnapshot": true,
+        "independentNewDiagnosticTestsPassed": 7
+      },
+      "priorIndependentScopeRetained": true,
+      "deltaReviewScope": "Changed integration accepted for development replay only. Existing unchanged review scope retained. No exact candidate or production acceptance."
+    },
+    {
+      "issueId": "SIM-14",
+      "disposition": "accepted",
+      "reviewedFiles": {
+        "scripts/cn-release-fixture-docker-cleanup.py": "79e0e0ed9bb8e80bdeae4ba85a24295bad0bd0d5f1fb6a4862854e2296897ebf",
+        "scripts/cn-release-simulation-ci.py": "2ee50a71427709427d2a212fd5a0fb97d93360252b749fdd19a1dd27b6844686",
+        "scripts/cn-release-simulation.py": "39e1e8674f17925e1eb9e6602b78db245f5eb0a05febb87831acbe69637f3b0b",
+        "tests/test_cn_release_fixture_docker_cleanup.py": "3dcfdd94719239668dcce631d60bb99068c3faaebdcb103f062661089a37c687",
+        "tests/test_cn_release_simulation_ci.py": "29ae0910461dd217d5a7dfe663fafdeb21c3e2bad9b6c195b8c259d8304ac166",
+        "tests/cn_release_api_outer_recovery_linux.py": "45464f0ea20dddc9d98f9d81ed2ee0c6dfc32a40ea6d157731f9d6e3930d4d79",
+        "tests/test_cn_release_api_outer_recovery_fixture.py": "7a106ec1d01ee3f2c51ff68bab482abf2f9d2cf21d94fc766e35153a363f794d"
+      },
+      "scope": "Actual outer helper SIGKILL fixture wired as 26th suite. Fixed target/control active owner roots recover after proven empty domain; negative never-submitted evidence mechanically permits only exact token docker ps and remains rejected. Shared 330s recovery budget within 390s suite. Linux actual SIGKILL/Docker replay pending.",
+      "requiredCounterexampleCaseIds": [
+        "test_cn_release_fixture_docker_cleanup.DockerCleanupTests.test_recovery_continues_after_unknown_owner_and_requires_outer_proof",
+        "test_cn_release_simulation_ci.CiBootstrap.test_simulation_recovery_attempts_every_registry_after_domain_empty"
+      ],
+      "executionEvidence": {
+        "rootLocalCiTests": 11,
+        "rootLocalReadonlyNegativeTests": 2,
+        "linuxActual": "pending"
+      },
+      "priorIndependentScopeRetained": true,
+      "deltaReviewScope": "Changed integration accepted for development replay only. Existing unchanged review scope retained. No exact candidate or production acceptance."
+    },
+    {
+      "issueId": "API-01",
+      "disposition": "accepted",
+      "reviewedFiles": {
+        "tests/cn_release_api_startup_linux.py": "c52ea46c06718a99cfa044a0b66ac8a6951f64fec2b6877cbaa224437880ff1b",
+        "tests/fixtures/cn-api-startup/startup.ts": "1d750b91dbe974491429c6ecbd249c6ebf33a6a336ef8eddc023c75e244ea26f"
+      },
+      "scope": "Only mandatory synthetic MODEL_CREDENTIAL_KEY startup prerequisite bug and original baseline/normal/cleanup-denied/seed-denied startup fixture admission. Actual prior CI38247007815 log verifies allfour records with416migrations and cleanup. Current Python adds separate retention/queued-worker extensions; this finding does not claim these new extensions or complete T20 coverage passed Linux. Historical eighth-run unique cause remains unproven.",
+      "requiredCounterexampleCaseIds": [
+        "linux_api_startup_contract"
+      ],
+      "executionEvidence": {
+        "actualPriorLinuxCiRun": "38247007815",
+        "actualPriorLogSha256": "5cc270d1f01cd1a640d6b4f247b66e4d6bde8ce9cf257529284d8d22421fcc52",
+        "verified": true,
+        "cleanupVerified": true,
+        "durationSeconds": 36.594,
+        "freshScenarioClones": 3,
+        "realFullMigrationDatabases": 1,
+        "currentExtendedScenarioLinux": "pending"
+      },
+      "priorIndependentScopeRetained": true,
+      "deltaReviewScope": "Changed integration accepted for development replay only. Existing unchanged review scope retained. No exact candidate or production acceptance."
+    }
+  ],
+  "additionalScopedReviews": [
+    {
+      "scope": "Storage namespace/ENOSPC fixture",
+      "reviewedFiles": {
+        "tests/cn_release_storage_linux.py": "5155b8a1dfc95e0ee1def83c3cf9fbaec4d7d093accf721ae4b2db315790d34a"
+      },
+      "disposition": "accepted-for-linux-ci",
+      "executionEvidence": "Independent syntax PASS; Mac actual Exit2 CAPABILITY_UNAVAILABLE. No Linux execution observed.",
+      "limitations": [
+        "Real write ENOSPC only; fsync failure not tested",
+        "No full release driver storage recovery proof",
+        "communicate output cap checked after collection, not streaming memory cap"
+      ]
+    },
+    {
+      "scope": "11 suite wiring and case denominator",
+      "reviewedFiles": {
+        "scripts/cn-release-simulation.py": "90a7dd37a43b4f0b07784562c2e53036dd31c45402b0125f4def5dfa28ae0c18",
+        "scripts/cn-release-simulation-ci.py": "b24d87b5ab6818770c7668b50de7a5b46a44c442ceda63c965db02de02ecef2d",
+        ".github/workflows/cn-release-simulation.yml": "c419aa81fd7e7fcb9999d70b2bf7d8e65693b314e54172f81ab37cb775c098b3",
+        "tests/test_cn_release_browser_wrapper.py": "e15344def5ef46a9e2c24812d3ba5d02889c33bc17fd9414730ee0d6e0e5b998",
+        "tests/test_cn_release_simulation_matrix.py": "e3460cabc7dc6d015130f02d15b5f961224bccf85400e91185b2c4b181bc82cd"
+      },
+      "disposition": "accepted-for-linux-ci",
+      "executionEvidence": {
+        "browserWrapperPassed": 4,
+        "matrixPassed": 9
+      },
+      "limitations": [
+        "Coverage incomplete; cannot close SIM-05",
+        "Additional subsequent suite wiring is outside this review"
+      ]
+    },
+    {
+      "scope": "Promotion recovery and exact historical fixture",
+      "reviewedFiles": {
+        "tests/test_cn_release_promotion_recovery.py": "2d9f2af5a8be528c0d3d1c3fb8ab36e4e73bdeb6ff82cd6dddf7c75dcdce755f",
+        "tests/fixtures/cn-promotion-recovery/acquire-observer-8c5d4eac.py": "7cec7e65c6d1f00f5c87f0d0b91d2aa63084c454632af2ce069926f86a8fd05c"
+      },
+      "reviewerAlsoImplementationAuthor": true,
+      "eligibleAsIndependentClosure": false,
+      "executionEvidence": "23 local tests PASS; historical fixture exact commit8c5d4eac8dd9d44b9837fc38a0e754b54ddda6cc bytes SHA7cec7e65c6d1f00f5c87f0d0b91d2aa63084c454632af2ce069926f86a8fd05c",
+      "limitations": [
+        "CI-02 requires a different independent reviewer"
+      ]
+    },
+    {
+      "scope": "Migration guard fresh hold-generation before DDL fix",
+      "reviewedFiles": {
+        "packages/cloud-deploy/src/cn-maintenance-host/migration_scope_adapter.ts": "8535390c9a83e804fc73ece26aea883c71449680bd22d6bf7ed1c2fe6990b802",
+        "packages/cloud-deploy/src/cn-maintenance-host/migration_scope_adapter_test.ts": "ab0093a753e4d1579a6da0cd3ba74c207b9271d73b5fdf0d2fbce2ed5d0e6fea",
+        "packages/cloud-deploy/src/cn-maintenance-host/migration_scope_adapter_test_fixture.ts": "a718d5d8ec7027fac4d33ba1e3bc8c80a4933a76707e4449f4391c3f2507c7ee",
+        "packages/cloud-deploy/src/cn-maintenance-host/a_route_factory.ts": "7e6f90b0c14b6d9ad7cc764a35de00c3f461d7d68cb96d831b01ab45e3f12540",
+        "packages/cloud-deploy/src/cn-maintenance-host/a_route_factory_test.ts": "77e4a6979d17462fe23039022bea7f210e5cba1a27c9678db2bb05c3e31ac05b",
+        "packages/cloud-deploy/src/cn-maintenance-host/source_production_consumers.ts": "bbadb17a3dfb11b8a086a2761c1ce08d4a1bd6fb89c7d61163e7631fa371c564"
+      },
+      "disposition": "accepted-local-code",
+      "executionEvidence": {
+        "independentNodeTestsPassed": 48,
+        "skipped": 0,
+        "testName": "new held generation after isolated acceptance cannot reuse old epoch for DDL"
+      },
+      "scopeLimit": "Optional guard preserves historical absence path; no new scope launcher, no DDL authority minted, no policy installation or production invocation."
+    },
+    {
+      "scope": "17-suite diagnostic checkpoint wiring",
+      "reviewedFiles": {
+        "scripts/cn-release-simulation.py": "0a807a200f0ea845db87799e36ac0606cf51b1a716b12fbebe5c40e47105ec32",
+        "scripts/cn-release-simulation-ci.py": "70469d66b8deb43fdd6f067e58358b73dae6048c3a6bf502db2efc0bf22feb24",
+        ".github/workflows/cn-release-simulation.yml": "4bc659620723f703d197fc31bc3865efd25085ed4b7f869f4fffebbf74c321f7",
+        "scripts/cn-release-isolated-acceptance.py": "d553490b2603d5ca66673ae2ec03ec702d25be9cce6e51d5714bb8df55cc241a",
+        "scripts/cn-release-fixture-docker-cleanup.py": "6e55ae99925561c11390e7d810afbcb725c7bc3fa7b3f273c80a03d68005b32c",
+        "tests/cn_release_readiness_linux.py": "be6b92d9c795d9bc355316081aeea5256e109ddedf4f50f5baaa37ddc4d8a378"
+      },
+      "disposition": "accepted-for-linux-ci-checkpoint",
+      "blocking": [],
+      "executionEvidence": {
+        "independentAcceptanceTestsPassed": 14,
+        "independentCiBootstrapPassed": 8,
+        "independentBrowserWrapperPassed": 5,
+        "independentReadinessVitestPassed": 10,
+        "actualReadinessJsonValidatedByWrapper": 10,
+        "independentSimulationTestsPassed": 28
+      },
+      "confirmed": [
+        "API startup suite gets1200 deadline and external Docker owner cleanup",
+        "Artifact upload now includes four exact nested owner registry files",
+        "S04 runs existing Vitest CLI from repository cwd with exact JSON7/all passed gate",
+        "Acceptance requires ten exact commit/run/round seeds, zero failures/skips, all32 implemented requirements, tracked independent review/sourcepins and original fix ancestry; production remains false",
+        "Setup invocation is enclosed in a separate owned Domain, always closed and verified, with durable outer cleanup receipt. Unknown cleanup preserves clone.",
+        "Fixed export allowlist-derived capacity is737, with ten actual round directories exported; round11 and unapproved filenames rejected. Individual17MiB and total512MiB byte caps unchanged.",
+        "Only fixed linux-boundary-reap added with60 second outer deadline; no change to original production entry cgroup/terminal gates"
+      ],
+      "limitations": [
+        "New Linux boundary subreaper helper not executed by reviewer; needs CI",
+        "API normal startup root cause remains unknown; diagnostic does not fix startup",
+        "No production acceptance"
+      ]
+    },
+    {
+      "scope": "API startup bounded diagnostic only; API-01 remains open",
+      "reviewedFiles": {
+        "tests/fixtures/cn-api-startup/startup.ts": "1d750b91dbe974491429c6ecbd249c6ebf33a6a336ef8eddc023c75e244ea26f",
+        "tests/fixtures/cn-api-startup/diagnostic.ts": "0708790c24ad2c7da44c321c0a77f87e14e76e535927c94da75738a6ad13125e",
+        "tests/test_cn_release_api_startup_diagnostic.py": "f78f657dddda281a4d47ad8a2694cb9c5ee22a9d9310d14e98367c8a090b7064"
+      },
+      "disposition": "accepted-diagnostic-only",
+      "executionEvidence": {
+        "independentDiagnosticTestsPassed": 1,
+        "seconds": 0.048,
+        "eighthCi": {
+          "runId": "38243707763",
+          "baselineMigrationCount": 416,
+          "normalStage": "actual-startApi",
+          "normalExitCode": 1,
+          "normalStderrBytes": 2416,
+          "normalStderrSha256": "29795765aa7a66691a1aa5880093bfc833481a4f064ae289584436fbe6eda630",
+          "cleanupVerified": true
+        }
+      },
+      "limitations": [
+        "Root cause not established by byte count/hash",
+        "No startup behavior or migration gate changed",
+        "Only whitelisted codes/types, original message/stack hashes and up to6 actual repository source frames emitted; no raw message SQL URI environment"
+      ]
+    },
+    {
+      "scope": "Synthetic API cipher prerequisite only; API-01 remains open",
+      "reviewedFiles": {
+        "tests/cn_release_api_startup_linux.py": "df3c9ddcb17dee07ad59c8e4ab5e3461f5b338f75fdbcf6c3b470ac4f860c5af",
+        "tests/test_cn_release_api_startup_diagnostic.py": "de2e08913361190740f05b58f9cbb8e1519f71df61a41b0bb3238338b72cae08",
+        "apps/api/src/infrastructure/model/aes-credential-cipher.ts": "28c1c992360435b34a292bf57e4b97e6b4c37da9de3a8fca06dccd390f474c43",
+        "apps/api/src/kernel.module.ts": "c140a94ce464cbb420ef4fc649d1f2d6dfd51f3dc9aefd29f1841e85e9be6a1f"
+      },
+      "disposition": "accepted-fixture-prerequisite-fix",
+      "executionEvidence": {
+        "independentDiagnosticTestsPassed": 2,
+        "seconds": 0.113,
+        "missingKeyCounterexample": "Actual credentialCipherFromEnv throws missing env var MODEL_CREDENTIAL_KEY",
+        "configuredFactory": "Actual AES256GCM factory encrypt output format validated with literal synthetic fixture-only string",
+        "kernelFactory": "Unconditional Nest MODEL_CREDENTIAL_CIPHER provider factory read in source"
+      },
+      "limitations": [
+        "No production key read, created or changed",
+        "Actual startApi normal success still requires next Linux evidence",
+        "Missing fixture prerequisite does not prove historical unique cause",
+        "All startup assertions and migrations unchanged"
+      ]
+    },
+    {
+      "scope": "Fixed native once-dispatch and canonical terminal evidence integration",
+      "disposition": "accepted-local-code-checkpoint",
+      "reviewedFiles": {
+        "packages/cloud-deploy/src/cn-maintenance-host/a_route_adapter.ts": "d2540d2ae75e0b97f2b3b30c5b87b864880e8bb4f4edbbd4a5e5158998a25992",
+        "packages/cloud-deploy/src/cn-maintenance-host/a_route_factory.ts": "0c78190618d9ca09a6feafa7cecbcc670fc7eeb532eb7779fcf3d5546066c560",
+        "packages/cloud-deploy/src/cn-maintenance-host/a_route_factory_test.ts": "63c946933e022e08440c4cc9fd79030ffdb9f2bad21d75037faf4e6e3cd22c0f",
+        "packages/cloud-deploy/src/cn-maintenance-host/entry.ts": "c877f9acc9afd9f3ada9ef86e97ffd1c42bea9f2d47a798c2756a7ef0468fb1b",
+        "packages/cloud-deploy/src/cn-maintenance-host/public_acceptance.ts": "ee4374cd0de47472d2d9715c2daaf54fa5d4434e6410d1facc9eb502553488f7",
+        "packages/cloud-deploy/src/cn-maintenance-host/source_production_consumers.ts": "c59ecdf13f2018601e81dae8fcacdab2f600c4be5a9f0398d9629d9f1bc00f25",
+        "packages/cloud-deploy/src/cn-maintenance-host/migration_owner_observer.ts": "780183ce35238e9ab2b92d7e3cff1500f837fb6ebd7d9bc8a46c51014a3c1ff5",
+        "packages/cloud-deploy/src/cn-maintenance-host/migration_owner_observer_test.ts": "77e7b27e5df784b7549b148e893421d4c839325823d30cd9c0145d99f5aff047",
+        "packages/cloud-deploy/src/cn-maintenance-host/migration_owner_terminal.ts": "d2160c7d9e6235b4ed2040696c5f33cfaec6253e8fdc5d1ac668d8a1266032fc",
+        "packages/cloud-deploy/src/cn-maintenance-host/migration_owner_terminal_test.ts": "90cf4275c08e05a24db812361c68e2407448dc58ecfebb8aac52510b9be009dc",
+        "packages/cloud-deploy/src/cn-maintenance-host/migration_owner_terminal_test_fixture.ts": "7a5ba298d9ace191cc0299c1a0ebb5ef183f3bdb05a8462adc97ed5027a5ef58",
+        "scripts/cn-release-migration-owner.py": "71c34f6bdb0ebb68f0685f4507dda7db79b17b1320781af6a4b3b642062a2404",
+        "scripts/cn-release-migration-owner-native.py": "cc6c68398f36df8bb290856f930c2588181ce9b588fd1c06e456732cdaebed5b",
+        "tests/test_cn_release_migration_owner.py": "272364dab130a0d5a3cbc0b43241c577513c8dd8a472ad99fac305a5b237eb89",
+        "tests/test_cn_release_migration_owner_native.py": "c368e193d20cecef3eee02fbd5770fa5dcc72288dcd4607c40ed636f456d0625",
+        "docs/operations/cn-release-migration-mode-design.md": "6fe6bc5c545aa3ec689c3ced00d2e6a4c05d844378a05a5c0c10a1520252a07e"
+      },
+      "executionEvidence": {
+        "independentPythonTestsPassed": 19,
+        "independentTypeScriptTestsPassed": 119,
+        "typeScriptTestsBreakdown": {
+          "terminalObserverFactorySourceAuthorityMigrationPublicEntry": 106,
+          "migrationGuard": 13
+        },
+        "skipped": 0,
+        "cloudDeployTypecheck": "independently passed Exit0",
+        "diffCheck": "passed"
+      },
+      "confirmed": [
+        "Production-facing adapter requires independent installed root profile/config/entry/original-plan/self/launcher/unit/systemctl pins; absence rejects",
+        "Durable exclusive claim precedes single start; existing or unknown claim only observes, no stop/restart/retry/install API",
+        "write/start finalgate freshly rechecks all critical constructor source/plan/unit pins; drift and expiry reject before subprocess",
+        "Original Python launcher and Node controller execve preserve samePID; sink verifies current PID/startTicks/bootId and actual inherited canonical FD9 lock",
+        "Terminal and seal are O_EXCL and fsynced while original A-route lock held, after original completion/public/opened observations",
+        "Canonical/browser private raw receipt refs are exact-path+SHA bound, original header/identity/marker/checks validated, transcript checks must match and originals reread",
+        "Readonly observer reconstructs OriginalPlanAuthority and explicit root policy, original epoch/candidate/native completion/public validators and seal binding; no operation ports",
+        "Policy expiry remains conservative: expired policy cannot freshly accept terminal history; never extends original deadline"
+      ],
+      "limits": [
+        "No systemd invocation, unit installation, live root sink or live database/cloud operation executed",
+        "This review permits source/test checkpoint only, not production installation or dispatch",
+        "Production enrollment, original writer authorization/A5 integration and installed closure still require separate exact reviewed artifacts",
+        "Primitive FixtureJournal is offline only; prior nonblocking/namedCAS hardening remains needed before treating that test port as live storage",
+        "Native command stdout limit is checked after subprocess collection; not a generic streaming bounded runner",
+        "New Linux ownership/terminal wrappers excluded from these16 reviewed files"
+      ]
+    },
+    {
+      "name": "API-01 synthetic prerequisite actual isolated startup evidence",
+      "disposition": "accepted",
+      "scope": "Fixture missing mandatory MODEL_CREDENTIAL_KEY repaired with explicit nonsecret literal; actual CI raw API log verifies baseline plus normal/cleanup-denied/seed-denied and416migrations. Does not establish unique historical cause or complete T20 queuedworker/500000 cap coverage.",
+      "evidence": {
+        "path": "/Users/shenyanbin/Documents/Codex/2026-10-10/task/release-continuation/simulation-evidence-20261012/github-38247007815/round-01/linux-api-startup.log",
+        "sha256": "5cc270d1f01cd1a640d6b4f247b66e4d6bde8ce9cf257529284d8d22421fcc52",
+        "verified": true,
+        "cleanupVerified": true,
+        "durationSeconds": 36.594,
+        "freshScenarioClones": 3,
+        "realFullMigrationDatabases": 1,
+        "records": "baseline,normal,cleanup-denied,seed-denied each Exit0/verifiedTrue/migrationCount416"
+      }
+    },
+    {
+      "name": "24-suite fixed registration and bounded export checkpoint",
+      "disposition": "accepted-local-code-checkpoint",
+      "reviewedFiles": {
+        "scripts/cn-release-simulation-ci.py": "fe26456e08cc9977cc9bac610aa609d94c273b05690200d551fd09a4128014b7",
+        "scripts/cn-release-simulation.py": "83b4b91868868e1c5c115cf4037da3f13f4581453bd8eca896d43b36140a615c",
+        ".github/workflows/cn-release-simulation.yml": "d0e5a2bd70fc7f8522e585c3c78701725eccded66ef722c1b8c8107bf9944528",
+        "scripts/cn-release-isolated-acceptance.py": "420cbca988d26e94973a2edfbff2eb993abb4bc1dbc696d799260ce40a2c1df1",
+        "tests/test_cn_release_isolated_acceptance.py": "2f2bdb5769e18a022985517cad562d3a848bf95784b4a112234d59f47c339203",
+        "tests/test_cn_release_simulation.py": "38a3abd167a799fc26cad200bed44bf9739b84ad94238c51fa2a569021edbee1",
+        "tests/test_cn_release_simulation_ci.py": "552d416c62389559c9a27f49fc7b7542a1412ec3043163b292768831c750ec65"
+      },
+      "scope": "Application recovery fixed800-second heavy slot, original API1200/six1500/cleanup510 limits retained.7heavy suites share one semaphore; no resetting per-suite operation deadlines. Parent16500-second deadline may failclosed before worst-case10round budget; not a guarantee of completion. Workflow exposes only fixed owned registry receipts/reports, Redis resolvedonce to digest/imageID, no production credentials. New actual Linux suites pending; module-specific implementation reviews belong to their independent reviewers."
+    }
+  ],
+  "productionExecuted": false,
+  "unreviewedIssues": [
+    "SIM-01",
+    "SIM-02",
+    "SIM-03",
+    "SIM-05",
+    "CI-02 independent closure",
+    "UPG-01"
+  ],
+  "priorReview": {
+    "file": "docs/operations/cn-release-independent-review-code-review-v10.json",
+    "sha256": "3eab50c65170dcf83f09f951751ae92e24ebd96a9613d827bd9983e9b7eefedb"
+  },
+  "localDeltaTests": {
+    "runner": 29,
+    "acceptance": 16,
+    "inventory": 5,
+    "ciHelper": 10,
+    "apiLimits": 10,
+    "apiDiagnostics": 2,
+    "applicationBridge": 8,
+    "sixDiagnostics": 6
+  },
+  "newLinuxValidation": "pending",
+  "additionalDelta": {
+    "reviewedFiles": {
+      ".github/workflows/archive-bridge-tests.yml": "6b6043dc446ffe8f954756910a60347a34874b71c1cdb2274166a54d2ec61379",
+      ".harness/scripts/cn-six-gate-reachability.py": "c00ff6ed4a1a215f743bc1c719c671b573f2ddd2891dccea270385f63158054e",
+      ".harness/scripts/lint-spec-gate-coverage.mjs": "c3b9bd8da702cad039f507ec8a16c21587de21e10bd07a02ae7f3b105c5046bc",
+      ".harness/scripts/lint-spec-gate-coverage.test.ts": "94e523f91a662428362f427e4dd0f9e4273d6f0fdee89f111c26aafbd0f7769c",
+      ".harness/scripts/vm/cn-maintenance-host-controller.cjs": "94f7d5d93b9b41e94d00d0934aafd94972adb0a1994584a67e3fe304ed484395",
+      "tests/fixtures/cn-six-business/infra-preflight.ts": "343ae0d6be517f1449d159b0583d6b547c4def8aaafe369484ca97f7c6c96b2e",
+      "tests/fixtures/cn-six-business/infra-preflight.test.ts": "edb240d68818b82a1713499c673b8683720afe7b15242023e13f4a79efb1f924",
+      "tests/cn_release_postclear_recovery_linux.py": "b2b4ab18e0d16152bca33deb03abc560f6491c9f3dfecaa7bbe157d4d322b35a",
+      "tests/fixtures/cn-postclear-recovery/postgres.ts": "9fa29279d745876e1d0f64d6a7af56748e595dd16a085e7caa9d257641d932df",
+      "tests/fixtures/cn-postclear-recovery/diagnostic.ts": "2c8f5bb92cce8d791242ebc2d2d4cf3668813b318b1b622de88c0f99a52457d1",
+      "tests/fixtures/cn-postclear-recovery/diagnostic-launcher.ts": "b6661185eecd1e5fe6edf38dcbf9e3a246b0941e4095c29ca714e495ae212deb",
+      "tests/fixtures/cn-postclear-recovery/diagnostic_test.ts": "c9c85c8cbee72627834f0b6b26708deb4aa4002c2ae90b33c1169016ca9d5e10",
+      "tests/test_cn_release_postclear_diagnostic.py": "798f9adace98f5c4e8117900b12cc06e1a6a4d978ebea4be849b2d84cb2638b5"
+    },
+    "tests": {
+      "runnerAcceptanceInventory": 50,
+      "ciBootstrap": 11,
+      "outerNegative": 2,
+      "sixPreflight": 7,
+      "postclearDiagnostics": 8,
+      "specGate": 24,
+      "originalBundleCheck": true
+    },
+    "limits": [
+      "T24 historical failure root remains unknown: new fixed stage/reason/SQLSTATE projection only",
+      "PG query normalization retains strict loopback/database/port/AGE equality; actual Linux pending",
+      "CI frozen dependency installation new path awaits GitHub",
+      "conditional six-business coverage is explicitly conditional, five AST edge counterexamples passed; no business acceptance inferred",
+      "Generated controller reproduced by original builder --check; not installed anywhere",
+      "Merge can trigger existing DevApp workflow; no CN production merge trigger introduced"
+    ]
+  }
+}

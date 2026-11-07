@@ -1,0 +1,32 @@
+native {"dx":94,"dy":62,"trusted":true}
+fabric {"dx":94,"dy":62,"t":[1,0,0,1,-94,-62]}
+BROWSER 151.0.7922.34 { dpr: 1, screen: 1440 }
+FINAL [ 1, 0, 0, 1, -94, -62 ]
+node:internal/process/promises:394
+    triggerUncaughtException(err, true /* fromPromise */);
+    ^
+
+AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
++ actual - expected
+
+  [
+    1,
+    0,
+    0,
+    1,
++   -94,
++   -62
+-   -47,
+-   -31
+  ]
+
+    at /Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-board-baseline/native-wheel-reproducer.cjs:2:1244 {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: [ 1, 0, 0, 1, -94, -62 ],
+  expected: [ 1, 0, 0, 1, -47, -31 ],
+  operator: 'deepStrictEqual',
+  diff: 'simple'
+}
+
+Node.js v22.23.2

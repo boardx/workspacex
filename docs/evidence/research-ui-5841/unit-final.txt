@@ -1,0 +1,19 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/web
+
+ ✓ tests/ui/guided-research-reference-layout.test.tsx (20 tests) 1016ms
+ ✓ tests/ui/research-production-routes.test.tsx (24 tests) 2026ms
+   ✓ imports a text file into the requirement while preserving existing input 461ms
+   ✓ only applies a real assistant proposal after explicit user adoption 323ms
+ ✓ tests/ui/guided-research-conversation-live.test.tsx (11 tests) 1647ms
+   ✓ restores the conversation draft on the right and uses it for the next message without applying 399ms
+   ✓ previews report content and requires applying it before completing research 360ms
+ ✓ tests/ui/guided-research-skill-assistant.test.tsx (6 tests) 415ms
+ ✓ tests/ui/research-ui-consistency.test.tsx (2 tests) 307ms
+
+ Test Files  5 passed (5)
+      Tests  63 passed (63)
+   Start at  13:13:43
+   Duration  21.46s (transform 2.11s, setup 1.04s, collect 6.27s, tests 5.41s, environment 6.51s, prepare 467ms)
+

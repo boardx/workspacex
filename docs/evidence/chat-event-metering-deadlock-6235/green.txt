@@ -1,0 +1,29 @@
+[stack-admission] load1=4.67 cores=10 perCore=0.47 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw26vl51-6701aeb5-5d9960be3992 db=wsx_5d9960be39926e0f5ec1 compose=wsx-5d9960be39926e0f5ec1 pg=20862 redis=21862 api=24862 web=25862 sandbox=26862 model=27862 deep-agent=28862 asr=29862 vision=30862 loopback-sandbox=31862 mail=19862
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_5d9960be39926e0f5ec1 capacity=100 current=6 required=32
+ ✓ tests/agent-runtime/execution-journal-pg.test.ts (18 tests) 27947ms
+   ✓ durable execution journal > atomically dispatches the FIFO head once and leaves later messages waiting across repository instances 314ms
+   ✓ durable execution journal > binds grants to the current permission identity and rejects stale or duplicate decisions 317ms
+   ✓ durable execution journal > serializes concurrent writers and replays the exact cursor suffix across repository instances 316ms
+   ✓ durable execution journal > rejects cancellation after the writeback transaction boundary 332ms
+   ✓ durable execution journal > only resumes a settled pause once and atomically clears its request marker 314ms
+ ✓ tests/billing/chat-event-metering-lock-order-pg.test.ts (1 test) 719ms
+ ✓ tests/billing/personal-fallback-metering-lock-order-pg.test.ts (1 test) 805ms
+
+ Test Files  3 passed (3)
+      Tests  20 passed (20)
+   Start at  22:05:29
+   Duration  42.66s (transform 3.11s, setup 52ms, collect 6.19s, tests 29.47s, environment 1ms, prepare 332ms)
+
+[db-isolation] db=wsx_5d9960be39926e0f5ec1 peak_connections=7
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/chat-event-metering-lock-order-pg.test.ts tests/agent-runtime/execution-journal-pg.test.ts tests/billing/personal-fallback-metering-lock-order-pg.test.ts --maxWorkers=1 --minWorkers=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：44s
+  清理：1s
+  总计：44s

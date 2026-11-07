@@ -1,8 +1,11 @@
 "use client";
 
+import { I18nProvider } from "@/lib/i18n/provider";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/locale";
 import * as React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SessionProvider } from "@/components/session/session-provider";
+import { CreditConsumptionNotice } from "@/components/billing/credit-consumption-notice";
 import { GlobalErrorReporter } from "@/components/system/global-error-reporter";
 import { DisablePageZoom } from "@/components/system/disable-page-zoom";
 import { EditionProvider } from "@/lib/edition";
@@ -32,20 +35,23 @@ function createQueryClient(): QueryClient {
 }
 
 export function Providers(
-  { children, edition = "cloud", cloudUrl = null }:
-  { children: React.ReactNode; edition?: DeploymentEditionValue; cloudUrl?: string | null },
+  { children, locale = DEFAULT_LOCALE, edition = "cloud", cloudUrl = null }:
+  { children: React.ReactNode; locale?: Locale; edition?: DeploymentEditionValue; cloudUrl?: string | null },
 ) {
   const [queryClient] = React.useState(createQueryClient);
   return (
+    <I18nProvider initialLocale={locale}>
     <QueryClientProvider client={queryClient}>
       {/* 版次由服务端 layout 在请求时读出后传进来；缺省 `cloud`，见 `lib/edition.tsx` 头注。 */}
       <EditionProvider edition={edition} cloudUrl={cloudUrl}>
         <SessionProvider>
           <GlobalErrorReporter />
+          <CreditConsumptionNotice />
           <DisablePageZoom />
           {children}
         </SessionProvider>
       </EditionProvider>
     </QueryClientProvider>
+    </I18nProvider>
   );
 }

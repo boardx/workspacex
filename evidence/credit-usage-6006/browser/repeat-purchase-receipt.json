@@ -1,0 +1,13 @@
+{
+  "firstOrderNo": "bg20261030021237BB5T52",
+  "secondOrderNo": "bg20261030021240Fb7qqQ",
+  "reloadedBetweenPurchases": false,
+  "billingHttpIntercepted": false,
+  "nativeRequests": 2,
+  "signedNativeRequests": 2,
+  "balance": 2640,
+  "totalPurchased": 2400,
+  "ledgerRowsPerOrder": 2,
+  "replayedCallbacksStable": true,
+  "productionMerchantAccepted": false
+}

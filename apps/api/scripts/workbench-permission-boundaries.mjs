@@ -1,3 +1,4 @@
+import {RUN_LEASE_FENCE_SQL} from "./lib/workbench-permission-boundary.mjs";
 import {modelMetadataPermissionBoundaries} from "./model-metadata-permission-boundaries.mjs";
 /** Narrow control-plane exceptions. Each admitted file is checked again on every lint
  * invocation; disclosure stays at the existing authenticated application boundary. */
@@ -73,7 +74,7 @@ export const workbenchBoundaries = new Map([
   ['src/infrastructure/db/pg-database.ts', {
     tables:['agent_runs'],
     reason:'Lease fencing reads only the current run identity inside the transaction and never returns the row. This is infrastructure for enforcing ownership, not a content read API.',
-    checks:[[null,/SELECT id FROM agent_runs WHERE org_id=\$1 AND id=\$2\s+AND lease_epoch=\$3 AND lease_expires_at>now\(\) FOR UPDATE/],
+    checks:[[null,RUN_LEASE_FENCE_SQL],
       [null,/if\(!ownership\.rows\.length\)throw new RunLeaseLostError\(\)/],
       [null,/set_config\('app.current_org', \$1, true\)/]],
   }],
@@ -83,11 +84,13 @@ export function verifyWorkbenchBoundaries(read, tenantTables) {
   const failures=[];
   for(const [path,rule] of workbenchBoundaries){
     const source=read(path);
-    for(const match of source.matchAll(/\b(?:FROM|JOIN|INTO|UPDATE)\s+(\w+)/gi)) {
+    for(const match of source.matchAll(/\b(?:FROM|JOIN|INTO|UPDATE(?!\s+SET\b))\s+(\w+)/gi)) {
       const table=match[1].toLowerCase();
+      if(rule.globalTables&&!rule.globalTables.includes(table))failures.push(`${path}: unexpected global table ${table}`);
       if(tenantTables.has(table)&&!rule.tables.includes(table)) failures.push(`${path}: unexpected tenant table ${table}`);
     }
-    if(path!=='src/infrastructure/db/pg-database.ts'&&path!=='src/infrastructure/chat-queue/thread-message-queue.ts'&&source.includes('.withoutTenant(')) failures.push(`${path}: global read is forbidden`);
+    if(path!=='src/infrastructure/db/pg-database.ts'&&path!=='src/infrastructure/chat-queue/thread-message-queue.ts'&&!rule.globalTables&&source.includes('.withoutTenant(')) failures.push(`${path}: global read is forbidden`);
+    if(rule.globalCalls!==undefined&&[...source.matchAll(/\.withoutTenant\(/g)].length!==rule.globalCalls)failures.push(`${path}: unexpected global operation count`);
     if(path.includes('chat-queue') && [...source.matchAll(/\.withoutTenant\(/g)].length!==1) failures.push(`${path}: global scan must be the single tenant-ID discovery`);
     if(path.includes('chat-queue')) {
       const browserOperations=source.slice(0,source.indexOf('  async pump('));
@@ -95,6 +98,7 @@ export function verifyWorkbenchBoundaries(read, tenantTables) {
         if(/\b(?:SELECT|UPDATE)\b/i.test(query[1]) && /thread_message_queue/.test(query[1]) && !/actor_id=\$3/.test(query[1])) failures.push(`${path}: browser queue read/mutation lost actor scope`);
       }
     }
+    if(modelMetadataPermissionBoundaries.has(path)&&/\bSELECT\s+(?:\w+\.)?body\s+FROM\s+chat_messages\b/i.test(source))failures.push(`${path}: content body disclosure is forbidden`);
     for(const [file,pattern] of rule.checks)if(!pattern.test(file?read(file):source))failures.push(`${path}: authority invariant missing (${file??path}: ${pattern})`);
   }
   return failures;

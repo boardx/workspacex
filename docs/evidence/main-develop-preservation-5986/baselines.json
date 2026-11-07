@@ -1,0 +1,15 @@
+{
+  "main": "a6bc8bc17238e63642a309d7891ddff64e433032",
+  "develop": "350c725048ca4f89516bc89389dc6d0dfa746dc2",
+  "conflictResolution": {
+    "apps/web/e2e/chat-attachment-image-vision-extraction.spec.ts": "develop"
+  },
+  "rationale": "保留develop的解析失败提示与反向断言；main的已上传措辞及禁止已就绪断言已包含在develop版本中。main旧注释与现有extractionStatus契约不符，不回退。",
+  "additionalTestFixes": {
+    "apps/web/tests/ui/survey-live-publishing.test.tsx": {
+      "blob": "46ce12601747c502848dc291ca20248332b16f45",
+      "originalCommit": "b75c66597721c46d7f1cd8080079b1f1df3a9bd1",
+      "rationale": "仅复用已审查测试修正，使新批次到期时间相对当前时钟，保持历史批次和所有断言；原固定日期已过期并阻断 Web 门控。"
+    }
+  }
+}

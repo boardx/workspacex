@@ -1,0 +1,49 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+ ❯ tests/billing/personal-stripe-invoice-list.test.ts (13 tests | 2 failed) 108ms
+   × lists a bounded paid invoice page for the exact subscription on pinned Clover 37ms
+     → stripe_disabled
+   × caps the invoice list response body independently of page size 29ms
+     → expected [Function] to throw error including 'response_too_large' but got 'stripe_disabled'
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/personal-stripe-invoice-list.test.ts > lists a bounded paid invoice page for the exact subscription on pinned Clover
+Error: stripe_disabled
+ ❯ StripeWebhookClient.retrieve src/infrastructure/billing/stripe-webhook-client.ts:25:64
+     23|   }
+     24|   private async retrieve(path: string, maxBytes = 65536): Promise<Reco…
+     25|     const config = this.config.getStripe(); if (!config) throw Error("…
+       |                                                                ^
+     26|     const controller = new AbortController(), timer = setTimeout(()=>c…
+     27|     let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+ ❯ StripeWebhookClient.paidInvoices src/infrastructure/billing/stripe-webhook-client.ts:48:29
+ ❯ tests/billing/personal-stripe-invoice-list.test.ts:12:50
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/billing/personal-stripe-invoice-list.test.ts > caps the invoice list response body independently of page size
+AssertionError: expected [Function] to throw error including 'response_too_large' but got 'stripe_disabled'
+
+Expected: "response_too_large"
+Received: "stripe_disabled"
+
+ ❯ tests/billing/personal-stripe-invoice-list.test.ts:34:3
+     32| it("caps the invoice list response body independently of page size", a…
+     33|   vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify…
+     34|   await expect(new StripeWebhookClient(config()).paidInvoices("sub_own…
+       |   ^
+     35| });
+     36| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 11 passed (13)
+   Start at  02:29:26
+   Duration  2.57s (transform 890ms, setup 0ms, collect 1.18s, tests 108ms, environment 0ms, prepare 628ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.billing-provider.config.ts tests/billing/personal-stripe-invoice-list.test.ts

@@ -18,6 +18,24 @@ import { ToolPermissionCard } from "@/components/agent-kernel/agent-kernel-units
 import { MOCK_PERMISSION_REQUEST } from "@/lib/mock/agent-kernel";
 
 describe("ToolPermissionCard 主展示区：想做什么 / 为什么 / 完整命令", () => {
+  it("does not claim a redacted/truncated server summary is the complete command, and preserves denial", () => {
+    const command = JSON.stringify({ command: "x".repeat(1987) + "…[TRUNCATED]" });
+    const onDecide = vi.fn();
+    render(<ToolPermissionCard request={{ ...MOCK_PERMISSION_REQUEST, command }} decided={null} onDecide={onDecide} />);
+    expect(screen.queryByText("具体命令（完整，未截断）")).not.toBeInTheDocument();
+    expect(screen.getByTestId("perm-command").textContent).toBe(command);
+    expect(screen.getByTestId("perm-review-guidance")).toHaveTextContent("已截断");
+    expect(screen.getByTestId("perm-review-guidance")).toHaveTextContent("短命令");
+    fireEvent.click(screen.getByTestId("perm-deny"));
+    expect(onDecide).toHaveBeenCalledWith("deny");
+  });
+
+  it("always explains the summary boundary without claiming unknown arguments are complete", () => {
+    render(<ToolPermissionCard />);
+    expect(screen.getByTestId("perm-review-guidance")).toHaveTextContent("参数摘要");
+    expect(screen.queryByText("具体命令（完整，未截断）")).not.toBeInTheDocument();
+  });
+
   it("渲染 tool-permission-card，展示 perm-intent/perm-rationale/perm-command", () => {
     render(<ToolPermissionCard />);
     expect(screen.getByTestId("tool-permission-card")).toBeInTheDocument();

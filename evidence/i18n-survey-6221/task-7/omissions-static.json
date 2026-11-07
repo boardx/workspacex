@@ -1,0 +1,18 @@
+{
+  "base": "044f5e51696f55c540adbd7da53445f3f4f8917e",
+  "head": "28b4d40ff8682b92ac1edbccbd48f5a823e4a7ca",
+  "existingCataloguePairsPreserved": 33,
+  "exporterOnlyEightCanonicalErrorBindingsChanged": true,
+  "canonicalExporterBodySha256": "495eaf7d1b15b283ab6b80acf06978df4fc84a0dc0d21401361cc4feb5dfd48d",
+  "workspaceLifecycleAndRequestCallsByteEqual": true,
+  "dependencyCount": 11,
+  "requestCount": 11,
+  "unchanged": {
+    "apps/api/src": true,
+    "packages/contracts": true,
+    "apps/web/components/survey/report/report-markdown.ts": true,
+    "apps/web/components/survey/report/report-chart.tsx": true,
+    "apps/web/components/survey/live/response-list.tsx": true
+  },
+  "scope": "Static identity/body/lifecycle/tree proof only; actual exporter failure translation and new-route continuity require the separate RED/GREEN tests; no browser/CI/delivery verdict."
+}

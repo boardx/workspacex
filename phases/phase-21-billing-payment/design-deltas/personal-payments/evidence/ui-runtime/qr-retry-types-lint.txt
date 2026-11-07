@@ -1,0 +1,34 @@
+• turbo 2.10.5
+
+   • Packages in scope: web
+   • Running typecheck, lint in 1 packages
+   • Remote caching disabled, using shared worktree cache
+
+@repo/dev-mode-accounts:build: cache hit, replaying logs 5a1ec2001e5906cf
+@repo/dev-mode-accounts:build:
+@repo/dev-mode-accounts:build: > @repo/dev-mode-accounts@0.1.0 build /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/dev-mode-accounts
+@repo/dev-mode-accounts:build: > tsc --noEmit
+@repo/dev-mode-accounts:build:
+@repo/fabric-markdown:build: cache hit, replaying logs 731da9d16c66361e
+@repo/fabric-markdown:build:
+@repo/fabric-markdown:build: > @repo/fabric-markdown@0.1.0 build /Users/shenyangjun/.codex/worktrees/6712/workspacex/packages/fabric-markdown
+@repo/fabric-markdown:build: > tsc -p tsconfig.build.json
+@repo/fabric-markdown:build:
+web:lint: cache miss, executing b1a762c8356e912b
+web:typecheck: cache miss, executing 398be613bfa076c2
+web:typecheck:
+web:typecheck: > web@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web
+web:typecheck: > tsc --noEmit
+web:typecheck:
+web:lint:
+web:lint: > web@0.1.0 lint /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web
+web:lint: > next lint --max-warnings 0 && node scripts/gen-light-scope.mjs --check && ./scripts/lint-design.sh
+web:lint:
+web:lint: ✔ No ESLint warnings or errors
+web:lint: ✅ gen-light-scope: .wx-light 与 :root 一致（53 个 token）
+web:lint:
+web:lint: ✅ lint-design：全部通过（扫描 app components lib）
+
+ Tasks:    4 successful, 4 total
+Cached:    2 cached, 4 total
+  Time:    11.141s

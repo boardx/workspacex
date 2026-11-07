@@ -1,0 +1,11 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+ ✓ tests/billing/personal-wechat-payment.test.ts (18 tests) 133ms
+ ✓ tests/billing/wechat-monthly-client.test.ts (9 tests) 120ms
+
+ Test Files  2 passed (2)
+      Tests  27 passed (27)
+   Start at  01:15:30
+   Duration  2.35s (transform 410ms, setup 0ms, collect 1.17s, tests 253ms, environment 1ms, prepare 331ms)
+

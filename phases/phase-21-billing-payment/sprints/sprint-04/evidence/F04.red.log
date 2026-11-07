@@ -1,0 +1,236 @@
+[stack-admission] load1=3.43 cores=10 perCore=0.34 running=0/2
+[test-isolation] id=run-mv9bbbep-a29297f2-2abe90b23b51 db=wsx_2abe90b23b51d65a753d compose=wsx-2abe90b23b51d65a753d pg=20954 redis=21954 api=24954 web=25954 sandbox=26954 model=27954 deep-agent=28954 asr=29954 vision=30954 loopback-sandbox=31954 mail=19954
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_2abe90b23b51d65a753d capacity=100 current=6 required=32
+ ❯ tests/billing/order-core.test.ts (13 tests | 13 failed) 7893ms
+   × F04 real Native order HTTP and PostgreSQL > mounts authenticated package and order routes 29ms
+     → expected 404 to be 401 // Object.is equality
+   × F04 real Native order HTTP and PostgreSQL > creates a persisted PENDING order from server snapshot and a verified QR 67ms
+     → expected 404 to be 201 // Object.is equality
+   × F04 real Native order HTTP and PostgreSQL > rejects client money before contacting the merchant 46ms
+     → expected 404 to be 400 // Object.is equality
+   × F04 real Native order HTTP and PostgreSQL > does not persist a fake order on non2xx 44ms
+     → expected 404 to be 502 // Object.is equality
+   × F04 real Native order HTTP and PostgreSQL > does not persist a fake order on bad-signature 42ms
+     → expected 404 to be 502 // Object.is equality
+   × F04 real Native order HTTP and PostgreSQL > does not persist a fake order on missing-signature 41ms
+     → expected 404 to be 502 // Object.is equality
+   × F04 real Native order HTTP and PostgreSQL > does not persist a fake order on stale 42ms
+     → expected 404 to be 502 // Object.is equality
+   × F04 real Native order HTTP and PostgreSQL > does not persist a fake order on unknown-key 41ms
+     → expected 404 to be 502 // Object.is equality
+   × F04 real Native order HTTP and PostgreSQL > does not persist a fake order on missing-qr 46ms
+     → expected 404 to be 502 // Object.is equality
+   × F04 real Native order HTTP and PostgreSQL > does not persist a fake order on bad-qr 50ms
+     → expected 404 to be 502 // Object.is equality
+   × F04 real Native order HTTP and PostgreSQL > does not persist a fake order on malformed 45ms
+     → expected 404 to be 502 // Object.is equality
+   × F04 real Native order HTTP and PostgreSQL > does not persist a fake order on redirect 40ms
+     → expected 404 to be 502 // Object.is equality
+   × F04 real Native order HTTP and PostgreSQL > blocks disabled packages and organization billing before network dispatch 51ms
+     → expected { …(3) } to match object { code: 'package_disabled' }
+(3 matching properties omitted from actual)
+ ❯ tests/billing/order-ownership.test.ts (4 tests | 4 failed) 523ms
+   × F04 HTTP order ownership with persisted memberships > rejects forged personal owners before Native dispatch 27ms
+     → expected 404 to be 403 // Object.is equality
+   × F04 HTTP order ownership with persisted memberships > requires explicit organization and the actual target administrator 44ms
+     → expected 404 to be 400 // Object.is equality
+   × F04 HTTP order ownership with persisted memberships > does not disclose another person's order or whether an order exists 41ms
+     → expected 404 to be 201 // Object.is equality
+   × F04 HTTP order ownership with persisted memberships > does not let an ordinary member inspect team order QR or amount 39ms
+     → expected 404 to be 201 // Object.is equality
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 17 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/order-core.test.ts > F04 real Native order HTTP and PostgreSQL > mounts authenticated package and order routes
+AssertionError: expected 404 to be 401 // Object.is equality
+
+- Expected
++ Received
+
+- 401
++ 404
+
+ ❯ tests/billing/order-core.test.ts:13:89
+     11| describe("F04 real Native order HTTP and PostgreSQL", () => {
+     12|   it("mounts authenticated package and order routes", async () => {
+     13|     expect((await f.request("/billing/packages?ownerType=user", undefi…
+       |                                                                                         ^
+     14|     const response = await f.request("/billing/packages?ownerType=user…
+     15|     expect(operations.listPackages.out.parse(await response.json()).it…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/17]⎯
+
+ FAIL  tests/billing/order-core.test.ts > F04 real Native order HTTP and PostgreSQL > creates a persisted PENDING order from server snapshot and a verified QR
+AssertionError: expected 404 to be 201 // Object.is equality
+
+- Expected
++ Received
+
+- 201
++ 404
+
+ ❯ tests/billing/order-core.test.ts:18:64
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/17]⎯
+
+ FAIL  tests/billing/order-core.test.ts > F04 real Native order HTTP and PostgreSQL > rejects client money before contacting the merchant
+AssertionError: expected 404 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 404
+
+ ❯ tests/billing/order-core.test.ts:34:76
+     32|   });
+     33|   it("rejects client money before contacting the merchant", async () =…
+     34|     expect((await f.create({ amountFen: 1, baseCredits: 999999 })).sta…
+       |                                                                            ^
+     35|   });
+     36|   for (const mode of ["non2xx", "bad-signature", "missing-signature", …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/17]⎯
+
+ FAIL  tests/billing/order-core.test.ts > F04 real Native order HTTP and PostgreSQL > does not persist a fake order on non2xx
+ FAIL  tests/billing/order-core.test.ts > F04 real Native order HTTP and PostgreSQL > does not persist a fake order on bad-signature
+ FAIL  tests/billing/order-core.test.ts > F04 real Native order HTTP and PostgreSQL > does not persist a fake order on missing-signature
+ FAIL  tests/billing/order-core.test.ts > F04 real Native order HTTP and PostgreSQL > does not persist a fake order on stale
+ FAIL  tests/billing/order-core.test.ts > F04 real Native order HTTP and PostgreSQL > does not persist a fake order on unknown-key
+ FAIL  tests/billing/order-core.test.ts > F04 real Native order HTTP and PostgreSQL > does not persist a fake order on missing-qr
+ FAIL  tests/billing/order-core.test.ts > F04 real Native order HTTP and PostgreSQL > does not persist a fake order on bad-qr
+ FAIL  tests/billing/order-core.test.ts > F04 real Native order HTTP and PostgreSQL > does not persist a fake order on malformed
+ FAIL  tests/billing/order-core.test.ts > F04 real Native order HTTP and PostgreSQL > does not persist a fake order on redirect
+AssertionError: expected 404 to be 502 // Object.is equality
+
+- Expected
++ Received
+
+- 502
++ 404
+
+ ❯ tests/billing/order-core.test.ts:38:87
+     36|   for (const mode of ["non2xx", "bad-signature", "missing-signature", …
+     37|     it(`does not persist a fake order on ${mode}`, async () => {
+     38|       f.state.mode = mode; const response = await f.create(); expect(r…
+       |                                                                                       ^
+     39|       expect(await response.json()).toMatchObject({ code: "wechat_upst…
+     40|       const result = await asOwner(c => c.query("SELECT count(*)::int …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/17]⎯
+
+ FAIL  tests/billing/order-core.test.ts > F04 real Native order HTTP and PostgreSQL > blocks disabled packages and organization billing before network dispatch
+AssertionError: expected { …(3) } to match object { code: 'package_disabled' }
+(3 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  Object {
+-   "code": "package_disabled",
++   "error": "Not Found",
++   "message": "Cannot POST /billing/orders",
++   "statusCode": 404,
+  }
+
+ ❯ tests/billing/order-core.test.ts:45:45
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/17]⎯
+
+ FAIL  tests/billing/order-ownership.test.ts > F04 HTTP order ownership with persisted memberships > rejects forged personal owners before Native dispatch
+AssertionError: expected 404 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 404
+
+ ❯ tests/billing/order-ownership.test.ts:9:57
+      7| describe("F04 HTTP order ownership with persisted memberships", () => {
+      8|   it("rejects forged personal owners before Native dispatch", async ()…
+      9|     expect((await f.create({ ownerId: other })).status).toBe(403); exp…
+       |                                                         ^
+     10|   });
+     11|   it("requires explicit organization and the actual target administrat…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/17]⎯
+
+ FAIL  tests/billing/order-ownership.test.ts > F04 HTTP order ownership with persisted memberships > requires explicit organization and the actual target administrator
+AssertionError: expected 404 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 404
+
+ ❯ tests/billing/order-ownership.test.ts:12:60
+     10|   });
+     11|   it("requires explicit organization and the actual target administrat…
+     12|     expect((await f.create({ ownerType: "team" })).status).toBe(400);
+       |                                                            ^
+     13|     expect((await f.create({ ownerType: "team", ownerId: org }, "f04-o…
+     14|     expect((await f.create({ ownerType: "team", ownerId: otherOrg })).…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/17]⎯
+
+ FAIL  tests/billing/order-ownership.test.ts > F04 HTTP order ownership with persisted memberships > does not disclose another person's order or whether an order exists
+AssertionError: expected 404 to be 201 // Object.is equality
+
+- Expected
++ Received
+
+- 201
++ 404
+
+ ❯ tests/billing/order-ownership.test.ts:18:62
+     16|   });
+     17|   it("does not disclose another person's order or whether an order exi…
+     18|     const created = await f.create(); expect(created.status).toBe(201)…
+       |                                                              ^
+     19|     for (const path of [`/billing/orders/${order.orderNo}`, "/billing/…
+     20|       const read = await f.request(path, undefined, "f04-other"); expe…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/17]⎯
+
+ FAIL  tests/billing/order-ownership.test.ts > F04 HTTP order ownership with persisted memberships > does not let an ordinary member inspect team order QR or amount
+AssertionError: expected 404 to be 201 // Object.is equality
+
+- Expected
++ Received
+
+- 201
++ 404
+
+ ❯ tests/billing/order-ownership.test.ts:24:97
+     22|   });
+     23|   it("does not let an ordinary member inspect team order QR or amount"…
+     24|     const created = await f.create({ ownerType: "team", ownerId: org }…
+       |                                                                                                 ^
+     25|     const read = await f.request(`/billing/orders/${order.orderNo}`, u…
+     26|     expect(await read.json()).toMatchObject({ code: "order_not_found" …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/17]⎯
+
+ Test Files  2 failed (2)
+      Tests  17 failed (17)
+   Start at  17:04:22
+   Duration  13.44s (transform 590ms, setup 6ms, collect 1.35s, tests 8.42s, environment 0ms, prepare 61ms)
+
+[db-isolation] db=wsx_2abe90b23b51d65a753d peak_connections=2
+undefined
+/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/order-core.test.ts tests/billing/order-ownership.test.ts
+[timing] pnpm --filter api exec vitest run tests/billing/order-core.test.ts tests/billing/order-ownership.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：14s
+  清理：0s
+  总计：14s

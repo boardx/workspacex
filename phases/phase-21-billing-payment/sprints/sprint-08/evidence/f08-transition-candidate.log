@@ -1,0 +1,26 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+
+ ✓ .harness/scripts/lint-feature-transition.test.ts (19 tests) 14607ms
+   ✓ 真仓库端到端 > 合法迁移（真 appendFingerprint 产出的证据）⇒ 退 0 815ms
+   ✓ 真仓库端到端 > 手改 passing（status 翻了、evidence 写人话、没有日志）⇒ 退 1 789ms
+   ✓ 真仓库端到端 > 手改 passing 但借用一份合法旧日志（最终树三道门全绿）⇒ 退 1 753ms
+   ✓ 真仓库端到端 > 复制一份别人的合法日志冒充自己的证据 ⇒ 退 1 779ms
+   ✓ 真仓库端到端 > 改写日志正文 + 重算指纹（checkFingerprint 返回 ok）⇒ 仍然退 1 778ms
+   ✓ 真仓库端到端 > 只改正文、不重算尾行 ⇒ evidence_tampered 764ms
+   ✓ 真仓库端到端 > passing 退回 in_progress ⇒ status_irreversible 680ms
+   ✓ 真仓库端到端 > 归档搬家（live → feature_list.archive.json）不算记录消失 ⇒ 退 0 683ms
+   ✓ 真仓库端到端 > 不碰 feature 的改动 ⇒ 判定为空转，退 0 682ms
+   ✓ 反向反证：门不是永远红的 > 真仓库 HEAD~1 → HEAD 必须退 0 2016ms
+   ✓ squash 的完整树出处证明 > 真 squash 保留完整源树，见证属于源历史 ⇒ 退 0 931ms
+   ✓ squash 的完整树出处证明 > squash 后的后续 HEAD 仍能证明已集成 ⇒ 退 0 975ms
+   ✓ squash 的完整树出处证明 > 日志相同但源代码树不同，不是完整 squash ⇒ 退 1 1028ms
+   ✓ squash 的完整树出处证明 > 等价源树不属于日志见证的后代 ⇒ 退 1 1083ms
+   ✓ squash 的完整树出处证明 > 无关见证的后代回退到共同 base，不能借用不含当前证据的旧等价树 ⇒ 退 1 911ms
+   ✓ squash 的完整树出处证明 > squash 不能放行指纹被篡改的日志 ⇒ 退 1 874ms
+
+ Test Files  1 passed (1)
+      Tests  19 passed (19)
+   Start at  18:58:40
+   Duration  14.92s (transform 44ms, setup 0ms, collect 54ms, tests 14.61s, environment 0ms, prepare 32ms)

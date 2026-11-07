@@ -87,6 +87,8 @@ export interface NavItem {
 }
 
 export interface NavSegment {
+  /** Stable translation key; never used for routing or authorization. */
+  key?: string;
   /** 分组标签；null = 无标签（顶部的「对话」）*/
   label: string | null;
   items: NavItem[];
@@ -168,6 +170,7 @@ export const NAV_SEGMENTS: NavSegment[] = [
     ],
   },
   {
+    key: "work",
     label: "编排",
     items: [
       // 束: project（列表 /projects → 工作台 /projects/[projectId]）
@@ -177,6 +180,7 @@ export const NAV_SEGMENTS: NavSegment[] = [
     ],
   },
   {
+    key: "studio",
     label: "STUDIO",
     items: [
       // #3902: 独立白板入口，不替代后台画布模板管理。
@@ -218,6 +222,7 @@ export const NAV_SEGMENTS: NavSegment[] = [
     ],
   },
   {
+    key: "capabilities",
     label: "能力",
     items: [
       // 2026-09-24 起 /brain 只读真实记忆（个人空间 + 各对话的记忆计数），不再承载 uc-14-6 的 Context Pack 审查；
@@ -244,6 +249,7 @@ export const NAV_SEGMENTS: NavSegment[] = [
     ],
   },
   {
+    key: "administration",
     label: "治理",
     items: [
       // 2026-09-02 人类直接裁决：后台切成**两个一级入口**——「组织后台」管当前组织自己的

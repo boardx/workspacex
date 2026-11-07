@@ -1,0 +1,4 @@
+> @repo/local-runtime@0.1.0 lint /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/packages/local-runtime
+> echo 'lint: ok'
+
+lint: ok

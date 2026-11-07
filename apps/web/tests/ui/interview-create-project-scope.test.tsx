@@ -49,6 +49,25 @@ describe("B2-S2 访谈 Studio 带 ?projectId= 新建 ⇒ 访谈归到项目", ()
     expect(body.name).toBe("并网周期访谈");
   });
 
+  it("shows readable failure, preserves inputs and retries the same idempotent request", async () => {
+    const original = vi.mocked(fetch).getMockImplementation()!;
+    let unavailable = true;
+    vi.mocked(fetch).mockImplementation(async (input, init) => init?.method === "POST" && unavailable
+      ? json({ reasonCode: "DEPENDENCY_UNAVAILABLE" }, 503) : original(input, init));
+    render(<InterviewStudioHome initialCreateOpen />);
+    fireEvent.change(await screen.findByTestId("itv-create-name"), {target:{value:"恢复测试"}});
+    fireEvent.click(screen.getByTestId("itv-create-submit"));
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("服务暂时不可用");
+    expect(alert).not.toHaveTextContent("DEPENDENCY_UNAVAILABLE");
+    expect(screen.getByTestId("itv-create-name")).toHaveValue("恢复测试");
+    expect(screen.getByTestId("itv-create-submit")).toBeEnabled();
+    unavailable = false; fireEvent.click(screen.getByTestId("itv-create-submit"));
+    await waitFor(()=>expect(push).toHaveBeenCalledWith("/itv/itv-new/intake"));
+    const posts = vi.mocked(fetch).mock.calls.filter(([,init])=>init?.method === "POST").map(([,init])=>JSON.parse(String(init!.body)));
+    expect(posts).toHaveLength(2); expect(posts[0].requestId).toBe(posts[1].requestId);
+  });
+
   it("没有 projectId ⇒ 仍是独立访谈，没有面包屑", async () => {
     render(<InterviewStudioHome initialCreateOpen />);
     expect(screen.queryByTestId("project-breadcrumb")).toBeNull();

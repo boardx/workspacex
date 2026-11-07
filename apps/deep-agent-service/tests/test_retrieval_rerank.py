@@ -3,22 +3,24 @@ import pytest
 from deep_agent_service.retrieval_rerank import rerank_documents, RetrievalRerankUnavailable
 
 def test_no_model_default(monkeypatch):
+    monkeypatch.setenv("DEEP_AGENT_USAGE_CALLBACK_BASE_URL","http://private.test")
+    monkeypatch.setenv("DEEP_AGENT_SERVICE_INTERNAL_KEY","fixture")
     monkeypatch.delenv('KERNEL_RERANK_MODEL_ID',raising=False)
     with pytest.raises(RetrievalRerankUnavailable):
-        asyncio.run(rerank_documents('question',[{'id':'a','content':'evidence'}]))
+        asyncio.run(rerank_documents('question',[{'id':'a','content':'evidence'}],{'orgId':'org','runId':'run','attemptId':'attempt','leaseEpoch':1}))
 
 @pytest.mark.parametrize('ranking,valid',[([1,0],True),([0,0],False),([8,0],False),([0],False)])
 def test_official_runnable_ranks_actual_documents_and_refuses_invalid_output(monkeypatch,ranking,valid):
     import json
     import httpx
     from deep_agent_service import retrieval_rerank as module
-    for key,value in {'KERNEL_MODEL_BASE_URL':'https://trusted.test/v1','KERNEL_MODEL_API_KEY':'private-secret','KERNEL_RERANK_MODEL_ID':'explicit-rank','KERNEL_RERANK_MODEL_VERSION':'1'}.items():monkeypatch.setenv(key,value)
+    for key,value in {'KERNEL_MODEL_BASE_URL':'https://trusted.test/v1','KERNEL_MODEL_API_KEY':'private-secret','KERNEL_RERANK_MODEL_ID':'explicit-rank','KERNEL_RERANK_MODEL_VERSION':'1','KERNEL_RERANK_MAX_OUTPUT_TOKENS':'1024','DEEP_AGENT_USAGE_CALLBACK_BASE_URL':'http://private.test','DEEP_AGENT_SERVICE_INTERNAL_KEY':'fixture'}.items():monkeypatch.setenv(key,value)
     seen=[]
     async def send(self,request,**kwargs):
         seen.append(request)
         return httpx.Response(200,request=request,json={'id':'test','object':'chat.completion','created':1,'model':'explicit-rank','choices':[{'index':0,'message':{'role':'assistant','content':json.dumps({'ranked_document_ids':ranking})},'finish_reason':'stop'}],'usage':{'prompt_tokens':1,'completion_tokens':1,'total_tokens':2}})
     monkeypatch.setattr(httpx.AsyncClient,'send',send)
-    async def run():return await module.rerank_documents('question',[{'id':'a','content':'First real source'},{'id':'b','content':'Second real source'}])
+    async def run():return await module.rerank_documents('question',[{'id':'a','content':'First real source'},{'id':'b','content':'Second real source'}],{'orgId':'org','runId':'run','attemptId':'attempt','leaseEpoch':1})
     if valid:assert asyncio.run(run())['ids']==['b','a']
     else:
         with pytest.raises(module.RetrievalRerankUnavailable) as error:asyncio.run(run())

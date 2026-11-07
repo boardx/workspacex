@@ -1,0 +1,26 @@
+"use client";
+import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
+import { CreditNativeUnit, nativeTariffOperations as operations, NativeCreditTariff } from "@repo/contracts/billing-consumption";
+import { apiRequest, ApiError } from "@/lib/api-client";
+import type { MessageKey } from "@/lib/i18n/messages";
+import { Button } from "@/components/ui/button";
+type Tariff = ReturnType<typeof NativeCreditTariff.parse>;
+const UNIT_LABEL: Record<Tariff["unit"], MessageKey> = {image:"platformOps.tariffs.unit.image",pixel:"platformOps.tariffs.unit.pixel",millisecond:"platformOps.tariffs.unit.millisecond",microsecond:"platformOps.tariffs.unit.microsecond",character:"platformOps.tariffs.unit.character",request:"platformOps.tariffs.unit.request"};
+export function NativeCreditTariffsPanel() {
+  const { t } = useI18n();
+ const [provider,setProvider]=React.useState("");const [modelId,setModelId]=React.useState("");const [unit,setUnit]=React.useState<Tariff["unit"]>("millisecond");
+ const [quantum,setQuantum]=React.useState("");const [price,setPrice]=React.useState("");const [version,setVersion]=React.useState("");
+ const [items,setItems]=React.useState<Tariff[]|null>(null);const [busy,setBusy]=React.useState(false);const [denied,setDenied]=React.useState(false);const [message,setMessage]=React.useState<MessageKey | "">("");
+ const mounted=React.useRef(true);React.useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
+ function failure(error:unknown){if(!mounted.current)return;if(error instanceof ApiError&&[401,403].includes(error.status))setDenied(true);else setMessage("platformOps.tariffs.failed");}
+ async function load(event:React.FormEvent){event.preventDefault();if(busy)return;setBusy(true);setMessage("");try{const raw=await apiRequest(operations.listNativeTariffs.path,{query:operations.listNativeTariffs.in.parse({})});const data=operations.listNativeTariffs.out.parse(raw);if(mounted.current){setItems(data.items);}}catch(error){failure(error);}finally{if(mounted.current)setBusy(false);}}
+ async function save(event:React.FormEvent){event.preventDefault();if(busy)return;if(provider.trim()==="bailian-image"){setMessage("platformOps.tariffs.imageCasRequired");return;}const checked=NativeCreditTariff.safeParse({pricingBasis:{source:"operator",retailSnapshotId:version.trim()},modelProvider:provider.trim(),modelId:modelId.trim(),unit,quantum,hundredthsPerQuantum:price,version:version.trim()});if(!checked.success){setMessage("platformOps.tariffs.invalid");return;}setBusy(true);setMessage("");try{const result=operations.upsertNativeTariff.out.parse(await apiRequest(operations.upsertNativeTariff.path,{method:"PUT",body:checked.data}));if(JSON.stringify(result)!==JSON.stringify(checked.data))throw new Error("TARIFF_SAVE_MISMATCH");if(mounted.current){setItems(previous=>[...(previous??[]).filter(item=>item.modelProvider!==result.modelProvider||item.modelId!==result.modelId||item.unit!==result.unit),result]);setMessage("platformOps.tariffs.saved");}}catch(error){failure(error);}finally{if(mounted.current)setBusy(false);}}
+ if(denied)return null;
+ return <section aria-label={t("platformOps.tariffs.label")} className="space-y-3 border-t border-border pt-4"><h3 className="text-14 font-semibold">{t("platformOps.tariffs.title")}</h3><p className="text-13 text-muted-foreground">{t("platformOps.tariffs.intro")}</p>
+ <form onSubmit={event=>void load(event)}><Button type="submit" variant="outline" disabled={busy}>{t("platformOps.tariffs.load")}</Button></form>
+ {items!==null&&<><p className="text-13">{t("platformOps.tariffs.globalScope")}</p>{items.length===0?<p>{t("platformOps.tariffs.empty")}</p>:<ul className="space-y-2 text-13">{items.map(item=><li key={`${item.modelProvider}:${item.modelId}:${item.unit}`}>{t("platformOps.tariffs.item", { provider: item.modelProvider, model: item.modelId, quantum: item.quantum, unit: t(UNIT_LABEL[item.unit]), price: item.hundredthsPerQuantum, version: item.version })}</li>)}</ul>}
+ <form aria-label={t("platformOps.tariffs.saveAria")} onSubmit={event=>void save(event)} className="grid gap-3 md:grid-cols-2">{([
+ ["platformOps.tariffs.provider",provider,setProvider],["platformOps.tariffs.model",modelId,setModelId],["platformOps.tariffs.quantum",quantum,setQuantum],["platformOps.tariffs.price",price,setPrice],["platformOps.tariffs.version",version,setVersion],
+ ] as const).map(([label,value,change])=><label key={label} className="text-13">{t(label)}<input required aria-label={t(label)} className="block w-full rounded-control border border-border bg-background p-2" value={value as string} onChange={event=>(change as React.Dispatch<React.SetStateAction<string>>)(event.target.value)}/></label>)}<label className="text-13">{t("platformOps.tariffs.unitLabel")}<select aria-label={t("platformOps.tariffs.unitLabel")} className="block rounded-control border border-border bg-background p-2" value={unit} onChange={event=>setUnit(event.target.value as Tariff["unit"])}>{CreditNativeUnit.options.map(value=><option value={value} key={value}>{t(UNIT_LABEL[value])}</option>)}</select></label><Button type="submit" disabled={busy}>{t("platformOps.tariffs.save")}</Button></form></>}{message&&<p role="status" className="text-13">{t(message)}</p>}</section>;
+}

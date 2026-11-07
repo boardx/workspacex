@@ -1,0 +1,15 @@
+{
+  "name": "driver-type-freeze-1",
+  "command": [
+    "git",
+    "commit",
+    "-m",
+    "test(i18n): guard the held research creation request"
+  ],
+  "source": "c7c6c4f1a5e6b9172c786681c7deb86a8473e3eb",
+  "sourceAfter": "cbcf73c5ef02e5e3026d1a1294f048b58324320b",
+  "sourceStable": false,
+  "exitCode": 0,
+  "seconds": 0.206,
+  "rawLogSha256": "dc470f8d8e614c193f1f6031c6a1714186e1b74cef253570d0d75b06299eade8"
+}

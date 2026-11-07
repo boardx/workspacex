@@ -1,0 +1,113 @@
+# T22 complete-application fixture (not yet Linux verified)
+
+This independent lane reuses the existing chat-read application stack: real Next
+**production standalone server**, actual Nest `startApi`, full PostgreSQL migrations and
+real Chromium. It does not replace these with static HTML. The API launcher
+refuses shared infrastructure and any database other than the isolation wrapper's
+`wsx_<20 hex>` database on loopback. It inserts synthetic feedback and grants the
+existing synthetic fixture user the admin role in that new database only.
+
+The six discovered tests cover login, hello, microphone/ASR, skill-content
+propagation, authenticated GitHub-feedback status, and a persisted PDF run with
+actual download magic. Voice and PDF reuse the original browser test files;
+no success booleans or intercepted browser responses are injected. PDF tooling
+and model behavior still use the existing deterministic provider fixtures.
+
+External boundaries are **model, deep-agent, ASR, skill execution and GitHub
+protocol fixtures**, not real model quality, remote ASR, Docker sandbox isolation
+or GitHub service acceptance. The new GitHub transport maps only the synthetic
+repository's issue-status/timeline GETs to an actual loopback HTTP server; the
+application's original GitHub parser, feedback use case, auth and database path
+remain in use. Non-loopback HTTP fetches are refused. No real external credential
+is required or supplied. This is not a production build/production deployment
+acceptance, and it must not set any production six-journey receipt.
+
+Run only on the GitHub isolated Linux runner after frozen dependencies and its
+reviewed Linux browser/immutable image setup. The outer owner must supply a new
+root-private `/var/lib/.../infra.json` via `CN_SIX_INFRA_RECEIPT`. It owns exactly
+two immutable image-ID containers, unique labels and a fresh database; no
+floating tags, implicit builds, network objects or persistent Docker volumes.
+The fixture does not run Compose, create containers, create the database or
+remove any project. Its preflight only reads the private receipt and Docker
+inspect, verifying exact container IDs/image IDs/name/labels, host networking,
+explicit loopback listen commands with `shared_preload_libraries=age`, and absence of persistent mounts. Before any inspection or connection it requires explicit `PGHOST=127.0.0.1` and the exact isolated database. Before migrate/seed, a read-only SQL query verifies the actual database name, server loopback address/port and AGE preload setting. Separate 5-second connection, server statement and client protocol-response timeouts apply; these are not a 5-second total wall-clock guarantee. Outer process supervision must also bound teardown if the protocol or `client.end()` stalls.
+
+The outer receipt is `cn-six-infra-v1` and binds `ownerToken`, `project`,
+`dbName`, `runId`, `roundId`, `sourceCommit`, and `postgres`/`redis` records
+with `containerId,imageId,containerName,port,command`. Caller env binds
+`GITHUB_RUN_ID,CN_SIX_ROUND_ID,CN_SIX_SOURCE_COMMIT,COMPOSE_PROJECT_NAME`,
+`WORKSPACEX_DB,PGDATABASE,PGPORT,REDIS_PORT`, plus the original app/provider
+port allocation. The outer owner creates the database before receipt issuance.
+It must retain create intents and evidence on unknown outcomes and reconcile only
+its own exact resources after timeout/SIGKILL. Empty listings cannot substitute
+for terminal creation knowledge. Other projects are never cleanup targets.
+
+After outer setup/readback, run from the repo:
+
+```sh
+# The existing isolated Linux CI owner invokes run_round in
+# scripts/cn-release-six-session.py; direct Playwright requires its build receipt.
+```
+
+Do not wrap this command in the original `with-test-isolation.ts`, whose Compose
+teardown belongs to a different ownership protocol. The outer may reuse its
+pure port reservation library. Setup and cleanup are included in total time.
+The configuration has zero retries and a 20-minute whole-test budget; this is a
+limit, not measured performance. Missing capabilities fail rather than skip.
+
+**Network scope:** the local fetch restriction applies only to Nest's global
+HTTP fetch transport. It does not isolate Next, Chromium, WebSocket clients,
+other Node network APIs or the host network. Whole-stack zero egress has not
+been proved. All named external providers are explicitly loopback; no real
+external credential is passed. GitHub setup owns any permitted dependency/image
+downloads before the test.
+
+Evidence is the actual Playwright JSON report at
+`apps/web/test-results/cn-six-business.json` plus application/provider logs.
+A consumer requires exactly six passing tests, zero skips, no unexpected tests,
+and the outer's verified cleanup. Hello/skill additionally parse their exact
+SSE run ID, independently read persisted success/resultMessageId, reload and
+read again; skill checks paired successful tool ledger results and rendered
+skill-content sentinel. PDF retains its original durable-run assertions.
+
+Authoring evidence: the real Playwright loader discovered six tests in three
+source files; web typecheck and actual loopback HTTP boundary tests passed.
+The updated whole stack has not run on Linux. T22 remains open until complete
+execution, report checks and cleanup pass; discovery is not E2E acceptance.
+
+The fixture-only Next preload observes the fixed server-worker fork without
+changing signals, restart policy, memory or business budgets. It records PID/start
+identity, exit signal, monotonic/UTC times, sampled maximum RSS pages and matched
+cgroup OOM counter deltas. Cleanup-only leaf cgroups without memory controllers
+are skipped so the original enclosing resource unit can still be read. For an
+observed SIGKILL plus OOM increment, an existing-permission kernel-log read is
+bounded to two seconds/64 KiB; only an exact owned-PID OOM match and its kernel
+time are retained. Permission failure is explicit unavailable evidence, never an
+OOM claim or a reason to add sudo/capabilities. At most 16 workers are recorded;
+the exporter names each allowed record explicitly. Raw kernel messages, arbitrary
+commands and process contents are never exported. RSS is sampled, not a kernel
+peak measurement. A SIGKILL/counter correlation without the owned-PID kernel
+match does not by itself prove the kernel OOM victim.
+
+Approved production build/run split (2026-10-15): the owner now first runs the
+existing Next release build with WORKSPACEX_RELEASE_BUILD=1 and 3072MiB old-space,
+then copies public/static assets into the same standalone layout as
+deploy/aliyun/images/web.Dockerfile. No image is built or deployed. Compilation
+and service/browser execution share the original 1200s application budget and
+6GiB enclosing unit. Compiler descendants must be proven empty before any full
+service stack starts. The normal globalSetup still performs real HTTP readiness
+checks with the unchanged 300s per-route budget; all six assertions are unchanged.
+
+A fresh build receipt binds source commit, lockfile, selected runtime environment,
+BUILD_ID and the complete standalone tree, including manifests, public/static
+assets and traced dependencies. Internal pnpm symlinks are content-bound; links
+outside the standalone tree reject. The running artifact is checked before its
+real server.js starts. Build failure, identity mismatch or exhausted shared
+budget fails the lane before journeys. After the application domain is empty,
+only the build directory whose device/inode was recorded at exclusive creation
+is removed. Both CI report projection layers explicitly retain build evidence.
+
+Known issue retained: the earlier development server cold compilation exceeded
+6GiB and the kernel killed server worker PID55322 in run38691992798. This change
+does not repair or cover that dev cold compilation. Production build/runtime
+acceptance is a user-approved coverage change, not proof of that issue's repair.

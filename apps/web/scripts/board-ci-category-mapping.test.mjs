@@ -7,14 +7,17 @@ const root=process.env.BOARD_CI_MAPPING_ROOT??resolve(import.meta.dirname,'../..
 const {parse}=createRequire(resolve(root,'package.json'))('yaml');
 const read=p=>readFileSync(resolve(root,p),'utf8');
 const workflow=parse(read('.github/workflows/board-acceptance.yml'));
+const manual=parse(read('.github/workflows/board-manual-acceptance.yml'));
 const policy=JSON.parse(read('.harness/config/ci-check-policy.json'));
 const scripts=JSON.parse(read('apps/web/package.json')).scripts;
 const producer='pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web run ci:board:visual';
 function validate(w,p){
  assert.deepEqual(p.deferredChecks,['visual-deferred']);
  assert.ok(Object.hasOwn(w.on,'pull_request'));
- assert.deepEqual(w.on.push.branches,['main']);
- const functional=w.jobs['board-ui-functional'],visual=w.jobs['visual-deferred'];
+ assert.equal(w.on.push,undefined);
+ assert.deepEqual(w.on.merge_group.branches,['develop']);
+ assert.deepEqual(w.on.pull_request.branches,['develop']);
+ const functional=w.jobs['board-ui-functional'],visual=manual.jobs['visual-deferred'];
  assert.ok(functional&&visual);
  assert.equal(functional.needs,'scope');
  assert.equal(functional.if,"needs.scope.outputs.board == 'true'");
@@ -40,7 +43,7 @@ function validate(w,p){
 const clone=()=>structuredClone(workflow);
 test('actual parsed workflow keeps functional blocking and manual full visual isolated',()=>validate(workflow,policy));
 test('old mixed whole visual job cannot be reclassified deferred',()=>{
- const w=clone();delete w.jobs['board-ui-functional'];w.jobs['visual-deferred'].if="needs.scope.outputs.board == 'true'";
+ const w=clone();delete w.jobs['board-ui-functional'];w.jobs['visual-deferred']={...manual.jobs['visual-deferred']};w.jobs['visual-deferred'].if="needs.scope.outputs.board == 'true'";
  assert.throws(()=>validate(w,policy));
 });
 test('functional partial-case, whole-step skip, weak mode and continue-on-error reject',()=>{
@@ -79,4 +82,14 @@ test('complete three-suite main and source-backed R01 extension pass; missing or
   assert.throws(()=>validateNativeCommands([...complete,complete[0]],available));
   assert.throws(()=>validateNativeCommands(complete.map((c,i)=>i===0?c+' --grep C06':c),available));
  }
+});
+
+test('production synchronization cannot reenable Board code CI',()=>{for(const event of ['merge_group','pull_request'])for(const branch of ['main','main-us']){const w=clone();w.on[event].branches.push(branch);assert.throws(()=>validate(w,policy));}});
+
+test('manual lanes have dispatch-only routing and never create automatic skipped jobs',()=>{
+ assert.deepEqual(Object.keys(manual.on),['workflow_dispatch']);
+ assert.deepEqual(Object.keys(manual.jobs).sort(),['collaboration-50','import-captured','performance','visual-deferred']);
+ assert.deepEqual(manual.permissions,{contents:'read'});
+ for(const name of Object.keys(manual.jobs))assert.equal(workflow.jobs[name],undefined);
+ assert.equal(workflow.on.workflow_dispatch,undefined);
 });

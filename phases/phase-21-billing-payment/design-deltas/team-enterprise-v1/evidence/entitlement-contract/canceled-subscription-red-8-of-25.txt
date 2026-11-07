@@ -1,0 +1,219 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts
+
+ ❯ tests/billing-team-entitlement-design.test.ts (25 tests | 8 failed) 20ms
+   × keeps actual members, purchased capacity, paid year and current monthly grant separate 8ms
+     → [
+  {
+    "code": "unrecognized_keys",
+    "keys": [
+      "subscriptionStatus"
+    ],
+    "path": [
+      "teamPayment"
+    ],
+    "message": "Unrecognized key(s) in object: 'subscriptionStatus'"
+  }
+]
+   × represents delayed monthly granting without inventing issued credits 3ms
+     → expected false to be true // Object.is equality
+   × requires a closed old grant at paid expiry while retaining permanent funds 0ms
+     → [
+  {
+    "code": "unrecognized_keys",
+    "keys": [
+      "subscriptionStatus"
+    ],
+    "path": [
+      "teamPayment"
+    ],
+    "message": "Unrecognized key(s) in object: 'subscriptionStatus'"
+  }
+]
+   × shows Enterprise without inventing Team limits or destroying known prepaid facts 1ms
+     → expected false to be true // Object.is equality
+   × compares expiry instants rather than ISO formatting 0ms
+     → expected false to be true // Object.is equality
+   × preserves fractional first-seat grants in the shared wallet total 0ms
+     → [
+  {
+    "code": "unrecognized_keys",
+    "keys": [
+      "subscriptionStatus"
+    ],
+    "path": [
+      "teamPayment"
+    ],
+    "message": "Unrecognized key(s) in object: 'subscriptionStatus'"
+  }
+]
+   × does not erase confirmed credit debt or accept mismatched wallet components 0ms
+     → expected false to be true // Object.is equality
+   × retains genuinely canceled Stripe payment facts during Enterprise activation 1ms
+     → expected false to be true // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing-team-entitlement-design.test.ts > keeps actual members, purchased capacity, paid year and current monthly grant separate
+ZodError: [
+  {
+    "code": "unrecognized_keys",
+    "keys": [
+      "subscriptionStatus"
+    ],
+    "path": [
+      "teamPayment"
+    ],
+    "message": "Unrecognized key(s) in object: 'subscriptionStatus'"
+  }
+]
+ ❯ Object.get error [as error] ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:39:31
+ ❯ ZodEffects.parse ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:114:22
+ ❯ tests/billing-team-entitlement-design.test.ts:8:25
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+ FAIL  tests/billing-team-entitlement-design.test.ts > represents delayed monthly granting without inventing issued credits
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/billing-team-entitlement-design.test.ts:23:106
+     21| it("represents delayed monthly granting without inventing issued credi…
+     22|  const wallet={...active.wallet,balance:8600,subscriptionCredits:0,sub…
+     23|  expect(TeamEntitlement.safeParse({...active,creditGrant:{status:"pend…
+       |                                                                                                          ^
+     24|  expect(TeamEntitlement.safeParse({...active,creditGrant:{status:"pend…
+     25| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+ FAIL  tests/billing-team-entitlement-design.test.ts > requires a closed old grant at paid expiry while retaining permanent funds
+ZodError: [
+  {
+    "code": "unrecognized_keys",
+    "keys": [
+      "subscriptionStatus"
+    ],
+    "path": [
+      "teamPayment"
+    ],
+    "message": "Unrecognized key(s) in object: 'subscriptionStatus'"
+  }
+]
+ ❯ Object.get error [as error] ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:39:31
+ ❯ ZodEffects.parse ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:114:22
+ ❯ tests/billing-team-entitlement-design.test.ts:28:25
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+
+ FAIL  tests/billing-team-entitlement-design.test.ts > shows Enterprise without inventing Team limits or destroying known prepaid facts
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/billing-team-entitlement-design.test.ts:37:84
+     35| });
+     36| it("shows Enterprise without inventing Team limits or destroying known…
+     37|  expect(TeamEntitlement.safeParse({...active,licenseStatus:"enterprise…
+       |                                                                                    ^
+     38|  const stripe={...active.teamPayment,provider:"stripe",renewalMode:"au…
+     39|  expect(TeamEntitlement.safeParse({...active,licenseStatus:"enterprise…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/8]⎯
+
+ FAIL  tests/billing-team-entitlement-design.test.ts > compares expiry instants rather than ISO formatting
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/billing-team-entitlement-design.test.ts:54:126
+     52| });
+     53| it("compares expiry instants rather than ISO formatting",()=>{
+     54|  expect(TeamEntitlement.safeParse({...active,wallet:{...wallet,subscri…
+       |                                                                                                                              ^
+     55| });
+     56| it("represents a manually managed Enterprise without a fabricated paid…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/8]⎯
+
+ FAIL  tests/billing-team-entitlement-design.test.ts > preserves fractional first-seat grants in the shared wallet total
+ZodError: [
+  {
+    "code": "unrecognized_keys",
+    "keys": [
+      "subscriptionStatus"
+    ],
+    "path": [
+      "teamPayment"
+    ],
+    "message": "Unrecognized key(s) in object: 'subscriptionStatus'"
+  }
+]
+ ❯ Object.get error [as error] ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:39:31
+ ❯ ZodEffects.parse ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:114:22
+ ❯ tests/billing-team-entitlement-design.test.ts:63:25
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/8]⎯
+
+ FAIL  tests/billing-team-entitlement-design.test.ts > does not erase confirmed credit debt or accept mismatched wallet components
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/billing-team-entitlement-design.test.ts:67:119
+     65| });
+     66| it("does not erase confirmed credit debt or accept mismatched wallet c…
+     67|  expect(TeamEntitlement.safeParse({...active,wallet:{...wallet,balance…
+       |                                                                                                                       ^
+     68|  expect(TeamEntitlement.safeParse({...active,wallet:{...wallet,balance…
+     69| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/8]⎯
+
+ FAIL  tests/billing-team-entitlement-design.test.ts > retains genuinely canceled Stripe payment facts during Enterprise activation
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/billing-team-entitlement-design.test.ts:74:97
+     72|  for(const subscriptionStatus of ["canceled","incomplete_expired"]){
+     73|   const teamPayment={...active.teamPayment,provider:"stripe",renewalMo…
+     74|   expect(TeamEntitlement.safeParse({...active,licenseStatus:"enterpris…
+       |                                                                                                 ^
+     75|  }
+     76| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/8]⎯
+
+ Test Files  1 failed (1)
+      Tests  8 failed | 17 passed (25)
+   Start at  08:29:54
+   Duration  493ms (transform 137ms, setup 0ms, collect 150ms, tests 20ms, environment 0ms, prepare 115ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing-team-entitlement-design.test.ts

@@ -13,7 +13,7 @@ import type { VisionErrorCode } from "./attachment-vision.port";
  * 落进 `chat_message_attachments.extraction_error` 的封闭失败码：文档转换侧（anydoc）与图片视觉
  * 侧（VLM，#1560）各自的枚举之并。列名只有一个，码集合也只有这一处定义。
  */
-export type ExtractionErrorCode = ConvertErrorCode | VisionErrorCode;
+export type ExtractionErrorCode = ConvertErrorCode | VisionErrorCode | "credit_required" | "credit_accounting_unavailable";
 
 /** 认领到的一条抽取待办。 */
 export interface AttachmentExtractionJob {
@@ -25,6 +25,8 @@ export interface AttachmentExtractionJob {
 
 /** 抽取要用到的附件事实（字节引用 + 权威 MIME）。 */
 export interface AttachmentForExtraction {
+  /** Persisted upload actor; null means legacy provenance is unavailable. */
+  readonly uploadedBy?: string | null;
   readonly storageRef: string;
   readonly mime: string;
 }

@@ -1,11 +1,12 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
+import { planControlGateReason } from "@/lib/plan-control-display";
 import * as React from "react";
 import { Pause, ShieldAlert, Zap } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { planGateReasonLabelZh } from "@repo/contracts/plan-control";
 import type { PlanGateDecision, PlanGateReason, PlanStep } from "@repo/contracts/plan-control";
 
 /**
@@ -61,17 +62,18 @@ export const PLAN_TASK_TYPE_BADGE_TESTID = "chat-task-workbench-task-type-badge"
  * `PlanDirectExecutionBadge` —— 只在 `gate.reason === "no-plan"`（一步到位，
  * `evaluatePlanGate` 判定不需要计划）时由宿主渲染，挂在助手回复开头。故意做成
  * 一个独立的、不依赖 `PlanConfirmGate` 主体的极小组件——US-01 的验收标准是
- * "全程不出现『是否需要计划』提示，直接看到结果"，这个标记只是"判断为直接执行"
+ * "全程不出现『是否需要计划』提示，直接看到结果"，这个标记只是"{t("chatPlanControl.direct")}"
  * 的轻量说明，不是一张卡片，不能带出确认/计划相关的视觉重量。
  */
 export function PlanDirectExecutionBadge(): React.JSX.Element {
+  const { t } = useI18n();
   return (
     <span
       data-testid={PLAN_TASK_TYPE_BADGE_TESTID}
       className="inline-flex w-fit items-center gap-1 rounded-control bg-muted px-1.5 py-0.5 text-10 font-medium text-muted-foreground"
     >
       <Zap aria-hidden className="h-2.5 w-2.5" />
-      判断为直接执行
+      {t("chatPlanControl.direct")}
     </span>
   );
 }
@@ -87,6 +89,7 @@ export const PLAN_AUTO_DELIVER_PAUSE_TESTID = "chat-task-workbench-plan-auto-del
 function AutoDeliveredPlanCard(
   { steps, onPauseOrAdjust }: { readonly steps: readonly PlanStep[]; readonly onPauseOrAdjust?: () => void },
 ): React.JSX.Element {
+  const { t } = useI18n();
   return (
     // 低风险多步任务不需要用户点头，但也不该悄悄跑——整块用 `--accent` 浅底
     // （与 `plan-panel-readonly.tsx` 卡头同一套 token），比确认门的 `--warning-tint`
@@ -94,8 +97,8 @@ function AutoDeliveredPlanCard(
     <Card data-testid={PLAN_AUTO_DELIVER_TESTID} className="overflow-hidden border-accent/40 bg-accent/30">
       <CardContent className="flex flex-col gap-2 py-3">
         <div className="flex items-center gap-2">
-          <Badge tone="primary" className="text-10">已在执行</Badge>
-          <span className="text-13 font-semibold text-accent-foreground">已在按此计划执行</span>
+          <Badge tone="primary" className="text-10">{t("chatPlanControl.autoBadge")}</Badge>
+          <span className="text-13 font-semibold text-accent-foreground">{t("chatPlanControl.autoTitle")}</span>
           {/*
             issue #2665 US-02 —— "不打扰但可见"的暂停/调整入口：复用与
             `PlanRunProgress`（S5 执行态）同一条取消路径——`pausePlanRun` →
@@ -110,7 +113,7 @@ function AutoDeliveredPlanCard(
             size="sm" variant="outline" className="ml-auto"
             data-testid={PLAN_AUTO_DELIVER_PAUSE_TESTID} onClick={onPauseOrAdjust}
           >
-            <Pause aria-hidden className="h-3.5 w-3.5" /> 暂停/调整
+            <Pause aria-hidden className="h-3.5 w-3.5" /> {t("chatPlanControl.pauseAdjust")}
           </Button>
         </div>
         {steps.length > 0 && (
@@ -163,6 +166,7 @@ function PendingConfirmPlanCard(
     readonly onRejectStep?: (planStepId: string) => void;
   },
 ): React.JSX.Element {
+  const { locale, t } = useI18n();
   const isHighRisk = HIGH_RISK_REASONS.has(gate.reason);
   // issue #2665 US-03 —— "标出哪一步对外"：`PlanStep` 契约目前没有携带这个标记
   // （`packages/contracts/src/plan-control.ts` 的 `PlanStep` 只有
@@ -177,9 +181,9 @@ function PendingConfirmPlanCard(
     <Card data-testid={PLAN_CONFIRM_GATE_TESTID} className="overflow-hidden border-warning/30 bg-warning-tint">
       <CardContent className="flex flex-col gap-2 py-3">
         <div className="flex items-center gap-2">
-          <Badge tone="warning" className="text-10">需确认</Badge>
+          <Badge tone="warning" className="text-10">{t("chatPlanControl.confirmBadge")}</Badge>
           <span className="text-13 font-semibold text-warning-tint-foreground">
-            {isHighRisk ? "涉及对外动作，确认后执行" : "确认后执行"}
+            {t(isHighRisk ? "chatPlanControl.confirmExternalTitle" : "chatPlanControl.confirmTitle")}
           </span>
         </div>
         {/*
@@ -189,14 +193,14 @@ function PendingConfirmPlanCard(
           它是 UC-8 的判定码（字面 `multi-step` 之类），不是给用户看的文本。
         */}
         <p data-testid={PLAN_CONFIRM_REASON_TESTID} className="text-12 text-warning-tint-foreground/80">
-          {planGateReasonLabelZh(gate.reason)}
+          {planControlGateReason(gate.reason, locale)}
         </p>
         {isHighRisk && (
           <p className="flex items-center gap-1.5 text-11 text-warning-tint-foreground/80">
             <ShieldAlert aria-hidden className="h-3 w-3 shrink-0" />
             {hasExternalHints
-              ? "带「对外」标记的步骤会产生外部可见的影响，执行前请逐步核对。"
-              : "本轮计划可能包含对外动作，暂无法逐步定位具体哪一步——已展示全部步骤，执行前请核对。"}
+              ? t("chatPlanControl.externalHint")
+              : t("chatPlanControl.externalUnknownHint")}
           </p>
         )}
         {steps.length > 0 && (
@@ -218,7 +222,7 @@ function PendingConfirmPlanCard(
                   <span className="flex-1">{step.content}</span>
                   {isExternal && (
                     <Badge tone="warning" className="text-9" data-testid={PLAN_CONFIRM_STEP_EXTERNAL_TESTID}>
-                      对外
+                      {t("chatPlanControl.external")}
                     </Badge>
                   )}
                   {/*
@@ -232,7 +236,7 @@ function PendingConfirmPlanCard(
                       size="xs" variant="ghost" data-testid={PLAN_CONFIRM_STEP_ADJUST_TESTID}
                       onClick={() => onAdjustStep(step.planStepId)}
                     >
-                      调整
+                      {t("chatPlanControl.adjust")}
                     </Button>
                   )}
                   {onRejectStep && (
@@ -240,7 +244,7 @@ function PendingConfirmPlanCard(
                       size="xs" variant="ghost" data-testid={PLAN_CONFIRM_STEP_REJECT_TESTID}
                       onClick={() => onRejectStep(step.planStepId)}
                     >
-                      拒绝
+                      {t("chatPlanControl.reject")}
                     </Button>
                   )}
                 </li>
@@ -251,12 +255,12 @@ function PendingConfirmPlanCard(
         <div className="flex items-center gap-2">
           {/* 等待态：按钮文案 + `aria-live` 状态行，明确这是"正等着你" 而不是普通操作项。 */}
           <Button size="sm" variant="primary" data-testid={PLAN_CONFIRM_RUN_TESTID} onClick={onConfirmRun}>
-            确认执行
+            {t("chatPlanControl.confirmRun")}
           </Button>
           <Button size="sm" variant="outline" data-testid={PLAN_CONFIRM_EDIT_TESTID} onClick={onContinueEditing}>
-            继续编辑
+            {t("chatPlanControl.continueEditing")}
           </Button>
-          <span role="status" className="ml-auto text-10 text-warning-tint-foreground/70">等待你的确认…</span>
+          <span role="status" className="ml-auto text-10 text-warning-tint-foreground/70">{t("chatPlanControl.awaitingConfirm")}</span>
         </div>
       </CardContent>
     </Card>

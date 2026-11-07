@@ -24,7 +24,7 @@ const E2E_DIR = resolve(WEB_ROOT, "e2e");
 
 /** 与 `playwright.self-service-profile.config.ts` 的 `testMatch` 保持一致。 */
 const TEST_MATCH =
-  /(self-service-profile|profile-keyboard-navigation|org-admin-keyboard-navigation|profile-org-fidelity)\.spec\.ts$/;
+  /(self-service-profile|profile-keyboard-navigation|org-admin-keyboard-navigation|profile-org-fidelity|i18n-mobile-topbar)\.spec\.ts$/;
 
 /**
  * `self-service-profile.spec.ts` 自己那条「改密码后旧密码不可登录」的反证要用到
@@ -54,7 +54,7 @@ describe("#2086 self-service-profile config 下的 spec 账号隔离", () => {
   it("testMatch 真的匹配到了 spec（否则本门控是空转的）", () => {
     // 反证保护：如果哪天 spec 改名/移走而这里的 TEST_MATCH 没同步，
     // 下面那条唯一性断言会因为「没有数据」而假绿。先把这种情况打红。
-    expect(specFiles().length).toBeGreaterThanOrEqual(4);
+    expect(specFiles().length).toBeGreaterThanOrEqual(5);
   });
 
   it("每个 spec 文件都真的声明了登录身份", () => {

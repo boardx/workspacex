@@ -1,0 +1,11 @@
+
+> agentic-harness-template@ lint:user-facing-error-text /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui
+> node .harness/scripts/lint-user-facing-error-text.mjs
+
+❌ [user-facing-error-text] 内部错误码上屏了：
+  apps/web/components/billing/personal-pricing-checkout.tsx:83  把内部错误码当兜底文案（reasonCode ?? …）
+      const noIntent=error instanceof ApiError&&["catalog_changed","product_unavailable","payment_provider_not_configured","al
+
+  改法：用 apps/web/lib/design-failure.ts 的 describeFailure(err)——那里有一张按契约闭集穷举的「码 → 人话」表。
+  需要保留某处的特判（比如 404 的专门说法），在 describeFailure 之外先判、再退回它兜底。
+ ELIFECYCLE  Command failed with exit code 1.

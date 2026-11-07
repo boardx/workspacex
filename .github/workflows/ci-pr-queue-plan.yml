@@ -1,0 +1,14 @@
+name: Queue policy diagnostic
+on:
+  workflow_dispatch: null
+permissions:
+  contents: read
+jobs:
+  policy-diagnostic:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - run: cat .harness/config/ci-check-policy.json

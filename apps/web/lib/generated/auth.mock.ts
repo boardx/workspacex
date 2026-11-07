@@ -108,6 +108,9 @@ export const resendEmailVerificationMock: z.infer<typeof auth.operations.resendE
   "verificationDelivery": "queued"
 };
 
+/** resendEmailVerification 的失败模式全集——界面的异常态必须逐个覆盖 */
+export const resendEmailVerificationErrors = ["INVALID_CREDENTIAL","ACCOUNT_LOCKED"] as const;
+
 /** switchOrgAtLogin 的成功响应样例（由契约生成） */
 export const switchOrgAtLoginMock: z.infer<typeof auth.operations.switchOrgAtLogin.out> = {
   "org": {

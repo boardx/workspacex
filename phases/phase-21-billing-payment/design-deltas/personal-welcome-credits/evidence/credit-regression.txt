@@ -1,0 +1,34 @@
+[stack-admission] load1=13.49 cores=10 perCore=1.35 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvy11mad-70dfd2eb-86a2b42539e7 db=wsx_86a2b42539e7277e8170 compose=wsx-86a2b42539e7277e8170 pg=20893 redis=21893 api=24893 web=25893 sandbox=26893 model=27893 deep-agent=28893 asr=29893 vision=30893 loopback-sandbox=31893 mail=19893
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_86a2b42539e7277e8170 capacity=100 current=6 required=32
+ ✓ tests/billing/personal-credit-terms-pg.test.ts (16 tests) 37764ms
+   ✓ recovers twelve elapsed periods without reviving expired credits or deleting permanent debt 388ms
+   ✓ advances across all twelve anchored months with a controlled database clock 943ms
+   ✓ AI admission reconciles a due personal term before deciding whether debt blocks the request 323ms
+   ✓ reconciles a fully processed annual term without reentering twelve monthly grants 442ms
+   ✓ paginates 101 due owners without losing the second batch 2211ms
+ ✓ tests/billing/credit-consumption-pg.test.ts (16 tests) 3274ms
+ ✓ tests/billing/welcome-credit-pg.test.ts (12 tests) 3413ms
+   ✓ does not gift while inactive and never backfills an existing account after activation 314ms
+ ✓ tests/billing/credit-period-lifecycle-pg.test.ts (6 tests) 3591ms
+   ✓ preserves debt through expiry and a partial recharge 468ms
+   ✓ deduplicates a second invoice for the same subscription period but rejects invoice reassignment 456ms
+ ✓ tests/billing/credit-admission-policy-pg.test.ts (6 tests) 2224ms
+
+ Test Files  5 passed (5)
+      Tests  56 passed (56)
+   Start at  00:11:09
+   Duration  70.32s (transform 3.33s, setup 65ms, collect 8.41s, tests 50.27s, environment 1ms, prepare 575ms)
+
+[db-isolation] db=wsx_86a2b42539e7277e8170 peak_connections=5
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/welcome-credit-pg.test.ts tests/billing/personal-credit-terms-pg.test.ts tests/billing/credit-period-lifecycle-pg.test.ts tests/billing/credit-admission-policy-pg.test.ts tests/billing/credit-consumption-pg.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1m12s
+  清理：1s
+  总计：1m13s

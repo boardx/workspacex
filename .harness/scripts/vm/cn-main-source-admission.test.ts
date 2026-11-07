@@ -13,6 +13,11 @@ const check=(name:string,sha:string,id:number)=>({name,head_sha:sha,id,app:{slug
 function facts(){return {sourceCommit:{sha:source,tree:{sha:tree},parents:[{sha:parent}]},mainContainsSource:true,associatedPrs:[{number:1,merged:true,merged_at:'2026-10-01T00:02:00Z',merge_commit_sha:source,merged_by:{login:'human'},base:{ref:'main',repo:{full_name:repo}},head:{sha:head,repo:{full_name:repo}}}],mergeTree:tree,mergeParentPolicy:policy,sourcePolicy:policy,prChecks:names.map((n,i)=>check(n,head,i+1)),prStatuses:[],sourceChecks:names.filter(n=>!['merge-gate','backend-required'].includes(n)).map((n,i)=>check(n,source,i+1)),sourceStatuses:[],deploymentWorkflow:{jobs:Object.fromEntries(['deploy',...policy.aggregates['backend-required'],'e2e-core-loop'].map(n=>[n,n==='deploy'?{needs:[...policy.aggregates['backend-required'],'e2e-core-loop']} : {}]))}}}
 describe('exact main CI admission',()=>{
  it('admits squash exact tree with historically green PR and real main tests, without PR-only aggregates on push',()=>expect(validateMainSourceAdmission(source,repo,facts()).prNumber).toBe(1));
+ it('admits validation-only backend-required dependencies without a deploy job',()=>{const f:any=facts();f.deploymentWorkflow.jobs['backend-required']=f.deploymentWorkflow.jobs.deploy;delete f.deploymentWorkflow.jobs.deploy;expect(validateMainSourceAdmission(source,repo,f).prNumber).toBe(1)});
+ it.each(['missing','empty','unknown','non-job'])('rejects invalid validation aggregate %s',mode=>{const f:any=facts();delete f.deploymentWorkflow.jobs.deploy;if(mode!=='missing')f.deploymentWorkflow.jobs['backend-required']={needs:mode==='empty'?[]:['missing-job']};if(mode==='non-job')f.deploymentWorkflow.jobs['missing-job']='not a job';expect(()=>validateMainSourceAdmission(source,repo,f)).toThrow('MAIN_SOURCE_DEPLOY_OBLIGATIONS')});
+ it('requires validation aggregate dependencies absent from source policy',()=>{const f:any=facts();f.deploymentWorkflow.jobs['backend-required']=f.deploymentWorkflow.jobs.deploy;delete f.deploymentWorkflow.jobs.deploy;f.sourceChecks=f.sourceChecks.filter((c:any)=>c.name!=='e2e-core-loop');expect(()=>validateMainSourceAdmission(source,repo,f)).toThrow('MAIN_SOURCE_RUNTIME_CI')});
+ it('does not use a valid validation aggregate to bypass an invalid historical deploy',()=>{const f:any=facts();f.deploymentWorkflow.jobs['backend-required']={needs:['gates-fast']};f.deploymentWorkflow.jobs.deploy.needs=[];expect(()=>validateMainSourceAdmission(source,repo,f)).toThrow('MAIN_SOURCE_DEPLOY_OBLIGATIONS')});
+ it('retains source policy checks beyond the validation aggregate dependencies',()=>{const f:any=facts();delete f.deploymentWorkflow.jobs.deploy;f.deploymentWorkflow.jobs['backend-required']={needs:['gates-fast']};for(const name of ['verify-control-plane','design-loop-e2e']){const changed=structuredClone(f);changed.sourceChecks=changed.sourceChecks.filter((c:any)=>c.name!==name);expect(()=>validateMainSourceAdmission(source,repo,changed)).toThrow('MAIN_SOURCE_RUNTIME_CI')}});
  it('admits merge only when second parent is actual PR head',()=>{const f=facts();f.sourceCommit.parents.push({sha:head});expect(validateMainSourceAdmission(source,repo,f).prHeadSha).toBe(head)});
  it.each(['mainContainsSource','mergeTree','associatedPrs','prChecks','mergeParentPolicy'])('fails absent %s',(key)=>{const f:any=facts();delete f[key];expect(()=>validateMainSourceAdmission(source,repo,f)).toThrow()});
  it('does not borrow unrelated PR green',()=>{const f=facts();f.associatedPrs[0].merge_commit_sha=parent;expect(()=>validateMainSourceAdmission(source,repo,f)).toThrow()});
@@ -27,9 +32,88 @@ describe('exact main CI admission',()=>{
 
 it('actual CLI passes bound facts and rejects drift without a success receipt',()=>{const dir=mkdtempSync(join(tmpdir(),'cn-main-admission-'));try{const file=join(dir,'facts.json');for(const red of [false,true]){const f=facts();if(red)f.mergeTree=parent;writeFileSync(file,JSON.stringify(f),{mode:0o600});const result=spawnSync(process.execPath,['--import','tsx','.harness/scripts/vm/cn-main-source-admission.mjs',source,repo,file],{encoding:'utf8'});expect(result.status).toBe(red?1:0);expect(result.stdout.includes('CN_MAIN_SOURCE_ADMISSION_JSON=')).toBe(!red)}}finally{rmSync(dir,{recursive:true,force:true})}});
 
-// The actual committed workflow uses a dynamic matrix, not the literal fixture above.
-function committedWorkflowFacts(){const f:any=facts();f.deploymentWorkflow=parseYaml(readFileSync('.github/workflows/backend-gates.yml','utf8'));f.sourceShardPolicy=JSON.parse(readFileSync('.harness/api-test-shards.json','utf8'));f.sourceShardHelperSha256=createHash('sha256').update(readFileSync('.harness/scripts/ci-api-shards.mjs')).digest('hex');f.sourceChecks=f.sourceChecks.filter((c:any)=>c.name!=='gates-test');for(let n=1;n<=f.sourceShardPolicy.count;n++)f.sourceChecks.push(check(`gates-test (${n})`,source,100+n));f.sourceChecks.push(check('api-test-plan',source,200));return f;}
-it('admits all actual committed dynamic shards and binds the single source plan',()=>{const f=committedWorkflowFacts();const r=validateMainSourceAdmission(source,repo,f);expect(r.dynamicShardPlan.shards).toEqual(Array.from({length:f.sourceShardPolicy.count},(_,i)=>i+1));expect(r.runtimeChecks.some((c:any)=>c.name==='api-test-plan')).toBe(true)});
+// The frozen historical v4 workflow uses a dynamic matrix, not the literal fixture above.
+function committedWorkflowFacts(){const f:any=facts();f.deploymentWorkflow=JSON.parse(readFileSync('.harness/scripts/fixtures/backend-gates-v4.json','utf8'));f.sourceShardPolicy=JSON.parse(readFileSync('.harness/api-test-shards.json','utf8'));f.sourceShardHelperSha256=createHash('sha256').update(readFileSync('.harness/scripts/ci-api-shards.mjs')).digest('hex');f.sourceChecks=f.sourceChecks.filter((c:any)=>c.name!=='gates-test');for(let n=1;n<=f.sourceShardPolicy.count;n++)f.sourceChecks.push(check(`gates-test (${n})`,source,100+n));f.sourceChecks.push(check('api-test-plan',source,200));return f;}
+it('admits all historical v4 dynamic shards and binds the single source plan',()=>{const f=committedWorkflowFacts();const r=validateMainSourceAdmission(source,repo,f);expect(r.dynamicShardPlan.shards).toEqual(Array.from({length:f.sourceShardPolicy.count},(_,i)=>i+1));expect(r.runtimeChecks.some((c:any)=>c.name==='api-test-plan')).toBe(true)});
 it.each(['missing-plan','missing-last-shard','red-last-shard','helper-drift','expression-drift','output-drift','invalid-count'])('fails closed actual workflow closure %s',mode=>{const f=committedWorkflowFacts();if(mode==='missing-plan')f.sourceChecks=f.sourceChecks.filter((c:any)=>c.name!=='api-test-plan');if(mode==='missing-last-shard')f.sourceChecks=f.sourceChecks.filter((c:any)=>c.name!==`gates-test (${f.sourceShardPolicy.count})`);if(mode==='red-last-shard')f.sourceChecks.find((c:any)=>c.name===`gates-test (${f.sourceShardPolicy.count})`).conclusion='failure';if(mode==='helper-drift')f.sourceShardHelperSha256='0'.repeat(64);if(mode==='expression-drift')f.deploymentWorkflow.jobs['gates-test'].strategy.matrix.shard='${{ fromJSON(needs.other.outputs.shards) }}';if(mode==='output-drift')f.deploymentWorkflow.jobs['api-test-plan'].outputs.shards='${{ steps.other.outputs.shards }}';if(mode==='invalid-count')f.sourceShardPolicy.count=33;expect(()=>validateMainSourceAdmission(source,repo,f)).toThrow()});
 
 it('binds complete raw runtime observations including timestamps/head/app/status, with stable API ordering',()=>{const f:any=committedWorkflowFacts();const first=validateMainSourceAdmission(source,repo,f).rawEvidenceSha256;f.sourceChecks.reverse();expect(validateMainSourceAdmission(source,repo,f).rawEvidenceSha256).toBe(first);f.sourceChecks[0].started_at='2026-10-01T00:00:01Z';expect(validateMainSourceAdmission(source,repo,f).rawEvidenceSha256).not.toBe(first)});
+it('keeps Devapp-only orchestration out of main runtime obligations only with the exact develop guard',()=>{
+ // Explicit historical deployment shape: the current workflow has no deploy job.
+ const f:any=committedWorkflowFacts();
+ f.deploymentWorkflow.jobs['integration-acceptance']={if:"github.event_name == 'push' && github.ref == 'refs/heads/develop' && needs.gates-fast.outputs.skip_devapp != 'true'",steps:[]};
+ f.deploymentWorkflow.jobs.deploy={needs:[...f.deploymentWorkflow.jobs['backend-required'].needs,'integration-acceptance']};
+ expect(f.deploymentWorkflow.jobs.deploy.needs).toContain('integration-acceptance');
+ expect(validateMainSourceAdmission(source,repo,f).prNumber).toBe(1);
+ for(const guard of ["github.event_name == 'push'", "github.ref == 'refs/heads/main'", '', undefined]) {
+  const changed=structuredClone(f);changed.deploymentWorkflow.jobs['integration-acceptance'].if=guard;
+  expect(()=>validateMainSourceAdmission(source,repo,changed)).toThrow('MAIN_SOURCE_INTEGRATION_GATE_SCOPE');
+ }
+ // The real runtime obligations cannot be hidden by giving them the same branch guard.
+ const changed=structuredClone(f);changed.deploymentWorkflow.jobs['e2e-core-loop'].if=f.deploymentWorkflow.jobs['integration-acceptance'].if;
+ changed.sourceChecks=changed.sourceChecks.filter((c:any)=>c.name!=='e2e-core-loop');
+ expect(()=>validateMainSourceAdmission(source,repo,changed)).toThrow('MAIN_SOURCE_RUNTIME_CI');
+});
+
+it('admits exact merged develop source synchronized unchanged into main',()=>{const f=facts();f.associatedPrs[0].base.ref='develop';expect(validateMainSourceAdmission(source,repo,f).sourceSha).toBe(source)});
+it.each(['not-main-contained','unmerged','wrong-sha','wrong-tree','historical-red','source-skipped','source-wrong-sha','ambiguous','wrong-base'])('rejects invalid synchronized develop source: %s',mode=>{const f=facts();f.associatedPrs[0].base.ref='develop';if(mode==='not-main-contained')f.mainContainsSource=false;if(mode==='unmerged')f.associatedPrs[0].merged=false;if(mode==='wrong-sha')f.associatedPrs[0].merge_commit_sha=head;if(mode==='wrong-tree')f.mergeTree=parent;if(mode==='historical-red')f.prChecks[0].conclusion='failure';if(mode==='source-skipped')f.sourceChecks[0].conclusion='skipped';if(mode==='source-wrong-sha')f.sourceChecks[0].head_sha=head;if(mode==='ambiguous')f.associatedPrs.push({...f.associatedPrs[0],number:2});if(mode==='wrong-base')f.associatedPrs[0].base.ref='main-us';expect(()=>validateMainSourceAdmission(source,repo,f)).toThrow()});
+
+function queuedFacts(){const f:any=facts();f.sourceCommit.parents.push({sha:head});f.associatedPrs[0].merged_by.login='github-merge-queue';f.queueRuns=[{id:900,workflow_id:90,check_suite_id:901,event:'merge_group',head_sha:source,repository:{full_name:repo},path:'.github/workflows/backend-gates.yml',head_branch:`gh-readonly-queue/main/pr-1-${head}`,run_started_at:'2026-10-01T00:00:00Z',run_attempt:1,status:'completed',conclusion:'success',updated_at:'2026-10-01T00:01:00Z'}];f.queueChecks=names.map((n,i)=>({...check(n,source,1000+i),check_suite:{id:901},details_url:`https://github.com/${repo}/actions/runs/900/job/${2000+i}`}));return f;}
+it('admits exact candidate queue history with postmerge push fallback for legacy source policy',()=>expect(validateMainSourceAdmission(source,repo,queuedFacts()).sourceSha).toBe(source));
+it.each(['wrong-sha','rerun','suite','url','late','skipped','missing','branch','repository','duplicate'])('rejects queue proof drift %s',mode=>{const f=queuedFacts();if(mode==='wrong-sha')f.queueRuns[0].head_sha=head;if(mode==='rerun'){f.queueRuns[0].run_attempt=2;f.queueRuns[0].run_started_at='2026-10-01T00:01:30Z'};if(mode==='suite')f.queueChecks[0].check_suite.id=999;if(mode==='url')f.queueChecks[0].details_url=f.queueChecks[0].details_url.replace('/900/','/800/');if(mode==='late')f.queueChecks[0].completed_at='2026-10-01T00:03:00Z';if(mode==='skipped')f.queueChecks[0].conclusion='skipped';if(mode==='missing')f.queueChecks=[];if(mode==='branch')f.queueRuns[0].head_branch='develop';if(mode==='repository')f.queueRuns[0].repository.full_name='other/repo';if(mode==='duplicate')f.queueRuns.push({...f.queueRuns[0]});expect(()=>validateMainSourceAdmission(source,repo,f)).toThrow()});
+
+it('admits successful rerun completed before merge with checks from current attempt',()=>{const f=queuedFacts();f.queueRuns[0].run_attempt=2;expect(validateMainSourceAdmission(source,repo,f).sourceSha).toBe(source)});
+
+it('allows optional checks and workflow completion after merge while required checks completed before merge',()=>{const f=queuedFacts();f.queueRuns[0].updated_at='2026-10-01T00:04:00Z';f.queueChecks.push({...check('optional-extra',source,9000),completed_at:'2026-10-01T00:03:00Z',check_suite:{id:901},details_url:`https://github.com/${repo}/actions/runs/900/job/9000`});expect(validateMainSourceAdmission(source,repo,f).sourceSha).toBe(source)});
+
+it.each(['full-route','preflight-scope','checkout','extra-step','source-output'])('rejects targeted planner drift in production source admission: %s',mode=>{
+ const f=committedWorkflowFacts(),planner=f.deploymentWorkflow.jobs['api-test-plan'];
+ if(mode==='full-route')planner.steps.find((s:any)=>s.id==='regression').run='node .harness/scripts/ci-targeted-ui.mjs';
+ if(mode==='preflight-scope')delete planner.steps.find((s:any)=>s.id==='preflight').if;
+ if(mode==='checkout')planner.steps[0].with['persist-credentials']=true;
+ if(mode==='extra-step')planner.steps.push({run:'echo unsafe'});
+ if(mode==='source-output')planner.outputs.source_sha='unbound';
+ expect(()=>validateMainSourceAdmission(source,repo,f)).toThrow('MAIN_SOURCE_DYNAMIC_SHARD_CLOSURE');
+});
+
+import {CURRENT_POLICY} from '../lib/ci-check-policy.mjs';
+function lightweightFacts(){
+ const f=queuedFacts();f.sourcePolicy=structuredClone(CURRENT_POLICY);f.associatedPrs[0].base.ref='develop';f.queueRuns[0].head_branch=`gh-readonly-queue/develop/pr-1-${head}`;f.queueRuns[0].path='.github/workflows/harness-verify.yml';
+ f.queueChecks=CURRENT_POLICY.requiredChecks.map((n:string,i:number)=>({...check(n,source,1000+i),check_suite:{id:901},details_url:`https://github.com/${repo}/actions/runs/900/job/${2000+i}`}));
+ f.validationWorkflow=parseYaml(readFileSync('.github/workflows/harness-verify.yml','utf8'));
+ f.sourceLightweightHelperSha256=createHash('sha256').update(readFileSync('.harness/scripts/ci-lightweight.mjs')).digest('hex');
+ return f;
+}
+it('admits v5 exact merged queue compile/unit/static evidence without falsely claiming full regression',()=>{
+ const receipt=validateMainSourceAdmission(source,repo,lightweightFacts());
+ expect(receipt.verificationMode).toBe('lightweight');expect(receipt.fullRegression).toBe(false);
+ expect(receipt.runtimeChecks.map((x:any)=>x.name).sort()).toEqual([...CURRENT_POLICY.requiredChecks].sort());
+});
+it.each(['wrong-workflow','missing-check','skipped','helper-drift','aggregate-drift','fake-compile','fake-units','missing-workflow'])('rejects v5 source proof drift %s',mode=>{
+ const f=lightweightFacts();
+ if(mode==='wrong-workflow')f.queueRuns[0].path='.github/workflows/harness-acceptance.yml';
+ if(mode==='missing-check')f.queueChecks.pop();if(mode==='skipped')f.queueChecks[0].conclusion='skipped';
+ if(mode==='helper-drift')f.sourceLightweightHelperSha256='0'.repeat(64);
+ if(mode==='aggregate-drift')f.validationWorkflow.jobs['queue-ready'].needs.pop();
+ if(mode==='fake-compile')f.validationWorkflow.jobs['verify-full-compile'].steps=f.validationWorkflow.jobs['verify-full-compile'].steps.filter((x:any)=>x.run!=='pnpm turbo run build');
+ if(mode==='fake-units')f.validationWorkflow.jobs['verify-affected'].steps=[];
+ if(mode==='missing-workflow')delete f.validationWorkflow;
+ expect(()=>validateMainSourceAdmission(source,repo,f)).toThrow();
+});
+
+import {mkdirSync,realpathSync} from 'node:fs';
+it('executes v5 source admission in a minimal offline runtime and rejects a missing v5 helper without a receipt',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'cn-v5-offline-'));
+ try{
+  const files=['.harness/scripts/vm/cn-main-source-admission.mjs','.harness/scripts/ci-api-shards.mjs','.harness/scripts/lib/pr-queue.ts','.harness/scripts/lib/pr-green.ts','.harness/scripts/lib/merge-queue.ts','.harness/scripts/lib/ci-check-policy.mjs','.harness/config/ci-check-policy.json','.harness/scripts/vendor/yaml-2.9.0/parser.mjs','.harness/scripts/ci-lightweight.mjs'];
+  for(const file of files){mkdirSync(join(dir,file,'..'),{recursive:true});writeFileSync(join(dir,file),readFileSync(file));}
+  const file=join(dir,'facts.json');writeFileSync(file,JSON.stringify(lightweightFacts()));
+  const run=()=>spawnSync(process.execPath,['--experimental-strip-types',realpathSync(join(dir,'.harness/scripts/vm/cn-main-source-admission.mjs')),source,repo,file],{cwd:dir,env:{...process.env,NODE_PATH:''},encoding:'utf8'});
+  const good=run();expect(good.status,good.stderr).toBe(0);const receipt=JSON.parse(good.stdout.split('CN_MAIN_SOURCE_ADMISSION_JSON=')[1]);expect(receipt.verificationMode).toBe('lightweight');expect(receipt.fullRegression).toBe(false);
+  rmSync(join(dir,'.harness/scripts/ci-lightweight.mjs'));const missing=run();expect(missing.status).not.toBe(0);expect(missing.stderr).toContain('MAIN_SOURCE_LIGHTWEIGHT_HELPER_UNAVAILABLE');expect(missing.stdout).not.toContain('CN_MAIN_SOURCE_ADMISSION_JSON=');
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});
+
+it('preserves historical v1–4 receipt shape instead of rehashing old attestations with v5 metadata',()=>{
+ const receipt=validateMainSourceAdmission(source,repo,facts());expect(receipt).not.toHaveProperty('verificationMode');expect(receipt).not.toHaveProperty('fullRegression');
+});

@@ -1,0 +1,12 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/e6f1/workspacex/packages/local-runtime
+
+ ✓ test/parity.test.ts (5 tests) 1205ms
+   ✓ local/cloud env parity > classifies every environment variable the API reads 726ms
+   ✓ local/cloud env parity > ships the signed skill starter packs the import surface reads 443ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  01:54:00
+   Duration  2.57s (transform 253ms, setup 0ms, collect 299ms, tests 1.20s, environment 0ms, prepare 292ms)
+

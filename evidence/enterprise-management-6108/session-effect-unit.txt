@@ -1,0 +1,12 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/apps/web
+
+ ✓ tests/ui/enterprise-management-panel.test.tsx (7 tests | 5 skipped) 674ms
+   ✓ reload restores only the authenticated session's original grant and waits for explicit retry 580ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed | 5 skipped (7)
+   Start at  16:59:01
+   Duration  3.09s (transform 187ms, setup 161ms, collect 443ms, tests 674ms, environment 1.19s, prepare 68ms)
+

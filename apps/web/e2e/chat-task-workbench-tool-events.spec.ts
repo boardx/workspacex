@@ -44,6 +44,11 @@ test("TW-P0-7①：事件行措辞面向用户，不印裸工具名 / 裸 JSON /
   await openFreshThread(page);
   await sendAndSettle(page, CHAT_READ_E2E.deepAgentMultiStepTrigger);
 
+  const traceToggle = page.getByTestId("run-trace-toggle").last();
+  await expect(traceToggle).toBeVisible({ timeout: 60_000 });
+  if (await traceToggle.getAttribute("aria-expanded") === "false") await traceToggle.click();
+  await expect(traceToggle).toHaveAttribute("aria-expanded", "true");
+
   const rows = page.getByTestId("chat-task-workbench-event-row");
   await expect(
     rows.first(),

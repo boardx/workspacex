@@ -1,0 +1,45 @@
+{
+  "kind": "independent-full-control-recovery-review-v1",
+  "at": "2026-10-12T14:00:00.078298+00:00",
+  "conclusion": "ACCEPT_FOR_ISOLATED_LINUX_CHECKPOINT",
+  "files": {
+    "tests/cn_release_application_recovery_complete_linux.py": "5a3ad18e1524ae601115f6245348018b9eda0b667be22f40388ffcf41061af8d",
+    "tests/fixtures/cn-application-recovery-complete/README.md": "e82a732ebda6422d1e16fe12e3a8ba6c08cd9e6ca7d6ac3d607ca42c874e6249",
+    "tests/fixtures/cn-application-recovery-complete/controller.ts": "07c38d7d889ff3acbd3ddd6c1af1bcce892825cc190e687e88bb0af05681962c",
+    "tests/fixtures/cn-application-recovery-complete/controller_test.ts": "167c8767a30f6b5c18a2fcf8d6ba2bc71095bc7f33ded6a43c2822fd73633e11",
+    "tests/fixtures/cn-application-recovery-complete/lifecycle.ts": "17b7ed0491bc7db477bd3b415cbdfa38224f2d451f5adb5e66551c5a1d16f439",
+    "tests/fixtures/cn-application-recovery-complete/package.json": "a90fc33418afa2b9cbf4768524b021135b965ecdf993457505bfae3ac44a8428",
+    "tests/fixtures/cn-application-recovery-complete/transaction.ts": "fe465c35afc43be78b5531d506bfc22bb28a295dad729a9fa2ee8d47075747d6",
+    "tests/fixtures/cn-application-recovery-complete/transaction_test.ts": "7b4c854c397afd8227032a32d40c81f68926a9b4b0c9005108e099b82e0f3e88",
+    "tests/test_cn_release_application_recovery_complete_fixture.py": "881451b21871ee892491b2c5085368fb4dcf249034c631d01f2066a8e69e4783"
+  },
+  "tests": {
+    "localPassed": 6,
+    "localFailed": 0,
+    "actualLinuxPostgresExecuted": false,
+    "pythonPassed": 3,
+    "pythonDurationSeconds": 0.003,
+    "nodePassed": 3,
+    "nodeDurationMs": 326.317834
+  },
+  "finding": {
+    "file": "tests/cn_release_application_recovery_complete_linux.py",
+    "reason": "Explicit postgres command overrides image CMD and omits shared_preload_libraries=age. Available extension query does not verify preload required by original image for app_rw sessions.",
+    "fix": "Preserve explicit AGE preload and read back current_setting before migrating.",
+    "status": "closed",
+    "fixVerified": "Explicit original AGE preload retained; current_setting readback exact age occurs after readiness and before bridge/migrations. Missing, wrong or additional values reject."
+  },
+  "verifiedByInspection": [
+    "Original full migration set and original migrator are invoked",
+    "File A commits; file B performs CREATE+INSERT+UPDATE then division by zero; rollback checks table absence, preserved A row and missing B ledger",
+    "Explicit repaired B alone reapplies, repeated migration applies zero",
+    "Actual factory and retained HoldStore flock actor execute; changed generation is rejected",
+    "Container name/token/image/CID ownership gates; memory2GiB/tmpfs1GiB checked; cleanup unknown fails",
+    "Provider/writer/browser are expressly fixtures, control checkout not exact candidate"
+  ],
+  "remaining": [
+    "Real Linux full-schema PG restore/catalog/transaction checks and capacity/time remain unexecuted",
+    "No exact candidate or baseline application image acceptance",
+    "No production provider/public browser claim"
+  ]
+}

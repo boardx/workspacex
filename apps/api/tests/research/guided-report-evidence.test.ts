@@ -42,7 +42,7 @@ describe("verified report evidence coverage", () => {
     expect([...result.matches.values()].flat().some(match => match.sourceId === partialSource)).toBe(true);
     calls.length = 0;
     await run();
-    expect(calls).toHaveLength(22);
+    expect(calls).toHaveLength(0); // Healthy completed batches reuse revalidated ledger facts.
     expect(calls).not.toContain(15);
     expect(state.sources).toEqual(originalSources);
   });

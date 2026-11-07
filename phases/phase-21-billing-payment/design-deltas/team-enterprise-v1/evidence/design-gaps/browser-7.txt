@@ -1,0 +1,59 @@
+[heavy-e2e-lock] 排到了，等了 0s
+[stack-admission] load1=28.88 cores=10 perCore=2.89 running=0/2
+[stack-admission] 排队中：机器每核负载 2.89（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 0s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.41（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 5s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.81（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 10s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.34（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 15s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.45（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 20s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.27（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 25s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.24（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 30s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.15（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 35s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.90（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 40s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.81（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 45s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.72（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 50s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.59（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 55s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.63（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 60s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.77（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 65s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.08（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 70s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.40（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 75s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.59（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 80s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.75（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 85s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.85（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 90s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 5.02（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 95s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.68（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 100s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.38（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 105s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.09（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 110s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.79（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 115s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.53（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 120s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.29（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 125s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.10（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 130s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.86（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 135s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.66（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 140s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.53（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 145s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排到了，等了 150s
+[test-isolation] id=run-mvyo4c2r-5afdebb7-42a22f0aaba6 db=wsx_42a22f0aaba6f991dc14 compose=wsx-42a22f0aaba6f991dc14 pg=20130 redis=21130 api=24130 web=25130 sandbox=26130 model=27130 deep-agent=28130 asr=29130 vision=30130 loopback-sandbox=31130 mail=19130
+[WebServer] (node:75441) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:75459) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 7 tests using 1 worker
+
+(node:75604) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [prototype-audit] › e2e/pricing-preview.browser.ts:26:5 › responsive account and purchase UI has no horizontal overflow (20.0s)
+  ✓  2 [prototype-audit] › e2e/pricing-preview.browser.ts:39:5 › regional monthly and annual prices, renewal and channel visibility (4.8s)
+  ✓  3 [prototype-audit] › e2e/pricing-preview.browser.ts:64:5 › Team separates seats used and purchased, prorates and explains expiry (9.3s)
+  ✓  4 [prototype-audit] › e2e/pricing-preview.browser.ts:104:5 › Enterprise upgrade confirmation, grant validation and visible result (12.3s)
+  ✓  5 [prototype-audit] › e2e/pricing-preview.browser.ts:127:5 › all seven review states are reachable and failures recover (27.7s)
+  ✓  6 [prototype-audit] › e2e/pricing-preview.browser.ts:139:5 › initial capacity and Enterprise account variants are reviewable (26.8s)
+  ✓  7 [prototype-audit] › e2e/pricing-preview.browser.ts:156:5 › Enterprise upgrade recovers the original operation without optimistic activation (7.2s)
+
+  7 passed (2.8m)
+[timing] pnpm --filter web exec playwright test --config playwright.prototype-audit.config.ts pricing-preview.browser.ts --max-failures=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：2m30s
+  命令执行：2m52s
+  清理：1s
+  总计：5m24s

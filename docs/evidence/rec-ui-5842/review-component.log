@@ -1,0 +1,38 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/4986/workspacex/apps/web
+
+ ✓ tests/ui/realtime-transcription-workspace.test.tsx (28 tests) 11883ms
+   ✓ RealtimeTranscriptionWorkspace > allows leaving stale server recording state when the local stream is idle 1165ms
+   ✓ RealtimeTranscriptionWorkspace > allows leaving stale server recording state when the local stream is error 305ms
+   ✓ RealtimeTranscriptionWorkspace > reports clipboard denial and allows a successful retry 1863ms
+   ✓ RealtimeTranscriptionWorkspace > explains unavailable return during recording 392ms
+   ✓ RealtimeTranscriptionWorkspace > requires stopping before renaming because metadata cannot change during a capture 524ms
+   ✓ RealtimeTranscriptionWorkspace > renames by double click or keyboard, retains failed input, and cancels with Escape 1748ms
+   ✓ RealtimeTranscriptionWorkspace > returns keyboard focus to the title after canceling or saving a rename 869ms
+   ✓ RealtimeTranscriptionWorkspace > focuses the named editor on entry and restores the edit action after saving 572ms
+   ✓ RealtimeTranscriptionWorkspace > keeps failed save drafts editable and retries without an unhandled rejection 686ms
+   ✓ RealtimeTranscriptionWorkspace > clears the local save error when failed editing is canceled 601ms
+   ✓ RealtimeTranscriptionWorkspace > restores editor focus after transcription makes the edit action usable again 380ms
+   ✓ RealtimeTranscriptionWorkspace > keeps save pending and prevents duplicate submission through shared actions 616ms
+   ✓ RealtimeTranscriptionWorkspace > opens a recoverable error dialog and reconnects without hiding durable text 448ms
+ ✓ tests/ui/realtime-transcription-history.test.tsx (32 tests) 16879ms
+   ✓ 实时转录历史工作台 > allows returning after a stale recording cannot be stopped 2561ms
+   ✓ 实时转录历史工作台 > offers a single list error and reloads without leaving the page 1636ms
+   ✓ 实时转录历史工作台 > clears an unsuccessful search instead of creating an unrelated transcription 648ms
+   ✓ 实时转录历史工作台 > persists a title rename without replacing live transcript content or tags 1143ms
+   ✓ 实时转录历史工作台 > offers manual reconnect after five failed retries and stops retrying 581ms
+   ✓ 实时转录历史工作台 > does not reconnect after leaving the workspace 1694ms
+   ✓ 实时转录历史工作台 > automatically reconnects a dropped stream and retains saved text without stale events 1740ms
+   ✓ 实时转录历史工作台 > cancels scheduled reconnect when the user stops 1709ms
+   ✓ 实时转录历史工作台 > retries a temporary refresh failure after stopping without reporting ASR failure 563ms
+   ✓ 实时转录历史工作台 > keeps saved text and distinguishes persistent refresh failure from stopping failure 1155ms
+   ✓ 实时转录历史工作台 > 卡片菜单可修改名称与标签并刷新真实标签 387ms
+   ✓ 实时转录历史工作台 > 删除成功后即使标签刷新失败也关闭弹窗并保留删除结果 356ms
+   ✓ 实时转录历史工作台 > 结束遗留转录失败保留卡片与可重试的菜单 426ms
+
+ Test Files  2 passed (2)
+      Tests  60 passed (60)
+   Start at  13:02:10
+   Duration  46.28s (transform 13.44s, setup 2.97s, collect 32.11s, tests 28.76s, environment 14.88s, prepare 1.59s)
+

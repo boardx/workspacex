@@ -56,10 +56,11 @@ it('real attachment bytes are scoped, immutable on resume and fail closed on una
   await asApp(scope,c=>c.query(`INSERT INTO chat_message_attachments(id,org_id,thread_id,message_id,storage_ref,filename,mime,bytes)
    VALUES($1,$2,$3,$4,'original.csv','../../原始.csv','text/csv',$5)`,[id,scope,`thread-${scope}`,`message-${scope}`,source.length]));
   const reader=new PgNativeRunInputs(db,objects,{repo:new PgIdentityRepository(db),ids:{next:()=>randomUUID()},chat:new PgChatRepository(db)}),ctx={orgId:scope,parentRunId:run,attemptId:run+':0',leaseEpoch:1};
-  let created=0;let mounted:readonly {path:string;contentBase64:string}[]=[];
-  const transport={create:async(_skills:unknown,inputs:typeof mounted=[])=>{created++;mounted=inputs;return {sessionId:randomUUID(),token:'a'.repeat(64),expiresAt:Date.now()+60000};},destroy:async()=>{}};
+  let ownerKey:string|undefined;let created=0;let mounted:readonly {path:string;contentBase64:string}[]=[];
+  const transport={create:async(_skills:unknown,inputs:typeof mounted=[],key?:string)=>{ownerKey=key;created++;mounted=inputs;return {sessionId:randomUUID(),token:'a'.repeat(64),expiresAt:Date.now()+60000};},destroy:async()=>{}};
   const owner=()=>new PgNativeSessionOwner(db,new PgParentRunControlReader(db),transport,'b'.repeat(64),reader);
   const ref=await owner().provision(ctx,[],{}),resolved=await owner().resolve(ref.bindingId,ctx);
+  expect(ownerKey).toBe(createHash("sha256").update(JSON.stringify([scope,"actor"])).digest("hex"));
   expect(resolved.inputs).toHaveLength(1);expect(resolved.inputs[0]).toMatchObject({attachmentId:id,filename:'../../原始.csv',sizeBytes:source.length,digest:createHash('sha256').update(source).digest('hex')});
   expect(resolved.inputs[0]!.path).toMatch(/^\/inputs\/[a-f0-9]{64}\/[A-Za-z0-9_][A-Za-z0-9_.-]*$/);
   expect(mounted[0]?.contentBase64).toBe(source.toString('base64'));expect(JSON.stringify(resolved)).not.toContain('storage_ref');

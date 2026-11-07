@@ -1,0 +1,16 @@
+{
+  "name": "api-canonical-lint-final",
+  "command": [
+    "pnpm",
+    "--filter",
+    "@repo/api",
+    "lint"
+  ],
+  "source": "fda71b3eacd39c379a0d3043207e6db4a63d1ffa",
+  "exitCode": 0,
+  "seconds": 14.279,
+  "rawLogSha256": "bec54dca66cfe1860202e7ca53ce5de4c56f58bea852a2de1dcb59754035c18a",
+  "sourceAfter": "fda71b3eacd39c379a0d3043207e6db4a63d1ffa",
+  "sourceStable": true,
+  "environment": {}
+}

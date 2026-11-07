@@ -1,0 +1,43 @@
+[stack-admission] load1=2.48 cores=10 perCore=0.25 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvybw4j5-397de937-3e7adf0fd41a db=wsx_3e7adf0fd41a43e94736 compose=wsx-3e7adf0fd41a43e94736 pg=20887 redis=21887 api=24887 web=25887 sandbox=26887 model=27887 deep-agent=28887 asr=29887 vision=30887 loopback-sandbox=31887 mail=19887
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_3e7adf0fd41a43e94736 capacity=100 current=6 required=32
+ ❯ tests/billing/personal-checkout-http.test.ts (5 tests | 1 failed | 4 skipped) 13996ms
+   × recovers the paid original HTTP request without original checkout binding after new sales are disabled 118ms
+     → expected 503 to be 201 // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/personal-checkout-http.test.ts > recovers the paid original HTTP request without original checkout binding after new sales are disabled
+AssertionError: expected 503 to be 201 // Object.is equality
+
+- Expected
++ Received
+
+- 201
++ 503
+
+ ❯ tests/billing/personal-checkout-http.test.ts:117:94
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 skipped (5)
+   Start at  05:14:47
+   Duration  19.30s (transform 1.10s, setup 9ms, collect 1.63s, tests 14.00s, environment 0ms, prepare 47ms)
+
+[db-isolation] db=wsx_3e7adf0fd41a43e94736 peak_connections=2
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/personal-checkout-http.test.ts -t without original
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/personal-checkout-http.test.ts -t without original
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：20s
+  清理：1s
+  总计：21s

@@ -53,6 +53,9 @@ chat 只负责把执行状态（含工具调用）渲染出来、把用户输入
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-11-06：审批卡消费 argsSummary 时不可固定承诺“完整，未截断”；公开参数本来经过逐字符串脱敏和长度限制。保持边界，明确摘要/截断，并给出拒绝后拆分短命令重审的路径；本地组件测试不等于 CN 发布后审批恢复验收（issue #6320）。
+- 2026-11-03：HITL 裁决后下一条消息可能经服务端持久队列派发，不保证再有 SDK run POST；验收复用 `e2e/support/hitl-next-turn.ts` 的 queue → canonical run → 唯一持久 human/result/replyTo 链。SDK 线程不是 Chat 线程，持久线程取 `forwardedProps.chatThreadId`；队列派发的幂等消息身份取实际 queue row id（执行器契约），别把 clientRequestId 当它。出处：issue [#6189](https://github.com/boardx/workspacex/issues/6189)，真实 SDK/忙态队列两场景及反例验证。
+- 2026-10-29：刷新停在登录确认时先对齐脚本加载、hydrate 与身份请求时间；接口最终 200 不证明超时前已恢复。登录/会话客户端应引用契约子路径，避免根 barrel 把无关注册表带入首屏。浏览器离站或 composer 消失也不能用上一次 running 值判成运行卡死（issue #5982；`session-client-bundle-boundary.test.ts` 与 `e2e-chat-run-settled.test.ts`）。
 - 2026-10-15：目录示例任务跳到对话后，URL 和输入文本正确、通用 loading 消失仍不能证明选角及开场简报已稳定。截图需先等空态挂载，再等 session-briefing-loading 消失，并断言实际角色名、非自动匹配和头像加载；CI 成功后的图片仍需逐张审查（[PR #5710](https://github.com/boardx/workspacex/pull/5710)）。
 - 2026-10-13：公开分享必须发布独立的已预览快照，不能把个人线程URL当作匿名授权；创建时复核revision，图片复制入快照，撤销检查与源线程读权分离。剪贴板异步结果也要按当前链接和请求校验，旧链接复制迟到不能让新链接冒称已复制（issue #5655，chat-public-share）。
 - 2026-10-12：composer 完成回执自动关闭不能重新投影底层保留的 ASR error；关闭完成会话应记住终态，下一次 start 才重置。回归须覆盖 done → dismiss → idle 与下一次零转录失败（issue #5643，`use-composer-voice-session`）。
@@ -163,3 +166,11 @@ chat 只负责把执行状态（含工具调用）渲染出来、把用户输入
 运行终态和步骤账本独立更新。PlanPanelReadOnly须接收failed/cancelled派生的executionStopped，将残留in_progress显示为已停止；不改真实账本、不伪造completed，也不影响运行中和成功完成步骤。
 
 - 2026-10-02：真实 qwen3.8-omni-flash-realtime 使用 Maia 可生成音频；共享配置只复用 Chat URL/key，测试上游通过 composition 函数参数显式注入。握手和实际音频夹具输出分别留证，均不能替代真人麦克风十轮与 P95 验收（issue #5124）。
+
+- 2026-11-03（#6190）：能力选择卡列表会在目录/官方角色 offer 返回后插入行；指针 click 完成不证明指定 agent 已选中。E2E 用真实 option 的键盘激活，并复核 exact id 的 aria-selected、非自动匹配、发送 header 与落库 run 的 agent/provider；不得删除 `[loopback]`/skill 哨兵掩盖回落到默认 agent。
+
+- 2026-11-04（#6215）：CK-P8 archived fixture 的 route 必须只匹配当前线程 getThread pathname（保留 query）、只处理 GET，不能宽拦 `/agents` 等轮询。精确 trace 显示全部只读断言已过后，无关 route.fetch 仍在途，context 释放后 response.json 才报 disposed；结束前 unregister 自己的 handler 并等待在途工作，错误照常传播，不吞错/扩超时。反例与真实原 spec 结果见 `evidence/chat-archived-fixture-6215`（尚需按其收据确认当前验证状态）。
+
+- 2026-11-05（#6244）：历史失败的显示偏好按组织/会话/run/attempt 隔离，仅终态失败消费隐藏值；重试只复用当前错误横幅对应 run 的恢复路径，不能把历史 run 卡片连到最新计划。失败计划移入执行过程详情时，保留成功/运行中原展示与未完成步骤事实。
+
+- 2026-11-06：SDK isRunning=false 可能只是审批停流，不是业务完成；播报应复用持久执行/审批/恢复状态，只有当前run新终态证明才能结算本次活动，历史终态及另一run恢复状态不能拼成新任务完成。切换组织/用户/线程须清空旧播报（issue #6321）。

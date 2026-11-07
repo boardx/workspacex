@@ -12,24 +12,14 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createRequire } from "node:module";
 import { createBackup } from "../src/backup";
 import { restoreBackup } from "../src/restore";
-import { ensureDatabaseExists, restoreDatabaseDump, startPgliteServer } from "../src/pglite-server";
+import { restoreDatabaseDump } from "../src/pglite-server";
+import { withDb, withServer } from "./fixtures/roundtrip-db";
 
-const require_ = createRequire(new URL("../../../apps/api/package.json", import.meta.url));
-const pg = require_("pg") as typeof import("pg");
 const dirs: string[] = [];
 const tmp = (): string => { const d = mkdtempSync(join(tmpdir(), "wsx-rt-")); dirs.push(d); return d; };
 afterEach(() => { for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true }); });
-
-async function withDb<T>(pgDataDir: string, port: number, fn: (c: import("pg").Client) => Promise<T>): Promise<T> {
-  await ensureDatabaseExists(pgDataDir);
-  const h = await startPgliteServer({ dataDir: pgDataDir, port, username: "postgres" });
-  const c = new pg.Client({ host: "127.0.0.1", port, user: "postgres", database: "workspacex" });
-  await c.connect();
-  try { return await fn(c); } finally { await c.end(); await h.stop(); }
-}
 
 describe("备份到恢复的真库往返", () => {
   it("在 A 机器上备份，在 B 机器上读回来——行数一条不差", async () => {
@@ -39,7 +29,7 @@ describe("备份到恢复的真库往返", () => {
     await mkdir(objectsA, { recursive: true });
 
     // ① A 上建真数据
-    await withDb(pgA, 55490, async (c) => {
+    await withDb(pgA, async (c) => {
       await c.query("CREATE TABLE organizations (id serial primary key, name text)");
       await c.query("CREATE TABLE chat_threads (id serial primary key, title text)");
       await c.query("INSERT INTO organizations(name) VALUES ('我的本地工作区')");
@@ -49,20 +39,16 @@ describe("备份到恢复的真库往返", () => {
     // ② 真备份：用 PGlite 自己的一致快照
     const backupRoot = join(a, "backups");
     let dumpBytes = 0;
-    const b = await withDb(pgA, 55491, async () => null).then(async () => {
-      await ensureDatabaseExists(pgA);
-      const h = await startPgliteServer({ dataDir: pgA, port: 55492, username: "postgres" });
-      try {
-        const r = await createBackup({
-          destRoot: backupRoot,
-          appVersion: "0.2.0",
-          dumpDatabase: async () => { const d = await h.dumpDatabase(); dumpBytes = d.byteLength; return d; },
-          countRows: (t) => h.countRows(t),
-          objectsDir: objectsA,
-        });
-        if (!r.ok) throw new Error(r.reason);
-        return r;
-      } finally { await h.stop(); }
+    const b = await withServer(pgA, async (h) => {
+      const r = await createBackup({
+        destRoot: backupRoot,
+        appVersion: "0.2.0",
+        dumpDatabase: async () => { const d = await h.dumpDatabase(); dumpBytes = d.byteLength; return d; },
+        countRows: (t) => h.countRows(t),
+        objectsDir: objectsA,
+      });
+      if (!r.ok) throw new Error(r.reason);
+      return r;
     });
     expect(dumpBytes).toBeGreaterThan(1000);            // 真的导出了东西，不是个空壳
     expect(b.manifest.rowCounts.chat_threads).toBe(37);
@@ -75,7 +61,7 @@ describe("备份到恢复的真库往返", () => {
       dataDir: bDir,
       writeDatabase: (pgDataDir, dump) => restoreDatabaseDump(pgDataDir, dump),
       countRows: async (t) => {
-        const n = await withDb(join(bDir, "pgdata"), 55493, async (c) => {
+        const n = await withDb(join(bDir, "pgdata"), async (c) => {
           try {
             const q = await c.query<{ n: number }>(`SELECT count(*)::int AS n FROM ${t}`);
             return q.rows[0]?.n ?? null;

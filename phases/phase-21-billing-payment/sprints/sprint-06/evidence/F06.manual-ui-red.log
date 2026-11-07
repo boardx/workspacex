@@ -1,0 +1,3562 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/web
+
+ ❯ tests/ui/billing-cashier.test.tsx (32 tests | 7 failed) 5733ms
+   × F06 closed paid-funds recovery and legal late-payment transitions > retains closed invalid_amount orders without a repay action or success claim 1022ms
+     → Unable to find an element by: [data-testid="billing-manual-recovery"]
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mdata-scroll-locked[39m=[32m"1"[39m
+  [33mstyle[39m=[32m"pointer-events: none;"[39m
+[36m>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:r27:"[39m
+    [33maria-labelledby[39m=[32m"radix-:r26:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-h-[90dvh] overflow-y-auto sm:max-w-lg"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"billing-cashier-dialog"[39m
+    [33mid[39m=[32m"radix-:r25:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m>[39m
+    [36m<h2[39m
+      [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+      [33mid[39m=[32m"radix-:r26:"[39m
+    [36m>[39m
+      [0m购买额度[0m
+    [36m</h2>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mid[39m=[32m"radix-:r27:"[39m
+    [36m>[39m
+      [0m为个人账户充值[0m
+      [0m，使用微信扫码支付。关闭窗口会保留当前订单。[0m
+    [36m</p>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"微信支付订单"[39m
+      [33mclass[39m=[32m"space-y-4 rounded-lg border p-4"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-wrap items-center justify-between gap-2"[39m
+      [36m>[39m
+        [36m<h3[39m
+          [33mclass[39m=[32m"font-semibold"[39m
+        [36m>[39m
+          [0m微信扫码支付[0m
+        [36m</h3>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-20 font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m¥99.00[0m
+        [36m</span>[39m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"break-all text-12 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-order-no"[39m
+      [36m>[39m
+        [0m订单号：[0m
+        [0mbg20261016000000abcdef[0m
+      [36m</p>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-order-status"[39m
+      [36m>[39m
+        [0m已关闭[0m
+      [36m</p>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"sr-only"[39m
+        [33mdata-testid[39m=[32m"billing-qr-placeholder"[39m
+      [36m>[39m
+        [0m当前无可扫描二维码[0m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-2"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mrole[39m=[32m"status"[39m
+        [36m>[39m
+          [0m订单已关闭。如已扣款，请先刷新状态或联系支持，勿重复付款。[0m
+        [36m</p>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+          [33mdata-testid[39m=[32m"billing-regenerate"[39m
+        [36m>[39m
+          [0m选择套餐重新生成[0m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+        [33mdata-testid[39m=[32m"billing-refresh-status"[39m
+      [36m>[39m
+        [0m刷新支付状态[0m
+      [36m</button>[39m
+    [36m</section>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mdata-testid[39m=[32m"billing-updated-balance"[39m
+    [36m>[39m
+      [36m<span[39m
+        [33mdata-testid[39m=[32m"billing-cashier-balance"[39m
+      [36m>[39m
+        [0m当前余额 [0m
+        [0m100[0m
+        [0m 额度[0m
+      [36m</span>[39m
+    [36m</p>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"最近额度流水"[39m
+      [33mclass[39m=[32m"space-y-2 border-t pt-3"[39m
+      [33mdata-testid[39m=[32m"billing-recent-ledger"[39m
+    [36m>[39m
+      [36m<h3[39m
+        [33mclass[39m=[32m"text-13 font-semibold"[39m
+      [36m>[39m
+        [0m最近流水[0m
+      [36m</h3>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-3"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+          [33mdata-testid[39m=[32m"billing-ledger-empty"[39m
+        [36m>[39m
+          [0m暂无流水[0m
+        [36m</p>[39m
+      [36m</div>[39m
+    [36m</section>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"关闭"[39m
+      [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"dialog-close"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M18 6 6 18"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m6 6 12 12"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mdata-scroll-locked[39m=[32m"1"[39m
+  [33mstyle[39m=[32m"pointer-events: none;"[39m
+[36m>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:r27:"[39m
+    [33maria-labelledby[39m=[32m"radix-:r26:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-h-[90dvh] overflow-y-auto sm:max-w-lg"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"billing-cashier-dialog"[39m
+    [33mid[39m=[32m"radix-:r25:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m>[39m
+    [36m<h2[39m
+      [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+      [33mid[39m=[32m"radix-:r26:"[39m
+    [36m>[39m
+      [0m购买额度[0m
+    [36m</h2>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mid[39m=[32m"radix-:r27:"[39m
+    [36m>[39m
+      [0m为个人账户充值[0m
+      [0m，使用微信扫码支付。关闭窗口会保留当前订单。[0m
+    [36m</p>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"微信支付订单"[39m
+      [33mclass[39m=[32m"space-y-4 rounded-lg border p-4"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-wrap items-center justify-between gap-2"[39m
+      [36m>[39m
+        [36m<h3[39m
+          [33mclass[39m=[32m"font-semibold"[39m
+        [36m>[39m
+          [0m微信扫码支付[0m
+        [36m</h3>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-20 font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m¥99.00[0m
+        [36m</span>[39m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"break-all text-12 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-order-no"[39m
+      [36m>[39m
+        [0m订单号：[0m
+        [0mbg20261016000000abcdef[0m
+      [36m</p>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-order-status"[39m
+      [36m>[39m
+        [0m已关闭[0m
+      [36m</p>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"sr-only"[39m
+        [33mdata-testid[39m=[32m"billing-qr-placeholder"[39m
+      [36m>[39m
+        [0m当前无可扫描二维码[0m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-2"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mrole[39m=[32m"status"[39m
+        [36m>[39m
+          [0m订单已关闭。如已扣款，请先刷新状态或联系支持，勿重复付款。[0m
+        [36m</p>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+          [33mdata-testid[39m=[32m"billing-regenerate"[39m
+        [36m>[39m
+          [0m选择套餐重新生成[0m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+        [33mdata-testid[39m=[32m"billing-refresh-status"[39m
+      [36m>[39m
+        [0m刷新支付状态[0m
+      [36m</button>[39m
+    [36m</section>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mdata-testid[39m=[32m"billing-updated-balance"[39m
+    [36m>[39m
+      [36m<span[39m
+        [33mdata-testid[39m=[32m"billing-cashier-balance"[39m
+      [36m>[39m
+        [0m当前余额 [0m
+        [0m100[0m
+        [0m 额度[0m
+      [36m</span>[39m
+    [36m</p>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"最近额度流水"[39m
+      [33mclass[39m=[32m"space-y-2 border-t pt-3"[39m
+      [33mdata-testid[39m=[32m"billing-recent-ledger"[39m
+    [36m>[39m
+      [36m<h3[39m
+        [33mclass[39m=[32m"text-13 font-semibold"[39m
+      [36m>[39m
+        [0m最近流水[0m
+      [36m</h3>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-3"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+          [33mdata-testid[39m=[32m"billing-ledger-empty"[39m
+        [36m>[39m
+          [0m暂无流水[0m
+        [36m</p>[39m
+      [36m</div>[39m
+    [36m</section>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"关闭"[39m
+      [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"dialog-close"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M18 6 6 18"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m6 6 12 12"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+[36m</body>[39m
+   × F06 closed paid-funds recovery and legal late-payment transitions > retains closed wechat_upstream_failed orders without a repay action or success claim 1028ms
+     → Unable to find an element by: [data-testid="billing-manual-recovery"]
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mdata-scroll-locked[39m=[32m"1"[39m
+  [33mstyle[39m=[32m"pointer-events: none;"[39m
+[36m>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:r2a:"[39m
+    [33maria-labelledby[39m=[32m"radix-:r29:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-h-[90dvh] overflow-y-auto sm:max-w-lg"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"billing-cashier-dialog"[39m
+    [33mid[39m=[32m"radix-:r28:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m>[39m
+    [36m<h2[39m
+      [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+      [33mid[39m=[32m"radix-:r29:"[39m
+    [36m>[39m
+      [0m购买额度[0m
+    [36m</h2>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mid[39m=[32m"radix-:r2a:"[39m
+    [36m>[39m
+      [0m为个人账户充值[0m
+      [0m，使用微信扫码支付。关闭窗口会保留当前订单。[0m
+    [36m</p>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"微信支付订单"[39m
+      [33mclass[39m=[32m"space-y-4 rounded-lg border p-4"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-wrap items-center justify-between gap-2"[39m
+      [36m>[39m
+        [36m<h3[39m
+          [33mclass[39m=[32m"font-semibold"[39m
+        [36m>[39m
+          [0m微信扫码支付[0m
+        [36m</h3>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-20 font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m¥99.00[0m
+        [36m</span>[39m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"break-all text-12 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-order-no"[39m
+      [36m>[39m
+        [0m订单号：[0m
+        [0mbg20261016000000abcdef[0m
+      [36m</p>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-order-status"[39m
+      [36m>[39m
+        [0m已关闭[0m
+      [36m</p>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"sr-only"[39m
+        [33mdata-testid[39m=[32m"billing-qr-placeholder"[39m
+      [36m>[39m
+        [0m当前无可扫描二维码[0m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-2"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mrole[39m=[32m"status"[39m
+        [36m>[39m
+          [0m订单已关闭。如已扣款，请先刷新状态或联系支持，勿重复付款。[0m
+        [36m</p>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+          [33mdata-testid[39m=[32m"billing-regenerate"[39m
+        [36m>[39m
+          [0m选择套餐重新生成[0m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+        [33mdata-testid[39m=[32m"billing-refresh-status"[39m
+      [36m>[39m
+        [0m刷新支付状态[0m
+      [36m</button>[39m
+    [36m</section>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mdata-testid[39m=[32m"billing-updated-balance"[39m
+    [36m>[39m
+      [36m<span[39m
+        [33mdata-testid[39m=[32m"billing-cashier-balance"[39m
+      [36m>[39m
+        [0m当前余额 [0m
+        [0m100[0m
+        [0m 额度[0m
+      [36m</span>[39m
+    [36m</p>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"最近额度流水"[39m
+      [33mclass[39m=[32m"space-y-2 border-t pt-3"[39m
+      [33mdata-testid[39m=[32m"billing-recent-ledger"[39m
+    [36m>[39m
+      [36m<h3[39m
+        [33mclass[39m=[32m"text-13 font-semibold"[39m
+      [36m>[39m
+        [0m最近流水[0m
+      [36m</h3>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-3"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+          [33mdata-testid[39m=[32m"billing-ledger-empty"[39m
+        [36m>[39m
+          [0m暂无流水[0m
+        [36m</p>[39m
+      [36m</div>[39m
+    [36m</section>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"关闭"[39m
+      [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"dialog-close"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M18 6 6 18"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m6 6 12 12"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mdata-scroll-locked[39m=[32m"1"[39m
+  [33mstyle[39m=[32m"pointer-events: none;"[39m
+[36m>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:r2a:"[39m
+    [33maria-labelledby[39m=[32m"radix-:r29:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-h-[90dvh] overflow-y-auto sm:max-w-lg"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"billing-cashier-dialog"[39m
+    [33mid[39m=[32m"radix-:r28:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m>[39m
+    [36m<h2[39m
+      [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+      [33mid[39m=[32m"radix-:r29:"[39m
+    [36m>[39m
+      [0m购买额度[0m
+    [36m</h2>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mid[39m=[32m"radix-:r2a:"[39m
+    [36m>[39m
+      [0m为个人账户充值[0m
+      [0m，使用微信扫码支付。关闭窗口会保留当前订单。[0m
+    [36m</p>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"微信支付订单"[39m
+      [33mclass[39m=[32m"space-y-4 rounded-lg border p-4"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-wrap items-center justify-between gap-2"[39m
+      [36m>[39m
+        [36m<h3[39m
+          [33mclass[39m=[32m"font-semibold"[39m
+        [36m>[39m
+          [0m微信扫码支付[0m
+        [36m</h3>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-20 font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m¥99.00[0m
+        [36m</span>[39m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"break-all text-12 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-order-no"[39m
+      [36m>[39m
+        [0m订单号：[0m
+        [0mbg20261016000000abcdef[0m
+      [36m</p>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-order-status"[39m
+      [36m>[39m
+        [0m已关闭[0m
+      [36m</p>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"sr-only"[39m
+        [33mdata-testid[39m=[32m"billing-qr-placeholder"[39m
+      [36m>[39m
+        [0m当前无可扫描二维码[0m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-2"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mrole[39m=[32m"status"[39m
+        [36m>[39m
+          [0m订单已关闭。如已扣款，请先刷新状态或联系支持，勿重复付款。[0m
+        [36m</p>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+          [33mdata-testid[39m=[32m"billing-regenerate"[39m
+        [36m>[39m
+          [0m选择套餐重新生成[0m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+        [33mdata-testid[39m=[32m"billing-refresh-status"[39m
+      [36m>[39m
+        [0m刷新支付状态[0m
+      [36m</button>[39m
+    [36m</section>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mdata-testid[39m=[32m"billing-updated-balance"[39m
+    [36m>[39m
+      [36m<span[39m
+        [33mdata-testid[39m=[32m"billing-cashier-balance"[39m
+      [36m>[39m
+        [0m当前余额 [0m
+        [0m100[0m
+        [0m 额度[0m
+      [36m</span>[39m
+    [36m</p>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"最近额度流水"[39m
+      [33mclass[39m=[32m"space-y-2 border-t pt-3"[39m
+      [33mdata-testid[39m=[32m"billing-recent-ledger"[39m
+    [36m>[39m
+      [36m<h3[39m
+        [33mclass[39m=[32m"text-13 font-semibold"[39m
+      [36m>[39m
+        [0m最近流水[0m
+      [36m</h3>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-3"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+          [33mdata-testid[39m=[32m"billing-ledger-empty"[39m
+        [36m>[39m
+          [0m暂无流水[0m
+        [36m</p>[39m
+      [36m</div>[39m
+    [36m</section>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"关闭"[39m
+      [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"dialog-close"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M18 6 6 18"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m6 6 12 12"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+[36m</body>[39m
+   × F06 closed paid-funds recovery and legal late-payment transitions > enforces closed recovery eligibility inside the hook for invalid_amount 12ms
+     → expected null to match object { …(17) }
+   × F06 closed paid-funds recovery and legal late-payment transitions > enforces closed recovery eligibility inside the hook for wechat_upstream_failed 4ms
+     → expected null to match object { …(17) }
+   × F06 closed paid-funds recovery and legal late-payment transitions > rejects CLOSED regression to PENDING and preserves the existing order 1028ms
+     → Unable to find an element by: [data-testid="billing-refresh-hint"]
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mdata-scroll-locked[39m=[32m"1"[39m
+  [33mstyle[39m=[32m"pointer-events: none;"[39m
+[36m>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:r2d:"[39m
+    [33maria-labelledby[39m=[32m"radix-:r2c:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-h-[90dvh] overflow-y-auto sm:max-w-lg"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"billing-cashier-dialog"[39m
+    [33mid[39m=[32m"radix-:r2b:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m>[39m
+    [36m<h2[39m
+      [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+      [33mid[39m=[32m"radix-:r2c:"[39m
+    [36m>[39m
+      [0m购买额度[0m
+    [36m</h2>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mid[39m=[32m"radix-:r2d:"[39m
+    [36m>[39m
+      [0m为个人账户充值[0m
+      [0m，使用微信扫码支付。关闭窗口会保留当前订单。[0m
+    [36m</p>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"微信支付订单"[39m
+      [33mclass[39m=[32m"space-y-4 rounded-lg border p-4"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-wrap items-center justify-between gap-2"[39m
+      [36m>[39m
+        [36m<h3[39m
+          [33mclass[39m=[32m"font-semibold"[39m
+        [36m>[39m
+          [0m微信扫码支付[0m
+        [36m</h3>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-20 font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m¥99.00[0m
+        [36m</span>[39m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"break-all text-12 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-order-no"[39m
+      [36m>[39m
+        [0m订单号：[0m
+        [0mbg20261016000000abcdef[0m
+      [36m</p>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-order-status"[39m
+      [36m>[39m
+        [0m待支付[0m
+      [36m</p>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"mx-auto w-fit rounded-lg bg-white p-2"[39m
+        [33mdata-testid[39m=[32m"billing-qr-code-area"[39m
+      [36m>[39m
+        [36m<canvas[39m
+          [33maria-label[39m=[32m"微信支付二维码"[39m
+          [33mrole[39m=[32m"img"[39m
+        [36m/>[39m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-center text-13 tabular-nums"[39m
+        [33mdata-testid[39m=[32m"billing-order-countdown"[39m
+      [36m>[39m
+        [0m请在 14:57 内完成支付[0m
+      [36m</p>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+        [33mdata-testid[39m=[32m"billing-refresh-status"[39m
+      [36m>[39m
+        [0m刷新支付状态[0m
+      [36m</button>[39m
+    [36m</section>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mdata-testid[39m=[32m"billing-updated-balance"[39m
+    [36m>[39m
+      [36m<span[39m
+        [33mdata-testid[39m=[32m"billing-cashier-balance"[39m
+      [36m>[39m
+        [0m当前余额 [0m
+        [0m100[0m
+        [0m 额度[0m
+      [36m</span>[39m
+    [36m</p>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"最近额度流水"[39m
+      [33mclass[39m=[32m"space-y-2 border-t pt-3"[39m
+      [33mdata-testid[39m=[32m"billing-recent-ledger"[39m
+    [36m>[39m
+      [36m<h3[39m
+        [33mclass[39m=[32m"text-13 font-semibold"[39m
+      [36m>[39m
+        [0m最近流水[0m
+      [36m</h3>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-3"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+          [33mdata-testid[39m=[32m"billing-ledger-empty"[39m
+        [36m>[39m
+          [0m暂无流水[0m
+        [36m</p>[39m
+      [36m</div>[39m
+    [36m</section>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"关闭"[39m
+      [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"dialog-close"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M18 6 6 18"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m6 6 12 12"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mdata-scroll-locked[39m=[32m"1"[39m
+  [33mstyle[39m=[32m"pointer-events: none;"[39m
+[36m>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:r2d:"[39m
+    [33maria-labelledby[39m=[32m"radix-:r2c:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-h-[90dvh] overflow-y-auto sm:max-w-lg"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"billing-cashier-dialog"[39m
+    [33mid[39m=[32m"radix-:r2b:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m>[39m
+    [36m<h2[39m
+      [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+      [33mid[39m=[32m"radix-:r2c:"[39m
+    [36m>[39m
+      [0m购买额度[0m
+    [36m</h2>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mid[39m=[32m"radix-:r2d:"[39m
+    [36m>[39m
+      [0m为个人账户充值[0m
+      [0m，使用微信扫码支付。关闭窗口会保留当前订单。[0m
+    [36m</p>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"微信支付订单"[39m
+      [33mclass[39m=[32m"space-y-4 rounded-lg border p-4"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-wrap items-center justify-between gap-2"[39m
+      [36m>[39m
+        [36m<h3[39m
+          [33mclass[39m=[32m"font-semibold"[39m
+        [36m>[39m
+          [0m微信扫码支付[0m
+        [36m</h3>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-20 font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m¥99.00[0m
+        [36m</span>[39m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"break-all text-12 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-order-no"[39m
+      [36m>[39m
+        [0m订单号：[0m
+        [0mbg20261016000000abcdef[0m
+      [36m</p>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-order-status"[39m
+      [36m>[39m
+        [0m待支付[0m
+      [36m</p>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"mx-auto w-fit rounded-lg bg-white p-2"[39m
+        [33mdata-testid[39m=[32m"billing-qr-code-area"[39m
+      [36m>[39m
+        [36m<canvas[39m
+          [33maria-label[39m=[32m"微信支付二维码"[39m
+          [33mrole[39m=[32m"img"[39m
+        [36m/>[39m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-center text-13 tabular-nums"[39m
+        [33mdata-testid[39m=[32m"billing-order-countdown"[39m
+      [36m>[39m
+        [0m请在 14:57 内完成支付[0m
+      [36m</p>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+        [33mdata-testid[39m=[32m"billing-refresh-status"[39m
+      [36m>[39m
+        [0m刷新支付状态[0m
+      [36m</button>[39m
+    [36m</section>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mdata-testid[39m=[32m"billing-updated-balance"[39m
+    [36m>[39m
+      [36m<span[39m
+        [33mdata-testid[39m=[32m"billing-cashier-balance"[39m
+      [36m>[39m
+        [0m当前余额 [0m
+        [0m100[0m
+        [0m 额度[0m
+      [36m</span>[39m
+    [36m</p>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"最近额度流水"[39m
+      [33mclass[39m=[32m"space-y-2 border-t pt-3"[39m
+      [33mdata-testid[39m=[32m"billing-recent-ledger"[39m
+    [36m>[39m
+      [36m<h3[39m
+        [33mclass[39m=[32m"text-13 font-semibold"[39m
+      [36m>[39m
+        [0m最近流水[0m
+      [36m</h3>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-3"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+          [33mdata-testid[39m=[32m"billing-ledger-empty"[39m
+        [36m>[39m
+          [0m暂无流水[0m
+        [36m</p>[39m
+      [36m</div>[39m
+    [36m</section>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"关闭"[39m
+      [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"dialog-close"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M18 6 6 18"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m6 6 12 12"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+[36m</body>[39m
+   × F06 closed paid-funds recovery and legal late-payment transitions > rejects CLOSED regression to PROCESSING and preserves the existing order 1037ms
+     → Unable to find an element by: [data-testid="billing-refresh-hint"]
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mdata-scroll-locked[39m=[32m"1"[39m
+  [33mstyle[39m=[32m"pointer-events: none;"[39m
+[36m>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:r2g:"[39m
+    [33maria-labelledby[39m=[32m"radix-:r2f:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-h-[90dvh] overflow-y-auto sm:max-w-lg"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"billing-cashier-dialog"[39m
+    [33mid[39m=[32m"radix-:r2e:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m>[39m
+    [36m<h2[39m
+      [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+      [33mid[39m=[32m"radix-:r2f:"[39m
+    [36m>[39m
+      [0m购买额度[0m
+    [36m</h2>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mid[39m=[32m"radix-:r2g:"[39m
+    [36m>[39m
+      [0m为个人账户充值[0m
+      [0m，使用微信扫码支付。关闭窗口会保留当前订单。[0m
+    [36m</p>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"微信支付订单"[39m
+      [33mclass[39m=[32m"space-y-4 rounded-lg border p-4"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-wrap items-center justify-between gap-2"[39m
+      [36m>[39m
+        [36m<h3[39m
+          [33mclass[39m=[32m"font-semibold"[39m
+        [36m>[39m
+          [0m微信扫码支付[0m
+        [36m</h3>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-20 font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m¥99.00[0m
+        [36m</span>[39m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"break-all text-12 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-order-no"[39m
+      [36m>[39m
+        [0m订单号：[0m
+        [0mbg20261016000000abcdef[0m
+      [36m</p>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-order-status"[39m
+      [36m>[39m
+        [0m确认到账中[0m
+      [36m</p>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"sr-only"[39m
+        [33mdata-testid[39m=[32m"billing-qr-placeholder"[39m
+      [36m>[39m
+        [0m当前无可扫描二维码[0m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mdata-testid[39m=[32m"billing-processing-hint"[39m
+        [33mrole[39m=[32m"status"[39m
+      [36m>[39m
+        [0m正在确认到账，请勿重复付款。[0m
+      [36m</p>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+        [33mdata-testid[39m=[32m"billing-refresh-status"[39m
+      [36m>[39m
+        [0m刷新支付状态[0m
+      [36m</button>[39m
+    [36m</section>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mdata-testid[39m=[32m"billing-updated-balance"[39m
+    [36m>[39m
+      [36m<span[39m
+        [33mdata-testid[39m=[32m"billing-cashier-balance"[39m
+      [36m>[39m
+        [0m当前余额 [0m
+        [0m100[0m
+        [0m 额度[0m
+      [36m</span>[39m
+    [36m</p>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"最近额度流水"[39m
+      [33mclass[39m=[32m"space-y-2 border-t pt-3"[39m
+      [33mdata-testid[39m=[32m"billing-recent-ledger"[39m
+    [36m>[39m
+      [36m<h3[39m
+        [33mclass[39m=[32m"text-13 font-semibold"[39m
+      [36m>[39m
+        [0m最近流水[0m
+      [36m</h3>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-3"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+          [33mdata-testid[39m=[32m"billing-ledger-empty"[39m
+        [36m>[39m
+          [0m暂无流水[0m
+        [36m</p>[39m
+      [36m</div>[39m
+    [36m</section>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"关闭"[39m
+      [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"dialog-close"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M18 6 6 18"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m6 6 12 12"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mdata-scroll-locked[39m=[32m"1"[39m
+  [33mstyle[39m=[32m"pointer-events: none;"[39m
+[36m>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:r2g:"[39m
+    [33maria-labelledby[39m=[32m"radix-:r2f:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-h-[90dvh] overflow-y-auto sm:max-w-lg"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"billing-cashier-dialog"[39m
+    [33mid[39m=[32m"radix-:r2e:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m>[39m
+    [36m<h2[39m
+      [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+      [33mid[39m=[32m"radix-:r2f:"[39m
+    [36m>[39m
+      [0m购买额度[0m
+    [36m</h2>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mid[39m=[32m"radix-:r2g:"[39m
+    [36m>[39m
+      [0m为个人账户充值[0m
+      [0m，使用微信扫码支付。关闭窗口会保留当前订单。[0m
+    [36m</p>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"微信支付订单"[39m
+      [33mclass[39m=[32m"space-y-4 rounded-lg border p-4"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-wrap items-center justify-between gap-2"[39m
+      [36m>[39m
+        [36m<h3[39m
+          [33mclass[39m=[32m"font-semibold"[39m
+        [36m>[39m
+          [0m微信扫码支付[0m
+        [36m</h3>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-20 font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m¥99.00[0m
+        [36m</span>[39m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"break-all text-12 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-order-no"[39m
+      [36m>[39m
+        [0m订单号：[0m
+        [0mbg20261016000000abcdef[0m
+      [36m</p>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-order-status"[39m
+      [36m>[39m
+        [0m确认到账中[0m
+      [36m</p>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"sr-only"[39m
+        [33mdata-testid[39m=[32m"billing-qr-placeholder"[39m
+      [36m>[39m
+        [0m当前无可扫描二维码[0m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mdata-testid[39m=[32m"billing-processing-hint"[39m
+        [33mrole[39m=[32m"status"[39m
+      [36m>[39m
+        [0m正在确认到账，请勿重复付款。[0m
+      [36m</p>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+        [33mdata-testid[39m=[32m"billing-refresh-status"[39m
+      [36m>[39m
+        [0m刷新支付状态[0m
+      [36m</button>[39m
+    [36m</section>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mdata-testid[39m=[32m"billing-updated-balance"[39m
+    [36m>[39m
+      [36m<span[39m
+        [33mdata-testid[39m=[32m"billing-cashier-balance"[39m
+      [36m>[39m
+        [0m当前余额 [0m
+        [0m100[0m
+        [0m 额度[0m
+      [36m</span>[39m
+    [36m</p>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"最近额度流水"[39m
+      [33mclass[39m=[32m"space-y-2 border-t pt-3"[39m
+      [33mdata-testid[39m=[32m"billing-recent-ledger"[39m
+    [36m>[39m
+      [36m<h3[39m
+        [33mclass[39m=[32m"text-13 font-semibold"[39m
+      [36m>[39m
+        [0m最近流水[0m
+      [36m</h3>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-3"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+          [33mdata-testid[39m=[32m"billing-ledger-empty"[39m
+        [36m>[39m
+          [0m暂无流水[0m
+        [36m</p>[39m
+      [36m</div>[39m
+    [36m</section>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"关闭"[39m
+      [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"dialog-close"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M18 6 6 18"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m6 6 12 12"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+[36m</body>[39m
+   × F06 closed paid-funds recovery and legal late-payment transitions > rejects CLOSED regression to FAILED and preserves the existing order 1028ms
+     → Unable to find an element by: [data-testid="billing-refresh-hint"]
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mdata-scroll-locked[39m=[32m"1"[39m
+  [33mstyle[39m=[32m"pointer-events: none;"[39m
+[36m>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:r2j:"[39m
+    [33maria-labelledby[39m=[32m"radix-:r2i:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-h-[90dvh] overflow-y-auto sm:max-w-lg"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"billing-cashier-dialog"[39m
+    [33mid[39m=[32m"radix-:r2h:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m>[39m
+    [36m<h2[39m
+      [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+      [33mid[39m=[32m"radix-:r2i:"[39m
+    [36m>[39m
+      [0m购买额度[0m
+    [36m</h2>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mid[39m=[32m"radix-:r2j:"[39m
+    [36m>[39m
+      [0m为个人账户充值[0m
+      [0m，使用微信扫码支付。关闭窗口会保留当前订单。[0m
+    [36m</p>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"微信支付订单"[39m
+      [33mclass[39m=[32m"space-y-4 rounded-lg border p-4"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-wrap items-center justify-between gap-2"[39m
+      [36m>[39m
+        [36m<h3[39m
+          [33mclass[39m=[32m"font-semibold"[39m
+        [36m>[39m
+          [0m微信扫码支付[0m
+        [36m</h3>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-20 font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m¥99.00[0m
+        [36m</span>[39m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"break-all text-12 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-order-no"[39m
+      [36m>[39m
+        [0m订单号：[0m
+        [0mbg20261016000000abcdef[0m
+      [36m</p>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-order-status"[39m
+      [36m>[39m
+        [0m到账处理失败[0m
+      [36m</p>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"sr-only"[39m
+        [33mdata-testid[39m=[32m"billing-qr-placeholder"[39m
+      [36m>[39m
+        [0m当前无可扫描二维码[0m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-destructive"[39m
+        [33mrole[39m=[32m"alert"[39m
+      [36m>[39m
+        [0m到账处理失败。款项可能已支付，请联系支持并提供订单号，勿再次付款。[0m
+      [36m</p>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+        [33mdata-testid[39m=[32m"billing-refresh-status"[39m
+      [36m>[39m
+        [0m刷新支付状态[0m
+      [36m</button>[39m
+    [36m</section>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mdata-testid[39m=[32m"billing-updated-balance"[39m
+    [36m>[39m
+      [36m<span[39m
+        [33mdata-testid[39m=[32m"billing-cashier-balance"[39m
+      [36m>[39m
+        [0m当前余额 [0m
+        [0m100[0m
+        [0m 额度[0m
+      [36m</span>[39m
+    [36m</p>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"最近额度流水"[39m
+      [33mclass[39m=[32m"space-y-2 border-t pt-3"[39m
+      [33mdata-testid[39m=[32m"billing-recent-ledger"[39m
+    [36m>[39m
+      [36m<h3[39m
+        [33mclass[39m=[32m"text-13 font-semibold"[39m
+      [36m>[39m
+        [0m最近流水[0m
+      [36m</h3>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-3"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+          [33mdata-testid[39m=[32m"billing-ledger-empty"[39m
+        [36m>[39m
+          [0m暂无流水[0m
+        [36m</p>[39m
+      [36m</div>[39m
+    [36m</section>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"关闭"[39m
+      [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"dialog-close"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M18 6 6 18"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m6 6 12 12"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mdata-scroll-locked[39m=[32m"1"[39m
+  [33mstyle[39m=[32m"pointer-events: none;"[39m
+[36m>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:r2j:"[39m
+    [33maria-labelledby[39m=[32m"radix-:r2i:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-h-[90dvh] overflow-y-auto sm:max-w-lg"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"billing-cashier-dialog"[39m
+    [33mid[39m=[32m"radix-:r2h:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m>[39m
+    [36m<h2[39m
+      [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+      [33mid[39m=[32m"radix-:r2i:"[39m
+    [36m>[39m
+      [0m购买额度[0m
+    [36m</h2>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mid[39m=[32m"radix-:r2j:"[39m
+    [36m>[39m
+      [0m为个人账户充值[0m
+      [0m，使用微信扫码支付。关闭窗口会保留当前订单。[0m
+    [36m</p>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"微信支付订单"[39m
+      [33mclass[39m=[32m"space-y-4 rounded-lg border p-4"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-wrap items-center justify-between gap-2"[39m
+      [36m>[39m
+        [36m<h3[39m
+          [33mclass[39m=[32m"font-semibold"[39m
+        [36m>[39m
+          [0m微信扫码支付[0m
+        [36m</h3>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-20 font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m¥99.00[0m
+        [36m</span>[39m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"break-all text-12 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-order-no"[39m
+      [36m>[39m
+        [0m订单号：[0m
+        [0mbg20261016000000abcdef[0m
+      [36m</p>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-order-status"[39m
+      [36m>[39m
+        [0m到账处理失败[0m
+      [36m</p>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"sr-only"[39m
+        [33mdata-testid[39m=[32m"billing-qr-placeholder"[39m
+      [36m>[39m
+        [0m当前无可扫描二维码[0m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-destructive"[39m
+        [33mrole[39m=[32m"alert"[39m
+      [36m>[39m
+        [0m到账处理失败。款项可能已支付，请联系支持并提供订单号，勿再次付款。[0m
+      [36m</p>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+        [33mdata-testid[39m=[32m"billing-refresh-status"[39m
+      [36m>[39m
+        [0m刷新支付状态[0m
+      [36m</button>[39m
+    [36m</section>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mdata-testid[39m=[32m"billing-updated-balance"[39m
+    [36m>[39m
+      [36m<span[39m
+        [33mdata-testid[39m=[32m"billing-cashier-balance"[39m
+      [36m>[39m
+        [0m当前余额 [0m
+        [0m100[0m
+        [0m 额度[0m
+      [36m</span>[39m
+    [36m</p>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"最近额度流水"[39m
+      [33mclass[39m=[32m"space-y-2 border-t pt-3"[39m
+      [33mdata-testid[39m=[32m"billing-recent-ledger"[39m
+    [36m>[39m
+      [36m<h3[39m
+        [33mclass[39m=[32m"text-13 font-semibold"[39m
+      [36m>[39m
+        [0m最近流水[0m
+      [36m</h3>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-3"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+          [33mdata-testid[39m=[32m"billing-ledger-empty"[39m
+        [36m>[39m
+          [0m暂无流水[0m
+        [36m</p>[39m
+      [36m</div>[39m
+    [36m</section>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"关闭"[39m
+      [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"dialog-close"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M18 6 6 18"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m6 6 12 12"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+[36m</body>[39m
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/billing-cashier.test.tsx > F06 closed paid-funds recovery and legal late-payment transitions > retains closed invalid_amount orders without a repay action or success claim
+TestingLibraryElementError: Unable to find an element by: [data-testid="billing-manual-recovery"]
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mdata-scroll-locked[39m=[32m"1"[39m
+  [33mstyle[39m=[32m"pointer-events: none;"[39m
+[36m>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:r27:"[39m
+    [33maria-labelledby[39m=[32m"radix-:r26:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-h-[90dvh] overflow-y-auto sm:max-w-lg"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"billing-cashier-dialog"[39m
+    [33mid[39m=[32m"radix-:r25:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m>[39m
+    [36m<h2[39m
+      [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+      [33mid[39m=[32m"radix-:r26:"[39m
+    [36m>[39m
+      [0m购买额度[0m
+    [36m</h2>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mid[39m=[32m"radix-:r27:"[39m
+    [36m>[39m
+      [0m为个人账户充值[0m
+      [0m，使用微信扫码支付。关闭窗口会保留当前订单。[0m
+    [36m</p>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"微信支付订单"[39m
+      [33mclass[39m=[32m"space-y-4 rounded-lg border p-4"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-wrap items-center justify-between gap-2"[39m
+      [36m>[39m
+        [36m<h3[39m
+          [33mclass[39m=[32m"font-semibold"[39m
+        [36m>[39m
+          [0m微信扫码支付[0m
+        [36m</h3>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-20 font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m¥99.00[0m
+        [36m</span>[39m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"break-all text-12 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-order-no"[39m
+      [36m>[39m
+        [0m订单号：[0m
+        [0mbg20261016000000abcdef[0m
+      [36m</p>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-order-status"[39m
+      [36m>[39m
+        [0m已关闭[0m
+      [36m</p>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"sr-only"[39m
+        [33mdata-testid[39m=[32m"billing-qr-placeholder"[39m
+      [36m>[39m
+        [0m当前无可扫描二维码[0m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-2"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mrole[39m=[32m"status"[39m
+        [36m>[39m
+          [0m订单已关闭。如已扣款，请先刷新状态或联系支持，勿重复付款。[0m
+        [36m</p>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+          [33mdata-testid[39m=[32m"billing-regenerate"[39m
+        [36m>[39m
+          [0m选择套餐重新生成[0m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+        [33mdata-testid[39m=[32m"billing-refresh-status"[39m
+      [36m>[39m
+        [0m刷新支付状态[0m
+      [36m</button>[39m
+    [36m</section>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mdata-testid[39m=[32m"billing-updated-balance"[39m
+    [36m>[39m
+      [36m<span[39m
+        [33mdata-testid[39m=[32m"billing-cashier-balance"[39m
+      [36m>[39m
+        [0m当前余额 [0m
+        [0m100[0m
+        [0m 额度[0m
+      [36m</span>[39m
+    [36m</p>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"最近额度流水"[39m
+      [33mclass[39m=[32m"space-y-2 border-t pt-3"[39m
+      [33mdata-testid[39m=[32m"billing-recent-ledger"[39m
+    [36m>[39m
+      [36m<h3[39m
+        [33mclass[39m=[32m"text-13 font-semibold"[39m
+      [36m>[39m
+        [0m最近流水[0m
+      [36m</h3>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-3"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+          [33mdata-testid[39m=[32m"billing-ledger-empty"[39m
+        [36m>[39m
+          [0m暂无流水[0m
+        [36m</p>[39m
+      [36m</div>[39m
+    [36m</section>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"关闭"[39m
+      [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"dialog-close"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M18 6 6 18"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m6 6 12 12"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mdata-scroll-locked[39m=[32m"1"[39m
+  [33mstyle[39m=[32m"pointer-events: none;"[39m
+[36m>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:r27:"[39m
+    [33maria-labelledby[39m=[32m"radix-:r26:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-h-[90dvh] overflow-y-auto sm:max-w-lg"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"billing-cashier-dialog"[39m
+    [33mid[39m=[32m"radix-:r25:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m>[39m
+    [36m<h2[39m
+      [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+      [33mid[39m=[32m"radix-:r26:"[39m
+    [36m>[39m
+      [0m购买额度[0m
+    [36m</h2>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mid[39m=[32m"radix-:r27:"[39m
+    [36m>[39m
+      [0m为个人账户充值[0m
+      [0m，使用微信扫码支付。关闭窗口会保留当前订单。[0m
+    [36m</p>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"微信支付订单"[39m
+      [33mclass[39m=[32m"space-y-4 rounded-lg border p-4"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-wrap items-center justify-between gap-2"[39m
+      [36m>[39m
+        [36m<h3[39m
+          [33mclass[39m=[32m"font-semibold"[39m
+        [36m>[39m
+          [0m微信扫码支付[0m
+        [36m</h3>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-20 font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m¥99.00[0m
+        [36m</span>[39m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"break-all text-12 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-order-no"[39m
+      [36m>[39m
+        [0m订单号：[0m
+        [0mbg20261016000000abcdef[0m
+      [36m</p>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-order-status"[39m
+      [36m>[39m
+        [0m已关闭[0m
+      [36m</p>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"sr-only"[39m
+        [33mdata-testid[39m=[32m"billing-qr-placeholder"[39m
+      [36m>[39m
+        [0m当前无可扫描二维码[0m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-2"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mrole[39m=[32m"status"[39m
+        [36m>[39m
+          [0m订单已关闭。如已扣款，请先刷新状态或联系支持，勿重复付款。[0m
+        [36m</p>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+          [33mdata-testid[39m=[32m"billing-regenerate"[39m
+        [36m>[39m
+          [0m选择套餐重新生成[0m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+        [33mdata-testid[39m=[32m"billing-refresh-status"[39m
+      [36m>[39m
+        [0m刷新支付状态[0m
+      [36m</button>[39m
+    [36m</section>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mdata-testid[39m=[32m"billing-updated-balance"[39m
+    [36m>[39m
+      [36m<span[39m
+        [33mdata-testid[39m=[32m"billing-cashier-balance"[39m
+      [36m>[39m
+        [0m当前余额 [0m
+        [0m100[0m
+        [0m 额度[0m
+      [36m</span>[39m
+    [36m</p>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"最近额度流水"[39m
+      [33mclass[39m=[32m"space-y-2 border-t pt-3"[39m
+      [33mdata-testid[39m=[32m"billing-recent-ledger"[39m
+    [36m>[39m
+      [36m<h3[39m
+        [33mclass[39m=[32m"text-13 font-semibold"[39m
+      [36m>[39m
+        [0m最近流水[0m
+      [36m</h3>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-3"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+          [33mdata-testid[39m=[32m"billing-ledger-empty"[39m
+        [36m>[39m
+          [0m暂无流水[0m
+        [36m</p>[39m
+      [36m</div>[39m
+    [36m</section>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"关闭"[39m
+      [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"dialog-close"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M18 6 6 18"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m6 6 12 12"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+[36m</body>[39m
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ tests/ui/billing-cashier.test.tsx:217:23
+    215|   await generate();await screen.findByTestId("billing-qr-code-area");
+    216|   fireEvent.click(screen.getByTestId("billing-refresh-status"));
+    217|   expect(await screen.findByTestId("billing-manual-recovery")).toBeTru…
+       |                       ^
+    218|   expect(screen.getByTestId("billing-order-no").textContent).toContain…
+    219|   expect(screen.queryByTestId("billing-regenerate")).toBeNull();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+
+ FAIL  tests/ui/billing-cashier.test.tsx > F06 closed paid-funds recovery and legal late-payment transitions > retains closed wechat_upstream_failed orders without a repay action or success claim
+TestingLibraryElementError: Unable to find an element by: [data-testid="billing-manual-recovery"]
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mdata-scroll-locked[39m=[32m"1"[39m
+  [33mstyle[39m=[32m"pointer-events: none;"[39m
+[36m>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:r2a:"[39m
+    [33maria-labelledby[39m=[32m"radix-:r29:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-h-[90dvh] overflow-y-auto sm:max-w-lg"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"billing-cashier-dialog"[39m
+    [33mid[39m=[32m"radix-:r28:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m>[39m
+    [36m<h2[39m
+      [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+      [33mid[39m=[32m"radix-:r29:"[39m
+    [36m>[39m
+      [0m购买额度[0m
+    [36m</h2>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mid[39m=[32m"radix-:r2a:"[39m
+    [36m>[39m
+      [0m为个人账户充值[0m
+      [0m，使用微信扫码支付。关闭窗口会保留当前订单。[0m
+    [36m</p>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"微信支付订单"[39m
+      [33mclass[39m=[32m"space-y-4 rounded-lg border p-4"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-wrap items-center justify-between gap-2"[39m
+      [36m>[39m
+        [36m<h3[39m
+          [33mclass[39m=[32m"font-semibold"[39m
+        [36m>[39m
+          [0m微信扫码支付[0m
+        [36m</h3>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-20 font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m¥99.00[0m
+        [36m</span>[39m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"break-all text-12 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-order-no"[39m
+      [36m>[39m
+        [0m订单号：[0m
+        [0mbg20261016000000abcdef[0m
+      [36m</p>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-order-status"[39m
+      [36m>[39m
+        [0m已关闭[0m
+      [36m</p>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"sr-only"[39m
+        [33mdata-testid[39m=[32m"billing-qr-placeholder"[39m
+      [36m>[39m
+        [0m当前无可扫描二维码[0m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-2"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mrole[39m=[32m"status"[39m
+        [36m>[39m
+          [0m订单已关闭。如已扣款，请先刷新状态或联系支持，勿重复付款。[0m
+        [36m</p>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+          [33mdata-testid[39m=[32m"billing-regenerate"[39m
+        [36m>[39m
+          [0m选择套餐重新生成[0m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+        [33mdata-testid[39m=[32m"billing-refresh-status"[39m
+      [36m>[39m
+        [0m刷新支付状态[0m
+      [36m</button>[39m
+    [36m</section>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mdata-testid[39m=[32m"billing-updated-balance"[39m
+    [36m>[39m
+      [36m<span[39m
+        [33mdata-testid[39m=[32m"billing-cashier-balance"[39m
+      [36m>[39m
+        [0m当前余额 [0m
+        [0m100[0m
+        [0m 额度[0m
+      [36m</span>[39m
+    [36m</p>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"最近额度流水"[39m
+      [33mclass[39m=[32m"space-y-2 border-t pt-3"[39m
+      [33mdata-testid[39m=[32m"billing-recent-ledger"[39m
+    [36m>[39m
+      [36m<h3[39m
+        [33mclass[39m=[32m"text-13 font-semibold"[39m
+      [36m>[39m
+        [0m最近流水[0m
+      [36m</h3>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-3"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+          [33mdata-testid[39m=[32m"billing-ledger-empty"[39m
+        [36m>[39m
+          [0m暂无流水[0m
+        [36m</p>[39m
+      [36m</div>[39m
+    [36m</section>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"关闭"[39m
+      [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"dialog-close"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M18 6 6 18"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m6 6 12 12"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mdata-scroll-locked[39m=[32m"1"[39m
+  [33mstyle[39m=[32m"pointer-events: none;"[39m
+[36m>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:r2a:"[39m
+    [33maria-labelledby[39m=[32m"radix-:r29:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-h-[90dvh] overflow-y-auto sm:max-w-lg"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"billing-cashier-dialog"[39m
+    [33mid[39m=[32m"radix-:r28:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m>[39m
+    [36m<h2[39m
+      [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+      [33mid[39m=[32m"radix-:r29:"[39m
+    [36m>[39m
+      [0m购买额度[0m
+    [36m</h2>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mid[39m=[32m"radix-:r2a:"[39m
+    [36m>[39m
+      [0m为个人账户充值[0m
+      [0m，使用微信扫码支付。关闭窗口会保留当前订单。[0m
+    [36m</p>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"微信支付订单"[39m
+      [33mclass[39m=[32m"space-y-4 rounded-lg border p-4"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-wrap items-center justify-between gap-2"[39m
+      [36m>[39m
+        [36m<h3[39m
+          [33mclass[39m=[32m"font-semibold"[39m
+        [36m>[39m
+          [0m微信扫码支付[0m
+        [36m</h3>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-20 font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m¥99.00[0m
+        [36m</span>[39m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"break-all text-12 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-order-no"[39m
+      [36m>[39m
+        [0m订单号：[0m
+        [0mbg20261016000000abcdef[0m
+      [36m</p>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-order-status"[39m
+      [36m>[39m
+        [0m已关闭[0m
+      [36m</p>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"sr-only"[39m
+        [33mdata-testid[39m=[32m"billing-qr-placeholder"[39m
+      [36m>[39m
+        [0m当前无可扫描二维码[0m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-2"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mrole[39m=[32m"status"[39m
+        [36m>[39m
+          [0m订单已关闭。如已扣款，请先刷新状态或联系支持，勿重复付款。[0m
+        [36m</p>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+          [33mdata-testid[39m=[32m"billing-regenerate"[39m
+        [36m>[39m
+          [0m选择套餐重新生成[0m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+        [33mdata-testid[39m=[32m"billing-refresh-status"[39m
+      [36m>[39m
+        [0m刷新支付状态[0m
+      [36m</button>[39m
+    [36m</section>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mdata-testid[39m=[32m"billing-updated-balance"[39m
+    [36m>[39m
+      [36m<span[39m
+        [33mdata-testid[39m=[32m"billing-cashier-balance"[39m
+      [36m>[39m
+        [0m当前余额 [0m
+        [0m100[0m
+        [0m 额度[0m
+      [36m</span>[39m
+    [36m</p>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"最近额度流水"[39m
+      [33mclass[39m=[32m"space-y-2 border-t pt-3"[39m
+      [33mdata-testid[39m=[32m"billing-recent-ledger"[39m
+    [36m>[39m
+      [36m<h3[39m
+        [33mclass[39m=[32m"text-13 font-semibold"[39m
+      [36m>[39m
+        [0m最近流水[0m
+      [36m</h3>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-3"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+          [33mdata-testid[39m=[32m"billing-ledger-empty"[39m
+        [36m>[39m
+          [0m暂无流水[0m
+        [36m</p>[39m
+      [36m</div>[39m
+    [36m</section>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"关闭"[39m
+      [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"dialog-close"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M18 6 6 18"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m6 6 12 12"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+[36m</body>[39m
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ tests/ui/billing-cashier.test.tsx:217:23
+    215|   await generate();await screen.findByTestId("billing-qr-code-area");
+    216|   fireEvent.click(screen.getByTestId("billing-refresh-status"));
+    217|   expect(await screen.findByTestId("billing-manual-recovery")).toBeTru…
+       |                       ^
+    218|   expect(screen.getByTestId("billing-order-no").textContent).toContain…
+    219|   expect(screen.queryByTestId("billing-regenerate")).toBeNull();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯
+
+ FAIL  tests/ui/billing-cashier.test.tsx > F06 closed paid-funds recovery and legal late-payment transitions > enforces closed recovery eligibility inside the hook for invalid_amount
+ FAIL  tests/ui/billing-cashier.test.tsx > F06 closed paid-funds recovery and legal late-payment transitions > enforces closed recovery eligibility inside the hook for wechat_upstream_failed
+AssertionError: expected null to match object { …(17) }
+
+- Expected: 
+Object {
+  "amountFen": 9900,
+  "baseCredits": 100,
+  "bonusCredits": 20,
+  "closedAt": "2026-10-16T09:10:04.510Z",
+  "createdAt": "2026-10-16T00:00:00Z",
+  "currency": "CNY",
+  "expiredAt": "2026-10-16T09:25:01.911Z",
+  "lastErrorCode": "invalid_amount",
+  "notifyAt": null,
+  "orderNo": "bg20261016000000abcdef",
+  "ownerId": "user-a",
+  "ownerType": "user",
+  "packageId": "p1",
+  "paidAt": null,
+  "provider": "wechat",
+  "qrCodeUrl": "weixin://wxpay/bizpayurl?pr=real-server-intent",
+  "status": "CLOSED",
+}
+
++ Received: 
+null
+
+ ❯ tests/ui/billing-cashier.test.tsx:235:56
+    233|   expect(result.current.order).toMatchObject(closed);
+    234|   act(()=>result.current.regenerate());
+    235|   if(lastErrorCode!==null)expect(result.current.order).toMatchObject(c…
+       |                                                        ^
+    236|   else expect(result.current.order).toBeNull();
+    237|   await act(async()=>{await result.current.create("p1");});
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯
+
+ FAIL  tests/ui/billing-cashier.test.tsx > F06 closed paid-funds recovery and legal late-payment transitions > rejects CLOSED regression to PENDING and preserves the existing order
+TestingLibraryElementError: Unable to find an element by: [data-testid="billing-refresh-hint"]
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mdata-scroll-locked[39m=[32m"1"[39m
+  [33mstyle[39m=[32m"pointer-events: none;"[39m
+[36m>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:r2d:"[39m
+    [33maria-labelledby[39m=[32m"radix-:r2c:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-h-[90dvh] overflow-y-auto sm:max-w-lg"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"billing-cashier-dialog"[39m
+    [33mid[39m=[32m"radix-:r2b:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m>[39m
+    [36m<h2[39m
+      [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+      [33mid[39m=[32m"radix-:r2c:"[39m
+    [36m>[39m
+      [0m购买额度[0m
+    [36m</h2>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mid[39m=[32m"radix-:r2d:"[39m
+    [36m>[39m
+      [0m为个人账户充值[0m
+      [0m，使用微信扫码支付。关闭窗口会保留当前订单。[0m
+    [36m</p>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"微信支付订单"[39m
+      [33mclass[39m=[32m"space-y-4 rounded-lg border p-4"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-wrap items-center justify-between gap-2"[39m
+      [36m>[39m
+        [36m<h3[39m
+          [33mclass[39m=[32m"font-semibold"[39m
+        [36m>[39m
+          [0m微信扫码支付[0m
+        [36m</h3>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-20 font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m¥99.00[0m
+        [36m</span>[39m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"break-all text-12 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-order-no"[39m
+      [36m>[39m
+        [0m订单号：[0m
+        [0mbg20261016000000abcdef[0m
+      [36m</p>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-order-status"[39m
+      [36m>[39m
+        [0m待支付[0m
+      [36m</p>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"mx-auto w-fit rounded-lg bg-white p-2"[39m
+        [33mdata-testid[39m=[32m"billing-qr-code-area"[39m
+      [36m>[39m
+        [36m<canvas[39m
+          [33maria-label[39m=[32m"微信支付二维码"[39m
+          [33mrole[39m=[32m"img"[39m
+        [36m/>[39m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-center text-13 tabular-nums"[39m
+        [33mdata-testid[39m=[32m"billing-order-countdown"[39m
+      [36m>[39m
+        [0m请在 14:57 内完成支付[0m
+      [36m</p>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+        [33mdata-testid[39m=[32m"billing-refresh-status"[39m
+      [36m>[39m
+        [0m刷新支付状态[0m
+      [36m</button>[39m
+    [36m</section>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mdata-testid[39m=[32m"billing-updated-balance"[39m
+    [36m>[39m
+      [36m<span[39m
+        [33mdata-testid[39m=[32m"billing-cashier-balance"[39m
+      [36m>[39m
+        [0m当前余额 [0m
+        [0m100[0m
+        [0m 额度[0m
+      [36m</span>[39m
+    [36m</p>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"最近额度流水"[39m
+      [33mclass[39m=[32m"space-y-2 border-t pt-3"[39m
+      [33mdata-testid[39m=[32m"billing-recent-ledger"[39m
+    [36m>[39m
+      [36m<h3[39m
+        [33mclass[39m=[32m"text-13 font-semibold"[39m
+      [36m>[39m
+        [0m最近流水[0m
+      [36m</h3>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-3"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+          [33mdata-testid[39m=[32m"billing-ledger-empty"[39m
+        [36m>[39m
+          [0m暂无流水[0m
+        [36m</p>[39m
+      [36m</div>[39m
+    [36m</section>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"关闭"[39m
+      [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"dialog-close"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M18 6 6 18"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m6 6 12 12"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mdata-scroll-locked[39m=[32m"1"[39m
+  [33mstyle[39m=[32m"pointer-events: none;"[39m
+[36m>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:r2d:"[39m
+    [33maria-labelledby[39m=[32m"radix-:r2c:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-h-[90dvh] overflow-y-auto sm:max-w-lg"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"billing-cashier-dialog"[39m
+    [33mid[39m=[32m"radix-:r2b:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m>[39m
+    [36m<h2[39m
+      [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+      [33mid[39m=[32m"radix-:r2c:"[39m
+    [36m>[39m
+      [0m购买额度[0m
+    [36m</h2>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mid[39m=[32m"radix-:r2d:"[39m
+    [36m>[39m
+      [0m为个人账户充值[0m
+      [0m，使用微信扫码支付。关闭窗口会保留当前订单。[0m
+    [36m</p>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"微信支付订单"[39m
+      [33mclass[39m=[32m"space-y-4 rounded-lg border p-4"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-wrap items-center justify-between gap-2"[39m
+      [36m>[39m
+        [36m<h3[39m
+          [33mclass[39m=[32m"font-semibold"[39m
+        [36m>[39m
+          [0m微信扫码支付[0m
+        [36m</h3>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-20 font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m¥99.00[0m
+        [36m</span>[39m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"break-all text-12 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-order-no"[39m
+      [36m>[39m
+        [0m订单号：[0m
+        [0mbg20261016000000abcdef[0m
+      [36m</p>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-order-status"[39m
+      [36m>[39m
+        [0m待支付[0m
+      [36m</p>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"mx-auto w-fit rounded-lg bg-white p-2"[39m
+        [33mdata-testid[39m=[32m"billing-qr-code-area"[39m
+      [36m>[39m
+        [36m<canvas[39m
+          [33maria-label[39m=[32m"微信支付二维码"[39m
+          [33mrole[39m=[32m"img"[39m
+        [36m/>[39m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-center text-13 tabular-nums"[39m
+        [33mdata-testid[39m=[32m"billing-order-countdown"[39m
+      [36m>[39m
+        [0m请在 14:57 内完成支付[0m
+      [36m</p>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+        [33mdata-testid[39m=[32m"billing-refresh-status"[39m
+      [36m>[39m
+        [0m刷新支付状态[0m
+      [36m</button>[39m
+    [36m</section>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mdata-testid[39m=[32m"billing-updated-balance"[39m
+    [36m>[39m
+      [36m<span[39m
+        [33mdata-testid[39m=[32m"billing-cashier-balance"[39m
+      [36m>[39m
+        [0m当前余额 [0m
+        [0m100[0m
+        [0m 额度[0m
+      [36m</span>[39m
+    [36m</p>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"最近额度流水"[39m
+      [33mclass[39m=[32m"space-y-2 border-t pt-3"[39m
+      [33mdata-testid[39m=[32m"billing-recent-ledger"[39m
+    [36m>[39m
+      [36m<h3[39m
+        [33mclass[39m=[32m"text-13 font-semibold"[39m
+      [36m>[39m
+        [0m最近流水[0m
+      [36m</h3>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-3"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+          [33mdata-testid[39m=[32m"billing-ledger-empty"[39m
+        [36m>[39m
+          [0m暂无流水[0m
+        [36m</p>[39m
+      [36m</div>[39m
+    [36m</section>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"关闭"[39m
+      [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"dialog-close"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M18 6 6 18"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m6 6 12 12"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+[36m</body>[39m
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ tests/ui/billing-cashier.test.tsx:245:78
+    243|   await generate();await screen.findByTestId("billing-qr-code-area");
+    244|   fireEvent.click(screen.getByTestId("billing-refresh-status"));await …
+    245|   fireEvent.click(screen.getByTestId("billing-refresh-status"));await …
+       |                                                                              ^
+    246|   expect(screen.getByTestId("billing-order-status").textContent).toBe(…
+    247|   expect(screen.queryByTestId("billing-qr-code-area")).toBeNull();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯
+
+ FAIL  tests/ui/billing-cashier.test.tsx > F06 closed paid-funds recovery and legal late-payment transitions > rejects CLOSED regression to PROCESSING and preserves the existing order
+TestingLibraryElementError: Unable to find an element by: [data-testid="billing-refresh-hint"]
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mdata-scroll-locked[39m=[32m"1"[39m
+  [33mstyle[39m=[32m"pointer-events: none;"[39m
+[36m>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:r2g:"[39m
+    [33maria-labelledby[39m=[32m"radix-:r2f:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-h-[90dvh] overflow-y-auto sm:max-w-lg"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"billing-cashier-dialog"[39m
+    [33mid[39m=[32m"radix-:r2e:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m>[39m
+    [36m<h2[39m
+      [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+      [33mid[39m=[32m"radix-:r2f:"[39m
+    [36m>[39m
+      [0m购买额度[0m
+    [36m</h2>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mid[39m=[32m"radix-:r2g:"[39m
+    [36m>[39m
+      [0m为个人账户充值[0m
+      [0m，使用微信扫码支付。关闭窗口会保留当前订单。[0m
+    [36m</p>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"微信支付订单"[39m
+      [33mclass[39m=[32m"space-y-4 rounded-lg border p-4"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-wrap items-center justify-between gap-2"[39m
+      [36m>[39m
+        [36m<h3[39m
+          [33mclass[39m=[32m"font-semibold"[39m
+        [36m>[39m
+          [0m微信扫码支付[0m
+        [36m</h3>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-20 font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m¥99.00[0m
+        [36m</span>[39m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"break-all text-12 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-order-no"[39m
+      [36m>[39m
+        [0m订单号：[0m
+        [0mbg20261016000000abcdef[0m
+      [36m</p>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-order-status"[39m
+      [36m>[39m
+        [0m确认到账中[0m
+      [36m</p>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"sr-only"[39m
+        [33mdata-testid[39m=[32m"billing-qr-placeholder"[39m
+      [36m>[39m
+        [0m当前无可扫描二维码[0m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mdata-testid[39m=[32m"billing-processing-hint"[39m
+        [33mrole[39m=[32m"status"[39m
+      [36m>[39m
+        [0m正在确认到账，请勿重复付款。[0m
+      [36m</p>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+        [33mdata-testid[39m=[32m"billing-refresh-status"[39m
+      [36m>[39m
+        [0m刷新支付状态[0m
+      [36m</button>[39m
+    [36m</section>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mdata-testid[39m=[32m"billing-updated-balance"[39m
+    [36m>[39m
+      [36m<span[39m
+        [33mdata-testid[39m=[32m"billing-cashier-balance"[39m
+      [36m>[39m
+        [0m当前余额 [0m
+        [0m100[0m
+        [0m 额度[0m
+      [36m</span>[39m
+    [36m</p>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"最近额度流水"[39m
+      [33mclass[39m=[32m"space-y-2 border-t pt-3"[39m
+      [33mdata-testid[39m=[32m"billing-recent-ledger"[39m
+    [36m>[39m
+      [36m<h3[39m
+        [33mclass[39m=[32m"text-13 font-semibold"[39m
+      [36m>[39m
+        [0m最近流水[0m
+      [36m</h3>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-3"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+          [33mdata-testid[39m=[32m"billing-ledger-empty"[39m
+        [36m>[39m
+          [0m暂无流水[0m
+        [36m</p>[39m
+      [36m</div>[39m
+    [36m</section>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"关闭"[39m
+      [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"dialog-close"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M18 6 6 18"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m6 6 12 12"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mdata-scroll-locked[39m=[32m"1"[39m
+  [33mstyle[39m=[32m"pointer-events: none;"[39m
+[36m>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:r2g:"[39m
+    [33maria-labelledby[39m=[32m"radix-:r2f:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-h-[90dvh] overflow-y-auto sm:max-w-lg"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"billing-cashier-dialog"[39m
+    [33mid[39m=[32m"radix-:r2e:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m>[39m
+    [36m<h2[39m
+      [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+      [33mid[39m=[32m"radix-:r2f:"[39m
+    [36m>[39m
+      [0m购买额度[0m
+    [36m</h2>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mid[39m=[32m"radix-:r2g:"[39m
+    [36m>[39m
+      [0m为个人账户充值[0m
+      [0m，使用微信扫码支付。关闭窗口会保留当前订单。[0m
+    [36m</p>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"微信支付订单"[39m
+      [33mclass[39m=[32m"space-y-4 rounded-lg border p-4"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-wrap items-center justify-between gap-2"[39m
+      [36m>[39m
+        [36m<h3[39m
+          [33mclass[39m=[32m"font-semibold"[39m
+        [36m>[39m
+          [0m微信扫码支付[0m
+        [36m</h3>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-20 font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m¥99.00[0m
+        [36m</span>[39m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"break-all text-12 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-order-no"[39m
+      [36m>[39m
+        [0m订单号：[0m
+        [0mbg20261016000000abcdef[0m
+      [36m</p>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-order-status"[39m
+      [36m>[39m
+        [0m确认到账中[0m
+      [36m</p>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"sr-only"[39m
+        [33mdata-testid[39m=[32m"billing-qr-placeholder"[39m
+      [36m>[39m
+        [0m当前无可扫描二维码[0m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mdata-testid[39m=[32m"billing-processing-hint"[39m
+        [33mrole[39m=[32m"status"[39m
+      [36m>[39m
+        [0m正在确认到账，请勿重复付款。[0m
+      [36m</p>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+        [33mdata-testid[39m=[32m"billing-refresh-status"[39m
+      [36m>[39m
+        [0m刷新支付状态[0m
+      [36m</button>[39m
+    [36m</section>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mdata-testid[39m=[32m"billing-updated-balance"[39m
+    [36m>[39m
+      [36m<span[39m
+        [33mdata-testid[39m=[32m"billing-cashier-balance"[39m
+      [36m>[39m
+        [0m当前余额 [0m
+        [0m100[0m
+        [0m 额度[0m
+      [36m</span>[39m
+    [36m</p>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"最近额度流水"[39m
+      [33mclass[39m=[32m"space-y-2 border-t pt-3"[39m
+      [33mdata-testid[39m=[32m"billing-recent-ledger"[39m
+    [36m>[39m
+      [36m<h3[39m
+        [33mclass[39m=[32m"text-13 font-semibold"[39m
+      [36m>[39m
+        [0m最近流水[0m
+      [36m</h3>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-3"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+          [33mdata-testid[39m=[32m"billing-ledger-empty"[39m
+        [36m>[39m
+          [0m暂无流水[0m
+        [36m</p>[39m
+      [36m</div>[39m
+    [36m</section>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"关闭"[39m
+      [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"dialog-close"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M18 6 6 18"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m6 6 12 12"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+[36m</body>[39m
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ tests/ui/billing-cashier.test.tsx:245:78
+    243|   await generate();await screen.findByTestId("billing-qr-code-area");
+    244|   fireEvent.click(screen.getByTestId("billing-refresh-status"));await …
+    245|   fireEvent.click(screen.getByTestId("billing-refresh-status"));await …
+       |                                                                              ^
+    246|   expect(screen.getByTestId("billing-order-status").textContent).toBe(…
+    247|   expect(screen.queryByTestId("billing-qr-code-area")).toBeNull();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯
+
+ FAIL  tests/ui/billing-cashier.test.tsx > F06 closed paid-funds recovery and legal late-payment transitions > rejects CLOSED regression to FAILED and preserves the existing order
+TestingLibraryElementError: Unable to find an element by: [data-testid="billing-refresh-hint"]
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mdata-scroll-locked[39m=[32m"1"[39m
+  [33mstyle[39m=[32m"pointer-events: none;"[39m
+[36m>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:r2j:"[39m
+    [33maria-labelledby[39m=[32m"radix-:r2i:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-h-[90dvh] overflow-y-auto sm:max-w-lg"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"billing-cashier-dialog"[39m
+    [33mid[39m=[32m"radix-:r2h:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m>[39m
+    [36m<h2[39m
+      [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+      [33mid[39m=[32m"radix-:r2i:"[39m
+    [36m>[39m
+      [0m购买额度[0m
+    [36m</h2>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mid[39m=[32m"radix-:r2j:"[39m
+    [36m>[39m
+      [0m为个人账户充值[0m
+      [0m，使用微信扫码支付。关闭窗口会保留当前订单。[0m
+    [36m</p>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"微信支付订单"[39m
+      [33mclass[39m=[32m"space-y-4 rounded-lg border p-4"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-wrap items-center justify-between gap-2"[39m
+      [36m>[39m
+        [36m<h3[39m
+          [33mclass[39m=[32m"font-semibold"[39m
+        [36m>[39m
+          [0m微信扫码支付[0m
+        [36m</h3>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-20 font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m¥99.00[0m
+        [36m</span>[39m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"break-all text-12 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-order-no"[39m
+      [36m>[39m
+        [0m订单号：[0m
+        [0mbg20261016000000abcdef[0m
+      [36m</p>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-order-status"[39m
+      [36m>[39m
+        [0m到账处理失败[0m
+      [36m</p>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"sr-only"[39m
+        [33mdata-testid[39m=[32m"billing-qr-placeholder"[39m
+      [36m>[39m
+        [0m当前无可扫描二维码[0m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-destructive"[39m
+        [33mrole[39m=[32m"alert"[39m
+      [36m>[39m
+        [0m到账处理失败。款项可能已支付，请联系支持并提供订单号，勿再次付款。[0m
+      [36m</p>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+        [33mdata-testid[39m=[32m"billing-refresh-status"[39m
+      [36m>[39m
+        [0m刷新支付状态[0m
+      [36m</button>[39m
+    [36m</section>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mdata-testid[39m=[32m"billing-updated-balance"[39m
+    [36m>[39m
+      [36m<span[39m
+        [33mdata-testid[39m=[32m"billing-cashier-balance"[39m
+      [36m>[39m
+        [0m当前余额 [0m
+        [0m100[0m
+        [0m 额度[0m
+      [36m</span>[39m
+    [36m</p>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"最近额度流水"[39m
+      [33mclass[39m=[32m"space-y-2 border-t pt-3"[39m
+      [33mdata-testid[39m=[32m"billing-recent-ledger"[39m
+    [36m>[39m
+      [36m<h3[39m
+        [33mclass[39m=[32m"text-13 font-semibold"[39m
+      [36m>[39m
+        [0m最近流水[0m
+      [36m</h3>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-3"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+          [33mdata-testid[39m=[32m"billing-ledger-empty"[39m
+        [36m>[39m
+          [0m暂无流水[0m
+        [36m</p>[39m
+      [36m</div>[39m
+    [36m</section>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"关闭"[39m
+      [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"dialog-close"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M18 6 6 18"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m6 6 12 12"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mdata-scroll-locked[39m=[32m"1"[39m
+  [33mstyle[39m=[32m"pointer-events: none;"[39m
+[36m>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:r2j:"[39m
+    [33maria-labelledby[39m=[32m"radix-:r2i:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-h-[90dvh] overflow-y-auto sm:max-w-lg"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"billing-cashier-dialog"[39m
+    [33mid[39m=[32m"radix-:r2h:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m>[39m
+    [36m<h2[39m
+      [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+      [33mid[39m=[32m"radix-:r2i:"[39m
+    [36m>[39m
+      [0m购买额度[0m
+    [36m</h2>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mid[39m=[32m"radix-:r2j:"[39m
+    [36m>[39m
+      [0m为个人账户充值[0m
+      [0m，使用微信扫码支付。关闭窗口会保留当前订单。[0m
+    [36m</p>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"微信支付订单"[39m
+      [33mclass[39m=[32m"space-y-4 rounded-lg border p-4"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-wrap items-center justify-between gap-2"[39m
+      [36m>[39m
+        [36m<h3[39m
+          [33mclass[39m=[32m"font-semibold"[39m
+        [36m>[39m
+          [0m微信扫码支付[0m
+        [36m</h3>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-20 font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m¥99.00[0m
+        [36m</span>[39m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"break-all text-12 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-order-no"[39m
+      [36m>[39m
+        [0m订单号：[0m
+        [0mbg20261016000000abcdef[0m
+      [36m</p>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-order-status"[39m
+      [36m>[39m
+        [0m到账处理失败[0m
+      [36m</p>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"sr-only"[39m
+        [33mdata-testid[39m=[32m"billing-qr-placeholder"[39m
+      [36m>[39m
+        [0m当前无可扫描二维码[0m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-destructive"[39m
+        [33mrole[39m=[32m"alert"[39m
+      [36m>[39m
+        [0m到账处理失败。款项可能已支付，请联系支持并提供订单号，勿再次付款。[0m
+      [36m</p>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+        [33mdata-testid[39m=[32m"billing-refresh-status"[39m
+      [36m>[39m
+        [0m刷新支付状态[0m
+      [36m</button>[39m
+    [36m</section>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mdata-testid[39m=[32m"billing-updated-balance"[39m
+    [36m>[39m
+      [36m<span[39m
+        [33mdata-testid[39m=[32m"billing-cashier-balance"[39m
+      [36m>[39m
+        [0m当前余额 [0m
+        [0m100[0m
+        [0m 额度[0m
+      [36m</span>[39m
+    [36m</p>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"最近额度流水"[39m
+      [33mclass[39m=[32m"space-y-2 border-t pt-3"[39m
+      [33mdata-testid[39m=[32m"billing-recent-ledger"[39m
+    [36m>[39m
+      [36m<h3[39m
+        [33mclass[39m=[32m"text-13 font-semibold"[39m
+      [36m>[39m
+        [0m最近流水[0m
+      [36m</h3>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"space-y-3"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+          [33mdata-testid[39m=[32m"billing-ledger-empty"[39m
+        [36m>[39m
+          [0m暂无流水[0m
+        [36m</p>[39m
+      [36m</div>[39m
+    [36m</section>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"关闭"[39m
+      [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"dialog-close"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M18 6 6 18"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m6 6 12 12"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+[36m</body>[39m
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ tests/ui/billing-cashier.test.tsx:245:78
+    243|   await generate();await screen.findByTestId("billing-qr-code-area");
+    244|   fireEvent.click(screen.getByTestId("billing-refresh-status"));await …
+    245|   fireEvent.click(screen.getByTestId("billing-refresh-status"));await …
+       |                                                                              ^
+    246|   expect(screen.getByTestId("billing-order-status").textContent).toBe(…
+    247|   expect(screen.queryByTestId("billing-qr-code-area")).toBeNull();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/7]⎯
+
+ Test Files  1 failed (1)
+      Tests  7 failed | 25 passed (32)
+   Start at  17:09:59
+   Duration  7.73s (transform 539ms, setup 151ms, collect 935ms, tests 5.73s, environment 669ms, prepare 59ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/billing-cashier.test.tsx

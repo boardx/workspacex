@@ -1,0 +1,89 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/apps/api
+
+ ❯ tests/billing/enterprise-organization-summary.test.ts (2 tests | 2 failed) 39ms
+   × current ordinary with no license returns coherent actual wallet facts in detail and list 22ms
+     → [
+  {
+    "code": "custom",
+    "path": [
+      "billingSummary"
+    ],
+    "message": "active billing enforcement requires actual billing facts"
+  }
+]
+   × current ordinary paid license without a payment adapter fails with the typed catalog error 15ms
+     → expected ZodError: [
+  {
+    "code": "custom",
+   … { …(3) } to match object { Object (reasonCode) }
+(4 matching properties omitted from actual)
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/enterprise-organization-summary.test.ts > current ordinary with no license returns coherent actual wallet facts in detail and list
+ZodError: [
+  {
+    "code": "custom",
+    "path": [
+      "billingSummary"
+    ],
+    "message": "active billing enforcement requires actual billing facts"
+  }
+]
+ ❯ Object.get error [as error] ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:39:31
+ ❯ ZodEffects.parse ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:114:22
+ ❯ PgPlatformOrganizationRepository.readOrganization src/infrastructure/system/pg-platform-organization-repository.ts:139:28
+    137|       catch{throw new PlatformOrganizationError("PLATFORM_CATALOG_UNAV…
+    138|     }
+    139|     return OrganizationRow.parse({ orgId: row.id, name: row.name, kind…
+       |                            ^
+    140|   }
+    141| 
+ ❯ src/infrastructure/system/pg-platform-organization-repository.ts:87:28
+ ❯ PgPlatformOrganizationRepository.detail src/infrastructure/system/pg-platform-organization-repository.ts:86:20
+ ❯ tests/billing/enterprise-organization-summary.test.ts:28:83
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/billing/enterprise-organization-summary.test.ts > current ordinary paid license without a payment adapter fails with the typed catalog error
+AssertionError: expected ZodError: [
+  {
+    "code": "custom",
+   … { …(3) } to match object { Object (reasonCode) }
+(4 matching properties omitted from actual)
+
+- Expected
++ Received
+
+- Object {
+-   "reasonCode": "PLATFORM_CATALOG_UNAVAILABLE",
+- }
++ [ZodError: [
++   {
++     "code": "custom",
++     "path": [
++       "billingSummary"
++     ],
++     "message": "active billing enforcement requires actual billing facts"
++   }
++ ]]
+
+ ❯ tests/billing/enterprise-organization-summary.test.ts:34:30
+     32| });
+     33| it("current ordinary paid license without a payment adapter fails with…
+     34|  const repo=repository(true);await expect(repo.detail(orgId,"operator"…
+       |                              ^
+     35|  await expect(repo.list({search:String(orgId),limit:25},"operator")).r…
+     36| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed (2)
+   Start at  22:10:58
+   Duration  5.12s (transform 2.70s, setup 0ms, collect 4.42s, tests 39ms, environment 0ms, prepare 226ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.enterprise-management.config.ts tests/billing/enterprise-organization-summary.test.ts

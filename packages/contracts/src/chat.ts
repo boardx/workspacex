@@ -1,3 +1,4 @@
+import {CreditRequiredBody} from "./billing-consumption";
 /**
  * 契约束 `chat` — ③ API 契约（**唯一事实源**）
  *
@@ -1532,6 +1533,8 @@ export const PERSONA_SUMMARY_AUTHOR_ID = "persona-summary";
  * （下方编译期断言钉住），不是巧合撞名。
  */
 export const ChatAsrDraftErrorReason = z.enum([
+  "CREDIT_REQUIRED",
+  "CREDIT_ACCOUNTING_UNAVAILABLE",
   "ASR_PROVIDER_UNAVAILABLE",
   "ASR_NOT_CONFIGURED",
   "AUDIO_FORMAT_REJECTED",
@@ -1554,7 +1557,7 @@ export const ChatAsrDraftClientFrame = z.discriminatedUnion("type", [
 export const ChatAsrDraftServerFrame = z.discriminatedUnion("type", [
   z.object({ type: z.literal("asr.partial"), text: z.string() }).strict(),
   z.object({ type: z.literal("asr.final"), text: z.string() }).strict(),
-  z.object({ type: z.literal("asr.error"), reason: ChatAsrDraftErrorReason }).strict(),
+  z.object({ type: z.literal("asr.error"), reason: ChatAsrDraftErrorReason, credit: CreditRequiredBody.optional() }).strict(),
   z.object({ type: z.literal("asr.finished") }).strict(),
 ]);
 
@@ -1565,6 +1568,8 @@ export const ChatAsrDraftServerFrame = z.discriminatedUnion("type", [
  * INVALID_FRAME：客户端帧不合契约。
  */
 export const RealtimeDigitalHumanErrorReason = z.enum([
+  "CREDIT_REQUIRED",
+  "CREDIT_ACCOUNTING_UNAVAILABLE",
   "NOT_CONFIGURED",
   "AGENT_UNAVAILABLE",
   "THREAD_UNAVAILABLE",
@@ -1615,7 +1620,7 @@ export const streamOperations = {
       z.object({ type: z.literal("assistant.transcript"), text: z.string(), final: z.boolean(), responseId: z.string().optional() }).strict(),
       z.object({ type: z.literal("assistant.audio"), audio: z.string(), responseId: z.string().optional() }).strict(),
       z.object({ type: z.literal("assistant.audio_done"), responseId: z.string().optional() }).strict(),
-      z.object({ type: z.literal("session.error"), reason: RealtimeDigitalHumanErrorReason, message: z.string() }).strict(),
+      z.object({ type: z.literal("session.error"), reason: RealtimeDigitalHumanErrorReason, message: z.string(), credit: CreditRequiredBody.optional() }).strict(),
       /** Chat 宿主：一轮转写已作为普通消息落进线程（挂断后线程里能看到整段对话）。 */
       z.object({ type: z.literal("turn.persisted"), role: z.enum(["user", "assistant"]), messageId: z.string() }).strict(),
       z.object({ type: z.literal("session.closed") }).strict(),

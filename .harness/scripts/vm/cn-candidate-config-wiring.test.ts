@@ -14,6 +14,14 @@ it("prepares an attempt-owned config before any aggregate collector/build withou
  expect(build).not.toContain("candidate-config-cli.ts commit");
  expect(collector).not.toContain("candidate-config-cli.ts commit");
 });
+it("acquires locked dependencies before offline prebuild and never during activation",()=>{
+ const acquire=build.indexOf('install --prefer-offline --frozen-lockfile --ignore-scripts');
+ const offline=build.indexOf('install --offline --frozen-lockfile --ignore-scripts');
+ expect(acquire).toBeGreaterThan(-1);expect(offline).toBeGreaterThan(acquire);
+ expect(build.indexOf('cn-candidate-config-cli.ts prepare')).toBeGreaterThan(offline);
+ expect(build.indexOf('record_event candidate_build_started')).toBeGreaterThan(offline);
+ expect(deploy.slice(deploy.indexOf('current_baseline_dir='))).not.toContain('install --prefer-offline');
+});
 it("commits config only after browser acceptance and restores it with the runtime",()=>{
  const browser=deploy.lastIndexOf('|| fail "browser smoke failed"');
  const commit=deploy.indexOf("candidate_config_action commit");
@@ -21,17 +29,20 @@ it("commits config only after browser acceptance and restores it with the runtim
  expect(commit).toBeLessThan(deploy.lastIndexOf("activation_started=0"));
  const restore=deploy.slice(deploy.indexOf("restore_baseline()"),deploy.indexOf("enable_run_drain()"));
  expect(restore).toContain("candidate_config_action restore");
- expect(restore.indexOf("candidate_config_action restore")).toBeLessThan(restore.indexOf("docker compose -p"));
+ expect(restore.indexOf('cn_compose_baseline.py verify "$baseline_state"')).toBeLessThan(restore.indexOf("candidate_config_action restore"));
+ expect(restore).toContain('[[ "$actual_nginx" == "$expected_nginx" ]]');
+ expect(restore.indexOf("candidate_config_action restore")).toBeLessThan(restore.indexOf('cn_compose_baseline.py restore "$baseline_state"'));
 });
 it("direct CLI child inherits the held fd 9 across a cwd-only subshell",()=>{
  const script='exec 9>/tmp/wsx-cn-lock-fd-test-$$; (cd /tmp; test -e /dev/fd/9); result=$?; rm -f /tmp/wsx-cn-lock-fd-test-$$; exit $result';
  expect(spawnSync("bash",["-c",script]).status).toBe(0);
  expect(deploy).toContain('(cd "$release_checkout"; node --import tsx');
 });
-it("all trusted callers establish private root lock metadata before invoking the config CLI",()=>{
- for(const source of [deploy,read("verify-cn-release-promotion.sh")]){
-  expect(source).toContain('chown root:root "$RUNTIME_ROOT/release.lock"; chmod 0600 "$RUNTIME_ROOT/release.lock"');
- }
+it("deployment validates the existing private lock without truncating it before acquiring",()=>{
+ expect(deploy).toContain('private_root_file "$RUNTIME_ROOT/release.lock"');
+ expect(deploy).toContain('exec 9<>"$RUNTIME_ROOT/release.lock"');
+ expect(deploy).not.toContain('exec 9>"$RUNTIME_ROOT/release.lock"');
+ expect(read("verify-cn-release-promotion.sh")).toContain('chown root:root "$RUNTIME_ROOT/release.lock"; chmod 0600 "$RUNTIME_ROOT/release.lock"');
 });
 
 it("builder verifies the existing private lock and descriptor before admission without mutating it",()=>{

@@ -99,21 +99,21 @@ test("research persists the confirmed-question pipeline through the real UI, API
   await expect(page.getByTestId("research-report")).toContainText("并网政策报告", { timeout: 60000 });
   expect(submittedCommands.filter(command => command.action === "generate_report")).toHaveLength(1);
   await expect(page.getByTestId("guided-research-report-workspace")).toHaveAttribute("data-reference-layout", "report-document");
-  await page.getByText(/^查看研究资料 ·/).click();
+  await expect(page.getByText(/^查看研究资料 ·/)).toHaveCount(0); // Completed reports expose sources through actual citations.
   const sourceWorkspace = page.getByTestId("guided-research-source-workspace");
-  await expect(sourceWorkspace).toHaveAttribute("data-reference-layout", "research-sources");
+  await expect(sourceWorkspace).toHaveCount(0);
   await expect(page.getByTestId("guided-research-source-chapters")).toHaveCount(0); // testid-gate: absent 章节编辑移至报告工作区，资料区不得重复呈现。
-  const sourceLink = page.getByTestId("guided-research-source-evidence").locator('a[href$="/research-evidence"]');
+  const sourceLink = page.getByTestId("research-report").locator('sup a[href$="/research-evidence"]').first();
   await expect(sourceLink).toBeVisible();
   await expect(sourceLink).toHaveAttribute("href", /\/research-evidence$/);
-  await expect(sourceLink).toHaveAttribute("title", /\S/);
+  await expect(sourceLink).toHaveAttribute("aria-label", /\S/);
   await expect(page.getByRole("link", { name: /vehicle-inventory$/ })).toHaveCount(0);
   await expect(page.getByTestId("guided-research-source-activity")).toHaveCount(0); // testid-gate: absent 资料区不呈现旧活动卡，原缺席断言保留。
   await expect(page.getByTestId("research-search-summary")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "添加来源" })).toHaveCount(0);
   await page.setViewportSize({ width: 390, height: 844 });
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await page.screenshot({ path: testInfo.outputPath("research-sources-mobile.png"), fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath("research-report-mobile.png"), fullPage: true });
   await page.setViewportSize({ width: 1280, height: 900 });
   const runtimeResponse = await page.request.get(streamResponse.url().replace(/\/commands\/stream$/, ""), { headers: { authorization: streamResponse.request().headers()["authorization"]! } });
   expect(runtimeResponse.ok()).toBeTruthy();
@@ -122,7 +122,7 @@ test("research persists the confirmed-question pipeline through the real UI, API
   expect(runtime.version).toBe(streamResponse.request().postDataJSON().expectedVersion + 1);
   expect(runtime.busy).toBe(false);
   expect(runtime.tasks.every((task: { status: string }) => task.status === "succeeded")).toBe(true);
-  expect(runtime.modelCalls.filter((call: { node: string }) => call.node === "report")).toHaveLength(runtime.outline.filter((section: { enabled: boolean }) => section.enabled).length * 2 + 3);
+
   expect(runtime.researchPlan).toBeNull();
   const enabledSections = runtime.outline.filter((section: { enabled: boolean }) => section.enabled)
     .sort((a: { order: number }, b: { order: number }) => a.order - b.order);
@@ -141,8 +141,14 @@ test("research persists the confirmed-question pipeline through the real UI, API
   expect(runtime.reportCheckpoint.chapters).toHaveLength(runtime.outline.filter((section: { enabled: boolean }) => section.enabled).length);
   expect(runtime.report.sections.every((section: { sourceIds: string[] }) => section.sourceIds.every((id) => runtime.sources.some((source: { id: string }) => source.id === id)))).toBe(true);
   expect(runtime.outline[0].title).toBe("核实政策适用范围与实施约束");
-  // One deliberately invalid evidence response is repaired automatically without a second UI command.
-  expect(runtime.modelCalls.filter((call: { node: string; status: string }) => call.node === "report" && call.status === "failed")).toHaveLength(1);
+  // Each independently prepared evidence scope receives one deliberately invalid
+  // fixture response; both repair automatically without a second UI command.
+  expect(runtime.sources.some((source: { document?: unknown }) => source.document)).toBe(true);
+  const evidenceScopes = Math.min(2, enabledSections.length);
+  // One prose + independent review per chapter, one invalid extraction + repair
+  // per scope in this small fixture, and one final synthesis.
+  expect(runtime.modelCalls.filter((call: { node: string }) => call.node === "report")).toHaveLength(enabledSections.length * 2 + evidenceScopes * 2 + 1);
+  expect(runtime.modelCalls.filter((call: { node: string; status: string }) => call.node === "report" && call.status === "failed")).toHaveLength(evidenceScopes);
   expect(runtime.errorCode).toBeNull();
   expect(runtime.reportEvidenceWarnings).toEqual([]);
   expect(runtime.intent).toBeFalsy();
@@ -155,7 +161,7 @@ test("research persists the confirmed-question pipeline through the real UI, API
   expect(runtime.activity.filter((item: { stage: string }) => item.stage === "planning").map((item: { status: string }) => item.status)).toEqual(expect.arrayContaining(["started", "succeeded"]));
   expect(runtime.reportTimeline.map((step: { stage: string }) => step.stage)).toEqual(["evidence", "chapter", "review", "chapter", "review", "synthesis", "validation"]);
   expect(runtime.reportTimeline.every((step: { status: string }) => step.status === "completed")).toBe(true);
-  expect(runtime.reportTimeline.find((step: { stage: string }) => step.stage === "evidence").attempts).toBe(2);
+  expect(runtime.reportTimeline.find((step: { stage: string }) => step.stage === "evidence").attempts).toBe(evidenceScopes * 2);
   await expect(page.getByRole("button", { name: "继续生成剩余章节", exact: true })).toHaveCount(0);
   expect(runtime.report.sections.map((section: { sectionId: string }) => section.sectionId)).toEqual(runtime.outline.filter((section: { enabled: boolean }) => section.enabled).map((section: { id: string }) => section.id));
   expect(runtime.report.introduction).toContain("检索摘要");

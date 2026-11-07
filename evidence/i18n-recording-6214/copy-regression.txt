@@ -1,0 +1,32 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/apps/web
+
+ ✓ tests/ui/realtime-transcription-history.test.tsx (33 tests) 5821ms
+   ✓ 实时转录历史工作台 > does not reconnect after leaving the workspace 1240ms
+   ✓ 实时转录历史工作台 > automatically reconnects a dropped stream and retains saved text without stale events 1048ms
+   ✓ 实时转录历史工作台 > cancels scheduled reconnect when the user stops 1235ms
+   ✓ 实时转录历史工作台 > keeps saved text and distinguishes persistent refresh failure from stopping failure 799ms
+ ✓ tests/ui/realtime-transcription-workspace.test.tsx (35 tests) 1284ms
+ ✓ tests/ui/recording-project-i18n.test.tsx (18 tests) 579ms
+ ✓ tests/ui/recording-journey-i18n.test.tsx (11 tests) 500ms
+ ✓ tests/ui/recording-controller-i18n.test.tsx (5 tests) 436ms
+ ✓ tests/ui/create-transcription-focus.test.tsx (4 tests) 349ms
+ ✓ tests/ui/audio-input-i18n.test.tsx (2 tests) 183ms
+ ✓ tests/ui/personal-transcription-history.test.tsx (33 tests) 5851ms
+   ✓ 实时转录历史工作台 > does not reconnect after leaving the workspace 1240ms
+   ✓ 实时转录历史工作台 > automatically reconnects a dropped stream and retains saved text without stale events 1054ms
+   ✓ 实时转录历史工作台 > cancels scheduled reconnect when the user stops 1240ms
+   ✓ 实时转录历史工作台 > keeps saved text and distinguishes persistent refresh failure from stopping failure 813ms
+ ✓ tests/lib/boardx-realtime-asr-client.test.ts (25 tests) 1009ms
+ ✓ tests/recording/live-recording-capture.test.ts (26 tests) 13ms
+ ✓ tests/lib/realtime-reconnect.test.ts (4 tests) 5ms
+ ✓ tests/e2e/personal-realtime-transcription-smoke.test.ts (1 test) 59ms
+ ✓ tests/lib/live-personal-transcriptions.test.ts (2 tests) 16ms
+ ✓ tests/lib/i18n-resources.test.ts (5 tests) 79ms
+ ✓ tests/lib/realtime-asr-flow.test.ts (2 tests) 3ms
+
+ Test Files  15 passed (15)
+      Tests  206 passed (206)
+   Start at  07:48:54
+   Duration  32.45s (transform 2.46s, setup 1.38s, collect 7.83s, tests 16.19s, environment 4.18s, prepare 661ms)

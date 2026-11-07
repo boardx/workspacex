@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { GuidedRuntimeService, initialRuntime } from "../../src/application/research/guided-runtime-service";
 import { ResearchRuntimeError, type GuidedRuntimeStore, type ResearchRuntime, type RuntimeCommand } from "../../src/application/research/guided-runtime-ports";
 import { parseGeneratedOutlineJson } from "../../src/application/research/guided-outline-json";
+import { reportQuestions } from "../../src/application/research/guided-report-evidence";
 import { tasksFromConfirmedQuestions } from "../../src/application/research/guided-task-pipeline";
 import { guidedResearchReply } from "../../scripts/loopback-guided-research";
 import { toOrgId } from "../../src/domain/org-id";
@@ -35,6 +36,16 @@ function fixture() {
 }
 
 describe("three visible stages with durable composite execution", () => {
+  it("uses only two dependent model calls for a named brief and retains every user scope field", async () => {
+    const f = fixture(), brief = structuredClone(f.latest().brief);
+    const result = await f.run("prepare_plan");
+    expect(result.errorCode).toBeNull();
+    expect(result.brief).toEqual(brief);
+    expect(result.generatedNodes).toEqual(["brief", "directions", "outline"]);
+    expect(f.model.complete).toHaveBeenCalledTimes(2);
+    expect(result.modelCalls.map(call => call.node)).toEqual(["directions", "outline"]);
+    expect(f.search).not.toHaveBeenCalled();
+  });
   it("accepts topic-only brief generation while retaining the complete original research scope", async () => {
     const f = fixture(); const complete = f.model.complete.getMockImplementation()!;
     const brief = { ...f.latest().brief, topic: C.DEFAULT_RESEARCH_NAME, goal: "完整需求".repeat(10000), focus: "原始重点", region: "中国", timeRange: "2026" };
@@ -91,7 +102,7 @@ describe("three visible stages with durable composite execution", () => {
     expect(result.errorCode).toBeNull(); expect(result.currentNode).toBe("outline"); expect(result.executionGoal).toBe("plan");
     expect(result.generatedNodes).toEqual(["brief", "directions", "outline"]);
     expect(result.outline.length).toBeGreaterThan(0); expect(result.completed).toBe(false); expect(f.claim).toHaveBeenCalledTimes(1);
-    expect(f.search).not.toHaveBeenCalled(); expect(f.model.complete).toHaveBeenCalledTimes(3);
+    expect(f.search).not.toHaveBeenCalled(); expect(f.model.complete).toHaveBeenCalledTimes(2);
     expect(f.writes[0]?.executionGoal).toBe("plan");
     const calls = f.model.complete.mock.calls.length;
     await f.run("prepare_plan", "brief", { expectedVersion: 0 }, "same-plan"); await f.service.get(f.actor, f.session); await f.run("retry", "outline");
@@ -119,7 +130,7 @@ describe("three visible stages with durable composite execution", () => {
     });
     const result = await f.run("prepare_plan");
     expect(result.errorCode).toBeNull(); expect(result.outline).toEqual(expected);
-    expect(f.model.complete).toHaveBeenCalledTimes(3);
+    expect(f.model.complete).toHaveBeenCalledTimes(2);
   });
   it("rejects unparseable outline content without asking a model to invent missing fields", async () => {
     const f = fixture(); const complete = f.model.complete.getMockImplementation()!;
@@ -127,8 +138,8 @@ describe("three visible stages with durable composite execution", () => {
       ? { text: '[{"id":"chapter", broken JSON]' } : complete(input));
     const result = await f.run("prepare_plan");
     expect(result.errorCode).not.toBeNull(); expect(result.outline).toEqual([]);
-    expect(f.model.complete).toHaveBeenCalledTimes(3);
-    expect(result.modelCalls.map(call => [call.node, call.status])).toEqual([["brief", "succeeded"], ["directions", "succeeded"], ["outline", "failed"]]);
+    expect(f.model.complete).toHaveBeenCalledTimes(2);
+    expect(result.modelCalls.map(call => [call.node, call.status])).toEqual([["directions", "succeeded"], ["outline", "failed"]]);
   });
   it("rejects a truncated outline without a provider flag and keeps successful nodes", async () => {
     vi.useFakeTimers();
@@ -142,7 +153,7 @@ describe("three visible stages with durable composite execution", () => {
       await vi.advanceTimersByTimeAsync(30000);
       finish({ text: '[{"id":"chapter","title":"incomplete' }); await pending;
       expect(result?.errorCode).not.toBeNull(); expect(result?.outline).toEqual([]);
-      expect(f.model.complete).toHaveBeenCalledTimes(3);
+      expect(f.model.complete).toHaveBeenCalledTimes(2);
       expect(result?.generatedNodes).toEqual(["brief", "directions"]);
     } finally { vi.useRealTimers(); }
   });
@@ -177,7 +188,7 @@ describe("three visible stages with durable composite execution", () => {
     expect(failed.executionGoal).toBe("plan"); expect(failed.currentNode).toBe("directions"); expect(failed.errorCode).not.toBeNull();
     expect(failed.outline).toEqual([]); expect(f.search).not.toHaveBeenCalled();
     fail = false; const result = await f.run("retry", "directions"); expect(result.currentNode).toBe("outline"); expect(result.errorCode).toBeNull();
-    expect(f.model.complete.mock.calls.filter(([input]) => input.system.includes("Generate the brief step"))).toHaveLength(1);
+    expect(f.model.complete.mock.calls.filter(([input]) => input.system.includes("Generate the brief step"))).toHaveLength(0);
   });
   it("runs confirmed plan through source preparation and existing report completion with one claim", async () => {
     const f = fixture(); await f.run("prepare_plan"); f.claim.mockClear();
@@ -374,7 +385,10 @@ describe("three visible stages with durable composite execution", () => {
     try {
       await entered;
       const fresh = f.writes.slice(offset); expect(fresh.length).toBeGreaterThan(0);
-      expect(fresh.every(state => !state.reportTimeline?.some(step => step.status === "completed"))).toBe(true);
+      expect(fresh[0]?.reportTimeline?.some(step => step.status === "completed") ?? false).toBe(false);
+      // Matching evidence may now finish from validated private coverage before
+      // the first fresh prose call; prior chapter/synthesis completion cannot survive.
+      expect(fresh.every(state => !state.reportTimeline?.some(step => step.stage !== "evidence" && step.status === "completed"))).toBe(true);
       expect(fresh[0]?.completed).toBe(false);
       expect(fresh[0]?.reportPrevious?.report).toEqual(previous.report);
       expect(fresh[0]?.sources).toEqual(previous.sources);
@@ -467,6 +481,95 @@ describe("generated brief subject authority", () => {
     const tasks = tasksFromConfirmedQuestions(f.latest());
     expect(tasks.length).toBeGreaterThan(0); expect(tasks.every(task => task.query.includes(result.brief.topic))).toBe(true);
     expect(tasks.some(task => task.query.includes(C.DEFAULT_RESEARCH_NAME))).toBe(false);
-    expect(f.model.complete).toHaveBeenCalledTimes(3); expect(f.search).not.toHaveBeenCalled();
+    expect(f.model.complete).toHaveBeenCalledTimes(inputTopic === C.DEFAULT_RESEARCH_NAME ? 3 : 2); expect(f.search).not.toHaveBeenCalled();
   });
+});
+
+it.each([
+  ["retry", false, false, false, false], ["generate_report", false, false, false, false],
+  ["retry", true, false, false, false], ["generate_report", true, false, false, false],
+  ["retry", true, true, false, false], ["generate_report", true, true, false, false],
+  ["retry", true, false, true, false], ["generate_report", true, false, true, false],
+  ["retry", true, false, false, true], ["generate_report", true, false, false, true],
+] as const)("retains report gates on %s (task loses evidence=%s, quality rejects=%s, valid negative=%s, empty chapter=%s)", async (action, losesTaskEvidence, rejectQuality, validNegative, emptyChapter) => {
+  const { GuidedResearchController } = await import("../../src/interface/controllers/guided-research.controller");
+  const f = fixture(); await f.run("prepare_plan");
+  const published = await f.run("generate_report", "outline");
+  expect(published.completed).toBe(true);
+  const healthy = published.sources[0]!;
+  const affectedTask = losesTaskEvidence ? published.tasks.at(-1)!.id : healthy.taskId;
+  const affectedSection = published.tasks.find(task => task.id === affectedTask)!.sectionId;
+  const missingQuestions = reportQuestions(published.outline).filter(question => question.sectionId === affectedSection).map(question => question.id);
+  const invalidSource = { ...healthy, id: "invalid-old-assessment", taskId: affectedTask, taskIds: [affectedTask], url: "https://example.org/invalid-old-assessment" };
+  delete invalidSource.relevanceBasis;
+  const existing = f.latest();
+  f.set({ ...existing, sources: [...existing.sources.filter(source => !losesTaskEvidence || ![source.taskId, ...(source.taskIds ?? [])].includes(affectedTask)), invalidSource], ...(action === "retry" ? {
+    completed: false, errorCode: "RESEARCH_SOURCE_RELEVANCE_INVALID", report: null, reportDraft: null, reportCheckpoint: null,
+    generatedNodes: existing.generatedNodes.filter(node => node !== "report"), reportTimeline: [],
+  } : {}) });
+  const complete = f.model.complete.getMockImplementation()!;
+  f.model.complete.mockClear();
+  f.model.complete.mockImplementation(async input => {
+    const context = JSON.parse(input.user);
+    if (context.researchStage === "source_relevance" && context.chunks.some((chunk: { sourceId: string }) => chunk.sourceId === invalidSource.id)) return { text: validNegative ? JSON.stringify({ evaluations: context.chunks.map((chunk: { sourceId: string; chunkId: string }) => ({ sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: true, matches: [] })) }) : "{}" };
+    expect(input.user).not.toContain(invalidSource.id);
+    const reply = await complete(input);
+    const value = JSON.parse(reply.text);
+    // Controlled remaining documents cannot answer the affected chapter. This
+    // is independent extraction/review input, never a product coverage override.
+    if (losesTaskEvidence && ["evidence", "evidence_revision"].includes(context.reportStage)) {
+      for (const entry of value.evaluations) {
+        entry.matches = entry.matches.flatMap((match: { questionId: string; relevance: string }) => !missingQuestions.includes(match.questionId) ? [match] : emptyChapter ? [] : [{ ...match, relevance: "context" }]);
+        entry.irrelevant = entry.matches.length === 0;
+      }
+    }
+    if (losesTaskEvidence && context.chapterOutputMode === "question_paragraphs") {
+      for (const paragraph of value.paragraphs) if (missingQuestions.includes(paragraph.questionId)) paragraph.body += "证据缺口：当前保留资料不能确认该问题的结论；应查阅现行政策原文，核对适用范围、发布日期和审批责任后再作判断。";
+    }
+    if (losesTaskEvidence && context.reportStage === "quality") {
+      for (const verdict of value.questions) if (context.evidenceByQuestion.some((question: { questionId: string; evidence: { relevance: string }[] }) => question.questionId === verdict.questionId && question.evidence.every(entry => entry.relevance === "context"))) { verdict.status = "gap"; verdict.rationale = "正文明确当前政策摘录仅提供背景，尚无该问题的直接证据，要求核对原文适用范围、发布日期与责任主体后再决策。"; }
+    }
+    if (rejectQuality && context.reportStage === "quality") Object.assign(value, { supported: false, analysisDepth: "shallow", issues: ["Controlled unsupported conclusion rejection"] });
+    return { text: JSON.stringify(value) };
+  });
+  const controller = new GuidedResearchController({} as never, {} as never, {} as never, {} as never, {} as never, f.service);
+  vi.spyOn(controller as never, "current" as never).mockResolvedValue(f.session as never);
+  const frames: string[] = [];
+  const response = { setHeader: vi.fn(), flushHeaders: vi.fn(), on: vi.fn(), off: vi.fn(), end: vi.fn(), write: (frame: string) => { frames.push(frame); return true; }, writableLength: 0, destroyed: false };
+  await controller.streamRuntime(f.actor, f.session.sessionId, { requestId: `continue-${action}`, expectedVersion: f.latest().version, node: "report", action }, response as never, { headers: { accept: "application/x-ndjson" } } as never);
+  const events = frames.filter(frame => frame.trim()).map(frame => JSON.parse(frame));
+  if (validNegative) {
+    expect(events.at(-1)).toMatchObject({ type: "failed", reasonCode: "RESEARCH_TASKS_INCOMPLETE" });
+    expect(f.latest().completed).toBe(false);
+    expect(f.latest().reportPartial).toBeFalsy();
+    expect(f.model.complete.mock.calls.every(([input]) => !JSON.parse(input.user).reportStage)).toBe(true);
+    return;
+  }
+  if (rejectQuality || emptyChapter) {
+    expect(events.at(-1)).toMatchObject({ type: "failed", reasonCode: "RESEARCH_REPORT_QUALITY_INSUFFICIENT" });
+    expect(events.some(event => event.type === "completed")).toBe(false);
+    expect(f.latest().completed).toBe(false);
+    expect(f.latest().reportQualityWarnings?.length).toBeGreaterThan(0);
+    expect(f.latest().report).toBeNull();
+    return;
+  }
+  expect(f.latest().errorCode, JSON.stringify({ warnings: f.latest().reportQualityWarnings, calls: f.model.complete.mock.calls.map(([input]) => { const context = JSON.parse(input.user); return { stage: context.reportStage, kind: context.reviewKind }; }) })).toBeNull();
+  expect(events.at(-1).type).toBe("completed");
+  expect(events.some(event => event.type === "failed")).toBe(false);
+  expect(f.latest()).toMatchObject({ completed: true, errorCode: null, currentNode: "report", reportPartial: losesTaskEvidence });
+  expect(f.latest().report).not.toBeNull();
+  expect(f.latest().sources.every(source => source.id !== invalidSource.id)).toBe(true);
+  expect(f.latest().reportTimeline?.every(step => step.status === "completed")).toBe(true);
+  const readback = await f.service.get(f.actor, f.session);
+  expect(readback.report).toEqual(f.latest().report);
+  expect(readback.reportPartial).toBe(losesTaskEvidence);
+  expect(readback.completed).toBe(true);
+  if (losesTaskEvidence) {
+    expect(readback.tasks.find(task => task.id === affectedTask)).toMatchObject({ status: "failed", errorCode: "RESEARCH_SEARCH_NO_RELEVANT_SOURCES" });
+    expect(readback.report!.introduction).toContain("Search limitation:");
+    expect(readback.report!.sections.find(section => section.sectionId === affectedSection)!.body).toContain("证据缺口：");
+    const reviews = f.model.complete.mock.calls.map(([input]) => JSON.parse(input.user)).filter(input => input.reportStage === "quality");
+    const reviewedQuestions = reviews.flatMap(input => input.evidenceByQuestion.map((question: { questionId: string; evidence: { relevance: string }[] }) => ({ questionId: question.questionId, directCount: question.evidence.filter(entry => entry.relevance === "direct").length, contextCount: question.evidence.filter(entry => entry.relevance === "context").length, hasRetrievalGap: "gap" in question })));
+    for (const questionId of missingQuestions) expect(reviewedQuestions.some(question => question.questionId === questionId && question.directCount === 0 && question.contextCount > 0 && !question.hasRetrievalGap)).toBe(true);
+  }
 });

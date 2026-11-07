@@ -8,6 +8,7 @@ import {
   openFreshThread,
   sendAndSettle,
 } from "./chat-task-workbench-fixture";
+import { sessionHeaders } from "./support/authoritative-thread";
 import { CHAT_RUN_PAUSE_ENTRY_ENABLED } from "@/lib/chat-run-pause-entry";
 
 /**
@@ -139,20 +140,40 @@ test("TW-P1-2：材料预加载——选线程之前就能加材料", async ({ p
     30_000,
   );
 
+  // Opening the real dialog proves React handlers are ready before touching its hidden input.
+  await page.getByTestId("chat-attachment-input").click();
+  await expect(page.getByTestId("chat-attach-material-portal")).toBeVisible();
+  const uploaded = page.waitForResponse(response =>
+    response.request().method() === "POST" && /\/chat\/threads\/[^/]+\/attachments$/.test(new URL(response.url()).pathname));
   await page.getByTestId("chat-attachment-file-input").setInputFiles({
     name: "preattach-fixture.txt",
     mimeType: "text/plain",
     buffer: Buffer.from("issue #2068 材料预加载取证。", "utf8"),
   });
-  await expect(
-    page.getByTestId("chat-attachment-count"),
-    gapMessage("TW-P1-2", "chat-task-workbench-preattach-dropzone", "预加载的材料没有被真正接住"),
-  ).toBeVisible({ timeout: 30_000 });
+  const upload = await uploaded;
+  expect(upload.ok(), "预加载必须真正上传成功").toBe(true);
+  const attachment = await upload.json() as { id: string };
+  const threadId = new URL(upload.url()).pathname.match(/\/threads\/([^/]+)\/attachments$/)![1]!;
+  await page.getByTestId("chat-attach-material-confirm").click();
+  await expect(page.getByTestId("chat-attachment-count")).toHaveText("1");
+  // Pending attachments only enter the durable materials list once sent with a message.
+  await sendAndSettle(page, "请阅读这份预加载材料。");
+  await expect.poll(async () => {
+    const stored = await page.request.get(`/chat/threads/${threadId}/attachments`, { headers: await sessionHeaders(page) });
+    expect(stored.ok()).toBe(true);
+    const { items } = await stored.json() as { items: { id: string }[] };
+    return items.map(item => item.id);
+  }, { timeout: 30_000 }).toContain(attachment.id);
 });
 
 test("TW-P1-3：结构化工具事件与子 Agent 摘要在刷新后仍在（持久化侧）", async ({ page }) => {
   await openFreshThread(page);
   await sendAndSettle(page, CHAT_READ_E2E.deepAgentMultiStepTrigger);
+
+  const traceToggle = page.getByTestId("run-trace-toggle").last();
+  await expect(traceToggle).toBeVisible({ timeout: 60_000 });
+  if (await traceToggle.getAttribute("aria-expanded") === "false") await traceToggle.click();
+  await expect(traceToggle).toHaveAttribute("aria-expanded", "true");
 
   await expect(
     page.getByTestId("chat-task-workbench-event-row").first(),
@@ -161,6 +182,10 @@ test("TW-P1-3：结构化工具事件与子 Agent 摘要在刷新后仍在（持
 
   await page.reload();
   await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible({ timeout: 120_000 });
+  const restoredToggle = page.getByTestId("run-trace-toggle").last();
+  await expect(restoredToggle).toBeVisible({ timeout: 60_000 });
+  if (await restoredToggle.getAttribute("aria-expanded") === "false") await restoredToggle.click();
+  await expect(restoredToggle).toHaveAttribute("aria-expanded", "true");
   await expect(
     page.getByTestId("chat-task-workbench-event-row").first(),
     [
@@ -188,8 +213,36 @@ test("TW-P1-3：结构化工具事件与子 Agent 摘要在刷新后仍在（持
  * 这一条验的是「有没有挂出处」，不是「出处有哪些」。
  */
 test("TW-P1-4：产物四件齐（预览 / 来源 / 版本 / 导出）", async ({ page }) => {
-  await openFreshThread(page);
-  await sendAndSettle(page, CHAT_READ_E2E.deepAgentMultiStepTrigger);
+  // Consumer fixture: real registered versions and object bytes; this does not test native production.
+  await openChatEmptyState(page);
+  const threadId = CHAT_READ_E2E.artifactConsumerThreadId;
+  const artifactId = `agent-artifact-${threadId}-attachment-1`;
+  const headers = await sessionHeaders(page);
+  const landed = await page.request.post(`/chat/threads/${threadId}/artifacts`, { headers, data: {
+    threadId, messageId: `${threadId}-output-2`, mode: "draft", title: `consumer-preview-${Date.now()}`,
+    payloadRef: "consumer version 2: revised",
+  } });
+  expect(landed.ok(), "来源关联必须由真实落地 API 建立").toBe(true);
+  await page.goto(`/chat/${threadId}`);
+  await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible({ timeout: 120_000 });
+  await page.getByTestId("chat-task-workbench-inspector-tab-artifacts").click();
+  for (const version of [1, 2]) {
+    const content = `consumer version ${version}: ${version === 1 ? "original" : "revised"}\n`;
+    const response = await page.request.get(`/artifacts/${artifactId}/versions/${version}/content`, { headers });
+    expect(response.ok()).toBe(true);
+    expect(await response.text()).toBe(content);
+    await page.getByTestId("artifact-version-picker").click();
+    await page.getByRole("menuitemradio", { name: new RegExp(`^版本 ${version}(?: ·|$)`) }).click();
+    await expect(page.getByTestId("artifact-version-picker")).toContainText(`版本 ${version}`);
+    await expect(page.getByTestId("agent-artifact-versions-panel").locator("pre")).toHaveText(content.trim());
+    const download = page.waitForEvent("download");
+    await page.getByTestId("chat-task-workbench-artifact-export").click();
+    const stream = await (await download).createReadStream();
+    expect(stream).toBeTruthy();
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream!) chunks.push(Buffer.from(chunk));
+    expect(Buffer.concat(chunks).toString("utf8")).toBe(content);
+  }
 
   /*
    * ⚠ 四颗锚点**不可能同时在场**：右栏里打开一份产物会把列表整段换成详情态
@@ -236,6 +289,10 @@ test("TW-P1-4：产物四件齐（预览 / 来源 / 版本 / 导出）", async (
     "点开的这一份产物没有陈述出处（此前这颗锚点挂在列表包裹 div 上，列表在就算齐）",
     30_000,
   );
+  // This consumer fixture has a source message but no evidence citations.
+  // I-37 defines hasSource by citationCount, so the UI must report that honestly.
+  await expect(page.getByTestId("chat-task-workbench-artifact-sources")).toContainText("未挂出处");
+  await expect(page.getByTestId("chat-inspector-artifact-source-jump")).toBeVisible();
 });
 
 // issue #3099 / coordinator 裁决（#3081 ①）：第四个锚点

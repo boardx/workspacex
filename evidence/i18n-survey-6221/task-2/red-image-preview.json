@@ -1,0 +1,25 @@
+{
+  "name": "red-image-preview",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/survey-question-controls-i18n.test.tsx",
+    "-t",
+    "incomplete .* image out of preview"
+  ],
+  "source": "263e61c8592960cc1586db9ef2b139e9f463487f",
+  "exitCode": 1,
+  "seconds": 5.349,
+  "rawLogSha256": "9e9cae95b8bb1be5c75e03e4d339cf492915450dad95e5dde3e0c05118abd077",
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "testsExecuted": 2,
+  "failed": 2,
+  "filteredOut": 39,
+  "classification": "Valid missing empty-image guard and duplicate diagnostic-key failures; existing canonical raw diagnostics matched, no fixture/collection/unhandled errors."
+}

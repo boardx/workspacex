@@ -1,0 +1,1 @@
+$ pnpm --filter web exec eslint e2e/i18n-chat-workspace.spec.ts playwright.chat-read.config.ts

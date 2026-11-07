@@ -1,0 +1,130 @@
+TAP version 13
+# Subtest: selected executable web test installs its core Chromium shell before test, using identical environment/base/filter
+ok 1 - selected executable web test installs its core Chromium shell before test, using identical environment/base/filter
+  ---
+  duration_ms: 2.8265
+  ...
+# Subtest: no browser installation when web not selected
+ok 2 - no browser installation when web not selected
+  ---
+  duration_ms: 0.295708
+  ...
+# Subtest: no browser installation when docs-only plan
+ok 3 - no browser installation when docs-only plan
+  ---
+  duration_ms: 0.106042
+  ...
+# Subtest: no browser installation when web lint and typecheck only
+ok 4 - no browser installation when web lint and typecheck only
+  ---
+  duration_ms: 0.108541
+  ...
+# Subtest: no browser installation when only web build selected
+ok 5 - no browser installation when only web build selected
+  ---
+  duration_ms: 0.303708
+  ...
+# Subtest: no browser installation when nonexistent web test
+ok 6 - no browser installation when nonexistent web test
+  ---
+  duration_ms: 0.11375
+  ...
+# Subtest: no browser installation when pixel test absent
+ok 7 - no browser installation when pixel test absent
+  ---
+  duration_ms: 0.099333
+  ...
+# Subtest: fork plan and actual test both retain API coverage
+ok 8 - fork plan and actual test both retain API coverage
+  ---
+  duration_ms: 0.217542
+  ...
+# Subtest: fork and same-repository executable web plans install before their identical actual test
+ok 9 - fork and same-repository executable web plans install before their identical actual test
+  ---
+  duration_ms: 0.612375
+  ...
+# Subtest: invalid plan and missing explicit browser path fail closed before testing
+ok 10 - invalid plan and missing explicit browser path fail closed before testing
+  ---
+  duration_ms: 0.7865
+  ...
+# Subtest: installation failure stops test rather than skipping browser pixel assertions
+ok 11 - installation failure stops test rather than skipping browser pixel assertions
+  ---
+  duration_ms: 0.218833
+  ...
+# Subtest: workflow wires the exact affected runner and private cache only inside affected test step
+ok 12 - workflow wires the exact affected runner and private cache only inside affected test step
+  ---
+  duration_ms: 1.650458
+  ...
+# Subtest: actual Turbo web test preserves strict mode and only scoped browser cache passthrough
+ok 13 - actual Turbo web test preserves strict mode and only scoped browser cache passthrough
+  ---
+  duration_ms: 778.904708
+  ...
+# Subtest: actual web core CLI dry plan binds installed package browser revision to explicit cache without downloads
+ok 14 - actual web core CLI dry plan binds installed package browser revision to explicit cache without downloads
+  ---
+  duration_ms: 273.11225
+  ...
+# Subtest: selected cloud fixtures run fresh before remaining affected coverage without duplication
+ok 15 - selected cloud fixtures run fresh before remaining affected coverage without duplication
+  ---
+  duration_ms: 0.545542
+  ...
+# Subtest: cloud fixture failure fails the gate before other packages can start
+ok 16 - cloud fixture failure fails the gate before other packages can start
+  ---
+  duration_ms: 0.176209
+  ...
+# Subtest: nonexistent cloud task does not add an isolated lane or remove coverage
+ok 17 - nonexistent cloud task does not add an isolated lane or remove coverage
+  ---
+  duration_ms: 0.098125
+  ...
+# Subtest: browser preparation finishes before selected cloud lane and remaining web coverage
+ok 18 - browser preparation finishes before selected cloud lane and remaining web coverage
+  ---
+  duration_ms: 0.099083
+  ...
+# Subtest: actual full Turbo test plans preserve the exact union across isolated and remaining lanes
+not ok 19 - actual full Turbo test plans preserve the exact union across isolated and remaining lanes
+  ---
+  duration_ms: 1559.4955
+  location: '/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/.github/scripts/run-affected-tests.test.mjs:131:1'
+  failureType: 'testCodeFailure'
+  error: 'Unterminated string in JSON at position 1048572 (line 12807 column 36)'
+  code: 'ERR_TEST_FAILURE'
+  name: 'SyntaxError'
+  stack: |-
+    JSON.parse (<anonymous>)
+    plan (file:///Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/.github/scripts/run-affected-tests.test.mjs:135:17)
+    TestContext.<anonymous> (file:///Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/.github/scripts/run-affected-tests.test.mjs:139:22)
+    Test.runInAsyncScope (node:async_hooks:211:14)
+    Test.run (node:internal/test_runner/test:979:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:677:18)
+    Test.postRun (node:internal/test_runner/test:1090:19)
+    Test.run (node:internal/test_runner/test:1018:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:677:7)
+  ...
+# Subtest: a validated local UI plan executes the selected real unit runner instead of full affected packages
+ok 20 - a validated local UI plan executes the selected real unit runner instead of full affected packages
+  ---
+  duration_ms: 0.409
+  ...
+# Subtest: a selected unit failure cannot turn into an empty or successful affected run
+ok 21 - a selected unit failure cannot turn into an empty or successful affected run
+  ---
+  duration_ms: 0.161166
+  ...
+1..21
+# tests 21
+# suites 0
+# pass 20
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2700.542959

@@ -1,3 +1,4 @@
+import type { AuthorizedLocalizationRequest } from "../localization/entity-localization";
 import type { z } from "zod";
 import type { wave2Runtime } from "@repo/contracts";
 import type { OrgId } from "../../domain/org-id";
@@ -14,8 +15,8 @@ export interface SkillStarterPackSource {
 export const SKILL_STARTER_PACK_SOURCE = Symbol("SkillStarterPackSource");
 
 export type PersistVerifiedImportOutcome =
-  | { readonly kind: "created"; readonly result: SkillStarterImportResult }
-  | { readonly kind: "replayed"; readonly result: SkillStarterImportResult }
+  | { readonly kind: "created"; readonly result: SkillStarterImportResult; readonly metadataOnly?: boolean }
+  | { readonly kind: "replayed"; readonly result: SkillStarterImportResult; readonly metadataOnly?: boolean }
   | { readonly kind: "name-conflict" }
   /**
    * 发货包改了某个 skill 的正文却没有 bump 它自己的 `semanticVersion`。
@@ -31,7 +32,7 @@ export type PersistVerifiedImportOutcome =
 
 export type ExistingImportOutcome =
   | { readonly kind: "missing" }
-  | { readonly kind: "replayed"; readonly result: SkillStarterImportResult }
+  | { readonly kind: "replayed"; readonly result: SkillStarterImportResult; readonly metadataOnly?: boolean }
   | { readonly kind: "idempotency-conflict" }
   | { readonly kind: "previous-failure"; readonly failureCode: string };
 
@@ -48,6 +49,7 @@ export interface SkillStarterImportRepository {
     readonly idempotencyKey: string;
     readonly payloadDigest: string;
     readonly pack: SkillStarterPack;
+    readonly localizationAuthorize?: AuthorizedLocalizationRequest["authorize"];
     /**
      * WS02：已校验的 `metadata.work`，按 stableName 索引（无该键的普通 Skill 不在表内）。
      * 与 skill 行、版本行**同一事务**写入 `skill_versions.manifest.work` 并 upsert

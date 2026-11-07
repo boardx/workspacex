@@ -1,7 +1,7 @@
 /** Routed browser fixtures prove frontend behavior, not real model/API persistence. */
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page, type Locator } from '@playwright/test';
 import { designHtmlPage } from '@repo/contracts';
 import { DESIGN_PROJECTS, routeDrafts, routeInbox, routeDesignWorkbench } from '../scripts/lib/design-loop-fixtures.mjs';
 import { clickMore } from './support/design-more';
@@ -11,11 +11,27 @@ const pages = ['情绪日记', '写日记'].map((title, i) => designHtmlPage.san
 const project = { ...DESIGN_PROJECTS[2], id: 'eval-HTML', name: '情绪日记', frames: ['首页', '写日记'], frameNotes: ['', ''], chat: [], prototype: pages.map((html, i) => ({ id: `html-${i}`, type: 'html', props: { html } })), frameLinks: pages.map(html => designHtmlPage.htmlPageLinks(html)) };
 async function open(page: Page) { mkdirSync(evidence, { recursive: true }); await routeDrafts(page, { empty: false }); await routeInbox(page, { empty: false }); await routeDesignWorkbench(page, { extraProjects: [project] }); await page.goto('/preview/feedback-design-loop?scene=detail-eval&case=HTML'); await page.getByTestId('design-detail').waitFor(); await page.getByTestId('design-detail-view-single').click(); }
 const frame = (page: Page) => page.frameLocator('[data-testid="design-html-page"]');
+// Chromium reports unscaled element bounds inside a transformed, opaque-origin
+// iframe. Convert its local CSS coordinates to the iframe's visible page bounds
+// so these remain real pointer clicks at the same places a user sees.
+async function clickHtml(page: Page, target: Locator) {
+    await expect(target).toBeVisible();
+    const local = await target.evaluate(el => {
+        const rect = el.getBoundingClientRect();
+        return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+    });
+    const outer = await page.getByTestId('design-html-page').evaluate(el => {
+        const rect = el.getBoundingClientRect();
+        return { x: rect.x, y: rect.y, scaleX: rect.width / el.clientWidth, scaleY: rect.height / el.clientHeight };
+    });
+    await page.mouse.click(outer.x + local.x * outer.scaleX, outer.y + local.y * outer.scaleY);
+}
+
 test('HTML selection focusRef clear and preview navigation', async ({ page }) => {
     await open(page);
     await expect(frame(page).getByRole('heading', { name: '情绪日记' })).toBeVisible();
     await page.screenshot({ path: resolve(evidence, 'html-browser-initial.png'), fullPage: true });
-    await frame(page).getByRole('heading', { name: '情绪日记' }).click();
+    await clickHtml(page, frame(page).getByRole('heading', { name: '情绪日记' }));
     await expect(page.getByTestId('design-detail-focus')).toContainText('情绪日记');
     await page.screenshot({ path: resolve(evidence, 'html-browser-selected.png'), fullPage: true });
     const posted: Record<string, unknown>[] = [];
@@ -32,7 +48,7 @@ test('HTML selection focusRef clear and preview navigation', async ({ page }) =>
     expect(posted[1]?.focusRef).toBeUndefined();
     await expect(page.getByTestId('design-detail-generating')).toHaveCount(0);
     await page.getByTestId('design-detail-mode-preview').click();
-    await frame(page).getByRole('button', { name: '写下心情' }).click();
+    await clickHtml(page, frame(page).getByRole('button', { name: '写下心情' }));
     await expect(frame(page).getByRole('heading', { name: '写日记' })).toBeVisible();
     await expect(page.getByTestId('design-detail-focus')).toHaveCount(0);
     await page.screenshot({ path: resolve(evidence, 'html-browser-preview-navigation.png'), fullPage: true });
@@ -90,7 +106,7 @@ test('local CSS replacement changes only selected same-class element', async ({ 
 
 test('HTML structure response invalidates selected ref before next message', async ({ page }) => {
   await open(page);
-  await frame(page).getByRole('heading', { name: '情绪日记' }).click();
+  await clickHtml(page, frame(page).getByRole('heading', { name: '情绪日记' }));
   await expect(page.getByTestId('design-detail-focus')).toBeVisible();
   const posted: Record<string, unknown>[] = [];
   const newHtml = designHtmlPage.sanitizeHtmlPage('<main><p>新增在前的元素</p><h1>今天过得怎么样</h1><p>记录一点今天的心情</p></main>').html;

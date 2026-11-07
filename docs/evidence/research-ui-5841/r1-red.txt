@@ -1,0 +1,208 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/web
+
+ ❯ tests/ui/research-ui-consistency.test.tsx (1 test | 1 failed) 64ms
+   × research report navigation > lets narrow-screen readers reveal the directory without putting it before the report by default 64ms
+     → Unable to find an accessible element with the role "button" and name "报告目录"
+
+Here are the accessible roles:
+
+  complementary:
+
+  Name "":
+  [36m<aside[39m
+    [33mclass[39m=[32m"min-w-0 rounded-xl border border-border bg-card p-5 shadow-sm xl:sticky xl:top-52 xl:max-h-[calc(100dvh-14rem)] xl:self-start xl:overflow-y-auto"[39m
+    [33mdata-testid[39m=[32m"guided-research-report-contents"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "报告目录":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-xl font-bold"[39m
+  [36m/>[39m
+
+  Name "报告正文":
+  [36m<h2[39m
+    [33mid[39m=[32m"chapter"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  link:
+
+  Name "第一章":
+  [36m<a[39m
+    [33mhref[39m=[32m"#chapter"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  main:
+
+  Name "":
+  [36m<main[39m
+    [33mclass[39m=[32m"min-w-0 rounded-xl border bg-card p-4 shadow-sm sm:p-6"[39m
+    [33mdata-testid[39m=[32m"guided-research-report-body"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<section[39m
+      [33mclass[39m=[32m"space-y-5"[39m
+      [33mdata-reference-layout[39m=[32m"report-document"[39m
+      [33mdata-testid[39m=[32m"guided-research-report-workspace"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"grid min-w-0 gap-5 xl:grid-cols-[minmax(20rem,0.9fr)_minmax(0,2fr)]"[39m
+      [36m>[39m
+        [36m<aside[39m
+          [33mclass[39m=[32m"min-w-0 rounded-xl border border-border bg-card p-5 shadow-sm xl:sticky xl:top-52 xl:max-h-[calc(100dvh-14rem)] xl:self-start xl:overflow-y-auto"[39m
+          [33mdata-testid[39m=[32m"guided-research-report-contents"[39m
+        [36m>[39m
+          [36m<h2[39m
+            [33mclass[39m=[32m"text-xl font-bold"[39m
+          [36m>[39m
+            [0m报告目录[0m
+          [36m</h2>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"mt-3 min-w-0 break-words text-sm leading-relaxed [&_a]:break-words"[39m
+          [36m>[39m
+            [36m<a[39m
+              [33mhref[39m=[32m"#chapter"[39m
+            [36m>[39m
+              [0m第一章[0m
+            [36m</a>[39m
+          [36m</div>[39m
+        [36m</aside>[39m
+        [36m<main[39m
+          [33mclass[39m=[32m"min-w-0 rounded-xl border bg-card p-4 shadow-sm sm:p-6"[39m
+          [33mdata-testid[39m=[32m"guided-research-report-body"[39m
+        [36m>[39m
+          [36m<h2[39m
+            [33mid[39m=[32m"chapter"[39m
+          [36m>[39m
+            [0m报告正文[0m
+          [36m</h2>[39m
+        [36m</main>[39m
+      [36m</div>[39m
+    [36m</section>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/research-ui-consistency.test.tsx > research report navigation > lets narrow-screen readers reveal the directory without putting it before the report by default
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "报告目录"
+
+Here are the accessible roles:
+
+  complementary:
+
+  Name "":
+  [36m<aside[39m
+    [33mclass[39m=[32m"min-w-0 rounded-xl border border-border bg-card p-5 shadow-sm xl:sticky xl:top-52 xl:max-h-[calc(100dvh-14rem)] xl:self-start xl:overflow-y-auto"[39m
+    [33mdata-testid[39m=[32m"guided-research-report-contents"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "报告目录":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-xl font-bold"[39m
+  [36m/>[39m
+
+  Name "报告正文":
+  [36m<h2[39m
+    [33mid[39m=[32m"chapter"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  link:
+
+  Name "第一章":
+  [36m<a[39m
+    [33mhref[39m=[32m"#chapter"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  main:
+
+  Name "":
+  [36m<main[39m
+    [33mclass[39m=[32m"min-w-0 rounded-xl border bg-card p-4 shadow-sm sm:p-6"[39m
+    [33mdata-testid[39m=[32m"guided-research-report-body"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<section[39m
+      [33mclass[39m=[32m"space-y-5"[39m
+      [33mdata-reference-layout[39m=[32m"report-document"[39m
+      [33mdata-testid[39m=[32m"guided-research-report-workspace"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"grid min-w-0 gap-5 xl:grid-cols-[minmax(20rem,0.9fr)_minmax(0,2fr)]"[39m
+      [36m>[39m
+        [36m<aside[39m
+          [33mclass[39m=[32m"min-w-0 rounded-xl border border-border bg-card p-5 shadow-sm xl:sticky xl:top-52 xl:max-h-[calc(100dvh-14rem)] xl:self-start xl:overflow-y-auto"[39m
+          [33mdata-testid[39m=[32m"guided-research-report-contents"[39m
+        [36m>[39m
+          [36m<h2[39m
+            [33mclass[39m=[32m"text-xl font-bold"[39m
+          [36m>[39m
+            [0m报告目录[0m
+          [36m</h2>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"mt-3 min-w-0 break-words text-sm leading-relaxed [&_a]:break-words"[39m
+          [36m>[39m
+            [36m<a[39m
+              [33mhref[39m=[32m"#chapter"[39m
+            [36m>[39m
+              [0m第一章[0m
+            [36m</a>[39m
+          [36m</div>[39m
+        [36m</aside>[39m
+        [36m<main[39m
+          [33mclass[39m=[32m"min-w-0 rounded-xl border bg-card p-4 shadow-sm sm:p-6"[39m
+          [33mdata-testid[39m=[32m"guided-research-report-body"[39m
+        [36m>[39m
+          [36m<h2[39m
+            [33mid[39m=[32m"chapter"[39m
+          [36m>[39m
+            [0m报告正文[0m
+          [36m</h2>[39m
+        [36m</main>[39m
+      [36m</div>[39m
+    [36m</section>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/research-ui-consistency.test.tsx:8:27
+      6|   it("lets narrow-screen readers reveal the directory without putting …
+      7|     render(<GuidedResearchReportWorkspace actions={null} contents={<a …
+      8|     const toggle = screen.getByRole("button", { name: "报告目录" });
+       |                           ^
+      9|     expect(toggle).toHaveAttribute("aria-expanded", "false");
+     10|     const directory = document.getElementById(toggle.getAttribute("ari…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  12:51:39
+   Duration  7.25s (transform 31ms, setup 175ms, collect 41ms, tests 64ms, environment 6.51s, prepare 53ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/research-ui-consistency.test.tsx

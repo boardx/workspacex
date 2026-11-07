@@ -137,16 +137,6 @@ const PROVIDER_UNAVAILABLE = "ASR_PROVIDER_UNAVAILABLE";
 const AUDIO_FORMAT_REJECTED = "AUDIO_FORMAT_REJECTED";
 const AUDIO_BACKPRESSURE = "AUDIO_BACKPRESSURE";
 
-/**
- * issue #2637 ③ —— 上游对「commit 一个已经空了/太短的缓冲区」的标准应答，只在
- * `finish()` 收尾阶段出现才判定为良性（见调用处头注）。用词覆盖已实测见过的与
- * OpenAI-兼容协议惯用的两种措辞（"buffer too small" / "0.00ms of audio"），
- * 刻意不匹配更宽泛的 "empty"——那个词也会出现在真正的故障消息里，不能靠它兜底。
- */
-function isBenignEmptyCommitError(message: string): boolean {
-  return /buffer\s*(is\s*)?too\s*small|0(\.0+)?\s*ms\s*of\s*audio/i.test(message);
-}
-
 type ParsedTranscriptEvent =
   | { readonly kind: "partial"; readonly text: string; readonly confidence: null }
   | { readonly kind: "final"; readonly text: string; readonly confidence: number | null; readonly itemId?: string; readonly eventId?: string };
@@ -207,8 +197,6 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
 
   async open(handlers: AsrSessionHandlers, audio: AsrAudioFormat, options?: {readonly turnDetection?: "manual" | "recording"; readonly signal?: AbortSignal;readonly accountingContext?:AsrAccountingContext}): Promise<AsrSession> {
     const manual = options?.turnDetection === "manual";
-    const recording = options?.turnDetection === "recording";
-    const explicitSessionFinish = manual || recording;
     const config = this.config;
     if (config === null) {
       throw new AsrNotConfiguredError(
@@ -297,20 +285,7 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
     }));}catch(error){socket.terminate();await account('failed');throw error;}
 
     let closed = false;
-    let finalSeen = false;
     let sessionFinished = false;
-    // 2026-09-04 review fix（PR #2644 reviewer diagnostic）—— `finalSeen` 在每次
-    // `finish()` 开头被重置为 false（见下），只用来判断"这次收尾等待期间有没有等到
-    // final"。但良性空缓冲判定需要回答一个不同的问题：「这条会话里究竟有没有真的
-    // 转写出过东西」——如果从未收到过任何 final（用户录的音短到连 server VAD 自己
-    // 的静音自动 commit 都没触发过），那么 `finish()` 显式 commit 打在空缓冲区上
-    // 报的错就不是"上游已经抢先 commit 过了"，而是"这段录音真的什么都没转出来"，
-    // 不能当成成功收尾静默吞掉——否则界面显示"完成"却没有任何转录文字，用户会以为
-    // 是自己没说话，实际是一个被吞掉的真实失败。`finalSeenEver` 一旦置真就不再重置，
-    // 专门回答这个问题，与 `finalSeen`（每轮 finish 各自的等待状态）分开。
-    let finalSeenEver = false;
-    /** 真正发往上游的 PCM16 单声道字节数（判定"空缓冲"是良性还是采音链路故障，见 error 分支）。 */
-    let audioBytesPushed = 0;
     let finishResolve: (() => void) | null = null;
     // #802 —— the actual root cause the wrong protocol fields could hide behind for 7+
     // days undetected: `finish()`/`abort()` are the only CALLER-INITIATED ways this
@@ -338,7 +313,7 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
     };
 
     socket.on("message", (raw: Buffer | ArrayBuffer | Buffer[]) => {
-      if (explicitSessionFinish && sessionFinished) return;
+      if (sessionFinished) return;
       let event: { type?: unknown; error?: unknown };
       try {
         event = JSON.parse(String(raw)) as typeof event;
@@ -347,7 +322,7 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
         return;
       }
       const type = typeof event.type === "string" ? event.type : "";
-      if (explicitSessionFinish && type === "session.finished") {
+      if (type === "session.finished") {
         if (!finishRequested) { reportError(PROVIDER_UNAVAILABLE, "upstream finished before client completion"); return; }
         sessionFinished = true;
         if (finishResolve) { const r = finishResolve; finishResolve = null; r(); }
@@ -359,51 +334,16 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
         return;
       }
       if (transcript?.kind === "final") {
-        finalSeen = true;
-        finalSeenEver = true;
         handlers.onFinal({
           text: transcript.text,
           confidence: transcript.confidence,
           ...(transcript.itemId ? {itemId: transcript.itemId} : {}),
           ...(transcript.eventId ? {eventId: transcript.eventId} : {}),
         });
-        if (!explicitSessionFinish && finishResolve) { const r = finishResolve; finishResolve = null; r(); }
         return;
       }
       if (type === "error") {
         const message = JSON.stringify(event.error ?? {});
-        // issue #2637 ③ —— 人类实测反馈：点「说完了」之后经常报"语音服务不可用"。根因：
-        // `turn_detection: server_vad` 开着，短句说完、静音一到，上游**自己**就已经把
-        // 当前缓冲 commit 并转写完了；用户点「说完了」触发的 `finish()` 又显式发了一次
-        // `input_audio_buffer.commit`，这次打在一个已经空了的缓冲区上。上游对空缓冲
-        // commit 的标准应答是一条 `error` 帧（"buffer too small. Expected at least
-        // 100ms of audio, but buffer only has 0.00ms of audio."之类），语义是「没有更多
-        // 新音频可提交」，不是「服务坏了」——但这里此前把它和任何其它 `error` 帧一样
-        // 一律映射成 `ASR_PROVIDER_UNAVAILABLE`，于是用户每次干脆利落地说完一句短话就
-        // 点停止，都会看到一条本不该出现的"语音服务不可用"，即便转写内容已经通过
-        // server VAD 自己的 `completed` 事件正常送达。只在**已经进入收尾**
-        // （`finishRequested`）且错误确实是"空缓冲"这一种良性情况时吞掉它、正常收尾；
-        // 收尾之外、或消息不匹配这个模式的 `error` 帧一律照旧如实上报，不放宽其它故障。
-        // 2026-09-04 review fix —— 额外要求 `finalSeenEver`：只有这条会话此前**真的**
-        // 收到过至少一段 final（证明 server VAD 已经自动 commit 转写过一轮），这次
-        // `finish()` 的显式 commit 打空才是"没有更多新音频可提交"的良性情况。如果
-        // 整条会话从未见过 final，同样的错误消息意味着"这段录音本身就短到没转出
-        // 任何东西"——那是一次真实失败，不能吞。
-        // 2026-09-30 人类实测（截图）—— 说完话（或静音自动暂停）后输入框是空的，却挂着「语音识别
-        // 暂时不可用」。根因：上游 VAD 把整段音频当成噪音/静音 commit 掉了、没产出任何 `completed`
-        // 事件，`finalSeenEver` 为假，于是 `finish()` 的显式 commit 打空缓冲的良性应答被当成故障。
-        // 「有没有真的把音频送到上游」才是区分：送过 ≥100ms 音频，说明缓冲是被上游自己消费掉的，
-        // 「没识别出文字」是正常结果（界面回到 idle）；一帧音频都没送过才是采音链路真坏了，仍报错。
-        const audioReachedUpstream = audioBytesPushed >= (audio.sampleRate * 2) / 10;
-        if (!explicitSessionFinish && finishRequested && isBenignEmptyCommitError(message) && (finalSeenEver || audioReachedUpstream)) {
-          // 同样要把 `finalSeen` 置真：`finish()` 在这个 promise resolve 之后还有
-          // 第二道判断——`!finalSeen && !closed` 时会再报一次"上游没能及时给出最终
-          // 结果"。这里跳过的正是"没有更多可提交的音频"，不是"该来的 final 没等到"，
-          // 走到那道判断一样会把已经吞掉的错误从后门冒出来，所以必须一并置位。
-          finalSeen = true;
-          if (finishResolve) { const r = finishResolve; finishResolve = null; r(); }
-          return;
-        }
         const reason = /format|sample.?rate|encoding/i.test(message)
           ? AUDIO_FORMAT_REJECTED
           : PROVIDER_UNAVAILABLE;
@@ -414,10 +354,10 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
     socket.on("close", (code: number, reasonBuf: Buffer) => {
       closed = true;
       if (finishResolve) { const r = finishResolve; finishResolve = null; r(); }
-      if ((!finishRequested || (explicitSessionFinish && !sessionFinished)) && !errorReported) {
+      if ((!finishRequested || !sessionFinished) && !errorReported) {
         reportError(PROVIDER_UNAVAILABLE, `upstream closed unexpectedly (code=${code}): ${reasonBuf.toString() || "no reason given"}`);
       }
-      void account(!wasCancelled&&!errorReported&&finishRequested&&(explicitSessionFinish?sessionFinished:finalSeen||finalSeenEver)?'succeeded':'failed');
+      void account(!wasCancelled&&!errorReported&&finishRequested&&sessionFinished?'succeeded':'failed');
       handlers.onClosed();
     });
     socket.on("error", (e: Error) => {
@@ -428,7 +368,7 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
     return {
       pushAudio(frame) {
         if (finishRequested || closed || socket.readyState !== WebSocket.OPEN) return;
-        if(admitted&&(frame.byteLength%2!==0||queuedPcmDurationMs(queuedPcmBytes+frame.byteLength,audio)!>admitted.maximumDurationMs)){
+        if(receipt?.maximumDurationMs!==undefined&&(frame.byteLength%2!==0||queuedPcmDurationMs(queuedPcmBytes+frame.byteLength,audio)!>receipt.maximumDurationMs)){
           closed=true;socket.terminate();void account('failed');
           reportError(PROVIDER_UNAVAILABLE,"Audio session reached its admitted duration limit");return;
         }
@@ -445,7 +385,7 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
         }
         observeFlow(socket.bufferedAmount);
         socket.send(payload);
-        audioBytesPushed += frame.byteLength;queuedPcmBytes+=frame.byteLength;
+        queuedPcmBytes+=frame.byteLength;
       },
       commit() {
         if (closed || socket.readyState !== WebSocket.OPEN) return;
@@ -454,13 +394,12 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
       async finish() {
         finishRequested = true;
         if (closed || socket.readyState !== WebSocket.OPEN) {await account('failed');return;}
-        finalSeen = false;
-        if (explicitSessionFinish) sessionFinished = false;
+        sessionFinished = false;
         // Qwen-ASR disables explicit commit under server VAD. session.finish flushes
-        // the recording tail (including silence) and acknowledges it with session.finished.
+        // every VAD tail (including draft input and silence), then sends session.finished.
         // https://www.alibabacloud.com/help/en/model-studio/qwen-asr-realtime-client-events
-        if (!recording) socket.send(JSON.stringify({ type: "input_audio_buffer.commit", ...(manual ? {event_id: randomUUID()} : {}) }));
-        if (explicitSessionFinish) socket.send(JSON.stringify({ type: "session.finish", event_id: randomUUID() }));
+        if (manual) socket.send(JSON.stringify({ type: "input_audio_buffer.commit", ...(manual ? {event_id: randomUUID()} : {}) }));
+        socket.send(JSON.stringify({ type: "session.finish", event_id: randomUUID() }));
         // 等最后一段 final 回来再关。直接关会丢掉用户说的最后一句话，
         // 而那种丢失在界面上长得像「录音没生效」。
         await new Promise<void>((resolve) => {
@@ -469,14 +408,12 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
             if (finishResolve) { finishResolve = null; resolve(); }
           }, FINISH_GRACE_MS);
         });
-        // A drained server-VAD buffer may produce no new event on stop. Keep the
-        // grace period for a possible tail, but retain already delivered session finals.
-        // Recording and manual modes require their explicit session.finished acknowledgement.
-        if (!(explicitSessionFinish ? sessionFinished : finalSeen || finalSeenEver) && !closed) {
+        // Prior text is not a completion receipt: a tail may still be pending.
+        if (!sessionFinished && !closed) {
           reportError(PROVIDER_UNAVAILABLE, "upstream did not settle the final segment in time");
         }
         socket.close();
-        await account(!wasCancelled&&!errorReported&&(explicitSessionFinish?sessionFinished:finalSeen||finalSeenEver)?'succeeded':'failed');
+        await account(!wasCancelled&&!errorReported&&sessionFinished?'succeeded':'failed');
       },
       abort() {
         finishRequested = true;

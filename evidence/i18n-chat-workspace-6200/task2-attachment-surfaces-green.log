@@ -1,0 +1,14 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/ui/chat-composer-attachments.test.tsx (13 tests) 499ms
+ ✓ tests/ui/chat-composer-attachment-strip.test.tsx (6 tests) 295ms
+ ✓ tests/ui/chat-pending-attachment-cancellation.test.tsx (6 tests) 350ms
+ ✓ tests/ui/i18n-chat-attachment-surfaces.test.tsx (3 tests) 280ms
+ ✓ tests/ui/attachment-credit-guidance.test.tsx (2 tests) 125ms
+
+ Test Files  5 passed (5)
+      Tests  30 passed (30)
+   Start at  04:22:55
+   Duration  10.50s (transform 1.68s, setup 467ms, collect 4.98s, tests 1.55s, environment 2.50s, prepare 219ms)

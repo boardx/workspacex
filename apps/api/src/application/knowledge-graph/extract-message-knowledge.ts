@@ -1,3 +1,4 @@
+import {withCreditSubject} from "../billing/credit-execution-context";
 /**
  * Phase 18 F06 —— 抽取一轮：认领队列里的消息 → 模型抽候选 → 实体解析 → 交执行器（F03）。
  *
@@ -73,6 +74,10 @@ export async function extractJob(deps: ExtractionDeps, job: KgExtractionJob): Pr
     });
     return "empty";
   }
+  const work=()=>extractLoadedJob(deps,job,loaded);
+  return loaded.message.billingSubject?withCreditSubject(loaded.message.billingSubject,work):work();
+}
+async function extractLoadedJob(deps:ExtractionDeps,job:KgExtractionJob,loaded:NonNullable<Awaited<ReturnType<KgExtractionSourcePort["loadMessage"]>>>):Promise<"written"|"empty"|"skipped"|"gated"> {
   // round 7（#4284 收口）：项目会话里，agent 的回答若是在用了**提问者个人记忆**的那一轮写出来的，正文可能复述
   // 个人记忆；抽出来就成了全体成员可见、可召回的 chat_session 结论。这种回答不抽（任务照常完成、不重试），
   // 记一条日志说明原因。判定 fail closed：这一轮召回里只要有一条不能证明属于本会话的条目就跳过。个人会话不受影响。

@@ -1,0 +1,15 @@
+{
+  "initialHead": "c1c1f1fb0f420f2cf2ec136990c4c18de4e3e2b0",
+  "checkpoint": "fde431bff9f7a35f373802f24c471ce1b526a56e",
+  "acceptedDevelop": "ddf28f7e91e5c65bb7f63d1a9bf2c3b82f2f11df",
+  "browserExecuted": false,
+  "inertTree": "7f9154d05e8fe54e0518a00620e163ffb4cadeba",
+  "protectedPaths": 92,
+  "inertProtectedDifferences": [],
+  "mergedHead": "8357c6636f4ca48d3f62dfe6709b35c781e8bf46",
+  "actualTree": "7f9154d05e8fe54e0518a00620e163ffb4cadeba",
+  "actualEqualsInert": true,
+  "allProtectedBlobModesEqual": true,
+  "checkpointAndAcceptedAncestors": true,
+  "workingTreeCleanBeforeProof": true
+}

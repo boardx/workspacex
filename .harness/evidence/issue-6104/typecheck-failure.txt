@@ -1,0 +1,4 @@
+Normal hook: 24/25 successful; API typecheck exited 2.
+credit-grant-precision-pg.test.ts(24,21): TS2556: A spread argument must either have a tuple type or be passed to a rest parameter.
+resetOrgs supports the existing readonly string[] overload. The fixture now passes users directly; runtime scope and business assertions remain unchanged.
+Targeted semantic diagnostics loaded the real API tsconfig and actual test plus imported signatures; this is not a claim that the full hook has passed.

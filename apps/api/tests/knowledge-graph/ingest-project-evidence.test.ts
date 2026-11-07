@@ -6,6 +6,7 @@
  * 关掉来源后不再入图、已入图的保留 / 模型失败与执行器拒绝进 failures（sourceKind 用六类枚举）/
  * 只写 project 作用域（同一批次换成 org 作用域会被执行器校验拒掉）/ 全部关掉连取都不取。
  */
+import {currentCreditSubject} from "../../src/application/billing/credit-execution-context";
 import { describe, expect, it } from "vitest";
 import {
   allowedEvidenceKinds, ingestProjectEvidence, runProjectIngestionTick, toExtractionInput, type ProjectIngestionDeps,
@@ -257,4 +258,13 @@ describe("B3-T2 ingestProjectEvidence", () => {
     expect(tick).toMatchObject({ projects: 2, written: 1, failed: 1 });
     expect(h.extracted).toEqual(["ev-1"]);
   });
+});
+
+it("background ingestion bills the persisted responsible member and clears async context afterwards", async () => {
+  const subject={orgId:ORG,userId:"responsible-project-owner"};
+  let seen: unknown;
+  const h=harness({items:[evidence("billing-evidence","chat_message","先做德国")],extract:async()=>{seen=currentCreditSubject();return NON_EMPTY;}});
+  h.deps.ingestion.pendingProjects=async()=>[{orgId:ORG,projectId:PROJECT,billingSubject:subject}];
+  const result=await runProjectIngestionTick(h.deps);
+  expect(result.written).toBe(1);expect(seen).toEqual(subject);expect(currentCreditSubject()).toBeUndefined();
 });

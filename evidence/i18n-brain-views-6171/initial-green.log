@@ -1,0 +1,725 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ❯ tests/brain/brain-navigation-i18n.test.tsx (7 tests | 2 failed) 1218ms
+   × localizes live shell/tabs without re-reading or resetting the selected tab 137ms
+     → Unable to find an element by: [data-testid="brain-sessions"]
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<select[39m
+      [33maria-label[39m=[32m"Language"[39m
+      [33mclass[39m=[32m"max-w-full rounded-control border border-border bg-card px-2 py-1 text-12 text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"language-switcher"[39m
+    [36m>[39m
+      [36m<option[39m
+        [33mlang[39m=[32m"zh-CN"[39m
+        [33mvalue[39m=[32m"zh-CN"[39m
+      [36m>[39m
+        [0m简体中文[0m
+      [36m</option>[39m
+      [36m<option[39m
+        [33mlang[39m=[32m"en"[39m
+        [33mvalue[39m=[32m"en"[39m
+      [36m>[39m
+        [0mEnglish[0m
+      [36m</option>[39m
+    [36m</select>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mx-auto flex w-full max-w-4xl flex-col gap-4 p-5"[39m
+      [33mdata-testid[39m=[32m"brain-screen"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"flex flex-wrap items-end justify-between gap-2"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col gap-1"[39m
+        [36m>[39m
+          [36m<h1[39m
+            [33mclass[39m=[32m"text-20 font-semibold tracking-tight"[39m
+          [36m>[39m
+            [0mBrain[0m
+          [36m</h1>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+          [36m>[39m
+            [0mEverything you asked me to remember in conversations is here. Only you can see your long-term memory.[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+          [33mdata-testid[39m=[32m"brain-refresh"[39m
+        [36m>[39m
+          [0mRefresh[0m
+        [36m</button>[39m
+      [36m</header>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-col gap-4"[39m
+        [33mdata-orientation[39m=[32m"horizontal"[39m
+        [33mdir[39m=[32m"ltr"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33maria-orientation[39m=[32m"horizontal"[39m
+          [33mclass[39m=[32m"inline-flex items-center gap-0.5 border-b border-border"[39m
+          [33mdata-orientation[39m=[32m"horizontal"[39m
+          [33mdata-testid[39m=[32m"brain-tabs"[39m
+          [33mrole[39m=[32m"tablist"[39m
+          [33mstyle[39m=[32m"outline: none;"[39m
+          [33mtabindex[39m=[32m"0"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33maria-controls[39m=[32m"radix-:r0:-content-personal"[39m
+            [33maria-selected[39m=[32m"true"[39m
+            [33mclass[39m=[32m"-mb-px inline-flex items-center gap-1 border-b-2 border-transparent px-2.5 py-1.5 text-12 font-medium text-muted-foreground transition-all duration-200 hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=active]:border-primary data-[state=active]:text-background-foreground"[39m
+            [33mdata-orientation[39m=[32m"horizontal"[39m
+            [33mdata-radix-collection-item[39m=[32m""[39m
+            [33mdata-state[39m=[32m"active"[39m
+            [33mdata-testid[39m=[32m"brain-tab-personal"[39m
+            [33mid[39m=[32m"radix-:r0:-trigger-personal"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtabindex[39m=[32m"-1"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mMy long-term memory[0m
+            [36m<span[39m
+              [33mclass[39m=[32m"tabular-nums text-10 text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"brain-tab-personal-count"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</button>[39m
+          [36m<button[39m
+            [33maria-controls[39m=[32m"radix-:r0:-content-sessions"[39m
+            [33maria-selected[39m=[32m"false"[39m
+            [33mclass[39m=[32m"-mb-px inline-flex items-center gap-1 border-b-2 border-transparent px-2.5 py-1.5 text-12 font-medium text-muted-foreground transition-all duration-200 hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=active]:border-primary data-[state=active]:text-background-foreground"[39m
+            [33mdata-orientation[39m=[32m"horizontal"[39m
+            [33mdata-radix-collection-item[39m=[32m""[39m
+            [33mdata-state[39m=[32m"inactive"[39m
+            [33mdata-testid[39m=[32m"brain-tab-sessions"[39m
+            [33mid[39m=[32m"radix-:r0:-trigger-sessions"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtabindex[39m=[32m"-1"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mConversation memories[0m
+            [36m<span[39m
+              [33mclass[39m=[32m"tabular-nums text-10 text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"brain-tab-sessions-count"[39m
+            [36m>[39m
+              [0m1[0m
+            [36m</span>[39m
+          [36m</button>[39m
+          [36m<button[39m
+            [33maria-controls[39m=[32m"radix-:r0:-content-shared"[39m
+            [33maria-selected[39m=[32m"false"[39m
+            [33mclass[39m=[32m"-mb-px inline-flex items-center gap-1 border-b-2 border-transparent px-2.5 py-1.5 text-12 font-medium text-muted-foreground transition-all duration-200 hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=active]:border-primary data-[state=active]:text-background-foreground"[39m
+            [33mdata-orientation[39m=[32m"horizontal"[39m
+            [33mdata-radix-collection-item[39m=[32m""[39m
+            [33mdata-state[39m=[32m"inactive"[39m
+            [33mdata-testid[39m=[32m"brain-tab-shared"[39m
+            [33mid[39m=[32m"radix-:r0:-trigger-shared"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtabindex[39m=[32m"-1"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mProjects and organization[0m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-labelledby[39m=[32m"radix-:r0:-trigger-personal"[39m
+          [33mclass[39m=[32m"mt-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 flex flex-col gap-4"[39m
+          [33mdata-orientation[39m=[32m"horizontal"[39m
+          [33mdata-state[39m=[32m"active"[39m
+          [33mid[39m=[32m"radix-:r0:-content-personal"[39m
+          [33mrole[39m=[32m"tabpanel"[39m
+          [33mstyle[39m=[32m"animation-duration: 0s;"[39m
+          [33mtabindex[39m=[32m"0"[39m
+        [36m/>[39m
+        [36m<div[39m
+          [33maria-labelledby[39m=[32m"radix-:r0:-trigger-sessions"[39m
+          [33mclass[39m=[32m"mt-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"[39m
+          [33mdata-orientation[39m=[32m"horizontal"[39m
+          [33mdata-state[39m=[32m"inactive"[39m
+          [33mhidden[39m=[32m""[39m
+          [33mid[39m=[32m"radix-:r0:-content-sessions"[39m
+          [33mrole[39m=[32m"tabpanel"[39m
+          [33mtabindex[39m=[32m"0"[39m
+        [36m/>[39m
+        [36m<div[39m
+          [33maria-labelledby[39m=[32m"radix-:r0:-trigger-shared"[39m
+          [33mclass[39m=[32m"mt-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"[39m
+          [33mdata-orientation[39m=[32m"horizontal"[39m
+          [33mdata-state[39m=[32m"inactive"[39m
+          [33mhidden[39m=[32m""[39m
+          [33mid[39m=[32m"radix-:r0:-content-shared"[39m
+          [33mrole[39m=[32m"tabpanel"[39m
+          [33mtabindex[39m=[32m"0"[39m
+        [36m/>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × retranslates an existing organization denial without replaying its read 1023ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  permission
+Received:
+  Could not read organization memory. Use the button above to retry.
+
+Ignored nodes: comments, script, style
+[36m<html[39m
+  [33mlang[39m=[32m"en"[39m
+[36m>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<select[39m
+        [33maria-label[39m=[32m"Language"[39m
+        [33mclass[39m=[32m"max-w-full rounded-control border border-border bg-card px-2 py-1 text-12 text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+        [33mdata-testid[39m=[32m"language-switcher"[39m
+      [36m>[39m
+        [36m<option[39m
+          [33mlang[39m=[32m"zh-CN"[39m
+          [33mvalue[39m=[32m"zh-CN"[39m
+        [36m>[39m
+          [0m简体中文[0m
+        [36m</option>[39m
+        [36m<option[39m
+          [33mlang[39m=[32m"en"[39m
+          [33mvalue[39m=[32m"en"[39m
+        [36m>[39m
+          [0mEnglish[0m
+        [36m</option>[39m
+      [36m</select>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"grid grid-cols-1 gap-3 sm:grid-cols-2"[39m
+        [33mdata-testid[39m=[32m"brain-shared"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col gap-2 rounded-lg border border-border bg-card p-4"[39m
+          [33mdata-testid[39m=[32m"brain-layer-project"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex items-center gap-2"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-users h-4 w-4 text-muted-foreground"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"[39m
+              [36m/>[39m
+              [36m<circle[39m
+                [33mcx[39m=[32m"9"[39m
+                [33mcy[39m=[32m"7"[39m
+                [33mr[39m=[32m"4"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M22 21v-2a4 4 0 0 0-3-3.87"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M16 3.13a4 4 0 0 1 0 7.75"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-13 font-medium"[39m
+            [36m>[39m
+              [0mProject memory[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 border border-border text-muted-foreground ml-auto"[39m
+              [33mdata-testid[39m=[32m"brain-layer-project-status"[39m
+            [36m>[39m
+              [0mAvailable[0m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+          [36m>[39m
+            [0mDecisions and facts confirmed together in a project, available to its members.[0m
+          [36m</p>[39m
+          [36m<a[39m
+            [33mclass[39m=[32m"text-12 text-primary underline"[39m
+            [33mhref[39m=[32m"/projects"[39m
+          [36m>[39m
+            [0mView project memory[0m
+          [36m</a>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+            [33mdata-testid[39m=[32m"brain-layer-project-hint"[39m
+          [36m>[39m
+            [0mChoose “Save to project brain” in a project conversation’s knowledge panel. Project conversations can then recall that memory.[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col gap-2 rounded-lg border border-border bg-card p-4"[39m
+          [33mdata-testid[39m=[32m"brain-layer-org"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex items-center gap-2"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-building2 h-4 w-4 text-muted-foreground"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M10 6h4"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M10 10h4"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M10 14h4"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M10 18h4"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-13 font-medium"[39m
+            [36m>[39m
+              [0mOrganization memory[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 border border-border text-muted-foreground ml-auto"[39m
+              [33mdata-testid[39m=[32m"brain-layer-org-status"[39m
+            [36m>[39m
+              [0mAvailable[0m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+          [36m>[39m
+            [0mShared organizational experience and rules, with validity periods, visible to all members.[0m
+          [36m</p>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+          [36m>[39m
+            [0mView organization memory[0m
+          [36m</button>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-12"[39m
+            [33mrole[39m=[32m"alert"[39m
+          [36m>[39m
+            [0mCould not read organization memory. Use the button above to retry.[0m
+          [36m</p>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+            [33mdata-testid[39m=[32m"brain-layer-org-hint"[39m
+          [36m>[39m
+            [0mAn organization lead or administrator can choose “Save to organization memory” in the project brain to share an item with every organization member.[0m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</body>[39m
+[36m</html>[39m
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/brain/brain-navigation-i18n.test.tsx > localizes live shell/tabs without re-reading or resetting the selected tab
+TestingLibraryElementError: Unable to find an element by: [data-testid="brain-sessions"]
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<select[39m
+      [33maria-label[39m=[32m"Language"[39m
+      [33mclass[39m=[32m"max-w-full rounded-control border border-border bg-card px-2 py-1 text-12 text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"language-switcher"[39m
+    [36m>[39m
+      [36m<option[39m
+        [33mlang[39m=[32m"zh-CN"[39m
+        [33mvalue[39m=[32m"zh-CN"[39m
+      [36m>[39m
+        [0m简体中文[0m
+      [36m</option>[39m
+      [36m<option[39m
+        [33mlang[39m=[32m"en"[39m
+        [33mvalue[39m=[32m"en"[39m
+      [36m>[39m
+        [0mEnglish[0m
+      [36m</option>[39m
+    [36m</select>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mx-auto flex w-full max-w-4xl flex-col gap-4 p-5"[39m
+      [33mdata-testid[39m=[32m"brain-screen"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"flex flex-wrap items-end justify-between gap-2"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col gap-1"[39m
+        [36m>[39m
+          [36m<h1[39m
+            [33mclass[39m=[32m"text-20 font-semibold tracking-tight"[39m
+          [36m>[39m
+            [0mBrain[0m
+          [36m</h1>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+          [36m>[39m
+            [0mEverything you asked me to remember in conversations is here. Only you can see your long-term memory.[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+          [33mdata-testid[39m=[32m"brain-refresh"[39m
+        [36m>[39m
+          [0mRefresh[0m
+        [36m</button>[39m
+      [36m</header>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-col gap-4"[39m
+        [33mdata-orientation[39m=[32m"horizontal"[39m
+        [33mdir[39m=[32m"ltr"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33maria-orientation[39m=[32m"horizontal"[39m
+          [33mclass[39m=[32m"inline-flex items-center gap-0.5 border-b border-border"[39m
+          [33mdata-orientation[39m=[32m"horizontal"[39m
+          [33mdata-testid[39m=[32m"brain-tabs"[39m
+          [33mrole[39m=[32m"tablist"[39m
+          [33mstyle[39m=[32m"outline: none;"[39m
+          [33mtabindex[39m=[32m"0"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33maria-controls[39m=[32m"radix-:r0:-content-personal"[39m
+            [33maria-selected[39m=[32m"true"[39m
+            [33mclass[39m=[32m"-mb-px inline-flex items-center gap-1 border-b-2 border-transparent px-2.5 py-1.5 text-12 font-medium text-muted-foreground transition-all duration-200 hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=active]:border-primary data-[state=active]:text-background-foreground"[39m
+            [33mdata-orientation[39m=[32m"horizontal"[39m
+            [33mdata-radix-collection-item[39m=[32m""[39m
+            [33mdata-state[39m=[32m"active"[39m
+            [33mdata-testid[39m=[32m"brain-tab-personal"[39m
+            [33mid[39m=[32m"radix-:r0:-trigger-personal"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtabindex[39m=[32m"-1"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mMy long-term memory[0m
+            [36m<span[39m
+              [33mclass[39m=[32m"tabular-nums text-10 text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"brain-tab-personal-count"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</button>[39m
+          [36m<button[39m
+            [33maria-controls[39m=[32m"radix-:r0:-content-sessions"[39m
+            [33maria-selected[39m=[32m"false"[39m
+            [33mclass[39m=[32m"-mb-px inline-flex items-center gap-1 border-b-2 border-transparent px-2.5 py-1.5 text-12 font-medium text-muted-foreground transition-all duration-200 hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=active]:border-primary data-[state=active]:text-background-foreground"[39m
+            [33mdata-orientation[39m=[32m"horizontal"[39m
+            [33mdata-radix-collection-item[39m=[32m""[39m
+            [33mdata-state[39m=[32m"inactive"[39m
+            [33mdata-testid[39m=[32m"brain-tab-sessions"[39m
+            [33mid[39m=[32m"radix-:r0:-trigger-sessions"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtabindex[39m=[32m"-1"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mConversation memories[0m
+            [36m<span[39m
+              [33mclass[39m=[32m"tabular-nums text-10 text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"brain-tab-sessions-count"[39m
+            [36m>[39m
+              [0m1[0m
+            [36m</span>[39m
+          [36m</button>[39m
+          [36m<button[39m
+            [33maria-controls[39m=[32m"radix-:r0:-content-shared"[39m
+            [33maria-selected[39m=[32m"false"[39m
+            [33mclass[39m=[32m"-mb-px inline-flex items-center gap-1 border-b-2 border-transparent px-2.5 py-1.5 text-12 font-medium text-muted-foreground transition-all duration-200 hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=active]:border-primary data-[state=active]:text-background-foreground"[39m
+            [33mdata-orientation[39m=[32m"horizontal"[39m
+            [33mdata-radix-collection-item[39m=[32m""[39m
+            [33mdata-state[39m=[32m"inactive"[39m
+            [33mdata-testid[39m=[32m"brain-tab-shared"[39m
+            [33mid[39m=[32m"radix-:r0:-trigger-shared"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtabindex[39m=[32m"-1"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mProjects and organization[0m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-labelledby[39m=[32m"radix-:r0:-trigger-personal"[39m
+          [33mclass[39m=[32m"mt-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 flex flex-col gap-4"[39m
+          [33mdata-orientation[39m=[32m"horizontal"[39m
+          [33mdata-state[39m=[32m"active"[39m
+          [33mid[39m=[32m"radix-:r0:-content-personal"[39m
+          [33mrole[39m=[32m"tabpanel"[39m
+          [33mstyle[39m=[32m"animation-duration: 0s;"[39m
+          [33mtabindex[39m=[32m"0"[39m
+        [36m/>[39m
+        [36m<div[39m
+          [33maria-labelledby[39m=[32m"radix-:r0:-trigger-sessions"[39m
+          [33mclass[39m=[32m"mt-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"[39m
+          [33mdata-orientation[39m=[32m"horizontal"[39m
+          [33mdata-state[39m=[32m"inactive"[39m
+          [33mhidden[39m=[32m""[39m
+          [33mid[39m=[32m"radix-:r0:-content-sessions"[39m
+          [33mrole[39m=[32m"tabpanel"[39m
+          [33mtabindex[39m=[32m"0"[39m
+        [36m/>[39m
+        [36m<div[39m
+          [33maria-labelledby[39m=[32m"radix-:r0:-trigger-shared"[39m
+          [33mclass[39m=[32m"mt-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"[39m
+          [33mdata-orientation[39m=[32m"horizontal"[39m
+          [33mdata-state[39m=[32m"inactive"[39m
+          [33mhidden[39m=[32m""[39m
+          [33mid[39m=[32m"radix-:r0:-content-shared"[39m
+          [33mrole[39m=[32m"tabpanel"[39m
+          [33mtabindex[39m=[32m"0"[39m
+        [36m/>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/brain/brain-navigation-i18n.test.tsx:28:16
+     26|  expect(screen.getByRole("heading", { name: "Brain" })).toBeTruthy();
+     27|  fireEvent.click(screen.getByTestId("brain-tab-sessions"));
+     28|  expect(screen.getByTestId("brain-sessions")).toContainHTML("原文 {tit…
+       |                ^
+     29|  locale("zh-CN"); expect(screen.getByRole("heading", { name: "大脑" })…
+     30|  expect(screen.getByTestId("brain-tab-sessions")).toHaveAttribute("dat…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/brain/brain-navigation-i18n.test.tsx > retranslates an existing organization denial without replaying its read
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  permission
+Received:
+  Could not read organization memory. Use the button above to retry.
+
+Ignored nodes: comments, script, style
+[36m<html[39m
+  [33mlang[39m=[32m"en"[39m
+[36m>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<select[39m
+        [33maria-label[39m=[32m"Language"[39m
+        [33mclass[39m=[32m"max-w-full rounded-control border border-border bg-card px-2 py-1 text-12 text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+        [33mdata-testid[39m=[32m"language-switcher"[39m
+      [36m>[39m
+        [36m<option[39m
+          [33mlang[39m=[32m"zh-CN"[39m
+          [33mvalue[39m=[32m"zh-CN"[39m
+        [36m>[39m
+          [0m简体中文[0m
+        [36m</option>[39m
+        [36m<option[39m
+          [33mlang[39m=[32m"en"[39m
+          [33mvalue[39m=[32m"en"[39m
+        [36m>[39m
+          [0mEnglish[0m
+        [36m</option>[39m
+      [36m</select>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"grid grid-cols-1 gap-3 sm:grid-cols-2"[39m
+        [33mdata-testid[39m=[32m"brain-shared"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col gap-2 rounded-lg border border-border bg-card p-4"[39m
+          [33mdata-testid[39m=[32m"brain-layer-project"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex items-center gap-2"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-users h-4 w-4 text-muted-foreground"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"[39m
+              [36m/>[39m
+              [36m<circle[39m
+                [33mcx[39m=[32m"9"[39m
+                [33mcy[39m=[32m"7"[39m
+                [33mr[39m=[32m"4"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M22 21v-2a4 4 0 0 0-3-3.87"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M16 3.13a4 4 0 0 1 0 7.75"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-13 font-medium"[39m
+            [36m>[39m
+              [0mProject memory[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 border border-border text-muted-foreground ml-auto"[39m
+              [33mdata-testid[39m=[32m"brain-layer-project-status"[39m
+            [36m>[39m
+              [0mAvailable[0m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+          [36m>[39m
+            [0mDecisions and facts confirmed together in a project, available to its members.[0m
+          [36m</p>[39m
+          [36m<a[39m
+            [33mclass[39m=[32m"text-12 text-primary underline"[39m
+            [33mhref[39m=[32m"/projects"[39m
+          [36m>[39m
+            [0mView project memory[0m
+          [36m</a>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+            [33mdata-testid[39m=[32m"brain-layer-project-hint"[39m
+          [36m>[39m
+            [0mChoose “Save to project brain” in a project conversation’s knowledge panel. Project conversations can then recall that memory.[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col gap-2 rounded-lg border border-border bg-card p-4"[39m
+          [33mdata-testid[39m=[32m"brain-layer-org"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex items-center gap-2"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-building2 h-4 w-4 text-muted-foreground"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M10 6h4"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M10 10h4"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M10 14h4"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M10 18h4"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-13 font-medium"[39m
+            [36m>[39m
+              [0mOrganization memory[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 border border-border text-muted-foreground ml-auto"[39m
+              [33mdata-testid[39m=[32m"brain-layer-org-status"[39m
+            [36m>[39m
+              [0mAvailable[0m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+          [36m>[39m
+            [0mShared organizational experience and rules, with validity periods, visible to all members.[0m
+          [36m</p>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+          [36m>[39m
+            [0mView organization memory[0m
+          [36m</button>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-12"[39m
+            [33mrole[39m=[32m"alert"[39m
+          [36m>[39m
+            [0mCould not read organization memory. Use the button above to retry.[0m
+          [36m</p>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+            [33mdata-testid[39m=[32m"brain-layer-org-hint"[39m
+          [36m>[39m
+            [0mAn organization lead or administrator can choose “Save to organization memory” in the project brain to share an item with every organization member.[0m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</body>[39m
+[36m</html>[39m
+ ❯ tests/brain/brain-navigation-i18n.test.tsx:60:56
+     58|  show(<SharedLayers />); expect(screen.getByTestId("brain-layer-projec…
+     59|  fireEvent.click(screen.getByRole("button",{name:"View organization me…
+     60|  await waitFor(() => expect(screen.getByRole("alert")).toHaveTextConte…
+       |                                                        ^
+     61|  locale("zh-CN"); expect(screen.getByRole("alert")).toHaveTextContent(…
+     62|  expect(fetcher).toHaveBeenCalledTimes(1); expect(screen.getByRole("al…
+ ❯ runWithExpensiveErrorDiagnosticsDisabled ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 5 passed (7)
+   Start at  09:08:14
+   Duration  2.52s (transform 177ms, setup 105ms, collect 341ms, tests 1.22s, environment 508ms, prepare 42ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/brain/brain-navigation-i18n.test.tsx --maxWorkers=1 --minWorkers=1

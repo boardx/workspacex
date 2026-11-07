@@ -184,4 +184,58 @@ class CliHandoff(unittest.TestCase):
     d.main();self.assertEqual(called,[('recover','c'*64,'fixture')]);race[0]=True
     with self.assertRaisesRegex(ValueError,'OWNER_CHANGED'):d.main()
 
+CLI_FIXTURE = r"""
+import argparse,inspect,runpy,types
+from unittest.mock import patch
+import sys,os,tempfile
+from pathlib import Path
+source=Path(sys.argv[1]);mode=sys.argv[2];scenario=sys.argv[3]
+sys.path.insert(0,str(source.parents[1]/'tests'))
+import test_cn_release_recovery_driver as fixture
+with tempfile.TemporaryDirectory() as td:
+ root=Path(td);state=root/'state';state.mkdir(mode=0o700)
+ release='a'*64;fresh='b'*64;identity={'attemptId':'fixture'}
+ generated=root/'release-generated'/release;generated.mkdir(parents=True,mode=0o700)
+ recovery=generated/('recovery-driver-'+fresh)
+ if scenario!='ABSENT':recovery.mkdir(mode=0o700)
+ (state/'active-attempt.json').write_bytes(fixture.d.enc('fixture'));(state/'active-attempt.json').chmod(0o600)
+ ops=fixture.Ops(recovery);ops.writer=scenario=='COMPLETE'
+ engine=fixture.e;engine.STATE=state;engine.OWNER=0;engine.CGROUP_BASE=None
+ engine.directory=lambda p:None
+ if scenario in ('UNKNOWN','RECONCILED'):
+  authority={'releaseSha256':release,'recoveryApprovalSha256':fresh,'identity':identity}
+  engine.create(recovery/'00-runtime.intent.json',fixture.d.enc({'authority':authority,'stage':'runtime'}))
+  if scenario=='RECONCILED':
+   engine.create(recovery/'00-runtime.process.json',fixture.d.enc({'authority':authority,'stage':'runtime'}))
+   engine.execution_terminal=lambda p:True
+   (recovery/'runtime.called').write_text('fixture previously completed action')
+ original_fstat=os.fstat
+ def rootstat(fd):
+  x=original_fstat(fd);values={k:getattr(x,k) for k in dir(x) if k.startswith('st_')};values['st_uid']=0;return types.SimpleNamespace(**values)
+ def arguments(parser,*args,**kwargs):
+  g=inspect.currentframe().f_back.f_globals
+  g.update(VAR=root,load=lambda *a:(b'',{'identity':identity},b'',{}),module=lambda *a:engine,Operations=lambda *a:ops)
+  return types.SimpleNamespace(mode=mode,release=release,fresh=fresh)
+ with patch.object(argparse.ArgumentParser,'parse_args',arguments),patch.object(os,'geteuid',lambda:0),patch.object(os,'fstat',rootstat):
+  runpy.run_path(str(source),run_name='__main__')
+"""
+
+class RecoveryActualCli(unittest.TestCase):
+ def cli(self,mode,scenario):
+  import subprocess
+  result=subprocess.run([sys.executable,'-I','-B','-c',CLI_FIXTURE,str(ROOT/'scripts/cn-release-recovery-driver.py'),mode,scenario],capture_output=True,text=True,timeout=15)
+  self.assertEqual(result.stderr,'',result.stderr)
+  return result.returncode,json.loads(result.stdout)
+ def test_nonterminal_run_and_reconcile_are_not_success(self):
+  for mode,scenario,status in [('run','WAITING','WAITING_FOR_BASELINE_WRITER_APPROVAL'),('run','UNKNOWN','UNKNOWN_RECONCILE_REQUIRED'),('reconcile','NOT_STARTED','NOT_STARTED'),('reconcile','ABSENT','NOT_STARTED'),('reconcile','RECONCILED','RECONCILED')]:
+   with self.subTest(mode=mode,scenario=scenario):
+    code,result=self.cli(mode,scenario);self.assertEqual(result['status'],status);self.assertNotEqual(code,0)
+    self.assertNotIn('result',result)
+ def test_status_incomplete_is_success(self):
+  for scenario in ('ABSENT','NOT_STARTED','UNKNOWN'):
+   with self.subTest(scenario=scenario):
+    code,result=self.cli('status',scenario);self.assertEqual(code,0);self.assertNotIn('result',result)
+ def test_verified_recovery_is_success_with_actual_fixture_actions(self):
+  code,result=self.cli('run','COMPLETE');self.assertEqual(code,0);self.assertEqual(result['status'],'RECOVERY_VERIFIED');self.assertFalse(result['result']['dataRestored'])
+
 if __name__=='__main__':unittest.main()

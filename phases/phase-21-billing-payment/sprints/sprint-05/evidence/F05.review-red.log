@@ -1,0 +1,146 @@
+[stack-admission] load1=3.32 cores=10 perCore=0.33 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mval2kvq-cd259ef2-941c391974fa db=wsx_941c391974fadfabf4be compose=wsx-941c391974fadfabf4be pg=20593 redis=21593 api=24593 web=25593 sandbox=26593 model=27593 deep-agent=28593 asr=29593 vision=30593 loopback-sandbox=31593 mail=19593
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_941c391974fadfabf4be capacity=100 current=6 required=32
+{"level":"info","msg":"billing_payment_manual_recovery","traceId":"f05-6cbd951d-50c4-4c5f-b64b-be83c9c12f65","orderNo":"bg20261016062529mk3Q3Y","reason":"wallet_limit"}
+{"level":"info","msg":"billing_payment_manual_recovery","traceId":"f05-eae62a4f-e389-4cfd-b378-6621b0f4e622","orderNo":"bg20261016062529YwE5ZK","reason":"wallet_limit"}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-f117c9a4-6e6d-410e-b32d-3ee36709cd33","detail":{"providerEventId":"f05-f117c9a4-6e6d-410e-b32d-3ee36709cd33","code":"unknown"}}
+{"level":"info","msg":"billing_callback_pending","traceId":"91ea60e6-c90b-4ca4-97af-fc7584f4d852","stage":"credit","providerEventId":"f05-f117c9a4-6e6d-410e-b32d-3ee36709cd33","orderNo":"bg20261016062529lbnsEO"}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-793a77d7-de8f-4ae0-896a-ee658392d554","detail":{"providerEventId":"f05-793a77d7-de8f-4ae0-896a-ee658392d554","code":"unknown"}}
+{"level":"info","msg":"billing_callback_pending","traceId":"1fad73e3-6b7d-4d31-9bc4-68fafe6584cc","stage":"credit","providerEventId":"f05-793a77d7-de8f-4ae0-896a-ee658392d554","orderNo":"bg20261016062529NRjofe"}
+ ❯ tests/billing/wechat-notify-outcomes.test.ts (6 tests | 6 failed) 7763ms
+   × F05 terminal timestamps and durable paid-funds recovery > keeps acceptance timestamps null for PENDING until successful crediting 68ms
+     → expected { …(17) } to match object { status: 'PROCESSING', …(3) }
+(13 matching properties omitted from actual)
+   × F05 terminal timestamps and durable paid-funds recovery > keeps acceptance timestamps null for CLOSED until successful crediting 91ms
+     → expected { …(17) } to match object { Object (status, paidAt, ...) }
+(13 matching properties omitted from actual)
+   × F05 terminal timestamps and durable paid-funds recovery > durably records PENDING paid funds exceeding balance capacity without partial credit 76ms
+     → expected { …(17) } to match object { status: 'FAILED', …(4) }
+(12 matching properties omitted from actual)
+   × F05 terminal timestamps and durable paid-funds recovery > durably records PENDING paid funds exceeding purchased capacity without partial credit 72ms
+     → expected { …(17) } to match object { status: 'FAILED', …(4) }
+(12 matching properties omitted from actual)
+   × F05 terminal timestamps and durable paid-funds recovery > durably records CLOSED paid funds exceeding balance capacity without partial credit 72ms
+     → expected 503 to be 200 // Object.is equality
+   × F05 terminal timestamps and durable paid-funds recovery > durably records CLOSED paid funds exceeding purchased capacity without partial credit 80ms
+     → expected 503 to be 200 // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/wechat-notify-outcomes.test.ts > F05 terminal timestamps and durable paid-funds recovery > keeps acceptance timestamps null for PENDING until successful crediting
+AssertionError: expected { …(17) } to match object { status: 'PROCESSING', …(3) }
+(13 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  Object {
+    "closedAt": null,
+-   "notifyAt": null,
++   "notifyAt": "2026-10-16T06:25:29.271Z",
+    "paidAt": null,
+    "status": "PROCESSING",
+  }
+
+ ❯ tests/billing/wechat-notify-outcomes.test.ts:33:39
+     31|     const headers = Object.fromEntries(Object.entries(notice.headers).…
+     32|     expect(await store.accept(verifier.verify(notice.body, headers))).…
+     33|     expect(await read(order.orderNo)).toMatchObject({ status: initial …
+       |                                       ^
+     34|     expect(await store.processOne(notice.eventId)).toEqual({ completed…
+     35|     const paid = await read(order.orderNo);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  tests/billing/wechat-notify-outcomes.test.ts > F05 terminal timestamps and durable paid-funds recovery > keeps acceptance timestamps null for CLOSED until successful crediting
+AssertionError: expected { …(17) } to match object { Object (status, paidAt, ...) }
+(13 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  Object {
+    "closedAt": "2026-10-16T06:25:29.360Z",
+-   "notifyAt": null,
++   "notifyAt": "2026-10-16T06:25:29.369Z",
+    "paidAt": null,
+    "status": "CLOSED",
+  }
+
+ ❯ tests/billing/wechat-notify-outcomes.test.ts:33:39
+     31|     const headers = Object.fromEntries(Object.entries(notice.headers).…
+     32|     expect(await store.accept(verifier.verify(notice.body, headers))).…
+     33|     expect(await read(order.orderNo)).toMatchObject({ status: initial …
+       |                                       ^
+     34|     expect(await store.processOne(notice.eventId)).toEqual({ completed…
+     35|     const paid = await read(order.orderNo);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  tests/billing/wechat-notify-outcomes.test.ts > F05 terminal timestamps and durable paid-funds recovery > durably records PENDING paid funds exceeding balance capacity without partial credit
+ FAIL  tests/billing/wechat-notify-outcomes.test.ts > F05 terminal timestamps and durable paid-funds recovery > durably records PENDING paid funds exceeding purchased capacity without partial credit
+AssertionError: expected { …(17) } to match object { status: 'FAILED', …(4) }
+(12 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  Object {
+    "closedAt": null,
+    "lastErrorCode": "invalid_amount",
+-   "notifyAt": null,
++   "notifyAt": "2026-10-16T06:25:29.444Z",
+    "paidAt": null,
+    "status": "FAILED",
+  }
+
+ ❯ tests/billing/wechat-notify-outcomes.test.ts:54:21
+     52|     expect((await f.post(notice.body, notice.headers)).status).toBe(20…
+     53|     const outcome = await read(order.orderNo);
+     54|     expect(outcome).toMatchObject({ status: initial === "CLOSED" ? "CL…
+       |                     ^
+     55|     expect(outcome).not.toHaveProperty("lastErrorMessage");
+     56|     const snapshot = () => asOwner(async c => ({
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ FAIL  tests/billing/wechat-notify-outcomes.test.ts > F05 terminal timestamps and durable paid-funds recovery > durably records CLOSED paid funds exceeding balance capacity without partial credit
+ FAIL  tests/billing/wechat-notify-outcomes.test.ts > F05 terminal timestamps and durable paid-funds recovery > durably records CLOSED paid funds exceeding purchased capacity without partial credit
+AssertionError: expected 503 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 503
+
+ ❯ tests/billing/wechat-notify-outcomes.test.ts:52:64
+     50|     const closedAt = initial === "CLOSED" ? await close(order.orderNo)…
+     51|     const notice = f.notice(order.orderNo);
+     52|     expect((await f.post(notice.body, notice.headers)).status).toBe(20…
+       |                                                                ^
+     53|     const outcome = await read(order.orderNo);
+     54|     expect(outcome).toMatchObject({ status: initial === "CLOSED" ? "CL…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+
+ Test Files  1 failed (1)
+      Tests  6 failed (6)
+   Start at  14:25:17
+   Duration  12.63s (transform 635ms, setup 4ms, collect 1.16s, tests 7.76s, environment 0ms, prepare 33ms)
+
+[db-isolation] db=wsx_941c391974fadfabf4be peak_connections=3
+undefined
+/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/wechat-notify-outcomes.test.ts
+[timing] pnpm --filter api exec vitest run tests/billing/wechat-notify-outcomes.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：13s
+  清理：1s
+  总计：14s

@@ -1,0 +1,30 @@
+{
+  "name": "result-copy-layout-green-1",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/survey-results-i18n.test.tsx",
+    "tests/ui/survey-response-review.test.tsx",
+    "tests/ui/survey-response-download.test.tsx",
+    "tests/ui/survey-report-document.test.tsx",
+    "tests/lib/i18n-resources.test.ts"
+  ],
+  "source": "49b537ec33ac51ac231997a9667252b2f5dfd279",
+  "exitCode": 0,
+  "seconds": 14.313,
+  "rawLogSha256": "be7c22bbe595b42b8616b11e26504f2fcbdf1a810931626d9614696315e53f4b",
+  "sourceAfter": "49b537ec33ac51ac231997a9667252b2f5dfd279",
+  "sourceStable": true,
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "files": 5,
+  "passed": 46,
+  "skipped": 0,
+  "nativeSeconds": 12.72,
+  "scope": "Affected subset only; separate from prior46 and669"
+}

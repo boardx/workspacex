@@ -1,10 +1,11 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
 import * as React from "react";
 import { Building2, Globe } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { useOptionalSession } from "@/components/session/session-provider";
-import { ApiError } from "@/lib/api-client";
+import { memberFailure } from "@/lib/admin-member-copy";
 import { getTokenQuotas } from "@/lib/live-org-admin";
 
 /**
@@ -56,7 +57,7 @@ import { getTokenQuotas } from "@/lib/live-org-admin";
  * 「清空谁属于谁」这件事——那件事现在由 `key` 保证，是结构性的，不是时序上的巧合。
  */
 
-const fmt = new Intl.NumberFormat("zh-CN");
+
 
 /** 当前自然月还剩几天（含今天）——纯日历计算，不是接口字段。 */
 function daysLeftInMonth(now: Date): number {
@@ -67,7 +68,7 @@ function daysLeftInMonth(now: Date): number {
 type QuotaState =
   | { kind: "no-org" }
   | { kind: "loading" }
-  | { kind: "error"; message: string }
+  | { kind: "error"; message: unknown }
   | { kind: "unset" }
   | { kind: "ready"; used: number; budget: number };
 
@@ -79,6 +80,7 @@ export function AdminHeader({
   /** 见本文件头注「`hideOrgIdentity`」——运营类模块传 `true`，其余不传（默认 `false`）。 */
   hideOrgIdentity?: boolean;
 }) {
+  const { t } = useI18n();
   const session = useOptionalSession();
   const orgId = session?.session?.currentOrgId ?? null;
   const orgName = session?.identity?.org.name ?? null;
@@ -90,7 +92,7 @@ export function AdminHeader({
           <span className="flex h-7 w-7 items-center justify-center rounded-md bg-inverse text-12 font-semibold text-inverse-foreground">
             <Globe aria-hidden className="h-4 w-4" />
           </span>
-          <span className="text-14 font-semibold" data-testid="admin-header-platform-label">平台运营</span>
+          <span className="text-14 font-semibold" data-testid="admin-header-platform-label">{t("adminCommon.platform")}</span>
           <Badge tone="outline" className="ml-1">{moduleLabel}</Badge>
         </div>
       </header>
@@ -109,7 +111,7 @@ export function AdminHeader({
               {orgName ?? "…"}
             </span>
             <span className="font-mono text-10 text-muted-foreground" data-testid="admin-header-org-id">
-              组织 ID {orgId ?? "—"}
+              {t("adminCommon.orgId", { id: orgId ?? "—" })}
             </span>
           </div>
           <Badge tone="outline" className="ml-1">{moduleLabel}</Badge>
@@ -128,6 +130,7 @@ export function AdminHeader({
  * state」被这个实例渲染出来的可能。
  */
 function AdminHeaderQuota({ orgId }: { orgId: string | null }) {
+  const { t, locale } = useI18n();
   const [quota, setQuota] = React.useState<QuotaState>(() => (orgId ? { kind: "loading" } : { kind: "no-org" }));
 
   React.useEffect(() => {
@@ -146,7 +149,7 @@ function AdminHeaderQuota({ orgId }: { orgId: string | null }) {
         if (!cancelled) {
           setQuota({
             kind: "error",
-            message: err instanceof ApiError ? (err.reasonCode ?? `http_${err.status}`) : String(err),
+            message: err,
           });
         }
       }
@@ -163,31 +166,31 @@ function AdminHeaderQuota({ orgId }: { orgId: string | null }) {
     <div className="flex w-full max-w-xs flex-col gap-1 md:w-64" data-testid="admin-header-quota">
       {quota.kind === "no-org" && (
         <span className="text-11 text-muted-foreground" data-testid="admin-header-quota-no-org">
-          尚未选择组织
+          {t("adminCommon.headerNoOrg")}
         </span>
       )}
       {quota.kind === "loading" && (
-        <span className="text-11 text-muted-foreground">额度读取中…</span>
+        <span className="text-11 text-muted-foreground">{t("adminCommon.loadingBudget")}</span>
       )}
       {quota.kind === "error" && (
         <span className="text-11 text-destructive" data-testid="admin-header-quota-error">
-          额度读取失败（{quota.message}）
+          {t("adminCommon.headerFailed", { error: memberFailure(quota.message, locale) })}
         </span>
       )}
       {quota.kind === "unset" && (
         <span className="text-11 text-muted-foreground" data-testid="admin-header-quota-unset">
-          组织本月额度未设置
+          {t("adminCommon.headerUnset")}
         </span>
       )}
       {quota.kind === "ready" && pct !== null && (
         <>
           <div className="flex items-baseline justify-between text-11">
-            <span className="font-medium">本月组织额度 {pct}%</span>
-            <span className="text-muted-foreground">还剩 {daysLeftInMonth(new Date())} 天</span>
+            <span className="font-medium">{t("adminCommon.headerPercent", { percent: pct })}</span>
+            <span className="text-muted-foreground">{t("adminCommon.days", { count: daysLeftInMonth(new Date()) })}</span>
           </div>
-          <Progress value={pct} tone={tone} label={`本月组织额度 ${pct}%`} className="w-full" />
+          <Progress value={pct} tone={tone} label={t("adminCommon.headerPercent", { percent: pct })} className="w-full" />
           <span className="text-10 text-muted-foreground">
-            {fmt.format(quota.used)} / {fmt.format(quota.budget)} tokens
+            {new Intl.NumberFormat(locale).format(quota.used)} / {new Intl.NumberFormat(locale).format(quota.budget)} tokens
           </span>
         </>
       )}

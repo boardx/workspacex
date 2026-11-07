@@ -1,0 +1,19 @@
+{
+  "name": "green",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/project-studio-breadcrumb-i18n.test.tsx",
+    "tests/ui/recording-project-i18n.test.tsx",
+    "tests/lib/i18n-resources.test.ts"
+  ],
+  "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61",
+  "exitCode": 0,
+  "seconds": 6.446,
+  "rawLogLocalPath": "/tmp/6214-visual-private-f8/green.log",
+  "rawLogSha256": "6a6e7853911bff639b2ee875847657e7d850e8a2c679a91d9b2b297bd490eae9"
+}

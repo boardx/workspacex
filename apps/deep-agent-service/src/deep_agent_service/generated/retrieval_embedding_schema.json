@@ -77,6 +77,30 @@
               "operationId"
             ],
             "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "knowledge-index"
+              },
+              "orgId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "operationId": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "required": [
+              "kind",
+              "orgId",
+              "operationId"
+            ],
+            "additionalProperties": false
           }
         ]
       }

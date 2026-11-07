@@ -1,0 +1,215 @@
+[stack-admission] load1=4.88 cores=10 perCore=0.49 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mveql201-bf2a735d-9d92fae943a5 db=wsx_9d92fae943a591cb17f8 compose=wsx-9d92fae943a591cb17f8 pg=20401 redis=21401 api=24401 web=25401 sandbox=26401 model=27401 deep-agent=28401 asr=29401 vision=30401 loopback-sandbox=31401 mail=19401
+[WebServer] (node:80425) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:80426) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:80432) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:80436) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:80437) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:80443) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:80445) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:80446) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:80452) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:80454) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:80455) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:80461) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:80463) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:80464) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:80470) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  Image localhost/workspacex-postgres-age:pg16-age1.6.0 Building
+[WebServer] #1 [internal] load local bake definitions
+[WebServer] #1 reading from stdin 668B done
+[WebServer] #1 DONE 0.0s
+[WebServer]
+[WebServer] #2 [internal] load build definition from Dockerfile
+[WebServer] #2 transferring dockerfile: 2.76kB done
+[WebServer] #2 DONE 0.1s
+[WebServer]
+[WebServer] #3 [internal] load metadata for docker.io/pgvector/pgvector:pg16
+[WebServer] #3 DONE 0.6s
+[WebServer]
+[WebServer] #4 [internal] load .dockerignore
+[WebServer] #4 transferring context: 2B done
+[WebServer] #4 DONE 0.0s
+[WebServer]
+[WebServer] #5 [1/2] FROM docker.io/pgvector/pgvector:pg16@sha256:ad2e18408bf447f62092a8a5259e7df10505c5a0360bd1a1853ac8b8b0763da2
+[WebServer] #5 resolve docker.io/pgvector/pgvector:pg16@sha256:ad2e18408bf447f62092a8a5259e7df10505c5a0360bd1a1853ac8b8b0763da2 done
+[WebServer] #5 DONE 0.0s
+[WebServer]
+[WebServer] #6 [2/2] RUN set -eux;     apt_host="deb.debian.org"; apt_host="${apt_host%%/*}";     sed -Ei "s#//deb\.debian\.org#//${apt_host}#g" /etc/apt/sources.list.d/debian.sources;     apt-get update;     apt-get install -y --no-install-recommends       build-essential ca-certificates git flex bison postgresql-server-dev-16;     git init /tmp/age;     git -C /tmp/age fetch --depth 1 "https://github.com/apache/age.git" "2db2f060c4c9265a14d40f007eb8c56febf31e4c";     git -C /tmp/age checkout FETCH_HEAD;     test "$(git -C /tmp/age rev-parse HEAD)" = "2db2f060c4c9265a14d40f007eb8c56febf31e4c";     make -C /tmp/age;     make -C /tmp/age install;     rm -rf /tmp/age;     apt-get purge -y --auto-remove build-essential git flex bison postgresql-server-dev-16;     rm -rf /var/lib/apt/lists/*
+[WebServer] #6 CACHED
+[WebServer]
+[WebServer] #7 exporting to image
+[WebServer] #7 exporting layers 0.0s done
+[WebServer] #7 exporting manifest sha256:d13b87c192f0789cb5d8c5bf38e40adf6a5031a2cf7d2ac3ce847142d267c679 0.0s done
+[WebServer] #7 exporting config sha256:99b2d51cc288ea3aa1fc6cbb567cf7289cfc36f60c4550fe4bf312ba649e8c3c done
+[WebServer] #7 exporting attestation manifest sha256:3ef4e7801f1d5840f224e9710fef11376bdb729fc81740f7387317ab480a7317 done
+[WebServer] #7 exporting manifest list sha256:52356bd6c468b2c5890464f20743eb2f67a2417a44be217fdaa9d5b54c2d9938
+[WebServer] #7 exporting manifest list sha256:52356bd6c468b2c5890464f20743eb2f67a2417a44be217fdaa9d5b54c2d9938 done
+[WebServer] #7 naming to localhost/workspacex-postgres-age:pg16-age1.6.0 done
+[WebServer] #7 unpacking to localhost/workspacex-postgres-age:pg16-age1.6.0 0.0s done
+[WebServer] #7 DONE 0.1s
+[WebServer]
+[WebServer] #8 resolving provenance for metadata file
+[WebServer] #8 DONE 0.0s
+[WebServer]  Image localhost/workspacex-postgres-age:pg16-age1.6.0 Built
+[WebServer]  Network wsx-9d92fae943a591cb17f8_default Creating
+[WebServer]  Network wsx-9d92fae943a591cb17f8_default Created
+[WebServer]  Container wsx-9d92fae943a591cb17f8-postgres-1 Creating
+[WebServer]  Container wsx-9d92fae943a591cb17f8-minio-1 Creating
+[WebServer]  Container wsx-9d92fae943a591cb17f8-redis-1 Creating
+[WebServer]  Container wsx-9d92fae943a591cb17f8-postgres-1 Created
+[WebServer]  Container wsx-9d92fae943a591cb17f8-minio-1 Created
+[WebServer]  Container wsx-9d92fae943a591cb17f8-redis-1 Created
+[WebServer]  Container wsx-9d92fae943a591cb17f8-redis-1 Starting
+[WebServer]  Container wsx-9d92fae943a591cb17f8-minio-1 Starting
+[WebServer]  Container wsx-9d92fae943a591cb17f8-postgres-1 Starting
+[WebServer]  Container wsx-9d92fae943a591cb17f8-postgres-1 Started
+[WebServer]  Container wsx-9d92fae943a591cb17f8-minio-1 Started
+[WebServer]  Container wsx-9d92fae943a591cb17f8-redis-1 Started
+[WebServer]  Container wsx-9d92fae943a591cb17f8-postgres-1 Waiting
+[WebServer]  Container wsx-9d92fae943a591cb17f8-minio-1 Waiting
+[WebServer]  Container wsx-9d92fae943a591cb17f8-redis-1 Waiting
+[WebServer]  Container wsx-9d92fae943a591cb17f8-minio-1 Healthy
+[WebServer]  Container wsx-9d92fae943a591cb17f8-redis-1 Healthy
+[WebServer]  Container wsx-9d92fae943a591cb17f8-postgres-1 Healthy
+[WebServer] (node:80567) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:80569) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:80575) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] [fullstack-fixture] recording thread=thread-466-01-bf2a735d-9d92fae943a5 title=FULLSTACK_RECORDING_THREAD_01-bf2a735d-9d92fae943a5
+[WebServer] [fullstack-fixture] db=wsx_9d92fae943a591cb17f8 project=project-fullstack-01-bf2a735d-9d92fae943a5 sentinel=FULLSTACK_SENTINEL_01-bf2a735d-9d92fae943a5.md
+[WebServer] (node:81711) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:81712) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] objc[81718]: Class GNotificationCenterDelegate is implemented in both /Users/shenyangjun/.codex/worktrees/799b/workspacex/node_modules/.pnpm/@img+sharp-libvips-darwin-arm64@1.2.4/node_modules/@img/sharp-libvips-darwin-arm64/lib/libvips-cpp.8.17.3.dylib (0x137535978) and /Users/shenyangjun/.codex/worktrees/799b/workspacex/node_modules/.pnpm/canvas@3.2.3/node_modules/canvas/build/Release/libgio-2.0.0.dylib (0x1360444c8). This may cause spurious casting failures and mysterious crashes. One of the duplicates must be removed or renamed.
+[WebServer] {"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+[WebServer] {"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+[WebServer] {"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+[WebServer] (node:81718) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] api listening on 24401
+[WebServer] {"level":"error","msg":"service uptime check: target reported down","traceId":"service-uptime-poll-worker","detail":{"raw":"fetch failed"}}
+[WebServer] (node:81746) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] platform skill catalog: org created, skills created=[pptx-create,docx-create,xlsx-create,pdf-create] alreadyExisted=[]
+[WebServer] fullstack test API listening on 24401; voice supplier LOCAL_PROTOCOL
+[WebServer] (node:81752) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]   ▲ Next.js 14.2.15
+[WebServer]   - Local:        http://127.0.0.1:25401
+[WebServer]   - Network:      http://127.0.0.1:25401
+[WebServer]   - Experiments (use with caution):
+[WebServer]     · proxyTimeout
+[WebServer]
+[WebServer]  ✓ Starting...
+[WebServer]
+[WebServer]    We detected TypeScript in your project and reconfigured your tsconfig.json file for you. Strict-mode is set to false by default.
+[WebServer]    The following suggested values were added to your tsconfig.json. These values can be changed to fit your project's needs:
+[WebServer]
+[WebServer]    	- include was updated to add '.next-research-ux-5780/types/**/*.ts'
+[WebServer]
+[WebServer]  ✓ Ready in 2.9s
+[WebServer]  ○ Compiling /login ...
+[WebServer]  ✓ Compiled /login in 9.4s (1384 modules)
+[WebServer]  GET /login 200 in 10267ms
+
+Running 1 test using 1 worker
+
+(node:81827) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  GET /login 200 in 47ms
+[WebServer] (node:81752) [DEP0060] DeprecationWarning: The `util._extend` API is deprecated. Please use Object.assign() instead.
+[WebServer]  ○ Compiling /home ...
+[WebServer]  ✓ Compiled /home in 10.5s (3170 modules)
+[WebServer]  GET /home 200 in 11887ms
+(node:81859) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:81861) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  ○ Compiling /research/[sessionId]/[stage] ...
+[WebServer]  ✓ Compiled /research/[sessionId]/[stage] in 4.9s (3474 modules)
+[WebServer] (node:81873) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  GET /research/grs_37a81d0db7154bc4ab15ba7c99c49591/report 200 in 6989ms
+  ✘  1 [research-ux] › e2e/research-ux-rounds.spec.ts:257:5 › R5 report completion removes source diagnostics and submits both strict file requests (33.9s)
+
+
+  1) [research-ux] › e2e/research-ux-rounds.spec.ts:257:5 › R5 report completion removes source diagnostics and submits both strict file requests
+
+    SyntaxError: The requested module './wave2-runtime' does not provide an export named 'AgentRunStatus'
+
+      274 |   await page.route('**/report-files', async route => {
+      275 |     const body = route.request().postDataJSON();
+    > 276 |     const { ReportFileRequest } = await import('@repo/contracts/report-files');
+          |                                   ^
+      277 |     ReportFileRequest.parse(body); submissions.push(body);
+      278 |     await route.fulfill({ status: 200, json: { id: randomUUID(), source: body.source, format: body.format, status: 'failed', errorCode: 'INVALID_FILE', createdAt: new Date().toISOString() } });
+      279 |   });
+        at /Users/shenyangjun/.codex/worktrees/799b/workspacex/apps/web/e2e/research-ux-rounds.spec.ts:276:35
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('PDF：文件生成失败，请重试。', { exact: true })
+    Expected: visible
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByText('PDF：文件生成失败，请重试。', { exact: true })
+      - Test ended.
+
+
+      284 |   for (const label of ['PDF', 'Word']) {
+      285 |     await page.getByRole('button', { name: `生成 ${label}`, exact: true }).click();
+    > 286 |     await expect(page.getByText(`${label}：文件生成失败，请重试。`, { exact: true })).toBeVisible();
+          |                                                                           ^
+      287 |   }
+      288 |   expect(submissions).toHaveLength(2);
+      289 |   await writeFile(resolve(output, 'requests.json'), JSON.stringify(submissions, null, 2));
+        at /Users/shenyangjun/.codex/worktrees/799b/workspacex/apps/web/e2e/research-ux-rounds.spec.ts:286:75
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/research-ux/research-ux-rounds-R5-repo-95a7b-s-both-strict-file-requests-research-ux/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/research-ux/research-ux-rounds-R5-repo-95a7b-s-both-strict-file-requests-research-ux/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/research-ux/research-ux-rounds-R5-repo-95a7b-s-both-strict-file-requests-research-ux/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/research-ux/research-ux-rounds-R5-repo-95a7b-s-both-strict-file-requests-research-ux/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [research-ux] › e2e/research-ux-rounds.spec.ts:257:5 › R5 report completion removes source diagnostics and submits both strict file requests
+undefined
+/Users/shenyangjun/.codex/worktrees/799b/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: playwright test --config playwright.research-ux.config.ts -g R5
+[timing] pnpm --filter web exec playwright test --config playwright.research-ux.config.ts -g R5
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1m38s
+  清理：2s
+  总计：1m40s

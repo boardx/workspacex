@@ -1,0 +1,3 @@
+Listing tests:
+  i18n-entry.spec.ts:4:5 › root redirects to localized login and preserves language and form values
+Total: 1 test in 1 file

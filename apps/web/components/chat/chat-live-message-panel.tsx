@@ -1417,7 +1417,7 @@ export function ChatLiveMessagePanel({
                       <p className="text-11 text-destructive" title={runObservation.view.error ?? undefined}>
                         {describeAgentRunFailure(runObservation.view.error, runObservation.view.failureReason ?? null)}
                       </p>
-                      <Button
+                      {runObservation.view.error === "CREDIT_REQUIRED" || runObservation.view.error === "CREDIT_ACCOUNTING_UNAVAILABLE" ? <p className="text-12">请确认计费账户或联系管理员，任务不会自动重试。</p> : <Button
                         size="xs"
                         variant="outline"
                         data-testid="chat-run-process-failure-retry"
@@ -1426,7 +1426,7 @@ export function ChatLiveMessagePanel({
                       >
                         <RefreshCw aria-hidden className="h-3 w-3" />
                         {retrying ? "重试中…" : "重试"}
-                      </Button>
+                      </Button>}
                     </div>
                   ) : null}
                   {retryFailure ? (

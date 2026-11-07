@@ -1,0 +1,10 @@
+{
+  "branch": "worker/i18n-chat-workspace-6200",
+  "head": "66120e5ad595bea5fdac4ebf956b0a7ee0d9ea51",
+  "restoredFiles": 53,
+  "hashModeMismatches": [],
+  "stashRetained": true,
+  "diagnosticStash": "dcc561188e1a89469f0b7292e1690eb72338297b",
+  "restoredChatStash": "c374f45c4a85b0639035b248fac146c221c6bcde",
+  "diagnosticDisposition": "No evidence-backed product fix; stop diagnostic reruns; raw and temporary fixture remain private/separate."
+}

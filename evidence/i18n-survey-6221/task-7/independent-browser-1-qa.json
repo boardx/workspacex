@@ -1,0 +1,35 @@
+{
+  "source": "e6dc452f7fd14d3f6f7a3e57dc8f7fd04516deb0",
+  "actualPng": 3,
+  "wholeJourneyPassed": false,
+  "rawArtifactsPrivate": true,
+  "screenshots": [
+    {
+      "name": "template-unsaved-raw-en-1280.png",
+      "sha256": "8b428881dd5b53088694fa9923bc61203b2c48a4cd138553f51f7afd4f296d09",
+      "width": 1280,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Fixed English controls readable, raw authored text preserved; natural vertical scroll is not whole-journey coverage."
+    },
+    {
+      "name": "template-unsaved-raw-en-375.png",
+      "sha256": "45e28eb01240b089757b9e7177f3034782120eef4f42bcc005e14fe6421f5aad",
+      "width": 375,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Fixed English controls readable, raw authored text preserved; natural vertical scroll is not whole-journey coverage."
+    },
+    {
+      "name": "test-failed-1.png",
+      "sha256": "a8207afefe0c2bf431789a9c5e96978ebc7c31d865f782d90aee500fbaa300ab",
+      "width": 1280,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "note": "Fixed English controls readable, raw authored text preserved; natural vertical scroll is not whole-journey coverage."
+    }
+  ]
+}

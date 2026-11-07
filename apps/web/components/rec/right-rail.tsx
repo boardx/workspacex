@@ -1,4 +1,6 @@
 "use client";
+import { recordingDisplay, recordingTabKeys } from "./recording-project-display";
+import { useI18n } from "@/lib/i18n/provider";
 import * as React from "react";
 import { FileAudio, ListChecks, Lightbulb, Package, FolderOpen, type LucideIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -19,10 +21,11 @@ const TAB_ICON: Record<string, LucideIcon> = {
  * 除「转录」外四个都带计数徽标，计数为 0 也显示真实空态、不隐藏标签。
  */
 export function RightRailNav() {
+  const { t: recT } = useI18n();
   const [active, setActive] = React.useState("transcript");
   return (
     <div className="flex h-full flex-col" data-testid="rec-right-rail">
-      <div className="flex border-b border-border" role="tablist" aria-label="对话右栏五标签">
+      <div className="flex border-b border-border" role="tablist" aria-label={recT("rec.project.conversation.side.panel.tabs")}>
         {RIGHT_TABS.map((t) => {
           const Icon = TAB_ICON[t.id]!;
           const isActive = active === t.id;
@@ -42,7 +45,7 @@ export function RightRailNav() {
             >
               <Icon aria-hidden className="h-4 w-4" />
               <span className="flex items-center gap-1 text-10 font-medium">
-                {t.label}
+                {recordingDisplay(recT, recordingTabKeys, t.id, t.label)}
                 {t.count !== null && (
                   <Badge tone={isActive ? "primary" : "neutral"} data-testid={`rec-tab-count-${t.id}`}>{t.count}</Badge>
                 )}
@@ -55,15 +58,16 @@ export function RightRailNav() {
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
         {active === "transcript" ? (
           <div className="flex flex-col gap-2" data-testid="rec-tab-panel-transcript">
-            <p className="text-11 font-medium">本场转录状态</p>
+            <p className="text-11 font-medium">{recT("rec.project.session.transcription.status")}</p>
             <div className="flex flex-col gap-1.5 rounded-md border border-border-subtle bg-card p-2.5 text-11">
-              <Row label="状态条计数" value={<Badge tone="warning">逐字稿校对 {reviewCount()}</Badge>} />
-              <Row label="正在识别" value="最新一句定稿前不可引述" />
-              <Row label="自动跟随" value="随最新一句滚动（可关）" />
-              <Row label="常驻时间码" value="每句前绝对时间码，点击跳回音频" />
+              <Row label={recT("rec.project.status.count")} value={<Badge tone="warning">{recT("rec.project.transcript.review")} {reviewCount()}</Badge>} />
+              <Row label={recT("rec.project.recognizing.135")} value={recT("rec.project.the.latest.sentence.cannot.be.quoted.until")} />
+              <Row label={recT("rec.project.autofollow")} value={recT("rec.project.scroll.with.the.latest.sentence.optional")} />
+              <Row label={recT("rec.project.persistent.timecodes")} value={recT("rec.project.each.sentence.has.a.timecode.select.it")} />
             </div>
             <p className="text-9 text-muted-foreground">
-              转录标签内四个常驻控件在中栏逐字稿区呈现（搜索逐字稿 / 自动跟随 / 正在识别 / 常驻时间码）。
+
+              {recT("rec.project.four.controls.appear.in.the.transcript.search")}
             </p>
           </div>
         ) : (
@@ -72,9 +76,9 @@ export function RightRailNav() {
             data-testid={`rec-tab-panel-${active}`}
           >
             <p className="text-11 text-muted-foreground">
-              「{RIGHT_TABS.find((t) => t.id === active)?.label}」标签属其他能力域（06-itv / 07-canvas / 10-report）。
+              「{recordingDisplay(recT, recordingTabKeys, active, RIGHT_TABS.find((t) => t.id === active)?.label ?? active)}{recT("rec.project.belongs.to.another.feature.area.06itv")}
             </p>
-            <p className="text-9 text-muted-foreground">此处只作五标签外壳占位，计数来自各域，rec 只负责「转录」。</p>
+            <p className="text-9 text-muted-foreground">{recT("rec.project.these.tabs.show.counts.from.their.feature")}</p>
           </div>
         )}
       </div>

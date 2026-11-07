@@ -1,0 +1,5 @@
+
+> agentic-harness-template@ lint:tailwind-color-tokens /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui
+> node .harness/scripts/lint-tailwind-color-tokens.mjs
+
+✅ [tailwind-color-tokens] className 里的颜色类名都对得上 token；存量基线 42 处（只准变小）

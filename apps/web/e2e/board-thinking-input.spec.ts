@@ -70,7 +70,6 @@ test.afterEach(async () => {
 });
 
 test("brainstorm input creates twenty connected ideas and one-operation bulk undo", async ({ page, request: api, context }) => {
-  test.skip(true, "Temporarily deferred by explicit user approval 2026-10-06 03:53 UTC; PR #5418 restoration backlog: diagnose Shift+N/board-bulk-text, then restore all assertions.");
   await page.setViewportSize({ width: 1280, height: 800 });
   const token = await login(page);
   const created = await apiFetch(api, token, "POST", "/whiteboards", { requestId: randomUUID(), name: `Thinking input ${randomUUID()}` });
@@ -103,9 +102,17 @@ test("brainstorm input creates twenty connected ideas and one-operation bulk und
   const beforeLastCreation = await readBoardProjection(page);
   const beforeLastCreationIds = new Set(beforeLastCreation.map(object => object.id));
   await expect.poll(() => readBoardProjection(peer)).toEqual(beforeLastCreation);
-  await page.getByTestId("board-tool-select").focus();
+  // The peer tab was opened most recently. Exercise the shortcut on the real
+  // original tab with an explicit canvas-owned focus and no active text editor.
+  await page.bringToFront();
+  await expect(editor).toHaveCount(0);
+  const selectTool = page.getByTestId("board-tool-select");
+  await selectTool.focus();await expect(selectTool).toBeFocused();
   await page.keyboard.press("Shift+N");
-  await page.getByTestId("board-bulk-text").fill("Research\nDesign\nPrototype");
+  const bulkText = page.getByTestId("board-bulk-text");
+  await expect(page.getByRole("dialog", { name: "批量创建便利贴" })).toBeVisible();
+  await expect(bulkText).toBeFocused();
+  await bulkText.fill("Research\nDesign\nPrototype");
   await page.getByTestId("board-bulk-apply").click();
   await expect(outline.getByRole("button")).toHaveCount(23);
   await expect(peer.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(23);

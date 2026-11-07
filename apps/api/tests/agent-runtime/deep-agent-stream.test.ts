@@ -223,6 +223,7 @@ describe("D2 工具调用透明度：updates 事件驱动 onProgress（不是解
 
   function startUpdatesFake(opts: {
     updatesFrames: readonly string[]; // raw JSON.stringify'd `data:` payloads, sent as `event: updates`
+    state?: unknown;
   }): Promise<{ baseUrl: string; stateReadCount: () => number }> {
     let stateReadCount = 0;
     server = createServer(async (req, res) => {
@@ -254,7 +255,7 @@ describe("D2 工具调用透明度：updates 事件驱动 onProgress（不是解
       if (req.method === "GET" && url === "/threads/t1/state") {
         stateReadCount += 1;
         res.writeHead(200, { "content-type": "application/json" })
-          .end(JSON.stringify(TOOL_CALL_STATE));
+          .end(JSON.stringify(opts.state ?? TOOL_CALL_STATE));
         return;
       }
       res.writeHead(404).end();
@@ -285,6 +286,20 @@ describe("D2 工具调用透明度：updates 事件驱动 onProgress（不是解
       toolArgsFull: {}, toolResultFull: "- diagram-maker：画图技能",
     },
   ];
+
+  it.each([0, 7, 127, null])("actual execute wire artifact distinguishes exit %s from outer tool success", async (exitCode) => {
+    const tool = { type: "tool", tool_call_id: "execute-1", name: "execute", content: "command output",
+      status: "success", artifact: exitCode === null ? {} : { exit_code: exitCode } };
+    const state = { values: { messages: [
+      { type: "ai", content: "execute", tool_calls: [{ id: "execute-1", name: "execute", args: { command: "false | tail -5" } }] },
+      tool, { type: "ai", content: "done", tool_calls: [] },
+    ] } };
+    const { baseUrl } = await startUpdatesFake({ state, updatesFrames: [JSON.stringify({ tools: { messages: [tool] } })] });
+    const events: { phase?: string; ok?: boolean }[] = [];
+    await provider(baseUrl, true).completeWithProgress(INPUT, async (event) => { events.push(event); }, async () => {});
+    expect(events.filter((event) => event.phase === "complete")).toHaveLength(1);
+    expect(events.find((event) => event.phase === "complete")!.ok).toBe(exitCode === 0);
+  });
 
   it("updates 事件带 tools 节点 patch 时，onProgress 真的被调用，且拿到正确的 tool_call 记账字段", async () => {
     const { baseUrl, stateReadCount } = await startUpdatesFake({

@@ -9,7 +9,7 @@ JOURNEYS=('login','hello','asr','githubFeedbackRead','skillTool','pdfDownload')
 
 def _runtime_files(runtime,tool):
     root=pathlib.Path(runtime['playwrightRoot'])
-    require(str(root).startswith('/opt/workspacex-cn/release-tools/'+tool+'/') and '..' not in root.parts,'CANDIDATE_BROWSER_PLAYWRIGHT_SCOPE')
+    require(any(str(root).startswith(prefix+tool+'/') for prefix in ('/var/lib/workspacex-cn/auto-preparation-tools/','/opt/workspacex-cn/release-tools/')) and '..' not in root.parts,'CANDIDATE_BROWSER_PLAYWRIGHT_SCOPE')
     for parent in (root,*root.parents):
         value=parent.lstat();require(stat.S_ISDIR(value.st_mode) and value.st_uid==0 and not value.st_mode&0o022,'CANDIDATE_BROWSER_RUNTIME_PARENT')
     actual={}

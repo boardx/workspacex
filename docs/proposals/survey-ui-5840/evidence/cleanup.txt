@@ -1,0 +1,3 @@
+Queried docker ps -a for all six compose projects created by this session.
+own_remaining_containers=[]
+No other session resources were stopped.

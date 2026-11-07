@@ -1,0 +1,110 @@
+[heavy-e2e-lock] 排队中：机器上已有重 e2e 套件在跑（pid=57958，命令：pnpm --filter web exec playwright test --config playwright.survey-ui.config.ts --project=seeded e2e/survey-complete-flow.spec.ts --grep 5840 --workers=1）。本命令：pnpm --filter web exec playwright test --config /Users/shenyangjun/.codex/worktrees/4986/workspacex/.harness/state/.cache/voice-5842-browser/shots.config.ts --grep 步骤 7 --workers=1
+[heavy-e2e-lock] 排队中：已等 0s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 5s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 10s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 15s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 20s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 25s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 30s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 35s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 40s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 45s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 50s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 55s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 60s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 65s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 70s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 75s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 80s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 85s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 90s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 95s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 100s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 105s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 110s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 116s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 121s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 126s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 131s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 136s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 141s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 146s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 151s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 156s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 161s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 166s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 171s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 176s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 181s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 186s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排到了，等了 191s
+[stack-admission] load1=14.67 cores=10 perCore=1.47 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=coord-voice-5842-3b4190a1b63b db=wsx_3b4190a1b63b20658b71 compose=wsx-3b4190a1b63b20658b71 pg=20490 redis=21490 api=24490 web=25490 sandbox=26490 model=27490 deep-agent=28490 asr=29490 vision=30490 loopback-sandbox=31490 mail=19490
+[WebServer] (node:60091) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60124) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60168) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60190) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60200) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60213) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60280) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60309) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60316) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60404) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60443) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60449) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60451) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60453) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60459) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] 127.0.0.1:5432 - accepting connections
+[WebServer] (node:60484) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60487) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60499) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] node:internal/modules/run_main:123
+[WebServer]     triggerUncaughtException(
+[WebServer]     ^
+[WebServer] 
+[WebServer] Error: connect ECONNREFUSED 127.0.0.1:20490
+[WebServer]     at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1638:16) {
+[WebServer]   errno: -61,
+[WebServer]   code: 'ECONNREFUSED',
+[WebServer]   syscall: 'connect',
+[WebServer]   address: '127.0.0.1',
+[WebServer]   port: 20490
+[WebServer] }
+[WebServer] 
+[WebServer] Node.js v22.23.2
+[WebServer] undefined
+[WebServer] /Users/shenyangjun/.codex/worktrees/4986/workspacex/apps/api:
+[WebServer]  ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: tsx scripts/seed-fullstack-smoke.ts
+Error: Process from config.webServer was not able to start. Exit code: 1
+
+undefined
+/Users/shenyangjun/.codex/worktrees/4986/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: playwright test --config /Users/shenyangjun/.codex/worktrees/4986/workspacex/.harness/state/.cache/voice-5842-browser/shots.config.ts --grep 步骤 7 --workers=1
+[timing] pnpm --filter web exec playwright test --config /Users/shenyangjun/.codex/worktrees/4986/workspacex/.harness/state/.cache/voice-5842-browser/shots.config.ts --grep 步骤 7 --workers=1
+  等待重e2e互斥锁：3m11s
+  环境预留：0s
+  等待资源：0s
+  命令执行：17s
+  清理：0s
+  总计：3m27s
+[test-isolation] 零测试执行：Playwright webServer 启动失败。检查端口占用/服务就绪；这不是测试断言失败。

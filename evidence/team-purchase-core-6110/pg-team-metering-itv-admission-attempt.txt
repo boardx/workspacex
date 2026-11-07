@@ -1,0 +1,62 @@
+[stack-admission] load1=72.71 cores=10 perCore=7.27 running=0/2
+[stack-admission] 排队中：机器每核负载 7.27（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 0s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 7.43（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 5s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 7.40（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 10s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 7.57（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 15s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 7.03（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 20s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 6.53（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 25s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 6.40（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 30s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 6.57（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 35s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 6.09（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 40s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 5.68（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 45s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 5.30（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 50s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 5.02（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 55s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.68（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 60s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.36（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 65s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.07（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 70s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.80（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 75s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.72（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 80s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.53（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 85s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.29（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 90s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.11（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 95s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.95（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 100s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.73（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 105s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.59（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 110s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排到了，等了 115s
+[test-isolation] id=run-mvzis91v-018c5849-2dc74562566e db=wsx_2dc74562566e1cc55d2e compose=wsx-2dc74562566e1cc55d2e pg=20146 redis=21146 api=24146 web=25146 sandbox=26146 model=27146 deep-agent=28146 asr=29146 vision=30146 loopback-sandbox=31146 mail=19146
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/team-receipt-anchor-6099/apps/api
+
+[db-isolation] db=wsx_2dc74562566e1cc55d2e capacity=100 current=6 required=32
+ ❯ tests/itv/digital-interview-setup.test.ts (8 tests | 8 skipped)
+ ❯ tests/itv/digital-interview-setup.test.ts (8 tests | 8 skipped) 123993ms
+ ✓ tests/billing/team-ai-admission-pg.test.ts (3 tests) 8605ms
+   ✓ blocks new Team AI at paid expiry despite permanent cash; already admitted replay and receipt still finish 1120ms
+   ✓ active Enterprise still passes the same request/receipt accounting after the old Team term ends 613ms
+   ✓ preserves the default personal request path without requiring a Team license 741ms
+ ✓ tests/billing/team-metering-lock-order-pg.test.ts (1 test) 6775ms
+   ✓ finishes a real Team usage receipt while another model request waits, without an org/wallet deadlock 1509ms
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/digital-interview-setup.test.ts [ tests/itv/digital-interview-setup.test.ts ]
+Error: Hook timed out in 120000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 2 passed (3)
+      Tests  4 passed | 8 skipped (12)
+   Start at  01:17:29
+   Duration  174.34s (transform 28.71s, setup 249ms, collect 15.97s, tests 139.37s, environment 2ms, prepare 1.83s)
+
+[db-isolation] db=wsx_2dc74562566e1cc55d2e peak_connections=4
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/team-receipt-anchor-6099/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/team-metering-lock-order-pg.test.ts tests/billing/team-ai-admission-pg.test.ts tests/itv/digital-interview-setup.test.ts -t finishes a real Team usage receipt|blocks new Team AI|active Enterprise still|preserves the default personal request|显式确认推进主题、专家和问题 --maxWorkers=1 --minWorkers=1
+[timing] pnpm --filter api exec vitest run tests/billing/team-metering-lock-order-pg.test.ts tests/billing/team-ai-admission-pg.test.ts tests/itv/digital-interview-setup.test.ts -t finishes a real Team usage receipt|blocks new Team AI|active Enterprise still|preserves the default personal request|显式确认推进主题、专家和问题 --maxWorkers=1 --minWorkers=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：1m55s
+  命令执行：3m1s
+  清理：3s
+  总计：4m59s

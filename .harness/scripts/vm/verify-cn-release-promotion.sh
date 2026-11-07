@@ -3,6 +3,9 @@
 # main-cn. The GitHub token deliberately remains in the unprivileged workflow.
 set -euo pipefail
 
+app_only=0
+if [[ ${1:-} == --app-only ]]; then app_only=1; shift; fi
+
 [[ $# -eq 3 && "$1" =~ ^[a-f0-9]{40}$ && "$2" =~ ^[a-f0-9]{40}$ && "$3" =~ ^[a-z0-9][a-z0-9._-]{0,127}$ ]] || {
   echo "usage: workspacex-cn-verify-promotion <40-hex-revision> <40-hex-expected-main-cn> <attempt-id>" >&2
   exit 2
@@ -34,24 +37,7 @@ protected_file() {
   [[ "$(stat -c '%U:%G:%a' "$path")" == root:root:600 ]] || fail "protected preparation evidence permissions differ"
 }
 capture_baseline() {
-  local output=$1 api=workspacex-cn-api-1 web=workspacex-cn-web-1 agent=workspacex-cn-agent-1 sandbox=workspacex-cn-sandbox-1
-  local api_image web_image agent_image sandbox_image config_file nginx_hash
-  for container in "$api" "$web" "$agent" "$sandbox"; do
-    docker inspect "$container" >/dev/null 2>&1 || fail "baseline container is unavailable"
-  done
-  api_image=$(docker inspect --format '{{.Image}}' "$api")
-  web_image=$(docker inspect --format '{{.Image}}' "$web")
-  agent_image=$(docker inspect --format '{{.Image}}' "$agent")
-  sandbox_image=$(docker inspect --format '{{.Image}}' "$sandbox")
-  config_file=$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project.config_files"}}' "$api")
-  [[ "$config_file" == "$RUNTIME_ROOT"/*/compose.json ]] || fail "baseline runtime is untrusted"
-  [[ -f "$NGINX_CONFIG" && ! -L "$NGINX_CONFIG" ]] || fail "baseline nginx configuration is unavailable"
-  nginx_hash=$(sha256sum "$NGINX_CONFIG" | cut -d' ' -f1)
-  node - "$output" "$config_file" "$api_image" "$web_image" "$agent_image" "$sandbox_image" "$nginx_hash" <<'NODE'
-const fs=require("node:fs");
-const [path,composeFile,api,web,agent,sandbox,nginxSha256]=process.argv.slice(2);
-fs.writeFileSync(path,`${JSON.stringify({schemaVersion:1,composeFile,images:{api,web,agent,sandbox},nginxSha256})}\n`,{mode:0o600,flag:"wx"});
-NODE
+  python3 /usr/local/lib/workspacex-cn/cn_compose_baseline.py capture "$1" >/dev/null || fail "protected compose baseline capture failed"
 }
 
 [[ -d "$REPOSITORY_DIR/.git" ]] || fail "release repository is unavailable"
@@ -83,29 +69,70 @@ fi
 [[ -d "$release_checkout/.git" ]] || fail "prepared release checkout is missing"
 [[ "$(git -C "$release_checkout" rev-parse HEAD)" == "$revision" ]] || fail "prepared checkout revision differs"
 [[ -z "$(git -C "$release_checkout" status --porcelain)" ]] || fail "prepared checkout is dirty"
+app_request="/etc/workspacex-cn/preparations/$revision.app-only.$attempt_id.json"
+if [[ "$app_only" == 0 && -e "$app_request" ]]; then fail "app-only preparation cannot enter standard promotion"; fi
+if [[ "$app_only" == 0 ]]; then
 protected_file "$prepare_receipt"
 protected_file "$fast_safe_receipt"
 node - "$prepare_receipt" <<'NODE' || fail "prepare receipt is incomplete"
 const fs=require("node:fs"),v=JSON.parse(fs.readFileSync(process.argv[2],"utf8"));
 if(v.schemaVersion!==1||v.status!=="files-ready-ingress-installation-required"||v.profileManaged!==true||v.releaseTreeVerified!==true)process.exit(1);
 NODE
+else
+  protected_file "$app_request"
+  protected_file "$fast_safe_receipt"
+  guard=/usr/local/lib/workspacex-cn/cn-app-only-guard.py
+  [[ -f "$guard" && ! -L "$guard" && "$(stat -c '%u:%a' "$guard")" == 0:755 ]] || fail "app-only guard is not installed"
+  cmp --silent "$release_checkout/.harness/scripts/vm/cn-app-only-guard.py" "$guard" || fail "app-only guard version drift"
+  /usr/bin/python3 -I -S -B "$guard" "$release_checkout" "$revision" || fail "app-only tool closure rejected"
+fi
 
-exec 9>"$RUNTIME_ROOT/release.lock"
-chown root:root "$RUNTIME_ROOT/release.lock"; chmod 0600 "$RUNTIME_ROOT/release.lock"
+if [[ "$app_only" == 1 ]]; then
+  protected_file "$RUNTIME_ROOT/release.lock"
+  exec 9<"$RUNTIME_ROOT/release.lock"
+else
+  exec 9>"$RUNTIME_ROOT/release.lock"
+  chown root:root "$RUNTIME_ROOT/release.lock"; chmod 0600 "$RUNTIME_ROOT/release.lock"
+fi
 flock -n 9 || fail "another release operation is active"
 release=$(node -e 'const v=require(process.argv[1]);process.stdout.write(v.release)' "$manifest")
+if [[ "$app_only" == 0 ]]; then
 (cd "$release_checkout"; node --import tsx packages/cloud-deploy/src/cn-candidate-config-cli.ts verify "$revision" "$release" "$attempt_id") >/dev/null || fail "candidate configuration receipt rejected"
 "$PREFLIGHT_VERIFIER" preactivate "$revision" "$release" "$attempt_id" >/dev/null \
   || fail "preactivate receipt is missing, changed, or expired"
+else
+  app_action=check
+  [[ "$current_main_cn" != "$revision" ]] || app_action=verify
+  app_result=$(cd "$release_checkout"; /usr/bin/env -i PATH=/usr/local/bin:/usr/bin:/bin HOME=/root LC_ALL=C /usr/bin/node --import tsx packages/cloud-deploy/src/cn-app-only-cli.ts "$app_action" "$revision" "$attempt_id") || fail "app-only compatibility or runtime rejected"
+  app_state=$(printf '%s' "$app_result" | node -e 'let s="";process.stdin.on("data",v=>s+=v);process.stdin.on("end",()=>{let v=JSON.parse(s);if(!["ready","verified"].includes(v.status))process.exit(1);process.stdout.write(v.status)})') || fail "invalid app-only runtime state"
+fi
 
 current_dir=$(mktemp -d "$runtime/.promotion-baseline.XXXXXX")
 trap 'rm -rf -- "$current_dir"' EXIT
 current_baseline="$current_dir/baseline.json"
 capture_baseline "$current_baseline"
-baseline_sha=$(pnpm --dir "$release_checkout" --filter @repo/cloud-deploy cn-fast-safe-release fingerprint "$current_baseline" "$NGINX_CONFIG")
+if [[ "$app_only" == 1 ]]; then
+  baseline_sha=$(cd "$release_checkout"; /usr/bin/env -i PATH=/usr/local/bin:/usr/bin:/bin HOME=/root LC_ALL=C /usr/bin/node --import tsx packages/cloud-deploy/src/cn-fast-safe-release-cli.ts fingerprint "$current_baseline" "$NGINX_CONFIG")
+else
+  baseline_sha=$(pnpm --dir "$release_checkout" --filter @repo/cloud-deploy cn-fast-safe-release fingerprint "$current_baseline" "$NGINX_CONFIG")
+fi
+if [[ "$app_only" == 1 && "${app_state:-}" == verified ]]; then
+  # The actual candidate runtime was just verified, including the exact attempt.
+  # Keep the frozen previous baseline identity for the immutable admission envelope.
+  baseline_sha=$(node -e 'process.stdout.write(require(process.argv[1]).baselineSha256)' "$fast_safe_receipt")
+fi
+if [[ "$app_only" == 1 && "${app_state:-}" == verified ]]; then
+  # This is readonly reconciliation of a hash-bound existing intent. The app CLI
+  # verified the immutable receipt and actual runtime; it does not renew expiry.
+  # A new remote CAS still requires the original publication window below.
+  :
+elif [[ "$app_only" == 1 ]]; then
+  (cd "$release_checkout"; /usr/bin/env -i PATH=/usr/local/bin:/usr/bin:/bin HOME=/root LC_ALL=C /usr/bin/node --import tsx packages/cloud-deploy/src/cn-fast-safe-release-cli.ts validate "$fast_safe_receipt" "$revision" "$baseline_sha" "$manifest") >/dev/null || fail "prepared app-only evidence differs"
+else
 pnpm --dir "$release_checkout" --filter @repo/cloud-deploy cn-fast-safe-release validate \
   "$fast_safe_receipt" "$revision" "$baseline_sha" "$manifest" >/dev/null \
   || fail "prepared receipt, baseline, or manifest differs"
+fi
 
 # Frozen-tag requests require independently collected Devapp runtime/browser evidence.
 # This file is staged by the controlled producer, never by a workflow boolean.
@@ -113,24 +140,20 @@ provenance="/etc/workspacex-cn/candidate-configs/$revision/$attempt_id/devapp-ac
 protected_file "$provenance"
 raw_devapp_evidence="/etc/workspacex-cn/candidate-configs/$revision/$attempt_id/devapp-evidence.bin"
 protected_file "$raw_devapp_evidence"
-governance_receipt="/etc/workspacex-cn/candidate-configs/$revision/$attempt_id/governance-evidence.json"
-protected_file "$governance_receipt"
-node --input-type=module - "$revision" "$attempt_id" "$fast_safe_receipt" "$manifest" "$provenance" "$raw_devapp_evidence" "$governance_receipt" <<'NODE' || fail "frozen candidate identity/provenance is not ready"
+node --input-type=module - "$revision" "$attempt_id" "$fast_safe_receipt" "$manifest" "$provenance" "$raw_devapp_evidence" <<'NODE' || fail "frozen candidate identity/provenance is not ready"
 import fs from "node:fs";import crypto from "node:crypto";
 import {protectedRead,validateEnvelope,validateDevapp} from "/usr/local/lib/workspacex-cn/cn-controlled-evidence.mjs";
-const [source,attempt,receiptPath,manifestPath,provenancePath,rawEvidencePath,governancePath]=process.argv.slice(2);
+const [source,attempt,receiptPath,manifestPath,provenancePath,rawEvidencePath]=process.argv.slice(2);
 const bytes=fs.readFileSync(receiptPath),receipt=JSON.parse(bytes),manifestBytes=fs.readFileSync(manifestPath),manifest=JSON.parse(manifestBytes);
 const devapp=JSON.parse(fs.readFileSync(provenancePath,"utf8"));
 const signedDevapp=validateEnvelope(JSON.parse(protectedRead(rawEvidencePath)),protectedRead("/etc/workspacex-cn/devapp-evidence-public.pem"),source,attempt,"devapp");
 const derived=validateDevapp(signedDevapp.raw,source);
 if(Object.entries(derived).some(([k,v])=>JSON.stringify(devapp[k])!==JSON.stringify(v)))process.exit(1);
-const governanceBytes=protectedRead(governancePath);
-const governance=validateEnvelope(JSON.parse(governanceBytes),protectedRead("/etc/workspacex-cn/governance-public.pem"),source,attempt,"governance");
 const hash=v=>crypto.createHash("sha256").update(v).digest("hex"),services=["api","web","agent","sandbox"];
 if(receipt.sourceRevision!==source||devapp.status!=="passed"||devapp.sourceSha!==source||devapp.browserAccepted!==true||!Number.isSafeInteger(devapp.workflowRunId)||devapp.workflowRunId<=0||!/^[a-f0-9]{64}$/.test(devapp.evidenceSha256??"")||services.some(k=>devapp.runtimeSourceShas?.[k]!==source))process.exit(1);
 if(hash(fs.readFileSync(rawEvidencePath))!==devapp.evidenceSha256)process.exit(1);
 const safeDevapp={status:devapp.status,sourceSha:devapp.sourceSha,runtimeSourceShas:Object.fromEntries(services.map(k=>[k,devapp.runtimeSourceShas[k]])),browserAccepted:devapp.browserAccepted,evidenceSha256:devapp.evidenceSha256,workflowRunId:devapp.workflowRunId,workflowRunAttempt:devapp.workflowRunAttempt};
-const snapshot={schemaVersion:1,releaseSourceSha:source,attemptId:attempt,receiptSha256:hash(bytes),manifestSha256:hash(manifestBytes),baselineSha256:receipt.baselineSha256,images:receipt.images,devapp:safeDevapp,governance,governanceReceiptSha256:hash(governanceBytes)};
+const snapshot={schemaVersion:1,releaseSourceSha:source,attemptId:attempt,receiptSha256:hash(bytes),manifestSha256:hash(manifestBytes),baselineSha256:receipt.baselineSha256,images:receipt.images,devapp:safeDevapp};
 if(manifest.sourceRevision!==source||snapshot.manifestSha256!==receipt.manifestSha256)process.exit(1);
 console.log("CN_PROMOTION_IDENTITY_JSON="+JSON.stringify(snapshot));
 NODE

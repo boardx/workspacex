@@ -3,6 +3,7 @@ import {
   ACCEPTANCE_DOC,
   CHAT_READ_E2E,
   expectAnchor,
+  gapMessage,
   openFreshThread,
   sendAndSettle,
 } from "./chat-task-workbench-fixture";
@@ -92,6 +93,11 @@ test("TW-P0-6③：风险分级生效——纯读操作不得弹审批（反证�
   // `copilotkit-v2-tool-rendering.spec.ts` 用同一触发词断言 search_documents 卡片）。
   await sendAndSettle(page, CHAT_READ_E2E.deepAgentMultiStepTrigger);
 
+  const traceToggle = page.getByTestId("run-trace-toggle").last();
+  await expect(traceToggle).toBeVisible({ timeout: 60_000 });
+  if (await traceToggle.getAttribute("aria-expanded") === "false") await traceToggle.click();
+  await expect(traceToggle).toHaveAttribute("aria-expanded", "true");
+
   await expect(
     page.getByTestId("restored-run-approval"),
     [
@@ -103,13 +109,10 @@ test("TW-P0-6③：风险分级生效——纯读操作不得弹审批（反证�
   ).toHaveCount(0);
 
   // 分级的另一半：读操作虽然静默，但仍须在事件流里可审计（不是消失）。
-  await expectAnchor(
-    page,
-    "chat-task-workbench-event-row",
-    "TW-P0-6③",
-    "读操作静默后连可审计事件都没有——静默不等于不可见",
-    30_000,
-  );
+  await expect(
+    page.getByTestId("chat-task-workbench-event-row").first(),
+    gapMessage("TW-P0-6③", "chat-task-workbench-event-row", "读操作静默后连可审计事件都没有——静默不等于不可见"),
+  ).toBeVisible({ timeout: 30_000 });
 });
 
 /**

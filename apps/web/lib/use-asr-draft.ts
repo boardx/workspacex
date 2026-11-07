@@ -11,6 +11,7 @@
  */
 "use client";
 import * as React from "react";
+import { ASR_DRAFT_ERROR_TEXT as ERROR_TEXT } from "./asr-draft-error-text";
 import { openAsrDraftStream, type AsrDraftErrorReason } from "./live-asr-draft";
 import { LiveRecordingError } from "./live-recording";
 import { RealtimeReconnect } from "./realtime-reconnect";
@@ -85,11 +86,7 @@ export interface UseAsrDraftResult {
   readonly retry?: () => void;
 }
 
-const ERROR_TEXT: Record<AsrDraftErrorReason, string> = {
-  ASR_PROVIDER_UNAVAILABLE: "语音识别服务暂时不可用，请稍后重试。",
-  ASR_NOT_CONFIGURED: "当前环境尚未配置语音转写服务，暂时无法使用语音输入，请手动输入。",
-  AUDIO_FORMAT_REJECTED: "音频格式被服务拒绝，请刷新页面后重试。",
-};
+
 
 /**
  * 浏览器是否具备"能开一条这样的录音"的基本能力——麦克风采音 + WebSocket。
@@ -347,6 +344,10 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId,
       if (!current()) return;
       startingRef.current = false;
       handleRef.current = null;
+      if (caught instanceof Error && (caught.message === "CREDIT_REQUIRED" || caught.message === "CREDIT_ACCOUNTING_UNAVAILABLE")) {
+        policyRef.current?.cancel(); recoveryRef.current = false; setReconnecting(false);
+        setStatus("error"); setErrorReason(caught.message); setError(ERROR_TEXT[caught.message]); return;
+      }
       if (caught instanceof LiveRecordingError) {
         policyRef.current?.cancel(); recoveryRef.current = false; setReconnecting(false);
         // `live-recording.ts` 已经把权限被拒绝/无设备/采音起不来分成具名的中文提示，

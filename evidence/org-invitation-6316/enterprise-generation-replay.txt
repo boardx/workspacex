@@ -1,0 +1,12 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/2e5d/workspacex/apps/api
+
+[db-isolation] db=workspacex_enterprise_generation_6316 capacity=100 current=6 required=32
+ ✓ tests/billing/member-credit-quota-replay-pg.test.ts (2 tests) 1035ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  18:52:20
+   Duration  3.67s (transform 1.08s, setup 0ms, collect 1.36s, tests 1.03s, environment 0ms, prepare 49ms)
+
+[db-isolation] db=workspacex_enterprise_generation_6316 peak_connections=3

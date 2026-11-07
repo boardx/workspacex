@@ -1,0 +1,113 @@
+{
+  "kind": "fixed-preserved-f0eb-wrapper-metadata-v1",
+  "runId": 38251278777,
+  "preservationControlSha": "fa06cc7e2ec052d49c0ea1937190dc5ce518a9a4",
+  "originalSourceSha": "f0eb9d07398a66fdd5646a9e6b855fa1b940e571",
+  "artifacts": {
+    "web": {
+      "id": 11749366309,
+      "name": "f0eb-original-web-38146134231-38251278777",
+      "size_in_bytes": 393733709,
+      "digest": "sha256:09d5453f43c565106fd64d554dc603428fdcb3662de00352352b613d6d60ad6b",
+      "created_at": "2026-10-12T12:53:33Z",
+      "expires_at": "2026-10-13T12:53:28Z",
+      "workflow_run": {
+        "id": 38251278777,
+        "repository_id": 1000328649,
+        "head_repository_id": 1000328649,
+        "head_branch": "worker/codex-cn-autonomous-release",
+        "head_sha": "fa06cc7e2ec052d49c0ea1937190dc5ce518a9a4"
+      }
+    },
+    "sandbox": {
+      "id": 11748410813,
+      "name": "f0eb-original-sandbox-38146134231-38251278777",
+      "size_in_bytes": 1577551526,
+      "digest": "sha256:4bb290428a36e26b94abcc87ee396f92cd2ccd95a13c0dac7c18ae2ac5763bc2",
+      "created_at": "2026-10-12T12:52:39Z",
+      "expires_at": "2026-10-13T12:52:30Z",
+      "workflow_run": {
+        "id": 38251278777,
+        "repository_id": 1000328649,
+        "head_repository_id": 1000328649,
+        "head_branch": "worker/codex-cn-autonomous-release",
+        "head_sha": "fa06cc7e2ec052d49c0ea1937190dc5ce518a9a4"
+      }
+    },
+    "postgres": {
+      "id": 11748385913,
+      "name": "f0eb-original-postgres-38146134231-38251278777",
+      "size_in_bytes": 460161327,
+      "digest": "sha256:320d835415a11572e0f7efcbf6056fc52b566a9eaa9142864a000bc5fa422d4c",
+      "created_at": "2026-10-12T12:51:51Z",
+      "expires_at": "2026-10-13T12:51:47Z",
+      "workflow_run": {
+        "id": 38251278777,
+        "repository_id": 1000328649,
+        "head_repository_id": 1000328649,
+        "head_branch": "worker/codex-cn-autonomous-release",
+        "head_sha": "fa06cc7e2ec052d49c0ea1937190dc5ce518a9a4"
+      }
+    },
+    "agent": {
+      "id": 11748200380,
+      "name": "f0eb-original-agent-38146134231-38251278777",
+      "size_in_bytes": 410875257,
+      "digest": "sha256:c59a692dac6b93af11e403f2b3e738857243f8959b802463cf3d45a9adb75a90",
+      "created_at": "2026-10-12T12:49:37Z",
+      "expires_at": "2026-10-13T12:49:32Z",
+      "workflow_run": {
+        "id": 38251278777,
+        "repository_id": 1000328649,
+        "head_repository_id": 1000328649,
+        "head_branch": "worker/codex-cn-autonomous-release",
+        "head_sha": "fa06cc7e2ec052d49c0ea1937190dc5ce518a9a4"
+      }
+    },
+    "set": {
+      "id": 11747954877,
+      "name": "f0eb-original-set-38146134231-38251278777",
+      "size_in_bytes": 6541,
+      "digest": "sha256:e543c5801c30a0f8637917233d695cd0a7507fa375043cd3be03b23b94241935",
+      "created_at": "2026-10-12T12:48:47Z",
+      "expires_at": "2026-10-13T12:48:46Z",
+      "workflow_run": {
+        "id": 38251278777,
+        "repository_id": 1000328649,
+        "head_repository_id": 1000328649,
+        "head_branch": "worker/codex-cn-autonomous-release",
+        "head_sha": "fa06cc7e2ec052d49c0ea1937190dc5ce518a9a4"
+      }
+    },
+    "plan": {
+      "id": 11747919865,
+      "name": "f0eb-original-plan-38146134231-38251278777",
+      "size_in_bytes": 2292,
+      "digest": "sha256:f5fb807809613caaba3810d8540d5bb66ebb6d222cff77c89960608936a0fd98",
+      "created_at": "2026-10-12T12:48:19Z",
+      "expires_at": "2026-10-13T12:48:18Z",
+      "workflow_run": {
+        "id": 38251278777,
+        "repository_id": 1000328649,
+        "head_repository_id": 1000328649,
+        "head_branch": "worker/codex-cn-autonomous-release",
+        "head_sha": "fa06cc7e2ec052d49c0ea1937190dc5ce518a9a4"
+      }
+    },
+    "api": {
+      "id": 11747214790,
+      "name": "f0eb-original-api-38146134231-38251278777",
+      "size_in_bytes": 983579237,
+      "digest": "sha256:6eb45adb3992f01d237eabc1f4d7993fe7ad94322c935394e10fc2b2185c1aae",
+      "created_at": "2026-10-12T12:51:07Z",
+      "expires_at": "2026-10-13T12:50:58Z",
+      "workflow_run": {
+        "id": 38251278777,
+        "repository_id": 1000328649,
+        "head_repository_id": 1000328649,
+        "head_branch": "worker/codex-cn-autonomous-release",
+        "head_sha": "fa06cc7e2ec052d49c0ea1937190dc5ce518a9a4"
+      }
+    }
+  }
+}

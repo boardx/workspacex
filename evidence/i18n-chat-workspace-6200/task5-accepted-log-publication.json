@@ -1,0 +1,47 @@
+{
+  "logs": [
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task5-plan-checkpoint.log",
+      "rawSha256": "8aed2044429043a97f05e67181515d8868bbc74c3cbd49158ef5dbc06b7a8ce3",
+      "publishedSha256": "8aed2044429043a97f05e67181515d8868bbc74c3cbd49158ef5dbc06b7a8ce3",
+      "nonWhitespaceEqual": true
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task5-accepted-ef49-merge.log",
+      "rawSha256": "1d9c94efc97a4243aa752eed990be8c85ba8b098aa09ab003f2f9bf84011cb32",
+      "publishedSha256": "1d9c94efc97a4243aa752eed990be8c85ba8b098aa09ab003f2f9bf84011cb32",
+      "nonWhitespaceEqual": true
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task5-accepted-copy-red.log",
+      "rawSha256": "1bfe44b8ae9ef389fc25dd38d4e599fb9e93cb89f7d22454417415f456a6fb31",
+      "publishedSha256": "67fdea4d68676cd65f2fc49c1adff64c57f763a62315e3cbd9b26b7883ab9986",
+      "nonWhitespaceEqual": true
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task5-post-ef49-neighbors-green.log",
+      "rawSha256": "cc18e29146e876690b2049f1a8673d4aa6334ea85650e17ea61c5e9256e2e109",
+      "publishedSha256": "a5f28c4f86218d028c4f43d8bbade78a6dfad2a77a275c2cf19dfa7d1c46d291",
+      "nonWhitespaceEqual": true
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task5-post-ef49-type-green.log",
+      "rawSha256": "e9b019d37db080d36b121892b06e0818b37e0b4f08f68f45cd0110befa237e7e",
+      "publishedSha256": "62543be5fd5bf1824e1a01ed8931f0607450a06735a9cb2ac84b1fb88de5122d",
+      "nonWhitespaceEqual": true
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task5-post-ef49-lint-green.log",
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "publishedSha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "nonWhitespaceEqual": true
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task5-post-ef49-status-source-green.log",
+      "rawSha256": "c796bc7574a23413d1fe616828945f19ef8671962c78fcbc67180b960d4715dc",
+      "publishedSha256": "34616d0613e907ba3d64610e70288f88542d7abb92fdc63c74fdc78a807aff81",
+      "nonWhitespaceEqual": true
+    }
+  ],
+  "rawPrivateDirectory": "/tmp/chat6200-task5-freeze-integration-private"
+}

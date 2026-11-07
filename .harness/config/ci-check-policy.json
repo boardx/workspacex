@@ -1,21 +1,20 @@
 {
-  "version": 4,
+  "version": 5,
   "requiredChecks": [
     "verify-control-plane",
     "verify-affected",
     "verify-full-compile",
     "merge-gate",
-    "backend-required"
+    "backend-required",
+    "queue-ready"
   ],
   "aggregates": {
-    "backend-required": [
-      "gates-fast",
-      "gates-test",
-      "native-document-chain",
-      "native-runtime-lane",
-      "gates-runtime",
-      "prototype-audit",
-      "design-loop-e2e"
+    "queue-ready": [
+      "verify-control-plane",
+      "verify-affected",
+      "verify-full-compile",
+      "merge-gate",
+      "backend-required"
     ]
   },
   "allowedMergeMethods": [
@@ -28,5 +27,16 @@
   "independentChecks": [
     "native-board",
     "meeting-room"
-  ]
+  ],
+  "sourceVerificationEvent": "merge_group",
+  "mergeVerificationMode": "lightweight",
+  "fullRegression": {
+    "workflowPath": ".github/workflows/harness-acceptance.yml",
+    "events": [
+      "schedule",
+      "workflow_dispatch"
+    ],
+    "cron": "17 * * * *",
+    "coverage": "frozen-develop-snapshot-not-every-commit"
+  }
 }

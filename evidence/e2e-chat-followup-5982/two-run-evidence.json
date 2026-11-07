@@ -1,0 +1,19 @@
+{
+  "source": "authoritative GET agent-runs responses retained in the successful Markdown test trace",
+  "traceSha256": "31c89413a3fdeff96341331e4a08a56593e9840bbb17420ba9e645b9be922915",
+  "runs": [
+    {
+      "runId": "8c15a1db-6463-4264-a637-29a1acabdce3",
+      "status": "succeeded",
+      "resultMessageId": "b1889c8b-ee47-4238-b531-6ec7fc8d0bac",
+      "threadId": "thr-3611cf65-c33f-49a5-af51-7f8173b18248"
+    },
+    {
+      "runId": "b4eec52e-87b9-4a7d-8289-975c81fe2dbe",
+      "status": "succeeded",
+      "resultMessageId": "16bd09a2-e1b8-4a12-b0c6-d98b60269ed0",
+      "threadId": "thr-3611cf65-c33f-49a5-af51-7f8173b18248"
+    }
+  ],
+  "distinctSuccessfulRuns": 2
+}

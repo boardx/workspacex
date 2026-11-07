@@ -1,0 +1,87 @@
+[stack-admission] load1=3.63 cores=10 perCore=0.36 running=0/2
+[test-isolation] id=run-mvdwn5ba-d88e8c30-b178193deed7 db=wsx_b178193deed79f224a29 compose=wsx-b178193deed79f224a29 pg=20013 redis=21013 api=24013 web=25013 sandbox=26013 model=27013 deep-agent=28013 asr=29013 vision=30013 loopback-sandbox=31013 mail=19013
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_b178193deed79f224a29 capacity=100 current=6 required=32
+ ❯ tests/billing/subscription-links.test.ts (34 tests | 4 failed) 25308ms
+   ✓ F08 real subscription HTTP/PG > rejects unsafe provider response timeout without mutating subscription 8040ms
+   ✓ F08 real subscription HTTP/PG > rejects unsafe provider response headers-timeout without mutating subscription 8052ms
+   × F08 real subscription HTTP/PG > bounds concurrent abandoned purchases to twenty without invalidating existing links 65ms
+     → expected [ …(25) ] to have a length of 20 but got 25
+   × F08 real subscription HTTP/PG > cleans only this user's expired unconsumed intents, preserving active links and consumed history 30ms
+     → expected [ …(4) ] to not include 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa…'
+   × F08 real subscription HTTP/PG > cleanup transaction failure returns 503 and rolls back expiry cleanup without issuing a link 18ms
+     → expected 200 to be 503 // Object.is equality
+   × F08 real subscription HTTP/PG > intent-count transaction failure returns 503 and rolls back expiry cleanup without issuing a link 17ms
+     → expected 200 to be 503 // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/subscription-links.test.ts > F08 real subscription HTTP/PG > bounds concurrent abandoned purchases to twenty without invalidating existing links
+AssertionError: expected [ …(25) ] to have a length of 20 but got 25
+
+- Expected
++ Received
+
+- 20
++ 25
+
+ ❯ tests/billing/subscription-links.test.ts:219:67
+    217|   it("bounds concurrent abandoned purchases to twenty without invalida…
+    218|     const responses = await Promise.all(Array.from({ length: 25 }, () …
+    219|     expect(responses.filter(response => response.status === 200)).toHa…
+       |                                                                   ^
+    220|     const limited = responses.filter(response => response.status === 4…
+    221|     for (const response of limited) expect(await response.json()).toMa…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  tests/billing/subscription-links.test.ts > F08 real subscription HTTP/PG > cleans only this user's expired unconsumed intents, preserving active links and consumed history
+AssertionError: expected [ …(4) ] to not include 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa…'
+ ❯ tests/billing/subscription-links.test.ts:238:59
+    236|       (repeat('b',64),$1,now()-interval '2 days',now()-interval '1 day…
+    237|       (repeat('c',64),$2,now()-interval '2 days',now()-interval '1 day…
+    238|     expect((await request("/upgrade-link")).status).toBe(200);
+       |                                                           ^
+    239|     const retained = await asOwner(c => c.query("SELECT intent_hash FR…
+    240|     expect(retained.rows.map(row => row.intent_hash)).toContain(active…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  tests/billing/subscription-links.test.ts > F08 real subscription HTTP/PG > cleanup transaction failure returns 503 and rolls back expiry cleanup without issuing a link
+ FAIL  tests/billing/subscription-links.test.ts > F08 real subscription HTTP/PG > intent-count transaction failure returns 503 and rolls back expiry cleanup without issuing a link
+AssertionError: expected 200 to be 503 // Object.is equality
+
+- Expected
++ Received
+
+- 503
++ 200
+
+ ❯ tests/billing/subscription-links.test.ts:247:80
+    245|   });
+    246|   it.each(["cleanup", "intent-count", "insert"] as const)("%s transact…
+    247|     await asOwner(c => c.query(`INSERT INTO billing_purchase_intents(i…
+       |                                                                                ^
+    248|       VALUES (repeat('d',64),$1,now()-interval '2 days',now()-interval…
+    249|     databaseFault = fault;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 30 passed (34)
+   Start at  22:12:30
+   Duration  30.31s (transform 750ms, setup 4ms, collect 1.30s, tests 25.31s, environment 0ms, prepare 32ms)
+
+[db-isolation] db=wsx_b178193deed79f224a29 peak_connections=7
+undefined
+/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/subscription-links.test.ts
+[timing] pnpm --filter api exec vitest run tests/billing/subscription-links.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：31s
+  清理：0s
+  总计：31s

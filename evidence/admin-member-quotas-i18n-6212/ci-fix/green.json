@@ -1,0 +1,26 @@
+{
+  "head": "b77667140dd130abffb2c9205c49b394a79dd9db",
+  "gate": "green",
+  "exit": 0,
+  "seconds": 19.463,
+  "files": [
+    "tests/ui/admin-members-quota-live.test.tsx",
+    "tests/ui/admin-member-quotas-i18n.test.tsx",
+    "tests/ui/admin-limit-policy-i18n.test.tsx",
+    "tests/ui/ai-usage-format-i18n.test.ts",
+    "tests/ui/ai-usage-i18n.test.tsx",
+    "tests/lib/i18n-resources.test.ts",
+    "tests/lib/admin-quota-count-copy.test.ts",
+    "tests/lib/http-failure-text.test.ts",
+    "tests/lib/artifact-failure.test.ts",
+    "tests/ui/failure-i18n.test.ts",
+    "tests/ui/research-overview.test.tsx"
+  ],
+  "rawPrivate": true,
+  "logSha256": "6e32292417508375849d0cb8cfce7b8e0ee54a089ae14b58e2cb229e7e33852d",
+  "summary": [
+    "Test Files  11 passed (11)",
+    "Tests  97 passed (97)",
+    "Duration  18.21s (transform 3.16s, setup 1.34s, collect 8.04s, tests 3.27s, environment 3.19s, prepare 604ms)"
+  ]
+}

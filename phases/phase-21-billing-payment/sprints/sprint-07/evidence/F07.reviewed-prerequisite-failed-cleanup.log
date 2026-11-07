@@ -1,0 +1,12 @@
+ Container wsx-e88094bcec2869c191fd-postgres-1 Stopping 
+ Container wsx-e88094bcec2869c191fd-redis-1 Stopping 
+ Container wsx-e88094bcec2869c191fd-postgres-1 Stopped 
+ Container wsx-e88094bcec2869c191fd-postgres-1 Removing 
+ Container wsx-e88094bcec2869c191fd-redis-1 Stopped 
+ Container wsx-e88094bcec2869c191fd-redis-1 Removing 
+ Container wsx-e88094bcec2869c191fd-postgres-1 Removed 
+ Container wsx-e88094bcec2869c191fd-redis-1 Removed 
+ Network wsx-e88094bcec2869c191fd_default Removing 
+ Network wsx-e88094bcec2869c191fd_default Removed 
+
+Exact source 9697455adb57cab9c0784000b00cc614bbf59c8e. Formal session91124 exit130 after confirmed API assertion failure. Partial API761 successful files; remaining tasks cancelled, not full PASS. Owned groups61807/62216 empty; own compose down exit0. Quarantine preserved.

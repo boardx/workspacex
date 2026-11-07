@@ -1,3 +1,4 @@
+import {rethrowCreditConsumption} from "../billing/credit-consumption";
 /**
  * `suggestTemplateSections` —— AI 提议一个模板该有哪些分区（2026-08-23，设计增量、
  * 待人类补签，先例见 `packages/contracts/src/canvas.ts` 该操作文件头）。
@@ -81,7 +82,7 @@ export async function suggestTemplateSections(
       ].join("\n"),
       user: JSON.stringify({ prompt: input.prompt }),
     });
-  } catch (error) {
+  } catch (error) { rethrowCreditConsumption(error);
     if (error instanceof ModelCallError) {
       throw new CanvasError("TEMPLATE_SUGGESTION_UNAVAILABLE");
     }
@@ -91,7 +92,7 @@ export async function suggestTemplateSections(
   let parsed: ModelResponse;
   try {
     parsed = canvas.TemplateSectionSuggestionModelResponse.parse(extractJson(completion.text));
-  } catch {
+  } catch (creditError) { rethrowCreditConsumption(creditError);
     throw new CanvasError("TEMPLATE_SUGGESTION_UNAVAILABLE");
   }
 

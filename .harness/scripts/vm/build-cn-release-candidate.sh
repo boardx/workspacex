@@ -6,7 +6,10 @@ unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_CONFIG GIT_CONFIG_
 export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_NO_REPLACE_OBJECTS=1 GIT_NO_LAZY_FETCH=1
 
 build_only=0
+automatic=0
+if [[ ${1:-} == --automatic ]]; then automatic=1; shift; fi
 if [[ ${1:-} == --build-only ]]; then
+  [[ "$automatic" == 0 ]] || { echo 'CN_BUILD_MODES_CONFLICT' >&2; exit 2; }
   [[ $# -eq 5 ]] || { echo 'CN_BUILD_ONLY_ARGUMENTS' >&2; exit 2; }
   tool_binding=$2; shift 2; build_only=1
 fi
@@ -114,8 +117,24 @@ fi
 
 # Candidate config is generated under the same lock without replacing live config.
 # Dependencies must match this exact source before any TS entrypoint is loaded.
+if [[ "$automatic" == 1 ]]; then
+  # Populate the integrity-checked locked dependency closure before prebuild.
+  # Lifecycle scripts stay disabled; subsequent admission and prepare are offline.
+  COREPACK_ENABLE_NETWORK=0 /usr/bin/corepack pnpm@9.15.0 --dir "$REPOSITORY_DIR" install --prefer-offline --frozen-lockfile --ignore-scripts >/dev/null || fail "locked candidate dependency acquisition failed"
+fi
 COREPACK_ENABLE_NETWORK=0 /usr/bin/corepack pnpm@9.15.0 --dir "$REPOSITORY_DIR" install --offline --frozen-lockfile --ignore-scripts >/dev/null || fail "candidate offline dependency closure unavailable"
 (cd "$REPOSITORY_DIR"; node --import tsx packages/cloud-deploy/src/cn-candidate-config-cli.ts prepare "$revision" "$release" "$attempt_id") >/dev/null || fail "candidate configuration preparation rejected"
+
+if [[ "$automatic" == 1 ]]; then
+  for helper in cn_auto_prepare.py cn_auto_prepare_provider.py cn_auto_baseline_schema.py cn_compose_baseline.py cn-auto-isolated-target.mjs; do
+    cmp --silent "$REPOSITORY_DIR/.harness/scripts/vm/$helper" "/usr/local/lib/workspacex-cn/$helper" || fail "automatic preparation tool drift"
+  done
+  # Real read-only inventory and schema replay precede build admission. The
+  # complete post-build preparation receipt cannot exist at this boundary.
+  baseline_source=$(python3 /usr/local/lib/workspacex-cn/cn_compose_baseline.py source) || fail "running baseline source is unproven"
+  (cd "$REPOSITORY_DIR"; node --import tsx packages/cloud-deploy/src/cn-auto-migration-snapshot.ts "$revision" "$attempt_id" "$baseline_source") || fail "automatic migration inventory rejected"
+  python3 /usr/local/lib/workspacex-cn/cn_auto_baseline_schema.py "$baseline_source" "$attempt_id" >/dev/null || fail "isolated baseline schema replay failed"
+fi
 
 preflight_phase=prebuild
 [[ "$build_only" == 0 ]] || preflight_phase=artifact-build
@@ -158,10 +177,17 @@ else
   "$PUBLISHER" "$revision" "$release"
 fi
 if [[ "$build_only" == 0 ]]; then
+if [[ "$automatic" == 1 ]]; then
+  # Restore and migrate an isolated copy first. Only then does this producer
+  # invoke the canonical preactivate collector, while HEAD and FD9 are frozen.
+  (cd "$REPOSITORY_DIR"; node --import tsx packages/cloud-deploy/src/cn-auto-preparation-request.ts "$revision" "$release" "$attempt_id") >/dev/null || fail "automatic preparation request rejected"
+  (cd "$REPOSITORY_DIR"; node --import tsx packages/cloud-deploy/src/cn-auto-preparation-cli.ts "$revision" "$attempt_id") >/dev/null || fail "actual automatic preparation failed"
+else
 "$PREFLIGHT_COLLECTOR" preactivate "$revision" "$release" "$attempt_id" >/dev/null \
   || fail "preactivate evidence collection failed"
 "$PREFLIGHT_VERIFIER" preactivate "$revision" "$release" "$attempt_id" >/dev/null \
   || fail "preactivate receipt is missing or invalid"
+fi
 fi
 if [[ "$checkout_changed" == 1 ]]; then restore_checkout || fail "baseline checkout restoration failed"; fi
 checkout_changed=0

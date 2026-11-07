@@ -1,6 +1,7 @@
 name: Repository artifact carrier contracts
 on:
   pull_request:
+    branches: [develop]
     paths:
       - 'scripts/cn-complete-runtime-carrier.py'
       - 'tests/test_cn_complete_runtime_carrier.py'

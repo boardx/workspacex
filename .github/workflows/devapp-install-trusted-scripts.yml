@@ -1,4 +1,4 @@
-# 把 devapp 上那三份 **root 拥有的部署脚本副本** 更新成 origin/main 当前的版本。
+# 把 devapp 上那四份 **root 拥有的部署脚本副本** 更新成 origin/main 当前的版本。
 #
 # 为什么需要手动触发这一步：workflow 的 deploy job 跑的是
 # `sudo /usr/local/bin/workspacex-deploy`（root 拥有的副本，仓库里那份不可信），
@@ -43,7 +43,8 @@ jobs:
         run: |
           for f in /usr/local/bin/workspacex-deploy \
                    /usr/local/lib/workspacex-deploy-readiness.sh \
-                   /usr/local/lib/workspacex-deep-agent-lib.sh; do
+                   /usr/local/lib/workspacex-deep-agent-lib.sh \
+                   /usr/local/lib/workspacex-devapp-runtime-identity.mjs; do
             printf '%s ' "$f"
             sha256sum "$f" 2>/dev/null | cut -d' ' -f1 || echo "(不存在)"
           done
@@ -61,18 +62,30 @@ jobs:
         run: |
           fail=0
           check() {
-            local repo_path=$1 installed=$2
-            local want have
-            want=$(git show "HEAD:${repo_path}" | sha256sum | cut -d' ' -f1)
-            have=$(sha256sum "$installed" | cut -d' ' -f1)
-            if [ "$want" != "$have" ]; then
-              echo "✗ ${installed} 与 origin/main 的 ${repo_path} 不一致"
+            local repo_path=$1 installed=$2 mode=$3
+            local want have metadata
+            if [[ ! -f "$installed" || -L "$installed" ]]; then
+              echo "DEVAPP_TRUSTED_SCRIPTS_NOT_READY: missing or unsafe ${installed}" >&2
+              fail=1
+              return
+            fi
+            metadata=$(stat -c '%u:%g:%a:%h' "$installed") || metadata=unavailable
+            if [[ "$metadata" != "0:0:${mode}:1" ]]; then
+              echo "DEVAPP_TRUSTED_SCRIPTS_NOT_READY: owner/mode/link count ${installed}" >&2
+              fail=1
+              return
+            fi
+            if ! want=$(git show "HEAD:${repo_path}" | sha256sum | cut -d' ' -f1) ||
+               ! have=$(sha256sum "$installed" | cut -d' ' -f1) ||
+               [[ ! "$want" =~ ^[a-f0-9]{64}$ || "$want" != "$have" ]]; then
+              echo "DEVAPP_TRUSTED_SCRIPTS_NOT_READY: ${installed} differs from reviewed main bytes" >&2
               fail=1
             else
               echo "✓ ${installed}  ${have}"
             fi
           }
-          check .harness/scripts/vm/deploy.sh /usr/local/bin/workspacex-deploy
-          check .harness/scripts/vm/deploy-readiness.sh /usr/local/lib/workspacex-deploy-readiness.sh
-          check .harness/scripts/vm/deep-agent-lib.sh /usr/local/lib/workspacex-deep-agent-lib.sh
+          check .harness/scripts/vm/deploy.sh /usr/local/bin/workspacex-deploy 755
+          check .harness/scripts/vm/deploy-readiness.sh /usr/local/lib/workspacex-deploy-readiness.sh 644
+          check .harness/scripts/vm/deep-agent-lib.sh /usr/local/lib/workspacex-deep-agent-lib.sh 644
+          check .harness/scripts/vm/devapp-runtime-identity.mjs /usr/local/lib/workspacex-devapp-runtime-identity.mjs 644
           exit $fail

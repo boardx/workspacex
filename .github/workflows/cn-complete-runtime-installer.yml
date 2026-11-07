@@ -1,6 +1,7 @@
 name: Offline repository installer contracts
 on:
   pull_request:
+    branches: [develop]
     paths:
       - 'scripts/install-cn-complete-runtime.py'
       - 'scripts/install-cn-candidate-runtime.py'

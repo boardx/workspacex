@@ -1,14 +1,12 @@
 import {createHash} from 'node:crypto';
-import type {WhiteboardDeletionProof,WhiteboardDeletionChange} from '../../application/whiteboard/collaboration-ports';
 import { parentPort, workerData } from 'node:worker_threads';
 import * as Y from 'yjs';
 import { compensateWhiteboardSnapshot, createWhiteboardDocument, executeCommands, prepareWhiteboardUpdate, validateDocument, readObjects, readStoredObject, WHITEBOARD_UPDATE_LIMITS, mindmapStructureDigest } from '@repo/whiteboard-core';
-import type { WhiteboardCommand } from '@repo/contracts/whiteboard-document';
+import type { WorkerValidationInput } from './update-validator-input';
 
 const canonical=(value:unknown):string=>Array.isArray(value)?`[${value.map(canonical).join(',')}]`:value&&typeof value==='object'?`{${Object.entries(value as Record<string,unknown>).sort(([a],[b])=>a.localeCompare(b)).map(([key,item])=>`${JSON.stringify(key)}:${canonical(item)}`).join(',')}}`:JSON.stringify(value);
 const digest=(value:unknown)=>createHash('sha256').update(canonical(value)).digest('hex');
-type Input = {mode:'compensate';snapshot:Uint8Array;before:Uint8Array} | {mode:'restore-deletion';snapshot:Uint8Array;proof:WhiteboardDeletionProof[];changes?:WhiteboardDeletionChange[];inverseUpdate?:Uint8Array} | { mode: 'objects'; snapshot: Uint8Array } | { mode: 'object-ids'; snapshot: Uint8Array } | { mode: 'update'; snapshot: Uint8Array; update: Uint8Array } | { mode: 'commands'; snapshot: Uint8Array; commands: WhiteboardCommand[] } | { mode: 'diff'; snapshot: Uint8Array; vector?: Uint8Array };
-const input = workerData as Input;
+const input = workerData as WorkerValidationInput;
 const doc = createWhiteboardDocument();
 try {
   Y.applyUpdate(doc, input.snapshot);
@@ -62,10 +60,13 @@ try {
       if(restoredRoutes.size)executeCommands(doc,[...restoredRoutes.keys()].map(id=>({type:'connector',id,connector:afterById.get(id)!.connector!})),'authorized-delete-undo-bounds');
       validateDocument(doc);update=Y.encodeStateAsUpdate(doc,vector);
     }else if (input.mode === 'update') { update = prepareWhiteboardUpdate(doc, input.update); Y.applyUpdate(doc, update); if (mindmapStructureDigest(before) !== mindmapStructureDigest(readObjects(doc))) throw new Error('MINDMAP_OPERATION_REQUIRED'); }
-    else {
+    else if (input.mode === 'commands') {
       const vector = Y.encodeStateVector(doc);
       executeCommands(doc, input.commands, 'authorized-host-command');
       update = Y.encodeStateAsUpdate(doc, vector);
+    } else {
+      const unhandled: never = input;
+      throw new Error('UNSUPPORTED_VALIDATOR_MODE', { cause: unhandled });
     }
     const snapshot = Y.encodeStateAsUpdate(doc);
     if (snapshot.byteLength > WHITEBOARD_UPDATE_LIMITS.documentBytes || [...doc.store.clients.values()].reduce((n, values) => n + values.length, 0) > WHITEBOARD_UPDATE_LIMITS.documentStructs) throw new Error('LIMIT');

@@ -14,7 +14,7 @@ const manifest = { schemaVersion: 1, sourceRevision: source, release, platform: 
 const bytes = Buffer.from(JSON.stringify(manifest) + '\n');
 const seal = sealReleaseCandidate(bytes, new Date('2026-10-04T00:00:00Z'));
 const binding = { releaseSourceSha: source, expectedMainCnSha: baseline, attemptId,
-  receiptSha256: digest, governanceReceiptSha256: digest, mainSourceEvidenceSha256: digest,
+  receiptSha256: digest, mainSourceEvidenceSha256: digest,
   manifestSha256: seal.manifestSha256, baselineSha256: digest,
   images: Object.fromEntries(services.slice(0, 4).map(service => [service, `sha256:${digest}`])),
   devappEvidenceSha256: digest, devappWorkflowRunId: 5321 };

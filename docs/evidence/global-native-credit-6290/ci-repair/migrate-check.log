@@ -1,0 +1,21 @@
+
+> @repo/api@0.0.0 migrate:check /Users/shenyangjun/.codex/worktrees/e6f1/workspacex/apps/api
+> ./scripts/verify-migrations.sh
+
+ Image localhost/workspacex-postgres-age:pg16-age1.6.0 Building 
+ Image localhost/workspacex-postgres-age:pg16-age1.6.0 Built 
+ Container wx6298-ci-postgres-1 Recreate 
+ Container wx6298-ci-postgres-1 Recreated 
+ Container wx6298-ci-postgres-1 Starting 
+ Container wx6298-ci-postgres-1 Started 
+NOTICE:  database "wx6298_ci" does not exist, skipping
+  applied 457 migration(s) to an empty database
+  ✓ force replay re-ran every file (not silently skipped by the version table)
+  ✓ schema digest identical after replay
+  ✓ populated database data identical after replay
+  ✓ populated replay fixture survived
+  ✓ legacy prototype version survived replay byte-for-byte
+  ✓ prototype version remains append-only after replay
+  ✓ every file in migrations/ is recorded in the version table
+  (migrations dir: /Users/shenyangjun/.codex/worktrees/e6f1/workspacex/apps/api/migrations/)
+✅ migrate:check: migrations rebuild from empty and are individually replayable

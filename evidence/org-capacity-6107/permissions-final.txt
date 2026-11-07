@@ -1,0 +1,37 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/team-capacity-6107/apps/api
+
+[db-isolation] db=wsx_c81f89481a3d3d89d37e capacity=100 current=6 required=32
+ ✓ tests/auth/admin-invite-dual-review.test.ts (10 tests) 11698ms
+   ✓ 邀请管理员进入待批队列，批准前不签发 token > orgRole=admin 时返回 awaiting-review 且 org_invite_tokens 里没有任何行（I-3） 555ms
+   ✓ 邀请管理员进入待批队列，批准前不签发 token > 发起人不可自批（I-4） 1176ms
+   ✓ 邀请管理员进入待批队列，批准前不签发 token > approve 后转 pending、签发新 token，且 tokenIssued=true 961ms
+   ✓ 邀请管理员进入待批队列，批准前不签发 token > reject 后转 revoked，且不签发 token 786ms
+   ✓ 邀请管理员进入待批队列，批准前不签发 token > 幂等重放：同一 reviewer 重复 approve 返回同一结果，不重复签发 token 828ms
+   ✓ 邀请管理员进入待批队列，批准前不签发 token > 并发：两名管理员同时批，只生效一次——第二个到达的收到 VERSION_CHANGED 806ms
+   ✓ 邀请管理员进入待批队列，批准前不签发 token > 非管理员调用被拒（PROJECT_ROLE_INSUFFICIENT） 1204ms
+   ✓ D2：批准那一次响应回传 activationToken，此外任何地方拿不到 > 走真实路由批准：响应 key 集合逐字等于契约 out，token 可真实激活建号，重放同一 token 被拒 955ms
+   ✓ D2：批准那一次响应回传 activationToken，此外任何地方拿不到 > 「只此一次」的另一半：批准后再查列表搜不到令牌值；并发第二个复核者什么也拿不到 1056ms
+   ✓ 组织内只有一名管理员：不得退化为单人可批 > 邀请停在待批队列，唯一的那名管理员对自己发出的邀请复核仍被拒 1055ms
+ ✓ tests/org-admin/set-org-member-role-real.test.ts (8 tests) 25100ms
+   ✓ setOrgMemberRole —— 授权面 > 非本组织成员 → 403 NO_ORG_MEMBERSHIP，库里没变 593ms
+   ✓ setOrgMemberRole —— 授权面 > 本组织的非管理员 → 403 PROJECT_ROLE_INSUFFICIENT，库里没变（连自己都不能改） 723ms
+   ✓ setOrgMemberRole —— 写路径 > 管理员把顾问改成项目负责人 → 真的落库，响应带前值，写一条 role-changed 审计 830ms
+   ✓ setOrgMemberRole —— 写路径 > 改成同一个角色 → 幂等重放：previousOrgRole === orgRole，不写审计 1045ms
+   ✓ setOrgMemberRole —— 写路径 > 目标不在本组织（别的组织的 admin）→ 404 MEMBER_NOT_FOUND，别的组织的行没变 1511ms
+   ✓ setOrgMemberRole —— 写路径 > 降掉最后一名 admin（自降）→ 409 LAST_ADMIN，库里没变 4593ms
+   ✓ setOrgMemberRole —— 写路径 > 先把另一个人提成 admin，再自降 → 通过，审计标 self: true 9351ms
+   ✓ setOrgMemberRole —— 写路径 > 两名 admin 并发互相降级 → 恰好一个成功，组织不会剩零 admin 3984ms
+ ✓ tests/auth/quota-exhausted-hard-block.test.ts (5 tests) 17058ms
+   ✓ 组织额度为 0 时硬阻断 > seat_quota=0 时任何邀请一律 QUOTA_EXHAUSTED，且不产生任何 OrgInvite 行 543ms
+   ✓ 组织额度为 0 时硬阻断 > 恢复额度后同一邀请成功（I-9 逐字：置零后拒绝，恢复后成功） 707ms
+   ✓ 配额用尽的边界——恰好用满 > 第一个邀请用满剩下的座位，第二个不同邮箱的邀请被硬阻断 1054ms
+   ✓ 配额用尽的边界——恰好用满 > 幂等重放不占用第二个座位：同一 (org,email,orgRole,teamId) 重复提交返回既有邀请、quotaReserved=0 2651ms
+   ✓ 配额用尽的边界——恰好用满 > 已是组织成员的人也占一个座位——quota 收紧到 1 时，仅有的那名管理员已经用满它 1362ms
+
+ Test Files  3 passed (3)
+      Tests  23 passed (23)
+   Start at  14:02:29
+   Duration  75.34s (transform 5.36s, setup 138ms, collect 14.12s, tests 53.86s, environment 2ms, prepare 1.03s)
+
+[db-isolation] db=wsx_c81f89481a3d3d89d37e peak_connections=4

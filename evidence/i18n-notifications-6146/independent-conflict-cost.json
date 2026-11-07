@@ -1,0 +1,15 @@
+{
+  "pr": 6154,
+  "old_head": "900794cec08093fa3e7952ca7e2faf0fe7d8f4cf",
+  "base": "97c19b3c423534966114c4ba869abd58efe24748",
+  "rebuild": "notification-only patch, no activity ancestor",
+  "conflicts": [
+    "apps/web/lib/i18n/messages/en.ts",
+    "apps/web/lib/i18n/messages/zh-CN.ts",
+    "apps/web/e2e/self-service-profile.spec.ts"
+  ],
+  "fresh_tests": 27,
+  "test_seconds": 18.65,
+  "normal_prepush": "pending serial window",
+  "local_browser_repeated": false
+}

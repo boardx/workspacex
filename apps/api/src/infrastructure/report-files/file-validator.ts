@@ -1,3 +1,4 @@
+import { docxParagraphText } from './docx-paragraph-text';
 import { reportFileContentRequirements } from '@repo/contracts/report-file-content';
 import { inspectDocx, unzip } from '@repo/skill-sandbox/ooxml';
 import { AnydocAttachmentToMarkdown } from '../chat/anydoc-attachment-to-markdown';
@@ -34,7 +35,8 @@ export class ReportGeneratedFileValidator implements ReportFileValidator {
       if (!types || !document || /<!DOCTYPE|<!ENTITY/i.test(types + document)) throw new Error();
       if (!types.includes('wordprocessingml.document.main+xml') || !/<w:body[\s>]/.test(document)) throw new Error();
       const relationUrls = unzip(Buffer.from(bytes)).filter(file => file.name.endsWith('.rels')).flatMap(file => [...file.bytes.toString('utf8').matchAll(/Target="(https?:[^"]+)"/g)].map(match => match[1]!.replaceAll('&amp;', '&')));
-      const text = inspectDocx(Buffer.from(bytes)).textRuns.join(' ');
+      inspectDocx(Buffer.from(bytes));
+      const text = docxParagraphText(document);
       validateReportContent(format, text, source, relationUrls);
     } catch { throw new ReportFileError('INVALID_FILE'); }
   }
@@ -45,21 +47,62 @@ export function normalizeReportText(text: string): string {
 }
 /** Data completeness only. Never repair/rewrite the canonical report with another model. */
 export function validateReportContent(format: FileRequest['format'], extracted: string, source: ReportFileSourceSnapshot, relationUrls: readonly string[] = []): void {
-  const text = normalizeReportText(extracted);
   const completeInput = `${source.markdown}\n\n${source.appendixMarkdown ?? ''}`;
   const required = reportFileContentRequirements(completeInput);
+  const text = normalizeReportText(extracted);
   const canonical = normalizeReportText(required.visibleText);
   for (const match of extracted.matchAll(/(?:ENOENT|no such file or directory|读取失败|SKILL_SANDBOX_INPUT_DIR|\/work\/input)/gi)) {
     if (!source.markdown.includes(match[0])) throw new ReportFileError('INVALID_FILE');
   }
-  if (!text.includes(source.reportHash) || source.notices.some(note => !text.includes(normalizeReportText(note)))) throw new ReportFileError('INVALID_FILE');
+  if (!canonical.includes(normalizeReportText('文件生成披露')) && text.includes(normalizeReportText('文件生成披露'))) throw new ReportFileError('INVALID_FILE');
+  for (const notice of [...source.notices, source.reportHash]) {
+    const normalized = normalizeReportText(notice);
+    if (normalized && !canonical.includes(normalized) && text.includes(normalized)) throw new ReportFileError('INVALID_FILE');
+  }
+  for (const line of extracted.split(/\r?\n/u)) {
+    if (/^\s*(?:#{1,6}\s*)?(?:文档版本\s*[:：\d]|内容哈希\s*[:：]|(?:审核|审阅|复核)状态\s*[:：])/u.test(line)
+      && !canonical.includes(normalizeReportText(line))) throw new ReportFileError('INVALID_FILE');
+  }
   const urls = normalizeReportText(extracted + relationUrls.join(' '));
   if (required.urls.some(url => !urls.includes(normalizeReportText(url)))) throw new ReportFileError('INVALID_FILE');
   const title = normalizeReportText(required.title ?? source.title);
   if (title && (!text.includes(title) || text.split(title).length - 1 > Math.max(1, canonical.split(title).length - 1))) throw new ReportFileError('INVALID_FILE');
-  for (const paragraph of required.paragraphs.map(normalizeReportText).filter(value => value.length >= 12)) {
-    if (!text.includes(paragraph)) throw new ReportFileError('INVALID_FILE');
+  for (const [index, rawParagraph] of required.paragraphs.entries()) {
+    const paragraph = normalizeReportText(rawParagraph);
+    if (paragraph.length < 12) continue;
+    // Only actual canonical reference positions may carry an optional printed
+    // marker. Literal code markers remain required even if PDF loses its fences.
+    const parts = required.paragraphParts[index]!.map(part => 'text' in part
+      ? { text: normalizeReportText(part.text), optional: false }
+      : { text: normalizeReportText(`[^${part.footnoteId}]`), optional: true });
+    const matches = countParagraphMatches(text, parts);
     const count = (value: string, needle: string) => value.split(needle).length - 1;
-    if (count(text, paragraph) > count(canonical, paragraph)) throw new ReportFileError('INVALID_FILE');
+    if (!matches || matches > count(canonical, paragraph)) throw new ReportFileError('INVALID_FILE');
   }
+}
+
+/** Exact literal matching with deduplicated offsets. No dynamic regex or
+ * exponential backtracking across adjacent optional reference markers. */
+function countParagraphMatches(text: string, parts: readonly { text: string; optional: boolean }[]): number {
+  const first = parts.findIndex(part => !part.optional && part.text.length > 0);
+  if (first < 0) return 0;
+  const tokens = parts.slice(first);
+  let matches = 0, from = 0;
+  while (from < text.length) {
+    const start = text.indexOf(tokens[0]!.text, from);
+    if (start < 0) break;
+    let offsets = new Set([start]);
+    for (const token of tokens) {
+      const next = new Set<number>();
+      for (const offset of offsets) {
+        if (token.optional) next.add(offset);
+        if (text.startsWith(token.text, offset)) next.add(offset + token.text.length);
+      }
+      offsets = next;
+      if (!offsets.size) break;
+    }
+    if (offsets.size) { matches++; from = Math.max(...offsets); }
+    else from = start + 1;
+  }
+  return matches;
 }

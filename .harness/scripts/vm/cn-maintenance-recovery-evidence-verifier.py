@@ -2,7 +2,7 @@
 """Offline protected recovery artifact replay. No mutation/network/DB transport.
 Admission stays blocked: production recovery executor is not implemented.
 """
-import hashlib,json,os,re,stat,struct,sys,subprocess
+import ast,hashlib,json,os,re,stat,struct,sys,subprocess
 from pathlib import Path
 PRODUCTION='pgm-uf6rg214cp381l49'
 DATABASES={'workspacex','workspacex_agent','workspacex_memory'}
@@ -189,13 +189,37 @@ def admission_result(_audit):
     raise Rejected('PRODUCTION_RECOVERY_EXECUTOR_NOT_IMPLEMENTED')
 
 
+def declared_tool_root(identity_raw,tool):
+    require(type(tool) is str and re.fullmatch('[a-f0-9]{40}',tool),'TOOL_REVISION_REQUIRED')
+    prefixes=[]
+    for node in ast.walk(ast.parse(identity_raw)):
+        if isinstance(node,ast.Compare) and isinstance(node.left,ast.Call) and isinstance(node.left.func,ast.Attribute) and node.left.func.attr=='get' and node.left.args and isinstance(node.left.args[0],ast.Constant) and node.left.args[0].value=='toolRoot':
+            for right in node.comparators:
+                if isinstance(right,ast.BinOp) and isinstance(right.op,ast.Add) and isinstance(right.left,ast.Constant) and isinstance(right.left.value,str) and isinstance(right.right,ast.Name) and right.right.id=='tool':prefixes.append(right.left.value)
+    require(len(set(prefixes))==1 and prefixes[0] in ('/var/lib/workspacex-cn/auto-preparation-tools/','/opt/workspacex-cn/release-tools/'),'TOOL_EXACT_ROOT_CONTRACT')
+    return Path(prefixes[0])/tool
+
+
 def verify_exact_source(profile,installed_raw):
     tool=profile.get('toolRevision')
     require(type(tool) is str and re.fullmatch('[a-f0-9]{40}',tool),'TOOL_REVISION_REQUIRED')
-    root=Path('/opt/workspacex-cn/release-tools')/tool
+    # Resolve the convention from the profile-pinned exact identity source.
+    # Legacy profiles keep their old root; new source declares the protected var root.
+    roots=[Path(prefix)/tool for prefix in ('/var/lib/workspacex-cn/auto-preparation-tools','/opt/workspacex-cn/release-tools')]
+    available=[candidate for candidate in roots if os.path.lexists(candidate)]
+    require(len(available)==1,'TOOL_SOURCE_ROOT_AMBIGUOUS_OR_MISSING');root=available[0]
     for directory in (root,*root.parents):
         st=directory.lstat()
         require(stat.S_ISDIR(st.st_mode) and st.st_uid==0 and not st.st_mode&0o022,'TOOL_SOURCE_ROOT_TRUST')
+    identity_source='.harness/scripts/vm/cn-build-tool-identity.py'
+    identity_file=root/identity_source
+    for parent in identity_file.parents:
+        st=parent.lstat();require(stat.S_ISDIR(st.st_mode) and st.st_uid==0 and not st.st_mode&0o022,'TOOL_SOURCE_ROOT_TRUST')
+    fd=os.open(identity_file,os.O_RDONLY|os.O_NOFOLLOW)
+    with os.fdopen(fd,'rb') as stream:
+        st=os.fstat(stream.fileno());require(stat.S_ISREG(st.st_mode) and st.st_uid==st.st_gid==0 and st.st_nlink==1 and not st.st_mode&0o022 and st.st_size<=1048576,'TOOL_IDENTITY_TRUST');identity_raw=stream.read(1048577)
+    require(sha(identity_raw)==profile.get('filesSha256',{}).get(identity_source),'TOOL_IDENTITY_PROFILE_BINDING')
+    require(root==declared_tool_root(identity_raw,tool),'TOOL_EXACT_ROOT_CONTRACT')
     gitdir=root/'.git';require(gitdir.is_dir() and not gitdir.is_symlink(),'TOOL_GIT_DIRECTORY_REQUIRED')
     for relative in ('commondir','gitdir','objects/info/alternates'):
         require(not os.path.lexists(gitdir/relative),'TOOL_BORROWED_SOURCE')

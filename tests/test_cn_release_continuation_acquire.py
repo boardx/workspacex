@@ -71,7 +71,7 @@ class AcquireTests(unittest.TestCase):
   self.r['launcher']['code']['execute-cn-candidate-download.py']='e'*64
   with self.assertRaisesRegex(ValueError,'LAUNCHER_CONTROL_HASH'):self.bind()
  def test_no_approval_cli_override(self):
-  p=subprocess.run([sys.executable,str(ROOT/'scripts/cn-release-continuation-acquire.py'),'--help'],capture_output=True,text=True)
+  p=subprocess.run([sys.executable,'-I','-B',str(ROOT/'scripts/cn-release-continuation-acquire.py'),'--help'],capture_output=True,text=True)
   self.assertEqual(p.returncode,0);self.assertNotIn('--approval',p.stdout)
  def publication_inputs(self):
   import test_cn_candidate_host as hf

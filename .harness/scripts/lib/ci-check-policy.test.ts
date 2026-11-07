@@ -30,15 +30,16 @@ import { aggregateFailures, parsePolicy } from './ci-check-policy.mjs';
 import { rulesetPlan } from '../ci-ruleset-plan.mjs';
 
 describe('backend aggregate and ruleset use the same policy', () => {
-  const dependencies = CURRENT_POLICY.aggregates['backend-required'];
+  const historicalPolicy=JSON.parse(readFileSync(new URL('../fixtures/ci-check-policy-v4.json',import.meta.url),'utf8'));
+  const dependencies = historicalPolicy.aggregates['backend-required'];
   const results = Object.fromEntries(dependencies.map(name => [name, { result: 'success' }]));
-  it('checks every backend job including the matrix result, with no browser release gate', () => {
-    const workflow = parse(readFileSync(resolve(import.meta.dirname, '../../../.github/workflows/backend-gates.yml'), 'utf8'));
+  it('checks every backend job including the matrix and required core-loop result', () => {
+    const workflow = JSON.parse(readFileSync(new URL('../fixtures/backend-gates-v4.json',import.meta.url),'utf8'));
     expect(workflow.jobs['backend-required'].needs).toEqual(dependencies);
-    expect(dependencies).not.toContain('e2e-core-loop');
-    expect(aggregateFailures('backend-required', results)).toEqual([]);
+    expect(dependencies).toContain('e2e-core-loop');
+    expect(aggregateFailures('backend-required', results, historicalPolicy)).toEqual([]);
     for (const result of ['failure', 'cancelled', 'skipped', undefined]) {
-      for (const name of dependencies) expect(aggregateFailures('backend-required', { ...results, [name]: {result} })).toEqual([name]);
+      for (const name of dependencies) expect(aggregateFailures('backend-required', { ...results, [name]: {result} }, historicalPolicy)).toEqual([name]);
     }
   });
   it('rejects missing/malformed policy or aggregate instead of silently passing', () => {
@@ -108,7 +109,7 @@ describe('v4 exact independent heavy revalidation', () => {
  });
  it.each(['native-board','meeting-room'])('rejects %s required/aggregate overlap and visual category forgery', name => {
   expect(()=>parsePolicy({...CURRENT_POLICY,requiredChecks:[...CURRENT_POLICY.requiredChecks,name]})).toThrow();
-  expect(()=>parsePolicy({...CURRENT_POLICY,aggregates:{'backend-required':[...CURRENT_POLICY.aggregates['backend-required'],name]}})).toThrow();
+  expect(()=>parsePolicy({...CURRENT_POLICY,aggregates:{'backend-required':['some-full-lane',name]}})).toThrow();
   expect(()=>parsePolicy({...CURRENT_POLICY,deferredChecks:[name]})).toThrow();
  });
  it.each([{status:'UNKNOWN',conclusion:null},{status:'COMPLETED',conclusion:'UNKNOWN'},{status:'IN_PROGRESS',conclusion:'SUCCESS'},{status:'COMPLETED',conclusion:null}])('blocks inconsistent independent facts %o', check => {
@@ -117,9 +118,16 @@ describe('v4 exact independent heavy revalidation', () => {
  it('keeps nonrequired pending nonblocking, but missing required still waiting and required skipped blocked', () => {
   expect(classifyChecks([...green,{name:'security',status:'IN_PROGRESS',conclusion:null}]).waitingCi).toEqual([]);
   expect(classifyChecks(green.slice(1)).waitingCi).not.toEqual([]);
-  expect(classifyChecks(green.map(c=>({...c,conclusion:'SKIPPED'}))).blocked).toHaveLength(5);
+  expect(classifyChecks(green.map(c=>({...c,conclusion:'SKIPPED'}))).blocked).toHaveLength(CURRENT_POLICY.requiredChecks.length);
  });
  it('preserves visual-deferred observations under v4', () => {
   expect(classifyChecks([...green,{name:'visual-deferred',status:'COMPLETED',conclusion:'FAILURE'}]).advisories.join('\n')).toContain('DEFERRED: visual-deferred');
  });
+});
+
+it('rejects unknown source event policy instead of silently reverting queue sources to push',()=>{
+ for(const sourceVerificationEvent of [null,'pull_request','unknown',''])expect(()=>parsePolicy({...CURRENT_POLICY,sourceVerificationEvent})).toThrow('source verification');
+ expect(()=>parsePolicy({...CURRENT_POLICY,sourceVerificationEvent:'push'})).toThrow('lightweight');
+ const historical=JSON.parse(readFileSync(new URL('../fixtures/ci-check-policy-v4.json',import.meta.url),'utf8'));expect(()=>parsePolicy({...historical,sourceVerificationEvent:'push'})).not.toThrow();
+ expect(()=>parsePolicy({...CURRENT_POLICY,sourceVerificationEvent:'merge_group'})).not.toThrow();
 });

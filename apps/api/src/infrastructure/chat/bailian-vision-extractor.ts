@@ -1,3 +1,7 @@
+import {randomUUID} from "node:crypto";
+import {currentCreditSubject} from "../../application/billing/credit-execution-context";
+import {CreditConsumptionError} from "../../application/billing/credit-consumption";
+import type {TokenUsageMeterPort} from "../../application/agent-run/ports";
 /**
  * #1560 · P1 —— `AttachmentVisionPort` 的阿里云百炼（DashScope）多模态实现。
  *
@@ -67,22 +71,27 @@ export interface BailianVisionConfig {
   readonly baseUrl: string;
   readonly timeoutMs: number;
   readonly maxImageBytes: number;
+  /** Audited deployment model input context ceiling; absent cannot pass strict credit preflight. */
+  readonly maximumInputTokens?: number;
 }
 
 export function readBailianVisionConfig(env: NodeJS.ProcessEnv = process.env): BailianVisionConfig {
   const timeout = Number(env.KERNEL_VISION_TIMEOUT_MS ?? "60000");
   const maxBytes = Number(env.KERNEL_VISION_MAX_IMAGE_BYTES ?? "");
+  const inputLimit=Number(env.KERNEL_VISION_MAX_INPUT_TOKENS??"");
   return {
     apiKey: env.KERNEL_MODEL_API_KEY ?? "",
     modelId: resolveVisionExtractorModelId(env),
     baseUrl: (env.KERNEL_VISION_BASE_URL ?? "").trim() || DEFAULT_BASE_URL,
     timeoutMs: Number.isFinite(timeout) && timeout > 0 ? timeout : 60_000,
     maxImageBytes: Number.isFinite(maxBytes) && maxBytes > 0 ? maxBytes : DEFAULT_VISION_MAX_IMAGE_BYTES,
+    ...(Number.isSafeInteger(inputLimit)&&inputLimit>0?{maximumInputTokens:inputLimit}:{}),
   };
 }
 
 interface GenerationResponse {
   readonly code?: string;
+  readonly usage?: {input_tokens?:unknown;output_tokens?:unknown;total_tokens?:unknown};
   readonly message?: string;
   readonly output?: {
     readonly text?: string;
@@ -93,44 +102,44 @@ interface GenerationResponse {
 }
 
 export class BailianVisionExtractor implements AttachmentVisionPort {
-  constructor(private readonly config: BailianVisionConfig = readBailianVisionConfig()) {}
+  constructor(private readonly config: BailianVisionConfig = readBailianVisionConfig(),private readonly usage?:TokenUsageMeterPort) {}
 
   async describeImage(bytes: Uint8Array, mime: string): Promise<VisionResult> {
     const { apiKey, modelId, baseUrl, timeoutMs, maxImageBytes } = this.config;
     if (apiKey === "") return fail("visionNotConfigured");
     if (bytes.byteLength > maxImageBytes) return fail("visionImageTooLarge");
 
+    const subject=currentCreditSubject();
+    if(!subject||!this.usage?.startRequest)throw new CreditConsumptionError("credit_accounting_unavailable","team",subject?.orgId??"","vision_credit_subject_unavailable");
+    const requestId=randomUUID(),startedAt=new Date().toISOString(),provider="dashscope-vision";
+    await this.usage.startRequest(subject.orgId,{requestId,userId:subject.userId,runId:null,executionAttemptId:null,projectId:null,
+      modelProvider:provider,modelId,callPurpose:"auxiliary",startedAt,
+      maximumTokens:this.config.maximumInputTokens===undefined?null:this.config.maximumInputTokens+4096});
     const dataUrl = `data:${mime};base64,${Buffer.from(bytes).toString("base64")}`;
-    let response: Response;
+    let body:GenerationResponse={},outcome:"succeeded"|"failed"="failed";
     try {
-      response = await fetch(`${baseUrl}/api/v1/services/aigc/multimodal-generation/generation`, {
-        method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
-        body: JSON.stringify({
-          model: modelId,
-          input: {
-            messages: [{ role: "user", content: [{ image: dataUrl }, { text: VISION_PROMPT }] }],
-          },
-        }),
-        signal: AbortSignal.timeout(timeoutMs),
-      });
-    } catch {
-      // 网络/超时——可重试，不是终态失败（worker 会返回 "retry" 交 outbox）。
-      return fail("visionTransport");
+      let response:Response;
+      try {
+        response = await fetch(`${baseUrl}/api/v1/services/aigc/multimodal-generation/generation`, {
+          method:"POST",headers:{"content-type":"application/json",authorization:`Bearer ${apiKey}`},
+          body:JSON.stringify({model:modelId,input:{messages:[{role:"user",content:[{image:dataUrl},{text:VISION_PROMPT}]}]},parameters:{max_tokens:4096}}),
+          signal:AbortSignal.timeout(timeoutMs),
+        });
+      } catch { return fail("visionTransport"); }
+      body=(await response.json().catch(()=>({}))) as GenerationResponse;
+      if(!response.ok)return fail(classifyHttpFailure(response.status,body));
+      const text=readReplyText(body);if(text.trim()==="")return fail("visionRejected");
+      outcome="succeeded";
+      return {ok:true,modelId,markdown:composeVisionMarkdown({modelId,reply:parseVisionReply(text)})};
+    } finally {
+      const count=(value:unknown)=>typeof value==="number"&&Number.isSafeInteger(value)&&value>=0?value:null;
+      const prompt=count(body.usage?.input_tokens),completion=count(body.usage?.output_tokens);
+      const reported=count(body.usage?.total_tokens);
+      const total=reported??(prompt!==null&&completion!==null&&Number.isSafeInteger(prompt+completion)?prompt+completion:null);
+      await this.usage.record(subject.orgId,{eventId:requestId,userId:subject.userId,runId:null,modelProvider:provider,modelId,
+        callPurpose:"auxiliary",projectId:null,requestStartedAt:startedAt,requestEndedAt:new Date().toISOString(),
+        tokensTotal:total??0,totalSource:total===null?"unknown":"reported",promptTokens:prompt,completionTokens:completion,outcome});
     }
-
-    const body = (await response.json().catch(() => ({}))) as GenerationResponse;
-    if (!response.ok) return fail(classifyHttpFailure(response.status, body));
-
-    const text = readReplyText(body);
-    // 上游 200 了但没给出可用文本——如实回 rejected，**绝不**用空 markdown 冒充抽取成功。
-    if (text.trim() === "") return fail("visionRejected");
-
-    return {
-      ok: true,
-      modelId,
-      markdown: composeVisionMarkdown({ modelId, reply: parseVisionReply(text) }),
-    };
   }
 }
 

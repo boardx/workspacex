@@ -1,0 +1,21 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/ui/copilotkit-v2-shell-thread-switch.test.tsx (24 tests) 622ms
+ ✓ tests/ui/chat-thread-crud.test.tsx (8 tests) 516ms
+ ✓ tests/ui/copilotkit-v2-shell-thread-pagination.test.tsx (6 tests) 1434ms
+   ✓ CopilotKitV2Shell — issue #3356 对话列表分页 > ② 点「加载更多」：带上一页的 cursor 再要一页，两页拼起来且不重复 428ms
+   ✓ CopilotKitV2Shell — issue #3356 对话列表分页 > ④ 搜索另起一次服务端查询（q 发出去 + 回到第一页），不是在已加载的 30 条里过滤 391ms
+   ✓ CopilotKitV2Shell — issue #3356 对话列表分页 > ④b 搜不到时说的是「全部对话里都没有」，不是「你还没有对话」 369ms
+ ✓ tests/ui/i18n-chat-shell.test.tsx (2 tests) 740ms
+   ✓ shows canonical English shell chrome and retains search value/node without refetching on locale change 720ms
+ ✓ tests/ui/thread-card-button.test.tsx (8 tests) 247ms
+ ✓ tests/ui/i18n-chat-entry.test.tsx (6 tests) 199ms
+ ✓ tests/ui/chat-task-workbench-empty-state.test.tsx (2 tests) 127ms
+ ✓ tests/chat-failure-i18n.test.ts (5 tests) 3ms
+
+ Test Files  8 passed (8)
+      Tests  61 passed (61)
+   Start at  01:16:00
+   Duration  15.34s (transform 2.03s, setup 745ms, collect 5.85s, tests 3.89s, environment 3.51s, prepare 364ms)

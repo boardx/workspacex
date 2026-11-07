@@ -29,7 +29,41 @@ function stripeEnv(): Record<string, string> {
 }
 afterEach(() => vi.unstubAllEnvs());
 
+describe("reference Stripe configuration compatibility", () => {
+  it("enables runtime Portal sessions without an unused static management link", () => {
+    const env = stripeEnv(); delete env.STRIPE_MANAGEMENT_PORTAL;
+    expect(new DeploymentBillingConfig(env).getPublicConfig()).toEqual({ enabledProviders: ["stripe"] });
+  });
+  it("accepts the reference return link and gives the canonical return URL precedence", () => {
+    const env = { ...stripeEnv(), STRIPE_RETURN_LINK: "https://reference.example.test/billing", STRIPE_RETURN_URL: "https://devapp.example.test/billing" };
+    expect(new DeploymentBillingConfig(env).getStripe()?.returnUrl).toBe(env.STRIPE_RETURN_URL);
+    delete (env as Partial<typeof env>).STRIPE_RETURN_URL;
+    expect(new DeploymentBillingConfig(env).getStripe()?.returnUrl).toBe(env.STRIPE_RETURN_LINK);
+  });
+  it("allows an explicit loopback return for local verification but rejects insecure remote redirects", () => {
+    expect(new DeploymentBillingConfig({ ...stripeEnv(), STRIPE_RETURN_URL: "http://localhost:3000/billing?subscription_return=1" }).getStripe()?.returnUrl).toBe("http://localhost:3000/billing?subscription_return=1");
+    expect(new DeploymentBillingConfig({ ...stripeEnv(), STRIPE_RETURN_URL: "http://app.example.test/billing" }).getStripe()).toBeNull();
+    expect(new DeploymentBillingConfig({ ...stripeEnv(), STRIPE_RETURN_URL: "http://localhost@evil.example/billing" }).getStripe()).toBeNull();
+  });
+  it("refuses unsafe return URLs instead of falling back to an unrelated portal", () => {
+    expect(new DeploymentBillingConfig({ ...stripeEnv(), STRIPE_RETURN_URL: "javascript:bad" }).getStripe()).toBeNull();
+  });
+});
+
 describe("deployment billing configuration", () => {
+  it("enables reference WeChat compatibility when both platform verification fields are absent", () => {
+    const env = wechatEnv(); delete env.WECHAT_PAY_PLATFORM_PUBLIC_KEY; delete env.WECHAT_PAY_PLATFORM_KEY_ID;
+    expect(new DeploymentBillingConfig(env).getPublicConfig()).toEqual({ enabledProviders: ["wechat"] });
+    expect(new DeploymentBillingConfig(env).getWechat()?.platformKey).toBeNull();
+  });
+  it("does not select compatibility for an empty configured platform key file", () => {
+    const dir = mkdtempSync(join(tmpdir(), "billing-empty-key-"));
+    try {
+      const path = join(dir, "platform.pem"); writeFileSync(path, "");
+      const env = wechatEnv(); delete env.WECHAT_PAY_PLATFORM_PUBLIC_KEY; delete env.WECHAT_PAY_PLATFORM_KEY_ID;
+      expect(new DeploymentBillingConfig({ ...env, WECHAT_PAY_PLATFORM_PUBLIC_KEY_PATH: path }).getWechat()).toBeNull();
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
   it.each([{}, { WECHAT_PAY_APP_ID: "partial" }, { STRIPE_SECRET_KEY: "partial" }])("partial deployment remains disabled: %j", (env) => {
     expect(new DeploymentBillingConfig(env).getPublicConfig()).toEqual({ enabledProviders: [] });
   });

@@ -1,0 +1,10 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/ui/i18n-chat-interrupt-forms.test.tsx (4 tests) 228ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  05:26:20
+   Duration  1.71s (transform 265ms, setup 109ms, collect 505ms, tests 228ms, environment 519ms, prepare 44ms)

@@ -1,0 +1,15 @@
+Source SHA: daaac6855e66b5f027a30517d6b08fce8a048ed5
+Command: pnpm harness verify --phase 21 --feature F08
+Exit: 0; includes high_risk pnpm -w run verify:release. --phase deliberately does not promote status.
+
+api
+ Test Files  1594 passed | 2 skipped (1596)
+      Tests  15305 passed | 12 skipped | 2 todo (15319)
+   Duration  2539.90s (transform 12.63s, setup 4.08s, collect 309.26s, tests 2025.15s, environment 1.55s, prepare 48.60s)
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Duration  8.99s (transform 4.41s, setup 0ms, collect 942ms, tests 7.41s, environment 0ms, prepare 32ms)
+web
+ Test Files  942 passed (942)
+      Tests  8178 passed | 5 skipped (8183)
+   Duration  454.26s (transform 63.87s, setup 293.20s, collect 1148.15s, tests 1038.90s, environment 1154.89s, prepare 121.62s)

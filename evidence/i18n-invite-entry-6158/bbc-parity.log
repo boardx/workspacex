@@ -1,0 +1,7 @@
+6 invitation-owned source/test blobs byte-identical to minimal reviewed 44cce0ba3c99a5761a645adb53660b2e8db3747c; actual develop bbc63 + updated account62a0c1005 is the only unmerged caption dependency.
+apps/web/components/entry/invite-activation.tsx
+apps/web/components/entry/link-activation.tsx
+apps/web/components/entry/use-invitation-session.ts
+apps/web/e2e/i18n-entry.spec.ts
+apps/web/lib/i18n/namespaces/invitation-entry.ts
+apps/web/tests/ui/invitation-entry-i18n.test.tsx

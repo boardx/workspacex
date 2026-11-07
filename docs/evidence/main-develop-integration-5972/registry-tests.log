@@ -1,0 +1,19 @@
+.....................................
+manifest unknown
+
+unauthorized: authentication required
+
+denied: access forbidden
+.Transient registry pull transport failure; retry 2/3
+Transient registry pull transport failure; retry 3/3
+.Transient registry pull transport failure; retry 2/3
+Transient registry pull transport failure; retry 3/3
+
+connection reset by peer
+
+connection reset by peer
+.
+----------------------------------------------------------------------
+Ran 40 tests in 2.848s
+
+OK

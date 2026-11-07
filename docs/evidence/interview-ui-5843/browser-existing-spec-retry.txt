@@ -1,0 +1,9 @@
+
+Running 2 tests using 1 worker
+
+(node:56068) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 e2e/digital-interview-research-quality.spec.ts:170:5 › new setup opens the canonical intake route content and remains responsive (36.0s)
+  ✓  2 e2e/digital-interview-research-quality.spec.ts:382:5 › prototype journey keeps the list shell separate from all six full-screen stages (4.2m)
+
+  2 passed (5.1m)

@@ -1,0 +1,18 @@
+{
+  "left": "4b4cb362cd599b11329e95960910869789b74c98",
+  "right": "ec1695d8fd646e004ca40dafbfa8e03bf01f20ef",
+  "head": "bf3d9de11ca7f4e5afb73c36cb1668c42e5838e0",
+  "workerStatementsPreserved": 8,
+  "acceptedStatementsPreserved": 8,
+  "mergedStatements": 9,
+  "testCases": 7,
+  "bothRelativeStatementOrdersPreserved": true,
+  "contractImportExactUnion": [
+    "agentRole",
+    "homeConfig",
+    "orgAdmin",
+    "skills",
+    "wave2Runtime",
+    "workflowCapabilityGrants as WG"
+  ]
+}

@@ -51,6 +51,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
 import { awaitAssistantReply, bearerOf, listPersistedMessages, snapshotMessageIds, V2_SEND_WIRE } from "./chat-v2-send";
 import { selectWorkbenchAgent } from "./support/workbench-run-evidence";
+import { COPILOTKIT_V2_SELECTED_AGENT_HEADER } from "../lib/copilotkit-v2-agent-header";
 // ⚠ 从产品代码 import 那个 key，不在这里再写一份字面量——鉴权是
 //   `Authorization: Bearer <token>`（不是 cookie），token 存在 localStorage 的这个键下。
 //   抄一份副本就是本仓多次记录过的漂移形状（见 `skill-review-gate.spec.ts` 同一模式）。
@@ -110,7 +111,9 @@ async function sendMessage(page: Page, threadId: string, text: string): Promise<
     { timeout: 60_000 },
   );
   await page.getByTestId("copilotkit-v2-send").click();
-  expect(JSON.stringify((await runRequest).postDataJSON())).toContain(text);
+  const request = await runRequest;
+  expect(JSON.stringify(request.postDataJSON())).toContain(text);
+  expect(request.headers()[COPILOTKIT_V2_SELECTED_AGENT_HEADER], "本轮请求必须携带用户选定的 echo agent，不能落到默认 deep-agent").toBe(CHAT_READ_E2E.agentId);
 
   const reply = await awaitAssistantReply(page, threadId, bearer, knownIds, 90_000);
   expect(reply.agentRunId, "写回落库的 assistant 消息必须带着这一轮的 agentRunId").toBeTruthy();
@@ -159,6 +162,8 @@ async function mountSkill(page: Page, threadId: string): Promise<string> {
  * 也不需要为了取证而改 `execute-run.ts`（那是 #1322 的范围，本文件不碰）。
  */
 interface RunProjectionSlice {
+  readonly agentId: string;
+  readonly modelProvider: string;
   readonly status: string;
   readonly skillVersionIds: readonly string[];
   /** #1559：定位这次 run 写回的那条 assistant 消息，用来读它的正文（见测试②）。 */
@@ -181,10 +186,56 @@ async function pollRunToTerminal(
     return projection.status === "succeeded" || projection.status === "failed";
   }, { timeout: 60_000 }).toBe(true);
   expect(last, "轮询结束时应该已经拿到过至少一次响应").not.toBeNull();
+  expect(last!.agentId).toBe(CHAT_READ_E2E.agentId);
+  expect(last!.modelProvider).toBe(CHAT_READ_E2E.agentModelProvider);
   return last!;
 }
 
 /* ═══════════════════════════ ① F65：挂载持久化与刷新 ═══════════════════════════ */
+
+for (const width of [1280, 390]) {
+  test(`#6190：${width}px 延迟官方角色列表重排仍选中指定 agent`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 720 });
+    await login(page);
+    await page.goto(`/chat?projectId=${CHAT_READ_E2E.restructureProjectId}&thread=${CHAT_READ_E2E.causalCheckThreadId}`);
+    await selectWorkbenchAgent(page, CHAT_READ_E2E.deepAgentId);
+
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    let delivered!: () => void;
+    const finished = new Promise<void>((resolve) => { delivered = resolve; });
+    await page.route("**/agents/official-role-pack/offer", async (route) => {
+      const response = await route.fetch();
+      await held;
+      await route.fulfill({ response });
+      delivered();
+    });
+    // Release the real offer at option focus, the point where rows can move
+    // underneath a pointer click. No fixed delay or fabricated agent response.
+    await page.exposeFunction("releaseAgentSelectionOffer", () => release());
+    await page.evaluate((agentId) => {
+      document.addEventListener("focusin", (event) => {
+        if ((event.target as HTMLElement).getAttribute("data-agent-id") === agentId) {
+          void (window as unknown as { releaseAgentSelectionOffer: () => Promise<void> }).releaseAgentSelectionOffer();
+        }
+      });
+    }, CHAT_READ_E2E.agentId);
+    try {
+      await selectWorkbenchAgent(page, CHAT_READ_E2E.agentId);
+      await finished;
+      const picker = page.getByTestId("chat-task-workbench-capability-picker");
+      await expect(picker).toHaveAttribute("data-auto-match", "false");
+      await picker.click();
+      await expect(page.getByTestId("chat-task-workbench-capability-pending").first()).toBeVisible();
+      await expect(page.locator(`[data-agent-id="${CHAT_READ_E2E.agentId}"]`)).toHaveAttribute("aria-selected", "true");
+      await expect(page.locator(`[data-agent-id="${CHAT_READ_E2E.deepAgentId}"]`)).toHaveAttribute("aria-selected", "false");
+      await page.keyboard.press("Escape");
+    } finally {
+      release();
+      await page.unrouteAll({ behavior: "wait" });
+    }
+  });
+}
 
 test("F65：会话内临时挂载一个 skill，落库且刷新后仍在", async ({ page }) => {
   await login(page);

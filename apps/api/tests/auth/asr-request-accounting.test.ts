@@ -1,3 +1,5 @@
+import {Logger} from "@nestjs/common";
+import {CreditConsumptionError} from "../../src/application/billing/credit-consumption";
 import {createServer,type Server} from 'node:http';
 import type {AddressInfo} from 'node:net';
 import {WebSocketServer} from 'ws';
@@ -8,6 +10,7 @@ import {PgIdentityRepository} from '../../src/infrastructure/identity/pg-identit
 import {PgAsrRequestAccounting} from '../../src/infrastructure/auth/pg-asr-request-accounting';
 import {toOrgId} from '../../src/domain/org-id';
 import type {AsrRequestAccounting} from '../../src/application/recording/asr-request-accounting';
+const financialReserve=vi.hoisted(()=>vi.fn(async()=>{}));
 const context={kind:'run' as const,orgId:toOrgId('asr-org'),runId:'run',attemptId:'run:0',leaseEpoch:1};
 const audio={sampleRate:16000,channels:1,encoding:'pcm16le'},handlers={onPartial:()=>{},onFinal:()=>{},onError:()=>{},onClosed:()=>{}};
 let server:Server|undefined,wss:WebSocketServer|undefined;
@@ -84,4 +87,30 @@ it('real repositories reuse one tenant connection and lifecycle lock precedes du
  const accounting=new PgAsrRequestAccounting(db as never,scoped=>({identities:new PgIdentityRepository(scoped),recording:new PgRecordingUnitOfWork(scoped,{} as never,{} as never)}));
  await accounting.start({kind:'recording',orgId:context.orgId,userId:'principal',sessionId:'active'},{requestId:'single-connection',modelProvider:'p',modelId:'m',startedAt:new Date().toISOString()});
  expect(physicalConnections).toBe(1);expect(queries.filter(sql=>sql.includes('INTO model_request_starts'))).toHaveLength(1);expect(locked).toBe(false);
+});
+
+// This suite owns usage/provenance SQL. Financial transactions are exercised by billing integration tests.
+vi.mock("../../src/infrastructure/billing/pg-credit-consumption",()=>({PgCreditConsumption:class {
+ async reserveInSession(){await financialReserve();} async settleInSession(){}
+}}));
+
+// SQL protocol unit fixture: durable filesystem replay has its own real-spool suite.
+vi.mock("../../src/infrastructure/billing/credit-usage-meter",async()=>{
+ const {PgTokenUsageRepository}=await import("../../src/infrastructure/auth/pg-token-usage-repository");
+ return {creditUsageMeter:(db:ConstructorParameters<typeof PgTokenUsageRepository>[0])=>Object.assign(new PgTokenUsageRepository(db),{prepareStart:async()=>undefined})};
+});
+
+it.each(['credit_native_tariff_missing','credit_receipt_store_unavailable','credit_payer_provenance_missing','team_license_accounting_unavailable','untrusted-secret SQL body'])('logs safe admission classification and preserves the original refusal: %s',async(message)=>{
+ const error=new CreditConsumptionError('credit_accounting_unavailable','team',context.orgId,message);
+ financialReserve.mockRejectedValueOnce(error);
+ const log=vi.spyOn(Logger.prototype,'warn').mockImplementation(()=>{});
+ try{
+  const query=vi.fn(async(_sql:string)=>({rows:[]})),db={withTenant:async(_org:unknown,work:(s:unknown)=>unknown)=>work({query})};
+  const identities={findOrgMembership:async()=>({})};
+  const accounting=new PgAsrRequestAccounting(db as never,()=>({identities:identities as never,recording:{} as never}));
+  await expect(accounting.start({kind:'draft',orgId:context.orgId,userId:'principal'},{requestId:'server-generated-request',modelProvider:'p',modelId:'m',startedAt:new Date().toISOString()})).rejects.toBe(error);
+  expect(log).toHaveBeenCalledWith({event:'asr_credit_admission_refused',requestId:'server-generated-request',reason:message.startsWith('untrusted')?'credit_accounting_unavailable':message});
+  expect(JSON.stringify(log.mock.calls)).not.toContain('untrusted-secret');
+  expect(query.mock.calls.some(c=>c[0].includes('INTO model_request_starts'))).toBe(false);
+ }finally{log.mockRestore();}
 });

@@ -1,3 +1,4 @@
+import { notifyCreditFailure } from "./credit-guidance";
 import { research } from "@repo/contracts";
 import { ApiError } from "./api-client";
 import { getResearchRuntime, type GuidedResearchRuntime, type GuidedResearchRuntimeCommand } from "./guided-research-api";
@@ -17,7 +18,7 @@ export async function readResearchGenerationStream(response: Response, input: Gu
         const line = buffer.slice(0, boundary).trim(); buffer = buffer.slice(boundary + 1);
         if (!line) continue;
         const event = research.GuidedResearchGenerationStreamEvent.parse(JSON.parse(line));
-        if (event.type === "failed") throw new ApiError(409, event.reasonCode, event);
+        if (event.type === "failed") { notifyCreditFailure(event); throw new ApiError(409, event.reasonCode, event); }
         const source = event.source;
         if (source.sessionId !== input.sessionId || source.requestId !== input.requestId) throw new ApiError(502, "RESEARCH_STREAM_INVALID", null);
         if (event.type === "completed") {

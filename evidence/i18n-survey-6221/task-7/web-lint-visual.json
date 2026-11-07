@@ -1,0 +1,23 @@
+{
+  "name": "web-lint-visual",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "eslint",
+    "components/survey/live/survey-workspace.tsx",
+    "e2e/i18n-survey-journey.spec.ts",
+    "lib/i18n/namespaces/survey-results.ts",
+    "lib/i18n/namespaces/survey-templates.ts",
+    "lib/i18n/namespaces/survey-workspace.ts",
+    "tests/ui/survey-workspace-i18n.test.tsx"
+  ],
+  "source": "ee9b845a1090082251563c48a2791d1034ff7cb7",
+  "exitCode": 0,
+  "seconds": 4.3,
+  "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "sourceAfter": "ee9b845a1090082251563c48a2791d1034ff7cb7",
+  "sourceStable": true,
+  "environment": {}
+}

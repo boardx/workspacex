@@ -128,9 +128,9 @@ it('keeps every detailed downgrade in a bounded report for 200 style-rich source
 it.each(['miro-workshop','mural-diagram','miro-media'] as const)('maps the independently inventoried %s schema fixture including every loss',async name=>{
  const {loadVendorSchemaFixture}=await import('../../../web/e2e/support/board-vendor-schema-fixtures');
  const {assertVendorMigration}=await import('../../../web/e2e/support/board-vendor-import-producer');
- const {SharpBoardImageVerifier}=await import('../../src/infrastructure/whiteboard/image-verifier');
+ const {DecodedBoardImageVerifier}=await import('../../src/infrastructure/whiteboard/image-verifier');
  const f=await loadVendorSchemaFixture(name),parsed=await parseWhiteboardImport(f.bytes,f.mime,f.source);
- for(const asset of parsed.assets){const verified=await new SharpBoardImageVerifier().verify(asset.bytes,asset.mime);for(const item of parsed.items.filter(item=>item.assetRef===asset.path))item.assetMetadata=verified.metadata;}
+ for(const asset of parsed.assets){const verified=await new DecodedBoardImageVerifier().verify(asset.bytes,asset.mime);for(const item of parsed.items.filter(item=>item.assetRef===asset.path))item.assetMetadata=verified.metadata;}
  const mapped=mapImportedBoard(f.source,'00000000-0000-4000-8000-000000000001',parsed.items);
  assertVendorMigration(f,{counts:{discovered:mapped.discovered,accepted:mapped.accepted,unsupported:mapped.unsupported},items:mapped.outcomes,issues:mapped.issues},mapped.commands.flatMap(command=>command.type==='create'?[command.object]:[]));
  const {createWhiteboardDocument,executeCommands,readObjects}=await import('@repo/whiteboard-core');const doc=createWhiteboardDocument();executeCommands(doc,mapped.commands,{});expect(readObjects(doc)).toHaveLength(mapped.accepted);doc.destroy();

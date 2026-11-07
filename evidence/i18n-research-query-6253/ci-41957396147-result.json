@@ -1,0 +1,68 @@
+{
+  "issue": 6253,
+  "pr": 6261,
+  "sourceHead": "9bc4e913f5286da26aa021f94071413661bd7150",
+  "run": 41957396147,
+  "job": 127015634801,
+  "jobConclusion": "success",
+  "artifact": {
+    "id": 13385421785,
+    "bytes": 121075440,
+    "sha256": "2f9e059cd992bdd934964fc1eb2fba54b4c8b6f30cd9ad499928c3eab8b22555"
+  },
+  "actualCheckout": "a3925c03ad7b7342eceb7d0414cd6abaa18d495a",
+  "checkoutParents": [
+    "a00287a86c411c13148294cc2ed4379852949c5d",
+    "9bc4e913f5286da26aa021f94071413661bd7150"
+  ],
+  "checkoutBinding": "actual job log plus GitHub git commit parents API",
+  "nativeStats": {
+    "startTime": "2026-11-05T02:48:33.556Z",
+    "duration": 1678778.298,
+    "expected": 218,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "effective": {
+    "workers": 2,
+    "maxFailures": 1,
+    "seededRetries": 1
+  },
+  "cases": [
+    {
+      "title": "research locale preserves the real intake, plan, saved report and history management journey",
+      "project": "seeded",
+      "status": "expected",
+      "timeoutMs": 180000,
+      "attempts": [
+        {
+          "status": "passed",
+          "durationMs": 63625,
+          "retry": 0,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "title": "research query assistant locale preserves canonical intents, pending drafts and explicit application",
+      "project": "seeded",
+      "status": "expected",
+      "timeoutMs": 180000,
+      "attempts": [
+        {
+          "status": "passed",
+          "durationMs": 9278,
+          "retry": 0,
+          "errors": []
+        }
+      ]
+    }
+  ],
+  "scopeBoundary": [
+    "New query case uses real login and production query route, schema-validated controlled assistant HTTP; no real-model/backend/PG claim from assistant fixture.",
+    "Original research case remains unchanged and retains its real intake/plan/report/history assertions.",
+    "218 is this single run native global expected count, not stitched with local unit runs or previous CI.",
+    "Actual merge pending MAIN; B5 remains partial."
+  ]
+}

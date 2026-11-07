@@ -40,6 +40,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { I18nProvider, useI18n } from "@/lib/i18n/provider";
 
 /** 见 `copilotkit-v2-panel-markdown.test.tsx` 同一段头注：vitest 管线不吃框架的 CSS 副作用导入。 */
 const copilotkitV2CssPath = vi.hoisted(() => require.resolve("@copilotkit/react-core/v2/styles.css"));
@@ -73,7 +74,8 @@ vi.mock("@/lib/live-capabilities", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/live-capabilities")>()),
   listCapabilities,
 }));
-vi.mock("@/components/session/session-provider", () => ({
+vi.mock("@/components/session/session-provider", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/components/session/session-provider")>()),
   useSession: () => ({
     session: { sessionToken: "b", userId: "u", orgIds: ["org-1"], currentOrgId: "org-1", expiresAt: "2099-01-01T00:00:00.000Z" },
   }),
@@ -135,6 +137,43 @@ function mount(props: { archived?: boolean; canGeneratePersona?: boolean; chatTh
     </CopilotKit>,
   );
 }
+
+function PersonaLocaleControl() {
+  const { setLocale } = useI18n();
+  return <button onClick={() => setLocale("zh-CN")}>Change persona locale</button>;
+}
+function mountPersonaLocale() {
+  return render(<I18nProvider initialLocale="en"><PersonaLocaleControl />
+    <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
+      <CopilotKitV2AgentSelectionProvider><CopilotKitV2Panel chatThreadId={THREAD_ID} archived={false} canGeneratePersona /></CopilotKitV2AgentSelectionProvider>
+    </CopilotKit>
+  </I18nProvider>);
+}
+
+it("owned persona failure prefix translates while preserving the raw reason and request count", async () => {
+  summarizePersonaFromThread.mockRejectedValue(new ApiError(403, "NO_WRITE_ROLE", null));
+  mountPersonaLocale();
+  fireEvent.click(await screen.findByTestId("chat-persona-summary-trigger"));
+  const failure = await screen.findByTestId("chat-persona-summary-error");
+  expect(failure).toHaveTextContent("Could not generate persona: NO_WRITE_ROLE");
+  fireEvent.click(screen.getByRole("button", { name: "Change persona locale" }));
+  expect(screen.getByTestId("chat-persona-summary-error")).toBe(failure);
+  expect(failure).toHaveTextContent("生成用户画像失败：NO_WRITE_ROLE");
+  expect(summarizePersonaFromThread).toHaveBeenCalledTimes(1);
+});
+
+it("owned generated suggestion prefix translates but keeps the server display name and prompt raw", async () => {
+  recommendCanvasTemplates.mockResolvedValue({ items: [{ key: "persona", displayName: "组织原名 {name}", prompt: "raw prompt 中文 {id}" }] });
+  mountPersonaLocale();
+  const chip = await screen.findByTestId("chat-persona-summary-trigger");
+  expect(chip).toHaveTextContent("Generate 组织原名 {name}");
+  const reads = recommendCanvasTemplates.mock.calls.length;
+  fireEvent.click(screen.getByRole("button", { name: "Change persona locale" }));
+  expect(screen.getByTestId("chat-persona-summary-trigger")).toBe(chip);
+  expect(chip).toHaveTextContent("生成组织原名 {name}");
+  expect(recommendCanvasTemplates).toHaveBeenCalledTimes(reads);
+  expect(summarizePersonaFromThread).not.toHaveBeenCalled();
+});
 
 /**
  * 线程里已有的两条持久化消息；`cm-persona` 只有在画像**真的生成过之后**才出现。

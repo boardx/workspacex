@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
+import { installArchivedThreadResponse } from "./support/archived-thread-response";
 
 /**
  * issue #2053 —— CK-P6「生成用户画像」/ CK-P8 归档线程只读态，真栈取证。
@@ -134,8 +135,10 @@ test("CK-P6：真实线程上生成用户画像 → mindmap 消息落库，刷�
     .poll(
       async () => {
         if (await failure.isVisible()) return `FAILED:${await failure.textContent()}`;
-        if (await trigger.count() === 0) return "settled";
-        return (await trigger.textContent())?.includes("生成画像中") === true ? "running" : "settled";
+        // #5954：count 后 chip 仍可能消失；一次无等待快照避免下一次读取卡在已移除的按钮。
+        const triggerTexts = await trigger.allTextContents();
+        if (triggerTexts.length === 0) return "settled";
+        return triggerTexts[0]?.includes("生成画像中") === true ? "running" : "settled";
       },
       { timeout: 120_000, intervals: [1_000, 2_000, 3_000] },
     )
@@ -212,36 +215,22 @@ test("CK-P8：getThread 真实响应的 archived=true ⇒ composer 全部写入�
   const threadUrl = await sendFirstTurn(page, marker);
 
   // 见文件头注：请求真的打到服务端，只把真实响应体里 thread.archived 这一个布尔翻过来。
-  await page.route("**/chat/threads/**", async (route) => {
-    const request = route.request();
-    if (request.method() !== "GET" || /\/messages(\?|$)/.test(new URL(request.url()).pathname)) {
-      await route.fallback();
-      return;
-    }
-    const response = await route.fetch();
-    if (response.status() !== 200) {
-      await route.fulfill({ response });
-      return;
-    }
-    const body = await response.json();
-    if (body?.thread === undefined) {
-      await route.fulfill({ response });
-      return;
-    }
-    await route.fulfill({ response, json: { ...body, thread: { ...body.thread, archived: true } } });
-  });
+  const settleArchivedResponse = await installArchivedThreadResponse(page, threadUrl);
+  try {
+    await page.goto(threadUrl);
 
-  await page.goto(threadUrl);
+    await expect(page.getByTestId("chat-composer-archived")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId("copilotkit-v2-input")).toBeDisabled();
+    await expect(page.getByTestId("copilotkit-v2-send")).toBeDisabled();
+    await expect(page.getByTestId("chat-task-workbench-composer-mic")).toBeDisabled();
+    // 2026-08-30 重设计（人类原话「他应该是动态的建议的行为，不能是固定的」）：
+    // 画像 chip 现在挂在建议行（`FollowUpSuggestions`）里，归档时整条建议行都不
+    // 渲染——同追问 chip 的既有规则，不再是"渲染成灰色"。
+    await expect(page.getByTestId("chat-persona-summary-trigger")).toHaveCount(0);
 
-  await expect(page.getByTestId("chat-composer-archived")).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByTestId("copilotkit-v2-input")).toBeDisabled();
-  await expect(page.getByTestId("copilotkit-v2-send")).toBeDisabled();
-  await expect(page.getByTestId("chat-task-workbench-composer-mic")).toBeDisabled();
-  // 2026-08-30 重设计（人类原话「他应该是动态的建议的行为，不能是固定的」）：
-  // 画像 chip 现在挂在建议行（`FollowUpSuggestions`）里，归档时整条建议行都不
-  // 渲染——同追问 chip 的既有规则，不再是"渲染成灰色"。
-  await expect(page.getByTestId("chat-persona-summary-trigger")).toHaveCount(0);
-
-  // 反证：历史消息仍然读得到——归档是"只读"，不是"看不见"。
-  await expect(page.getByTestId("copilotkit-v2-messages")).toContainText(marker, { timeout: 30_000 });
+    // 反证：历史消息仍然读得到——归档是"只读"，不是"看不见"。
+    await expect(page.getByTestId("copilotkit-v2-messages")).toContainText(marker, { timeout: 30_000 });
+  } finally {
+    await settleArchivedResponse();
+  }
 });

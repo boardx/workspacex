@@ -2,8 +2,8 @@
  * F122 → F185（2026-08-16 delta）—— `pg-project-list-repository.ts` 在
  * `lint-permission-paths.mjs` 白名单里那条豁免的**强制前提**（不是一句声明）。
  *
- * 那条豁免的论证是「这个文件只投影 `project_memberships` / `projects` /
- * `organizations` / `project_tags` 四张表里能定义『这个容器该不该出现在列表里、
+ * 那条豁免的论证是「这个文件只投影 `project_memberships` / `general_project_members` / `projects` /
+ * `organizations` / `project_tags` 五张表里能定义『这个容器该不该出现在列表里、
  * 带什么标签』的字段，不含任何内容摘要（D-18 边界）」。F185 在原来三张表的基础上
  * 加了 `project_tags` 的相关子查询（只读 `tag` 一列，不是 JOIN），六个键里
  * 新增的 `tags` 与既有的 `status`/`orgStatus` 同一类别——都不是内容。
@@ -11,7 +11,7 @@
  *   ① 该文件里**没有**任何写语句（INSERT/UPDATE/DELETE）——纯读；
  *   ② 仓储返回的每一行**只有**六个键：`id/name/kind/status/orgStatus/tags`，
  *      没有第七个键能夹带内容摘要、计数或「最近活动」；
- *   ③ 只出现四张允许的表，没有第五张。
+ *   ③ 只出现五张允许的表，没有第六张。
  * 少了这条测试，`lint-permission-paths.mjs` 里那条白名单只是一句没人验证的承诺——
  * 明天有人往这个文件加一条 `SELECT ... FROM artifacts` 也不会有任何东西报警。
  */
@@ -45,13 +45,13 @@ describe("F122/F185 白名单豁免的强制前提：pg-project-list-repository.
     expect(keys.sort()).toEqual(["id", "kind", "name", "orgStatus", "status", "tags"].sort());
   });
 
-  it("③ 只查四张表：project_memberships / projects / organizations / project_tags", () => {
+  it("③ 只查五张表：project_memberships / general_project_members / projects / organizations / project_tags", () => {
     const code = codeLines(readFileSync(SRC, "utf8")).join("\n");
     const refs = new Set(
       [...code.matchAll(/\b(?:FROM|JOIN)\s+(\w+)/gi)].map((m) => m[1]!.toLowerCase()),
     );
     expect([...refs].sort()).toEqual(
-      ["organizations", "project_memberships", "project_tags", "projects"].sort(),
+      ["general_project_members", "organizations", "project_memberships", "project_tags", "projects"].sort(),
     );
   });
 

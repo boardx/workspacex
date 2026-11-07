@@ -1,0 +1,1904 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/web
+
+ ❯ tests/ui/billing-cashier.test.tsx (2 tests | 2 failed) 2052ms
+   × F06 live cashier entry > opens real package selection from configured account 1034ms
+     → Unable to find role="button" and name "购买额度"
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mx-auto w-full max-w-5xl space-y-6 p-4 md:p-6"[39m
+      [33mdata-testid[39m=[32m"billing-overview"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"space-y-2"[39m
+      [36m>[39m
+        [36m<h1[39m
+          [33mclass[39m=[32m"text-24 font-semibold"[39m
+        [36m>[39m
+          [0m额度与订阅[0m
+        [36m</h1>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [36m>[39m
+          [0m管理个人账户。充值额度与订阅权益分别记录，订阅不会自动增加充值额度。[0m
+        [36m</p>[39m
+      [36m</header>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"grid gap-4 md:grid-cols-2"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"rounded-card border border-border bg-card text-card-foreground"[39m
+          [33mdata-testid[39m=[32m"billing-wallet-card"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-col gap-1 p-4 pb-2"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-14 font-semibold tracking-tight flex items-center gap-2"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-wallet h-4 w-4"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [0m个人额度[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0m查看余额与累计到账额度[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"p-4 pt-2 space-y-4"[39m
+          [36m>[39m
+            [36m<div>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+              [36m>[39m
+                [0m当前余额[0m
+              [36m</p>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"text-32 font-semibold tabular-nums"[39m
+                [33mdata-testid[39m=[32m"billing-wallet-balance"[39m
+              [36m>[39m
+                [0m100[0m
+                [0m [0m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-13 font-normal text-muted-foreground"[39m
+                [36m>[39m
+                  [0m额度[0m
+                [36m</span>[39m
+              [36m</p>[39m
+            [36m</div>[39m
+            [36m<dl[39m
+              [33mclass[39m=[32m"grid grid-cols-2 gap-3 text-13"[39m
+            [36m>[39m
+              [36m<div>[39m
+                [36m<dt[39m
+                  [33mclass[39m=[32m"text-muted-foreground"[39m
+                [36m>[39m
+                  [0m累计充值[0m
+                [36m</dt>[39m
+                [36m<dd[39m
+                  [33mclass[39m=[32m"tabular-nums"[39m
+                [36m>[39m
+                  [0m100[0m
+                [36m</dd>[39m
+              [36m</div>[39m
+              [36m<div>[39m
+                [36m<dt[39m
+                  [33mclass[39m=[32m"text-muted-foreground"[39m
+                [36m>[39m
+                  [0m累计发放[0m
+                [36m</dt>[39m
+                [36m<dd[39m
+                  [33mclass[39m=[32m"tabular-nums"[39m
+                [36m>[39m
+                  [0m0[0m
+                [36m</dd>[39m
+              [36m</div>[39m
+            [36m</dl>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0m微信充值暂未开放。[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"rounded-card border border-border bg-card text-card-foreground"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-col gap-1 p-4 pb-2"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-14 font-semibold tracking-tight flex items-center gap-2"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-credit-card h-4 w-4"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<rect[39m
+                  [33mheight[39m=[32m"14"[39m
+                  [33mrx[39m=[32m"2"[39m
+                  [33mwidth[39m=[32m"20"[39m
+                  [33mx[39m=[32m"2"[39m
+                  [33my[39m=[32m"5"[39m
+                [36m/>[39m
+                [36m<line[39m
+                  [33mx1[39m=[32m"2"[39m
+                  [33mx2[39m=[32m"22"[39m
+                  [33my1[39m=[32m"10"[39m
+                  [33my2[39m=[32m"10"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [0m个人订阅[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0m订阅状态以实际到账同步结果为准[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"p-4 pt-2 space-y-4"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"space-y-3"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-muted text-muted-foreground"[39m
+                [33mdata-testid[39m=[32m"billing-subscription-status"[39m
+              [36m>[39m
+                [0m暂无订阅[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0mStripe 订阅购买与管理暂未开放。[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"rounded-card border border-border bg-card text-card-foreground"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col gap-1 p-4 pb-2"[39m
+        [36m>[39m
+          [36m<h3[39m
+            [33mclass[39m=[32m"text-14 font-semibold tracking-tight"[39m
+          [36m>[39m
+            [0m支付渠道[0m
+          [36m</h3>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+          [36m>[39m
+            [0m渠道配置不会代替订单到账或订阅确认[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"p-4 pt-2 space-y-3"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-wrap gap-2"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-accent text-accent-foreground"[39m
+            [36m>[39m
+              [0m微信支付 · [0m
+              [0m已配置[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-muted text-muted-foreground"[39m
+            [36m>[39m
+              [0mStripe · [0m
+              [0m未开通[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<a[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+        [33mhref[39m=[32m"/usage"[39m
+      [36m>[39m
+        [0m查看我的 AI 用量[0m
+      [36m</a>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mx-auto w-full max-w-5xl space-y-6 p-4 md:p-6"[39m
+      [33mdata-testid[39m=[32m"billing-overview"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"space-y-2"[39m
+      [36m>[39m
+        [36m<h1[39m
+          [33mclass[39m=[32m"text-24 font-semibold"[39m
+        [36m>[39m
+          [0m额度与订阅[0m
+        [36m</h1>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [36m>[39m
+          [0m管理个人账户。充值额度与订阅权益分别记录，订阅不会自动增加充值额度。[0m
+        [36m</p>[39m
+      [36m</header>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"grid gap-4 md:grid-cols-2"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"rounded-card border border-border bg-card text-card-foreground"[39m
+          [33mdata-testid[39m=[32m"billing-wallet-card"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-col gap-1 p-4 pb-2"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-14 font-semibold tracking-tight flex items-center gap-2"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-wallet h-4 w-4"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [0m个人额度[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0m查看余额与累计到账额度[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"p-4 pt-2 space-y-4"[39m
+          [36m>[39m
+            [36m<div>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+              [36m>[39m
+                [0m当前余额[0m
+              [36m</p>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"text-32 font-semibold tabular-nums"[39m
+                [33mdata-testid[39m=[32m"billing-wallet-balance"[39m
+              [36m>[39m
+                [0m100[0m
+                [0m [0m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-13 font-normal text-muted-foreground"[39m
+                [36m>[39m
+                  [0m额度[0m
+                [36m</span>[39m
+              [36m</p>[39m
+            [36m</div>[39m
+            [36m<dl[39m
+              [33mclass[39m=[32m"grid grid-cols-2 gap-3 text-13"[39m
+            [36m>[39m
+              [36m<div>[39m
+                [36m<dt[39m
+                  [33mclass[39m=[32m"text-muted-foreground"[39m
+                [36m>[39m
+                  [0m累计充值[0m
+                [36m</dt>[39m
+                [36m<dd[39m
+                  [33mclass[39m=[32m"tabular-nums"[39m
+                [36m>[39m
+                  [0m100[0m
+                [36m</dd>[39m
+              [36m</div>[39m
+              [36m<div>[39m
+                [36m<dt[39m
+                  [33mclass[39m=[32m"text-muted-foreground"[39m
+                [36m>[39m
+                  [0m累计发放[0m
+                [36m</dt>[39m
+                [36m<dd[39m
+                  [33mclass[39m=[32m"tabular-nums"[39m
+                [36m>[39m
+                  [0m0[0m
+                [36m</dd>[39m
+              [36m</div>[39m
+            [36m</dl>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0m微信充值暂未开放。[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"rounded-card border border-border bg-card text-card-foreground"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-col gap-1 p-4 pb-2"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-14 font-semibold tracking-tight flex items-center gap-2"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-credit-card h-4 w-4"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<rect[39m
+                  [33mheight[39m=[32m"14"[39m
+                  [33mrx[39m=[32m"2"[39m
+                  [33mwidth[39m=[32m"20"[39m
+                  [33mx[39m=[32m"2"[39m
+                  [33my[39m=[32m"5"[39m
+                [36m/>[39m
+                [36m<line[39m
+                  [33mx1[39m=[32m"2"[39m
+                  [33mx2[39m=[32m"22"[39m
+                  [33my1[39m=[32m"10"[39m
+                  [33my2[39m=[32m"10"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [0m个人订阅[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0m订阅状态以实际到账同步结果为准[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"p-4 pt-2 space-y-4"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"space-y-3"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-muted text-muted-foreground"[39m
+                [33mdata-testid[39m=[32m"billing-subscription-status"[39m
+              [36m>[39m
+                [0m暂无订阅[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0mStripe 订阅购买与管理暂未开放。[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"rounded-card border border-border bg-card text-card-foreground"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col gap-1 p-4 pb-2"[39m
+        [36m>[39m
+          [36m<h3[39m
+            [33mclass[39m=[32m"text-14 font-semibold tracking-tight"[39m
+          [36m>[39m
+            [0m支付渠道[0m
+          [36m</h3>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+          [36m>[39m
+            [0m渠道配置不会代替订单到账或订阅确认[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"p-4 pt-2 space-y-3"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-wrap gap-2"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-accent text-accent-foreground"[39m
+            [36m>[39m
+              [0m微信支付 · [0m
+              [0m已配置[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-muted text-muted-foreground"[39m
+            [36m>[39m
+              [0mStripe · [0m
+              [0m未开通[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<a[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+        [33mhref[39m=[32m"/usage"[39m
+      [36m>[39m
+        [0m查看我的 AI 用量[0m
+      [36m</a>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × F06 live cashier entry > does not invent packages for an empty catalog 1017ms
+     → Unable to find role="button" and name "购买额度"
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mx-auto w-full max-w-5xl space-y-6 p-4 md:p-6"[39m
+      [33mdata-testid[39m=[32m"billing-overview"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"space-y-2"[39m
+      [36m>[39m
+        [36m<h1[39m
+          [33mclass[39m=[32m"text-24 font-semibold"[39m
+        [36m>[39m
+          [0m额度与订阅[0m
+        [36m</h1>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [36m>[39m
+          [0m管理个人账户。充值额度与订阅权益分别记录，订阅不会自动增加充值额度。[0m
+        [36m</p>[39m
+      [36m</header>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"grid gap-4 md:grid-cols-2"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"rounded-card border border-border bg-card text-card-foreground"[39m
+          [33mdata-testid[39m=[32m"billing-wallet-card"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-col gap-1 p-4 pb-2"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-14 font-semibold tracking-tight flex items-center gap-2"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-wallet h-4 w-4"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [0m个人额度[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0m查看余额与累计到账额度[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"p-4 pt-2 space-y-4"[39m
+          [36m>[39m
+            [36m<div>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+              [36m>[39m
+                [0m当前余额[0m
+              [36m</p>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"text-32 font-semibold tabular-nums"[39m
+                [33mdata-testid[39m=[32m"billing-wallet-balance"[39m
+              [36m>[39m
+                [0m100[0m
+                [0m [0m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-13 font-normal text-muted-foreground"[39m
+                [36m>[39m
+                  [0m额度[0m
+                [36m</span>[39m
+              [36m</p>[39m
+            [36m</div>[39m
+            [36m<dl[39m
+              [33mclass[39m=[32m"grid grid-cols-2 gap-3 text-13"[39m
+            [36m>[39m
+              [36m<div>[39m
+                [36m<dt[39m
+                  [33mclass[39m=[32m"text-muted-foreground"[39m
+                [36m>[39m
+                  [0m累计充值[0m
+                [36m</dt>[39m
+                [36m<dd[39m
+                  [33mclass[39m=[32m"tabular-nums"[39m
+                [36m>[39m
+                  [0m100[0m
+                [36m</dd>[39m
+              [36m</div>[39m
+              [36m<div>[39m
+                [36m<dt[39m
+                  [33mclass[39m=[32m"text-muted-foreground"[39m
+                [36m>[39m
+                  [0m累计发放[0m
+                [36m</dt>[39m
+                [36m<dd[39m
+                  [33mclass[39m=[32m"tabular-nums"[39m
+                [36m>[39m
+                  [0m0[0m
+                [36m</dd>[39m
+              [36m</div>[39m
+            [36m</dl>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0m微信充值暂未开放。[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"rounded-card border border-border bg-card text-card-foreground"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-col gap-1 p-4 pb-2"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-14 font-semibold tracking-tight flex items-center gap-2"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-credit-card h-4 w-4"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<rect[39m
+                  [33mheight[39m=[32m"14"[39m
+                  [33mrx[39m=[32m"2"[39m
+                  [33mwidth[39m=[32m"20"[39m
+                  [33mx[39m=[32m"2"[39m
+                  [33my[39m=[32m"5"[39m
+                [36m/>[39m
+                [36m<line[39m
+                  [33mx1[39m=[32m"2"[39m
+                  [33mx2[39m=[32m"22"[39m
+                  [33my1[39m=[32m"10"[39m
+                  [33my2[39m=[32m"10"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [0m个人订阅[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0m订阅状态以实际到账同步结果为准[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"p-4 pt-2 space-y-4"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"space-y-3"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-muted text-muted-foreground"[39m
+                [33mdata-testid[39m=[32m"billing-subscription-status"[39m
+              [36m>[39m
+                [0m暂无订阅[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0mStripe 订阅购买与管理暂未开放。[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"rounded-card border border-border bg-card text-card-foreground"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col gap-1 p-4 pb-2"[39m
+        [36m>[39m
+          [36m<h3[39m
+            [33mclass[39m=[32m"text-14 font-semibold tracking-tight"[39m
+          [36m>[39m
+            [0m支付渠道[0m
+          [36m</h3>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+          [36m>[39m
+            [0m渠道配置不会代替订单到账或订阅确认[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"p-4 pt-2 space-y-3"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-wrap gap-2"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-accent text-accent-foreground"[39m
+            [36m>[39m
+              [0m微信支付 · [0m
+              [0m已配置[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-muted text-muted-foreground"[39m
+            [36m>[39m
+              [0mStripe · [0m
+              [0m未开通[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<a[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+        [33mhref[39m=[32m"/usage"[39m
+      [36m>[39m
+        [0m查看我的 AI 用量[0m
+      [36m</a>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mx-auto w-full max-w-5xl space-y-6 p-4 md:p-6"[39m
+      [33mdata-testid[39m=[32m"billing-overview"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"space-y-2"[39m
+      [36m>[39m
+        [36m<h1[39m
+          [33mclass[39m=[32m"text-24 font-semibold"[39m
+        [36m>[39m
+          [0m额度与订阅[0m
+        [36m</h1>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [36m>[39m
+          [0m管理个人账户。充值额度与订阅权益分别记录，订阅不会自动增加充值额度。[0m
+        [36m</p>[39m
+      [36m</header>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"grid gap-4 md:grid-cols-2"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"rounded-card border border-border bg-card text-card-foreground"[39m
+          [33mdata-testid[39m=[32m"billing-wallet-card"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-col gap-1 p-4 pb-2"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-14 font-semibold tracking-tight flex items-center gap-2"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-wallet h-4 w-4"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [0m个人额度[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0m查看余额与累计到账额度[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"p-4 pt-2 space-y-4"[39m
+          [36m>[39m
+            [36m<div>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+              [36m>[39m
+                [0m当前余额[0m
+              [36m</p>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"text-32 font-semibold tabular-nums"[39m
+                [33mdata-testid[39m=[32m"billing-wallet-balance"[39m
+              [36m>[39m
+                [0m100[0m
+                [0m [0m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-13 font-normal text-muted-foreground"[39m
+                [36m>[39m
+                  [0m额度[0m
+                [36m</span>[39m
+              [36m</p>[39m
+            [36m</div>[39m
+            [36m<dl[39m
+              [33mclass[39m=[32m"grid grid-cols-2 gap-3 text-13"[39m
+            [36m>[39m
+              [36m<div>[39m
+                [36m<dt[39m
+                  [33mclass[39m=[32m"text-muted-foreground"[39m
+                [36m>[39m
+                  [0m累计充值[0m
+                [36m</dt>[39m
+                [36m<dd[39m
+                  [33mclass[39m=[32m"tabular-nums"[39m
+                [36m>[39m
+                  [0m100[0m
+                [36m</dd>[39m
+              [36m</div>[39m
+              [36m<div>[39m
+                [36m<dt[39m
+                  [33mclass[39m=[32m"text-muted-foreground"[39m
+                [36m>[39m
+                  [0m累计发放[0m
+                [36m</dt>[39m
+                [36m<dd[39m
+                  [33mclass[39m=[32m"tabular-nums"[39m
+                [36m>[39m
+                  [0m0[0m
+                [36m</dd>[39m
+              [36m</div>[39m
+            [36m</dl>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0m微信充值暂未开放。[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"rounded-card border border-border bg-card text-card-foreground"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-col gap-1 p-4 pb-2"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-14 font-semibold tracking-tight flex items-center gap-2"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-credit-card h-4 w-4"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<rect[39m
+                  [33mheight[39m=[32m"14"[39m
+                  [33mrx[39m=[32m"2"[39m
+                  [33mwidth[39m=[32m"20"[39m
+                  [33mx[39m=[32m"2"[39m
+                  [33my[39m=[32m"5"[39m
+                [36m/>[39m
+                [36m<line[39m
+                  [33mx1[39m=[32m"2"[39m
+                  [33mx2[39m=[32m"22"[39m
+                  [33my1[39m=[32m"10"[39m
+                  [33my2[39m=[32m"10"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [0m个人订阅[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0m订阅状态以实际到账同步结果为准[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"p-4 pt-2 space-y-4"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"space-y-3"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-muted text-muted-foreground"[39m
+                [33mdata-testid[39m=[32m"billing-subscription-status"[39m
+              [36m>[39m
+                [0m暂无订阅[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0mStripe 订阅购买与管理暂未开放。[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"rounded-card border border-border bg-card text-card-foreground"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col gap-1 p-4 pb-2"[39m
+        [36m>[39m
+          [36m<h3[39m
+            [33mclass[39m=[32m"text-14 font-semibold tracking-tight"[39m
+          [36m>[39m
+            [0m支付渠道[0m
+          [36m</h3>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+          [36m>[39m
+            [0m渠道配置不会代替订单到账或订阅确认[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"p-4 pt-2 space-y-3"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-wrap gap-2"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-accent text-accent-foreground"[39m
+            [36m>[39m
+              [0m微信支付 · [0m
+              [0m已配置[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-muted text-muted-foreground"[39m
+            [36m>[39m
+              [0mStripe · [0m
+              [0m未开通[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<a[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+        [33mhref[39m=[32m"/usage"[39m
+      [36m>[39m
+        [0m查看我的 AI 用量[0m
+      [36m</a>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/billing-cashier.test.tsx > F06 live cashier entry > opens real package selection from configured account
+TestingLibraryElementError: Unable to find role="button" and name "购买额度"
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mx-auto w-full max-w-5xl space-y-6 p-4 md:p-6"[39m
+      [33mdata-testid[39m=[32m"billing-overview"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"space-y-2"[39m
+      [36m>[39m
+        [36m<h1[39m
+          [33mclass[39m=[32m"text-24 font-semibold"[39m
+        [36m>[39m
+          [0m额度与订阅[0m
+        [36m</h1>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [36m>[39m
+          [0m管理个人账户。充值额度与订阅权益分别记录，订阅不会自动增加充值额度。[0m
+        [36m</p>[39m
+      [36m</header>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"grid gap-4 md:grid-cols-2"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"rounded-card border border-border bg-card text-card-foreground"[39m
+          [33mdata-testid[39m=[32m"billing-wallet-card"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-col gap-1 p-4 pb-2"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-14 font-semibold tracking-tight flex items-center gap-2"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-wallet h-4 w-4"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [0m个人额度[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0m查看余额与累计到账额度[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"p-4 pt-2 space-y-4"[39m
+          [36m>[39m
+            [36m<div>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+              [36m>[39m
+                [0m当前余额[0m
+              [36m</p>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"text-32 font-semibold tabular-nums"[39m
+                [33mdata-testid[39m=[32m"billing-wallet-balance"[39m
+              [36m>[39m
+                [0m100[0m
+                [0m [0m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-13 font-normal text-muted-foreground"[39m
+                [36m>[39m
+                  [0m额度[0m
+                [36m</span>[39m
+              [36m</p>[39m
+            [36m</div>[39m
+            [36m<dl[39m
+              [33mclass[39m=[32m"grid grid-cols-2 gap-3 text-13"[39m
+            [36m>[39m
+              [36m<div>[39m
+                [36m<dt[39m
+                  [33mclass[39m=[32m"text-muted-foreground"[39m
+                [36m>[39m
+                  [0m累计充值[0m
+                [36m</dt>[39m
+                [36m<dd[39m
+                  [33mclass[39m=[32m"tabular-nums"[39m
+                [36m>[39m
+                  [0m100[0m
+                [36m</dd>[39m
+              [36m</div>[39m
+              [36m<div>[39m
+                [36m<dt[39m
+                  [33mclass[39m=[32m"text-muted-foreground"[39m
+                [36m>[39m
+                  [0m累计发放[0m
+                [36m</dt>[39m
+                [36m<dd[39m
+                  [33mclass[39m=[32m"tabular-nums"[39m
+                [36m>[39m
+                  [0m0[0m
+                [36m</dd>[39m
+              [36m</div>[39m
+            [36m</dl>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0m微信充值暂未开放。[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"rounded-card border border-border bg-card text-card-foreground"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-col gap-1 p-4 pb-2"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-14 font-semibold tracking-tight flex items-center gap-2"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-credit-card h-4 w-4"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<rect[39m
+                  [33mheight[39m=[32m"14"[39m
+                  [33mrx[39m=[32m"2"[39m
+                  [33mwidth[39m=[32m"20"[39m
+                  [33mx[39m=[32m"2"[39m
+                  [33my[39m=[32m"5"[39m
+                [36m/>[39m
+                [36m<line[39m
+                  [33mx1[39m=[32m"2"[39m
+                  [33mx2[39m=[32m"22"[39m
+                  [33my1[39m=[32m"10"[39m
+                  [33my2[39m=[32m"10"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [0m个人订阅[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0m订阅状态以实际到账同步结果为准[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"p-4 pt-2 space-y-4"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"space-y-3"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-muted text-muted-foreground"[39m
+                [33mdata-testid[39m=[32m"billing-subscription-status"[39m
+              [36m>[39m
+                [0m暂无订阅[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0mStripe 订阅购买与管理暂未开放。[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"rounded-card border border-border bg-card text-card-foreground"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col gap-1 p-4 pb-2"[39m
+        [36m>[39m
+          [36m<h3[39m
+            [33mclass[39m=[32m"text-14 font-semibold tracking-tight"[39m
+          [36m>[39m
+            [0m支付渠道[0m
+          [36m</h3>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+          [36m>[39m
+            [0m渠道配置不会代替订单到账或订阅确认[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"p-4 pt-2 space-y-3"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-wrap gap-2"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-accent text-accent-foreground"[39m
+            [36m>[39m
+              [0m微信支付 · [0m
+              [0m已配置[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-muted text-muted-foreground"[39m
+            [36m>[39m
+              [0mStripe · [0m
+              [0m未开通[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<a[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+        [33mhref[39m=[32m"/usage"[39m
+      [36m>[39m
+        [0m查看我的 AI 用量[0m
+      [36m</a>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mx-auto w-full max-w-5xl space-y-6 p-4 md:p-6"[39m
+      [33mdata-testid[39m=[32m"billing-overview"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"space-y-2"[39m
+      [36m>[39m
+        [36m<h1[39m
+          [33mclass[39m=[32m"text-24 font-semibold"[39m
+        [36m>[39m
+          [0m额度与订阅[0m
+        [36m</h1>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [36m>[39m
+          [0m管理个人账户。充值额度与订阅权益分别记录，订阅不会自动增加充值额度。[0m
+        [36m</p>[39m
+      [36m</header>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"grid gap-4 md:grid-cols-2"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"rounded-card border border-border bg-card text-card-foreground"[39m
+          [33mdata-testid[39m=[32m"billing-wallet-card"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-col gap-1 p-4 pb-2"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-14 font-semibold tracking-tight flex items-center gap-2"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-wallet h-4 w-4"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [0m个人额度[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0m查看余额与累计到账额度[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"p-4 pt-2 space-y-4"[39m
+          [36m>[39m
+            [36m<div>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+              [36m>[39m
+                [0m当前余额[0m
+              [36m</p>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"text-32 font-semibold tabular-nums"[39m
+                [33mdata-testid[39m=[32m"billing-wallet-balance"[39m
+              [36m>[39m
+                [0m100[0m
+                [0m [0m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-13 font-normal text-muted-foreground"[39m
+                [36m>[39m
+                  [0m额度[0m
+                [36m</span>[39m
+              [36m</p>[39m
+            [36m</div>[39m
+            [36m<dl[39m
+              [33mclass[39m=[32m"grid grid-cols-2 gap-3 text-13"[39m
+            [36m>[39m
+              [36m<div>[39m
+                [36m<dt[39m
+                  [33mclass[39m=[32m"text-muted-foreground"[39m
+                [36m>[39m
+                  [0m累计充值[0m
+                [36m</dt>[39m
+                [36m<dd[39m
+                  [33mclass[39m=[32m"tabular-nums"[39m
+                [36m>[39m
+                  [0m100[0m
+                [36m</dd>[39m
+              [36m</div>[39m
+              [36m<div>[39m
+                [36m<dt[39m
+                  [33mclass[39m=[32m"text-muted-foreground"[39m
+                [36m>[39m
+                  [0m累计发放[0m
+                [36m</dt>[39m
+                [36m<dd[39m
+                  [33mclass[39m=[32m"tabular-nums"[39m
+                [36m>[39m
+                  [0m0[0m
+                [36m</dd>[39m
+              [36m</div>[39m
+            [36m</dl>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0m微信充值暂未开放。[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"rounded-card border border-border bg-card text-card-foreground"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-col gap-1 p-4 pb-2"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-14 font-semibold tracking-tight flex items-center gap-2"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-credit-card h-4 w-4"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<rect[39m
+                  [33mheight[39m=[32m"14"[39m
+                  [33mrx[39m=[32m"2"[39m
+                  [33mwidth[39m=[32m"20"[39m
+                  [33mx[39m=[32m"2"[39m
+                  [33my[39m=[32m"5"[39m
+                [36m/>[39m
+                [36m<line[39m
+                  [33mx1[39m=[32m"2"[39m
+                  [33mx2[39m=[32m"22"[39m
+                  [33my1[39m=[32m"10"[39m
+                  [33my2[39m=[32m"10"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [0m个人订阅[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0m订阅状态以实际到账同步结果为准[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"p-4 pt-2 space-y-4"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"space-y-3"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-muted text-muted-foreground"[39m
+                [33mdata-testid[39m=[32m"billing-subscription-status"[39m
+              [36m>[39m
+                [0m暂无订阅[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0mStripe 订阅购买与管理暂未开放。[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"rounded-card border border-border bg-card text-card-foreground"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col gap-1 p-4 pb-2"[39m
+        [36m>[39m
+          [36m<h3[39m
+            [33mclass[39m=[32m"text-14 font-semibold tracking-tight"[39m
+          [36m>[39m
+            [0m支付渠道[0m
+          [36m</h3>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+          [36m>[39m
+            [0m渠道配置不会代替订单到账或订阅确认[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"p-4 pt-2 space-y-3"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-wrap gap-2"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-accent text-accent-foreground"[39m
+            [36m>[39m
+              [0m微信支付 · [0m
+              [0m已配置[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-muted text-muted-foreground"[39m
+            [36m>[39m
+              [0mStripe · [0m
+              [0m未开通[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<a[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+        [33mhref[39m=[32m"/usage"[39m
+      [36m>[39m
+        [0m查看我的 AI 用量[0m
+      [36m</a>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ tests/ui/billing-cashier.test.tsx:18:40
+     16| describe("F06 live cashier entry",()=>{
+     17|  it("opens real package selection from configured account",async()=>{
+     18|   setup();fireEvent.click(await screen.findByRole("button",{name:"购买…
+       |                                        ^
+     19|   expect(await screen.findByTestId("billing-cashier-dialog")).toBeTrut…
+     20|   expect(await screen.findByText("¥99.00")).toBeTruthy();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/ui/billing-cashier.test.tsx > F06 live cashier entry > does not invent packages for an empty catalog
+TestingLibraryElementError: Unable to find role="button" and name "购买额度"
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mx-auto w-full max-w-5xl space-y-6 p-4 md:p-6"[39m
+      [33mdata-testid[39m=[32m"billing-overview"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"space-y-2"[39m
+      [36m>[39m
+        [36m<h1[39m
+          [33mclass[39m=[32m"text-24 font-semibold"[39m
+        [36m>[39m
+          [0m额度与订阅[0m
+        [36m</h1>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [36m>[39m
+          [0m管理个人账户。充值额度与订阅权益分别记录，订阅不会自动增加充值额度。[0m
+        [36m</p>[39m
+      [36m</header>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"grid gap-4 md:grid-cols-2"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"rounded-card border border-border bg-card text-card-foreground"[39m
+          [33mdata-testid[39m=[32m"billing-wallet-card"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-col gap-1 p-4 pb-2"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-14 font-semibold tracking-tight flex items-center gap-2"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-wallet h-4 w-4"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [0m个人额度[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0m查看余额与累计到账额度[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"p-4 pt-2 space-y-4"[39m
+          [36m>[39m
+            [36m<div>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+              [36m>[39m
+                [0m当前余额[0m
+              [36m</p>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"text-32 font-semibold tabular-nums"[39m
+                [33mdata-testid[39m=[32m"billing-wallet-balance"[39m
+              [36m>[39m
+                [0m100[0m
+                [0m [0m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-13 font-normal text-muted-foreground"[39m
+                [36m>[39m
+                  [0m额度[0m
+                [36m</span>[39m
+              [36m</p>[39m
+            [36m</div>[39m
+            [36m<dl[39m
+              [33mclass[39m=[32m"grid grid-cols-2 gap-3 text-13"[39m
+            [36m>[39m
+              [36m<div>[39m
+                [36m<dt[39m
+                  [33mclass[39m=[32m"text-muted-foreground"[39m
+                [36m>[39m
+                  [0m累计充值[0m
+                [36m</dt>[39m
+                [36m<dd[39m
+                  [33mclass[39m=[32m"tabular-nums"[39m
+                [36m>[39m
+                  [0m100[0m
+                [36m</dd>[39m
+              [36m</div>[39m
+              [36m<div>[39m
+                [36m<dt[39m
+                  [33mclass[39m=[32m"text-muted-foreground"[39m
+                [36m>[39m
+                  [0m累计发放[0m
+                [36m</dt>[39m
+                [36m<dd[39m
+                  [33mclass[39m=[32m"tabular-nums"[39m
+                [36m>[39m
+                  [0m0[0m
+                [36m</dd>[39m
+              [36m</div>[39m
+            [36m</dl>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0m微信充值暂未开放。[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"rounded-card border border-border bg-card text-card-foreground"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-col gap-1 p-4 pb-2"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-14 font-semibold tracking-tight flex items-center gap-2"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-credit-card h-4 w-4"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<rect[39m
+                  [33mheight[39m=[32m"14"[39m
+                  [33mrx[39m=[32m"2"[39m
+                  [33mwidth[39m=[32m"20"[39m
+                  [33mx[39m=[32m"2"[39m
+                  [33my[39m=[32m"5"[39m
+                [36m/>[39m
+                [36m<line[39m
+                  [33mx1[39m=[32m"2"[39m
+                  [33mx2[39m=[32m"22"[39m
+                  [33my1[39m=[32m"10"[39m
+                  [33my2[39m=[32m"10"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [0m个人订阅[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0m订阅状态以实际到账同步结果为准[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"p-4 pt-2 space-y-4"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"space-y-3"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-muted text-muted-foreground"[39m
+                [33mdata-testid[39m=[32m"billing-subscription-status"[39m
+              [36m>[39m
+                [0m暂无订阅[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0mStripe 订阅购买与管理暂未开放。[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"rounded-card border border-border bg-card text-card-foreground"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col gap-1 p-4 pb-2"[39m
+        [36m>[39m
+          [36m<h3[39m
+            [33mclass[39m=[32m"text-14 font-semibold tracking-tight"[39m
+          [36m>[39m
+            [0m支付渠道[0m
+          [36m</h3>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+          [36m>[39m
+            [0m渠道配置不会代替订单到账或订阅确认[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"p-4 pt-2 space-y-3"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-wrap gap-2"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-accent text-accent-foreground"[39m
+            [36m>[39m
+              [0m微信支付 · [0m
+              [0m已配置[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-muted text-muted-foreground"[39m
+            [36m>[39m
+              [0mStripe · [0m
+              [0m未开通[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<a[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+        [33mhref[39m=[32m"/usage"[39m
+      [36m>[39m
+        [0m查看我的 AI 用量[0m
+      [36m</a>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mx-auto w-full max-w-5xl space-y-6 p-4 md:p-6"[39m
+      [33mdata-testid[39m=[32m"billing-overview"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"space-y-2"[39m
+      [36m>[39m
+        [36m<h1[39m
+          [33mclass[39m=[32m"text-24 font-semibold"[39m
+        [36m>[39m
+          [0m额度与订阅[0m
+        [36m</h1>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [36m>[39m
+          [0m管理个人账户。充值额度与订阅权益分别记录，订阅不会自动增加充值额度。[0m
+        [36m</p>[39m
+      [36m</header>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"grid gap-4 md:grid-cols-2"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"rounded-card border border-border bg-card text-card-foreground"[39m
+          [33mdata-testid[39m=[32m"billing-wallet-card"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-col gap-1 p-4 pb-2"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-14 font-semibold tracking-tight flex items-center gap-2"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-wallet h-4 w-4"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [0m个人额度[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0m查看余额与累计到账额度[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"p-4 pt-2 space-y-4"[39m
+          [36m>[39m
+            [36m<div>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+              [36m>[39m
+                [0m当前余额[0m
+              [36m</p>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"text-32 font-semibold tabular-nums"[39m
+                [33mdata-testid[39m=[32m"billing-wallet-balance"[39m
+              [36m>[39m
+                [0m100[0m
+                [0m [0m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-13 font-normal text-muted-foreground"[39m
+                [36m>[39m
+                  [0m额度[0m
+                [36m</span>[39m
+              [36m</p>[39m
+            [36m</div>[39m
+            [36m<dl[39m
+              [33mclass[39m=[32m"grid grid-cols-2 gap-3 text-13"[39m
+            [36m>[39m
+              [36m<div>[39m
+                [36m<dt[39m
+                  [33mclass[39m=[32m"text-muted-foreground"[39m
+                [36m>[39m
+                  [0m累计充值[0m
+                [36m</dt>[39m
+                [36m<dd[39m
+                  [33mclass[39m=[32m"tabular-nums"[39m
+                [36m>[39m
+                  [0m100[0m
+                [36m</dd>[39m
+              [36m</div>[39m
+              [36m<div>[39m
+                [36m<dt[39m
+                  [33mclass[39m=[32m"text-muted-foreground"[39m
+                [36m>[39m
+                  [0m累计发放[0m
+                [36m</dt>[39m
+                [36m<dd[39m
+                  [33mclass[39m=[32m"tabular-nums"[39m
+                [36m>[39m
+                  [0m0[0m
+                [36m</dd>[39m
+              [36m</div>[39m
+            [36m</dl>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0m微信充值暂未开放。[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"rounded-card border border-border bg-card text-card-foreground"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-col gap-1 p-4 pb-2"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"text-14 font-semibold tracking-tight flex items-center gap-2"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-credit-card h-4 w-4"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<rect[39m
+                  [33mheight[39m=[32m"14"[39m
+                  [33mrx[39m=[32m"2"[39m
+                  [33mwidth[39m=[32m"20"[39m
+                  [33mx[39m=[32m"2"[39m
+                  [33my[39m=[32m"5"[39m
+                [36m/>[39m
+                [36m<line[39m
+                  [33mx1[39m=[32m"2"[39m
+                  [33mx2[39m=[32m"22"[39m
+                  [33my1[39m=[32m"10"[39m
+                  [33my2[39m=[32m"10"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [0m个人订阅[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0m订阅状态以实际到账同步结果为准[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"p-4 pt-2 space-y-4"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"space-y-3"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-muted text-muted-foreground"[39m
+                [33mdata-testid[39m=[32m"billing-subscription-status"[39m
+              [36m>[39m
+                [0m暂无订阅[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+            [36m>[39m
+              [0mStripe 订阅购买与管理暂未开放。[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"rounded-card border border-border bg-card text-card-foreground"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col gap-1 p-4 pb-2"[39m
+        [36m>[39m
+          [36m<h3[39m
+            [33mclass[39m=[32m"text-14 font-semibold tracking-tight"[39m
+          [36m>[39m
+            [0m支付渠道[0m
+          [36m</h3>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+          [36m>[39m
+            [0m渠道配置不会代替订单到账或订阅确认[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"p-4 pt-2 space-y-3"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-wrap gap-2"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-accent text-accent-foreground"[39m
+            [36m>[39m
+              [0m微信支付 · [0m
+              [0m已配置[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-muted text-muted-foreground"[39m
+            [36m>[39m
+              [0mStripe · [0m
+              [0m未开通[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<a[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+        [33mhref[39m=[32m"/usage"[39m
+      [36m>[39m
+        [0m查看我的 AI 用量[0m
+      [36m</a>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ tests/ui/billing-cashier.test.tsx:24:42
+     22|  });
+     23|  it("does not invent packages for an empty catalog",async()=>{
+     24|   setup([]);fireEvent.click(await screen.findByRole("button",{name:"购…
+       |                                          ^
+     25|   expect(await screen.findByTestId("billing-packages-empty")).toBeTrut…
+     26|   expect(screen.queryByTestId("billing-generate-qr")).toBeNull();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed (2)
+   Start at  02:52:55
+   Duration  3.92s (transform 485ms, setup 133ms, collect 790ms, tests 2.05s, environment 703ms, prepare 48ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/billing-cashier.test.tsx

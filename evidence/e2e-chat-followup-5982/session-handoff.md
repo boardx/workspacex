@@ -1,0 +1,1 @@
+最终代码：auth.ts和session-api.ts直引auth契约子路径；helper严格同源ready/disabled；多轮截图独立线程、两次权威成功run及Markdown结构断言；两个新单测；mod-chat经验。最终本地生产22/22浏览器通过，27聊天聚焦+21问卷测试通过。未重跑534、原8fixme和真实模型边界保持。问卷parent b75c / PR5984已必需CI绿并READY，无合并授权。聊天需创建基于该branch的独立PR，跟进必需CI全绿；不要把中断的完整本地Web单测或早期启动失败当绿。源码hash与report为本轮证据，6栈已无容器卷。

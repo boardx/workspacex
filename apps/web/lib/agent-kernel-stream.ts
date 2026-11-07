@@ -1,3 +1,4 @@
+import { notifyCreditFailure } from "./credit-guidance";
 /**
  * Phase 14 F04 —— streaming-transport 契约束（UC-1 `subscribeRunEvents`）的前端消费端。
  *
@@ -71,7 +72,9 @@ export function openAgentKernelRunEvents(
   );
 
   socket.addEventListener("message", (event) => {
-    const parsed = ST.KernelStreamEvent.safeParse(safeJson(String(event.data)));
+    const raw = safeJson(String(event.data));
+    if (notifyCreditFailure(raw)) { intentional = true; socket.close(); return; }
+    const parsed = ST.KernelStreamEvent.safeParse(raw);
     if (!parsed.success) {
       handlers.onProtocolError?.(event.data);
       return;

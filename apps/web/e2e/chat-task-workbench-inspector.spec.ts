@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { submitWorkbenchRun } from "./support/workbench-run-evidence";
 import {
   ACCEPTANCE_DOC,
   CHAT_READ_E2E,
@@ -23,13 +24,12 @@ import {
 test.setTimeout(240_000);
 
 const TABS = [
-  { suffix: "progress", what: "「进度」" },
   { suffix: "materials", what: "「材料」" },
   { suffix: "artifacts", what: "「产物」" },
   { suffix: "run-details", what: "「运行详情」" },
 ];
 
-test("TW-P0-4①：右栏是四页签 Inspector（进度 / 材料 / 产物 / 运行详情）", async ({ page }) => {
+test("TW-P0-4①：右栏提供材料 / 产物 / 运行详情，计划只在消息流显示", async ({ page }) => {
   await openFreshThread(page);
 
   await expectAnchor(
@@ -52,12 +52,12 @@ test("TW-P0-4①：右栏是四页签 Inspector（进度 / 材料 / 产物 / 运
 
   // 页签必须是真 tab 语义，键盘与屏幕阅读器才认（与 TW-A11Y-8 同源）。
   await expect(
-    page.getByTestId("chat-task-workbench-inspector-tab-progress"),
-    gapMessage("TW-P0-4①", "chat-task-workbench-inspector-tab-progress", "页签没有 tab 角色语义"),
+    page.getByTestId("chat-task-workbench-inspector-tab-materials"),
+    gapMessage("TW-P0-4①", "chat-task-workbench-inspector-tab-materials", "页签没有 tab 角色语义"),
   ).toHaveAttribute("role", "tab");
 });
 
-test("TW-P0-4②：按任务阶段自动切换（上传材料→材料；运行中→进度；出产物→产物）", async ({ page }) => {
+test("TW-P0-4②：材料与产物自动切换，运行开始保留用户所选页签", async ({ page }) => {
   const threadId = await openFreshThread(page);
   const inspector = page.getByTestId("chat-task-workbench-inspector");
   await expect(
@@ -66,6 +66,7 @@ test("TW-P0-4②：按任务阶段自动切换（上传材料→材料；运行�
   ).toBeVisible({ timeout: 30_000 });
 
   /* ── 上传材料 → 自动开「材料」 ── */
+  await page.getByTestId("chat-task-workbench-inspector-tab-artifacts").click();
   const attachButton = page.getByTestId("chat-attachment-input");
   await expect.poll(async () => attachButton.isDisabled(), { timeout: 20_000 }).toBe(false);
   await attachButton.click();
@@ -80,20 +81,32 @@ test("TW-P0-4②：按任务阶段自动切换（上传材料→材料；运行�
     gapMessage("TW-P0-4②", "chat-task-workbench-inspector", "上传材料后 Inspector 没有自动切到「材料」页签"),
   ).toHaveAttribute("data-active-tab", "materials", { timeout: 30_000 });
 
-  /* ── 运行中 → 自动开「进度」 ── */
-  await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentMultiStepTrigger);
-  await page.getByTestId("copilotkit-v2-send").click();
-  await expect(
-    inspector,
-    gapMessage("TW-P0-4②", "chat-task-workbench-inspector", "运行中 Inspector 没有自动切到「进度」页签"),
-  ).toHaveAttribute("data-active-tab", "progress", { timeout: 60_000 });
+  // First send commits the pending attachment. Its material count transition is independent
+  // of run start, so wait for that real row before testing an attachment-free next run.
+  await page.getByTestId("copilotkit-v2-input").fill("请读取附件材料。");
+  await submitWorkbenchRun(page, "");
+  await page.getByTestId("chat-task-workbench-inspector-tab-materials").click();
+  await expect(page.getByTestId("chat-materials-panel")).toContainText(`inspector-autoswitch-${threadId}.txt`, { timeout: 30_000 });
 
-  /* ── 出产物 → 自动开「产物」 ── */
-  await expect(page.getByTestId("copilotkit-v2-running-indicator")).toHaveCount(0, { timeout: 120_000 });
-  await expect(
-    inspector,
-    gapMessage("TW-P0-4②", "chat-task-workbench-inspector", "产出结果后 Inspector 没有自动切到「产物」页签"),
-  ).toHaveAttribute("data-active-tab", "artifacts", { timeout: 30_000 });
+  // Human #4758 / PR #4764: starting another run must preserve the user's tab.
+  await page.getByTestId("chat-task-workbench-inspector-tab-run-details").click();
+  await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentMultiStepTrigger);
+  const completed = submitWorkbenchRun(page, "");
+  await expect(page.getByTestId("copilotkit-v2-running-indicator")).toBeVisible({ timeout: 30_000 });
+  await expect(inspector).toHaveAttribute("data-active-tab", "run-details");
+  const { resultMessageId } = await completed;
+  await expect(inspector).toHaveAttribute("data-active-tab", "run-details");
+  await expect(page.getByTestId("chat-task-workbench-inspector-tab-progress")).toHaveCount(0);
+
+  // Publish a real result through the existing user action; its refresh must switch tabs.
+  await page.getByTestId(`chat-land-artifact-open-${resultMessageId}`).click();
+  await page.getByTestId(`chat-land-artifact-title-${resultMessageId}`).fill("Inspector 自动切换产物");
+  const landed = page.waitForResponse(response => response.request().method() === "POST"
+    && new URL(response.url()).pathname.endsWith(`/chat/threads/${threadId}/artifacts`));
+  await page.getByTestId(`chat-land-artifact-submit-${resultMessageId}`).click();
+  expect((await landed).ok(), "产物必须真实落地").toBe(true);
+  await expect(inspector).toHaveAttribute("data-active-tab", "artifacts", { timeout: 30_000 });
+  await expect(page.getByTestId("chat-artifacts-panel")).toContainText("Inspector 自动切换产物");
 });
 
 test("TW-P0-4③：无内容时折叠，不常驻占六分之一屏", async ({ page }) => {

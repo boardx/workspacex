@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
 import * as React from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -15,8 +16,9 @@ import type { HomeInterview, HomeProject, HomeResearch, HomeSurvey, HomeThread }
 type Tone = "neutral" | "primary" | "success" | "warning";
 
 /** 卡片元信息行左侧内容 + 右侧「多久以前」。 */
-function metaOf(left: React.ReactNode, iso: string | null): React.ReactNode {
-  const rel = formatRelativeTime(iso);
+function WorkMeta({ left, iso }: { left: React.ReactNode; iso: string | null }): React.ReactNode {
+  const { locale } = useI18n();
+  const rel = formatRelativeTime(iso, Date.now(), locale);
   return (
     <>
       <span className="flex min-w-0 items-center gap-1.5">{left}</span>
@@ -25,25 +27,25 @@ function metaOf(left: React.ReactNode, iso: string | null): React.ReactNode {
   );
 }
 
-const THREAD_STATUS: Record<string, { label: string; tone: Tone } | undefined> = {
-  running: { label: "进行中", tone: "primary" },
-  "awaiting-approval": { label: "待确认", tone: "warning" },
-  done: { label: "已完成", tone: "success" },
-  failed: { label: "失败", tone: "warning" },
-  paused: { label: "已暂停", tone: "neutral" },
-};
-
 export function ChatCard({ thread }: { thread: HomeThread }) {
+  const { t } = useI18n();
+  const THREAD_STATUS: Record<string, { label: string; tone: Tone } | undefined> = {
+    running: { label: t("ui.inProgress"), tone: "primary" },
+    "awaiting-approval": { label: t("ui.awaitingApproval"), tone: "warning" },
+    done: { label: t("ui.completed"), tone: "success" },
+    failed: { label: t("ui.failed"), tone: "warning" },
+    paused: { label: t("ui.paused"), tone: "neutral" },
+  };
   const st = THREAD_STATUS[thread.status];
   return (
     <ResourceCard
       href={`/chat?thread=${encodeURIComponent(thread.id)}`}
       testId={`home-recent-thread-${thread.id}`}
       title={thread.title}
-      subtitle="对话"
+      subtitle={t("ui.chats")}
       badges={st !== undefined ? <Badge tone={st.tone}>{st.label}</Badge> : undefined}
       description={thread.subtitle || undefined}
-      meta={metaOf(thread.artifactCount > 0 ? <span>{String(thread.artifactCount)} 个产出物</span> : null, thread.lastActivityAt)}
+      meta={<WorkMeta left={thread.artifactCount > 0 ? <span>{t("home.artifacts", { count: thread.artifactCount })}</span> : null} iso={thread.lastActivityAt} />}
     />
   );
 }
@@ -51,13 +53,14 @@ export function ChatCard({ thread }: { thread: HomeThread }) {
 const MAX_AVATARS = 4;
 
 export function ProjectCard({ project }: { project: HomeProject }) {
+  const { t } = useI18n();
   const people = project.collaborators;
   return (
     <ResourceCard
       href={`/projects/${encodeURIComponent(project.id)}`}
       testId={`home-recent-project-${project.id}`}
       title={project.name}
-      subtitle={project.kind === "workshop" ? "工作坊" : "项目"}
+      subtitle={project.kind === "workshop" ? t("ui.workshop") : t("ui.projects")}
       tags={<ResourceCardTags tags={project.tags} max={3} />}
     >
       {people !== null && people.length > 0 ? (
@@ -69,7 +72,7 @@ export function ProjectCard({ project }: { project: HomeProject }) {
           </span>
           <span className="truncate text-11 text-muted-foreground">
             {people.slice(0, 2).map((p) => p.displayName).join("、")}
-            {people.length > 2 ? ` 等 ${String(people.length)} 人` : ""}
+            {people.length > 2 ? t("home.people", { count: people.length }) : ""}
           </span>
         </div>
       ) : null}
@@ -77,18 +80,18 @@ export function ProjectCard({ project }: { project: HomeProject }) {
   );
 }
 
-const RESEARCH_STATUS = { active: "进行中", completed: "已完成", failed: "失败" } as const;
-
 export function ResearchCard({ item }: { item: HomeResearch }) {
-  const label = RESEARCH_STATUS[item.status as keyof typeof RESEARCH_STATUS] ?? "进行中";
+  const { t } = useI18n();
+  const RESEARCH_STATUS = { active: t("ui.inProgress"), completed: t("ui.completed"), failed: t("ui.failed") } as const;
+  const label = RESEARCH_STATUS[item.status as keyof typeof RESEARCH_STATUS] ?? t("ui.inProgress");
   return (
     <ResourceCard
       href={guidedResearchRoute(item.sessionId, item.stage)}
       testId={`home-recent-research-${item.sessionId}`}
       title={item.title}
-      subtitle="深度研究"
+      subtitle={t("ui.deepResearch")}
       badges={<Badge tone={item.status === "completed" ? "success" : item.status === "failed" ? "warning" : "primary"}>{label}</Badge>}
-      meta={metaOf(<span>进度 {String(item.progress)}%</span>, item.updatedAt)}
+      meta={<WorkMeta left={<span>{t("home.progress", { progress: item.progress })}</span>} iso={item.updatedAt} />}
     >
       <div className="h-1 overflow-hidden rounded-pill bg-muted" role="progressbar" aria-valuenow={item.progress} aria-valuemin={0} aria-valuemax={100}>
         <div className="h-full rounded-pill bg-primary" style={{ width: `${String(item.progress)}%` }} />
@@ -97,43 +100,39 @@ export function ResearchCard({ item }: { item: HomeResearch }) {
   );
 }
 
-const INTERVIEW_STATUS: Record<string, string | undefined> = {
-  draft: "草稿", topic_pending: "待确认主题", experts_pending: "待确认专家", questions_pending: "待确认问题",
-  running: "访谈中", report_pending: "待生成报告", completed: "已完成", failed: "失败",
-};
-
 export function InterviewCard({ item }: { item: HomeInterview }) {
+  const { t } = useI18n();
+  const INTERVIEW_STATUS: Record<string, string | undefined> = {
+    draft: t("ui.draft"), topic_pending: t("ui.awaitingTopicApproval"), experts_pending: t("ui.awaitingExpertApproval"), questions_pending: t("ui.awaitingQuestionApproval"),
+    running: t("ui.interviewInProgress"), report_pending: t("ui.awaitingReport"), completed: t("ui.completed"), failed: t("ui.failed"),
+  };
   return (
     <ResourceCard
       href={item.href}
       testId={`home-recent-interview-${item.interviewId}`}
       title={item.name}
-      subtitle={item.kind === "quick" ? "快捷访谈" : "用户访谈"}
+      subtitle={item.kind === "quick" ? t("ui.quickInterview") : t("ui.userInterviews")}
       badges={
         <Badge tone={item.status === "completed" ? "success" : item.status === "failed" ? "warning" : "primary"}>
-          {INTERVIEW_STATUS[item.status] ?? "进行中"}
+          {INTERVIEW_STATUS[item.status] ?? t("ui.inProgress")}
         </Badge>
       }
-      meta={metaOf(
-        item.kind === "batch" && item.expertCount > 0
-          ? <span>专家 {String(item.completedExpertCount)}/{String(item.expertCount)}</span>
-          : null,
-        item.updatedAt,
-      )}
+      meta={<WorkMeta left={item.kind === "batch" && item.expertCount > 0 ? <span>{t("home.experts", { completed: item.completedExpertCount, total: item.expertCount })}</span> : null} iso={item.updatedAt} />}
     />
   );
 }
 
 export function SurveyCard({ item }: { item: HomeSurvey }) {
-  const label = item.collecting ? "收集中" : item.status === "draft" ? "草稿" : "已发布";
+  const { t } = useI18n();
+  const label = item.collecting ? t("ui.collectingResponses") : item.status === "draft" ? t("ui.draft") : t("ui.published");
   return (
     <ResourceCard
       href={surveyPath(item.id, "design")}
       testId={`home-recent-survey-${item.id}`}
       title={item.title}
-      subtitle="问卷"
+      subtitle={t("ui.surveys")}
       badges={<Badge tone={item.collecting ? "primary" : "neutral"}>{label}</Badge>}
-      meta={metaOf(null, item.updatedAt)}
+      meta={<WorkMeta left={null} iso={item.updatedAt} />}
     />
   );
 }

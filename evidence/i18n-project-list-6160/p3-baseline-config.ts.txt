@@ -1,0 +1,10 @@
+import { defineConfig } from "@playwright/test";
+import base from "./playwright.fullstack-smoke.config";
+const servers = Array.isArray(base.webServer) ? base.webServer : [base.webServer];
+export default defineConfig({
+  ...base,
+  projects: [{ name: "p3-baseline", testMatch: ["p3-baseline.spec.ts"] }],
+  webServer: servers.filter((server) => server && !server.command.includes("next build")),
+  outputDir: "test-results/p3-baseline",
+  workers: 1,
+});

@@ -1,0 +1,24 @@
+{
+  "sha": "b7b0e6e87ec66423e3d2e8521f2b5b8a4b0b84ce",
+  "checks": [
+    {
+      "width": 1280,
+      "geometry": {
+        "scroll": 1280,
+        "client": 1280
+      }
+    },
+    {
+      "width": 375,
+      "geometry": {
+        "scroll": 375,
+        "client": 375
+      }
+    },
+    {
+      "coreJourney": "create → intake → confirm → analysis",
+      "boundary": "HTTP fixture responses, not DB/model",
+      "pass": true
+    }
+  ]
+}

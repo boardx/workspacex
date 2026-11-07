@@ -1,0 +1,31 @@
+import * as React from "react";
+import { afterEach, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+const api = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/api-client", async (load) => ({ ...(await load<typeof import("@/lib/api-client")>()), apiRequest: api }));
+vi.mock("@/components/session/session-provider", () => ({ useOptionalSession: () => ({ session: { userId: "user/原文", currentOrgId: "org:{id}" } }) }));
+vi.mock("next/navigation", () => ({ usePathname: () => "/chat/raw-thread", useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
+import { I18nProvider, useI18n } from "@/lib/i18n/provider";
+import { FeedbackProvider } from "@/components/feedback/feedback-provider";
+function LocaleControl() { const { setLocale } = useI18n(); return <button onClick={() => setLocale("zh-CN")}>switch language</button>; }
+const receiptKey = `feedback-saved-inbox-id:${encodeURIComponent("user/原文")}:${encodeURIComponent("org:{id}")}`;
+afterEach(() => { cleanup(); sessionStorage.clear(); vi.clearAllMocks(); });
+it("keeps a persisted receipt and its exact encoded link across locale and same-session remount without POST", () => {
+  const id = "saved/原文?{id}";
+  sessionStorage.setItem(receiptKey, id);
+  const app = <I18nProvider initialLocale="en"><LocaleControl /><FeedbackProvider><span>chat</span></FeedbackProvider></I18nProvider>;
+  const view = render(app);
+  const receipt = screen.getByTestId("feedback-saved-receipt");
+  expect(receipt.textContent).toContain("Saved. Feedback ID:"); expect(receipt.textContent).toContain(id);
+  const link = within(receipt).getByRole("link", { name: "Open saved feedback" });
+  expect(link).toHaveAttribute("href", `/platform-admin/inbox?open=${encodeURIComponent(id)}`);
+  fireEvent.click(screen.getByRole("button", { name: "switch language" }));
+  expect(screen.getByTestId("feedback-saved-receipt")).toBe(receipt);
+  expect(within(receipt).getByRole("link", { name: "打开已保存的反馈" })).toBe(link);
+  expect(sessionStorage.getItem(receiptKey)).toBe(id); expect(api).not.toHaveBeenCalled();
+  view.unmount(); render(app);
+  expect(screen.getByTestId("feedback-saved-receipt").textContent).toContain(id);
+  fireEvent.click(screen.getByRole("button", { name: "Dismiss saved receipt" }));
+  expect(screen.queryByTestId("feedback-saved-receipt")).toBeNull();
+  expect(sessionStorage.getItem(receiptKey)).toBeNull(); expect(api).not.toHaveBeenCalled();
+});

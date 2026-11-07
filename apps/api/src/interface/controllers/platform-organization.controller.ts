@@ -1,5 +1,6 @@
+import {ENTERPRISE_CACHE_CONTROL} from "./enterprise-http-exception";
 import {AI_NATIVE_POLICY_PROVIDERS} from "../../application/agent-run/ai-admission-ports";
-import { Body, Controller, Get, HttpException, Inject, Param, Patch, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Header, HttpException, Inject, Param, Patch, Query, UseGuards } from "@nestjs/common";
 import { aiUsage as U, platformOrganizations as C } from "@repo/contracts";
 import type { z } from "zod";
 import { PlatformOperatorGuard } from "../guards/platform-operator.guard";
@@ -33,12 +34,14 @@ export class PlatformOrganizationController {
       throw error;
     }
   }
+  @Header("Cache-Control",ENTERPRISE_CACHE_CONTROL)
   @Get(C.operations.listOrganizations.path)
   async list(@Query(new ZodBodyPipe(C.operations.listOrganizations.in)) query: z.infer<typeof C.operations.listOrganizations.in>, @CurrentPrincipal() principal: Principal) {
     assertPrincipal(principal);
     const input = C.operations.listOrganizations.in.parse(query);
     return this.execute(async () => C.operations.listOrganizations.out.parse(await this.repo.list(input, principal.userId)));
   }
+  @Header("Cache-Control",ENTERPRISE_CACHE_CONTROL)
   @Get(C.operations.getOrganization.path)
   async detail(@Param("orgId") orgId: string, @CurrentPrincipal() principal: Principal) {
     assertPrincipal(principal);

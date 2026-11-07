@@ -5,11 +5,11 @@ import { assertDevappOperationMutex } from "../lib/devapp-operation-mutex";
 
 const read = (path: string) => readFileSync(new URL(`../../../${path}`, import.meta.url), "utf8");
 const policy = JSON.parse(read(".harness/devapp-operation-policy.json"));
-const backend = read(".github/workflows/backend-gates.yml");
+const backend = read(".github/workflows/image-release.yml");
 const installer = read(".github/workflows/devapp-install-trusted-scripts.yml");
 
 describe("Devapp privileged operation mutex (#5040)", () => {
-  it("shares the authoritative target group across the existing two entry points", () => {
+  it("shares the authoritative target group across the image deployment and installer entry points", () => {
     expect(() => assertDevappOperationMutex(policy, backend, installer)).not.toThrow();
   });
   it("rejects the observed original installer/deploy split", () => {
@@ -36,6 +36,13 @@ describe("Devapp privileged operation mutex (#5040)", () => {
   it("rejects an installer job override that bypasses workflow serialization", () => {
     const i = parse(installer); i.jobs.install.concurrency = { group: "bypass", "cancel-in-progress": false };
     expect(() => assertDevappOperationMutex(policy, backend, stringify(i))).toThrow("OVERRIDE");
+  });
+  it("rejects a dynamic group without its fixed planner output binding", () => {
+    const b = parse(backend); b.jobs.plan.outputs.group = "${{ github.ref }}";
+    expect(() => assertDevappOperationMutex(policy, stringify(b), installer)).toThrow("GROUP_DRIFT");
+  });
+  it("rejects a policy group that differs from the image planner route", () => {
+    expect(() => assertDevappOperationMutex({ ...policy, group: "drifted-devapp-group" }, backend, installer)).toThrow("GROUP_DRIFT");
   });
   it("rejects duplicate YAML keys, missing entry points and dynamic policy groups", () => {
     expect(() => assertDevappOperationMutex(policy, backend, installer + "\nconcurrency: other\n")).toThrow("YAML_INVALID");

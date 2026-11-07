@@ -1,24 +1,4 @@
-/**
- * UC-17.8 B3.8 —— 统一收件箱端到端：直接提交自动开 drawer、看板拖拽触发真实状态迁移、
- * 「不做」需要理由。
- *
- * ## ⚠ 用例①标为 `fixme`——不是缺口，是与已签核行为的真实冲突
- *
- * `uc-17-8-研发闭环-反馈到设计到排期.md` R4.1 写「直接提交 → 跳转收件箱并自动打开该条
- * 详情 drawer」，但这与**已签核** `feedback-loop` 束 UC-F1 第 6 步矛盾：「弹层自动切到
- * 「我提过的」，刚提交那条排在第一行」——`feedback-dialog.tsx` 的 `send()` 今天实现的
- * 正是后者（已签核行为），不是前者。
- *
- * 更关键的是：`FeedbackDialog` 是**同一个组件**，同时服务图标栏入口、chat 内 agent 消息
- * 反馈按钮、chat 内 skill chip 反馈按钮——后两者的调用者是**任意组织成员**，不是只有
- * PM/运营。若无条件把直接提交后的默认行为改成跳 `/platform-admin/inbox`，一个普通成员
- * 在 chat 里对某条 AI 回复提反馈后会被强制跳到一个他大概率没有权限访问的后台路由——
- * 这是比"跳转没做"更糟的回归，不是简单地把 R4.1 抄进代码就对。
- *
- * 这是需要人类确认的产品决策（哪些入口该跳、要不要拆分组件行为），已记入
- * `uc-17-8-go-live-backlog.md` 待确认清单，不由 agent 自行决定。用 `test.fixme` 而不是
- * 直接删除或强行改断言迁就现状：断言仍按 R4.1 原文写，留作决策落地后的验收标准。
- */
+/** Explicit triage entry submits once and opens the persisted server feedback ID. Existing entries keep mine. */
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
@@ -62,12 +42,11 @@ async function seedFeedback(page: Page, kind: "缺陷" | "需求", title: string
 test.describe("统一收件箱端到端：直接提交、看板拖拽迁移、不做需理由", () => {
   test.describe.configure({ mode: "serial" });
 
-  // 见文件头——与已签核 `feedback-loop` UC-F1 行为冲突，且涉及 chat 内非管理员入口的
-  // 权限影响，是待人类裁决的产品决策，不是可以顺手补的缺口。`test.fixme` 使其跳过而非红。
-  test.fixme("① 直接提交反馈 → 跳转收件箱并自动打开该条详情 drawer", async ({ page }) => {
+  test("① 直接提交反馈 → 跳转收件箱并自动打开该条详情 drawer", async ({ page }) => {
     const title = `E2E收件箱直提_期望能看导出历史_${STAMP}`;
     await login(page, FULLSTACK_E2E.adminEmail, FULLSTACK_E2E.adminPassword);
-    await page.getByTestId("rail-feedback").click();
+    await page.goto("/platform-admin/inbox");
+    await page.getByTestId("inbox-new-feedback").click();
     await expect(page.getByTestId("feedback-form")).toBeVisible();
     await expect(page.getByTestId("feedback-dialog-title")).toHaveText("对产品提反馈");
     // #2683 表单渐进展示：compose（只有详细说说+语音）→「下一步」→ review（这时才有
@@ -78,6 +57,8 @@ test.describe("统一收件箱端到端：直接提交、看板拖拽迁移、�
     await expect(page.getByTestId("feedback-kind-需求")).toBeVisible();
     await page.getByTestId("feedback-kind-需求").click();
 
+    let submitCount = 0;
+    page.on("request", (r) => { if (r.method() === "POST" && r.url().endsWith(`${API}/feedback`)) submitCount += 1; });
     const submitted = page.waitForResponse(
       (r) => r.request().method() === "POST" && r.url().endsWith(`${API}/feedback`),
     );
@@ -85,12 +66,49 @@ test.describe("统一收件箱端到端：直接提交、看板拖拽迁移、�
     const submitResponse = await submitted;
     expect(submitResponse.status(), "提交应该 201").toBe(201);
 
-    // 需求原文行为：提交后自动跳到 `/platform-admin/inbox?open=<feedbackId>` 并展开这条详情。
-    // 见文件头——待人类就"哪些入口该跳"裁决后再启用本用例。
-    await expect(page).toHaveURL(/\/platform-admin\/inbox\?open=/);
+    const { feedbackId } = await submitResponse.json() as { feedbackId: string };
+    expect(feedbackId).toBeTruthy();
+    await expect(page).toHaveURL(new RegExp(`/platform-admin/inbox\\?open=${encodeURIComponent(feedbackId)}$`));
     const drawer = page.getByTestId("inbox-drawer");
     await expect(drawer).toBeVisible();
     await expect(drawer).toContainText(title);
+    expect(new URL(page.url()).searchParams.get("open")).toBe(feedbackId);
+    await page.reload();
+    await expect(page.getByTestId("inbox-drawer")).toContainText(title);
+    expect(new URL(page.url()).searchParams.get("open")).toBe(feedbackId);
+    expect(submitCount).toBe(1);
+  });
+
+  test("①b 已真实保存但收件箱读取失败，保留ID和回看路径且不重发", async ({ page }) => {
+    await login(page, FULLSTACK_E2E.adminEmail, FULLSTACK_E2E.adminPassword);
+    await page.goto("/platform-admin/inbox");
+    await page.getByTestId("inbox-new-feedback").click();
+    await page.getByTestId("feedback-detail-input").fill(`E2E保存后读取失败_${STAMP}。保留已保存编号。`);
+    await page.getByTestId("feedback-proceed-review").click();
+    await expect(page.getByTestId("feedback-submit")).toBeVisible();
+    // Fault only the destination read; the POST below reaches the actual API/database.
+    await page.route(`**${API}/inbox**`, async (route) => {
+      if (route.request().method() === "GET") await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "service_unavailable" }) });
+      else await route.continue();
+    });
+    let submits = 0;
+    page.on("request", (r) => { if (r.method() === "POST" && r.url().endsWith(`${API}/feedback`)) submits += 1; });
+    const response = page.waitForResponse((r) => r.request().method() === "POST" && r.url().endsWith(`${API}/feedback`));
+    await page.getByTestId("feedback-submit").click();
+    const saved = await response;
+    expect(saved.status()).toBe(201);
+    const { feedbackId } = await saved.json() as { feedbackId: string };
+    const notice = page.getByTestId("inbox-saved-open-failed");
+    await expect(notice).toContainText("已保存，无法打开收件箱");
+    await expect(notice).toContainText(feedbackId);
+    await expect(notice.getByRole("link")).toHaveAttribute("href", `/platform-admin/inbox?open=${encodeURIComponent(feedbackId)}`);
+    await page.getByTestId("inbox-retry").click();
+    await expect(notice).toBeVisible();
+    expect(submits).toBe(1);
+    await page.unroute(`**${API}/inbox**`);
+    await page.getByTestId("inbox-retry").click();
+    await expect(page.getByTestId("inbox-drawer")).toContainText(`E2E保存后读取失败_${STAMP}`);
+    expect(submits).toBe(1);
   });
 
   test("② 看板拖拽换状态触发真实 API 迁移，刷新后仍是新状态", async ({ page }) => {

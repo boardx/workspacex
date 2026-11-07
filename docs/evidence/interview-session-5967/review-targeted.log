@@ -1,0 +1,12 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/397c/workspacex/apps/web
+
+ ✓ tests/ui/interview-markdown-editing.test.tsx (49 tests) 4266ms
+   ✓ refreshes conflicted expert versions but requires explicit re-review before retry 417ms
+ ✓ tests/ui/interview-markdown-execution.test.tsx (25 tests) 891ms
+
+ Test Files  2 passed (2)
+      Tests  74 passed (74)
+   Start at  18:39:17
+   Duration  8.50s (transform 1.08s, setup 151ms, collect 2.05s, tests 5.16s, environment 846ms, prepare 62ms)

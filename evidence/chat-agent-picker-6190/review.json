@@ -1,0 +1,6 @@
+{
+  "reviewedCommit": "0b31bead8ae0b1c5149418394045f6678eb075e5",
+  "baseCommit": "b7be8e0e6e2d12d70a0b7023193073013a6f7a45",
+  "reviewerChat": "01a19d40-60cb-7de3-b9ff-4e6bc57c82ce",
+  "result": "No new blocker in independently reviewed helper/spec diff; exact selection, header and run identity assertions retained/strengthened. Final follow-up changes only evidence/documentation."
+}

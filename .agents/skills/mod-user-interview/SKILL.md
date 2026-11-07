@@ -57,3 +57,15 @@ description: 用户访谈流程与数字访谈能力；修改访谈主题、专�
 - 2026-10-09：报告有孤立引用或断言失败时，在有界模型修复后排除整个不受支持的 Markdown 块，整篇仍通过原分析、归属和逐字引用检查才能保存；保留失败版本、模拟证据标记与 actor/source CAS。不能只删引用留下断言，也不能把无可用证据的正文标成功（issue #5516，`interview-report-recovery-db` 验证保存/重读及零额外模型调用）。
 - 2026-10-13：访谈首页专家目录必须同时区分组织已发布 Agent、既有 persona-library 内置模拟画像与账号/组织私有的自建画像；自建画像不创建 Agent/user 身份，存储经 Guarded owner 披露并在账号/组织切换时清除界面缓存。访谈选用复制到已授权 canonical 专家文档，保留模拟与材料边界（issue #5661，真实 PG 与浏览器刷新/选用验收）。
 - 2026-10-14：canonical 访谈步骤和报告的主操作统一消费 research-workflow-actions，并与修订入口共用正文后的唯一操作区；局部编辑不迁移。专家/问题步骤的 immutable 会并入禁用 pending，展示 loading 必须只来自实际 pending/session，避免只读页伪装处理中；不复制颜色或尺寸规则（issue #5671，操作栏/只读/重复点击回归）。
+
+- 2026-10-16：手机端问题编辑不能仅以文档无横溢判体验通过；局部排序/删除控件可能把单行输入挤到数个字。换行textarea须保留单问题字符串（Enter/粘贴/IME语义），新增问题只在本次插入后聚焦，三宽真实编辑→保存→刷新重读验收（issue #5781）。
+
+- 2026-10-20：创建访谈弹窗的窄屏验收需叠加多长标签与服务失败提示；375×667十标签+503会让无高度上限的弹窗上下越界，局部视口高度上限与内部滚动修复后top16/bottom651，错误聚焦和重试仍可达。完成卡保留真实专家完成数，不重复满进度；浏览器HTTP/session夹具证据不代表真实鉴权、DB或模型链路（#5843，docs/evidence/interview-ui-5843/README.md）。
+
+- 2026-10-23：步骤条完成态不能以空数组代替尚未加载的 canonical 状态；跨 stage 用当前访谈 layout 的身份隔离投影保留，初载未知与失败重试独立表示，新修订用返回状态立即清除下游完成。浏览器 HTTP 夹具必须放行 Next RSC 路由请求，否则硬导航会伪造缓存丢失（#5890，docs/evidence/interview-ui-5890）。
+
+- 2026-10-28：跨步骤缓存必须共享 canonical source、metadata 与目录，不能只缓存完成图标；后台 GET 需统一报告身份/版本 guard，错误状态使用独立 key。dirty Markdown 与专家弹窗各自保存编辑基线，遇远端变化不得用最新 CAS 静默重放旧字段。可见轮询与 focus/online 刷新应只读且去重，身份切换销毁 scope（#5967，docs/evidence/interview-session-5967）。
+
+- 2026-11-06：报告模型调用前两次 context 后即失败时，核对 professional report 的技能加载，而非直接调模型参数；生产镜像必须打包 starter-packs、显式配置读取根目录并在镜像构建中用真实摘要校验器读取报告技能。回答展示只过滤已识别的生成标题和前置声明，专家角色来自已保存专家字段，保留 canonical 原文及锚点（#6330，docs/evidence/interview-6330/README.md）。
+
+- 2026-11-06：执行单个专家时只发送该专家的已确认experts/outline节选，共享intake/analysis保留；续写只取该expertId的可信answerSpans且校验文档/片段hash，不能把全部runs作为partial。访谈页同名重复可能是另一任务里生成的无锚点专家标题；只读投影去掉该外来分组及其发现，不能在同级普通标题处恢复，更不能改写canonical正文或报告证据身份。开头模拟声明按用户要求在记录页隐藏（#6337，docs/evidence/interview-expert-scope-6337/README.md）。

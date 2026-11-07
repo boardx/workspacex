@@ -1,0 +1,617 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/ui/feedback-dialog.test.tsx (36 tests) 4241ms
+   ✓ FB-2 反馈弹层（采集侧） > 自动整理失败时保留原文，并准确说明可手动提交 1031ms
+ ✓ tests/knowledge/knowledge-panel-list-graph.test.tsx (27 tests) 3080ms
+   ✓ 记忆面板：issue #4343 目标 / 偏好 > 本人的目标、偏好各成一组，标题是「目标」「偏好」，排在决定之后、事实之前 312ms
+   ✓ 记忆面板（真实数据） > 列表 ↔ 图切换：图视图把节点交给 React Flow，列表消失；切回来列表还在 549ms
+   ✓ 界面文案不含 R5 禁用词（扫渲染出来的文字） > 列表 / 只读 / 错误 / 空 / 超限簇 / 来源抽屉 / 回答下一行 424ms
+ ✓ tests/knowledge/claim-edit-menu-actions.test.tsx (24 tests) 8751ms
+   ✓ 所有者的编辑动作：请求体对、成功后 2 秒内界面跟着变 > 一键「对」：confirmClaim，带当前 revision；条目变成「你确认过」 412ms
+   ✓ 所有者的编辑动作：请求体对、成功后 2 秒内界面跟着变 > 菜单「确认（对）」：同一个 confirmClaim；下一次动作带上重读后的新 revision 2918ms
+   ✓ 所有者的编辑动作：请求体对、成功后 2 秒内界面跟着变 > 「不对」→「改写」：reviseClaim 带新说法；新说法出现、旧的消失 771ms
+   ✓ 所有者的编辑动作：请求体对、成功后 2 秒内界面跟着变 > 改写框里回车就保存（Shift+回车换行）：reviseClaim 带新说法 586ms
+   ✓ 所有者的编辑动作：请求体对、成功后 2 秒内界面跟着变 > 菜单「忘掉这条」同样先确认；取消不发请求 431ms
+   ✓ 所有者的编辑动作：请求体对、成功后 2 秒内界面跟着变 > 「标为有矛盾」：选另一条后 markContested 两条；两条都变成「有矛盾」 380ms
+   ✓ 编辑界面文案不含 R5 禁用词 > 菜单、六种对话框、行内对/不对、失败提示 939ms
+ ✓ tests/ui/kg-memory-card.test.tsx (29 tests) 711ms
+ ✓ tests/knowledge/answer-memory-citations.test.tsx (19 tests) 600ms
+   ✓ AnswerKnowledgeFooter：引用 chip > chip 按 recalled 名次编号，只画 recalled 里的条目；长句截断但 title 保留全文 302ms
+ ✓ tests/ui/chat-roster-mutate.test.tsx (11 tests) 2985ms
+   ✓ #467 会话内 agent 编制的增删接线 > 加一个 agent：打真实端口，并在返回后重读服务端编制（不做乐观更新） 581ms
+   ✓ #467 会话内 agent 编制的增删接线 > #787 —— 编制写入口展示诚实提示：候选来自目录，不代表一定可执行 400ms
+   ✓ #467 会话内 agent 编制的增删接线 > 去掉一个 agent：remove 里是它，add 为空，并重读服务端 815ms
+   ✓ #467 会话内 agent 编制的增删接线 > 连续两次改动：第二次带上**重读到**的版本号，不是写端口的回声、也不是 0 341ms
+ ✓ tests/ui/kg-extraction-feedback-chip.test.tsx (26 tests) 550ms
+ ✓ tests/knowledge/citation-correction.test.tsx (14 tests) 1091ms
+   ✓ chip 只画服务端对账后的引用 > cited 是 recalled 的子集：只画 cited 里的；「为什么用到它」仍列全部召回 486ms
+ ✓ tests/ui/org-switch-feedback.test.tsx (19 tests) 2384ms
+   ✓ 壳层：切换的三段体感 > 没有在途任务时不拦截，直接进入切换态并盖住旧内容 586ms
+ ✓ tests/knowledge/promote-to-personal-panel.test.tsx (12 tests) 2500ms
+   ✓ 入口：只在所有者的个人对话里出现 > canPromote=false（不是个人对话）：多选入口、菜单项、提名都不画，也不去取提名 479ms
+   ✓ 提交与逐条结果 > 整批 403（不是所有者 / 不是个人对话）：面板顶部显示人话，不显示内部码 404ms
+ ✓ tests/ui/i18n-chat-artifact-version-surfaces.test.tsx (13 tests) 1523ms
+   ✓ keeps a loading list mounted through locale without a second request 371ms
+   ✓ reports bounded real line comparison without truncating the downloadable content 306ms
+stderr | tests/ui/chat-task-inspector-artifact-in-panel.test.tsx > 点产物条目进右栏详情，不弹模态
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/provider.tsx:8:119)
+    at /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:120:81
+    at Array.map (<anonymous>)
+    at ChatArtifactsPanel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:111:28)
+    at renderWithHooks (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/provider.tsx:8:119)
+    at /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:120:81
+    at Array.map (<anonymous>)
+    at ChatArtifactsPanel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:111:28)
+    at renderWithHooks (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+The above error occurred in the <ChatArtifactsPanel> component:
+
+    at ChatArtifactsPanel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:17:3)
+    at div
+    at aside
+    at ChatTaskInspector (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-task-inspector.tsx:75:39)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/chat-task-inspector-artifact-in-panel.test.tsx > 详情态能返回列表
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/provider.tsx:8:119)
+    at /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:120:81
+    at Array.map (<anonymous>)
+    at ChatArtifactsPanel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:111:28)
+    at renderWithHooks (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/provider.tsx:8:119)
+    at /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:120:81
+    at Array.map (<anonymous>)
+    at ChatArtifactsPanel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:111:28)
+    at renderWithHooks (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+The above error occurred in the <ChatArtifactsPanel> component:
+
+    at ChatArtifactsPanel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:17:3)
+    at div
+    at aside
+    at ChatTaskInspector (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-task-inspector.tsx:75:39)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/chat-task-inspector-artifact-in-panel.test.tsx > 「放大」才升到模态，且交的是同一个产物
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/provider.tsx:8:119)
+    at /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:120:81
+    at Array.map (<anonymous>)
+    at ChatArtifactsPanel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:111:28)
+    at renderWithHooks (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/provider.tsx:8:119)
+    at /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:120:81
+    at Array.map (<anonymous>)
+    at ChatArtifactsPanel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:111:28)
+    at renderWithHooks (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+The above error occurred in the <ChatArtifactsPanel> component:
+
+    at ChatArtifactsPanel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:17:3)
+    at div
+    at aside
+    at ChatTaskInspector (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-task-inspector.tsx:75:39)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/chat-task-inspector-artifact-in-panel.test.tsx > 宿主没给模态入口时，不画一颗点了没反应的「放大」
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/provider.tsx:8:119)
+    at /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:120:81
+    at Array.map (<anonymous>)
+    at ChatArtifactsPanel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:111:28)
+    at renderWithHooks (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/provider.tsx:8:119)
+    at /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:120:81
+    at Array.map (<anonymous>)
+    at ChatArtifactsPanel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:111:28)
+    at renderWithHooks (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+The above error occurred in the <ChatArtifactsPanel> component:
+
+    at ChatArtifactsPanel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:17:3)
+    at div
+    at aside
+    at ChatTaskInspector (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-task-inspector.tsx:75:39)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/chat-task-inspector-artifact-in-panel.test.tsx > 换线程后详情态清空——旧产物 id 在新线程上取不到源，会渲染成一条假故障
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/provider.tsx:8:119)
+    at /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:120:81
+    at Array.map (<anonymous>)
+    at ChatArtifactsPanel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:111:28)
+    at renderWithHooks (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/provider.tsx:8:119)
+    at /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:120:81
+    at Array.map (<anonymous>)
+    at ChatArtifactsPanel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:111:28)
+    at renderWithHooks (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+The above error occurred in the <ChatArtifactsPanel> component:
+
+    at ChatArtifactsPanel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:17:3)
+    at div
+    at aside
+    at ChatTaskInspector (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-task-inspector.tsx:75:39)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/chat-task-inspector-artifact-in-panel.test.tsx > 动作条：复制全文拿到的是已载到的那一份
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/provider.tsx:8:119)
+    at /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:120:81
+    at Array.map (<anonymous>)
+    at ChatArtifactsPanel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:111:28)
+    at renderWithHooks (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/provider.tsx:8:119)
+    at /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:120:81
+    at Array.map (<anonymous>)
+    at ChatArtifactsPanel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:111:28)
+    at renderWithHooks (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+The above error occurred in the <ChatArtifactsPanel> component:
+
+    at ChatArtifactsPanel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:17:3)
+    at div
+    at aside
+    at ChatTaskInspector (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-task-inspector.tsx:75:39)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/chat-task-inspector-artifact-in-panel.test.tsx > 下载：文件名由标题来，内容是已载到的那一份
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/provider.tsx:8:119)
+    at /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:120:81
+    at Array.map (<anonymous>)
+    at ChatArtifactsPanel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:111:28)
+    at renderWithHooks (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/provider.tsx:8:119)
+    at /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:120:81
+    at Array.map (<anonymous>)
+    at ChatArtifactsPanel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:111:28)
+    at renderWithHooks (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+The above error occurred in the <ChatArtifactsPanel> component:
+
+    at ChatArtifactsPanel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:17:3)
+    at div
+    at aside
+    at ChatTaskInspector (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-task-inspector.tsx:75:39)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/chat-task-inspector-artifact-in-panel.test.tsx > 只开着一份时不画页签条（那只是重复一遍上面的标题）
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/provider.tsx:8:119)
+    at /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:120:81
+    at Array.map (<anonymous>)
+    at ChatArtifactsPanel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:111:28)
+    at renderWithHooks (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/provider.tsx:8:119)
+    at /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:120:81
+    at Array.map (<anonymous>)
+    at ChatArtifactsPanel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:111:28)
+    at renderWithHooks (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+The above error occurred in the <ChatArtifactsPanel> component:
+
+    at ChatArtifactsPanel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:17:3)
+    at div
+    at aside
+    at ChatTaskInspector (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-task-inspector.tsx:75:39)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/chat-task-inspector-artifact-in-panel.test.tsx > 开着两份时出页签条，一次点击就能切回另一份（不经过列表）
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/provider.tsx:8:119)
+    at /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:120:81
+    at Array.map (<anonymous>)
+    at ChatArtifactsPanel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:111:28)
+    at renderWithHooks (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/provider.tsx:8:119)
+    at /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:120:81
+    at Array.map (<anonymous>)
+    at ChatArtifactsPanel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:111:28)
+    at renderWithHooks (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+The above error occurred in the <ChatArtifactsPanel> component:
+
+    at ChatArtifactsPanel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:17:3)
+    at div
+    at aside
+    at ChatTaskInspector (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-task-inspector.tsx:75:39)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/chat-task-inspector-artifact-in-panel.test.tsx > 关掉不是当前的那一份，当前这份不会被静默切走
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/provider.tsx:8:119)
+    at /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:120:81
+    at Array.map (<anonymous>)
+    at ChatArtifactsPanel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:111:28)
+    at renderWithHooks (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/provider.tsx:8:119)
+    at /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:120:81
+    at Array.map (<anonymous>)
+    at ChatArtifactsPanel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:111:28)
+    at renderWithHooks (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+The above error occurred in the <ChatArtifactsPanel> component:
+
+    at ChatArtifactsPanel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:17:3)
+    at div
+    at aside
+    at ChatTaskInspector (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-task-inspector.tsx:75:39)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/chat-task-inspector-artifact-in-panel.test.tsx > 返回列表后详情态整个关掉
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/provider.tsx:8:119)
+    at /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:120:81
+    at Array.map (<anonymous>)
+    at ChatArtifactsPanel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:111:28)
+    at renderWithHooks (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/provider.tsx:8:119)
+    at /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:120:81
+    at Array.map (<anonymous>)
+    at ChatArtifactsPanel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:111:28)
+    at renderWithHooks (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+The above error occurred in the <ChatArtifactsPanel> component:
+
+    at ChatArtifactsPanel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:17:3)
+    at div
+    at aside
+    at ChatTaskInspector (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-task-inspector.tsx:75:39)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/chat-task-inspector-artifact-in-panel.test.tsx > StrictMode 下开两份、切换、关闭，结果与单跑一致
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/provider.tsx:8:119)
+    at /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:120:81
+    at Array.map (<anonymous>)
+    at ChatArtifactsPanel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:111:28)
+    at renderWithHooks (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/provider.tsx:8:119)
+    at /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:120:81
+    at Array.map (<anonymous>)
+    at ChatArtifactsPanel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:111:28)
+    at renderWithHooks (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+The above error occurred in the <ChatArtifactsPanel> component:
+
+    at ChatArtifactsPanel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-artifacts-panel.tsx:17:3)
+    at div
+    at aside
+    at ChatTaskInspector (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/chat/chat-task-inspector.tsx:75:39)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+ ❯ tests/ui/chat-task-inspector-artifact-in-panel.test.tsx (12 tests | 12 failed) 721ms
+   × 点产物条目进右栏详情，不弹模态 312ms
+     → Cannot read properties of undefined (reading 'replace')
+   × 详情态能返回列表 48ms
+     → Cannot read properties of undefined (reading 'replace')
+   × 「放大」才升到模态，且交的是同一个产物 43ms
+     → Cannot read properties of undefined (reading 'replace')
+   × 宿主没给模态入口时，不画一颗点了没反应的「放大」 38ms
+     → Cannot read properties of undefined (reading 'replace')
+   × 换线程后详情态清空——旧产物 id 在新线程上取不到源，会渲染成一条假故障 40ms
+     → Cannot read properties of undefined (reading 'replace')
+   × 动作条：复制全文拿到的是已载到的那一份 36ms
+     → Cannot read properties of undefined (reading 'replace')
+   × 下载：文件名由标题来，内容是已载到的那一份 28ms
+     → Cannot read properties of undefined (reading 'replace')
+   × 只开着一份时不画页签条（那只是重复一遍上面的标题） 30ms
+     → Cannot read properties of undefined (reading 'replace')
+   × 开着两份时出页签条，一次点击就能切回另一份（不经过列表） 39ms
+     → Cannot read properties of undefined (reading 'replace')
+   × 关掉不是当前的那一份，当前这份不会被静默切走 29ms
+     → Cannot read properties of undefined (reading 'replace')
+   × 返回列表后详情态整个关掉 34ms
+     → Cannot read properties of undefined (reading 'replace')
+   × StrictMode 下开两份、切换、关闭，结果与单跑一致 43ms
+     → Cannot read properties of undefined (reading 'replace')
+ ✓ tests/ui/memory-ops-panels.test.tsx (7 tests) 337ms
+ ✓ tests/ui/kg-memory-manage.test.tsx (8 tests) 512ms
+ ✓ tests/knowledge/session-briefing.test.tsx (7 tests) 473ms
+ ✓ tests/ui/i18n-chat-feedback-dialog.test.tsx (5 tests) 839ms
+   ✓ preserves the actual compose draft and target through locale and Escape without submitting 333ms
+ ✓ tests/ui/i18n-chat-knowledge-graph.test.tsx (3 tests) 1210ms
+   ✓ renders real knowledge nodes and focused relation labels while preserving raw content and focus on locale 383ms
+   ✓ keeps expanded manual placement and actual node DOM across locale without a reset or extra source action 317ms
+   ✓ uses the canonical oversize limit and keeps explicit expansion state across locale 509ms
+ ✓ tests/knowledge/promotion-result-list.test.tsx (7 tests) 722ms
+ ✓ tests/ui/i18n-chat-feedback-final-chrome.test.tsx (5 tests) 1041ms
+   ✓ localizes initial guidance and final submit/cancel chrome while keeping the same body and only explicit cancel 612ms
+ ✓ tests/ui/artifact-acceptance-anchors.test.tsx (6 tests) 943ms
+   ✓ TW-P1-4 锚点 > 没打开任何产物时，「预览」锚点不存在——它不再由标题文字满足 421ms
+ ✓ tests/ui/i18n-chat-memory-cards.test.tsx (12 tests) 634ms
+   ✓ keeps edited raw memory and one pending explicit acceptance across locale 366ms
+ ✓ tests/ui/i18n-chat-citation-detail.test.tsx (7 tests) 448ms
+ ✓ tests/knowledge/nomination-card-promote.test.tsx (6 tests) 381ms
+ ✓ tests/ui/kg-supersede-notice.test.tsx (7 tests) 244ms
+ ✓ tests/ui/i18n-chat-feedback-draft-quota.test.tsx (4 tests) 928ms
+   ✓ keeps a persistent draft-save failure and the raw editable body without locale retries 556ms
+ ✓ tests/ui/i18n-chat-artifact-versions.test.tsx (3 tests) 1435ms
+   ✓ keeps the real version selector, raw draft and idempotent request across locale and uncertain failure 1153ms
+ ✓ tests/ui/i18n-chat-memory-notices.test.tsx (4 tests) 485ms
+   ✓ keeps an explicit pending supersede undo once and old/new raw statements through locale 361ms
+ ✓ tests/ui/thread-knowledge-reindex.test.tsx (6 tests) 433ms
+ ✓ tests/ui/i18n-chat-feedback-chrome.test.tsx (4 tests) 1561ms
+   ✓ keeps fullscreen, compose draft and raw target while translating actual controls 794ms
+   ✓ localizes reviewed kind display while preserving canonical kind and raw model-authored title/body 540ms
+ ✓ tests/ui/i18n-chat-answer-memory-line.test.tsx (5 tests) 352ms
+ ✓ tests/ui/chat-artifact-preview-dialog.test.tsx (3 tests) 806ms
+   ✓ 产物列表点击查看（issue #2099） > 点击一条产物 ⇒ 弹出只读预览，展示取回的 markdown 内容 473ms
+   ✓ 产物列表点击查看（issue #2099） > 取回失败：不同错误码给不同的人话，且屏上不出现内部码 324ms
+ ✓ tests/ui/thread-knowledge-polling.test.tsx (5 tests) 100ms
+ ✓ tests/ui/chat-task-inspector-resize.test.tsx (5 tests) 246ms
+ ✓ tests/knowledge/kg-manual-remember-panel.test.tsx (4 tests) 304ms
+ ✓ tests/ui/i18n-chat-feedback-voice-host.test.tsx (7 tests) 817ms
+ ✓ tests/ui/i18n-chat-memory-parent-errors.test.tsx (5 tests) 273ms
+ ✓ tests/ui/i18n-chat-knowledge-panel-actions.test.tsx (3 tests) 533ms
+   ✓ retains a manually authored quick-add draft across locale and dispatches only its raw explicit event 352ms
+ ✓ tests/ui/agent-artifact-versions-panel.test.tsx (5 tests) 602ms
+   ✓ artifact version actions > pins the selected old version and reuses request id after an uncertain failure 332ms
+ ✓ tests/ui/i18n-chat-feedback-attachments.test.tsx (4 tests) 989ms
+   ✓ retains one pending original File across locale and removes it only explicitly 397ms
+ ✓ tests/ui/i18n-chat-artifact-detail.test.tsx (2 tests) 611ms
+   ✓ keeps loaded version copy/download bytes and action state through a locale change 509ms
+ ✓ tests/ui/i18n-chat-feedback-history-preview.test.tsx (3 tests) 692ms
+   ✓ keeps actual PDF preview iframe and exact authenticated download bytes on locale without downloading again 476ms
+ ✓ tests/ui/artifacts-tab-unified.test.tsx (4 tests) 670ms
+   ✓ 产物页签：一个标题、一个刷新、一个空态 > 两边都空：只有一个空态，不再出现第二个标题/第二句空态/「线程」 477ms
+ ✓ tests/ui/chat-task-inspector-collapse.test.tsx (4 tests) 514ms
+ ✓ tests/ui/i18n-chat-knowledge-conflict.test.tsx (4 tests) 483ms
+   ✓ preserves both raw applicability drafts and canonical resolution through locale 399ms
+ ✓ tests/ui/i18n-chat-answer-knowledge-footer.test.tsx (3 tests) 168ms
+ ✓ tests/ui/i18n-chat-knowledge-source.test.tsx (2 tests) 851ms
+   ✓ preserves a pending source request and raw claim/evidence while only translating the real drawer 601ms
+ ✓ tests/ui/i18n-chat-artifact-version-progress.test.tsx (6 tests) 521ms
+ ✓ tests/ui/i18n-chat-knowledge-actions.test.tsx (6 tests) 798ms
+   ✓ localizes 'revise' without resetting entered data, selected IDs or submitting on locale 431ms
+ ✓ tests/ui/i18n-chat-session-briefing.test.tsx (3 tests) 544ms
+   ✓ changes authored briefing chrome without refetching, re-recording shown or translating server resume text 457ms
+ ✓ tests/ui/i18n-chat-supersede-parent-errors.test.tsx (3 tests) 163ms
+ ✓ tests/ui/i18n-chat-inspector-lists.test.tsx (3 tests) 501ms
+   ✓ keeps material row identity, shared pending counts and explicit open payload across locale 334ms
+ ✓ tests/ui/i18n-chat-knowledge-promotion.test.tsx (2 tests) 477ms
+   ✓ keeps nomination selections and model rationale raw, promoting only explicit canonical IDs 388ms
+ ✓ tests/ui/i18n-chat-knowledge-list.test.tsx (3 tests) 482ms
+   ✓ keeps an expanded correction row and raw source action through locale without a write 377ms
+ ✓ tests/knowledge/kg-promote-to-project.test.tsx (3 tests) 273ms
+ ✓ tests/ui/i18n-chat-memory-api-failure.test.tsx (2 tests) 333ms
+ ✓ tests/ui/i18n-chat-produced-file.test.tsx (2 tests) 736ms
+   ✓ keeps the produced image overlay and exact authorized bytes while translating its actions 616ms
+ ✓ tests/ui/i18n-chat-inspector.test.tsx (2 tests) 746ms
+   ✓ keeps selected run detail rows and elapsed timer mounted while changing language 564ms
+ ✓ tests/ui/persisted-agent-feedback.test.tsx (5 tests) 261ms
+ ✓ tests/ui/i18n-chat-knowledge-menu-time.test.tsx (4 tests) 942ms
+   ✓ keeps the real conflict menu open and permissions blocked on locale without choosing an action 854ms
+ ✓ tests/ui/i18n-chat-roster.test.tsx (2 tests) 273ms
+ ✓ tests/ui/i18n-chat-artifact-source.test.tsx (2 tests) 216ms
+ ✓ tests/ui/i18n-chat-knowledge-panel.test.tsx (2 tests) 246ms
+ ✓ tests/ui/i18n-chat-materials-notice.test.tsx (2 tests) 189ms
+ ✓ tests/ui/knowledge-extraction-toggle.test.tsx (2 tests) 203ms
+ ✓ tests/ui/i18n-chat-capability-edition.test.tsx (2 tests) 167ms
+ ✓ tests/ui/i18n-chat-feedback-receipt.test.tsx (1 test) 208ms
+ ✓ tests/ui/capability-edition-note.test.tsx (4 tests) 43ms
+ ✓ tests/ui/chat-task-inspector-tabs.test.ts (19 tests) 6ms
+ ✓ tests/knowledge/knowledge-graph-layout.test.ts (5 tests) 22ms
+ ✓ tests/lib/artifact-tabs.test.ts (11 tests) 5ms
+ ✓ tests/lib/artifact-failure.test.ts (4 tests) 3ms
+ ❯ tests/lib/i18n-resources.test.ts (5 tests | 1 failed) 90ms
+   × language resources > covers the same messages and interpolation parameters 65ms
+     → chatPicker.overflow: expected [ '{items}', '{remaining}' ] to deeply equal [ '{count}', '{items}' ]
+ ✓ tests/lib/artifact-download.test.ts (5 tests) 3ms
+ ✓ tests/lib/chat-workbench/artifact-diff.test.ts (3 tests) 3ms
+ ✓ tests/chat-recall-legacy-name-i18n.test.ts (3 tests) 2ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 13 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/lib/i18n-resources.test.ts > language resources > covers the same messages and interpolation parameters
+AssertionError: chatPicker.overflow: expected [ '{items}', '{remaining}' ] to deeply equal [ '{count}', '{items}' ]
+
+- Expected
++ Received
+
+  Array [
+-   "{count}",
+    "{items}",
++   "{remaining}",
+  ]
+
+ ❯ tests/lib/i18n-resources.test.ts:11:58
+      9|   for (const key of Object.keys(zhCN) as (keyof typeof zhCN)[]) {
+     10|    expect(en[key].trim(), key).not.toBe("");
+     11|    expect((en[key].match(/\{\w+\}/g) ?? []).sort(), key).toEqual((zhCN…
+       |                                                          ^
+     12|   }
+     13|  });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/13]⎯
+
+ FAIL  tests/ui/chat-task-inspector-artifact-in-panel.test.tsx > 点产物条目进右栏详情，不弹模态
+ FAIL  tests/ui/chat-task-inspector-artifact-in-panel.test.tsx > 详情态能返回列表
+ FAIL  tests/ui/chat-task-inspector-artifact-in-panel.test.tsx > 「放大」才升到模态，且交的是同一个产物
+ FAIL  tests/ui/chat-task-inspector-artifact-in-panel.test.tsx > 宿主没给模态入口时，不画一颗点了没反应的「放大」
+ FAIL  tests/ui/chat-task-inspector-artifact-in-panel.test.tsx > 换线程后详情态清空——旧产物 id 在新线程上取不到源，会渲染成一条假故障
+ FAIL  tests/ui/chat-task-inspector-artifact-in-panel.test.tsx > 动作条：复制全文拿到的是已载到的那一份
+ FAIL  tests/ui/chat-task-inspector-artifact-in-panel.test.tsx > 下载：文件名由标题来，内容是已载到的那一份
+ FAIL  tests/ui/chat-task-inspector-artifact-in-panel.test.tsx > 只开着一份时不画页签条（那只是重复一遍上面的标题）
+ FAIL  tests/ui/chat-task-inspector-artifact-in-panel.test.tsx > 开着两份时出页签条，一次点击就能切回另一份（不经过列表）
+ FAIL  tests/ui/chat-task-inspector-artifact-in-panel.test.tsx > 关掉不是当前的那一份，当前这份不会被静默切走
+ FAIL  tests/ui/chat-task-inspector-artifact-in-panel.test.tsx > 返回列表后详情态整个关掉
+ FAIL  tests/ui/chat-task-inspector-artifact-in-panel.test.tsx > StrictMode 下开两份、切换、关闭，结果与单跑一致
+TypeError: Cannot read properties of undefined (reading 'replace')
+ ❯ Module.translate lib/i18n/messages.ts:14:18
+     12|   const message = dictionary[resolved] || zhCN[resolved];
+     13|   // Replace once; replacement text is never parsed as a second templa…
+     14|   return message.replace(/\{(\w+)\}/g, (token, name: string) => params…
+       |                  ^
+     15| }
+     16|
+ ❯ t lib/i18n/provider.tsx:8:119
+ ❯ components/chat/chat-artifacts-panel.tsx:120:81
+ ❯ ChatArtifactsPanel components/chat/chat-artifacts-panel.tsx:111:28
+ ❯ renderWithHooks ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18
+ ❯ mountIndeterminateComponent ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13
+ ❯ beginWork ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16
+ ❯ beginWork$1 ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:27465:14
+ ❯ performUnitOfWork ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:26599:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/13]⎯
+
+ Test Files  2 failed | 73 passed (75)
+      Tests  13 failed | 514 passed (527)
+   Start at  19:17:07
+   Duration  425.09s (transform 12.29s, setup 27.09s, collect 151.80s, tests 59.23s, environment 146.72s, prepare 13.48s)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/chat-recall-legacy-name-i18n.test.ts tests/knowledge/answer-memory-citations.test.tsx tests/knowledge/citation-correction.test.tsx tests/knowledge/claim-edit-menu-actions.test.tsx tests/knowledge/kg-manual-remember-panel.test.tsx tests/knowledge/kg-promote-to-project.test.tsx tests/knowledge/knowledge-graph-layout.test.ts tests/knowledge/knowledge-panel-list-graph.test.tsx tests/knowledge/nomination-card-promote.test.tsx tests/knowledge/promote-to-personal-panel.test.tsx tests/knowledge/promotion-result-list.test.tsx tests/knowledge/session-briefing.test.tsx tests/lib/artifact-download.test.ts tests/lib/artifact-failure.test.ts tests/lib/artifact-tabs.test.ts tests/lib/chat-workbench/artifact-diff.test.ts tests/lib/i18n-resources.test.ts tests/ui/agent-artifact-versions-panel.test.tsx tests/ui/artifact-acceptance-anchors.test.tsx tests/ui/artifacts-tab-unified.test.tsx tests/ui/capability-edition-note.test.tsx tests/ui/chat-artifact-preview-dialog.test.tsx tests/ui/chat-roster-mutate.test.tsx tests/ui/chat-task-inspector-artifact-in-panel.test.tsx tests/ui/chat-task-inspector-collapse.test.tsx tests/ui/chat-task-inspector-resize.test.tsx tests/ui/chat-task-inspector-tabs.test.ts tests/ui/feedback-dialog.test.tsx tests/ui/i18n-chat-answer-knowledge-footer.test.tsx tests/ui/i18n-chat-answer-memory-line.test.tsx tests/ui/i18n-chat-artifact-detail.test.tsx tests/ui/i18n-chat-artifact-source.test.tsx tests/ui/i18n-chat-artifact-version-progress.test.tsx tests/ui/i18n-chat-artifact-version-surfaces.test.tsx tests/ui/i18n-chat-artifact-versions.test.tsx tests/ui/i18n-chat-capability-edition.test.tsx tests/ui/i18n-chat-citation-detail.test.tsx tests/ui/i18n-chat-feedback-attachments.test.tsx tests/ui/i18n-chat-feedback-chrome.test.tsx tests/ui/i18n-chat-feedback-dialog.test.tsx tests/ui/i18n-chat-feedback-draft-quota.test.tsx tests/ui/i18n-chat-feedback-final-chrome.test.tsx tests/ui/i18n-chat-feedback-history-preview.test.tsx tests/ui/i18n-chat-feedback-receipt.test.tsx tests/ui/i18n-chat-feedback-voice-host.test.tsx tests/ui/i18n-chat-inspector-lists.test.tsx tests/ui/i18n-chat-inspector.test.tsx tests/ui/i18n-chat-knowledge-actions.test.tsx tests/ui/i18n-chat-knowledge-conflict.test.tsx tests/ui/i18n-chat-knowledge-graph.test.tsx tests/ui/i18n-chat-knowledge-list.test.tsx tests/ui/i18n-chat-knowledge-menu-time.test.tsx tests/ui/i18n-chat-knowledge-panel-actions.test.tsx tests/ui/i18n-chat-knowledge-panel.test.tsx tests/ui/i18n-chat-knowledge-promotion.test.tsx tests/ui/i18n-chat-knowledge-source.test.tsx tests/ui/i18n-chat-materials-notice.test.tsx tests/ui/i18n-chat-memory-api-failure.test.tsx tests/ui/i18n-chat-memory-cards.test.tsx tests/ui/i18n-chat-memory-notices.test.tsx tests/ui/i18n-chat-memory-parent-errors.test.tsx tests/ui/i18n-chat-produced-file.test.tsx tests/ui/i18n-chat-roster.test.tsx tests/ui/i18n-chat-session-briefing.test.tsx tests/ui/i18n-chat-supersede-parent-errors.test.tsx tests/ui/kg-extraction-feedback-chip.test.tsx tests/ui/kg-memory-card.test.tsx tests/ui/kg-memory-manage.test.tsx tests/ui/kg-supersede-notice.test.tsx tests/ui/knowledge-extraction-toggle.test.tsx tests/ui/memory-ops-panels.test.tsx tests/ui/org-switch-feedback.test.tsx tests/ui/persisted-agent-feedback.test.tsx tests/ui/thread-knowledge-polling.test.tsx tests/ui/thread-knowledge-reindex.test.tsx

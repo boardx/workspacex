@@ -1,0 +1,1 @@
+docker ps -a scope wsx-187116e5f47774360e9a and wsx-6657797fb698afb65804: zero containers including stopped. Originalports24613/25613 and final24767/25767: no listeners after teardown.

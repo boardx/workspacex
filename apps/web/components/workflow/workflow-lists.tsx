@@ -3,6 +3,7 @@
  * WF08 —— 「我的运行」「待我审批」列表与「运行 Workflow」入口按钮。
  */
 import { useEffect, useState } from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import {
   listMyWorkflowApprovals,
   listMyWorkflowInstances,
@@ -13,6 +14,7 @@ import {
   type WorkflowApprovalItem,
   type WorkflowInstanceStatus,
   type WorkflowInstanceSummary,
+  type WorkflowErrorCode,
 } from "@/lib/workflow-runtime-api";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { memberLabel, useOrgMemberNames } from "@/lib/use-org-member-names";
@@ -20,12 +22,13 @@ import { formatDateTime } from "@/lib/workflow-run-meta";
 import { WORKFLOW_GRANTS_HREF } from "@/lib/workflow-capability-grant-copy";
 import { WorkflowApprovalDrawer } from "./workflow-approval-drawer";
 import { gateDisplayTitle, workflowDisplayName } from "@/lib/workflow-display-copy";
-import { INSTANCE_STATUS_TEXT, describeWorkflowError } from "./workflow-copy";
+import { workflowInstanceStatusText, describeWorkflowError } from "./workflow-copy";
 import { WorkflowStartForm, requiredTriggerFields } from "./workflow-start-form";
 
 export function WorkflowRunList(props: { readonly status?: readonly WorkflowInstanceStatus[]; readonly hrefFor?: (id: string) => string }) {
+  const { locale, t } = useI18n();
   const [items, setItems] = useState<WorkflowInstanceSummary[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ code: WorkflowErrorCode | null } | null>(null);
   const key = (props.status ?? []).join(",");
   const sessionCtx = useOptionalSession();
   const memberNames = useOrgMemberNames(sessionCtx?.session?.currentOrgId ?? null);
@@ -34,20 +37,20 @@ export function WorkflowRunList(props: { readonly status?: readonly WorkflowInst
     let live = true;
     listMyWorkflowInstances(props.status)
       .then((r) => live && setItems(r.items))
-      .catch((e) => live && setError(describeWorkflowError(workflowErrorCode(e))));
+      .catch((e) => live && setError({ code: workflowErrorCode(e) }));
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
-  if (error) return <p role="alert" data-testid="workflow-run-list-error">{error}</p>;
-  if (items === null) return <p>加载中…</p>;
+  if (error) return <p role="alert" data-testid="workflow-run-list-error">{describeWorkflowError(error.code, locale)}</p>;
+  if (items === null) return <p>{t("workflows.loading")}</p>;
   if (items.length === 0) {
     return (
       <div data-testid="workflow-run-list-empty" className="rounded-lg border border-dashed border-border px-6 py-10 text-center">
-        <p className="text-13 font-medium">还没有运行记录。</p>
-        <p className="mt-1 text-12 text-muted-foreground">从数字人或对话里发起一次工作流，进展和产出会出现在这里。</p>
+        <p className="text-13 font-medium">{t("workflows.emptyHeading")}</p>
+        <p className="mt-1 text-12 text-muted-foreground">{t("workflows.emptyDescription")}</p>
         <div className="mt-4 flex justify-center gap-2">
-          <a href="/agents" data-testid="workflow-run-list-empty-agents" className="rounded-md bg-primary px-3 py-1.5 text-12 font-medium text-primary-foreground">去数字人发起</a>
-          <a href="/chat" data-testid="workflow-run-list-empty-chat" className="rounded-md border border-border px-3 py-1.5 text-12">去对话发起</a>
+          <a href="/agents" data-testid="workflow-run-list-empty-agents" className="rounded-md bg-primary px-3 py-1.5 text-12 font-medium text-primary-foreground">{t("workflows.startAgents")}</a>
+          <a href="/chat" data-testid="workflow-run-list-empty-chat" className="rounded-md border border-border px-3 py-1.5 text-12">{t("workflows.startChat")}</a>
         </div>
       </div>
     );
@@ -61,21 +64,21 @@ export function WorkflowRunList(props: { readonly status?: readonly WorkflowInst
           <li key={i.instanceId} data-status={i.status} className="rounded-lg border border-border bg-card shadow-sm transition-colors hover:bg-muted/40">
             <a href={href(i.instanceId)} className="flex flex-col gap-1 px-4 py-3">
               <span className="flex items-center gap-3">
-                <span className="flex-1 truncate text-13 font-medium">{workflowDisplayName(i.workflowKey)}</span>
-                <span data-testid="workflow-run-status" className={`rounded-full px-2 py-0.5 text-11 ${RUN_TONE[i.status]}`}>{INSTANCE_STATUS_TEXT[i.status]}</span>
+                <span className="flex-1 truncate text-13 font-medium">{workflowDisplayName(i.workflowKey, undefined, locale)}</span>
+                <span data-testid="workflow-run-status" className={`rounded-full px-2 py-0.5 text-11 ${RUN_TONE[i.status]}`}>{workflowInstanceStatusText(i.status, locale)}</span>
                 {whenText ? <time className="text-12 text-muted-foreground" dateTime={i.updatedAt}>{whenText}</time> : null}
               </span>
-              {i.goal ? <span data-testid="workflow-run-goal" className="truncate text-12">目标：{i.goal}</span> : null}
+              {i.goal ? <span data-testid="workflow-run-goal" className="truncate text-12">{t("workflows.goal", { goal: i.goal })}</span> : null}
               <span data-testid="workflow-run-initiator" className="text-12 text-muted-foreground">
-                发起人：{memberLabel(i.initiatorUserId, sessionCtx?.session?.userId, memberNames)}
+                {t("workflows.initiator", { name: memberLabel(i.initiatorUserId, sessionCtx?.session?.userId, memberNames, locale) })}
               </span>
             </a>
             {i.status === "blocked_permission" ? (
               <p data-testid="workflow-run-blocked-hint" className="px-4 pb-3 text-12 text-warning">
-                缺少工作流权限，运行已暂停。
+                {t("workflows.blockedHint")}
                 {canManageGrants ? (
-                  <a href={`${WORKFLOW_GRANTS_HREF}?workflow=${encodeURIComponent(i.workflowKey)}`} data-testid="workflow-run-blocked-grant-link" className="ml-1 font-medium underline underline-offset-2">前往「工作流权限」授予</a>
-                ) : <span data-testid="workflow-run-blocked-contact-admin" className="ml-1">请联系管理员开通</span>}
+                  <a href={`${WORKFLOW_GRANTS_HREF}?workflow=${encodeURIComponent(i.workflowKey)}`} data-testid="workflow-run-blocked-grant-link" className="ml-1 font-medium underline underline-offset-2">{t("workflows.grantLink")}</a>
+                ) : <span data-testid="workflow-run-blocked-contact-admin" className="ml-1">{t("workflows.contactAdmin")}</span>}
               </p>
             ) : null}
           </li>

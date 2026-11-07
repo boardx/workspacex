@@ -36,7 +36,7 @@ it('provider failure writes one failed receipt including original reported count
 it('inflight cancellation has one failed terminal and terminal outage preserves output then stops next inference',async()=>{
  const terminal=vi.fn(async(_input:unknown)=>{}),start=vi.fn(async()=>({terminal})),f=await fixture({response:'answer'},{start});const controller=new AbortController();
  f.seen.mockImplementation(()=>controller.abort());await expect(f.runtime.complete('prompt',{...context,signal:controller.signal})).rejects.toThrow();expect(terminal.mock.calls[0]?.[0]).toMatchObject({outcome:'failed',usage:{}});expect(f.seen).toHaveBeenCalledOnce();
- f.seen.mockImplementation(()=>{});terminal.mockRejectedValueOnce(new Error('ledger unavailable'));expect(await f.runtime.complete('prompt',context)).toBe('answer');
+ f.seen.mockImplementation(()=>{});terminal.mockRejectedValueOnce(new Error('ledger unavailable'));await expect(f.runtime.complete('prompt',context)).rejects.toThrow('ledger unavailable');
  await expect(f.runtime.complete('prompt',context)).rejects.toThrow('LOCAL_ACCOUNTING_REPAIR_REQUIRED');expect(f.seen).toHaveBeenCalledTimes(2);
 });
 it('server use case forwards only its checked principal/org/capability and rejects outsider before any probe',async()=>{

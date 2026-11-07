@@ -1,0 +1,5 @@
+
+> agentic-harness-template@ lint:e2e-testid-gate /Users/shenyangjun/boardx/workspacex
+> node .harness/scripts/lint-e2e-testid-gate.mjs
+
+✅ [e2e-testid-gate] 5480 条 e2e testid 引用全部在源码里有声明（判据池 10762 条；豁免 21 条；解析不了跳过 36 条）

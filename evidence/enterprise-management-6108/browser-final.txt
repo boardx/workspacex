@@ -1,0 +1,66 @@
+[heavy-e2e-lock] 排到了，等了 0s
+[stack-admission] load1=9.62 cores=10 perCore=0.96 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvyxtto6-dece85a4-35c23b19c1d2 db=wsx_35c23b19c1d24cbfe0e8 compose=wsx-35c23b19c1d24cbfe0e8 pg=20561 redis=21561 api=24561 web=25561 sandbox=26561 model=27561 deep-agent=28561 asr=29561 vision=30561 loopback-sandbox=31561 mail=19561
+[WebServer] (node:71607) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:71629) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:71635) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:72095) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:72096) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:72150) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/apps/api
+
+[db-isolation] db=wsx_35c23b19c1d24cbfe0e8 capacity=100 current=7 required=32
+stdout | tests/billing/enterprise-grant.pg.test.ts
+[enterprise-fixture-retention] immutable financial rows retained only for these owned IDs until isolated DB destruction ["enterprise-6108-fe9a579b-d5fe-44e4-8e5d-7634dfced14a","enterprise-6108-fe9a579b-d5fe-44e4-8e5d-7634dfced14a-other"]
+
+ ✓ tests/billing/enterprise-grant.pg.test.ts (8 tests | 7 skipped) 819ms
+   ✓ owner tenant teardown preserves immutable financial history and cannot restore deleted organization rights 392ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 7 skipped (8)
+   Start at  15:31:32
+   Duration  2.39s (transform 457ms, setup 10ms, collect 188ms, tests 819ms, environment 0ms, prepare 72ms)
+
+[db-isolation] db=wsx_35c23b19c1d24cbfe0e8 peak_connections=4
+
+Running 1 test using 1 worker
+
+(node:72314) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:72150) [DEP0060] DeprecationWarning: The `util._extend` API is deprecated. Please use Object.assign() instead.
+[WebServer] (node:72356) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] Failed to proxy http://127.0.0.1:24561/platform/organizations/enterprise-browser-target-ece85a4-35c23b19c1d2/billing/credit-grants Error: socket hang up
+[WebServer]     at Socket.socketOnEnd (node:_http_client:599:25)
+[WebServer]     at Socket.emit (node:events:531:35)
+[WebServer]     at endReadableNT (node:internal/streams/readable:1698:12)
+[WebServer]     at process.processTicksAndRejections (node:internal/process/task_queues:89:21) {
+[WebServer]   code: 'ECONNRESET'
+[WebServer] }
+[WebServer] Error: socket hang up
+[WebServer]     at Socket.socketOnEnd (node:_http_client:599:25)
+[WebServer]     at Socket.emit (node:events:531:35)
+[WebServer]     at endReadableNT (node:internal/streams/readable:1698:12)
+[WebServer]     at process.processTicksAndRejections (node:internal/process/task_queues:89:21) {
+[WebServer]   code: 'ECONNRESET'
+[WebServer] }
+[WebServer] (node:72364) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 e2e/enterprise-management.browser.ts:20:5 › actual Enterprise management recovers a committed grant after lost response and reload without issuing a second grant (20.9s)
+
+  1 passed (3.1m)
+[timing] pnpm --filter web exec playwright test --config playwright.enterprise-management.config.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：3m8s
+  清理：1s
+  总计：3m9s

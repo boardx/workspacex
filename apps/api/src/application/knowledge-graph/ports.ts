@@ -1,3 +1,4 @@
+import type {Principal} from "../../domain/principal";
 import type {RetrievalAccountingContext} from "../retrieval/ports";
 /**
  * Phase 18 知识图谱的端口。应用层定义、基础设施实现（依赖倒置）。
@@ -114,6 +115,8 @@ export interface KgExtractionQueuePort {
 }
 
 export interface KgMessage {
+  /** Persisted source provenance for background model billing; never provider/model input. */
+  readonly billingSubject?: Principal;
   readonly id: string;
   readonly threadId: string;
   readonly body: string;
@@ -298,6 +301,7 @@ export const KNOWLEDGE_RECALL_PORT = Symbol("KnowledgeRecallPort");
 
 /** 一个待嵌入的目标（kg_embedding_pending 的一行）。`content` 只交给嵌入模型，不回任何请求方。 */
 export interface KgEmbeddingTarget {
+  readonly billingSubject?: Principal;
   readonly targetKind: "claim" | "object";
   readonly targetId: string;
   readonly content: string;
@@ -308,6 +312,7 @@ export interface KgEmbeddingTarget {
 }
 
 export interface KgEmbeddingQueuePort {
+  openAccounting?(orgId:OrgId,target:KgEmbeddingTarget):Promise<{kind:"knowledge-index";orgId:string;operationId:string}>;
   /** 有待嵌入目标的 org（只有 id）。 */
   pendingOrgs(): Promise<readonly OrgId[]>;
   pending(orgId: OrgId, limit: number): Promise<readonly KgEmbeddingTarget[]>;
@@ -658,7 +663,7 @@ export const KG_DEPLOYMENT_EXTRACTION_SETTINGS_PORT = Symbol("KgDeploymentExtrac
  * 前两个只回 id（`alreadyIngested` 回的还是调用方自己传进来的那些 id），不披露任何内容。
  */
 export interface KgProjectIngestionPort {
-  pendingProjects(): Promise<readonly { readonly orgId: OrgId; readonly projectId: string }[]>;
+  pendingProjects(): Promise<readonly { readonly orgId: OrgId; readonly projectId: string; readonly billingSubject?: Principal }[]>;
   alreadyIngested(orgId: OrgId, projectId: string, evidenceIds: readonly string[]): Promise<ReadonlySet<string>>;
   knownObjects(orgId: OrgId, projectId: string): Promise<Guarded<readonly KnownObject[]>>;
 }

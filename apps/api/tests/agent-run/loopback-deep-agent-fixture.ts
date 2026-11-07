@@ -1,3 +1,6 @@
+import { multistepPlanMessages } from "../../scripts/loopback-multistep-plan";
+import { LoopbackRunStreamHold } from "../../scripts/loopback-run-stream-hold";
+import { LoopbackRunCancellation } from "../../scripts/loopback-run-cancellation";
 import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { Readable } from "node:stream";
@@ -26,12 +29,15 @@ export function fixture(extraEnv: Record<string, string> = {}, fetchImpl?: typeo
   runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, {
     // 替身用 `setInterval` 驱动 SSE 帧节奏（十步滚动剧本的推进游标就挂在上面），
     // vm 上下文默认没有计时器——不给它就等于把「节奏」这件事从被测面里删掉。
-    setInterval, clearInterval, setTimeout, clearTimeout, Date, JSON, Math,
+    setInterval, clearInterval, setTimeout, clearTimeout, Date, JSON, Math, URL,
     // issue #3100 D6：只有注入了才存在——见本函数头注最后一段。
     ...(fetchImpl === undefined ? {} : { fetch: fetchImpl, AbortSignal }),
     exports: {}, process: {env: {LOOPBACK_DEEP_AGENT_PROVIDER_PORT: "9999", LOOPBACK_DEEP_AGENT_MULTISTEP_TRIGGER: "multistep", ...extraEnv}, once: () => {}},
     require: (name: string) => {
       if (name === "node:http") return {createServer: (callback: typeof handle) => { handle = callback; return server; }};
+      if (name === "./loopback-multistep-plan") return {multistepPlanMessages};
+      if (name === "./loopback-run-stream-hold") return {LoopbackRunStreamHold};
+      if (name === "./loopback-run-cancellation") return {LoopbackRunCancellation};
       if (name === "node:crypto") return {randomUUID};
       if (name === "@repo/contracts/deep-agent-hitl") return {DEEP_AGENT_HITL_TOOL_NAME};
       // 路径矩阵 D4：替身判定「skill 目录块」时从产品源码取那一行头，不在替身里抄第二份

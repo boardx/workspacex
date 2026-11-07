@@ -1,0 +1,13 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-devapp-agent-recovery/apps/web
+
+ ✓ tests/ui/plan-control-gate-and-recovery.test.tsx (14 tests) 243ms
+ ✓ tests/lib/agent-run-failure-reason-copy.test.ts (5 tests) 4ms
+ ✓ tests/ui/copilotkit-v2-plan-control.test.tsx (52 tests | 4 skipped) 478ms
+
+ Test Files  3 passed (3)
+      Tests  67 passed | 4 skipped (71)
+   Start at  01:42:01
+   Duration  7.80s (transform 4.78s, setup 1.26s, collect 8.17s, tests 726ms, environment 6.77s, prepare 687ms)
+

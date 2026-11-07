@@ -1,0 +1,43 @@
+{
+  "name": "intake-browser-1",
+  "command": [
+    "pnpm",
+    "exec",
+    "tsx",
+    ".harness/scripts/with-test-isolation.ts",
+    "--",
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "playwright",
+    "test",
+    "--config",
+    "playwright.fullstack-smoke.config.ts",
+    "--project=seeded",
+    "e2e/i18n-survey-journey.spec.ts",
+    "--workers=1",
+    "--retries=0",
+    "--max-failures=1",
+    "--grep",
+    "(?:survey intake locale preserves real file bytes, one configured proposal, corrected Markdown and explicit application retry)$",
+    "--reporter=list,json"
+  ],
+  "source": "62c7637b3dcb0497db4f479c8dbddd5ef4c74167",
+  "exitCode": 0,
+  "seconds": 322.187,
+  "rawLogSha256": "58a84b3d6b4a1083c79f8e0128b5c95ccea2ec11a61962bee775844a1c94bc37",
+  "sourceAfter": "62c7637b3dcb0497db4f479c8dbddd5ef4c74167",
+  "sourceStable": true,
+  "environment": {},
+  "nativeStats": {
+    "startTime": "2026-11-04T19:19:37.839Z",
+    "duration": 318854.721,
+    "expected": 1,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "globalErrorCount": 0,
+  "interpretation": "Independent original AI-intake case; configured loopback model, no vendor quality claim."
+}

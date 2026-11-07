@@ -1,3 +1,4 @@
+import type { Principal } from "../../domain/principal";
 import type { SandboxInputFile } from "@repo/skill-sandbox/input-files";
 /**
  * contract §7 的回喂重试循环：模型写脚本 → 沙箱执行 → 非零退出把
@@ -120,6 +121,7 @@ export interface RunScriptWithRetriesResult {
 }
 
 export interface RunScriptWithRetriesDeps {
+  readonly owner?: Principal;
   readonly inputFiles?: readonly SandboxInputFile[];
   readonly sandbox: SkillSandboxPort;
   /**
@@ -181,7 +183,7 @@ export async function runScriptWithRetries(
 
     // ⚠ 沙箱不可达时**立刻**抛出，不消耗重试次数：重试只对"脚本写错了"有意义，
     //   对"服务挂了"重试三次只会让一次运维故障被报成 SCRIPT_FAILED_AFTER_RETRIES。
-    const result = await deps.sandbox.run({ script, timeoutMs: deps.timeoutMs, ...(deps.inputFiles ? { inputFiles: deps.inputFiles } : {}) });
+    const result = await deps.sandbox.run({ ...(deps.owner ? {owner: deps.owner} : {}), script, timeoutMs: deps.timeoutMs, ...(deps.inputFiles ? { inputFiles: deps.inputFiles } : {}) });
 
     if (result.timedOut) {
       // 同理：超时是资源/脚本行为问题，且容器已被回收，不在这里重试。

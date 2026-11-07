@@ -20,7 +20,7 @@ test('selected executable web test installs its core Chromium shell before test,
   assert.deepEqual(r.calls[0].args, ['turbo', 'run', 'test', '--affected', '--filter=!@repo/api', '--dry=json']);
   assert.equal(r.calls[1].command, process.execPath);
   assert.deepEqual(r.calls[1].args, ['/checkout/apps/web/node_modules/playwright-core/cli.js', 'install', '--with-deps', '--only-shell', 'chromium']);
-  assert.deepEqual(r.calls[2].args, r.calls[0].args.slice(0, -1));
+  assert.deepEqual(r.calls[2].args, [...r.calls[0].args.slice(0, -1), '--', '--bail=1']);
   for (const c of r.calls) { assert.equal(c.options.env, r.env); assert.equal(c.options.cwd, '/checkout'); }
 });
 for (const [name, tasks, exists] of [
@@ -37,13 +37,13 @@ for (const [name, tasks, exists] of [
 test('fork plan and actual test both retain API coverage', () => {
   const r = recording([], { env: { IS_FORK_PR: 'true' } }); r.run();
   assert.deepEqual(r.calls[0].args, ['turbo', 'run', 'test', '--affected', '--dry=json']);
-  assert.deepEqual(r.calls[1].args, ['turbo', 'run', 'test', '--affected']);
+  assert.deepEqual(r.calls[1].args, ['turbo', 'run', 'test', '--affected', '--', '--bail=1']);
 });
 test('fork and same-repository executable web plans install before their identical actual test', () => {
   for (const fork of ['true', 'false']) {
     const r = recording([{ taskId: '@repo/api#test', command: 'vitest run' }, web], { env: { IS_FORK_PR: fork, TURBO_SCM_BASE: 'origin/base', PLAYWRIGHT_BROWSERS_PATH: '/runner/temp/browser' } });
     r.run(); assert.equal(r.calls.length, 3);
-    assert.deepEqual(r.calls[2].args, r.calls[0].args.slice(0, -1));
+    assert.deepEqual(r.calls[2].args, [...r.calls[0].args.slice(0, -1), '--', '--bail=1']);
     assert.equal(r.calls[0].args.includes('--filter=!@repo/api'), fork === 'false');
     assert.ok(r.calls[1].args.includes('install'));
   }
@@ -99,8 +99,8 @@ test('selected cloud fixtures run fresh before remaining affected coverage witho
       { env: { IS_FORK_PR: fork, TURBO_SCM_BASE: 'origin/exact-base' } });
     r.run();
     assert.equal(r.calls.length, 3);
-    assert.deepEqual(r.calls[1].args, ['turbo', 'run', 'test', '--filter=@repo/cloud-deploy', '--force']);
-    assert.deepEqual(r.calls[2].args, [...r.calls[0].args.slice(0, -1), '--filter=!@repo/cloud-deploy']);
+    assert.deepEqual(r.calls[1].args, ['turbo', 'run', 'test', '--filter=@repo/cloud-deploy', '--force', '--', '--bail=1']);
+    assert.deepEqual(r.calls[2].args, [...r.calls[0].args.slice(0, -1), '--filter=!@repo/cloud-deploy', '--', '--bail=1']);
     for (const call of r.calls) assert.equal(call.options.env, r.env);
   }
 });
@@ -118,7 +118,7 @@ test('cloud fixture failure fails the gate before other packages can start', () 
 test('nonexistent cloud task does not add an isolated lane or remove coverage', () => {
   const r = recording([{ ...cloud, command: '<NONEXISTENT>' }]); r.run();
   assert.equal(r.calls.length, 2);
-  assert.deepEqual(r.calls[1].args, r.calls[0].args.slice(0, -1));
+  assert.deepEqual(r.calls[1].args, [...r.calls[0].args.slice(0, -1), '--', '--bail=1']);
 });
 
 test('browser preparation finishes before selected cloud lane and remaining web coverage', () => {
@@ -130,7 +130,9 @@ test('browser preparation finishes before selected cloud lane and remaining web 
 });
 test('actual full Turbo test plans preserve the exact union across isolated and remaining lanes', () => {
   const plan = args => {
-    const r = spawnSync('pnpm', ['turbo', 'run', 'test', ...args, '--dry=json'], { encoding: 'utf8' });
+    // Real repository plans exceed spawnSync's 1 MiB default; retain bounded, complete JSON.
+    const r = spawnSync('pnpm', ['turbo', 'run', 'test', ...args, '--dry=json'], { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 });
+    assert.ifError(r.error);
     assert.equal(r.status, 0, r.stderr);
     return JSON.parse(r.stdout).tasks.filter(t => t.taskId.endsWith('#test') &&
       t.command && t.command !== '<NONEXISTENT>').map(t => t.taskId).sort();
@@ -143,4 +145,17 @@ test('actual full Turbo test plans preserve the exact union across isolated and 
     assert.equal(remaining.includes('@repo/cloud-deploy#test'), false);
     assert.deepEqual([...isolated, ...remaining].sort(), original);
   }
+});
+test('a validated local UI plan executes the selected real unit runner instead of full affected packages',()=>{
+ const selected=[],r=recording([],{
+  env:{GITHUB_SHA:'a'.repeat(40),GITHUB_RUN_ID:'12',GITHUB_RUN_ATTEMPT:'1',RUNNER_TEMP:'/runner/temp'},
+  targetedPlan:()=>({mode:'targeted-ui',headSha:'a'.repeat(40)}),
+  runSelectedUnit:(...args)=>selected.push(args),
+ });
+ r.run();assert.equal(r.calls.length,0);assert.equal(selected.length,1);assert.equal(selected[0][2],'/checkout/apps/web');
+ assert.equal(selected[0][3].sha,'a'.repeat(40));
+});
+test('a selected unit failure cannot turn into an empty or successful affected run',()=>{
+ const r=recording([],{env:{GITHUB_SHA:'a'.repeat(40),GITHUB_RUN_ID:'12',GITHUB_RUN_ATTEMPT:'1',RUNNER_TEMP:'/runner/temp'},targetedPlan:()=>({mode:'targeted-ui'}),runSelectedUnit:()=>{throw Error('actual selected failure')}});
+ assert.throws(()=>r.run(),/actual selected failure/);
 });

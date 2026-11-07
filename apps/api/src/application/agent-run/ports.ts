@@ -1044,7 +1044,9 @@ export interface ModelCallInput {
   /** Trusted executor identity, never sourced from model tool arguments. */
   readonly executionAttemptId?: string;
   readonly executionLeaseEpoch?: number;
-  readonly usageCallPurpose?: "primary" | "history-summary" | "script-retry" | "retrieval-embedding" | "retrieval-rerank" | "native-image" | "local-trial" | "native-asr";
+  /** Server-created metadata owner for private calls without a formal run. */
+  readonly auxiliaryModelOperation?: {readonly orgId:string;readonly operationId:string};
+  readonly usageCallPurpose?: "auxiliary" | "primary" | "history-summary" | "script-retry" | "retrieval-embedding" | "retrieval-rerank" | "native-image" | "local-trial" | "native-asr";
   readonly executionPermissionRequestId?: string;
   readonly modelProvider: string;
   readonly modelId: string;
@@ -1238,6 +1240,7 @@ export class ModelCallError extends Error {
     readonly retryDisposition?: "rate-limited" | "temporarily-unavailable",
     /** Exact adapter-owned content rejection; never permission to retry or change providers. */
     readonly contentRejection?: "content-policy",
+    readonly creditReason?: import("@repo/contracts/billing-consumption").CreditRequiredReason,
   ) {
     super(code);
     this.name = "ModelCallError";
@@ -1278,6 +1281,8 @@ export class ModelCallInterruptedError extends ModelCallError {
  * 漏一处就是一条只在某一条分支上存在的契约。
  */
 export interface ModelCallCompletion {
+  /** Verified, already archived provider outputs; write back through existing message attachments. */
+  readonly files?: readonly RunOutputFile[];
   readonly cancelled?: boolean;
   readonly paused?: boolean;
   readonly finalMessageId?: string;
@@ -1525,6 +1530,10 @@ export interface AgentRunExecutorPort {
 export interface TokenUsageRecord {
   /** Unique receipt identity; reuse only when retrying this same accounting write. */
   readonly eventId?: string;
+  /** Optional cumulative provider usage snapshot for the same physical eventId.
+   * Stable receipt id deduplicates chunks; only final releases the request hold.
+   * Ordinary terminal-only providers omit this and keep their existing semantics. */
+  readonly billingReceipt?: {readonly id: string; readonly final: boolean};
   /** Explicit trusted priced amount; absence is unknown, never free. */
   readonly costMicros?: bigint;
   readonly currency?: string;
@@ -1540,7 +1549,7 @@ export interface TokenUsageRecord {
   readonly totalSource?: "reported" | "unknown" | "not-applicable";
   /** Native dimensions never masquerade as reported zero tokens. */
   readonly nativeUsage?:{readonly unit:import("../../domain/agent-run/ai-billable-unit").AiNativeUnit;readonly quantity:bigint|null;readonly source:"reported"|"estimated"|"unknown"};
-  readonly callPurpose?: "primary" | "history-summary" | "script-retry" | "retrieval-embedding" | "retrieval-rerank" | "native-image" | "local-trial" | "native-asr";
+  readonly callPurpose?: "auxiliary" | "primary" | "history-summary" | "script-retry" | "retrieval-embedding" | "retrieval-rerank" | "native-image" | "local-trial" | "native-asr";
   readonly userId: string;
   readonly runId: string | null;
   readonly subtaskId?: string | null;
@@ -1581,10 +1590,16 @@ export interface ReportedUsage {
  * 「有人在注释旁边真的写了一条 INSERT」这种最像真的情形。
  */
 export interface TokenUsageMeterPort {
+  /** Called after committed streaming usage; a limit signal must not roll back its receipt. */
+  assertCreditContinuation?(orgId: OrgId, userId: string, requestId: string): Promise<void>;
   /** Durable start marker before provider dispatch; failed starts must prevent dispatch. */
   startRequest?(orgId: OrgId, input: {
+    /** Trusted dispatch bound; absent keeps unknown usage held and cannot admit strict preflight. */
+    readonly maximumTokens?: number | null;
+    readonly tokenBoundRequired?: boolean;
+    readonly nativeMaximum?: { readonly unit: import("../../domain/agent-run/ai-billable-unit").AiNativeUnit; readonly quantity: bigint };
     readonly requestId: string; readonly userId: string; readonly runId: string|null;
-    readonly executionLeaseEpoch?:number; readonly artifactOperationId?:string; readonly subtaskId?:string|null;
+    readonly executionLeaseEpoch?:number; readonly artifactOperationId?:string; readonly knowledgeOperationId?:string; readonly subtaskId?:string|null;
     /** Private platform test authority; same tenant/member provenance is enforced in SQL. */
     readonly platformTestId?:string;
     readonly modelProvider: string; readonly modelId: string; readonly startedAt: string;

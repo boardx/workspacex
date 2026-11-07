@@ -1,0 +1,4 @@
+wsx-a97b5cf67c1ba4aaf0b0: dynamic docker ps -a exit0; zero containers including stopped.
+wsx-3b1fb1d6e3205f703f33: dynamic docker ps -a exit0; zero containers including stopped.
+wsx-aea6c777d61f6e212ffc: dynamic docker ps -a exit0; zero containers including stopped.
+wsx-7b63be723e4bde8063ae: dynamic docker ps -a exit0; zero containers including stopped.

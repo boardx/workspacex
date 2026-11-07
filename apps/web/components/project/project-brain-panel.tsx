@@ -1,5 +1,10 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
+import type { Locale } from "@/lib/i18n/locale";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+import { graphClaimKindLabel, graphTriStateLabel } from "@/lib/knowledge-graph-copy";
+import { projectEvidenceKindLabel } from "@/lib/i18n/project-evidence-copy";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,10 +14,8 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   KG_ADOPT_RATIONALE_MAX, KG_TRI_STATE_LABEL_ZH, isAdoptableClaimKind, type KgAdoptedDecision, type KgClaimKind, type KgClaim, type KgEvidenceAnchor,
 } from "@repo/contracts/chat-knowledge-graph";
-import { PROJECT_EVIDENCE_SOURCE_LABEL_ZH, PROJECT_EVIDENCE_TO_AI_SOURCE, ProjectEvidenceSourceKind, type ProjectEvidenceSourceKind as EvidenceKind } from "@repo/contracts/project-evidence";
+import { PROJECT_EVIDENCE_TO_AI_SOURCE, ProjectEvidenceSourceKind, type ProjectEvidenceSourceKind as EvidenceKind } from "@repo/contracts/project-evidence";
 import { getProjectAiSettings, type ProjectAiSourceKind } from "@/lib/live-project-ai-settings";
-import { KG_CLAIM_KIND_LABEL_ZH } from "@/lib/knowledge-graph-view";
-import { sharedFromPersonalLabelZh as sharedFromPersonalLabel } from "@repo/contracts/chat-knowledge-graph";
 import {
   adoptProjectDecision, fetchClaimSources, fetchProjectKnowledge, fetchProjectReasoning, knowledgeGraphErrorCode, promoteToOrg,
   type ClaimSources, type ProjectKnowledge, type ProjectReasoning, type PromotionChoice, type PromotionResults,
@@ -21,6 +24,10 @@ import { httpFailureText } from "@/lib/http-failure-text";
 import { ApiError } from "@/lib/api-client";
 import { ClaimSourceDrawer } from "@/components/chat/knowledge/claim-source-drawer";
 import { useClaimSourcesDrawer } from "@/components/chat/knowledge/knowledge-panel";
+
+type ReadFailure = { readonly cause: unknown };
+type PromotionFailure = ReadFailure | { readonly key: MessageKey };
+
 
 /**
  * 「项目大脑」面板（项目中枢 R8）——研究洞察 › 研究总览。
@@ -73,11 +80,12 @@ export function evidenceSourceKinds(evidence: readonly Pick<KgEvidenceAnchor, "s
 }
 
 export function ProjectBrainPanel({ projectId }: { projectId: string }) {
+  const { locale, t } = useI18n();
   const [data, setData] = React.useState<ProjectKnowledge | null>(null);
   const [loading, setLoading] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<ReadFailure | null>(null);
   const [crossReasoning, setCrossReasoning] = React.useState<ProjectReasoning | null>(null);
-  const [crossReasoningError, setCrossReasoningError] = React.useState<string | null>(null);
+  const [crossReasoningError, setCrossReasoningError] = React.useState<ReadFailure | null>(null);
   const aiAllowed = useProjectAiAllowed(projectId);
   const closed = React.useMemo(() => closedEvidenceKinds(aiAllowed), [aiAllowed]);
 
@@ -87,12 +95,12 @@ export function ProjectBrainPanel({ projectId }: { projectId: string }) {
     // 两个请求并行；推理那一路失败只让它那一区显示失败，项目记忆本身照常显示。
     const reasoningReq = fetchProjectReasoning(projectId).then(
       (r) => { setCrossReasoning(r); },
-      (e: unknown) => { setCrossReasoning(null); setCrossReasoningError(describeFailure(e)); },
+      (e: unknown) => { setCrossReasoning(null); setCrossReasoningError({ cause: e }); },
     );
     try {
       setData(await fetchProjectKnowledge(projectId));
     } catch (e) {
-      setError(describeFailure(e));
+      setError({ cause: e });
     } finally {
       setLoading(false);
     }
@@ -122,32 +130,32 @@ export function ProjectBrainPanel({ projectId }: { projectId: string }) {
 
   return (
     <section data-testid="project-brain">
-      <SectionTitle meta={data ? `${data.claims.length} 条 · ${data.objects.length} 个实体` : "项目记忆"}>项目大脑</SectionTitle>
+      <SectionTitle meta={data ? t("projectBrain.summary", { claims: data.claims.length, objects: data.objects.length }) : t("projectBrain.memory")}>{t("projectBrain.brain")}</SectionTitle>
       <Card>
         {error !== null ? (
           <div className="flex items-center gap-2 p-4">
-            <p className="flex-1 text-12 text-destructive" data-testid="project-brain-error">{error}</p>
-            <Button size="xs" variant="outline" onClick={() => void load()} data-testid="project-brain-retry">重试</Button>
+            <p className="flex-1 text-12 text-destructive" data-testid="project-brain-error">{describeFailure(error.cause, locale)}</p>
+            <Button size="xs" variant="outline" onClick={() => void load()} data-testid="project-brain-retry">{t("ui.retry")}</Button>
           </div>
         ) : loading && data === null ? (
-          <p className="p-4 text-12 text-muted-foreground" data-testid="project-brain-loading">读取项目记忆中…</p>
+          <p className="p-4 text-12 text-muted-foreground" data-testid="project-brain-loading">{t("projectBrain.memoryLoading")}</p>
         ) : data === null ? (
-          <p className="p-4 text-12 text-muted-foreground" data-testid="project-brain-anonymous">请先登录。</p>
+          <p className="p-4 text-12 text-muted-foreground" data-testid="project-brain-anonymous">{t("projectBrain.signIn")}</p>
         ) : groups.length === 0 ? (
           <p className="p-4 text-12 leading-relaxed text-muted-foreground" data-testid="project-brain-empty">
-            这个项目还没有记下任何东西。在项目对话的知识面板里点「记到项目大脑」，或在个人记忆里点「分享到项目…」，记下的内容会出现在这里，项目里的对话也会自动想起它。
+            {t("projectBrain.brainEmpty")}
           </p>
         ) : (
           <div className="flex flex-col divide-y divide-border" data-testid="project-brain-groups">
             {reasoning !== null ? (
               <div className="flex flex-col gap-2 bg-muted/30 p-3.5" data-testid="project-brain-reasoning">
                 <div className="flex items-center gap-2">
-                  <span className="text-12 font-medium">假设与矛盾</span>
+                  <span className="text-12 font-medium">{t("projectBrain.hypothesesConflicts")}</span>
                   <span className="font-mono text-11 text-muted-foreground">{reasoning.hypotheses.length + reasoning.conflicts.length}</span>
                 </div>
                 {reasoning.conflicts.length > 0 ? (
                   <div className="flex flex-col gap-1" data-testid="project-brain-conflicts">
-                    <span className="text-11 text-muted-foreground">有矛盾——两边都有证据，还没人定</span>
+                    <span className="text-11 text-muted-foreground">{t("projectBrain.conflictsHelp")}</span>
                     <ul className="flex flex-col gap-1">
                       {reasoning.conflicts.map(row)}
                     </ul>
@@ -155,7 +163,7 @@ export function ProjectBrainPanel({ projectId }: { projectId: string }) {
                 ) : null}
                 {reasoning.hypotheses.length > 0 ? (
                   <div className="flex flex-col gap-1" data-testid="project-brain-hypotheses">
-                    <span className="text-11 text-muted-foreground">猜测——按证据强弱排，站得最不稳的在前</span>
+                    <span className="text-11 text-muted-foreground">{t("projectBrain.hypothesesHelp")}</span>
                     <ul className="flex flex-col gap-1">
                       {reasoning.hypotheses.map(row)}
                     </ul>
@@ -167,7 +175,7 @@ export function ProjectBrainPanel({ projectId }: { projectId: string }) {
             {groups.map((g) => (
               <div key={g.kind} className="flex flex-col gap-1.5 p-3.5" data-testid={`project-brain-group-${g.kind}`}>
                 <div className="flex items-center gap-2">
-                  <span className="text-12 font-medium">{KG_CLAIM_KIND_LABEL_ZH[g.kind]}</span>
+                  <span className="text-12 font-medium">{graphClaimKindLabel(g.kind, locale)}</span>
                   <span className="font-mono text-11 text-muted-foreground">{g.claims.length}</span>
                 </div>
                 <ul className="flex flex-col gap-1">
@@ -253,7 +261,7 @@ export function evidenceHref(projectId: string, evidenceId: string): string {
   return `/projects/${encodeURIComponent(projectId)}?tab=research&sub=sources&evidence=${encodeURIComponent(evidenceId)}`;
 }
 
-const sourceLabels = (kinds: readonly ProjectEvidenceSourceKind[]): string => kinds.map((k) => PROJECT_EVIDENCE_SOURCE_LABEL_ZH[k]).join(" / ");
+const sourceLabels = (kinds: readonly ProjectEvidenceSourceKind[], locale: Locale = "zh-CN"): string => kinds.map((k) => projectEvidenceKindLabel(k, locale)).join(" / ");
 
 /**
  * 一组引用：每个 `evidenceId` 一个链到来源页的链接；一个都没有而有 `claimId` 时，回退成打开既有来源抽屉的按钮。
@@ -262,12 +270,13 @@ const sourceLabels = (kinds: readonly ProjectEvidenceSourceKind[]): string => ki
 function Citations({ projectId, evidenceIds, claimId, testid, onOpenSources }: {
   projectId: string; evidenceIds: readonly string[]; claimId?: string; testid: string; onOpenSources: (claimId: string) => void;
 }) {
+  const { t } = useI18n();
   if (evidenceIds.length > 0) {
     return (
       <span className="flex flex-wrap gap-1" data-testid={testid}>
         {evidenceIds.map((id, i) => (
           <a key={id} href={evidenceHref(projectId, id)} className="text-11 text-primary underline-offset-2 transition-colors duration-base hover:underline" data-testid={`${testid}-evidence-${id}`}>
-            出处 {i + 1}
+            {t("projectBrain.citation", { index: i + 1 })}
           </a>
         ))}
       </span>
@@ -275,16 +284,17 @@ function Citations({ projectId, evidenceIds, claimId, testid, onOpenSources }: {
   }
   if (claimId === undefined) return null;
   return (
-    <Button size="xs" variant="ghost" onClick={() => onOpenSources(claimId)} data-testid={`${testid}-fallback`}>来源</Button>
+    <Button size="xs" variant="ghost" onClick={() => onOpenSources(claimId)} data-testid={`${testid}-fallback`}>{t("projectBrain.sources")}</Button>
   );
 }
 
 /** B3-T3 三区：跨来源冲突 / 缺口与建议 / 推理链。三块都空 ⇒ 整节不画；推理接口失败 ⇒ 只在这里说明。 */
 function CrossSourceReasoning({ projectId, reasoning, error, onOpenSources }: {
-  projectId: string; reasoning: ProjectReasoning | null; error: string | null; onOpenSources: (claimId: string) => void;
+  projectId: string; reasoning: ProjectReasoning | null; error: ReadFailure | null; onOpenSources: (claimId: string) => void;
 }) {
+  const { locale, t } = useI18n();
   if (error !== null) {
-    return <p className="p-3.5 text-11 text-destructive" data-testid="project-brain-cross-error">推理没读出来：{error}</p>;
+    return <p className="p-3.5 text-11 text-destructive" data-testid="project-brain-cross-error">{t("projectBrain.reasoningFailed")}{describeFailure(error.cause, locale)}</p>;
   }
   if (reasoning === null || (reasoning.conflicts.length === 0 && reasoning.gaps.length === 0 && reasoning.chains.length === 0)) return null;
   return (
@@ -292,21 +302,21 @@ function CrossSourceReasoning({ projectId, reasoning, error, onOpenSources }: {
       {reasoning.conflicts.length > 0 ? (
         <div className="flex flex-col gap-1" data-testid="project-brain-cross-conflicts">
           <div className="flex items-center gap-2">
-            <span className="text-12 font-medium">跨来源冲突</span>
+            <span className="text-12 font-medium">{t("projectBrain.crossConflicts")}</span>
             <span className="font-mono text-11 text-muted-foreground">{reasoning.conflicts.length}</span>
           </div>
-          <span className="text-11 text-muted-foreground">两处说法对不上——各自的出处列在下面，点开核对</span>
+          <span className="text-11 text-muted-foreground">{t("projectBrain.crossHelp")}</span>
           <ul className="flex flex-col gap-1.5">
             {reasoning.conflicts.map((c) => (
               <li key={c.id} className="flex flex-col gap-1 text-12" data-testid={`project-brain-cross-conflict-${c.id}`}>
                 <div className="flex items-center gap-2">
-                  <Badge tone={c.kind === "cross_source" ? "danger" : "outline"}>{c.kind === "cross_source" ? "不同来源" : "同一来源"}</Badge>
+                  <Badge tone={c.kind === "cross_source" ? "danger" : "outline"}>{c.kind === "cross_source" ? t("projectBrain.differentSources") : t("projectBrain.sameSource")}</Badge>
                 </div>
                 {([["A", c.claimIds[0], c.statementA, c.sourceKindsA, c.evidenceIdsA], ["B", c.claimIds[1], c.statementB, c.sourceKindsB, c.evidenceIdsB]] as const).map(([side, claimId, statement, kinds, ids]) => (
                   <div key={side} className="flex items-start gap-2">
                     <span className="min-w-0 flex-1 leading-relaxed">
                       <span>{statement}</span>
-                      {kinds.length > 0 ? <span className="ml-1 text-11 text-muted-foreground">（{sourceLabels(kinds)}）</span> : <span className="ml-1 text-11 text-muted-foreground">（没有出处）</span>}
+                      {kinds.length > 0 ? <span className="ml-1 text-11 text-muted-foreground">（{sourceLabels(kinds, locale)}）</span> : <span className="ml-1 text-11 text-muted-foreground">（{t("projectBrain.noSource")}）</span>}
                     </span>
                     <Citations projectId={projectId} evidenceIds={ids} claimId={claimId} testid={`project-brain-cross-conflict-${c.id}-${side}`} onOpenSources={onOpenSources} />
                   </div>
@@ -319,10 +329,10 @@ function CrossSourceReasoning({ projectId, reasoning, error, onOpenSources }: {
       {reasoning.gaps.length > 0 ? (
         <div className="flex flex-col gap-1" data-testid="project-brain-gaps">
           <div className="flex items-center gap-2">
-            <span className="text-12 font-medium">缺口与建议</span>
+            <span className="text-12 font-medium">{t("projectBrain.gaps")}</span>
             <span className="font-mono text-11 text-muted-foreground">{reasoning.gaps.length}</span>
           </div>
-          <span className="text-11 text-muted-foreground">还缺出处的猜测与决定</span>
+          <span className="text-11 text-muted-foreground">{t("projectBrain.gapsHelp")}</span>
           <ul className="flex flex-col gap-1.5">
             {reasoning.gaps.map((g) => (
               <li key={g.claimId} className="flex items-start gap-2 text-12" data-testid={`project-brain-gap-${g.claimId}`}>
@@ -330,9 +340,9 @@ function CrossSourceReasoning({ projectId, reasoning, error, onOpenSources }: {
                   <span>{g.statement}</span>
                   <span className="text-11 text-muted-foreground" data-testid={`project-brain-gap-${g.claimId}-suggestion`}>{g.suggestion}</span>
                 </span>
-                <Badge tone="outline">{g.kind === "no_evidence" ? "没有出处" : `只有${sourceLabels(g.sourceKinds)}`}</Badge>
+                <Badge tone="outline">{g.kind === "no_evidence" ? t("projectBrain.noSource") : t("projectBrain.onlySources", { sources: sourceLabels(g.sourceKinds, locale) })}</Badge>
                 {g.kind === "single_source" ? (
-                  <Button size="xs" variant="ghost" onClick={() => onOpenSources(g.claimId)} data-testid={`project-brain-gap-${g.claimId}-sources`}>来源</Button>
+                  <Button size="xs" variant="ghost" onClick={() => onOpenSources(g.claimId)} data-testid={`project-brain-gap-${g.claimId}-sources`}>{t("projectBrain.sources")}</Button>
                 ) : null}
               </li>
             ))}
@@ -342,20 +352,20 @@ function CrossSourceReasoning({ projectId, reasoning, error, onOpenSources }: {
       {reasoning.chains.length > 0 ? (
         <div className="flex flex-col gap-1" data-testid="project-brain-chains">
           <div className="flex items-center gap-2">
-            <span className="text-12 font-medium">推理链</span>
+            <span className="text-12 font-medium">{t("projectBrain.chains")}</span>
             <span className="font-mono text-11 text-muted-foreground">{reasoning.chains.length}</span>
           </div>
-          <span className="text-11 text-muted-foreground">从前提到推论，每一步都有出处</span>
+          <span className="text-11 text-muted-foreground">{t("projectBrain.chainsHelp")}</span>
           <ul className="flex flex-col gap-2">
             {reasoning.chains.map((chain) => (
               <li key={chain.claimId} className="flex flex-col gap-1 text-12" data-testid={`project-brain-chain-${chain.claimId}`}>
                 <ol className="flex flex-col gap-0.5">
                   {chain.steps.map((step, i) => (
                     <li key={i} className="flex items-start gap-2" data-testid={`project-brain-chain-${chain.claimId}-step-${i}`}>
-                      <span className="shrink-0 font-mono text-11 text-muted-foreground">{step.kind === "premise" ? "前提" : "推论"}</span>
+                      <span className="shrink-0 font-mono text-11 text-muted-foreground">{step.kind === "premise" ? t("projectBrain.premise") : t("projectBrain.inference")}</span>
                       <span className="min-w-0 flex-1 leading-relaxed">
                         <span className={step.kind === "inference" ? "font-medium" : undefined}>{step.text}</span>
-                        {step.sourceKinds.length > 0 ? <span className="ml-1 text-11 text-muted-foreground">（{sourceLabels(step.sourceKinds)}）</span> : null}
+                        {step.sourceKinds.length > 0 ? <span className="ml-1 text-11 text-muted-foreground">（{sourceLabels(step.sourceKinds, locale)}）</span> : null}
                       </span>
                       <Citations projectId={projectId} evidenceIds={step.evidenceIds} claimId={step.claimId} testid={`project-brain-chain-${chain.claimId}-step-${i}-cite`} onOpenSources={onOpenSources} />
                     </li>
@@ -373,7 +383,7 @@ function CrossSourceReasoning({ projectId, reasoning, error, onOpenSources }: {
 type OrgPromotionState =
   | { readonly kind: "busy" }
   | { readonly kind: "done"; readonly result: PromotionResults["results"][number] }
-  | { readonly kind: "failed"; readonly text: string };
+  | { readonly kind: "failed"; readonly text: PromotionFailure };
 
 interface OrgPromotion {
   /** 服务端说这个人能记到组织记忆（组织 lead / admin）；false ⇒ 不出入口 */
@@ -393,10 +403,10 @@ function useOrgPromotion(projectId: string, enabled: boolean): OrgPromotion {
     void promoteToOrg(projectId, [claimId], choice ? [{ claimId, choice }] : undefined)
       .then((out) => {
         const result = out.results.find((r) => r.claimId === claimId);
-        if (result === undefined) set(claimId, { kind: "failed", text: "服务端没有返回这一条的结果。" });
+        if (result === undefined) set(claimId, { kind: "failed", text: { key: "projectBrain.missingResult" } });
         else set(claimId, { kind: "done", result });
       })
-      .catch((e: unknown) => set(claimId, { kind: "failed", text: describePromoteFailure(e) }));
+      .catch((e: unknown) => set(claimId, { kind: "failed", text: { cause: e } }));
   }, [projectId, set]);
   return { enabled, states, promote };
 }
@@ -405,7 +415,7 @@ type AdoptionState =
   | { readonly kind: "editing"; readonly rationale: string }
   | { readonly kind: "busy"; readonly rationale: string }
   | { readonly kind: "done"; readonly decisionClaimId: string }
-  | { readonly kind: "failed"; readonly rationale: string; readonly text: string };
+  | { readonly kind: "failed"; readonly rationale: string; readonly text: ReadFailure };
 
 interface Adoption {
   readonly states: ReadonlyMap<string, AdoptionState>;
@@ -438,21 +448,21 @@ function useAdoption(projectId: string, reload: () => Promise<void>): Adoption {
           set(claimId, { kind: "done", decisionClaimId: out.decisionClaimId });
           await reload();
         })
-        .catch((e: unknown) => set(claimId, { kind: "failed", rationale, text: describeAdoptFailure(e) }));
+        .catch((e: unknown) => set(claimId, { kind: "failed", rationale, text: { cause: e } }));
       return new Map(prev).set(claimId, { kind: "busy", rationale });
     });
   }, [projectId, reload, set]);
   return { states, open, edit, cancel, confirm };
 }
 
-function describeAdoptFailure(e: unknown): string {
+function describeAdoptFailure(e: unknown, locale: Locale = "zh-CN"): string {
   const code = knowledgeGraphErrorCode(e);
-  if (code === "KG_NOT_OWNER") return "观察者不能替项目定决策。";
-  if (code === "KG_NOT_VISIBLE") return "你不在这个项目里，定不了。";
-  if (code === "KG_CONTESTED_NEEDS_RESOLUTION") return "这条有矛盾，先解决再采纳。";
-  if (code === "KG_CLAIM_NOT_FOUND") return "这条不在项目记忆里，或不是事实 / 猜测。";
-  if (e instanceof ApiError) return httpFailureText(e.status);
-  return e instanceof Error ? e.message : "没采纳上，请稍后重试。";
+  if (code === "KG_NOT_OWNER") return translate(locale, "projectBrain.reason.adoptObserver");
+  if (code === "KG_NOT_VISIBLE") return translate(locale, "projectBrain.reason.adoptNoRole");
+  if (code === "KG_CONTESTED_NEEDS_RESOLUTION") return translate(locale, "projectBrain.reason.adoptConflict");
+  if (code === "KG_CLAIM_NOT_FOUND") return translate(locale, "projectBrain.reason.adoptNotFound");
+  if (e instanceof ApiError) return httpFailureText(e.status, locale);
+  return e instanceof Error ? e.message : translate(locale, "projectBrain.reason.adoptFailed");
 }
 
 interface AdoptedFrom extends KgAdoptedDecision {
@@ -464,6 +474,7 @@ function ClaimRow({ claim, sharedBy, adoptedFrom, onOpenSources, org, adopt, sou
   claim: KgClaim; sharedBy?: string; adoptedFrom?: AdoptedFrom; onOpenSources: (claimId: string) => void; org: OrgPromotion; adopt: Adoption;
   sourceKinds?: readonly EvidenceKind[]; closed: ReadonlySet<EvidenceKind>;
 }) {
+  const { locale, t } = useI18n();
   const tone = claim.triState === "confirmed" ? "success" : claim.triState === "conflict" ? "danger" : "warning";
   const state = org.states.get(claim.id);
   const adoption = adopt.states.get(claim.id);
@@ -474,13 +485,13 @@ function ClaimRow({ claim, sharedBy, adoptedFrom, onOpenSources, org, adopt, sou
         <span className="flex min-w-0 flex-1 flex-col gap-0.5 leading-relaxed">
           <span>{claim.statement}</span>
           {sharedBy !== undefined ? (
-            <span className="text-11 text-muted-foreground" data-testid={`project-brain-shared-by-${claim.id}`}>{sharedFromPersonalLabel(sharedBy)}</span>
+            <span className="text-11 text-muted-foreground" data-testid={`project-brain-shared-by-${claim.id}`}>{sharedPersonalLabel(sharedBy, locale)}</span>
           ) : null}
           {adoptedFrom !== undefined ? (
             <span className="text-11 text-muted-foreground" data-testid={`project-brain-adopted-from-${claim.id}`}>
-              {adoptedFrom.sourceStatement !== null ? `采纳自「${adoptedFrom.sourceStatement}」` : "采纳自一条已不在项目记忆里的记录"}
-              {` · 理由：${adoptedFrom.rationale}`}
-              {` · 由 ${adoptedFrom.adoptedBy} 采纳`}
+              {adoptedFrom.sourceStatement !== null ? t("projectBrain.adoptedFrom", { statement: adoptedFrom.sourceStatement }) : t("projectBrain.adoptedMissing")}
+              {t("projectBrain.adoptionRationale", { rationale: adoptedFrom.rationale })}
+              {t("projectBrain.adoptionBy", { actor: adoptedFrom.adoptedBy })}
             </span>
           ) : null}
           {sourceKinds !== undefined && sourceKinds.length > 0 ? (
@@ -492,28 +503,28 @@ function ClaimRow({ claim, sharedBy, adoptedFrom, onOpenSources, org, adopt, sou
                     key={k}
                     tone="outline"
                     className={off ? "opacity-50" : undefined}
-                    title={off ? "来源已关闭" : undefined}
+                    title={off ? t("projectBrain.sourceDisabled") : undefined}
                     data-testid={`project-brain-source-kind-${claim.id}-${k}`}
                     data-closed={off ? "true" : undefined}
                   >
-                    {PROJECT_EVIDENCE_SOURCE_LABEL_ZH[k]}
+                    {projectEvidenceKindLabel(k, locale)}
                   </Badge>
                 );
               })}
             </span>
           ) : null}
         </span>
-        <Badge tone={tone === "success" ? "primary" : "outline"}>{KG_TRI_STATE_LABEL_ZH[claim.triState]}</Badge>
-        <span className="shrink-0 font-mono text-11 text-muted-foreground" title="支持 / 反对的证据数">
+        <Badge tone={tone === "success" ? "primary" : "outline"}>{Object.hasOwn(KG_TRI_STATE_LABEL_ZH, claim.triState) ? graphTriStateLabel(claim.triState, locale) : claim.triState}</Badge>
+        <span className="shrink-0 font-mono text-11 text-muted-foreground" title={t("projectBrain.evidenceCounts")}>
           +{claim.supportingCount} / −{claim.contradictingCount}
         </span>
         {/* S10：分享来的那条，证据在分享人的个人对话里，别人打不开（R9 口径 404）——不给一个点了必失败的按钮 */}
         {sharedBy === undefined ? (
-          <Button size="xs" variant="ghost" onClick={() => onOpenSources(claim.id)} data-testid={`project-brain-sources-${claim.id}`}>来源</Button>
+          <Button size="xs" variant="ghost" onClick={() => onOpenSources(claim.id)} data-testid={`project-brain-sources-${claim.id}`}>{t("projectBrain.sources")}</Button>
         ) : null}
         {adoptable && (adoption === undefined || adoption.kind === "failed") ? (
           <Button size="xs" variant="outline" onClick={() => adopt.open(claim.id)} data-testid={`project-brain-adopt-${claim.id}`}>
-            采纳为项目决策
+            {t("projectBrain.adopt")}
           </Button>
         ) : null}
         {org.enabled && state?.kind !== "done" ? (
@@ -524,7 +535,7 @@ function ClaimRow({ claim, sharedBy, adoptedFrom, onOpenSources, org, adopt, sou
             onClick={() => org.promote(claim.id)}
             data-testid={`project-brain-promote-org-${claim.id}`}
           >
-            记到组织记忆
+            {t("projectBrain.rememberOrg")}
           </Button>
         ) : null}
       </div>
@@ -534,7 +545,7 @@ function ClaimRow({ claim, sharedBy, adoptedFrom, onOpenSources, org, adopt, sou
             value={adoption.rationale}
             maxLength={KG_ADOPT_RATIONALE_MAX}
             disabled={adoption.kind === "busy"}
-            placeholder="为什么把它定为项目决策？（必填，最多 500 字）"
+            placeholder={t("projectBrain.rationalePlaceholder", { max: KG_ADOPT_RATIONALE_MAX })}
             onChange={(e) => adopt.edit(claim.id, e.target.value)}
             data-testid={`project-brain-adopt-rationale-${claim.id}`}
           />
@@ -547,24 +558,24 @@ function ClaimRow({ claim, sharedBy, adoptedFrom, onOpenSources, org, adopt, sou
               onClick={() => adopt.confirm(claim.id)}
               data-testid={`project-brain-adopt-confirm-${claim.id}`}
             >
-              确认采纳
+              {t("projectBrain.confirmAdopt")}
             </Button>
-            <Button size="xs" variant="ghost" disabled={adoption.kind === "busy"} onClick={() => adopt.cancel(claim.id)} data-testid={`project-brain-adopt-cancel-${claim.id}`}>取消</Button>
+            <Button size="xs" variant="ghost" disabled={adoption.kind === "busy"} onClick={() => adopt.cancel(claim.id)} data-testid={`project-brain-adopt-cancel-${claim.id}`}>{t("projectBrain.cancel")}</Button>
           </div>
         </div>
       ) : null}
       {adoption !== undefined && (adoption.kind === "done" || adoption.kind === "failed") ? (
         <div className="text-11 text-muted-foreground" data-testid={`project-brain-adopt-result-${claim.id}`}>
-          {adoption.kind === "done" ? "已采纳为项目决策，见上方「决定」。" : adoption.text}
+          {adoption.kind === "done" ? t("projectBrain.adopted") : describeAdoptFailure(adoption.text.cause, locale)}
         </div>
       ) : null}
       {state !== undefined && state.kind !== "busy" ? (
         <div className="flex items-center gap-2 text-11 text-muted-foreground" data-testid={`project-brain-promote-org-result-${claim.id}`}>
-          <span>{state.kind === "failed" ? state.text : describePromoteResult(state.result)}</span>
+          <span>{state.kind === "failed" ? ("key" in state.text ? t(state.text.key) : describePromoteFailure(state.text.cause, locale)) : describePromoteResult(state.result, locale)}</span>
           {state.kind === "done" && state.result.outcome === "needs_choice" ? (
             <>
-              <Button size="xs" variant="outline" onClick={() => org.promote(claim.id, "merge")} data-testid={`project-brain-promote-org-merge-${claim.id}`}>合并</Button>
-              <Button size="xs" variant="ghost" onClick={() => org.promote(claim.id, "coexist")} data-testid={`project-brain-promote-org-coexist-${claim.id}`}>分开记</Button>
+              <Button size="xs" variant="outline" onClick={() => org.promote(claim.id, "merge")} data-testid={`project-brain-promote-org-merge-${claim.id}`}>{t("projectBrain.merge")}</Button>
+              <Button size="xs" variant="ghost" onClick={() => org.promote(claim.id, "coexist")} data-testid={`project-brain-promote-org-coexist-${claim.id}`}>{t("projectBrain.coexist")}</Button>
             </>
           ) : null}
         </div>
@@ -573,30 +584,35 @@ function ClaimRow({ claim, sharedBy, adoptedFrom, onOpenSources, org, adopt, sou
   );
 }
 
-function describePromoteResult(r: PromotionResults["results"][number]): string {
+function describePromoteResult(r: PromotionResults["results"][number], locale: Locale = "zh-CN"): string {
   switch (r.outcome) {
-    case "promoted": return "已记到组织记忆。";
-    case "merged_into_existing": return "组织记忆里已有同一条，已合并。";
-    case "coexisting": return "已作为单独一条记到组织记忆。";
-    case "needs_choice": return "组织记忆里已有相近的一条，要合并还是分开记？";
+    case "promoted": return translate(locale, "projectBrain.reason.promoted");
+    case "merged_into_existing": return translate(locale, "projectBrain.reason.merged");
+    case "coexisting": return translate(locale, "projectBrain.reason.coexisting");
+    case "needs_choice": return translate(locale, "projectBrain.reason.choose");
     case "rejected":
-      if (r.code === "KG_EVIDENCE_REVOKED") return "它的出处已经不在了，记不了。";
-      if (r.code === "KG_CONTESTED_NEEDS_RESOLUTION") return "这条有矛盾，先解决再记。";
-      return "这条不在项目记忆里。";
+      if (r.code === "KG_EVIDENCE_REVOKED") return translate(locale, "projectBrain.reason.revokedSource");
+      if (r.code === "KG_CONTESTED_NEEDS_RESOLUTION") return translate(locale, "projectBrain.reason.promoteConflict");
+      return translate(locale, "projectBrain.reason.promoteNotFound");
   }
 }
 
-function describePromoteFailure(e: unknown): string {
+function describePromoteFailure(e: unknown, locale: Locale = "zh-CN"): string {
   const code = knowledgeGraphErrorCode(e);
-  if (code === "KG_NOT_OWNER") return "只有组织负责人或管理员能记到组织记忆。";
-  if (code === "KG_NOT_VISIBLE") return "你看不到这个项目，记不了。";
-  if (e instanceof ApiError) return httpFailureText(e.status);
-  return e instanceof Error ? e.message : "没记上，请稍后重试。";
+  if (code === "KG_NOT_OWNER") return translate(locale, "projectBrain.reason.promoteRole");
+  if (code === "KG_NOT_VISIBLE") return translate(locale, "projectBrain.reason.promoteNoAccess");
+  if (e instanceof ApiError) return httpFailureText(e.status, locale);
+  return e instanceof Error ? e.message : translate(locale, "projectBrain.reason.promoteFailed");
 }
 
-function describeFailure(e: unknown): string {
+function describeFailure(e: unknown, locale: Locale = "zh-CN"): string {
   const code = knowledgeGraphErrorCode(e);
-  if (code === "KG_NOT_VISIBLE") return "你不在这个项目里，看不到它的项目记忆。";
-  if (e instanceof ApiError) return httpFailureText(e.status);
-  return e instanceof Error ? e.message : "读取失败，请稍后重试。";
+  if (code === "KG_NOT_VISIBLE") return translate(locale, "projectBrain.reason.memoryNoRole");
+  if (e instanceof ApiError) return httpFailureText(e.status, locale);
+  return e instanceof Error ? e.message : translate(locale, "projectBrain.reason.loadFailed");
+}
+
+function sharedPersonalLabel(name: string, locale: Locale): string {
+  const trimmed = name.trim();
+  return trimmed === "" ? translate(locale, "chatKnowledge.recall.sharedAnonymous") : translate(locale, "chatKnowledge.recall.shared", { name: trimmed });
 }

@@ -1,0 +1,12 @@
+{
+  "revision": "HEAD",
+  "worktree": false,
+  "mainOnly": 80,
+  "developOnly": 143,
+  "unchangedBaseFiles": 20756,
+  "reviewedOverlap": 1,
+  "reviewedTestFixes": 0,
+  "errors": [
+    "unexpected modification: apps/web/tests/ui/survey-live-publishing.test.tsx"
+  ]
+}

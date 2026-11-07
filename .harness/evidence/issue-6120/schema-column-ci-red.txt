@@ -1,0 +1,45 @@
+2026-11-02T08:41:15.4663773Z  ↓ tests/agent-runtime/playwright-mcp-browser-real.test.ts (6 tests | 6 skipped)
+2026-11-02T08:41:16.0713481Z  ❯ tests/billing/schema-migration.test.ts (16 tests | 1 failed) 321ms
+2026-11-02T08:41:16.0715366Z    × 计费六表结构 > 列的集合被逐表钉住 36ms
+2026-11-02T08:41:16.0716142Z      → expected [ 'amount_fen', 'base_credits', …(14) ] to deeply equal [ 'amount_fen', 'base_credits', …(9) ]
+2026-11-02T08:41:16.0862327Z 
+2026-11-02T08:41:16.0875797Z ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+2026-11-02T08:41:16.0877800Z 
+2026-11-02T08:41:16.0878891Z  FAIL  tests/billing/schema-migration.test.ts > 计费六表结构 > 列的集合被逐表钉住
+2026-11-02T08:41:16.0897247Z AssertionError: expected [ 'amount_fen', 'base_credits', …(14) ] to deeply equal [ 'amount_fen', 'base_credits', …(9) ]
+2026-11-02T08:41:16.0898218Z 
+2026-11-02T08:41:16.0898473Z - Expected
+2026-11-02T08:41:16.0898867Z + Received
+2026-11-02T08:41:16.0899061Z 
+2026-11-02T08:41:16.0899234Z   Array [
+2026-11-02T08:41:16.0899621Z     "amount_fen",
+2026-11-02T08:41:16.0900084Z     "base_credits",
+2026-11-02T08:41:16.0900555Z +   "billing_cycle",
+2026-11-02T08:41:16.0901008Z     "bonus_credits",
+2026-11-02T08:41:16.0901439Z     "bonus_rate",
+2026-11-02T08:41:16.0901838Z     "currency",
+2026-11-02T08:41:16.0902229Z     "enabled",
+2026-11-02T08:41:16.0902714Z +   "extra_seat_amount_fen",
+2026-11-02T08:41:16.0903265Z +   "extra_seat_monthly_credits",
+2026-11-02T08:41:16.0903794Z +   "included_seats",
+2026-11-02T08:41:16.0904193Z     "owner_type",
+2026-11-02T08:41:16.0904583Z     "package_id",
+2026-11-02T08:41:16.0904991Z +   "product_kind",
+2026-11-02T08:41:16.0905397Z     "region",
+2026-11-02T08:41:16.0905790Z     "sort_order",
+2026-11-02T08:41:16.0906190Z     "total_credits",
+2026-11-02T08:41:16.0906556Z   ]
+2026-11-02T08:41:16.0906731Z 
+2026-11-02T08:41:16.0907258Z  ❯ tests/billing/schema-migration.test.ts:80:46
+2026-11-02T08:41:16.1086230Z      78| describe("计费六表结构", () => {
+2026-11-02T08:41:16.1099046Z      79|   it("列的集合被逐表钉住", async () => {
+2026-11-02T08:41:16.1100259Z  Test Files  1 failed | 15 passed | 1 skipped (209)
+2026-11-02T08:41:16.1101862Z       Tests  1 failed | 586 passed | 7 skipped (609)
+2026-11-02T08:41:16.1102717Z    Start at  08:39:28
+2026-11-02T08:41:16.1107950Z    Duration  107.35s (transform 8.21s, setup 99ms, collect 11.01s, tests 92.14s, environment 3ms, prepare 980ms)
+2026-11-02T08:41:16.1118962Z      80|     expect(await columns("credit_packages")).toEqual([
+2026-11-02T08:41:16.1139140Z        |                                              ^
+2026-11-02T08:41:16.1139557Z 
+2026-11-02T08:41:16.1159937Z      81|       "amount_fen", "base_credits", "bonus_credits", "bonus_rate", "cu…
+2026-11-02T08:41:16.1160728Z 
+2026-11-02T08:41:16.1162108Z      82|       "owner_type", "package_id", "region", "sort_order", "total_credi…

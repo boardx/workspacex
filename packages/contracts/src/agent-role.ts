@@ -17,6 +17,8 @@
  * - `AgentStarterPackEntry` 其余字段仍以 `./wave2-runtime` 为准；本文件只给出 toolPolicy 放宽后的形状与角色字段扩展。
  */
 import { z } from "zod";
+import { Locale } from "./locale";
+import { LocalizedEntityDisplay } from "./entity-localization";
 import { AGENT_INTERRUPT_KIND_TO_TOOL_NAME } from "./agent-interrupts";
 import { AvatarKey } from "./interview-expert-avatar";
 import { CapabilityCategory } from "./work-skill-meta";
@@ -267,6 +269,7 @@ export const CapabilityReadiness = z.enum(["ready", "missing", "unknown"]);
 
 /** 成员可见的目录卡片——不含授权详情（R5：成员只见「可用/能力未就绪」）。 */
 export const AgentDirectoryCard = z.object({
+  display: LocalizedEntityDisplay.optional(),
   agentId: Id,
   versionId: Id,
   name: z.string(),
@@ -300,6 +303,7 @@ export const AuthoredSkillBinding = PendingSkillBinding.pick({ stableId: true, s
 export type AuthoredSkillBinding = z.infer<typeof AuthoredSkillBinding>;
 
 export const AgentDirectoryProfile = z.object({
+  display: LocalizedEntityDisplay.optional(),
   agentId: Id,
   /** Trusted server catalog identity; newer clients treat absence as exact pins. */
   skillScope: z.enum(["general", "agent_pins"]).optional(),
@@ -314,6 +318,7 @@ export const AgentDirectoryProfile = z.object({
   pendingSkillBindings: z.array(PendingSkillBinding).max(64),
   /** 委派策略允许转交、且当前在目录中可见的角色。 */
   delegationTargets: z.array(z.object({
+    display: LocalizedEntityDisplay.optional(),
     agentId: Id,
     name: z.string(),
     initials: z.string(),
@@ -346,6 +351,7 @@ export const AgentRoleAdminView = z.object({
  * ⚠ 草案，未签核（additive 只读端点，待 agent-role 契约束补签）。
  */
 export const OfficialRolePackOffer = z.object({
+  /** Display metadata evolves independently; execution upgrade coordinates stay unchanged. */
   packId: z.string(),
   packVersion: z.string(),
   /** 调用者是否组织管理员（= 能否一键启用）。 */
@@ -395,6 +401,7 @@ export const operations = {
     in: z.object({
       roleCategory: AgentRoleCategory.optional(),
       q: z.string().max(100).optional(),
+      locale: Locale.optional(),
     }).strict(),
     out: z.object({ items: z.array(AgentDirectoryCard) }).strict(),
     err: ["UNAUTHENTICATED", "VALIDATION_FAILED"] as const,
@@ -408,14 +415,14 @@ export const operations = {
   },
   getAgentDirectoryCard: {
     method: "GET", path: "/agents/directory/:agentId",
-    in: z.object({ agentId: Id }).strict(),
+    in: z.object({ agentId: Id, locale: Locale.optional() }).strict(),
     out: AgentDirectoryCard,
     err: ["UNAUTHENTICATED", "AGENT_NOT_FOUND"] as const,
   },
   /** AG04 follow-up：成员详情页补充信息（职责、技能引用、可转交对象）。 */
   getAgentDirectoryProfile: {
     method: "GET", path: "/agents/directory/:agentId/profile",
-    in: z.object({ agentId: Id }).strict(),
+    in: z.object({ agentId: Id, locale: Locale.optional() }).strict(),
     out: AgentDirectoryProfile,
     err: ["UNAUTHENTICATED", "AGENT_NOT_FOUND"] as const,
   },

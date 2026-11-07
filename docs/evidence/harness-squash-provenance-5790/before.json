@@ -1,0 +1,14 @@
+{
+  "base": "4cc236c75cdc09f16bbdff1ac76ce90d377222c8",
+  "head": "9755d770c61ee7abd2b2cc189d48a65c5d9e6ed8",
+  "findings": [
+    {
+      "phaseDir": "phase-21-billing-payment",
+      "featureId": "F04",
+      "rule": "attestation_unverifiable",
+      "message": "`evidence/F04.verify.log` 的尾行 commit 53ba99bd780b 存在，但不在 head 的血统里——这份证据见证的是另一条历史，不是本次改动。"
+    }
+  ],
+  "notes": [],
+  "examined": 1
+}

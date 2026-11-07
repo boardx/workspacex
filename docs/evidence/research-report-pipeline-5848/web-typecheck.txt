@@ -1,0 +1,2 @@
+Command: pnpm --filter web exec tsc --noEmit
+Result: exit 0, no compiler output (exec session 45324).

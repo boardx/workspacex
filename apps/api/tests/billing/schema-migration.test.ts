@@ -78,16 +78,17 @@ afterAll(cleanup);
 describe("计费六表结构", () => {
   it("列的集合被逐表钉住", async () => {
     expect(await columns("credit_packages")).toEqual([
-      "amount_fen", "base_credits", "bonus_credits", "bonus_rate", "currency", "enabled",
-      "owner_type", "package_id", "region", "sort_order", "total_credits",
+      "amount_fen", "base_credits", "billing_cycle", "bonus_credits", "bonus_rate", "currency", "enabled",
+      "extra_seat_amount_fen", "extra_seat_monthly_credits", "included_seats",
+      "owner_type", "package_id", "product_kind", "region", "sort_order", "total_credits",
     ]);
     expect(await columns("billing_orders")).toEqual([
       "amount_fen", "base_credits", "bonus_credits", "channel_order_no", "closed_at", "created_at",
       "created_by", "currency", "expired_at", "last_error_code", "last_error_message", "notify_at",
-      "order_no", "owner_id", "owner_type", "package_id", "paid_at", "provider", "qr_code_url", "status",
+      "order_no", "owner_id", "owner_type", "package_id", "paid_at", "provider", "qr_code_url", "status", "stripe_session_ref",
     ]);
     expect(await columns("credit_wallets")).toEqual([
-      "balance", "owner_id", "owner_type", "total_granted", "total_purchased", "updated_at", "wallet_id",
+      "balance", "held_hundredths", "owner_id", "owner_type", "total_granted", "total_purchased", "unbounded_requests", "updated_at", "wallet_id",
     ]);
     expect(await columns("credit_transactions")).toEqual([
       "balance_after", "created_at", "credits", "direction", "operator_id", "reason",
@@ -180,9 +181,9 @@ describe("套餐种子与迁移幂等", () => {
       `SELECT package_id, amount_fen, base_credits, bonus_credits, total_credits, owner_type, enabled
          FROM credit_packages WHERE package_id IN ('pkg-basic', 'pkg-plus', 'pkg-pro') ORDER BY sort_order`)).rows);
     expect(rows).toEqual([
-      { package_id: "pkg-basic", amount_fen: 4900, base_credits: 500, bonus_credits: 0, total_credits: 500, owner_type: "both", enabled: true },
-      { package_id: "pkg-plus", amount_fen: 9900, base_credits: 1200, bonus_credits: 120, total_credits: 1320, owner_type: "both", enabled: true },
-      { package_id: "pkg-pro", amount_fen: 39900, base_credits: 5000, bonus_credits: 1000, total_credits: 6000, owner_type: "both", enabled: true },
+      { package_id: "pkg-basic", amount_fen: 4900, base_credits: 500, bonus_credits: 0, total_credits: 500, owner_type: "both", enabled: false },
+      { package_id: "pkg-plus", amount_fen: 9900, base_credits: 1200, bonus_credits: 120, total_credits: 1320, owner_type: "both", enabled: false },
+      { package_id: "pkg-pro", amount_fen: 39900, base_credits: 5000, bonus_credits: 1000, total_credits: 6000, owner_type: "both", enabled: false },
     ]);
   });
 
@@ -193,8 +194,8 @@ describe("套餐种子与迁移幂等", () => {
     expect(await grants("credit_transactions")).toEqual(priorGrants);
     expect(await asApp(null, async (c) => (await c.query("SELECT wallet_id FROM credit_wallets WHERE owner_id = $1", [USER])).rows)).toEqual([{ wallet_id: walletId }]);
     await expect(insertWallet("user", USER)).rejects.toThrow(/duplicate key/);
-    const n = await asOwner(async (c) => (await c.query<{ n: string }>("SELECT count(*) AS n FROM credit_packages")).rows[0]!);
-    expect(Number(n.n)).toBe(3);
+    const n = await asOwner(async (c) => (await c.query<{ n: string }>("SELECT count(*) AS n FROM credit_packages WHERE package_id IN ('pkg-basic','pkg-plus','pkg-pro','pkg-cn-100','pkg-cn-1000','pkg-cn-3000','pkg-cn-5000','pkg-cn-10000','pkg-cn-20000')")).rows[0]!);
+    expect(Number(n.n)).toBe(9);
   });
 
   it("迁移 DDL 在事务回滚后不留下六表或命名空间", async () => {

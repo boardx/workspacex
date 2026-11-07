@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -17,6 +18,7 @@ export function InlineQuestionText({ value, label, editLabel = label, placeholde
   onSelect?: () => void;
   onChange: (value: string) => void;
 }) {
+  const { t } = useI18n();
   const [editing, setEditing] = React.useState(false);
   const ref = React.useRef<HTMLInputElement & HTMLTextAreaElement>(null);
   const readingRef = React.useRef<HTMLButtonElement>(null);
@@ -68,6 +70,6 @@ export function InlineQuestionText({ value, label, editLabel = label, placeholde
   return <button ref={readingRef} type="button" data-survey-inline-edit disabled={disabled} aria-label={editLabel}
     className={cn("min-h-9 w-full whitespace-pre-wrap break-words rounded-control border border-transparent px-2 py-1 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", !value && "text-muted-foreground", className)}
     onClick={() => { onSelect?.(); setEditing(true); }}>
-    {value || placeholder || "未命名题目"}
+    {value || placeholder || t("survey.design.untitledQuestion")}
   </button>;
 }

@@ -1,0 +1,36 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web
+
+ ❯ tests/ui/pricing-team-purchase-preview.test.ts (3 tests | 3 failed) 10ms
+   × consumes a recoverable applied seat receipt in cn without inventing a payment page 8ms
+     → previewTeamSeatPurchase is not a function
+   × consumes a recoverable applied seat receipt in us without inventing a payment page 1ms
+     → previewTeamSeatPurchase is not a function
+   × consumes a recoverable applied seat receipt in devapp without inventing a payment page 1ms
+     → previewTeamSeatPurchase is not a function
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/pricing-team-purchase-preview.test.ts > consumes a recoverable applied seat receipt in cn without inventing a payment page
+ FAIL  tests/ui/pricing-team-purchase-preview.test.ts > consumes a recoverable applied seat receipt in us without inventing a payment page
+ FAIL  tests/ui/pricing-team-purchase-preview.test.ts > consumes a recoverable applied seat receipt in devapp without inventing a payment page
+TypeError: previewTeamSeatPurchase is not a function
+ ❯ tests/ui/pricing-team-purchase-preview.test.ts:7:16
+      5|  for(const cycle of ["month","year"] as const){
+      6|   const quote=previewSeatQuote(region,cycle,2,region==="us"?"stripe":"…
+      7|   const result=previewTeamSeatPurchase(quote);
+       |                ^
+      8|   expect(TeamPurchaseOutcome.parse(result)).toEqual(result);expect(res…
+      9|   expect(result.status).toBe("SUCCESS");expect(result.paymentPage).toB…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ Test Files  1 failed (1)
+      Tests  3 failed (3)
+   Start at  09:02:41
+   Duration  562ms (transform 97ms, setup 162ms, collect 102ms, tests 10ms, environment 0ms, prepare 58ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/pricing-team-purchase-preview.test.ts

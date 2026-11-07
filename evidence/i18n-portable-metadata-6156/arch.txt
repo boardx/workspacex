@@ -1,0 +1,2 @@
+✅ lint-arch-deps: 2228 files, all dependencies point inward
+scanned=2228

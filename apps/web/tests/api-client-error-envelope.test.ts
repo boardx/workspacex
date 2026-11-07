@@ -33,3 +33,17 @@ describe("API error envelope", () => {
     expect(error).toMatchObject({ status: 503, reasonCode: null });
   });
 });
+
+
+describe("optional expected success status", () => {
+  it.each([200, 202])("rejects HTTP %s when creation requires 201, without a second request", async (status) => {
+    const fetch = vi.fn(async () => new Response(JSON.stringify({ feedbackId: "real-id", status: "待处理" }), { status }));
+    vi.stubGlobal("fetch", fetch);
+    await expect(apiRequest("/feedback", { method: "POST", expectedStatus: 201, sessionToken: null })).rejects.toMatchObject({ status });
+    expect(fetch).toHaveBeenCalledOnce();
+  });
+  it("accepts the actual 201 response", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ feedbackId: "real-id" }), { status: 201 })));
+    await expect(apiRequest("/feedback", { method: "POST", expectedStatus: 201, sessionToken: null })).resolves.toEqual({ feedbackId: "real-id" });
+  });
+});

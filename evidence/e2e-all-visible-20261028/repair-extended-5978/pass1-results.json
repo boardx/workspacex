@@ -1,0 +1,1026 @@
+{
+  "config": {
+    "argv": [
+      "/Users/shenyangjun/.nvm/versions/node/v22.23.2/bin/node",
+      "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/node_modules/@playwright/test/cli.js",
+      "test",
+      "--config",
+      "/tmp/wsx-repair-5978.config.ts",
+      "--project=chat-task-workbench",
+      "--project=chat-read",
+      "chat-task-workbench-a11y.spec.ts",
+      "chat-task-workbench-approval.spec.ts",
+      "chat-task-workbench-capability-cards.spec.ts",
+      "chat-task-workbench-inspector.spec.ts",
+      "chat-task-workbench-tool-events.spec.ts",
+      "chat-attachment-image-vision-extraction.spec.ts",
+      "copilotkit-v2-stream-frame-timing.spec.ts"
+    ],
+    "configFile": "/tmp/wsx-repair-5978.config.ts",
+    "rootDir": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/chat-route-warmup.global-setup.ts",
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass1-browser",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chat-read",
+        "name": "chat-read",
+        "testDir": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/(chat-task-workbench-(?:empty-state|capability-cards|composer|copy|polish|scroll-overshoot)|chat-skill-picker-viewport|chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-canvas-guidance-render|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|agent-chat-core-paths|agent-task-clarification-result|agent-task-planning-hitl|agent-workbench-scroll-acceptance|agent-workbench-control-acceptance|agent-workbench-ui-refinement|agent-workbench-steering-acceptance|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|copilotkit-v2-stream-frame-timing|copilotkit-v2-error-banner|copilotkit-v2-thread-persistence|copilotkit-v2-run-restore-after-switch|copilotkit-v2-agent-switch|copilotkit-v2-attachments|copilotkit-v2-composer-attachment-thumbnails|copilotkit-v2-skill-mount|copilotkit-v2-default-agent|copilotkit-v2-right-panel|copilotkit-v2-materials-drop-upload|copilotkit-v2-persona-archived|copilotkit-v2-uiux-shots|copilotkit-v2-message-actions|copilotkit-v2-roster-landing|chat-keyboard-navigation|chat-path-a5-cold-start-first-paint|chat-path-a3-long-session-fact-survival|chat-path-c4-two-canvases-one-turn|chat-path-c5-consecutive-artifact-turns|chat-path-d4-skill-three-states|chat-path-f6-concurrent-runs|chat-path-f7-upstream-stream-abort|chat-read-plan-surface-visibility|chat-stop-generation-sidebar-status)\\.spec\\.ts$/"
+        ],
+        "timeout": 120000
+      },
+      {
+        "outputDir": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass1-browser",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chat-path-coverage",
+        "name": "chat-path-coverage",
+        "testDir": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/(deepagent-plan-execute-reliability|chat-run-always-lands|first-value-citation-loop|chat-path-(f2-network-drop-reconnect|c6-office-artifacts|c8-subtask-artifact-writeback|f5-cancel-propagates-to-subtask|c1-canvas-survives-run-finalization|c2-canvas-fence-identity|d1-failed-tool-card-status|f1-failure-cause-distinguishable|f3-pause-resume-retry-step|ab-hitl-continuity))\\.spec\\.ts$/"
+        ],
+        "timeout": 120000
+      },
+      {
+        "outputDir": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass1-browser",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chat-task-workbench",
+        "name": "chat-task-workbench",
+        "testDir": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/(chat-task-workbench-(workflow-states|inspector|approval|tool-events|p1-efficiency|a11y)|chat-ux-eval)\\.spec\\.ts$/"
+        ],
+        "timeout": 120000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass1-results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.0",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "chat-attachment-image-vision-extraction.spec.ts",
+      "file": "chat-attachment-image-vision-extraction.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "F153/#1560 P1：真实浏览器上传图片附件走 VLM，本机无视觉 key → 诚实降级为 failed，不假装已读取图片内容",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 120000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-read",
+              "projectName": "chat-read",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 23543,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:09:54.526Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "3aa65bf17551916dc889-c0f693539b81917be13b",
+          "file": "chat-attachment-image-vision-extraction.spec.ts",
+          "line": 67,
+          "column": 5
+        },
+        {
+          "title": "F153 附件在消息气泡里只读展示且不谎称已读取内容（v2 尚无对等实现，issue #2997 缺口）",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 120000,
+              "annotations": [
+                {
+                  "type": "fixme",
+                  "location": {
+                    "file": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/chat-attachment-image-vision-extraction.spec.ts",
+                    "line": 237,
+                    "column": 6
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "chat-read",
+              "projectName": "chat-read",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 0,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:10:19.111Z",
+                  "annotations": [
+                    {
+                      "type": "fixme",
+                      "location": {
+                        "file": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/chat-attachment-image-vision-extraction.spec.ts",
+                        "line": 237,
+                        "column": 6
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "3aa65bf17551916dc889-34c3f9f045c982c67e8b",
+          "file": "chat-attachment-image-vision-extraction.spec.ts",
+          "line": 237,
+          "column": 6
+        }
+      ]
+    },
+    {
+      "title": "chat-task-workbench-capability-cards.spec.ts",
+      "file": "chat-task-workbench-capability-cards.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "TW-P0-2①：入口是「选择能力」且默认自动匹配、可展开",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 180000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-read",
+              "projectName": "chat-read",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 7286,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:10:19.121Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "c221cc8f66fdcd8595c0-b3adde2d125be00b5852",
+          "file": "chat-task-workbench-capability-cards.spec.ts",
+          "line": 35,
+          "column": 5
+        },
+        {
+          "title": "TW-P0-2②：每张能力卡披露六项（擅长/工具技能/可读材料/写权限/记忆范围/当前状态）",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 180000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-read",
+              "projectName": "chat-read",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 6427,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:10:26.413Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "c221cc8f66fdcd8595c0-9f311abcceae6607520b",
+          "file": "chat-task-workbench-capability-cards.spec.ts",
+          "line": 63,
+          "column": 5
+        },
+        {
+          "title": "TW-P0-2③：模型名 / middleware / LangGraph 节点等技术信息不出现在主界面",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 180000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-read",
+              "projectName": "chat-read",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 5538,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:10:32.854Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "c221cc8f66fdcd8595c0-bdeb02feb8cb774042c5",
+          "file": "chat-task-workbench-capability-cards.spec.ts",
+          "line": 108,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "copilotkit-v2-stream-frame-timing.spec.ts",
+      "file": "copilotkit-v2-stream-frame-timing.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "DA-19g 流式反馈 UI 帧级复核——assistant 正文的 DOM 文本长度随时间逐步增长，不是一次性跳变",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 120000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-read",
+              "projectName": "chat-read",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 10623,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "text": "DA-19g stream frame samples: [0,24,64,104,144,190]\n"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:10:38.416Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "978b1cfd2e2b00372799-e678d9e3483a7375dd64",
+          "file": "copilotkit-v2-stream-frame-timing.spec.ts",
+          "line": 77,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "chat-task-workbench-a11y.spec.ts",
+      "file": "chat-task-workbench-a11y.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "TW-A11Y-1：/chat 工作台对比度零违规（axe color-contrast，含灰色辅助文字）",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-task-workbench",
+              "projectName": "chat-task-workbench",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 51444,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:10:49.719Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "64db9c34ddfac18517cb-eccf59ee0ce0b6ad8351",
+          "file": "chat-task-workbench-a11y.spec.ts",
+          "line": 29,
+          "column": 5
+        },
+        {
+          "title": "TW-A11Y-2/3：小图标与圆形按钮点击区 ≥24×24，且仅图标按钮有可访问名",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-task-workbench",
+              "projectName": "chat-task-workbench",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 32560,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:11:41.553Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "64db9c34ddfac18517cb-72d4e814f41a8292893a",
+          "file": "chat-task-workbench-a11y.spec.ts",
+          "line": 46,
+          "column": 5
+        },
+        {
+          "title": "TW-A11Y-4：Agent 状态 / 工具完成 / 审批请求有 live region 播报",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-task-workbench",
+              "projectName": "chat-task-workbench",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 32122,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:12:14.170Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "64db9c34ddfac18517cb-66e2f8908673a995ca67",
+          "file": "chat-task-workbench-a11y.spec.ts",
+          "line": 91,
+          "column": 5
+        },
+        {
+          "title": "TW-A11Y-5：审批弹窗焦点锁定 + Esc 关闭 + 焦点返回原处",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-task-workbench",
+              "projectName": "chat-task-workbench",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 20836,
+                  "error": {
+                    "message": "Error: 【差距 TW-A11Y-5】弹窗关闭后焦点没有回到原处（落在了 BODY）。\n键盘用户会被弹回文档开头，丢失上下文。\n判据见 .harness/instructions/chat-task-workbench-acceptance.md 的 TW-A11Y-5。\n\n\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoMatch\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected pattern: \u001b[32m/copilotkit-v2-(input|send)/\u001b[39m\nReceived string:  \u001b[31m\"BODY\"\u001b[39m",
+                    "stack": "Error: 【差距 TW-A11Y-5】弹窗关闭后焦点没有回到原处（落在了 BODY）。\n键盘用户会被弹回文档开头，丢失上下文。\n判据见 .harness/instructions/chat-task-workbench-acceptance.md 的 TW-A11Y-5。\n\n\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoMatch\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected pattern: \u001b[32m/copilotkit-v2-(input|send)/\u001b[39m\nReceived string:  \u001b[31m\"BODY\"\u001b[39m\n    at /Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/chat-task-workbench-a11y.spec.ts:161:5",
+                    "location": {
+                      "file": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/chat-task-workbench-a11y.spec.ts",
+                      "column": 5,
+                      "line": 161
+                    },
+                    "snippet": "  159 |       `判据见 ${ACCEPTANCE_DOC} 的 TW-A11Y-5。`,\n  160 |     ].join(\"\\n\"),\n> 161 |   ).toMatch(/copilotkit-v2-(input|send)/);\n      |     ^\n  162 | });\n  163 |\n  164 | test(\"TW-A11Y-6：语音状态不能只靠颜色（须并存文本或图标差异）\", async ({ page }) => {"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/chat-task-workbench-a11y.spec.ts",
+                        "column": 5,
+                        "line": 161
+                      },
+                      "message": "Error: 【差距 TW-A11Y-5】弹窗关闭后焦点没有回到原处（落在了 BODY）。\n键盘用户会被弹回文档开头，丢失上下文。\n判据见 .harness/instructions/chat-task-workbench-acceptance.md 的 TW-A11Y-5。\n\n\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoMatch\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected pattern: \u001b[32m/copilotkit-v2-(input|send)/\u001b[39m\nReceived string:  \u001b[31m\"BODY\"\u001b[39m\n\n  159 |       `判据见 ${ACCEPTANCE_DOC} 的 TW-A11Y-5。`,\n  160 |     ].join(\"\\n\"),\n> 161 |   ).toMatch(/copilotkit-v2-(input|send)/);\n      |     ^\n  162 | });\n  163 |\n  164 | test(\"TW-A11Y-6：语音状态不能只靠颜色（须并存文本或图标差异）\", async ({ page }) => {\n    at /Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/chat-task-workbench-a11y.spec.ts:161:5"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:12:46.346Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass1-browser/chat-task-workbench-a11y-TW-A11Y-5：审批弹窗焦点锁定-Esc-关闭-焦点返回原处-chat-task-workbench/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass1-browser/chat-task-workbench-a11y-TW-A11Y-5：审批弹窗焦点锁定-Esc-关闭-焦点返回原处-chat-task-workbench/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass1-browser/chat-task-workbench-a11y-TW-A11Y-5：审批弹窗焦点锁定-Esc-关闭-焦点返回原处-chat-task-workbench/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/chat-task-workbench-a11y.spec.ts",
+                    "column": 5,
+                    "line": 161
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "64db9c34ddfac18517cb-1cf348e5f0c89d9d6ee0",
+          "file": "chat-task-workbench-a11y.spec.ts",
+          "line": 121,
+          "column": 5
+        },
+        {
+          "title": "TW-A11Y-6：语音状态不能只靠颜色（须并存文本或图标差异）",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-task-workbench",
+              "projectName": "chat-task-workbench",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 20232,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:13:08.640Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "64db9c34ddfac18517cb-20923e42a51253c13af4",
+          "file": "chat-task-workbench-a11y.spec.ts",
+          "line": 164,
+          "column": 5
+        },
+        {
+          "title": "TW-A11Y-7：200% 缩放与窄屏重排不产生横向滚动",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-task-workbench",
+              "projectName": "chat-task-workbench",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 19486,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:13:29.603Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "64db9c34ddfac18517cb-720906999844d08cf846",
+          "file": "chat-task-workbench-a11y.spec.ts",
+          "line": 272,
+          "column": 5
+        },
+        {
+          "title": "TW-A11Y-8：Tab 顺序与焦点可见性（axe cat.keyboard 打在真实 /chat 上）",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-task-workbench",
+              "projectName": "chat-task-workbench",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 12596,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:13:49.105Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "64db9c34ddfac18517cb-01dfdb79621f74d2f442",
+          "file": "chat-task-workbench-a11y.spec.ts",
+          "line": 302,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "chat-task-workbench-approval.spec.ts",
+      "file": "chat-task-workbench-approval.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "TW-P0-6①：审批界面四选一按钮齐（仅本次 / 本 run 内 / 以后都允许 / 拒绝）",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-task-workbench",
+              "projectName": "chat-task-workbench",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 12525,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:14:01.717Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "6d2462d7d5c598f2361c-03608589a3436054ce15",
+          "file": "chat-task-workbench-approval.spec.ts",
+          "line": 40,
+          "column": 5
+        },
+        {
+          "title": "TW-P0-6②：审批卡披露五项（想做什么 / 为什么 / 影响面 / 完整参数 / 风险等级）",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-task-workbench",
+              "projectName": "chat-task-workbench",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 12092,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:14:14.251Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "6d2462d7d5c598f2361c-7ebde5758d3351476ef9",
+          "file": "chat-task-workbench-approval.spec.ts",
+          "line": 61,
+          "column": 5
+        },
+        {
+          "title": "TW-P0-6③：风险分级生效——纯读操作不得弹审批（反证面）",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-task-workbench",
+              "projectName": "chat-task-workbench",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 33002,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:14:26.354Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "6d2462d7d5c598f2361c-f2f5eb5d04594b98c56b",
+          "file": "chat-task-workbench-approval.spec.ts",
+          "line": 89,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "chat-task-workbench-inspector.spec.ts",
+      "file": "chat-task-workbench-inspector.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "TW-P0-4①：右栏提供材料 / 产物 / 运行详情，计划只在消息流显示",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-task-workbench",
+              "projectName": "chat-task-workbench",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 8399,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:14:59.369Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "c2bd671c6cca46070e91-82c32eb5da46aebf7906",
+          "file": "chat-task-workbench-inspector.spec.ts",
+          "line": 31,
+          "column": 5
+        },
+        {
+          "title": "TW-P0-4②：上传材料自动切换，运行开始保留用户所选页签",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-task-workbench",
+              "projectName": "chat-task-workbench",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 42717,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveAttribute\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByTestId('chat-task-workbench-inspector')\nExpected: \u001b[32m\"\u001b[7mrun-detai\u001b[27mls\"\u001b[39m\nReceived: \u001b[31m\"\u001b[7mmateria\u001b[27mls\"\u001b[39m\nTimeout:  30000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveAttribute\" with timeout 30000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('chat-task-workbench-inspector')\u001b[22m\n\u001b[2m    63 × locator resolved to <aside aria-label=\"任务检查器\" data-collapsed=\"false\" data-drop-active=\"false\" data-active-tab=\"materials\" data-testid=\"chat-task-workbench-inspector\" class=\"relative flex shrink-0 flex-col border-l border-border-subtle bg-panel-alt\">…</aside>\u001b[22m\n\u001b[2m       - unexpected value \"materials\"\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveAttribute\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByTestId('chat-task-workbench-inspector')\nExpected: \u001b[32m\"\u001b[7mrun-detai\u001b[27mls\"\u001b[39m\nReceived: \u001b[31m\"\u001b[7mmateria\u001b[27mls\"\u001b[39m\nTimeout:  30000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveAttribute\" with timeout 30000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('chat-task-workbench-inspector')\u001b[22m\n\u001b[2m    63 × locator resolved to <aside aria-label=\"任务检查器\" data-collapsed=\"false\" data-drop-active=\"false\" data-active-tab=\"materials\" data-testid=\"chat-task-workbench-inspector\" class=\"relative flex shrink-0 flex-col border-l border-border-subtle bg-panel-alt\">…</aside>\u001b[22m\n\u001b[2m       - unexpected value \"materials\"\u001b[22m\n\n    at /Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/chat-task-workbench-inspector.spec.ts:92:27",
+                    "location": {
+                      "file": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/chat-task-workbench-inspector.spec.ts",
+                      "column": 27,
+                      "line": 92
+                    },
+                    "snippet": "  90 |\n  91 |   await expect(page.getByTestId(\"copilotkit-v2-running-indicator\")).toHaveCount(0, { timeout: 120_000 });\n> 92 |   await expect(inspector).toHaveAttribute(\"data-active-tab\", \"run-details\");\n     |                           ^\n  93 |   await expect(page.getByTestId(\"chat-task-workbench-inspector-tab-progress\")).toHaveCount(0);\n  94 | });\n  95 |"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/chat-task-workbench-inspector.spec.ts",
+                        "column": 27,
+                        "line": 92
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveAttribute\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByTestId('chat-task-workbench-inspector')\nExpected: \u001b[32m\"\u001b[7mrun-detai\u001b[27mls\"\u001b[39m\nReceived: \u001b[31m\"\u001b[7mmateria\u001b[27mls\"\u001b[39m\nTimeout:  30000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveAttribute\" with timeout 30000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('chat-task-workbench-inspector')\u001b[22m\n\u001b[2m    63 × locator resolved to <aside aria-label=\"任务检查器\" data-collapsed=\"false\" data-drop-active=\"false\" data-active-tab=\"materials\" data-testid=\"chat-task-workbench-inspector\" class=\"relative flex shrink-0 flex-col border-l border-border-subtle bg-panel-alt\">…</aside>\u001b[22m\n\u001b[2m       - unexpected value \"materials\"\u001b[22m\n\n\n  90 |\n  91 |   await expect(page.getByTestId(\"copilotkit-v2-running-indicator\")).toHaveCount(0, { timeout: 120_000 });\n> 92 |   await expect(inspector).toHaveAttribute(\"data-active-tab\", \"run-details\");\n     |                           ^\n  93 |   await expect(page.getByTestId(\"chat-task-workbench-inspector-tab-progress\")).toHaveCount(0);\n  94 | });\n  95 |\n    at /Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/chat-task-workbench-inspector.spec.ts:92:27"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:15:07.774Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass1-browser/chat-task-workbench-inspector-TW-P0-4②：上传材料自动切换，运行开始保留用户所选页签-chat-task-workbench/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass1-browser/chat-task-workbench-inspector-TW-P0-4②：上传材料自动切换，运行开始保留用户所选页签-chat-task-workbench/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass1-browser/chat-task-workbench-inspector-TW-P0-4②：上传材料自动切换，运行开始保留用户所选页签-chat-task-workbench/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/chat-task-workbench-inspector.spec.ts",
+                    "column": 27,
+                    "line": 92
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "c2bd671c6cca46070e91-a83e92bff13cf4170fb5",
+          "file": "chat-task-workbench-inspector.spec.ts",
+          "line": 59,
+          "column": 5
+        },
+        {
+          "title": "TW-P0-4③：无内容时折叠，不常驻占六分之一屏",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-task-workbench",
+              "projectName": "chat-task-workbench",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 9199,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:15:51.249Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "c2bd671c6cca46070e91-a32d19985ecbd0fc67cf",
+          "file": "chat-task-workbench-inspector.spec.ts",
+          "line": 96,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "chat-task-workbench-tool-events.spec.ts",
+      "file": "chat-task-workbench-tool-events.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "TW-P0-7①：事件行措辞面向用户，不印裸工具名 / 裸 JSON / 裸枚举",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-task-workbench",
+              "projectName": "chat-task-workbench",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 31509,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:16:00.810Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e472c5f4a3322c3ed33f-65da63911e28b4d0a706",
+          "file": "chat-task-workbench-tool-events.spec.ts",
+          "line": 43,
+          "column": 5
+        },
+        {
+          "title": "TW-P0-7②：不暴露隐藏思维链",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-task-workbench",
+              "projectName": "chat-task-workbench",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 30835,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:16:32.325Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e472c5f4a3322c3ed33f-45babec058243068010d",
+          "file": "chat-task-workbench-tool-events.spec.ts",
+          "line": 78,
+          "column": 5
+        },
+        {
+          "title": "TW-P0-7③：子 Agent 是可折叠树，默认摘要，展开看输入/工具/耗时/结果",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-task-workbench",
+              "projectName": "chat-task-workbench",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 30749,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:17:03.166Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e472c5f4a3322c3ed33f-28442140f966202fb5b4",
+          "file": "chat-task-workbench-tool-events.spec.ts",
+          "line": 98,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-28T20:08:33.845Z",
+    "duration": 540593.2200000001,
+    "expected": 19,
+    "skipped": 1,
+    "unexpected": 2,
+    "flaky": 0
+  }
+}

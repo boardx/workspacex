@@ -32,6 +32,14 @@ import importlib
 import sys
 
 
+import pytest
+
+@pytest.fixture(autouse=True)
+def mandatory_accounting_configuration(monkeypatch,tmp_path):
+    # Client-construction tests do not dispatch; use explicit bounded deployment config.
+    monkeypatch.setenv("KERNEL_MODEL_MAX_OUTPUT_TOKENS","4096")
+    monkeypatch.setenv("DEEP_AGENT_USAGE_SPOOL_DIR",str(tmp_path))
+
 def _import_graph_with_fake_model_env(monkeypatch):  # noqa: ANN001, ANN202
     monkeypatch.setenv("KERNEL_MODEL_BASE_URL", "http://localhost:1")
     monkeypatch.setenv("KERNEL_MODEL_API_KEY", "test-key")

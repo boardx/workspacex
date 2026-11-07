@@ -1,6 +1,15 @@
 import { createServer, type RequestListener, type Server } from "node:http";
 import { afterEach, expect, it } from "vitest";
-import { warmChatRoute } from "../e2e/support/chat-route-warmup";
+import { warmChatRoute, warmupFailureDiagnostic } from "../e2e/support/chat-route-warmup";
+
+it("reports only allowlisted nested connection codes without message URL or credentials", () => {
+  const cause = Object.assign(new Error("secret password URL https://private.invalid SQL SELECT"), { code: "ECONNREFUSED" });
+  const value = warmupFailureDiagnostic(new TypeError("fetch failed", { cause }));
+  expect(value).toEqual({ kind: "chat-warmup-failure-v1", errorType: "TypeError", errorCode: "ECONNREFUSED" });
+  expect(JSON.stringify(value)).not.toContain("secret");
+  expect(warmupFailureDiagnostic(Object.assign(new Error("secret"), { code: "SECRET_VALUE" })).errorCode).toBeNull();
+  expect(warmupFailureDiagnostic("secret").errorType).toBe("Unknown");
+});
 
 const servers: Server[] = [];
 afterEach(async () => {

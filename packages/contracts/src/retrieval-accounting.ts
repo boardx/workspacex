@@ -7,5 +7,6 @@ export type RetrievalAccountingContext=z.infer<typeof RetrievalAccountingContext
 
 /** Opaque durable server operation: actor/job/version are rederived at the API, never asserted here. */
 export const ArtifactEmbeddingAccountingContext=z.object({kind:z.literal('artifact-index'),orgId:z.string().min(1).max(200),operationId:z.string().uuid()}).strict();
-export const EmbeddingAccountingContext=z.union([RetrievalAccountingContext,ArtifactEmbeddingAccountingContext]);
+export const KnowledgeEmbeddingAccountingContext=z.object({kind:z.literal("knowledge-index"),orgId:z.string().min(1).max(200),operationId:z.string().uuid()}).strict();
+export const EmbeddingAccountingContext=z.union([RetrievalAccountingContext,ArtifactEmbeddingAccountingContext,KnowledgeEmbeddingAccountingContext]);
 export type EmbeddingAccountingContext=z.infer<typeof EmbeddingAccountingContext>;

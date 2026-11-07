@@ -1,3 +1,4 @@
+import { notifyCreditFailure } from "./credit-guidance";
 import { research } from "@repo/contracts";
 import { apiUrl, ApiError, extractReasonCode, getStoredSessionToken } from "./api-client";
 import type { GuidedResearchRuntime, GuidedResearchRuntimeCommand } from "./guided-research-api";
@@ -16,7 +17,7 @@ export async function streamResearchCommand(input: GuidedResearchRuntimeCommand,
   const response = await fetch(apiUrl(op.path.replace(":sessionId", encodeURIComponent(input.sessionId))), {
     method: "POST", signal, credentials: "include", headers: { "Content-Type": "application/json", Accept: "application/x-ndjson, text/event-stream;q=0.5", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(body),
   });
-  if (!response.ok) { const raw: unknown = await response.json().catch(() => null); throw new ApiError(response.status, extractReasonCode(raw), raw); }
+  if (!response.ok) { const raw: unknown = await response.json().catch(() => null); notifyCreditFailure(raw); throw new ApiError(response.status, extractReasonCode(raw), raw); }
   if (response.body && response.headers.get("content-type")?.includes("application/x-ndjson")) return readResearchGenerationStream(response, input, onEvent, signal, baseline);
   if (!response.body || !response.headers.get("content-type")?.includes("text/event-stream")) throw new ApiError(502, "RESEARCH_STREAM_INVALID", null);
   const reader = response.body.getReader(); const decoder = new TextDecoder(); let buffer = "";
@@ -31,7 +32,7 @@ export async function streamResearchCommand(input: GuidedResearchRuntimeCommand,
         const data = frame.split(/\r?\n/).filter((line) => line.startsWith("data:")).map((line) => line.slice(5).trimStart()).join("\n");
         if (!data) continue;
         const event = research.GuidedResearchRuntimeStreamEvent.parse(JSON.parse(data));
-        if (event.type === "error") throw new ApiError(409, event.reasonCode, event);
+        if (event.type === "error") { notifyCreditFailure(event); throw new ApiError(409, event.reasonCode, event); }
         if (event.type === "patch" || event.type === "result_patch") {
           if (!current) throw new ApiError(502, "RESEARCH_STATE_SNAPSHOT_REQUIRED", null);
           current = mergeResearchDelta(current, event.state);

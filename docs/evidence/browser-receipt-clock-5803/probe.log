@@ -1,0 +1,35 @@
+[stack-admission] load1=1.77 cores=10 perCore=0.18 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvawp2ux-251d4b81-49d7b302de3c db=wsx_49d7b302de3cbab45c46 compose=wsx-49d7b302de3cbab45c46 pg=20834 redis=21834 api=24834 web=25834 sandbox=26834 model=27834 deep-agent=28834 asr=29299 vision=30834 loopback-sandbox=31834 mail=19834
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_49d7b302de3cbab45c46 capacity=100 current=6 required=32
+stdout | tests/agent-runtime/browser-execution-receipts-real-db.test.ts > timeout rejects late completion and keeps an honest unknown receipt across restart
+browser-receipt-clock-probe {
+  hostBefore: 1792151453002,
+  hostAfter: 1792151453008,
+  databaseMs: 1792151453006,
+  hostMinusDbLower: -4,
+  hostMinusDbUpper: 2,
+  deadlineMs: 1792151453007
+}
+
+stdout | tests/agent-runtime/browser-execution-receipts-real-db.test.ts > timeout rejects late completion and keeps an honest unknown receipt across restart
+browser-receipt-clock-result { rejected: true }
+
+ ✓ tests/agent-runtime/browser-execution-receipts-real-db.test.ts (6 tests) 7393ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  19:50:42
+   Duration  10.82s (transform 137ms, setup 4ms, collect 67ms, tests 7.39s, environment 0ms, prepare 32ms)
+
+[db-isolation] db=wsx_49d7b302de3cbab45c46 peak_connections=3
+[timing] pnpm --filter api exec vitest run tests/agent-runtime/browser-execution-receipts-real-db.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：11s
+  清理：0s
+  总计：12s

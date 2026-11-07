@@ -1,0 +1,12 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/799b/workspacex/apps/api
+
+ ✓ tests/research/guided-three-step.test.ts (52 tests) 5540ms
+   ✓ retains report gates on retry (task loses evidence=false, quality rejects=false, valid negative=false, empty chapter=false) 1189ms
+   ✓ retains report gates on generate_report (task loses evidence=true, quality rejects=true, valid negative=false, empty chapter=false) 381ms
+
+ Test Files  1 passed (1)
+      Tests  52 passed (52)
+   Start at  17:44:20
+   Duration  8.70s (transform 1.99s, setup 0ms, collect 2.82s, tests 5.54s, environment 0ms, prepare 80ms)
+

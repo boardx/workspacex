@@ -76,7 +76,7 @@ export class HttpLocalModelRuntime implements LocalModelRuntime {
     if(this.productQuotaEnabled)throw new Error("LOCAL_MODEL_ADMISSION_REQUIRED");
     if(this.accounting&&!context)throw new Error("LOCAL_ACCOUNTING_CONTEXT_REQUIRED");
     context?.signal?.throwIfAborted();
-    const receipt=this.accounting?await this.accounting.start(context!,{requestId:randomUUID(),modelId:this.modelId,startedAt:new Date().toISOString()}):undefined;
+    const receipt=this.accounting?await this.accounting.start(context!,{requestId:randomUUID(),modelId:this.modelId,startedAt:new Date().toISOString(),maximumTokens:Buffer.byteLength(prompt,"utf8")+4096}):undefined;
     let usage:ReportedUsage={},outcome:"succeeded"|"failed"="failed";
     try {
     // No retry, no fallback endpoint, no "if this fails try the other one". The absence is
@@ -84,7 +84,7 @@ export class HttpLocalModelRuntime implements LocalModelRuntime {
     // read as local-first.
     const raw = await this.request(
       "POST", "/api/generate",
-      JSON.stringify({ model: this.modelId, prompt, stream: false }),
+      JSON.stringify({ model: this.modelId, prompt, stream: false, options:{num_predict:4096} }),
       120_000,context?.signal,receipt?(status,raw)=>{usage=readLocalUsage(raw);if(status>=200&&status<300)outcome="succeeded";}:undefined,
     );
     // `{ "response": "..." }` on success; anything else (an `error` object, a non-JSON body) is
@@ -98,7 +98,7 @@ export class HttpLocalModelRuntime implements LocalModelRuntime {
     }
     return raw;
     } finally {
-      if(receipt)try{await receipt.terminal({endedAt:new Date().toISOString(),outcome,usage});}catch{this.accountingFault=true;this.logger.warn("LOCAL_USAGE_TERMINAL_FAILED: unmatched durable start; subsequent inference blocked in this instance");}
+      if(receipt)try{await receipt.terminal({endedAt:new Date().toISOString(),outcome,usage});}catch(error){this.accountingFault=true;this.logger.warn("LOCAL_USAGE_TERMINAL_FAILED: unmatched durable start; subsequent inference blocked in this instance");throw error;}
     }
   }
 

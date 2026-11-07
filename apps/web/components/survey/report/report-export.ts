@@ -1,3 +1,4 @@
+import { surveyRuntimeMessages, surveyReportImageMissingMessage } from "@/lib/survey/runtime-error-copy";
 import type { survey } from "@repo/contracts";
 import { surveyReportShareBlockedReason } from "@repo/contracts/survey-report";
 import { reportChartSvg } from "./report-chart";
@@ -8,7 +9,7 @@ function loadImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image();
     const timeout = setTimeout(
-      () => reject(new Error("图片加载超时，请检查图片地址后重试")),
+      () => reject(new Error(surveyRuntimeMessages.reportImageTimeout)),
       8000,
     );
     image.crossOrigin = "anonymous";
@@ -19,7 +20,7 @@ function loadImage(url: string): Promise<HTMLImageElement> {
     };
     image.onerror = () => {
       clearTimeout(timeout);
-      reject(new Error("图片加载失败，请检查图片地址及跨域访问权限"));
+      reject(new Error(surveyRuntimeMessages.reportImageLoad));
     };
     image.src = url;
   });
@@ -37,7 +38,7 @@ async function rasterImage(url: string) {
   canvas.width = width * 2;
   canvas.height = height * 2;
   const context = canvas.getContext("2d");
-  if (!context) throw new Error("图片转换不可用，请使用支持 Canvas 的浏览器");
+  if (!context) throw new Error(surveyRuntimeMessages.reportCanvasUnavailable);
   try {
     context.fillStyle = "white";
     context.fillRect(0, 0, canvas.width, canvas.height);
@@ -48,7 +49,7 @@ async function rasterImage(url: string) {
     );
     return { data, width, height };
   } catch {
-    throw new Error("图片转换失败，请检查图片跨域访问权限");
+    throw new Error(surveyRuntimeMessages.reportImageConversion);
   }
 }
 
@@ -126,7 +127,7 @@ export async function buildSurveyReportWord(
       let image: Awaited<ReturnType<typeof rasterImage>> | undefined;
       if (block.type === "image") {
         if (!block.imageUrl)
-          throw new Error(`图片「${block.title}」尚未配置，无法完整导出`);
+          throw new Error(surveyReportImageMissingMessage(block.title));
         image = await rasterImage(block.imageUrl);
       } else if (
         ["bar", "radar", "line"].includes(block.type) &&
@@ -262,7 +263,7 @@ export async function printSurveyReport(
   const shareBlockedReason = report && surveyReportShareBlockedReason(report);
   if (shareBlockedReason) throw new Error(shareBlockedReason);
   if (reportRoot.querySelector("[data-report-image-error]"))
-    throw new Error("图片加载失败，无法完整打印报告");
+    throw new Error(surveyRuntimeMessages.reportPrintIncomplete);
   const frame = document.createElement("iframe");
   frame.title = "调研报告 PDF";
   frame.style.cssText = "position:fixed;width:0;height:0;border:0";
@@ -275,7 +276,7 @@ export async function printSurveyReport(
   try {
     const target = frame.contentDocument,
       view = frame.contentWindow;
-    if (!target || !view) throw new Error("浏览器不支持打印报告");
+    if (!target || !view) throw new Error(surveyRuntimeMessages.reportPrintUnavailable);
     const report = target.importNode(reportRoot, true);
     report
       .querySelectorAll("[data-report-ui],button,input,textarea,script")
@@ -295,7 +296,7 @@ export async function printSurveyReport(
       image.src = url;
       await new Promise<void>((resolve, reject) => {
         image.onload = () => resolve();
-        image.onerror = () => reject(new Error("图片加载失败，无法打印"));
+        image.onerror = () => reject(new Error(surveyRuntimeMessages.reportPrintImageLoad));
         if (image.complete && image.naturalWidth) resolve();
       });
     }

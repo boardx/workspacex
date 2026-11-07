@@ -1,3 +1,4 @@
+import {CreditConsumptionError} from "../../application/billing/credit-consumption";
 /**
  * `OpenAiImageProvider` —— `wx_image_generate` 的第二条供应商实现（人类直接指令
  * 2026-09-10：「我需要你可以接入 openai」）。
@@ -59,10 +60,13 @@ export interface OpenAiImageProviderConfig {
   /** OpenAI 组织/项目头，未设则不发——不是必填。 */
   readonly organization: string | null;
   readonly project: string | null;
+  /** Audited maximum billed Tokens for the configured image model/request size. */
+  readonly maximumBillableTokens?:number;
 }
 
 export function readOpenAiImageProviderConfig(env: NodeJS.ProcessEnv = process.env): OpenAiImageProviderConfig {
   const timeout = Number(env.KERNEL_OPENAI_IMAGE_TIMEOUT_MS ?? "120000");
+  const tokenBound=Number(env.KERNEL_IMAGE_MAX_BILLABLE_TOKENS??"");
   return {
     apiKey: (env.KERNEL_OPENAI_API_KEY ?? env.OPENAI_API_KEY ?? "").trim(),
     modelId: (env.KERNEL_OPENAI_IMAGE_MODEL_ID ?? "").trim() || DEFAULT_MODEL_ID,
@@ -70,6 +74,7 @@ export function readOpenAiImageProviderConfig(env: NodeJS.ProcessEnv = process.e
     timeoutMs: Number.isFinite(timeout) && timeout > 0 ? Math.min(300_000, timeout) : 120_000,
     organization: (env.KERNEL_OPENAI_ORGANIZATION ?? "").trim() || null,
     project: (env.KERNEL_OPENAI_PROJECT ?? "").trim() || null,
+    ...(Number.isSafeInteger(tokenBound)&&tokenBound>0?{maximumBillableTokens:tokenBound}:{}),
   };
 }
 
@@ -97,7 +102,8 @@ export class OpenAiImageProvider implements ImageGenerator {
       signal.throwIfAborted();
       const body = await this.submit(baseUrl, apiKey, modelId, prompt.trim(), signal, accountingContext);
       return pickDelivery(body, modelId);
-    } catch {
+    } catch (error) {
+      if(error instanceof CreditConsumptionError)throw error;
       // 不重试：同步接口的一次「确认丢失」同样可能已经在上游产生了一次计费调用。
       // 幂等由 `DefaultStandardImageService` 的 intent/result 对象负责，不在这一层重来。
       throw new ModelCallError("MODEL_CALL_FAILED", "image generation failed, was cancelled, or exceeded its deadline");
@@ -122,8 +128,8 @@ export class OpenAiImageProvider implements ImageGenerator {
     if(this.accounting&&!context)throw new Error("IMAGE_ACCOUNTING_CONTEXT_REQUIRED");
     signal.throwIfAborted();
     const requestId=randomUUID();
-    const nativeReceipt=this.nativeAdmission?await this.nativeAdmission.start(context!,{requestId,modelProvider:OPENAI_IMAGE_PROVIDER_NAME,modelId,serializedBody:JSON.stringify(payload),quantity:1n}):undefined;
-    const receipt=!nativeReceipt&&this.accounting?await this.accounting.start(context!,{requestId,modelId,startedAt:new Date().toISOString()}):undefined;
+    const nativeReceipt=this.nativeAdmission?await this.nativeAdmission.start(context!,{requestId,modelProvider:OPENAI_IMAGE_PROVIDER_NAME,modelId,serializedBody:JSON.stringify(payload),quantity:1n,maximumTokens:this.config.maximumBillableTokens??null,tokenBoundRequired:modelId.startsWith("gpt-image")}):undefined;
+    const receipt=!nativeReceipt&&this.accounting?await this.accounting.start(context!,{requestId,modelId,startedAt:new Date().toISOString(),maximumTokens:this.config.maximumBillableTokens??null,tokenBoundRequired:modelId.startsWith("gpt-image")}):undefined;
     let nativeQuantity:bigint|null=null;
     let usage:ReportedUsage={},outcome:'succeeded'|'failed'='failed';
     try {
@@ -139,13 +145,15 @@ export class OpenAiImageProvider implements ImageGenerator {
       pickDelivery(body,modelId);
       outcome='succeeded';return body;
     } finally {
-      if(nativeReceipt)try{await nativeReceipt.terminal({endedAt:new Date().toISOString(),outcome,quantity:nativeQuantity});}catch{
+      if(nativeReceipt)try{await nativeReceipt.terminal({endedAt:new Date().toISOString(),outcome,quantity:nativeQuantity,usage});}catch(error){
         this.accountingFault=true;
         this.logger.warn("IMAGE_USAGE_TERMINAL_FAILED: native reservation remains held; subsequent dispatches blocked in this instance");
+        throw error;
       }
-      if(receipt)try{await receipt.terminal({endedAt:new Date().toISOString(),outcome,usage});}catch{
+      if(receipt)try{await receipt.terminal({endedAt:new Date().toISOString(),outcome,usage,nativeQuantity});}catch(error){
         this.accountingFault=true;
         this.logger.warn("IMAGE_USAGE_TERMINAL_FAILED: durable start remains unmatched; subsequent dispatches blocked in this instance");
+        throw error;
       }
     }
   }

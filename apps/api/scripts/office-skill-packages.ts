@@ -76,6 +76,7 @@ export function officeSkillPackage(spec:{skillId:string;stableName:string;conten
  {path:'references/editing-and-qa.md',content:guide,mediaType:'text/markdown'},
  {path:`scripts/${resource}`,content:script,mediaType:resource.endsWith('.py')?'text/x-python':'text/javascript'},
  {path:'scripts/render-office.py',content:readFileSync(new URL('./office-package-resources/render-office.py',import.meta.url),'utf8'),mediaType:'text/x-python'}];
+ if(spec.stableName==='pdf-create')sources.push({path:'scripts/pdf-text-layout.cjs',content:readFileSync(new URL('./office-package-resources/pdf-text-layout.cjs',import.meta.url),'utf8'),mediaType:'text/javascript'});
  const digest=hash(JSON.stringify(sources.map(f=>[f.path,hash(f.content)])));
  const files=sources.map(f=>({path:f.path,contentBase64:Buffer.from(f.content).toString('base64'),mediaType:f.mediaType,digest:hash(f.content)}));
  return {digest,package:C.TrustedSkillPackage.parse({skillId:spec.skillId,versionId:`${spec.skillId}-pkg-${digest}`,files})};

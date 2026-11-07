@@ -1,0 +1,38 @@
+ui4
+ ✓ tests/ui/interview-studio-home.test.tsx (26 tests) 6079ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > renders saved account SVG avatars and edit controls in the expert directory 896ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 正式访谈依服务端 canManage 显示菜单，修改和删除调用真实 API client 625ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 本地 Mock 历史卡可编辑名称和标签，无权限的服务端记录隐藏菜单 422ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 删除本地 Mock 历史卡前需要确认 435ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 专家列表同时显示维护的内置画像与正式专家目录 624ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 专家加载失败可重试且不泄露内部错误码 501ms
+
+ Test Files  6 passed (6)
+      Tests  51 passed (51)
+   Start at  22:18:40
+   Duration  15.92s (transform 6.47s, setup 4.09s, collect 21.04s, tests 19.09s, environment 14.03s, prepare 510ms)
+
+
+browser
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:39904) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  2 [seeded] › e2e/study-workflow-actions.spec.ts:24:5 › research and interview use consistent command controls without model execution (9.4s)
+
+  2 passed (5.0m)
+[timing] pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded --workers=1 interview-expert-library-live.spec.ts study-workflow-actions.spec.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：5m3s
+  清理：1s
+  总计：5m4s
+
+types4
+
+> web@0.1.0 typecheck /Users/shenyangjun/.codex/worktrees/acd9/workspacex/apps/web
+> tsc --noEmit
+
+
+lint2
+

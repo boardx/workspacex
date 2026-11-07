@@ -1,0 +1,28 @@
+{
+  "kind": "cn-release-independent-code-review-v1",
+  "reviewer": "/root/code_review",
+  "reviewedAt": "2026-10-12T14:09:09.102902+00:00",
+  "disposition": "accepted-for-isolated-linux-validation",
+  "reviewedFiles": {
+    "apps/web/playwright.cn-six-business.config.ts": "c610af1015bfae4ab79b626f7e727903cbbb9796408c66302a84b284cd817133",
+    "tests/fixtures/cn-six-business/output-admission.ts": "ee01da44d64c5130ed8d04c1d5a18245246360b97f3cad4c657c3167d52617c2",
+    "tests/fixtures/cn-six-business/output-admission.test.ts": "aa9573d4ec1ff3ead9e6987303b8eaf469867abb110bcd28124d9f5bf3ad7e78",
+    "tests/test_cn_release_six_output_admission.py": "86280c6bf3de0fe30739380cd13e893d7a0336f523f616b9f7f8091e2103790f"
+  },
+  "scope": "Fresh coordinator admission and exact identity-bound worker reload only. Root-only /var/lib default unchanged; local-owner policy only explicit test API.",
+  "executionEvidence": {
+    "pythonPassed": 1,
+    "nestedNodePassed": 3,
+    "seconds": 0.744,
+    "realPlaywrightCoordinatorAndWorker": true,
+    "browserExecuted": false,
+    "linuxExecuted": false
+  },
+  "findings": [
+    "Coordinator rejects stale report/output and claims O_EXCL/no-follow plus file/parent fsync. Worker requires exact original parent inode/device and paths, trusted regular single-link claim, rejects symlink output or changed path.",
+    "Actual Playwright CLI loads config in coordinator and worker successfully; second invocation with same outputs rejected. Explicit fixture policy does not modify default runtime policy."
+  ],
+  "remainingValidation": [
+    "Full six journeys with real Next/Nest/PG still require Linux CI; this test runs only browser-free Playwright probe."
+  ]
+}

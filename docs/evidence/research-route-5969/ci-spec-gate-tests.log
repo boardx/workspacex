@@ -1,0 +1,14 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/7ff0/workspacex
+
+ ✓ .harness/scripts/lint-spec-gate-coverage.test.ts (24 tests) 56576ms
+   ✓ CN six actual Python execution chain > discovers the real config as conditional and rejects each broken edge 1580ms
+   ✓ 真实仓库 > 当前仓库没有 unrun、也没有未署名的条件覆盖 18593ms
+   ✓ 真实仓库 > 合成导入报告随 Board 改动运行，真实厂商样本仍由独立 captured 门禁负责 18227ms
+   ✓ 真实仓库 > 门控脚本本身以 0 退出 17787ms
+
+ Test Files  1 passed (1)
+      Tests  24 passed (24)
+   Start at  19:08:30
+   Duration  56.93s (transform 44ms, setup 0ms, collect 82ms, tests 56.58s, environment 0ms, prepare 40ms)

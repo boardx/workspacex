@@ -1,0 +1,5 @@
+2026-11-04T01:09:09.6980261Z Lockfile is up to date, resolution step is skipped
+2026-11-04T01:29:56.3079890Z     Error: {"error":"conflict","traceId":"40f53260-d235-478f-ae39-a72014800836","reasonCode":"AGENT_STARTER_PACK_CONFLICT"}
+2026-11-04T01:29:56.3103137Z     Error: {"error":"conflict","traceId":"2c849678-cfd8-437a-8b98-bec2772a40fa","reasonCode":"AGENT_STARTER_PACK_CONFLICT"}
+2026-11-04T01:29:56.4974962Z   1 failed
+2026-11-04T01:29:56.4976988Z   201 passed (20.0m)

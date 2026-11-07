@@ -1,0 +1,17 @@
+{
+  "left": "19052207802f603599b86704025d31ce297d7990",
+  "right": "3644ae2c8213770614866c1c39ac4df2b8920c05",
+  "mergeBase": "dc9bc31b5658aacd4376ffa3f66e6794293ac953",
+  "mergedHead": "9f4e84bd115c945382727d7a144cc27ed3fc8bd2",
+  "workerProtectedNonoverlapCount": 214,
+  "upstreamProtectedNonoverlapCount": 34,
+  "overlap": [
+    "apps/web/lib/i18n/messages/en.ts",
+    "apps/web/lib/i18n/messages/zh-CN.ts"
+  ],
+  "allProtectedModeTypeBlobEqual": true,
+  "registryDeltaOnlyAcceptedProjectWorkbenchImportAndSpread": true,
+  "newAPI6219Included": false,
+  "fullCurrentRuntimeRegistryParity": "pending canonical existing test",
+  "heavyProcessesStarted": false
+}

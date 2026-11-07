@@ -1,0 +1,17 @@
+{
+  "source": "4e9bbaf4cdbb6e07bad87c1260e2636925a2490c",
+  "stackBase": "5d7a433a0",
+  "basePr": 5804,
+  "baseDependencyPr": 5799,
+  "focusedPassed": 10,
+  "focusedExit": 0,
+  "independentReview": "SOURCE INTEGRATION ACCEPT 4e9bbaf4cdbb6e07bad87c1260e2636925a2490c",
+  "expiryProductionAndTestsIdenticalToFormalSource": "c2c33c8ea1414024489b1e0a16609dec7fdf55a4",
+  "historicalFormalExit": 0,
+  "historicalFormalFingerprint": "12e65e928832b048ac9904b161df914c640a08313b5341de791617f5c2753996",
+  "historicalFormalAppliesToNewSource": false,
+  "currentBaselineReceiptFocusedPassed": 9,
+  "paymentMerchantAccepted": false,
+  "issueClosedOrMainDelivered": false,
+  "ownedComposeProjectAbsent": "wsx-4d210bf6fac07c18110b"
+}

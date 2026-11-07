@@ -1,0 +1,24 @@
+[stack-admission] load1=1.70 cores=10 perCore=0.17 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvaubpau-891864da-61cba475cc41 db=wsx_61cba475cc415399315f compose=wsx-61cba475cc415399315f pg=20861 redis=21861 api=24861 web=25861 sandbox=26861 model=27861 deep-agent=28861 asr=29861 vision=30861 loopback-sandbox=31861 mail=19861
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_61cba475cc415399315f capacity=100 current=6 required=32
+ ✓ tests/whiteboard/validator-operation-trace.test.ts (6 tests) 555ms
+ ✓ tests/whiteboard/collaboration-admission.test.ts (9 tests) 1055ms
+   ✓ syncs fifty distinct same-tenant WebSocket sessions and rechecks fresh revocation 1010ms
+
+ Test Files  2 passed (2)
+      Tests  15 passed (15)
+   Start at  18:44:19
+   Duration  13.93s (transform 683ms, setup 15ms, collect 1.17s, tests 1.61s, environment 0ms, prepare 122ms)
+
+[db-isolation] db=wsx_61cba475cc415399315f peak_connections=1
+[timing] pnpm --filter api exec vitest run tests/whiteboard/validator-operation-trace.test.ts tests/whiteboard/collaboration-admission.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：14s
+  清理：0s
+  总计：15s

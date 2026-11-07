@@ -91,13 +91,18 @@ export function verifySkillStarterPack(raw: unknown, expected: {
 export function importPayloadDigest(input: {
   readonly packId: string;
   readonly packVersion: string;
+  readonly expectedPackDigest?: string;
 }): string {
-  return sha256(JSON.stringify({ packId: input.packId, packVersion: input.packVersion }));
+  return sha256(JSON.stringify({ packId: input.packId, packVersion: input.packVersion,
+    ...(input.expectedPackDigest === undefined ? {} : { packDigest: input.expectedPackDigest }) }));
 }
 
-export function skillContentDigest(skill: SkillStarterPack["skills"][number]): string {
-  return sha256(JSON.stringify({
+export function skillExecutionRepresentation(skill: Pick<SkillStarterPack["skills"][number], "manifest" | "files">): string {
+  return JSON.stringify({
     manifest: skill.manifest,
     files: skill.files.map(({ path, digest, mediaType }) => ({ path, digest, mediaType })),
-  }));
+  });
+}
+export function skillContentDigest(skill: Pick<SkillStarterPack["skills"][number], "manifest" | "files">): string {
+  return sha256(skillExecutionRepresentation(skill));
 }

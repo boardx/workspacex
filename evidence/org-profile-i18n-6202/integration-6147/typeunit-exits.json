@@ -1,0 +1,19 @@
+{
+  "sourceSha": "2a02aa518e689752bc3c650c77115cbd19dc384a",
+  "mode": "typeunit",
+  "web-type": {
+    "exit": 0,
+    "status": "finished",
+    "seconds": 58.77
+  },
+  "api-type": {
+    "exit": 124,
+    "status": "timed-out-budget",
+    "seconds": 29.37,
+    "log": "api-type-first-budget.txt"
+  },
+  "unit": {
+    "status": "not-run-budget"
+  },
+  "totalSeconds": 88.16
+}

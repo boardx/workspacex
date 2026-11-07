@@ -1,0 +1,14 @@
+{
+  "comparison": "HEAD66120 vs working tree, before current GREEN/type",
+  "effectDependencyArrays": [
+    "count",
+    "threadId",
+    "threadId,projectId,sessionToken,refreshKey,reload",
+    "activeRun,sessionToken,reload",
+    "artifact.artifactId,artifact.name,version,sessionToken,retry"
+  ],
+  "sameArrays": true,
+  "helperAlgorithmByteEqualAfterConstantExtraction": true,
+  "notBrowserOrTaskDone": true,
+  "panelSha256": "51715128433c6a280e3499d270185e0cfc9eaddeafd91a409c3208dda1200a07"
+}

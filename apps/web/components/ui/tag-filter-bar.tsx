@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -42,6 +43,7 @@ export function TagFilterBar({
   /** 覆盖「全部标签」的高亮判断（有额外筛选项生效时它不该亮）。默认：没选任何标签就亮。 */
   allActive?: boolean;
 }) {
+  const { t } = useI18n();
   const [expanded, setExpanded] = React.useState(false);
   if (tags.length === 0 && extras === undefined) return null;
   const allOn = allActive ?? selected.length === 0;
@@ -57,7 +59,7 @@ export function TagFilterBar({
   };
 
   return (
-    <div className={cn("flex min-w-0 flex-wrap items-center gap-2", className)} role="group" aria-label={`按标签筛选${business}`}>
+    <div className={cn("flex min-w-0 flex-wrap items-center gap-2", className)} role="group" aria-label={t("tags.filter", { business })}>
       <Button
         size="sm"
         variant={allOn ? "primary" : "outline"}
@@ -65,7 +67,7 @@ export function TagFilterBar({
         data-testid={`${prefix}-tag-all`}
         onClick={() => onChange([])}
       >
-        全部标签
+        {t("tags.all")}
       </Button>
       {extras}
       {visible.map((o) => (
@@ -84,12 +86,12 @@ export function TagFilterBar({
       ))}
       {mode === "multi" && selected.length > 1 ? (
         <span className="text-11 text-muted-foreground" data-testid={`${prefix}-tag-rule`}>
-          {match === "all" ? "显示同时包含所选标签的" : "显示包含任一所选标签的"}
+          {match === "all" ? t("tags.matchAll") : t("tags.matchAny")}
         </span>
       ) : null}
       {hidden > 0 || (expanded && tags.length > maxVisible) ? (
         <Button size="sm" variant="ghost" data-testid={`${prefix}-tag-more`} aria-expanded={expanded} onClick={() => setExpanded((v) => !v)}>
-          {expanded ? "收起" : `更多标签 (${String(hidden)})`}
+          {expanded ? t("tags.collapse") : t("tags.more", { count: hidden })}
         </Button>
       ) : null}
     </div>

@@ -556,7 +556,6 @@
         "auth/org-invite-errors",
         "auth/remove-org-member",
         "auth/resend-org-invite",
-        "auth/review-admin-invite",
         "auth/revoke-org-invite",
         "auth/set-org-member-role",
         "auth/set-token-quota",
@@ -587,7 +586,6 @@
         "auth/errors",
         "auth/list-org-invite-links",
         "auth/org-invite-errors",
-        "auth/review-org-invite-link",
         "auth/revoke-org-invite-link"
       ]
     },
@@ -1015,6 +1013,7 @@
         "design-workbench",
         "feedback-loop",
         "identity",
+        "locale",
         "org-admin",
         "plan-permissions",
         "platform-members",
@@ -1256,6 +1255,7 @@
         "feedback-loop",
         "files",
         "identity",
+        "locale",
         "org-admin",
         "plan-permissions",
         "platform-members",
@@ -1350,6 +1350,7 @@
         "feedback-loop",
         "files",
         "identity",
+        "locale",
         "org-admin",
         "plan-permissions",
         "platform-members",
@@ -1444,6 +1445,7 @@
         "feedback-loop",
         "files",
         "identity",
+        "locale",
         "project",
         "skills",
         "whiteboard"
@@ -1517,6 +1519,7 @@
         "feedback-loop",
         "files",
         "identity",
+        "locale",
         "project",
         "skills",
         "whiteboard"
@@ -1599,6 +1602,7 @@
         "feedback-loop",
         "files",
         "identity",
+        "locale",
         "org-admin",
         "plan-permissions",
         "platform-members",
@@ -1941,6 +1945,7 @@
         "home-config",
         "identity",
         "interview",
+        "locale",
         "org-admin",
         "plan-permissions",
         "platform-members",
@@ -2604,6 +2609,10 @@
       "kind": "preview",
       "screen": "apps/web/app/preview/ai-capability-studio/workbench/page.tsx"
     },
+    "/preview/pricing": {
+      "kind": "preview",
+      "screen": "apps/web/app/preview/pricing/page.tsx"
+    },
     "/preview/billing": {
       "kind": "preview",
       "screen": "apps/web/app/preview/billing/page.tsx"
@@ -3225,6 +3234,7 @@
         "feedback-loop",
         "files",
         "identity",
+        "locale",
         "skills",
         "whiteboard",
         "whiteboard-import"

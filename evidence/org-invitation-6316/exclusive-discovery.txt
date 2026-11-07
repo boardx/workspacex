@@ -1,0 +1,12 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/2e5d/workspacex
+
+ ✓ .harness/scripts/ci-api-shards.test.ts (17 tests) 2207ms
+   ✓ API isolated shard coverage > verifies actual complete Vitest discovery using the installed sequencer 549ms
+   ✓ preserves two real workspace projects sharing the same module through disjoint shards 343ms
+   ✓ actually collects exclusive files once and rejects both missing exclusion and missing exclusive include 1305ms
+
+ Test Files  1 passed (1)
+      Tests  17 passed (17)
+   Start at  17:36:15
+   Duration  3.14s (transform 101ms, setup 0ms, collect 158ms, tests 2.21s, environment 0ms, prepare 156ms)

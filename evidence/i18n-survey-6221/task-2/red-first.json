@@ -1,0 +1,26 @@
+{
+  "name": "red-first",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/survey-designer-i18n.test.tsx",
+    "tests/ui/survey-question-controls-i18n.test.tsx"
+  ],
+  "source": "78066d267d9d7b590e6dd5bcf29eb93901c4dc13",
+  "exitCode": 1,
+  "seconds": 10.067,
+  "rawLogSha256": "c30733f2eaec26878bebad040e76781fe93c1f332829f49ee238d66c6e498226",
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "tests": 81,
+  "validMissingEnglishFailures": 79,
+  "invalidFixtureFailures": 2,
+  "collectionErrors": 0,
+  "unhandledErrors": 0,
+  "auditCorrection": "The unsupported-type JSX attribute contained literal backslash-n, so no question heading was parsed. See README and later corrected parser RED."
+}

@@ -84,6 +84,38 @@ afterEach(async () => {
 });
 
 describe("ConfiguredRealtimeAsrProvider -- real dashscope realtime protocol shape", () => {
+  it("finishes default draft VAD without committing, retaining the tail until session.finished", async () => {
+    upstream = await startFakeUpstream((frame, ws) => {
+      if (frame.type === "session.update") ws.send(JSON.stringify({
+        type: "conversation.item.input_audio_transcription.completed", transcript: "first sentence",
+      }));
+      if (frame.type === "input_audio_buffer.commit") {
+        ws.send(JSON.stringify({ type: "error", error: { message: "commit disabled in VAD mode" } }));
+        ws.close();
+      }
+      if (frame.type === "session.finish") {
+        ws.send(JSON.stringify({ type: "conversation.item.input_audio_transcription.completed", transcript: "tail one" }));
+        setTimeout(() => {
+          ws.send(JSON.stringify({ type: "conversation.item.input_audio_transcription.completed", transcript: "tail two" }));
+          ws.send(JSON.stringify({ type: "session.finished" }));
+        }, 25);
+      }
+    });
+    const handlers = recordingHandlers();
+    const session = await new ConfiguredRealtimeAsrProvider({
+      provider: "dashscope", baseUrl: `ws://127.0.0.1:${upstream.port}`, apiKey: "k", model: MODEL,
+    }).open(handlers, AUDIO);
+    try {
+      await expect.poll(() => handlers.finals.length).toBe(1);
+      session.pushAudio(new Uint8Array(3200));
+      await session.finish();
+      expect(handlers.errors).toEqual([]);
+      expect(handlers.finals).toEqual(["first sentence", "tail one", "tail two"]);
+      expect(upstream.seenFrames.filter(f => f.type === "session.finish")).toHaveLength(1);
+      expect(upstream.seenFrames.some(f => f.type === "input_audio_buffer.commit")).toBe(false);
+    } finally { session.abort(); }
+  });
+
   it("caps encoded upstream audio at approximately one second", () => {
     expect(realtimeAudioBacklogExceeded(45_000, 2_000)).toBe(false);
     expect(realtimeAudioBacklogExceeded(47_000, 2_000)).toBe(true);
@@ -300,7 +332,7 @@ describe("ConfiguredRealtimeAsrProvider -- real dashscope realtime protocol shap
     expect(handlers.closedCount.value).toBe(1);
   });
 
-  it.each([true, false])("#1150: silent stop with prior final=%s preserves the session outcome", async priorFinal => {
+  it.each([true, false])("missing session.finished is an error even with prior final=%s", async priorFinal => {
     let finalDelivered!: () => void;
     const finalReady = new Promise<void>(resolve => { finalDelivered = resolve; });
     upstream = await startFakeUpstream((frame, ws) => {
@@ -310,7 +342,7 @@ describe("ConfiguredRealtimeAsrProvider -- real dashscope realtime protocol shap
           type: "conversation.item.input_audio_transcription.completed", transcript: "already persisted",
         }));
       }
-      // Empty stop produces neither a final nor an error, as with an already drained VAD buffer.
+      // Prior confirmed text cannot stand in for the session completion receipt.
     });
     const handlers = recordingHandlers();
     const provider = new ConfiguredRealtimeAsrProvider({
@@ -327,114 +359,74 @@ describe("ConfiguredRealtimeAsrProvider -- real dashscope realtime protocol shap
     try {
       await session.finish();
       expect(handlers.finals).toEqual(priorFinal ? ["already persisted"] : []);
-      if (priorFinal) expect(handlers.errors).toEqual([]);
-      else expect(handlers.errors).toEqual([{
+      expect(handlers.errors).toEqual([{
         reason: "ASR_PROVIDER_UNAVAILABLE", detail: "upstream did not settle the final segment in time",
       }]);
-      expect(upstream.seenFrames.filter(frame => frame.type === "input_audio_buffer.commit")).toHaveLength(1);
+      expect(upstream.seenFrames.filter(frame => frame.type === "session.finish")).toHaveLength(1);
+      expect(upstream.seenFrames.some(frame => frame.type === "input_audio_buffer.commit")).toBe(false);
     } finally { timer.mockRestore(); session.abort(); }
   });
 
-  it("a caller-initiated finish() does NOT report a spurious error even though it also closes the socket", async () => {
+  it("a caller-initiated finish() waits for the successful terminal receipt before closing", async () => {
     upstream = await startFakeUpstream((frame, ws) => {
-      if (frame.type === "session.update") ws.send(JSON.stringify({ type: "session.updated" }));
-      if (frame.type === "input_audio_buffer.commit") {
-        ws.send(JSON.stringify({
-          type: "conversation.item.input_audio_transcription.completed", transcript: "ok", confidence: null,
-        }));
+      if (frame.type === "session.finish") {
+        ws.send(JSON.stringify({ type: "conversation.item.input_audio_transcription.completed", transcript: "ok" }));
+        ws.send(JSON.stringify({ type: "session.finished" }));
       }
-    });
-    const provider = new ConfiguredRealtimeAsrProvider({
-      provider: "dashscope", baseUrl: `ws://127.0.0.1:${upstream.port}`, apiKey: "k", model: MODEL,
     });
     const handlers = recordingHandlers();
-    const session = await provider.open(handlers, AUDIO);
-    await session.finish();
-    expect(handlers.errors).toEqual([]);
-    expect(handlers.finals).toEqual(["ok"]);
+    const session = await new ConfiguredRealtimeAsrProvider({
+      provider: "dashscope", baseUrl: `ws://127.0.0.1:${upstream.port}`, apiKey: "k", model: MODEL,
+    }).open(handlers, AUDIO);
+    try {
+      await session.finish();
+      expect(handlers.errors).toEqual([]);
+      expect(handlers.finals).toEqual(["ok"]);
+    } finally { session.abort(); }
   });
 
-  it("issue #2637 ③ -- a benign 'buffer too small' error from an explicit commit during finish() does not surface as ASR_PROVIDER_UNAVAILABLE (server_vad already auto-committed and transcribed the turn)", async () => {
+  it.each([0, 32000])("default VAD accepts an explicit no-speech completion without fabricating text (%s bytes)", async bytes => {
     upstream = await startFakeUpstream((frame, ws) => {
-      if (frame.type === "session.update") {
-        ws.send(JSON.stringify({ type: "session.updated" }));
-        // Mirrors the real upstream: server_vad fires its OWN auto-commit + transcription
-        // on silence, independently of anything the caller sends -- this is what makes the
-        // later explicit-commit failure "benign" (there is a real transcript already).
-        ws.send(JSON.stringify({
-          type: "conversation.item.input_audio_transcription.completed",
-          transcript: "ok",
-        }));
-      }
       if (frame.type === "input_audio_buffer.commit") {
-        // Explicit commit lands on an already-empty buffer because server_vad committed
-        // and transcribed it first (see above).
-        ws.send(JSON.stringify({
-          type: "error",
-          error: { message: "Error committing input audio buffer: buffer too small. Expected at least 100ms of audio, but buffer only has 0.00ms of audio." },
-        }));
+        ws.send(JSON.stringify({ type: "error", error: { message: "commit disabled in VAD mode" } }));
+        ws.close();
       }
-    });
-    const provider = new ConfiguredRealtimeAsrProvider({
-      provider: "dashscope", baseUrl: `ws://127.0.0.1:${upstream.port}`, apiKey: "k", model: MODEL,
+      if (frame.type === "session.finish") ws.send(JSON.stringify({ type: "session.finished" }));
     });
     const handlers = recordingHandlers();
-    const session = await provider.open(handlers, AUDIO);
-    await new Promise((r) => setTimeout(r, 30)); // let the auto-commit final land before finish()
-    await session.finish();
-    expect(handlers.errors).toEqual([]);
-    expect(handlers.finals).toEqual(["ok"]);
+    const session = await new ConfiguredRealtimeAsrProvider({
+      provider: "dashscope", baseUrl: `ws://127.0.0.1:${upstream.port}`, apiKey: "k", model: MODEL,
+    }).open(handlers, AUDIO);
+    try {
+      if (bytes) session.pushAudio(new Uint8Array(bytes));
+      await session.finish();
+      expect(handlers.finals).toEqual([]);
+      expect(handlers.errors).toEqual([]);
+      expect(upstream.seenFrames.some(frame => frame.type === "input_audio_buffer.commit")).toBe(false);
+    } finally { session.abort(); }
   });
 
-  it("2026-09-04 review fix -- the same benign-looking 'buffer too small' error is a REAL failure when no final was EVER received (recording genuinely too short, server_vad never auto-committed anything)", async () => {
+  it.each(["error", "close"])("preserves a real stop %s even after a prior final", async kind => {
     upstream = await startFakeUpstream((frame, ws) => {
-      if (frame.type === "session.update") ws.send(JSON.stringify({ type: "session.updated" }));
-      // No auto-commit final is ever sent -- unlike the test above, this session never
-      // transcribed anything before finish()'s explicit commit.
-      if (frame.type === "input_audio_buffer.commit") {
-        ws.send(JSON.stringify({
-          type: "error",
-          error: { message: "Error committing input audio buffer: buffer too small. Expected at least 100ms of audio, but buffer only has 0.00ms of audio." },
-        }));
-        // Same real-upstream pattern as the other non-benign-error test above: an `error`
-        // frame is followed by the connection closing. Closing here (instead of relying on
-        // the 15s finish() grace timeout) is what makes this test resolve promptly.
+      if (frame.type === "session.update") ws.send(JSON.stringify({
+        type: "conversation.item.input_audio_transcription.completed", transcript: "already confirmed",
+      }));
+      if (frame.type === "session.finish") {
+        if (kind === "error") ws.send(JSON.stringify({ type: "error", error: { message: "buffer too small" } }));
         ws.close();
       }
     });
-    const provider = new ConfiguredRealtimeAsrProvider({
-      provider: "dashscope", baseUrl: `ws://127.0.0.1:${upstream.port}`, apiKey: "k", model: MODEL,
-    });
     const handlers = recordingHandlers();
-    const session = await provider.open(handlers, AUDIO);
-    await session.finish();
-    // Must NOT silently look like a clean finish with zero transcript -- that reads to the
-    // user as "recording didn't work" with no explanation, which is exactly the bug this
-    // guards against being reintroduced as.
-    expect(handlers.finals).toEqual([]);
-    expect(handlers.errors).toHaveLength(1);
-    expect(handlers.errors[0]?.reason).toBe("ASR_PROVIDER_UNAVAILABLE");
-  });
-
-  it("2026-09-30 -- 'buffer too small' at finish() is benign when audio DID reach upstream but VAD produced no final (silence/noise): clean finish, no error", async () => {
-    upstream = await startFakeUpstream((frame, ws) => {
-      if (frame.type === "session.update") ws.send(JSON.stringify({ type: "session.updated" }));
-      if (frame.type === "input_audio_buffer.commit") {
-        ws.send(JSON.stringify({
-          type: "error",
-          error: { message: "Error committing input audio buffer: buffer too small. Expected at least 100ms of audio, but buffer only has 0.00ms of audio." },
-        }));
-      }
-    });
-    const provider = new ConfiguredRealtimeAsrProvider({
+    const session = await new ConfiguredRealtimeAsrProvider({
       provider: "dashscope", baseUrl: `ws://127.0.0.1:${upstream.port}`, apiKey: "k", model: MODEL,
-    });
-    const handlers = recordingHandlers();
-    const session = await provider.open(handlers, AUDIO);
-    session.pushAudio(new Uint8Array(AUDIO.sampleRate * 2)); // 1s of PCM16 silence
-    await session.finish();
-    expect(handlers.finals).toEqual([]);
-    expect(handlers.errors).toEqual([]);
+    }).open(handlers, AUDIO);
+    try {
+      await expect.poll(() => handlers.finals.length).toBe(1);
+      await session.finish();
+      expect(handlers.finals).toEqual(["already confirmed"]);
+      expect(handlers.errors).toHaveLength(1);
+      expect(handlers.errors[0]?.reason).toBe("ASR_PROVIDER_UNAVAILABLE");
+    } finally { session.abort(); }
   });
 
   it("issue #2637 ③ -- the same 'buffer too small' error OUTSIDE of finish() (not caller-initiated) still reports as a real error", async () => {

@@ -1,0 +1,12 @@
+[test-isolation] id=run-mw0a8v2p-010f454c-8413cef6d00c db=wsx_8413cef6d00c131cffa3 compose=wsx-8413cef6d00c131cffa3 pg=20678 redis=21678 api=24678 web=25678 sandbox=26678 model=27678 deep-agent=28678 asr=29678 vision=30678 loopback-sandbox=31678 mail=19678
+[brain-seed-replay] seed1 exit=0
+[brain-seed-replay] seed2 exit=0
+[brain-seed-replay] same-database repeat succeeded; no Next/server/browser started
+[timing] pnpm --filter web exec tsx scripts/verify-brain-seed-replay.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：47s
+  清理：1s
+  总计：48s
+wsx-8413cef6d00c131cffa3 containers=0

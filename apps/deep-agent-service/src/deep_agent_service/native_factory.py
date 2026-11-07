@@ -37,6 +37,7 @@ from .native_skill_activity import canonical_package_manifest
 from .native_tool_authority import HttpNativeToolAuthority
 from .sandbox_backend import HttpSessionSandbox
 from .skill_packages import package_mount_files
+from .native_execution_guidance import NATIVE_EXECUTION_GUIDANCE
 
 _SCHEMA=json.loads((Path(__file__).parent/'generated/native_session_binding_schema.json').read_text())
 _VALIDATORS={name:Draft7Validator(_SCHEMA[name],format_checker=FormatChecker()) for name in ('ref','input','output')}
@@ -170,7 +171,7 @@ async def native_graph_context(config):
         # These tools describe a human decision; even an older binding cannot skip its form.
         interrupt_on={**resolved['interruptOn'], **{tool.name:True for tool in interactions}}
         tools=[tool for tool in native_candidate_tools(model, interactions, resolved.get('mcpSnapshot')) if tool.name in interrupt_on]
-        system_prompt='\n\n'.join(prompt for prompt in (_output_prompt(tools), input_prompt) if prompt) or None
+        system_prompt='\n\n'.join(prompt for prompt in (NATIVE_EXECUTION_GUIDANCE, _output_prompt(tools), input_prompt) if prompt)
         graph=await asyncio.to_thread(create_native_graph,model,sandbox=adapter,pinned_skills=pins,
             binding_guard=binding_guard, system_prompt=system_prompt, inputs=resolved.get('inputs', []),
             tools=tools,

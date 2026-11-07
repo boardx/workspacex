@@ -1,3 +1,5 @@
+import { sandboxOwnerKey } from "./sandbox-owner-key";
+import type { Principal } from "../../domain/principal";
 import { assertCurrentRunLease } from "../../application/agent-run/run-lease";
 import type { SandboxInputFile } from "@repo/skill-sandbox/input-files";
 /**
@@ -88,6 +90,7 @@ export class HttpSkillSandbox implements SkillSandboxPort {
   }
 
   async run(input: {
+    readonly owner?: Principal;
     readonly script: string;
     readonly timeoutMs: number;
     readonly inputFiles?: readonly SandboxInputFile[];
@@ -105,6 +108,7 @@ export class HttpSkillSandbox implements SkillSandboxPort {
           ...options,
           signal: input.signal,
           headers: {
+            ...(input.owner ? {"x-sandbox-owner": sandboxOwnerKey(input.owner.orgId, input.owner.userId)} : {}),
             "content-type": "application/json",
             "content-length": Buffer.byteLength(payload),
           },

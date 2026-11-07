@@ -1,0 +1,255 @@
+{
+  "metrics": [
+    {
+      "domain": "research",
+      "width": 1280,
+      "buttons": [
+        {
+          "text": "返回研究列表",
+          "height": 36,
+          "background": "rgb(255, 255, 255)",
+          "color": "rgb(32, 31, 29)",
+          "position": "static"
+        },
+        {
+          "text": "已完成研究计划",
+          "height": 40,
+          "background": "rgba(0, 0, 0, 0)",
+          "color": "rgb(32, 31, 29)",
+          "position": "static"
+        },
+        {
+          "text": "更多操作",
+          "height": 36,
+          "background": "rgb(255, 255, 255)",
+          "color": "rgb(32, 31, 29)",
+          "position": "static"
+        },
+        {
+          "text": "生成 PDF",
+          "height": 36,
+          "background": "rgb(255, 255, 255)",
+          "color": "rgb(32, 31, 29)",
+          "position": "static"
+        },
+        {
+          "text": "生成 Word",
+          "height": 36,
+          "background": "rgb(255, 255, 255)",
+          "color": "rgb(32, 31, 29)",
+          "position": "static"
+        }
+      ]
+    },
+    {
+      "domain": "interview",
+      "width": 1280,
+      "buttons": [
+        {
+          "text": "返回访谈列表",
+          "height": 36,
+          "background": "rgb(255, 255, 255)",
+          "color": "rgb(32, 31, 29)",
+          "position": "static"
+        },
+        {
+          "text": "生成 PDF",
+          "height": 36,
+          "background": "rgb(255, 255, 255)",
+          "color": "rgb(32, 31, 29)",
+          "position": "static"
+        },
+        {
+          "text": "生成 Word",
+          "height": 36,
+          "background": "rgb(255, 255, 255)",
+          "color": "rgb(32, 31, 29)",
+          "position": "static"
+        }
+      ]
+    },
+    {
+      "domain": "research",
+      "width": 768,
+      "buttons": [
+        {
+          "text": "返回研究列表",
+          "height": 36,
+          "background": "rgb(255, 255, 255)",
+          "color": "rgb(32, 31, 29)",
+          "position": "static"
+        },
+        {
+          "text": "已完成研究计划",
+          "height": 40,
+          "background": "rgba(0, 0, 0, 0)",
+          "color": "rgb(32, 31, 29)",
+          "position": "static"
+        },
+        {
+          "text": "更多操作",
+          "height": 36,
+          "background": "rgb(255, 255, 255)",
+          "color": "rgb(32, 31, 29)",
+          "position": "static"
+        },
+        {
+          "text": "生成 PDF",
+          "height": 36,
+          "background": "rgb(255, 255, 255)",
+          "color": "rgb(32, 31, 29)",
+          "position": "static"
+        },
+        {
+          "text": "生成 Word",
+          "height": 36,
+          "background": "rgb(255, 255, 255)",
+          "color": "rgb(32, 31, 29)",
+          "position": "static"
+        }
+      ]
+    },
+    {
+      "domain": "interview",
+      "width": 768,
+      "buttons": [
+        {
+          "text": "返回访谈列表",
+          "height": 36,
+          "background": "rgb(255, 255, 255)",
+          "color": "rgb(32, 31, 29)",
+          "position": "static"
+        },
+        {
+          "text": "生成 PDF",
+          "height": 36,
+          "background": "rgb(255, 255, 255)",
+          "color": "rgb(32, 31, 29)",
+          "position": "static"
+        },
+        {
+          "text": "生成 Word",
+          "height": 36,
+          "background": "rgb(255, 255, 255)",
+          "color": "rgb(32, 31, 29)",
+          "position": "static"
+        }
+      ]
+    },
+    {
+      "domain": "research",
+      "width": 375,
+      "buttons": [
+        {
+          "text": "返回研究列表",
+          "height": 36,
+          "background": "rgb(255, 255, 255)",
+          "color": "rgb(32, 31, 29)",
+          "position": "static"
+        },
+        {
+          "text": "已完成研究计划",
+          "height": 40,
+          "background": "rgba(0, 0, 0, 0)",
+          "color": "rgb(32, 31, 29)",
+          "position": "static"
+        },
+        {
+          "text": "更多操作",
+          "height": 36,
+          "background": "rgb(255, 255, 255)",
+          "color": "rgb(32, 31, 29)",
+          "position": "static"
+        },
+        {
+          "text": "生成 PDF",
+          "height": 36,
+          "background": "rgb(255, 255, 255)",
+          "color": "rgb(32, 31, 29)",
+          "position": "static"
+        },
+        {
+          "text": "生成 Word",
+          "height": 36,
+          "background": "rgb(255, 255, 255)",
+          "color": "rgb(32, 31, 29)",
+          "position": "static"
+        }
+      ]
+    },
+    {
+      "domain": "interview",
+      "width": 375,
+      "buttons": [
+        {
+          "text": "返回访谈列表",
+          "height": 36,
+          "background": "rgb(255, 255, 255)",
+          "color": "rgb(32, 31, 29)",
+          "position": "static"
+        },
+        {
+          "text": "生成 PDF",
+          "height": 36,
+          "background": "rgb(255, 255, 255)",
+          "color": "rgb(32, 31, 29)",
+          "position": "static"
+        },
+        {
+          "text": "生成 Word",
+          "height": 36,
+          "background": "rgb(255, 255, 255)",
+          "color": "rgb(32, 31, 29)",
+          "position": "static"
+        }
+      ]
+    },
+    {
+      "domain": "research",
+      "width": 375,
+      "state": "ready-to-complete",
+      "buttons": [
+        {
+          "text": "更多操作",
+          "height": 36,
+          "background": "rgb(255, 255, 255)",
+          "color": "rgb(32, 31, 29)",
+          "disabled": false
+        },
+        {
+          "text": "从头重新生成",
+          "height": 36,
+          "background": "rgb(255, 255, 255)",
+          "color": "rgb(32, 31, 29)",
+          "disabled": false
+        },
+        {
+          "text": "完成研究",
+          "height": 36,
+          "background": "rgb(32, 31, 29)",
+          "color": "rgb(255, 255, 255)",
+          "disabled": false
+        }
+      ]
+    },
+    {
+      "domain": "interview",
+      "width": 375,
+      "state": "intake-enabled-primary",
+      "buttons": {
+        "text": "下一步：确认分析",
+        "height": 36,
+        "background": "rgb(32, 31, 29)",
+        "color": "rgb(255, 255, 255)"
+      }
+    }
+  ],
+  "modelActivityBefore": {
+    "runs": 0,
+    "requests": 0
+  },
+  "modelActivityAfter": {
+    "runs": 0,
+    "requests": 0
+  }
+}

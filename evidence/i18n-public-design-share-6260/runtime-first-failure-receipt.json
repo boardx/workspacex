@@ -1,0 +1,76 @@
+{
+  "run": 41981418944,
+  "attempt": 1,
+  "head": "52c272b7e8b154eefac22e437e9bebe195c4751a",
+  "job": 127092305109,
+  "stats": {
+    "startTime": "2026-11-05T06:37:11.197Z",
+    "duration": 689718.243,
+    "expected": 85,
+    "skipped": 133,
+    "unexpected": 1,
+    "flaky": 0
+  },
+  "globalErrorCount": 1,
+  "ownCases": [
+    {
+      "file": "i18n-public-design-share.spec.ts",
+      "title": "public design share real publication, locale/navigation and revocation 1280",
+      "status": "unexpected",
+      "results": [
+        {
+          "status": "failed",
+          "retry": 0,
+          "duration": 2614,
+          "errors": 2
+        },
+        {
+          "status": "failed",
+          "retry": 1,
+          "duration": 2821,
+          "errors": 2
+        }
+      ]
+    },
+    {
+      "file": "i18n-public-design-share.spec.ts",
+      "title": "public design share real publication, locale/navigation and revocation 375",
+      "status": "skipped",
+      "results": []
+    }
+  ],
+  "unexpectedCases": [
+    {
+      "file": "i18n-public-design-share.spec.ts",
+      "title": "public design share real publication, locale/navigation and revocation 1280"
+    }
+  ],
+  "ownPNGCount": 2,
+  "firstCause": {
+    "kind": "test-fixture-contract",
+    "path": [
+      2,
+      "root",
+      "props",
+      "html"
+    ],
+    "message": "html must be sanitized (see sanitizeHtmlPage)",
+    "sourceLine": 25,
+    "beforePublication": true
+  },
+  "globalErrorsMeaning": "Testing stopped early after 1 maximum allowed failures.",
+  "pngQA": [
+    {
+      "name": "apps/web/test-results/fullstack-smoke/i18n-public-design-share-p-cf729-igation-and-revocation-1280-seeded-retry1/test-failed-1.png",
+      "sha256": "0c07ca8669ca1f5d6563bcd0baca1eb5a30462f5b64016111842c691824533ab",
+      "viewed": true,
+      "finding": "Owner home before fixture parse; public share route never reached."
+    },
+    {
+      "name": "apps/web/test-results/fullstack-smoke/i18n-public-design-share-p-cf729-igation-and-revocation-1280-seeded/test-failed-1.png",
+      "sha256": "0c07ca8669ca1f5d6563bcd0baca1eb5a30462f5b64016111842c691824533ab",
+      "viewed": true,
+      "finding": "Owner home before fixture parse; public share route never reached."
+    }
+  ]
+}

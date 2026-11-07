@@ -1,0 +1,33 @@
+[stack-admission] load1=2.08 cores=10 perCore=0.21 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvy8cqx5-12c290ce-a327d5f2951f db=wsx_a327d5f2951fc8f9a28f compose=wsx-a327d5f2951fc8f9a28f pg=20625 redis=21625 api=24625 web=25625 sandbox=26625 model=27625 deep-agent=28625 asr=29625 vision=30625 loopback-sandbox=31625 mail=19625
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_a327d5f2951fc8f9a28f capacity=100 current=6 required=32
+ ❯ tests/billing/personal-stripe-settlement-pg.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/personal-stripe-settlement-pg.test.ts [ tests/billing/personal-stripe-settlement-pg.test.ts ]
+Error: Failed to load url ../../src/infrastructure/billing/pg-personal-order-reader (resolved id: ../../src/infrastructure/billing/pg-personal-order-reader) in /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api/tests/billing/personal-stripe-settlement-pg.test.ts. Does the file exist?
+ ❯ loadAndTransform ../../node_modules/.pnpm/vite@5.4.21_@types+node@22.20.1_terser@5.50.0/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:51969:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  03:35:44
+   Duration  4.13s (transform 316ms, setup 7ms, collect 0ms, tests 0ms, environment 0ms, prepare 48ms)
+
+[db-isolation] db=wsx_a327d5f2951fc8f9a28f peak_connections=1
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/personal-stripe-settlement-pg.test.ts -t reads the new immutable quote
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/personal-stripe-settlement-pg.test.ts -t reads the new immutable quote
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：5s
+  清理：0s
+  总计：5s

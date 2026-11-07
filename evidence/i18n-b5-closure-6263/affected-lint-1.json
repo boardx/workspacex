@@ -1,0 +1,10 @@
+{
+  "source": "c7c6c4f1a5e6b9172c786681c7deb86a8473e3eb",
+  "name": "affected-lint-1",
+  "exitCode": 0,
+  "seconds": 2.524,
+  "outcome": "four affected files",
+  "sourceStable": true,
+  "originalRawLogSha256AsReturnedByTool": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "provenance": "Reconstructed exactly from successful wrapper tool result in this chat. Temporary private directory disappeared across interruption; original raw log/receipt currently unavailable. No rerun or physical readback claimed."
+}

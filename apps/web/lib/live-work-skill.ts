@@ -6,6 +6,7 @@
  */
 import { workEval, workSkillMeta } from "@repo/contracts";
 import type { z } from "zod";
+import type { Locale } from "@repo/contracts/locale";
 import { apiRequest } from "./api-client";
 
 const ops = workSkillMeta.operations;
@@ -17,6 +18,7 @@ export type WorkSkillChannel = z.infer<typeof workSkillMeta.WorkSkillChannel>;
 type ListOut = z.infer<typeof ops.listWorkSkillCatalog.out>;
 
 export interface WorkSkillCatalogQuery {
+  readonly locale?: Locale;
   readonly domain?: string;
   readonly channel?: WorkSkillChannel;
   readonly q?: string;
@@ -38,12 +40,13 @@ export async function listWorkSkillCatalog(query: WorkSkillCatalogQuery): Promis
       q: q ? q : undefined,
       includeDeprecated: query.includeDeprecated ? "true" : "false",
       cursor: query.cursor,
+      ...(query.locale !== undefined ? { locale: query.locale } : {}),
     },
   });
 }
 
-export async function getWorkSkillCatalogEntry(skillId: string): Promise<WorkSkillCatalogDetail> {
-  return apiRequest<WorkSkillCatalogDetail>(withId(ops.getWorkSkillCatalogEntry.path, skillId), { method: "GET" });
+export async function getWorkSkillCatalogEntry(skillId: string, locale?: Locale): Promise<WorkSkillCatalogDetail> {
+  return apiRequest<WorkSkillCatalogDetail>(withId(ops.getWorkSkillCatalogEntry.path, skillId), { method: "GET", ...(locale !== undefined ? { query: { locale } } : {}) });
 }
 
 export async function getWorkSkillReadiness(skillId: string): Promise<WorkSkillReadiness> {

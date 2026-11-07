@@ -39,6 +39,7 @@ export async function meter(
       runId: run.runId, tokensTotal: usage.total ?? 0, outcome,
       detail: e instanceof Error ? e.message : "unexpected metering failure",
     });
+    throw e;
   }
 }
 

@@ -1,5 +1,8 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
+import { createOwnedSurvey, createSurveyOrganization, ownedSurveyApi, ownedSurveyIdentity, surveyAccountFixture, switchSurveyOrganization } from "./support/survey-owned-organization";
 
 const TEMPLATE_TITLE = "会议反馈调查";
 
@@ -223,6 +226,151 @@ test('紧凑问卷输入与发布设置在桌面平板手机保持可操作',asy
  }
 });
 
+test('R1 问卷体验：空列表单一主入口与创建键盘校验',async({page},testInfo)=>{
+ test.setTimeout(120000);
+ const fixture=surveyAccountFixture();
+ try {
+ const account=fixture.seed();
+ const identityResponse=page.waitForResponse(response=>new URL(response.url()).pathname.endsWith('/identity/me')&&response.request().method()==='GET');
+ await page.goto('/login');
+ await page.getByTestId('login-email').fill(account.email);
+ await page.getByTestId('login-password').fill(account.password);
+ await page.getByTestId('login-submit').click();
+ await expect(page).toHaveURL(/\/home$/);
+ // Read a fresh authenticated response after login navigation; Chromium may release
+ // response bodies from the old document during that navigation.
+ const identityUrl=(await identityResponse).url(),api=ownedSurveyApi(page,identityUrl);
+ const authenticated=await ownedSurveyIdentity(page,identityUrl,account.orgId) as {org:{id:string};orgRole:string};
+ expect(authenticated.org.id).toBe(account.orgId);expect(authenticated.orgRole).toBe('admin');
+ // Never delete the shared org's surveys: another worker may be publishing them.
+ // Keep a foreign sentinel, and exercise the real delete UI on our own survey only.
+ const foreign=await createOwnedSurvey(page,identityUrl,`R1 foreign sentinel ${testInfo.testId}`);
+ const foreignBefore=await api(`/surveys/${foreign.id}`);
+ const ownedOrg=await createSurveyOrganization(page,identityUrl);
+ expect(ownedOrg).not.toBe(authenticated.org.id);
+ const ownedIdentity=await ownedSurveyIdentity(page,identityUrl,ownedOrg);
+ expect(ownedIdentity.org.id).toBe(ownedOrg);expect(ownedIdentity.orgRole).toBe('admin');
+ const owned=await createOwnedSurvey(page,identityUrl,'R1 owned deletion fixture');
+ const loaded=page.waitForResponse(response=>/\/surveys$/.test(response.url())&&response.request().method()==='GET');
+ await page.goto('/studio/survey');const response=await loaded;expect(response.ok()).toBeTruthy();
+ // The observed GET can belong to the document replaced by goto. Read its URL
+ // through the authenticated request context, whose body survives navigation.
+ const surveys=await api('/surveys') as {id:string}[];
+ expect(surveys.map(survey=>survey.id)).toEqual([owned.id]);
+ for(const survey of surveys){
+   const card=page.getByTestId(`survey-card-${survey.id}`);await card.getByRole('button',{name:/更多操作：/}).click();
+   page.once('dialog',dialog=>dialog.accept());
+   const removed=page.waitForResponse(result=>result.url().includes(`/surveys/${survey.id}`)&&result.request().method()==='DELETE');
+   await page.getByRole('menuitem',{name:'删除问卷',exact:true}).click();expect((await removed).ok()).toBeTruthy();await expect(card).toHaveCount(0);
+ }
+ await expect(page.getByRole('heading',{name:'还没有问卷',exact:true})).toBeVisible();
+ await page.screenshot({path:testInfo.outputPath('r1-empty-list.png'),fullPage:true});
+ await expect(page.getByRole('button',{name:'新建问卷',exact:true})).toHaveCount(1);
+ const create=page.getByTestId('survey-create-primary');await create.focus();await create.press('Enter');
+ const dialog=page.getByRole('dialog',{name:'新建问卷',exact:true});
+ await expect(dialog.getByLabel('问卷名称',{exact:true})).toBeFocused();
+ await expect(dialog.getByRole('button',{name:'下一步',exact:true})).toBeDisabled();
+ await dialog.getByLabel('问卷名称',{exact:true}).fill('R1 合成问卷');
+ await expect(dialog.getByRole('button',{name:'下一步',exact:true})).toBeEnabled();
+ await dialog.getByRole('button',{name:'取消',exact:true}).click();await expect(dialog).toHaveCount(0);
+ await expect(create).toBeFocused();
+ await page.screenshot({path:testInfo.outputPath('r1-cancel-focus.png'),fullPage:true});
+ await create.press('Enter');await dialog.getByLabel('问卷名称',{exact:true}).press('Escape');
+ await expect(dialog).toHaveCount(0);await expect(create).toBeFocused();
+ await create.press('Enter');await dialog.getByLabel('问卷名称',{exact:true}).fill('R1 成功导航');
+ await dialog.getByRole('radio',{name:/AI 导入创建/}).check();
+ await dialog.getByRole('button',{name:'下一步',exact:true}).click();
+ await expect(page).toHaveURL(/\/studio\/survey\/new\/import\?draft=/);
+ await expect(page.getByLabel('问卷需求')).toBeVisible();
+ await page.screenshot({path:testInfo.outputPath('r1-created-ai-entry.png'),fullPage:true});
+ await switchSurveyOrganization(page,identityUrl,authenticated.org.id);
+ expect(await api(`/surveys/${foreign.id}`)).toEqual(foreignBefore);
+ } finally { try { await page.close(); } finally { fixture.cleanup(); } }
+});
+
+test('R1 问卷体验：读取失败后直接重选同一文件保留原文',async({page},testInfo)=>{
+ test.setTimeout(120000);await loginAsAdmin(page);
+ await page.goto('/studio/survey/new/import?draft='+encodeURIComponent(JSON.stringify({name:'R1 文件重试',tags:[]})));
+ await page.getByLabel('问卷需求').fill('保留手动输入的研究目标');
+ await page.evaluate(()=>{
+   const read=FileReader.prototype.readAsDataURL;let attempts=0;
+   FileReader.prototype.readAsDataURL=function(blob:Blob){
+     attempts++;if(attempts===1){setTimeout(()=>this.dispatchEvent(new ProgressEvent('error')),0);return;}
+     return read.call(this,blob);
+   };
+ });
+ const source=testInfo.outputPath('r1-source.md');await mkdir(dirname(source),{recursive:true});await writeFile(source,'合成研究资料：关注最近一次使用体验。');
+ const select=async()=>{const chooser=page.waitForEvent('filechooser');await page.getByRole('button',{name:'添加文件',exact:true}).click();await(await chooser).setFiles(source);};
+ await select();await expect(page.getByRole('region',{name:'AI 问卷生成'}).getByRole('alert')).toHaveText('文件读取失败，请重新选择。');
+ await page.screenshot({path:testInfo.outputPath('r1-file-read-error.png'),fullPage:true});
+ await select();await expect(page.getByRole('button',{name:'移除文件 r1-source.md',exact:true})).toBeVisible();
+ await expect(page.getByLabel('问卷需求')).toHaveValue('保留手动输入的研究目标');
+ await expect(page.getByRole('region',{name:'AI 问卷生成'}).getByRole('alert')).toHaveCount(0);
+ await page.screenshot({path:testInfo.outputPath('r1-file-reselected.png'),fullPage:true});
+});
+
+test('R2 问卷体验：自动保存保留标题焦点并可刷新恢复',async({page},testInfo)=>{
+ test.setTimeout(120000);await loginAsAdmin(page);await page.request.get('/studio/survey/ux-route-warmup/design');await page.goto('/studio/survey?tab=modules');
+ const template=page.locator('article').filter({has:page.getByRole('heading',{name:TEMPLATE_TITLE,exact:true})});
+ await template.getByRole('button',{name:'使用并创建问卷'}).click();
+ const title=page.getByRole('textbox',{name:'问卷名称',exact:true});await expect(title).toBeVisible();
+ let release!:()=>void;const gate=new Promise<void>(resolve=>{release=resolve;});
+ await page.route('**/surveys/*/source',async route=>{
+   if(route.request().method()!=='PUT'){await route.continue();return;}
+   const response=await route.fetch();await gate;await route.fulfill({response});
+ });
+ try{
+   await title.fill('R2 自动保存后恢复的问卷');await expect(page.getByText('正在自动保存…',{exact:true})).toBeVisible();
+   await expect(title).toBeFocused();await page.screenshot({path:testInfo.outputPath('r2-saving-focus.png'),fullPage:true});
+ }finally{release();}
+ await expect(page.getByText('正在自动保存…',{exact:true})).toHaveCount(0);await expect(title).toBeFocused();
+ await page.unroute('**/surveys/*/source');await page.reload();
+ await expect(page.getByRole('textbox',{name:'问卷名称',exact:true})).toHaveValue('R2 自动保存后恢复的问卷');
+ await page.screenshot({path:testInfo.outputPath('r2-refreshed-title.png'),fullPage:true});
+});
+
+test('R3 问卷体验：生成失败重试与取消保留原文且未应用提案',async({page},testInfo)=>{
+ test.setTimeout(120000);await loginAsAdmin(page);
+ await page.goto('/studio/survey/new/import?draft='+encodeURIComponent(JSON.stringify({name:'R3 异常恢复',tags:[]})));
+ const input=page.getByLabel('问卷需求');const original='保留原文：了解最近一次会议的改进机会';await input.fill(original);
+ let attempts=0;let release!:()=>void;const gate=new Promise<void>(resolve=>{release=resolve;});
+ let finished!:()=>void;const lateFinished=new Promise<void>(resolve=>{finished=resolve;});
+ await page.route('**/surveys/markdown-proposals',async route=>{
+   attempts++;if(attempts===1){await route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({message:'controlled unavailable'})});return;}
+   const delayed=attempts===2;if(delayed)await gate;
+   await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({markdown:'# R3 合成提案\n\n## recent [open]\n请描述最近一次体验\n',execution:{id:'85f6e172-8b43-4a75-a917-0e91742d1e8c',provider:'controlled-test',modelId:'synthetic',generatedAt:'2026-09-28T00:00:00.000Z'},source:{kind:'text',sha256:'a'.repeat(64)}})}).catch(()=>{});if(delayed)finished();
+ });
+ const generate=page.getByRole('button',{name:'生成问卷',exact:true});await generate.click();
+ await expect(page.getByRole('region',{name:'AI 问卷生成'}).getByRole('alert')).toContainText('生成失败');await expect(input).toHaveValue(original);
+ await page.screenshot({path:testInfo.outputPath('r3-generation-error.png'),fullPage:true});
+ try{await generate.click();await expect(page.getByRole('button',{name:'正在生成…',exact:true})).toBeDisabled();
+ await expect.poll(()=>attempts).toBe(2);await page.getByRole('button',{name:'取消生成',exact:true}).click();await expect(generate).toBeEnabled();await expect(input).toHaveValue(original);
+ }finally{release();}
+ await lateFinished;await expect(page.getByRole('dialog',{name:'Markdown 预览与校对'})).toHaveCount(0);
+ await generate.click();const preview=page.getByRole('dialog',{name:'Markdown 预览与校对'});await expect(preview).toBeVisible();
+ await expect(page).toHaveURL(/\/new\/import/);await preview.getByRole('button',{name:'返回输入',exact:true}).click();
+ await expect(preview).toHaveCount(0);await expect(input).toHaveValue(original);
+ await page.screenshot({path:testInfo.outputPath('r3-recovered-input.png'),fullPage:true});
+});
+
+test('R4 问卷体验：长需求在手机平板桌面保持单层输入与键盘工具入口',async({page},testInfo)=>{
+ test.setTimeout(120000);await loginAsAdmin(page);
+ await page.goto('/studio/survey/new/import?draft='+encodeURIComponent(JSON.stringify({name:'R4 长内容',tags:[]})));
+ const text='了解用户最近一次使用体验、主要困难与下一步改进建议。'.repeat(240);
+ const input=page.getByRole('textbox',{name:'问卷需求'});await input.fill(text);
+ for(const width of [375,768,1280]){
+   await page.setViewportSize({width,height:width===375?812:1000});await input.focus();await expect(input).toBeFocused();
+   await expect(input).toHaveValue(text);await expect(input).toHaveCSS('border-top-width','0px');
+   await input.press('Tab');await expect(page.getByRole('button',{name:'添加文件',exact:true})).toBeFocused();
+   const composer=page.getByTestId('survey-intake-composer');
+   for(const label of ['添加文件','语音输入','选择已保存录音'])await expect(composer.getByRole('button',{name:label,exact:true})).toBeVisible();
+   const generate=page.getByRole('button',{name:'生成问卷',exact:true});await expect(generate).toBeEnabled();await generate.scrollIntoViewIfNeeded();
+   expect(await page.locator('body').evaluate(el=>el.scrollWidth)).toBeLessThanOrEqual(width);
+   if(width===375){const action=await generate.boundingBox();const nav=await page.getByRole('navigation',{name:'主导航（移动端）'}).boundingBox();expect(action&&nav&&action.y+action.height<=nav.y).toBeTruthy();}
+   await page.screenshot({path:testInfo.outputPath(`r4-long-input-${width}.png`),fullPage:true});
+ }
+});
+
 async function loginAsAdmin(page: Page) {
   await page.goto("/login");
   await page.getByTestId("login-email").fill(FULLSTACK_E2E.adminEmail);
@@ -299,9 +447,11 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
   await expect(page.getByText('所有修改已保存',{exact:true})).toHaveCount(0);
   const publishAction=page.locator('header').getByRole('button',{name:'发布回收',exact:true});
   await expect(publishAction).toBeEnabled();
-  const colors=await publishAction.evaluate(element=>({background:getComputedStyle(element).backgroundColor,color:getComputedStyle(element).color}));
   // PAPER primary = hsl(30 6% 12%), converted to rounded sRGB channels.
-  expect(colors).toEqual({background:'rgb(32, 31, 29)',color:'rgb(255, 255, 255)'});
+  // Becoming enabled can precede Button's color transition completing. Keep
+  // both exact final colors in one observation, using the default assertion budget.
+  await expect.poll(()=>publishAction.evaluate(element=>({background:getComputedStyle(element).backgroundColor,color:getComputedStyle(element).color})))
+    .toEqual({background:'rgb(32, 31, 29)',color:'rgb(255, 255, 255)'});
   // Check the resting paint after moving away from the newly positioned canvas.
   await page.getByLabel('问卷名称').hover();
   await expect(page.locator('[data-survey-inline-edit]').first()).toHaveCSS('background-color','rgba(0, 0, 0, 0)');
@@ -439,4 +589,102 @@ test('新建弹窗可从真实模板创建并在刷新后保留名称',async({pa
   await expect(page).toHaveURL(/\/studio\/survey\/[0-9a-f-]+\/design$/);
   await expect(page.getByText('题目目录 · 8')).toBeVisible();await page.reload();
   await expect(page.getByLabel('问卷名称')).toHaveValue('模板弹窗创建验证');
+});
+
+test("5840 三轮列表状态验收：真实创建、筛选、失败恢复与窄屏", async ({ page }, testInfo) => {
+  test.setTimeout(120_000);
+  await page.goto("/login");
+  await page.getByTestId("login-email").fill(FULLSTACK_E2E.adminEmail);
+  await page.getByTestId("login-password").fill(FULLSTACK_E2E.adminPassword);
+  const loginResponse = page.waitForResponse(response => response.url().endsWith("/auth/login") && response.request().method() === "POST");
+  await page.getByTestId("login-submit").click();
+  expect((await loginResponse).ok()).toBeTruthy();
+  await page.waitForURL(/\/home$/);
+  await expect(page).toHaveURL(/\/home$/);
+  await page.goto("/studio/survey");
+  await expect(page.getByRole("status", { name: "问卷数量" })).toBeVisible();
+  if (await page.getByTestId("empty").isVisible()) {
+    await page.screenshot({ animations: "disabled", path: testInfo.outputPath("5840-empty.png"), fullPage: true });
+  }
+  const title = `5840 客户体验与长期使用反馈 ${"长内容核对".repeat(15)}`;
+  await page.getByTestId("survey-create-primary").click();
+  await page.getByLabel("问卷名称", { exact: true }).fill(title);
+  await page.getByLabel("添加标签", { exact: true }).fill("5840验收");
+  await page.getByLabel("添加标签", { exact: true }).press("Enter");
+  const created = page.waitForResponse(response => /\/surveys$/.test(response.url()) && response.request().method() === "POST");
+  await page.getByRole("button", { name: "下一步", exact: true }).click();
+  const response = await created;
+  expect(response.ok()).toBeTruthy();
+  const record = await response.json() as { id: string };
+  await expect(page).toHaveURL(new RegExp(`/studio/survey/${record.id}/design`));
+  await page.goto("/studio/survey");
+  const card = page.getByTestId(`survey-card-${record.id}`);
+  await expect(card).toBeVisible();
+  await expect(card.getByRole("heading", { level: 2 })).toBeVisible();
+  await page.reload();
+  await expect(card.getByRole("link", { name: title, exact: true })).toBeVisible();
+  const search = page.getByRole("textbox", { name: "搜索问卷" });
+  await search.fill("5840 客户体验");
+  await page.getByRole("button", { name: /^5840验收/ }).click();
+  await expect(page.getByRole("status", { name: "问卷数量" })).toContainText("匹配 1 / 共");
+  await page.getByRole("button", { name: "个人菜单", exact: true }).click();
+  await page.getByTestId("personal-menu-theme").click();
+  await page.keyboard.press("Escape");
+  await expect(page.locator("html")).toHaveClass(/dark/);
+  await expect(card.getByRole("link", { name: title, exact: true })).toHaveCSS("color",
+    await page.getByRole("heading", { name: "问卷", exact: true }).evaluate(element => getComputedStyle(element).color));
+  await page.screenshot({ animations: "disabled", path: testInfo.outputPath("5840-results-dark.png"), fullPage: true });
+  await page.getByRole("button", { name: "个人菜单", exact: true }).click();
+  await page.getByTestId("personal-menu-theme").click();
+  await page.keyboard.press("Escape");
+  await expect(page.locator("html")).not.toHaveClass(/dark/);
+  await expect(card.getByRole("link", { name: title, exact: true })).toHaveCSS("color",
+    await page.getByRole("heading", { name: "问卷", exact: true }).evaluate(element => getComputedStyle(element).color));
+  for (const width of [1280, 768, 375]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(card).toBeVisible();
+    expect(await page.locator("body").evaluate(element => element.scrollWidth)).toBeLessThanOrEqual(width);
+    await page.screenshot({ animations: "disabled", path: testInfo.outputPath(`5840-results-${width}.png`), fullPage: true });
+  }
+  await search.fill("5840-零匹配");
+  await expect(page.getByText("没有符合筛选条件的问卷")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "为该问卷设计报告模板" })).toHaveCount(0);
+  await page.screenshot({ animations: "disabled", path: testInfo.outputPath("5840-no-results-375.png"), fullPage: true });
+  const clear = page.getByRole("button", { name: "清除筛选" });
+  await clear.focus(); await clear.press("Enter");
+  await expect(search).toBeFocused();
+  await expect(search).toHaveValue("");
+  await search.fill("5840 客户体验");
+
+  // Only list failure/loading is injected. Login, creation, reload and recovery use the real API.
+  await page.route("**/surveys", async route => {
+    if (route.request().method() === "GET") await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ message: "问卷服务暂时不可用", code: "SERVICE_UNAVAILABLE" }) });
+    else await route.continue();
+  });
+  await page.reload();
+  const retry = page.getByRole("button", { name: "重新加载", exact: true });
+  await expect(retry).toBeVisible();
+  await search.fill("5840 客户体验");
+  await retry.click();
+  await expect(retry).toBeEnabled();
+  await expect(page.getByTestId("err-survey-library")).toBeVisible();
+  await page.screenshot({ animations: "disabled", path: testInfo.outputPath("5840-error-375.png"), fullPage: true });
+  await page.unroute("**/surveys");
+  let releaseList!: () => void;
+  const listGate = new Promise<void>(resolve => { releaseList = resolve; });
+  await page.route("**/surveys", async route => { await listGate; await route.continue(); });
+  await retry.focus(); await retry.press("Enter");
+  await expect(page.getByRole("button", { name: "重新加载中…" })).toBeDisabled();
+  await expect(page.getByTestId("survey-library-loading")).toBeVisible();
+  await page.screenshot({ animations: "disabled", path: testInfo.outputPath("5840-loading-375.png"), fullPage: true });
+  releaseList();
+  await expect(card).toBeVisible();
+  await expect(search).toHaveValue("5840 客户体验");
+  await expect(search).toBeFocused();
+  await expect(page.getByTestId("err-survey-library")).toHaveCount(0);
+  await page.unroute("**/surveys");
+  await card.getByRole("button", { name: "查看答卷" }).click();
+  await expect(page).toHaveURL(new RegExp(`/studio/survey/${record.id}/responses`));
+  await expect(page.getByText("没有符合条件的答卷。")).toBeVisible();
+  await page.screenshot({ animations: "disabled", path: testInfo.outputPath("5840-response-empty-375.png"), fullPage: true });
 });

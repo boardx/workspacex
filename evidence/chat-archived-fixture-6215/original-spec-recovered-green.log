@@ -1,0 +1,9 @@
+  ✓  1 [chat-read] › e2e/copilotkit-v2-persona-archived.spec.ts:87:5 › CK-P6：真实线程上生成用户画像 → mindmap 消息落库，刷新后仍在 (3.0m)
+  ✓  2 [chat-read] › e2e/copilotkit-v2-persona-archived.spec.ts:179:5 › issue #2825：建议行按上下文推荐后台画布模板；点一条 ⇒ 服务端给的 prompt 原样发出 (26.5s)
+  ✓  3 [chat-read] › e2e/copilotkit-v2-persona-archived.spec.ts:209:5 › CK-P8：getThread 真实响应的 archived=true ⇒ composer 全部写入口禁用 + 只读说明 (29.7s)
+  3 passed (7.3m)
+[timing] pnpm --filter web exec playwright test --config playwright.chat-read.config.ts --project=chat-read e2e/copilotkit-v2-persona-archived.spec.ts --workers=1 --retries=0
+  命令执行：7m20s
+  清理：1s
+  总计：7m21s
+Actual process exit: 0

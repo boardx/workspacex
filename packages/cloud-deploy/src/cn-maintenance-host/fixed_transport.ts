@@ -44,7 +44,11 @@ export function protectedExecutable(command: TrustedExecutable): number {
     if (!st.isDirectory() || st.uid !== 0 || st.gid !== 0 || (st.mode & 0o022)) fail('COMMAND_PARENT_UNTRUSTED');
   }
   const before = lstatSync(command.path);
-  if (!before.isFile() || before.uid !== 0 || before.gid !== 0 || before.nlink !== 1 || (before.mode & 0o777) !== 0o700) fail('COMMAND_METADATA_UNTRUSTED');
+  // Only the two fixed public preflight scripts participate in runner drift checks.
+  // Snapshot collectors, writer modules and recovery executors stay root-private.
+  const expectedMode = command.path === '/usr/local/lib/workspacex-cn/collect-cn-release-preflight.sh'
+    || command.path === '/usr/local/lib/workspacex-cn/verify-cn-release-preflight.sh' ? 0o755 : 0o700;
+  if (!before.isFile() || before.uid !== 0 || before.gid !== 0 || before.nlink !== 1 || (before.mode & 0o777) !== expectedMode) fail('COMMAND_METADATA_UNTRUSTED');
   const fd = openSync(command.path, constants.O_RDONLY | constants.O_NOFOLLOW);
   try {
     const after = fstatSync(fd);

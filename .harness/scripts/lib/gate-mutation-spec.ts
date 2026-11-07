@@ -254,7 +254,7 @@ const UI_WIRING_MANIFEST = ".harness/scripts/ui-wiring-manifest.json";
 // e2e-testid-gate 打的是「源码里删掉一个 testid，而锚着它的 spec 没跟进」——
 // 这个声明点是全仓唯一一处（`copilotkit-v2-thread-persistence.spec.ts` 等多条
 // spec 锚着它），改掉它必须当场红。
-const V2_MESSAGES_DECL = "apps/web/components/chat/copilotkit-v2-panel-body.tsx";
+const V2_MESSAGES_DECL = "apps/web/components/chat/copilotkit-v2-panel-view.tsx";
 
 const cli = (...rest: string[]) => ["tsx", ".harness/scripts/cli.ts", ...rest] as const;
 const node = (script: string) => ["node", script] as const;

@@ -1,0 +1,135 @@
+............................FF.......................................... [ 57%]
+.....................................................                    [100%]
+=================================== FAILURES ===================================
+______________ test_real_sdk_event_framing[payload1-False-False] _______________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10af58de0>
+tmp_path = PosixPath('/private/var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/pytest-of-shenyangjun/pytest-20/test_real_sdk_event_framing_pa0')
+asynchronous = False
+payload = [b'data: {"usage":{"total_tokens":9,"prompt_tokens":6,"completion_tokens":3}}\n\n', b'data: [DONE]\r', b'\n', b'\n']
+failed = False
+
+    @pytest.mark.parametrize("asynchronous", [False, True])
+    @pytest.mark.parametrize("payload,failed", [
+        (b'data: {}\ndata: [DONE]\n\n', True),
+        ([USAGE, b"data: [DONE]\r", b"\n", b"\n"], False),
+        (b': keepalive\rdata: {"error":{"message":"fixture"}}\r\r\n\ndata: [DONE]\n\n', True),
+        (b'data:  [DONE]\n\n', True),
+        (b'data:\t[DONE]\n\n', True),
+        (b'data: {"usage":\ndata: {"total_tokens":9}}\n\ndata: [DONE]\n\n', False),
+    ])
+    def test_real_sdk_event_framing(monkeypatch, tmp_path, asynchronous, payload, failed):
+        import openai
+        import json
+        monkeypatch.setenv("DEEP_AGENT_USAGE_SPOOL_DIR", str(tmp_path))
+        monkeypatch.setattr(a, "_durability_fault", False)
+        monkeypatch.setattr(a, "ownership", lambda: dict(OWNER))
+        callbacks = []
+        def post(_owner, _subject, phase, body):
+            callbacks.append((phase, body))
+        async def apost(*args):
+            post(*args)
+        monkeypatch.setattr(a, "post", post)
+        monkeypatch.setattr(a, "apost", apost)
+        class Wire(httpx.SyncByteStream, httpx.AsyncByteStream):
+            def __iter__(self):
+                yield from (payload if isinstance(payload, list) else [payload])
+            async def __aiter__(self):
+                for chunk in self:
+                    yield chunk
+        def vendor(_request):
+            return httpx.Response(200, headers={"content-type":"text/event-stream"}, stream=Wire())
+        async def run_async():
+            async with openai.AsyncOpenAI(api_key="fixture", max_retries=0, http_client=httpx.AsyncClient(transport=a.AsyncAccountingTransport(httpx.MockTransport(vendor)))) as client:
+                stream = await client.chat.completions.create(model="fixture", messages=[], max_tokens=10, stream=True)
+                async with stream:
+                    return [chunk async for chunk in stream]
+        def run_sync():
+            with openai.OpenAI(api_key="fixture", max_retries=0, http_client=httpx.Client(transport=a.AccountingTransport(httpx.MockTransport(vendor)))) as client:
+                with client.chat.completions.create(model="fixture", messages=[], max_tokens=10, stream=True) as stream:
+                    return list(stream)
+        if failed:
+            with pytest.raises(openai.APIError if b'"error"' in payload else json.JSONDecodeError):
+                asyncio.run(run_async()) if asynchronous else run_sync()
+        else:
+            asyncio.run(run_async()) if asynchronous else run_sync()
+        assert [phase for phase, _ in callbacks] == ["admit", "terminal"]
+        assert callbacks[-1][1]["outcome"] == ("failed" if failed else "succeeded")
+        if not failed:
+>           assert callbacks[-1][1]["usage"] == {"total":9}
+E           AssertionError: assert {'total': 9, ...ompletion': 3} == {'total': 9}
+E             
+E             Omitting 1 identical items, use -vv to show
+E             Left contains 2 more items:
+E             {'completion': 3, 'prompt': 6}
+E             Use -v to get more diff
+
+tests/test_stream_completion.py:147: AssertionError
+_______________ test_real_sdk_event_framing[payload1-False-True] _______________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10af5aa50>
+tmp_path = PosixPath('/private/var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/pytest-of-shenyangjun/pytest-20/test_real_sdk_event_framing_pa1')
+asynchronous = True
+payload = [b'data: {"usage":{"total_tokens":9,"prompt_tokens":6,"completion_tokens":3}}\n\n', b'data: [DONE]\r', b'\n', b'\n']
+failed = False
+
+    @pytest.mark.parametrize("asynchronous", [False, True])
+    @pytest.mark.parametrize("payload,failed", [
+        (b'data: {}\ndata: [DONE]\n\n', True),
+        ([USAGE, b"data: [DONE]\r", b"\n", b"\n"], False),
+        (b': keepalive\rdata: {"error":{"message":"fixture"}}\r\r\n\ndata: [DONE]\n\n', True),
+        (b'data:  [DONE]\n\n', True),
+        (b'data:\t[DONE]\n\n', True),
+        (b'data: {"usage":\ndata: {"total_tokens":9}}\n\ndata: [DONE]\n\n', False),
+    ])
+    def test_real_sdk_event_framing(monkeypatch, tmp_path, asynchronous, payload, failed):
+        import openai
+        import json
+        monkeypatch.setenv("DEEP_AGENT_USAGE_SPOOL_DIR", str(tmp_path))
+        monkeypatch.setattr(a, "_durability_fault", False)
+        monkeypatch.setattr(a, "ownership", lambda: dict(OWNER))
+        callbacks = []
+        def post(_owner, _subject, phase, body):
+            callbacks.append((phase, body))
+        async def apost(*args):
+            post(*args)
+        monkeypatch.setattr(a, "post", post)
+        monkeypatch.setattr(a, "apost", apost)
+        class Wire(httpx.SyncByteStream, httpx.AsyncByteStream):
+            def __iter__(self):
+                yield from (payload if isinstance(payload, list) else [payload])
+            async def __aiter__(self):
+                for chunk in self:
+                    yield chunk
+        def vendor(_request):
+            return httpx.Response(200, headers={"content-type":"text/event-stream"}, stream=Wire())
+        async def run_async():
+            async with openai.AsyncOpenAI(api_key="fixture", max_retries=0, http_client=httpx.AsyncClient(transport=a.AsyncAccountingTransport(httpx.MockTransport(vendor)))) as client:
+                stream = await client.chat.completions.create(model="fixture", messages=[], max_tokens=10, stream=True)
+                async with stream:
+                    return [chunk async for chunk in stream]
+        def run_sync():
+            with openai.OpenAI(api_key="fixture", max_retries=0, http_client=httpx.Client(transport=a.AccountingTransport(httpx.MockTransport(vendor)))) as client:
+                with client.chat.completions.create(model="fixture", messages=[], max_tokens=10, stream=True) as stream:
+                    return list(stream)
+        if failed:
+            with pytest.raises(openai.APIError if b'"error"' in payload else json.JSONDecodeError):
+                asyncio.run(run_async()) if asynchronous else run_sync()
+        else:
+            asyncio.run(run_async()) if asynchronous else run_sync()
+        assert [phase for phase, _ in callbacks] == ["admit", "terminal"]
+        assert callbacks[-1][1]["outcome"] == ("failed" if failed else "succeeded")
+        if not failed:
+>           assert callbacks[-1][1]["usage"] == {"total":9}
+E           AssertionError: assert {'total': 9, ...ompletion': 3} == {'total': 9}
+E             
+E             Omitting 1 identical items, use -vv to show
+E             Left contains 2 more items:
+E             {'completion': 3, 'prompt': 6}
+E             Use -v to get more diff
+
+tests/test_stream_completion.py:147: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_stream_completion.py::test_real_sdk_event_framing[payload1-False-False]
+FAILED tests/test_stream_completion.py::test_real_sdk_event_framing[payload1-False-True]
+2 failed, 123 passed in 10.36s

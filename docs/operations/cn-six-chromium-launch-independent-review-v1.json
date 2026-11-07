@@ -1,0 +1,29 @@
+{
+  "kind": "cn-release-independent-code-review-v1",
+  "reviewer": "/root/code_review",
+  "reviewedAt": "2026-10-12T14:35:49.644359+00:00",
+  "disposition": "accepted-for-isolated-linux-validation",
+  "reviewedFiles": {
+    "apps/web/playwright.cn-six-business.config.ts": "c7997b7a7dda63ba6a06571ac5c80e9a18508a92e9dad4e7d70999822064bd13",
+    "tests/fixtures/cn-six-business/chromium-launch.ts": "c14099eb63e27261a019c15e1ecc47b3522aef915d0b1a28288ea144008219d4",
+    "tests/fixtures/cn-six-business/chromium-launch.test.ts": "64269396e754c7a43acbb4d42d1c2156c638bbf4fe56bb7e65d008f55f912ad7",
+    "tests/fixtures/cn-six-business/next-launch.test.ts": "22d527965aee0547a6c45d5c63c34270952242841a8ec730a1d8253d1be775cc"
+  },
+  "scope": "Explicit installed Chromium path propagation in actual six config only; no cache download or path fallback.",
+  "executionEvidence": {
+    "nodeTests": 4,
+    "passed": 4,
+    "skipped": 0,
+    "milliseconds": 2224.587166,
+    "realBrowserExecuted": false,
+    "realPlaywrightSyntheticExecutableUsed": true,
+    "linuxExecuted": false
+  },
+  "findings": [
+    "Actual config binds explicit absolute executable and preserves base microphone launch args/permissions.",
+    "Missing/relative/not-file/nonexecutables refuse; actual Playwright launches only owned synthetic shell under private HOME, proving executablePath consumed without claiming browser success."
+  ],
+  "remainingValidation": [
+    "Real installed Chromium launch and six journeys require next Linux CI."
+  ]
+}

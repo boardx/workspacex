@@ -27,7 +27,9 @@ describe("research chapter document", () => {
     const { container } = render(<GuidedResearchReportDocument document={document} provisional />);
     expect(within(container).getByRole("heading", { name: framing.headings.summary })).toBeInTheDocument();
     expect(within(container).getByRole("heading", { name: framing.headings.introduction })).toBeInTheDocument();
-    expect(within(container).getByRole("heading", { name: framing.headings.contents })).toBeInTheDocument();
+    // Contents is interface chrome; canonical report headings and export remain source-language content.
+    expect(within(container).getByRole("heading", { name: "目录" })).toBeInTheDocument();
+    expect(document.headings!.contents).toBe(framing.headings.contents);
     const markdown = researchReportMarkdown(document);
     expect(markdown).toContain(`## ${framing.headings.summary}`);
     expect(markdown).toContain(`## ${framing.headings.conclusion}`);

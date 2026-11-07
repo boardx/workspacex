@@ -1,0 +1,22 @@
+{
+  "source": "45cb36c62f3ad27afcecf775821441f995cd49c9",
+  "billing": {
+    "command": "caffeinate -i pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/billing",
+    "exitCode": 0,
+    "files": 13,
+    "tests": 127
+  },
+  "apiTypecheck": {
+    "command": "pnpm --filter api typecheck",
+    "exitCode": 0
+  },
+  "apiLint": {
+    "command": "pnpm --filter api lint",
+    "exitCode": 0
+  },
+  "independentSourceReview": "SOURCE ACCEPT 45cb36c62",
+  "fullRepositoryRerun": false,
+  "priorF07ConnectionFailureRootCause": "unknown",
+  "productionMerchantAccepted": false,
+  "ownedIsolationCleaned": true
+}

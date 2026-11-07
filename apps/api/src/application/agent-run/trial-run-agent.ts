@@ -1,3 +1,4 @@
+import {rethrowCreditConsumption} from "../billing/credit-consumption";
 /**
  * `trialRunAgent` -- 契约束 `agent-runtime`（F48-60）UC-4.1 R3 步骤 8：`[试跑]`
  * （packages/contracts/src/agent-runtime.ts:1621，#595 拆分 Line A）。
@@ -133,7 +134,7 @@ export async function trialRunAgent(
       // conversation to include, so this is `[]`, not an omitted field left to default.
       history: [],
     });
-  } catch (e) {
+  } catch (e) { rethrowCreditConsumption(e);
     const detail = e instanceof ModelCallError ? e.detail : "unexpected model call failure";
     deps.log("agent trial run model call failed", {
       agentId: input.agentId,

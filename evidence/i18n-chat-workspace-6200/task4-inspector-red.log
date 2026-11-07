@@ -1,0 +1,1040 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ❯ tests/ui/i18n-chat-inspector.test.tsx (2 tests | 2 failed) 174ms
+   × keeps selected run detail rows and elapsed timer mounted while changing language 144ms
+     → Unable to find an accessible element with the role "tab" and name "Run details"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  [36m<button />[39m
+
+  Name "展开任务检查器":
+  [36m<button[39m
+    [33maria-expanded[39m=[32m"false"[39m
+    [33maria-label[39m=[32m"展开任务检查器"[39m
+    [33mclass[39m=[32m"flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-inspector-expand"[39m
+    [33mtitle[39m=[32m"展开任务检查器"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  complementary:
+
+  Name "任务检查器":
+  [36m<aside[39m
+    [33maria-label[39m=[32m"任务检查器"[39m
+    [33mclass[39m=[32m"relative flex shrink-0 flex-col border-l border-border-subtle bg-panel-alt w-10"[39m
+    [33mdata-active-tab[39m=[32m"materials"[39m
+    [33mdata-collapsed[39m=[32m"true"[39m
+    [33mdata-drop-active[39m=[32m"false"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-inspector"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tablist:
+
+  Name "任务检查器页签":
+  [36m<div[39m
+    [33maria-label[39m=[32m"任务检查器页签"[39m
+    [33maria-orientation[39m=[32m"vertical"[39m
+    [33mclass[39m=[32m"flex shrink-0 items-center border-b border-border-subtle flex-col gap-1 py-2"[39m
+    [33mrole[39m=[32m"tablist"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tab:
+
+  Name "材料":
+  [36m<button[39m
+    [33maria-label[39m=[32m"材料"[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"relative flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40 w-8 px-0 text-muted-foreground hover:bg-card hover:text-card-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-inspector-tab-materials"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtitle[39m=[32m"材料"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "产物":
+  [36m<button[39m
+    [33maria-label[39m=[32m"产物"[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"relative flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40 w-8 px-0 text-muted-foreground hover:bg-card hover:text-card-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-inspector-tab-artifacts"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtitle[39m=[32m"产物"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "运行详情":
+  [36m<button[39m
+    [33maria-label[39m=[32m"运行详情"[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"relative flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40 w-8 px-0 text-muted-foreground hover:bg-card hover:text-card-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-inspector-tab-run-details"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtitle[39m=[32m"运行详情"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mswitch language[0m
+    [36m</button>[39m
+    [36m<aside[39m
+      [33maria-label[39m=[32m"任务检查器"[39m
+      [33mclass[39m=[32m"relative flex shrink-0 flex-col border-l border-border-subtle bg-panel-alt w-10"[39m
+      [33mdata-active-tab[39m=[32m"materials"[39m
+      [33mdata-collapsed[39m=[32m"true"[39m
+      [33mdata-drop-active[39m=[32m"false"[39m
+      [33mdata-testid[39m=[32m"chat-task-workbench-inspector"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33maria-label[39m=[32m"任务检查器页签"[39m
+        [33maria-orientation[39m=[32m"vertical"[39m
+        [33mclass[39m=[32m"flex shrink-0 items-center border-b border-border-subtle flex-col gap-1 py-2"[39m
+        [33mrole[39m=[32m"tablist"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33maria-label[39m=[32m"材料"[39m
+          [33maria-selected[39m=[32m"false"[39m
+          [33mclass[39m=[32m"relative flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40 w-8 px-0 text-muted-foreground hover:bg-card hover:text-card-foreground"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-inspector-tab-materials"[39m
+          [33mrole[39m=[32m"tab"[39m
+          [33mtitle[39m=[32m"材料"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-folder-open h-4 w-4 shrink-0"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33maria-label[39m=[32m"产物"[39m
+          [33maria-selected[39m=[32m"false"[39m
+          [33mclass[39m=[32m"relative flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40 w-8 px-0 text-muted-foreground hover:bg-card hover:text-card-foreground"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-inspector-tab-artifacts"[39m
+          [33mrole[39m=[32m"tab"[39m
+          [33mtitle[39m=[32m"产物"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-package h-4 w-4 shrink-0"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 22V12"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m3.3 7 7.703 4.734a2 2 0 0 0 1.994 0L20.7 7"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m7.5 4.27 9 5.15"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33maria-label[39m=[32m"运行详情"[39m
+          [33maria-selected[39m=[32m"false"[39m
+          [33mclass[39m=[32m"relative flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40 w-8 px-0 text-muted-foreground hover:bg-card hover:text-card-foreground"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-inspector-tab-run-details"[39m
+          [33mrole[39m=[32m"tab"[39m
+          [33mtitle[39m=[32m"运行详情"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-settings2 h-4 w-4 shrink-0"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M20 7h-9"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M14 17H5"[39m
+            [36m/>[39m
+            [36m<circle[39m
+              [33mcx[39m=[32m"17"[39m
+              [33mcy[39m=[32m"17"[39m
+              [33mr[39m=[32m"3"[39m
+            [36m/>[39m
+            [36m<circle[39m
+              [33mcx[39m=[32m"7"[39m
+              [33mcy[39m=[32m"7"[39m
+              [33mr[39m=[32m"3"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-1 items-start justify-center pt-1"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33maria-expanded[39m=[32m"false"[39m
+          [33maria-label[39m=[32m"展开任务检查器"[39m
+          [33mclass[39m=[32m"flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-inspector-expand"[39m
+          [33mtitle[39m=[32m"展开任务检查器"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-panel-right-open h-3.5 w-3.5"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"18"[39m
+              [33mrx[39m=[32m"2"[39m
+              [33mwidth[39m=[32m"18"[39m
+              [33mx[39m=[32m"3"[39m
+              [33my[39m=[32m"3"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M15 3v18"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m10 15-3-3 3-3"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</button>[39m
+      [36m</div>[39m
+    [36m</aside>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × keeps the user's collapsed state and canonical tab button through locale changes 30ms
+     → Unable to find an accessible element with the role "tab" and name "Artifacts"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  [36m<button />[39m
+
+  Name "展开任务检查器":
+  [36m<button[39m
+    [33maria-expanded[39m=[32m"false"[39m
+    [33maria-label[39m=[32m"展开任务检查器"[39m
+    [33mclass[39m=[32m"flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-inspector-expand"[39m
+    [33mtitle[39m=[32m"展开任务检查器"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  complementary:
+
+  Name "任务检查器":
+  [36m<aside[39m
+    [33maria-label[39m=[32m"任务检查器"[39m
+    [33mclass[39m=[32m"relative flex shrink-0 flex-col border-l border-border-subtle bg-panel-alt w-10"[39m
+    [33mdata-active-tab[39m=[32m"materials"[39m
+    [33mdata-collapsed[39m=[32m"true"[39m
+    [33mdata-drop-active[39m=[32m"false"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-inspector"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tablist:
+
+  Name "任务检查器页签":
+  [36m<div[39m
+    [33maria-label[39m=[32m"任务检查器页签"[39m
+    [33maria-orientation[39m=[32m"vertical"[39m
+    [33mclass[39m=[32m"flex shrink-0 items-center border-b border-border-subtle flex-col gap-1 py-2"[39m
+    [33mrole[39m=[32m"tablist"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tab:
+
+  Name "材料":
+  [36m<button[39m
+    [33maria-label[39m=[32m"材料"[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"relative flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40 w-8 px-0 text-muted-foreground hover:bg-card hover:text-card-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-inspector-tab-materials"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtitle[39m=[32m"材料"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "产物":
+  [36m<button[39m
+    [33maria-label[39m=[32m"产物"[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"relative flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40 w-8 px-0 text-muted-foreground hover:bg-card hover:text-card-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-inspector-tab-artifacts"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtitle[39m=[32m"产物"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "运行详情":
+  [36m<button[39m
+    [33maria-label[39m=[32m"运行详情"[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"relative flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40 w-8 px-0 text-muted-foreground hover:bg-card hover:text-card-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-inspector-tab-run-details"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtitle[39m=[32m"运行详情"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mswitch language[0m
+    [36m</button>[39m
+    [36m<aside[39m
+      [33maria-label[39m=[32m"任务检查器"[39m
+      [33mclass[39m=[32m"relative flex shrink-0 flex-col border-l border-border-subtle bg-panel-alt w-10"[39m
+      [33mdata-active-tab[39m=[32m"materials"[39m
+      [33mdata-collapsed[39m=[32m"true"[39m
+      [33mdata-drop-active[39m=[32m"false"[39m
+      [33mdata-testid[39m=[32m"chat-task-workbench-inspector"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33maria-label[39m=[32m"任务检查器页签"[39m
+        [33maria-orientation[39m=[32m"vertical"[39m
+        [33mclass[39m=[32m"flex shrink-0 items-center border-b border-border-subtle flex-col gap-1 py-2"[39m
+        [33mrole[39m=[32m"tablist"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33maria-label[39m=[32m"材料"[39m
+          [33maria-selected[39m=[32m"false"[39m
+          [33mclass[39m=[32m"relative flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40 w-8 px-0 text-muted-foreground hover:bg-card hover:text-card-foreground"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-inspector-tab-materials"[39m
+          [33mrole[39m=[32m"tab"[39m
+          [33mtitle[39m=[32m"材料"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-folder-open h-4 w-4 shrink-0"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33maria-label[39m=[32m"产物"[39m
+          [33maria-selected[39m=[32m"false"[39m
+          [33mclass[39m=[32m"relative flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40 w-8 px-0 text-muted-foreground hover:bg-card hover:text-card-foreground"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-inspector-tab-artifacts"[39m
+          [33mrole[39m=[32m"tab"[39m
+          [33mtitle[39m=[32m"产物"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-package h-4 w-4 shrink-0"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 22V12"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m3.3 7 7.703 4.734a2 2 0 0 0 1.994 0L20.7 7"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m7.5 4.27 9 5.15"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33maria-label[39m=[32m"运行详情"[39m
+          [33maria-selected[39m=[32m"false"[39m
+          [33mclass[39m=[32m"relative flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40 w-8 px-0 text-muted-foreground hover:bg-card hover:text-card-foreground"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-inspector-tab-run-details"[39m
+          [33mrole[39m=[32m"tab"[39m
+          [33mtitle[39m=[32m"运行详情"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-settings2 h-4 w-4 shrink-0"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M20 7h-9"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M14 17H5"[39m
+            [36m/>[39m
+            [36m<circle[39m
+              [33mcx[39m=[32m"17"[39m
+              [33mcy[39m=[32m"17"[39m
+              [33mr[39m=[32m"3"[39m
+            [36m/>[39m
+            [36m<circle[39m
+              [33mcx[39m=[32m"7"[39m
+              [33mcy[39m=[32m"7"[39m
+              [33mr[39m=[32m"3"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-1 items-start justify-center pt-1"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33maria-expanded[39m=[32m"false"[39m
+          [33maria-label[39m=[32m"展开任务检查器"[39m
+          [33mclass[39m=[32m"flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-inspector-expand"[39m
+          [33mtitle[39m=[32m"展开任务检查器"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-panel-right-open h-3.5 w-3.5"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"18"[39m
+              [33mrx[39m=[32m"2"[39m
+              [33mwidth[39m=[32m"18"[39m
+              [33mx[39m=[32m"3"[39m
+              [33my[39m=[32m"3"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M15 3v18"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m10 15-3-3 3-3"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</button>[39m
+      [36m</div>[39m
+    [36m</aside>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/i18n-chat-inspector.test.tsx > keeps selected run detail rows and elapsed timer mounted while changing language
+TestingLibraryElementError: Unable to find an accessible element with the role "tab" and name "Run details"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  [36m<button />[39m
+
+  Name "展开任务检查器":
+  [36m<button[39m
+    [33maria-expanded[39m=[32m"false"[39m
+    [33maria-label[39m=[32m"展开任务检查器"[39m
+    [33mclass[39m=[32m"flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-inspector-expand"[39m
+    [33mtitle[39m=[32m"展开任务检查器"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  complementary:
+
+  Name "任务检查器":
+  [36m<aside[39m
+    [33maria-label[39m=[32m"任务检查器"[39m
+    [33mclass[39m=[32m"relative flex shrink-0 flex-col border-l border-border-subtle bg-panel-alt w-10"[39m
+    [33mdata-active-tab[39m=[32m"materials"[39m
+    [33mdata-collapsed[39m=[32m"true"[39m
+    [33mdata-drop-active[39m=[32m"false"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-inspector"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tablist:
+
+  Name "任务检查器页签":
+  [36m<div[39m
+    [33maria-label[39m=[32m"任务检查器页签"[39m
+    [33maria-orientation[39m=[32m"vertical"[39m
+    [33mclass[39m=[32m"flex shrink-0 items-center border-b border-border-subtle flex-col gap-1 py-2"[39m
+    [33mrole[39m=[32m"tablist"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tab:
+
+  Name "材料":
+  [36m<button[39m
+    [33maria-label[39m=[32m"材料"[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"relative flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40 w-8 px-0 text-muted-foreground hover:bg-card hover:text-card-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-inspector-tab-materials"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtitle[39m=[32m"材料"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "产物":
+  [36m<button[39m
+    [33maria-label[39m=[32m"产物"[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"relative flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40 w-8 px-0 text-muted-foreground hover:bg-card hover:text-card-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-inspector-tab-artifacts"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtitle[39m=[32m"产物"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "运行详情":
+  [36m<button[39m
+    [33maria-label[39m=[32m"运行详情"[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"relative flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40 w-8 px-0 text-muted-foreground hover:bg-card hover:text-card-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-inspector-tab-run-details"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtitle[39m=[32m"运行详情"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mswitch language[0m
+    [36m</button>[39m
+    [36m<aside[39m
+      [33maria-label[39m=[32m"任务检查器"[39m
+      [33mclass[39m=[32m"relative flex shrink-0 flex-col border-l border-border-subtle bg-panel-alt w-10"[39m
+      [33mdata-active-tab[39m=[32m"materials"[39m
+      [33mdata-collapsed[39m=[32m"true"[39m
+      [33mdata-drop-active[39m=[32m"false"[39m
+      [33mdata-testid[39m=[32m"chat-task-workbench-inspector"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33maria-label[39m=[32m"任务检查器页签"[39m
+        [33maria-orientation[39m=[32m"vertical"[39m
+        [33mclass[39m=[32m"flex shrink-0 items-center border-b border-border-subtle flex-col gap-1 py-2"[39m
+        [33mrole[39m=[32m"tablist"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33maria-label[39m=[32m"材料"[39m
+          [33maria-selected[39m=[32m"false"[39m
+          [33mclass[39m=[32m"relative flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40 w-8 px-0 text-muted-foreground hover:bg-card hover:text-card-foreground"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-inspector-tab-materials"[39m
+          [33mrole[39m=[32m"tab"[39m
+          [33mtitle[39m=[32m"材料"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-folder-open h-4 w-4 shrink-0"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33maria-label[39m=[32m"产物"[39m
+          [33maria-selected[39m=[32m"false"[39m
+          [33mclass[39m=[32m"relative flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40 w-8 px-0 text-muted-foreground hover:bg-card hover:text-card-foreground"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-inspector-tab-artifacts"[39m
+          [33mrole[39m=[32m"tab"[39m
+          [33mtitle[39m=[32m"产物"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-package h-4 w-4 shrink-0"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 22V12"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m3.3 7 7.703 4.734a2 2 0 0 0 1.994 0L20.7 7"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m7.5 4.27 9 5.15"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33maria-label[39m=[32m"运行详情"[39m
+          [33maria-selected[39m=[32m"false"[39m
+          [33mclass[39m=[32m"relative flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40 w-8 px-0 text-muted-foreground hover:bg-card hover:text-card-foreground"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-inspector-tab-run-details"[39m
+          [33mrole[39m=[32m"tab"[39m
+          [33mtitle[39m=[32m"运行详情"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-settings2 h-4 w-4 shrink-0"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M20 7h-9"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M14 17H5"[39m
+            [36m/>[39m
+            [36m<circle[39m
+              [33mcx[39m=[32m"17"[39m
+              [33mcy[39m=[32m"17"[39m
+              [33mr[39m=[32m"3"[39m
+            [36m/>[39m
+            [36m<circle[39m
+              [33mcx[39m=[32m"7"[39m
+              [33mcy[39m=[32m"7"[39m
+              [33mr[39m=[32m"3"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-1 items-start justify-center pt-1"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33maria-expanded[39m=[32m"false"[39m
+          [33maria-label[39m=[32m"展开任务检查器"[39m
+          [33mclass[39m=[32m"flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-inspector-expand"[39m
+          [33mtitle[39m=[32m"展开任务检查器"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-panel-right-open h-3.5 w-3.5"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"18"[39m
+              [33mrx[39m=[32m"2"[39m
+              [33mwidth[39m=[32m"18"[39m
+              [33mx[39m=[32m"3"[39m
+              [33my[39m=[32m"3"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M15 3v18"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m10 15-3-3 3-3"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</button>[39m
+      [36m</div>[39m
+    [36m</aside>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-inspector.test.tsx:19:26
+     17|   vi.useFakeTimers(); vi.setSystemTime(6000);
+     18|   render(<I18nProvider initialLocale="en"><LocaleControl /><ChatTaskIn…
+     19|   fireEvent.click(screen.getByRole("tab", { name: "Run details" }));
+       |                          ^
+     20|   const panel = screen.getByTestId("chat-task-workbench-inspector-run-…
+     21|   const threadRow = within(panel).getByText(props.threadId!).parentEle…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/ui/i18n-chat-inspector.test.tsx > keeps the user's collapsed state and canonical tab button through locale changes
+TestingLibraryElementError: Unable to find an accessible element with the role "tab" and name "Artifacts"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  [36m<button />[39m
+
+  Name "展开任务检查器":
+  [36m<button[39m
+    [33maria-expanded[39m=[32m"false"[39m
+    [33maria-label[39m=[32m"展开任务检查器"[39m
+    [33mclass[39m=[32m"flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-inspector-expand"[39m
+    [33mtitle[39m=[32m"展开任务检查器"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  complementary:
+
+  Name "任务检查器":
+  [36m<aside[39m
+    [33maria-label[39m=[32m"任务检查器"[39m
+    [33mclass[39m=[32m"relative flex shrink-0 flex-col border-l border-border-subtle bg-panel-alt w-10"[39m
+    [33mdata-active-tab[39m=[32m"materials"[39m
+    [33mdata-collapsed[39m=[32m"true"[39m
+    [33mdata-drop-active[39m=[32m"false"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-inspector"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tablist:
+
+  Name "任务检查器页签":
+  [36m<div[39m
+    [33maria-label[39m=[32m"任务检查器页签"[39m
+    [33maria-orientation[39m=[32m"vertical"[39m
+    [33mclass[39m=[32m"flex shrink-0 items-center border-b border-border-subtle flex-col gap-1 py-2"[39m
+    [33mrole[39m=[32m"tablist"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tab:
+
+  Name "材料":
+  [36m<button[39m
+    [33maria-label[39m=[32m"材料"[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"relative flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40 w-8 px-0 text-muted-foreground hover:bg-card hover:text-card-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-inspector-tab-materials"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtitle[39m=[32m"材料"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "产物":
+  [36m<button[39m
+    [33maria-label[39m=[32m"产物"[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"relative flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40 w-8 px-0 text-muted-foreground hover:bg-card hover:text-card-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-inspector-tab-artifacts"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtitle[39m=[32m"产物"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "运行详情":
+  [36m<button[39m
+    [33maria-label[39m=[32m"运行详情"[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"relative flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40 w-8 px-0 text-muted-foreground hover:bg-card hover:text-card-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-inspector-tab-run-details"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtitle[39m=[32m"运行详情"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mswitch language[0m
+    [36m</button>[39m
+    [36m<aside[39m
+      [33maria-label[39m=[32m"任务检查器"[39m
+      [33mclass[39m=[32m"relative flex shrink-0 flex-col border-l border-border-subtle bg-panel-alt w-10"[39m
+      [33mdata-active-tab[39m=[32m"materials"[39m
+      [33mdata-collapsed[39m=[32m"true"[39m
+      [33mdata-drop-active[39m=[32m"false"[39m
+      [33mdata-testid[39m=[32m"chat-task-workbench-inspector"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33maria-label[39m=[32m"任务检查器页签"[39m
+        [33maria-orientation[39m=[32m"vertical"[39m
+        [33mclass[39m=[32m"flex shrink-0 items-center border-b border-border-subtle flex-col gap-1 py-2"[39m
+        [33mrole[39m=[32m"tablist"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33maria-label[39m=[32m"材料"[39m
+          [33maria-selected[39m=[32m"false"[39m
+          [33mclass[39m=[32m"relative flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40 w-8 px-0 text-muted-foreground hover:bg-card hover:text-card-foreground"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-inspector-tab-materials"[39m
+          [33mrole[39m=[32m"tab"[39m
+          [33mtitle[39m=[32m"材料"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-folder-open h-4 w-4 shrink-0"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33maria-label[39m=[32m"产物"[39m
+          [33maria-selected[39m=[32m"false"[39m
+          [33mclass[39m=[32m"relative flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40 w-8 px-0 text-muted-foreground hover:bg-card hover:text-card-foreground"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-inspector-tab-artifacts"[39m
+          [33mrole[39m=[32m"tab"[39m
+          [33mtitle[39m=[32m"产物"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-package h-4 w-4 shrink-0"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 22V12"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m3.3 7 7.703 4.734a2 2 0 0 0 1.994 0L20.7 7"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m7.5 4.27 9 5.15"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33maria-label[39m=[32m"运行详情"[39m
+          [33maria-selected[39m=[32m"false"[39m
+          [33mclass[39m=[32m"relative flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40 w-8 px-0 text-muted-foreground hover:bg-card hover:text-card-foreground"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-inspector-tab-run-details"[39m
+          [33mrole[39m=[32m"tab"[39m
+          [33mtitle[39m=[32m"运行详情"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-settings2 h-4 w-4 shrink-0"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M20 7h-9"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M14 17H5"[39m
+            [36m/>[39m
+            [36m<circle[39m
+              [33mcx[39m=[32m"17"[39m
+              [33mcy[39m=[32m"17"[39m
+              [33mr[39m=[32m"3"[39m
+            [36m/>[39m
+            [36m<circle[39m
+              [33mcx[39m=[32m"7"[39m
+              [33mcy[39m=[32m"7"[39m
+              [33mr[39m=[32m"3"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-1 items-start justify-center pt-1"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33maria-expanded[39m=[32m"false"[39m
+          [33maria-label[39m=[32m"展开任务检查器"[39m
+          [33mclass[39m=[32m"flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-inspector-expand"[39m
+          [33mtitle[39m=[32m"展开任务检查器"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-panel-right-open h-3.5 w-3.5"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"18"[39m
+              [33mrx[39m=[32m"2"[39m
+              [33mwidth[39m=[32m"18"[39m
+              [33mx[39m=[32m"3"[39m
+              [33my[39m=[32m"3"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M15 3v18"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m10 15-3-3 3-3"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</button>[39m
+      [36m</div>[39m
+    [36m</aside>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-inspector.test.tsx:42:28
+     40|   render(<I18nProvider initialLocale="en"><LocaleControl /><ChatTaskIn…
+     41|   const inspector = screen.getByTestId("chat-task-workbench-inspector"…
+     42|   const artifacts = screen.getByRole("tab", { name: "Artifacts" });
+       |                            ^
+     43|   fireEvent.click(artifacts);
+     44|   fireEvent.click(screen.getByRole("button", { name: "Collapse task in…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed (2)
+   Start at  09:08:53
+   Duration  4.32s (transform 1.65s, setup 156ms, collect 2.77s, tests 174ms, environment 759ms, prepare 46ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/i18n-chat-inspector.test.tsx --maxWorkers=1 --minWorkers=1

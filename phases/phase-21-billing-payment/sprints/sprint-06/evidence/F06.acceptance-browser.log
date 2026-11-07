@@ -1,0 +1,56 @@
+[heavy-e2e-lock] 排队中：机器上已有重 e2e 套件在跑（pid=48993，命令：pnpm --filter web exec playwright test --config playwright.itv-four-rounds.local.config.ts --project=seeded --workers=1 interview-expert-library-live.spec.ts --grep four rounds）。本命令：pnpm --filter web exec playwright test --config playwright.billing-cashier.config.ts
+[heavy-e2e-lock] 排队中：已等 0s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 5s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 10s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 15s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 20s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 25s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 30s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 35s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 40s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 45s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 50s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 55s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 60s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 65s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 70s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 75s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 80s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 85s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 90s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 95s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 100s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 105s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 110s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 115s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 120s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 125s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 130s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 135s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 140s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 145s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 150s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 155s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排到了，等了 160s
+[stack-admission] load1=3.48 cores=10 perCore=0.35 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mv9yxptw-9b0bce30-e788bf637f90 db=wsx_e788bf637f90cddb9a8b compose=wsx-e788bf637f90cddb9a8b pg=20787 redis=21787 api=24787 web=25787 sandbox=26787 model=27787 deep-agent=28787 asr=29787 vision=30787 loopback-sandbox=31787 mail=19787
+[WebServer] (node:57410) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:57416) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 1 test using 1 worker
+
+(node:57480) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 e2e/billing-cashier.browser.ts:6:5 › live cashier keyboard, QR, polling recovery and accounting across three widths (9.5s)
+
+  1 passed (17.0s)
+[timing] pnpm --filter web exec playwright test --config playwright.billing-cashier.config.ts
+  等待重e2e互斥锁：2m40s
+  环境预留：0s
+  等待资源：0s
+  命令执行：17s
+  清理：0s
+  总计：2m58s

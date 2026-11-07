@@ -1,0 +1,12 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages
+
+ ✓ .harness/scripts/lint-e2e-testid-gate.test.ts (35 tests) 3185ms
+   ✓ 真仓库 > 变异反证：源码里改掉一个 e2e 还锚着的 testid ⇒ 立刻红 3173ms
+ ✓ .harness/scripts/lib/gate-mutation-spec.test.ts (22 tests) 7ms
+
+ Test Files  2 passed (2)
+      Tests  57 passed (57)
+   Start at  06:43:06
+   Duration  6.88s (transform 59ms, setup 0ms, collect 3.23s, tests 3.19s, environment 0ms, prepare 84ms)

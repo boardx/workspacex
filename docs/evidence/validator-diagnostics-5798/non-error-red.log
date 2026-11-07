@@ -1,0 +1,56 @@
+[stack-admission] load1=3.73 cores=10 perCore=0.37 running=0/2
+[test-isolation] id=run-mvaq8me0-eae068d2-734afe0bcfc1 db=wsx_734afe0bcfc1efd45fd5 compose=wsx-734afe0bcfc1efd45fd5 pg=20539 redis=21539 api=24539 web=25539 sandbox=26539 model=27539 deep-agent=28539 asr=29539 vision=30539 loopback-sandbox=31539 mail=19539
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_734afe0bcfc1efd45fd5 capacity=100 current=6 required=32
+ ❯ tests/whiteboard/validator-diagnostics.test.ts (11 tests | 2 failed | 9 skipped) 5ms
+   × safe validator failure diagnostics without changing admission or public codes > handles non-Error worker exceptions without leaking or throwing from the listener: null 4ms
+     → Cannot use 'in' operator to search for 'code' in null
+   × safe validator failure diagnostics without changing admission or public codes > handles non-Error worker exceptions without leaking or throwing from the listener: PRIVATE_DOCUMENT_SECRET 0ms
+     → Cannot use 'in' operator to search for 'code' in PRIVATE_DOCUMENT_SECRET
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/whiteboard/validator-diagnostics.test.ts > safe validator failure diagnostics without changing admission or public codes > handles non-Error worker exceptions without leaking or throwing from the listener: null
+TypeError: Cannot use 'in' operator to search for 'code' in null
+ ❯ Worker.<anonymous> src/infrastructure/whiteboard/update-validator.ts:118:74
+    116|           else reject(new WhiteboardCollaborationError('VALIDATION_FAI…
+    117|         });
+    118|         worker!.once('error', error => fail('worker_error', { errorCod…
+       |                                                                          ^
+    119|         worker!.once('exit', exitCode => fail('worker_exit', { exitCod…
+    120|       });
+ ❯ tests/whiteboard/validator-diagnostics.test.ts:81:72
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/whiteboard/validator-diagnostics.test.ts > safe validator failure diagnostics without changing admission or public codes > handles non-Error worker exceptions without leaking or throwing from the listener: PRIVATE_DOCUMENT_SECRET
+TypeError: Cannot use 'in' operator to search for 'code' in PRIVATE_DOCUMENT_SECRET
+ ❯ Worker.<anonymous> src/infrastructure/whiteboard/update-validator.ts:118:74
+    116|           else reject(new WhiteboardCollaborationError('VALIDATION_FAI…
+    117|         });
+    118|         worker!.once('error', error => fail('worker_error', { errorCod…
+       |                                                                          ^
+    119|         worker!.once('exit', exitCode => fail('worker_exit', { exitCod…
+    120|       });
+ ❯ tests/whiteboard/validator-diagnostics.test.ts:81:72
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 9 skipped (11)
+   Start at  16:49:57
+   Duration  3.80s (transform 247ms, setup 5ms, collect 179ms, tests 5ms, environment 0ms, prepare 34ms)
+
+[db-isolation] db=wsx_734afe0bcfc1efd45fd5 peak_connections=1
+undefined
+/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/whiteboard/validator-diagnostics.test.ts -t non-Error
+[timing] pnpm --filter api exec vitest run tests/whiteboard/validator-diagnostics.test.ts -t non-Error
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：4s
+  清理：0s
+  总计：5s

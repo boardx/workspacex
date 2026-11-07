@@ -1,3 +1,7 @@
+import { seedWorkflowRunsI18n } from "./fixtures/seed-workflow-runs-i18n";
+import { seedAboutMeI18n } from "./fixtures/seed-about-me-i18n";
+import { seedEntityLocalizationFixture } from "./fixtures/seed-entity-localization";
+import {seedChatPublicShare} from './fixtures/seed-chat-public-share';
 /** Controlled PG fixture for #387's login -> projects -> overview -> Files browser gate. */
 import { BcryptPasswordHasher } from "../src/infrastructure/auth/bcrypt-password-hasher";
 import {
@@ -17,6 +21,12 @@ const required = (name: string): string => {
   return value;
 };
 
+const brainUserId = required("FULLSTACK_E2E_BRAIN_USER_ID");
+const brainEmail = required("FULLSTACK_E2E_BRAIN_EMAIL");
+const tasksEmail = required("FULLSTACK_E2E_TASKS_EMAIL");
+const tasksPassword = required("FULLSTACK_E2E_TASKS_PASSWORD");
+const tasksUserId = required("FULLSTACK_E2E_TASKS_USER_ID");
+
 const email = required("FULLSTACK_E2E_EMAIL");
 const password = required("FULLSTACK_E2E_PASSWORD");
 const orgId = required("FULLSTACK_E2E_ORG_ID");
@@ -30,6 +40,9 @@ const sentinelFile = required("FULLSTACK_E2E_SENTINEL_FILE");
 const adminEmail = required("FULLSTACK_E2E_ADMIN_EMAIL");
 const adminPassword = required("FULLSTACK_E2E_ADMIN_PASSWORD");
 const adminUserId = required("FULLSTACK_E2E_ADMIN_USER_ID");
+const feedbackAdminEmail = required("FULLSTACK_E2E_FEEDBACK_ADMIN_EMAIL");
+const feedbackAdminPassword = required("FULLSTACK_E2E_FEEDBACK_ADMIN_PASSWORD");
+const feedbackAdminUserId = required("FULLSTACK_E2E_FEEDBACK_ADMIN_USER_ID");
 /** #458: a non-admin of its own, so no account is shared across parallel spec files. */
 const memberEmail = required("FULLSTACK_E2E_MEMBER_EMAIL");
 const memberPassword = required("FULLSTACK_E2E_MEMBER_PASSWORD");
@@ -75,8 +88,8 @@ await asOwner(async (client) => {
   await client.query(
     "DELETE FROM credentials WHERE user_id = ANY($1::text[]) OR email = ANY($2::text[])",
     [
-      [userId, adminUserId, memberUserId, securityReviewerUserId, leadUserId],
-      [email, adminEmail, memberEmail, securityReviewerEmail, leadEmail],
+      [userId, adminUserId, memberUserId, securityReviewerUserId, leadUserId, feedbackAdminUserId, brainUserId, tasksUserId],
+      [email, adminEmail, memberEmail, securityReviewerEmail, leadEmail, feedbackAdminEmail, brainEmail, tasksEmail],
     ],
   );
 });
@@ -85,10 +98,18 @@ await asApp(orgId, (client) => client.query(
   "UPDATE projects SET name = $1 WHERE id = $2 AND org_id = $3",
   [projectName, projectId, orgId],
 ));
+await addOrgMember(orgId, tasksUserId, "consultant", fixture.teams.fullstack ?? null);
+await addProjectMember(orgId, projectId, tasksUserId, "facilitator", null, true);
+
 await addOrgMember(orgId, userId, "consultant", fixture.teams.fullstack ?? null);
 await addProjectMember(orgId, projectId, userId, "facilitator", null, true);
 
 await addOrgMember(orgId, adminUserId, "admin", null);
+// #5766 tests admin feedback from real chat. Org admin alone grants neither project
+// writes nor visibility of the team-only mounted skill. Supply those prerequisites
+// to a separate account; never broaden the original admin's negative-test scope.
+await addOrgMember(orgId, feedbackAdminUserId, "admin", fixture.teams.fullstack ?? null);
+await addProjectMember(orgId, projectId, feedbackAdminUserId, "facilitator", null, false);
 // PJ-01 / #976: the only role `createProject` accepts. No project membership is granted --
 // "creating does not grant a project role" is a ruled invariant (Q-4②), and seeding one
 // here would erase the very edge `project-create-smoke.spec.ts` walks over.
@@ -99,9 +120,20 @@ await addOrgMember(orgId, memberUserId, "consultant", fixture.teams.fullstack ??
 // instead of on `REVIEWER_FUNCTION_MISMATCH` -- red, but not for the right reason.
 await addOrgMember(orgId, securityReviewerUserId, "consultant", fixture.teams.fullstack ?? null);
 
+// The deterministic voice supplier still needs an explicit financial tariff:
+// mandatory accounting cannot be bypassed by the smoke fixture's quota flags.
+// Global price fixture setup uses only the isolated migration owner; app_rw remains read-only.
+await asOwner(async client => {
+  await client.query(`INSERT INTO credit_global_native_tariffs
+    (model_provider,model_id,unit,quantum,hundredths_per_quantum,version)
+    VALUES('fullstack-loopback-asr','loopback-transcribe','millisecond',1000,1,'fullstack-asr-v1') ON CONFLICT DO NOTHING`);
+});
+
 const hasher = new BcryptPasswordHasher();
+const tasksPasswordHash = await hasher.hash(tasksPassword);
 const passwordHash = await hasher.hash(password);
 const adminPasswordHash = await hasher.hash(adminPassword);
+const feedbackAdminPasswordHash = await hasher.hash(feedbackAdminPassword);
 const memberPasswordHash = await hasher.hash(memberPassword);
 const securityReviewerPasswordHash = await hasher.hash(securityReviewerPassword);
 const leadPasswordHash = await hasher.hash(leadPassword);
@@ -109,7 +141,7 @@ await asOwner(async (client) => {
   await client.query(
     `INSERT INTO credentials (user_id, email, display_name, password_hash, email_verified_at)
      VALUES ($1,$2,$3,$4,now()), ($5,$6,$7,$8,now()), ($9,$10,$11,$12,now()), ($13,$14,$15,$16,now()),
-            ($17,$18,$19,$20,now())`,
+            ($17,$18,$19,$20,now()), ($21,$22,$23,$24,now()), ($25,$26,$27,$28,now())`,
     [
       userId, email, "Fullstack E2E", passwordHash,
       adminUserId, adminEmail, "Fullstack E2E admin", adminPasswordHash,
@@ -117,6 +149,8 @@ await asOwner(async (client) => {
       securityReviewerUserId, securityReviewerEmail, "Fullstack E2E security reviewer",
       securityReviewerPasswordHash,
       leadUserId, leadEmail, "Fullstack E2E lead", leadPasswordHash,
+      feedbackAdminUserId, feedbackAdminEmail, "Fullstack E2E feedback admin", feedbackAdminPasswordHash,
+      tasksUserId, tasksEmail, "Fullstack E2E tasks", tasksPasswordHash,
     ],
   );
 });
@@ -570,4 +604,24 @@ try {
 // have no write grant on this registry; only the controlled fixture owner seeds it.
 await asOwner(client=>client.query(`INSERT INTO whiteboard_actor_identities(org_id,actor_id,kind,delegated_by,scopes,model_snapshot,skill_snapshot,enabled) VALUES($1,$2,'ai',$3,$4,'loopback/e2e','board-cluster-e2e',true) ON CONFLICT(org_id,actor_id) DO UPDATE SET delegated_by=EXCLUDED.delegated_by,scopes=EXCLUDED.scopes,model_snapshot=EXCLUDED.model_snapshot,skill_snapshot=EXCLUDED.skill_snapshot,enabled=true`,[orgId,agentId,userId,['board:read','board:write','artifact:read','board:present']]));
 
+await seedChatPublicShare(orgId,userId);
+await seedEntityLocalizationFixture();
+
 process.stdout.write(`[fullstack-fixture] db=${required("WORKSPACEX_DB")} project=${projectId} sentinel=${sentinelFile}\n`);
+
+// #6171: separate consultant identity, no personal memories or project grants.
+// Credentials are global; only the fixture owner inserts this isolated actor.
+const brainPasswordHash = await hasher.hash(required("FULLSTACK_E2E_BRAIN_PASSWORD"));
+await addOrgMember(orgId, brainUserId, "consultant", null);
+await asOwner((client) => client.query(
+  "INSERT INTO credentials(user_id,email,display_name,password_hash,email_verified_at) VALUES($1,$2,$3,$4,now())",
+  [brainUserId, brainEmail, "Brain read-only fixture", brainPasswordHash],
+));
+await seedWorkflowRunsI18n({
+  orgId: required("FULLSTACK_E2E_WORKFLOW_RUNS_ORG_ID"), projectId: required("FULLSTACK_E2E_WORKFLOW_RUNS_PROJECT_ID"),
+  userId: required("FULLSTACK_E2E_WORKFLOW_RUNS_USER_ID"), email: required("FULLSTACK_E2E_WORKFLOW_RUNS_EMAIL"),
+  password: required("FULLSTACK_E2E_WORKFLOW_RUNS_PASSWORD"), instanceId: required("FULLSTACK_E2E_WORKFLOW_RUNS_INSTANCE_ID"),
+  workflowKey: required("FULLSTACK_E2E_WORKFLOW_RUNS_KEY"), goal: required("FULLSTACK_E2E_WORKFLOW_RUNS_GOAL"),
+});
+// This private UI fixture is optional for other startup lanes (e2e-up uses the shared exporter).
+if (process.env.FULLSTACK_ABOUT_ME_FIXTURE) await seedAboutMeI18n(JSON.parse(process.env.FULLSTACK_ABOUT_ME_FIXTURE));

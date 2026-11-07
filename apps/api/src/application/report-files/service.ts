@@ -1,3 +1,4 @@
+import { REPORT_EXPORT_RENDER_POLICY, reportDownloadFilename } from './presentation';
 import { createHash, randomUUID } from 'node:crypto';
 import { ReportFileJob, ReportFileRequest, REPORT_FILE_FORMATS, type ReportFileErrorCode } from '@repo/contracts/report-files';
 import type { z } from 'zod';
@@ -9,7 +10,7 @@ export class ReportFileError extends Error {
 }
 const sha = (bytes: Uint8Array | string) => createHash('sha256').update(bytes).digest('hex');
 export function reportRenderHash(snapshot: ReportFileSourceSnapshot): string {
-  return sha(JSON.stringify([snapshot.title, snapshot.markdown, snapshot.appendixMarkdown ?? '', snapshot.notices, snapshot.projectId]));
+  return sha(JSON.stringify([REPORT_EXPORT_RENDER_POLICY,snapshot.title, snapshot.markdown, snapshot.appendixMarkdown ?? '', snapshot.notices, snapshot.projectId]));
 }
 export interface ReportFileServiceDeps {
   readonly store: ReportFileJobStore;
@@ -39,13 +40,20 @@ export class ReportFileService {
       await this.tick(actor, previous.job.id);
       return this.status(actor, previous.job.id);
     }
+    const reuseKey = { actor, source: request.source, format: request.format, bindingKey: snapshot.bindingKey, renderHash: reportRenderHash(snapshot) };
+    const reusable = await this.deps.store.findReusable(reuseKey);
+    if (reusable) {
+      const job = await this.status(actor, reusable.job.id);
+      if (job.status === "succeeded") await this.download(actor, job.id);
+      if (job.status !== "failed") return job;
+    }
     const skill = await this.deps.runtime.pin(actor, request.format);
     if (skill.stableName !== REPORT_FILE_FORMATS[request.format].skillStableName) throw new ReportFileError('SKILL_UNAVAILABLE');
-    const record: StoredReportFileJob = { actor, projectId: snapshot.projectId, requestId: request.requestId, bindingKey: snapshot.bindingKey, renderHash: reportRenderHash(snapshot), skill,
+    const record: StoredReportFileJob = { actor, downloadFilename:reportDownloadFilename(snapshot.title,request.format), projectId: snapshot.projectId, requestId: request.requestId, bindingKey: snapshot.bindingKey, renderHash: reportRenderHash(snapshot), skill,
       job: { id: (this.deps.newId ?? randomUUID)(), source: request.source, format: request.format, status: 'queued', createdAt: (this.deps.now ?? (() => new Date().toISOString()))() } };
     if (!await this.deps.store.insert(record)) {
       const raced = await this.deps.store.findByRequest(actor, request.requestId);
-      if (!raced) throw new ReportFileError('IDEMPOTENCY_CONFLICT');
+      if (!raced && !await this.deps.store.findReusable(reuseKey)) throw new ReportFileError('IDEMPOTENCY_CONFLICT');
       return this.start(actor, request);
     }
     await this.tick(actor, record.job.id);
@@ -81,9 +89,20 @@ export class ReportFileService {
   async download(actor: ReportFileActor, id: string) {
     const record = await this.readCurrent(actor, id);
     if (record.job.status !== 'succeeded' || !record.attachmentId) throw new ReportFileError('REPORT_UNAVAILABLE');
-    const content = await this.deps.runtime.download(record);
+    let content;
+    try { content = await this.deps.runtime.download(record); }
+    catch(error) {
+      if(error instanceof ReportFileError && error.code==='INVALID_FILE') {
+        await this.readCurrent(actor,id); await this.deps.store.invalidateFile(record);
+        throw new ReportFileError('STORAGE_UNAVAILABLE');
+      }
+      throw error;
+    }
     const file = record.job.file;
-    if (content.filename !== file.filename || content.mime !== file.mediaType || content.bytes.byteLength !== file.sizeBytes || sha(content.bytes) !== file.sha256) throw new ReportFileError('STORAGE_UNAVAILABLE');
+    if (content.filename !== file.filename || content.mime !== file.mediaType || content.bytes.byteLength !== file.sizeBytes || sha(content.bytes) !== file.sha256) {
+      await this.readCurrent(actor,id); await this.deps.store.invalidateFile(record);
+      throw new ReportFileError('STORAGE_UNAVAILABLE');
+    }
     await this.readCurrent(actor, id);
     return { bytes: content.bytes, file };
   }

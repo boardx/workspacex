@@ -479,15 +479,15 @@ describe("actionable source output repair", () => {
     expect(result.tasks[0]!.status).toBe("succeeded");
   });
 
-  it("stops after two malformed JSON outputs and preserves unreviewed legacy sources", async () => {
+  it("discards exhausted invalid legacy sources and continues their task recovery", async () => {
     const seed = runtime(); seed.sources = [direct]; seed.tasks[0]!.status = "succeeded";
     const f = serviceFixture([], false, seed);
     f.model.complete.mockImplementation(async () => ({ text: '{"evaluations":[' }));
     const result = await f.run();
-    expect(result.errorCode).toBe("RESEARCH_SOURCE_RELEVANCE_INVALID");
+    expect(result.errorCode).toBe("RESEARCH_SEARCH_PARTIAL_FAILURE");
     expect(f.model.complete).toHaveBeenCalledTimes(2);
-    expect(f.search).not.toHaveBeenCalled();
-    expect(result.sources).toEqual([direct]);
+    expect(f.search).toHaveBeenCalledTimes(1);
+    expect(result.sources).toEqual([]);
     expect(f.writes.every((item) => item.sources.every((source) => !source.relevanceBasis))).toBe(true);
   });
 
@@ -503,7 +503,7 @@ describe("actionable source output repair", () => {
     expect(repair.previousOutput.length).toBeLessThanOrEqual(24000);
   });
 
-  it("does not publish a successful first batch when a later batch exhausts repair", async () => {
+  it("continues a legacy-source retry with validated batches when a later batch exhausts repair", async () => {
     const seed = runtime(); seed.tasks[0]!.status = "succeeded";
     seed.sources = Array.from({ length: 9 }, (_, i) => source(`legacy-${i}`, direct.content));
     const f = serviceFixture([], false, seed);
@@ -512,10 +512,15 @@ describe("actionable source output repair", () => {
       return { text: context.chunks.some((chunk: Input["chunks"][number]) => chunk.sourceId === "legacy-8") ? '{"evaluations":[' : JSON.stringify(evaluation(context)) };
     });
     const result = await f.run();
-    expect(result.errorCode).toBe("RESEARCH_SOURCE_RELEVANCE_INVALID");
+    expect(result.errorCode).toBeNull();
     expect(f.model.complete).toHaveBeenCalledTimes(3);
-    expect(result.sources).toEqual(seed.sources);
-    expect(f.writes.every((state) => state.sources.every((source) => !source.relevanceBasis))).toBe(true);
+    expect(f.search).not.toHaveBeenCalled();
+    expect(result.sources.map(item => item.id)).toEqual(seed.sources.slice(0, 8).map(item => item.id));
+    expect(result.sources.every(item => item.relevanceBasis)).toBe(true);
+    expect(f.writes.some(state => state.sources.length === 8 && state.sources.every(item => item.relevanceBasis))).toBe(true);
+    const resumed = serviceFixture([], false, result);
+    expect((await resumed.run("retry")).errorCode).toBeNull();
+    expect(resumed.model.complete).not.toHaveBeenCalled();
   });
 
   it("does not treat provider SyntaxError as malformed model output", async () => {
@@ -708,7 +713,7 @@ describe("bounded source screening batch work", () => {
       const operation = service.execute({ sessionId: session.sessionId, orgId: toOrgId("org"), userId: "user" }, session,
         { sessionId: session.sessionId, requestId: "admission-budget", node: "report", action: "generate", expectedVersion: 0 });
       await vi.runAllTimersAsync(); const result = await operation;
-      expect(result.errorCode).toBe("RESEARCH_SOURCE_RELEVANCE_INVALID"); expect(model.complete).toHaveBeenCalled();
+      expect(result.errorCode).toBe("RESEARCH_TASKS_INCOMPLETE"); expect(result.sources).toEqual([]); expect(model.complete).toHaveBeenCalled();
       expect(result.modelCalls.length).toBeGreaterThan(0); const savedWrites = writes; await vi.runAllTimersAsync(); expect(writes).toBe(savedWrites);
     } finally { vi.useRealTimers(); }
   });
@@ -1014,4 +1019,60 @@ describe("initial chapter-shared search tasks", () => {
     await expect(screenResearchSources(state, [{ ...direct, taskId: state.tasks[0]!.id }], model)).rejects.toMatchObject({ reasonCode: "RESEARCH_SOURCE_RELEVANCE_INVALID" });
     expect(model).toHaveBeenCalledTimes(2); expect(state.sources).toEqual([]);
   });
+});
+
+// User-directed continuation: invalid model output discards only its batch.
+describe("invalid relevance batch isolation", () => {
+  it.each([false, true])("retains validated batches when another exhausts repair (adaptive=%s)", async adaptive => {
+    const state = runtime();
+    const candidates = Array.from({ length: 9 }, (_, index) => source(`isolate-${index}`, direct.content));
+    const model = vi.fn(async (_system: string, input: unknown, validate: (value: unknown) => void) => {
+      const context = input as Input;
+      const output = context.chunks.some(chunk => chunk.sourceId === "isolate-0") ? {} : evaluation(context);
+      validate(output); return output;
+    });
+    const retained = await screenResearchSources(state, candidates, model, { adaptive, invalidOutput: "discard-batch" });
+    expect(retained.length).toBeGreaterThan(0);
+    expect(retained.every(item => item.id !== "isolate-0" && item.relevanceBasis)).toBe(true);
+    expect(candidates.every(item => item.relevanceBasis === undefined)).toBe(true);
+    expect(state.sourceScreenRejections).toBeUndefined();
+  });
+  it("does not swallow provider errors in discard mode", async () => {
+    const failure = new Error("provider unavailable");
+    await expect(screenResearchSources(runtime(), [direct], async () => { throw failure; }, { invalidOutput: "discard-batch" })).rejects.toBe(failure);
+  });
+});
+
+
+it("continues report preparation past an invalid legacy batch using only healthy documents", async () => {
+  const seed = runtime(); seed.currentNode = "report"; seed.availableNodes.push("report"); seed.tasks[0]!.status = "succeeded";
+  seed.sources = Array.from({ length: 9 }, (_, index) => {
+    const item = source(`report-isolate-${index}`, direct.content);
+    return { ...item, document: { url: item.url, text: item.content, contentHash: createHash("sha256").update(item.content).digest("hex"), retrievedAt: "now", contentKind: "text" as const, truncated: false } };
+  });
+  const f = serviceFixture([], false, seed);
+  let evidenceReached = false;
+  f.model.complete.mockImplementation(async ({ user }) => {
+    const input = JSON.parse(user);
+    if (input.researchStage === "source_relevance") return { text: input.chunks.some((chunk: Input["chunks"][number]) => chunk.sourceId === "report-isolate-8") ? "{}" : JSON.stringify(evaluation(input)) };
+    evidenceReached = input.reportStage === "evidence";
+    expect(JSON.stringify(input)).not.toContain("report-isolate-8");
+    throw new Error("Controlled stop after reaching the unchanged evidence gate");
+  });
+  const result = await f.report();
+  expect(evidenceReached).toBe(true);
+  expect(result.errorCode).toBe("RESEARCH_WORKFLOW_UNAVAILABLE"); // Deliberate downstream model stop, not relevance failure.
+  expect(result.sources).toHaveLength(8);
+  expect(result.sources.every(item => item.id !== "report-isolate-8" && item.relevanceBasis && item.document)).toBe(true);
+  expect(f.search).not.toHaveBeenCalled();
+});
+
+it("never negative-caches invalid output or swallows cancellation in discard mode", async () => {
+  const state = runtime(); const negativeCache = new NegativeSourceScreenCache();
+  const invalid = vi.fn(async (_system: string, _context: unknown, validate: (value: unknown) => void) => { validate({}); return {}; });
+  expect(await screenResearchSources(state, [direct], invalid, { invalidOutput: "discard-batch", negativeCache })).toEqual([]);
+  expect(invalid).toHaveBeenCalledTimes(2); expect(negativeCache.size).toBe(0);
+  expect(await screenResearchSources(state, [direct], complete(), { invalidOutput: "discard-batch", negativeCache })).toHaveLength(1);
+  const abort = new AbortController(); const reason = new Error("cancelled");
+  await expect(screenResearchSources(runtime(), [direct], async (_system, _context, validate) => { abort.abort(reason); validate({}); return {}; }, { signal: abort.signal, invalidOutput: "discard-batch" })).rejects.toBe(reason);
 });

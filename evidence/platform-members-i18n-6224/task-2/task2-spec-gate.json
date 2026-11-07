@@ -1,0 +1,16 @@
+{
+  "source": "cb933851f59127646052ec0ad67ed099d65152ec",
+  "gate": "spec-gate",
+  "command": [
+    "pnpm",
+    "run",
+    "lint:spec-gate-coverage"
+  ],
+  "exit": 0,
+  "seconds": 45.462,
+  "rawPrivate": true,
+  "logSha256": "88e21c21cfb6e8798f5b1a8e642abd21edfc883c0107f00129b340c7f9f74951",
+  "summary": [
+    "\u2705 \u6bcf\u4e00\u6761 spec \u90fd\u5df2\u88ab\u67d0\u4e2a**\u65e0\u6761\u4ef6** CI job \u7684 --project \u8dd1\u5230\uff08\u6216\u6709\u7f72\u540d\u8c41\u514d\uff09\u2014\u2014\u95ed\u5305\u5df2\u6536\u7d27\u5230 project \u7c92\u5ea6\uff1b\u4ecd\u672a\u63a5\u8fdb\u6765\u7684\u662f -g/--grep \u8fc7\u6ee4\uff08\u672c\u4ed3 CI \u547d\u4ee4\u76ee\u524d\u4e0d\u7528\uff09"
+  ]
+}

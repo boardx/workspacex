@@ -1,0 +1,24 @@
+{
+  "name": "balanced-red",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/survey-i18n-browser-samples.test.ts",
+    "--reporter=json",
+    "--outputFile",
+    "/tmp/6221-task7-private/balanced-red-native.json"
+  ],
+  "source": "028c630057e687a9e7d097b6a98d73582f507ce8",
+  "exitCode": 1,
+  "seconds": 2.442,
+  "rawLogSha256": "2918959c346dba35703bce96b1b9eaa2db750027ba8f5102fd8808308fb93931",
+  "sourceAfter": "028c630057e687a9e7d097b6a98d73582f507ce8",
+  "sourceStable": true,
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  }
+}

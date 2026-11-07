@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/local-runtime
+
+ ✓ test/migrations-apply-on-pglite.test.ts (3 tests) 25319ms
+   ✓ 全新安装的数据库 > **全部迁移在 PGlite 上从零跑通**，一条都不少 25294ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  04:23:39
+   Duration  25.64s (transform 92ms, setup 0ms, collect 150ms, tests 25.32s, environment 0ms, prepare 44ms)

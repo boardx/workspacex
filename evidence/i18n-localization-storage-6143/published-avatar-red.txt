@@ -1,0 +1,47 @@
+[stack-admission] load1=3.33 cores=10 perCore=0.33 running=0/2
+[test-isolation] id=run-mvzvjhat-ab20433e-b5ef3a5772a3 db=wsx_b5ef3a5772a33ab49b38 compose=wsx-b5ef3a5772a33ab49b38 pg=20135 redis=21135 api=24135 web=25135 sandbox=26135 model=27135 deep-agent=28135 asr=29135 vision=30135 loopback-sandbox=31135 mail=19135
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/api
+
+[db-isolation] db=wsx_b5ef3a5772a33ab49b38 capacity=100 current=6 required=32
+ ❯ tests/localization/entity-localization-pg.test.ts (13 tests | 1 failed | 12 skipped) 14086ms
+   × durable display translations under tenant RLS > preserves a published null avatar when the draft acquires unpublished alt text 98ms
+     → expected 'Unpublished private draft avatar' to be null
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/localization/entity-localization-pg.test.ts > durable display translations under tenant RLS > preserves a published null avatar when the draft acquires unpublished alt text
+AssertionError: expected 'Unpublished private draft avatar' to be null
+
+- Expected: 
+null
+
++ Received: 
+"Unpublished private draft avatar"
+
+ ❯ tests/localization/entity-localization-pg.test.ts:55:69
+     53|     });
+     54|     const target = { ...request(), kind: "agent" as const, entityId: a…
+     55|     expect((await repository.get(target))?.source.fields.avatarAlt).to…
+       |                                                                     ^
+     56|     const display = (await repository.displays(org, "agent", [agentId]…
+     57|     expect(display?.fields.avatarAlt.value).toBeNull();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 12 skipped (13)
+   Start at  07:12:36
+   Duration  18.39s (transform 965ms, setup 7ms, collect 1.23s, tests 14.09s, environment 0ms, prepare 44ms)
+
+[db-isolation] db=wsx_b5ef3a5772a33ab49b38 peak_connections=2
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/localization/entity-localization-pg.test.ts --testNamePattern preserves a published null avatar --maxWorkers=1 --minWorkers=1
+[timing] pnpm --filter @repo/api exec vitest run tests/localization/entity-localization-pg.test.ts --testNamePattern preserves a published null avatar --maxWorkers=1 --minWorkers=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：19s
+  清理：1s
+  总计：20s

@@ -17,7 +17,8 @@ export class DefaultStandardImageService implements StandardImageService{
  constructor(private owner:NativeSessionOwner,private inputs:NativeRunInputs,private sessions:(bound:NativeResolved)=>ImageSession,
   private authority:Pick<ToolExecutionAuthority,'check'>,private identities:Pick<IdentityRepository,'findOrganization'>,private objects:ObjectStore,private provider:ImageGenerator,private downloader:GeneratedImageDownloader,private readonly requestAccounting=false){}
  async generate(context:ImageContext,raw:z.infer<typeof ImageGenerateInput>){
-  const input=ImageGenerateInput.parse(raw),signal=AbortSignal.timeout(L.deadlineMs);
+  const input=ImageGenerateInput.parse(raw),selected=this.provider.resolveRequest?.(input)??{modelId:this.provider.modelRef,dimension:L.dimension},signal=AbortSignal.timeout(L.deadlineMs);
+  if((input.generationProfile||input.sizeProfile==='square-hd')&&!this.provider.resolveRequest)throw new Error('image_profile_provider_unconfigured');
   const authorize=async()=>{signal.throwIfAborted();if(!(await this.authority.check({...context,toolName:IMAGE_GENERATE_TOOL,toolArgs:input})).allowed)throw new Error('image_generation_denied');};
   await authorize();const bound=await this.owner.resolve(context.bindingId,context),session=this.sessions(bound);
   const org=await this.identities.findOrganization(context.orgId);if(!org||isLocalOrg(org.kind))throw new Error('image_generation_egress_denied');
@@ -28,7 +29,7 @@ export class DefaultStandardImageService implements StandardImageService{
    throw new Error('image_editing_unsupported');
   }
   const prefix=`image-generation/${hash(context.orgId)}/${hash(context.parentRunId)}/${hash(input.idempotencyKey)}`;
-  const intent=Buffer.from(JSON.stringify({request:input,modelRef:this.provider.modelRef}));
+  const intent=Buffer.from(JSON.stringify({request:input,modelRef:selected.modelId}));
   await authorize();await this.owner.resolve(context.bindingId,context);
   let created=false;
   try{await this.objects.putOnce(`${prefix}/intent.json`,intent,'application/json');created=true;}catch(e){if(!(e instanceof ObjectExistsError))throw e;}
@@ -45,9 +46,9 @@ export class DefaultStandardImageService implements StandardImageService{
    const cancellation=new AbortController(),stopWatch=new AbortController();
    const watch=(async()=>{try{while(true){await delay(1000,undefined,{signal:stopWatch.signal});await this.owner.resolve(context.bindingId,context);}}catch{if(!stopWatch.signal.aborted)cancellation.abort();}})();
    let generated:Awaited<ReturnType<ImageGenerator['generateImage']>>;
-   try{await authorize();generated=this.requestAccounting?await this.provider.generateImage(input.prompt,AbortSignal.any([signal,cancellation.signal]),context):await this.provider.generateImage(input.prompt,AbortSignal.any([signal,cancellation.signal]));}
+   try{await authorize();generated=this.requestAccounting?await this.provider.generateImage(input.prompt,AbortSignal.any([signal,cancellation.signal]),context,input):await this.provider.generateImage(input.prompt,AbortSignal.any([signal,cancellation.signal]),undefined,input);}
    finally{stopWatch.abort();await watch;}
-   if(generated.modelRef!==this.provider.modelRef)throw new Error('image_generation_model_changed');
+   if(generated.modelRef!==selected.modelId)throw new Error('image_generation_model_changed');
    await authorize();await this.owner.resolve(context.bindingId,context);
    // 两种交付形状各自校验，不共用一条「先变成 URL 再下载」的路（见 `GeneratedImage` 头注）。
    // inline 这一支没有第二跳可下载，所以字节的 magic-number 嗅探必须在这里做——`GeneratedImageDownloader`
@@ -61,17 +62,17 @@ export class DefaultStandardImageService implements StandardImageService{
    if(!bytes.length||bytes.length>L.maxBytes)throw new Error('generated_image_size');
    const workspacePath=`/workspace/generated-${hash(input.idempotencyKey)}.${delivered.mime==='image/png'?'png':'jpg'}`;
    await session.write({path:workspacePath,contentBase64:Buffer.from(bytes).toString('base64')});
-   const code="from PIL import Image; import io,hashlib; from pathlib import Path; p="+JSON.stringify(workspacePath)+"; data=Path(p).read_bytes(); assert hashlib.sha256(data).hexdigest()=='"+hash(bytes)+"'; im=Image.open(io.BytesIO(data)); assert im.format in ('PNG','JPEG'); assert im.size==("+L.dimension+","+L.dimension+"); im.verify(); im=Image.open(io.BytesIO(data)); im.load(); print('VERIFIED_IMAGE')";
+   const code="from PIL import Image; import io,hashlib; from pathlib import Path; p="+JSON.stringify(workspacePath)+"; data=Path(p).read_bytes(); assert hashlib.sha256(data).hexdigest()=='"+hash(bytes)+"'; im=Image.open(io.BytesIO(data)); assert im.format in ('PNG','JPEG'); assert im.size==("+selected.dimension+","+selected.dimension+"); im.verify(); im=Image.open(io.BytesIO(data)); im.load(); print('VERIFIED_IMAGE')";
    await authorize();await this.owner.resolve(context.bindingId,context);
    const execution={executionId:randomUUID(),command:`python3 -c ${quote(code)}`,timeoutMs:L.verifyMs},verification=await session.execute(execution);
    if(verification.executionId!==execution.executionId||verification.exitCode!==0||verification.timedOut||verification.cancelled||verification.truncated||!verification.output.includes('VERIFIED_IMAGE'))throw new Error('generated_image_invalid');
-   receipt=ImageGenerated.parse({status:'generated',workspacePath,mime:delivered.mime,width:L.dimension,height:L.dimension,sha256:hash(bytes),sizeBytes:bytes.length,modelRef:generated.modelRef,taskId:generated.taskId});
+   receipt=ImageGenerated.parse({status:'generated',workspacePath,mime:delivered.mime,width:selected.dimension,height:selected.dimension,sha256:hash(bytes),sizeBytes:bytes.length,modelRef:generated.modelRef,taskId:generated.taskId});
    await this.objects.putOnce(`${prefix}/image`,bytes,receipt.mime);
    const saved=await this.objects.get(`${prefix}/image`);if(!saved||saved.length!==bytes.length||hash(saved)!==receipt.sha256)throw new Error('image_generation_readback_failed');
    await this.objects.putOnce(`${prefix}/result.json`,Buffer.from(JSON.stringify(receipt)),'application/json');
   }
   const expectedPath=`/workspace/generated-${hash(input.idempotencyKey)}.${receipt.mime==='image/png'?'png':'jpg'}`;
-  if(receipt.workspacePath!==expectedPath||receipt.modelRef!==this.provider.modelRef)throw new Error('image_generation_result_invalid');
+  if(receipt.workspacePath!==expectedPath||receipt.modelRef!==selected.modelId||receipt.width!==selected.dimension||receipt.height!==selected.dimension)throw new Error('image_generation_result_invalid');
   await authorize();await this.owner.resolve(context.bindingId,context);
   await session.write({path:receipt.workspacePath,contentBase64:Buffer.from(bytes).toString('base64')});
   const check=schemas.file.parse(await session.read(receipt.workspacePath));if(check.path!==receipt.workspacePath||check.sizeBytes!==bytes.length||check.contentBase64!==Buffer.from(bytes).toString('base64'))throw new Error('image_generation_readback_failed');

@@ -1,3 +1,4 @@
+import {CreditRequiredBody} from "./billing-consumption";
 /**
  * User-owned realtime transcription contract.
  *
@@ -41,6 +42,8 @@ export const PersonalTranscriptionError = z.enum([
 ]);
 
 export const RealtimeAsrStreamError = z.enum([
+  "CREDIT_REQUIRED",
+  "CREDIT_ACCOUNTING_UNAVAILABLE",
   "TICKET_INVALID",
   "TICKET_EXPIRED",
   "TICKET_USED",
@@ -84,6 +87,7 @@ export const RealtimeAsrServerEvent = z.discriminatedUnion("type", [
     type: z.literal("error"),
     captureId: z.string().nullable(),
     reason: RealtimeAsrStreamError,
+    credit: CreditRequiredBody.optional(),
   }).strict(),
 ]);
 

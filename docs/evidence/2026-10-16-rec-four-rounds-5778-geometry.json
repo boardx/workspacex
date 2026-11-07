@@ -1,0 +1,23 @@
+[
+  {
+    "chars": 1058,
+    "contentScroll": 301,
+    "contentWidth": 301,
+    "documentWidth": 375,
+    "viewport": 375
+  },
+  {
+    "chars": 1058,
+    "contentScroll": 602,
+    "contentWidth": 602,
+    "documentWidth": 768,
+    "viewport": 768
+  },
+  {
+    "chars": 1058,
+    "contentScroll": 1114,
+    "contentWidth": 1114,
+    "documentWidth": 1280,
+    "viewport": 1280
+  }
+]

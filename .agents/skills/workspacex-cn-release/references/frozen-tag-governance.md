@@ -1,5 +1,8 @@
 # 固定候选 tag 治理变更审阅（#4919）
 
+> **2026-10-24 superseding note：人类已明确要求移除发布治理校验；下述历史治理审计、签名治理回执、完整 bypass 可见性及为这些校验配置 App key/权限的要求，已不再作为共享 CN 自动或手动发布的前置。实际 GitHub 规则强制、native Deployment issuer/当前 attempt、exact source/CI/Devapp、不可变标签和 CAS 机制仍保留。仅替代上述治理 scope，不改变 MVP 设计签核、数据维护授权或新增 root 权限规则。** 具体生效边界见[发布治理移除记录](../../../../docs/evidence/cn-auto-release-5910/release-governance-removal.md)。
+
+
 这是具体待审阅方案；本 PR 不创建 tag、不改变 GitHub environment/ruleset/变量、不安装主机入口、不切换生产。依赖 #4914 的准备先于审批行为。必须先合并并验证 dispatcher 后，候选才可冻结；旧 source 缺新版 dispatcher 不能继承 latest-main workflow。
 
 ## 最小治理变化

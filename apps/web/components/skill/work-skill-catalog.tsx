@@ -1,6 +1,9 @@
 "use client";
 
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
+import { localizedText } from "@/lib/entity-localization";
+import { EntityLocalizationPanel } from "@/components/localization/entity-localization-editor";
 import { useSession } from "@/components/session/session-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -129,6 +132,7 @@ export function WorkSkillCatalog() {
 }
 
 function CatalogScreen() {
+  const { locale } = useI18n();
   const [domain, setDomain] = React.useState<string>("");
   const [channel, setChannel] = React.useState<ChannelFilter>(null);
   const [includeDeprecated, setIncludeDeprecated] = React.useState(false);
@@ -169,8 +173,8 @@ function CatalogScreen() {
   }, []);
 
   const query = React.useMemo(
-    () => ({ domain: domain || undefined, channel: channel ?? undefined, q: debouncedQ, includeDeprecated }),
-    [domain, channel, debouncedQ, includeDeprecated],
+    () => ({ domain: domain || undefined, channel: channel ?? undefined, q: debouncedQ, includeDeprecated, locale }),
+    [domain, channel, debouncedQ, includeDeprecated, locale],
   );
 
   const load = React.useCallback(async () => {
@@ -323,7 +327,7 @@ function CatalogScreen() {
                   onClick={() => openSkill(item.skillId)}
                   className="flex w-full flex-wrap items-center gap-2 rounded-control border border-border px-3 py-2 text-left text-12 transition-colors duration-fast hover:bg-muted"
                 >
-                  <span className="font-medium">{item.name}</span>
+                  <span className="font-medium" data-testid="work-catalog-row-title">{localizedText(item.display, "name", item.name)}</span>
                   <span className="text-muted-foreground">{item.stableId}</span>
                   <Badge tone="outline">{item.domain}</Badge>
                   <Badge tone={CHANNEL_TONE[item.channel]} data-testid="work-catalog-channel-badge">
@@ -400,6 +404,7 @@ function readinessReasonLabel(reasonCode: string): string {
 function SkillDetailDrawer({
   skillId, onClose, onChanged, onOpenSkill,
 }: { skillId: string; onClose: () => void; onChanged: () => void; onOpenSkill: (skillId: string) => void }) {
+  const { locale } = useI18n();
   const [detail, setDetail] = React.useState<DetailState>({ status: "loading" });
   const [readiness, setReadiness] = React.useState<ReadinessState>({ status: "loading" });
   const detailGen = React.useRef(0);
@@ -408,12 +413,12 @@ function SkillDetailDrawer({
   const loadDetail = React.useCallback(async () => {
     const request = ++detailGen.current;
     try {
-      const d = await getWorkSkillCatalogEntry(skillId);
+      const d = await getWorkSkillCatalogEntry(skillId, locale);
       if (request === detailGen.current) setDetail({ status: "ready", detail: d });
     } catch (e) {
       if (request === detailGen.current) setDetail({ status: "error", message: errorText(e) });
     }
-  }, [skillId]);
+  }, [skillId, locale]);
 
   const loadReadiness = React.useCallback(async () => {
     const request = ++readinessGen.current;
@@ -524,13 +529,13 @@ function DetailBody({
     <>
       <header className="flex flex-col gap-1">
         <div className="flex items-center gap-2">
-          <h2 className="text-14 font-bold">{detail.name}</h2>
+          <h2 className="text-14 font-bold">{localizedText(detail.display, "name", detail.name)}</h2>
           <Badge tone={CHANNEL_TONE[detail.channel]}>{CHANNEL_LABEL[detail.channel]}</Badge>
         </div>
         <p className="text-11 text-muted-foreground">
           {detail.stableId} · {detail.domain} · {RISK_LABEL[detail.riskClass]} · {detail.currentVersionLabel}
         </p>
-        <p className="text-muted-foreground">{detail.description}</p>
+        <p className="text-muted-foreground">{localizedText(detail.display, "summary", detail.description)}</p>
       </header>
 
       {readinessUnknown && (
@@ -611,6 +616,7 @@ function DetailBody({
           onChanged={onChanged}
         />
       )}
+      {detail.canManageChannel && <EntityLocalizationPanel key={detail.skillId} kind="skill" entityId={detail.skillId} onSaved={onChanged} />}
     </>
   );
 }

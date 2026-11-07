@@ -1,3 +1,4 @@
+import { readInterviewMarkdown } from "../../src/application/interview/read-interview-markdown";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { createDigitalInterviewDraft } from "../../src/application/interview/create-digital-interview-draft";
@@ -14,6 +15,16 @@ import { addOrgMember, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from ".
 
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 process.env.KERNEL_QUIET = "1";
+
+const teacherAnalysis = [
+  "## 研究目标\n研究教师最近一次备课中如何选择资料，支持教学工具的范围决策。",
+  "## 访谈对象与专家类型\n分别访谈不同教龄教师与教研负责人，核对个人实践与组织规范。",
+  "## 研究范围\n聚焦最近一周的真实备课流程，不推断课堂成绩或工具的长期效果。",
+  "## 成功标准\n收集完整备课案例、未使用工具的反例及可核对教案，支持下一步决策。",
+  "## 研究建议\n1. 请教师还原最近一次备课时间线，并展示教案，以核对实际任务而非理想流程。\n2. 对比使用和未使用辅助工具的备课案例，追问选择理由，验证时间成本的差异。\n3. 访谈教研负责人核对审阅规则，寻找工具没有帮助的反例，避免预设工具有效。",
+  "## 待验证假设\n辅助工具是否节约教师备课时间，仍需要相同任务的案例与反例交叉验证。",
+  "## 适用边界\n当前只有研究需求，未收集真人访谈或客观成绩，不能宣称教学效果提升。",
+].join("\n\n");
 
 const ORG = "org-digital-interview-f02";
 const OTHER_ORG = "org-digital-interview-f02-other";
@@ -120,6 +131,7 @@ it("partialFailurePreservesMarkdown and retry appends a new document version", a
   });
   let calls = 0;
   const partial = "# 研究分析\r\n\r\n## 已生成目标\r\n理解备课行为。\r\n";
+  const continuation = `效率是否提升需验证。\r\n\r\n${teacherAnalysis.replace(/\n/gu, "\r\n")}`;
   const deps = { repo: new PgDigitalInterviewRepository(db), scope: new PgInterviewScopeRepository(db), decisions: new UuidDecisionIdFactory(), reader: new PgInterviewMarkdownReader(db), modelProvider: "test", modelId: "test", model: { complete: async (request: { user: string; system: string }) => {
     calls += 1;
     if (calls >= 2) {
@@ -129,7 +141,7 @@ it("partialFailurePreservesMarkdown and retry appends a new document version", a
     }
     return calls === 1 ? { text: partial, truncated: true }
       : calls === 2 ? { text: "\r\n## 待验证假设\r\n", truncated: true }
-      : { text: "效率是否提升需验证。" };
+      : { text: continuation };
   } } };
   const input = { orgId: toOrgId(ORG), viewerUserId: USER, interviewId: "itv-f02-visible", step: "analysis" as const, expectedVersion: 1, expectedDocumentVersion: 0 };
   await expect(generateInterviewMarkdown(deps, input)).rejects.toThrow("AI_GENERATION_UNAVAILABLE");
@@ -143,7 +155,7 @@ it("partialFailurePreservesMarkdown and retry appends a new document version", a
   expect(secondDocument.markdown).toBe(`${partial}\r\n## 待验证假设\r\n`);
   const retried = await generateInterviewMarkdown(deps, { ...input, expectedVersion: second.version, expectedDocumentVersion: secondDocument.version });
   expect(retried.documents.find((doc) => doc.step === "analysis")?.version).toBe(3);
-  expect(retried.documents.find((doc) => doc.step === "analysis")?.markdown).toBe(`${partial}\r\n## 待验证假设\r\n效率是否提升需验证。`);
+  expect(retried.documents.find((doc) => doc.step === "analysis")?.markdown).toBe(`${partial}\r\n## 待验证假设\r\n${continuation}`);
   expect(calls).toBe(3);
   const archived = await db.withTenant(toOrgId(ORG), (session) => session.query<{ markdown: string }>("SELECT markdown FROM digital_interview_artifact_versions WHERE org_id=$1 AND artifact_id=$2", [ORG, document.documentId]));
   expect(archived.rows[0]?.markdown).toBe(partial);
@@ -171,7 +183,7 @@ it("modelConsumesConfirmedMarkdown through the real source repository and saves 
     await session.query(`INSERT INTO digital_interview_revisions(org_id,id,interview_id,revision_number,created_by) VALUES($1,'revision-api-model-4400','itv-f02-visible',1,$2)`, [ORG, USER]);
     await appendInterviewMarkdownDocument(session, { orgId: toOrgId(ORG), interviewId: "itv-f02-visible", revisionId: "revision-api-model-4400", step: "intake", title: "原始需求", markdown: raw, evidenceMode: "simulated", references: [], expectedVersion: 0 });
   });
-  const output = "[研究目标](#研究目标)\r\n\r\n# 研究分析\r\n\r\n## 研究目标\r\n理解最近一次备课行为。\r\n\r\n## 待验证假设\r\n- 不预设 AI 有效。\r\n";
+  const output = `[研究目标](#研究目标)\r\n\r\n# 研究分析\r\n\r\n${teacherAnalysis.replace(/\n/gu, "\r\n")}`;
   let calls = 0;
   const deps = {
     repo: new PgDigitalInterviewRepository(db), scope: new PgInterviewScopeRepository(db),
@@ -487,3 +499,73 @@ describe("Studio history management (#3345)", () => {
     expect(history.items.map((item: { interviewId: string }) => item.interviewId)).not.toContain(quick.interviewId);
   });
 });
+
+
+it("repairs incomplete analysis once and never overwrites saved analysis when both candidates lack useful content", async () => {
+  const revisionId = "revision-analysis-quality-5819";
+  await db.withTenant(toOrgId(ORG), async session => {
+    await session.query(`INSERT INTO digital_interview_revisions(org_id,id,interview_id,revision_number,created_by) VALUES($1,$2,'itv-f02-visible',1,$3)`, [ORG, revisionId, USER]);
+    await appendInterviewMarkdownDocument(session, {orgId:toOrgId(ORG),interviewId:"itv-f02-visible",revisionId,step:"intake",title:"需求",markdown:"# 需求\n研究教师备课的实际流程。",evidenceMode:"simulated",references:[],expectedVersion:0});
+  });
+  const reader = new PgInterviewMarkdownReader(db);
+  const deps = {repo:new PgDigitalInterviewRepository(db),scope:new PgInterviewScopeRepository(db),decisions:new UuidDecisionIdFactory(),reader,modelProvider:"test",modelId:"analysis-5819",model:{complete:async()=>({text:teacherAnalysis})}};
+  const before = await readInterviewMarkdown(deps,{orgId:toOrgId(ORG),viewerUserId:USER,interviewId:"itv-f02-visible"});
+  let calls=0;
+  deps.model.complete=async()=>({text:++calls===1 ? "# 备课科普\n备课有助于教学。" : teacherAnalysis});
+  const input={orgId:toOrgId(ORG),viewerUserId:USER,interviewId:"itv-f02-visible",step:"analysis" as const,expectedVersion:before.version,expectedDocumentVersion:0};
+  const repaired=await generateInterviewMarkdown(deps,input);
+  expect(calls).toBe(2);expect(repaired.documents.find(d=>d.step==="analysis")?.markdown).toBe(teacherAnalysis);
+  const saved=await readInterviewMarkdown(deps,{orgId:toOrgId(ORG),viewerUserId:USER,interviewId:"itv-f02-visible"});
+  const analysis=saved.documents.find(d=>d.step==="analysis")!;
+  calls=0;deps.model.complete=async()=>{calls++;return {text:"## 研究建议\n待补充"};};
+  await expect(generateInterviewMarkdown(deps,{...input,expectedVersion:saved.version,expectedDocumentVersion:analysis.version})).rejects.toThrow("AI_GENERATION_UNAVAILABLE");
+  expect(calls).toBe(2);expect(await readInterviewMarkdown(deps,{orgId:toOrgId(ORG),viewerUserId:USER,interviewId:"itv-f02-visible"})).toEqual(saved);
+});
+
+// Opt-in analysis-only receipt. Ordinary CI uses deterministic tests above; never spends model calls implicitly.
+it.skipIf(process.env.WX_ANALYSIS_REAL_MODEL !== "1")("analysis-only live model generates and persists contextual research advice", async () => {
+  const { interviewMarkdown } = await import("@repo/contracts");
+  const { ConfiguredModelProvider, readModelProviderConfig } = await import("../../src/infrastructure/agent-run/configured-model-provider");
+  const { mkdir, writeFile, unlink } = await import("node:fs/promises");
+  const { execFileSync } = await import("node:child_process");
+  const { join } = await import("node:path");
+  for (const key of ["DASHSCOPE_API_KEY", "DASHSCOPE_BASE_URL", "DASHSCOPE_MODEL", "WX_ANALYSIS_EVIDENCE"]) if (!process.env[key]) throw new Error(`missing ${key}`);
+  const evidence = process.env.WX_ANALYSIS_EVIDENCE!;
+  await mkdir(evidence,{recursive:true,mode:0o700});
+  const intake = "# 研究需求\n想研究每天晚睡对日常生活的影响，并了解为什么明知不舒服仍晚睡。希望通过访谈区分主动熬夜、轮班工作和照护安排，找到影响睡眠时长的约束。目前尚无受访记录。";
+  const revisionId = "revision-live-analysis-5819";
+  await db.withTenant(toOrgId(ORG), async session => {
+    await session.query(`INSERT INTO digital_interview_revisions(org_id,id,interview_id,revision_number,created_by) VALUES($1,$2,'itv-f02-visible',1,$3)`,[ORG,revisionId,USER]);
+    await appendInterviewMarkdownDocument(session,{orgId:toOrgId(ORG),interviewId:"itv-f02-visible",revisionId,step:"intake",title:"研究需求",markdown:intake,evidenceMode:"simulated",references:[],expectedVersion:0});
+  });
+  const provider = new ConfiguredModelProvider(readModelProviderConfig({...process.env,KERNEL_MODEL_PROVIDER:"dashscope",KERNEL_MODEL_API_KEY:process.env.DASHSCOPE_API_KEY,KERNEL_MODEL_BASE_URL:process.env.DASHSCOPE_BASE_URL,KERNEL_MODEL_TIMEOUT_MS:"120000",KERNEL_MODEL_MAX_OUTPUT_TOKENS:"4096"}));
+  const events: {phase:string;outcome?:string}[] = [];
+  let calls=0, dispatches=0;
+  const model = {complete: async (request: Parameters<typeof provider.complete>[0]) => {
+    if (++calls>1) throw new Error("analysis live probe permits only one model call; repair is covered deterministically");
+    return provider.complete({...request,onProviderRequest:async event=>{
+      if(event.phase==="started" && ++dispatches>1) throw new Error("analysis dispatch budget exceeded");
+      events.push({phase:event.phase,...(event.outcome?{outcome:event.outcome}:{})});
+    }});
+  }};
+  const reader=new PgInterviewMarkdownReader(db);
+  const deps={repo:new PgDigitalInterviewRepository(db),scope:new PgInterviewScopeRepository(db),decisions:new UuidDecisionIdFactory(),reader,model,modelProvider:"dashscope",modelId:process.env.DASHSCOPE_MODEL!};
+  const redact=async(name:string,body:string)=>{
+    const raw=join(evidence,`${name}.private`), output=join(evidence,name);
+    await writeFile(raw,body,{mode:0o600});
+    try {execFileSync(process.execPath,["--import","tsx","../web/e2e/support/scrub-file.ts",raw,output],{cwd:process.cwd(),stdio:"pipe"});}
+    finally {await unlink(raw);}
+  };
+  try {
+    const before=await readInterviewMarkdown(deps,{orgId:toOrgId(ORG),viewerUserId:USER,interviewId:"itv-f02-visible"});
+    const generated=await generateInterviewMarkdown(deps,{orgId:toOrgId(ORG),viewerUserId:USER,interviewId:"itv-f02-visible",step:"analysis",expectedVersion:before.version,expectedDocumentVersion:0});
+    const document=generated.documents.find(d=>d.step==="analysis")!;
+    const reread=await readInterviewMarkdown(deps,{orgId:toOrgId(ORG),viewerUserId:USER,interviewId:"itv-f02-visible"});
+    await redact("analysis.md",document.markdown);
+    await redact("receipt.json",JSON.stringify({provider:"dashscope",modelId:process.env.DASHSCOPE_MODEL,calls,dispatches,events,input:intake,documentVersion:document.version,contentHash:document.contentHash,missing:interviewMarkdown.projectInterviewAnalysis(document).missing,persisted:reread.documents.find(d=>d.step==="analysis")?.markdown===document.markdown},null,2));
+    expect(calls).toBe(1);expect(dispatches).toBe(calls);expect(reread.documents.find(d=>d.step==="analysis")?.markdown).toBe(document.markdown);
+  } catch(error) {
+    await redact("failure.json",JSON.stringify({calls,dispatches,events,name:error instanceof Error?error.name:"unknown",message:error instanceof Error?error.message:"unknown"},null,2));
+    throw new Error("analysis-only live verification failed; see redacted evidence");
+  } finally { await provider.close(); }
+},300000);

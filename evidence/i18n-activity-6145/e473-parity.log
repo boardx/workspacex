@@ -1,0 +1,15 @@
+14 owned product/test/config blobs byte-identical to 7f8eedb5f4b6bfd71a74331cef6d3b425d7940a9; dictionaries actual develop e473 + activity import/spread after projectList.
+apps/api/src/application/identity/list-own-activity.ts
+apps/api/src/interface/controllers/identity.controller.ts
+apps/api/tests/identity/activity-display.test.ts
+apps/api/vitest.identity-display-unit.config.ts
+apps/web/components/profile/profile-screen.tsx
+apps/web/e2e/self-service-profile.spec.ts
+apps/web/lib/generated/identity.mock.ts
+apps/web/lib/i18n/activity.ts
+apps/web/lib/i18n/namespaces/activity.ts
+apps/web/lib/live-identity.ts
+apps/web/tests/ui/profile-i18n.test.tsx
+packages/contracts/scripts/gen-mock.ts
+packages/contracts/src/identity.ts
+packages/contracts/tests/identity-activity-display.test.ts

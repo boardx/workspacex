@@ -1,0 +1,127 @@
+import { test, expect } from '../../../../apps/web/node_modules/@playwright/test';
+import '../../../../apps/web/e2e/core-loop.spec';
+import { FULLSTACK_E2E } from '../../../../apps/web/e2e/fullstack-smoke-fixture';
+import path from 'node:path';
+import { writeFileSync } from 'node:fs';
+const shots = __dirname;
+// Compile the dev routes before the production-lane assertions begin. Keep the
+// original assertion timeouts rather than widening them for cold compilation.
+test.beforeAll(async ({ request }) => {
+  await request.get('/home');
+  await request.get('/rec');
+});
+test('步骤 7 补充：语音UI真实交互及截图', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.goto('/login');
+  await page.getByTestId('login-email').fill(FULLSTACK_E2E.email);
+  await page.getByTestId('login-password').fill(FULLSTACK_E2E.password);
+  await page.getByTestId('login-submit').click();
+  await expect(page).toHaveURL(/\/home$/);
+  await page.goto('/rec');
+  await page.locator('[data-testid^="rec-history-open-"]').first().click();
+  await page.getByTestId('rec-live-edit').click();
+  await page.getByTestId('rec-live-editor').fill('5896 未保存草稿应受导航保护');
+  await expect(page.getByTestId('rec-live-toggle')).toBeDisabled();
+  const disabled = await page.getByTestId('rec-live-back').isDisabled();
+  await page.screenshot({ path: path.join(shots, 'desktop-unsaved-draft-before-return.png'), fullPage: true });
+  if (!disabled) await page.getByTestId('rec-live-back').click();
+  const lost = await page.getByTestId('rec-history-page').isVisible();
+  await page.screenshot({ path: path.join(shots, 'desktop-unsaved-draft-after-return.png'), fullPage: true });
+  if (lost) {
+    await page.locator('[data-testid^="rec-history-open-"]').first().click();
+    await page.getByTestId('rec-live-edit').click();
+    await page.getByTestId('rec-live-editor').fill('5896 保存中返回保护');
+  } else {
+    await page.getByRole('button', { name: '取消', exact: true }).click();
+    await expect(page.getByTestId('rec-live-back')).toBeEnabled();
+    await page.screenshot({ path: path.join(shots, 'desktop-edit-cancel-return-restored.png'), fullPage: true });
+    await page.getByTestId('rec-live-edit').click();
+    await page.getByTestId('rec-live-editor').fill('5896 保存中返回保护');
+  }
+  await page.route(/\/recording\/realtime-asr\/sessions\/[^/]+\/content$/, async route => {
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    await route.continue();
+  });
+  await page.getByTestId('rec-live-save').click();
+  await expect(page.getByTestId('rec-live-save')).toBeDisabled();
+  await expect(page.getByTestId('rec-live-toggle')).toBeDisabled();
+  const pendingDisabled = await page.getByTestId('rec-live-back').isDisabled();
+  await page.screenshot({ path: path.join(shots, 'desktop-save-pending-return.png'), fullPage: true });
+  await expect(page.getByTestId('rec-live-editor')).toHaveCount(0);
+  await expect(page.getByTestId('rec-live-back')).toBeEnabled();
+  await expect(page.getByTestId('rec-live-toggle')).toBeEnabled();
+  await page.screenshot({ path: path.join(shots, 'desktop-save-complete-return-restored.png'), fullPage: true });
+  await page.unrouteAll({ behavior: 'wait' });
+  writeFileSync(path.join(shots, 'draft-return-observation.json'), JSON.stringify({ disabled, navigatedAwayWithUnsavedDraft: lost, pendingDisabled }, null, 2));
+  expect(disabled, '未保存草稿须保护顶部返回').toBe(true);
+  expect(lost, '未保存草稿不能静默离开').toBe(false);
+  expect(pendingDisabled, '保存中须保护顶部返回').toBe(true);
+  await page.getByTestId('rec-live-toggle').click();
+  await expect(page.getByTestId('rec-live-toggle')).toHaveText('停止转录');
+  await expect(page.getByTestId('rec-live-back')).toBeDisabled();
+  await page.screenshot({ path: path.join(shots, 'desktop-recording-return-guard.png'), fullPage: true });
+  await page.getByTestId('rec-live-toggle').click();
+  await expect(page.getByTestId('rec-live-toggle')).toHaveText('继续转录');
+  await expect(page.getByTestId('rec-live-back')).toBeEnabled();
+  await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: () => Promise.reject(new Error('isolated clipboard failure')) } }));
+  await page.getByTestId('rec-live-copy').click();
+  await expect(page.getByTestId('rec-live-copy-error')).toBeVisible();
+  await page.screenshot({ path: path.join(shots, 'desktop-copy-failure.png'), fullPage: true });
+  await page.evaluate(() => { delete (navigator as any).clipboard; });
+  await page.getByTestId('rec-live-back').click();
+  await page.locator('[data-testid^="rec-history-open-"]').first().click();
+  await expect(page.getByTestId('rec-live-copy-error')).toHaveCount(0);
+  await page.screenshot({ path: path.join(shots, 'desktop-workspace.png'), fullPage: true });
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.screenshot({ path: path.join(shots, 'narrow-workspace.png'), fullPage: true });
+  await expect(page.getByTestId('rec-live-toggle')).toBeInViewport();
+  await page.getByRole('button', { name: '修改录音名称', exact: true }).focus();
+  await page.getByRole('button', { name: '修改录音名称', exact: true }).press('Enter');
+  await expect(page.getByRole('textbox', { name: '录音名称', exact: true })).toBeInViewport();
+  await expect(page.getByRole('button', { name: '保存录音名称', exact: true })).toBeInViewport();
+  await expect(page.getByRole('button', { name: '取消修改名称', exact: true })).toBeInViewport();
+  await page.screenshot({ path: path.join(shots, 'narrow-keyboard-rename.png'), fullPage: true });
+  await page.getByRole('textbox', { name: '录音名称', exact: true }).press('Escape');
+  await page.getByTestId('rec-live-edit').click();
+  const longText = '这是长篇逐字稿，验证窄屏长内容阅读和编辑反馈。'.repeat(60) + 'unbrokentoken'.repeat(80);
+  await page.getByTestId('rec-live-editor').fill(longText);
+  await page.getByTestId('rec-live-save').click();
+  await expect(page.getByTestId('rec-live-content')).toHaveText(longText);
+  await page.screenshot({ path: path.join(shots, 'narrow-long-content.png'), fullPage: true });
+  for (const width of [375, 768, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(await page.getByTestId('rec-live-workspace').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+    await page.screenshot({ path: path.join(shots, `workspace-long-${width}.png`), fullPage: true });
+  }
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.getByTestId('rec-live-back').click();
+  await page.getByTestId('rec-history-search').fill('5896-no-such-recording');
+  await expect(page.getByTestId('rec-history-empty')).toBeVisible();
+  await page.screenshot({ path: path.join(shots, 'narrow-filter-empty.png'), fullPage: true });
+  const clear = page.getByRole('button', { name: '清除筛选' });
+  await clear.focus();
+  await clear.press('Enter');
+  await expect(page.getByTestId('rec-history-grid')).toBeVisible();
+  const clearFocus = await page.evaluate(() => ({ tag: document.activeElement?.tagName, testId: document.activeElement?.getAttribute('data-testid') }));
+  writeFileSync(path.join(shots, 'recovery-focus-observation.json'), JSON.stringify({ clearFocus }, null, 2));
+  await page.screenshot({ path: path.join(shots, 'narrow-history.png'), fullPage: true });
+  await page.route(/\/recording\/realtime-asr\/sessions(?:\?|$)/, async route => {
+    await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ message: 'isolated browser failure injection' }) });
+  });
+  await page.reload();
+  await expect(page.getByTestId('rec-history-error')).toBeVisible();
+  await expect(page.getByTestId('rec-history-page').getByRole('alert')).toHaveCount(1);
+  await page.screenshot({ path: path.join(shots, 'narrow-failure.png'), fullPage: true });
+  await page.unrouteAll({ behavior: 'wait' });
+  const retry = page.getByRole('button', { name: '重新加载' });
+  await retry.focus();
+  await retry.press('Enter');
+  await expect(page.getByTestId('rec-history-grid')).toBeVisible();
+  const retryFocus = await page.evaluate(() => ({ tag: document.activeElement?.tagName, testId: document.activeElement?.getAttribute('data-testid') }));
+  writeFileSync(path.join(shots, 'recovery-focus-observation.json'), JSON.stringify({ clearFocus, retryFocus }, null, 2));
+  expect(clearFocus.tag, '清除筛选后保留页面焦点上下文').not.toBe('BODY');
+  expect(retryFocus.tag, '重新加载后保留页面焦点上下文').not.toBe('BODY');
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.screenshot({ path: path.join(shots, 'desktop-history.png'), fullPage: true });
+
+});

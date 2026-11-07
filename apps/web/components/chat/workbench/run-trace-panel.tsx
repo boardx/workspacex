@@ -1,5 +1,9 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
+import type { MessageKey } from "@/lib/i18n/messages";
+import type { Locale } from "@/lib/i18n/locale";
+import { failureTraceKey, isSettledFailureTrace } from "@/lib/chat-workbench/failure-trace-visibility";
 import { ChevronRight, Loader2, Check, AlertCircle, Circle, Wrench, Sparkles } from "lucide-react";
 import { RunProgressButterfly } from "@/components/chat/run-progress-butterfly";
 import type { ExecutionEvent } from "@repo/contracts/execution-journal";
@@ -16,26 +20,26 @@ import { SubtaskRunLivePanel } from "@/components/chat/subtask-run-live-panel";
 import { RunTraceLiveStrip } from "@/components/chat/workbench/run-trace-live-strip";
 import { MarkdownProseBlock } from "@/components/chat/markdown-prose";
 
+type TraceTranslate = ReturnType<typeof useI18n>["t"];
+
 function detail(value: unknown): string {
   return typeof value === "string" ? value : JSON.stringify(value, null, 2) ?? "";
 }
-const skillStageLabels: Record<string, string> = {
-  metadata_discovered: "发现技能元数据", body_read: "读取技能正文",
-  execution_started: "技能执行中", execution_succeeded: "技能执行成功", execution_failed: "技能执行失败",
+const skillStageLabels: Record<string, MessageKey> = {
+  metadata_discovered: "chatTrace.metadata", body_read: "chatTrace.body",
+  execution_started: "chatTrace.skillRunning", execution_succeeded: "chatTrace.skillSuccess", execution_failed: "chatTrace.skillFailed",
 };
-/** issue #3218 —— 折叠行只改措辞与层级，成员一条不少地留在展开层里。 */
-const skillGroupLabels: Record<string, (count: number) => string> = {
-  metadata_discovered: (count) => `已发现 ${count} 个技能`,
-};
-function groupLabel(stage: string, count: number): string {
-  return skillGroupLabels[stage]?.(count) ?? `${skillStageLabels[stage] ?? "技能活动"} · ${count} 项`;
+function groupLabel(stage: string, count: number, t: TraceTranslate): string {
+  return stage === "metadata_discovered"
+    ? t("chatTrace.discoveredCount", { count })
+    : t("chatTrace.group", { stage: t(skillStageLabels[stage] ?? "chatTrace.activity"), count });
 }
-function runningStatusLabel(active: boolean, skill = false): string {
-  return active ? (skill ? "正在调用技能" : "正在执行") : "未收到完成状态";
+function runningStatusLabel(active: boolean, t: TraceTranslate, skill = false): string {
+  return active ? (skill ? t("chatTrace.calling") : t("chatTrace.running")) : t("chatTrace.unfinished");
 }
-function eventLabel(entry: TraceEntry, active: boolean): string {
-  if (entry.activityStage) return `${entry.status === "running" && !active ? runningStatusLabel(active) : skillStageLabels[entry.activityStage] ?? "技能活动"} · ${entry.text}`;
-  if (entry.kind === "skill") return `${entry.status === "failed" ? "技能调用失败" : entry.status === "running" ? runningStatusLabel(active, true) : "已调用技能"} · ${entry.text}`;
+function eventLabel(entry: TraceEntry, active: boolean, t: TraceTranslate, locale: Locale): string {
+  if (entry.activityStage) return `${entry.status === "running" && !active ? runningStatusLabel(active, t) : t(skillStageLabels[entry.activityStage] ?? "chatTrace.activity")} · ${entry.text}`;
+  if (entry.kind === "skill") return `${entry.status === "failed" ? t("chatTrace.callFailed") : entry.status === "running" ? runningStatusLabel(active, t, true) : t("chatTrace.called")} · ${entry.text}`;
   /**
    * issue #3316 ② —— 这一行**必须说出调用的是哪件工具**。
    *
@@ -57,13 +61,13 @@ function eventLabel(entry: TraceEntry, active: boolean): string {
    * 展开层。`toolObject`（`lib/chat-workbench/tool-label`，与工具卡共用的那一份）把它
    * 抽成一句人话接在后面；认不出参数时返回 `null`，这一行就退回原来的样子，**不编**。
    */
-  const verb = `${entry.status === "failed" ? "执行失败" : entry.status === "running" ? runningStatusLabel(active) : "已执行"} · ${toolLabel(entry.text)}`;
+  const verb = `${entry.status === "failed" ? t("chatTrace.failed") : entry.status === "running" ? runningStatusLabel(active, t) : t("chatTrace.executed")} · ${toolLabel(entry.text, locale)}`;
   const object = toolObject(entry.text, entry.args);
   return object === null ? verb : `${verb} · ${object}`;
 }
 /** 成组折叠行的抬头：「读取文件 · 7 次」。工具名走同一张表，计数就是成员数。 */
-function toolGroupLabel(tool: string, count: number): string {
-  return `${toolLabel(tool)} · ${count} 次`;
+function toolGroupLabel(tool: string, count: number, t: TraceTranslate, locale: Locale): string {
+  return t("chatTrace.toolGroup", { tool: toolLabel(tool, locale), count });
 }
 /**
  * issue #3316 ①（2026-09-10 devapp 人类实测）—— 「正在执行工具操作」那一行的小动画是
@@ -97,11 +101,12 @@ function toolGroupLabel(tool: string, count: number): string {
  * 点了没用（或更糟：点了会执行 javascript:）的链接。
  */
 function SourceUrlLine({ args }: { readonly args: unknown }): React.JSX.Element | null {
+  const { t } = useI18n();
   const url = toolUrl(args);
   if (url === null) return null;
   return (
     <p className="min-w-0">
-      <span className="mr-2 text-11 text-muted-foreground">原始地址</span>
+      <span className="mr-2 text-11 text-muted-foreground">{t("chatTrace.source")}</span>
       <a
         data-testid="run-trace-entry-source-url"
         href={url}
@@ -119,12 +124,25 @@ function SourceUrlLine({ args }: { readonly args: unknown }): React.JSX.Element 
  */
 const RESULT_PANEL_MIN_CHARS = 200;
 
-export function RunTracePanel({ runId, events, running = false, expanded: controlledExpanded, onExpandedChange, renderTool }: {
-  runId: string; events: readonly ExecutionEvent[]; running?: boolean; expanded?: boolean; onExpandedChange?: (expanded: boolean) => void; renderTool?: (entry: TraceEntry) => React.ReactNode;
+export function RunTracePanel({ runId, events, running = false, expanded: controlledExpanded, onExpandedChange, renderTool, failureScope, onRetryFailure, hidden: controlledHidden, onHiddenChange }: {
+  hidden?: boolean; onHiddenChange?: (key: string, hidden: boolean) => void; failureScope?: string; onRetryFailure?: () => void; runId: string; events: readonly ExecutionEvent[]; running?: boolean; expanded?: boolean; onExpandedChange?: (expanded: boolean) => void; renderTool?: (entry: TraceEntry) => React.ReactNode;
 }): JSX.Element | null {
+  const { locale, t } = useI18n();
   const [localExpanded, setLocalExpanded] = React.useState(false);
   const expanded = controlledExpanded ?? localExpanded;
   const setExpanded = onExpandedChange ?? setLocalExpanded;
+  const storageKey = failureTraceKey(failureScope, runId, events);
+  const [hiddenKey, setHiddenKey] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    try { setHiddenKey(storageKey && localStorage.getItem(storageKey) === "1" ? storageKey : null); }
+    catch { setHiddenKey(null); }
+  }, [storageKey]);
+  const hideFailure = (hide: boolean) => {
+    setHiddenKey(hide ? storageKey : null);
+    if (storageKey) onHiddenChange?.(storageKey, hide);
+    if (!storageKey) return;
+    try { if (hide) localStorage.setItem(storageKey, "1"); else localStorage.removeItem(storageKey); } catch { /* Storage may be disabled; current view still works. */ }
+  };
   const id = React.useId();
   const entries = React.useMemo(() => traceEntries(events), [events]);
   const rows = React.useMemo(() => groupTraceRows(entries), [entries]);
@@ -158,8 +176,10 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
   const end = active ? now : Date.parse(events[events.length - 1]!.emittedAt);
   const seconds = Number.isFinite(start) && Number.isFinite(end) ? Math.max(0, Math.floor((end - start) / 1000)) : 0;
   const elapsed = `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
-  const label = legacy ? "历史执行记录" : status?.kind === "status" && status.status === "cancelled" ? "已停止" : status?.kind === "status" && status.status === "failed" ? "执行失败" : status?.kind === "status" && status.status === "paused" ? "已暂停" : status?.kind === "status" && status.status === "awaiting_tool_permission" ? "等待确认" : active ? "正在执行" : "执行过程";
+  const label = legacy ? t("chatTrace.legacy") : status?.kind === "status" && status.status === "cancelled" ? t("chatTrace.stopped") : status?.kind === "status" && status.status === "failed" ? t("chatTrace.failed") : status?.kind === "status" && status.status === "paused" ? t("chatTrace.paused") : status?.kind === "status" && status.status === "awaiting_tool_permission" ? t("chatTrace.awaiting") : active ? t("chatTrace.running") : t("chatTrace.trace");
+  const runFailed = status?.kind === "status" && status.status === "failed";
   const failed = entries.some((entry) => entry.status === "failed");
+  const showFailureControls = isSettledFailureTrace(events);
   const tools = entries.filter((entry) => entry.kind === "tool").length;
   const skills = entries.filter((entry) => entry.kind === "skill").length;
   const hasSubtasks = entries.some((entry) => entry.kind === "tool" && entry.text === "spawn_async_task");
@@ -168,9 +188,12 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
    * 所以本行不再自己重复一句「正在执行」——那正是人类实测里「工具调用的 2 个消息重复了」
    * 的那两句。`active` 期间恒定不变的事实（历时 / 计数 / 有没有失败过）留在后半段。
    */
-  const head = active ? null : failed ? `${label} · 有失败步骤` : label;
+  const head = active ? null : failed ? `${label} · ${t("chatTrace.hasFailures")}` : label;
   // 「技能活动」只数技能脚本执行；为 0 时对用户没有信息量（人类反馈 2026-09-17），不显示。
-  const tail = `${active && failed ? "有失败步骤 · " : ""}历时 ${elapsed} · 工具 ${String(tools)} 次${skills > 0 ? ` · 技能活动 ${String(skills)} 项` : ""}`;
+  const tail = `${active && failed ? `${t("chatTrace.hasFailures")} · ` : ""}${t("chatTrace.timing", { elapsed, count: tools })}${skills > 0 ? t("chatTrace.skillCount", { count: skills }) : ""}`;
+  if (showFailureControls && storageKey && (controlledHidden ?? (hiddenKey === storageKey))) return <div data-testid="run-trace-hidden" className="my-1 flex items-center gap-2 text-11 text-muted-foreground">
+    <span>{t("chatTrace.hiddenFailure")}</span><button type="button" className="underline" onClick={() => hideFailure(false)}>{t("chatTrace.restoreFailure")}</button>
+  </div>;
   return <section data-testid="run-trace-panel" data-run-id={runId} className="my-3 min-w-0 rounded-card bg-card px-1 py-1 text-13 text-muted-foreground shadow-sm">
     <button type="button" aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(!expanded)}
       data-testid="run-trace-toggle" className="flex w-full max-w-full items-center gap-2 rounded-control px-2 py-1.5 text-left transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -186,6 +209,10 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
       </span>
       <ChevronRight aria-hidden className={`ml-auto h-3.5 w-3.5 shrink-0 transition-transform duration-fast ${expanded ? "rotate-90" : ""}`} />
     </button>
+    {showFailureControls ? <div className="flex items-center gap-3 px-2 text-11">
+      {runFailed && onRetryFailure ? <button type="button" className="underline" onClick={onRetryFailure}>{t("ui.retry")}</button> : null}
+      {storageKey ? <button type="button" className="underline" title={t("chatTrace.hideFailureHint")} onClick={() => hideFailure(true)}>{t("chatTrace.hideFailure")}</button> : null}
+    </div> : null}
     {/*
       折叠区「外面」——与活性条、后台任务面板同一条先例（见 `RunTraceLivePreview` 头注：
       改默认展开值的那一版被 `fullstack-smoke` 按设计拦下来了）。展开与否一个字没改；
@@ -196,14 +223,14 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
         也看不到——v2 这条链的计划面板吃的是 AG-UI STATE_SNAPSHOT / 计划账本，
         deep-agent provider 两样都不走。而那份计划其实就在这次工具调用的 args 里，
         已经在浏览器手上了。用「既有的」AgentPlanPanel 渲染，不另画一套。 */}
-    {showPlanHere && shownTodos !== null ? (
+    {showPlanHere && shownTodos !== null && (!showFailureControls || expanded) ? (
       <div className="mb-1.5" data-testid="run-trace-plan">
         <AgentPlanPanel steps={[]} stateSnapshotTodos={shownTodos}
           renderStepDetail={(todo) => <PlanStepActionList todo={todo} actions={stepActions.get(todo.content.trim()) ?? []} openWhenActive={false} />} />
       </div>
     ) : null}
     {!expanded && <RunTraceLivePreview entries={entries} active={active} hasAssistantText={hasAssistantText} />}
-    <div id={id} hidden={!expanded} role="region" aria-label="任务执行过程" data-testid="run-trace-body" className="mb-2 ml-4 border-l border-border-subtle pl-4">
+    <div id={id} hidden={!expanded} role="region" aria-label={t("chatTrace.region")} data-testid="run-trace-body" className="mb-2 ml-4 border-l border-border-subtle pl-4">
       <ol className="space-y-3 py-3">
         {rows.map((row) => row.kind === "tool-group"
           ? <li key={row.id} data-testid="run-trace-entry" data-kind="tool-group" data-status="succeeded" data-tool-name={row.tool} data-member-count={row.members.length}>
@@ -214,12 +241,12 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
                 <summary className="cursor-pointer rounded-control py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                   <span className="inline-flex items-center gap-2">
                     <Wrench aria-hidden className="h-3.5 w-3.5" />
-                    <span data-testid="chat-task-workbench-event-row">{toolGroupLabel(row.tool, row.members.length)}</span>
-                    <Check data-testid="run-trace-entry-status-icon" aria-label="工具调用完成" className="h-3 w-3" />
+                    <span data-testid="chat-task-workbench-event-row">{toolGroupLabel(row.tool, row.members.length, t, locale)}</span>
+                    <Check data-testid="run-trace-entry-status-icon" aria-label={t("chatTrace.toolComplete")} className="h-3 w-3" />
                   </span>
                 </summary>
                 <ul className="space-y-1 pl-4 pt-1">
-                  {row.members.map((member) => <li key={member.id} data-testid="run-trace-group-member" data-status={member.status}>{toolObject(member.text, member.args) ?? toolLabel(member.text)}</li>)}
+                  {row.members.map((member) => <li key={member.id} data-testid="run-trace-group-member" data-status={member.status}>{toolObject(member.text, member.args) ?? toolLabel(member.text, locale)}</li>)}
                 </ul>
               </details>
             </li>
@@ -229,8 +256,8 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
                 <summary className="cursor-pointer rounded-control py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                   <span className="inline-flex items-center gap-2">
                     <Sparkles aria-hidden className="h-3.5 w-3.5" />
-                    <span data-testid="chat-task-workbench-event-row">{groupLabel(row.stage, row.members.length)}</span>
-                    <Circle aria-label="已记录读取事实，未证明执行成功" className="h-3 w-3" />
+                    <span data-testid="chat-task-workbench-event-row">{groupLabel(row.stage, row.members.length, t)}</span>
+                    <Circle aria-label={t("chatTrace.observed")} className="h-3 w-3" />
                   </span>
                 </summary>
                 <ul className="space-y-1 pl-4 pt-1">
@@ -246,13 +273,13 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
               + rehype-sanitize 清洗），只换一个自己的 `data-testid`。
               ⚠ 执行过程里其它文本块一律不动：工具的「输入」/「结果」是 JSON，本来就该
               留在 `<pre>` 里原样显示，把它们也当 markdown 渲染是另一个 bug。 */}
-          {entry.kind === "progress" ? <div className="break-words leading-relaxed"><span className="mr-2 text-11">{entry.source === "legacy" ? "历史公开记录" : "Thinking · 进展摘要"}</span><MarkdownProseBlock text={entry.text} testId="run-trace-progress-markdown" /></div> :
+          {entry.kind === "progress" ? <div className="break-words leading-relaxed"><span className="mr-2 text-11">{entry.source === "legacy" ? t("chatTrace.legacyProgress") : t("chatTrace.progress")}</span><MarkdownProseBlock text={entry.text} testId="run-trace-progress-markdown" /></div> :
             <details className="min-w-0">
               <summary className="cursor-pointer rounded-control py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <span className="inline-flex items-center gap-2">
                   {entry.kind === "skill" ? <Sparkles aria-hidden className="h-3.5 w-3.5" /> : <Wrench aria-hidden className="h-3.5 w-3.5" />}
-                  <span data-testid="chat-task-workbench-event-row">{eventLabel(entry, active)}</span>
-                  {entry.status === "observed" ? <Circle data-testid="run-trace-entry-status-icon" aria-label="已记录读取事实，未证明执行成功" className="h-3 w-3" /> : entry.status === "running" ? <Loader2 data-testid="run-trace-entry-status-icon" aria-label={runningStatusLabel(active)} className={active ? "h-3 w-3 animate-spin" : "h-3 w-3"} /> : entry.status === "failed" ? <AlertCircle data-testid="run-trace-entry-status-icon" aria-label="失败" className="h-3 w-3 text-destructive" /> : <Check data-testid="run-trace-entry-status-icon" aria-label={entry.activityStage ? "执行成功" : "工具调用完成"} className="h-3 w-3" />}
+                  <span data-testid="chat-task-workbench-event-row">{eventLabel(entry, active, t, locale)}</span>
+                  {entry.status === "observed" ? <Circle data-testid="run-trace-entry-status-icon" aria-label={t("chatTrace.observed")} className="h-3 w-3" /> : entry.status === "running" ? <Loader2 data-testid="run-trace-entry-status-icon" aria-label={runningStatusLabel(active, t)} className={active ? "h-3 w-3 animate-spin" : "h-3 w-3"} /> : entry.status === "failed" ? <AlertCircle data-testid="run-trace-entry-status-icon" aria-label={t("chatTrace.failure")} className="h-3 w-3 text-destructive" /> : <Check data-testid="run-trace-entry-status-icon" aria-label={entry.activityStage ? t("chatTrace.success") : t("chatTrace.toolComplete")} className="h-3 w-3" />}
                 </span>
                 {/* issue #3322 —— 最近一条工具内进展，画在**折叠行上**。
                     用户的原话是「等了很久没有任何的细节」；把细节藏在 <details> 里等人
@@ -275,7 +302,7 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
                 <SourceUrlLine args={entry.args} />
                 {entry.text === "task" && entry.progressText ? <p data-testid="run-trace-task-facts" className="whitespace-pre-wrap break-words">{entry.progressText}</p> : null}
                 {entry.activityStage ? null : renderTool?.(entry)}
-                {(entry.attemptIds?.length ?? 0) > 1 ? <p>调用在 {entry.attemptIds!.length} 次运行尝试中有记录，合并展示一次。</p> : null}
+                {(entry.attemptIds?.length ?? 0) > 1 ? <p>{t("chatTrace.attempts", { count: entry.attemptIds!.length })}</p> : null}
                 {/* 2026-09-16 人类实测（非技术用户）—— 展开后迎面是两块 JSON，外加一个
                     大写的 `null`。三条分流，事实一件不少：
                       · 结果等于什么都没有（isEmptyToolResult：null / 空串 / 空对象）⇒
@@ -287,10 +314,10 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
                         默认收起。输入的要点已经在折叠行上说成人话了（`toolObject`），
                         JSON 原文留给排障，不摆在第一屏。渐进式披露，不是删减。 */}
                 {entry.result !== undefined && isEmptyToolResult(entry.result)
-                  ? <p data-testid="run-trace-entry-empty-result">这一步没有返回内容。</p> : null}
+                  ? <p data-testid="run-trace-entry-empty-result">{t("chatTrace.empty")}</p> : null}
                 {typeof entry.result === "string" && !isEmptyToolResult(entry.result)
                   ? <div>
-                      <span>结果</span>
+                      <span>{t("chatTrace.result")}</span>
                       {/* 2026-09-23（R11）—— 人类原话「在右边可以打开结果，浏览网页」。
                           抓回来的网页正文在这个 max-h-64 的格子里是没法读的，更别说
                           边读边追问。给一条出口：送进右栏，跟产物共用同一条页签。
@@ -303,21 +330,21 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
                           onClick={() => {
                             requestOpenInRightPanel({
                               id: entry.id,
-                              title: eventLabel(entry, active),
+                              title: eventLabel(entry, active, t, locale),
                               text: entry.result as string,
                               url: toolUrl(entry.args),
                             });
                           }}
-                        >在右栏打开</button>
+                        >{t("chatTrace.open")}</button>
                       ) : null}
                       <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-control bg-muted p-2 text-11">{entry.result}</pre>
                     </div> : null}
                 {entry.args !== undefined || (entry.result !== undefined && typeof entry.result !== "string" && !isEmptyToolResult(entry.result))
                   ? <details data-testid="run-trace-entry-raw">
-                      <summary className="cursor-pointer text-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">技术细节</summary>
+                      <summary className="cursor-pointer text-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{t("chatTrace.technical")}</summary>
                       <div className="mt-1 space-y-2">
-                        {entry.args !== undefined ? <div><span>输入</span><pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-control bg-muted p-2 text-11">{detail(entry.args)}</pre></div> : null}
-                        {entry.result !== undefined && typeof entry.result !== "string" && !isEmptyToolResult(entry.result) ? <div><span>结果</span><pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-control bg-muted p-2 text-11">{detail(entry.result)}</pre></div> : null}
+                        {entry.args !== undefined ? <div><span>{t("chatTrace.input")}</span><pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-control bg-muted p-2 text-11">{detail(entry.args)}</pre></div> : null}
+                        {entry.result !== undefined && typeof entry.result !== "string" && !isEmptyToolResult(entry.result) ? <div><span>{t("chatTrace.result")}</span><pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-control bg-muted p-2 text-11">{detail(entry.result)}</pre></div> : null}
                       </div>
                     </details>
                   : null}
@@ -335,6 +362,6 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
       挂载条件并没有放宽：仍然要求这一轮真的调用过 `spawn_async_task`（`hasSubtasks`），
       且 `SubtaskRunLivePanel` 自己在后端查不到子任务行时返回 null。
     */}
-    {hasSubtasks ? <SubtaskRunLivePanel parentRunId={runId} /> : null}
+    {hasSubtasks && (!showFailureControls || expanded) ? <SubtaskRunLivePanel parentRunId={runId} /> : null}
   </section>;
 }

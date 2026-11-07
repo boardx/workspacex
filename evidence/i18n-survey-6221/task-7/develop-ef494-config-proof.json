@@ -1,0 +1,12 @@
+{
+  "worker": "a2ec6cc2e5a91f02ac8375855da3a8a8a7358c66",
+  "upstream": "ef49474134137e7d07cef97577d4799fbd9c0eb8",
+  "merged": "3865edd857f954abe4fa6a37fa87c4df938ea0a3",
+  "base": "cf77b91708d5a5326ea9824fc68aa4949928a473",
+  "workerConfigIsBasePlusOnlySurveyRegistration": true,
+  "mergedConfigIsAcceptedParentPlusOnlySurveyRegistration": true,
+  "byteExactExpected": true,
+  "originalBudgetsPreserved": true,
+  "acceptedTelemetryEnvironmentPreserved": true,
+  "staticOnlyNotRuntimePass": true
+}

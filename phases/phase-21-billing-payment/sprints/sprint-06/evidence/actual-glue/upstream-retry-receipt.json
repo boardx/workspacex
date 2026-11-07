@@ -1,0 +1,14 @@
+{
+  "failureStatus": 502,
+  "code": "wechat_upstream_failed",
+  "ordersAfterFailure": 0,
+  "qrAfterFailure": false,
+  "retryExplicit": true,
+  "billingHttpIntercepted": false,
+  "nativeRequests": 2,
+  "signedNativeRequests": 2,
+  "successfulOrderNo": "bg20261017151107GMIDoo",
+  "balance": 1320,
+  "ledgerRows": 2,
+  "productionMerchantAccepted": false
+}

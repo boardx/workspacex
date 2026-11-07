@@ -1,0 +1,14 @@
+{
+  "worker": "baf5eb97bcf776f507c1deeced9ff1f93dc9fdf9",
+  "upstream": "dc9bc31b5658aacd4376ffa3f66e6794293ac953",
+  "mergeBase": "c49fee15b89f2621d8ceaa582ef6a9c0f6c931cc",
+  "candidateTree": "9f9f527502fcddb408804132c54bdc504077a559",
+  "workerPaths": 328,
+  "upstreamPaths": 113,
+  "workerExactBlobsAndModes": 326,
+  "upstreamExactBlobsAndModes": 111,
+  "overlap": [
+    "apps/web/lib/i18n/messages/en.ts",
+    "apps/web/lib/i18n/messages/zh-CN.ts"
+  ]
+}

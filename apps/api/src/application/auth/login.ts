@@ -80,6 +80,23 @@ export async function login(
   input: LoginInput,
   device: LoginDeviceContext,
 ): Promise<LoginOutput> {
+  const now = deps.clock.now();
+  const cred = await authenticateCredentials(deps, input);
+  /* 4. Verified email (I-8). Only reachable by someone who holds the password. */
+  if (cred.emailVerifiedAt === null) {
+    // authenticateCredentials already recorded a successful password check.
+    throw new AuthError("EMAIL_NOT_VERIFIED");
+  }
+
+  /* 5. Session. */
+  return issueAuthenticatedSession(deps, cred.userId, now, device);
+}
+
+/** Password proof shared by login and verification recovery; never issues a session. */
+export async function authenticateCredentials(
+  deps: Pick<LoginDeps, "credentials" | "hasher" | "attempts" | "clock">,
+  input: LoginInput,
+) {
   const email = normalizeEmail(input.email);
   const now = deps.clock.now();
 
@@ -120,16 +137,6 @@ export async function login(
     throw new AuthError("INVALID_CREDENTIAL");
   }
 
-  /* 4. Verified email (I-8). Only reachable by someone who holds the password. */
-  if (cred.emailVerifiedAt === null) {
-    // Recorded as a SUCCESSFUL credential check: the password was right. Recording it as a
-    // failure would let an unverified user lock their own account out by retrying.
-    await deps.attempts.record(email, "ok", now);
-    throw new AuthError("EMAIL_NOT_VERIFIED");
-  }
-
-  /* 5. Session. */
   await deps.attempts.record(email, "ok", now);
-
-  return issueAuthenticatedSession(deps, cred.userId, now, device);
+  return cred;
 }

@@ -33,6 +33,7 @@ vi.mock("@/lib/live-asr-draft", async (importOriginal) => ({
   openAsrDraftStream,
 }));
 
+import { FeedbackDialog } from "@/components/feedback/feedback-dialog";
 import { FeedbackProvider } from "@/components/feedback/feedback-provider";
 import { FeedbackButton } from "@/components/feedback/feedback-button";
 import type { FeedbackTarget } from "@/lib/live-feedback";
@@ -705,5 +706,60 @@ describe("迭代 35：提反馈这个框——内部码不上屏，丢掉的东�
     const note = await screen.findByTestId("feedback-attachment-quota");
     expect(note.textContent).toContain("只收下了 5 个");
     expect(note.textContent).toContain("1 个没加进来");
+  });
+});
+
+
+describe("explicit inbox submit intent", () => {
+  function openTriage() {
+    const onClose = vi.fn();
+    render(<FeedbackDialog target={{ kind: "product" }} targetLabel={null} afterSubmit="inbox" onClose={onClose} />);
+    return onClose;
+  }
+  it("navigates once using only the saved server ID, without sending intent to API", async () => {
+    mockSubmitThenList(mineItem);
+    const close = openTriage();
+    await fillAndSubmit("显式分诊测试正文");
+    await waitFor(() => expect(routerPush).toHaveBeenCalledWith("/platform-admin/inbox?open=fb-new"));
+    expect(close).toHaveBeenCalledOnce();
+    const submits = apiRequest.mock.calls.filter(([p, o]) => p === "/feedback" && o?.method === "POST");
+    expect(submits).toHaveLength(1);
+    expect(submits[0]?.[1].body).not.toHaveProperty("afterSubmit");
+    expect(submits[0]?.[1].expectedStatus).toBe(201);
+  });
+  it("navigation and mine-read failure retain saved ID and link without resubmitting", async () => {
+    mockSubmitThenList(mineItem);
+    routerPush.mockImplementation(() => { throw new Error("navigation unavailable"); });
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (path === "/feedback" && opts?.method === "POST") return { feedbackId: "saved/real-id", status: "待处理" };
+      throw new Error("offline");
+    });
+    const close = openTriage();
+    await fillAndSubmit("保存成功后导航故障的正文");
+    const receipt = await screen.findByTestId("feedback-inbox-open-failed");
+    expect(receipt).toHaveTextContent("已保存，无法打开收件箱");
+    expect(receipt).toHaveTextContent("saved/real-id");
+    expect(screen.getByRole("link", { name: "打开已保存的反馈" })).toHaveAttribute("href", "/platform-admin/inbox?open=saved%2Freal-id");
+    expect(await screen.findByTestId("feedback-mine-failed")).toBeVisible();
+    expect(screen.queryByTestId("feedback-submit-error")).toBeNull();
+    expect(close).not.toHaveBeenCalled();
+    expect(apiRequest.mock.calls.filter(([p, o]) => p === "/feedback" && o?.method === "POST")).toHaveLength(1);
+  });
+  it("submit failure keeps input and does not navigate", async () => {
+    apiRequest.mockRejectedValue(new Error("offline"));
+    openTriage();
+    await fillAndSubmit("提交失败还应保留这段输入");
+    expect(await screen.findByTestId("feedback-submit-error")).toHaveTextContent("没有被保存");
+    expect(screen.getByTestId("feedback-detail-input")).toHaveValue("提交失败还应保留这段输入");
+    expect(routerPush).not.toHaveBeenCalled();
+  });
+  it.each([
+    { kind: "product" }, { kind: "agent", agentId: "agent-1" }, { kind: "skill", skillId: "skill-1" },
+  ] satisfies FeedbackTarget[])("default $kind entry retains mine without navigation", async (target) => {
+    mockSubmitThenList(mineItem);
+    openDialogFor(target);
+    await fillAndSubmit("默认入口的正文");
+    expect(await screen.findByTestId("feedback-just-submitted")).toBeVisible();
+    expect(routerPush).not.toHaveBeenCalled();
   });
 });

@@ -1,3 +1,4 @@
+import { notifyCreditFailure } from "./credit-guidance";
 import { interview } from "@repo/contracts";
 import type { z } from "zod";
 import { ApiError, apiRequest, apiUrl, getStoredSessionToken } from "./api-client";
@@ -200,6 +201,7 @@ async function readReportStream(
       if (event.seq <= lastSeq) throw new ApiError(502, "REPORT_STREAM_SEQUENCE_INVALID", event);
       lastSeq = event.seq;
       if (event.type === "error") {
+        notifyCreditFailure(event);
         throw new ApiError(503, event.reasonCode, event);
       }
       if (event.type === "complete") {

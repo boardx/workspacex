@@ -1,0 +1,36 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/72a6/workspacex/apps/web
+
+ ✓ tests/lib/interview-session-cache.test.ts (3 tests) 12ms
+ ✓ tests/lib/ai-usage-chart.test.ts (3 tests) 20ms
+ ✓ tests/ui/guided-research-memory.test.ts (5 tests) 58ms
+ ✓ tests/ui/interview-session-provider.test.tsx (10 tests) 1083ms
+   ✓ retains source across stage remounts, updates on focus, retains it on failure 312ms
+ ✓ tests/ui/guided-research-three-step-live.test.tsx (6 tests) 3545ms
+   ✓ prepares the complete plan once for a newly created confirmed intake 562ms
+   ✓ restores a legacy research link into the report step without replay, then starts one durable report command 548ms
+   ✓ keeps a failed historical topic on the plan step until explicit retry 643ms
+   ✓ keeps unsaved chapter edits through collapse and reopening 1078ms
+   ✓ regenerates from the unlocked server node after saving chapters 520ms
+ ✓ tests/ui/guided-research-state-loading.test.tsx (17 tests) 3994ms
+   ✓ does not apply an old poll patch over newer streamed text and timeline 678ms
+   ✓ retains edits during route validation and accepts newer backend data 978ms
+   ✓ keeps cached content on validation failure and retries without execution 386ms
+ ✓ tests/ui/research-production-routes.test.tsx (26 tests) 4753ms
+   ✓ imports a text file into the requirement while preserving existing input 870ms
+   ✓ keeps a typed intake when returning to the list is cancelled 1374ms
+   ✓ only applies a real assistant proposal after explicit user adoption 651ms
+ ✓ tests/ui/guided-research-step-transitions.test.tsx (22 tests) 6483ms
+   ✓ step-aligned research transitions > browses the plan during research and preserves the selected page after completion 1445ms
+   ✓ step-aligned research transitions > keeps historical browsing selected when a restored task finishes through polling 740ms
+   ✓ step-aligned research transitions > preserves browsing and retains the submitted draft when an assistant command fails 906ms
+   ✓ step-aligned research transitions > marks the browsed command step busy when messaging an earlier step 510ms
+   ✓ step-aligned research transitions > marks a generated report complete without falsely completing failed research 326ms
+   ✓ step-aligned research transitions > keeps edited chapters selected and retrieved evidence available after saving 303ms
+
+ Test Files  8 passed (8)
+      Tests  92 passed (92)
+   Start at  22:41:31
+   Duration  13.50s (transform 3.96s, setup 1.91s, collect 24.52s, tests 19.95s, environment 6.52s, prepare 1.22s)
+

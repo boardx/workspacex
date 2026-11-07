@@ -39,31 +39,34 @@ def validate(sha,raw,now):
     return a
 
 
-def package_identity(request,approval,stage,previous,release):
-    m,files=e.load_package(request,approval['identity']['attemptId'])
+def package_identity(request,approval,stage,previous,release,transport=None):
+    transport = e if transport is None else transport
+    m,files=transport.load_package(request,approval['identity']['attemptId'])
     e.need(e.digest(files['authorization.json'])==release and e.decode(files['authorization.json'])==approval,'PACKAGE_RELEASE_AUTHORITY')
     # The complete original approval binds publicationAttemptId although the
     # lower-level transport manifest predates that acquire identity field.
     e.need(e.decode(files['authorization.json'])['identity']['publicationAttemptId']==approval['identity']['publicationAttemptId'],'PUBLICATION_ATTEMPT')
-    e.need(m['scope']=='runtime-only-reviewed-continuation' and m['stage']==stage,'ROUTER_STAGE')
+    e.need(m['scope']==getattr(transport,'scope','runtime-only-reviewed-continuation') and m['stage']==stage,'ROUTER_STAGE')
     for k in ('sourceRevision','baselineRevision','controlRevision','attemptId','requestedAt','deadlineAt'):
         e.need(m[k]==approval['identity'][k],'ROUTER_IDENTITY')
     e.need(m['previousReceiptSha256']==previous,'ROUTER_PREVIOUS')
     return m
 
 
-def coordinate(release,approval,router,*,mode='run',executor=e.entry,clock=e.now):
+def coordinate(release,approval,router,*,mode='run',executor=None,clock=e.now,transport=None):
     """Router returns a request SHA; executor remains the original durable entry.
 
     Test seams model external terminal outcomes; they do not claim cloud E2E.
     A single approval permits the fixed ordered chain, never skip or reset time.
     """
+    transport = e if transport is None else transport
+    executor = transport.entry if executor is None else executor
     e.need(mode in ('run','status','reconcile'),'DRIVER_MODE')
     previous=None;receipts=[];attempt=approval['identity']['attemptId']
     # Validate the entire installed route before consuming or stopping writers.
     # Missing later observers/recovery capabilities cannot be deferred to stop.
     if mode=='run':router.preflight(release)
-    for stage in e.STAGES:
+    for stage in transport.STAGES:
         if stage=='acceptance' and approval.get('mvp',{}).get('acceptanceScope')=='mvp-non-model':
             hook=router.mvp_after_switch(release,previous,mode)
             if hook.get('status')=='NOT_STARTED':return {**hook,'completed':receipts}
@@ -76,7 +79,7 @@ def coordinate(release,approval,router,*,mode='run',executor=e.entry,clock=e.now
             admission=router.admission(release,stage)
             if admission is not None:return {'status':admission,'stage':stage,'completed':receipts,'intentCreated':False}
             request=router.generate(release,stage,previous)
-        package_identity(request,approval,stage,previous,release)
+        package_identity(request,approval,stage,previous,release,transport)
         current=executor('status',request,attempt)
         if current['status']=='UNCERTAIN':
             if mode!='reconcile':
@@ -86,6 +89,11 @@ def coordinate(release,approval,router,*,mode='run',executor=e.entry,clock=e.now
         elif current['status']=='NOT_STARTED':
             if mode!='run':return {'status':'NOT_STARTED','stage':stage,'completed':receipts}
             e.need(clock()<e.instant(approval['expiresAt']),'RELEASE_DEADLINE')
+            if stage=='clear-hold':
+                # A durable generated package is not a permanent writer grant.
+                # Recheck policy revocation even when lookup found the package.
+                admission=router.admission(release,stage)
+                if admission is not None:return {'status':admission,'stage':stage,'completed':receipts,'intentCreated':False}
             current=executor('advance',request,attempt)
         e.need(current['status']=='COMPLETED','ENTRY_NOT_COMPLETED')
         # Re-read through the original status path after execution, including
@@ -156,10 +164,14 @@ def main():
         st=os.fstat(fd);e.need(stat.S_ISREG(st.st_mode) and st.st_uid==0 and st.st_nlink==1 and not st.st_mode&0o077,'DRIVER_LOCK')
         try:fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
         except BlockingIOError:raise e.Rejected('ANOTHER_DRIVER_ACTIVE')from None
-        print(e.encode(coordinate(args.release_sha256,a,router,mode=args.mode)).decode(),end='')
+        result=coordinate(args.release_sha256,a,router,mode=args.mode)
+        print(e.encode(result).decode(),end='')
+        # A durable wait/unknown result is observable, but not successful execution.
+        # Preserve its exact JSON; status remains a successful read-only query.
+        return 0 if result['status']=='CHAIN_COMPLETED' else 2
     finally:os.close(fd)
 
 if __name__=='__main__':
-    try:main()
+    try:sys.exit(main())
     except Exception:
         print('{"status":"BLOCKED_OR_UNKNOWN","automaticRetry":false,"automaticRecovery":false}',file=sys.stderr);sys.exit(1)

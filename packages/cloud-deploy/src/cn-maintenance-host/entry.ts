@@ -1,3 +1,4 @@
+import {observeInstalledMigrationOwner} from './migration_owner_observer';
 import { createHash } from 'node:crypto';
 import { closeSync, readFileSync } from 'node:fs';
 import { protectedPrivateJson, protectedExecutable, inheritedFd9Lock, runFixedPython } from './fixed_transport';
@@ -42,13 +43,14 @@ export async function executeBoundEntry(plan: EntryPlan, inputs: Partial<Protect
 }
 export async function main(args: readonly string[]): Promise<void> {
  if(process.platform!=='linux'||process.getuid?.()!==0)reject('ROOT_LINUX_REQUIRED');
- if(args.length!==3||args[0]!=='--run-reviewed-maintenance'||typeof args[1]!=='string'||typeof args[2]!=='string'||!/^\/etc\/workspacex-cn\//.test(args[1])||!/^[a-f0-9]{64}$/.test(args[2]))reject('HOST_ENTRY_USAGE');
+ if(args.length!==3||!['--run-reviewed-maintenance','--verify-reviewed-owner-terminal'].includes(args[0]!)||typeof args[1]!=='string'||typeof args[2]!=='string'||!/^\/etc\/workspacex-cn\//.test(args[1])||!/^[a-f0-9]{64}$/.test(args[2]))reject('HOST_ENTRY_USAGE');
  const plan=parseEntryPlan(protectedPrivateJson(args[1],args[2]));
  const profile=protectedPrivateJson('/etc/workspacex-cn/trusted-tool-binding.json') as any;
  if(profile.toolRevision!==plan.production.toolRevision)reject('HOST_PROFILE_TOOL_REVISION');
  const descriptor=profile.maintenanceHostController;
  if(!descriptor||descriptor.toolRevision!==profile.toolRevision||profile.filesSha256?.[descriptor.sourcePath]!==descriptor.sha256||descriptor.path!==process.argv[1]||!descriptor.path.endsWith('.cjs'))reject('HOST_ENTRY_PROFILE_BINDING');
  const fd=protectedExecutable(descriptor);try{if(createHash('sha256').update(readFileSync(fd)).digest('hex')!==descriptor.sha256)reject('HOST_ENTRY_PROFILE_BINDING');}finally{closeSync(fd);}
+ if(args[0]==='--verify-reviewed-owner-terminal'){process.stdout.write(JSON.stringify(await observeInstalledMigrationOwner(plan,profile))+'\n');return;}
  // Validate inherited lock only, without releasing it while startup admission
  // still lacks production inputs. The launcher remains sole lock acquirer.
  await inheritedFd9Lock();

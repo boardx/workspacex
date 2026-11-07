@@ -6,11 +6,11 @@
  *     session.update            { session: { input_audio_format, sample_rate, input_audio_transcription:{model}, turn_detection } }
  *     input_audio_buffer.append { audio: base64 pcm16le }
  *     input_audio_buffer.commit
- *     session.finish            (manual mode only)
+ *     session.finish            (flushes either mode, then ends the session)
  *   gateway → client
  *     conversation.item.input_audio_transcription.text       { text, stash }           partial
  *     conversation.item.input_audio_transcription.completed  { transcript, item_id, event_id, confidence }
- *     session.finished                                       (manual mode, after session.finish)
+ *     session.finished                                       (after session.finish)
  *     error                                                  { error: { message } }
  *
  * Two turn-detection modes, mirrored from the provider:
@@ -18,9 +18,8 @@
  *                           also closes the current one.
  *   manual (turn_detection: null) -- only commit closes a segment; session.finish ends it.
  *
- * On a commit with nothing to transcribe after at least one final, DashScope answers with a
- * "buffer too small" error which the provider explicitly treats as benign; we send the same
- * so `finish()` resolves the same way. Documented in the provider file, mirrored here.
+ * Legacy local clients may still commit in VAD mode. New clients end either mode with
+ * session.finish and wait for session.finished, including when there is no speech.
  */
 import { randomUUID } from "node:crypto";
 import { createServer, type Server } from "node:http";
@@ -151,11 +150,15 @@ function handleConnection(socket: WebSocket, engine: Engine, ctx: { model: strin
         tick();
         closeSegmentOnCommit();
         return;
-      case "session.finish":
-        if (!manual) { sendError("session.finish is only valid with turn_detection: null"); return; }
+      case "session.finish": {
+        if (!session) { sendError("session.update must precede session.finish"); return; }
+        tick();
+        const tail = session.finalizeSegment();
+        if (tail !== "") emitFinal(tail);
         send({ type: "session.finished" });
         socket.close(1000, "finished");
         return;
+      }
       default:
         ctx.log(`[local-asr-gateway] ignoring frame type ${frame.type}`);
     }

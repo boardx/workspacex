@@ -1,0 +1,21 @@
+Original source9697455adb57cab9c0784000b00cc614bbf59c8e; complete log retained in phase21/sprint07/evidence/F07.reviewed-prerequisite-failed-api.log
+ ✓ tests/canvas/suggest-template-sections-http.test.ts (5 tests) 2629ms
+ ✓ tests/capability/skill/promotion-source-tag-and-link.test.ts (13 tests) 3ms
+ ❯ tests/agent-runtime/browser-execution-receipts-real-db.test.ts (6 tests | 1 failed) 511ms
+   × timeout rejects late completion and keeps an honest unknown receipt across restart 23ms
+     → promise resolved "{ kind: 'claimed' }" instead of rejecting
+ ✓ tests/research/guided-source-documents.test.ts (8 tests) 22ms
+ ✓ tests/project/create-agenda-segment.test.ts (6 tests) 376ms
+ ✓ tests/work-content/product-workflow-definitions.test.ts (7 tests) 11ms
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+
+Actual outer result:
+
+> agentic-harness-template@ harness /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> tsx .harness/scripts/cli.ts "verify" "--sprint" "21/07" "--owner" "coord-voice"
+
+==> 验证 F07 — 过期订单定时关闭任务
+✓ 通过: pnpm --filter api exec vitest run tests/billing/order-close-task.test.ts
+==> 运行基础验证（风险档=standard）: pnpm -w run verify:quick
+ ELIFECYCLE  Command failed with exit code 130.

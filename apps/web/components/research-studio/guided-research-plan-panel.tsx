@@ -1,3 +1,4 @@
+import { useI18n } from "@/lib/i18n/provider";
 import type * as React from "react";
 import { ArrowRight } from "lucide-react";
 import { WorkflowActionButton, WorkflowActionBar } from "./research-workflow-actions";
@@ -18,8 +19,9 @@ export function GuidedResearchPlanPanel({ plan, onConfirm, disabled, onBack, loa
   editDisabled?: boolean;
   onEdit?: (field: ResearchPlanField) => void;
 }) {
+  const { t } = useI18n();
   return <section className="space-y-3" data-testid="guided-research-plan-panel" data-reference-layout="plan-workspace">
     <Card className="shadow-sm"><CardContent className="space-y-3 p-4 text-sm leading-relaxed">{plan}</CardContent></Card>
-    <WorkflowActionBar placement="footer" data-testid="research-plan-actions">{onBack && <WorkflowActionButton variant="outline" onClick={onBack}>上一步</WorkflowActionButton>}<WorkflowActionButton variant="primary" aria-label="生成报告" loading={loading} disabled={disabled} icon={<ArrowRight className="size-4" aria-hidden />} onClick={onConfirm}>生成报告</WorkflowActionButton></WorkflowActionBar>
+    <WorkflowActionBar placement="footer" data-testid="research-plan-actions">{onBack && <WorkflowActionButton variant="outline" onClick={onBack}>{t("research.previous")}</WorkflowActionButton>}<WorkflowActionButton variant="primary" aria-label={t("research.live.generate")} loading={loading} disabled={disabled} icon={<ArrowRight className="size-4" aria-hidden />} onClick={onConfirm}>{t("research.live.generate")}</WorkflowActionButton></WorkflowActionBar>
   </section>;
 }

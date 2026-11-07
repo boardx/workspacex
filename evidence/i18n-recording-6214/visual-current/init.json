@@ -1,0 +1,11 @@
+{
+  "name": "init",
+  "command": [
+    "./init.sh"
+  ],
+  "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61",
+  "exitCode": 0,
+  "seconds": 2.961,
+  "rawLogLocalPath": "/tmp/6214-visual-private-f8/init.log",
+  "rawLogSha256": "b9454ea9b0cef337e754f5577a3ea517168d367f1dafc79e9a75b55ad28d998d"
+}

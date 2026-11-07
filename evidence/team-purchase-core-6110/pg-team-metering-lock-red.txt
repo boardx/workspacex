@@ -1,0 +1,70 @@
+[stack-admission] load1=18.25 cores=10 perCore=1.82 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvzimn0c-f0cad15d-9abffe5ae81d db=wsx_9abffe5ae81d552c194f compose=wsx-9abffe5ae81d552c194f pg=20754 redis=21754 api=24754 web=25754 sandbox=26754 model=27754 deep-agent=28754 asr=29338 vision=30754 loopback-sandbox=31754 mail=19754
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/team-receipt-anchor-6099/apps/api
+
+[db-isolation] db=wsx_9abffe5ae81d552c194f capacity=100 current=6 required=32
+ ❯ tests/billing/team-metering-lock-order-pg.test.ts (1 test | 1 failed) 84551ms
+   × finishes a real Team usage receipt while another model request waits, without an org/wallet deadlock 1390ms
+     → expected [ { code: '40P01', …(1) } ] to deeply equal []
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/team-metering-lock-order-pg.test.ts [ tests/billing/team-metering-lock-order-pg.test.ts ]
+error: token usage events are append-only
+ ❯ ../../node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/client.js:652:17
+ ❯ tests/billing/team-metering-lock-order-pg.test.ts:16:3
+     14| afterAll(async()=>{
+     15|  await asOwner(async c=>{
+     16|   await c.query("DELETE FROM token_usage_events WHERE org_id=$1",[org]…
+       |   ^
+     17|   await c.query("DELETE FROM credit_consumption_receipts WHERE org_id=…
+     18|   await c.query("DELETE FROM model_request_starts WHERE org_id=$1",[or…
+ ❯ Module.asOwner tests/support/db.ts:250:12
+ ❯ tests/billing/team-metering-lock-order-pg.test.ts:15:2
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/team-metering-lock-order-pg.test.ts > finishes a real Team usage receipt while another model request waits, without an org/wallet deadlock
+AssertionError: expected [ { code: '40P01', …(1) } ] to deeply equal []
+
+- Expected
++ Received
+
+- Array []
++ Array [
++   Object {
++     "code": "40P01",
++     "message": "deadlock detected",
++   },
++ ]
+
+ ❯ tests/billing/team-metering-lock-order-pg.test.ts:52:105
+     50|  const results=await Promise.allSettled([recording,starting]);
+     51|  expect(waiting).toBe(true);
+     52|  expect(results.flatMap(r=>r.status==="rejected"?[{code:r.reason?.code…
+       |                                                                                                         ^
+     53|  await asOwner(async c=>{
+     54|   expect((await c.query("SELECT count(*)::int AS n FROM model_request_…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  01:11:10
+   Duration  103.27s (transform 3.55s, setup 28ms, collect 5.22s, tests 84.55s, environment 0ms, prepare 231ms)
+
+[db-isolation] db=wsx_9abffe5ae81d552c194f peak_connections=4
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/team-receipt-anchor-6099/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/team-metering-lock-order-pg.test.ts --maxWorkers=1 --minWorkers=1
+[timing] pnpm --filter api exec vitest run tests/billing/team-metering-lock-order-pg.test.ts --maxWorkers=1 --minWorkers=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1m46s
+  清理：3s
+  总计：1m49s

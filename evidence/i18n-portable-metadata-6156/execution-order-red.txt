@@ -1,0 +1,48 @@
+[stack-admission] load1=3.95 cores=10 perCore=0.40 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvzzznay-f82a8127-bbd35b72354d db=wsx_bbd35b72354d8861f217 compose=wsx-bbd35b72354d8861f217 pg=20898 redis=21898 api=24898 web=25898 sandbox=26898 model=27898 deep-agent=28898 asr=29898 vision=30898 loopback-sandbox=31898 mail=19898
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/api
+
+[db-isolation] db=wsx_bbd35b72354d8861f217 capacity=100 current=6 required=32
+ ❯ tests/localization/portable-export-pg.test.ts (5 tests | 2 failed) 15582ms
+   × portable package export and round trip > preserves unsorted file order and original manifest key order for v1 execution coordinates 55ms
+     → expected '29ca0949f64377f2486023d2fc01b57c31b13…' to be '28c9e04d0564ecdb4dba5b1b89108d57e50e4…' // Object.is equality
+   × portable package export and round trip > preserves unsorted file order and original manifest key order for v2 execution coordinates 55ms
+     → expected '29ca0949f64377f2486023d2fc01b57c31b13…' to be '28c9e04d0564ecdb4dba5b1b89108d57e50e4…' // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/localization/portable-export-pg.test.ts > portable package export and round trip > preserves unsorted file order and original manifest key order for v1 execution coordinates
+ FAIL  tests/localization/portable-export-pg.test.ts > portable package export and round trip > preserves unsorted file order and original manifest key order for v2 execution coordinates
+AssertionError: expected '29ca0949f64377f2486023d2fc01b57c31b13…' to be '28c9e04d0564ecdb4dba5b1b89108d57e50e4…' // Object.is equality
+
+Expected: "28c9e04d0564ecdb4dba5b1b89108d57e50e470fe075a031a9967978a24b03b8"
+Received: "29ca0949f64377f2486023d2fc01b57c31b130ceac58c2eb7bc0c8e328d70255"
+
+ ❯ tests/localization/portable-export-pg.test.ts:51:53
+     49|     const raw = await new PgPortableExportRepository(db).get({ orgId,k…
+     50|     const exported = verifySkillStarterPack(raw,raw!);
+     51|     expect(skillContentDigest(exported.skills[0]!)).toBe(skillContentD…
+       |                                                     ^
+     52|     expect(exported.skills[0]!.files.map(file => file.path)).toEqual([…
+     53|     const reused = await new PgSkillStarterImportRepository(db).persis…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 3 passed (5)
+   Start at  09:17:09
+   Duration  21.12s (transform 1.19s, setup 8ms, collect 1.51s, tests 15.58s, environment 0ms, prepare 58ms)
+
+[db-isolation] db=wsx_bbd35b72354d8861f217 peak_connections=3
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/localization/portable-export-pg.test.ts --maxWorkers=1 --minWorkers=1
+[timing] pnpm --filter @repo/api exec vitest run tests/localization/portable-export-pg.test.ts --maxWorkers=1 --minWorkers=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：22s
+  清理：0s
+  总计：23s

@@ -1,0 +1,9 @@
+  1 skipped
+  1 passed (4.4m)
+[timing] bash -c docker compose -f apps/api/docker-compose.dev.yml -p "$COMPOSE_PROJECT_NAME" up -d --no-build --pull never --wait postgres redis && WORKSPACEX_REUSE_INFRA=1 pnpm --filter web exec playwright test --config playwright.chat-read.config.ts --project=chat-read --workers=1 chat-attachment-image-vision-extraction.spec.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：4m29s
+  清理：2s
+  总计：4m31s

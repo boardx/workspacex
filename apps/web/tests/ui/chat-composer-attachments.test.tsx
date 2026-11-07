@@ -84,7 +84,7 @@ describe("ChatLiveMessagePanel — composer 附件 UI（#946 V9-a F152）", () =
 
     // 预览条出现且转为「已就绪」
     const list = await screen.findByTestId("chat-attachment-list");
-    await waitFor(() => expect(within(list).getByText("已就绪")).toBeInTheDocument());
+    await waitFor(() => expect(within(list).getByText("已上传")).toBeInTheDocument());
     expect(within(list).getByText("brief.pdf")).toBeInTheDocument();
 
     // 发消息 → attachmentIds 带上 server id

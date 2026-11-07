@@ -83,6 +83,18 @@ describe('live survey workspace persistence',()=>{
   await screen.findByText('修改已保存');
   expect(request).toHaveBeenLastCalledWith('/surveys/saved-survey/source',expect.objectContaining({body:expect.objectContaining({documents:expect.objectContaining({publication:serializeSurveyPublicationMarkdown({responseLimitScope:'browser',successMessageMarkdown:'# 感谢反馈'})})})}),expect.anything());
  });
+ it('keeps title focus while saving without permitting concurrent edits',async()=>{
+  let finish!:(value:SurveyRuntime)=>void;
+  request.mockResolvedValueOnce(runtime()).mockImplementationOnce(()=>new Promise<SurveyRuntime>(resolve=>{finish=resolve;}));
+  render(<LiveSurveyWorkspace surveyId="saved-survey"/>);
+  const title=await screen.findByLabelText('问卷名称');title.focus();
+  fireEvent.change(title,{target:{value:'保存中保留焦点'}});
+  await flushAutosave();
+  expect(screen.getByText('正在自动保存…')).toBeInTheDocument();
+  expect(title).toHaveFocus();expect(title).not.toBeDisabled();expect(title).toHaveAttribute('readonly');
+  await act(async()=>finish(runtime({title:'保存中保留焦点',version:5})));
+  expect(title).toHaveFocus();expect(title).not.toHaveAttribute('readonly');
+ });
  it('automatically persists applied valid changes on an existing draft',async()=>{
   request.mockResolvedValueOnce(runtime()).mockResolvedValueOnce(runtime({title:'自动保存后的标题',version:5}));
   render(<LiveSurveyWorkspace surveyId="saved-survey"/>);
@@ -434,4 +446,25 @@ it('keeps ordinary report template title edits unsaved until explicit save',asyn
  await flushAutosave();
  expect(request).toHaveBeenCalledTimes(1);
  expect(screen.getByLabelText('报告标题')).toHaveValue('仅预览的新标题');
+});
+
+it('reloads remote answers on window focus without a full page reload',async()=>{
+ request.mockResolvedValue(runtime());
+ render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="responses"/>);
+ await screen.findByRole('region',{name:'答卷列表'});
+ const calls=request.mock.calls.length;
+ fireEvent(window,new Event('focus'));
+ await waitFor(()=>expect(request.mock.calls.length).toBeGreaterThan(calls));
+});
+it('updates waiting collection status when the scheduled start boundary passes',async()=>{
+ vi.useFakeTimers({toFake:['setTimeout','clearTimeout','Date']});
+ try {
+  const now=Date.now();
+  const publication={version:1,token:'token',status:'collecting' as const,startsAt:new Date(now+1000).toISOString(),expiresAt:new Date(now+60000).toISOString(),questions:runtime().questions};
+  request.mockResolvedValue(runtime({status:'collecting',publication}));
+  await act(async()=>{render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="publish"/>);});
+  expect(screen.getByRole('heading',{name:'问卷等待开始'})).toBeInTheDocument();
+  await act(async()=>{await vi.advanceTimersByTimeAsync(1002);});
+  expect(screen.getByRole('heading',{name:'问卷正在回收中'})).toBeInTheDocument();
+ }finally{vi.useRealTimers();}
 });

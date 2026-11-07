@@ -1,0 +1,11 @@
+[stack-admission] load1=3.32 cores=10 perCore=0.33 running=0/2
+[test-isolation] id=run-mw001c9r-68c74eb9-1c3c1e39ce87 db=wsx_1c3c1e39ce874f3a781b compose=wsx-1c3c1e39ce874f3a781b pg=20945 redis=21945 api=24945 web=25945 sandbox=26945 model=27945 deep-agent=28945 asr=29945 vision=30945 loopback-sandbox=31945 mail=19945
+open /Users/shenyangjun/boardx/api/docker-compose.dev.yml: no such file or directory
+[brain-seed-replay] seed1 exit=1
+[timing] pnpm exec tsx apps/web/scripts/verify-brain-seed-replay.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1s
+  清理：0s
+  总计：1s

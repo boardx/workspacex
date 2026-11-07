@@ -1,0 +1,36 @@
+{
+  "kind": "cn-release-independent-code-review-v1",
+  "reviewer": "/root/code_review",
+  "reviewedAt": "2026-10-12T13:47:20.156400+00:00",
+  "sourceRef": "Exact frozen T24 peer fixture correction manifest; independent local Node/Python executions",
+  "disposition": "accepted-local-peer-fix",
+  "reviewedFiles": {
+    "tests/fixtures/cn-postclear-recovery/postgres_peer.py": "76cd485d7c41f14d395e860e661bd7b71761fbd1cd8a0dd0bc92a7b5e0ee35f0",
+    "tests/fixtures/cn-postclear-recovery/candidate_actor.py": "0263f7db6f7ebc74c7b35285db6afa9987564e51f34693f4bd7e3debd4577dc5",
+    "tests/fixtures/cn-postclear-recovery/driver.ts": "662b208cf1c6f2e30cb9e221f870baadb6c6bf956ce1fc32fa7b4eb6fcfc691d",
+    "tests/fixtures/cn-postclear-recovery/diagnostic.ts": "541dbd647c97cb3dd4f8fc0185ec7c65ffd5d5b5d4cd926da9f9b82d10dca317",
+    "tests/fixtures/cn-postclear-recovery/diagnostic_test.ts": "150e5ae4f7e1c6e43faae109ebb957ec3de7c49fe607340601f96674fe7cb48f",
+    "tests/cn_release_postclear_recovery_linux.py": "b6a5c5368d6b664d115d6a6324b53c60d77dc5c8d470fbccceac8db6564862b9",
+    "tests/test_cn_release_postclear_peer.py": "7eae3d5dc29dc44af219994b98c1909b0b785b840810ebc55a15339caf1727d0"
+  },
+  "scope": "Only source-owned isolated fixture: observe real PG inet_server_addr text bytes and retain them for unchanged original login_cas_sql; independently check127.0.0.1 host, expected database, strict integer port and original cluster systemIdentifier. No production probe, CAS, DDL or authority weakened. Node child uses-B without-I so fixed sibling reader loads normally.",
+  "diagnosticScope": "Original psql stderr exists only in memory; mapped to fixed LOGIN_PEER_CAS/LOGIN_STATE_CAS or generic constant. Driver retains first actor Error as cause; diagnostic output permits fixed reason/SQLSTATE/hash/count only, no raw SQL/message/argv/token.",
+  "executionEvidence": {
+    "independentNodeTestsPassed": 13,
+    "nodeDurationMs": 691.598083,
+    "actualNoPgControllerCases": 8,
+    "diagnosticNodeCases": 5,
+    "independentPythonPeerTestsPassed": 4,
+    "peerSeconds": 0.012,
+    "independentPythonDiagnosticTestsPassed": 4,
+    "diagnosticSeconds": 0,
+    "actualLinuxPostgresExecutedByReviewer": false
+  },
+  "historicalExactExceptionProven": false,
+  "remainingBoundaries": [
+    "This repairs a verified fixture peer representation mismatch; prior GitHub exact failure cause was not captured.",
+    "Next Linux PG run must demonstrate the actual rehold/capture/restore chain. These local no-PG/controller/shape tests do not close full T24."
+  ],
+  "productionCodeChanged": false,
+  "productionExecuted": false
+}

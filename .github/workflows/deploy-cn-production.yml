@@ -23,6 +23,7 @@ concurrency:
 
 jobs:
   deploy:
+    if: github.event_name == 'workflow_dispatch'
     environment: production-cn
     runs-on: [self-hosted, linux, workspacex-cn-production]
     timeout-minutes: 20

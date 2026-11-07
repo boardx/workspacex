@@ -1,0 +1,21 @@
+{
+  "name": "result-copy-layout-lint-1",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "eslint",
+    "components/survey/live/response-list.tsx",
+    "e2e/i18n-survey-journey.spec.ts",
+    "lib/i18n/namespaces/survey-results.ts",
+    "tests/ui/survey-results-i18n.test.tsx"
+  ],
+  "source": "49b537ec33ac51ac231997a9667252b2f5dfd279",
+  "exitCode": 0,
+  "seconds": 2.298,
+  "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "sourceAfter": "49b537ec33ac51ac231997a9667252b2f5dfd279",
+  "sourceStable": true,
+  "environment": {}
+}

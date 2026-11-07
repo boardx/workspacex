@@ -1,0 +1,30 @@
+name: Unified release contracts
+on:
+  workflow_dispatch:
+  workflow_call: {}
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --filter @repo/api...
+      - run: python3 -I -B -m unittest discover -s tests -p 'test_unified_*.py' -v
+      - run: node --test tests/unified-migration-driver.test.mjs
+      - name: Verify transactions and retry against disposable PostgreSQL
+        env:
+          WSX_RUN_LOCAL_PG_TEST: '1'
+        run: |
+          docker pull postgres:16
+          node --test tests/unified-migration-postgres.test.mjs
+concurrency:
+  group: unified-release-tests-full-${{ github.run_id }}
+  cancel-in-progress: false
+  queue: single

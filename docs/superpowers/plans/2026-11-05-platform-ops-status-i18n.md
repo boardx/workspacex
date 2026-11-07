@@ -1,0 +1,11 @@
+# Platform operations status complete source localization
+
+Spec: docs/design/platform-ops-status-i18n/spec.md. User priority: source-first; preserve all original operational behavior. Same existing worktree, accepted develop84cf50deb; prior6266 branch preserved at a5d23026. No new worktree. No local gates/services/CI debugging during this source phase; normal commit hooks retained; acceptance stays pending.
+
+### Task 1: Complete operations page and mounted panels
+
+Read actual three files and children before editing. Own only apps/web/components/admin/ops-status-screen.tsx, platform-extraction-setting-panel.tsx, memory-ops-panels.tsx, consumption-settings-panel.tsx and native-credit-tariffs-panel.tsx plus new paired apps/web/lib/i18n/namespaces/platform-ops-status.ts and en/zh dictionary registration. Translate all fixed copy/aria/loading/permission/empty/error/success/chart labels and conditional explanations with existing useI18n. Preserve callbacks/effects, polling/aborts/timers, payloads/values and guards, raw server/provider/recipient data, percentage/date/count arithmetic and original Chinese meanings. Store semantic messages/errors so mounted locale changes update display without replaying calls. MAIN obtained both commercial owner clearances for consumption/tariffs: display-only changes are allowed, all monetary quantities/unit enums/org-global scope/API/strategy/validation/reasoncode behavior stay unchanged. Do not touch shared primitives or existing tests. Source-only self review; no tests/types/lint/build/browser/services/Git/children. Report exact changedfiles/copy coverage/preservation and all verification as unrun. Controller normal commits after independent light source review.
+
+### Task 2: Commercial child completion and delivery tracking
+
+After MAIN exact-file clearance, localize consumption-settings-panel.tsx and native-credit-tariffs-panel.tsx fixed display only, same behavior/invariants. Track ownership gap until permitted. Keep native/browser/CI acceptance as unified closeout, no fake GREEN. Normal source commit and PR with issue closure reference under existing resource queue; main alone green merge. Report code coverage separately from accepted stages.

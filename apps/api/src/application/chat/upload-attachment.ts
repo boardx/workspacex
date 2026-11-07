@@ -1,3 +1,4 @@
+import type {Attachment as PublicAttachment} from "@repo/contracts/chat-file-upload";
 /**
  * #946 · V9-a F150 —— 上传附件用例（application 层编排）。
  *
@@ -42,7 +43,7 @@ export class AttachmentUploadError extends Error {
   }
 }
 
-export interface AttachmentRow {
+export interface AttachmentRow extends Pick<PublicAttachment,"extractionStatus"|"extractionError"> {
   readonly uploadedBy?: string;
   readonly id: string;
   readonly orgId: OrgId;
@@ -116,7 +117,7 @@ export interface UploadAttachmentInput {
   readonly bytes: Uint8Array;
 }
 
-export interface UploadedAttachment {
+export interface UploadedAttachment extends Pick<PublicAttachment,"extractionStatus"|"extractionError"> {
   readonly id: string;
   readonly filename: string;
   readonly mime: string;
@@ -172,7 +173,13 @@ export async function uploadAttachment(
   //    ≤3MB 内联（内容返回时即就绪）；更大 or 内联遇可重试故障 → 入队 + kick 异步。
   await triggerExtraction(deps, input.orgId, id, byteLen);
 
-  return { id, filename: input.filename, mime: input.mime, bytes: byteLen, createdAt };
+  // Extraction may have synchronously failed on credit admission. Read the persisted
+  // outcome through the same permission decision; a failed read never undoes the upload.
+  let extractionState:Pick<PublicAttachment,"extractionStatus"|"extractionError">={};
+  try { const row=discloseDecided(await deps.attachments.findById(input.orgId,input.threadId,id),outcome.base);
+    if(isDisclosed(row)&&row.payload?.extractionStatus!==undefined)extractionState={extractionStatus:row.payload.extractionStatus,extractionError:row.payload.extractionError};
+  } catch { /* Uploaded bytes remain available; unknown parsing state stays absent. */ }
+  return { id, filename: input.filename, mime: input.mime, bytes: byteLen, createdAt, ...extractionState };
 }
 
 /** F153：上传成功后触发抽取，任何抽取侧问题都不得让上传失败（附件已存好）。 */

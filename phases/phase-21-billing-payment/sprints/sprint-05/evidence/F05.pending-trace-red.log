@@ -1,0 +1,55 @@
+[stack-admission] load1=3.11 cores=10 perCore=0.31 running=0/2
+[test-isolation] id=run-mv9l4dwk-444c825b-e02e6692d1b1 db=wsx_e02e6692d1b17e3cbbe2 compose=wsx-e02e6692d1b17e3cbbe2 pg=20298 redis=21298 api=24298 web=25298 sandbox=26298 model=27298 deep-agent=28298 asr=29298 vision=30298 loopback-sandbox=31298 mail=19298
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_e02e6692d1b17e3cbbe2 capacity=100 current=6 required=32
+ ❯ tests/billing/wechat-notify-observability.test.ts (4 tests | 1 failed | 3 skipped) 4ms
+   × callback failure diagnostics > bridges a real pending result to the request trace and verified event without requiring an exception 3ms
+     → expected [] to deep equally contain { …(2) }
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/wechat-notify-observability.test.ts > callback failure diagnostics > bridges a real pending result to the request trace and verified event without requiring an exception
+AssertionError: expected [] to deep equally contain { …(2) }
+
+- Expected: 
+Object {
+  "fields": Object {
+    "orderNo": "bg20261015000000abcdef",
+    "providerEventId": "verified-event",
+    "stage": "credit",
+    "traceId": "server-trace-pending",
+  },
+  "msg": "billing_callback_pending",
+}
+
++ Received: 
+Array []
+
+ ❯ tests/billing/wechat-notify-observability.test.ts:22:21
+     20|     const {service,entries}=fixture("pending");
+     21|     expect(await service.handle(Buffer.from("private callback"),{},"se…
+     22|     expect(entries).toContainEqual({msg:"billing_callback_pending",fie…
+       |                     ^
+     23|     expect(JSON.stringify(entries)).not.toContain("private callback");
+     24|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 3 skipped (4)
+   Start at  21:38:55
+   Duration  3.27s (transform 125ms, setup 5ms, collect 7ms, tests 4ms, environment 0ms, prepare 29ms)
+
+[db-isolation] db=wsx_e02e6692d1b17e3cbbe2 peak_connections=1
+undefined
+/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/wechat-notify-observability.test.ts -t bridges a real pending
+[timing] pnpm --filter api exec vitest run tests/billing/wechat-notify-observability.test.ts -t bridges a real pending
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：4s
+  清理：0s
+  总计：4s

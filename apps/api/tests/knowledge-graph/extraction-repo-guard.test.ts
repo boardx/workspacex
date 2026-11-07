@@ -25,6 +25,11 @@ describe("F06 抽取流水线读取的豁免前提", () => {
     const tables = new Set([...code.matchAll(/(?<!FOR\s)\b(?:FROM|JOIN|UPDATE|INTO)\s+([a-z_]+)/gi)].map((m) => m[1]!.toLowerCase()));
     tables.delete("kg_extraction_queue");
     tables.delete("chat_messages");
+    // #5877: message payer metadata is derived from the exact same-org originating run/message.
+    expect(code).toContain("r.org_id=m.org_id AND r.id=m.agent_run_id");
+    expect(code).toContain("request.org_id=r.org_id AND request.id=r.input_message_id");
+    expect(code).toContain("THEN m.author_id ELSE request.author_id END AS billing_user_id");
+    tables.delete("agent_runs");
     tables.delete("ontology_objects");
     tables.delete("picked");  // 认领用的物化 CTE，不是表
     // issue #4352：每条消息的抽取结果码。只写（INSERT … ON CONFLICT），从不读——不带任何正文，不扩大读取面。

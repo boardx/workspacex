@@ -133,4 +133,90 @@ class DriverTests(unittest.TestCase):
                 with self.assertRaisesRegex(m.e.Rejected,'PREPARER_CODE_PIN'):m.prepare_only(pin,'run',clock=lambda:self.now)
                 self.assertEqual(calls,[pin])
 
+
+# Run the actual CLI/__main__ and coordinate loop in a fresh interpreter. Only
+# root/provider boundaries are fixtures; production files and cloud are untouched.
+CLI_FIXTURE = r'''
+import datetime as dt,hashlib,importlib.util,json,os,re,runpy,stat,sys,tempfile,types
+from pathlib import Path
+from unittest.mock import patch
+source=Path(sys.argv[1]);mode,scenario=sys.argv[2:4];now=dt.datetime.now(dt.timezone.utc)
+encode=lambda v:(json.dumps(v,sort_keys=True)+'\n').encode()
+digest=lambda v:hashlib.sha256(v).hexdigest()
+identity=dict(sourceRevision='a'*40,baselineRevision='b'*40,controlRevision='c'*40,publicationAttemptId='publication',attemptId='release',requestedAt=(now-dt.timedelta(seconds=1)).isoformat(),deadlineAt=(now+dt.timedelta(minutes=20)).isoformat())
+root=source.parents[1]
+paths=['scripts/cn-release-fixed-driver.py','scripts/cn-release-stage-router.py','.harness/scripts/vm/cn-release-advance.py']
+a=dict(kind='cn-fixed-release-approval-v1',identity=identity,target=dict(accountId='1177216024653153',region='cn-shanghai',ecsInstanceId='i-uf6ga92ewloganobbln6'),issuedAt=identity['requestedAt'],expiresAt=identity['deadlineAt'],codeFiles={p:digest((root/p).read_bytes())for p in paths})
+raw=encode(a);release=digest(raw);packages={};requests={};receipts={}
+class Rejected(Exception):pass
+def need(v,code):
+ if not v:raise Rejected(code)
+def entry(mode,request,attempt):
+ if scenario=='UNKNOWN':return {'status':'UNCERTAIN'}
+ if mode=='advance':receipts[request]=digest((request+'receipt').encode())
+ return {'status':'COMPLETED','receiptSha256':receipts[request]}if request in receipts else {'status':'NOT_STARTED'}
+stages=('consume','publication-stage','check-plan','publish','hold-stage','hold','stop-stage','stop','sessions','backup-stage','backup','rds-backup','switch-stage','switch','acceptance','clear-hold','observe')
+e=types.SimpleNamespace(HEX=re.compile('[a-f0-9]{64}'),SHA=re.compile('[a-f0-9]{40}'),ATTEMPT=re.compile('[a-z0-9-]+'),STAGES=stages,Rejected=Rejected,need=need,digest=digest,decode=json.loads,encode=encode,instant=dt.datetime.fromisoformat,now=lambda:now,directory=lambda _:None,entry=entry)
+e.read=lambda p:raw if str(p).startswith('/etc/workspacex-cn/release-approvals/')else p.read_bytes()
+e.load_package=lambda request,attempt:packages[request]
+class Router:
+ def __init__(self,*args):
+  if scenario=='UNKNOWN':self.generate(release,'consume',None)
+ def preflight(self,*args):pass
+ def lookup(self,release,stage):return requests.get(stage)
+ def admission(self,release,stage):return 'WAITING_FOR_WRITER_APPROVAL'if scenario=='WAITING'and stage=='clear-hold'else None
+ def generate(self,release,stage,previous):
+  request=digest(stage.encode());requests[stage]=request
+  manifest={k:identity[k]for k in ('sourceRevision','baselineRevision','controlRevision','attemptId','requestedAt','deadlineAt')}
+  manifest.update(scope='runtime-only-reviewed-continuation',stage=stage,previousReceiptSha256=previous)
+  packages[request]=(manifest,{'authorization.json':raw});return request
+class Loader:
+ def __init__(self,obj):self.obj=obj
+ def create_module(self,spec):return None
+ def exec_module(self,module):module.__dict__.update(vars(self.obj))
+original_spec=importlib.util.spec_from_file_location
+original_open=os.open;original_fstat=os.fstat;original_exists=Path.exists
+with tempfile.TemporaryDirectory()as tmp:
+ def spec(name,path,*args,**kwargs):
+  if name in ('fixed_driver_entry','fixed_stage_router'):
+   return importlib.util.spec_from_loader(name,Loader(e if name=='fixed_driver_entry'else types.SimpleNamespace(Router=Router)))
+  return original_spec(name,path,*args,**kwargs)
+ def opened(path,*args,**kwargs):
+  if str(path)=='/var/lib/workspacex-cn/release-driver/driver.lock':path=Path(tmp)/'lock'
+  return original_open(path,*args,**kwargs)
+ def exists(path):
+  if str(path).startswith('/etc/workspacex-cn/release-approvals/'):return True
+  if str(path).startswith('/etc/workspacex-cn/mvp-approval-blueprints/'):return False
+  return original_exists(path)
+ def rootstat(fd):
+  s=original_fstat(fd);v={k:getattr(s,k)for k in dir(s)if k.startswith('st_')};v['st_uid']=0;return types.SimpleNamespace(**v)
+ sys.argv=[str(source),mode,release]
+ with patch.object(importlib.util,'spec_from_file_location',spec),patch.object(os,'geteuid',lambda:0),patch.object(os,'open',opened),patch.object(os,'fstat',rootstat),patch.object(Path,'exists',exists):
+  runpy.run_path(str(source),run_name='__main__')
+'''
+
+class DriverCliTests(unittest.TestCase):
+    def cli(self,mode,scenario):
+        import json,subprocess,sys
+        result=subprocess.run([sys.executable,'-I','-B','-c',CLI_FIXTURE,str(ROOT/'scripts/cn-release-fixed-driver.py'),mode,scenario],capture_output=True,text=True,timeout=10)
+        self.assertEqual(result.stderr,'',result.stderr)
+        return result.returncode,json.loads(result.stdout)
+    def test_run_waiting_preserves_stage_and_fails_cli(self):
+        code,value=self.cli('run','WAITING')
+        self.assertEqual(value['status'],'WAITING_FOR_WRITER_APPROVAL');self.assertEqual(value['stage'],'clear-hold');self.assertEqual(len(value['completed']),15)
+        self.assertNotEqual(code,0)
+    def test_run_unknown_preserves_stage_and_fails_cli(self):
+        code,value=self.cli('run','UNKNOWN')
+        self.assertEqual(value['status'],'UNKNOWN_RECONCILE_REQUIRED');self.assertEqual(value['stage'],'consume');self.assertFalse(value['mutationRetried'])
+        self.assertNotEqual(code,0)
+    def test_reconcile_not_started_fails_cli(self):
+        code,value=self.cli('reconcile','NOT_STARTED')
+        self.assertEqual(value['status'],'NOT_STARTED');self.assertEqual(value['stage'],'consume');self.assertNotEqual(code,0)
+    def test_status_is_readonly_success_even_incomplete(self):
+        for scenario,expected in [('NOT_STARTED','NOT_STARTED'),('UNKNOWN','UNKNOWN_RECONCILE_REQUIRED')]:
+            with self.subTest(scenario=scenario):
+                code,value=self.cli('status',scenario);self.assertEqual(code,0);self.assertEqual(value['status'],expected);self.assertEqual(value['completed'],[])
+    def test_run_completed_is_not_business_acceptance_claim(self):
+        code,value=self.cli('run','COMPLETE');self.assertEqual(code,0);self.assertEqual(value['status'],'CHAIN_COMPLETED');self.assertFalse(value['productionAcceptanceClaimedByDriver'])
+
 if __name__=='__main__':unittest.main()

@@ -1,3 +1,4 @@
+import { notifyCreditFailure } from "./credit-guidance";
 import { personalRealtimeTranscription as C } from "@repo/contracts";
 import { apiRequest, apiWebSocketUrl, waitForSocketOpen } from "./api-client";
 import { stopPersonalTranscription } from "./live-personal-transcriptions";
@@ -149,6 +150,7 @@ export async function openBoardxRealtimeAsr(
     if (frame.type === "flow") { upstreamFlow = frame.state; emitFlow(); return; }
     if (frame.type === "stopping") return deps.handlers.onState("stopping");
     if (frame.type === "error") {
+      notifyCreditFailure(frame.credit ?? {code:frame.reason});
       startupTerminalError ??= new Error(frame.reason);
       deps.handlers.onState("error");
       deps.handlers.onError(frame.reason);

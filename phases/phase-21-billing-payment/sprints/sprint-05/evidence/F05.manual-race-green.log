@@ -1,0 +1,29 @@
+[stack-admission] load1=3.81 cores=10 perCore=0.38 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvam3v53-318fec0b-358508ae915b db=wsx_358508ae915b4c777c3b compose=wsx-358508ae915b4c777c3b pg=20958 redis=21958 api=24958 web=25958 sandbox=26958 model=27958 deep-agent=28958 asr=29958 vision=30958 loopback-sandbox=31958 mail=19958
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_358508ae915b4c777c3b capacity=100 current=6 required=32
+{"level":"info","msg":"billing_late_paid_order","traceId":"f05-54b8987c-b575-44a2-bef2-7551c4329755","orderNo":"bg20261016065428ARXyWc"}
+{"level":"info","msg":"billing_payment_manual_recovery","traceId":"f05-a123d5c1-3e3e-4af1-b62c-5996198dfe02","orderNo":"bg20261016065428Un0BhA","reason":"wallet_limit"}
+{"level":"info","msg":"billing_payment_manual_recovery","traceId":"f05-2f591e47-323d-4c9b-84a5-7a0d73414a94","orderNo":"bg202610160654288OqguI","reason":"wallet_limit"}
+{"level":"info","msg":"billing_payment_manual_recovery","traceId":"f05-216e8e07-7f20-43c1-80a7-0dd72a32c47c","orderNo":"bg20261016065428m2aw02","reason":"wallet_limit"}
+{"level":"info","msg":"billing_payment_manual_recovery","traceId":"f05-1f55fbb8-790e-4102-8091-d9001d9851d9","orderNo":"bg20261016065428nAk1Iw","reason":"wallet_limit"}
+{"level":"info","msg":"billing_payment_manual_recovery","traceId":"f05-d813603b-e612-4855-bd72-0b19de48c99f","orderNo":"bg20261016065428BUfqzO","reason":"wallet_limit"}
+{"level":"info","msg":"billing_payment_manual_recovery","traceId":"f05-a6ddfc4c-9299-4a45-ac9f-6408c14c1de5","orderNo":"bg20261016065428ijRUmn","reason":"wallet_limit"}
+ ✓ tests/billing/wechat-notify-outcomes.test.ts (8 tests) 8205ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  14:54:16
+   Duration  12.50s (transform 590ms, setup 4ms, collect 975ms, tests 8.20s, environment 0ms, prepare 27ms)
+
+[db-isolation] db=wsx_358508ae915b4c777c3b peak_connections=3
+[timing] pnpm --filter api exec vitest run tests/billing/wechat-notify-outcomes.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：13s
+  清理：1s
+  总计：13s

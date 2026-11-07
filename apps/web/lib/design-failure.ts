@@ -5,6 +5,8 @@
  * 抄着一份 `err.reasonCode ?? \`http_${err.status}\`` 的老写法，在同一屏上把同一类失败
  * 说成两种话（一种是人话、两种是内部码）。同一事实不得声明在两处：三处共用这一份。
  */
+import type { Locale } from "@/lib/i18n/locale";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
 import { ApiError } from "@/lib/api-client";
 // HTTP 兜底搬到 `lib/http-failure-text.ts`（产物取源也要用同一份，见该文件头注）。
 import { httpFailureText } from "@/lib/http-failure-text";
@@ -21,25 +23,25 @@ import { designWorkbench, feedbackLoop } from "@repo/contracts";
  * ⚠ 键集合是契约闭集 `DesignWorkbenchError`，**漏一个编译不过**——契约新增一个错误码却
  *   没给人话，会在这里当场变成 TS 错误，而不是悄悄退回到那个码本身。
  */
-const ERROR_TEXT: Record<designWorkbench.DesignWorkbenchError, string> = {
-  PROJECT_NOT_FOUND: "这个设计项目找不到了，可能已经被删掉",
-  NAME_REQUIRED: "名字不能为空",
-  NOT_PROJECT_OWNER: "这个项目不是你建的，只有建它的人能改",
-  DEPENDENCY_UNAVAILABLE: "服务暂时不可用，稍后再试一次",
-  VERSION_NOT_FOUND: "这一版历史记录找不到了",
-  REF_IMAGE_REJECTED: "这张图没能用：换一张小一点的 PNG / JPEG / WebP",
-  PROTOTYPE_PATCH_REJECTED: "这次改动没能应用到画布上",
-  FEEDBACK_NOT_FOUND: "来源反馈找不到了",
-  FEEDBACK_DETAIL_NOT_VISIBLE: "你没有查看这条反馈正文的权限",
-  PROJECT_NOT_PUSHED: "得先把方案推送到收件箱，才能转成开发任务",
-  DESIGN_ISSUE_ALREADY_EXISTS: "这个方案已经有对应的开发任务了",
-  DESIGN_ISSUE_IN_PROGRESS: "正在创建开发任务，稍等一下再试",
-  DESIGN_ISSUE_CREATION_FAILED: "创建开发任务失败，稍后再试一次",
-  SHARE_NOT_FOUND: "这条分享链接已经失效",
-  NOTHING_TO_PUBLISH: "还没有画出来的页，没什么可发布的",
-  COMMENT_NOT_FOUND: "这条批注找不到了，可能已经被删掉",
-  NOT_COMMENT_AUTHOR: "这条批注不是你写的，只有写它的人或项目的创建者能删",
-  COMMENT_LIMIT_REACHED: "这个项目的批注太多了，先清掉一些已解决的",
+const ERROR_TEXT: Record<designWorkbench.DesignWorkbenchError, MessageKey> = {
+  PROJECT_NOT_FOUND: "failures.design.PROJECT_NOT_FOUND",
+  NAME_REQUIRED: "failures.design.NAME_REQUIRED",
+  NOT_PROJECT_OWNER: "failures.design.NOT_PROJECT_OWNER",
+  DEPENDENCY_UNAVAILABLE: "failures.design.DEPENDENCY_UNAVAILABLE",
+  VERSION_NOT_FOUND: "failures.design.VERSION_NOT_FOUND",
+  REF_IMAGE_REJECTED: "failures.design.REF_IMAGE_REJECTED",
+  PROTOTYPE_PATCH_REJECTED: "failures.design.PROTOTYPE_PATCH_REJECTED",
+  FEEDBACK_NOT_FOUND: "failures.design.FEEDBACK_NOT_FOUND",
+  FEEDBACK_DETAIL_NOT_VISIBLE: "failures.design.FEEDBACK_DETAIL_NOT_VISIBLE",
+  PROJECT_NOT_PUSHED: "failures.design.PROJECT_NOT_PUSHED",
+  DESIGN_ISSUE_ALREADY_EXISTS: "failures.design.DESIGN_ISSUE_ALREADY_EXISTS",
+  DESIGN_ISSUE_IN_PROGRESS: "failures.design.DESIGN_ISSUE_IN_PROGRESS",
+  DESIGN_ISSUE_CREATION_FAILED: "failures.design.DESIGN_ISSUE_CREATION_FAILED",
+  SHARE_NOT_FOUND: "failures.design.SHARE_NOT_FOUND",
+  NOTHING_TO_PUBLISH: "failures.design.NOTHING_TO_PUBLISH",
+  COMMENT_NOT_FOUND: "failures.design.COMMENT_NOT_FOUND",
+  NOT_COMMENT_AUTHOR: "failures.design.NOT_COMMENT_AUTHOR",
+  COMMENT_LIMIT_REACHED: "failures.design.COMMENT_LIMIT_REACHED",
 };
 
 /**
@@ -52,29 +54,29 @@ const ERROR_TEXT: Record<designWorkbench.DesignWorkbenchError, string> = {
  *
  * ⚠ 同样是契约闭集 `FeedbackError`，漏一个编译不过。
  */
-const FEEDBACK_ERROR_TEXT: Record<feedbackLoop.FeedbackError, string> = {
-  FEEDBACK_NOT_FOUND: "这条反馈找不到了，可能已经被删掉，或者你没有查看它的权限",
-  PERMISSION_REVOKED: "你没有做这件事的权限了，找管理员确认一下",
-  TRIAGE_REASON_REQUIRED: "标成「不做」得写一句为什么",
-  DEPENDENCY_UNAVAILABLE: "服务暂时不可用，你填的内容还在，稍后再试一次",
-  NO_GITHUB_ISSUE: "这条反馈还没有对应的开发任务，先转入开发再来",
-  COMMENT_BODY_REQUIRED: "评论不能是空的",
-  FILE_TOO_LARGE: "这个文件太大了，换一个小一点的",
-  UNSUPPORTED_CONTENT_TYPE: "这个文件类型不收：只收图片、PDF、纯文本 / Markdown",
-  MALWARE_DETECTED: "这个文件没通过安全扫描，没有上传",
-  STRUCTURING_FAILED: "这次没能把你说的整理成结构化内容——你写的原文还在框里，可以直接提交",
-  DRAFT_NOT_FOUND: "这条草稿找不到了，可能已经被删掉",
-  DRAFT_EMPTY: "这条草稿的正文还是空的，先写一句发生了什么",
+const FEEDBACK_ERROR_TEXT: Record<feedbackLoop.FeedbackError, MessageKey> = {
+  FEEDBACK_NOT_FOUND: "failures.feedback.FEEDBACK_NOT_FOUND",
+  PERMISSION_REVOKED: "failures.feedback.PERMISSION_REVOKED",
+  TRIAGE_REASON_REQUIRED: "failures.feedback.TRIAGE_REASON_REQUIRED",
+  DEPENDENCY_UNAVAILABLE: "failures.feedback.DEPENDENCY_UNAVAILABLE",
+  NO_GITHUB_ISSUE: "failures.feedback.NO_GITHUB_ISSUE",
+  COMMENT_BODY_REQUIRED: "failures.feedback.COMMENT_BODY_REQUIRED",
+  FILE_TOO_LARGE: "failures.feedback.FILE_TOO_LARGE",
+  UNSUPPORTED_CONTENT_TYPE: "failures.feedback.UNSUPPORTED_CONTENT_TYPE",
+  MALWARE_DETECTED: "failures.feedback.MALWARE_DETECTED",
+  STRUCTURING_FAILED: "failures.feedback.STRUCTURING_FAILED",
+  DRAFT_NOT_FOUND: "failures.feedback.DRAFT_NOT_FOUND",
+  DRAFT_EMPTY: "failures.feedback.DRAFT_EMPTY",
 };
 
-export function describeFailure(err: unknown): string {
+export function describeFailure(err: unknown, locale: Locale = "zh-CN"): string {
   if (err instanceof ApiError) {
     const code = err.reasonCode;
-    if (code !== null && code in ERROR_TEXT) return ERROR_TEXT[code as designWorkbench.DesignWorkbenchError];
-    if (code !== null && code in FEEDBACK_ERROR_TEXT) return FEEDBACK_ERROR_TEXT[code as feedbackLoop.FeedbackError];
-    return httpFailureText(err.status);
+    if (code !== null && Object.hasOwn(ERROR_TEXT, code)) return translate(locale, ERROR_TEXT[code as designWorkbench.DesignWorkbenchError]);
+    if (code !== null && Object.hasOwn(FEEDBACK_ERROR_TEXT, code)) return translate(locale, FEEDBACK_ERROR_TEXT[code as feedbackLoop.FeedbackError]);
+    return httpFailureText(err.status, locale);
   }
-  if (err instanceof TypeError) return "连不上服务器，检查一下网络再试";
+  if (err instanceof TypeError) return translate(locale, "failures.network");
   // 兜底同样不端出内部细节：`String(err)` 在这里多半是一段栈或一句英文异常。
-  return "出了点问题，稍后再试一次";
+  return translate(locale, "failures.unknown");
 }

@@ -1,0 +1,47 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/team-capacity-6107/apps/api
+
+[db-isolation] db=wsx_bb65ea93f06f9140ec7b capacity=100 current=6 required=32
+ ❯ tests/org-capacity/commercial-capacity-pg.test.ts (10 tests | 2 failed | 8 skipped) 109013ms
+   × project link-reset and acceptance obey organization-before-invitation locking 1625ms
+     → expected { ok: false, …(1) } to deeply equal { Object (ok, value) }
+   × project email-expiry and acceptance obey organization-before-invitation locking 1168ms
+     → expected { ok: false, …(1) } to deeply equal { Object (ok, value) }
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/org-capacity/commercial-capacity-pg.test.ts > project link-reset and acceptance obey organization-before-invitation locking
+ FAIL  tests/org-capacity/commercial-capacity-pg.test.ts > project email-expiry and acceptance obey organization-before-invitation locking
+AssertionError: expected { ok: false, …(1) } to deeply equal { Object (ok, value) }
+
+- Expected
++ Received
+
+  Object {
+-   "ok": true,
+-   "value": Object {
++   "error": [error: deadlock detected],
+    "ok": false,
+-     "reason": "invalid",
+-   },
+  }
+
+ ❯ tests/org-capacity/commercial-capacity-pg.test.ts:183:19
+    181|  const [issued,accepted]=await Promise.all([issuingResult,acceptingRes…
+    182|  expect(issued).toMatchObject({ok:true,value:{ok:true}});
+    183|  expect(accepted).toEqual({ok:true,value:{ok:false,reason:"invalid"}});
+       |                   ^
+    184|  const rows=await asApp(ORG,c=>c.query<{id:string;status:string}>("SEL…
+    185|  expect(rows.rows.find(row=>row.id===oldId)?.status).toBe(mode==="link…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 8 skipped (10)
+   Start at  19:16:52
+   Duration  138.79s (transform 6.46s, setup 41ms, collect 8.28s, tests 109.01s, environment 3ms, prepare 345ms)
+
+[db-isolation] db=wsx_bb65ea93f06f9140ec7b peak_connections=4
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/team-capacity-6107/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/org-capacity/commercial-capacity-pg.test.ts -t project (link-reset|email-expiry) and acceptance

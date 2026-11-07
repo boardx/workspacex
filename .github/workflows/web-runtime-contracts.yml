@@ -1,8 +1,12 @@
 name: web-runtime-contracts
 on:
   pull_request:
+    branches: [develop]
     paths:
       - 'deploy/aliyun/images/web.Dockerfile'
+      - 'deploy/aliyun/images/api.Dockerfile'
+      - 'packages/contracts/**'
+      - 'tests/contracts-release-typecheck.test.mjs'
       - 'apps/web/next.config.mjs'
       - 'apps/web/package.json'
       - 'pnpm-lock.yaml'
@@ -23,3 +27,6 @@ jobs:
           node-version: '22.20.0'
           package-manager-cache: false
       - run: python3 -I -B tests/test_web_standalone_packaging.py
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile --ignore-scripts --filter @repo/contracts
+      - run: node --test tests/contracts-release-typecheck.test.mjs

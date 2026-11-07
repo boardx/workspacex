@@ -8,12 +8,17 @@ RUN corepack enable && npm_config_registry="$NPM_REGISTRY" corepack prepare pnpm
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json ./
 COPY patches ./patches
 COPY packages ./packages
+COPY skills/localizations ./skills/localizations
 COPY apps/web ./apps/web
+# Next typechecks the checked-in Playwright config and its external imports.
+# These fixtures stay in the builder; the runtime copies only standalone output.
+COPY tests/fixtures/cn-six-business ./tests/fixtures/cn-six-business
 RUN --mount=type=cache,id=workspacex-cloud-pnpm,target=/root/.local/share/pnpm/store npm_config_registry="$NPM_REGISTRY" pnpm install --frozen-lockfile --filter web...
 ENV NEXT_PUBLIC_API_URL=/api API_INTERNAL_URL=http://api:3200
-RUN --network=none pnpm --filter @repo/contracts typecheck \
+RUN --network=none pnpm --filter @repo/contracts exec tsc -p tsconfig.release.json \
  && WORKSPACEX_RELEASE_BUILD=1 NODE_OPTIONS=--max-old-space-size=3072 pnpm --filter web build \
- && test -f apps/web/.next/standalone/apps/web/server.js
+ && test -f apps/web/.next/standalone/apps/web/server.js \
+ && node apps/web/scripts/assert-runtime-image-dependencies.mjs apps/web/.next/standalone
 # A clean runtime starts from the same pinned base: no builder dependencies/cache layers.
 FROM ${NODE_IMAGE} AS runtime
 WORKDIR /opt/workspacex

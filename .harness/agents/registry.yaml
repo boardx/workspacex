@@ -12,6 +12,19 @@ developers:
     role: contributor
 
 agents:
+  # 2026-10-28 当前会话人类授权注册；本次明确不要求网关接入。
+  # 仅声明仓库身份，不代表已获得 Directory/token/lease。
+  - id: dev-sandbox-capacity
+    active: true
+    kind: worker
+    model: configured-default
+    owner: 147526627+usersyj@users.noreply.github.com
+    areas: [ai-runtime, skills]
+    reports_to: coord-main
+    responsibilities:
+      - 实现 sandbox 有界排队、执行并发、用户额度、取消超时与容量观测
+      - 维护容量验证和运维说明；不拥有协调、评审签核或合并权
+
   # 用户于 2026-09-09 授权创建，专用于 #3234 的后台统一升级。
   - id: dev-ai-capability-studio
     active: true

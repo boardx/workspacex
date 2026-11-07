@@ -1,3 +1,4 @@
+import {rethrowCreditConsumption} from "../billing/credit-consumption";
 /**
  * `simulateTemplateRun` —— 2026-08-26，**设计增量、待人类补签**（同 #496/#988 的先例，
  * 见契约操作文件头）。
@@ -87,7 +88,7 @@ export async function simulateTemplateRun(
       user: input.prompt,
     });
     return { text: completion.text, modelProvider, modelId };
-  } catch (error) {
+  } catch (error) { rethrowCreditConsumption(error);
     if (error instanceof ModelCallError) {
       throw new CanvasError("TEMPLATE_SIMULATION_UNAVAILABLE");
     }

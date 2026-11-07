@@ -1,0 +1,69 @@
+{
+  "traceSha256": "fd73cb9c09c49c7052afbbe150712cf2c573b4b6798a393e98ac7694d20e41f2",
+  "version": 19,
+  "reportState": {
+    "documentId": "md-30e5caa4-7582-4d91-a2fa-7278031f0468",
+    "status": "draft",
+    "failure": null
+  },
+  "reportPrefix": "[loopback] ## 资料：analysis\n内部来源元数据：evidenceMode=simulated\n## 研究目标\n\n受控测试提案：核对需求中的实际行为及其约束，研究问题须由人工审阅。\n\n## 访谈对象与专家类型\n\n建议招募需求涉及的执行者及协作角色，具体身份与人数待人工确认。\n\n##",
+  "reportReferences": [
+    {
+      "anchor": "source-1",
+      "documentId": "md-da0829bc-6b96-4a79-99fd-2672a4548b70",
+      "version": 1
+    },
+    {
+      "anchor": "source-2",
+      "documentId": "md-ffa7cd4f-8f5b-433a-ba5d-43daf81631b1",
+      "version": 1
+    },
+    {
+      "anchor": "source-3",
+      "documentId": "md-80759e31-202a-40f9-a735-7e59124e311b",
+      "version": 1
+    },
+    {
+      "anchor": "source-4",
+      "documentId": "md-029ce892-a681-4e3c-b28c-c0add778228c",
+      "version": 3
+    },
+    {
+      "anchor": "source-5",
+      "documentId": "md-a90d477a-9a2f-46be-b3e5-521fea3bd24d",
+      "version": 1
+    }
+  ],
+  "sourceDocuments": [
+    {
+      "step": "analysis",
+      "documentId": "md-da0829bc-6b96-4a79-99fd-2672a4548b70",
+      "version": 1,
+      "contentHash": "90475ba87889b6451c50b348b113b57384c47027840caf3b961352e6c9032ffc"
+    },
+    {
+      "step": "experts",
+      "documentId": "md-ffa7cd4f-8f5b-433a-ba5d-43daf81631b1",
+      "version": 1,
+      "contentHash": "d923491e1bd037af41eb5c1f9c47074f102fc3873ae5a724f74f5009a9c6606a"
+    },
+    {
+      "step": "intake",
+      "documentId": "md-80759e31-202a-40f9-a735-7e59124e311b",
+      "version": 1,
+      "contentHash": "9a600285b79e8423886400d58b6a9bf0690c5ea7acb5b4bba31886a0c5c01ff2"
+    },
+    {
+      "step": "outline",
+      "documentId": "md-029ce892-a681-4e3c-b28c-c0add778228c",
+      "version": 3,
+      "contentHash": "2cf1ff96bb93a4eb8dc78ab464de29b73c709d6653b2dc6d8eea29c8f83a6e5b"
+    },
+    {
+      "step": "runs",
+      "documentId": "md-a90d477a-9a2f-46be-b3e5-521fea3bd24d",
+      "version": 1,
+      "contentHash": "5754979cab55e214cf4ec55f8d63d45f9ce71e6b599631bdbac7846368432ab7"
+    }
+  ]
+}

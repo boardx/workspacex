@@ -1,5 +1,8 @@
 "use client";
 
+import { useI18n } from "@/lib/i18n/provider";
+import { researchZhCN } from "@/lib/i18n/namespaces/research";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { ArrowLeft, Check, Loader2 } from "lucide-react";
 import type { research } from "@repo/contracts";
 import type { z } from "zod";
@@ -11,11 +14,11 @@ export type ResearchNode = z.infer<typeof research.GuidedResearchRuntimeCommand>
 
 export const researchSteps: readonly ResearchNode[] = ["brief", "directions", "outline", "research", "report"];
 export const researchStepLabels: Record<ResearchNode, string> = {
-  brief: "确认主题",
-  directions: "研究方向",
-  outline: "报告大纲",
-  research: "资料研究",
-  report: "研究报告",
+  brief: researchZhCN["research.node.brief"],
+  directions: researchZhCN["research.node.directions"],
+  outline: researchZhCN["research.node.outline"],
+  research: researchZhCN["research.node.research"],
+  report: researchZhCN["research.node.report"],
 };
 
 export function ResearchProgress({ node, availableNodes, busy, completed, onNavigate, onBack }: {
@@ -26,18 +29,19 @@ export function ResearchProgress({ node, availableNodes, busy, completed, onNavi
   onNavigate: (node: ResearchNode) => void;
   onBack: () => void;
 }) {
+  const { t } = useI18n();
   if (node === "report") return <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3" data-testid="research-progress-shell" data-layout="report-toolbar">
-    <Button variant="ghost" size="sm" onClick={onBack} data-testid="research-flow-back"><ArrowLeft className="h-4 w-4" aria-hidden />返回</Button>
-    <details className="relative"><summary className="cursor-pointer rounded-md px-3 py-2 text-12 text-muted-foreground">查看研究流程</summary><nav aria-label="研究步骤" data-testid="research-flow-progress" className="absolute right-0 z-40 mt-2 flex w-56 flex-col rounded-lg border border-border bg-card p-2 shadow-lg">{researchSteps.map((step, index) => <Button key={step} variant="ghost" disabled={busy || !availableNodes.includes(step)} aria-current={step === node ? "step" : undefined} onClick={() => onNavigate(step)}>{index + 1}. {researchStepLabels[step]}</Button>)}</nav></details>
+    <Button variant="ghost" size="sm" onClick={onBack} data-testid="research-flow-back"><ArrowLeft className="h-4 w-4" aria-hidden />{t("research.progress.back")}</Button>
+    <details className="relative"><summary className="cursor-pointer rounded-md px-3 py-2 text-12 text-muted-foreground">{t("research.progress.view")}</summary><nav aria-label={t("research.shell.steps")} data-testid="research-flow-progress" className="absolute right-0 z-40 mt-2 flex w-56 flex-col rounded-lg border border-border bg-card p-2 shadow-lg">{researchSteps.map((step, index) => <Button key={step} variant="ghost" disabled={busy || !availableNodes.includes(step)} aria-current={step === node ? "step" : undefined} onClick={() => onNavigate(step)}>{index + 1}. {t(`research.node.${step}`)}</Button>)}</nav></details>
   </div>;
   const furthest = Math.max(...availableNodes.map((item) => researchSteps.indexOf(item)), 0);
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]" data-testid="research-progress-shell" data-layout="right-aligned-progress">
       <div className="hidden lg:block" aria-hidden="true" />
-      <nav aria-label="研究步骤" className="min-w-0 rounded-lg border border-border bg-card px-3 py-3 text-card-foreground sm:px-4" data-testid="research-flow-progress" data-density="compact">
+      <nav aria-label={t("research.shell.steps")} className="min-w-0 rounded-lg border border-border bg-card px-3 py-3 text-card-foreground sm:px-4" data-testid="research-flow-progress" data-density="compact">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <Button variant="ghost" size="sm" className="w-fit shrink-0" onClick={onBack} data-testid="research-flow-back">
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" />返回
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />{t("research.progress.back")}
           </Button>
           <ol className="flex min-w-0 flex-1 items-start">
             {researchSteps.map((step, index) => {
@@ -52,13 +56,13 @@ export function ResearchProgress({ node, availableNodes, busy, completed, onNavi
                     className={cn("relative h-auto w-full flex-col gap-2 whitespace-normal rounded-lg px-0.5 py-0 transition-colors hover:bg-accent hover:text-accent-foreground disabled:bg-card disabled:text-muted-foreground", current && "font-semibold text-background-foreground")}
                     disabled={busy || !accessible}
                     aria-current={current ? "step" : undefined}
-                    aria-label={`${index + 1}. ${researchStepLabels[step]}${done && !current ? "，已完成" : ""}`}
+                    aria-label={t(done && !current ? "research.progress.completed" : "research.progress.step", { number: index + 1, label: t(`research.node.${step}`) })}
                     onClick={() => onNavigate(step)}
                   >
                     <Badge tone={current ? "primary" : done ? "primary" : "outline"} className={cn("relative z-20 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border p-0 text-12", !current && !done && "bg-card", current ? "border-primary ring-2 ring-ring ring-offset-2 ring-offset-card" : "border-border")}>
                       {done && !current ? <Check className="h-3.5 w-3.5" aria-hidden="true" /> : index + 1}
                     </Badge>
-                    <span className="text-center text-11 leading-relaxed sm:text-12">{researchStepLabels[step]}</span>
+                    <span className="text-center text-11 leading-relaxed sm:text-12">{t(`research.node.${step}`)}</span>
                   </Button>
                 </li>
               );
@@ -70,15 +74,16 @@ export function ResearchProgress({ node, availableNodes, busy, completed, onNavi
   );
 }
 
-const loadingCopy: Record<ResearchNode, { title: string; description: string }> = {
-  brief: { title: "正在梳理研究主题", description: "模型正在整理研究目标与范围，完成后可继续调整。" },
-  directions: { title: "正在解析研究主题", description: "正在整理导入的需求，完成后可确认研究主题。" },
-  outline: { title: "正在生成研究计划", description: "模型正在整理简洁、可执行的研究计划。" },
-  research: { title: "正在获取资料", description: "正在搜索并读取相关资料，获取到的内容会逐步显示。" },
-  report: { title: "正在生成研究报告", description: "模型正在整理来源证据、撰写章节并检查报告质量。正文就绪后会逐步显示。" },
+const loadingCopy: Record<ResearchNode, { title: MessageKey; description: MessageKey }> = {
+  brief: { title: "research.loading.brief.title", description: "research.loading.brief.description" },
+  directions: { title: "research.loading.directions.title", description: "research.loading.directions.description" },
+  outline: { title: "research.loading.outline.title", description: "research.loading.outline.description" },
+  research: { title: "research.loading.research.title", description: "research.loading.research.description" },
+  report: { title: "research.loading.report.title", description: "research.loading.report.description" },
 };
 
 export function ResearchLoading({ node }: { node: ResearchNode }) {
+  const { t } = useI18n();
   const copy = loadingCopy[node];
   return (
     <section data-testid="research-step-loading" aria-busy="true" className="min-w-0">
@@ -87,9 +92,9 @@ export function ResearchLoading({ node }: { node: ResearchNode }) {
           <Loader2 className="h-5 w-5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
         </Badge>
         <div className="min-w-0 space-y-2">
-          <h2 className="text-18 font-semibold tracking-tight text-background-foreground">{copy.title}</h2>
-          <p className="text-13 leading-relaxed text-muted-foreground">{copy.description}</p>
-          <p className="text-12 text-muted-foreground">完成后会自动显示结果</p>
+          <h2 className="text-18 font-semibold tracking-tight text-background-foreground">{t(copy.title)}</h2>
+          <p className="text-13 leading-relaxed text-muted-foreground">{t(copy.description)}</p>
+          <p className="text-12 text-muted-foreground">{t("research.loading.auto")}</p>
         </div>
       </div>
     </section>

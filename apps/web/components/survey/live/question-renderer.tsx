@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import Image from "next/image";
 import {
   surveyChoices,
@@ -37,6 +38,7 @@ export function SurveyQuestionRenderer({
   showDescription = true,
   showTitle = true,
 }: Props) {
+  const { t } = useI18n();
   const config = q.config ?? {};
   const choices = surveyChoices(q);
   const scalar = typeof value === "string" ? value : "";
@@ -65,7 +67,7 @@ export function SurveyQuestionRenderer({
         (a, b) => priority(a.id) - priority(b.id) || a.id.localeCompare(b.id),
       )
     : choices;
-  const label = q.title || "未命名题目";
+  const label = q.title || t("survey.design.untitledQuestion");
   const controlClass =
     "w-full rounded-md border border-input bg-background p-2 text-13";
   function select(id: string, multi: boolean) {
@@ -111,7 +113,7 @@ export function SurveyQuestionRenderer({
         className="space-y-2 border-b border-border py-3"
       >
         <h2 className={showTitle ? "text-18 font-semibold" : "sr-only"}>{label}</h2>
-        {config.images?.description && (
+        {config.images?.description?.url.trim() && (
           <Image
             unoptimized
             width={600}
@@ -147,7 +149,7 @@ export function SurveyQuestionRenderer({
               onChange={() => select(choice.id, multi)}
             />
             <span className="min-w-0 break-words">
-              {config.images?.[choice.id] && (
+              {config.images?.[choice.id]?.url.trim() && (
                 <Image
                   unoptimized
                   width={600}
@@ -170,11 +172,11 @@ export function SurveyQuestionRenderer({
                 checked={selected.includes("__other__")}
                 onChange={() => select("__other__", multi)}
               />
-              其他
+              {t("survey.design.other")}
             </label>
             {selected.includes("__other__") && (
               <Input
-                aria-label={`${label}：其他说明`}
+                aria-label={t("survey.design.otherDetails", { title: label })}
                 value={typeof record.other === "string" ? record.other : ""}
                 onChange={(event) => patch("other", event.target.value)}
               />
@@ -191,13 +193,13 @@ export function SurveyQuestionRenderer({
         value={selected[0] ?? ""}
         onChange={(event) => select(event.target.value, false)}
       >
-        <option value="">请选择</option>
+        <option value="">{t("survey.design.choose")}</option>
         {orderedChoices.map((choice) => (
           <option key={choice.id} value={choice.id}>
             {choice.label}
           </option>
         ))}
-        {config.other && <option value="__other__">其他</option>}
+        {config.other && <option value="__other__">{t("survey.design.other")}</option>}
       </select>
     );
     if (config.other && selected.includes("__other__"))
@@ -205,7 +207,7 @@ export function SurveyQuestionRenderer({
         <div className="space-y-2">
           {control}
           <Input
-            aria-label={`${label}：其他说明`}
+            aria-label={t("survey.design.otherDetails", { title: label })}
             value={typeof record.other === "string" ? record.other : ""}
             onChange={(event) => patch("other", event.target.value)}
           />
@@ -227,7 +229,7 @@ export function SurveyQuestionRenderer({
             </legend>
             {q.type === "matrix_input" ? (
               <Input
-                aria-label={`${label}：${row.label}`}
+                aria-label={t("survey.design.fieldLabel", { title: label, field: row.label })}
                 value={
                   typeof record[row.id] === "string"
                     ? (record[row.id] as string)
@@ -237,7 +239,7 @@ export function SurveyQuestionRenderer({
               />
             ) : q.type === "matrix_dropdown" ? (
               <select
-                aria-label={`${label}：${row.label}`}
+                aria-label={t("survey.design.fieldLabel", { title: label, field: row.label })}
                 className={controlClass}
                 value={
                   typeof record[row.id] === "string"
@@ -246,7 +248,7 @@ export function SurveyQuestionRenderer({
                 }
                 onChange={(event) => patch(row.id, event.target.value)}
               >
-                <option value="">请选择</option>
+                <option value="">{t("survey.design.choose")}</option>
                 {choices.map((choice) => (
                   <option key={choice.id} value={choice.id}>
                     {choice.label}
@@ -310,7 +312,7 @@ export function SurveyQuestionRenderer({
             {field.label}
             {field.required ? " *" : ""}
             <Input
-              aria-label={`${label}：${field.label}`}
+              aria-label={t("survey.design.fieldLabel", { title: label, field: field.label })}
               value={
                 typeof record[field.id] === "string"
                   ? (record[field.id] as string)
@@ -343,10 +345,10 @@ export function SurveyQuestionRenderer({
           ];
           return (
             <label key={level} className="text-13">
-              第 {level + 1} 级
+              {t("survey.design.level", { index: level + 1 })}
               <select
                 className={controlClass}
-                aria-label={`${label}：第 ${level + 1} 级`}
+                aria-label={t("survey.design.levelLabel", { title: label, index: level + 1 })}
                 disabled={level > path.length}
                 value={path[level] ?? ""}
                 onChange={(event) =>
@@ -356,7 +358,7 @@ export function SurveyQuestionRenderer({
                   ])
                 }
               >
-                <option value="">请选择</option>
+                <option value="">{t("survey.design.choose")}</option>
                 {options.map((option) => (
                   <option key={option} value={option}>
                     {option}
@@ -403,7 +405,7 @@ export function SurveyQuestionRenderer({
                   checked={scalar === String(number)}
                   onChange={() => onChange(String(number))}
                 />
-                {q.type === "rating" ? `${number} 星` : number}
+                {q.type === "rating" ? t("survey.design.stars", { count: number }) : number}
               </label>
             ))}
           </div>
@@ -443,7 +445,7 @@ export function SurveyQuestionRenderer({
         />
         <p className="text-13" aria-live="polite">
           {scalar === ""
-            ? "尚未选择，请拖动滑块"
+            ? t("survey.design.sliderUnset")
             : `${scalar}${config.unit ?? ""}`}
         </p>
         <div className="flex justify-between text-12">
@@ -460,7 +462,7 @@ export function SurveyQuestionRenderer({
     control = (
       <div className="space-y-2">
         <p className="text-12 text-muted-foreground">
-          拖动、使用方向键或上下移动按钮排序；完成后确认顺序。
+          {t("survey.design.rankingHint")}
         </p>
         <ol className="space-y-2">
           {ids.map((id, index) => (
@@ -468,7 +470,7 @@ export function SurveyQuestionRenderer({
               key={id}
               draggable
               tabIndex={0}
-              aria-label={`${choices.find((choice) => choice.id === id)?.label}，第 ${index + 1} 位`}
+              aria-label={t("survey.design.rankingPosition", { label: choices.find((choice) => choice.id === id)?.label ?? "", index: index + 1 })}
               className="flex flex-wrap items-center gap-2 rounded-md border border-border p-3 text-13 focus-visible:ring-2 focus-visible:ring-ring"
               onDragStart={() => setDragged(id)}
               onDragOver={(event) => event.preventDefault()}
@@ -490,29 +492,29 @@ export function SurveyQuestionRenderer({
                 type="button"
                 variant="outline"
                 size="sm"
-                aria-label={`上移 ${choices.find((choice) => choice.id === id)?.label}`}
+                aria-label={t("survey.design.moveUpLabel", { label: choices.find((choice) => choice.id === id)?.label ?? "" })}
                 disabled={!index}
                 onClick={() => reorder(id, index - 1)}
               >
-                上移
+                {t("survey.design.moveUp")}
               </Button>
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                aria-label={`下移 ${choices.find((choice) => choice.id === id)?.label}`}
+                aria-label={t("survey.design.moveDownLabel", { label: choices.find((choice) => choice.id === id)?.label ?? "" })}
                 disabled={index === ids.length - 1}
                 onClick={() => reorder(id, index + 1)}
               >
-                下移
+                {t("survey.design.moveDown")}
               </Button>
             </li>
           ))}
         </ol>
         <Button type="button" variant="outline" onClick={() => onChange(ids)}>
-          确认当前顺序
+          {t("survey.design.confirmOrder")}
         </Button>
-        {!Array.isArray(value) && <p className="text-12">尚未确认排序</p>}
+        {!Array.isArray(value) && <p className="text-12">{t("survey.design.orderUnconfirmed")}</p>}
       </div>
     );
   } else if (q.type === "allocation") {
@@ -532,7 +534,7 @@ export function SurveyQuestionRenderer({
             <Input
               type="number"
               min={0}
-              aria-label={`${label}：${choice.label}`}
+              aria-label={t("survey.design.fieldLabel", { title: label, field: choice.label })}
               value={
                 typeof record[choice.id] === "string"
                   ? (record[choice.id] as string)
@@ -543,7 +545,7 @@ export function SurveyQuestionRenderer({
           </label>
         ))}
         <p aria-live="polite" className="text-13">
-          已分配 {total}，还差 {(config.total ?? 100) - total}
+          {t("survey.design.allocationStatus", { total, remaining: (config.total ?? 100) - total })}
         </p>
       </div>
     );

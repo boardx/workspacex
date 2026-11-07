@@ -1,0 +1,31 @@
+RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-agent-skill
+
+ ❯ .harness/scripts/ci-api-shards.test.ts (14 tests | 1 failed | 13 skipped) 7ms
+   × API isolated shard coverage > checks out only the event-selected current source for runtime gates 6ms
+     → expected +0 to be 1 // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  .harness/scripts/ci-api-shards.test.ts > API isolated shard coverage > checks out only the event-selected current source for runtime gates
+AssertionError: expected +0 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ .harness/scripts/ci-api-shards.test.ts:15:40
+     13|   const runtime=workflow.jobs['gates-runtime'];
+     14|   const checkout=runtime.steps.find((step:any)=>step.uses?.startsWith(…
+     15|   expect(checkout.with['fetch-depth']).toBe(1);
+       |                                        ^
+     16|   expect(checkout.with['fetch-tags']).toBe(false);
+     17|   expect(checkout.with.ref).toBeUndefined();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 13 skipped (14)
+   Start at  04:30:06
+   Duration  619ms (transform 84ms, setup 0ms, collect 132ms, tests 7ms, environment 0ms, prepare 93ms)

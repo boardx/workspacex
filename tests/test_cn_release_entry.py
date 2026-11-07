@@ -328,6 +328,19 @@ class EntryTests(unittest.TestCase):
         self.assertGreaterEqual(seen[0][0],.18)
         self.assertTrue(seen[0][1])
 
+    def test_short_action_budget_does_not_shorten_session_admission(self):
+        original=e.os.setsid
+        seen=[]
+        def delayed():
+            time.sleep(.1)
+            original()
+        with patch.object(e.os,'setsid',side_effect=delayed):
+            result=e.run_command(b'exec sleep 1\n',.02,lambda pid,domain:seen.append(os.getpgid(pid)==pid))
+        self.assertEqual(seen,[True])
+        self.assertEqual(result[0],'TIMEOUT')
+        self.assertNotEqual(result[1],0)
+        self.assertFalse(e.alive(result[3]))
+
     def test_parent_dies_before_child_session_no_late_mutation(self):
         marker=self.root/'late-after-parent-death';ready=self.root/'parent-ready';journal=self.root/'pid-journal'
         code=f"""import importlib.util,os,time

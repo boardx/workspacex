@@ -1,0 +1,6 @@
+RED: original strict toBe(36) rejects observed 36.00001525878906
+GREEN: observed subpixel rounding passes toBeCloseTo(36,3)
+regression 35.99 rejected=true
+regression 35 rejected=true
+regression 36.01 rejected=true
+regression 37 rejected=true

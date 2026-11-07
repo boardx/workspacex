@@ -1,0 +1,27 @@
+[stack-admission] load1=7.36 cores=10 perCore=0.74 running=0/2
+[test-isolation] id=run-mvscfgp8-8e7be7d0-538e038add9d db=wsx_538e038add9d1f5c34e0 compose=wsx-538e038add9d1f5c34e0 pg=20946 redis=21946 api=24946 web=25946 sandbox=26946 model=27946 deep-agent=28946 asr=29946 vision=30946 loopback-sandbox=31946 mail=19946
+[WebServer] (node:3471) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:3472) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:3478) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 5 tests using 1 worker
+
+(node:3481) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 e2e/design-html.spec.ts:30:5 › HTML selection focusRef clear and preview navigation (5.6s)
+  ✓  2 e2e/design-html.spec.ts:56:5 › offline HTML export iframe navigation (2.2s)
+  ✓  3 e2e/design-html.spec.ts:64:5 › 375px no page horizontal overflow (1.4s)
+  ✓  4 e2e/design-html.spec.ts:65:5 › local CSS replacement changes only selected same-class element (10.0s)
+  ✓  5 e2e/design-html.spec.ts:107:5 › HTML structure response invalidates selected ref before next message (2.7s)
+
+  5 passed (28.5s)
+[timing] pnpm --filter web exec playwright test --config /tmp/workspacex-html-green.config.mjs
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：29s
+  清理：0s
+  总计：29s

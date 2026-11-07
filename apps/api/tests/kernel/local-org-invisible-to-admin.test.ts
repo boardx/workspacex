@@ -90,7 +90,13 @@ describe("no tenant table leaks the local organization to another tenant", () =>
     expect(tables.rows.length, "the audit found no tenant tables -- this test would be idle")
       .toBeGreaterThan(8);
 
+    expect(tables.rows.some(row=>row.table_name==="credit_native_tariffs_legacy"), "the revoked legacy archive remains in the tenant catalog").toBe(true);
     for (const { table_name } of tables.rows) {
+      if(table_name === "credit_native_tariffs_legacy") {
+        // Historical org prices are inaccessible even to their own application context.
+        for(const context of [REAL_ORG,LOCAL_ORG])await expect(asApp(context,c=>c.query(`SELECT * FROM ${table_name}`))).rejects.toMatchObject({code:"42501"});
+        continue;
+      }
       if(table_name === "platform_organization_access_events") {
         // No application reader exists for operator access audits, including local rows.
         await expect(asApp(REAL_ORG,c=>c.query(`SELECT * FROM ${table_name}`))).rejects.toMatchObject({code:"42501"});

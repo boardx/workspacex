@@ -20,6 +20,6 @@ it('server turn identity reaches KG embedding through the application port and e
 it('foreign, missing, stale-format and forged actor contexts send no service HTTP',async()=>{
  const f=fixture();for(const bad of [undefined,{...ref,orgId:'other'},{...ref,leaseEpoch:0},{...ref,userId:'forged'}])await expect(f.pg.vectorNeighbors(org,'actual','query',Promise.resolve([]),1,bad as never)).rejects.toThrow();expect(f.fetch).not.toHaveBeenCalled();
 });
-it('default-off preserves existing unaccounted protocol rather than claim coverage',async()=>{
- const f=fixture(false);await f.pg.vectorNeighbors(org,'actual','query',Promise.resolve([]),1,ref);const body=JSON.parse((f.fetch.mock.calls[0] as unknown as [string,RequestInit])[1].body as string);expect(body.accounting).toBeUndefined();
+it('legacy accounting switch OFF still forwards mandatory credit accounting',async()=>{
+ const f=fixture(false);await f.pg.vectorNeighbors(org,'actual','query',Promise.resolve([]),1,ref);const body=JSON.parse((f.fetch.mock.calls[0] as unknown as [string,RequestInit])[1].body as string);expect(body.accounting).toEqual(ref);
 });

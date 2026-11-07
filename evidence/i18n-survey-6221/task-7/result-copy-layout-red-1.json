@@ -1,0 +1,27 @@
+{
+  "name": "result-copy-layout-red-1",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/survey-results-i18n.test.tsx",
+    "-t",
+    "retains raw exclusion history|for 1 included responses"
+  ],
+  "source": "352d6b9f2c33cccc406a91b44ebfbcf42cc00539",
+  "exitCode": 1,
+  "seconds": 5.313,
+  "rawLogSha256": "791358cf33b1ffc4e8884347fe1cc73cf96364af5d061d60bab79ef772afe616",
+  "sourceAfter": "352d6b9f2c33cccc406a91b44ebfbcf42cc00539",
+  "sourceStable": true,
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "semanticFailures": 2,
+  "filteredOut": 17,
+  "nativeSeconds": 3.64,
+  "reason": "Exact new count-neutral expectations absent; existing raw history/continuity assertions preserved"
+}

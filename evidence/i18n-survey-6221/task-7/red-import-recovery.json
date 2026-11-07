@@ -1,0 +1,25 @@
+{
+  "name": "red-import-recovery-corrected",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/survey-import-retry-i18n.test.tsx",
+    "tests/ui/survey-entry-runtime-errors-i18n.test.tsx",
+    "-t",
+    "retries a failed source|renders a typed project-link"
+  ],
+  "source": "d0b5b479ed0b81a9a28f42f1da64b265535f128a",
+  "exitCode": 1,
+  "seconds": 8.097,
+  "rawLogSha256": "8b7fa397ed7f88eddfcbad8cb04be300d43699ec5a4d041bc4b5d511269acdad",
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "classification": "VALID RED: two semantic failures, eight explicitly filtered cases, no collection errors.",
+  "failed": 2,
+  "filtered": 8
+}

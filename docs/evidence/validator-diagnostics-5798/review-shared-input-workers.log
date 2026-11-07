@@ -1,0 +1,30 @@
+[stack-admission] load1=5.71 cores=10 perCore=0.57 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvato7qs-fbfc9b8c-f3290470bc1c db=wsx_f3290470bc1cb5a0f510 compose=wsx-f3290470bc1cb5a0f510 pg=20600 redis=21600 api=24600 web=25600 sandbox=26600 model=27600 deep-agent=28600 asr=29600 vision=30600 loopback-sandbox=31600 mail=19600
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_f3290470bc1cb5a0f510 capacity=100 current=6 required=32
+{"level":"error","msg":"whiteboard_validator_unavailable","traceId":"7979eb40-5836-4cc7-87da-9dd8b1fe766d","detail":{"reason":"worker_deadline","mode":"diff","inputBytes":2,"elapsedMs":1,"queueElapsedMs":0,"workerElapsedMs":1}}
+ ✓ tests/whiteboard/update-validator.test.ts (7 tests) 9592ms
+   ✓ isolated whiteboard Yjs validator > runs commands and reads diffs in real disposable worker threads 331ms
+   ✓ isolated whiteboard Yjs validator > returns only live object IDs through the isolated validator 672ms
+   ✓ bounded worker admission > bounds a fifty-request burst, drains rejected admissions and releases all capacity 3960ms
+   ✓ bounded worker admission > drains fifty real initial-connect validations through four concurrent clients 4086ms
+ ✓ tests/whiteboard/operation-compensation-worker.test.ts (3 tests) 1279ms
+   ✓ trusted operation snapshot compensation > restores combined structural and text changes with original IDs and shared field identities 430ms
+   ✓ trusted operation snapshot compensation > compensates panel parenting, layout, style and lock state as one server operation 698ms
+
+ Test Files  2 passed (2)
+      Tests  10 passed (10)
+   Start at  18:26:03
+   Duration  15.58s (transform 223ms, setup 6ms, collect 210ms, tests 10.87s, environment 0ms, prepare 54ms)
+
+[db-isolation] db=wsx_f3290470bc1cb5a0f510 peak_connections=1
+[timing] pnpm --filter api exec vitest run tests/whiteboard/update-validator.test.ts tests/whiteboard/operation-compensation-worker.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：16s
+  清理：0s
+  总计：16s

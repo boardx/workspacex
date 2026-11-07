@@ -1,0 +1,817 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/2e5d/workspacex
+
+ ✓ .harness/scripts/lib/design-signoff.test.ts (55 tests) 361ms
+ ✓ .harness/scripts/lib/pr-queue.test.ts (49 tests) 16ms
+ ✓ .harness/scripts/vm/deep-agent-lib.test.ts (49 tests) 6386ms
+   ✓ deep_agent_wait_graph_ready — bounded graph readiness, not just /ok > succeeds once the target graph_id appears, after connection refusals and wrong graphs 581ms
+   ✓ deep_agent_wait_graph_ready — bounded graph readiness, not just /ok > fails bounded when the graph never loads even though the HTTP endpoint answers 528ms
+   ✓ deep_agent_gc_images — best-effort repository-local GC > removes stale tags (incl. manual latest/test-fix) while keeping current SHA and previous tag 1012ms
+   ✓ deep_agent_gc_images — best-effort repository-local GC > a failing rmi is logged but never reds the deployment (best-effort contract) 802ms
+   ✓ native_runtime_assert_deep_agent_api_callback readiness wait > API 起得慢：前 3 次 healthz 失败、第 4 次成功 ⇒ 探针通过，且确实等了 4 次 698ms
+   ✓ native_runtime_assert_deep_agent_api_callback readiness wait > 反证：API 一直起不来 ⇒ 用「就绪」信息失败，而不是「回调探针失败」，且探针根本没打 981ms
+   ✓ native_runtime_assert_deep_agent_api_callback readiness wait > API 已就绪但契约不对（resolve 非 400）⇒ 仍是原来的探针失败信息，两种失败可区分 810ms
+ ✓ .harness/scripts/lib/core-loop-readiness.test.ts (62 tests) 25ms
+ ✓ .harness/scripts/ci-lane-dedup.test.ts (68 tests) 229ms
+ ✓ .harness/scripts/lint-ui-material.test.ts (37 tests) 204ms
+stdout | .harness/scripts/vm/publish-cn-release.test.ts > publisher owned build lifecycle > joins only owned children before cleanup on TERM
+publisher lifecycle observation {"scenario":"TERM","elapsedMs":101,"stages":[{"elapsedMs":11,"text":"[lifecycle:0] pids=()\n[lifecycle:0] names=()\n[lifecycle:0] trap cleanup_owned_builds EXIT\n[lifecycle:0] trap 'exit 143' TERM\n[lifecycle:0] trap 'exit 130' INT\n"},{"elapsedMs":31,"text":"[lifecycle:0] wait 46844\n"},{"elapsedMs":35,"text":"[[lifecycle:0] exit 143\n[lifecycle:0] cleanup_owned_builds\n[lifecycle:0] local status=143 pid deadline alive\n"},{"elapsedMs":35,"text":"[lifecycle:0] trap - EXIT\n[lifecycle:0] trap '' TERM INT\n[lifecycle:0] for pid in '\"${pids[@]}\"'\n[lifecycle:0] kill -TERM -- -46844\n"},{"elapsedMs":93,"text":"[lifecycle:0] for pid in '\"${pids[@]}\"'\n[lifecycle:0] kill -KILL -- -46844\n"},{"elapsedMs":93,"text":"[lifecycle:0] wait 46844\n"},{"elapsedMs":93,"text":"[lifecycle:0] names=()\n[lifecycle:0] rm -rf /var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/cn-publisher-lifecycle-B4iX9c/work\n"},{"elapsedMs":100,"text":"[lifecycle:0] exit 143\n"}]}
+
+stdout | .harness/scripts/vm/publish-cn-release.test.ts > publisher owned build lifecycle > joins only owned children before cleanup on INT
+publisher lifecycle observation {"scenario":"INT","elapsedMs":102,"stages":[{"elapsedMs":8,"text":"[lifecycle:0] trap cleanup_owned_builds EXIT\n"},{"elapsedMs":8,"text":"[lifecycle:0] trap 'exit 143' TERM\n"},{"elapsedMs":8,"text":"[lifecycle:0] trap 'exit 130' INT\n"},{"elapsedMs":28,"text":"[lifecycle:0] wait 46880\n"},{"elapsedMs":37,"text":"[[lifecycle:0] exit 130\n"},{"elapsedMs":37,"text":"[lifecycle:0] cleanup_owned_builds\n[lifecycle:0] local status=130 pid deadline alive\n"},{"elapsedMs":37,"text":"[lifecycle:0] kill -TERM -- -46880\n"},{"elapsedMs":96,"text":"[lifecycle:0] kill -KILL -- -46880\n"},{"elapsedMs":96,"text":"[lifecycle:0] for pid in '\"${pids[@]}\"'\n[lifecycle:0] wait 46880\n"},{"elapsedMs":96,"text":"[lifecycle:0] rm -rf /var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/cn-publisher-lifecycle-EVMq6Q/work\n"},{"elapsedMs":101,"text":"[lifecycle:0] exit 130\n"}]}
+
+stdout | .harness/scripts/vm/publish-cn-release.test.ts > publisher owned build lifecycle > joins only owned children before cleanup on EXIT
+publisher lifecycle observation {"scenario":"EXIT","elapsedMs":93,"stages":[{"elapsedMs":8,"text":"[lifecycle:0] trap cleanup_owned_builds EXIT\n[lifecycle:0] trap 'exit 143' TERM\n[lifecycle:0] trap 'exit 130' INT\n"},{"elapsedMs":28,"text":"[lifecycle:0] exit 17\n[lifecycle:0] cleanup_owned_builds\n"},{"elapsedMs":28,"text":"[lifecycle:0] local status=17 pid deadline alive\n[lifecycle:0] trap - EXIT\n[lifecycle:0] trap '' TERM INT\n[lifecycle:0] for pid in '\"${pids[@]}\"'\n[lifecycle:0] kill -TERM -- -46913\n"},{"elapsedMs":87,"text":"[lifecycle:0] kill -KILL -- -46913\n"},{"elapsedMs":87,"text":"[lifecycle:0] wait 46913\n"},{"elapsedMs":87,"text":"[lifecycle:0] rm -rf /var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/cn-publisher-lifecycle-VpbISQ/work\n"},{"elapsedMs":92,"text":"[lifecycle:0] exit 17\n"}]}
+
+stdout | .harness/scripts/vm/publish-cn-release.test.ts > publisher owned build lifecycle > joins only owned children before cleanup on TERM-resistant
+publisher lifecycle observation {"scenario":"TERM-resistant","elapsedMs":1540,"stages":[{"elapsedMs":7,"text":"[lifecycle:0] trap cleanup_owned_builds EXIT\n[lifecycle:0] trap 'exit 143' TERM\n[lifecycle:0] trap 'exit 130' INT\n"},{"elapsedMs":25,"text":"[lifecycle:0] wait 46949\n"},{"elapsedMs":34,"text":"[[lifecycle:0] exit 143\n"},{"elapsedMs":34,"text":"[lifecycle:0] cleanup_owned_builds\n[lifecycle:0] local status=143 pid deadline alive\n"},{"elapsedMs":34,"text":"[lifecycle:0] for pid in '\"${pids[@]}\"'\n[lifecycle:0] kill -TERM -- -46949\n"},{"elapsedMs":1530,"text":"[lifecycle:2] kill -KILL -- -46949\n[lifecycle:2] for pid in '\"${pids[@]}\"'\n[lifecycle:2] wait 46949\n"},{"elapsedMs":1530,"text":"[lifecycle:2] names=()\n[lifecycle:2] rm -rf /var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/cn-publisher-lifecycle-i5reV7/work\n"},{"elapsedMs":1539,"text":"[lifecycle:2] exit 143\n"}]}
+
+ ✓ .harness/scripts/vm/publish-cn-release.test.ts (18 tests) 1874ms
+   ✓ publisher owned build lifecycle > joins only owned children before cleanup on TERM-resistant 1545ms
+ ✓ .harness/scripts/vm/deploy-readiness.test.ts (28 tests) 28282ms
+   ✓ #448 post-restart readiness > resets after success -> refusal and passes only after three trustworthy recovery samples 1894ms
+   ✓ #448 post-restart readiness > does not count an HTTP 200 whose security assertions are false 1196ms
+   ✓ #448 post-restart readiness > fails permanently unavailable API and emits bounded, redacted diagnostics for both services 3310ms
+   ✓ #448 post-restart readiness > fails when Web never becomes ready and diagnoses both services 1847ms
+   ✓ #448 post-restart readiness > fails when the private probe is exposed and diagnoses both services 1831ms
+   ✓ #448 post-restart readiness > preserves a trusted root deploy failure before smoke without probing healthy old services 2058ms
+   ✓ #448 post-restart readiness > fails closed when a repository-controlled pre-smoke command forges the old stdout marker 1829ms
+   ✓ public realtime voice anonymous Upgrade readiness > fails deployment for incorrect voice handshake 200 despite healthy API and web 2200ms
+   ✓ public realtime voice anonymous Upgrade readiness > fails deployment for incorrect voice handshake 404 despite healthy API and web 2013ms
+   ✓ public realtime voice anonymous Upgrade readiness > fails deployment for incorrect voice handshake 502 despite healthy API and web 1841ms
+   ✓ public realtime voice anonymous Upgrade readiness > fails deployment for incorrect voice handshake 101 despite healthy API and web 1826ms
+   ✓ public realtime voice anonymous Upgrade readiness > fails deployment for incorrect voice handshake 000 despite healthy API and web 1850ms
+   ✓ public realtime voice anonymous Upgrade readiness > fails deployment for incorrect voice handshake transport-error despite healthy API and web 1921ms
+   ✓ public realtime voice anonymous Upgrade readiness > accepts the authenticated gateway anonymous refusal without exposing credentials 804ms
+   ✓ anonymous Upgrade probe actual transport > passes production gateway 401 and fails a misrouted HTTP server 1585ms
+ ✓ .harness/scripts/vm/cn-frozen-release-cli.test.ts (25 tests) 60779ms
+   ✓ real Git frozen-source CLI with controlled GitHub observations > accepts synchronized develop merge source through actual frozen CLI 2678ms
+   ✓ real Git frozen-source CLI with controlled GitHub observations > rejects synchronized develop source without complete same-SHA runtime evidence 2526ms
+   ✓ real Git frozen-source CLI with controlled GitHub observations > fails NOT_READY for a historical dispatcher instead of borrowing latest main 1594ms
+   ✓ real Git frozen-source CLI with controlled GitHub observations > accepts actual ancestor candidate/tag after main advances without build or mutation 2614ms
+   ✓ real Git frozen-source CLI with controlled GitHub observations > shared release CLI does not require governance files or privileged governance APIs 5954ms
+   ✓ real Git frozen-source CLI with controlled GitHub observations > rejects missing or unrelated merged PR and source tree drift at actual CLI 5939ms
+   ✓ real Git frozen-source CLI with controlled GitHub observations > actual source dynamic plan rejects missing final shard or plan job at CLI 5328ms
+   ✓ real Git frozen-source CLI with controlled GitHub observations > runs actual CLI in clean offline runtime without node_modules or NODE_PATH 4044ms
+   ✓ real Git frozen-source CLI with controlled GitHub observations > rejects changed attestation and incomplete actual checks before approval 6318ms
+   ✓ real Git frozen-source CLI with controlled GitHub observations > rejects moving main dispatch, missing evidence and prior-run request digest 4336ms
+   ✓ real Git frozen-source CLI with controlled GitHub observations > verifies real human-creator native admission via current-attempt job API 6463ms
+   ✓ actual embedded nonproduction tag proof program > executes real proof code with success 1724ms
+   ✓ actual embedded nonproduction tag proof program > executes real proof code with permission 1053ms
+   ✓ actual embedded nonproduction tag proof program > executes real proof code with patch-success 1220ms
+   ✓ actual embedded nonproduction tag proof program > executes real proof code with delete-success 1231ms
+   ✓ actual embedded nonproduction tag proof program > executes real proof code with mutated-ref 1113ms
+   ✓ actual embedded nonproduction tag proof program > executes real proof code with cleanup-failure 1024ms
+   ✓ actual embedded nonproduction tag proof program > executes real proof code with missing-bypass 583ms
+   ✓ actual embedded nonproduction tag proof program > executes real proof code with hidden-never 1679ms
+   ✓ actual embedded nonproduction tag proof program > executes real proof code with hidden-always 597ms
+   ✓ actual embedded nonproduction tag proof program > executes real proof code with hidden-exempt 751ms
+   ✓ actual embedded nonproduction tag proof program > executes real proof code with visible-bypass 521ms
+   ✓ actual embedded nonproduction tag proof program > executes real proof code with bypass-null 524ms
+   ✓ actual embedded nonproduction tag proof program > executes real proof code with bypass-string 517ms
+   ✓ actual embedded nonproduction tag proof program > executes real proof code with bypass-object 444ms
+ ✓ .harness/scripts/lint-nav-reachability.test.ts (31 tests) 1441ms
+   ✓ 反向反证 —— 真仓库当前必须是绿的 > phase-01：十一束全部可达，导航无非法屏、无死链 740ms
+   ✓ 反向反证 —— 真仓库当前必须是绿的 > phase-01：束内也没有零引用的孤儿页（⑥ 在真仓库上是绿的，且真的扫到了子页） 498ms
+ ✓ .harness/scripts/ci-targeted-ui.test.ts (13 tests) 34247ms
+   ✓ uses real source history and suite hashes; unknown, missing, renamed and nonregular inputs fall back 20627ms
+   ✓ combines registered locale-only edits into one plan and unions required suites 12707ms
+ ✓ .harness/scripts/fullstack-smoke.test.ts (20 tests) 18669ms
+   ✓ #387 trusted full-stack gate contract > forwards the entire large burst and final marker to a slow reader 3914ms
+   ✓ #387 trusted full-stack gate contract > keeps a real passing test green when it logs the empty-run phrase 1944ms
+   ✓ #387 trusted full-stack gate contract > rejects an actual Vitest zero-selection exit0 and still cleans its scope 1610ms
+   ✓ #387 trusted full-stack gate contract > accepts an actual Vitest selected assertion and still cleans its scope 2603ms
+   ✓ #387 trusted full-stack gate contract > accepts a real passed test logging empty-run phrases and still cleans its scope 1815ms
+   ✓ #387 trusted full-stack gate contract > successful child runs one successful scoped down -v and preserves the child outcome 947ms
+   ✓ #387 trusted full-stack gate contract > failed child runs one successful scoped down -v and preserves the child outcome 951ms
+   ✓ #387 trusted full-stack gate contract > SIGTERM runs one successful scoped down -v and preserves the child outcome 849ms
+   ✓ #387 trusted full-stack gate contract > successful child fails closed when its only scoped down -v fails 851ms
+   ✓ #387 trusted full-stack gate contract > failed child fails closed when its only scoped down -v fails 1101ms
+   ✓ #387 trusted full-stack gate contract > SIGINT fails closed when its only scoped down -v fails 1008ms
+   ✓ #387 trusted full-stack gate contract > SIGTERM fails closed when its only scoped down -v fails 934ms
+ ✓ .harness/scripts/lib/merge-queue.test.ts (47 tests) 36ms
+ ✓ .harness/scripts/lib/verify-cache.test.ts (17 tests) 8603ms
+   ✓ verify-cache > computeFingerprint：同一 HEAD、工作树有无未提交改动，指纹必须不同 714ms
+   ✓ verify-cache > merge-base 不随 origin/main 前进而移动（钉住 #1334 的证伪结论） 1805ms
+   ✓ verify-cache > computeFingerprint 对同一仓库状态是确定性的（同输入同输出，含未跟踪文件路径） 1230ms
+   ✓ verify-cache > 反证 #1341：PROGRESS.md 的时间戳变化不得改变指纹（跨 verify 调用能复用） 811ms
+   ✓ verify-cache > 反证 #1341：evidence 日志（已有 + 新建）不得改变指纹 984ms
+   ✓ verify-cache > 反证 #1341：改一行源码 —— 指纹必须变（排除清单没把真实输入一起排掉） 732ms
+   ✓ verify-cache > 反证 #1341：改 harness.config.yaml 的 profile 映射 —— 指纹必须变 737ms
+   ✓ verify-cache > 反证 #1341：feature_list.json 改了 verification 命令 —— 指纹必须变（权威清单不进排除） 660ms
+   ✓ verify-cache > 反证 #1341：.harness/state/ 下的门控输入（允许清单）改了 —— 指纹必须变，不许按目录一把梭排除 779ms
+ ✓ .harness/scripts/vm/cn-main-source-admission.test.ts (66 tests) 1292ms
+   ✓ actual CLI passes bound facts and rejects drift without a success receipt 920ms
+ ✓ .harness/scripts/lib/feature-id.test.ts (23 tests) 4022ms
+   ✓ allocateFeatureId —— 真并发（#1094 的核心断言） > 🔴 对照组：快照式分配（先挑号、后写盘）在同样的并发下必然撞号 1388ms
+   ✓ allocateFeatureId —— 真并发（#1094 的核心断言） > 原子取号：同样的并发下 N 个进程拿到 N 个互不相同的号，盘上零重复 2542ms
+ ✓ .harness/scripts/registry-integration-team.test.ts (9 tests) 19ms
+ ✓ .harness/scripts/lint-spec-gate-coverage.test.ts (24 tests) 163411ms
+   ✓ CN six actual Python execution chain > discovers the real config as conditional and rejects each broken edge 3219ms
+   ✓ 真实仓库 > 从 CI 出发能追到被真正调用的 config —— 且 chat-read 现在在其中（#512 的修复本身） 323ms
+   ✓ 真实仓库 > 当前仓库没有 unrun、也没有未署名的条件覆盖 39186ms
+   ✓ 真实仓库 > path-filtered 的 deploy-devportal 只算条件覆盖；无条件门控仍算无条件 435ms
+   ✓ 真实仓库 > 合成导入报告随 Board 改动运行，真实厂商样本仍由独立 captured 门禁负责 42380ms
+   ✓ 真实仓库 > 门控脚本本身以 0 退出 77746ms
+ ✓ .harness/scripts/vm/cn-production-bootstrap.test.ts (16 tests) 56ms
+ ✓ .harness/scripts/vm/devapp-runtime-identity.test.ts (18 tests) 2312ms
+   ✓ Devapp runtime identity actual mixed topology > accepts a real committed Next catch-all route and readonly CLI before build, then rejects actual byte drift 553ms
+   ✓ Devapp runtime identity actual mixed topology > rejects actual committed symlink and Git submodule records 1243ms
+   ✓ Devapp runtime identity actual mixed topology > rejects a real gitignored API source file after a clean exact-source pass 450ms
+ ✓ .harness/scripts/lib/contract-route-coverage.test.ts (33 tests) 18ms
+ ✓ .harness/scripts/tick.test.ts (11 tests) 21777ms
+   ✓ tick coord-gateway cutover > uses gateway time, renews role:coord-main, and reads the repo-scoped inbox 5741ms
+   ✓ tick coord-gateway cutover > uses --session for scoped/ops identity even when COORD_AGENT_ID is stale 5076ms
+   ✓ tick coord-gateway cutover > renews every lease owned by the current agent and reports heartbeat failures 5452ms
+   ✓ tick coord-gateway cutover > applies an 8 second AbortSignal to claims and heartbeat requests 5478ms
+ ✓ .harness/scripts/lint-third-artifact.test.ts (23 tests) 231ms
+ ✓ .harness/scripts/vm/cn-promotion-prepared-receipt.test.ts (14 tests) 3700ms
+   ✓ rejects broken preparation input and real source closure before any build 3061ms
+ ✓ .harness/scripts/lint-feature-transition.test.ts (19 tests) 101426ms
+   ✓ 真仓库端到端 > 合法迁移（真 appendFingerprint 产出的证据）⇒ 退 0 3027ms
+   ✓ 真仓库端到端 > 手改 passing（status 翻了、evidence 写人话、没有日志）⇒ 退 1 4485ms
+   ✓ 真仓库端到端 > 手改 passing 但借用一份合法旧日志（最终树三道门全绿）⇒ 退 1 4425ms
+   ✓ 真仓库端到端 > 复制一份别人的合法日志冒充自己的证据 ⇒ 退 1 4152ms
+   ✓ 真仓库端到端 > 改写日志正文 + 重算指纹（checkFingerprint 返回 ok）⇒ 仍然退 1 4478ms
+   ✓ 真仓库端到端 > 只改正文、不重算尾行 ⇒ evidence_tampered 3230ms
+   ✓ 真仓库端到端 > passing 退回 in_progress ⇒ status_irreversible 4196ms
+   ✓ 真仓库端到端 > 归档搬家（live → feature_list.archive.json）不算记录消失 ⇒ 退 0 3399ms
+   ✓ 真仓库端到端 > 不碰 feature 的改动 ⇒ 判定为空转，退 0 2643ms
+   ✓ 反向反证：门不是永远红的 > 真仓库 HEAD~1 → HEAD 必须退 0 14327ms
+   ✓ squash 的完整树出处证明 > Git 查询失败时拒绝，且目标树与见证结果只查询一次 450ms
+   ✓ squash 的完整树出处证明 > 目标历史查询失败，即使源查询有输出也拒绝 552ms
+   ✓ squash 的完整树出处证明 > 真 squash 保留完整源树，见证属于源历史 ⇒ 退 0 5726ms
+   ✓ squash 的完整树出处证明 > squash 后的后续 HEAD 仍能证明已集成 ⇒ 退 0 6713ms
+   ✓ squash 的完整树出处证明 > 日志相同但源代码树不同，不是完整 squash ⇒ 退 1 7380ms
+   ✓ squash 的完整树出处证明 > 等价源树不属于日志见证的后代 ⇒ 退 1 12717ms
+   ✓ squash 的完整树出处证明 > 无关见证的后代回退到共同 base，不能借用不含当前证据的旧等价树 ⇒ 退 1 10975ms
+   ✓ squash 的完整树出处证明 > squash 不能放行指纹被篡改的日志 ⇒ 退 1 8283ms
+ ✓ .harness/scripts/vm/deploy-image-freshness.test.ts (16 tests) 77ms
+ ✓ .harness/scripts/board-heavy-batch.test.ts (32 tests) 285ms
+ ✓ .harness/scripts/lib/pr-green.test.ts (27 tests) 46ms
+ ✓ .harness/scripts/lint-verification-can-fail.test.ts (29 tests) 10334ms
+   ✓ probes missing Playwright selections without starting application servers 9890ms
+ ✓ .harness/scripts/lib/test-isolation.test.ts (16 tests) 35981ms
+   ✓ test isolation contract (#74) > loads the studio isolation guard through the native ESM-only tsx entry 2397ms
+   ✓ test isolation contract (#74) > asserts the harness verify outer and inner scopes match at wrapper runtime 1341ms
+   ✓ test isolation contract (#74) > hashes isolation inputs into Turbo's test cache key 32201ms
+ ✓ .harness/scripts/lint-e2e-testid-gate.test.ts (35 tests) 11605ms
+   ✓ 真仓库 > 变异反证：源码里改掉一个 e2e 还锚着的 testid ⇒ 立刻红 11572ms
+ ✓ .harness/scripts/lib/contract-negative-assertion.test.ts (19 tests) 14ms
+ ✓ .harness/scripts/vm/cn-production-promotion-workflow.test.ts (13 tests) 42745ms
+   ✓ GitHub-based CN production promotion > verifies checkout ancestry offline and rejects missing or invalid identities 1137ms
+   ✓ GitHub-based CN production promotion > executes domestic Git export and runner capability failure fixtures 41388ms
+ ✓ .harness/scripts/lib/ui-wiring.test.ts (17 tests) 12ms
+ ✓ .harness/scripts/chat-production-gate.test.ts (41 tests) 5175ms
+   ✓ owned production chat gate > discovers the real standard workflow with exactly the original config/project and complete matrix argv 385ms
+   ✓ owned production chat gate > rejects unsupported signatures and local spawn/Promise shadowing as one concentrated group 1137ms
+   ✓ owned production chat gate > accepts only real no-pid/close completion, rejecting early success and synthetic close as one group 923ms
+ ✓ .harness/scripts/with-test-isolation-port-leases.test.ts (18 tests) 12350ms
+   ✓ #3128 wrapper owns port leases through teardown > success keeps ownership during cleanup and releases only after successful teardown 841ms
+   ✓ #3128 wrapper owns port leases through teardown > assertion failure keeps ownership during cleanup and releases only after successful teardown 1068ms
+   ✓ #3128 wrapper owns port leases through teardown > cleanup failure keeps ownership during cleanup and releases only after successful teardown 1185ms
+   ✓ #3128 wrapper owns port leases through teardown > assertion and cleanup failure keeps ownership during cleanup and releases only after successful teardown 955ms
+   ✓ #3128 wrapper owns port leases through teardown > SIGTERM keeps ownership during cleanup and releases only after successful teardown 763ms
+   ✓ #3128 wrapper owns port leases through teardown > SIGINT keeps ownership during cleanup and releases only after successful teardown 751ms
+   ✓ #3128 wrapper owns port leases through teardown > spawn failure keeps ownership during cleanup and releases only after successful teardown 716ms
+   ✓ #3128 wrapper owns port leases through teardown > harness verify setup failure releases leases without starting a child or Docker cleanup 341ms
+   ✓ #3128 SIGKILL cannot surrender a surviving descendant startup port 1196ms
+   ✓ #3128 SIGTERM cannot surrender a surviving descendant startup port 1606ms
+   ✓ #3128 exit7 cannot surrender a surviving descendant startup port 2199ms
+ ✓ .harness/scripts/lint-contract-state-names.test.ts (27 tests) 566ms
+   ✓ 真仓库：基线绿，注入漂移红 > 门确实盯着那两个文件，且在看真东西（不是扫了个空） 300ms
+ ✓ .harness/scripts/lib/phase-readiness-fs.test.ts (8 tests) 3018ms
+   ✓ phase readiness evidence filesystem gate > rejects a committed manifest symlink escaping the repository without control-state side effects 352ms
+   ✓ phase readiness evidence filesystem gate > the CLI fail-closes a manifest symlink before calling its state writer 411ms
+   ✓ phase readiness evidence filesystem gate > rejects a committed artifact symlink to an internal untracked file without control-state side effects 328ms
+   ✓ phase readiness evidence filesystem gate > rejects dirty committed manifest bytes without control-state side effects 331ms
+   ✓ phase readiness evidence filesystem gate > rejects dirty committed artifact bytes without control-state side effects 554ms
+   ✓ phase readiness evidence filesystem gate > rejects a recorded hash that drifts from committed bytes without control-state side effects 428ms
+   ✓ phase readiness evidence filesystem gate > rejects committed evidence bound to a different target commit without control-state side effects 488ms
+ ✓ .harness/scripts/lib/cycle-result-gate.test.ts (24 tests) 16ms
+ ✓ .harness/scripts/ci-fail-fast.test.ts (28 tests) 136ms
+ ✓ .harness/scripts/minio-controlled-image.test.ts (10 tests) 2201ms
+   ✓ controlled MinIO image lock > invokes gh attestation verify with the exact signer identity and provenance flags 485ms
+   ✓ controlled MinIO image lock > executes the mirror copy step without an ambient tag and derives its target tag from the digest 1553ms
+ ✓ .harness/scripts/lib/stack-admission.test.ts (13 tests) 19ms
+ ✓ .harness/scripts/sync-github.test.ts (18 tests) 80ms
+ ✓ .harness/scripts/lib/feature-transition.test.ts (26 tests) 12ms
+ ✓ .harness/scripts/lib/contract-route-ratchet.test.ts (20 tests) 11ms
+ ✓ .harness/scripts/lint-test-shared-grant.test.ts (17 tests) 896ms
+   ✓ 端到端：门真的会红 > 无限定 REVOKE 的 fixture ⇒ exit 1，且指名道姓说出是哪条、为什么 521ms
+   ✓ 端到端：门真的会红 > 换成限定到本文件自己数据的写法 ⇒ exit 0（同一个词，不同的判据） 352ms
+ ✓ .harness/scripts/ci-base-api.test.ts (25 tests) 220ms
+ ✓ .harness/scripts/lib/verification-targets.test.ts (15 tests) 49ms
+ ✓ .harness/scripts/lib/role-scorecard.test.ts (24 tests) 10ms
+ ✓ .harness/scripts/lib/test-isolation-ports.test.ts (11 tests) 73ms
+
+Running 1 test using 1 worker
+
+
+
+[1/1] .chat-discovery-env-egkOmR/environment.spec.ts:1:50 › runtime flags remain present
+  1 passed (1.2s)
+(node:260) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 6 tests using 1 worker, shard 1 of 2
+
+
+
+[1/6] [alpha] › .chat-shard-fixture-621GNc/a.spec.ts:1:51 › same
+[2/6] [alpha] › .chat-shard-fixture-621GNc/a.spec.ts:1:88 › declared skip
+[3/6] [alpha] › .chat-shard-fixture-621GNc/a.spec.ts:1:123 › expected fail
+[4/6] [alpha] › .chat-shard-fixture-621GNc/b.spec.ts:1:51 › same
+[5/6] [alpha] › .chat-shard-fixture-621GNc/b.spec.ts:1:88 › declared skip
+[6/6] [alpha] › .chat-shard-fixture-621GNc/b.spec.ts:1:123 › expected fail
+  2 skipped
+  4 passed (1.1s)
+(node:2763) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 6 tests using 1 worker, shard 2 of 2
+
+
+
+[1/6] [beta] › .chat-shard-fixture-621GNc/a.spec.ts:1:51 › same
+[2/6] [beta] › .chat-shard-fixture-621GNc/a.spec.ts:1:88 › declared skip
+[3/6] [beta] › .chat-shard-fixture-621GNc/a.spec.ts:1:123 › expected fail
+[4/6] [beta] › .chat-shard-fixture-621GNc/b.spec.ts:1:51 › same
+[5/6] [beta] › .chat-shard-fixture-621GNc/b.spec.ts:1:88 › declared skip
+[6/6] [beta] › .chat-shard-fixture-621GNc/b.spec.ts:1:123 › expected fail
+  2 skipped
+  4 passed (833ms)
+(node:3341) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 8 tests using 1 worker
+
+
+
+[1/8] [alpha] › .chat-shard-fixture-621GNc/a.spec.ts:1:51 › same
+  1) [alpha] › .chat-shard-fixture-621GNc/a.spec.ts:1:51 › same ────────────────────────────────────
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: 2
+    Received: 1
+
+    > 1 | import {test,expect} from '@playwright/test'; test('same',()=>expect(1).toBe(2));
+        |                                                                         ^
+        at /Users/shenyangjun/.codex/worktrees/2e5d/workspacex/apps/web/.chat-shard-fixture-621GNc/a.spec.ts:1:73
+
+    Error Context: test-results/a-same-alpha/error-context.md
+
+
+Testing stopped early after 1 maximum allowed failures.
+
+  1 failed
+    [alpha] › .chat-shard-fixture-621GNc/a.spec.ts:1:51 › same ─────────────────────────────────────
+  7 did not run
+  1 error was not a part of any test, see above for details
+(node:3549) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ .harness/scripts/ci-chat-shards.test.ts (7 tests) 30168ms
+   ✓ chat shard evidence > discovers with inherited production flags and no isolation id without changing runtime execution 6795ms
+   ✓ chat shard evidence > preserves the original chat-read project boundary 6270ms
+   ✓ chat shard evidence > uses installed Playwright discovery and browserless execution with independent projects 12671ms
+   ✓ keeps real isolation-wrapper stdout out of the Playwright JSON report 4427ms
+ ✓ .harness/scripts/lib/ci-check-policy.test.ts (47 tests) 59ms
+ ✓ .harness/scripts/lib/merge-gate.test.ts (16 tests) 10ms
+ ✓ .harness/scripts/lib/rewrite-shadow.test.ts (14 tests) 15ms
+ ✓ .harness/scripts/workflow-actions-node24.test.ts (11 tests) 339ms
+ ✓ .harness/scripts/ci-api-shards.test.ts (17 tests) 8024ms
+   ✓ API isolated shard coverage > verifies actual complete Vitest discovery using the installed sequencer 1058ms
+   ✓ preserves two real workspace projects sharing the same module through disjoint shards 1920ms
+   ✓ actually collects exclusive files once and rejects both missing exclusion and missing exclusive include 5033ms
+ ✓ .harness/scripts/ci-fail-fast-wiring.test.ts (8 tests) 6158ms
+   ✓ actual Turbo kills a running sibling instead of letting it finish after a failure 2944ms
+   ✓ actual Vitest skips later cases after the first failure and still runs cleanup 1487ms
+   ✓ actual Playwright stops later cases after failure while retaining teardown 1246ms
+ ✓ .harness/scripts/cycle-report.test.ts (7 tests) 18ms
+ ✓ .harness/scripts/lib/body-path-param-leak.test.ts (13 tests) 11ms
+ ✓ .harness/scripts/lib/heavy-suite-lock.test.ts (12 tests) 37ms
+ ✓ .harness/scripts/feature-schema-parity.test.ts (14 tests) 15ms
+ ✓ .harness/scripts/ci-fullstack-runtime.test.ts (11 tests) 15ms
+ ✓ .harness/scripts/lib/test-run-output.test.ts (19 tests) 26ms
+stdout | .harness/scripts/ci-devapp-integration-gate.test.ts > exact-source admission rejects old, failed and uncertain integration results > stops on API errors and expires rather than authorizing a missing run
+Waiting for exact-source integration: integration_run_not_created
+
+ ✓ .harness/scripts/ci-devapp-integration-gate.test.ts (10 tests) 25ms
+ ✓ .harness/scripts/lint-ui-wiring.test.ts (10 tests) 7227ms
+   ✓ lint-ui-wiring（#397 跨层接线门控） > ① 正样本：干净夹具退出 0 —— 门不是恒红 668ms
+   ✓ lint-ui-wiring（#397 跨层接线门控） > ② 反证：屏和 controller 都在，但 controller 没挂进 kernel controllers[] ⇒ 红 622ms
+   ✓ lint-ui-wiring（#397 跨层接线门控） > ③ 反证：同一条屏连 controller 都不声明（「接到后端」纯属口头）⇒ 红 669ms
+   ✓ lint-ui-wiring（#397 跨层接线门控） > ④ 反证：新页面不进清单 ⇒ 红（不许静默新增未归类的产品路由） 633ms
+   ✓ lint-ui-wiring（#397 跨层接线门控） > ⑤ 反证：已接线路由的渲染路径回退 mock ⇒ 红 1399ms
+   ✓ lint-ui-wiring（#397 跨层接线门控） > ⑥ 反证：把已挂载的 controller 从 kernel controllers[] 里摘掉 ⇒ 红 642ms
+   ✓ lint-ui-wiring（#397 跨层接线门控） > ⑦ 反证：application 用例被改名 / 不再被 controller 调用 ⇒ 红 609ms
+   ✓ lint-ui-wiring（#397 跨层接线门控） > ⑧ 反证：棘轮只减不增 —— mock 路由超过冻结上限 ⇒ 红 719ms
+   ✓ lint-ui-wiring（#397 跨层接线门控） > ⑨ 反证：接完线却忘了把自己那条从 mock 清单划掉（陈旧豁免）⇒ 红 679ms
+   ✓ lint-ui-wiring（#397 跨层接线门控） > ⑩ 反证：扫不到任何 page / controller 时不许判绿（空集不是全绿） 583ms
+ ✓ .harness/scripts/vm/cn-frozen-release-identity.test.ts (13 tests) 30ms
+ ✓ .harness/scripts/lib/pr-issue-finalization.test.ts (20 tests) 9162ms
+   ✓ pending current PR issue finalization > warns only the current closing issue without clearing other failures or allowing sync closure 833ms
+   ✓ pending current PR issue finalization > accepts exact head and exact two-parent synthetic merge 645ms
+   ✓ pending current PR issue finalization > never exempts push 347ms
+   ✓ pending current PR issue finalization > never exempts workflow_dispatch 352ms
+   ✓ pending current PR issue finalization > never exempts merge_group 314ms
+   ✓ pending current PR issue finalization > never exempts undefined 302ms
+   ✓ pending current PR issue finalization > fails closed for state 334ms
+   ✓ pending current PR issue finalization > fails closed for merged 400ms
+   ✓ pending current PR issue finalization > fails closed for fork 357ms
+   ✓ pending current PR issue finalization > fails closed for target 370ms
+   ✓ pending current PR issue finalization > fails closed for repo 336ms
+   ✓ pending current PR issue finalization > fails closed for truncated 325ms
+   ✓ pending current PR issue finalization > fails closed for missing 426ms
+   ✓ pending current PR issue finalization > rejects unavailable authority, malformed events and inconsistent event repository 338ms
+   ✓ pending current PR issue finalization > rejects checkout beyond head, unrelated checkout and wrong merge parents 751ms
+   ✓ pending current PR issue finalization > only exempts the exact same-repo closing issue and unmerged head evidence 645ms
+   ✓ pending current PR issue finalization > does not hide already integrated evidence when origin/main is stale 875ms
+   ✓ pending current PR issue finalization > does not accept evidence made only in the synthetic merge 613ms
+ ✓ .harness/scripts/lib/evidence-legacy.test.ts (17 tests) 8ms
+ ✓ .harness/scripts/lib/verify-risk.test.ts (12 tests) 3484ms
+   ✓ verify-risk：判据基于真实改动文件（#1332） > 端到端：真的改一个 migration 文件 → high_risk（这是 #1274 漏掉的场景） 395ms
+   ✓ verify-risk：判据基于真实改动文件（#1332） > 端到端：**未提交**的新增 migration 也要算——新增文件正是最典型的场景 309ms
+   ✓ verify-risk：判据基于真实改动文件（#1332） > 端到端：改跨束契约 → high_risk 401ms
+   ✓ verify-risk：判据基于真实改动文件（#1332） > 端到端：改鉴权源码 → high_risk 358ms
+   ✓ verify-risk：判据基于真实改动文件（#1332） > 端到端反证：只改文档 → standard，不误判成 high_risk 514ms
+   ✓ verify-risk：判据基于真实改动文件（#1332） > 端到端反证：改普通前端源码 → standard（不是所有代码改动都高风险） 469ms
+   ✓ verify-risk：判据基于真实改动文件（#1332） > 反证：profiles 缺档必须报错，不能返回 undefined 静默通过 439ms
+   ✓ verify-risk：判据基于真实改动文件（#1332） > 反证：default_profile 非法值必须报错，不能悄悄退化 326ms
+ ✓ .harness/scripts/lint-skill-metadata-source.test.ts (22 tests) 20ms
+ ✓ .harness/scripts/vm/cn-controlled-evidence.test.ts (8 tests | 1 skipped) 884ms
+   ✓ executes exact-source Devapp orchestration and signing counterexamples 869ms
+ ✓ .harness/scripts/lib/feature-owner.test.ts (16 tests) 7ms
+ ✓ .harness/scripts/lib/template-doctor.test.ts (17 tests) 7ms
+ ✓ .harness/scripts/lib/rewrite-coverage.test.ts (14 tests) 8ms
+ ✓ .harness/scripts/doctor-pr-green.test.ts (21 tests) 318479ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > 生效后关闭 + 合入时 required FAILURE → 报出来，理由带 PR 号与 check 名 14591ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > 合入前失败、合入前 rerun 成功 → 不报（同名取最晚，不会永远违反） 14150ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > 合入时绿、合入后被 rerun 打红 → 不报（合入后的 run 无关） 18220ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > 合入前最后一次红、合入后才 rerun 绿 → 仍报（合入时就是红的） 24068ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > 合入前开始、合入后才 SUCCESS 完成 → 报（合入时 required 还没结论，不是绿） 25402ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > 旧 attempt 合入前绿 + 更新的 rerun 合入时仍在跑 → 报（合入时 GitHub 显示的是 pending，不退回旧的绿） 32362ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > 旧 attempt 合入前红 + 更新的 rerun 合入前完成绿 → 不报（最新 attempt 胜出） 14582ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > 生效后关闭 + 没有已合入的 PR → 报「没有任何已合入的 PR」 17644ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > 生效前关闭的存量 → 不倒查（即使 PR 是红的） 15320ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > gh 问不到（graphql 失败）+ --strict → FAIL 级（问不到不等于绿，不 fail-open） 17703ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > 关掉 issue 的 PR 在第二页（>100 个引用）→ 翻页到底后照样报出 PR #900 的红 10018ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > 第二页拿不到 + --strict → FAIL「查不到」（半份清单不放行） 7896ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > graphql 回包不带 pageInfo → 不知道有没有下一页，按「查不到」处理（strict FAIL） 7359ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > check run 全绿、但合入前打上的 commit status `coord/andon` 是 failure → 报（rollup 不只有 CheckRun） 9579ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > commit status 五个 state（REST 小写）：error 报、pending / expected / success 不报（非必需 context）、未知取值报 53282ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > commit status 合入前 failure、合入前又打成 success → 不报（合入前最后一次 state 说了算） 6722ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > commit status 合入后才打成 failure → 不报（合入后的观测无关） 6525ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > statuses 端点拿不到 + --strict → FAIL「查不到」（只有 check run 那一半不放行） 5324ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > gh 问不到 + 非 strict（pre-push）→ WARN 级 5708ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > 反证：队列 bot 合入、PR head 全绿 → 不判 ok，报「查不到候选组 commit」（strict FAIL） 5745ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > 同一份 PR head 绿、由人直接合入 → 判定行为一字不变（兼容存量，不倒逼全仓变红） 6275ms
+ ✓ .harness/scripts/lib/template-scan.test.ts (5 tests) 27ms
+ ✓ .harness/scripts/ci-full-regression.test.ts (11 tests) 68ms
+ ✓ .harness/scripts/doctor.test.ts (15 tests) 1083ms
+   ✓ isEvidenceCommitIntegrated > pull_request CI accepts evidence contained by the checked-out merge ref 549ms
+   ✓ isEvidenceCommitIntegrated > push and local runs still require evidence to be on origin/main 530ms
+ ✓ .harness/scripts/uiux-review-log-schema.test.ts (18 tests) 12ms
+ ✓ .harness/scripts/lint-e2e-artifact-isolation.test.ts (2 tests) 256ms
+ ✓ .harness/scripts/lib/ci-job-conditions.test.ts (20 tests) 6ms
+ ✓ .harness/scripts/vm/native-api-env-readiness.test.ts (9 tests) 11160ms
+   ✓ native API process environment readiness > waits through the pre-exec environment and requires consecutive valid process samples 1377ms
+   ✓ native API process environment readiness > rejects persistent wrong admission and missing binding values at the bounded deadline 2228ms
+   ✓ native API process environment readiness > reacquires MainPID and resets stability when the process changes 1797ms
+   ✓ native API process environment readiness > rejects a process replacement during its environment read 1366ms
+   ✓ native API process environment readiness > never accepts a missing PID or unreadable process environment 2109ms
+   ✓ native API process environment readiness > stops at the elapsed-time deadline even with sampling attempts remaining 937ms
+   ✓ native API process environment readiness > bounds a stalled MainPID query by the remaining deadline 1337ms
+ ✓ .harness/scripts/ci-skill-import-auth-probe.test.ts (22 tests) 26ms
+ ✓ .harness/scripts/oss-secret-scan.test.ts (8 tests) 2045ms
+   ✓ oss-secret-scan 基线增量门控（#4262） > 基线外的新假凭据让门控失败，只报 path + rule，不回显值 323ms
+   ✓ oss-secret-scan 基线增量门控（#4262） > 同一路径换了一个值也算新命中（按 sha256 比，不只按路径） 415ms
+   ✓ trace diagnostic fixture scanner contract > accepts the actual fake sentinel fixture but rejects its original literal assignment shape 434ms
+ ✓ .harness/scripts/execution-plan.test.ts (23 tests) 104ms
+ ✓ .harness/scripts/vm/cn-bootstrap-sequencing.test.ts (12 tests) 4412ms
+   ✓ bootstrap phase sequencing > runs the actual prebuild source closure with no reachable DB and no database claims 1143ms
+   ✓ bootstrap phase sequencing > rejects invalid actual source input 1482ms
+   ✓ bootstrap phase sequencing > does not silently make the preactivate source probe static 1260ms
+ ✓ .harness/scripts/lint-tailwind-color-tokens.test.ts (10 tests) 18ms
+ ✓ .harness/scripts/lib/spec-ref.test.ts (18 tests) 33ms
+ ✓ .harness/scripts/uiux-review-log-stats.test.ts (11 tests) 8ms
+ ✓ .harness/scripts/lint-vitest-config-reachability.test.ts (10 tests) 6ms
+ ✓ .harness/scripts/lint-contract-route-coverage-gate.test.ts (9 tests) 2711ms
+   ✓ 命令行入口（正样本：门不是恒红） > 真仓库 → 退出 0，并说清楚名单有多长 1444ms
+   ✓ 命令行入口（正样本：门不是恒红） > 真仓库 + --strict → 同样退出 0（门控模式不是把正常状态判红） 1223ms
+ ✓ .harness/scripts/coord-service-retirement.test.ts (4 tests) 3ms
+ ✓ .harness/scripts/ci-branch-routing.test.ts (11 tests) 478ms
+ ✓ .harness/scripts/vm/deploy-trusted-copy-drift.test.ts (6 tests) 673ms
+   ✓ 部署前先确认「要跑的那份脚本」就是本次提交里的那份 > actual Git source preflight precedes sudo and rejects byte drift before any deployment 472ms
+ ✓ .harness/scripts/verify-cn-promotion.test.ts (6 tests) 1825ms
+   ✓ CN production promotion gate > rejects a release whose sealed manifest hash no longer matches 335ms
+   ✓ CN production promotion gate > accepts the main-cn tip only when it is in main and all images use digests 301ms
+   ✓ CN production promotion gate > rejects a commit that main does not contain 445ms
+   ✓ CN production promotion gate > rejects a mutable image tag 304ms
+   ✓ CN production promotion gate > requires application images in the configured ACR namespace but permits upstream data images 436ms
+ ❯ .harness/scripts/vm/cn-release-candidate-workflow.test.ts (9 tests | 1 failed | 2 skipped) 19248ms
+   ✓ CN release candidate workflow > requires manual main admission and rejects unsafe contexts before side effects 2922ms
+   ✓ CN release candidate workflow > executes the automatic dispatcher counterexamples in the harness CI lane 12896ms
+   ✓ CN release candidate workflow > executes real Python source importer counterexamples in the harness CI lane 2910ms
+   × CN release candidate workflow > executes automatic host provider boundaries and timeout counterexamples 516ms
+     → test_actual_backup_artifact_can_exceed_seventeen_megabytes (test_cn_auto_prepare.DispatcherTests) ... ok
+test_actual_process_timeout_is_killed_and_joined (test_cn_auto_prepare.DispatcherTests) ... ok
+test_actual_stdout_flood_is_still_bounded (test_cn_auto_prepare.DispatcherTests) ... ERROR
+test_caller_commands_and_invalid_identity_refused (test_cn_auto_prepare.DispatcherTests) ... ok
+test_code_drift_never_runs_provider (test_cn_auto_prepare.DispatcherTests) ... ok
+test_cross_attempt_output_is_refused (test_cn_auto_prepare.DispatcherTests) ... ok
+test_existing_stage_is_not_reexecuted (test_cn_auto_prepare.DispatcherTests) ... ok
+test_literal_passed_and_cross_attempt_are_not_evidence (test_cn_auto_prepare.DispatcherTests) ... ok
+test_no_policy_never_runs_provider (test_cn_auto_prepare.DispatcherTests) ... ok
+test_output_directory_symlink_is_rejected_before_provider (test_cn_auto_prepare.DispatcherTests) ... ok
+test_records_exact_raw_bytes_as_private_receipt_and_intent (test_cn_auto_prepare.DispatcherTests) ... ok
+test_rehashes_actual_artifact_and_refuses_post_producer_tampering (test_cn_auto_prepare.DispatcherTests) ... ok
+test_stream_hashes_large_ciphertext_and_rejects_symlink_and_cross_attempt (test_cn_auto_prepare.DispatcherTests) ... ok
+test_unknown_outcome_requires_reconciliation (test_cn_auto_prepare.DispatcherTests) ... ok
+
+======================================================================
+ERROR: test_actual_stdout_flood_is_still_bounded (test_cn_auto_prepare.DispatcherTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/shenyangjun/.codex/worktrees/2e5d/workspacex/.harness/scripts/vm/test_cn_auto_prepare.py", line 82, in test_actual_stdout_flood_is_still_bounded
+    self.with_fd9(action)
+  File "/Users/shenyangjun/.codex/worktrees/2e5d/workspacex/.harness/scripts/vm/test_cn_auto_prepare.py", line 63, in with_fd9
+    try:return action()
+  File "/Users/shenyangjun/.codex/worktrees/2e5d/workspacex/.harness/scripts/vm/test_cn_auto_prepare.py", line 81, in action
+    with self.assertRaisesRegex(m.NotReady,'PROVIDER_OUTPUT_BOUND'):m.bounded([sys.executable,'-c',"import sys;sys.stdout.buffer.write(b'x'*(20*1024*1024));sys.stdout.buffer.flush()"],{},5)
+  File "/Users/shenyangjun/.codex/worktrees/2e5d/workspacex/.harness/scripts/vm/cn_auto_prepare.py", line 64, in bounded
+    try:os.killpg(p.pid,signal.SIGKILL)
+PermissionError: [Errno 1] Operation not permitted
+
+----------------------------------------------------------------------
+Ran 14 tests in 0.328s
+
+FAILED (errors=1)
+: expected 1 to be +0 // Object.is equality
+ ✓ .harness/scripts/vm/cn-candidate-config-wiring.test.ts (7 tests) 27ms
+ ✓ .harness/scripts/shared-image-source.test.ts (5 tests) 31ms
+ ✓ .harness/scripts/lint-ci-python-runtime.test.ts (2 tests) 6ms
+ ✓ .harness/scripts/lib/phase-readiness.test.ts (7 tests) 6ms
+ ✓ .harness/scripts/lint-root-router.test.ts (16 tests) 7ms
+ ✓ .harness/scripts/lib/gate-mutation-spec.test.ts (22 tests) 8ms
+ ✓ .harness/scripts/vm/deploy-secret-argv.test.ts (9 tests) 3297ms
+   ✓ loads synthetic credentials after sudo without putting them in captured argv 1229ms
+   ✓ password SQL preserves characters and keeps "synthetic'password" out of docker argv 481ms
+ ✓ .harness/scripts/lint-pnpm-override-selector.test.ts (10 tests) 1438ms
+   ✓ 真仓库现状 > `pnpm run lint:pnpm-override-selector` 在真仓库上退 0 1430ms
+ ✓ .harness/scripts/vm/deploy-env-write-quoting.test.ts (3 tests) 71ms
+ ✓ .harness/scripts/lint-plan-surface-single-source.test.ts (6 tests) 14ms
+ ✓ .harness/scripts/ci-manual-base-lane.test.ts (8 tests) 34ms
+configuration diagnostic outside JSON
+
+Running 1 test using 1 worker
+
+
+
+configuration diagnostic outside JSON
+
+[1/1] [selected] › .targeted-browser-zMfsjJ/a.spec.ts:1:50 › actual a
+  1 passed (391ms)
+(node:24198) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ .harness/scripts/phase-board.test.ts (4 tests) 1962ms
+   ✓ 阶段看板 > 承诺表里没有那张 issue 时仍然跑完整块板，不半途崩掉 544ms
+   ✓ 阶段看板 > 正样本：有承诺时间时渲染倒计时，证明上面那条不是因为整块板都没渲染 374ms
+   ✓ 人类阻断项：清单里有 ≠ 现在还成立 > 已解除的阻断项不再进入「当前瓶颈」，但仍以一行摘要保留可追溯 471ms
+   ✓ 人类阻断项：清单里有 ≠ 现在还成立 > 反空转正样本：**未**解除的照旧算作当前瓶颈 572ms
+ ✓ .harness/scripts/realtime-asr-design.test.ts (9 tests) 56ms
+ ✓ .harness/scripts/vm/cn-bootstrap-baseline.test.mjs (19 tests) 12ms
+ ✓ .harness/scripts/lib/role-freeze.test.ts (13 tests) 9ms
+ ✓ .harness/scripts/lint-startup-discovery.test.ts (6 tests) 405ms
+ ✓ .harness/scripts/lib/feature-evidence-ratchet.test.ts (14 tests) 8ms
+configuration diagnostic outside JSON
+
+Running 1 test using 1 worker
+
+
+
+configuration diagnostic outside JSON
+
+[1/1] [selected] › .targeted-browser-zMfsjJ/a.spec.ts:1:50 › actual a
+  1 passed (619ms)
+(node:24328) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ .harness/scripts/lib/renderer-model.test.ts (12 tests) 11ms
+configuration diagnostic outside JSON
+
+Running 2 tests using 1 worker
+
+
+
+configuration diagnostic outside JSON
+
+[1/2] [selected] › .targeted-browser-zMfsjJ/a.spec.ts:1:50 › actual pass
+[2/2] [selected] › .targeted-browser-zMfsjJ/a.spec.ts:1:93 › declared but not executed
+  1 skipped
+  1 passed (703ms)
+(node:24534) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ .harness/scripts/ci-targeted-evidence.test.ts (4 tests) 10581ms
+   ✓ executes a real selected browser fixture and rejects missing, replayed and changed suite evidence 10574ms
+ ✓ .harness/scripts/doctor-outcome.test.ts (10 tests) 8ms
+ ✓ .harness/scripts/vm/deep-agent-deploy-preflight.test.ts (6 tests) 4731ms
+   ✓ derives the image port and initializes durable storage on the same private network 870ms
+   ✓ database readiness failure cleans only its probe and retains the old service 960ms
+   ✓ rejects ambiguous exposed ports before starting a database probe 452ms
+   ✓ accepts the health route actually registered by the ASGI runtime 673ms
+   ✓ fails after bounded retries when the runtime health route is unavailable 1773ms
+ ✓ .harness/scripts/source-release.test.mjs (24 tests) 646ms
+   ✓ real isolated Git history admits frozen ancestor and refuses unrelated or missing commits 638ms
+ ✓ .harness/scripts/lib/adr-id.test.ts (18 tests) 10ms
+ ✓ .harness/scripts/vm/cn-promotion-compensation.test.ts (7 tests) 130ms
+ ✓ .harness/scripts/docker-residue.test.ts (12 tests) 8ms
+ ✓ .harness/scripts/lint-commitments.test.ts (12 tests) 842ms
+ ✓ .harness/scripts/lib/test-isolation-port-leases.test.ts (6 tests) 675ms
+   ✓ #3128 ownership survives listener release > candidate exhaustion fails closed and rolls back earlier listeners and leases 576ms
+ ✓ .harness/scripts/skill-frontmatter.test.ts (13 tests) 13ms
+ ✓ .harness/scripts/lib/verify-evidence-scope.test.ts (9 tests) 7ms
+ ✓ .harness/scripts/vm/cn-baseline-schema-contract.test.mjs (18 tests) 15ms
+ ✓ .harness/scripts/lint-rewrite-shadow.test.ts (6 tests) 6613ms
+   ✓ lint-rewrite-coverage 反方向接线（#610） > ① 加一条遮蔽既有前端页面的通配 rewrite → 退出非 0，并点名那条规则与那个页面 1105ms
+   ✓ lint-rewrite-coverage 反方向接线（#610） > ② 同一条遮蔽带理由登记进棘轮 → 退出 0（棘轮是出口，不是把门改松） 1084ms
+   ✓ lint-rewrite-coverage 反方向接线（#610） > ③ 棘轮条目没有 reason → 不算登记，照样红 1132ms
+   ✓ lint-rewrite-coverage 反方向接线（#610） > ④ 遮蔽修好了、棘轮条目还留着 → 报陈旧并退出非 0（另一个方向的反证） 800ms
+   ✓ lint-rewrite-coverage 反方向接线（#610） > ⑤ 通配收窄之后 → 退出 0（正样本：门不是恒红） 977ms
+   ✓ lint-rewrite-coverage 反方向接线（#610） > ⑥ 真仓库：反方向真的跑到了，而且是拿真实页面路由与求值后的规则在判 1514ms
+ ✓ .harness/scripts/vm/cn-auto-evidence-stage.test.ts (4 tests | 1 skipped) 296ms
+ ✓ .harness/scripts/lib/render-pipeline.test.ts (6 tests) 8ms
+ ✓ .harness/scripts/lib/executed-count.test.ts (12 tests) 7ms
+ ✓ .harness/scripts/skill-files-preview-deploy.test.ts (7 tests) 1696ms
+   ✓ fixed host activation preserves exit 0, exact argv and redacted summary 530ms
+   ✓ fixed host activation preserves exit 1, exact argv and redacted summary 441ms
+   ✓ fixed host activation preserves exit 23, exact argv and redacted summary 591ms
+ ✓ .harness/scripts/vm/deploy-env-key-backfill.test.ts (5 tests) 226ms
+ ✓ .harness/scripts/lib/template-model.test.ts (18 tests) 15ms
+ ✓ .harness/scripts/run-verify-lanes.test.ts (7 tests) 10ms
+ ✓ .harness/scripts/r08-discovery-environment.test.mjs (4 tests) 3234ms
+   ✓ actual CN list imports without a browser while runtime config still rejects missing owner executable 3229ms
+ ✓ .harness/scripts/lint-third-artifact-race.test.ts (3 tests) 29ms
+ ✓ .harness/scripts/lib/rewrite-coverage-evidence.test.ts (6 tests) 6ms
+ ✓ .harness/scripts/lib/generated-metadata.test.ts (12 tests) 12ms
+ ✓ .harness/scripts/ci-parallel-evidence.test.ts (4 tests) 758ms
+   ✓ accepts the actual routed chat workflow dependency payload and rejects incomplete producers 731ms
+ ✓ .harness/scripts/ci-doc-smoke-scope.test.ts (6 tests) 1021ms
+   ✓ uses actual Git diffs and retains coverage on code renamed into docs and symlinks 921ms
+ ✓ .harness/scripts/lib/skill-doctor-model.test.ts (13 tests) 8ms
+ ✓ .harness/scripts/lint-run-status-view-single-source.test.ts (6 tests) 11ms
+ ✓ .harness/scripts/vm/api-docker-workspace-context.test.ts (4 tests) 9ms
+ ✓ .harness/scripts/vm/real-model-chat-evidence-env.test.ts (2 tests) 63ms
+ ✓ .harness/scripts/lib/evidence-integration.test.ts (7 tests) 1954ms
+   ✓ evidenceLogCommit > returns the last commit touching the log, and null when the log was never committed 526ms
+   ✓ isCommitOnMain > is true for an ancestor of main and false for a branch-only commit 505ms
+   ✓ isCommitOnMain > fails closed when the main ref does not exist (no fetch / shallow clone) 409ms
+   ✓ evidenceIntegration (the single predicate shared by doctor and sync, #1557) > branch-only evidence → not-on-main; after fast-forwarding main it becomes on-main 511ms
+ ✓ .harness/scripts/lint-production-not-on-ops.test.ts (8 tests) 2936ms
+   ✓ lint-production-not-on-ops > 当前仓库是干净的，且确实扫到了文件 2575ms
+ ✓ .harness/scripts/lint-ci-workflow-concurrency.test.ts (20 tests) 13ms
+ ✓ .harness/scripts/ci-queue-ready.test.ts (6 tests) 10ms
+ ✓ .harness/scripts/lint-shipped-pack-version.test.ts (11 tests) 7ms
+ ✓ .harness/scripts/vm/s013-real-model-evidence.test.ts (7 tests) 171ms
+ ✓ .harness/scripts/lint-telemetry-schema.test.ts (10 tests) 7898ms
+   ✓ lint-telemetry-schema > 真实契约是干净的，且确实遍历到了叶子字段 768ms
+   ✓ lint-telemetry-schema > 默认目标覆盖第一个价值时刻的两层 schema（backlog E1） 713ms
+   ✓ lint-telemetry-schema > 对照组：全是受约束字段的 strict 对象判绿 577ms
+   ✓ lint-telemetry-schema > ① 不受约束的字符串 ⇒ 红（自由文本能装下客户的一句话） 771ms
+   ✓ lint-telemetry-schema > ② 字段名像个人信息 ⇒ 红（驼峰拆开后按词匹配） 2550ms
+   ✓ lint-telemetry-schema > ③ 对象没有 .strict() ⇒ 红（多出的字段会被悄悄丢掉） 667ms
+   ✓ lint-telemetry-schema > ③ Record 的键是任意字符串 ⇒ 红（等于没有白名单） 635ms
+   ✓ lint-telemetry-schema > ④ 数组没有上限 ⇒ 红 620ms
+   ✓ lint-telemetry-schema > 嵌在 optional / superRefine / 数组里的违规也找得到 590ms
+ ✓ .harness/scripts/sweep-worktrees.test.ts (3 tests) 2470ms
+   ✓ sweep-worktrees: 已 commit 但未推送的检测 > 反证：分支从未 push 过 —— 必须被判定为有未推送 commit，即使 git status 干净 769ms
+   ✓ sweep-worktrees: 已 commit 但未推送的检测 > 反证：已经 push 到 origin 且完全同步 —— 不应被判定为未推送 835ms
+   ✓ sweep-worktrees: 已 commit 但未推送的检测 > 反证：push 过，但之后又本地新 commit —— 未推送数应该等于「新 commit 数」而不是全部历史 865ms
+ ✓ .harness/scripts/session-skill-descriptions.test.ts (5 tests) 5ms
+ ✓ .harness/scripts/ci-web-shards.test.ts (3 tests) 6027ms
+   ✓ covers actual Web ts and tsx identities exactly 979ms
+   ✓ runs exact real fixture shards and rejects missing, duplicate and tampered evidence 5046ms
+ ✓ .harness/scripts/real-model-smoke.test.ts (4 tests) 3112ms
+   ✓ real-model-smoke exit status (#4886) > fails on an unbound startup variable even when EXIT sees status zero 390ms
+   ✓ real-model-smoke exit status (#4886) > fails when the stack exits before readiness, without running a spec 619ms
+   ✓ real-model-smoke exit status (#4886) > preserves the completed spec exit code 0 1145ms
+   ✓ real-model-smoke exit status (#4886) > preserves the completed spec exit code 41 957ms
+ ✓ .harness/scripts/lint-ee-boundary.test.ts (8 tests) 1343ms
+   ✓ lint-ee-boundary > 当前仓库干净，且确实扫到了开源包文件 943ms
+ ✓ .harness/scripts/lint-maau-manifest.test.ts (6 tests) 3391ms
+   ✓ lint-maau-manifest > 回归：身份嵌在 metadata: 下的技能包，身份判为齐全（初版把它误报成缺失） 594ms
+   ✓ lint-maau-manifest > 顶层写法同样判为齐全 546ms
+   ✓ lint-maau-manifest > 真缺身份时仍报 identity 560ms
+   ✓ lint-maau-manifest > name 与目录名不一致也报——那会让按名字找目录悄悄取错文件 578ms
+   ✓ lint-maau-manifest > 缺许可：默认只报告（退出 0），--strict 判失败 1110ms
+ ✓ .harness/scripts/ci-board-native-shards.test.ts (7 tests) 67ms
+ ✓ .harness/scripts/vm/billing-runtime.test.ts (5 tests) 1043ms
+   ✓ trusted devapp billing configuration > checks Stripe staging, retry recovery and activation compensation in CI 819ms
+ ✓ .harness/scripts/lib/test-port-lease.test.ts (6 tests) 455ms
+ ✓ .harness/scripts/lib/startup-discovery.test.ts (10 tests) 14ms
+ ✓ .harness/scripts/lint-package-license.test.ts (7 tests) 383ms
+ ✓ .harness/scripts/ci-static-ownership.test.ts (3 tests) 5ms
+ ✓ .harness/scripts/ci-targeted-wiring.test.ts (6 tests) 176ms
+ ✓ .harness/scripts/vm/realtime-voice-route-repair.test.ts (5 tests) 6067ms
+   ✓ reviewed realtime voice route repair > repairs missing voice on an existing Board deployment; a second run makes no change 1589ms
+   ✓ reviewed realtime voice route repair > repairs both reviewed routes on older deployments 1581ms
+   ✓ reviewed realtime voice route repair > leaves live config unchanged when candidate validation fails 1067ms
+   ✓ reviewed realtime voice route repair > restores previous config when reload and restart fail 1815ms
+EXPLICIT_COMMIT_SHA_REQUIRED
+ ✓ .harness/scripts/ci-test-plan.test.ts (12 tests) 1304ms
+   ✓ uses actual commit diffs including rename and rejects absent bases 1198ms
+ ✓ .harness/scripts/check-dco.test.ts (7 tests) 3179ms
+   ✓ check-dco > 对照组：签署邮箱与作者一致（大小写不敏感）⇒ 绿 466ms
+   ✓ check-dco > 没有 Signed-off-by ⇒ 红 371ms
+   ✓ check-dco > 签的是别人的邮箱 ⇒ 红（替别人做 DCO 声明不算签） 367ms
+   ✓ check-dco > 多个提交里只要有一个没签就红 469ms
+   ✓ check-dco > merge 提交不查 1131ms
+   ✓ check-dco > 范围内 0 个提交 ⇒ 不许判绿（多半是范围算错了） 371ms
+ ✓ .harness/scripts/lib/graph-compiler.test.ts (4 tests) 23ms
+ ✓ .harness/scripts/ci-backend-required.test.ts (4 tests) 40ms
+ ✓ .harness/scripts/lib/contract-rewrite-coverage.test.ts (6 tests) 6ms
+ ✓ .harness/scripts/doctor-closing-prs-pagination.test.ts (5 tests) 6ms
+ ✓ .harness/scripts/vm/cn-fixed-candidate-freeze.test.ts (4 tests) 8ms
+ ✓ .harness/scripts/lint-work-stack-graph.test.ts (7 tests) 28ms
+ ✓ .harness/scripts/lib/verify-timing.test.ts (6 tests) 10ms
+ ✓ .harness/scripts/wave2-runtime-design.test.ts (3 tests) 5ms
+ ✓ .harness/scripts/lint-local-zero-egress.test.ts (7 tests) 439ms
+ ✓ .harness/scripts/lint-contracts-no-workspace-deps.test.ts (7 tests) 431ms
+ ✓ .harness/scripts/vm/cn-bootstrap-consumer.test.mjs (8 tests) 464ms
+ ✓ .harness/scripts/vm/devapp-operation-mutex.test.ts (20 tests) 239ms
+ ✓ .harness/scripts/merge-group-discovery.test.ts (12 tests) 384ms
+   ✓ reads actual single/multi synthetic Git history without walking source issue subjects 378ms
+ ✓ .harness/scripts/vm/devapp-install-trusted-scripts.test.ts (7 tests) 2683ms
+   ✓ reproduces old three matching targets while rejecting the absent fourth module 352ms
+   ✓ accepts all four matching bytes with required root owner, modes and ordinary files 492ms
+   ✓ rejects fourth module stale 614ms
+   ✓ rejects fourth module owner 396ms
+   ✓ rejects fourth module mode 420ms
+   ✓ rejects fourth module symlink 407ms
+ ✓ .harness/scripts/vm/native-session-probe.test.ts (2 tests) 203ms
+ ✓ .harness/scripts/doctor-issue-truncation.test.ts (2 tests) 10297ms
+   ✓ doctor：issue 清单截断 > 触顶（可能被截断）时降级跳过，**不**报「没有对应 issue」 5219ms
+   ✓ doctor：issue 清单截断 > 反空转正样本：清单**没有**触顶时，那条否定性判断照旧会报 5078ms
+ ✓ .harness/scripts/lib/clr-queue-closed-issues.test.ts (7 tests) 3ms
+ ✓ .harness/scripts/record-readiness-evidence.test.ts (3 tests) 2166ms
+   ✓ record-readiness-evidence：零收集不得产出通过 manifest > `Tests  no tests` 的日志让记录器非零退出且不写 manifest 726ms
+   ✓ record-readiness-evidence：零收集不得产出通过 manifest > 认不出执行条数的日志同样非零退出——不记 0 放行 765ms
+   ✓ record-readiness-evidence：零收集不得产出通过 manifest > 真跑过用例的日志照常产出 manifest，并把执行条数记进去 675ms
+ ✓ .harness/scripts/coordination-protocol-doc.test.ts (4 tests) 4ms
+ ✓ .harness/scripts/ci-devapp-reuse-tag.test.ts (5 tests) 7ms
+ ✓ .harness/scripts/lib/contract-route-coverage-fs.test.ts (10 tests) 100ms
+ ✓ .harness/scripts/ci-smoke-parallel.test.ts (4 tests) 56ms
+ ✓ .harness/scripts/sync-issue-truncation.test.ts (2 tests) 8322ms
+   ✓ sync --apply：issue 清单截断（#2483） > 触顶（可能被截断）→ 退出非 0，且**一条**建/改/关都没发出 1615ms
+   ✓ sync --apply：issue 清单截断（#2483） > 反空转正样本：清单**没有**触顶时照常走下去，会发出建 issue 的命令 6705ms
+ ✓ .harness/scripts/lib/generated-drift-gate.test.ts (6 tests) 7ms
+ ✓ .harness/scripts/lib/placeholder-gate.test.ts (9 tests) 6ms
+ ✓ .harness/scripts/lint-third-party-license.test.ts (6 tests) 575ms
+ ✓ .harness/scripts/vm/deep-agent-checkpoint-lib.test.ts (4 tests) 2623ms
+   ✓ bootstraps missing DSN and reuses credentials without placing them in process arguments or output 756ms
+   ✓ preserves an existing external DSN byte-for-byte 720ms
+   ✓ fails closed on ambiguous networks without generating credentials 457ms
+   ✓ retains generated credentials after a database failure for an idempotent retry and redacts diagnostics 689ms
+ ✓ .harness/scripts/lint-isolation-port-single-source.test.ts (4 tests) 11ms
+ ✓ .harness/scripts/oss-dependency-inventory.test.ts (11 tests) 2074ms
+ ✓ .harness/scripts/vm/real-model-pdf-auto-approve.test.ts (4 tests) 7ms
+ ✓ .harness/scripts/ci-aggregate-consistency.test.ts (4 tests) 6ms
+ ✓ .harness/scripts/lib/agent-identity.test.ts (7 tests) 224ms
+ ✓ .harness/scripts/init-startup-messaging.test.ts (4 tests) 8ms
+ ✓ .harness/scripts/ci-queue-wiring.test.ts (7 tests) 406ms
+ ✓ .harness/scripts/lint-ui-prototyper-single-source.test.ts (9 tests) 8ms
+ ✓ .harness/scripts/gen-subagents-registry-discovery.test.ts (3 tests) 64ms
+ ✓ .harness/scripts/lib/feature-owner-repo.test.ts (4 tests) 6ms
+ ✓ .harness/scripts/lint-rewrite-coverage-gate.test.ts (2 tests) 61ms
+ ✓ .harness/scripts/lint-user-facing-error-text.test.ts (4 tests) 3173ms
+   ✓ lint-user-facing-error-text > 当前代码库是干净的（退出码 0） 385ms
+   ✓ lint-user-facing-error-text > 拒绝临时仓库中 'apps/web/components/error-text-regres…' 的原始异常文案 1511ms
+   ✓ lint-user-facing-error-text > 拒绝临时仓库中 'apps/web/components/admin/member-quot…' 的原始异常文案 1273ms
+ ✓ .harness/scripts/ci-core-loop-runtime.test.ts (3 tests) 34ms
+ ✓ .harness/scripts/lib/graph-validator.test.ts (7 tests) 18ms
+ ✓ .harness/scripts/ci-harness-static.test.ts (3 tests) 43ms
+ ✓ .harness/scripts/doctor-evidence-legacy.test.ts (4 tests) 12ms
+ ✓ .harness/scripts/vm/browser-runtime-wiring.test.ts (5 tests) 63ms
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.309s
+
+OK
+ ✓ .harness/scripts/ci-image-release-gate.test.ts (5 tests) 507ms
+   ✓ retains strict application-only release typechecking without bundling API E2E fixtures 415ms
+ ✓ .harness/scripts/vm/cn-candidate-checkout-restore.test.ts (2 tests) 1385ms
+   ✓ restores original branch checkout after an injected publisher failure 665ms
+   ✓ restores original detached checkout after an injected publisher failure 719ms
+ ✓ .harness/scripts/lib/github-issues.test.ts (5 tests) 6ms
+ ✓ .harness/scripts/ci-targeted-routing.test.ts (4 tests) 232ms
+ ✓ .harness/scripts/lint-rewrite-coverage-strict.test.ts (3 tests) 3012ms
+   ✓ lint-rewrite-coverage --strict（#2490：PR 门控不许 fail-open） > ① 扫不全 + 不带 --strict → 退出 0，且明说「没做判断」（只读审计的降级语义保留） 915ms
+   ✓ lint-rewrite-coverage --strict（#2490：PR 门控不许 fail-open） > ② 扫不全 + --strict → 退出非 0（门控模式下「没做判断」不能当绿） 895ms
+   ✓ lint-rewrite-coverage --strict（#2490：PR 门控不许 fail-open） > ③ 真仓库 + --strict → 退出 0（正样本：门不是恒红） 1200ms
+ ✓ .harness/scripts/lib/template-id.test.ts (13 tests) 17ms
+ ✓ .harness/scripts/ci-billing-workflow.test.ts (2 tests) 89ms
+ ✓ .harness/scripts/ci-targeted-runner.test.ts (3 tests) 3949ms
+   ✓ executes selected Vitest files rather than relying on a declared plan 3942ms
+ ✓ .harness/scripts/ci-smoke-partition-wiring.test.ts (3 tests) 36ms
+ ✓ .harness/scripts/lib/agent-spec-discovery.test.ts (7 tests) 7ms
+ ✓ .harness/scripts/claude-skills-link.test.ts (2 tests) 8ms
+ ✓ .harness/scripts/ci-smoke-partition.test.ts (1 test) 8006ms
+   ✓ actual installed Playwright discovery preserves the complete smoke suite > product and board form a disjoint exact union of the original test identities 8005ms
+ ✓ .harness/scripts/vm/s016-asr-real-evidence.test.ts (2 tests) 106ms
+ ✓ .harness/scripts/ci-base-log-retention.test.ts (1 test) 102ms
+ ✓ .harness/scripts/ci-smoke-partition-policy.test.ts (3 tests) 10ms
+ ✓ .harness/scripts/ci-skill-scope.test.ts (3 tests) 206ms
+ ✓ .harness/scripts/lib/graph-authority.test.ts (5 tests) 10ms
+ ✓ .harness/scripts/lint-test-listen-loopback.test.ts (5 tests) 9ms
+ ✓ .harness/scripts/ci-aggregate-cancellation.test.ts (6 tests) 10ms
+ ✓ .harness/scripts/vm/cn-deploy-pnpm-forwarding.test.ts (1 test) 4629ms
+   ✓ forwards CN deploy CLI arguments under the declared pnpm version 4627ms
+ ✓ .harness/scripts/lib/board-native-receipts.test.mjs (1 test) 60ms
+ ✓ .harness/scripts/preview-lane-isolation.test.ts (4 tests) 535ms
+   ✓ fixture-only preview lane isolation (#4888, #4889) > prototype-audit uses its reserved port and rejects inherited API prefixes 517ms
+ ✓ .harness/scripts/ci-base-preflight.test.ts (2 tests) 60ms
+ ✓ .harness/scripts/vm/cn-offline-source-cache.test.ts (1 test) 710ms
+   ✓ rejects absent, untrusted, and promisor caches before Prepare 709ms
+ ✓ .harness/scripts/vm/cn-stable12-readonly.test.ts (3 tests) 65ms
+ ✓ .harness/scripts/lib/evidence-fingerprint.test.ts (6 tests) 264ms
+ ✓ .harness/scripts/ci-control-plane-scope.test.ts (2 tests) 8ms
+ ✓ .harness/scripts/lib/graph-stable.test.ts (2 tests) 21ms
+ ✓ .harness/scripts/ci-smoke-verdict.test.ts (8 tests) 7ms
+ ✓ .harness/scripts/lib/subagent-orphans.test.ts (4 tests) 4ms
+ ✓ .harness/scripts/vm/cn-compose-baseline.test.ts (2 tests) 407ms
+   ✓ executes protected multi-Compose identity and rollback protocol counterexamples 403ms
+ ✓ .harness/scripts/ci-core-loop-required.test.ts (2 tests) 51ms
+ ✓ .harness/scripts/verify-no-silent-claim.test.ts (2 tests) 4ms
+ ✓ .harness/scripts/claim.test.ts (2 tests) 4ms
+ ✓ .harness/scripts/merge-gate-advisory.test.ts (4 tests) 4ms
+ ✓ .harness/scripts/lib/graph-integration.test.ts (2 tests) 531ms
+   ✓ Graph Kernel real repository > 真实权威源可确定性编译且通过首阶段约束 474ms
+ ✓ .harness/scripts/vm/cn-offline-yaml.test.ts (3 tests) 1251ms
+   ✓ regenerates official pinned YAML bundle byte-for-byte with lock/license closure 1228ms
+ ✓ .harness/scripts/lib/sh.test.ts (2 tests) 34044ms
+   ✓ sh() — 双管道大体量并发输出不挂起（2026-08-15 F156 verify:quick 假死复现修复） > stdout 和 stderr 同时产出远超单条 OS pipe 缓冲区（64KB）的并发数据，不阻塞、不超时 33620ms
+   ✓ sh() — 双管道大体量并发输出不挂起（2026-08-15 F156 verify:quick 假死复现修复） > 超过旧的 1MB 默认 maxBuffer 的输出不再被 SIGTERM 杀掉（原复现里看到的 exit 143） 423ms
+ ✓ .harness/scripts/vm/deploy-purge-postinvest-wiring.test.ts (2 tests) 4ms
+ ✓ .harness/scripts/ci-base-ownership.test.ts (1 test) 3ms
+ ✓ .harness/scripts/vm/isolated-rehearsal.test.ts (1 test) 21714ms
+   ✓ isolated rehearsal input and failure closure > executes provider, target, durable-intent and real-process counterexamples 21712ms
+ ✓ .harness/scripts/lib/roadmap.test.ts (1 test) 2ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  .harness/scripts/vm/cn-release-candidate-workflow.test.ts > CN release candidate workflow > executes automatic host provider boundaries and timeout counterexamples
+AssertionError: test_actual_backup_artifact_can_exceed_seventeen_megabytes (test_cn_auto_prepare.DispatcherTests) ... ok
+test_actual_process_timeout_is_killed_and_joined (test_cn_auto_prepare.DispatcherTests) ... ok
+test_actual_stdout_flood_is_still_bounded (test_cn_auto_prepare.DispatcherTests) ... ERROR
+test_caller_commands_and_invalid_identity_refused (test_cn_auto_prepare.DispatcherTests) ... ok
+test_code_drift_never_runs_provider (test_cn_auto_prepare.DispatcherTests) ... ok
+test_cross_attempt_output_is_refused (test_cn_auto_prepare.DispatcherTests) ... ok
+test_existing_stage_is_not_reexecuted (test_cn_auto_prepare.DispatcherTests) ... ok
+test_literal_passed_and_cross_attempt_are_not_evidence (test_cn_auto_prepare.DispatcherTests) ... ok
+test_no_policy_never_runs_provider (test_cn_auto_prepare.DispatcherTests) ... ok
+test_output_directory_symlink_is_rejected_before_provider (test_cn_auto_prepare.DispatcherTests) ... ok
+test_records_exact_raw_bytes_as_private_receipt_and_intent (test_cn_auto_prepare.DispatcherTests) ... ok
+test_rehashes_actual_artifact_and_refuses_post_producer_tampering (test_cn_auto_prepare.DispatcherTests) ... ok
+test_stream_hashes_large_ciphertext_and_rejects_symlink_and_cross_attempt (test_cn_auto_prepare.DispatcherTests) ... ok
+test_unknown_outcome_requires_reconciliation (test_cn_auto_prepare.DispatcherTests) ... ok
+
+======================================================================
+ERROR: test_actual_stdout_flood_is_still_bounded (test_cn_auto_prepare.DispatcherTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/shenyangjun/.codex/worktrees/2e5d/workspacex/.harness/scripts/vm/test_cn_auto_prepare.py", line 82, in test_actual_stdout_flood_is_still_bounded
+    self.with_fd9(action)
+  File "/Users/shenyangjun/.codex/worktrees/2e5d/workspacex/.harness/scripts/vm/test_cn_auto_prepare.py", line 63, in with_fd9
+    try:return action()
+  File "/Users/shenyangjun/.codex/worktrees/2e5d/workspacex/.harness/scripts/vm/test_cn_auto_prepare.py", line 81, in action
+    with self.assertRaisesRegex(m.NotReady,'PROVIDER_OUTPUT_BOUND'):m.bounded([sys.executable,'-c',"import sys;sys.stdout.buffer.write(b'x'*(20*1024*1024));sys.stdout.buffer.flush()"],{},5)
+  File "/Users/shenyangjun/.codex/worktrees/2e5d/workspacex/.harness/scripts/vm/cn_auto_prepare.py", line 64, in bounded
+    try:os.killpg(p.pid,signal.SIGKILL)
+PermissionError: [Errno 1] Operation not permitted
+
+----------------------------------------------------------------------
+Ran 14 tests in 0.328s
+
+FAILED (errors=1)
+: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ .harness/scripts/vm/cn-release-candidate-workflow.test.ts:37:57
+     35|     for(const pattern of ["test_cn_auto_prepare.py","test_cn_auto_prep…
+     36|       const result=spawnSync("python3",["-B","-m","unittest","discover…
+     37|       expect(result.status,result.stdout+result.stderr).toBe(0);
+       |                                                         ^
+     38|       expect(result.stdout+result.stderr).not.toContain("Ran 0 tests");
+     39|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 252 passed (253)
+      Tests  1 failed | 2898 passed | 4 skipped (2903)
+   Start at  18:27:55
+   Duration  669.16s (transform 5.04s, setup 0ms, collect 34.30s, tests 1212.35s, environment 55ms, prepare 21.20s)

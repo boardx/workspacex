@@ -1,0 +1,26 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web
+
+ ❯ tests/ui/personal-checkout-state.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/personal-checkout-state.test.ts [ tests/ui/personal-checkout-state.test.ts ]
+Error: Cannot find module '@/components/billing/personal-checkout-state' imported from '/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web/tests/ui/personal-checkout-state.test.ts'.
+
+- If you rely on tsconfig.json's "paths" to resolve modules, please install "vite-tsconfig-paths" plugin to handle module resolution.
+- Make sure you don't have relative aliases in your Vitest config. Use absolute paths instead. Read more: https://vitest.dev/guide/common-errors
+ ❯ tests/ui/personal-checkout-state.test.ts:2:31
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  03:49:00
+   Duration  307ms (transform 31ms, setup 113ms, collect 0ms, tests 0ms, environment 0ms, prepare 45ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/personal-checkout-state.test.ts --maxWorkers=1 --minWorkers=1

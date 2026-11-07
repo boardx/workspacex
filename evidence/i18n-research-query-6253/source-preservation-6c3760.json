@@ -1,0 +1,42 @@
+{
+  "baseline": "5832cdb62c08fe4f8917776760626d71c74fea11",
+  "productSource": "6c3760927ad16f2ab0c905c2896be3c0c60b0a03",
+  "stateHooksEffectsByteExact": true,
+  "apiDraftSendApplyUndoCommandFunctionsByteExact": true,
+  "quickMessagePayloadsByStep": {
+    "brief": [
+      "补充研究目标",
+      "明确决策问题"
+    ],
+    "directions": [
+      "补充研究方向",
+      "检查方向覆盖"
+    ],
+    "outline": [
+      "补充报告章节",
+      "优化报告大纲"
+    ],
+    "search": [
+      "完成下一项检索任务",
+      "检查检索进度"
+    ],
+    "report": [
+      "完善报告摘要",
+      "补充关键结论"
+    ]
+  },
+  "existingNamespaceByteExactAfterRemoving36NewLines": true,
+  "newTypedKeys": 18,
+  "noApiContractsWorkflowConfigChange": true,
+  "sourceFiles": [
+    "apps/web/components/research-studio/guided-research-skill-assistant.tsx",
+    "apps/web/lib/i18n/namespaces/research.ts",
+    "apps/web/tests/ui/guided-research-skill-assistant-i18n.test.tsx"
+  ],
+  "sha256": {
+    "apps/web/components/research-studio/guided-research-skill-assistant.tsx": "22d92e10bec86f3e216032319fbc7e0d4f4ccca3e186d3ee9dfe464dc32c938f",
+    "apps/web/lib/i18n/namespaces/research.ts": "87bb8e2f7d893fa89c72d7754808b6a72f7429e6c5921e5c33414b631d532dae",
+    "apps/web/tests/ui/guided-research-skill-assistant-i18n.test.tsx": "0d76e021015c16c61ee04feb3e607eb35a1ec90b76fde721c9d026e5f16002b3"
+  },
+  "limits": "Static preservation only; unit51GREEN and type2/test-only correction retained separately. Live query browser proof still pending."
+}

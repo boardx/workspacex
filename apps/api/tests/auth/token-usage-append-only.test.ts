@@ -12,6 +12,7 @@
  * 时序/参数那一半（谁在什么时候调用计量、失败路径也记一行）由
  * `token-usage-single-write-path.test.ts` 用内存 fake 验，不在这里重复。
  */
+import {randomUUID} from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   addOrgMember, asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg,
@@ -62,11 +63,13 @@ const write = (
   outcome: "succeeded" | "failed" = "succeeded",
   split: { promptTokens: number | null; completionTokens: number | null } =
     { promptTokens: null, completionTokens: null },
-) =>
-  repo.record(toOrgId(ORG), {
+) => {
+  const eventId=randomUUID();
+  return repo.startRequest(toOrgId(ORG),{requestId:eventId,executionAttemptId:null,projectId:null,userId:ACTOR,runId:RUN,modelProvider:"test-provider",modelId:"test-model",startedAt:new Date().toISOString(),maximumTokens:tokensTotal}).then(()=>repo.record(toOrgId(ORG), {eventId,
     userId: ACTOR, runId: RUN, modelProvider: "test-provider", modelId: "test-model",
     tokensTotal, outcome, ...split,
-  });
+  }));
+};
 
 beforeAll(async () => {
   ensureDatabase();
@@ -229,6 +232,7 @@ describe("receipt context and replay (requires migrated PostgreSQL)", () => {
       tokensTotal: 0, promptTokens: 0, completionTokens: 0, outcome: "succeeded" as const,
       totalSource: "reported" as const, projectId: PROJECT, threadId: THREAD, agentId: "agent-f159", callPurpose: "primary" as const,
     };
+    await repo.startRequest(toOrgId(ORG),{requestId:receipt.eventId,executionAttemptId:null,userId:ACTOR,runId:RUN,modelProvider:receipt.modelProvider,modelId:receipt.modelId,startedAt:"2026-10-04T00:00:00Z",maximumTokens:0,projectId:PROJECT,threadId:THREAD,agentId:"agent-f159",callPurpose:"primary"});
     await repo.record(toOrgId(ORG), receipt);
     await repo.record(toOrgId(ORG), receipt);
     const rows = await asApp(ORG, c => c.query(

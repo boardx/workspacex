@@ -1,0 +1,13 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/799b/workspacex
+
+ ✓ .harness/scripts/ci-lane-dedup.test.ts (66 tests) 106ms
+ ✓ .harness/scripts/lib/merge-queue.test.ts (46 tests) 8ms
+ ✓ .harness/scripts/ci-fullstack-runtime.test.ts (10 tests) 5ms
+ ✓ .harness/scripts/ci-full-regression.test.ts (9 tests) 27ms
+
+ Test Files  4 passed (4)
+      Tests  131 passed (131)
+   Start at  19:33:32
+   Duration  774ms (transform 55ms, setup 0ms, collect 150ms, tests 147ms, environment 0ms, prepare 85ms)

@@ -1,11 +1,15 @@
+import { capacityErrors as C } from "./schema.js";
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { capacityOwner } from "../capacity-config.js";
+import { CapacityError } from "../execution-capacity.js";
+import { requestCancellation } from "../request-cancellation.js";
 import { SessionManager } from "./manager.js";
 import { validateSessionBody, sessionLimits } from "./schema.js";
 
 export async function handleSessionRequest(req: IncomingMessage, res: ServerResponse, manager: SessionManager): Promise<boolean> {
   const url = new URL(req.url ?? "/", "http://sandbox.internal");
   if (url.pathname !== "/sessions" && !url.pathname.startsWith("/sessions/")) return false;
-  const send = (status: number, value: unknown) => { res.writeHead(status, { "content-type": "application/json" }); res.end(JSON.stringify(value)); };
+  const send = (status: number, value: unknown) => { if (res.destroyed || res.writableEnded) return; res.writeHead(status, { "content-type": "application/json" }); res.end(JSON.stringify(value)); };
   try {
     const body = async (schema: string) => {
       const chunks: Buffer[] = [];
@@ -22,7 +26,7 @@ export async function handleSessionRequest(req: IncomingMessage, res: ServerResp
     };
     if (url.pathname === "/sessions" && req.method === "POST") {
       const input = await body("create") as { skills?: Parameters<SessionManager["create"]>[0]; inputs?: Parameters<SessionManager["create"]>[2]; ttlMs?:number };
-      send(201, await manager.create(input.skills, input.ttlMs, input.inputs)); return true;
+      send(201, await manager.create(input.skills, input.ttlMs, input.inputs, capacityOwner(req.headers["x-sandbox-owner"]))); return true;
     }
     const parts = url.pathname.split("/").slice(2);
     const id = parts[0]!;
@@ -36,12 +40,17 @@ export async function handleSessionRequest(req: IncomingMessage, res: ServerResp
       send(200, parts[1] === "files" ? await manager.read(id, token, path!) : await manager.list(id, token, path!));
     } else if (parts.length === 2 && parts[1] === "executions" && req.method === "POST") {
       const input = await body("execute") as { executionId: string; command: string; timeoutMs?: number };
-      send(200, await manager.execute(id, token, { ...input, timeoutMs: input.timeoutMs ?? sessionLimits.defaultTimeoutMs! }));
+      const cancellation = requestCancellation(req, res);
+      try { send(200, await manager.execute(id, token, { ...input, timeoutMs: input.timeoutMs ?? sessionLimits.defaultTimeoutMs! }, cancellation.signal)); }
+      finally { cancellation.dispose(); }
     } else if (parts.length === 4 && parts[1] === "executions" && parts[3] === "cancel" && req.method === "POST") {
       send(200, manager.cancel(id, token, parts[2]!));
     } else send(404, { error: "NOT_FOUND" });
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code === "ENOENT" ? "SESSION_FILE_NOT_FOUND" : error instanceof Error ? error.message : "SESSION_FAILED";
+    if (error instanceof CapacityError) {
+      res.setHeader("retry-after", "1"); send(error.code === C.waitTimeout ? 503 : 429, { error: error.code }); return true;
+    }
     const status = code === "SESSION_EXECUTION_UNAVAILABLE" ? 503 : ["SESSION_NOT_FOUND", "SESSION_FILE_NOT_FOUND"].includes(code) ? 404 :
       code === "SESSION_EXPIRED" ? 410 : ["SESSION_BUSY", "SESSION_EXECUTION_CONFLICT", "SESSION_LIMIT"].includes(code) ? 409 :
         code.startsWith("INVALID_") || code === "SESSION_PATH_READ_ONLY" || code === "SESSION_FILE_TOO_LARGE" ? 400 : 500;

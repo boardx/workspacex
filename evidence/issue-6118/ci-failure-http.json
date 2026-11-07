@@ -1,0 +1,30 @@
+[
+  {
+    "run": 41397905503,
+    "job": 125123397658,
+    "artifact": 13120292348,
+    "candidate": "69d25945f6a50ce2853866e44c76f389c1736ad6",
+    "case": "survey-complete-flow-R1-问卷体验：空列表单一主入口与创建键盘校验-seeded-retry1",
+    "path": "/surveys/44a403dc-8fd8-4ab4-b8e7-453b3d1dd1b5?expectedVersion=3",
+    "status": 409,
+    "response": {
+      "error": "conflict",
+      "traceId": "acc678c0-eeb3-40ad-946c-66acb540d572",
+      "reasonCode": "SURVEY_VERSION_CONFLICT"
+    }
+  },
+  {
+    "run": 41397905503,
+    "job": 125123397658,
+    "artifact": 13120292348,
+    "candidate": "69d25945f6a50ce2853866e44c76f389c1736ad6",
+    "case": "survey-complete-flow-R1-问卷体验：空列表单一主入口与创建键盘校验-seeded",
+    "path": "/surveys/acceab02-be28-4a8f-9978-fcbfde8a5736?expectedVersion=2",
+    "status": 409,
+    "response": {
+      "error": "conflict",
+      "traceId": "5169ab01-8f0b-41b8-9425-fb7b3d0dd91f",
+      "reasonCode": "SURVEY_VERSION_CONFLICT"
+    }
+  }
+]

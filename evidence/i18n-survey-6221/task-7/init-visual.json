@@ -1,0 +1,13 @@
+{
+  "name": "init-visual",
+  "command": [
+    "./init.sh"
+  ],
+  "source": "ee9b845a1090082251563c48a2791d1034ff7cb7",
+  "exitCode": 0,
+  "seconds": 8.09,
+  "rawLogSha256": "b9454ea9b0cef337e754f5577a3ea517168d367f1dafc79e9a75b55ad28d998d",
+  "sourceAfter": "ee9b845a1090082251563c48a2791d1034ff7cb7",
+  "sourceStable": true,
+  "environment": {}
+}

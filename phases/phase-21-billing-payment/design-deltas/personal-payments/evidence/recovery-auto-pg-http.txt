@@ -1,0 +1,39 @@
+[stack-admission] load1=2.11 cores=10 perCore=0.21 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvy81uyx-5b772359-ad8e29fc2b52 db=wsx_ad8e29fc2b52265202cc compose=wsx-ad8e29fc2b52265202cc pg=20228 redis=21228 api=24228 web=25228 sandbox=26228 model=27228 deep-agent=28228 asr=29228 vision=30228 loopback-sandbox=31228 mail=19228
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_ad8e29fc2b52265202cc capacity=100 current=6 required=32
+ ✓ tests/billing/personal-stripe-settlement-pg.test.ts (26 tests) 19718ms
+ ✓ tests/billing/personal-payment-recovery-pg.test.ts (7 tests) 1487ms
+   ✓ synchronizes a due Stripe binding and every missed paid month, then defers the next poll 427ms
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+{"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+{"level":"error","msg":"http exception","traceId":"cbcc75be-c6f0-40ae-b21e-44bf6e66d716","detail":{"name":"UnauthorizedException","message":"unauthenticated","stack":"UnauthorizedException: unauthenticated\n    at PrincipalGuard.canActivate (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api/src/interface/guards/principal.guard.ts:54:27)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)"}}
+{"level":"info","msg":"billing_personal_payment_recovery","traceId":"personal-payment-recovery:c5a3335b-257f-4cfe-8867-443fd625cb01","processed":1,"failed":0}
+ ✓ tests/billing/personal-payment-recovery-root-http.test.ts (1 test) 17679ms
+ ✓ tests/billing/personal-checkout-http.test.ts (3 tests) 1013ms
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+{"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+{"level":"error","msg":"http exception","traceId":"b6e8e69e-1d81-49f0-9f7b-74ffa744c025","detail":{"name":"UnauthorizedException","message":"unauthenticated","stack":"UnauthorizedException: unauthenticated\n    at PrincipalGuard.canActivate (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api/src/interface/guards/principal.guard.ts:54:27)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)"}}
+{"level":"error","msg":"http exception","traceId":"998cdd25-7aa8-4969-baee-4e90cec1fdf1","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at AuthRegistrationController.register (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api/src/interface/controllers/auth-registration.controller.ts:195:15)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)"}}
+{"level":"error","msg":"contract validation failed","traceId":"ba0030bf-9ef6-479f-ae37-d5ed9e2c7487","detail":{"name":"ContractValidationError","message":"validation_failed","stack":"ContractValidationError: validation_failed\n    at ZodBodyPipe.transform (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api/src/interface/pipes/zod-body.pipe.ts:41:11)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/pipes/pipes-consumer.js:16:33\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)"}}
+ ✓ tests/auth/welcome-registration-http.test.ts (2 tests) 6371ms
+   ✓ real registration commits its one welcome batch and durable verification outbox together 1046ms
+
+ Test Files  5 passed (5)
+      Tests  39 passed (39)
+   Start at  03:27:16
+   Duration  53.52s (transform 9.40s, setup 33ms, collect 2.73s, tests 46.27s, environment 1ms, prepare 303ms)
+
+[db-isolation] db=wsx_ad8e29fc2b52265202cc peak_connections=7
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/personal-stripe-settlement-pg.test.ts tests/billing/personal-payment-recovery-pg.test.ts tests/billing/personal-payment-recovery-root-http.test.ts tests/billing/personal-purchase-pg.test.ts tests/billing/personal-wechat-settlement-pg.test.ts tests/billing/personal-checkout-http.test.ts tests/auth/welcome-registration-http.test.ts --maxWorkers=1 --minWorkers=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：54s
+  清理：1s
+  总计：55s

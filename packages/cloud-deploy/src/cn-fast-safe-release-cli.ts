@@ -1,12 +1,29 @@
 import { createHash } from "node:crypto";
 import { open, readFile, rename } from "node:fs/promises";
 import { classifyReleaseFailures, validatePreparedCnRelease, verifyPreparedReleaseManifest } from "./cn-fast-safe-release";
+import { bindAppOnlyPreparation } from "./cn-app-only";
+import { assertTrustedPath } from "./trusted-path";
+import { dirname } from "node:path";
 
 const fail = (code: string): never => { process.stderr.write(`${code}\n`); process.exit(1); };
 const readJson = async (path: string) => JSON.parse(await readFile(path, "utf8"));
 const command = process.argv[2];
 
-if (command === "bind") {
+if (command === "bind-app-only") {
+  const [input, request, output] = process.argv.slice(3);
+  if (process.getuid?.() !== 0 || process.argv.length !== 6 || !input || !request || !output) fail("CN_APP_ONLY_BIND_USAGE");
+  try {
+    for (const path of [input!, request!]) await assertTrustedPath(path, { trustedRoot: "/", kind: "file", private: true });
+    const receipt = bindAppOnlyPreparation(await readJson(input!), await readFile(request!));
+    if (output !== `/var/lib/workspacex-cn/runtime/${receipt.sourceRevision}/fast-safe-release.json`) fail("CN_APP_ONLY_BIND_OUTPUT");
+    await assertTrustedPath(dirname(output!), { trustedRoot: "/", kind: "directory", private: true });
+    // Exclusive output: admission evidence is never silently replaced.
+    const file = await open(output!, "wx", 0o600);
+    try { await file.writeFile(JSON.stringify(receipt) + "\n"); await file.sync(); } finally { await file.close(); }
+    const parent = await open(dirname(output!), "r"); try { await parent.sync(); } finally { await parent.close(); }
+    process.stdout.write("CN_APP_ONLY_PREPARATION_BOUND\n");
+  } catch { fail("CN_APP_ONLY_BIND_REJECTED"); }
+} else if (command === "bind") {
   const [inputPath, baselineSha256, outputPath] = process.argv.slice(3);
   if (!inputPath || !baselineSha256 || !outputPath) fail("CN_FAST_SAFE_USAGE");
   const inputFile=inputPath as string, baseline=baselineSha256 as string, outputFile=outputPath as string;

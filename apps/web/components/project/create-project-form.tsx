@@ -1,5 +1,8 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
+import { translate } from "@/lib/i18n/messages";
+import type { Locale } from "@/lib/i18n/locale";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +30,7 @@ export function CreateProjectForm({
   className?: string;
   autoFocus?: boolean;
 }) {
+  const { t, locale } = useI18n();
   const router = useRouter();
   const { session } = useSession();
   if (!session) throw new Error("CreateProjectForm requires an authenticated session");
@@ -34,7 +38,7 @@ export function CreateProjectForm({
 
   const [name, setName] = React.useState("");
   const [busy, setBusy] = React.useState(false);
-  const [error, setError] = React.useState<{ text: string; code: string | null } | null>(null);
+  const [error, setError] = React.useState<{ failure: unknown; code: string | null } | null>(null);
   const lock = React.useRef(false);
 
   const trimmed = name.trim();
@@ -50,7 +54,7 @@ export function CreateProjectForm({
       const out = await createProject({ orgId, name: trimmed, kind: "general", blueprintVersionId: null });
       router.push(`/projects/${encodeURIComponent(out.id)}?org=${encodeURIComponent(orgId)}`);
     } catch (e) {
-      setError({ text: describeCreateProjectError(e), code: e instanceof ApiError ? e.reasonCode : null });
+      setError({ failure: e, code: e instanceof ApiError ? e.reasonCode : null });
       setBusy(false);
       lock.current = false;
     }
@@ -63,12 +67,12 @@ export function CreateProjectForm({
       onSubmit={(e) => { e.preventDefault(); void handleCreate(); }}
     >
       <label className="flex flex-col gap-1.5">
-        <span className="text-12 text-muted-foreground">项目名称</span>
+        <span className="text-12 text-muted-foreground">{t("projects.name")}</span>
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="例如：新品上市调研"
-          aria-label="项目名称"
+          placeholder={t("projects.namePlaceholder")}
+          aria-label={t("projects.name")}
           maxLength={PROJECT_NAME_MAX_LENGTH}
           data-testid="project-new-name"
           className="h-9 text-12"
@@ -83,13 +87,13 @@ export function CreateProjectForm({
       ) : null}
       {error !== null ? (
         <p role="alert" data-testid="project-new-error" data-reason={error.code ?? undefined} className="text-12 text-destructive">
-          创建失败：{error.text}
+          {t("projects.createFailed", { error: describeCreateProjectError(error.failure, locale) })}
         </p>
       ) : null}
       <div className="flex items-center justify-end gap-2">
         {cancel}
         <Button type="submit" size="sm" variant="primary" disabled={!canSubmit} data-testid="project-new-create">
-          {busy ? "创建中…" : "创建"}
+          {busy ? t("projects.creating") : t("projects.create")}
         </Button>
       </div>
     </form>
@@ -97,12 +101,12 @@ export function CreateProjectForm({
 }
 
 /** 说人话，不上屏内部码（原因码留在 `data-reason` 上供排障 / e2e 断言）。 */
-export function describeCreateProjectError(e: unknown): string {
+export function describeCreateProjectError(e: unknown, locale: Locale = "zh-CN"): string {
   if (e instanceof ApiError) {
-    if (e.reasonCode === "ORG_ROLE_INSUFFICIENT") return "你在当前组织的角色不能新建项目，请联系组织负责人。";
-    if (e.status === 401) return "登录已失效，请重新登录。";
-    return httpFailureText(e.status);
+    if (e.reasonCode === "ORG_ROLE_INSUFFICIENT") return translate(locale, "projects.createDenied");
+    if (e.status === 401) return translate(locale, "projects.sessionExpired");
+    return httpFailureText(e.status, locale);
   }
-  if (e instanceof TypeError) return "连不上服务器，检查一下网络再试。";
-  return "出了点问题，稍后再试一次。";
+  if (e instanceof TypeError) return translate(locale, "projects.networkError");
+  return translate(locale, "projects.unexpectedError");
 }

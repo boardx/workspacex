@@ -1,0 +1,16 @@
+{
+  "source": "cb933851f59127646052ec0ad67ed099d65152ec",
+  "gate": "testid",
+  "command": [
+    "pnpm",
+    "run",
+    "lint:e2e-testid-gate"
+  ],
+  "exit": 0,
+  "seconds": 4.245,
+  "rawPrivate": true,
+  "logSha256": "971c4175773861cc1c65843b58bf93250a7e6d6df518e1ac49f946d9160343cd",
+  "summary": [
+    "\u2705 [e2e-testid-gate] 5748 \u6761 e2e testid \u5f15\u7528\u5168\u90e8\u5728\u6e90\u7801\u91cc\u6709\u58f0\u660e\uff08\u5224\u636e\u6c60 10765 \u6761\uff1b\u8c41\u514d 21 \u6761\uff1b\u89e3\u6790\u4e0d\u4e86\u8df3\u8fc7 41 \u6761\uff09"
+  ]
+}

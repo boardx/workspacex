@@ -1,0 +1,10 @@
+
+Running 3 tests using 1 worker
+
+(node:12230) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 e2e/digital-interview-research-quality.spec.ts:621:5 › saved execution metadata and Markdown insights survive the direct route and reload (2.6s)
+  ✓  2 e2e/digital-interview-research-quality.spec.ts:687:5 › report stream exposes partial output before completion and survives stage navigation (924ms)
+  ✓  3 e2e/digital-interview-research-quality.spec.ts:829:5 › report repair retains saved candidate through failure and refresh (1.5s)
+
+  3 passed (6.2s)

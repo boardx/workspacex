@@ -1,0 +1,7 @@
+
+> web@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex/apps/web
+> tsc --noEmit
+
+real 51.63
+user 65.19
+sys 4.04

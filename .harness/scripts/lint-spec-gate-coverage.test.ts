@@ -13,7 +13,7 @@
  *   本套件保留了把接缝隔离开的那个版本。红了不等于测到了。
  */
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -25,6 +25,7 @@ import {
   CONDITIONAL_COVERAGE_EXEMPTIONS,
   EXEMPTIONS,
   resolveInvokedConfigs,
+  cnSixSimulationReachable,
 } from "./lint-spec-gate-coverage.mjs";
 
 const GATE = fileURLToPath(new URL("./lint-spec-gate-coverage.mjs", import.meta.url));
@@ -49,6 +50,43 @@ type Row = {
 const covers = (configPath: string, unconditional = true): Coverage => ({ configPath, unconditional });
 
 const invokedConfigs = (root?: string): InvokedConfig[] => resolveInvokedConfigs(root);
+
+describe("CN six actual Python execution chain", () => {
+  it("discovers the real config as conditional and rejects each broken edge", () => {
+    const root = path.resolve(path.dirname(GATE), "../..");
+    const files = ["scripts/cn-release-simulation-ci.py", "scripts/cn-release-simulation.py",
+      "tests/cn_release_six_business_linux.py", "scripts/cn-release-six-session.py",
+      "apps/web/playwright.cn-six-business.config.ts"];
+    const tmp = mkdtempSync(path.join(tmpdir(), "cn-six-gate-"));
+    try {
+      for (const file of files) { mkdirSync(path.dirname(path.join(tmp, file)), { recursive: true }); writeFileSync(path.join(tmp, file), readFileSync(path.join(root, file))); }
+      expect(cnSixSimulationReachable(tmp)).toBe(true);
+      const mutations = [
+        [files[0], "scripts/cn-release-simulation.py", "scripts/not-called.py"],
+        [files[0], "seed,suite='all',workers=3", "seed,suite='release',workers=3"],
+        [files[0], "choices=SUITES,default='all'", "choices=SUITES,default='release'"],
+        [files[0], "args.seed,args.suite,args.workers", "args.seed,'release',args.workers"],
+        [files[0], "'--suite',suite,", "'--suite','release',"],
+        [files[0], "workers=3,mode='acceptance'", "workers=3,mode='development'"],
+        [files[0], "choices=('acceptance','development'),default='acceptance'", "choices=('acceptance','development'),default='development'"],
+        [files[0], "args.workers,args.mode", "args.workers,'development'"],
+        [files[0], "'--mode',mode]", "'--mode','development']"],
+        [files[1], "'linux-six-business':['cn_release_six_business_linux.py']", "'linux-six-business':['not-called.py']"],
+        [files[2], "result=m.run_round(", "result=m.not_called("],
+        [files[3], "application.spawn(playwright_command(prepared)", "application.spawn(not_called(prepared)"],
+        [files[3], "'apps/web/playwright.cn-six-business.config.ts'", "'apps/web/not-called.config.ts'"],
+      ];
+      for (const [file, before, after] of mutations) {
+        const original = readFileSync(path.join(tmp, file), "utf8"); expect(original).toContain(before);
+        writeFileSync(path.join(tmp, file), original.replace(before, after));
+        expect(cnSixSimulationReachable(tmp)).toBe(false);
+        writeFileSync(path.join(tmp, file), original);
+      }
+      const config = invokedConfigs().find(c => c.configPath === "apps/web/playwright.cn-six-business.config.ts");
+      expect(config).toMatchObject({ unconditional: false, via: ["cn-release-simulation.yml#simulation"] });
+    } finally { rmSync(tmp, { recursive: true, force: true }); }
+  });
+});
 
 describe("判定逻辑（纯函数）", () => {
   it("被某个无条件 config 跑到 ⇒ covered", () => {
@@ -231,11 +269,11 @@ describe("真实仓库", () => {
    * 若哪天有人把 devportal e2e 接进无条件 job（出路 (b)），它会翻绿并逼着删掉
    * `CONDITIONAL_COVERAGE_EXEMPTIONS` 里对应的六条，这正是我们要的联动。
    */
-  it("path-filtered 的 deploy-devportal 只算条件覆盖；无条件门控仍算无条件", () => {
+  it("v5 devportal/product/chat browsers remain conditional hourly registration, never unconditional premerge coverage", () => {
     const invoked = new Map(invokedConfigs().map((c) => [c.configPath, c]));
     expect(invoked.get("apps/devportal/playwright.config.ts")?.unconditional).toBe(false);
-    expect(invoked.get("apps/web/playwright.fullstack-smoke.config.ts")?.unconditional).toBe(true);
-    expect(invoked.get("apps/web/playwright.chat-read.config.ts")?.unconditional).toBe(true);
+    expect(invoked.get("apps/web/playwright.fullstack-smoke.config.ts")?.unconditional).toBe(false);
+    expect(invoked.get("apps/web/playwright.chat-read.config.ts")?.unconditional).toBe(false);
   });
 
   it("合成导入报告随 Board 改动运行，真实厂商样本仍由独立 captured 门禁负责", () => {
@@ -381,4 +419,10 @@ describe("反证（#523）：path-filtered 起点必须被降级", () => {
     expect(downgraded.unconditionalBy).toEqual([]);
     expect(downgraded.conditionalBy).toEqual(["apps/fixture/playwright.config.ts"]);
   });
+});
+
+it('v5 hourly registration is explicit conditional coverage, never premerge/unconditional execution proof',()=>{
+ const input={population:['a.spec.ts'],coveredBy:new Map([['a.spec.ts',[{configPath:'x.config.ts',unconditional:false,hourlyFull:true}]]]),exemptions:[]};
+ const current=classifySpecs(input);expect(current.rows[0].verdict).toBe('conditional-exempt');expect(current.rows[0].unconditionalBy).toEqual([]);expect(current.rows[0].reason).toContain('hourly');
+ expect(classifySpecs({...input,policy:{version:4}}).rows[0].verdict).toBe('conditionally-covered');
 });

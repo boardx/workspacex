@@ -1,0 +1,22 @@
+[stack-admission] load1=3.69 cores=10 perCore=0.37 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvaqblx8-a8468e64-37be97c588c2 db=wsx_37be97c588c24d08f43e compose=wsx-37be97c588c24d08f43e pg=20573 redis=21573 api=24573 web=25573 sandbox=26573 model=27573 deep-agent=28573 asr=29573 vision=30573 loopback-sandbox=31573 mail=19573
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_37be97c588c24d08f43e capacity=100 current=6 required=32
+ ✓ tests/whiteboard/validator-diagnostics.test.ts (12 tests) 8ms
+
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
+   Start at  16:52:16
+   Duration  4.17s (transform 396ms, setup 8ms, collect 304ms, tests 8ms, environment 0ms, prepare 46ms)
+
+[db-isolation] db=wsx_37be97c588c24d08f43e peak_connections=1
+[timing] pnpm --filter api exec vitest run tests/whiteboard/validator-diagnostics.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：5s
+  清理：0s
+  总计：5s

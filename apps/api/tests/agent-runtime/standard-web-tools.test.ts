@@ -49,23 +49,20 @@ describe('standard web public fetch transport',()=>{
   expect(output.title).toBe('真实来源');expect(output.text).toContain(paragraph);expect(output.text).not.toContain('must not run');expect(requests).toBe(1);
   expect(output.contentHash).toBe(createHash('sha256').update(output.text).digest('hex'));expect(output.extractor).toBe('mozilla-readability');
  });
- /**
-  * issue #3439 附带发现（2026-09-11）—— jsdom 在 import 时无条件 `require("canvas")`
-  * （见 jsdom/lib/jsdom/utils.js），只在拿到干净的 MODULE_NOT_FOUND 时才把 Canvas 置 null；
-  * `canvas` 是原生 N-API 模块，且因 pnpm 默认 auto-install-peers 把 vitest→jsdom 的可选 peer
-  * 工作区级装了进来（`apps/api/package.json` devDependencies.canvas + pnpm-lock.yaml），
-  * 生产 API 从未用到它（这里只做纯文本抽取，没有 <canvas>/<img> 渲染）。若该原生二进制在
-  * 目标平台 ABI 不匹配（常见于缺 libcairo 的 Linux 容器），在 worker_thread 里加载它会以
-  * `FATAL ERROR: napi_throw` 硬崩整个进程——try/catch 拦不住。这条钉住修法本身：worker 里
-  * 对 `canvas` 的 require 必须在 Module 解析层被拦截，jsdom 才会退化到官方文档的 no-canvas
-  * 模式，而不是真的走到原生模块加载那一步。
-  */
+ // A pure DOM replaces jsdom's optional native peer. Retain the actual worker
+ // resolution guard: a future parser dependency must not silently load canvas.
  it('canvas 原生模块从未在真实抽取 worker 里被加载',async()=>{
   const output=await extractStandardWebHtml('<html><body><article><p>足够长的正文以通过 Readability 的最小长度判定。'.repeat(20)+'</p></article></body></html>','https://example.com');
   expect(output.canvasBlocked).toBe(true);
  });
+ it('preserves Unicode article text and ignores hidden navigation with relative links',async()=>{
+  const paragraph='这是经过来源核验的中文正文，用于保留阅读器抽取语义。'.repeat(35);
+  const html=`<html><head><title>中文文章</title><base href="/nested/"/></head><body><nav aria-hidden="true">隐藏导航文字</nav><article><h1>中文文章</h1><p>${paragraph}<a href="detail">原文链接</a></p></article></body></html>`;
+  const result=await extractStandardWebHtml(html,'https://example.com/source');
+  expect(result.title).toBe('中文文章');expect(result.text).toContain(paragraph);expect(result.text).toContain('原文链接');expect(result.text).not.toContain('隐藏导航文字');
+ });
  it('worker deadline refuses pathological HTML rather than blocking the API event loop',async()=>{
-  await expect(extractStandardWebHtml('<div>'.repeat(L.maxElements+1),'https://example.com')).rejects.toThrow();
+  const started=Date.now();await expect(extractStandardWebHtml('<div>'.repeat(L.maxElements+1),'https://example.com')).rejects.toThrow();expect(Date.now()-started).toBeLessThan(L.parseDeadlineMs+2000);
  });
  it('concurrent parser capacity fails closed without an unbounded waiting queue',async()=>{
   const jobs=Array.from({length:L.maxParseWorkers},()=>extractStandardWebHtml('<div>'.repeat(L.maxElements+1),'https://example.com'));

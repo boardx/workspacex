@@ -150,15 +150,16 @@
 ### TW-P0-4 右栏动态 Inspector
 
 **判据**：
-1. 右栏四页签：**进度 / 材料 / 产物 / 运行详情**。
-2. **按任务阶段自动切换**：上传材料 → 开「材料」；运行中 → 开「进度」；
-   产出结果 → 开「产物」。（自动，不是用户手点）
+1. 右栏基础页签：**材料 / 产物 / 运行详情**；有对应能力时提供编制与记忆。
+   人类 2026-09-30 裁决（#4758，实施 PR #4764 / `214ed9ba4`）：计划只在消息流显示，撤掉右栏进度页签。
+2. **按内容自动切换**：上传材料 → 开「材料」；产出结果 → 开「产物」。
+   运行开始保留当前页签，允许用户自主查看材料与运行详情。（自动，不是用户手点）
 3. **无内容时折叠**，不常驻占屏。判定方式：新对话空状态下右栏可见宽度
    ≤ 视口宽度的 1/12，或 `aria-expanded="false"`。
 
 **用例**：`chat-task-workbench-inspector.spec.ts`
 **锚点**：`chat-task-workbench-inspector`（`data-collapsed`、`data-active-tab`）、
-`chat-task-workbench-inspector-tab-{progress|materials|artifacts|run-details}`
+`chat-task-workbench-inspector-tab-{materials|artifacts|run-details}`
 
 ### TW-P0-5 统一 Composer
 

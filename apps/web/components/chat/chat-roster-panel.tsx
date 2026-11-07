@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
+import { chatRosterZhCN } from "@/lib/i18n/namespaces/chat-roster";
 import Link from "next/link";
 import { Store } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
@@ -56,6 +58,7 @@ export function RosterPanel({
   roster, loading, error, hasSelection, canMutate, pending, mutateFailure,
   candidates, candidatesError, onAdd, onRemove, onRetry,
 }: RosterPanelProps) {
+  const { t } = useI18n();
   const [draft, setDraft] = React.useState("");
   const writable = canMutate && hasSelection;
 
@@ -72,9 +75,9 @@ export function RosterPanel({
           在场数另写一行 —— 契约把两个计数刻意分离（I-18），糊成一个就说谎了。 */}
       <div className="flex items-center justify-between gap-2 pt-1">
         <h2 className="text-11 font-medium text-muted-foreground">
-          本线程的 AI 团队{roster ? ` · ${roster.rosterCount}` : ""}
+          {t("chatRoster.title")}{roster ? ` · ${roster.rosterCount}` : ""}
           {roster && roster.presentCount !== roster.rosterCount
-            ? ` · 在场 ${roster.presentCount}`
+            ? t("chatRoster.presentCount", { count: roster.presentCount })
             : ""}
         </h2>
         {writable ? (
@@ -84,11 +87,9 @@ export function RosterPanel({
             data-testid="chat-roster-edit"
             aria-expanded={addOpen}
             onClick={() => setAddOpen((open) => !open)}
-          >
-            编辑
-          </Button>
+          >{t("chatRoster.edit")}</Button>
         ) : (
-          <span className="text-10 text-muted-foreground">只读</span>
+          <span className="text-10 text-muted-foreground">{t("chatRoster.readonly")}</span>
         )}
       </div>
 
@@ -102,9 +103,7 @@ export function RosterPanel({
             setDraft("");
           }}
         >
-          <label className="text-10 text-muted-foreground" htmlFor="chat-roster-add-input">
-            加入 agent（选自组织 agent 目录）
-          </label>
+          <label className="text-10 text-muted-foreground" htmlFor="chat-roster-add-input">{t("chatRoster.addLabel")}</label>
           <div className="flex items-center gap-2">
             <select
               id="chat-roster-add-input"
@@ -115,7 +114,7 @@ export function RosterPanel({
               disabled={pending || candidates.length === 0}
             >
               <option value="">
-                {candidates.length === 0 ? "组织 agent 目录里没有可加入的 agent" : "选择一个 agent…"}
+                {t(candidates.length === 0 ? "chatRoster.noCandidates" : "chatRoster.choose")}
               </option>
               {candidates.map((candidate) => (
                 <option key={candidate.id} value={candidate.id}>
@@ -124,7 +123,7 @@ export function RosterPanel({
               ))}
             </select>
             <Button size="xs" type="submit" data-testid="chat-roster-add-submit" disabled={pending || draft === ""}>
-              {pending ? "提交中…" : "加入"}
+              {t(pending ? "chatRoster.pending" : "chatRoster.add")}
             </Button>
           </div>
           {/* #619：候选来自 `GET /capabilities?kind=agent`（`org_agents` 收敛进
@@ -140,12 +139,10 @@ export function RosterPanel({
               发消息会 422 `AGENT_NOT_FOUND`（`AgentNotPublishedError`）。这是已知的
               后端数据模型裂痕（#787 记录在案，收敛方向待人类裁决），本处只如实
               告知，不假装能在这里修掉。 */}
-          <p className="text-10 text-muted-foreground" data-testid="chat-roster-add-hint">
-            候选来自组织 agent 目录，加入编制不代表该 agent 已具备可执行的运行时——如果加入后发消息失败，是已知的后台创建路径缺口，请联系管理员确认该 agent 是否已发布。
-          </p>
+          <p className="text-10 text-muted-foreground" data-testid="chat-roster-add-hint">{t("chatRoster.hint")}</p>
           {candidatesError ? (
             <p className="text-10 text-destructive" data-testid="chat-roster-candidates-error">
-              agent 目录读取失败：{candidatesError}
+              {t("chatRoster.directoryFailure")}{candidatesError}
             </p>
           ) : null}
           {mutateFailure ? (
@@ -159,14 +156,14 @@ export function RosterPanel({
           会在这里原样活着。三处一起换成用户语言 + 明确动作。
           ⚠ 本次合 main 时这份实现被 #2052 抽成了两条轨道共用的这个文件——改在这里，
              两条轨道自动同步，比原来那份私有副本更符合单一事实源。 */}
-      {!hasSelection ? <p className="text-11 text-muted-foreground">还没有选择对话。在左侧选一条对话，这里会列出它的成员编制。</p> : null}
-      {loading ? <p className="text-11 text-muted-foreground">正在读取编制…</p> : null}
+      {!hasSelection ? <p className="text-11 text-muted-foreground">{t("chatRoster.noSelection")}</p> : null}
+      {loading ? <p className="text-11 text-muted-foreground">{t("chatRoster.loading")}</p> : null}
       {error ? <ErrorState testId="chat-roster-error" message={error} retryTestId="chat-roster-retry" onRetry={onRetry} /> : null}
 
       {roster ? (
         <>
           {roster.agents.length === 0 ? (
-            <p className="text-11 text-muted-foreground" data-testid="chat-roster-empty">当前编制为空。</p>
+            <p className="text-11 text-muted-foreground" data-testid="chat-roster-empty">{t("chatRoster.empty")}</p>
           ) : null}
           <ul className="flex flex-col">
             {roster.agents.map((agent) => (
@@ -195,7 +192,7 @@ export function RosterPanel({
                   </p>
                   <p className="truncate text-10 text-muted-foreground">{agent.duty}</p>
                 </div>
-                <span className={presenceTone(agent.presence)}>{PRESENCE_TEXT[agent.presence]}</span>
+                <span className={presenceTone(agent.presence)}>{t(PRESENCE_KEYS[agent.presence])}</span>
                 {writable ? (
                   <Button
                     size="xs"
@@ -203,9 +200,7 @@ export function RosterPanel({
                     data-testid={`chat-roster-remove-${agent.id}`}
                     disabled={pending}
                     onClick={() => onRemove(agent.id)}
-                  >
-                    移出
-                  </Button>
+                  >{t("chatRoster.remove")}</Button>
                 ) : null}
               </li>
             ))}
@@ -213,8 +208,7 @@ export function RosterPanel({
           {roster.marketEntry ? (
             <Button asChild size="xs" variant="outline" className="w-full">
               <Link href={roster.marketEntry} data-testid="chat-roster-market-entry">
-                <Store aria-hidden className="h-3 w-3" />从 Agent 市场加入
-              </Link>
+                <Store aria-hidden className="h-3 w-3" />{t("chatRoster.market")}</Link>
             </Button>
           ) : null}
         </>
@@ -230,10 +224,9 @@ export function RosterPanel({
  * 但契约三值是 present/away/off，语义并不一一对应：`away`≠「跑批中」。
  * 这里按契约语义翻译，**不**为了对上原型字面而编一个原型才有的状态。
  */
+const PRESENCE_KEYS = { present: "chatRoster.presence.present", away: "chatRoster.presence.away", off: "chatRoster.presence.off" } as const satisfies Record<GetAgentPanelOut["agents"][number]["presence"], keyof typeof chatRosterZhCN>;
 export const PRESENCE_TEXT: Record<GetAgentPanelOut["agents"][number]["presence"], string> = {
-  present: "在场",
-  away: "离开",
-  off: "离线",
+  present: chatRosterZhCN[PRESENCE_KEYS.present], away: chatRosterZhCN[PRESENCE_KEYS.away], off: chatRosterZhCN[PRESENCE_KEYS.off],
 };
 
 function presenceTone(presence: GetAgentPanelOut["agents"][number]["presence"]): string {

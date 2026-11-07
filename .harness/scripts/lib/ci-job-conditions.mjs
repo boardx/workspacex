@@ -17,8 +17,8 @@
  *
  * 一个 job 算**无条件**（真覆盖）⟺ 它在下面两个探针事件里**至少有一个**会跑：
  *
- *   · `pull_request`（base=main，任意路径）—— 每个 PR 必经
- *   · `push` 到 `refs/heads/main`（任意路径）—— 每次合入必经
+ *   · `pull_request`（base=develop，任意路径）—— 每个 PR 必经
+ *   · `push` 到 `refs/heads/develop`（任意路径）—— 每次合入必经
  *
  * 这正是 issue #523 那张表的口径：`harness-verify`/`backend-gates` 每次 push/PR 都跑
  * ⇒ 真覆盖；`deploy-devportal`（`paths:` 过滤）、只有 `workflow_dispatch` 的取证
@@ -26,7 +26,7 @@
  *
  * 三道闸依次判，任何一道拦下就不是「本探针可达」：
  *   ① workflow 的 `on:` 是否接纳该事件（`paths`/`paths-ignore` 过滤 ⇒ 不接纳；
- *      `branches` 不含 main ⇒ 不接纳）；
+ *      `branches` 不含 develop ⇒ 不接纳）；
  *   ② job 的 `needs` 是否全部可达（父被跳过，子就不会跑）；
  *   ③ job / step 的 `if:` 在该事件下是否成立。
  *
@@ -40,6 +40,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml } from "yaml";
+import {CURRENT_POLICY} from "./ci-check-policy.mjs";
 
 const REPO_ROOT = fileURLToPath(new URL("../../..", import.meta.url));
 
@@ -55,19 +56,22 @@ export const PROBE_EVENTS = [
     id: "pull_request",
     eventName: "pull_request",
     ref: "refs/pull/1/merge",
-    baseBranch: "main",
+    baseBranch: "develop",
     label: "每个 PR",
   },
   {
-    id: "push-main",
+    id: "push-develop",
     eventName: "push",
-    ref: "refs/heads/main",
-    baseBranch: "main",
-    label: "每次合入 main",
+    ref: "refs/heads/develop",
+    baseBranch: "develop",
+    label: "每次合入 develop",
   },
+  ...(CURRENT_POLICY.sourceVerificationEvent === 'merge_group' && CURRENT_POLICY.requiredChecks.includes('queue-ready') ? [{
+    id: 'merge_group', eventName: 'merge_group', ref: 'refs/heads/gh-readonly-queue/develop/pr-1-'+'a'.repeat(40), baseBranch: 'develop', label: '受保护合并队列候选',
+  }] : []),
 ];
 
-const DEFAULT_BRANCH = "main";
+const DEFAULT_BRANCH = "develop";
 
 // ---------------------------------------------------------------------------
 // GitHub 表达式：一个够用的子集求值器
@@ -307,6 +311,9 @@ function probeContext(probe, { needsResults }) {
   return {
     lookup(pathExpr) {
       if (table.has(pathExpr)) return table.get(pathExpr);
+      // Static full-route probe inventories the unchanged broad fallback. UI
+      // routing has separate outcome/evidence contract tests; unknown fields stay unknown.
+      if(pathExpr==='needs.doc-smoke-scope.outputs.mode'&&needsResults.get('doc-smoke-scope')==='success')return probe.regressionMode??'full';
       // `inputs.x` / `github.event.inputs.x`：只有 workflow_dispatch / workflow_call
       // 才有值，两个探针事件下都是空。
       if (/^(github\.event\.)?inputs\./.test(pathExpr)) return null;
@@ -381,8 +388,8 @@ export function triggerAdmits(on, probe) {
       why: `on.${probe.eventName} 带路径过滤（${shown}${Array.isArray(list) && list.length > 3 ? ", …" : ""}）`,
     };
   }
-  // `push` 看被推的分支，`pull_request` 看 PR 的 base 分支——两者都归到 main 这条线上。
-  const branch = probe.eventName === "push" ? DEFAULT_BRANCH : probe.baseBranch;
+  // `push` 看被推的分支，`pull_request` 看 PR 的 base 分支——两者都归到 develop 这条线上。
+  const branch = probe.eventName === "push" ? (probe.ref?.replace(/^refs\/heads\//, "") ?? DEFAULT_BRANCH) : probe.baseBranch;
   if (!branchesAdmit(spec.branches, branch)) {
     return { admits: false, why: `on.${probe.eventName}.branches 不含 ${branch}` };
   }
@@ -440,12 +447,13 @@ function reachableJobs(workflow, probe) {
       if (needs.some((parent) => !verdicts.has(parent))) continue;
       let reachable = admitted.admits;
       let why = admitted.why;
-      if (reachable && needs.some((parent) => verdicts.get(parent).reachable === false)) {
+      if (reachable && needs.some((parent) => verdicts.get(parent).reachable === false) && !/\balways\s*\(/.test(job?.if??'')) {
         reachable = false;
         why = `needs 的父 job 在该事件下不跑（${needs.join(", ")}）`;
       }
       if (reachable) {
-        const value = evaluateIf(job?.if, probe, { needsResults });
+        const directResults=new Map(needs.map(name=>[name,needsResults.get(name)]));
+        const value = evaluateIf(job?.if, probe, { needsResults:directResults });
         if (value !== true) {
           reachable = false;
           why = value === UNKNOWN ? `job if: 判不出来（保守当作不跑）` : `job if: 在该事件下为假`;

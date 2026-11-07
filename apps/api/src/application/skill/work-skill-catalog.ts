@@ -13,6 +13,7 @@ import type {
   WorkSkillManifest,
 } from "@repo/contracts/work-skill-meta";
 import type { IdentityRepository } from "../identity/ports";
+import type { Locale } from "@repo/contracts/locale";
 import type { OrgId } from "../../domain/org-id";
 import { isRegisteredCapabilityCategory } from "../../domain/skill/capability-category-registry";
 import { computeSkillReadiness, type ToolGrantSnapshot } from "../../domain/skill/work-skill-readiness";
@@ -46,6 +47,7 @@ export type CatalogRow = Omit<CatalogItem, "readiness">;
 export type CatalogListRow = CatalogRow & { readonly dependencies: WorkSkillManifest["dependencies"] };
 
 export interface CatalogListQuery {
+  readonly locale?: Locale;
   readonly domain?: string;
   readonly channel?: WorkSkillChannel;
   readonly q?: string;

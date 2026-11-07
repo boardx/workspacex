@@ -520,6 +520,18 @@ export const CapabilityDisablePayload = z.object({ id: z.string().min(1) }).stri
  * `err` 穷举失败模式——**「失败长什么样」是契约的一半**，界面的异常态全靠它。
  * 已有原型是 happy path 演示、零异常态，不要继承这个缺陷。
  */
+export const OWN_ACTIVITY_DISPLAY_FORMAT = "structured-v1" as const;
+
+/** Presentation parameters are opt-in; never return raw provenance detail. */
+export const OwnActivityDisplay = z.discriminatedUnion("code", [
+  z.object({ code: z.literal("profile-renamed"), params: z.object({ displayName: z.string().optional() }).strict() }).strict(),
+  z.object({ code: z.literal("avatar-changed"), params: z.object({ cleared: z.boolean() }).strict() }).strict(),
+  z.object({ code: z.literal("password-changed"), params: z.object({}).strict() }).strict(),
+  z.object({ code: z.literal("team-created"), params: z.object({ name: z.string().optional() }).strict() }).strict(),
+  z.object({ code: z.literal("team-renamed"), params: z.object({ name: z.string().optional() }).strict() }).strict(),
+  z.object({ code: z.literal("team-deleted"), params: z.object({ name: z.string().optional() }).strict() }).strict(),
+]);
+
 export const operations = {
   authorize: {
     method: "POST", path: "/identity/authorize",
@@ -749,10 +761,11 @@ export const operations = {
    */
   listOwnActivity: {
     method: "GET", path: "/identity/me/activity",
-    in: z.object({ cursor: z.string().nullable(), limit: z.number().int().min(1).max(100) }).strict(),
+    in: z.object({ cursor: z.string().nullable(), limit: z.number().int().min(1).max(100), displayFormat: z.literal(OWN_ACTIVITY_DISPLAY_FORMAT).optional() }).strict(),
     out: z.object({
       events: z.array(z.object({
         eventId: z.string(), kind: z.string(), occurredAt: z.string(), summary: z.string(),
+        display: OwnActivityDisplay.optional(),
       }).strict()),
       nextCursor: z.string().nullable(),
     }).strict(),

@@ -1,0 +1,36 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/packages/contracts
+
+ ❯ tests/identity-activity-display.test.ts (9 tests | 1 failed) 14ms
+   × generates an activity mock that satisfies the strict presentation contract 7ms
+     → expected false to be true // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/identity-activity-display.test.ts > generates an activity mock that satisfies the strict presentation contract
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/identity-activity-display.test.ts:33:90
+     31|
+     32| it("generates an activity mock that satisfies the strict presentation …
+     33|   expect(identity.operations.listOwnActivity.out.safeParse(listOwnActi…
+       |                                                                                          ^
+     34| });
+     35|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 passed (9)
+   Start at  04:10:53
+   Duration  770ms (transform 183ms, setup 0ms, collect 195ms, tests 14ms, environment 0ms, prepare 96ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/packages/contracts:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/identity-activity-display.test.ts

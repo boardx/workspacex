@@ -1,16 +1,28 @@
+# Full regression only: reusable by hourly acceptance, also available manually.
 name: Skill files and Agent pins
 on:
-  pull_request:
-  push:
-    branches: [main]
-  workflow_dispatch:
+  workflow_dispatch: null
+  workflow_call: {}
 permissions:
   contents: read
 concurrency:
-  group: skill-files-e2e-${{ github.ref }}
+  group: skill-files-e2e-full-${{ github.run_id }}
   cancel-in-progress: false
+  queue: single
 jobs:
+  scope:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.scope.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: scope
+        run: echo 'changed=true' >> "$GITHUB_OUTPUT"
   skill-files-e2e:
+    needs: scope
+    if: needs.scope.outputs.changed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -33,7 +45,7 @@ jobs:
         env:
           TMPDIR: ${{ runner.temp }}
           WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && secrets.WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN || '' }}
-        run: pnpm exec tsx .harness/scripts/with-test-isolation.ts -- node scripts/studio-skill-files-e2e.mjs -- pnpm --filter web exec playwright test --config playwright.skill-files.config.ts
+        run: pnpm exec tsx .harness/scripts/with-test-isolation.ts -- node scripts/studio-skill-files-e2e.mjs -- pnpm --filter web exec playwright test --config playwright.skill-files.config.ts --max-failures=1
       - name: Retain structured browser evidence
         if: always()
         uses: actions/upload-artifact@v6

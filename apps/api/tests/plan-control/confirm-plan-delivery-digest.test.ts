@@ -154,6 +154,10 @@ beforeAll(async () => {
   await migrateOnce();
   deepAgent = await startDeepAgentFake();
   process.env.KERNEL_DEEP_AGENT_BASE_URL = `http://127.0.0.1:${String(deepAgent.port)}`;
+  // The remote engine fixture has no internal model dispatches. Still configure its
+  // mandatory callback capability instead of selecting an unaccounted production path.
+  process.env.KERNEL_SUBTASK_CALLBACK_BASE_URL = `http://127.0.0.1:${String(deepAgent.port)}`;
+  process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY = "private-control-fixture";
   process.env.KERNEL_DEEP_AGENT_POLL_INTERVAL_MS = "5";
   process.env.KERNEL_DEEP_AGENT_TIMEOUT_MS = "10000";
   delete process.env.KERNEL_AGENT_RUN_AUTOSTART;

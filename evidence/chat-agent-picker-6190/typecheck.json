@@ -1,0 +1,6 @@
+{
+  "command": "pnpm --filter web exec tsc --noEmit",
+  "exitCode": 0,
+  "stdout": "",
+  "stderr": ""
+}

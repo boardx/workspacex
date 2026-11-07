@@ -1,11 +1,8 @@
-"use client";
-import { BillingOverview } from "@/components/billing/billing-overview";
-import { useSession } from "@/components/session/session-provider";
-import { AppShell } from "@/components/shell/app-shell";
+import * as React from "react";
+import { BillingContent } from "./billing-content";
 
+// Runtime opt-in is separate from the accounting epoch; production activation is a later release step.
+export const dynamic = "force-dynamic";
 export default function BillingPage() {
-  const { session } = useSession();
-  return <AppShell previewRole={null}>
-    {session && <BillingOverview key={`${session.currentOrgId}:${session.userId}:${session.sessionToken}`} userId={session.userId} sessionToken={session.sessionToken} />}
-  </AppShell>;
+  return <React.Suspense fallback={<p role="status">正在查询账户…</p>}><BillingContent personalPricingEnabled={process.env.BILLING_PERSONAL_PRICING_UI_ENABLED === "true"}/></React.Suspense>;
 }

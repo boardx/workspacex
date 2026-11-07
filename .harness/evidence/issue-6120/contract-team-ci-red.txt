@@ -1,0 +1,31 @@
+2026-11-02T08:24:10.5771122Z 
+2026-11-02T08:24:10.5771476Z ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+2026-11-02T08:24:10.5771788Z 
+2026-11-02T08:24:10.5772519Z  FAIL  tests/billing-team-quote-design.test.ts > keeps permanent top-up independent of paid term and subscription renewal
+2026-11-02T08:24:10.5773445Z AssertionError: expected true to be false // Object.is equality
+2026-11-02T08:24:10.5773852Z 
+2026-11-02T08:24:10.5774091Z - Expected
+2026-11-02T08:24:10.5774453Z + Received
+2026-11-02T08:24:10.5774693Z 
+2026-11-02T08:24:10.5774920Z - false
+2026-11-02T08:24:10.5775241Z + true
+2026-11-02T08:24:10.5775469Z 
+2026-11-02T08:24:10.5775904Z  ❯ tests/billing-team-quote-design.test.ts:30:177
+2026-11-02T08:24:10.5776956Z      28|  const topup={...base,purpose:"credit_topup",credits:10000,provider:"s…
+2026-11-02T08:24:10.5778206Z      29|  expect(TeamQuote.parse(topup)).toEqual(topup);
+2026-11-02T08:24:10.5779438Z      30|  for(const patch of [{credits:1},{renewalMode:"automatic"},{seats:5},{…
+2026-11-02T08:24:10.5780681Z        |                                                                                                                                                                                 ^
+2026-11-02T08:24:10.5781262Z      31| });
+2026-11-02T08:24:10.5782373Z      32| it.each([0,-1,0.5,Infinity,Number.MAX_SAFE_INTEGER+1])("rejects unsafe…
+2026-11-02T08:24:10.5783179Z 
+2026-11-02T08:24:10.5783518Z ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+2026-11-02T08:24:10.5783820Z 
+2026-11-02T08:24:10.5784415Z  Test Files  1 failed | 48 passed | 1 skipped (140)
+2026-11-02T08:24:10.5785243Z       Tests  1 failed | 923 passed (945)
+2026-11-02T08:24:10.5785794Z    Start at  08:23:48
+2026-11-02T08:24:10.5786530Z    Duration  21.30s (transform 7.13s, setup 0ms, collect 21.48s, tests 6.48s, environment 20ms, prepare 10.82s)
+2026-11-02T08:24:10.5787009Z 
+2026-11-02T08:24:10.5787126Z 
+2026-11-02T08:24:10.5806458Z ##[error]AssertionError: expected true to be false // Object.is equality
+
+- Expected

@@ -1,0 +1,32 @@
+{
+  "base": "http://localhost:35895",
+  "head": "4c36c4cb5ff9cd3316bee3936a0c5d394887b1d1",
+  "workingTree": " apps/web/components/itv/interview-runs-step.tsx  | 4 ++--\n apps/web/tests/ui/interview-source-runs.test.tsx | 1 +\n apps/web/tsconfig.json                           | 3 ++-\n 3 files changed, 5 insertions(+), 3 deletions(-)\n",
+  "boundary": "Real local Next/Chromium; session and HTTP API fixtures, no DB/model/real authentication",
+  "checks": [
+    {
+      "style": "heading",
+      "width": 375,
+      "pass": true,
+      "checks": "two questions visible; both initially hidden; first independent expand; source link; keyboard Enter/Space; no overflow"
+    },
+    {
+      "style": "heading",
+      "width": 1280,
+      "pass": true,
+      "checks": "two questions visible; both initially hidden; first independent expand; source link; keyboard Enter/Space; no overflow"
+    },
+    {
+      "style": "bold",
+      "width": 375,
+      "pass": true,
+      "checks": "two questions visible; both initially hidden; first independent expand; source link; keyboard Enter/Space; no overflow"
+    },
+    {
+      "style": "bold",
+      "width": 1280,
+      "pass": true,
+      "checks": "two questions visible; both initially hidden; first independent expand; source link; keyboard Enter/Space; no overflow"
+    }
+  ]
+}

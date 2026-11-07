@@ -1,0 +1,12 @@
+
+> agentic-harness-template@ harness /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> tsx .harness/scripts/cli.ts "verify" "--phase" "21" "--feature" "F08"
+
+==> 验证 F08 — Stripe 订阅读模型：状态查询、升级与管理链接
+✓ 通过: pnpm --filter api exec vitest run tests/billing/subscription-links.test.ts
+  高风险命中 3 处：apps/api/migrations/20261018090000_billing_subscription_links.sql ⟵ apps/api/migrations/**; packages/contracts/src/billing-subscription.ts ⟵ packages/contracts/**; packages/contracts/tests/billing-subscription.test.ts ⟵ packages/contracts/**
+==> 运行基础验证（风险档=high_risk）: pnpm -w run verify:release
+✓ 基础验证通过（high_risk）
+F08 验证全部通过，但 --phase 模式不翻转 passing（无证据落盘）。
+  正式门控请跑: pnpm harness verify --sprint 21/<MM>
+完成：0 个升级为 passing，0 个未通过。

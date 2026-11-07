@@ -1,3 +1,5 @@
+import type {OrgInvitationDeliveryStore} from "../../application/auth/org-invitation-delivery";
+import { lockCapacityEpoch, lockOrganizationCapacity, commercialSeatAvailable, readCommercialCapacity } from "../org-capacity/pg-commercial-capacity";
 /**
  * `OrgInviteRepository` on PostgreSQL —— **I-1 与 I-2 真正住在这个文件里**。
  *
@@ -97,14 +99,38 @@ interface InviteRow {
   status: string;
 }
 
-export class PgOrgInviteRepository implements OrgInviteRepository {
+export class PgOrgInviteRepository implements OrgInviteRepository, OrgInvitationDeliveryStore {
   constructor(private readonly db: DatabasePort) {}
 
   /* ─────────────────────────── 邀请 ─────────────────────────── */
 
+  /** #6316 reviewed egress: only internal mail receives the recipient for this exact live token.
+   * Activation return values still never disclose invitation content to callers. */
+  async findDeliveryRecipient(input:{orgId:OrgId;inviteId:string;token:string}):Promise<{email:string}|null> {
+    return this.db.withTenant(input.orgId,async s=>(await s.query<{email:string}>(
+      `SELECT i.email FROM org_invites i JOIN org_invite_tokens t ON t.invite_id=i.id
+       WHERE i.id=$1 AND i.org_id=$2 AND i.status='pending' AND t.token=$3
+        AND t.consumed_at IS NULL AND t.expires_at>now()`,
+      [input.inviteId,input.orgId,input.token])).rows[0]??null);
+  }
+
+  async recordDeliveryOutcome(input:{orgId:OrgId;inviteId:string;token:string;delivered:boolean}):Promise<void> {
+    const {orgId,inviteId,token,delivered}=input;
+    await this.db.withTenant(orgId,async s=>{
+      // Same lock order as resend and acceptance. An older attempt cannot alter a newer token.
+      await s.query('SELECT id FROM org_invites WHERE id=$1 FOR UPDATE',[inviteId]);
+      await s.query(`UPDATE org_invites i SET status=$4,sent_at=CASE WHEN $4='pending' THEN now() ELSE NULL END
+       WHERE i.id=$1 AND i.org_id=$2 AND i.status='pending'
+        AND EXISTS(SELECT 1 FROM org_invite_tokens t WHERE t.invite_id=i.id AND t.token=$3 AND t.consumed_at IS NULL)`,
+       [inviteId,orgId,token,delivered?'pending':'send-failed']);
+      if(!delivered)await s.query('UPDATE org_invite_tokens SET consumed_at=now() WHERE invite_id=$1 AND token=$2 AND consumed_at IS NULL',[inviteId,token]);
+    });
+  }
+
   async create(input: CreateOrgInviteInput): Promise<CreateOrgInviteResult> {
     try {
       return await this.db.withTenant(input.orgId, async (s) => {
+        await lockOrganizationCapacity(s, input.orgId);
         // (1) 已经是成员的人不能被邀请（`INVITE_ALREADY_MEMBER`，引导去登录）。
         //
         // ⚠ 这一步与 (2) 的顺序不能反。反过来的话，一个已是成员的邮箱会先撞上
@@ -158,24 +184,29 @@ export class PgOrgInviteRepository implements OrgInviteRepository {
         // ⚠ 座位数是**数出来的**，不是存出来的：count(org_memberships) + count(未失效
         //   org_invites)。没有第二本账本要跟这两张表保持同步——那正是本仓五次
         //   「同一事实两处声明」漂移的形状，这里刻意不重蹈。
-        const quota = await s.query<{ seat_quota: string }>(
-          `SELECT seat_quota FROM organizations WHERE id = $1 FOR UPDATE`,
-          [input.orgId],
-        );
-        const seatQuota = Number(quota.rows[0]?.seat_quota ?? 0);
-        const usedMembers = await s.query<{ n: string }>(
-          `SELECT count(*)::text AS n FROM org_memberships WHERE org_id = $1`,
-          [input.orgId],
-        );
-        const usedInvites = await s.query<{ n: string }>(
-          `SELECT count(*)::text AS n FROM org_invites
-            WHERE org_id = $1 AND status IN ('pending', 'awaiting-review', 'send-failed')`,
-          [input.orgId],
-        );
-        const usedSeats = Number(usedMembers.rows[0]?.n ?? 0) + Number(usedInvites.rows[0]?.n ?? 0);
-        // I-9 逐字：「组织未分配额度为 0 时一律失败，且不产生任何 OrgInvite 行」——
-        // 这条判断必须发生在下面的 INSERT **之前**，本函数到这里为止还没有写过任何行。
-        if (usedSeats >= seatQuota) throw new Rollback("quota-exhausted");
+        const commercial = await readCommercialCapacity(s, input.orgId);
+        if (commercial.kind === "invalid") throw new Rollback("quota-exhausted");
+        // Commercial invitations reserve nothing; admission checks actual memberships.
+        if (commercial.kind === "legacy") {
+          const quota = await s.query<{ seat_quota: string }>(
+            `SELECT seat_quota FROM organizations WHERE id = $1 FOR UPDATE`,
+            [input.orgId],
+          );
+          const seatQuota = Number(quota.rows[0]?.seat_quota ?? 0);
+          const usedMembers = await s.query<{ n: string }>(
+            `SELECT count(*)::text AS n FROM org_memberships WHERE org_id = $1`,
+            [input.orgId],
+          );
+          const usedInvites = await s.query<{ n: string }>(
+            `SELECT count(*)::text AS n FROM org_invites
+              WHERE org_id = $1 AND status IN ('pending', 'awaiting-review', 'send-failed')`,
+            [input.orgId],
+          );
+          const usedSeats = Number(usedMembers.rows[0]?.n ?? 0) + Number(usedInvites.rows[0]?.n ?? 0);
+          // I-9 逐字：「组织未分配额度为 0 时一律失败，且不产生任何 OrgInvite 行」——
+          // 这条判断必须发生在下面的 INSERT **之前**，本函数到这里为止还没有写过任何行。
+          if (usedSeats >= seatQuota) throw new Rollback("quota-exhausted");
+        }
 
         // (2) 邀请行。并发第二路在这里撞 `org_invites_live_uniq`（I-5）。
         //
@@ -201,11 +232,8 @@ export class PgOrgInviteRepository implements OrgInviteRepository {
               input.teamId,
               input.status,
               input.actorId,
-              // I-3：待复核的邀请**没有发出去**，所以 sent_at 为 NULL。
-              // 迁移里的 CHECK 会在这条规则被绕过时拒绝写入。
-              // ⚠ 非 NULL 时的语义是「已入站出站队列」，不是「SMTP 接受了」——
-              // 投递器不在 F10 范围内（见 invite-org-member.ts 文件头）。
-              input.status === "awaiting-review" ? null : new Date(),
+              // Provider acceptance is recorded separately by OrgInvitationMailDelivery.
+              null,
             ],
           );
         } catch (e) {
@@ -269,7 +297,7 @@ export class PgOrgInviteRepository implements OrgInviteRepository {
       const grant = await this.db.withoutTenant((s) => this.activateAll(s, input));
       return { ok: true, grant };
     } catch (e) {
-      if (e instanceof Rollback && (e.reason === "not-found" || e.reason === "already-member")) {
+      if (e instanceof Rollback && (e.reason === "not-found" || e.reason === "already-member" || e.reason === "quota-exhausted")) {
         return { ok: false, reason: e.reason };
       }
       throw e;
@@ -277,11 +305,39 @@ export class PgOrgInviteRepository implements OrgInviteRepository {
   }
 
   private async activateAll(s: TenantSession, input: ActivateOrgInviteInput) {
-    // (1) 核销令牌 —— 条件 UPDATE，一条语句同时判「存在 / 未核销 / 未过期」。
+    await lockCapacityEpoch(s);
+    // (1) Index lookup only: never hold a token row while waiting for the organization
+    // or invite. Resend locks invite -> token; activation must use the same order.
+    const located = await s.query<{ invite_id: string; org_id_hint: string }>(
+      `SELECT invite_id, org_id_hint FROM org_invite_tokens WHERE token = $1`,
+      [input.token],
+    );
+    const tokenRow = located.rows[0];
+    if (tokenRow === undefined) throw new Rollback("not-found");
+
+    // (2) 切租户上下文。事务内、事务局部。
     //
-    // 三种失效在同一个 WHERE 里，所以它们**由构造**产生同一个零行结果（V10），
-    // 而不是靠应用层记得把三个分支合并成一句话。
-    // 并发两次点击在这条语句上串行：第二路重新求值 WHERE，看到 consumed_at 非空，匹配零行。
+    // ⚠ `org_id_hint` 到此为止：它决定去哪张表的哪一行找答案，不决定答案是什么。
+    const orgId: OrgId = toOrgId(tokenRow.org_id_hint);
+    await s.query("SELECT set_config('app.current_org', $1, true)", [orgId]);
+    await lockOrganizationCapacity(s, orgId);
+
+    // (3) 🔴 **服务端记录 —— 授予的唯一来源（I-2）**。
+    //
+    // 这一次 SELECT 就是「链接身份以服务端为准」。它读的是 RLS 下的 `org_invites`，
+    // 而 `status = 'pending'` 是「撤回中」那一类的落点：管理员在激活途中撤销了邀请
+    // ⇒ 行还在、status 变成 revoked ⇒ 这里零行 ⇒ 当前步骤立即失败（E7）。
+    const inviteRes = await s.query<InviteRow>(
+      `SELECT id, org_id, email, org_role, team_id, status FROM org_invites
+        WHERE id = $1 AND status = 'pending' FOR UPDATE`,
+      [tokenRow.invite_id],
+    );
+    const invite = inviteRes.rows[0];
+    if (invite === undefined) throw new Rollback("not-found");
+
+    // (3.5) One atomic live-token consumption, AFTER the authoritative invite lock.
+    // Expired, consumed and absent tokens remain indistinguishable; any later failure
+    // throws through the original transaction and restores consumed_at as well.
     const consumed = await s.query<{ invite_id: string; org_id_hint: string }>(
       `UPDATE org_invite_tokens
           SET consumed_at = $2
@@ -291,31 +347,21 @@ export class PgOrgInviteRepository implements OrgInviteRepository {
         RETURNING invite_id, org_id_hint`,
       [input.token, input.now],
     );
-    const tokenRow = consumed.rows[0];
-    if (tokenRow === undefined) throw new Rollback("not-found");
-
-    // (2) 切租户上下文。事务内、事务局部。
-    //
-    // ⚠ `org_id_hint` 到此为止：它决定去哪张表的哪一行找答案，不决定答案是什么。
-    const orgId: OrgId = toOrgId(tokenRow.org_id_hint);
-    await s.query("SELECT set_config('app.current_org', $1, true)", [orgId]);
-
-    // (3) 🔴 **服务端记录 —— 授予的唯一来源（I-2）**。
-    //
-    // 这一次 SELECT 就是「链接身份以服务端为准」。它读的是 RLS 下的 `org_invites`，
-    // 而 `status = 'pending'` 是「撤回中」那一类的落点：管理员在激活途中撤销了邀请
-    // ⇒ 行还在、status 变成 revoked ⇒ 这里零行 ⇒ 当前步骤立即失败（E7）。
-    const inviteRes = await s.query<InviteRow>(
-      `SELECT id, org_id, email, org_role, team_id, status FROM org_invites
-        WHERE id = $1 AND status = 'pending'`,
-      [tokenRow.invite_id],
-    );
-    const invite = inviteRes.rows[0];
-    if (invite === undefined) throw new Rollback("not-found");
+    if (consumed.rows[0] === undefined || consumed.rows[0].invite_id !== invite.id || consumed.rows[0].org_id_hint !== orgId) {
+      throw new Rollback("not-found");
+    }
 
     // ⚠ `invite.email` 到此为止：它只在下面 (4) 里当 INSERT 的参数用，
     //   不进返回值。ALLOWLIST 里那条例外的前提就是这一点（见文件头）。
     const actual = { orgId: invite.org_id, orgRole: invite.org_role, teamId: invite.team_id };
+
+    if (input.existingUserId !== null) {
+      const credential = await s.query<{email: string}>("SELECT email FROM credentials WHERE user_id=$1", [input.existingUserId]);
+      if (credential.rows[0]?.email !== invite.email) throw new Rollback("not-found");
+      const existing = await s.query("SELECT 1 FROM org_memberships WHERE org_id=$1 AND user_id=$2", [orgId,input.existingUserId]);
+      if (existing.rows.length) throw new Rollback("already-member");
+    }
+    if (await commercialSeatAvailable(s, orgId) === false) throw new Rollback("quota-exhausted");
 
     // (4) 账号。新账号在这条路径上**直接是已验证的**——O-28 ⑤：点击一次性激活链接
     //     即足以证明邮箱所有权，不再二次发信。
@@ -366,10 +412,11 @@ export class PgOrgInviteRepository implements OrgInviteRepository {
     }
 
     // (6) 邀请行终态。`used` + 谁用的 + 什么时候用的，三者一起动（迁移里的 CHECK）。
-    await s.query(
-      `UPDATE org_invites SET status = 'used', used_at = $2, used_by_user_id = $3 WHERE id = $1`,
+    const completed = await s.query<{ id: string }>(
+      `UPDATE org_invites SET status = 'used', used_at = $2, used_by_user_id = $3 WHERE id = $1 AND status = 'pending' RETURNING id`,
       [invite.id, input.now, userId],
     );
+    if (!completed.rows.length) throw new Rollback("not-found");
 
     // (7) 篡改留痕。**在同一个事务里**——分开写意味着授予成功而留痕失败时，
     //     那次尝试就消失了，而它恰好是最值得留下来的那一条。
@@ -509,12 +556,8 @@ export class PgOrgInviteRepository implements OrgInviteRepository {
     const row = res.rows[0];
     if (row === undefined) throw new Rollback("not-found");
 
-    // 可重发的两种状态：
-    //   `pending`      正常的「链接发出去了但对方没点」。
-    //   `send-failed`  上一次投递失败——重发正是为它准备的动作。
-    // 其余三种一律拒：`awaiting-review`（I-3：复核前**不签发**，重发会绕过整条双人复核）、
-    // `revoked`、`used`。
-    if (row.status !== "pending" && row.status !== "send-failed") {
+    // Pending, failed and historical review entries can be resent as ordinary members.
+    if (row.status !== "pending" && row.status !== "send-failed" && row.status !== "awaiting-review") {
       throw new Rollback("not-resendable");
     }
 
@@ -562,10 +605,9 @@ export class PgOrgInviteRepository implements OrgInviteRepository {
       [input.token, row.id, input.orgId, input.tokenExpiresAt, input.now],
     );
 
-    // `send-failed` 重新回到 `pending`：链接又发出去了。`sent_at` 一并更新。
-    await s.query(`UPDATE org_invites SET status = 'pending', sent_at = $2 WHERE id = $1`, [
+    // Delivery outcome is pending until the new bearer is accepted by the provider.
+    await s.query(`UPDATE org_invites SET status = 'pending', org_role = 'consultant', sent_at = NULL WHERE id = $1`, [
       row.id,
-      input.now,
     ]);
 
     return { ok: true, newTokenIssued: true, cooldownSec: input.cooldownSeconds };

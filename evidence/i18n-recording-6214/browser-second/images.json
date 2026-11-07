@@ -1,0 +1,290 @@
+[
+  {
+    "file": "create-en-1280.png",
+    "sha256": "49d57275e642aa38324175475a39f7cd1ca1cc3b4ecd6514fd9b235f56a30a14",
+    "authorViewed": true,
+    "finding": "PASS: fixed English controls fit; authored raw name/tag preserved."
+  },
+  {
+    "file": "create-en-375.png",
+    "sha256": "b8a01adeff07f7affed8db4f2dc9188c670ab711f74dbb311702506e5f86098b",
+    "authorViewed": true,
+    "finding": "PASS: dialog within margins, buttons stack, tag suggestion wraps."
+  },
+  {
+    "file": "delete-en-1280.png",
+    "sha256": "fb1227a474dd439f36933295a5caf16f091a37b3fcfff6361be99c03185878ed",
+    "authorViewed": true,
+    "finding": "PASS: title and destructive confirmation fully visible; raw renamed content wraps."
+  },
+  {
+    "file": "delete-en-375.png",
+    "sha256": "35e4c79db2afcf9ce8b9e8981e4e335686ab8b9d829b0ff69c7fd14a706fce57",
+    "authorViewed": true,
+    "finding": "PASS: confirmation and cancel buttons fit; long raw name wraps within dialog."
+  },
+  {
+    "file": "deleted-en-1280.png",
+    "sha256": "b323d57998fb4d583bf850abe0b35318391998f969d020279f7e7f28ba57b3e4",
+    "authorViewed": true,
+    "finding": "FINDING: fixed ProjectBreadcrumb remains Chinese \u8fd4\u56de\u9879\u76ee in English. Notice/raw name wrapping and empty history fit."
+  },
+  {
+    "file": "deleted-en-375.png",
+    "sha256": "06ea551977ff941184bcf3fb62891ea61d4550c1219f0b25c3759e6ea2a95ef7",
+    "authorViewed": true,
+    "finding": "FINDING: same Chinese project back chrome; rest of deletion notice/filter/layout fits mobile."
+  },
+  {
+    "file": "devices-en-1280.png",
+    "sha256": "c60d7d24a5054d3a1bc3ebdf0e62b45e06355fdfe67e38603b522c1e054aaebb",
+    "authorViewed": true,
+    "finding": "PASS: system-default and native default are distinct visible options; list fits right edge."
+  },
+  {
+    "file": "devices-en-375.png",
+    "sha256": "dc8b06819604a94590886f2c625181e0595a25821954d1af986f3a565848a7b8",
+    "authorViewed": true,
+    "finding": "PASS: input dropdown fits left edge; overlay intentionally covers workspace until selection."
+  },
+  {
+    "file": "metadata-en-1280.png",
+    "sha256": "9580cef795181a3c215d94d9fda44f415c002972bd53a8d79fb09a66808a47d8",
+    "authorViewed": true,
+    "finding": "PASS: edit dialog labels/actions and raw values fit desktop."
+  },
+  {
+    "file": "metadata-en-375.png",
+    "sha256": "3e32b24f2317933212be5b71fed9aac475254a8fcdb69ed3c9a05b2b020d7c09",
+    "authorViewed": true,
+    "finding": "PASS: help wraps, buttons remain in viewport, raw editable text retained."
+  },
+  {
+    "file": "recording-active-en-1280.png",
+    "sha256": "0d14ebfe166b7403ba93bd62d3daca57b9fc207d1ef6d69148b7724d987710b5",
+    "authorViewed": true,
+    "finding": "PASS: stop/finalize guidance, live interim and disabled-edit controls visible."
+  },
+  {
+    "file": "recording-active-en-375.png",
+    "sha256": "ef348688f27059d13230f5610db532d40a0cf46e74cc9b8e8e3e6db9ee0a7cec",
+    "authorViewed": true,
+    "finding": "PASS: guidance wraps; stop and transcript actions fit; raw title intentionally truncated."
+  },
+  {
+    "file": "reloaded-en-1280.png",
+    "sha256": "55a52d9bcc5b6df4cfce95fd4da33f251e89fe727ff53352b2b287627a0b4011",
+    "authorViewed": true,
+    "finding": "PASS: final received-byte transcript and authored edited Chinese persist; desktop actions fit."
+  },
+  {
+    "file": "reloaded-en-375.png",
+    "sha256": "fbfb0042cd04e2f64b1e421bf2d0ae5c8eb1cd167a0618ab7bcf889370cfc2e9",
+    "authorViewed": true,
+    "finding": "PASS: reloaded text wraps, editable raw content remains, continue action fully visible."
+  },
+  {
+    "file": "rename-en-1280.png",
+    "sha256": "585b106fc3d6485b343157d7c64b43b710572817d51c0b1ba3dca57b1e4b7fbd",
+    "authorViewed": true,
+    "finding": "PASS: inline rename retains raw text; accessible icon buttons and transcript controls fit."
+  },
+  {
+    "file": "rename-en-375.png",
+    "sha256": "07fd498f951a8f2caa7845c77727425454cf655cc9d5e897bb5c4428acd25632",
+    "authorViewed": true,
+    "finding": "PASS: rename field and action controls fit; raw long input can scroll normally."
+  },
+  {
+    "file": "stopped-en-1280.png",
+    "sha256": "0cb98bacdc4d332c25baca74eb6479ecf43cef081f50e21bc428eadc9e7f1a4d",
+    "authorViewed": true,
+    "finding": "PASS: completed final text visible, no interim; continue/edit/copy fit."
+  },
+  {
+    "file": "stopped-en-375.png",
+    "sha256": "15b812393c3c4d7c04fd49bf7b4ca3370bb9a258ece491daa383b512831d7d0c",
+    "authorViewed": true,
+    "finding": "PASS: stopped-state guidance wraps; final text and actions fit mobile."
+  },
+  {
+    "file": "transcript-edit-en-1280.png",
+    "sha256": "1bdde90d69f089bb0b2b8ab2dcdcecbb3c5bc67892d54e88398d50e894593ec1",
+    "authorViewed": true,
+    "finding": "PASS: original edited content stays raw; save/cancel clear; disabled continue explained."
+  },
+  {
+    "file": "transcript-edit-en-375.png",
+    "sha256": "df2aa6f1441ca101233ecb7f2f0cb0609d0a350f283cba8a69c7e598c7d30c22",
+    "authorViewed": true,
+    "finding": "PASS: stacked save/cancel visible above mobile nav; editor and guidance fit."
+  },
+  {
+    "file": "workspace-empty-en-1280.png",
+    "sha256": "4497045cffbcefce4be4484c622974f5acc9ea2d274e38dd873659bbc26b5754",
+    "authorViewed": true,
+    "finding": "PASS: empty state/actions fit desktop, no auto-recording."
+  },
+  {
+    "file": "workspace-empty-en-375.png",
+    "sha256": "f48303916c94d8509e212771b52bf348f7161c57e6b4b1fa8c4b13006b5e9250",
+    "authorViewed": true,
+    "finding": "PASS: empty state/actions fit mobile."
+  },
+  {
+    "file": "project-annotate-en-1280.png",
+    "sha256": "da496a5b896fbfe9e983b0ed46b81ce984089049a72070363d6e119e6b742e34",
+    "authorViewed": true,
+    "finding": "PASS layout. AI_MOMENTS.label is free-form model candidate text, intentionally raw; add UI spacing before raw label if touching copy joins."
+  },
+  {
+    "file": "project-annotate-en-375.png",
+    "sha256": "1d0cff0caf45b74b5897aca764e2f282ef4f148f915d079a2641b219cc3a061e",
+    "authorViewed": true,
+    "finding": "PASS: warnings/actions wrap; raw model label/quote/source retained."
+  },
+  {
+    "file": "project-annotate-footer-en-375.png",
+    "sha256": "d3abf697a9aca1b910fcec57a7f10fc98d5b0bf86665f8f369d9f544a1424383",
+    "authorViewed": true,
+    "finding": "PASS: natural footer invalidation note fits; raw model labels intentional."
+  },
+  {
+    "file": "project-assign-en-1280.png",
+    "sha256": "e05a2a4f1f276f877ce7916c224297398b1fc6cea35b1736b1e0c40b20935af0",
+    "authorViewed": true,
+    "finding": "FINDING: missing space at rendered policy joins (sessionSome / consent).No). Desktop filter fits."
+  },
+  {
+    "file": "project-assign-en-375.png",
+    "sha256": "057eb81c95284679d30b240086b1761ba026438c0d1c4875d1e122e4f9f46818",
+    "authorViewed": true,
+    "finding": "PASS top layout/role raw names; filter needs footer verification."
+  },
+  {
+    "file": "project-assign-footer-en-375.png",
+    "sha256": "12891511e0ecafc5f0b86b745ba37cc7f69e69314c3cb508d159d2cc660529b1",
+    "authorViewed": true,
+    "finding": "FINDING: English pending filter overflow-hidden crops Assignment required and hides Review required on mobile. Needs wrapping; raw transcript/names remain intentional."
+  },
+  {
+    "file": "project-interviewee-consent-en-1280.png",
+    "sha256": "a71473ea33af5804170d171aa636d90cd88db4fb20d43ce476023bba30fdbb40",
+    "authorViewed": true,
+    "finding": "PASS: fixed choices/help translated; canonical current/submitted consent remain literal; desktop flow rows fit."
+  },
+  {
+    "file": "project-interviewee-consent-en-375.png",
+    "sha256": "ea06e77845e272f0829a543a6b9e137edc7f2a70f29b506290c2f8407b2c878e",
+    "authorViewed": true,
+    "finding": "PASS: choices/help wrap and raw consent snapshots unchanged."
+  },
+  {
+    "file": "project-interviewee-withdraw-en-1280.png",
+    "sha256": "a71473ea33af5804170d171aa636d90cd88db4fb20d43ce476023bba30fdbb40",
+    "authorViewed": true,
+    "finding": "PASS: five withdrawal display steps fit; no claim of real withdrawal API."
+  },
+  {
+    "file": "project-interviewee-withdraw-en-375.png",
+    "sha256": "21130fe15ce3e1515897997f02b37e6ecd745f46facdf6fff935bd802a12cbdf",
+    "authorViewed": true,
+    "finding": "PASS: naturally scrolled five steps all visible, long explanation/actions wrap above mobile nav."
+  },
+  {
+    "file": "project-live-en-1280.png",
+    "sha256": "34fadbb309006baa650800e0a41317dd1d90a7006358b1f712716427569bd958",
+    "authorViewed": true,
+    "finding": "PASS layout/state. FINDING minor English joins: masked:Email and raw label(pending) lack spacing. Raw session/speaker/transcript are intentionally retained."
+  },
+  {
+    "file": "project-live-en-375.png",
+    "sha256": "b32355bba63bb3d977fc900068a4b7f92af35ba22691767d1456c2704ee4fd05",
+    "authorViewed": true,
+    "finding": "PASS: state toolbar wraps, mic/search/follow controls fit; no content rewrite."
+  },
+  {
+    "file": "project-live-footer-en-1280.png",
+    "sha256": "f9ccdbc4d334d9747261650ac4f7050fd8adf61e8f8fb6d0c775a37bd4e90cbc",
+    "authorViewed": true,
+    "finding": "FINDING: missing space before file explanatory parenthesis; filenames and transcript remain canonical/raw."
+  },
+  {
+    "file": "project-live-footer-en-375.png",
+    "sha256": "ac1e95e17a90de2962303d86aa3f4b7f491edefb6e62dd8ba9050be8c1cbbf6a",
+    "authorViewed": true,
+    "finding": "PASS layout: naturally scrolled final raw speech/notice fits; same spacing follow-up."
+  },
+  {
+    "file": "project-prep-en-1280.png",
+    "sha256": "40b76a58c4459bc056bc14b8215e79dd09bbc879baecf57a9805a5543b9aa980",
+    "authorViewed": true,
+    "finding": "CHECK: layout fits; two participant consequence notes remain raw Chinese. Need distinguish fixed generated prep warnings from canonical legal consent before editing."
+  },
+  {
+    "file": "project-prep-en-375.png",
+    "sha256": "427cb497933a0c814ddbe5b92546ef1866ad6d4cfea5241d1d17d513c5222ec9",
+    "authorViewed": true,
+    "finding": "PASS layout: consent table and checks fit; same note-boundary classification pending."
+  },
+  {
+    "file": "project-prep-footer-en-375.png",
+    "sha256": "ce2982624114c1ea0ca3888401adb850f600f73a2799fb12758fa0866555ff99",
+    "authorViewed": true,
+    "finding": "PASS layout: natural scroll shows entire start-disabled action/footnote; same note-boundary classification pending."
+  },
+  {
+    "file": "project-process-en-1280.png",
+    "sha256": "8ebae89cf334dbd3632bace6a10db5081170d304626a3cd4c58f918fe3f4224d",
+    "authorViewed": true,
+    "finding": "PASS: task state/retry and fixed details fit desktop."
+  },
+  {
+    "file": "project-process-en-375.png",
+    "sha256": "a5a4cb011cb4f64a635d94385581e57d432d6b7183dcffa93bd90d0d3068988f",
+    "authorViewed": true,
+    "finding": "FINDING P2: failed translation task label collapses to narrow single-word column; detail overlaps, retry area clipping. Needs responsive task-row wrap with real bounds guard."
+  },
+  {
+    "file": "project-retention-en-1280.png",
+    "sha256": "1083a827a2cee8e680c707f7fd7688f63f0f68407d468290cdea626ada97f825",
+    "authorViewed": true,
+    "finding": "PASS layout; FINDING minor missing space at days(from...) and decision(whether...) joins. Raw filenames/report titles intentionally preserved."
+  },
+  {
+    "file": "project-retention-en-375.png",
+    "sha256": "bb73c66929b3afe03b4f9e660ee32d6f9293f87370700fcc6e641fe3c5ae31b3",
+    "authorViewed": true,
+    "finding": "PASS: controls and cards wrap, no side clipping; same join-spacing correction."
+  },
+  {
+    "file": "project-retention-footer-en-1280.png",
+    "sha256": "536f04bbfac1d98a92f398979c56f2d3e1d72a6ef9e5b0487ab4520dc8f2367b",
+    "authorViewed": true,
+    "finding": "PASS layout; FINDING snapshotstill lacks word boundary. Current/snapshot canonical notice bodies correctly remain literal."
+  },
+  {
+    "file": "project-retention-footer-en-375.png",
+    "sha256": "a22a5c4b88d61d9b16a0ac83a05e3e00915ea8caf9254f862909d2ceeb898e4a",
+    "authorViewed": true,
+    "finding": "PASS: naturally scrolled blocked-deletion and both consent panels fit; same fixed-join spacing issue."
+  },
+  {
+    "file": "project-verify-en-1280.png",
+    "sha256": "e55498ad0191b725cfa6a83df37639766474eeb1d3f09d507775431df876d467",
+    "authorViewed": true,
+    "finding": "PASS: known verification UI labels translate; raw chapters, source transcript and model theme text remain literal."
+  },
+  {
+    "file": "project-verify-en-375.png",
+    "sha256": "68c71fc135845fb647e02ad38ddcdff0e49e0e3a5522b68ae28b1161e401145a",
+    "authorViewed": true,
+    "finding": "PASS: sidebar stacks, confirm button and corrections wrap; no side clipping."
+  },
+  {
+    "file": "project-verify-footer-en-375.png",
+    "sha256": "abeb6cd4cf9ab0e71c1571e26e04c4f05f7e7639f724b2f6481531a3b323667d",
+    "authorViewed": true,
+    "finding": "PASS: naturally scrolled source/model cards and evidence footnote fully visible."
+  }
+]

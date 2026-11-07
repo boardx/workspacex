@@ -1,0 +1,19 @@
+{
+  "source": "cd85446e25a4c97fb010fdcb24151207ddde4f06",
+  "independentReview": "SOURCE ACCEPT cd85446e25a4c97fb010fdcb24151207ddde4f06",
+  "files": 13,
+  "testsPassed": 84,
+  "focusedExit": 0,
+  "apiTypecheckExit": 0,
+  "apiLintExit": 0,
+  "credentialScanExit": 0,
+  "ownedIsolationCleaned": true,
+  "originalFaultReproduced": false,
+  "originalRootCause": "unknown",
+  "budgetsChanged": false,
+  "publicProtocolChanged": false,
+  "billingCodeChanged": false,
+  "priorInterruptedSource": "16ec40fa247d3b03cfcaf85d9671145d398aa09a",
+  "priorInterruptedOuterExit": 1,
+  "priorInterruptedCause": "explicit SIGINT after independently verified queued-trace review blocker, not an assertion failure"
+}

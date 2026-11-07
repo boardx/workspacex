@@ -2,11 +2,29 @@
 # Trusted root entrypoint used by deploy-cn-production.yml.
 set -euo pipefail
 
+if [[ ${1:-} == --auto-stage-evidence ]]; then
+  [[ ${EUID} -eq 0 && $# -eq 3 && "$2" =~ ^[a-f0-9]{40}$ && "$3" =~ ^gha-[0-9]+-[0-9]+$ ]] || exit 2
+  evidence_root=/var/lib/workspacex-cn/runtime
+  [[ ! -L "$evidence_root" && "$(stat -c '%u:%g:%a' "$evidence_root")" == 0:0:700 && -f "$evidence_root/release.lock" && ! -L "$evidence_root/release.lock" && "$(stat -c '%u:%g:%a:%h' "$evidence_root/release.lock")" == 0:0:600:1 ]] || exit 3
+  exec 9<>"$evidence_root/release.lock"
+  flock -n 9 || exit 3
+  exec /usr/bin/node /usr/local/lib/workspacex-cn/cn-auto-evidence-stage.mjs "$2" "$3"
+fi
+
+if [[ ${1:-} == --auto-stage-source ]]; then
+  [[ ${EUID} -eq 0 && $# -eq 4 && "$2" =~ ^[a-f0-9]{40}$ && "$3" =~ ^gha-[0-9]+-[0-9]+$ && "$4" =~ ^[a-f0-9]{64}$ ]] || exit 2
+  exec /usr/bin/python3 -I -B /usr/local/lib/workspacex-cn/cn_auto_source.py "$2" "$3" "$4"
+fi
+
 operational=0
 preflight_flags=()
 if [[ ${1:-} == --operational ]]; then operational=1; preflight_flags=(--operational); shift; fi
 mode=deploy
 case ${1:-} in
+  --app-only) mode=app-only; shift ;;
+  --app-only-check) mode=app-only-check; shift ;;
+  --app-only-rollback) mode=app-only-rollback; shift ;;
+  --app-only-commit) mode=app-only-commit; shift ;;
   --check-prepare-inputs) mode=check-prepare-inputs; shift ;;
   --prepare) mode=prepare; shift ;;
   --rollback) mode=rollback; shift ;;
@@ -70,7 +88,9 @@ NODE
   exit 0
 fi
 pnpm() { COREPACK_ENABLE_NETWORK=0 /usr/bin/corepack pnpm@9.15.0 "$@"; }
-[[ "$(pnpm --version)" == 9.15.0 ]] || fail "declared pnpm toolchain is unavailable offline"
+if [[ "$mode" != app-only* ]]; then
+  [[ "$(pnpm --version)" == 9.15.0 ]] || fail "declared pnpm toolchain is unavailable offline"
+fi
 resolve_browser_executable() {
   local candidate path
   for candidate in chromium-browser chromium google-chrome; do
@@ -97,35 +117,13 @@ runner_readable_manifest() {
   [[ "$(stat -c '%U:%G:%a' "$path")" == "root:$REPOSITORY_GROUP:640" ]] || fail "release manifest must be root:$REPOSITORY_GROUP 0640: $path"
 }
 capture_baseline() {
-  local output=$1 api=workspacex-cn-api-1 web=workspacex-cn-web-1 agent=workspacex-cn-agent-1 sandbox=workspacex-cn-sandbox-1
-  local api_image web_image agent_image sandbox_image config_file nginx_hash
-  for container in "$api" "$web" "$agent" "$sandbox"; do docker inspect "$container" >/dev/null 2>&1 || fail "baseline container missing: $container"; done
-  api_image=$(docker inspect --format '{{.Image}}' "$api")
-  web_image=$(docker inspect --format '{{.Image}}' "$web")
-  agent_image=$(docker inspect --format '{{.Image}}' "$agent")
-  sandbox_image=$(docker inspect --format '{{.Image}}' "$sandbox")
-  config_file=$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project.config_files"}}' "$api")
-  [[ "$config_file" == "$RUNTIME_ROOT"/*/compose.json ]] || fail "baseline runtime is untrusted"
-  nginx_hash=$(sha256sum "$NGINX_CONFIG" | cut -d' ' -f1)
-  node - "$output" "$config_file" "$api_image" "$web_image" "$agent_image" "$sandbox_image" "$nginx_hash" <<'NODE'
-const fs=require("node:fs");
-const [path,composeFile,api,web,agent,sandbox,nginxSha256]=process.argv.slice(2);
-const value={schemaVersion:1,composeFile,images:{api,web,agent,sandbox},nginxSha256};
-fs.writeFileSync(path,`${JSON.stringify(value)}\n`,{mode:0o600,flag:"wx"});
-NODE
-  chown root:root "$output"; chmod 0600 "$output"
+  python3 /usr/local/lib/workspacex-cn/cn_compose_baseline.py capture "$1" >/dev/null || fail "protected compose baseline capture failed"
 }
 verify_stable_identity() {
-  local baseline_file=$1 baseline_runtime baseline_secret_directory legacy_flag=()
-  baseline_runtime=$(node -e 'const p=require("node:path");const v=require(process.argv[1]);process.stdout.write(p.dirname(v.composeFile))' "$baseline_file")
-  baseline_secret_directory="$baseline_runtime/secrets"
-  if [[ -e "$baseline_runtime/stable-secret-directory.ref" ]]; then
-    private_root_file "$baseline_runtime/stable-secret-directory.ref"
-    baseline_secret_directory=$(tr -d '\n' < "$baseline_runtime/stable-secret-directory.ref")
-    [[ "$baseline_secret_directory" == "$STABLE_SECRET_DIRECTORY" ]] || fail "baseline stable secret directory drift"
-  else
-    [[ "$baseline_runtime" == "$RUNTIME_ROOT"/* && "${baseline_runtime#"$RUNTIME_ROOT"/}" =~ ^[a-f0-9]{40}$ &&
-       "$baseline_secret_directory" == "$baseline_runtime/secrets" ]] || fail "legacy baseline secret directory invalid"
+  local baseline_file=$1 identity baseline_secret_directory legacy_flag=()
+  identity=$(python3 /usr/local/lib/workspacex-cn/cn_compose_baseline.py stable "$baseline_file") || fail "protected baseline stable identity failed"
+  baseline_secret_directory=$(node -e 'process.stdout.write(JSON.parse(process.argv[1]).directory)' "$identity")
+  if [[ "$(node -e 'process.stdout.write(String(JSON.parse(process.argv[1]).legacy))' "$identity")" == true ]]; then
     legacy_flag=(--legacy-baseline)
   fi
   pnpm --filter @repo/cloud-deploy stable-secret-preflight "$baseline_secret_directory" "$STABLE_SECRET_DIRECTORY" "${legacy_flag[@]}" >/dev/null || fail "stable secret continuity preflight failed"
@@ -134,19 +132,17 @@ baseline_fingerprint() {
   pnpm --dir "$release_checkout" --filter @repo/cloud-deploy cn-fast-safe-release fingerprint "$1" "$2"
 }
 restore_baseline() {
-  local rollback_dir override compose_file
-  rollback_dir=$(mktemp -d "$runtime/.rollback.XXXXXX")
-  override="$rollback_dir/images.json"
-  compose_file=$(node -e 'const v=require(process.argv[1]);process.stdout.write(v.composeFile)' "$baseline_state")
-  node - "$baseline_state" "$override" <<'NODE'
-const fs=require("node:fs"),value=JSON.parse(fs.readFileSync(process.argv[2],"utf8"));
-fs.writeFileSync(process.argv[3],JSON.stringify({services:{api:{image:value.images.api},web:{image:value.images.web},agent:{image:value.images.agent},sandbox:{image:value.images.sandbox}}}),{mode:0o600,flag:"wx"});
-NODE
-  install -o root -g root -m 0600 "$baseline_nginx" "$NGINX_CONFIG"
-  nginx -t && systemctl reload nginx
+  local expected_nginx actual_nginx
+  python3 /usr/local/lib/workspacex-cn/cn_compose_baseline.py verify "$baseline_state" >/dev/null || fail "protected rollback baseline changed"
+  expected_nginx=$(node -e 'process.stdout.write(require(process.argv[1]).nginxSha256)' "$baseline_state")
+  actual_nginx=$(sha256sum "$baseline_nginx" | cut -d' ' -f1)
+  [[ "$actual_nginx" == "$expected_nginx" ]] || fail "rollback nginx baseline changed"
+  install -o root -g root -m 0600 "$baseline_nginx" "$NGINX_CONFIG" || fail "baseline nginx installation failed"
+  nginx -t && systemctl reload nginx || fail "baseline nginx restore failed"
   candidate_config_action restore >/dev/null || fail "active configuration CAS restore failed"
-  docker compose -p "$PROJECT_NAME" -f "$compose_file" -f "$override" up -d --remove-orphans
-  rm -rf -- "$rollback_dir"
+  # The protected helper preserves the complete ordered file list and appends a
+  # durable exact-image override, so container labels never name deleted files.
+  python3 /usr/local/lib/workspacex-cn/cn_compose_baseline.py restore "$baseline_state" >/dev/null || fail "baseline compose restore failed"
 }
 enable_run_drain() {
   local drain_dir candidate
@@ -192,16 +188,56 @@ runner_readable_manifest "$manifest"
 runner_readable_manifest "$seal"
 private_root_file "$AGENT_ENV_FILE"
 [[ -x "$PREFLIGHT_VERIFIER" && ! -L "$PREFLIGHT_VERIFIER" ]] || fail "trusted preflight verifier is unavailable"
-install -d -o root -g root -m 0700 "$REQUESTS_DIR" "$RUNTIME_ROOT" "$PREPARATIONS_DIR" "$EVENTS_ROOT"
-install -d -o root -g root -m 0700 "$RELEASE_TREE_ROOT"
-
-exec 9>"$RUNTIME_ROOT/release.lock"
-chown root:root "$RUNTIME_ROOT/release.lock"; chmod 0600 "$RUNTIME_ROOT/release.lock"
+if [[ "$mode" == app-only* ]]; then
+  for directory in "$RUNTIME_ROOT" "$PREPARATIONS_DIR" "$RELEASE_TREE_ROOT"; do
+    [[ -d "$directory" && ! -L "$directory" && "$(stat -c '%u:%g:%a' "$directory")" == 0:0:700 ]] || fail "app-only directories are not pre-staged"
+  done
+  private_root_file "$RUNTIME_ROOT/release.lock"
+  exec 9<"$RUNTIME_ROOT/release.lock"
+else
+  install -d -o root -g root -m 0700 "$REQUESTS_DIR" "$RUNTIME_ROOT" "$PREPARATIONS_DIR" "$EVENTS_ROOT"
+  install -d -o root -g root -m 0700 "$RELEASE_TREE_ROOT"
+  private_root_file "$RUNTIME_ROOT/release.lock"
+  [[ "$(stat -c '%h' "$RUNTIME_ROOT/release.lock")" == 1 ]] || fail "release lock has multiple links"
+  exec 9<>"$RUNTIME_ROOT/release.lock"
+fi
 flock -n 9 || fail "another deployment is active"
 # Maintenance admission runs under the canonical release lock before mutations.
 MAINTENANCE_HOLD_HELPER=/usr/local/lib/workspacex-cn/cn_maintenance_hold.py
 [[ -f "$MAINTENANCE_HOLD_HELPER" && ! -L "$MAINTENANCE_HOLD_HELPER" && "$(stat -c '%u:%g:%a:%h' "$MAINTENANCE_HOLD_HELPER")" == 0:0:700:1 ]] || fail "trusted maintenance hold helper unavailable"
 python3 "$MAINTENANCE_HOLD_HELPER" admit "$RUNTIME_ROOT" >/dev/null || fail "maintenance hold blocks ordinary release"
+# A partial app switch or uncertain remote CAS must not admit another release.
+if [[ -e "$RUNTIME_ROOT/app-only-inflight.json" && "$mode" != app-only-rollback && "$mode" != app-only-commit && "$mode" != app-only-check ]]; then
+  fail "app-only switch requires exact-attempt reconciliation"
+fi
+if [[ -e "$PREPARATIONS_DIR/$revision.app-only.$attempt_id.json" && "$mode" != app-only* ]]; then
+  fail "app-only preparation cannot enter standard provision"
+fi
+if [[ "$mode" == app-only* ]]; then
+  [[ "$operational" == 0 ]] || fail "app-only cannot adopt operational/maintenance authority"
+  unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_CONFIG GIT_CONFIG_COUNT GIT_CONFIG_PARAMETERS GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES
+  export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_NO_REPLACE_OBJECTS=1 GIT_NO_LAZY_FETCH=1
+  git -C "$REPOSITORY_DIR" merge-base --is-ancestor "$revision" origin/main || fail "app-only revision is outside admitted main"
+  if [[ "$mode" == app-only || "$mode" == app-only-commit ]]; then
+    [[ "$(git -C "$REPOSITORY_DIR" rev-parse origin/main-cn)" == "$revision" ]] || fail "app-only local promotion CAS is missing"
+  fi
+  private_root_file "$PREPARATIONS_DIR/$revision.app-only.$attempt_id.json"
+  [[ -d "$release_checkout" && ! -L "$release_checkout" ]] || fail "app-only trusted offline tool closure is not staged"
+  source="$release_checkout/packages/cloud-deploy/src/cn-app-only-cli.ts"
+  [[ -f "$source" && ! -L "$source" && "$(stat -c '%u' "$source")" == 0 ]] || fail "app-only trusted CLI unavailable"
+  guard=/usr/local/lib/workspacex-cn/cn-app-only-guard.py
+  [[ -f "$guard" && ! -L "$guard" && "$(stat -c '%u:%a' "$guard")" == 0:755 ]] || fail "app-only guard is not installed"
+  cmp --silent "$release_checkout/.harness/scripts/vm/cn-app-only-guard.py" "$guard" || fail "app-only guard version drift"
+  /usr/bin/python3 -I -S -B "$guard" "$release_checkout" "$revision" || fail "app-only tool closure rejected"
+  case "$mode" in
+    app-only) app_action=activate ;;
+    app-only-check) app_action=check ;;
+    app-only-rollback) app_action=rollback ;;
+    app-only-commit) app_action=commit ;;
+  esac
+  cd "$release_checkout"
+  exec /usr/bin/env -i PATH=/usr/local/bin:/usr/bin:/bin HOME=/root LC_ALL=C /usr/bin/node --import tsx "$source" "$app_action" "$revision" "$attempt_id"
+fi
 # Hosted imports publish a pending marker before either artifact. A partial import
 # cannot be adopted by prepare; ordinary publisher releases have no marker.
 if [[ "$mode" == prepare && ( -e "$RELEASES_DIR/$revision.hosted-import.json" || -L "$RELEASES_DIR/$revision.hosted-import.json" ) ]]; then
@@ -238,15 +274,14 @@ verify_active_release() {
 }
 
 verify_baseline_browser() {
-  local baseline_runtime public_url browser_executable
-  baseline_runtime=$(node -e 'const p=require("node:path"),v=require(process.argv[1]);process.stdout.write(p.dirname(v.composeFile))' "$baseline_state")
-  [[ "$baseline_runtime" == "$RUNTIME_ROOT"/* && -f "$baseline_runtime/bootstrap.env" && ! -L "$baseline_runtime/bootstrap.env" ]] \
-    || fail "baseline browser credentials are unavailable"
+  local bootstrap_file public_url browser_executable
+  python3 /usr/local/lib/workspacex-cn/cn_compose_baseline.py live-match "$baseline_state" >/dev/null || fail "rollback runtime identity differs"
+  bootstrap_file=$(python3 /usr/local/lib/workspacex-cn/cn_compose_baseline.py bootstrap "$baseline_state") || fail "baseline browser credentials are unavailable"
   public_url=$(node -e 'const v=require(process.argv[1]);process.stdout.write(v.environment.publicUrl)' "$CONFIG_FILE")
   browser_executable=$(resolve_browser_executable) || fail "browser executable missing"
   cd "$release_checkout"
   CN_BROWSER_EXECUTABLE_PATH="$browser_executable" timeout 120s \
-    node .harness/scripts/vm/cn-release-browser-smoke.mjs "$public_url" "$baseline_runtime/bootstrap.env" >/dev/null \
+    node .harness/scripts/vm/cn-release-browser-smoke.mjs "$public_url" "$bootstrap_file" >/dev/null \
     || fail "rollback browser smoke failed"
 }
 
@@ -312,7 +347,7 @@ if [[ "$mode" == prepare ]]; then
   [[ -z "$(git -C "$stage/checkout" status --porcelain)" ]] || fail "prepared checkout is dirty"
   # Dependencies belong to the pre-provision preparation window. Copying package
   # files avoids runner-owned pnpm-store hardlinks in the trusted release tree.
-  pnpm --dir "$stage/checkout" install --frozen-lockfile --ignore-scripts --package-import-method=copy
+  COREPACK_ENABLE_NETWORK=0 pnpm --dir "$stage/checkout" install --offline --frozen-lockfile --ignore-scripts --package-import-method=copy
   chmod -R go-w "$stage/checkout"
   mv "$stage/checkout" "$release_checkout"
   rmdir "$stage"

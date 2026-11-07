@@ -1,0 +1,16 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/c3a4/workspacex/apps/web
+
+ ✓ tests/ui/interview-create-feedback.test.tsx (2 tests) 1946ms
+   ✓ announces and focuses a failed create without losing the name or retry identity 1696ms
+ ✓ tests/ui/interview-create-project-scope.test.tsx (3 tests) 4205ms
+   ✓ B2-S2 访谈 Studio 带 ?projectId= 新建 ⇒ 访谈归到项目 > 面包屑回项目、scope 是 project、创建后 intake 页续上 projectId 2070ms
+   ✓ B2-S2 访谈 Studio 带 ?projectId= 新建 ⇒ 访谈归到项目 > shows readable failure, preserves inputs and retries the same idempotent request 1831ms
+   ✓ B2-S2 访谈 Studio 带 ?projectId= 新建 ⇒ 访谈归到项目 > 没有 projectId ⇒ 仍是独立访谈，没有面包屑 301ms
+
+ Test Files  2 passed (2)
+      Tests  5 passed (5)
+   Start at  13:03:20
+   Duration  38.60s (transform 14.99s, setup 2.73s, collect 37.49s, tests 6.15s, environment 14.89s, prepare 596ms)
+

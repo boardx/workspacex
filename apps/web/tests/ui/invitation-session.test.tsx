@@ -33,6 +33,7 @@ for (const kind of ["single", "shared"] as const) {
   const prefix = kind === "single" ? "activate" : "link-activate";
   function submit() {
     render(kind === "single" ? <InviteActivation token="test-invitation" /> : <LinkActivation token="test-invitation" />);
+    if (state.token) fireEvent.click(screen.getByTestId(`${prefix}-mode-new`));
     if (kind === "shared") fireEvent.change(screen.getByTestId(`${prefix}-email`), { target: { value: "new@example.test" } });
     fireEvent.change(screen.getByTestId(`${prefix}-name`), { target: { value: "New User" } });
     fireEvent.change(screen.getByTestId(`${prefix}-pwd`), { target: { value: "long-enough-password" } });
@@ -107,3 +108,24 @@ it.each(["changed-token", "different-user"])("existing-account %s response canno
   expect(state.startSession).not.toHaveBeenCalled();
   expect(state.navigate).not.toHaveBeenCalled();
 });
+
+for (const kind of ["single", "shared"] as const) {
+  const prefix = kind === "single" ? "activate" : "link-activate";
+  it(`${kind}: preserves invitation when signing in and only accepts after confirmation`, async () => {
+    render(kind === "single" ? <InviteActivation token="invite & token" /> : <LinkActivation token="invite & token" />);
+    fireEvent.click(screen.getByTestId(`${prefix}-mode-existing`));
+    const link = screen.getByText("登录页").closest("a")!;
+    const next = new URL(link.href).searchParams.get("next");
+    expect(next).toBe(`/auth/activate?${kind === "single" ? "t" : "lt"}=invite%20%26%20token`);
+    expect(state.apiRequest).not.toHaveBeenCalled();
+  });
+  it(`${kind}: sends authenticated acceptance with token only`, async () => {
+    state.token = "existing-bearer";
+    state.session = { userId: session.userId, orgIds: ["old-org"] };
+    render(kind === "single" ? <InviteActivation token="invite" /> : <LinkActivation token="invite" />);
+    expect(state.apiRequest).not.toHaveBeenCalled();
+    fireEvent.submit(screen.getByTestId(`${prefix}-form`));
+    await waitFor(() => expect(state.navigate).toHaveBeenCalledWith("/projects"));
+    expect(state.apiRequest).toHaveBeenCalledWith(kind === "single" ? "/org-invites/accept" : "/org-invites/accept-via-link", expect.objectContaining({ sessionToken: "existing-bearer", body: { token: "invite" } }));
+  });
+}

@@ -1,0 +1,13 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/ui/kg-memory-card.test.tsx (29 tests) 795ms
+ ✓ tests/ui/kg-extraction-feedback-chip.test.tsx (26 tests) 581ms
+ ✓ tests/ui/kg-supersede-notice.test.tsx (7 tests) 259ms
+ ✓ tests/ui/i18n-chat-memory-notices.test.tsx (4 tests) 331ms
+
+ Test Files  4 passed (4)
+      Tests  66 passed (66)
+   Start at  14:12:35
+   Duration  24.82s (transform 3.92s, setup 1.48s, collect 11.97s, tests 1.97s, environment 6.89s, prepare 553ms)

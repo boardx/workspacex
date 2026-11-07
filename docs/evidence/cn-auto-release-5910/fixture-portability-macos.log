@@ -1,0 +1,12 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/646f/workspacex
+
+ ✓ .harness/scripts/vm/cn-promotion-prepared-receipt.test.ts (14 tests) 711ms
+   ✓ rejects broken preparation input and real source closure before any build 565ms
+
+ Test Files  1 passed (1)
+      Tests  14 passed (14)
+   Start at  01:51:45
+   Duration  947ms (transform 19ms, setup 0ms, collect 41ms, tests 711ms, environment 0ms, prepare 23ms)
+

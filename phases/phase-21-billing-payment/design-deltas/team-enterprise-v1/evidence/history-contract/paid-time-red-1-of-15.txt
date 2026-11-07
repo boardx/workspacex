@@ -1,0 +1,36 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts
+
+ ❯ tests/billing-team-history-design.test.ts (15 tests | 1 failed) 13ms
+   × does not present a future payment as confirmed paid history 5ms
+     → expected true to be false // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing-team-history-design.test.ts > does not present a future payment as confirmed paid history
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/billing-team-history-design.test.ts:29:114
+     27| });
+     28| it("does not present a future payment as confirmed paid history",()=>{
+     29|  expect(TeamSubscriptionHistory.safeParse({...history,items:[{...item,…
+       |                                                                                                                  ^
+     30| });
+     31| it("compares paid time and read time as instants, including equal offs…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 14 passed (15)
+   Start at  08:54:25
+   Duration  445ms (transform 125ms, setup 0ms, collect 142ms, tests 13ms, environment 0ms, prepare 78ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing-team-history-design.test.ts

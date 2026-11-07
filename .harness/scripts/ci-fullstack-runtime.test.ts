@@ -55,7 +55,7 @@ describe('preinstalled fullstack CI runtime', () => {
   });
   it('requires the workflow explicit canonical command and refuses partial or altered coverage', () => {
     expect(() => assertRuntimeCommand('run', ['--', 'pnpm', 'run', 'verify:fullstack-smoke'])).not.toThrow();
-    expect(() => assertRuntimeCommand('geometry', ['--', 'pnpm', '--filter', 'web', 'run', 'e2e:trace-geometry'])).not.toThrow();
+    expect(() => assertRuntimeCommand('geometry', ['--', 'pnpm', '--filter', 'web', 'run', 'e2e:trace-geometry', '--max-failures=1'])).not.toThrow();
     expect(() => assertRuntimeCommand('geometry', ['--', 'pnpm', 'run', 'verify:fullstack-smoke'])).toThrow();
     expect(() => assertRuntimeCommand('run', ['--', 'pnpm', 'run', 'verify:fullstack-smoke', '--grep', 'one'])).toThrow();
   });
@@ -65,7 +65,7 @@ describe('preinstalled fullstack CI runtime', () => {
     expect(args).not.toContain('exec pnpm run verify:fullstack-smoke');
   });
   it('runs complete sticky coverage in the sealed browser environment without import credentials', () => {
-    const command = ['--', 'pnpm', '--filter', 'web', 'exec', 'playwright', 'test', '--config', 'playwright.chat-sticky-browser.config.ts'];
+    const command = ['--', 'pnpm', '--filter', 'web', 'exec', 'playwright', 'test', '--config', 'playwright.chat-sticky-browser.config.ts', '--max-failures=1'];
     expect(() => assertRuntimeCommand('sticky', command)).not.toThrow();
     expect(() => assertRuntimeCommand('sticky', [...command, '--grep', 'one'])).toThrow();
     expect(() => assertRuntimeCommand('sticky', ['--', 'pnpm', 'run', 'verify:fullstack-smoke'])).toThrow();
@@ -85,26 +85,36 @@ describe('preinstalled fullstack CI runtime', () => {
     expect(() => assertRuntimeCommand('directory', ['--', 'pnpm', 'run', 'verify:digital-directory-cards'])).not.toThrow();
     expect(() => assertRuntimeCommand('directory', ['--', 'pnpm', 'run', 'verify:fullstack-smoke'])).toThrow();
     expect(() => assertRuntimeCommand('directory', ['--', 'pnpm', 'run', 'verify:digital-directory-cards', '--grep', 'one'])).toThrow();
-    const workflow = readFileSync(new URL('../../.github/workflows/harness-verify.yml', import.meta.url), 'utf8');
+    const workflow = readFileSync(new URL('../../.github/workflows/harness-acceptance.yml', import.meta.url), 'utf8');
     expect(workflow).toContain('ci-fullstack-runtime.mjs directory -- pnpm run verify:digital-directory-cards');
   });
   it('retains full commands and evidence within a bounded complete-run budget', () => {
-    const workflow = readFileSync(new URL('../../.github/workflows/harness-verify.yml', import.meta.url), 'utf8');
-    const lane = workflow.slice(workflow.indexOf('  fullstack-smoke:'), workflow.indexOf('  # #2084:'));
-    // Full execution plus setup/evidence exceeded the old 20-minute deadline.
+    const workflow = readFileSync(new URL('../../.github/workflows/harness-acceptance.yml', import.meta.url), 'utf8');
+    const tail=workflow.slice(workflow.indexOf('  fullstack-smoke:'));
+    const lane=tail.slice(0,/\n  [a-z0-9-]+:\n/.exec(tail)?.index??tail.length);
+    // The 222-case execution plus setup/evidence exhausted 40m (#5832).
     // Validate a bounded operational budget rather than duplicating its exact value.
     const budget = Number(lane.match(/^    timeout-minutes:\s*(\d+)\s*$/m)?.[1]);
     expect(budget).toBeGreaterThanOrEqual(30);
-    expect(budget).toBeLessThanOrEqual(45);
+    expect(budget).toBeLessThanOrEqual(50);
     expect(lane).toContain('persist-credentials: false');
     expect(lane).toContain('GH_TOKEN: ${{ github.token }}');
     expect(lane).toContain('WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN: ${{ secrets.WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN }}');
     expect(lane).not.toContain('WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN: ${{ github.token }}');
-    expect(lane).toContain('node .harness/scripts/ci-fullstack-runtime.mjs run');
+    expect(lane).toContain('node .harness/scripts/ci-fullstack-runtime.mjs product');
     expect(lane).toContain('node .harness/scripts/ci-fullstack-runtime.mjs geometry');
     expect(lane).not.toContain('playwright install');
     expect(lane).toContain('status=${PIPESTATUS[0]}');
     expect(lane).toContain('Upload runtime evidence (success or failure)');
     expect(lane).toContain('Preserve reused verification verdict');
   });
+});
+
+it('accepts actual sticky and geometry workflow commands with first-failure limits',()=>{
+ for(const file of ['harness-acceptance']){
+  const source=readFileSync(`.github/workflows/${file}.yml`,'utf8');
+  const commands=[...source.matchAll(/ci-fullstack-runtime\.mjs (sticky|geometry) (-- [^\n]+)/g)];
+  expect(commands).toHaveLength(2);
+  for(const [,mode,args] of commands)expect(()=>assertRuntimeCommand(mode,args.split(' 2>&1')[0].trim().split(/\s+/))).not.toThrow();
+ }
 });

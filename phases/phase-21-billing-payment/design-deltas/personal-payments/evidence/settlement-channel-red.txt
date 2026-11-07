@@ -1,0 +1,46 @@
+[stack-admission] load1=7.60 cores=10 perCore=0.76 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvy3dil2-c43b3949-bc3030101a31 db=wsx_bc3030101a31a4193c17 compose=wsx-bc3030101a31a4193c17 pg=20640 redis=21640 api=24640 web=25640 sandbox=26640 model=27640 deep-agent=28640 asr=29640 vision=30640 loopback-sandbox=31640 mail=19640
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_bc3030101a31a4193c17 capacity=100 current=6 required=32
+ ❯ tests/billing/personal-payment-settlement-pg.test.ts (10 tests | 1 failed) 76324ms
+   × rejects mismatched amount, currency and provider before any receipt or credit is recorded 141ms
+     → promise resolved "{ completed: true, manual: false }" instead of rejecting
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/personal-payment-settlement-pg.test.ts > rejects mismatched amount, currency and provider before any receipt or credit is recorded
+AssertionError: promise resolved "{ completed: true, manual: false }" instead of rejecting
+
+- Expected
++ Received
+
+- [Error: rejected promise]
++ Object {
++   "completed": true,
++   "manual": false,
++ }
+
+ ❯ tests/billing/personal-payment-settlement-pg.test.ts:67:188
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 9 passed (10)
+   Start at  01:16:28
+   Duration  95.23s (transform 1.75s, setup 38ms, collect 859ms, tests 76.32s, environment 0ms, prepare 161ms)
+
+[db-isolation] db=wsx_bc3030101a31a4193c17 peak_connections=5
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/personal-payment-settlement-pg.test.ts
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/personal-payment-settlement-pg.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1m42s
+  清理：1s
+  总计：1m43s

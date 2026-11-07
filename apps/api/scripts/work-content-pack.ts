@@ -132,7 +132,7 @@ export function buildWorkContentPack(spec: WorkContentPackSpec): SkillStarterPac
       }
     }
   }
-  const skills: SkillStarterPack["skills"] = [];
+  const skills: Extract<SkillStarterPack, { schemaVersion: 1 }>["skills"] = [];
   const seen = new Map<string, string>();
 
   for (const directory of listSkillDirectories(root)) {

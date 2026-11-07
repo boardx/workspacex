@@ -1,0 +1,524 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/72a6/workspacex/apps/web
+
+ ❯ tests/ui/survey-live-publishing.test.tsx (21 tests | 1 failed) 2115ms
+   × live survey trusted publishing > republishes a closed active batch with the current version 1028ms
+     → Unable to find an element with the text: 问卷正在回收中. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<main[39m
+      [33mclass[39m=[32m"min-w-0 bg-background "[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"flex flex-wrap items-center gap-3 border-b border-border bg-card px-5 py-3"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-9 px-3.5 text-13"[39m
+        [36m>[39m
+          [0m← 返回列表[0m
+        [36m</button>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"min-w-48 flex-1"[39m
+        [36m>[39m
+          [36m<input[39m
+            [33maria-label[39m=[32m"问卷名称"[39m
+            [33mclass[39m=[32m"flex h-9 min-w-0 w-full rounded-control border px-3 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed max-w-xl border-transparent bg-transparent text-18 font-semibold shadow-none focus-visible:border-border"[39m
+            [33mvalue[39m=[32m"客户体验问卷"[39m
+          [36m/>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"mt-1 text-10 text-muted-foreground"[39m
+          [36m>[39m
+            [0m已保存 · 2026/9/24 16:00:00[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"relative"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33maria-controls[39m=[32m"survey-secondary-actions"[39m
+            [33maria-expanded[39m=[32m"false"[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+          [36m>[39m
+            [0m更多操作[0m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-9 px-3.5 text-13"[39m
+          [33mdisabled[39m=[32m""[39m
+        [36m>[39m
+          [0m保存修改[0m
+        [36m</button>[39m
+      [36m</header>[39m
+      [36m<nav[39m
+        [33maria-label[39m=[32m"问卷工作流"[39m
+        [33mclass[39m=[32m"border-b border-border bg-card"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"mx-auto flex max-w-4xl items-center overflow-x-auto px-5 py-2"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33maria-label[39m=[32m"1. 设计问卷"[39m
+            [33mclass[39m=[32m"flex min-w-32 shrink-0 items-center justify-center gap-2 rounded-control border-b-2 px-3 py-2 text-13 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-w-28 sm:flex-1 border-transparent text-muted-foreground hover:bg-muted"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-12 tabular-nums"[39m
+            [36m>[39m
+              [0m1[0m
+            [36m</span>[39m
+            [0m设计问卷[0m
+          [36m</button>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"mx-1 h-px min-w-5 flex-1 bg-border"[39m
+          [36m/>[39m
+          [36m<button[39m
+            [33maria-current[39m=[32m"step"[39m
+            [33maria-label[39m=[32m"2. 发布回收"[39m
+            [33mclass[39m=[32m"flex min-w-32 shrink-0 items-center justify-center gap-2 rounded-control border-b-2 px-3 py-2 text-13 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-w-28 sm:flex-1 border-primary bg-muted font-semibold text-primary"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-12 tabular-nums"[39m
+            [36m>[39m
+              [0m2[0m
+            [36m</span>[39m
+            [0m发布回收[0m
+          [36m</button>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"mx-1 h-px min-w-5 flex-1 bg-border"[39m
+          [36m/>[39m
+          [36m<button[39m
+            [33maria-label[39m=[32m"3. 查看答卷"[39m
+            [33mclass[39m=[32m"flex min-w-32 shrink-0 items-center justify-center gap-2 rounded-control border-b-2 px-3 py-2 text-13 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-w-28 sm:flex-1 border-transparent text-muted-foreground hover:bg-muted"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-12 tabular-nums"[39m
+            [36m>[39m
+              [0m3[0m
+            [36m</span>[39m
+            [0m查看答卷[0m
+          [36m</button>[39m
+        [36m</div>[39m
+      [36m</nav>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"px-5 pt-3 text-12 text-success"[39m
+        [33mrole[39m=[32m"status"[39m
+      [36m>[39m
+        [0m操作已完成[0m
+      [36m</p>[39m
+      [36m<fieldset[39m
+        [33mclass[39m=[32m"min-w-0 "[39m
+      [36m>[39m
+        [36m<section[39m
+          [33mclass[39m=[32m"mx-auto max-w-screen-2xl space-y-4 p-4 sm:p-5 lg:p-6"[39m
+        [36m>[39m
+          [36m<h1[39m
+            [33mclass[39m=[32m"text-20 font-semibold"[39m
+          [36m>[39m
+            [0m发布与回收[0m
+          [36m</h1>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"grid items-start gap-4 lg:grid-cols-[minmax(0,1.8fr)_minmax(18rem,1fr)]"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[...
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<main[39m
+      [33mclass[39m=[32m"min-w-0 bg-background "[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"flex flex-wrap items-center gap-3 border-b border-border bg-card px-5 py-3"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-9 px-3.5 text-13"[39m
+        [36m>[39m
+          [0m← 返回列表[0m
+        [36m</button>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"min-w-48 flex-1"[39m
+        [36m>[39m
+          [36m<input[39m
+            [33maria-label[39m=[32m"问卷名称"[39m
+            [33mclass[39m=[32m"flex h-9 min-w-0 w-full rounded-control border px-3 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed max-w-xl border-transparent bg-transparent text-18 font-semibold shadow-none focus-visible:border-border"[39m
+            [33mvalue[39m=[32m"客户体验问卷"[39m
+          [36m/>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"mt-1 text-10 text-muted-foreground"[39m
+          [36m>[39m
+            [0m已保存 · 2026/9/24 16:00:00[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"relative"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33maria-controls[39m=[32m"survey-secondary-actions"[39m
+            [33maria-expanded[39m=[32m"false"[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+          [36m>[39m
+            [0m更多操作[0m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-9 px-3.5 text-13"[39m
+          [33mdisabled[39m=[32m""[39m
+        [36m>[39m
+          [0m保存修改[0m
+        [36m</button>[39m
+      [36m</header>[39m
+      [36m<nav[39m
+        [33maria-label[39m=[32m"问卷工作流"[39m
+        [33mclass[39m=[32m"border-b border-border bg-card"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"mx-auto flex max-w-4xl items-center overflow-x-auto px-5 py-2"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33maria-label[39m=[32m"1. 设计问卷"[39m
+            [33mclass[39m=[32m"flex min-w-32 shrink-0 items-center justify-center gap-2 rounded-control border-b-2 px-3 py-2 text-13 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-w-28 sm:flex-1 border-transparent text-muted-foreground hover:bg-muted"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-12 tabular-nums"[39m
+            [36m>[39m
+              [0m1[0m
+            [36m</span>[39m
+            [0m设计问卷[0m
+          [36m</button>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"mx-1 h-px min-w-5 flex-1 bg-border"[39m
+          [36m/>[39m
+          [36m<button[39m
+            [33maria-current[39m=[32m"step"[39m
+            [33maria-label[39m=[32m"2. 发布回收"[39m
+            [33mclass[39m=[32m"flex min-w-32 shrink-0 items-center justify-center gap-2 rounded-control border-b-2 px-3 py-2 text-13 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-w-28 sm:flex-1 border-primary bg-muted font-semibold text-primary"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-12 tabular-nums"[39m
+            [36m>[39m
+              [0m2[0m
+            [36m</span>[39m
+            [0m发布回收[0m
+          [36m</button>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"mx-1 h-px min-w-5 flex-1 bg-border"[39m
+          [36m/>[39m
+          [36m<button[39m
+            [33maria-label[39m=[32m"3. 查看答卷"[39m
+            [33mclass[39m=[32m"flex min-w-32 shrink-0 items-center justify-center gap-2 rounded-control border-b-2 px-3 py-2 text-13 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-w-28 sm:flex-1 border-transparent text-muted-foreground hover:bg-muted"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-12 tabular-nums"[39m
+            [36m>[39m
+              [0m3[0m
+            [36m</span>[39m
+            [0m查看答卷[0m
+          [36m</button>[39m
+        [36m</div>[39m
+      [36m</nav>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"px-5 pt-3 text-12 text-success"[39m
+        [33mrole[39m=[32m"status"[39m
+      [36m>[39m
+        [0m操作已完成[0m
+      [36m</p>[39m
+      [36m<fieldset[39m
+        [33mclass[39m=[32m"min-w-0 "[39m
+      [36m>[39m
+        [36m<section[39m
+          [33mclass[39m=[32m"mx-auto max-w-screen-2xl space-y-4 p-4 sm:p-5 lg:p-6"[39m
+        [36m>[39m
+          [36m<h1[39m
+            [33mclass[39m=[32m"text-20 font-semibold"[39m
+          [36m>[39m
+            [0m发布与回收[0m
+          [36m</h1>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"grid items-start gap-4 lg:grid-cols-[minmax(0,1.8fr)_minmax(18rem,1fr)]"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[...
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/survey-live-publishing.test.tsx > live survey trusted publishing > republishes a closed active batch with the current version
+TestingLibraryElementError: Unable to find an element with the text: 问卷正在回收中. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<main[39m
+      [33mclass[39m=[32m"min-w-0 bg-background "[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"flex flex-wrap items-center gap-3 border-b border-border bg-card px-5 py-3"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-9 px-3.5 text-13"[39m
+        [36m>[39m
+          [0m← 返回列表[0m
+        [36m</button>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"min-w-48 flex-1"[39m
+        [36m>[39m
+          [36m<input[39m
+            [33maria-label[39m=[32m"问卷名称"[39m
+            [33mclass[39m=[32m"flex h-9 min-w-0 w-full rounded-control border px-3 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed max-w-xl border-transparent bg-transparent text-18 font-semibold shadow-none focus-visible:border-border"[39m
+            [33mvalue[39m=[32m"客户体验问卷"[39m
+          [36m/>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"mt-1 text-10 text-muted-foreground"[39m
+          [36m>[39m
+            [0m已保存 · 2026/9/24 16:00:00[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"relative"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33maria-controls[39m=[32m"survey-secondary-actions"[39m
+            [33maria-expanded[39m=[32m"false"[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+          [36m>[39m
+            [0m更多操作[0m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-9 px-3.5 text-13"[39m
+          [33mdisabled[39m=[32m""[39m
+        [36m>[39m
+          [0m保存修改[0m
+        [36m</button>[39m
+      [36m</header>[39m
+      [36m<nav[39m
+        [33maria-label[39m=[32m"问卷工作流"[39m
+        [33mclass[39m=[32m"border-b border-border bg-card"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"mx-auto flex max-w-4xl items-center overflow-x-auto px-5 py-2"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33maria-label[39m=[32m"1. 设计问卷"[39m
+            [33mclass[39m=[32m"flex min-w-32 shrink-0 items-center justify-center gap-2 rounded-control border-b-2 px-3 py-2 text-13 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-w-28 sm:flex-1 border-transparent text-muted-foreground hover:bg-muted"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-12 tabular-nums"[39m
+            [36m>[39m
+              [0m1[0m
+            [36m</span>[39m
+            [0m设计问卷[0m
+          [36m</button>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"mx-1 h-px min-w-5 flex-1 bg-border"[39m
+          [36m/>[39m
+          [36m<button[39m
+            [33maria-current[39m=[32m"step"[39m
+            [33maria-label[39m=[32m"2. 发布回收"[39m
+            [33mclass[39m=[32m"flex min-w-32 shrink-0 items-center justify-center gap-2 rounded-control border-b-2 px-3 py-2 text-13 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-w-28 sm:flex-1 border-primary bg-muted font-semibold text-primary"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-12 tabular-nums"[39m
+            [36m>[39m
+              [0m2[0m
+            [36m</span>[39m
+            [0m发布回收[0m
+          [36m</button>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"mx-1 h-px min-w-5 flex-1 bg-border"[39m
+          [36m/>[39m
+          [36m<button[39m
+            [33maria-label[39m=[32m"3. 查看答卷"[39m
+            [33mclass[39m=[32m"flex min-w-32 shrink-0 items-center justify-center gap-2 rounded-control border-b-2 px-3 py-2 text-13 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-w-28 sm:flex-1 border-transparent text-muted-foreground hover:bg-muted"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-12 tabular-nums"[39m
+            [36m>[39m
+              [0m3[0m
+            [36m</span>[39m
+            [0m查看答卷[0m
+          [36m</button>[39m
+        [36m</div>[39m
+      [36m</nav>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"px-5 pt-3 text-12 text-success"[39m
+        [33mrole[39m=[32m"status"[39m
+      [36m>[39m
+        [0m操作已完成[0m
+      [36m</p>[39m
+      [36m<fieldset[39m
+        [33mclass[39m=[32m"min-w-0 "[39m
+      [36m>[39m
+        [36m<section[39m
+          [33mclass[39m=[32m"mx-auto max-w-screen-2xl space-y-4 p-4 sm:p-5 lg:p-6"[39m
+        [36m>[39m
+          [36m<h1[39m
+            [33mclass[39m=[32m"text-20 font-semibold"[39m
+          [36m>[39m
+            [0m发布与回收[0m
+          [36m</h1>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"grid items-start gap-4 lg:grid-cols-[minmax(0,1.8fr)_minmax(18rem,1fr)]"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[...
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<main[39m
+      [33mclass[39m=[32m"min-w-0 bg-background "[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"flex flex-wrap items-center gap-3 border-b border-border bg-card px-5 py-3"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-9 px-3.5 text-13"[39m
+        [36m>[39m
+          [0m← 返回列表[0m
+        [36m</button>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"min-w-48 flex-1"[39m
+        [36m>[39m
+          [36m<input[39m
+            [33maria-label[39m=[32m"问卷名称"[39m
+            [33mclass[39m=[32m"flex h-9 min-w-0 w-full rounded-control border px-3 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed max-w-xl border-transparent bg-transparent text-18 font-semibold shadow-none focus-visible:border-border"[39m
+            [33mvalue[39m=[32m"客户体验问卷"[39m
+          [36m/>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"mt-1 text-10 text-muted-foreground"[39m
+          [36m>[39m
+            [0m已保存 · 2026/9/24 16:00:00[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"relative"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33maria-controls[39m=[32m"survey-secondary-actions"[39m
+            [33maria-expanded[39m=[32m"false"[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+          [36m>[39m
+            [0m更多操作[0m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-9 px-3.5 text-13"[39m
+          [33mdisabled[39m=[32m""[39m
+        [36m>[39m
+          [0m保存修改[0m
+        [36m</button>[39m
+      [36m</header>[39m
+      [36m<nav[39m
+        [33maria-label[39m=[32m"问卷工作流"[39m
+        [33mclass[39m=[32m"border-b border-border bg-card"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"mx-auto flex max-w-4xl items-center overflow-x-auto px-5 py-2"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33maria-label[39m=[32m"1. 设计问卷"[39m
+            [33mclass[39m=[32m"flex min-w-32 shrink-0 items-center justify-center gap-2 rounded-control border-b-2 px-3 py-2 text-13 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-w-28 sm:flex-1 border-transparent text-muted-foreground hover:bg-muted"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-12 tabular-nums"[39m
+            [36m>[39m
+              [0m1[0m
+            [36m</span>[39m
+            [0m设计问卷[0m
+          [36m</button>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"mx-1 h-px min-w-5 flex-1 bg-border"[39m
+          [36m/>[39m
+          [36m<button[39m
+            [33maria-current[39m=[32m"step"[39m
+            [33maria-label[39m=[32m"2. 发布回收"[39m
+            [33mclass[39m=[32m"flex min-w-32 shrink-0 items-center justify-center gap-2 rounded-control border-b-2 px-3 py-2 text-13 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-w-28 sm:flex-1 border-primary bg-muted font-semibold text-primary"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-12 tabular-nums"[39m
+            [36m>[39m
+              [0m2[0m
+            [36m</span>[39m
+            [0m发布回收[0m
+          [36m</button>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"mx-1 h-px min-w-5 flex-1 bg-border"[39m
+          [36m/>[39m
+          [36m<button[39m
+            [33maria-label[39m=[32m"3. 查看答卷"[39m
+            [33mclass[39m=[32m"flex min-w-32 shrink-0 items-center justify-center gap-2 rounded-control border-b-2 px-3 py-2 text-13 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-w-28 sm:flex-1 border-transparent text-muted-foreground hover:bg-muted"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-12 tabular-nums"[39m
+            [36m>[39m
+              [0m3[0m
+            [36m</span>[39m
+            [0m查看答卷[0m
+          [36m</button>[39m
+        [36m</div>[39m
+      [36m</nav>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"px-5 pt-3 text-12 text-success"[39m
+        [33mrole[39m=[32m"status"[39m
+      [36m>[39m
+        [0m操作已完成[0m
+      [36m</p>[39m
+      [36m<fieldset[39m
+        [33mclass[39m=[32m"min-w-0 "[39m
+      [36m>[39m
+        [36m<section[39m
+          [33mclass[39m=[32m"mx-auto max-w-screen-2xl space-y-4 p-4 sm:p-5 lg:p-6"[39m
+        [36m>[39m
+          [36m<h1[39m
+            [33mclass[39m=[32m"text-20 font-semibold"[39m
+          [36m>[39m
+            [0m发布与回收[0m
+          [36m</h1>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"grid items-start gap-4 lg:grid-cols-[minmax(0,1.8fr)_minmax(18rem,1fr)]"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[...
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ tests/ui/survey-live-publishing.test.tsx:147:25
+    145|       expect.anything(),
+    146|     ));
+    147|     expect(await screen.findByText("问卷正在回收中")).toBeInTheDocumen…
+       |                         ^
+    148|   });
+    149| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 20 passed (21)
+   Start at  22:52:09
+   Duration  4.38s (transform 659ms, setup 119ms, collect 1.37s, tests 2.11s, environment 539ms, prepare 49ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/72a6/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/survey-live-publishing.test.tsx

@@ -1,0 +1,73 @@
+{
+  "checkedAt": "2026-11-04T02:12:11.942674+00:00",
+  "scopes": [
+    {
+      "mode": "home",
+      "scope": "wsx-a615a40b9334adaf78ce",
+      "ports": [
+        "20107",
+        "21107",
+        "24107",
+        "25107",
+        "26107",
+        "27107",
+        "28107",
+        "29107",
+        "30107",
+        "31107",
+        "19107"
+      ],
+      "checks": {
+        "containers": {
+          "exit": 0,
+          "output": "",
+          "stderr": ""
+        },
+        "volumes": {
+          "exit": 0,
+          "output": "",
+          "stderr": ""
+        },
+        "listeners": {
+          "exit": 1,
+          "output": "",
+          "stderr": ""
+        }
+      }
+    },
+    {
+      "mode": "polluted",
+      "scope": "wsx-c5fbf87c247676b89f71",
+      "ports": [
+        "20700",
+        "21700",
+        "24700",
+        "25700",
+        "26700",
+        "27700",
+        "28700",
+        "29700",
+        "30700",
+        "31700",
+        "19700"
+      ],
+      "checks": {
+        "containers": {
+          "exit": 0,
+          "output": "",
+          "stderr": ""
+        },
+        "volumes": {
+          "exit": 0,
+          "output": "",
+          "stderr": ""
+        },
+        "listeners": {
+          "exit": 1,
+          "output": "",
+          "stderr": ""
+        }
+      }
+    }
+  ]
+}

@@ -3,7 +3,8 @@ import {mkdtemp,rm} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {afterEach,expect,it} from 'vitest';
-import sharp from 'sharp';
+import { rasterFixture } from '../support/image-fixture';
+import { Transformer } from '@napi-rs/image';
 import * as Y from 'yjs';
 import {createWhiteboardDocument,executeCommands,readObjects} from '@repo/whiteboard-core';
 import type {WhiteboardObject} from '@repo/contracts/whiteboard-document';
@@ -13,16 +14,16 @@ import type {WhiteboardCollaborationStore,WhiteboardUpdateValidator} from '../..
 import type {WhiteboardRepository} from '../../src/application/whiteboard/ports';
 import type {DatabasePort,TenantSession} from '../../src/application/ports/database.port';
 import {FsObjectStore} from '../../src/infrastructure/storage/fs-object-store';
-import {SharpBoardImageVerifier} from '../../src/infrastructure/whiteboard/image-verifier';
+import {DecodedBoardImageVerifier} from '../../src/infrastructure/whiteboard/image-verifier';
 import {PgPortableBoard} from '../../src/infrastructure/whiteboard/pg-portable-board';
 import {PgBoardImageAssets} from '../../src/infrastructure/whiteboard/pg-image-assets';
 import {toOrgId} from '../../src/domain/org-id';
 const roots:string[]=[];afterEach(async()=>{await Promise.all(roots.splice(0).map(path=>rm(path,{recursive:true,force:true})));});
 const base=(id:string):WhiteboardObject=>({id,schemaVersion:1,kind:'sticky',text:'中文 + English',style:{fill:'#FFF4A3'},parentId:null,orderKey:id,geometry:{x:10,y:20,width:180,height:120,rotation:17}});
 async function fixture(templateOnly=false,includeShape=false,includeFile:boolean|"template"=false){
- const root=await mkdtemp(join(tmpdir(),'portable-board-'));roots.push(root);const objects=new FsObjectStore(root),verifier=new SharpBoardImageVerifier(),source=randomUUID(),target=randomUUID();
+ const root=await mkdtemp(join(tmpdir(),'portable-board-'));roots.push(root);const objects=new FsObjectStore(root),verifier=new DecodedBoardImageVerifier(),source=randomUUID(),target=randomUUID();
  const p={orgId:toOrgId('source-tenant'),userId:'owner'},targetP={orgId:toOrgId('target-tenant'),userId:'target-owner'};
- const png=await sharp({create:{width:64,height:48,channels:4,background:'#ff3300'}}).png().toBuffer(),asset=await verifier.verify(png,'image/png');
+ const png=await rasterFixture('png',64,48,[255,51,0,255]),asset=await verifier.verify(png,'image/png');
  const image:WhiteboardObject={...base('image'),kind:'image',text:'',extensionData:{contentObject:{version:1,type:'image',status:'ready',...asset.metadata,sourceUrl:null,crop:{x:.1,y:.2,width:.7,height:.6},opacity:.8,borderColor:'#112233',borderWidth:2,cornerRadius:6,fileName:'real.png',replacementOf:null,failureCode:null}}};
  const sourceDoc=createWhiteboardDocument();executeCommands(sourceDoc,[{type:'create',object:{...base('frame'),kind:'frame'}},{type:'create',object:{...base('note'),parentId:'frame',locked:true}},{type:'create',object:image},{type:'create',object:{...base('edge'),kind:'connector',connector:{from:'note',to:'image',type:'straight',startStyle:'none',endStyle:'arrow',lineStyle:'solid',label:'connect'}}}],{});
  if(includeShape)executeCommands(sourceDoc,[{type:'create',object:{...base('diamond'),kind:'rectangle',extensionData:{contentObject:{version:1,type:'shape',variant:'diamond',fill:'#ffffff',borderColor:'#000000',borderWidth:1,borderStyle:'solid',opacity:1,radius:0,textColor:'#000000',horizontalAlign:'center',verticalAlign:'middle'}}}}],{});
@@ -58,7 +59,7 @@ it('round-trips canonical geometry, hierarchy, connector and real image bytes ac
  const objects=f.getTarget(),note=objects.find(object=>object.kind==='sticky')!,image=objects.find(object=>object.kind==='image')!,frame=objects.find(object=>object.kind==='frame')!,edge=objects.find(object=>object.kind==='connector')!;
  expect(note).toMatchObject({text:'中文 + English',locked:true,parentId:frame.id,geometry:f.sourceObjects.find(object=>object.id==='note')!.geometry});expect(edge.connector).toMatchObject({from:note.id,to:image.id});
  expect(image.extensionData?.contentObject).toMatchObject({crop:{x:.1,y:.2,width:.7,height:.6},opacity:.8,persistence:'durable'});
- const ref=f.publishedAssets.find(asset=>asset.metadata);expect(ref.key).toContain(`/boards/${f.target}/assets/`);expect(ref.key).not.toBe(f.sourceKey);const copied=await f.objects.get(ref.key);expect(Buffer.from(copied!)).toEqual(f.png);expect((await sharp(copied!).metadata()).width).toBe(64);
+ const ref=f.publishedAssets.find(asset=>asset.metadata);expect(ref.key).toContain(`/boards/${f.target}/assets/`);expect(ref.key).not.toBe(f.sourceKey);const copied=await f.objects.get(ref.key);expect(Buffer.from(copied!)).toEqual(f.png);expect(new Transformer(copied!).metadataSync().width).toBe(64);
  expect(await f.service.import(f.targetP,f.target,input)).toMatchObject({replayed:true});expect(f.getTarget()).toHaveLength(4);
  bundle.objects.content[0].text='changed';bundle.objects.sizeBytes=Buffer.byteLength(JSON.stringify(bundle.objects.content));bundle.objects.sha256=portableHash(JSON.stringify(bundle.objects.content));await expect(f.service.import(f.targetP,f.target,{...input,file:upload(bundle)})).rejects.toMatchObject({code:'IDEMPOTENCY_CONFLICT'});
 });

@@ -8,10 +8,14 @@
  * 它只负责「不是本束已知错误码」时的兜底；各束自己的码→人话表仍然各归各家
  * （闭集断言要贴着各自的契约，合成一张大表反而会让漏配的码编译得过）。
  */
-export function httpFailureText(status: number): string {
-  if (status === 401 || status === 403) return "登录状态过期了，刷新页面重新登录";
-  if (status === 404) return "要找的东西不在了";
-  if (status === 429) return "操作太频繁了，等一下再试";
-  if (status >= 500) return "服务器出错了，稍后再试一次";
-  return "这次请求没成功，稍后再试一次";
+import type { Locale } from "./i18n/locale";
+import { translate } from "./i18n/messages";
+
+export function httpFailureText(status: number, locale: Locale = "zh-CN"): string {
+  if (status === 401) return translate(locale, "common.http.auth");
+  if (status === 403) return translate(locale, "common.http.forbidden");
+  if (status === 404) return translate(locale, "common.http.notFound");
+  if (status === 429) return translate(locale, "common.http.rateLimit");
+  if (status >= 500) return translate(locale, "common.http.server");
+  return translate(locale, "common.http.failure");
 }

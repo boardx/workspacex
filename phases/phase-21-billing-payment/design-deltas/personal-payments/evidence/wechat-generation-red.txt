@@ -1,0 +1,70 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+ ❯ tests/billing/personal-wechat-payment.test.ts (18 tests | 5 failed) 298ms
+   × creates a one-time Native purchase using the persisted CNY quote (0) 104ms
+     → expected undefined to be 'billing-credits-2026-11-v1:bm20261102…' // Object.is equality
+   × creates a one-time Native purchase using the persisted CNY quote (1) 7ms
+     → expected undefined to be 'billing-credits-2026-11-v1:bm20261102…' // Object.is equality
+   × creates a one-time Native purchase using the persisted CNY quote (2) 10ms
+     → expected undefined to be 'billing-credits-2026-11-v1:bm20261102…' // Object.is equality
+   × rejects mismatched or unsupported merchant facts {"attach":"legacy-generation:old-purchase"} 37ms
+     → promise resolved "{ state: 'paid', …(2) }" instead of rejecting
+   × rejects mismatched or unsupported merchant facts {} 6ms
+     → promise resolved "{ state: 'paid', …(2) }" instead of rejecting
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/personal-wechat-payment.test.ts > creates a one-time Native purchase using the persisted CNY quote (0)
+ FAIL  tests/billing/personal-wechat-payment.test.ts > creates a one-time Native purchase using the persisted CNY quote (1)
+ FAIL  tests/billing/personal-wechat-payment.test.ts > creates a one-time Native purchase using the persisted CNY quote (2)
+AssertionError: expected undefined to be 'billing-credits-2026-11-v1:bm20261102…' // Object.is equality
+
+- Expected: 
+"billing-credits-2026-11-v1:bm20261102010000ABC123"
+
++ Received: 
+undefined
+
+ ❯ tests/billing/personal-wechat-payment.test.ts:30:23
+     28|   const body = JSON.parse(String(options?.body));
+     29|   expect(body).toMatchObject({ out_trade_no: intent.purchaseRef, amoun…
+     30|   expect(body.attach).toBe(`${intent.generation}:${intent.purchaseRef}…
+       |                       ^
+     31|   expect(body).not.toHaveProperty("contract_id");
+     32|   if (index < 2) expect(body.description).toContain(index === 0 ? "Pro…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  tests/billing/personal-wechat-payment.test.ts > rejects mismatched or unsupported merchant facts {"attach":"legacy-generation:old-purchase"}
+ FAIL  tests/billing/personal-wechat-payment.test.ts > rejects mismatched or unsupported merchant facts {}
+AssertionError: promise resolved "{ state: 'paid', …(2) }" instead of rejecting
+
+- Expected
++ Received
+
+- [Error: rejected promise]
++ Object {
++   "paidAt": 2026-11-01T17:15:06.124Z,
++   "paymentRef": "wx_420000123456",
++   "state": "paid",
++ }
+
+ ❯ tests/billing/personal-wechat-payment.test.ts:45:37
+     43| ])("rejects mismatched or unsupported merchant facts %j", async patch …
+     44|   const intent = purchase(); vi.stubGlobal("fetch", vi.fn(async () => …
+     45|   await expect(client().read(intent)).rejects.toThrow();
+       |                                     ^
+     46| });
+     47| it("rechecks a payment racing closure instead of expiring it from a lo…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ Test Files  1 failed (1)
+      Tests  5 failed | 13 passed (18)
+   Start at  01:15:02
+   Duration  2.90s (transform 367ms, setup 0ms, collect 1.81s, tests 298ms, environment 0ms, prepare 303ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.billing-provider.config.ts tests/billing/personal-wechat-payment.test.ts

@@ -518,7 +518,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
         : { total: completion?.tokens, prompt: completion?.promptTokens, completion: completion?.completionTokens, cacheInput: completion?.cacheInputTokens, reasoningOutput: completion?.reasoningOutputTokens };
       // Accounting repair must never turn a successful response into a model retry.
       await input.onProviderRequest?.({ ...started, phase: "terminal", endedAt: new Date().toISOString(),
-        outcome: failed ? "failed" : "succeeded", usage }).catch(() => {});
+        outcome: failed ? "failed" : "succeeded", usage });
     }
     if (failed) throw failure;
     return completion!;

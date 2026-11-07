@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+ ✓ tests/billing/personal-stripe-invoice-list.test.ts (13 tests) 91ms
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+   Start at  02:29:59
+   Duration  861ms (transform 160ms, setup 0ms, collect 268ms, tests 91ms, environment 0ms, prepare 160ms)
+

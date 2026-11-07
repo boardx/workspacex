@@ -1,0 +1,53 @@
+[stack-admission] load1=20.74 cores=10 perCore=2.07 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw3k0l31-5fc54adf-227b48b940cf db=wsx_227b48b940cf4c515f4f compose=wsx-227b48b940cf4c515f4f pg=20889 redis=21889 api=24889 web=25889 sandbox=26889 model=27889 deep-agent=28889 asr=29889 vision=30889 loopback-sandbox=31889 mail=19889
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/e6f1/workspacex/apps/api
+
+[db-isolation] db=wsx_227b48b940cf4c515f4f capacity=100 current=6 required=32
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+{"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+{"level":"error","msg":"first-value fact recording failed; ignored","traceId":"first-value","detail":{"name":"error","message":"new row violates row-level security policy \"first_value_facts_org_frozen_ins\" for table \"first_value_facts\"","stack":"error: new row violates row-level security policy \"first_value_facts_org_frozen_ins\" for table \"first_value_facts\"\n    at /Users/shenyangjun/.codex/worktrees/e6f1/workspacex/node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/client.js:652:17\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at Object.query (/Users/shenyangjun/.codex/worktrees/e6f1/workspacex/apps/api/src/infrastructure/db/pg-database.ts:62:21)\n    at PgDatabase.inTx (/Users/shenyangjun/.codex/worktrees/e6f1/workspacex/apps/api/src/infrastructure/db/pg-database.ts:75:19)\n    at PgFirstValueFacts.recordFirst (/Users/shenyangjun/.codex/worktrees/e6f1/workspacex/apps/api/src/infrastructure/first-value/pg-first-value-facts.ts:22:5)"}}
+{"level":"error","msg":"first-value fact recording failed; ignored","traceId":"first-value","detail":{"name":"error","message":"new row violates row-level security policy \"first_value_facts_org_frozen_ins\" for table \"first_value_facts\"","stack":"error: new row violates row-level security policy \"first_value_facts_org_frozen_ins\" for table \"first_value_facts\"\n    at /Users/shenyangjun/.codex/worktrees/e6f1/workspacex/node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/client.js:652:17\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at Object.query (/Users/shenyangjun/.codex/worktrees/e6f1/workspacex/apps/api/src/infrastructure/db/pg-database.ts:62:21)\n    at PgDatabase.inTx (/Users/shenyangjun/.codex/worktrees/e6f1/workspacex/apps/api/src/infrastructure/db/pg-database.ts:75:19)\n    at PgFirstValueFacts.recordFirst (/Users/shenyangjun/.codex/worktrees/e6f1/workspacex/apps/api/src/infrastructure/first-value/pg-first-value-facts.ts:22:5)"}}
+{"level":"error","msg":"first-value fact recording failed; ignored","traceId":"first-value","detail":{"name":"error","message":"new row violates row-level security policy \"first_value_facts_org_frozen_ins\" for table \"first_value_facts\"","stack":"error: new row violates row-level security policy \"first_value_facts_org_frozen_ins\" for table \"first_value_facts\"\n    at /Users/shenyangjun/.codex/worktrees/e6f1/workspacex/node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/client.js:652:17\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at Object.query (/Users/shenyangjun/.codex/worktrees/e6f1/workspacex/apps/api/src/infrastructure/db/pg-database.ts:62:21)\n    at PgDatabase.inTx (/Users/shenyangjun/.codex/worktrees/e6f1/workspacex/apps/api/src/infrastructure/db/pg-database.ts:75:19)\n    at PgFirstValueFacts.recordFirst (/Users/shenyangjun/.codex/worktrees/e6f1/workspacex/apps/api/src/infrastructure/first-value/pg-first-value-facts.ts:22:5)"}}
+{"level":"error","msg":"http exception","traceId":"32524d3a-cdd9-4ade-90a2-e4c4615fbcd1","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at AuthOrgController.exportOrg (/Users/shenyangjun/.codex/worktrees/e6f1/workspacex/apps/api/src/interface/controllers/auth-org.controller.ts:192:52)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+{"level":"error","msg":"http exception","traceId":"3c827564-27c7-4f8f-b7bd-2d70670f6a02","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at AuthOrgController.exportOrg (/Users/shenyangjun/.codex/worktrees/e6f1/workspacex/apps/api/src/interface/controllers/auth-org.controller.ts:192:52)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+ ✓ tests/auth/org-disabled-readonly.test.ts (16 tests) 128308ms
+   ✓ V12 ①：停用后全部写被拒，而读仍然通 > 三种写（INSERT / UPDATE / DELETE）全部被库拒掉 3035ms
+   ✓ V12 ①：停用后全部写被拒，而读仍然通 > 读**没有**被关掉 —— 这是只读降级，不是提前销毁（V12 ③） 2818ms
+   ✓ V12 ①：停用后全部写被拒，而读仍然通 > 普通成员**登录仍然成功**（停用的是组织，不是账号） 4023ms
+   ✓ V12 ①：停用后全部写被拒，而读仍然通 > 冻结只针对被停用的那个组织 —— 隔壁组织照写不误 2644ms
+   ✓ V12 ①：停用后全部写被拒，而读仍然通 > 恢复之后写又能写 —— 停用不是删除（双向） 2586ms
+   ✓ V12 ①：停用后全部写被拒，而读仍然通 > `rls_probe` 不在冻结范围内 —— RLS 的证据表不许被本 feature 波及 2323ms
+   ✓ V12 ②：仅管理员可导出 > 管理员导出成功，且响应逐条对得上契约 5923ms
+   ✓ V12 ②：仅管理员可导出 > 同组织的普通成员**导不了**，且拿到的是 404 不是 403 3550ms
+   ✓ V12 ②：仅管理员可导出 > 非成员导不了自己不属于的组织 3817ms
+   ✓ V12 ②：仅管理员可导出 > 组织没停用时管理员也能导出（导出不是停用的附属品） 3098ms
+   ✓ V12 ③ / 单一事实源：留存期 > 库里落下的 retention_until = 停用时刻 + 契约里那个常量 2143ms
+   ✓ V12 ③ / 单一事实源：留存期 > 这条断言不是空转的：换一个天数它会红 2018ms
+   ✓ V12 ③ / 单一事实源：留存期 > SQL 里没有第二份留存期 —— 迁移不得自己算日期 2101ms
+   ✓ V12 ③ / 单一事实源：留存期 > 契约里没有 `purged` 状态 —— 销毁没实现就不许在枚举里出现（C13） 2131ms
+   ✓ 冻结覆盖面：catalog 推导，不是一张手写清单 > 每一张带租户外键的表都有 INSERT / UPDATE / DELETE 三条 RESTRICTIVE 策略 2505ms
+   ✓ 冻结覆盖面：catalog 推导，不是一张手写清单 > 这条断言不是空转的：它确实扫到了表，而且 rls_probe 不在其中 2052ms
+ ✓ tests/billing/credit-consumption-pg.test.ts (16 tests) 4192ms
+ ✓ tests/kernel/rls-cross-tenant-zero-leak.test.ts (8 tests) 4727ms
+   ✓ I-4: reads > sees zero foreign rows in EVERY tenant-carrying table, with both tenants populated 1146ms
+   ✓ I-4: reads > with no tenant context at all, every table is empty (fail-closed) 874ms
+   ✓ I-4: writes -- a leak in the other direction > an unqualified UPDATE touches only its own tenant's rows 406ms
+   ✓ I-4: writes -- a leak in the other direction > cannot move an own row into another tenant by UPDATE 426ms
+ ✓ tests/billing/native-credit-tariff-pg.test.ts (5 tests) 1463ms
+
+ Test Files  4 passed (4)
+      Tests  45 passed (45)
+   Start at  21:01:04
+   Duration  165.59s (transform 24.03s, setup 52ms, collect 17.65s, tests 138.69s, environment 1ms, prepare 379ms)
+
+[db-isolation] db=wsx_227b48b940cf4c515f4f peak_connections=8
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/native-credit-tariff-pg.test.ts tests/billing/credit-consumption-pg.test.ts tests/kernel/rls-cross-tenant-zero-leak.test.ts tests/auth/org-disabled-readonly.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：2m47s
+  清理：1s
+  总计：2m48s

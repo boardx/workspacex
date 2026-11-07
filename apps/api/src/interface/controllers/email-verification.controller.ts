@@ -1,13 +1,13 @@
-import { BadRequestException, Body, Controller, ServiceUnavailableException, Inject, Post, Req, Res } from "@nestjs/common";
+import { UnauthorizedException, BadRequestException, Body, Controller, ServiceUnavailableException, Inject, Post, Req, Res } from "@nestjs/common";
 import { auth as C } from "@repo/contracts";
-import { CLOCK, SESSION_TOKEN_STORE, TOKEN_FACTORY, type SessionTokenStore, type TokenFactory, type Clock } from "../../application/auth/ports";
+import { CREDENTIAL_REPOSITORY, PASSWORD_HASHER, LOGIN_ATTEMPT_REPOSITORY, type CredentialRepository, type PasswordHasher, type LoginAttemptRepository, CLOCK, SESSION_TOKEN_STORE, TOKEN_FACTORY, type SessionTokenStore, type TokenFactory, type Clock } from "../../application/auth/ports";
 import {
   EMAIL_VERIFICATION_REPOSITORY,
   EMAIL_VERIFICATION_TOKEN_CODEC,
   type EmailVerificationRepository,
   type EmailVerificationTokenCodec,
 } from "../../application/auth/email-verification-ports";
-import { confirmEmailVerification, resendEmailVerification } from "../../application/auth/email-verification";
+import { confirmEmailVerification, resendEmailVerification, resendVerificationWithPassword } from "../../application/auth/email-verification";
 import { IDENTITY_REPOSITORY, type IdentityRepository } from "../../application/identity/ports";
 import { issueAuthenticatedSession } from "../../application/auth/issue-authenticated-session";
 import { AuthError } from "../../application/auth/errors";
@@ -25,6 +25,9 @@ export class EmailVerificationController {
     @Inject(SESSION_TOKEN_STORE) private readonly sessions: SessionTokenStore,
     @Inject(TOKEN_FACTORY) private readonly sessionTokens: TokenFactory,
     @Inject(IDENTITY_REPOSITORY) private readonly identity: IdentityRepository,
+    @Inject(CREDENTIAL_REPOSITORY) private readonly credentials: CredentialRepository,
+    @Inject(PASSWORD_HASHER) private readonly hasher: PasswordHasher,
+    @Inject(LOGIN_ATTEMPT_REPOSITORY) private readonly attempts: LoginAttemptRepository,
   ) {}
 
   @Public()
@@ -62,11 +65,24 @@ export class EmailVerificationController {
   @Public()
   @Post("/auth/email-verifications/resend")
   async resend(
-    @Body(new ZodBodyPipe(C.operations.resendEmailVerification.in)) body: { email: string },
+    @Body(new ZodBodyPipe(C.operations.resendEmailVerification.in)) body: { email: string; password?: string },
     @Req() request: { headers: { cookie?: string } },
     @Res({ passthrough: true }) response: { setHeader(name: string, value: string): void },
   ) {
-    const result = await resendEmailVerification({
+    const recover = async (password: string) => {
+      try {
+        return await resendVerificationWithPassword({
+          credentials: this.credentials, hasher: this.hasher, attempts: this.attempts,
+          clock: this.clock, repo: this.repo, tokens: this.tokens,
+        }, { email: body.email, password });
+      } catch (error) {
+        if (error instanceof AuthError) throw new UnauthorizedException({ reasonCode: error.reason });
+        throw error;
+      }
+    };
+    const result = body.password !== undefined
+      ? await recover(body.password)
+      : await resendEmailVerification({
       email: body.email,
       pendingIdentityProof: readPendingVerificationCookie(request.headers.cookie),
       now: this.clock.now(), repo: this.repo, tokens: this.tokens,

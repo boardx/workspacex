@@ -1,0 +1,36 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/api
+
+ ❯ tests/research/guided-report-chapters.test.ts (149 tests | 1 failed | 148 skipped) 42ms
+   × measures real report requests and milestones without recording content 41ms
+     → expected true to be false // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/research/guided-report-chapters.test.ts > measures real report requests and milestones without recording content
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ Object.completeStream tests/research/guided-report-chapters.test.ts:185:70
+    183|         const opening = text.indexOf('"body":"') + 8;
+    184|         await emit(text.slice(0, opening));
+    185|         expect(metrics.some(event => event.stage === "first_prose")).t…
+       |                                                                      ^
+    186|         await emit(text.slice(opening));
+    187|       } else await emit(text);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 148 skipped (149)
+   Start at  22:14:42
+   Duration  3.33s (transform 1.77s, setup 0ms, collect 2.86s, tests 42ms, environment 0ms, prepare 102ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.research-unit.config.ts tests/research/guided-report-chapters.test.ts -t measures real report

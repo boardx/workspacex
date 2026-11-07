@@ -6,7 +6,7 @@ const root=resolve(import.meta.dirname,'../visual-content');
 const files=['SKILL.md','references/quality.md','references/runtime.md','LICENSE.txt'].map(path=>{const bytes=readFileSync(resolve(root,path));return {path,mediaType:'text/markdown',digest:sha256(bytes),contentBase64:bytes.toString('base64')};});
 // stable_name / version / capability_id 的唯一来源是 SKILL.md frontmatter（issue #3154）。
 const meta=parseSkillFrontmatter(readFileSync(resolve(root,'SKILL.md'),'utf8'),'visual-content');
-const unsigned={schemaVersion:1,packId:'standard-visual',packVersion:'1.0.1',skills:[{stableName:meta.stableName,name:'视觉内容制作',semanticVersion:meta.semanticVersion,manifest:{capabilityId:meta.capabilityId,runtime:'bailian-and-offline-visual'},files}]};
-const pack={...unsigned,packDigest:sha256(JSON.stringify(unsigned))};verifySkillStarterPack(pack,{packId:'standard-visual',packVersion:'1.0.1'});
-const directory=resolve(root,'../../starter-packs/standard-visual'),path=resolve(directory,'1.0.1.json'),content=JSON.stringify(pack,null,2)+'\n';
+const unsigned={schemaVersion:1,packId:'standard-visual',packVersion:'1.0.2',skills:[{stableName:meta.stableName,name:'视觉内容制作',semanticVersion:meta.semanticVersion,manifest:{capabilityId:meta.capabilityId,runtime:'bailian-and-offline-visual'},files}]};
+const pack={...unsigned,packDigest:sha256(JSON.stringify(unsigned))};verifySkillStarterPack(pack,{packId:'standard-visual',packVersion:'1.0.2'});
+const directory=resolve(root,'../../starter-packs/standard-visual'),path=resolve(directory,'1.0.2.json'),content=JSON.stringify(pack,null,2)+'\n';
 if(process.argv.includes('--check')){if(readFileSync(path,'utf8')!==content)throw new Error('document package stale');}else{mkdirSync(directory,{recursive:true});writeFileSync(path,content);}

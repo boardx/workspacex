@@ -1,0 +1,19 @@
+2026-10-16T16:34:38.7958268Z F02: PR #5716@562de24d: DEFERRED: visual-deferred status=COMPLETED conclusion=SKIPPED; outside this iteration's acceptance, never counted as PASS
+2026-10-16T16:34:39.9830399Z F04: PR #5757@6c439585: DEFERRED: visual-deferred status=COMPLETED conclusion=SKIPPED; outside this iteration's acceptance, never counted as PASS
+2026-10-16T16:34:42.0673212Z F03: PR #5744@215152fa: DEFERRED: visual-deferred status=COMPLETED conclusion=SKIPPED; outside this iteration's acceptance, never counted as PASS
+2026-10-16T16:34:42.0674598Z F03: PR #5750@2a54fe60: DEFERRED: visual-deferred status=COMPLETED conclusion=SKIPPED; outside this iteration's acceptance, never counted as PASS
+2026-10-16T16:34:43.2320802Z F05: PR #5773@cf6bdf03: DEFERRED: visual-deferred status=COMPLETED conclusion=SKIPPED; outside this iteration's acceptance, never counted as PASS
+2026-10-16T16:34:43.3677904Z ✗ [21] F07 是 passing 但 issue #5797 仍 OPEN —— 跑 sync --apply，或确认 PR 是否带了 `Closes #5797`
+2026-10-16T16:34:43.3679324Z ⚠ [21] roadmap 标 not_started 但已有 6 个 passing——阶段状态漂移，对齐一下（惯例见 fb9307d）
+2026-10-16T16:34:43.3680833Z ⚠ [21] runtime/E2E readiness：runtime/E2E NOT READY: 6/15 features passing; passing count is not readiness
+2026-10-16T16:34:43.3682275Z ✗ 审计链存在断裂（1 FAIL）。FAIL 项修复前不要开 PR / 交 review——reviewer 会用同样的标准 Block。
+2026-10-16T16:34:43.3683673Z · [-] 9 条 not_started 的 feature 尚未认领（owner=null，正常待领状态，非欠债）
+2026-10-16T16:34:43.3694107Z · [-] evidence-legacy.json：3 条历史豁免仍然生效（00/F01 至 2026-12-31、00/F14 至 2026-12-31、00/F18 至 2026-12-31）——只减不增，过期即判红
+2026-10-16T16:34:43.3695391Z doctor：体检 1 个 phase — 1 FAIL / 2 WARN / 0 权威缺口 ⇒ FAIL
+2026-10-16T16:34:43.4115660Z  ELIFECYCLE  Command failed with exit code 1.
+2026-10-16T16:34:43.4432187Z ##[error]Process completed with exit code 1.
+2026-10-16T16:34:43.4535999Z Post job cleanup.
+2026-10-16T16:34:43.6062438Z Pruning is unnecessary.
+2026-10-16T16:34:43.6221712Z Post job cleanup.
+2026-10-16T16:34:43.7194923Z [command]/usr/bin/git version
+2026-10-16T16:34:43.7249442Z git version 2.55.0

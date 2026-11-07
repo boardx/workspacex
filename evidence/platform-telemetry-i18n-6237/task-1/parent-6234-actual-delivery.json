@@ -1,0 +1,13 @@
+{
+  "pr": 6234,
+  "state": "MERGED",
+  "head": "715d7d8be59844a41528afed8553ac5b114b7ba0",
+  "merge": "b992054dd498530092d09a1fa559f0b12a33406b",
+  "mergedAt": "2026-11-04T14:35:23Z",
+  "base": "develop",
+  "issue6224State": "CLOSED",
+  "issueClosedAt": "2026-11-04T14:35:25Z",
+  "independentlyVerifiedWithGh": true,
+  "ci": "main canonical READY/enqueue/merge authority; root did not poll checks",
+  "checkedAt": "2026-11-04T14:50:45.731465+00:00"
+}

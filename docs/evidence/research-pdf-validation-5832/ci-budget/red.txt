@@ -1,0 +1,26 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/799b/workspacex
+
+ ❯ .harness/scripts/ci-fullstack-runtime.test.ts (10 tests | 1 failed) 7ms
+   × preinstalled fullstack CI runtime > retains full commands and evidence within a bounded complete-run budget 2ms
+     → expected 50 to be less than or equal to 45
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  .harness/scripts/ci-fullstack-runtime.test.ts > preinstalled fullstack CI runtime > retains full commands and evidence within a bounded complete-run budget
+AssertionError: expected 50 to be less than or equal to 45
+ ❯ .harness/scripts/ci-fullstack-runtime.test.ts:98:20
+     96|     const budget = Number(lane.match(/^    timeout-minutes:\s*(\d+)\s*…
+     97|     expect(budget).toBeGreaterThanOrEqual(30);
+     98|     expect(budget).toBeLessThanOrEqual(45);
+       |                    ^
+     99|     expect(lane).toContain('persist-credentials: false');
+    100|     expect(lane).toContain('GH_TOKEN: ${{ github.token }}');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 9 passed (10)
+   Start at  19:33:24
+   Duration  255ms (transform 24ms, setup 0ms, collect 21ms, tests 7ms, environment 0ms, prepare 28ms)

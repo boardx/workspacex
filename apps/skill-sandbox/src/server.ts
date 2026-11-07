@@ -1,3 +1,4 @@
+import { capacityErrors as C } from "./session/schema.js";
 /**
  * `apps/skill-sandbox` 的 HTTP 面（contract §3 里 `HttpSkillSandbox` 打过来的那一端）。
  *
@@ -22,6 +23,9 @@
  *   `SANDBOX_UNAVAILABLE`(运维要去看服务)与 `SCRIPT_FAILED_AFTER_RETRIES`
  *   (模型写的脚本一直修不对),而 contract §6.2 明确要求这两件事不能合并。
  */
+import { CapacityError, ExecutionCapacity } from "./execution-capacity.js";
+import { capacityOwner, capacityPolicy } from "./capacity-config.js";
+import { requestCancellation } from "./request-cancellation.js";
 import { parseInputFiles, MAX_INPUT_FILE_BYTES, type SandboxInputFile } from "./input-files.js";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { executeScript } from "./execute-script.js";
@@ -37,6 +41,7 @@ export const DEFAULT_TIMEOUT_MS = 120_000;
 const MAX_REQUEST_BYTES = Math.ceil(MAX_INPUT_FILE_BYTES * 4 / 3) + 1024 * 1024;
 
 export interface SandboxServerOptions {
+  readonly capacity?: ExecutionCapacity;
   readonly preinstalledModulesDir?: string;
   /** 预装 CJK 字体文件路径（镜像里的 `SKILL_SANDBOX_CJK_FONT`）——PDF 画中文用。 */
   readonly cjkFontPath?: string;
@@ -64,16 +69,22 @@ function send(res: ServerResponse, status: number, body: unknown): void {
 }
 
 export function createSandboxServer(options: SandboxServerOptions = {}): Server {
-  const sessions = options.sessionManager ?? new SessionManager(new BubblewrapProvider());
+  const capacity = options.capacity ?? options.sessionManager?.capacity ?? new ExecutionCapacity(capacityPolicy());
+  const sessions = options.sessionManager ?? new SessionManager(new BubblewrapProvider(), undefined, capacity);
   const timer = setInterval(() => { void sessions.reapExpired().catch(() => undefined); }, 10000);
   timer.unref();
   const server = createServer((req, res) => {
     void (async () => {
-      if (!await handleSessionRequest(req, res, sessions)) await handle(req, res, options);
+      if (req.method === 'GET' && req.url === '/capacity') { send(res, 200, capacity.snapshot()); return; }
+      if (!await handleSessionRequest(req, res, sessions)) await handle(req, res, options, capacity);
     })().catch((e: unknown) => {
       // 兜底:任何未预期的异常都回 500,让调用侧映射成 SANDBOX_UNAVAILABLE,
       // 而不是悄悄回一个"看起来成功"的空结果。
-      send(res, 500, { error: e instanceof Error ? e.message : "unexpected sandbox failure" });
+      if (res.destroyed || res.writableEnded) return;
+      if (e instanceof CapacityError) {
+        res.setHeader('retry-after', '1');
+        send(res, e.code === C.waitTimeout ? 503 : e.code === C.cancelled ? 499 : 429, {error: e.code});
+      } else send(res, 500, { error: "SANDBOX_FAILED" });
     });
   });
   server.on("close", () => clearInterval(timer));
@@ -84,6 +95,7 @@ async function handle(
   req: IncomingMessage,
   res: ServerResponse,
   options: SandboxServerOptions,
+  capacity: ExecutionCapacity,
 ): Promise<void> {
   const url = req.url ?? "/";
 
@@ -114,18 +126,23 @@ async function handle(
   let inputFiles: readonly SandboxInputFile[];
   try { inputFiles = parseInputFiles(body.inputFiles); }
   catch { send(res, 400, { error: "invalid sandbox input files" }); return; }
+  let owner: string;
+  try { owner = capacityOwner(req.headers['x-sandbox-owner']); }
+  catch { send(res, 400, {error:'INVALID_CAPACITY_OWNER'}); return; }
   const requested = typeof body.timeoutMs === "number" ? body.timeoutMs : DEFAULT_TIMEOUT_MS;
   // 调用方只能收紧,不能放宽——否则一个 timeoutMs: 1e9 就把 wall-clock 硬超时废掉了。
+  if (!Number.isFinite(requested)) { send(res, 400, {error:'INVALID_TIMEOUT'}); return; }
   const timeoutMs = Math.max(1, Math.min(Math.floor(requested), MAX_TIMEOUT_MS));
 
-  const result = await executeScript({
-    script: body.script,
-    inputFiles,
-    timeoutMs,
-    nodeBinary: options.nodeBinary,
-    preinstalledModulesDir: options.preinstalledModulesDir,
-    cjkFontPath: options.cjkFontPath,
-  });
-
-  send(res, 200, result);
+  const cancellation = requestCancellation(req, res);
+  const deadline = Date.now() + timeoutMs;
+  try {
+    const result = await capacity.run(owner, signal => executeScript({
+      script: body.script as string, inputFiles,
+      timeoutMs: Math.max(1, deadline - Date.now()), signal,
+      nodeBinary: options.nodeBinary, preinstalledModulesDir: options.preinstalledModulesDir,
+      cjkFontPath: options.cjkFontPath,
+    }), {signal: cancellation.signal, deadline});
+    if (!res.destroyed) send(res, 200, result);
+  } finally { cancellation.dispose(); }
 }

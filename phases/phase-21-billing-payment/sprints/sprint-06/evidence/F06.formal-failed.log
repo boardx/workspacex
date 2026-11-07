@@ -1,0 +1,14 @@
+
+> agentic-harness-template@ harness /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> tsx .harness/scripts/cli.ts "verify" "--sprint" "21/06" "--owner" "coord-voice"
+
+==> 验证 F06 — 收银台弹窗：套餐选择、二维码、轮询与全终态
+✓ 通过: pnpm --filter web exec vitest run tests/ui/billing-cashier.test.tsx
+  高风险命中 2 处：apps/api/migrations/20261015120000_billing_payment_receipts.sql ⟵ apps/api/migrations/**; packages/contracts/src/billing-credits.ts ⟵ packages/contracts/**
+==> 运行基础验证（风险档=high_risk）: pnpm -w run verify:release
+✗ 基础验证失败，拒绝将 F06 升为 passing
+✗ 请先修复: pnpm -w run verify:release
+完成：0 个升级为 passing，1 个未通过。
+[test-isolation] verify lifecycle or scoped teardown incomplete; port leases quarantined
+✗ [test-isolation] verify lifecycle or scoped teardown incomplete; port leases quarantined
+ ELIFECYCLE  Command failed with exit code 1.

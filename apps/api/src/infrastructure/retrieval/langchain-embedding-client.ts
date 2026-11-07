@@ -1,3 +1,5 @@
+import {throwPrivateCreditError} from "./private-credit-error";
+import {CreditConsumptionError} from "../../application/billing/credit-consumption";
 import {EmbeddingAccountingContext} from "@repo/contracts/retrieval-accounting";
 import {RETRIEVAL_EMBEDDING_LIMITS as L,RetrievalEmbeddingRequest,RetrievalEmbeddingResponse} from '@repo/contracts/retrieval-embedding';
 import type {EmbeddingPort} from '../../application/retrieval/ports';
@@ -17,18 +19,17 @@ export class LangChainEmbeddingClient implements EmbeddingPort {
   const abort=new AbortController(),timer=setTimeout(()=>abort.abort(),L.deadlineMs);timer.unref();
   try{
    const response=await fetch(this.#url,{method:'POST',redirect:'error',signal:abort.signal,headers:{'content-type':'application/json','x-deep-agent-internal-key':this.#key},body});
-   if(!response.ok||!response.body)throw new Error('embedding_unavailable');
+   if(!response.body)throw new Error('embedding_unavailable');
    const chunks:Uint8Array[]=[];let bytes=0;
    for await(const chunk of response.body){bytes+=chunk.length;if(bytes>L.maxResponseBytes){abort.abort();throw new Error('embedding_unavailable');}chunks.push(chunk);}
-   const output=RetrievalEmbeddingResponse.parse(JSON.parse(Buffer.concat(chunks).toString('utf8')));
+   const parsed:unknown=JSON.parse(Buffer.concat(chunks).toString('utf8'));
+   if(!response.ok){throwPrivateCreditError(parsed,accounting!.orgId);throw new Error("embedding_unavailable");}
+   const output=RetrievalEmbeddingResponse.parse(parsed);
    if(output.model!==this.model||output.modelVersion!==this.modelVersion||output.vectors.length!==1)throw new Error('embedding_unavailable');
    return output.vectors[0]!;
-  }catch{throw new Error('embedding_unavailable');}finally{clearTimeout(timer);}
+  }catch(error){if(error instanceof CreditConsumptionError)throw error;throw new Error('embedding_unavailable');}finally{clearTimeout(timer);}
  }
  private accounting(value:EmbeddingAccountingContext|undefined){
-  const enabled=process.env.KERNEL_RETRIEVAL_REQUEST_ACCOUNTING_ENABLED==="1";
-  if(process.env.KERNEL_AI_PRODUCT_QUOTA_ENABLED==="1"&&!enabled)throw new Error("retrieval_accounting_required");
-  if(!enabled){if(value)throw new Error("retrieval_accounting_runtime_disabled");return {};}
   if(!value)throw new Error("retrieval_accounting_owner_required");
   return {accounting:EmbeddingAccountingContext.parse(value)};
  }

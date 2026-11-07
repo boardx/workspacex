@@ -1,0 +1,25 @@
+{
+  "name": "red-sharing-corrected",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/survey-report-issues-i18n.test.ts",
+    "-t",
+    "keeps the original report sharing gate"
+  ],
+  "source": "f861a1eb0f1c62bd9a806ad66bd29f5342d53327",
+  "exitCode": 1,
+  "seconds": 3.581,
+  "rawLogSha256": "9a378dadd87cd1f754bcc31be0300376119b07810fe97b71546e0398deab3d51",
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "failed": 2,
+  "passed": 1,
+  "filtered": 12,
+  "classification": "Both corrected minimum8 canonical guards passed before missing-English assertions; metadata-control passed. Filtered tests are not passes."
+}

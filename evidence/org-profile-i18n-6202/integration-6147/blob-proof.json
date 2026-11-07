@@ -1,0 +1,229 @@
+{
+  "profileHomeMerge": "0802a91b0bc674a81e18e32a5a32bff60f5cb0b3",
+  "homeSource": "defc8490f1bfc3d44e605e5e06a7aea8d071b8a9",
+  "develop": "dc9bc31b5658aacd4376ffa3f66e6794293ac953",
+  "mergeBase": "c49fee15b89f2621d8ceaa582ef6a9c0f6c931cc",
+  "profileHomeProtectedProduct": [
+    {
+      "path": "apps/api/scripts/fixtures/seed-entity-localization.ts",
+      "expectedBlob": "4916cf424afef08a2146ff3282ef053450f8d652",
+      "indexBlob": "4916cf424afef08a2146ff3282ef053450f8d652",
+      "equal": true
+    },
+    {
+      "path": "apps/web/components/org-admin/home-config-appearance-section.tsx",
+      "expectedBlob": "760a60b6e9b3f843ea0f00117e5ee4a984a2c2e2",
+      "indexBlob": "760a60b6e9b3f843ea0f00117e5ee4a984a2c2e2",
+      "equal": true
+    },
+    {
+      "path": "apps/web/components/org-admin/home-config-content-sections.tsx",
+      "expectedBlob": "baeac3e748540f0fa8f94020bb81aa7896de6750",
+      "indexBlob": "baeac3e748540f0fa8f94020bb81aa7896de6750",
+      "equal": true
+    },
+    {
+      "path": "apps/web/components/org-admin/home-config-form-model.ts",
+      "expectedBlob": "f168984b278a53ae970280ad67265cec68543c9f",
+      "indexBlob": "f168984b278a53ae970280ad67265cec68543c9f",
+      "equal": true
+    },
+    {
+      "path": "apps/web/components/org-admin/home-config-recommend-sections.tsx",
+      "expectedBlob": "e95952ebd9d5967a6c6b61e10b72b34219b633ea",
+      "indexBlob": "e95952ebd9d5967a6c6b61e10b72b34219b633ea",
+      "equal": true
+    },
+    {
+      "path": "apps/web/components/org-admin/home-config-screen.tsx",
+      "expectedBlob": "ce8b5f2176c050a84556b6a3f0964d8a33e91455",
+      "indexBlob": "ce8b5f2176c050a84556b6a3f0964d8a33e91455",
+      "equal": true
+    },
+    {
+      "path": "apps/web/components/org-admin/home-config-theme-section.tsx",
+      "expectedBlob": "b88837516f2f175ae34604ea1fa02fdcba25f4c4",
+      "indexBlob": "b88837516f2f175ae34604ea1fa02fdcba25f4c4",
+      "equal": true
+    },
+    {
+      "path": "apps/web/components/org-admin/knowledge-extraction-toggle.tsx",
+      "expectedBlob": "b77cc48397f84e8b3eab04b0a644f87b636551d1",
+      "indexBlob": "b77cc48397f84e8b3eab04b0a644f87b636551d1",
+      "equal": true
+    },
+    {
+      "path": "apps/web/components/org-admin/org-admin-screen.tsx",
+      "expectedBlob": "44907fb085412af50cf8c7fa0a6f66c85dba93a7",
+      "indexBlob": "44907fb085412af50cf8c7fa0a6f66c85dba93a7",
+      "equal": true
+    },
+    {
+      "path": "apps/web/components/org-admin/standing-tool-grants.tsx",
+      "expectedBlob": "3c28f7b9a81dd618588617665dc85f3e1a2f1d52",
+      "indexBlob": "3c28f7b9a81dd618588617665dc85f3e1a2f1d52",
+      "equal": true
+    },
+    {
+      "path": "apps/web/e2e/entity-localization.spec.ts",
+      "expectedBlob": "a941ba5a1af5366c5247053e63277ecdd1b1baf9",
+      "indexBlob": "a941ba5a1af5366c5247053e63277ecdd1b1baf9",
+      "equal": true
+    },
+    {
+      "path": "apps/web/lib/home-config-catalog.ts",
+      "expectedBlob": "310da69dbfed6ba84c6f04538056ff51514ca1df",
+      "indexBlob": "310da69dbfed6ba84c6f04538056ff51514ca1df",
+      "equal": true
+    },
+    {
+      "path": "apps/web/lib/home-theme.ts",
+      "expectedBlob": "78288a295d0b1df113bf4ec1673fed6733c6a970",
+      "indexBlob": "78288a295d0b1df113bf4ec1673fed6733c6a970",
+      "equal": true
+    },
+    {
+      "path": "apps/web/lib/i18n/namespaces/controls.ts",
+      "expectedBlob": "22ca1a7a0e66ffcb096619bd798f5df508195381",
+      "indexBlob": "22ca1a7a0e66ffcb096619bd798f5df508195381",
+      "equal": true
+    },
+    {
+      "path": "apps/web/lib/i18n/namespaces/org-home-config.ts",
+      "expectedBlob": "c4cfcec5394da9cd3b5aef6728fe87a9fd3968e4",
+      "indexBlob": "c4cfcec5394da9cd3b5aef6728fe87a9fd3968e4",
+      "equal": true
+    },
+    {
+      "path": "apps/web/lib/i18n/namespaces/org-profile.ts",
+      "expectedBlob": "d8cf59813c2741a967fc8392e9386d1161a97fd1",
+      "indexBlob": "d8cf59813c2741a967fc8392e9386d1161a97fd1",
+      "equal": true
+    },
+    {
+      "path": "apps/web/tests/ui/org-home-config-i18n.test.tsx",
+      "expectedBlob": "d94d98261feceaecfaad61739663c0543d5ddfb7",
+      "indexBlob": "d94d98261feceaecfaad61739663c0543d5ddfb7",
+      "equal": true
+    },
+    {
+      "path": "apps/web/tests/ui/org-profile-i18n.test.tsx",
+      "expectedBlob": "5d4a15ce345fcb6364cd016db820bbeebee0b48d",
+      "indexBlob": "5d4a15ce345fcb6364cd016db820bbeebee0b48d",
+      "equal": true
+    }
+  ],
+  "developProtectedProduct": [
+    {
+      "path": "apps/api/package.json",
+      "expectedBlob": "96a166edb6b78f0dcf00d19c4fac173224791e58",
+      "indexBlob": "96a166edb6b78f0dcf00d19c4fac173224791e58",
+      "equal": true
+    },
+    {
+      "path": "apps/api/src/application/identity/list-own-activity.ts",
+      "expectedBlob": "9780102ca9ae23d7626235ce37b65051c13bc8e5",
+      "indexBlob": "9780102ca9ae23d7626235ce37b65051c13bc8e5",
+      "equal": true
+    },
+    {
+      "path": "apps/api/src/interface/controllers/identity.controller.ts",
+      "expectedBlob": "2e42f4a77a5fdb97dc96a8fa84c35fc8b6e9efb3",
+      "indexBlob": "2e42f4a77a5fdb97dc96a8fa84c35fc8b6e9efb3",
+      "equal": true
+    },
+    {
+      "path": "apps/api/tests/identity/activity-display.test.ts",
+      "expectedBlob": "5b1b15feded092e52f2a4df0777cb2367c9e3982",
+      "indexBlob": "5b1b15feded092e52f2a4df0777cb2367c9e3982",
+      "equal": true
+    },
+    {
+      "path": "apps/api/vitest.identity-display-unit.config.ts",
+      "expectedBlob": "98f4bed8fe6060c53a03d3617aa1445baced831d",
+      "indexBlob": "98f4bed8fe6060c53a03d3617aa1445baced831d",
+      "equal": true
+    },
+    {
+      "path": "apps/web/components/profile/profile-screen.tsx",
+      "expectedBlob": "2c811d2bf539899873495a363ae8c9483b376d11",
+      "indexBlob": "2c811d2bf539899873495a363ae8c9483b376d11",
+      "equal": true
+    },
+    {
+      "path": "apps/web/e2e/copilotkit-v2-persona-archived.spec.ts",
+      "expectedBlob": "11bd534fd85e12476aa02b56140e94e0795ebf36",
+      "indexBlob": "11bd534fd85e12476aa02b56140e94e0795ebf36",
+      "equal": true
+    },
+    {
+      "path": "apps/web/e2e/self-service-profile.spec.ts",
+      "expectedBlob": "09c9936968ca64d716bed2019478bb3df7275270",
+      "indexBlob": "09c9936968ca64d716bed2019478bb3df7275270",
+      "equal": true
+    },
+    {
+      "path": "apps/web/e2e/support/archived-thread-response.ts",
+      "expectedBlob": "38a006741e1006c4d5509a1ea61f1d8fa275bba3",
+      "indexBlob": "38a006741e1006c4d5509a1ea61f1d8fa275bba3",
+      "equal": true
+    },
+    {
+      "path": "apps/web/lib/generated/identity.mock.ts",
+      "expectedBlob": "fd62f2425dc53838df3fb6bbf9088d11ec4cda11",
+      "indexBlob": "fd62f2425dc53838df3fb6bbf9088d11ec4cda11",
+      "equal": true
+    },
+    {
+      "path": "apps/web/lib/i18n/activity.ts",
+      "expectedBlob": "a1b5ee590024a0f83a25c8a1c099234912c1e26a",
+      "indexBlob": "a1b5ee590024a0f83a25c8a1c099234912c1e26a",
+      "equal": true
+    },
+    {
+      "path": "apps/web/lib/i18n/namespaces/activity.ts",
+      "expectedBlob": "688e56fecdc1a764636d0564749a306b86d39ad0",
+      "indexBlob": "688e56fecdc1a764636d0564749a306b86d39ad0",
+      "equal": true
+    },
+    {
+      "path": "apps/web/lib/live-identity.ts",
+      "expectedBlob": "8f25e789fb5315f2a167bc0ded48e200c782af37",
+      "indexBlob": "8f25e789fb5315f2a167bc0ded48e200c782af37",
+      "equal": true
+    },
+    {
+      "path": "apps/web/tests/e2e-archived-thread-response.test.ts",
+      "expectedBlob": "578c452d7855213f1ff92d0f11352560c30e2b14",
+      "indexBlob": "578c452d7855213f1ff92d0f11352560c30e2b14",
+      "equal": true
+    },
+    {
+      "path": "apps/web/tests/ui/profile-i18n.test.tsx",
+      "expectedBlob": "1d56c68cd39b70b39331fd134bdb0d44513c6126",
+      "indexBlob": "1d56c68cd39b70b39331fd134bdb0d44513c6126",
+      "equal": true
+    },
+    {
+      "path": "packages/contracts/scripts/gen-mock.ts",
+      "expectedBlob": "2f7bc5c4377ca84e530820f65b13cafc75428794",
+      "indexBlob": "2f7bc5c4377ca84e530820f65b13cafc75428794",
+      "equal": true
+    },
+    {
+      "path": "packages/contracts/src/identity.ts",
+      "expectedBlob": "7ce3e3839abd73c02a1b5de5a40510e941170ff0",
+      "indexBlob": "7ce3e3839abd73c02a1b5de5a40510e941170ff0",
+      "equal": true
+    },
+    {
+      "path": "packages/contracts/tests/identity-activity-display.test.ts",
+      "expectedBlob": "f32a5d92af09f38e2be65636d393168733e53f52",
+      "indexBlob": "f32a5d92af09f38e2be65636d393168733e53f52",
+      "equal": true
+    }
+  ],
+  "registryDelta": "Only activity namespace import+spread added to preserved profile/home registration; no resource value edit.",
+  "conflictResolution": "Only mod-org-identity append entries; preserve home tip plus both activity tips.",
+  "browserBoundary": "No new combined browser run; individual profile and home source receipts retained, integration types/unit/static/CI pending."
+}

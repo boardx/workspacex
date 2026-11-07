@@ -1,11 +1,13 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { ResearchReportFileActions } from "@/components/report-files/research-report-file-actions";
 import { guidedResearchHeading } from "@/lib/guided-research-heading";
 import { ResearchRuntimeHydrationError } from "@/lib/guided-research-hydration";
 import { GuidedResearchExecutionTimeline } from "./guided-research-execution-timeline";
 import * as React from "react";
-import { ApiError, getStoredSessionToken } from "@/lib/api-client";
-import { readResearchMemory, writeResearchMemory } from "@/lib/guided-research-memory";
+import { ApiError } from "@/lib/api-client";
+import { readResearchMemory, writeResearchMemory, getResearchMemoryScope, readResearchOnce, forgetResearchMemory } from "@/lib/guided-research-memory";
 import { research as C } from "@repo/contracts";
 import { Loader2 } from "lucide-react";
 import { WorkflowActionButton as Button, WorkflowActionBar } from "./research-workflow-actions";
@@ -13,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { GuidedResearchConversation } from "./guided-research-conversation";
-import { ResearchLoading, researchSteps as steps, researchStepLabels as labels } from "./guided-research-presentation";
+import { ResearchLoading, researchSteps as steps } from "./guided-research-presentation";
 import { researchReportDocument } from "@/lib/research-report-document";
 import { ResearchPrototypeReport } from "./research-prototype-report";
 import { GuidedResearchEvidenceWarning, GuidedResearchReportHistory } from "./guided-research-report-history";
@@ -25,6 +27,7 @@ import { ResearchDesignPreview } from "./guided-research-design-editor";
 import { GuidedResearchStepLayout } from "./guided-research-step-layout";
 import { GuidedResearchMarkdownWorkspace } from "./guided-research-markdown-workspace";
 import { GuidedResearchSixStepShell } from "./guided-research-six-step-shell";
+import { withProjectId } from "@/components/project/project-links";
 import { guidedResearchRoute } from "@/lib/guided-research-routes";
 import { GuidedResearchEntryPanel } from "./guided-research-entry-panel";
 import { ResearchChaptersWorkspace } from "./research-chapters-workspace";
@@ -68,83 +71,102 @@ function draftOf(state: Runtime, node: Command["node"]): Draft | null {
   return state.report ? { node, value: state.report } : null;
 }
 function ProposalPreview({ draft }: { draft: Draft }) {
+  const { t } = useI18n();
   if (draft.node === "brief") return <div className="space-y-2"><p>{draft.value.topic}</p><p>{draft.value.goal}</p><p>{[draft.value.timeRange, draft.value.region, draft.value.focus].filter(Boolean).join(" · ")}</p></div>;
   if (draft.node === "directions" || draft.node === "outline") return <ResearchDesignPreview draft={draft} />;
   if (draft.node === "report") return <p className="whitespace-pre-wrap">{draft.value.summary}</p>;
-  return <p>建议保留 {draft.value.filter((item) => item.decision === "accepted").length} 个来源、排除 {draft.value.filter((item) => item.decision === "excluded").length} 个来源。</p>;
+  return <p>{t("research.live.sourceProposal", { accepted: draft.value.filter((item) => item.decision === "accepted").length, excluded: draft.value.filter((item) => item.decision === "excluded").length })}</p>;
 }
-const errors: Record<string, string> = {
-  RESEARCH_REPORT_PREPARATION_TIME_BUDGET_EXCEEDED: "上次报告来源准备已中断，已保存章节仍保留，请重试继续生成。",
-  RESEARCH_REPORT_MODEL_TIME_BUDGET_EXCEEDED: "报告模型响应超时，已保存章节仍保留，请重试继续生成。",
-  RESEARCH_EVIDENCE_BUDGET_EXCEEDED: "大纲问题或来源内容超出本次分析容量，请精简后重试。",
-  RESEARCH_REPORT_QUALITY_INSUFFICIENT: "报告处理未完成，已保存的进度会保留。",
-  RESEARCH_GRAPH_VERSION_CONFLICT: "研究内容已更新，本次操作未提交。请核对最新进度后继续。",
-  RESEARCH_REVISION_CONFLICT: "研究边界已在其他页面更新，请核对最新版本后重试。",
-  RESEARCH_SOURCE_ACCESS_DENIED: "所选内部资料不在当前授权范围内。",
-  RESEARCH_WORKFLOW_PAUSED: "研究已暂停，请继续后再执行检索。",
-  RESEARCH_PLAN_TIME_BUDGET_EXCEEDED: "计划生成超过本轮时间上限，已停止等待。请重试，或编辑已有计划后继续。",
-  RESEARCH_WORKFLOW_UNAVAILABLE: "研究流程暂时无法完成，请稍后重试；持续失败请联系管理员排查。",
-  RESEARCH_NODE_MISMATCH: "研究步骤已变化，请查看最新进度后继续。",
-  RESEARCH_IDEMPOTENCY_REPLAY_MISMATCH: "请求状态发生冲突，请核对最新进度后重新操作。",
-  RESEARCH_WORKFLOW_BUSY: "研究正在处理中，请稍候。",
-  RESEARCH_SEARCH_NOT_CONFIGURED: "检索服务尚未配置，请联系管理员。",
-  RESEARCH_SEARCH_NO_RELEVANT_SOURCES: "未找到能支持当前主题和研究问题的资料，请调整研究计划后重试。",
-  RESEARCH_SOURCE_RELEVANCE_INVALID: "资料相关性评估未通过校验，尚未纳入新的资料，请重试。",
-  RESEARCH_SEARCH_EMPTY: "检索服务未返回来源，请调整研究计划后重试。",
-  RESEARCH_SEARCH_REQUEST_TIMEOUT: "本次检索请求超时，已保存成功结果，请重试未完成任务。",
-  RESEARCH_DOCUMENT_TIMEOUT: "本次来源读取超时，请重试未完成任务。",
-  RESEARCH_SOURCE_MODEL_TIMEOUT: "本次资料评估响应超时，已保存成功结果，请重试未完成任务。",
-  RESEARCH_SEARCH_UNAVAILABLE: "检索服务暂时不可用，请重试。",
-  RESEARCH_SEARCH_CONTENT_EMPTY: "检索结果缺少可用正文，请重试。",
-  RESEARCH_EXECUTION_INTERRUPTED: "上次检索已中断，请重试。",
-  RESEARCH_SEARCH_TIME_BUDGET_EXCEEDED: "上次资料研究已中断，已保存有效来源。请重试未完成任务。",
-  RESEARCH_SEARCH_PARTIAL_FAILURE: "部分检索失败，已保存成功结果。请重试失败任务。",
-  RESEARCH_SOURCES_REQUIRED: "请先添加至少一个真实来源。",
-  RESEARCH_SOURCE_URL_INVALID: "请输入有效的公开网页链接。",
-  RESEARCH_SOURCE_NOT_FOUND: "未找到该链接的可用描述，请检查链接或稍后重试。",
-  RESEARCH_TASKS_INCOMPLETE: "请先完成检索任务，失败任务可重试。",
-  RESEARCH_CONTENT_REFERENCE_INVALID: "生成内容引用了不可用的来源，已拒绝应用。请重新生成。",
-  RESEARCH_NODE_STATE_INVALID: "模型返回的内容不符合本步骤要求，请重试。",
-  RESEARCH_MODEL_GENERATION_REQUIRED: "本步骤尚未完成模型处理，请重试。",
+const errors: Record<string, MessageKey> = {
+  RESEARCH_REPORT_PREPARATION_TIME_BUDGET_EXCEEDED: "research.error.RESEARCH_REPORT_PREPARATION_TIME_BUDGET_EXCEEDED",
+  RESEARCH_REPORT_MODEL_TIME_BUDGET_EXCEEDED: "research.error.RESEARCH_REPORT_MODEL_TIME_BUDGET_EXCEEDED",
+  RESEARCH_EVIDENCE_BUDGET_EXCEEDED: "research.error.RESEARCH_EVIDENCE_BUDGET_EXCEEDED",
+  RESEARCH_REPORT_QUALITY_INSUFFICIENT: "research.error.RESEARCH_REPORT_QUALITY_INSUFFICIENT",
+  RESEARCH_GRAPH_VERSION_CONFLICT: "research.error.RESEARCH_GRAPH_VERSION_CONFLICT",
+  RESEARCH_REVISION_CONFLICT: "research.error.RESEARCH_REVISION_CONFLICT",
+  RESEARCH_SOURCE_ACCESS_DENIED: "research.error.RESEARCH_SOURCE_ACCESS_DENIED",
+  RESEARCH_WORKFLOW_PAUSED: "research.error.RESEARCH_WORKFLOW_PAUSED",
+  RESEARCH_PLAN_TIME_BUDGET_EXCEEDED: "research.error.RESEARCH_PLAN_TIME_BUDGET_EXCEEDED",
+  RESEARCH_WORKFLOW_UNAVAILABLE: "research.error.RESEARCH_WORKFLOW_UNAVAILABLE",
+  RESEARCH_NODE_MISMATCH: "research.error.RESEARCH_NODE_MISMATCH",
+  RESEARCH_IDEMPOTENCY_REPLAY_MISMATCH: "research.error.RESEARCH_IDEMPOTENCY_REPLAY_MISMATCH",
+  RESEARCH_WORKFLOW_BUSY: "research.error.RESEARCH_WORKFLOW_BUSY",
+  RESEARCH_SEARCH_NOT_CONFIGURED: "research.error.RESEARCH_SEARCH_NOT_CONFIGURED",
+  RESEARCH_SEARCH_NO_RELEVANT_SOURCES: "research.error.RESEARCH_SEARCH_NO_RELEVANT_SOURCES",
+  RESEARCH_SOURCE_RELEVANCE_INVALID: "research.error.RESEARCH_SOURCE_RELEVANCE_INVALID",
+  RESEARCH_SEARCH_EMPTY: "research.error.RESEARCH_SEARCH_EMPTY",
+  RESEARCH_SEARCH_REQUEST_TIMEOUT: "research.error.RESEARCH_SEARCH_REQUEST_TIMEOUT",
+  RESEARCH_DOCUMENT_TIMEOUT: "research.error.RESEARCH_DOCUMENT_TIMEOUT",
+  RESEARCH_SOURCE_MODEL_TIMEOUT: "research.error.RESEARCH_SOURCE_MODEL_TIMEOUT",
+  RESEARCH_SEARCH_UNAVAILABLE: "research.error.RESEARCH_SEARCH_UNAVAILABLE",
+  RESEARCH_SEARCH_CONTENT_EMPTY: "research.error.RESEARCH_SEARCH_CONTENT_EMPTY",
+  RESEARCH_EXECUTION_INTERRUPTED: "research.error.RESEARCH_EXECUTION_INTERRUPTED",
+  RESEARCH_SEARCH_TIME_BUDGET_EXCEEDED: "research.error.RESEARCH_SEARCH_TIME_BUDGET_EXCEEDED",
+  RESEARCH_SEARCH_PARTIAL_FAILURE: "research.error.RESEARCH_SEARCH_PARTIAL_FAILURE",
+  RESEARCH_SOURCES_REQUIRED: "research.error.RESEARCH_SOURCES_REQUIRED",
+  RESEARCH_SOURCE_URL_INVALID: "research.error.RESEARCH_SOURCE_URL_INVALID",
+  RESEARCH_SOURCE_NOT_FOUND: "research.error.RESEARCH_SOURCE_NOT_FOUND",
+  RESEARCH_TASKS_INCOMPLETE: "research.error.RESEARCH_TASKS_INCOMPLETE",
+  RESEARCH_CONTENT_REFERENCE_INVALID: "research.error.RESEARCH_CONTENT_REFERENCE_INVALID",
+  RESEARCH_NODE_STATE_INVALID: "research.error.RESEARCH_NODE_STATE_INVALID",
+  RESEARCH_MODEL_GENERATION_REQUIRED: "research.error.RESEARCH_MODEL_GENERATION_REQUIRED",
 };
-function requestError(error: unknown): string {
-  if (error instanceof ResearchRuntimeHydrationError) return "已保存当前进度，暂时无法获取完整内容，请同步后继续。";
+function requestError(error: unknown): MessageKey {
+  if (error instanceof ResearchRuntimeHydrationError) return "research.error.hydration";
   if (error instanceof ApiError) {
-    if (error.status === 401) return "登录已过期，请重新登录后继续。";
-    if (error.status === 403) return "你暂时没有访问此研究的权限，请联系研究负责人。";
-    if (error.status === 404) return "研究会话不存在或已不可访问，请返回研究首页。";
+    if (error.status === 401) return "research.error.auth";
+    if (error.status === 403) return "research.error.forbidden";
+    if (error.status === 404) return "research.error.notFound";
     if (error.reasonCode && errors[error.reasonCode]) return errors[error.reasonCode]!;
-    if (error.status === 409) return "研究状态发生冲突，请核对最新进度后继续。";
+    if (error.status === 409) return "research.error.conflict";
   }
-  return "暂时无法连接研究服务，请检查网络后重试。";
+  return "research.error.network";
 }
 const RECOVERY_READ_TIMEOUT_MS = 10_000;
 type Recovery = { draft: Draft | null; node: Command["node"]; synchronized: boolean };
-export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetry, initialNode, visualStage: routeStage }: { sessionId: string; researchName?: string; onBack: () => void; onLoadRetry?: () => void; initialNode?: Command["node"]; visualStage?: GuidedResearchVisualStage }) {
-  const cacheScope = getStoredSessionToken();
+export function GuidedResearchLive(props: { sessionId: string; researchName?: string; onBack: () => void; onLoadRetry?: () => void; initialNode?: Command["node"]; visualStage?: GuidedResearchVisualStage }) {
+  // A new credential or research gets a fresh component before it can render old data.
+  return <GuidedResearchLiveSession key={JSON.stringify([getResearchMemoryScope(), props.sessionId])} {...props} />;
+}
+function GuidedResearchLiveSession({ sessionId, researchName, onBack, onLoadRetry, initialNode, visualStage: routeStage }: { sessionId: string; researchName?: string; onBack: () => void; onLoadRetry?: () => void; initialNode?: Command["node"]; visualStage?: GuidedResearchVisualStage }) {
+  const { t } = useI18n();
+  const cacheScope = getResearchMemoryScope();
   const [chaptersOpen, setChaptersOpen] = React.useState(false);
   const [chapterDetailsOpen, setChapterDetailsOpen] = React.useState(routeStage === "chapters");
   const [chapterDetailsMounted, setChapterDetailsMounted] = React.useState(routeStage === "chapters");
-  const [state, setState] = React.useState<Runtime | null>(null);
-  const [node, setNode] = React.useState<Command["node"]>("brief");
-  const [draft, setDraft] = React.useState<Draft | null>(null);
+  const cachedRuntime = readResearchMemory(sessionId, cacheScope)?.runtime;
+  const initialTarget = cachedRuntime ? initialNode && cachedRuntime.availableNodes.includes(initialNode) ? initialNode : cachedRuntime.currentNode : "brief";
+  const [state, setState] = React.useState<Runtime | null>(() => cachedRuntime ?? null);
+  const [node, setNode] = React.useState<Command["node"]>(initialTarget);
+  const [draft, setDraft] = React.useState<Draft | null>(() => cachedRuntime ? readResearchMemory(sessionId, cacheScope)?.drafts?.[initialTarget] ?? draftOf(cachedRuntime, initialTarget) : null);
+  const draftRef = React.useRef(draft); draftRef.current = draft;
+  const dirtyEditor = React.useRef(false);
   const [message, setMessage] = React.useState("");
   const [reportAssistantOpen, setReportAssistantOpen] = React.useState(false);
   const [reportMarkdownOpen, setReportMarkdownOpen] = React.useState(false);
   const [chaptersDirty, setChaptersDirty] = React.useState(false);
   const [markdownDirty, setMarkdownDirty] = React.useState(false);
   const [loadingNode, setLoadingNode] = React.useState<Command["node"] | null>(null);
+  const loadingNodeRef = React.useRef(loadingNode); loadingNodeRef.current = loadingNode;
   const [browsing, setBrowsing] = React.useState(false);
   const browsingRef = React.useRef(false);
   const viewedNode = browsing ? node : loadingNode ?? node;
   const [pending, setPending] = React.useState(false);
   const [pendingNode, setPendingNode] = React.useState<Command["node"] | null>(null);
-  const [error, setError] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<MessageKey | null>(null);
   const [loadAttempt, setLoadAttempt] = React.useState(0);
+  const routeValidationKey = JSON.stringify([initialNode, routeStage]);
+  const [validatedRoute, setValidatedRoute] = React.useState<string | null>(null);
+  const [validationRevision, revalidate] = React.useReducer((value: number) => value + 1, 0);
+  const preferredNode = React.useRef(initialNode);
+  const routeInput = React.useRef({ initialNode, routeStage });
+  if (routeInput.current.initialNode !== initialNode || routeInput.current.routeStage !== routeStage) {
+    preferredNode.current = initialNode; routeInput.current = { initialNode, routeStage };
+  }
   const [recovery, setRecovery] = React.useState<Recovery | null>(null);
   const recoveryRef = React.useRef<Recovery | null>(null);
   function updateRecovery(value: Recovery | null) { recoveryRef.current = value; setRecovery(value); }
-  const snapshotRef = React.useRef<Runtime | null>(null);
+  const snapshotRef = React.useRef<Runtime | null>(cachedRuntime ?? null);
   const responseEpoch = React.useRef(0);
   const commandVersion = React.useRef(0);
   const messageDraft = React.useRef<{ draft: Draft; node: Command["node"] } | null>(null);
@@ -168,8 +190,8 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
   React.useEffect(() => {
     if (!state) return;
     const stage = toGuidedResearchVisualStage({ currentNode: viewedNode, availableNodes: state.availableNodes }).current;
-    const path = guidedResearchRoute(sessionId, stage);
-    if (window.location.pathname !== path) window.history.replaceState({}, "", path);
+    const path = withProjectId(guidedResearchRoute(sessionId, stage), new URLSearchParams(window.location.search).get("projectId"));
+    if (`${window.location.pathname}${window.location.search}` !== path) window.history.replaceState({}, "", path);
   }, [viewedNode, loadingNode, browsing, chaptersOpen, sessionId, state]);
   const restoreVisualRoute = (stage: GuidedResearchVisualStage) => {
     const snapshot = snapshotRef.current;
@@ -177,27 +199,71 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
     if (!snapshot || !(snapshot.availableNodes.includes(target) || target === loadingNode || stage === "chapters" && snapshot.availableNodes.includes("research"))) return;
     browsingRef.current = true; setBrowsing(true);
     setChaptersOpen(false);
-    setNode(target); setDraft(draftOf(snapshot, target)); setError(null);
+    rememberDraft(); preferredNode.current = target; revalidate(); setNode(target); setDraft(readResearchMemory(sessionId, cacheScope)?.drafts?.[target] ?? draftOf(snapshot, target)); setError(null);
   };
+  dirtyEditor.current = chaptersDirty || markdownDirty;
+  const rememberDraft = React.useCallback(() => {
+    const snapshot = snapshotRef.current;
+    const value = draftRef.current;
+    if (!snapshot || !value) return;
+    const memory = readResearchMemory(sessionId, cacheScope);
+    const drafts = { ...memory?.drafts };
+    if (JSON.stringify(value) !== JSON.stringify(draftOf(snapshot, value.node))) drafts[value.node] = value;
+    else delete drafts[value.node];
+    writeResearchMemory(sessionId, { drafts }, cacheScope);
+  }, [sessionId, cacheScope]);
+  React.useEffect(() => { rememberDraft(); }, [draft, rememberDraft]);
   React.useEffect(() => {
     let active = true;
+    setValidatedRoute(null);
+    const epoch = responseEpoch.current;
+    const baseline = snapshotRef.current;
+    const cached = loadAttempt === 0 ? baseline ?? readResearchMemory(sessionId, cacheScope)?.runtime : undefined;
+    const targetOf = (next: Runtime) => {
+      const requested = preferredNode.current;
+      const startingPlan = (requested === "directions" || requested === "outline") && next.version === 0 && !next.legacyCheckpoint && !next.errorCode;
+      const executing = !baseline && next.busy && (!next.leaseUntil || Date.parse(next.leaseUntil) > Date.now());
+      return executing ? next.currentNode : startingPlan ? "outline" : requested && (next.availableNodes.includes(requested) || requested === loadingNodeRef.current) ? requested : next.currentNode;
+    };
+    if (cached) {
+      rememberDraft();
+      const target = targetOf(cached);
+      nodeRef.current = target; setNode(target);
+      setDraft(readResearchMemory(sessionId, cacheScope)?.drafts?.[target] ?? draftOf(cached, target));
+    }
+    const read = () => cached
+      ? getResearchRuntimeProgress(sessionId, cached.reportStream, undefined, cached).then((update) => mergeResearchProgress(cached, update))
+      : getResearchRuntime(sessionId);
+    // Include the baseline in the key: a patch is meaningful only for that snapshot.
+    void readResearchOnce(sessionId, "runtime", cacheScope, read, cached).then((received) => {
+      if (!active || epoch !== responseEpoch.current || getResearchMemoryScope() !== cacheScope) return;
+      setValidatedRoute(routeValidationKey);
+      const current = snapshotRef.current;
+      const next = newestSnapshot(received, current);
+      const target = targetOf(next);
+      const local = draftRef.current;
+      const dirty = dirtyEditor.current || Boolean(local && current && JSON.stringify(local) !== JSON.stringify(draftOf(current, local.node)));
+      snapshotRef.current = next; setState(next);
+      writeResearchMemory(sessionId, { runtime: next }, cacheScope);
+      if (!baseline) { nodeRef.current = target; setNode(target); }
+      if (!dirty) setDraft(readResearchMemory(sessionId, cacheScope)?.drafts?.[nodeRef.current] ?? draftOf(next, nodeRef.current));
+      setError(null);
+    }).catch((cause: unknown) => {
+      if (!active || epoch !== responseEpoch.current || getResearchMemoryScope() !== cacheScope) return;
+      if (cause instanceof ApiError && [401, 403, 404].includes(cause.status)) {
+        responseEpoch.current += 1; sessionGeneration.current += 1;
+        streamController.current?.abort(); recoveryController.current?.abort();
+        forgetResearchMemory(sessionId, cacheScope);
+        snapshotRef.current = null; setState(null); setDraft(null); setPending(false); setLoadingNode(null); updateRecovery(null);
+      }
+      setError(requestError(cause));
+    });
+    return () => { active = false; };
+  }, [sessionId, initialNode, routeStage, loadAttempt, cacheScope, validationRevision, rememberDraft, routeValidationKey]);
+  React.useEffect(() => () => {
     sessionGeneration.current += 1;
-    responseEpoch.current += 1; snapshotRef.current = null; messageDraft.current = null; topicSaveCompletion.current = null;
-    bootstrapStarted.current = false; browsingRef.current = false; setBrowsing(false);
-    sourceCursor.current = undefined;
-    setChapterDetailsOpen(routeStage === "chapters"); setChapterDetailsMounted(routeStage === "chapters"); setChaptersDirty(false);
-    setState(null); setDraft(null); setMessage(""); setError(null); setPending(false); setPendingNode(null); setLoadingNode(null); setReportMarkdownOpen(false); updateRecovery(null);
-    const cached = loadAttempt === 0 ? readResearchMemory(sessionId, cacheScope)?.runtime : undefined;
-    (cached ? getResearchRuntimeProgress(sessionId, cached.reportStream, undefined, cached).then((update) => mergeResearchProgress(cached, update)) : getResearchRuntime(sessionId)).then((next) => {
-      if (!active) return;
-      const startingPlan = (initialNode === "directions" || initialNode === "outline") && next.version === 0 && !next.legacyCheckpoint && !next.errorCode;
-      const executing = next.busy && (!next.leaseUntil || Date.parse(next.leaseUntil) > Date.now());
-      const target = executing ? next.currentNode : startingPlan ? "outline" : initialNode && next.availableNodes.includes(initialNode) ? initialNode : next.currentNode;
-      setChaptersOpen(false);
-      snapshotRef.current = next; setState(next); setNode(target); setDraft(draftOf(next, target));
-    }).catch((cause: unknown) => { if (active) setError(requestError(cause)); });
-    return () => { active = false; sessionGeneration.current += 1; streamController.current?.abort(); recoveryController.current?.abort(); };
-  }, [sessionId, initialNode, routeStage, loadAttempt, cacheScope]);
+    streamController.current?.abort(); recoveryController.current?.abort();
+  }, []);
   React.useEffect(() => {
     if (state?.sessionId === sessionId && snapshotRef.current === state) writeResearchMemory(sessionId, { runtime: state }, cacheScope);
   }, [state, sessionId, cacheScope]);
@@ -242,6 +308,8 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
         const accepted = newestSnapshot(next, current);
         if (accepted === current) return;
         next = accepted;
+        const localDraft = draftRef.current;
+        const retainEdit = dirtyEditor.current || Boolean(localDraft && current && JSON.stringify(localDraft) !== JSON.stringify(draftOf(current, localDraft.node)));
         pollAccepted.current = ticket; snapshotRef.current = next;
         sourceCursor.current = incomingSourceCursor;
         setState(next);
@@ -250,7 +318,7 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
           const retained = recoveryRef.current;
           updateRecovery(retained.draft ? { ...retained, synchronized: true } : null);
           setPending(false); setLoadingNode(null);
-          if (next.errorCode) setError(errors[next.errorCode] ?? "处理失败，已保存当前进度，请重试。");
+          if (next.errorCode) setError(errors[next.errorCode] ?? "research.error.processing");
         }
         if (!next.busy && pending) {
           // Durable terminal state wins even when the POST connection never closes.
@@ -259,7 +327,7 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
           streamController.current?.abort(); streamController.current = null;
           setPending(false); setLoadingNode(null);
           if (next.errorCode) {
-            setError(errors[next.errorCode] ?? "处理失败，已保存当前进度，请重试。");
+            setError(errors[next.errorCode] ?? "research.error.processing");
             if (messageDraft.current) {
               const saved = messageDraft.current;
               updateRecovery({ ...saved, synchronized: true });
@@ -274,7 +342,7 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
           // Follow that operation, while leaving idle historical browsing alone.
           const target = !browsingRef.current && current?.busy && (!pending || !next.busy) ? next.currentNode : nodeRef.current;
           if (target !== nodeRef.current) { nodeRef.current = target; setNode(target); }
-          setDraft(draftOf(next, target));
+          if (!retainEdit) setDraft(draftOf(next, target));
         }
       }).catch(() => { /* Retry this read without replaying the command. */ }).finally(() => { inFlight = false; });
     }, 2000);
@@ -285,7 +353,7 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
   React.useEffect(() => {
     // Only a newly created session on the confirmed destination can bootstrap.
     // Persisted busy/failed sessions are restored, never replayed on refresh.
-    if (!state || bootstrapStarted.current || !["directions", "outline"].includes(initialNode ?? "") || state.version !== 0 || state.currentNode !== "brief" || state.busy || state.errorCode || state.legacyCheckpoint) return;
+    if (validatedRoute !== routeValidationKey || !state || bootstrapStarted.current || !["directions", "outline"].includes(initialNode ?? "") || state.version !== 0 || state.currentNode !== "brief" || state.busy || state.errorCode || state.legacyCheckpoint) return;
     bootstrapStarted.current = true;
     void run("prepare_plan", { node: "brief", draft: { node: "brief", value: state.brief } });
   });
@@ -370,7 +438,7 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
       const target = action === "save_chapters" && !next.errorCode ? next.currentNode : browsingRef.current ? nodeRef.current : next !== received || action === "prepare_plan" || action === "generate_report" || action === "confirm" || action === "complete" || action === "apply" || action === "retry" && Boolean(state.executionGoal) ? next.currentNode : requestNode;
       setNode(target); setDraft(draftOf(next, target));
       if (!browsingRef.current && !next.errorCode && requestNode === "outline" && target === "outline") setChaptersOpen(false);
-      if (next.errorCode) setError(errors[next.errorCode] ?? "处理失败，已保存当前进度，请重试。");
+      if (next.errorCode) setError(errors[next.errorCode] ?? "research.error.processing");
       if (action === "message" && next.errorCode && recoveryDraft) {
         if (!browsingRef.current) { setNode(requestNode); setDraft(recoveryDraft); }
         updateRecovery({ draft: recoveryDraft, node: requestNode, synchronized: true });
@@ -433,9 +501,15 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
     setNode(target); setDraft(keepLocal ? recovery.draft : draftOf(state, target));
     updateRecovery(null); setError(null);
   }
-  function navigate(next: Command["node"]) { if (state) { browsingRef.current = true; setBrowsing(true); setNode(next); setDraft(draftOf(state, next)); setError(null); } }
+  function navigate(next: Command["node"]) { if (state) {
+    // The shell asks for confirmation before abandoning an edited step.
+    // An explicit discard must not resurrect that draft on the way back.
+    const memory = readResearchMemory(sessionId, cacheScope);
+    const drafts = { ...memory?.drafts }; delete drafts[node];
+    writeResearchMemory(sessionId, { drafts }, cacheScope);
+    browsingRef.current = true; setBrowsing(true); preferredNode.current = next; revalidate(); setNode(next); setDraft(readResearchMemory(sessionId, cacheScope)?.drafts?.[next] ?? draftOf(state, next)); setError(null); } }
   const validDraft = Boolean(draft && C.GuidedResearchRuntimeDraft.safeParse(draft).success);
-  if (!state || state.sessionId !== sessionId) return <GuidedResearchSixStepShell current={routeStage ?? "import"} available={[]} onBack={onBack} onNavigate={() => undefined} main={<div role="status" className="p-4">{error ?? "正在恢复研究会话…"}{error && <Button variant="outline" onClick={() => { setLoadAttempt((attempt) => attempt + 1); onLoadRetry?.(); }}>重试加载</Button>}</div>} />;
+  if (!state || state.sessionId !== sessionId) return <GuidedResearchSixStepShell current={routeStage ?? "import"} available={[]} onBack={onBack} onNavigate={() => undefined} main={<div role="status" className="p-4">{t(error ?? "research.session.restoring")}{error && <Button variant="outline" onClick={() => { setLoadAttempt((attempt) => attempt + 1); onLoadRetry?.(); }}>{t("research.session.retryLoad")}</Button>}</div>} />;
   const latestRecoveryDraft = recovery?.synchronized ? draftOf(state, recovery.node) : null;
   const proposal = !state.busy && !state.errorCode && state.proposal?.version === state.version && state.proposal.draft.node === node ? state.proposal : null;
   const proposalEdited = Boolean(proposal && JSON.stringify(draft) !== JSON.stringify(proposal.draft));
@@ -453,19 +527,20 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
   const hasRenderableReportPreview = Boolean(streamPreview.summary || streamPreview.introduction || streamPreview.conclusion || streamPreview.sections.some((section) => section.body) || state.reportCheckpoint?.chapters.some((chapter) => chapter.body));
   const showReportRecoveryActions = !waiting && !readingReport && resumeReport && !hasRenderableReportPreview;
   const reportPrimaryAction = !waiting && (node === "research"
-    ? <Button variant="primary" loading={busy} disabled={busy} data-testid="research-report-primary-action" onClick={() => void (async () => { if (state.controlStatus === "paused" && !await steerReport("resume")) return; await run(state.executionGoal === "report" && resumeReport ? "retry" : "generate_report", { node: "research" }); })()}>{resumeReport ? "继续生成" : "生成报告"}</Button>
+    ? <Button variant="primary" loading={busy} disabled={busy} data-testid="research-report-primary-action" onClick={() => void (async () => { if (state.controlStatus === "paused" && !await steerReport("resume")) return; await run(state.executionGoal === "report" && resumeReport ? "retry" : "generate_report", { node: "research" }); })()}>{resumeReport ? t("research.live.continue") : t("research.live.generate")}</Button>
     : resumeReport
-    ? <Button variant="primary" loading={busy} disabled={busy} data-testid="research-report-primary-action" onClick={() => void (async () => { if (state.controlStatus === "paused" && !await steerReport("resume")) return; await run("retry"); })()}>继续生成</Button>
+    ? <Button variant="primary" loading={busy} disabled={busy} data-testid="research-report-primary-action" onClick={() => void (async () => { if (state.controlStatus === "paused" && !await steerReport("resume")) return; await run("retry"); })()}>{t("research.live.continue")}</Button>
     : state.report && !state.completed
-      ? <Button variant="primary" loading={busy} disabled={busy || Boolean(proposal)} data-testid="research-report-primary-action" onClick={() => void run("complete", { draft: { node: "report", value: displayReport! } })}>完成研究</Button>
+      ? <Button variant="primary" loading={busy} disabled={busy || Boolean(proposal)} data-testid="research-report-primary-action" onClick={() => void run("complete", { draft: { node: "report", value: displayReport! } })}>{t("research.live.complete")}</Button>
       : !state.report
-        ? <Button variant="primary" loading={busy} disabled={busy} data-testid="research-report-primary-action" onClick={() => void run("generate_report")}>生成报告</Button>
-        : <span role="status" className="self-center text-sm text-muted-foreground">研究报告</span>);
-  const reportRestartAction = reportVisible && !processing && (state.reportCheckpoint || state.report || state.reportDraft) && <Button variant="outline" disabled={busy || reportControlPending} onClick={() => void (async () => { if (state.controlStatus === "paused" && !await steerReport("resume")) return; await run("generate_report", { node: "report" }); })()}>从头重新生成</Button>;
+        ? <Button variant="primary" loading={busy} disabled={busy} data-testid="research-report-primary-action" onClick={() => void run("generate_report")}>{t("research.live.generate")}</Button>
+        : <span role="status" className="self-center text-sm text-muted-foreground">{t("research.node.report")}</span>);
+  const reportRestartAction = reportVisible && !processing && (state.reportCheckpoint || state.report || state.reportDraft) && <Button variant="outline" disabled={busy || reportControlPending} onClick={() => void (async () => { if (state.controlStatus === "paused" && !await steerReport("resume")) return; await run("generate_report", { node: "report" }); })()}>{t("research.live.restart")}</Button>;
   const reportCommandActions = <>{reportRestartAction}{reportPrimaryAction}</>;
-  const reportAssistantMenuAction = <DropdownMenuItem onSelect={() => setReportAssistantOpen((open) => !open)}>{reportAssistantOpen ? "收起助手" : "修改报告"}</DropdownMenuItem>;
-  const reportActions = <WorkflowActionBar placement="footer" data-testid="research-current-step-actions">{showReportRecoveryActions && <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" aria-label="更多操作">更多操作</Button></DropdownMenuTrigger><DropdownMenuContent align="end">{reportAssistantMenuAction}<DropdownMenuSeparator /><DropdownMenuItem disabled={busy} onSelect={() => void run("generate_report", { node: "report" })}>重新生成报告</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}{reportCommandActions}</WorkflowActionBar>;
+  const reportAssistantMenuAction = <DropdownMenuItem onSelect={() => setReportAssistantOpen((open) => !open)}>{reportAssistantOpen ? t("research.live.hideAssistant") : t("research.live.editReport")}</DropdownMenuItem>;
+  const reportActions = <WorkflowActionBar placement="footer" data-testid="research-current-step-actions">{showReportRecoveryActions && <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" aria-label={t("research.report.more")}>{t("research.report.more")}</Button></DropdownMenuTrigger><DropdownMenuContent align="end">{reportAssistantMenuAction}<DropdownMenuSeparator /><DropdownMenuItem disabled={busy} onSelect={() => void run("generate_report", { node: "report" })}>{t("research.report.regenerate")}</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}{reportCommandActions}</WorkflowActionBar>;
   const reportDocument = displayReport ? researchReportDocument(displayReport, state.sources, state.outline) : null;
+  const reportHeadings = reportDocument?.headings ?? C.guidedResearchReportFraming(state.brief).headings;
   const briefDocument = draft?.node === "brief" ? serializeGuidedResearchMarkdown({ node: "brief", brief: draft.value }) : null;
   const reportMarkdownDocument = displayReport ? serializeGuidedResearchMarkdown({ node: "report", report: displayReport }) : null;
   const visualStage = toGuidedResearchVisualStage({ currentNode: viewedNode, availableNodes: state.availableNodes });
@@ -482,10 +557,10 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
     if ((state.availableNodes.includes(next) || next === loadingNode || stage === "chapters" && state.availableNodes.includes("research"))) {
       setChaptersOpen(false);
       navigate(next);
-      window.history.pushState({}, "", guidedResearchRoute(sessionId, stage));
+      window.history.pushState({}, "", withProjectId(guidedResearchRoute(sessionId, stage), new URLSearchParams(window.location.search).get("projectId")));
     }
   };
-  const conversation = <GuidedResearchConversation node={node} messages={state.messages} message={message} onMessageChange={setMessage} busy={busy} processing={processing}
+  const conversation = <GuidedResearchConversation embedded node={node} messages={state.messages} message={message} onMessageChange={setMessage} busy={busy} processing={processing}
     onSend={(text) => { if (text.trim()) void run("message", { message: text.trim(), ...(draft ? { draft } : {}) }); }}
     proposal={proposal} proposalEdited={proposalEdited} onApply={() => void run("apply", { proposalId: proposal?.id })}
     preview={proposal ? <ProposalPreview draft={proposal.draft} /> : null} />;
@@ -493,55 +568,58 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
 return <GuidedResearchSixStepShell researchName={guidedResearchHeading(state, researchName)} hasUnsavedChanges={Boolean(message.trim()) || chaptersDirty || markdownDirty || Boolean(draft && JSON.stringify(draft) !== JSON.stringify(draftOf(state, node)))} sessionId={sessionId} current={chaptersOpen && (browsing || !loadingNode) ? "chapters" : visualStage.current} running={processing ? toGuidedResearchVisualStage({ currentNode: executingNode, availableNodes: state.availableNodes }).current : undefined} completed={state.completed} completedStages={completedStages} available={visualStage.available} onBack={onBack} onNavigate={navigateVisual} onHistoryNavigate={restoreVisualRoute} assistant={shellAssistant} assistantOpen={reportAssistantOpen} onAssistantOpenChange={setReportAssistantOpen} main={<div className="max-w-none space-y-4" data-layout="signed-desktop" data-testid={`research-flow-${node === "research" ? "search" : node}`}>
     <GuidedResearchStepLayout>
       <div className="space-y-5">
-        {proposal && !waiting && <p role="status" className="rounded-lg border border-primary/30 bg-muted/30 px-4 py-3 text-12" data-testid="research-conversation-draft">右侧已同步对话生成的「{labels[node]}」待应用内容，尚未应用。你可以继续在左侧提出修改，核对后请先在左侧应用建议，再确认并继续。{proposalEdited && " 右侧另有手动修改，请继续对话形成新建议后应用。"}</p>}
-    {recovery && <details className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-12" data-testid="research-recovery"><summary className="cursor-pointer font-medium">需要核对研究进度{recovery.draft ? " · 待应用内容已保留" : ""}</summary><div className="mt-3 space-y-3">
-      <p role="status" className="text-12">{recovery.synchronized ? processing ? "服务端仍在处理，正在核对执行状态，系统不会重复提交。" : "已读取最新研究进度。请核对后继续，系统不会自动重复提交。" : "尚未确认最新研究进度，请先重新连接。"}{recovery.draft && " 你的未提交待应用内容已保留在当前页面。"}</p>
-      {recovery.draft && <details className="text-12"><summary>查看保留的待应用内容</summary><ProposalPreview draft={recovery.draft} /></details>}
-      {latestRecoveryDraft && <details className="text-12"><summary>查看服务端最新内容</summary><ProposalPreview draft={latestRecoveryDraft} /></details>}
+        {proposal && !waiting && <p role="status" className="rounded-lg border border-primary/30 bg-muted/30 px-4 py-3 text-12" data-testid="research-conversation-draft">{t("research.live.proposal", { label: t(`research.node.${node}`) })}{proposalEdited && t("research.live.proposalEdited")}</p>}
+    {recovery && <details className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-12" data-testid="research-recovery"><summary className="cursor-pointer font-medium">{t("research.recovery.heading")}{recovery.draft ? t("research.recovery.draftLabel") : ""}</summary><div className="mt-3 space-y-3">
+      <p role="status" className="text-12">{recovery.synchronized ? processing ? t("research.recovery.processing") : t("research.recovery.loaded") : t("research.recovery.unsynchronized")}{recovery.draft && t("research.recovery.draftPreserved")}</p>
+      {recovery.draft && <details className="text-12"><summary>{t("research.recovery.viewDraft")}</summary><ProposalPreview draft={recovery.draft} /></details>}
+      {latestRecoveryDraft && <details className="text-12"><summary>{t("research.recovery.viewServer")}</summary><ProposalPreview draft={latestRecoveryDraft} /></details>}
       <div className="flex flex-wrap gap-2">
-        <Button variant="outline" disabled={pending} onClick={() => void recoverProgress(sessionId)}>重新读取进度</Button>
-        <Button disabled={!recovery.synchronized || processing} onClick={() => finishRecovery(false)}>使用最新进度</Button>
-        {recovery.draft && <Button variant="outline" disabled={!recovery.synchronized || processing || !state.availableNodes.includes(recovery.node)} onClick={() => finishRecovery(true)}>{node === "report" ? "继续编辑保留的内容" : "继续编辑保留的草稿"}</Button>}
+        <Button variant="outline" disabled={pending} onClick={() => void recoverProgress(sessionId)}>{t("research.recovery.reload")}</Button>
+        <Button disabled={!recovery.synchronized || processing} onClick={() => finishRecovery(false)}>{t("research.recovery.useLatest")}</Button>
+        {recovery.draft && <Button variant="outline" disabled={!recovery.synchronized || processing || !state.availableNodes.includes(recovery.node)} onClick={() => finishRecovery(true)}>{node === "report" ? t("research.recovery.editContent") : t("research.recovery.editDraft")}</Button>}
       </div>
     </div></details>}
-    {(error || (node === state.currentNode && state.errorCode)) && <p role="alert" className="text-12 text-destructive">{error ?? errors[state.errorCode!] ?? "上次处理失败，请重试。"}</p>}
-    {!readingReport && node !== "research" && state.legacyCheckpoint && <details className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-12 text-muted-foreground"><summary>历史记录已保留 · 查看迁移说明</summary><p className="mt-2">原会话状态：{state.legacyCheckpoint.status === "completed" ? "已完成" : "进行中"}。原方向与大纲已导入；旧版检索和报告没有可验证的来源记录，需要重新检索后生成报告。</p><p>原研究主题：{state.legacyCheckpoint.brief.topic}</p><ul>{state.legacyCheckpoint.directions.versions.at(-1)?.items.map((item) => <li key={item.id}>{item.title}：{item.description}</li>)}</ul><ul>{state.legacyCheckpoint.outline.versions.at(-1)?.items.map((item) => <li key={item.id}>{item.title}：{item.questions.join("；")}</li>)}</ul></details>}
-    {expired && !recovery && !error && !state.errorCode && <p role="alert" className="text-12 text-destructive">上次执行已中断。已保存的结果仍可用，请重试。</p>}
+    {(error || (node === state.currentNode && state.errorCode)) && <p role="alert" className="text-12 text-destructive">{t(error ?? errors[state.errorCode!] ?? "research.error.previous")}</p>}
+    {!readingReport && node !== "research" && state.legacyCheckpoint && <details className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-12 text-muted-foreground"><summary>{t("research.legacy.heading")}</summary><p className="mt-2">{t("research.legacy.status", { status: t(state.legacyCheckpoint.status === "completed" ? "ui.completed" : "ui.inProgress") })}</p><p>{t("research.legacy.topic", { topic: state.legacyCheckpoint.brief.topic })}</p><ul>{state.legacyCheckpoint.directions.versions.at(-1)?.items.map((item) => <li key={item.id}>{item.title}：{item.description}</li>)}</ul><ul>{state.legacyCheckpoint.outline.versions.at(-1)?.items.map((item) => <li key={item.id}>{item.title}：{item.questions.join("；")}</li>)}</ul></details>}
+    {expired && !recovery && !error && !state.errorCode && <p role="alert" className="text-12 text-destructive">{t("research.live.interrupted")}</p>}
         {reportVisible && !processing && !readingReport && <GuidedResearchEvidenceWarning state={state} />}
-        {waiting && viewedNode === "research" && state.currentNode === "research" && <p role="status" data-testid="research-step-loading" aria-live="polite" className="flex items-center gap-2 text-muted-foreground"><Loader2 className="size-4 animate-spin" aria-hidden />正在获取资料</p>}
+        {waiting && viewedNode === "research" && state.currentNode === "research" && <p role="status" data-testid="research-step-loading" aria-live="polite" className="flex items-center gap-2 text-muted-foreground"><Loader2 className="size-4 animate-spin" aria-hidden />{t("research.loading.research.title")}</p>}
         {reportVisible && <GuidedResearchExecutionTimeline state={state} interrupted={expired} />}
         {reportVisible && !displayReport && <GuidedResearchQualityDraft state={state} actions={reportCommandActions} moreActions={reportAssistantMenuAction} onRegenerate={() => void run("generate_report", { node: "report" })} />}
         {reportVisible && !state.report && !state.reportDraft && (state.reportStream || (!state.report && state.reportCheckpoint)) && <GuidedResearchReportPreview state={state} interrupted={expired || state.controlStatus === "paused"} moreActions={showReportRecoveryActions ? undefined : reportAssistantMenuAction} onRegenerate={() => void run("generate_report", { node: "report" })} />}
 
         {waiting && viewedNode !== "research" ? (reportVisible && (state.reportTimeline?.length || state.reportStream || (!state.report && state.reportCheckpoint)) ? null : <ResearchLoading node={viewedNode} />) : <>
-        {pending && chaptersOpen && <p role="status">正在准备报告章节…</p>}
-        {viewedNode === "brief" && briefDocument && <GuidedResearchEntryPanel loading={busy} disabled={busy || Boolean(proposal) || !validDraft} onContinue={() => void run("prepare_plan", { ...(draft ? { draft } : {}) })} brief={<><Textarea aria-label="研究需求" placeholder="请描述你的研究需求：研究目标、研究区域、时间范围、重点关注和关键问题。" className="min-h-48 resize-y p-3 text-sm leading-relaxed" maxLength={C.GuidedResearchBrief.shape.goal.maxLength!} disabled={busy} value={draft?.node === "brief" ? draft.value.goal : ""} onChange={(event) => { if (draft?.node === "brief") setDraft({ ...draft, value: { ...draft.value, goal: event.target.value } }); }} /><p className="text-right text-xs text-muted-foreground">{draft?.node === "brief" ? draft.value.goal.length : 0} / {C.GuidedResearchBrief.shape.goal.maxLength!}</p></>} />}
+        {pending && chaptersOpen && <p role="status">{t("research.live.preparingChapters")}</p>}
+        {viewedNode === "brief" && briefDocument && <GuidedResearchEntryPanel loading={busy} disabled={busy || Boolean(proposal) || !validDraft} onContinue={() => void run("prepare_plan", { ...(draft ? { draft } : {}) })} brief={<><Textarea aria-label={t("research.live.requirements")} placeholder={t("research.live.requirementsPlaceholder")} className="min-h-48 resize-y p-3 text-sm leading-relaxed" maxLength={C.GuidedResearchBrief.shape.goal.maxLength!} disabled={busy} value={draft?.node === "brief" ? draft.value.goal : ""} onChange={(event) => { if (draft?.node === "brief") setDraft({ ...draft, value: { ...draft.value, goal: event.target.value } }); }} /><p className="text-right text-xs text-muted-foreground">{draft?.node === "brief" ? draft.value.goal.length : 0} / {C.GuidedResearchBrief.shape.goal.maxLength!}</p></>} />}
         {viewedNode === "brief" && draft?.node === "brief" && <Card className="sr-only" aria-hidden="true"><CardContent>{(["topic", "goal", "timeRange", "region", "focus"] as const).map((field) => <label key={field}>{field}<Textarea disabled tabIndex={-1} value={draft.value[field]} onChange={(event) => setDraft({ ...draft, value: { ...draft.value, [field]: event.target.value } })} /></label>)}</CardContent></Card>}
-        {viewedNode === "directions" && <section className="space-y-4" data-testid="research-plan-recovery"><h2 className="text-lg font-bold">研究计划</h2><p>已保留研究主题与方向。生成计划后可查看和修改。</p><p className="font-medium">{state.brief.topic}</p><p>{state.brief.goal}</p><Button variant="primary" loading={busy} disabled={busy || Boolean(proposal)} onClick={() => void run("prepare_plan", { node: "directions", ...(draft?.node === "directions" ? { draft } : {}) })}>生成研究计划</Button></section>}
-        {viewedNode === "outline" && draft?.node === "outline" && <GuidedResearchPlanPanel loading={busy} onBack={() => navigateVisual("import")} disabled={busy || Boolean(proposal) || !validDraft || markdownDirty} onConfirm={() => void run("generate_report", { draft })}
-          plan={<GuidedResearchPlanEditor value={draft.value} disabled={busy || Boolean(proposal)} onDirtyChange={setMarkdownDirty} onSave={async (value) => Boolean(await run("save", { draft: { node: "outline", value } }))} />}
+        {viewedNode === "directions" && <section className="space-y-4" data-testid="research-plan-recovery"><h2 className="text-lg font-bold">{t("research.stage.plan")}</h2><p>{t("research.live.planPreserved")}</p><p className="font-medium">{state.brief.topic}</p><p>{state.brief.goal}</p><Button variant="primary" loading={busy} disabled={busy || Boolean(proposal)} onClick={() => void run("prepare_plan", { node: "directions", ...(draft?.node === "directions" ? { draft } : {}) })}>{t("research.live.generatePlan")}</Button></section>}
+        {viewedNode === "outline" && draft?.node === "outline" && <GuidedResearchPlanPanel loading={busy && loadingNode === "research"} onBack={() => navigateVisual("import")} disabled={busy || Boolean(proposal) || !validDraft || markdownDirty} onConfirm={() => void run("generate_report", { draft })}
+          plan={<GuidedResearchPlanEditor value={draft.value} persistedValue={state.outline} onCancel={() => setDraft({ node: "outline", value: state.outline })} disabled={busy || Boolean(proposal)} onDirtyChange={setMarkdownDirty} onSave={async (value) => Boolean(await run("save", { draft: { node: "outline", value } }))} />}
         />}
-        {reportVisible && state.sources.length > 0 && <details><summary className="cursor-pointer text-sm font-medium">查看研究资料 · {state.sources.filter(source => source.decision !== "excluded").length} 个来源</summary><div className="mt-3"><GuidedResearchSourceWorkspace state={draft?.node === "research" ? { ...state, sources: state.sources.map(source => ({ ...source, decision: draft.value.find(entry => entry.id === source.id)?.decision ?? source.decision })) } : state} actions={null} /></div></details>}
-        {viewedNode === "research" && !waiting && researchFailed && <details data-testid="research-failed-tasks" className="text-sm"><summary className="cursor-pointer text-muted-foreground">查看未完成检索 · {state.tasks.filter((task) => task.status === "failed").length} 项</summary><ul className="mt-2 space-y-2">{state.tasks.filter((task) => task.status === "failed").map((task) => <li key={task.id}><span className="font-medium">{task.title || task.query}</span><p className="text-muted-foreground">{task.errorCode === "RESEARCH_SEARCH_TIME_BUDGET_EXCEEDED" ? "上次检索已中断，尚未完成。" : errors[task.errorCode ?? ""] ?? "检索未完成，请重试或调整研究计划。"}</p></li>)}</ul></details>}
-        {reportVisible && !processing && state.availableNodes.includes("research") && <details open={chapterDetailsOpen} onToggle={(event) => { const open = event.currentTarget.open; setChapterDetailsOpen(open); if (open) setChapterDetailsMounted(true); }}><summary className="cursor-pointer text-sm font-medium">调整报告章节</summary>{chapterDetailsMounted && <ResearchChaptersWorkspace onDirtyChange={setChaptersDirty} runtime={state} disabled={busy} onSave={(value) => void run("save_chapters", { node: "outline", draft: { node: "outline", value } })} onOptimize={(value) => void run("message", { node: "outline", draft: { node: "outline", value }, message: "基于当前章节和已有研究证据优化章节结构、目标与小节，保留来源和证据局限。" })} />}</details>}
+        {reportVisible && !displayReport && state.sources.length > 0 && <details><summary className="cursor-pointer text-sm font-medium">{t("research.live.sourceSummary", { count: state.sources.filter(source => source.decision !== "excluded").length })}</summary><div className="mt-3"><GuidedResearchSourceWorkspace state={draft?.node === "research" ? { ...state, sources: state.sources.map(source => ({ ...source, decision: draft.value.find(entry => entry.id === source.id)?.decision ?? source.decision })) } : state} actions={null} /></div></details>}
+        {viewedNode === "research" && !waiting && researchFailed && <details data-testid="research-failed-tasks" className="text-sm"><summary className="cursor-pointer text-muted-foreground">{t("research.live.failedSummary", { count: state.tasks.filter((task) => task.status === "failed").length })}</summary><ul className="mt-2 space-y-2">{state.tasks.filter((task) => task.status === "failed").map((task) => <li key={task.id}><span className="font-medium">{task.title || task.query}</span><p className="text-muted-foreground">{t(task.errorCode === "RESEARCH_SEARCH_TIME_BUDGET_EXCEEDED" ? "research.search.interrupted" : errors[task.errorCode ?? ""] ?? "research.search.incomplete")}</p></li>)}</ul></details>}
+        {reportVisible && !processing && state.availableNodes.includes("research") && <details open={chapterDetailsOpen} onToggle={(event) => { const open = event.currentTarget.open; setChapterDetailsOpen(open); if (open) setChapterDetailsMounted(true); }}><summary className="cursor-pointer text-sm font-medium">{t("research.live.adjustChapters")}</summary>{chapterDetailsMounted && <ResearchChaptersWorkspace onDirtyChange={setChaptersDirty} runtime={state} disabled={busy} onSave={(value) => void run("save_chapters", { node: "outline", draft: { node: "outline", value } })} onOptimize={(value) => void run("message", { node: "outline", draft: { node: "outline", value }, message: "基于当前章节和已有研究证据优化章节结构、目标与小节，保留来源和证据局限。" })} />}</details>}
         {node === "report" && !chaptersOpen && !waiting && reportDocument && <GuidedResearchReportWorkspace
           actions={null}
-          contents={<nav aria-label="报告工作区目录" className="space-y-1 text-sm text-muted-foreground"><a className="block rounded bg-muted p-2" href="#research-report-summary">执行摘要</a>{reportDocument.introduction && <a className="block p-2" href="#research-report-introduction">研究范围与方法</a>}{reportDocument.sections.map((section, index) => <div key={section.sectionId}><a className="block p-2 font-medium" href={`#research-report-section-${index}`}>{index + 1}. {section.title}</a>{reportSectionHeadings(chapterBody(section.body, section.title)).map((heading) => <a key={`${section.sectionId}-${heading.index}`} className="block py-1 pl-6 pr-2 text-xs" href={`#research-report-section-${index}-subsection-${heading.index}`}>{heading.title}</a>)}</div>)}{reportDocument.conclusion && <a className="block p-2" href="#research-report-conclusion">综合结论</a>}<a className="block border-t p-2" href="#research-report-references">参考来源</a></nav>}
-          document={<div data-testid="research-report" data-layout="full-width-report"><ResearchPrototypeReport document={reportDocument} fileActions={<ResearchReportFileActions sessionId={state.sessionId} reportVersion={state.version} disabled={busy || !state.completed || Boolean(state.errorCode) || Boolean(state.reportDraft)} />} sources={state.sources.filter((source) => source.decision !== "excluded").length} actions={reportCommandActions} moreActions={reportAssistantMenuAction} onRegenerate={() => void run("generate_report", { node: "report" })} disabled={busy || Boolean(proposal)} />{reportMarkdownDocument && <details className="mt-5" open={reportMarkdownOpen} onToggle={(event) => setReportMarkdownOpen(event.currentTarget.open)}><summary className="cursor-pointer text-sm font-medium">编辑报告 Markdown</summary>{reportMarkdownOpen && <div className="mt-3"><GuidedResearchMarkdownWorkspace onDirtyChange={setMarkdownDirty} document={reportMarkdownDocument} saving={busy} onSave={async (markdown) => {
+          contents={<nav aria-label={t("research.live.reportContents")} className="space-y-1 text-sm text-muted-foreground"><a className="block rounded bg-muted p-2" href="#research-report-summary">{reportHeadings.summary}</a>{reportDocument.introduction && <a className="block p-2" href="#research-report-introduction">{reportHeadings.introduction}</a>}{reportDocument.sections.map((section, index) => <div key={section.sectionId}><a className="block p-2 font-medium" href={`#research-report-section-${index}`}>{index + 1}. {section.title}</a>{reportSectionHeadings(chapterBody(section.body, section.title)).map((heading) => <a key={`${section.sectionId}-${heading.index}`} className="block py-1 pl-6 pr-2 text-xs" href={`#research-report-section-${index}-subsection-${heading.index}`}>{heading.title}</a>)}</div>)}{reportDocument.conclusion && <a className="block p-2" href="#research-report-conclusion">{reportHeadings.conclusion}</a>}<a className="block border-t p-2" href="#research-report-references">{reportHeadings.references}</a></nav>}
+          document={<div data-testid="research-report" data-layout="full-width-report"><ResearchPrototypeReport document={reportDocument} fileActions={<ResearchReportFileActions sessionId={state.sessionId} reportVersion={state.version} disabled={busy || !state.completed || Boolean(state.errorCode) || Boolean(state.reportDraft)} />} sources={state.sources.filter((source) => source.decision !== "excluded").length} actions={reportCommandActions} moreActions={reportAssistantMenuAction} onRegenerate={() => void run("generate_report", { node: "report" })} disabled={busy || Boolean(proposal)} />{reportMarkdownDocument && <details className="mt-5" open={reportMarkdownOpen} onToggle={(event) => setReportMarkdownOpen(event.currentTarget.open)}><summary className="cursor-pointer text-sm font-medium">{t("research.live.editMarkdown")}</summary>{reportMarkdownOpen && <div className="mt-3"><GuidedResearchMarkdownWorkspace onDirtyChange={setMarkdownDirty} document={reportMarkdownDocument} saving={busy} onSave={async (markdown) => {
             const parsed = parseGuidedResearchMarkdown({ document: reportMarkdownDocument, markdown });
-            if (!parsed.ok) return { ok: false, message: parsed.errors.map((item) => item.message).join("；") };
+            if (!parsed.ok) {
+              const error = parsed.errors[0]!;
+              return { ok: false, messageKey: error.code === "immutable_provenance" ? "research.markdown.parse.provenance" : error.code === "immutable_citation" ? "research.markdown.parse.citations" : error.heading ? "research.markdown.parse.missing" : "research.markdown.parse.required", ...(error.heading ? { messageParams: { heading: parsed.errors.map(item => item.heading).filter(Boolean).join(" / ") } } : {}) };
+            }
             const saved = await run("save", { draft: parsed.draft });
-            return saved ? { ok: true } : { ok: false, message: "研究报告未保存，请根据页面提示重试。" };
-          }} provenance="报告 Markdown 可编辑；来源引用标识必须保持不变。" /></div>}</details>}</div>}
+            return saved ? { ok: true } : { ok: false, messageKey: "research.markdown.reportNotSaved" };
+          }} provenance={t("research.markdown.reportProvenance")} /></div>}</details>}</div>}
           metrics={null}
           limitation={null}
         />}
-        {researchBlocked && !waiting && <p role="status" className="text-12 text-muted-foreground">{researchPending ? "检索仍在进行，任务结束后可生成报告。" : "请完成检索并保留至少一个真实来源后生成报告。"}</p>}
+        {researchBlocked && !waiting && <p role="status" className="text-12 text-muted-foreground">{researchPending ? t("research.live.searchRunning") : t("research.live.searchRequired")}</p>}
 
         </>}
         {viewedNode === "report" && !chaptersOpen && <GuidedResearchReportHistory state={state} />}
         {reportVisible && !readingReport && !waiting && (!state.reportDraft || node === "research") && reportActions}
-        {!reportVisible && node !== "research" && !chaptersOpen && !waiting && !recovery && (state.errorCode || expired) && <div className="flex justify-end"><Button variant="primary" loading={busy} disabled={busy} onClick={() => void run("retry")}>继续重试</Button></div>}
+        {!reportVisible && node !== "research" && !chaptersOpen && !waiting && !recovery && (state.errorCode || expired) && <div className="flex justify-end"><Button variant="primary" loading={busy} disabled={busy} onClick={() => void run("retry")}>{t("research.live.retry")}</Button></div>}
       </div>
     </GuidedResearchStepLayout>
   </div>} />;

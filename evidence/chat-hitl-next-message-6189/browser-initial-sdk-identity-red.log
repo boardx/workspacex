@@ -1,0 +1,159 @@
+[heavy-e2e-lock] 排到了，等了 0s
+[stack-admission] load1=29.46 cores=10 perCore=2.95 running=0/2
+[stack-admission] 排队中：机器每核负载 2.95（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 0s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.90（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 5s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.93（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 10s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.71（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 15s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.60（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 20s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.55（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 25s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.61（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 30s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.58（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 35s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.54（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 40s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排到了，等了 45s
+[test-isolation] id=run-mw0j0agw-a065dcb2-187116e5f477 db=wsx_187116e5f47774360e9a compose=wsx-187116e5f47774360e9a pg=20613 redis=21613 api=24613 web=25613 sandbox=26613 model=27613 deep-agent=28613 asr=29613 vision=30613 loopback-sandbox=31613 mail=19613
+[WebServer] (node:49230) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:49234) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:49246) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:49252) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:49261) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:49267) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:49308) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:49314) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:49320) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:49330) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:49331) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:49337) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:49338) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:49356) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:49362) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  Image localhost/workspacex-postgres-age:pg16-age1.6.0 Building
+[WebServer]  Image localhost/workspacex-postgres-age:pg16-age1.6.0 Built
+[WebServer]  Network wsx-187116e5f47774360e9a_default Creating
+[WebServer]  Network wsx-187116e5f47774360e9a_default Created
+[WebServer]  Container wsx-187116e5f47774360e9a-redis-1 Creating
+[WebServer]  Container wsx-187116e5f47774360e9a-postgres-1 Creating
+[WebServer]  Container wsx-187116e5f47774360e9a-postgres-1 Created
+[WebServer]  Container wsx-187116e5f47774360e9a-redis-1 Created
+[WebServer]  Container wsx-187116e5f47774360e9a-redis-1 Starting
+[WebServer]  Container wsx-187116e5f47774360e9a-postgres-1 Starting
+[WebServer]  Container wsx-187116e5f47774360e9a-postgres-1 Started
+[WebServer]  Container wsx-187116e5f47774360e9a-redis-1 Started
+[WebServer]  Container wsx-187116e5f47774360e9a-redis-1 Waiting
+[WebServer]  Container wsx-187116e5f47774360e9a-postgres-1 Waiting
+[WebServer]  Container wsx-187116e5f47774360e9a-redis-1 Healthy
+[WebServer]  Container wsx-187116e5f47774360e9a-postgres-1 Healthy
+[WebServer] (node:49393) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:49405) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:49411) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:49509) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:49514) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:49521) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:49648) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:49654) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[chat-route-warmup] compiling /api/copilotkit/info
+[WebServer] (node:49788) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[chat-route-warmup] compiling /chat
+[WebServer] Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+[chat-route-warmup] compiling /chat/warmup-route-compile-only
+[WebServer] (node:50316) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] Multiple versions of Lit loaded. Loading multiple versions is not recommended. See https://lit.dev/msg/multiple-versions for more information.
+[chat-route-warmup] compiling /login
+[chat-route-warmup] compiling /home
+[chat-route-warmup] compiling /projects
+[WebServer] (node:49654) [DEP0060] DeprecationWarning: The `util._extend` API is deprecated. Please use Object.assign() instead.
+
+Running 1 test using 1 worker
+
+(node:50397) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:50397) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:50442) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:50443) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:50455) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:50467) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:50475) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:50478) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 [chat-read] › e2e/copilotkit-v2-hitl-dialog-dismiss.spec.ts:33:5 › 模态审批：Escape不裁决且审批不丢；重复拒绝只提交一次；裁决后遮罩归零并能发下一条 (34.0s)
+Testing stopped early after 1 maximum allowed failures.
+
+
+  1) [chat-read] › e2e/copilotkit-v2-hitl-dialog-dismiss.spec.ts:33:5 › 模态审批：Escape不裁决且审批不丢；重复拒绝只提交一次；裁决后遮罩归零并能发下一条
+
+    AssertionError: SDK must target this thread
+    actual expected
+
+    'copilotkithr-v2-396fcb1ba5ef05-2879d91-4cfe-96c4-762-bfc3c0-2abc89d541240'
+
+
+       at support/hitl-next-turn.ts:33
+
+      31 |   assert.equal(status, 200, "SDK run must return 200");
+      32 |   const input = request as { threadId: string; messages: Array<{ id: string; role: string; content: string }> };
+    > 33 |   assert.equal(input.threadId, threadId, "SDK must target this thread");
+         |          ^
+      34 |   const human = [...input.messages].reverse().find(message => message.role === "user");
+      35 |   assert.equal(human?.content, text, "SDK must send this exact text");
+      36 |   assert(human?.id, "SDK must carry the real client message identity");
+        at acceptedSdkTurn (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/e2e/support/hitl-next-turn.ts:33:10)
+        at sendAndProveNextTurn (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/e2e/support/hitl-next-turn.ts:107:16)
+        at /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/e2e/copilotkit-v2-hitl-dialog-dismiss.spec.ts:79:3
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/chat-read/copilotkit-v2-hitl-dialog--1a5f9-批不丢；重复拒绝只提交一次；裁决后遮罩归零并能发下一条-chat-read/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/chat-read/copilotkit-v2-hitl-dialog--1a5f9-批不丢；重复拒绝只提交一次；裁决后遮罩归零并能发下一条-chat-read/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/chat-read/copilotkit-v2-hitl-dialog--1a5f9-批不丢；重复拒绝只提交一次；裁决后遮罩归零并能发下一条-chat-read/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/chat-read/copilotkit-v2-hitl-dialog--1a5f9-批不丢；重复拒绝只提交一次；裁决后遮罩归零并能发下一条-chat-read/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [chat-read] › e2e/copilotkit-v2-hitl-dialog-dismiss.spec.ts:33:5 › 模态审批：Escape不裁决且审批不丢；重复拒绝只提交一次；裁决后遮罩归零并能发下一条
+  1 error was not a part of any test, see above for details
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: playwright test --config playwright.chat-read.config.ts --project=chat-read e2e/copilotkit-v2-hitl-dialog-dismiss.spec.ts --max-failures=1 --workers=1
+[timing] pnpm --filter web exec playwright test --config playwright.chat-read.config.ts --project=chat-read e2e/copilotkit-v2-hitl-dialog-dismiss.spec.ts --max-failures=1 --workers=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：45s
+  命令执行：6m54s
+  清理：2s
+  总计：7m41s

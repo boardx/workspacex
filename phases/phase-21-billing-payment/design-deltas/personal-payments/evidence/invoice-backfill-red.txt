@@ -1,0 +1,83 @@
+[stack-admission] load1=4.15 cores=10 perCore=0.41 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvy6544l-d2afd667-e6769c07e053 db=wsx_e6769c07e053ce1bcc2a compose=wsx-e6769c07e053ce1bcc2a pg=20871 redis=21871 api=24871 web=25871 sandbox=26871 model=27871 deep-agent=28871 asr=29871 vision=30871 loopback-sandbox=31871 mail=19871
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_e6769c07e053ce1bcc2a capacity=100 current=6 required=32
+ ❯ tests/billing/personal-stripe-settlement-pg.test.ts (24 tests | 3 failed) 50859ms
+   ✓ persists one annual Stripe invoice and binding while granting only the first month 440ms
+   ✓ preserves the stored Jan31 anchor through a clamped February renewal 350ms
+   ✓ updates a verified cancellation snapshot on an invoice replay without regranting 355ms
+   ✓ does not bind another user's purchase to an existing Stripe customer 1323ms
+   ✓ credits an authoritative invoice once across different Stripe event ids 718ms
+   ✓ recovers a missed Stripe callback without fabricating a signature-verified event 1454ms
+   ✓ does not use legacy synchronization when an internal new-generation poll runs before activation 508ms
+   × recovers every paid month in a page without duplicating the latest or restoring expired credits 410ms
+     → f.store.reconcilePaidInvoices is not a function
+   × finishes an admitted invoice but keeps the original page cursor when shutdown interrupts a page 696ms
+     → f.store.reconcilePaidInvoices is not a function
+   × does not skip a page after a later invoice fails monetary verification 365ms
+     → f.store.reconcilePaidInvoices is not a function
+   ✓ reads fresh cancellation state instead of trusting the subscription event payload 450ms
+   ✓ persists past_due without granting an unpaid latest invoice 384ms
+   ✓ blocks a second Pro checkout while the original Stripe subscription can still renew 340ms
+   ✓ keeps a webhook-established Checkout identity when the creation response arrives later 530ms
+   ✓ keeps actual past_due state separate from a still-valid paid entitlement 310ms
+   ✓ handles signed raw HTTP Stripe callbacks with real HMAC and one financial grant 882ms
+   ✓ credits the Stripe pack once as permanent credits across repeated callbacks 355ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/personal-stripe-settlement-pg.test.ts > recovers every paid month in a page without duplicating the latest or restoring expired credits
+TypeError: f.store.reconcilePaidInvoices is not a function
+ ❯ tests/billing/personal-stripe-settlement-pg.test.ts:131:24
+    129| it("recovers every paid month in a page without duplicating the latest…
+    130|   const f = await missedInvoiceFixture("invoice-page");
+    131|   expect(await f.store.reconcilePaidInvoices(f.snapshots.subscription.…
+       |                        ^
+    132|   expect(await f.wallet()).toMatchObject({ balance: "20000.00", total_…
+    133|   await f.store.reconcilePaidInvoices(f.snapshots.subscription.id, und…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  tests/billing/personal-stripe-settlement-pg.test.ts > finishes an admitted invoice but keeps the original page cursor when shutdown interrupts a page
+TypeError: f.store.reconcilePaidInvoices is not a function
+ ❯ tests/billing/personal-stripe-settlement-pg.test.ts:141:24
+    139|   const f = await missedInvoiceFixture("invoice-drain"); let stopped =…
+    140|   const provider = { ...f.provider, invoice: async (id: string) => { c…
+    141|   expect(await f.store.reconcilePaidInvoices(f.snapshots.subscription.…
+       |                        ^
+    142|   expect(await f.wallet()).toMatchObject({ balance: "20000.00", total_…
+    143|   await f.store.reconcilePaidInvoices(f.snapshots.subscription.id, und…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  tests/billing/personal-stripe-settlement-pg.test.ts > does not skip a page after a later invoice fails monetary verification
+TypeError: f.store.reconcilePaidInvoices is not a function
+ ❯ tests/billing/personal-stripe-settlement-pg.test.ts:149:24
+    147|   const f = await missedInvoiceFixture("invoice-page-fail"), damaged =…
+    148|   damaged.amount_paid = 1;
+    149|   await expect(f.store.reconcilePaidInvoices(f.snapshots.subscription.…
+       |                        ^
+    150|   expect(await f.wallet()).toMatchObject({ balance: "20000.00", total_…
+    151|   damaged.amount_paid = amount;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 21 passed (24)
+   Start at  02:33:50
+   Duration  63.39s (transform 955ms, setup 34ms, collect 2.05s, tests 50.86s, environment 0ms, prepare 150ms)
+
+[db-isolation] db=wsx_e6769c07e053ce1bcc2a peak_connections=5
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/personal-stripe-settlement-pg.test.ts
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/personal-stripe-settlement-pg.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1m5s
+  清理：2s
+  总计：1m8s

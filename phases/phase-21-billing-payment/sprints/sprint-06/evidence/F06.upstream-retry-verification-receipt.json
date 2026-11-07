@@ -1,0 +1,37 @@
+{
+  "source": "85fb40b433eedfcd571f8234d5ae9198ae29ffec",
+  "reviewThread": "PRRT_kwDOO5_Nyc6thNhX",
+  "uiRed": {
+    "exit": 1,
+    "failed": 1,
+    "passed": 39,
+    "reason": "explicit502leftgeneratebuttondisabled"
+  },
+  "uiGreen": {
+    "exit": 0,
+    "passed": 47
+  },
+  "actualBrowser": {
+    "exit": 0,
+    "passed": 5,
+    "newCase": "real signed Native non2xx -> structured502/noPGorder/noQR/noautomaticretry -> explicit manual retry -> signed Native success -> verified callback -> balance1320/twoledger"
+  },
+  "webTypeExit": 0,
+  "webLintExit": 0,
+  "apiTypeExit": 0,
+  "ossExit": 0,
+  "ownedCompose": "wsx-9d0c1b6558c706c25d0c",
+  "ownedComposeRemaining": 0,
+  "sourceReview": "pending",
+  "currentSourceCi": "pending",
+  "productionMerchantAccepted": false,
+  "logSha256": {
+    "ui-red": "6effc7f6828e3b97137a69581f66f866b8b711f55285b8ae701335b7a9955dd9",
+    "ui-green": "bb582475b4f5678aaf336385d8a0f4aba18fe4a56bdd97881772dcae7ca5e7c6",
+    "actual-browser": "ab85986457235212db5fbc1d4c5fa5a6e8bac8fd54abf669a23ed3d30cc96596",
+    "web-type": "60767e0ef9d6c2f5348fe7831122320c9d9925ded8a95b480ce97fb3de1d12da",
+    "web-lint": "7caf661c2902931a51b05130267ddb944bf9790f91a6683dfe3a5da64139f77f",
+    "api-type": "2812155c4bbc761179141fe59bf1061c5e1f9a826d2386202d1179673ea4fb3f",
+    "oss": "cbb2211c2845a7f8b92218346a61fcc3baa8ba683706e5ddc63d33a1426682d7"
+  }
+}

@@ -1,10 +1,8 @@
 ---
 name: mod-project
 description: >
-  project 模块（项目容器：三类容器 / 议程环节 / 项目成员 / 项目工作台）的知识库。
-  做 /projects、/project/new、/projects/[projectId] 六个 tab、以及 project 束后端
-  （createProject / listProjects / overview / archive / agenda-segments / members）
-  的活之前先读它：代码在哪、什么不能破坏、前人踩过什么坑。
+  Use when 项目改动涉及 /projects、/project/new、/projects/[projectId] 工作台，
+  或 createProject / listProjects / overview / archive / agenda-segments / members API。
 ---
 
 # 项目容器（project） — 模块知识库
@@ -14,7 +12,7 @@ description: >
 
 ## 一句话定位
 
-「项目」是本产品的顶层容器；本模块负责它的**生命周期与骨架**——三类容器的创建/列出/归档、
+「项目」是本产品的顶层容器；本模块负责它的**生命周期与骨架**——项目容器的创建/列出/归档、
 议程环节状态机、项目成员与两层角色，以及项目工作台那一屏的壳。容器**里面**的东西
 （画布、录音、访谈、文件、对话）各有自己的模块，不在这里。
 
@@ -30,16 +28,15 @@ description: >
 
 ## 关键契约与不变量（改代码前必读）
 
-- **三类独立容器**：`projects` 是超类型（只有 id/org_id/name/status/kind），`workshops` /
-  `research_projects` / `user_insights` 三张 1:1 子类型表承载行为。互斥由
-  `UNIQUE(id, kind)` + 复合外键**在数据库层**保证，不是靠大家小心。父子项目模型（Q-12 候选 E）**已判负**。
+- **容器种类与存储以当前契约/实现为准**：`packages/contracts/src/project.ts` 的 `ProjectKind`
+  当前为 `workshop` / `general`；旧研究项目、用户洞察已合入通用项目。不要按旧三类笔记扩张类型。
 - **`deleteProject` 不存在**。它的交付物是一条断言它不存在的测试。归档不删除任何东西，
   生命周期恰好两态（`active` / `archived`）。
-- **只有组织角色 `lead` 能建项目**。`admin` **不能**（U-4 裁 A，与「管理员不是超级用户」同向）——
-  写测试/种子时别顺手把 admin 升成 lead，那会把这条已裁边界从门控里抹掉，而抹掉后一切照样全绿。
-- **创建不自动授予项目角色**（Q-4②）。所以建完项目的人能在 `listProjects` 的 **managed** 段
-  看见它，却拿不到 `GET /projects/:id/overview`（403）——**这是对的，不是缺陷**。
-- **`listProjects` 两段式返回**（member / managed），不是一个混合数组加 `canManage` 布尔。
+- **组织 `lead` 与 `admin` 都能创建项目**：权限单源是 `create-project-rules.ts#canCreateProject`，
+  2026-08-06 人类裁决 / #608 已覆盖旧 U-4「只有 lead」。这不授予管理员对其它项目的内容超级权限。
+- **创建者自动获得对应容器的最高项目角色**：当前落点在 `pg-project-repository.ts#create`，
+  工作坊写 facilitator + host，通用项目写 owner；这是后续裁决推翻旧 Q-4② 后的实现，不能按旧 403 笔记回退。
+- **列表是扁平数组**：以 `listProjects.out` 和 `ProjectsScreen` 为准；旧 member / managed 两段式已被 F185 取代。
 - **同一工作坊内 `active` 议程环节至多一个**，落成 DB 部分唯一索引。
 - **概览不带准备度百分比**：分母表无出处（`KNOWN_CONTRACT_GAPS.P6`）。在别处编一个分母就是第二份事实。
 - 前端只渲染**契约真有的字段**。原型卡片上的 `readiness` / `stageProgress` / `owner` / `priority`
@@ -60,6 +57,15 @@ description: >
 3. 交付：真栈 e2e 证据 + 反证；`verify --sprint` 门控；PR 写清对上述不变量的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-11-07: Shared UI status types must depend directly on canonical contracts, not API adapters with mock imports: lint-ui-wiring follows type-only edges too. Derive interview status from interview.DigitalInterviewStatus and keep project reachability clean without exemptions (issue #6377 / PR #6378).
+
+- 2026-11-06：项目列表的成员入列必须按 `projects.kind` 读取对应身份表：工作坊用 `project_memberships`，通用项目用 `general_project_members`。邀请接受已经持久化后一律不靠前端缓存补列表；仅查询前者会导致协作者能进工作台、返回列表却消失。两支都限定 actor + project + org，保留管理段去重和只读标注；真实邀请→独立数据库读→列表、浏览器返回/刷新/新会话回归见 issue #6339。
+
+- 2026-11-03：国际化开工核对发现本文件旧的三种 kind、创建者不授角色、两段列表及 admin 不能创建已落后于代码。
+  以 `ProjectKind` / `listProjects.out`、`canCreateProject`、`PgProjectRepository.create` 及真实创建测试为准，
+  修正当前约束；下方 2026-08-12 403 记录仅为当时历史，已被 2026-08-16 后续裁决推翻，不能当当前验收。
+  （出处：[issue #6160](https://github.com/boardx/workspacex/issues/6160)，本批只改显示，不改权限。）
+
 
 - 2026-10-02：W1 general 迁移删除旧 subtype/member 表并改 kind；旧生产代码实际引用这些表，
   镜像回滚不能恢复 schema。发布必须绑定 exact baseline/target/pending plan 的旧新读写证据；

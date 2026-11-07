@@ -1,7 +1,8 @@
 "use client";
 import * as React from "react";
 import { Badge } from "@/components/ui/badge";
-import { RISK_LABEL, type ToolRiskLevel } from "@/lib/agent-kernel-risk";
+import { riskLabelFor, type ToolRiskLevel } from "@/lib/agent-kernel-risk";
+import { useI18n } from "@/lib/i18n/provider";
 
 /**
  * issue #2767 —— 本组件从 `agent-kernel-units.tsx` 原样搬出（`data-testid`/颜色语义/
@@ -13,10 +14,12 @@ import { RISK_LABEL, type ToolRiskLevel } from "@/lib/agent-kernel-risk";
  * 不是保留一份重复定义。
  */
 export function RiskBadge({ risk }: { readonly risk: ToolRiskLevel }) {
+  const { locale } = useI18n();
+  const label = riskLabelFor(risk, locale);
   const tone = risk === "L2" ? "warning" : risk === "L1" ? "primary" : "neutral";
   return (
-    <Badge tone={tone} data-testid={`risk-${risk}`} title={RISK_LABEL[risk].hint}>
-      {risk} · {RISK_LABEL[risk].text}
+    <Badge tone={tone} data-testid={`risk-${risk}`} title={label.hint}>
+      {risk} · {label.text}
     </Badge>
   );
 }

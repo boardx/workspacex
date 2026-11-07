@@ -1,0 +1,17 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/ui/i18n-chat-canonical-chrome.test.tsx (9 tests) 377ms
+ ✓ tests/ui/i18n-chat-plan-nested.test.tsx (17 tests) 345ms
+ ✓ tests/ui/plan-control-gate-and-recovery.test.tsx (14 tests) 97ms
+ ✓ tests/lib/local-failure-next-step.test.ts (7 tests) 6ms
+ ✓ tests/lib/agent-run-failure-reason-copy.test.ts (5 tests) 4ms
+ ✓ tests/lib/plan-failure-reason-names-the-tool.test.ts (3 tests) 3ms
+ ✓ tests/chat-runtime-display-i18n.test.ts (3 tests) 3ms
+ ✓ tests/lib/i18n-resources.test.ts (5 tests) 125ms
+
+ Test Files  8 passed (8)
+      Tests  63 passed (63)
+   Start at  04:07:02
+   Duration  13.03s (transform 2.51s, setup 951ms, collect 7.01s, tests 960ms, environment 2.35s, prepare 406ms)

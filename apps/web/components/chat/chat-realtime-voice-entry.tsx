@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
+import { translate } from "@/lib/i18n/messages";
 import { AudioLines } from "lucide-react";
 import { getAgentDirectoryCard } from "@/lib/agent-directory";
 import { readAllPersistedMessages } from "@/lib/copilotkit-v2-persisted-messages";
@@ -24,9 +26,10 @@ export interface ChatRealtimeVoiceEntryProps {
   readonly onEnded: (info: { readonly threadId: string | null; readonly persistedMessageIds: readonly string[] }) => void;
 }
 
-export const REALTIME_ENTRY_TOOLTIP = "和数字人语音通话（实时对话）；想把话转成文字填进输入框，请用「语音输入」";
+export const REALTIME_ENTRY_TOOLTIP = translate("zh-CN", "chatRealtime.entryTooltip");
 
 export function ChatRealtimeVoiceEntry({ disabled, agent, resolveThreadId, onEnded }: ChatRealtimeVoiceEntryProps): JSX.Element {
+  const { t } = useI18n();
   const [open, setOpen] = React.useState(false);
   const [avatarKey, setAvatarKey] = React.useState<string | null>(null);
   const agentId = agent?.id ?? null;
@@ -43,9 +46,9 @@ export function ChatRealtimeVoiceEntry({ disabled, agent, resolveThreadId, onEnd
 
   const persona: RealtimeVoicePersona = {
     agentId,
-    name: agent?.name ?? "通用助手",
+    name: agent?.name ?? t("chatRealtime.generalAssistant"),
     // 名字下面放角色一句话（duty），与名字重复就退到头衔（roleLabel），都重复则不显示（见 realtimeVoiceSubtitle）。
-    subtitle: agent ? pickVoiceSubtitle(agent) : "随时可以聊，我会尽量简洁地回答",
+    subtitle: agent ? pickVoiceSubtitle(agent) : t("chatRealtime.generalSubtitle"),
     avatarKey,
   };
 
@@ -59,14 +62,14 @@ export function ChatRealtimeVoiceEntry({ disabled, agent, resolveThreadId, onEnd
             data-testid="chat-composer-realtime-voice"
             onClick={() => setOpen(true)}
             disabled={disabled}
-            aria-label={`与${persona.name}实时对话`}
+            aria-label={t("chatRealtime.title", { name: persona.name })}
             className="inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-card px-3 text-13 text-card-foreground transition-colors duration-base hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground"
           >
             <AudioLines aria-hidden className="h-4 w-4" />
-            <span className="whitespace-nowrap">实时对话</span>
+            <span className="whitespace-nowrap">{t("chatRealtime.entry")}</span>
           </button>
           </TooltipTrigger>
-          <TooltipContent side="top" align="start" collisionPadding={12} data-testid="chat-composer-realtime-voice-tooltip">{REALTIME_ENTRY_TOOLTIP}</TooltipContent>
+          <TooltipContent side="top" align="start" collisionPadding={12} data-testid="chat-composer-realtime-voice-tooltip">{t("chatRealtime.entryTooltip")}</TooltipContent>
         </Tooltip>
       </TooltipProvider>
       <RealtimeVoiceSession open={open} onOpenChange={setOpen} persona={persona} resolveThreadId={resolveThreadId} onEnded={onEnded} />

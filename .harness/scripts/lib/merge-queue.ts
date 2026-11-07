@@ -393,21 +393,30 @@ export function queueEvidenceFailure(evidence: QueueMergeEvidence): string | nul
 // ── merge_group 上的 PR 号解析（供 merge-gate 在候选组上继续出结论）──────
 
 /**
- * 从合并队列的 ref 与候选组 commit 标题里解析 PR 号。
- *
- * 两个来源都要：队列 ref 形如 `refs/heads/gh-readonly-queue/main/pr-123-<base sha>`，
- * 但一个候选组可以**批量**含多个 PR，ref 只写得下最后一个；其余的在 `base..head`
- * 区间各自的 commit 标题里（`… (#N)`）。
- *
- * 解析不出任何 PR 号时返回空数组——调用方必须据此**失败**，不得当成「这个组没有
- * 需要检查的 PR」放行（fail-closed）。
+ * Parse only GitHub synthetic merges on the candidate's first-parent chain.
+ * Each line is git log --first-parent --format=%H%x09%P%x09%s (newest first).
+ * Source commits live under second parents; issue references there are never PR evidence.
+ * Ref/head/base and the complete two-parent chain must agree, or enumeration fails closed.
  */
-export function parseMergeGroupPrNumbers(ref: string, commitSubjects: readonly string[]): number[] {
+export function parseMergeGroupPrNumbers(ref: string, historyLines: readonly string[], baseSha: string, headSha: string): number[] {
+  if (!SHA_RE.test(baseSha) || !SHA_RE.test(headSha) || baseSha === headSha || historyLines.length === 0) return [];
+  const queue = /^refs\/heads\/gh-readonly-queue\/.+\/pr-([1-9]\d*)-([0-9a-f]{40})$/.exec(ref.trim());
+  if (!queue || queue[2] !== baseSha) return [];
+  const expectedPr = Number(queue[1]);
+  if (!Number.isSafeInteger(expectedPr)) return [];
   const out = new Set<number>();
-  const fromRef = /\/gh-readonly-queue\/[^/]+\/pr-(\d+)-[0-9a-f]{40}$/.exec(ref.trim());
-  if (fromRef) out.add(Number(fromRef[1]));
-  for (const subject of commitSubjects) {
-    for (const m of subject.matchAll(/\(#(\d+)\)/g)) out.add(Number(m[1]));
+  let expectedSha = headSha;
+  for (const line of historyLines) {
+    const fields = line.split("\t");
+    if (fields.length !== 3 || fields[0] !== expectedSha || !SHA_RE.test(fields[0]!)) return [];
+    const parents = fields[1]!.split(" ");
+    if (parents.length !== 2 || parents.some(parent => !SHA_RE.test(parent)) || parents[0] === parents[1]) return [];
+    const merge = /^Merge pull request #([1-9]\d*) from \S+$/.exec(fields[2]!);
+    if (!merge) return [];
+    const pr = Number(merge[1]);
+    if (!Number.isSafeInteger(pr) || out.has(pr) || (out.size === 0 && pr !== expectedPr)) return [];
+    out.add(pr);
+    expectedSha = parents[0]!;
   }
-  return [...out].sort((a, b) => a - b);
+  return expectedSha === baseSha ? [...out].sort((a, b) => a - b) : [];
 }

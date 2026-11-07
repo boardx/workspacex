@@ -329,10 +329,10 @@ describe("#448 post-restart readiness", () => {
     const deploy = readFileSync(DEPLOY, "utf8");
     const provision = readFileSync(PROVISION, "utf8");
     const workflow = readFileSync(WORKFLOW, "utf8");
-    expect(workflow).toMatch(/deploy:\n[\s\S]*actions\/checkout@v5[\s\S]*deploy-gate\.sh/);
-    expect(workflow).toContain("DEPLOY_REF: ${{ github.sha }}");
-    expect(workflow).not.toContain("DEPLOY_REF: ${{ github.ref_name }}");
-    expect(workflow).toContain('bash .harness/scripts/vm/deploy-gate.sh "$DEPLOY_REF"');
+    expect(workflow).not.toContain('deploy-gate.sh');
+    expect(workflow).not.toContain('\n  deploy:\n');
+    const images=readFileSync('.github/workflows/image-release.yml','utf8');
+    expect(images).toContain('sudo -n /usr/local/bin/workspacex-image-release "$TARGET_ENVIRONMENT" "$IMAGE_TAG"');
     expect(gate).toContain('source "$SCRIPT_DIR/deploy-readiness.sh"');
     expect(gate).toContain('local status_dir=/run/workspacex-deploy');
     expect(gate).toContain("deploy_status_content_allows_recovery");

@@ -1,0 +1,900 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/e7f9/workspacex/apps/web
+
+ ❯ tests/ui/survey-live-library.test.tsx (20 tests | 2 failed) 889ms
+   × LiveSurveyLibrary > reports matching results and keeps optional templates out of an empty search 31ms
+     → Unable to find an accessible element with the role "status" and name "问卷数量"
+
+Here are the accessible roles:
+
+  main:
+
+  Name "":
+  <main
+    class="mx-auto max-w-screen-2xl space-y-7 p-5 sm:p-7 lg:p-10"
+  />
+
+  --------------------------------------------------
+  banner:
+
+  Name "":
+  <header
+    class="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between"
+  />
+
+  --------------------------------------------------
+  heading:
+
+  Name "问卷":
+  <h1
+    class="text-30 font-semibold tracking-tight"
+  />
+
+  Name "为该问卷设计报告模板":
+  <h2
+    class="mt-3 text-18 font-semibold"
+  />
+
+  --------------------------------------------------
+  textbox:
+
+  Name "搜索问卷":
+  <input
+    aria-label="搜索问卷"
+    class="flex h-9 min-w-0 rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed w-full pl-9"
+    placeholder="搜索问卷名称或标签"
+    value="不存在的问卷"
+  />
+
+  --------------------------------------------------
+  button:
+
+  Name "新建问卷":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-9 px-3.5 text-13"
+    data-testid="survey-create-primary"
+  />
+
+  Name "清除筛选":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+  />
+
+  --------------------------------------------------
+  navigation:
+
+  Name "问卷二级导航":
+  <nav
+    aria-label="问卷二级导航"
+    class="survey-library-nav flex gap-2 overflow-x-auto border-b border-border bg-background pb-3"
+  />
+
+  --------------------------------------------------
+  link:
+
+  Name "我的问卷":
+  <a
+    aria-current="page"
+    class="flex min-w-max items-center gap-3 rounded-lg px-4 py-3 text-14 transition-colors hover:bg-muted bg-muted font-medium"
+    href="/studio/survey"
+  />
+
+  Name "问卷模板":
+  <a
+    class="flex min-w-max items-center gap-3 rounded-lg px-4 py-3 text-14 transition-colors hover:bg-muted "
+    href="/studio/survey?tab=modules"
+  />
+
+  Name "报告模板":
+  <a
+    class="flex min-w-max items-center gap-3 rounded-lg px-4 py-3 text-14 transition-colors hover:bg-muted "
+    href="/studio/survey?tab=reports"
+  />
+
+  Name "去创建报告模板":
+  <a
+    class="mt-5 inline-flex items-center gap-2 rounded-control border border-border px-4 py-2 text-13 font-medium transition-colors hover:bg-muted"
+    href="/studio/survey?tab=reports"
+  />
+
+  --------------------------------------------------
+  region:
+
+  Name "我的问卷列表":
+  <section
+    aria-label="我的问卷列表"
+    class="min-w-0 space-y-5"
+  />
+
+  --------------------------------------------------
+  complementary:
+
+  Name "":
+  <aside
+    class="relative min-h-64 overflow-hidden rounded-xl border border-border bg-card p-5 shadow-sm"
+  />
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  <p
+    class="inline-flex rounded-full bg-muted px-3 py-1 text-11 text-muted-foreground"
+  />
+
+  Name "":
+  <p />
+
+  --------------------------------------------------
+  status:
+
+  Name "":
+  <div
+    class="space-y-4 rounded-xl border border-dashed border-border p-6 py-16 text-center text-muted-foreground"
+    role="status"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body
+  style=""
+>
+  <div>
+    <main
+      class="mx-auto max-w-screen-2xl space-y-7 p-5 sm:p-7 lg:p-10"
+    >
+      <header
+        class="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between"
+      >
+        <div>
+          <h1
+            class="text-30 font-semibold tracking-tight"
+          >
+            问卷
+          </h1>
+        </div>
+        <div
+          class="flex w-full flex-col gap-2 sm:flex-row xl:w-auto"
+        >
+          <div
+            class="relative min-w-0 sm:w-72"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-search pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <circle
+                cx="11"
+                cy="11"
+                r="8"
+              />
+              <path
+                d="m21 21-4.3-4.3"
+              />
+            </svg>
+            <input
+              aria-label="搜索问卷"
+              class="flex h-9 min-w-0 rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed w-full pl-9"
+              placeholder="搜索问卷名称或标签"
+              value="不存在的问卷"
+            />
+          </div>
+          <button
+            class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-9 px-3.5 text-13"
+            data-testid="survey-create-primary"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-plus h-4 w-4"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M5 12h14"
+              />
+              <path
+                d="M12 5v14"
+              />
+            </svg>
+            新建问卷
+          </button>
+        </div>
+      </header>
+      <div
+        class="flex flex-col gap-6"
+      >
+        <nav
+          aria-label="问卷二级导航"
+          class="survey-library-nav flex gap-2 overflow-x-auto border-b border-border bg-background pb-3"
+        >
+          <a
+            aria-current="page"
+            class="flex min-w-max items-center gap-3 rounded-lg px-4 py-3 text-14 transition-colors hover:bg-muted bg-muted font-medium"
+            href="/studio/survey"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-file-text h-5 w-5"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"
+              />
+              <path
+                d="M14 2v4a2 2 0 0 0 2 2h4"
+              />
+              <path
+                d="M10 9H8"
+              />
+              <path
+                d="M16 13H8"
+              />
+              <path
+                d="M16 17H8"
+              />
+            </svg>
+            我的问卷
+          </a>
+          <a
+            class="flex min-w-max items-center gap-3 rounded-lg px-4 py-3 text-14 transition-colors hover:bg-muted "
+            href="/studio/survey?tab=modules"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-layout-grid h-5 w-5"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <rect
+                height="7"
+                rx="1"
+                width="7"
+                x="3"
+                y="3"
+              />
+              <rect
+                height="7"
+                rx="1"
+                width="7"
+                x="14"
+                y="3"
+              />
+              <rect
+                height="7"
+                rx="1"
+                width="7"
+                x="14"
+                y="14"
+              />
+              <rect
+                height="7"
+                rx="1"
+                width="7"
+                x="3"
+                y="14"
+              />
+            </svg>
+            问卷模板
+          </a>
+          <a
+            class="flex min-w-max items-center gap-3 rounded-lg px-4 py-3 text-14 transition-colors hover:bg-muted "
+            href="/studio/survey?tab=reports"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-chart-column h-5 w-5"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M3 3v16a2 2 0 0 0 2 2h16"
+              />
+              <path
+                d="M18 17V9"
+              />
+              <path
+                d="M13 17V5"
+              />
+              <path
+                d="M8 17v-3"
+              />
+            </svg>
+            报告模板
+          </a>
+        </nav>
+        <section
+          aria-label="我的问卷列表"
+          class="min-w-0 space-y-5"
+        >
+          <div
+            class="flex flex-wrap items-center gap-2"
+          >
+            <span
+              class="ml-auto text-12 text-muted-foreground"
+            >
+              共 
+              2
+               个问卷
+            </span>
+          </div>
+          <div
+            class="grid gap-5 md:grid-cols-2 xl:grid-cols-3"
+          >
+            <aside
+              class="relative min-h-64 overflow-hidden rounded-xl border border-border bg-card p-5 shadow-sm"
+            >
+              <div
+                class="relative z-10 max-w-md"
+              >
+                <p
+                  class="inline-flex rounded-full bg-muted px-3 py-1 text-11 text-muted-foreground"
+                >
+                  报告模板（可选）
+                </p>
+                <h2
+                  class="mt-3 text-18 font-semibold"
+                >
+                  为该问卷设计报告模板
+                </h2>
+                <a
+                  class="mt-5 inline-flex items-center gap-2 rounded-control border border-border px-4 py-2 text-13 font-medium transition-colors hover:bg-muted"
+                  href="/studio/survey?tab=reports"
+                >
+                  去创建报告模板
+                  <svg
+                    aria-hidden="true"
+                    class="lucide lucide-arrow-right h-4 w-4"
+                    fill="none"
+                    height="24"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    viewBox="0 0 24 24"
+                    width="24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M5 12h14"
+                    />
+                    <path
+                      d="m12 5 7 7-7 7"
+                    />
+                  </svg>
+                </a>
+              </div>
+            </aside>
+          </div>
+          <div
+            class="space-y-4 rounded-xl border border-dashed border-border p-6 py-16 text-center text-muted-foreground"
+            role="status"
+          >
+            <p>
+              没有符合筛选条件的问卷
+            </p>
+            <button
+              class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+            >
+              清除筛选
+            </button>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+</body>
+   × LiveSurveyLibrary > does not announce a zero count before loading completes 7ms
+     → expect(element).not.toBeInTheDocument()
+
+expected document not to contain element, found <span
+  class="ml-auto text-12 text-muted-foreground"
+>
+  共 
+  0
+   个问卷
+</span> instead
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/survey-live-library.test.tsx > LiveSurveyLibrary > reports matching results and keeps optional templates out of an empty search
+TestingLibraryElementError: Unable to find an accessible element with the role "status" and name "问卷数量"
+
+Here are the accessible roles:
+
+  main:
+
+  Name "":
+  <main
+    class="mx-auto max-w-screen-2xl space-y-7 p-5 sm:p-7 lg:p-10"
+  />
+
+  --------------------------------------------------
+  banner:
+
+  Name "":
+  <header
+    class="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between"
+  />
+
+  --------------------------------------------------
+  heading:
+
+  Name "问卷":
+  <h1
+    class="text-30 font-semibold tracking-tight"
+  />
+
+  Name "为该问卷设计报告模板":
+  <h2
+    class="mt-3 text-18 font-semibold"
+  />
+
+  --------------------------------------------------
+  textbox:
+
+  Name "搜索问卷":
+  <input
+    aria-label="搜索问卷"
+    class="flex h-9 min-w-0 rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed w-full pl-9"
+    placeholder="搜索问卷名称或标签"
+    value="不存在的问卷"
+  />
+
+  --------------------------------------------------
+  button:
+
+  Name "新建问卷":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-9 px-3.5 text-13"
+    data-testid="survey-create-primary"
+  />
+
+  Name "清除筛选":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+  />
+
+  --------------------------------------------------
+  navigation:
+
+  Name "问卷二级导航":
+  <nav
+    aria-label="问卷二级导航"
+    class="survey-library-nav flex gap-2 overflow-x-auto border-b border-border bg-background pb-3"
+  />
+
+  --------------------------------------------------
+  link:
+
+  Name "我的问卷":
+  <a
+    aria-current="page"
+    class="flex min-w-max items-center gap-3 rounded-lg px-4 py-3 text-14 transition-colors hover:bg-muted bg-muted font-medium"
+    href="/studio/survey"
+  />
+
+  Name "问卷模板":
+  <a
+    class="flex min-w-max items-center gap-3 rounded-lg px-4 py-3 text-14 transition-colors hover:bg-muted "
+    href="/studio/survey?tab=modules"
+  />
+
+  Name "报告模板":
+  <a
+    class="flex min-w-max items-center gap-3 rounded-lg px-4 py-3 text-14 transition-colors hover:bg-muted "
+    href="/studio/survey?tab=reports"
+  />
+
+  Name "去创建报告模板":
+  <a
+    class="mt-5 inline-flex items-center gap-2 rounded-control border border-border px-4 py-2 text-13 font-medium transition-colors hover:bg-muted"
+    href="/studio/survey?tab=reports"
+  />
+
+  --------------------------------------------------
+  region:
+
+  Name "我的问卷列表":
+  <section
+    aria-label="我的问卷列表"
+    class="min-w-0 space-y-5"
+  />
+
+  --------------------------------------------------
+  complementary:
+
+  Name "":
+  <aside
+    class="relative min-h-64 overflow-hidden rounded-xl border border-border bg-card p-5 shadow-sm"
+  />
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  <p
+    class="inline-flex rounded-full bg-muted px-3 py-1 text-11 text-muted-foreground"
+  />
+
+  Name "":
+  <p />
+
+  --------------------------------------------------
+  status:
+
+  Name "":
+  <div
+    class="space-y-4 rounded-xl border border-dashed border-border p-6 py-16 text-center text-muted-foreground"
+    role="status"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body
+  style=""
+>
+  <div>
+    <main
+      class="mx-auto max-w-screen-2xl space-y-7 p-5 sm:p-7 lg:p-10"
+    >
+      <header
+        class="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between"
+      >
+        <div>
+          <h1
+            class="text-30 font-semibold tracking-tight"
+          >
+            问卷
+          </h1>
+        </div>
+        <div
+          class="flex w-full flex-col gap-2 sm:flex-row xl:w-auto"
+        >
+          <div
+            class="relative min-w-0 sm:w-72"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-search pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <circle
+                cx="11"
+                cy="11"
+                r="8"
+              />
+              <path
+                d="m21 21-4.3-4.3"
+              />
+            </svg>
+            <input
+              aria-label="搜索问卷"
+              class="flex h-9 min-w-0 rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed w-full pl-9"
+              placeholder="搜索问卷名称或标签"
+              value="不存在的问卷"
+            />
+          </div>
+          <button
+            class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-9 px-3.5 text-13"
+            data-testid="survey-create-primary"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-plus h-4 w-4"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M5 12h14"
+              />
+              <path
+                d="M12 5v14"
+              />
+            </svg>
+            新建问卷
+          </button>
+        </div>
+      </header>
+      <div
+        class="flex flex-col gap-6"
+      >
+        <nav
+          aria-label="问卷二级导航"
+          class="survey-library-nav flex gap-2 overflow-x-auto border-b border-border bg-background pb-3"
+        >
+          <a
+            aria-current="page"
+            class="flex min-w-max items-center gap-3 rounded-lg px-4 py-3 text-14 transition-colors hover:bg-muted bg-muted font-medium"
+            href="/studio/survey"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-file-text h-5 w-5"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"
+              />
+              <path
+                d="M14 2v4a2 2 0 0 0 2 2h4"
+              />
+              <path
+                d="M10 9H8"
+              />
+              <path
+                d="M16 13H8"
+              />
+              <path
+                d="M16 17H8"
+              />
+            </svg>
+            我的问卷
+          </a>
+          <a
+            class="flex min-w-max items-center gap-3 rounded-lg px-4 py-3 text-14 transition-colors hover:bg-muted "
+            href="/studio/survey?tab=modules"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-layout-grid h-5 w-5"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <rect
+                height="7"
+                rx="1"
+                width="7"
+                x="3"
+                y="3"
+              />
+              <rect
+                height="7"
+                rx="1"
+                width="7"
+                x="14"
+                y="3"
+              />
+              <rect
+                height="7"
+                rx="1"
+                width="7"
+                x="14"
+                y="14"
+              />
+              <rect
+                height="7"
+                rx="1"
+                width="7"
+                x="3"
+                y="14"
+              />
+            </svg>
+            问卷模板
+          </a>
+          <a
+            class="flex min-w-max items-center gap-3 rounded-lg px-4 py-3 text-14 transition-colors hover:bg-muted "
+            href="/studio/survey?tab=reports"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-chart-column h-5 w-5"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M3 3v16a2 2 0 0 0 2 2h16"
+              />
+              <path
+                d="M18 17V9"
+              />
+              <path
+                d="M13 17V5"
+              />
+              <path
+                d="M8 17v-3"
+              />
+            </svg>
+            报告模板
+          </a>
+        </nav>
+        <section
+          aria-label="我的问卷列表"
+          class="min-w-0 space-y-5"
+        >
+          <div
+            class="flex flex-wrap items-center gap-2"
+          >
+            <span
+              class="ml-auto text-12 text-muted-foreground"
+            >
+              共 
+              2
+               个问卷
+            </span>
+          </div>
+          <div
+            class="grid gap-5 md:grid-cols-2 xl:grid-cols-3"
+          >
+            <aside
+              class="relative min-h-64 overflow-hidden rounded-xl border border-border bg-card p-5 shadow-sm"
+            >
+              <div
+                class="relative z-10 max-w-md"
+              >
+                <p
+                  class="inline-flex rounded-full bg-muted px-3 py-1 text-11 text-muted-foreground"
+                >
+                  报告模板（可选）
+                </p>
+                <h2
+                  class="mt-3 text-18 font-semibold"
+                >
+                  为该问卷设计报告模板
+                </h2>
+                <a
+                  class="mt-5 inline-flex items-center gap-2 rounded-control border border-border px-4 py-2 text-13 font-medium transition-colors hover:bg-muted"
+                  href="/studio/survey?tab=reports"
+                >
+                  去创建报告模板
+                  <svg
+                    aria-hidden="true"
+                    class="lucide lucide-arrow-right h-4 w-4"
+                    fill="none"
+                    height="24"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    viewBox="0 0 24 24"
+                    width="24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M5 12h14"
+                    />
+                    <path
+                      d="m12 5 7 7-7 7"
+                    />
+                  </svg>
+                </a>
+              </div>
+            </aside>
+          </div>
+          <div
+            class="space-y-4 rounded-xl border border-dashed border-border p-6 py-16 text-center text-muted-foreground"
+            role="status"
+          >
+            <p>
+              没有符合筛选条件的问卷
+            </p>
+            <button
+              class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+            >
+              清除筛选
+            </button>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+</body>
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/survey-live-library.test.tsx:90:19
+     88|     await screen.findByTestId("survey-card-survey-1");
+     89|     fireEvent.change(screen.getByLabelText("搜索问卷"), { target: { va…
+     90|     expect(screen.getByRole("status", { name: "问卷数量" })).toHaveTex…
+       |                   ^
+     91|     expect(screen.queryByRole("heading", { name: "为该问卷设计报告模板…
+     92|     expect(screen.getByText("没有符合筛选条件的问卷")).toBeVisible();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/ui/survey-live-library.test.tsx > LiveSurveyLibrary > does not announce a zero count before loading completes
+Error: expect(element).not.toBeInTheDocument()
+
+expected document not to contain element, found <span
+  class="ml-auto text-12 text-muted-foreground"
+>
+  共 
+  0
+   个问卷
+</span> instead
+ ❯ tests/ui/survey-live-library.test.tsx:101:47
+     99|     request.mockReturnValueOnce(new Promise(() => undefined));
+    100|     render(<LiveSurveyLibrary />);
+    101|     expect(screen.queryByText("共 0 个问卷")).not.toBeInTheDocument();
+       |                                               ^
+    102|   });
+    103| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 18 passed (20)
+   Start at  12:51:15
+   Duration  9.09s (transform 597ms, setup 158ms, collect 1.11s, tests 889ms, environment 6.49s, prepare 41ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/e7f9/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/survey-live-library.test.tsx

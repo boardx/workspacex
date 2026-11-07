@@ -1,0 +1,12 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web
+
+ ✓ tests/ui/billing-cashier.test.tsx (51 tests) 4273ms
+   ✓ F06 live cashier entry > opens real package selection from configured account 497ms
+
+ Test Files  1 passed (1)
+      Tests  51 passed (51)
+   Start at  22:32:41
+   Duration  11.12s (transform 2.03s, setup 297ms, collect 3.30s, tests 4.27s, environment 1.56s, prepare 147ms)
+

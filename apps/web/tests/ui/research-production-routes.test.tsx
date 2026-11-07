@@ -5,10 +5,15 @@ import { ResearchNewRoute } from "@/components/research-studio/research-new-rout
 import { ResearchIntake } from "@/components/research-studio/research-intake";
 import { ResearchStageRoute } from "@/components/research-studio/research-stage-route";
 import { createGuidedResearchSession, getGuidedResearchSession, getResearchRuntime, runGuidedResearchSkillTurn } from "@/lib/guided-research-api";
+import { updateGuidedResearchMetadata } from "@/lib/live-guided-research-api";
+import { apiRequest, getStoredSessionToken } from "@/lib/api-client";
+import { readResearchMemory, writeResearchMemory } from "@/lib/guided-research-memory";
 import { research } from "@repo/contracts";
 
+vi.mock("@/lib/api-client", async (original) => ({ ...await original<typeof import("@/lib/api-client")>(), getStoredSessionToken: vi.fn(), apiRequest: vi.fn() }));
+
 const { push } = vi.hoisted(() => ({ push: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }), useSearchParams: () => new URLSearchParams(window.location.search) }));
 vi.mock("@/components/research-studio/guided-research-live", () => ({ GuidedResearchLive: ({ sessionId, researchName, visualStage, initialNode, onBack, onLoadRetry }: { sessionId: string; researchName: string; visualStage: string; initialNode: string; onBack: () => void; onLoadRetry?: () => void }) => <div data-testid="production-live" data-session={sessionId} data-name={researchName} data-stage={visualStage} data-node={initialNode}><button onClick={onBack}>返回列表</button><button onClick={onLoadRetry}>重试加载</button></div> }));
 vi.mock("@/lib/guided-research-api", () => ({ createGuidedResearchSession: vi.fn(), getResearchRuntime: vi.fn(), executeResearchRuntime: vi.fn(), confirmResearchBrief: vi.fn(), executeGuidedResearchNodeCommand: vi.fn(), getGuidedResearchSession: vi.fn(), runGuidedResearchSkillTurn: vi.fn() }));
 
@@ -179,4 +184,78 @@ it("does not supply a placeholder title when stage metadata fails", async () => 
   render(<ResearchStageRoute sessionId="metadata-offline" stage="import" />);
   await waitFor(() => expect(getGuidedResearchSession).toHaveBeenCalled());
   expect(screen.getByTestId("production-live")).not.toHaveAttribute("data-name");
+});
+
+
+it("retains invalid restored optional input and blocks submission until corrected", () => {
+  const confirm = vi.fn();
+  render(<ResearchIntake initialBrief={{ topic: "研究", goal: "核对输入边界", timeRange: "甲".repeat(201), region: "", focus: "" }} session={null} workflow={null} onSession={vi.fn()} onWorkflow={vi.fn()} onPending={vi.fn()} onNavigate={vi.fn()} renderAssistant={() => null} onConfirmBrief={confirm} />);
+  expect(screen.getByLabelText("时间范围")).toHaveValue("甲".repeat(201));
+  expect(screen.getByRole("alert")).toHaveTextContent("时间范围最多 200 字");
+  expect(screen.getByTestId("research-confirm-brief")).toBeDisabled();
+  fireEvent.change(screen.getByLabelText("时间范围"), { target: { value: "近三年" } });
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(screen.getByTestId("research-confirm-brief")).toBeEnabled();
+  fireEvent.click(screen.getByTestId("research-confirm-brief"));
+  expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ timeRange: "近三年", goal: "核对输入边界" }));
+});
+
+it("keeps one primary intake action while retaining all optional research fields", () => {
+  render(<ResearchNewRoute />);
+  const goal = screen.getByRole("textbox", { name: "研究目标" });
+  expect(goal.getAttribute("placeholder")).not.toContain("•");
+  for (const name of ["研究主题", "时间范围", "地域范围", "重点关注"]) {
+    expect(screen.getByLabelText(name)).toBeInTheDocument();
+  }
+  expect(screen.queryByRole("heading", { name: "小提示" })).not.toBeInTheDocument();
+  expect(screen.getByTestId("research-confirm-brief")).toHaveAttribute("data-workflow-action-role", "primary");
+  expect(screen.getByRole("button", { name: "上传文件" })).toHaveAttribute("data-workflow-action-role", "secondary");
+});
+
+it("reveals invalid optional research fields and associates overlong requirements with their error", () => {
+  render(<ResearchIntake initialBrief={{ topic: "研究", goal: "甲".repeat(40001), timeRange: "甲".repeat(201), region: "", focus: "" }} session={null} workflow={null} onSession={vi.fn()} onWorkflow={vi.fn()} onPending={vi.fn()} onNavigate={vi.fn()} renderAssistant={() => null} />);
+  const time = screen.getByRole("textbox", { name: "时间范围" });
+  expect(time.closest("details")).toHaveAttribute("open");
+  const goal = screen.getByRole("textbox", { name: "研究目标" });
+  expect(goal).toHaveAttribute("aria-invalid", "true");
+  expect(document.getElementById(goal.getAttribute("aria-describedby")!)).toHaveTextContent("需求超过");
+});
+
+it("shows a single named assistant heading when the intake panel is open", () => {
+  render(<ResearchIntake session={null} workflow={null} onSession={vi.fn()} onWorkflow={vi.fn()} onPending={vi.fn()} onNavigate={vi.fn()} />);
+  fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
+  expect(screen.getAllByRole("heading", { name: "研究助手" })).toHaveLength(1);
+});
+
+it("shows a cached name immediately and validates it against the backend", async () => {
+  vi.mocked(getStoredSessionToken).mockReturnValue("name-account");
+  writeResearchMemory("renamed", { name: "原研究名" }, "name-account");
+  let finish!: (value: Awaited<ReturnType<typeof getGuidedResearchSession>>) => void;
+  vi.mocked(getGuidedResearchSession).mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+  render(<ResearchStageRoute sessionId="renamed" stage="import" />);
+  expect(screen.getByTestId("production-live")).toHaveAttribute("data-name", "原研究名");
+  await waitFor(() => expect(getGuidedResearchSession).toHaveBeenCalledWith("renamed"));
+  finish({ title: "新研究名" } as never);
+  await waitFor(() => expect(screen.getByTestId("production-live")).toHaveAttribute("data-name", "新研究名"));
+  expect(readResearchMemory("renamed")?.name).toBe("新研究名");
+});
+
+it("does not roll back a successful rename when an earlier metadata read resolves", async () => {
+  vi.mocked(getStoredSessionToken).mockReturnValue("rename-account");
+  writeResearchMemory("rename-race", { name: "名称A" }, "rename-account");
+  let finish!: (value: Awaited<ReturnType<typeof getGuidedResearchSession>>) => void;
+  vi.mocked(getGuidedResearchSession).mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+  render(<ResearchStageRoute sessionId="rename-race" stage="import" />);
+  vi.mocked(apiRequest).mockResolvedValue({ sessionId: "rename-race", title: "改名成功B", brief: { topic: "主题", goal: "需求", timeRange: "", region: "", focus: "" }, stage: "report", resumeStage: "report", status: "active", progress: 100, sourceCount: 1, reportId: null, createdAt: "2026-10-28", updatedAt: "2026-10-28" });
+  await updateGuidedResearchMetadata("rename-race", { title: "改名成功B", tags: [] });
+  finish({ title: "名称A" } as never);
+  await waitFor(() => expect(screen.getByTestId("production-live")).toHaveAttribute("data-name", "改名成功B"));
+  expect(readResearchMemory("rename-race")?.name).toBe("改名成功B");
+});
+it('keeps the project context on return from an existing research stage', () => {
+ window.history.replaceState({}, '', '/research/real-session/report?projectId=prj-source');
+ render(<ResearchStageRoute sessionId="real-session" stage="report" />);
+ fireEvent.click(screen.getByRole('button', { name: '返回列表' }));
+ expect(push).toHaveBeenCalledWith('/research?projectId=prj-source');
+ window.history.replaceState({}, '', '/');
 });

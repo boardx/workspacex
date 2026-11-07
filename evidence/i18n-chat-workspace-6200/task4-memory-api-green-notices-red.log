@@ -1,0 +1,259 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ❯ tests/ui/i18n-chat-memory-notices.test.tsx (4 tests | 4 failed) 369ms
+   × keeps an explicit pending supersede undo once and old/new raw statements through locale 306ms
+     → Unable to find an accessible element with the role "button" and name "Undo"
+
+Here are the accessible roles:
+
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"flex flex-wrap items-center gap-1 text-10 text-muted-foreground"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "撤销":
+  [36m<button[39m
+    [33mclass[39m=[32m"text-muted-foreground underline-offset-2 transition-colors duration-base hover:underline disabled:cursor-not-allowed disabled:text-disabled-foreground disabled:hover:no-underline"[39m
+    [33mdata-testid[39m=[32m"kg-supersede-undo"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mt-2 flex flex-col gap-1"[39m
+      [33mdata-testid[39m=[32m"kg-supersede-notice"[39m
+    [36m>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"flex flex-wrap items-center gap-1 text-10 text-muted-foreground"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-arrow-right-left h-3 w-3"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"m16 3 4 4-4 4"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M20 7H4"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"m8 21-4-4 4-4"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M4 17h16"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+        [36m<span[39m
+          [33mdata-testid[39m=[32m"kg-supersede-text"[39m
+        [36m>[39m
+          [0m已用〈[0m
+          [0m新原文 {new}[0m
+          [0m〉取代〈[0m
+          [0m旧原文 {old}[0m
+          [0m〉[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33maria-hidden[39m=[32m"true"[39m
+        [36m>[39m
+          [0m·[0m
+        [36m</span>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"text-muted-foreground underline-offset-2 transition-colors duration-base hover:underline disabled:cursor-not-allowed disabled:text-disabled-foreground disabled:hover:no-underline"[39m
+          [33mdata-testid[39m=[32m"kg-supersede-undo"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [0m撤销[0m
+        [36m</button>[39m
+      [36m</p>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × renders a server-undone notice without presenting a fresh undo decision 14ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Restored
+Received:
+  已撤销：〈旧原文 {old}〉恢复为生效
+   × keeps empty extraction feedback as display only and manually remembers the original message once 25ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  No memory was saved automatically
+Received:
+  这句话没有自动记入记忆·手动记住
+   × retains actual extracted content and only explicitly undoes its canonical personal copy and current revision 23ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Decision
+Received:
+  决定
+ ✓ tests/ui/i18n-chat-memory-api-failure.test.tsx (2 tests) 494ms
+   ✓ formats actual TurnMemoryLine 'KG_NOT_OWNER' only at render, preserving one CAS action on locale 460ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/i18n-chat-memory-notices.test.tsx > keeps an explicit pending supersede undo once and old/new raw statements through locale
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Undo"
+
+Here are the accessible roles:
+
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"flex flex-wrap items-center gap-1 text-10 text-muted-foreground"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "撤销":
+  [36m<button[39m
+    [33mclass[39m=[32m"text-muted-foreground underline-offset-2 transition-colors duration-base hover:underline disabled:cursor-not-allowed disabled:text-disabled-foreground disabled:hover:no-underline"[39m
+    [33mdata-testid[39m=[32m"kg-supersede-undo"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mt-2 flex flex-col gap-1"[39m
+      [33mdata-testid[39m=[32m"kg-supersede-notice"[39m
+    [36m>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"flex flex-wrap items-center gap-1 text-10 text-muted-foreground"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-arrow-right-left h-3 w-3"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"m16 3 4 4-4 4"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M20 7H4"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"m8 21-4-4 4-4"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M4 17h16"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+        [36m<span[39m
+          [33mdata-testid[39m=[32m"kg-supersede-text"[39m
+        [36m>[39m
+          [0m已用〈[0m
+          [0m新原文 {new}[0m
+          [0m〉取代〈[0m
+          [0m旧原文 {old}[0m
+          [0m〉[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33maria-hidden[39m=[32m"true"[39m
+        [36m>[39m
+          [0m·[0m
+        [36m</span>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"text-muted-foreground underline-offset-2 transition-colors duration-base hover:underline disabled:cursor-not-allowed disabled:text-disabled-foreground disabled:hover:no-underline"[39m
+          [33mdata-testid[39m=[32m"kg-supersede-undo"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [0m撤销[0m
+        [36m</button>[39m
+      [36m</p>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-memory-notices.test.tsx:21:25
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  tests/ui/i18n-chat-memory-notices.test.tsx > renders a server-undone notice without presenting a fresh undo decision
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Restored
+Received:
+  已撤销：〈旧原文 {old}〉恢复为生效
+ ❯ tests/ui/i18n-chat-memory-notices.test.tsx:29:72
+     27|   const undo = vi.fn(async () => {});
+     28|   render(<I18nProvider initialLocale="en"><Driver /><SupersedeNoticeLi…
+     29|   const root = screen.getByTestId("kg-supersede-undone"); expect(root)…
+       |                                                                        ^
+     30|   act(() => changeLocale()); expect(screen.getByTestId("kg-supersede-u…
+     31| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  tests/ui/i18n-chat-memory-notices.test.tsx > keeps empty extraction feedback as display only and manually remembers the original message once
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  No memory was saved automatically
+Received:
+  这句话没有自动记入记忆·手动记住
+ ❯ tests/ui/i18n-chat-memory-notices.test.tsx:38:81
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  tests/ui/i18n-chat-memory-notices.test.tsx > retains actual extracted content and only explicitly undoes its canonical personal copy and current revision
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Decision
+Received:
+  决定
+ ❯ tests/ui/i18n-chat-memory-notices.test.tsx:49:134
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  4 failed | 2 passed (6)
+   Start at  14:07:58
+   Duration  16.76s (transform 3.61s, setup 1.18s, collect 8.43s, tests 863ms, environment 4.67s, prepare 316ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/i18n-chat-memory-api-failure.test.tsx tests/ui/i18n-chat-memory-notices.test.tsx --maxWorkers=1 --minWorkers=1

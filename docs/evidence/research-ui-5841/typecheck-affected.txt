@@ -1,0 +1,79 @@
+tests/ui/guided-research-conversation-live.test.tsx(17,57): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement[]', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+  Overload 2 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement[]', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+tests/ui/guided-research-conversation-live.test.tsx(27,56): error TS2339: Property 'toBeDisabled' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/guided-research-conversation-live.test.tsx(28,62): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement | null>'.
+tests/ui/guided-research-conversation-live.test.tsx(35,58): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/guided-research-conversation-live.test.tsx(36,52): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement | null>'.
+tests/ui/guided-research-conversation-live.test.tsx(37,62): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement | null>'.
+tests/ui/guided-research-conversation-live.test.tsx(47,46): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/guided-research-conversation-live.test.tsx(49,46): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/guided-research-conversation-live.test.tsx(58,17): error TS2339: Property 'toHaveValue' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/guided-research-conversation-live.test.tsx(71,71): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement | null>'.
+tests/ui/guided-research-conversation-live.test.tsx(81,49): error TS2339: Property 'toHaveTextContent' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/guided-research-conversation-live.test.tsx(82,56): error TS2339: Property 'toBeDisabled' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/guided-research-conversation-live.test.tsx(99,51): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/guided-research-conversation-live.test.tsx(100,46): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/guided-research-conversation-live.test.tsx(109,57): error TS2339: Property 'toBeDisabled' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/guided-research-conversation-live.test.tsx(110,56): error TS2339: Property 'toBeEnabled' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/guided-research-conversation-live.test.tsx(111,62): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement | null>'.
+tests/ui/research-production-routes.test.tsx(20,56): error TS2339: Property 'toBeEnabled' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/research-production-routes.test.tsx(24,77): error TS2339: Property 'toHaveValue' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/research-production-routes.test.tsx(25,56): error TS2339: Property 'toBeEnabled' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/research-production-routes.test.tsx(32,44): error TS2339: Property 'toHaveTextContent' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/research-production-routes.test.tsx(33,57): error TS2339: Property 'toHaveValue' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/research-production-routes.test.tsx(48,49): error TS2339: Property 'toHaveAttribute' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/research-production-routes.test.tsx(49,49): error TS2339: Property 'toHaveAttribute' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/research-production-routes.test.tsx(57,57): error TS2339: Property 'toHaveValue' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/research-production-routes.test.tsx(58,57): error TS2339: Property 'toHaveValue' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/research-production-routes.test.tsx(59,56): error TS2339: Property 'toBeDisabled' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/research-production-routes.test.tsx(70,57): error TS2339: Property 'toHaveValue' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/research-production-routes.test.tsx(97,56): error TS2339: Property 'toBeEnabled' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/research-production-routes.test.tsx(114,57): error TS2339: Property 'toHaveValue' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/research-production-routes.test.tsx(117,60): error TS2339: Property 'toHaveValue' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/research-production-routes.test.tsx(119,57): error TS2339: Property 'toHaveValue' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/research-production-routes.test.tsx(154,69): error TS2339: Property 'toHaveAttribute' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/research-production-routes.test.tsx(161,57): error TS2339: Property 'toHaveValue' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/research-production-routes.test.tsx(162,37): error TS2339: Property 'toHaveTextContent' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/research-production-routes.test.tsx(163,56): error TS2339: Property 'toBeDisabled' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/research-production-routes.test.tsx(173,69): error TS2339: Property 'toHaveAttribute' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/research-production-routes.test.tsx(181,53): error TS2339: Property 'toHaveAttribute' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/research-production-routes.test.tsx(188,41): error TS2339: Property 'toHaveValue' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/research-production-routes.test.tsx(189,37): error TS2339: Property 'toHaveTextContent' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/research-production-routes.test.tsx(190,56): error TS2339: Property 'toBeDisabled' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/research-production-routes.test.tsx(192,43): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement | null>'.
+tests/ui/research-production-routes.test.tsx(193,56): error TS2339: Property 'toBeEnabled' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/research-production-routes.test.tsx(203,41): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/research-production-routes.test.tsx(205,62): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement | null>'.
+tests/ui/research-production-routes.test.tsx(206,56): error TS2339: Property 'toHaveAttribute' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/research-production-routes.test.tsx(207,56): error TS2339: Property 'toHaveAttribute' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/research-production-routes.test.tsx(213,35): error TS2339: Property 'toHaveAttribute' does not exist on type 'Assertion<HTMLDetailsElement | null>'.
+tests/ui/research-production-routes.test.tsx(215,16): error TS2339: Property 'toHaveAttribute' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/research-production-routes.test.tsx(216,75): error TS2339: Property 'toHaveTextContent' does not exist on type 'Assertion<HTMLElement | null>'.
+tests/ui/research-production-routes.test.tsx(221,63): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+  Overload 2 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+tests/ui/research-production-routes.test.tsx(222,57): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement[]', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+  Overload 2 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement[]', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+tests/ui/research-ui-consistency.test.tsx(11,20): error TS2339: Property 'toHaveAttribute' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/research-ui-consistency.test.tsx(13,23): error TS2339: Property 'toHaveClass' does not exist on type 'Assertion<HTMLElement | null>'.
+tests/ui/research-ui-consistency.test.tsx(15,20): error TS2339: Property 'toHaveAttribute' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/research-ui-consistency.test.tsx(16,27): error TS2339: Property 'toHaveClass' does not exist on type 'Assertion<HTMLElement | null>'.
+tests/ui/research-ui-consistency.test.tsx(17,55): error TS2339: Property 'toHaveAttribute' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/research-ui-consistency.test.tsx(19,20): error TS2339: Property 'toHaveAttribute' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/research-ui-consistency.test.tsx(20,59): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/research-ui-consistency.test.tsx(34,22): error TS2339: Property 'toHaveAttribute' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/research-ui-consistency.test.tsx(36,19): error TS2339: Property 'toHaveFocus' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/research-ui-consistency.test.tsx(39,53): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement | null>'.
+tests/ui/research-ui-consistency.test.tsx(40,22): error TS2339: Property 'toHaveFocus' does not exist on type 'Assertion<HTMLElement>'.
+tests/ui/research-ui-consistency.test.tsx(43,22): error TS2339: Property 'toHaveFocus' does not exist on type 'Assertion<HTMLElement>'.
+undefined
+/Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 2: tsc --noEmit --project /tmp/tsconfig-research-ui-5841.json

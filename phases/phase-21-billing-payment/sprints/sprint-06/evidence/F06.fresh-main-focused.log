@@ -1,0 +1,27 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/web
+
+ ✓ tests/ui/billing-overview.test.tsx (7 tests) 4283ms
+   ✓ 真实计费入口与账户状态 > 个人菜单始终可发现账户入口，不依赖支付凭据 2148ms
+   ✓ 真实计费入口与账户状态 > 未配置渠道仍读取真实钱包和订阅，不显示二维码或虚构额度 547ms
+   ✓ 真实计费入口与账户状态 > 缺失服务返回404时显示尚未开放，不能伪装成零余额或无订阅 461ms
+   ✓ 真实计费入口与账户状态 > 单项网络失败可单独重试，不覆盖其他正常数据 771ms
+ ✓ tests/ui/billing-cashier.test.tsx (23 tests) 10464ms
+   ✓ F06 live cashier entry > opens real package selection from configured account 3289ms
+   ✓ F06 live cashier entry > does not invent packages for an empty catalog 481ms
+   ✓ F06 real cashier financial lifecycle > posts only server package identity once during a deferred request 740ms
+   ✓ F06 real cashier financial lifecycle > keeps an uncertain create failure from being resubmitted 569ms
+   ✓ F06 real cashier financial lifecycle > keeps the current order and QR on a failed status read 672ms
+   ✓ F06 real cashier financial lifecycle > serializes manual and timed polling, then stops after SUCCESS 517ms
+   ✓ F06 real cashier financial lifecycle > masks all sensitive content on a definitive 401 order denial 313ms
+   ✓ F06 real cashier financial lifecycle > masks all sensitive content on a definitive 403 order denial 569ms
+   ✓ F06 real cashier financial lifecycle > masks all sensitive content on a definitive 404 order denial 700ms
+   ✓ F06 real cashier financial lifecycle > does not block package selection on wallet outage 373ms
+   ✓ F06 purchase navigation intent > consumes an explicit configured purchase intent once and restores a safe focus target 361ms
+
+ Test Files  2 passed (2)
+      Tests  30 passed (30)
+   Start at  11:52:11
+   Duration  32.26s (transform 6.83s, setup 1.34s, collect 23.81s, tests 14.75s, environment 8.29s, prepare 2.09s)
+
