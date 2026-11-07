@@ -7,13 +7,15 @@ import {PARALLEL_BASE_PRODUCERS} from './ci-base-api.mjs';
 import {FULL_REGRESSION_LANES,failedLanes} from './ci-full-regression.mjs';
 import {bundleCurrent} from './ci-targeted-runner.mjs';
 export const UI_PRODUCERS=['targeted-ui-unit','targeted-ui-browser'];
-export function requireRoute(kind,needs){
+export function requireRoute(kind,needs,event=process.env.GITHUB_EVENT_NAME){
  const full=kind==='base'?PARALLEL_BASE_PRODUCERS:kind==='e2e'?FULL_REGRESSION_LANES:null;
  if(!full||!needs||Object.keys(needs).sort().join()!==[...full,'doc-smoke-scope',...UI_PRODUCERS].sort().join())throw Error('INCOMPLETE_ROUTED_DEPENDENCIES');
  const scope=needs['doc-smoke-scope'];
  const {mode,plan_digest:planDigest}=scope?.outputs??{};
  if(scope?.result!=='success'||!['full','targeted-ui'].includes(mode)||!/^[a-f0-9]{64}$/.test(planDigest??''))throw Error('INVALID_ROUTING_PLAN');
  const active=mode==='full'?full:[...(kind==='base'?['base-compile','base-control-plane']:['full-regression-core']),...UI_PRODUCERS];
+ // Queue backend always requires full API proof, even on a targeted UI route.
+ if(kind==='base'&&mode==='targeted-ui'&&event==='merge_group')active.push('base-api-plan','base-api-shards','base-api-exclusive');
  const inactive=[...full,...UI_PRODUCERS].filter(name=>!active.includes(name));
  if(active.some(name=>needs[name]?.result!=='success')||inactive.some(name=>needs[name]?.result!=='skipped'))throw Error('ROUTED_PRODUCER_REJECTED');
  if(mode==='full'&&kind==='e2e'&&failedLanes(needs).length)throw Error('FULL_ACTUAL_VERDICT_REJECTED');

@@ -400,7 +400,7 @@ jobs:
   # Public journey commands each create and clean their own database isolation scope.
   base-api-plan:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-base-api-plan' || 'base-api-plan' }}
-    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
+    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base')) && (github.event_name == 'merge_group' || needs.doc-smoke-scope.outputs.mode != 'targeted-ui'))
     needs: [doc-smoke-scope]
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -433,7 +433,7 @@ jobs:
   base-api-shards:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-base-api-shards' || 'base-api-shards' }} (${{ matrix.shard }})
     needs: [base-api-plan, doc-smoke-scope]
-    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
+    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base')) && (github.event_name == 'merge_group' || needs.doc-smoke-scope.outputs.mode != 'targeted-ui'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -482,7 +482,7 @@ jobs:
   base-api-exclusive:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-base-api-exclusive' || 'base-api-exclusive' }}
     needs: [base-api-plan, base-api-shards, doc-smoke-scope]
-    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
+    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base')) && (github.event_name == 'merge_group' || needs.doc-smoke-scope.outputs.mode != 'targeted-ui'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
