@@ -1,7 +1,7 @@
 /** Read-only admission of the exact develop integration run before Devapp writes. */
 import { appendFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
-import { createLookupApi } from './ci-lane-dedup.mjs';
+import { createLookupApi,createPollState,pollApi,pollPause,pollDelay,POLL_QUOTA } from './ci-lane-dedup.mjs';
 import {CURRENT_POLICY} from './lib/ci-check-policy.mjs';
 
 export const SOURCE_VERIFICATION_PROFILES = {
@@ -80,22 +80,34 @@ export function integrationVerdict(run, jobs, { sha, workflowId, since, workflow
   return { state: 'pending', reason: 'integration_still_running' };
 }
 
-export async function inspectIntegration(api, { sha, since, workflowPath = WORKFLOW, checks = INTEGRATION_CHECKS, event = 'push', allowRunning = false }) {
-  const workflow = await api(`/actions/workflows/${workflowPath.split('/').at(-1)}`);
+export async function inspectIntegration(api, { sha, since, workflowPath = WORKFLOW, checks = INTEGRATION_CHECKS, event = 'push', allowRunning = false }, state) {
+  const workflow = state?.workflow ?? await api(`/actions/workflows/${workflowPath.split('/').at(-1)}`);
   if (!Number.isSafeInteger(workflow.id) || workflow.path !== workflowPath || workflow.state !== 'active') throw new Error('INVALID_INTEGRATION_WORKFLOW');
-  const response = await api(`/actions/workflows/${workflow.id}/runs?head_sha=${sha}&event=${event}&per_page=100`);
+  if(state)state.workflow=workflow;
+  const latest=async(fresh=false)=>{
+  const response = await api(`/actions/workflows/${workflow.id}/runs?head_sha=${sha}&event=${event}&per_page=100`,{fresh});
   if (!Array.isArray(response.workflow_runs) || !Number.isInteger(response.total_count) || response.total_count > 100) throw new Error('INVALID_INTEGRATION_RUN_LIST');
   const runs = response.workflow_runs.filter(run => run.event === event && sourceBranchMatches(run.head_branch,event) && run.head_sha === sha && Date.parse(run.created_at) >= since);
   if (runs.some(run => !Number.isSafeInteger(run.id))) throw new Error('INVALID_INTEGRATION_RUN_ID');
-  const run = runs.sort((a, b) => b.id - a.id)[0];
+  return runs.sort((a,b)=>b.id-a.id)[0];
+  };
+  const run = await latest(state?.accepted===true);
+  if(state){if(state.run?.id!==run?.id||state.run?.run_attempt!==run?.run_attempt){delete state.jobs;delete state.jobsAttempt;}state.run=run;}
   if (!run) return { state: 'pending', reason: 'integration_run_not_created' };
   // Attempt-scoped jobs prevent old green attempts from authorizing a failed rerun.
-  const jobs = await api(`/actions/runs/${run.id}/attempts/${run.run_attempt}/jobs?per_page=100`);
+  const jobs = state?.jobsAttempt===run.run_attempt ? state.jobs : await api(`/actions/runs/${run.id}/attempts/${run.run_attempt}/jobs?per_page=100`);
   if (!Array.isArray(jobs.jobs) || !Number.isInteger(jobs.total_count) || jobs.total_count > 100) throw new Error('INVALID_INTEGRATION_JOB_LIST');
   const identity = { sha, workflowId: workflow.id, since, workflowPath, checks, event, allowRunning };
   const verdict = integrationVerdict(run, jobs.jobs, identity);
-  if (verdict.state !== 'success') return verdict;
-  const current = await api(`/actions/runs/${run.id}`);
+  if(state&&checks.every(name=>jobs.jobs.some(j=>j.name===name&&j.status==='completed'&&j.conclusion==='success'))){state.jobs=jobs;state.jobsAttempt=run.run_attempt;}
+  if(verdict.state==='pending')return verdict;
+  if(state){
+   const active=await api(`/actions/workflows/${workflowPath.split('/').at(-1)}`,{fresh:true});
+   if(active.id!==workflow.id||active.path!==workflowPath||active.state!=='active')throw Error('INVALID_INTEGRATION_WORKFLOW');
+   const newest=await latest(true);
+   if(newest?.id!==run.id||newest.run_attempt!==run.run_attempt){state.run=newest;state.accepted=false;delete state.jobs;delete state.jobsAttempt;return {state:'pending',reason:'integration_producer_changed'};}
+  }else if(verdict.state!=='success')return verdict;
+  const current = await api(`/actions/runs/${run.id}`,{fresh:true});
   if (current.id !== run.id || current.run_attempt !== run.run_attempt) throw new Error('INTEGRATION_ATTEMPT_CHANGED');
   return integrationVerdict(current, jobs.jobs, identity);
 }
@@ -104,23 +116,61 @@ export async function waitForIntegration({ apiFactory, sha, since, clock = Date.
   if (!/^[a-f0-9]{40}$/.test(sha ?? '') || !Number.isFinite(since) || budgetMs < 1 || budgetMs > 55 * 60_000) throw new Error('INVALID_INTEGRATION_ADMISSION');
   if (!Object.hasOwn(SOURCE_VERIFICATION_PROFILES,mode)) throw new Error('INVALID_SOURCE_EVENT');
   const specs = onlyCompile || onlyControlPlane ? [{workflowPath:'.github/workflows/harness-verify.yml',checks:[onlyControlPlane?'verify-control-plane':'verify-full-compile'],allowRunning:true}] : SOURCE_VERIFICATION_PROFILES[mode];
-  const deadline = clock() + budgetMs;
-  let previous;
-  while (clock() < deadline) {
-    const verdicts = await Promise.all(specs.map(spec => inspectIntegration(apiFactory(), {sha, since, event:mode==='legacy_push'?'push':mode, ...spec})));
-    const verdict = verdicts.find(v => v.state === 'failure') ?? verdicts.find(v => v.state !== 'success') ?? {state: 'success', reason: 'exact_integration_passed'};
-    if (clock() >= deadline) break;
-    if (verdict.state === 'success') return verdict;
-    if (verdict.state === 'failure') throw new Error(`INTEGRATION_REJECTED:${verdict.reason}`);
-    if (verdict.reason !== previous) console.log(`Waiting for exact-source integration: ${verdict.reason}`);
-    previous = verdict.reason;
-    await sleep(Math.min(15_000, Math.max(0, deadline - clock())));
+  return waitForIntegrationSpecs({apiFactory,sha,since,clock,sleep,budgetMs,event:mode==='legacy_push'?'push':mode,specs});
+}
+export async function waitForIntegrationSpecs({apiFactory,sha,since,clock=Date.now,sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms)),budgetMs=55*60_000,event,specs}){
+ if(!/^[a-f0-9]{40}$/.test(sha??'')||!Number.isFinite(since)||budgetMs<1||budgetMs>55*60_000||!['push','merge_group'].includes(event)||!Array.isArray(specs)||!specs.length||specs.length>3||specs.some(s=>!Array.isArray(s.checks)||!s.checks.length))throw Error('INVALID_INTEGRATION_ADMISSION');
+  const deadline = clock() + budgetMs,pollState=createPollState(clock),states=specs.map(()=>({}));
+  pollState.deadline=deadline;
+  let previous,round=0;
+  while(clock()<deadline){
+   try{
+    const wasAccepted=states.map(s=>s.accepted===true);
+    const verdicts=[];
+    for(let i=0;i<specs.length;i++){
+     const verdict=states[i].accepted?{state:'success'}:await inspectIntegration(pollApi(apiFactory,pollState),{sha,since,event,...specs[i]},states[i]);
+     if(verdict.state==='failure')throw Error(`INTEGRATION_REJECTED:${verdict.reason}`);
+     states[i].accepted=verdict.state==='success';verdicts.push(verdict);
+    }
+    if(verdicts.every(v=>v.state==='success')){
+     for(let i=0;i<specs.length;i++)if(wasAccepted[i]){
+      const verdict=await inspectIntegration(pollApi(apiFactory,pollState),{sha,since,event,...specs[i]},states[i]);
+      if(verdict.state==='failure')throw Error(`INTEGRATION_REJECTED:${verdict.reason}`);
+      states[i].accepted=verdict.state==='success';
+     }
+     if(clock()<deadline&&states.every(s=>s.accepted)){console.log(`Exact-source lookup complete: requests=${pollState.requests} charged=${pollState.charged}`);return {state:'success',reason:'exact_integration_passed'};}
+    }
+    const pending=verdicts.find(v=>v.state!=='success')??(states.some(s=>!s.accepted)?{reason:'integration_producer_changed'}:undefined);
+    if(pending&&pending.reason!==previous){console.log(`Waiting for exact-source integration: ${pending?.reason}`);previous=pending?.reason;}
+   }catch(error){
+    if(error.diagnostic)console.error(JSON.stringify(error.diagnostic));
+    if(!error.rateLimited){console.error(`Exact-source lookup stopped: requests=${pollState.requests} charged=${pollState.charged}`);if(error.reason==='lookup_wait_deadline_exceeded'||clock()>=deadline)throw Error('INTEGRATION_ADMISSION_TIMEOUT');throw error;}
+    console.log(`Exact-source lookup backpressure: ${error.reason}; requests=${pollState.requests} charged=${pollState.charged} retry_ms=${error.retryAfterMs}`);
+    await pollPause(pollState,deadline,sleep,error.retryAfterMs);continue;
+   }
+   if(pollState.finalProbeScheduled){
+    console.log(`Exact-source lookup final probe pending; retaining deadline: requests=${pollState.requests} charged=${pollState.charged}`);
+    await pollPause(pollState,deadline,sleep,deadline-clock());continue;
+   }
+   const remaining=deadline-clock(),pendingCount=states.filter(s=>!s.accepted).length;
+   const terminalReserve=specs.length*5,nextCost=pendingCount*2;
+   const available=POLL_QUOTA.responses-pollState.charged-terminalReserve;
+   let delay=pollDelay(round++);
+   if(Math.ceil(remaining/240000)*nextCost>available){
+    const shaped=available>0?Math.ceil(remaining*nextCost/available):remaining;
+    const lastProbe=Math.max(0,remaining-Math.min(60000,remaining/2));
+    delay=Math.max(delay,Math.min(shaped,lastProbe));
+    if(delay>=lastProbe)pollState.finalProbeScheduled=true;
+    console.log(`Exact-source lookup quota pacing: pending=${pendingCount} charged=${pollState.charged} terminal_reserve=${terminalReserve} delay_ms=${delay}`);
+   }
+   await pollPause(pollState,deadline,sleep,delay);
   }
+  console.error(`Exact-source lookup deadline: requests=${pollState.requests} charged=${pollState.charged}`);
   throw new Error('INTEGRATION_ADMISSION_TIMEOUT');
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
-    const apiFactory = () => createLookupApi({ repository: process.env.GITHUB_REPOSITORY, token: process.env.GH_TOKEN });
+    const apiFactory = ({pollState}={}) => createLookupApi({ repository: process.env.GITHUB_REPOSITORY, token: process.env.GH_TOKEN,pollState });
     const verifiedTag = process.env.GITHUB_EVENT_NAME==='workflow_dispatch' && process.env.CI_RELEASE_TAG ? await resolveVerifiedTagSource(apiFactory(),process.env.CI_RELEASE_TAG) : undefined;
     assertReleaseSource({event:process.env.GITHUB_EVENT_NAME,ref:process.env.GITHUB_REF,sha:process.env.GITHUB_SHA,tag:process.env.CI_RELEASE_TAG,verifiedTag});
     const own = await apiFactory()(`/actions/runs/${process.env.GITHUB_RUN_ID}`);
