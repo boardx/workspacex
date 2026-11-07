@@ -1,0 +1,54 @@
+name: Batch integration pilot preparation
+on:
+  workflow_dispatch:
+    inputs:
+      members:
+        description: 'One to three reviewed, green, unqueued PR numbers (space separated)'
+        required: true
+        type: string
+permissions:
+  contents: read
+  pull-requests: read
+concurrency:
+  group: batch-integration-pilot-prepare
+  cancel-in-progress: false
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: develop
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Validate input and prepare immutable candidate receipt
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BATCH_MEMBERS: ${{ inputs.members }}
+        shell: bash
+        run: |
+          if [[ ! "$BATCH_MEMBERS" =~ ^[0-9]+(\ [0-9]+){0,2}$ ]]; then
+            echo 'Expected one to three numeric PR numbers' >&2
+            exit 1
+          fi
+          read -r -a members <<< "$BATCH_MEMBERS"
+          pnpm exec tsx .harness/scripts/batch-integration.ts prepare "$RUNNER_TEMP/batch-receipt.json" "${members[@]}"
+          # Object-only preparation does not push. Include objects so coordinator can
+          # inspect and import the exact candidate without reconstructing its SHA.
+          candidate=$(node -p 'JSON.parse(require("fs").readFileSync(process.env.RUNNER_TEMP+"/batch-receipt.json")).candidate.commit')
+          git update-ref refs/heads/batch-pilot-artifact "$candidate"
+          git bundle create "$RUNNER_TEMP/batch-candidate.bundle" refs/heads/batch-pilot-artifact
+      - uses: actions/upload-artifact@v6
+        with:
+          name: batch-integration-receipt-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/batch-receipt.json
+            ${{ runner.temp }}/batch-candidate.bundle
+          retention-days: 30
+          if-no-files-found: error
