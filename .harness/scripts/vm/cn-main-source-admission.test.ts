@@ -1,6 +1,6 @@
 import {createHash} from 'node:crypto';
 import {parse as parseYaml} from 'yaml';
-import {mkdtempSync,writeFileSync,rmSync,readFileSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,realpathSync,writeFileSync,rmSync,readFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {spawnSync} from 'node:child_process';
@@ -74,4 +74,44 @@ it.each(['full-route','preflight-scope','checkout','extra-step','source-output']
  if(mode==='extra-step')planner.steps.push({run:'echo unsafe'});
  if(mode==='source-output')planner.outputs.source_sha='unbound';
  expect(()=>validateMainSourceAdmission(source,repo,f)).toThrow('MAIN_SOURCE_DYNAMIC_SHARD_CLOSURE');
+});
+function queueApiFacts(){
+ const f:any=committedWorkflowFacts(),q:any=queuedFacts();f.sourceCommit=q.sourceCommit;f.associatedPrs=q.associatedPrs;f.associatedPrs[0].base.ref='develop';
+ f.sourcePolicy={...f.sourcePolicy,version:4,deferredChecks:['visual-deferred'],independentChecks:['native-board','meeting-room'],sourceVerificationEvent:'merge_group'};
+ f.queueRuns=[{...q.queueRuns[0],head_branch:`gh-readonly-queue/develop/pr-1-${head}`},{...q.queueRuns[0],id:910,workflow_id:91,check_suite_id:911,path:'.github/workflows/harness-acceptance.yml',head_branch:`gh-readonly-queue/develop/pr-1-${head}`}];
+ f.queueChecks=f.sourceChecks.filter((c:any)=>!c.name.startsWith('gates-test (')||c.name==='gates-test (1)').map((c:any,i:number)=>({...c,check_suite:{id:901},details_url:`https://github.com/${repo}/actions/runs/900/job/${2000+i}`}));
+ for(const [i,name]of ['base-api-plan','base-api-exclusive',...Array.from({length:f.sourceShardPolicy.count},(_,i)=>`base-api-shards (${i+1})`)].entries())f.queueChecks.push({...check(name,source,5000+i),check_suite:{id:911},details_url:`https://github.com/${repo}/actions/runs/910/job/${5000+i}`});
+ f.queueChecks.push({...check('backend-required',source,6001),check_suite:{id:901},details_url:`https://github.com/${repo}/actions/runs/900/job/6001`});
+ f.queueChecks.push({...check('merge-gate',source,6000),check_suite:{id:901},details_url:`https://github.com/${repo}/actions/runs/900/job/6000`});
+ f.sourceAcceptanceWorkflow=parseYaml(readFileSync('.github/workflows/harness-acceptance.yml','utf8'));
+ f.sourceQueueApiHelpers=Object.fromEntries(['ci-queue-api.mjs','ci-base-api.mjs'].map(name=>[name,createHash('sha256').update(readFileSync(`.harness/scripts/${name}`)).digest('hex')]));return f;
+}
+it('admits queue API producer shards plus single backend verifier with exact source closure',()=>expect(validateMainSourceAdmission(source,repo,queueApiFacts()).sourceSha).toBe(source));
+it.each(['missing-shard','failed-shard','wrong-suite','helper-drift','producer-drift','verifier-drift'])('rejects queue API closure drift %s',mode=>{
+ const f=queueApiFacts();
+ if(mode==='missing-shard')f.queueChecks=f.queueChecks.filter((c:any)=>c.name!==`base-api-shards (${f.sourceShardPolicy.count})`);
+ if(mode==='failed-shard')f.queueChecks.find((c:any)=>c.name==='base-api-shards (1)').conclusion='failure';
+ if(mode==='wrong-suite')f.queueChecks.find((c:any)=>c.name==='base-api-shards (1)').check_suite.id=901;
+ if(mode==='helper-drift')f.sourceQueueApiHelpers['ci-queue-api.mjs']='0'.repeat(64);
+ if(mode==='producer-drift')f.sourceAcceptanceWorkflow.jobs['base-api-shards'].steps=[];
+ if(mode==='verifier-drift')f.deploymentWorkflow.jobs['gates-test'].steps=[];
+ expect(()=>validateMainSourceAdmission(source,repo,f)).toThrow();
+});
+it('retains historical all-backend-shards source admission without queue consumer closure',()=>{
+ const f=committedWorkflowFacts();f.deploymentWorkflow.jobs['gates-test'].strategy.matrix.shard='${{ fromJSON(needs.api-test-plan.outputs.shards) }}';
+ expect(validateMainSourceAdmission(source,repo,f).dynamicShardPlan.count).toBe(f.sourceShardPolicy.count);
+});
+it('rejects missing queue verifier and stale producer attempt evidence',()=>{
+ const missing=queueApiFacts();missing.queueChecks=missing.queueChecks.filter((c:any)=>c.name!=='gates-test (1)');expect(()=>validateMainSourceAdmission(source,repo,missing)).toThrow();
+ const stale=queueApiFacts();stale.queueRuns[1].run_attempt=2;stale.queueRuns[1].run_started_at='2026-10-01T00:01:30Z';expect(()=>validateMainSourceAdmission(source,repo,stale)).toThrow();
+});
+it('executes queue source admission in a clean offline CLI runtime with the complete file closure',()=>{
+ const runtime=mkdtempSync(join(tmpdir(),'queue-api-clean-admission-'));
+ try{
+  for(const rel of ['.harness/scripts/vm/cn-main-source-admission.mjs','.harness/scripts/ci-api-shards.mjs','.harness/scripts/ci-queue-api.mjs','.harness/scripts/ci-base-api.mjs','.harness/scripts/lib/pr-queue.ts','.harness/scripts/lib/pr-green.ts','.harness/scripts/lib/merge-queue.ts','.harness/scripts/lib/ci-check-policy.mjs','.harness/config/ci-check-policy.json','.harness/scripts/vendor/yaml-2.9.0/parser.mjs','.github/workflows/backend-gates.yml','.github/workflows/harness-acceptance.yml']){mkdirSync(join(runtime,rel,'..'),{recursive:true});writeFileSync(join(runtime,rel),readFileSync(rel));}
+  const input=join(runtime,'facts.json');writeFileSync(input,JSON.stringify(queueApiFacts()));
+  const run=()=>spawnSync(process.execPath,['--experimental-strip-types',realpathSync(join(runtime,'.harness/scripts/vm/cn-main-source-admission.mjs')),source,repo,input],{cwd:runtime,encoding:'utf8',env:{...process.env,NODE_PATH:''},timeout:30000});
+  const green=run();expect(green.status,green.stderr).toBe(0);expect(green.stdout).toContain('CN_MAIN_SOURCE_ADMISSION_JSON=');
+  rmSync(join(runtime,'.harness/scripts/ci-queue-api.mjs'));const red=run();expect(red.status).toBe(1);expect(red.stdout).not.toContain('CN_MAIN_SOURCE_ADMISSION_JSON=');
+ }finally{rmSync(runtime,{recursive:true,force:true});}
 });
