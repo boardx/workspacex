@@ -1,6 +1,7 @@
 /** Same immutable commit, workflow, hosted environment and lane; retain the original verdict. */
 import { appendFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
+import {createHash} from 'node:crypto';
 
 export const LANES = {
   'fullstack-smoke': {
@@ -64,23 +65,59 @@ function laneSpec(lane) {
   return LANES[lane];
 }
 
+//45 charged responses/session/hour gives a450-request planning envelope for
+// ten sessions. This is not a repository-wide reservation: other/new sessions
+// and supervisors can still exhaust the shared allowance. The remaining-header
+// reserve adds backpressure;304 reads do not consume the primary quota.
+export const POLL_QUOTA={responses:45,windowMs:3600000,reserve:150};
+export function createPollState(clock=Date.now){return {clock,cache:new Map(),requests:0,charged:0,started:clock(),blockedUntil:0};}
+function rateError(reason,delay,headers){
+ const error=new LookupUnavailable(reason);error.rateLimited=true;error.retryAfterMs=Math.max(1000,delay);
+ error.quota={remaining:headers?.get('x-ratelimit-remaining'),reset:headers?.get('x-ratelimit-reset'),retryAfter:headers?.get('retry-after')};return error;
+}
+function httpDiagnostic(response,reason){
+ const number=name=>{const raw=response.headers.get(name);return raw!==null&&/^\d{1,16}$/.test(raw)?Number(raw):undefined;};
+ const request=response.headers.get('x-github-request-id');
+ return {reason,status:response.status,limit:number('x-ratelimit-limit'),remaining:number('x-ratelimit-remaining'),reset:number('x-ratelimit-reset'),retryAfter:number('retry-after'),requestId:request&&/^[\w:.-]{1,128}$/.test(request)?request:undefined};
+}
+export async function pollPause(state,deadline,sleep,delay){
+ const end=Math.min(deadline,Math.max(state.clock()+delay,state.blockedUntil));
+ while(state.clock()<end)await sleep(Math.min(60000,end-state.clock()));
+}
+export function pollDelay(round){return Math.min(240000,15000*2**Math.min(round,4));}
+export function pollApi(apiFactory,state){
+ const api=apiFactory({pollState:state});
+ if(api.pollState===state)return api;
+ return async(...args)=>{if(state.clock()>=state.deadline)throw Error('INTEGRATION_ADMISSION_TIMEOUT');if(state.charged>=POLL_QUOTA.responses)throw new LookupUnavailable('lookup_poll_budget_exceeded');state.requests++;state.charged++;return api(...args);};
+}
 /** Fixed lookup limits; test injection cannot change the production policy. */
-export function createLookupApi({ repository, token, fetchImpl = fetch, clock = () => performance.now() }) {
+export function createLookupApi({ repository, token, fetchImpl = fetch, clock = () => performance.now(), pollState }) {
   if (!/^[\w.-]+\/[\w.-]+$/.test(repository ?? '') || typeof token !== 'string' || !token || typeof fetchImpl !== 'function' || typeof clock !== 'function') throw new Error('Invalid lookup configuration');
   const deadline = clock() + LOOKUP_LIMITS.totalMs;
   let requests = 0, failure;
   const latch = reason => new LookupUnavailable(failure ??= reason);
   const assertBudget = () => {
     if (failure) throw latch(failure);
+    if(pollState&&pollState.clock()>=pollState.deadline)throw latch('lookup_wait_deadline_exceeded');
     if (clock() >= deadline) throw latch('lookup_deadline_exceeded');
   };
-  const api = async path => {
+  const cache=pollState?.cache;
+  const credential=createHash('sha256').update(token).digest('hex');
+  const api = async (path,{fresh=false}={}) => {
     assertBudget();
     if (typeof path !== 'string' || !path.startsWith('/actions/') || /[\r\n]/.test(path)) throw new Error('Invalid lookup path');
     if (requests >= LOOKUP_LIMITS.requests) throw latch('lookup_request_limit');
+    if(pollState){
+      if(pollState.clock()-pollState.started>=POLL_QUOTA.windowMs){pollState.started=pollState.clock();pollState.charged=0;}
+      if(pollState.blockedUntil>pollState.clock())throw rateError('lookup_quota_reserve',pollState.blockedUntil-pollState.clock());
+      if(pollState.charged>=POLL_QUOTA.responses)throw new LookupUnavailable('lookup_poll_budget_exceeded');
+      pollState.requests++;
+    }
     requests++;
+    const key=`${repository}:${credential}:${path}`,previous=cache?.get(key);
     const controller = new AbortController();
-    const requestDeadline = Math.min(deadline, clock() + LOOKUP_LIMITS.requestMs);
+    const waitLeft=pollState&&Number.isFinite(pollState.deadline)?Math.max(0,pollState.deadline-pollState.clock()):Infinity;
+    const requestDeadline = Math.min(deadline, clock() + LOOKUP_LIMITS.requestMs,clock()+waitLeft);
     const guard = () => { assertBudget(); if (clock() >= requestDeadline) throw latch('lookup_request_timeout'); };
     let timer, reader;
     const timeout = new Promise((_, reject) => {
@@ -92,12 +129,36 @@ export function createLookupApi({ repository, token, fetchImpl = fetch, clock = 
     try {
       const value = await Promise.race([timeout, (async () => {
         const response = await fetchImpl(`https://api.github.com/repos/${repository}${path}`, {
-          headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' },
+          headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json',...(fresh?{'Cache-Control':'no-cache'}:previous?.etag?{'If-None-Match':previous.etag}:{}) },
           signal: controller.signal, redirect: 'manual',
         });
         guard();
-        if (response.redirected || (response.status >= 300 && response.status < 400)) throw latch('lookup_redirect_refused');
-        if (!response.ok) throw latch([401, 403].includes(response.status) ? 'lookup_forbidden' : response.status === 429 ? 'lookup_rate_limited' : 'lookup_http_error');
+        if(pollState&&Number(response.headers.get('x-ratelimit-remaining'))<POLL_QUOTA.reserve&&response.headers.has('x-ratelimit-remaining')){
+          const reset=Number(response.headers.get('x-ratelimit-reset'))*1000;
+          if(Number.isFinite(reset)&&reset>pollState.clock())pollState.blockedUntil=Math.max(pollState.blockedUntil,reset);
+        }
+        if (response.redirected || (response.status >= 300 && response.status < 400 && response.status!==304)) throw latch('lookup_redirect_refused');
+        if(response.status===304){if(!previous||fresh)throw latch('lookup_unexpected_304');return structuredClone(previous.data);}
+        if(pollState)pollState.charged++;
+        if (!response.ok){
+          let body='';
+          const retryHeader=response.headers.get('retry-after');
+          const explicitRetry=retryHeader!==null&&(/^\d+$/.test(retryHeader)||Number.isFinite(Date.parse(retryHeader)));
+          const explicitLimit=response.headers.get('x-ratelimit-remaining')==='0'||explicitRetry;
+          if(response.status===403&&!explicitLimit&&response.body){
+            const reader=response.body.getReader();let length=0;
+            try{while(length<2048){const row=await reader.read();guard();if(row.done)break;length+=row.value.length;body+=new TextDecoder().decode(row.value.slice(0,Math.max(0,2048-(length-row.value.length))));}}finally{void reader.cancel().catch(()=>{});}
+          }
+          const limited=response.status===429||response.status===403&&(explicitLimit||/secondary rate limit|API rate limit exceeded|abuse detection/i.test(body));
+          if(limited){
+            const now=pollState?.clock()??Date.now(),reset=Number(response.headers.get('x-ratelimit-reset'))*1000;
+            const raw=response.headers.get('retry-after');const retry=raw!==null?(/^\d+$/.test(raw)?Number(raw)*1000:Date.parse(raw)-now):0;
+            const delay=Math.max(60000,Number.isFinite(reset)&&reset>now?reset-now:0,Number.isFinite(retry)?retry:0);
+            if(pollState)pollState.blockedUntil=Math.max(pollState.blockedUntil,now+delay);
+            const error=rateError('lookup_rate_limited',delay,response.headers);error.diagnostic=httpDiagnostic(response,error.reason);throw error;
+          }
+          const error=latch([401,403].includes(response.status)?'lookup_forbidden':'lookup_http_error');error.diagnostic=httpDiagnostic(response,error.reason);throw error;
+        }
         const declared = response.headers.get('content-length');
         if (declared !== null && (!/^\d+$/.test(declared) || Number(declared) > LOOKUP_LIMITS.bodyBytes)) throw latch('lookup_body_limit');
         if (!response.body) throw latch('lookup_invalid_response');
@@ -114,7 +175,7 @@ export function createLookupApi({ repository, token, fetchImpl = fetch, clock = 
         let data;
         try { data = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks))); }
         catch { throw latch('lookup_invalid_json'); }
-        guard(); return data;
+        guard(); const etag=response.headers.get('etag');if(etag&&cache)cache.set(key,{etag,data:structuredClone(data)});else cache?.delete(key);return data;
       })()]);
       guard(); return value;
     } catch (error) {
@@ -128,6 +189,7 @@ export function createLookupApi({ repository, token, fetchImpl = fetch, clock = 
     }
   };
   api.assertBudget = assertBudget;
+  api.pollState=pollState;
   return api;
 }
 

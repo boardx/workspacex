@@ -279,3 +279,40 @@ describe('bounded lookup transport and executable fallback', () => {
     await expect(runLaneDedup({ args: ['unsupported'] })).rejects.toThrow('Unknown dedup command');
   });
 });
+
+describe('poll transport quota and immutable conditional snapshots',()=>{
+ it('reuses only same credential URL snapshots on304 and forces fresh proof reads',async()=>{
+  const {createPollState}=await import('./ci-lane-dedup.mjs');const state=createPollState(()=>0);
+  const fetchImpl=vi.fn().mockResolvedValueOnce(new Response('{"value":1}',{headers:{etag:'"one"'}})).mockResolvedValueOnce(new Response(null,{status:304})).mockResolvedValueOnce(new Response('{"value":2}'));
+  const first=createLookupApi({repository:'o/r',token:'fake',fetchImpl,clock:()=>0,pollState:state});
+  const value=await first('/actions/runs/1');value.value=9;
+  const second=createLookupApi({repository:'o/r',token:'fake',fetchImpl,clock:()=>0,pollState:state});expect(await second('/actions/runs/1')).toEqual({value:1});
+  expect(fetchImpl.mock.calls[1][1].headers['If-None-Match']).toBe('"one"');
+  expect(await second('/actions/runs/1',{fresh:true})).toEqual({value:2});expect(fetchImpl.mock.calls[2][1].headers['If-None-Match']).toBeUndefined();expect(state.charged).toBe(2);
+ });
+ it.each([401,403])('does not mark generic %s authorization rejection retryable',async status=>{
+  const api=createLookupApi({repository:'o/r',token:'fake',fetchImpl:async()=>new Response('{"message":"Resource not accessible by integration"}',{status}),clock:()=>0});
+  try{await api('/actions/runs/1');throw Error('accepted');}catch(error){expect(error.message).toBe('lookup_forbidden');expect(error.rateLimited).not.toBe(true);}
+ });
+ it.each([{status:403,headers:{'x-ratelimit-remaining':'0','x-ratelimit-reset':'120'},body:'{}',delay:120000},{status:429,headers:{'retry-after':'70'},body:'{}',delay:70000},{status:403,headers:{},body:'{"message":"You have exceeded a secondary rate limit"}',delay:60000}])('classifies explicit rate errors without exposing provider text',async row=>{
+  const {createPollState}=await import('./ci-lane-dedup.mjs');const pollState=createPollState(()=>0);
+  const api=createLookupApi({repository:'o/r',token:'secret-token',fetchImpl:async()=>new Response(row.body,{status:row.status,headers:row.headers}),clock:()=>0,pollState});
+  try{await api('/actions/runs/1');throw Error('accepted');}catch(error){expect(error.message).toBe('lookup_rate_limited');expect(error.rateLimited).toBe(true);expect(error.retryAfterMs).toBe(row.delay);expect(error.message).not.toContain('secret');}
+ });
+});
+it('never shares304 evidence across tokens or accepts an unsolicited/fresh304',async()=>{
+ const {createPollState}=await import('./ci-lane-dedup.mjs');const pollState=createPollState(()=>0);
+ const fetchImpl=vi.fn().mockResolvedValueOnce(new Response('{}',{headers:{etag:'one'}})).mockResolvedValue(new Response(null,{status:304}));
+ await createLookupApi({repository:'o/r',token:'first',fetchImpl,pollState,clock:()=>0})('/actions/runs/1');
+ await expect(createLookupApi({repository:'o/r',token:'second',fetchImpl,pollState,clock:()=>0})('/actions/runs/1')).rejects.toThrow('unexpected_304');
+ expect(fetchImpl.mock.calls[1][1].headers['If-None-Match']).toBeUndefined();
+ await expect(createLookupApi({repository:'o/r',token:'first',fetchImpl,pollState,clock:()=>0})('/actions/runs/1',{fresh:true})).rejects.toThrow('unexpected_304');
+});
+it('honors shared remaining quota reserve before another request and caps charged responses',async()=>{
+ const {createPollState,POLL_QUOTA}=await import('./ci-lane-dedup.mjs');let now=0;const pollState=createPollState(()=>now);
+ const fetchImpl=vi.fn(async()=>new Response('{}',{headers:{'x-ratelimit-remaining':'10','x-ratelimit-reset':'120'}}));
+ await createLookupApi({repository:'o/r',token:'fake',fetchImpl,pollState,clock:()=>0})('/actions/runs/1');
+ await expect(createLookupApi({repository:'o/r',token:'fake',fetchImpl,pollState,clock:()=>0})('/actions/runs/1')).rejects.toMatchObject({reason:'lookup_quota_reserve',retryAfterMs:120000});expect(fetchImpl).toHaveBeenCalledTimes(1);
+ now=120000;pollState.charged=POLL_QUOTA.responses;
+ await expect(createLookupApi({repository:'o/r',token:'fake',fetchImpl,pollState,clock:()=>0})('/actions/runs/1')).rejects.toThrow('poll_budget_exceeded');expect(fetchImpl).toHaveBeenCalledTimes(1);
+});
