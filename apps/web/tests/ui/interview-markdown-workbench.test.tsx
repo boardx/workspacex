@@ -111,3 +111,12 @@ it("applies the branched canonical state immediately without retaining downstrea
  load.mockReturnValue(new Promise(()=>{}));
  await waitFor(()=>expect(screen.getByTestId("itv-workbench-step-report")).toHaveAttribute("data-state","upcoming"));
 });
+it("retains project context across stage and return navigation", () => {
+  window.history.replaceState({}, "", "/itv/itv-route-7/intake?projectId=prj-review");
+  render(<InterviewMarkdownWorkbench identity={identity} step="intake" />);
+  fireEvent.click(screen.getByRole("button", { name: /访谈问题/ }));
+  expect(push).toHaveBeenLastCalledWith('/itv/itv-route-7/outline?projectId=prj-review');
+  fireEvent.click(screen.getByRole("button", { name: /返回/ }));
+  expect(push).toHaveBeenLastCalledWith('/itv?tab=history&projectId=prj-review');
+  window.history.replaceState({}, "", "/");
+});

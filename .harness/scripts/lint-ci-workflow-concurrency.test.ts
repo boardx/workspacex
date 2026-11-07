@@ -1,78 +1,20 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-import { describe, expect, it } from "vitest";
-import { parse } from "yaml";
-
-const ROOT = join(import.meta.dirname, "..", "..");
-const workflows = ["harness-verify", "backend-gates"];
-type Context = { event_name: string; ref: string; run_id: number; run_attempt: number };
-
-// These workflow expressions use only string equality, &&, ||, and format.
-// Evaluate the checked-in expressions (not a duplicate policy implementation).
-// This is deliberately not a general GitHub expression-language interpreter.
-function evaluate(expression: string | boolean, github: Context): unknown {
-  if (typeof expression === "boolean") return expression;
-  const source = expression.trim();
-  expect(source.startsWith("${{") && source.endsWith("}}")).toBe(true);
-  const format = (template: string, ...values: unknown[]) =>
-    template.replace(/\{(\d+)\}/g, (_, index) => String(values[Number(index)]));
-  return new Function("github", "format", `return (${source.slice(3, -2)});`)(github, format);
-}
-
-for (const name of workflows) {
-  describe(`${name} admission boundaries`, () => {
-    const workflow = parse(readFileSync(join(ROOT, `.github/workflows/${name}.yml`), "utf8"));
-    const policy = workflow.concurrency;
-    const context = (event_name: string, ref: string, run_id: number): Context => ({ event_name, ref, run_id, run_attempt: 1 });
-    const group = (event: string, ref: string, run: number) => evaluate(policy.group, context(event, ref, run));
-
-    it("same PR shares a group, different PRs cannot cancel each other", () => {
-      expect(group("pull_request", "refs/pull/1/merge", 10)).toBe(group("pull_request", "refs/pull/1/merge", 11));
-      expect(group("pull_request", "refs/pull/1/merge", 10)).not.toBe(group("pull_request", "refs/pull/2/merge", 12));
-      expect(policy.group).not.toMatch(/head_ref|ref_name/);
-    });
-
-    it("only automatic main regression shares a group across commits", () => {
-      const first = group("push", "refs/heads/main", 10);
-      const next = group("push", "refs/heads/main", 11);
-      if (name === "harness-verify") expect(first).toBe(next);
-      else expect(first).not.toBe(next); // backend contains deployment: preserve each run
-      expect(policy.queue ?? "single").toBe("single");
-    });
-
-    it.each([
-      ["workflow_dispatch", "refs/heads/main"],
-      ["workflow_dispatch", "refs/heads/qa/proof"],
-      ["push", "refs/tags/v1.0.0"],
-      ["push", "refs/heads/other"],
-      ["schedule", "refs/heads/main"],
-    ])("explicit or other event %s on %s keeps every run", (event, ref) => {
-      expect(group(event, ref, 10)).not.toBe(group(event, ref, 11));
-      expect(group(event, ref, 10)).not.toBe(group("push", "refs/heads/main", 12));
-      expect(evaluate(policy["cancel-in-progress"], context(event, ref, 10))).toBe(false);
-    });
-
-    it("native rerun preserves explicit verification outside automatic main admission", () => {
-      const rerun = { ...context("push", "refs/heads/main", 10), run_attempt: 2 };
-      expect(evaluate(policy.group, rerun)).not.toBe(group("push", "refs/heads/main", 11));
-      expect(evaluate(policy["cancel-in-progress"], rerun)).toBe(false);
-    });
-
-    it("new main candidate never interrupts the running regression", () => {
-      expect(evaluate(policy["cancel-in-progress"], context("push", "refs/heads/main", 10))).toBe(false);
-      expect(evaluate(policy["cancel-in-progress"], context("pull_request", "refs/pull/1/merge", 11))).toBe(true);
-    });
-  });
-}
-
-for (const name of ['board-acceptance', 'skill-files-e2e']) {
-  describe(`${name} obsolete PR validation`, () => {
-    const policy = parse(readFileSync(join(ROOT, `.github/workflows/${name}.yml`), 'utf8')).concurrency;
-    it('cancels only superseded validation within the same PR namespace', () => {
-      expect(policy.group).toBe(`${name}-${'${{ github.ref }}'}`);
-      for (const event_name of ['pull_request', 'push', 'workflow_dispatch', 'merge_group']) {
-        expect(evaluate(policy['cancel-in-progress'], { event_name, ref: 'refs/pull/1/merge', run_id: 11, run_attempt: 1 })).toBe(event_name === 'pull_request');
-      }
-    });
-  });
-}
+import {readFileSync} from 'node:fs';
+import {parse} from 'yaml';
+import {expect,it} from 'vitest';
+const load=(name:string)=>parse(readFileSync(`.github/workflows/${name}.yml`,'utf8'));
+const evaluate=(expression:string|boolean,github:any)=>typeof expression==='boolean'?expression:Function('github','format',`return (${expression.replace(/^\$\{\{|\}\}$/g,'').trim()})`)(github,(s:string,...xs:any[])=>s.replace(/\{(\d+)\}/g,(_,i)=>String(xs[Number(i)])));
+it('coalesces obsolete same-PR lightweight runs without cancelling other PRs or cumulative candidates',()=>{
+ const w=load('harness-verify');expect(w.on.pull_request.branches).toEqual(['develop']);expect(w.on.merge_group.branches).toEqual(['develop']);expect(w.on.push).toBeUndefined();
+ expect(w.concurrency.group).toBe('harness-verify-${{ github.ref }}');expect(w.concurrency.queue).toBe('single');
+ for(const event_name of ['pull_request','merge_group'])expect(evaluate(w.concurrency['cancel-in-progress'],{event_name})).toBe(event_name==='pull_request');
+});
+it('retains one unfinished hourly full run and at most one pending snapshot, while explicit manual runs are distinct',()=>{
+ const w=load('harness-acceptance'),c=w.concurrency;expect(c.queue).toBe('single');expect(c['cancel-in-progress']).toBe(false);
+ const context=(event_name:string,run_id:number)=>({event_name,run_id});
+ expect(evaluate(c.group,context('schedule',1))).toBe(evaluate(c.group,context('schedule',2)));
+ expect(evaluate(c.group,context('workflow_dispatch',1))).not.toBe(evaluate(c.group,context('workflow_dispatch',2)));
+ expect(evaluate(c.group,context('schedule',1))).not.toBe(evaluate(c.group,context('workflow_dispatch',1)));
+});
+it.each(['backend-gates','board-acceptance','skill-files-e2e','billing-cashier-glue'])('%s full work preserves unfinished requested producers without candidate triggers',name=>{
+ const w=load(name);expect(w.on.pull_request).toBeUndefined();expect(w.on.merge_group).toBeUndefined();expect(w.on.workflow_call).toBeDefined();expect(w.concurrency['cancel-in-progress']).toBe(false);expect(w.concurrency.group).toContain('${{ github.run_id }}');expect(w.concurrency.queue).toBe('single');
+});

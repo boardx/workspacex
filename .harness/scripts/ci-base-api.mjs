@@ -10,7 +10,7 @@ export const PARALLEL_BASE_PRODUCERS=['base-compile','base-api-plan','base-api-s
 const legacyRequired = ['verify-full-compile', 'base-api-plan', 'base-api-shards', 'base-api-exclusive'];
 const hash = value => createHash('sha256').update(value).digest('hex');
 export function assertPrerequisites(needs,event=process.env.GITHUB_EVENT_NAME) {
-  if(!['merge_group','workflow_dispatch'].includes(event)) {
+  if(!['merge_group','workflow_dispatch','schedule'].includes(event)) {
     if (!needs || Object.keys(needs).sort().join() !== [...legacyRequired].sort().join() || legacyRequired.some(name => needs[name]?.result !== 'success')) throw new Error('INCOMPLETE_BASE_PREREQUISITES');
     return;
   }

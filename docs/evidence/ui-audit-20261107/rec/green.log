@@ -1,0 +1,21 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+
+ ✓ tests/recording/live-recording-capture.test.ts (26 tests) 36ms
+ ✓ tests/ui/rec-local-microphone-check.test.tsx (10 tests) 481ms
+   ✓ shows full input labels and keeps local check separate from formal transcription 391ms
+ ✓ tests/ui/recording-journey-i18n.test.tsx (11 tests) 1226ms
+   ✓ localizes creation and keeps the edited name and uncommitted tag through locale changes 395ms
+ ✓ tests/ui/realtime-transcription-workspace.test.tsx (35 tests) 1975ms
+ ✓ tests/ui/realtime-transcription-history.test.tsx (33 tests) 6489ms
+   ✓ 实时转录历史工作台 > allows returning after a stale recording cannot be stopped 330ms
+   ✓ 实时转录历史工作台 > does not reconnect after leaving the workspace 1267ms
+   ✓ 实时转录历史工作台 > automatically reconnects a dropped stream and retains saved text without stale events 1048ms
+   ✓ 实时转录历史工作台 > cancels scheduled reconnect when the user stops 1239ms
+   ✓ 实时转录历史工作台 > keeps saved text and distinguishes persistent refresh failure from stopping failure 800ms
+
+ Test Files  5 passed (5)
+      Tests  115 passed (115)
+   Start at  03:46:17
+   Duration  11.91s (transform 2.72s, setup 1.39s, collect 12.28s, tests 10.21s, environment 5.30s, prepare 747ms)

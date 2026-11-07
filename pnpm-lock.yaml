@@ -685,6 +685,9 @@ importers:
       jsdom:
         specifier: ^30.0.1
         version: 30.0.1(canvas@3.2.3)
+      jszip:
+        specifier: ^3.10.1
+        version: 3.10.1
       playwright-core:
         specifier: ^1.62.0
         version: 1.62.0

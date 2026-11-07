@@ -16,6 +16,7 @@ import { buildPrototypeExportHtml, collectPageCss, prototypeExportHtmlFileName }
 import { renderScreensToMarkup } from "@/lib/prototype-export-render";
 import { prototypeReactFileName } from "@/lib/prototype-react-export";
 import { exportPrototypeReactTsx } from "@/lib/prototype-react-export-icons";
+import { capturePrototypeFrame } from "@/lib/prototype-png-export";
 import { buildPrototypePptx, prototypePptxFileName } from "@/lib/prototype-pptx-export";
 import type { DesignProject } from "@/lib/live-design-workbench";
 import { describeFailure } from "@/lib/design-failure";
@@ -243,7 +244,7 @@ export function PrototypeExportMenu({ project, frame, open: openProp, onOpenChan
     setBusy("png");
     try {
       const { default: html2canvas } = await import("html2canvas");
-      const canvas = await html2canvas(el, { backgroundColor: null, scale: 2, useCORS: true, logging: false });
+      const canvas = await capturePrototypeFrame(el, html2canvas);
       const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
       if (blob === null) {
         setFailed("这一页没能转成图片。可以改用「可点击原型」或「打印成 PDF」。");

@@ -28,6 +28,7 @@ import {
 } from "@/lib/agent-directory";
 import { getSkillDetail, listSkills, type SkillListItem } from "@/lib/live-skill";
 import { workSkillDisplayName } from "@/lib/work-skill-display-copy";
+import { skillTaskDescription as skillDuty } from "@/lib/skill-task-description";
 import { WorkflowRunEntry } from "@/components/workflow/workflow-lists";
 import { UNNAMED_WORKFLOW_LABEL, agentWorkflowLabel } from "@/lib/workflow-catalog-title-copy";
 
@@ -58,13 +59,6 @@ export interface AgentDetailExtras {
   readonly pendingSkills?: readonly z.infer<typeof agentRole.PendingSkillBinding>[];
   readonly delegationTargets: Readonly<AgentDirectoryProfile["delegationTargets"]>;
   readonly requireApprovalForHandoff: boolean;
-}
-
-/** wave2 文件形式技能的 `duty` 是一句「怎么编辑源码」的说明，不是职责——不展示。 */
-const FILE_BACKED_DUTY_MARKER = "文件形式";
-function skillDuty(item: { readonly duty: string }): string | null {
-  const d = item.duty.trim();
-  return d.length === 0 || d.includes(FILE_BACKED_DUTY_MARKER) ? null : d;
 }
 
 const NO_SKILLS: readonly SkillListItem[] = [];

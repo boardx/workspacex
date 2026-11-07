@@ -35,7 +35,7 @@ describe('develop integration routing preserves trusted deployment boundaries', 
     }
   });
 
-  it.each(['harness-verify','backend-gates','harness-acceptance','board-acceptance','skill-files-e2e'])('limits %s merge groups to develop', name => {
+  it.each(['harness-verify'])('limits %s merge groups to develop', name => {
     expect(workflow(name).on.merge_group.branches).toEqual(['develop']);
     expect(workflow(name).on.push).toBeUndefined();
   });
@@ -54,7 +54,7 @@ describe('develop integration routing preserves trusted deployment boundaries', 
     expect(gateway.concurrency['cancel-in-progress']).toBe(false);
     for (const [name, steps] of [
       ['deploy-home', ['Static gates','Deployment failure and rollback contracts','China package language and landing-page contracts']],
-      ['deploy-devportal', ['Typecheck / lint / test','E2E (repeatable local gateway fixture)']],
+      ['deploy-devportal', ['Typecheck / lint / test']],
     ] as const) {
       const w=workflow(name);
       expect(w.on.push).toBeUndefined();
@@ -86,13 +86,10 @@ describe('develop integration routing preserves trusted deployment boundaries', 
   });
 });
 
-it('separates PR readiness from the actual fail-closed queue regression verdict',()=>{
- const plan=workflow('ci-pr-queue-plan'),acceptance=workflow('harness-acceptance');
- expect(Object.keys(plan.on)).toEqual(['pull_request']);
- expect(plan.jobs['queue-ready'].steps.at(-1).run).toBe('node .harness/scripts/ci-queue-ready.mjs --pr');
- const queue=acceptance.jobs['queue-ready'];
- expect(queue.if).toBe("always() && !cancelled() && github.event_name == 'merge_group'");
- expect(queue.needs).toEqual(['e2e-full','full-regression-core']);
- expect(queue['continue-on-error']).toBeUndefined();
- expect(queue.steps.at(-1)).toMatchObject({run:'node .harness/scripts/ci-queue-ready.mjs',env:{CI_QUEUE_NEEDS:'${{ toJSON(needs) }}'}});
+it('converges PR and queue lightweight verdicts separately from hourly complete regression',()=>{
+ const merge=workflow('harness-verify'),acceptance=workflow('harness-acceptance');expect(merge.on.pull_request.branches).toEqual(['develop']);expect(merge.on.merge_group.branches).toEqual(['develop']);
+ const queue=merge.jobs['queue-ready'];expect(queue.if).toBe("always() && (github.event_name == 'merge_group' || !cancelled())");expect(queue.needs).toEqual(['verify-control-plane','verify-affected','verify-full-compile','merge-gate','backend-required']);expect(queue['continue-on-error']).toBeUndefined();expect(queue.steps.at(-1)).toMatchObject({run:'node .harness/scripts/ci-lightweight.mjs queue',env:{CI_QUEUE_NEEDS:'${{ toJSON(needs) }}'}});
+ for(const name of ['backend-gates','harness-acceptance','board-acceptance','skill-files-e2e']){const w=workflow(name);expect(w.on.merge_group).toBeUndefined();expect(w.on.pull_request).toBeUndefined();}
+ expect(acceptance.on.schedule).toEqual([{cron:'17 * * * *'}]);expect(acceptance.jobs['devportal-browser'].steps.some((step:any)=>step.name==='E2E (repeatable local gateway fixture)')).toBe(true);
+ expect(Object.keys(workflow('ci-pr-queue-plan').on)).toEqual(['workflow_dispatch']);expect(acceptance.jobs['queue-ready']).toBeUndefined();
 });

@@ -226,13 +226,21 @@ export async function appendProjectChat(
     }
   };
 
+  // A blank project is created before the first chat request. Retain that
+  // original request even when the model returns only a layout or an edit summary.
+  // Subsequent edit instructions are never promoted into a new original brief.
+  const originalBrief = current.problem.trim() || current.chat.find((turn) => turn.role === "user" && turn.text.trim())?.text.trim() || (current.prototype.some((root) => root !== null) ? "" : input.text.trim());
+  const bootstrapBrief = !current.problem.trim();
+  const originalCriteria = bootstrapBrief && originalBrief && (current.criteria.length === 0 || current.criteria.every((criterion) => designWorkbench.DESIGN_PROJECT_INITIAL_CRITERIA.includes(criterion)))
+    ? [originalBrief] : [...current.criteria];
+  const retainedProblem = current.problem.trim() || originalBrief;
   const ai = await deps.ai.reply({
     onProgress: persistProgress,
     ...(input.maxScreens === undefined ? {} : { maxScreens: input.maxScreens }),
     name: current.name,
     template: current.template,
-    problem: current.problem,
-    criteria: current.criteria,
+    problem: retainedProblem,
+    criteria: originalCriteria,
     frames: current.frames,
     frameNotes: current.frameNotes,
     // 深度 S10（#3988）：上传的图（data URL）不进模型——一张就能吃掉大半上下文，模型也不该改它。
@@ -318,8 +326,20 @@ export async function appendProjectChat(
       const changed = Object.fromEntries(Object.entries(ai.tokens).filter(([k, v]) => v !== undefined && now[k as keyof typeof now] !== v));
       return Object.keys(changed).length === 0 ? {} : { tokens: changed as Partial<designWorkbench.DesignTokens> };
     })(),
-    ...(ai.writeback.problem !== undefined ? { problem: ai.writeback.problem } : {}),
-    ...(ai.writeback.criteria !== undefined ? { criteria: ai.writeback.criteria } : {}),
+    // Chat summaries may add context but cannot erase the brief or duplicate it.
+    ...(() => {
+      const summary = ai.writeback.problem?.trim();
+      const problem = !summary || retainedProblem.includes(summary) ? retainedProblem
+        : summary.includes(retainedProblem) ? summary : `${retainedProblem}\n\n${summary}`;
+      // The complete later request remains in chat; never truncate the original
+      // brief or store an invalid >4000 character project after many iterations.
+      const bounded = problem.length <= designWorkbench.DESIGN_TEXT_MAX_CHARS ? problem : retainedProblem;
+      return bounded !== current.problem ? { problem: bounded } : {};
+    })(),
+    ...(() => {
+      const criteria = [...new Set([...originalCriteria, ...(ai.writeback.criteria ?? [])])];
+      return JSON.stringify(criteria) !== JSON.stringify(current.criteria) ? { criteria } : {};
+    })(),
     ...(screens !== undefined
       ? {
           frames: screens.map((s) => s.frame),

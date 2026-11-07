@@ -97,6 +97,8 @@ export const HTML_DESIGN_PRINCIPLES =
   HTML_PAGE_ROOT_PRINCIPLE +
   "宽度一律 100% / max-width / flex，**不要写超过画布宽度的固定像素宽**；图形用内联 SVG 或 CSS 画（几何、用简报色），不要 emoji 当图标；" +
   "可点击的元素写 `data-goto=\"目标页序号\"`（按钮、导航项、卡片都可以），不要写 href 和 onclick；" +
+  "资料列表必须用语义 table/thead/tbody/tr/td，搜索框用 input type=search，类型筛选用 select（首项为全部类型）；" +
+  "给资料表 table 写 data-prototype-table=docs，搜索 input 写 data-prototype-search=docs，类型 select 写 data-prototype-filter=docs 和 data-prototype-column=type，类型列 th/td 写 data-prototype-column=type；绑定值只用字母数字下划线短横线，多个表用不同标识。排序等其他控件不要写过滤绑定。可信桥按指定字段精确匹配类型，无匹配会显示空态；行内打开/查看按钮展示该行资料详情预览，跨页操作仍用 data-goto。不要承诺下载或访问未提供的真实文件。" +
   "【视觉】①一页只有一个视觉重点（题材里最有代表性的东西，不是一排大数字配小标签），其余安静下来；" +
   "用户明确指定的视觉方向优先，其余自由选择要有这个题材的理由，不要套用上一种产品的皮肤；" +
   "②字阶至少三档且级差明显（标题 / 正文 / 说明），标题一页最多一个，行宽不超过 40 个汉字，中文行高 1.5–1.7；" +

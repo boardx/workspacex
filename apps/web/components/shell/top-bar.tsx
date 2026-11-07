@@ -10,19 +10,19 @@ import {
   selfHostedOnly,
   PROJECT_ROLES, type Identity, type ProjectRole,
 } from "@/lib/identity";
-import { resolveProjectContext } from "@/lib/project-context";
+import { resolveProjectContext, supportsProjectQuery } from "@/lib/project-context";
 import { listProjects } from "@/lib/live-projects";
 import { OrgMenu } from "./org-menu";
 import { Button } from "@/components/ui/button";
 
 /**
- * 项目路径及 `/chat?projectId=…` 的项目显示名——`resolveProjectContext` 只解得出 `id`（见该文件
+ * 项目路径、项目对话及带 projectId 的 Studio 内容页的项目显示名——`resolveProjectContext` 只解得出 `id`（见该文件
  * 头注释），这里补上「id → 人类可读名」这一步。用**已经真实挂了**的
  * `listProjects(orgId)`（F185 之后是去重扁平数组），不新开一个「按 id 查单个项目」的
  * 端点——本组件只是从组织的项目列表里找同一个 id 那一条，找不到（列表还没到、或这个
- * id 不在当前组织可见范围）时返回 null，由展示层沿用「项目」占位。
+ * id 不在当前组织可见范围）时返回 null；Studio 不展示项目，项目路径/对话沿用「项目」占位。
  *
- * ⚠ 只在真实项目上下文内发请求——项目路径或带显式 projectId 的对话；不在独立工具页上
+ * ⚠ 只在真实项目上下文内发请求——项目路径或带显式 projectId 的对话/Studio 内容页；不在独立工具页上
  *   为了「可能用得上」预取整个项目列表。
  */
 /**
@@ -31,12 +31,13 @@ import { Button } from "@/components/ui/button";
  * `TopBar` 是几乎每个页面共用的外壳，把整棵树都包进 Suspense 影响面太大，所以只把
  * 这一个纯读取查询串、不渲染任何东西的组件单独摘出来，外面套一层局部 Suspense。
  */
-function ChatProjectIdFromSearchParams({ onChange }: { onChange: (id: string | null) => void }) {
+function ProjectIdFromSearchParams({ pathname, onChange }: {
+  pathname: string;
+  onChange: (value: { pathname: string; id: string | null }) => void;
+}) {
   const searchParams = useSearchParams();
-  const chatProjectId = searchParams.get("projectId");
-  React.useEffect(() => {
-    onChange(chatProjectId);
-  }, [chatProjectId, onChange]);
+  const id = searchParams.get("projectId");
+  React.useEffect(() => { onChange({ pathname, id }); }, [pathname, id, onChange]);
   return null;
 }
 
@@ -106,27 +107,24 @@ export function TopBar({
 }) {
   const { t } = useI18n();
   const pathname = usePathname();
-  // 只有 /chat 才读这个查询串——其它路由的 projectId 出现在路径段里，已经被
-  // resolveProjectContext 的第一条规则接住了，这里不重复解析。`chatProjectId` 由下方
-  // Suspense 包裹的 `ChatProjectIdFromSearchParams` 异步喂进来，不在本组件里直接调
-  // `useSearchParams()`（原因见该组件注释）。
-  const [chatProjectIdParam, setChatProjectIdParam] = React.useState<string | null>(null);
-  const chatProjectId = pathname === "/chat" ? chatProjectIdParam : null;
-  const project = resolveProjectContext(pathname, chatProjectId);
-  const projectName = useProjectName(identity.org.id, project?.id ?? null);
-  // 名称尚未解析或不在当前可见列表时沿用 main 的「项目」占位，不展示内部 ID。
-  const displayProject = project
-    ? { ...project, name: projectName ?? (project.name === project.id ? t("ui.projects") : project.name) }
-    : project;
+  // Query IDs only select a candidate. Studio context is visible only after the
+  // current organization's authorized project list confirms it; no role comes from the query.
+  const [projectIdParam, setProjectIdParam] = React.useState<{ pathname: string; id: string | null } | null>(null);
+  const queryProjectId = projectIdParam?.pathname === pathname ? projectIdParam.id : null;
+  const candidate = resolveProjectContext(pathname, queryProjectId);
+  const projectName = useProjectName(identity.org.id, candidate?.id ?? null);
+  const isStudioContext = supportsProjectQuery(pathname) && pathname !== "/chat";
+  const project = isStudioContext && projectName === null ? null : candidate;
+  const displayProject = project ? { ...project, name: projectName ?? t("ui.projects") } : null;
   const isDev = process.env.NODE_ENV !== "production";
-  const projectLayer = project && identity.projectRole ? [t(`role.${identity.projectRole}`), identity.groupName].filter(Boolean).join(" · ") : null;
+  const projectLayer = project && !isStudioContext && identity.projectRole ? [t(`role.${identity.projectRole}`), identity.groupName].filter(Boolean).join(" · ") : null;
   // UC-0.5 R8：切到本地组织时整个应用要有**可感知**的状态变化——
   // 隐私模式若不可见，等于不存在。
   const local = isLocalOrg(identity.org);
   // UC-0.5 V12：同样是「只用自托管」，**承诺**与**策略**必须在界面上可分辨
   const sh = selfHostedOnly(identity.org);
   // 顶栏是否出自己的预览切换器：在项目上下文里、开发态、且本页没有自带一套
-  const showOwnSwitcher = isDev && !!project && !hideRoleSwitcher;
+  const showOwnSwitcher = isDev && !!project && !isStudioContext && !hideRoleSwitcher;
   const currentOrgLabel =
     organizations.find((o) => o.id === identity.org.id)?.label ?? identity.org.name;
   // 2026-09-03 人类反馈：后台管理页（/admin、/platform-admin）自己的 AdminHeader 已经
@@ -147,9 +145,9 @@ export function TopBar({
         local ? "border-ai/30 bg-ai-tint" : "border-border bg-card",
       ].join(" ")}
     >
-      {pathname === "/chat" && (
+      {supportsProjectQuery(pathname) && (
         <React.Suspense fallback={null}>
-          <ChatProjectIdFromSearchParams onChange={setChatProjectIdParam} />
+          <ProjectIdFromSearchParams pathname={pathname} onChange={setProjectIdParam} />
         </React.Suspense>
       )}
       {/* ── 组织层：全局常驻 ── */}

@@ -8,7 +8,7 @@ const job=(conclusion='failure')=>({id:40,run_id:10,run_attempt:1,status:'comple
 function fixture(){
  const read=vi.fn(async(path:string)=>path.includes('/jobs?')?{jobs:[job()]}:{...run});
  const write=vi.fn(async()=>({status:202})),wait=vi.fn(async()=>{});
- return {event:event(),repository:run.repository.full_name,read,write,wait};
+ return {allowed:['harness-verify','harness-acceptance','backend-gates'],event:event(),repository:run.repository.full_name,read,write,wait};
 }
 it('cancels the exact failed workflow after rechecking its current attempt',async()=>{
  const f=fixture();expect(await supervise(f)).toMatchObject({status:'cancel_requested',runId:10,attempt:1,failedJobs:[{id:40,conclusion:'failure'}]});
@@ -54,12 +54,10 @@ it('does not issue a late cancellation after its monitoring budget expires',asyn
  const f=fixture();let elapsed=0;f.read.mockImplementation(async path=>{if(path.includes('/jobs?')){elapsed=100;return {jobs:[job()]};}return {...run};});
  await expect(supervise({...f,now:()=>elapsed,maxMs:20})).rejects.toThrow('MONITOR_TIMEOUT');expect(f.write).not.toHaveBeenCalled();
 });
-it('executes only a trusted workflow revision with no candidate artifacts or installation',()=>{
+it('retires automatic runner-holding supervision without candidate privileges',()=>{
  const w=parse(readFileSync('.github/workflows/ci-fail-fast.yml','utf8'));
- expect(w.on.workflow_run.workflows).toEqual(watchedWorkflows());expect(w.on.workflow_run.types).toEqual(['in_progress']);expect(w.permissions).toEqual({contents:'read',actions:'write'});
- const steps=w.jobs.supervise.steps;expect(steps[0].with).toEqual({ref:'${{ github.workflow_sha }}','persist-credentials':false});expect(steps).toHaveLength(2);
- expect(JSON.stringify(steps)).not.toMatch(/download-artifact|head_sha|head_branch|npm install|pnpm install/);expect(watchedWorkflows()).not.toContain(w.name);
- for(const file of ['harness-verify','harness-acceptance','backend-gates'])expect(watchedWorkflows()).toContain(parse(readFileSync(`.github/workflows/${file}.yml`,'utf8')).name);
+ expect(w.on.workflow_run).toBeUndefined();expect(w.on.workflow_dispatch).toBeNull();expect(w.permissions).toEqual({contents:'read'});
+ expect(JSON.stringify(w.jobs)).not.toMatch(/ci-fail-fast.mjs|GH_TOKEN|timeout-minutes.*180|actions:write/);
 });
 it('uses conditional polling without letting callers mutate the cached snapshot',async()=>{
  const fetchImpl=vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({run_attempt:1}),{headers:{etag:'"one"'}})).mockResolvedValueOnce(new Response(null,{status:304})).mockResolvedValueOnce(new Response(JSON.stringify({run_attempt:2}),{headers:{etag:'"two"'}}));

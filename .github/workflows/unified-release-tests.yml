@@ -1,13 +1,7 @@
 name: Unified release contracts
 on:
-  pull_request:
-    branches: [develop]
-    paths:
-      - scripts/unified-*
-      - tests/test_unified_*.py
-      - tests/unified-*.test.mjs
-      - .github/workflows/unified-release-tests.yml
   workflow_dispatch:
+  workflow_call: {}
 permissions:
   contents: read
 jobs:
@@ -30,3 +24,7 @@ jobs:
         run: |
           docker pull postgres:16
           node --test tests/unified-migration-postgres.test.mjs
+concurrency:
+  group: unified-release-tests-full-${{ github.run_id }}
+  cancel-in-progress: false
+  queue: single

@@ -1,3 +1,4 @@
+import {parse as parseYaml} from 'yaml';
 /**
  * 凭据扫描 `--head-only` 的回归测试。
  *
@@ -127,11 +128,7 @@ describe("trace diagnostic fixture scanner contract", () => {
     const workflow = readFileSync(join(import.meta.dirname, "../../.github/workflows/harness-verify.yml"), "utf8");
     const job = workflow.split("  verify-control-plane:")[1]?.split("\n  verify-affected:")[0];
     expect(job).toBeDefined();
-    expect(job).toContain("if: github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'");
-    expect(job).toMatch(/- name: Scan tracked source for new credential patterns\n        run: pnpm run lint:oss-secret-scan\n/);
-    const step = job!.split("      - name: Scan tracked source for new credential patterns")[1]?.split("      - name:")[0];
-    expect(step).not.toContain("continue-on-error:");
-    expect(step).not.toContain("if:");
-    expect(job!.split("    steps:")[0]).not.toContain("continue-on-error:");
+    const w=parseYaml(workflow);const definition=w.jobs['verify-control-plane'];expect(definition.if).toBeUndefined();expect(w.on.pull_request.branches).toEqual(['develop']);expect(w.on.merge_group.branches).toEqual(['develop']);
+    const scanner=definition.steps.find((s:any)=>s.run?.split('\n').includes('pnpm run lint:oss-secret-scan'));expect(scanner).toBeDefined();expect(scanner.if).toBeUndefined();expect(scanner['continue-on-error']).toBeUndefined();expect(definition['continue-on-error']).toBeUndefined();
   });
 });

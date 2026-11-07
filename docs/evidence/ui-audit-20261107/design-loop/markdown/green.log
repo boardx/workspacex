@@ -1,0 +1,9 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/api
+
+ ✓ tests/design-workbench/project-lifecycle.test.ts (62 tests) 39ms
+
+ Test Files  1 passed (1)
+      Tests  62 passed (62)
+   Start at  03:28:47
+   Duration  1.82s (transform 1.08s, setup 0ms, collect 1.61s, tests 39ms, environment 0ms, prepare 47ms)

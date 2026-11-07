@@ -1,0 +1,50 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+
+ ❯ tests/ui/design-doc-markdown.test.ts (11 tests | 1 failed) 37ms
+   × exports the first user brief in goals even when a legacy summary contains only the last edit 12ms
+     → expected '# 聊天 UI/改版\n\n- 模板：UI 原型\n- 视觉：深色 · 强…' to contain '资料列表必须支持名称搜索、类型筛选、打开详情和无匹配空态'
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/design-doc-markdown.test.ts > exports the first user brief in goals even when a legacy summary contains only the last edit
+AssertionError: expected '# 聊天 UI/改版\n\n- 模板：UI 原型\n- 视觉：深色 · 强…' to contain '资料列表必须支持名称搜索、类型筛选、打开详情和无匹配空态'
+
+- Expected
++ Received
+
+- 资料列表必须支持名称搜索、类型筛选、打开详情和无匹配空态
++ # 聊天 UI/改版
++
++ - 模板：UI 原型
++ - 视觉：深色 · 强调色 无（中性灰）
++ - 设计参数：{"brand":null,"font":"sans","radius":"default","density":"default"}
++ - 设计更新时间：2026-09-06T00:00:00.000Z
++ - 负责人：我
++ - 来源反馈：fb-1
++ - 导出时间：2026-09-06 20:00
++
++ ## 问题与目标
++
++ 把按钮改为绿色
++
++ ## 验收标准
++
++ 1. 布局清晰
++
++
+
+ ❯ tests/ui/design-doc-markdown.test.ts:175:25
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 10 passed (11)
+   Start at  03:53:07
+   Duration  4.86s (transform 2.05s, setup 465ms, collect 3.10s, tests 37ms, environment 0ms, prepare 255ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/design-doc-markdown.test.ts
