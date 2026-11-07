@@ -22,7 +22,7 @@ export function auditLightweightGraph(workflows,{basePolicy,candidatePolicy=CURR
  if(CURRENT_POLICY.version!==5||!core||!probes.every(event=>admit(core,event)))throw Error('LIGHTWEIGHT_REQUIRED_WORKFLOW_MISSING');
  const required=CURRENT_POLICY.requiredChecks;
  for(const name of required){const j=core.jobs?.[name];if(!j||j.name||j['continue-on-error']||j.steps?.some(s=>s['continue-on-error'])||!probes.every(event=>possible(j.if,event)))throw Error(`LIGHTWEIGHT_REQUIRED_JOB:${name}`);}
- const queue=core.jobs['queue-ready'];if(queue.if!=='always()'||JSON.stringify(queue.needs)!==JSON.stringify(CURRENT_POLICY.aggregates['queue-ready']))throw Error('LIGHTWEIGHT_FAILURE_CONVERGENCE');
+ const queue=core.jobs['queue-ready'];if(queue.if!=="always() && (github.event_name == 'merge_group' || !cancelled())"||JSON.stringify(queue.needs)!==JSON.stringify(CURRENT_POLICY.aggregates['queue-ready']))throw Error('LIGHTWEIGHT_FAILURE_CONVERGENCE');
  const inspected=new Set();
  function inspect(file,w,event,stack=[]){
   if(stack.includes(file))throw Error('LIGHTWEIGHT_REUSABLE_CYCLE');

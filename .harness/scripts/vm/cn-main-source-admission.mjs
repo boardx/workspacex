@@ -88,7 +88,7 @@ export function validateMainSourceAdmission(source,repository,facts) {
   if(!jobs||workflow.name!=='harness-verify'||JSON.stringify(workflow.on?.pull_request?.branches)!==JSON.stringify(['develop'])||JSON.stringify(workflow.on?.merge_group?.branches)!==JSON.stringify(['develop'])||facts.sourceLightweightHelperSha256!==lightweightHelperHash())fail('MAIN_SOURCE_LIGHTWEIGHT_OBLIGATIONS');
   for(const name of required){const job=jobs[name];if(!job||job.name||job.strategy||job['continue-on-error']||!Array.isArray(job.steps)||job.steps.some(step=>step['continue-on-error'])||name!=='queue-ready'&&job.if!==undefined)fail('MAIN_SOURCE_LIGHTWEIGHT_OBLIGATIONS')}
   const queue=jobs['queue-ready'];
-  if(queue.if!=='always()'||JSON.stringify(queue.needs)!==JSON.stringify(runtimePolicy.aggregates['queue-ready'])||!queue.steps.some(step=>step.run==='node .harness/scripts/ci-lightweight.mjs queue'&&step.env?.CI_QUEUE_NEEDS==='${{ toJSON(needs) }}'))fail('MAIN_SOURCE_LIGHTWEIGHT_OBLIGATIONS');
+  if(queue.if!=="always() && (github.event_name == 'merge_group' || !cancelled())"||JSON.stringify(queue.needs)!==JSON.stringify(runtimePolicy.aggregates['queue-ready'])||!queue.steps.some(step=>step.run==='node .harness/scripts/ci-lightweight.mjs queue'&&step.env?.CI_QUEUE_NEEDS==='${{ toJSON(needs) }}'))fail('MAIN_SOURCE_LIGHTWEIGHT_OBLIGATIONS');
   const compile=jobs['verify-full-compile'].steps.map(step=>step.run).filter(Boolean);
   if(JSON.stringify(compile)!==JSON.stringify(['pnpm install --frozen-lockfile','pnpm turbo run build','pnpm turbo run typecheck lint'])||!jobs['verify-affected'].steps.some(step=>step.run==='node .harness/scripts/ci-lightweight.mjs units'))fail('MAIN_SOURCE_LIGHTWEIGHT_OBLIGATIONS');
   obligations=required;

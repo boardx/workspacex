@@ -21,7 +21,7 @@ it('inspects path-filtered PR workflows and follows reusable automatic jobs',()=
  expect(()=>auditLightweightGraph(new Map([['harness-verify.yml',core()],['other.yml',other],['full.yml',full]]))).toThrow();
 });
 it('rejects aggregate skip/failure escape hatches and runner-holding candidate observers',()=>{
- for(const change of [(w:any)=>w.jobs['queue-ready'].if='success()', (w:any)=>w.jobs['verify-affected']['continue-on-error']=true,(w:any)=>w.jobs['queue-ready'].needs.pop()]){const w=core();change(w);expect(()=>auditLightweightGraph(only(w))).toThrow();}
+ for(const change of [(w:any)=>w.jobs['queue-ready'].if='always()', (w:any)=>w.jobs['queue-ready'].if='success()', (w:any)=>w.jobs['verify-affected']['continue-on-error']=true,(w:any)=>w.jobs['queue-ready'].needs.pop()]){const w=core();change(w);expect(()=>auditLightweightGraph(only(w))).toThrow();}
  const monitor={on:{workflow_run:{workflows:['harness-verify'],types:['in_progress']}},jobs:{watch:{'timeout-minutes':180,steps:[{run:'node .harness/scripts/ci-fail-fast.mjs'}]}}};
  expect(()=>auditLightweightGraph(new Map([['harness-verify.yml',core()],['monitor.yml',monitor]]))).toThrow();
 });

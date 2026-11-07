@@ -88,7 +88,7 @@ describe('develop integration routing preserves trusted deployment boundaries', 
 
 it('converges PR and queue lightweight verdicts separately from hourly complete regression',()=>{
  const merge=workflow('harness-verify'),acceptance=workflow('harness-acceptance');expect(merge.on.pull_request.branches).toEqual(['develop']);expect(merge.on.merge_group.branches).toEqual(['develop']);
- const queue=merge.jobs['queue-ready'];expect(queue.if).toBe('always()');expect(queue.needs).toEqual(['verify-control-plane','verify-affected','verify-full-compile','merge-gate','backend-required']);expect(queue['continue-on-error']).toBeUndefined();expect(queue.steps.at(-1)).toMatchObject({run:'node .harness/scripts/ci-lightweight.mjs queue',env:{CI_QUEUE_NEEDS:'${{ toJSON(needs) }}'}});
+ const queue=merge.jobs['queue-ready'];expect(queue.if).toBe("always() && (github.event_name == 'merge_group' || !cancelled())");expect(queue.needs).toEqual(['verify-control-plane','verify-affected','verify-full-compile','merge-gate','backend-required']);expect(queue['continue-on-error']).toBeUndefined();expect(queue.steps.at(-1)).toMatchObject({run:'node .harness/scripts/ci-lightweight.mjs queue',env:{CI_QUEUE_NEEDS:'${{ toJSON(needs) }}'}});
  for(const name of ['backend-gates','harness-acceptance','board-acceptance','skill-files-e2e']){const w=workflow(name);expect(w.on.merge_group).toBeUndefined();expect(w.on.pull_request).toBeUndefined();}
  expect(acceptance.on.schedule).toEqual([{cron:'17 * * * *'}]);expect(acceptance.jobs['devportal-browser'].steps.some((step:any)=>step.name==='E2E (repeatable local gateway fixture)')).toBe(true);
  expect(Object.keys(workflow('ci-pr-queue-plan').on)).toEqual(['workflow_dispatch']);expect(acceptance.jobs['queue-ready']).toBeUndefined();

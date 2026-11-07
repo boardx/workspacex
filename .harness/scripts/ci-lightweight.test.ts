@@ -43,7 +43,7 @@ describe('routing topology',()=>{
   const required=['verify-control-plane','verify-affected','verify-full-compile','merge-gate','backend-required','queue-ready'];
   expect(Object.keys(w.jobs).sort()).toEqual(required.sort());
   expect(w.jobs['queue-ready'].needs.sort()).toEqual(required.filter(x=>x!=='queue-ready').sort());
-  expect(w.jobs['queue-ready'].if).toBe('always()');
+  expect(w.jobs['queue-ready'].if).toBe("always() && (github.event_name == 'merge_group' || !cancelled())");
   const raw=JSON.stringify(w.jobs);expect(raw).not.toMatch(/playwright|docker compose|vitest run --dir|ci-queue-ready\.mjs --compile|run-affected-tests/);
   expect(JSON.stringify(w.jobs['verify-full-compile'])).toContain('pnpm turbo run build');
   expect(JSON.stringify(w.jobs['verify-full-compile'])).toContain('pnpm turbo run typecheck lint');
