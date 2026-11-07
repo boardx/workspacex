@@ -108,3 +108,85 @@ it('reuses only the exact candidate control-plane result while compile is still 
  };
  expect((await waitForIntegration({apiFactory:()=>api,sha,since:0,mode:'merge_group',onlyControlPlane:true})).state).toBe('success');
 });
+
+function pollingFixture(readyAt=Infinity,failedAt=Infinity){
+ let now=0,calls=0,metadata=0;
+ const producer={...run,path:'.github/workflows/harness-verify.yml',head_branch:'gh-readonly-queue/develop/pr-1-abcdef0',event:'merge_group',status:'in_progress',conclusion:null,run_attempt:1};
+ const api=async(path:string)=>{
+  calls++;
+  if(path==='/actions/workflows/harness-verify.yml'){metadata++;return{id:7,path:producer.path,state:'active'};}
+  if(path.includes('/runs?'))return{total_count:1,workflow_runs:[producer]};
+  if(path.includes('/jobs?'))return{total_count:1,jobs:[{name:'verify-full-compile',run_id:20,run_attempt:1,head_sha:sha,status:now>=Math.min(readyAt,failedAt)?'completed':'in_progress',conclusion:now>=failedAt?'failure':now>=readyAt?'success':null}]};
+  return producer;
+ };
+ return {api,clock:()=>now,sleep:async(ms:number)=>{now+=ms;},calls:()=>calls,metadata:()=>metadata};
+}
+it('bounds ten55minute pending waiters under450charged calls without multiplying metadata polls',async()=>{
+ let total=0;
+ for(let i=0;i<10;i++){
+  const f=pollingFixture();await expect(waitForIntegration({apiFactory:()=>f.api,sha,since:0,mode:'merge_group',onlyCompile:true,clock:f.clock,sleep:f.sleep})).rejects.toThrow('TIMEOUT');
+  expect(f.calls()).toBeLessThanOrEqual(45);expect(f.metadata()).toBe(1);total+=f.calls();
+ }
+ expect(total).toBeLessThanOrEqual(450);
+});
+it('observes producer failure within the next bounded poll and verifies terminal source identity',async()=>{
+ const f=pollingFixture(Infinity,200000);await expect(waitForIntegration({apiFactory:()=>f.api,sha,since:0,mode:'merge_group',onlyCompile:true,clock:f.clock,sleep:f.sleep})).rejects.toThrow('REJECTED');
+ expect(f.clock()).toBeLessThanOrEqual(440000);
+ const green=pollingFixture(900000);await expect(waitForIntegration({apiFactory:()=>green.api,sha,since:0,mode:'merge_group',onlyCompile:true,clock:green.clock,sleep:green.sleep})).resolves.toMatchObject({state:'success'});expect(green.calls()).toBeLessThan(30);
+});
+it('honors explicit rate delay and deadline while never retrying generic authorization failures',async()=>{
+ let now=0,calls=0;
+ const rate=Object.assign(Error('lookup_rate_limited'),{rateLimited:true,retryAfterMs:70000,reason:'lookup_rate_limited'});
+ await expect(waitForIntegration({apiFactory:()=>async()=>{calls++;throw rate;},sha,since:0,mode:'merge_group',onlyCompile:true,clock:()=>now,sleep:async(ms:number)=>{now+=ms;},budgetMs:50000})).rejects.toThrow('TIMEOUT');expect(calls).toBe(1);expect(now).toBe(50000);
+ calls=0;now=0;await expect(waitForIntegration({apiFactory:()=>async()=>{calls++;throw Error('lookup_forbidden');},sha,since:0,mode:'merge_group',onlyCompile:true,clock:()=>now,sleep:async(ms:number)=>{now+=ms;}})).rejects.toThrow('lookup_forbidden');expect(calls).toBe(1);expect(now).toBe(0);
+});
+it('does not return a stale failed run when a newer same-SHA producer appeared during terminal discovery',async()=>{
+ let now=0,lists=0;
+ const producer={...run,path:'.github/workflows/harness-verify.yml',head_branch:'gh-readonly-queue/develop/pr-1-abcdef0',event:'merge_group',status:'in_progress',conclusion:null,run_attempt:1};
+ const api=async(path:string)=>{
+  if(path==='/actions/workflows/harness-verify.yml')return{id:7,path:producer.path,state:'active'};
+  if(path.includes('/runs?'))return{total_count:1,workflow_runs:[{...producer,id:++lists===1?20:21}]};
+  if(path.includes('/jobs?')){const id=path.includes('/20/')?20:21;return{total_count:1,jobs:[{name:'verify-full-compile',run_id:id,run_attempt:1,head_sha:sha,status:'completed',conclusion:id===20?'failure':'success'}]};}
+  return{...producer,id:21};
+ };
+ await expect(waitForIntegration({apiFactory:()=>api,sha,since:0,mode:'merge_group',onlyCompile:true,clock:()=>now,sleep:async(ms:number)=>{now+=ms;}})).resolves.toMatchObject({state:'success'});expect(now).toBe(15000);
+});
+it('cached immutable selected checks never authorize a changed run attempt',async()=>{
+ const state={};let changed=false;
+ const current={...run,status:'in_progress',conclusion:null as string|null};
+ const api=async(path:string)=>{
+  if(path==='/actions/workflows/harness-acceptance.yml')return{id:7,path:run.path,state:'active'};
+  if(path.includes('/runs?'))return{total_count:1,workflow_runs:[current]};
+  if(path.includes('/jobs?'))return{total_count:greenJobs().length,jobs:greenJobs()};
+  return{...current,run_attempt:changed?3:2};
+ };
+ expect((await inspectIntegration(api,identity,state)).state).toBe('pending');
+ current.status='completed';current.conclusion='success';changed=true;
+ await expect(inspectIntegration(api,identity,state)).rejects.toThrow('ATTEMPT_CHANGED');
+});
+it('resumes only after an explicit rate backoff and still requires exact successful proof',async()=>{
+ const f=pollingFixture(0);let first=true;
+ const apiFactory=()=>async(path:string)=>{if(first){first=false;throw Object.assign(Error('lookup_rate_limited'),{reason:'lookup_rate_limited',rateLimited:true,retryAfterMs:70000});}return f.api(path);};
+ await expect(waitForIntegration({apiFactory,sha,since:0,mode:'merge_group',onlyCompile:true,clock:f.clock,sleep:f.sleep,budgetMs:150000})).resolves.toMatchObject({state:'success'});expect(f.clock()).toBe(70000);
+});
+it('starts no further GET once the overall deadline expires inside a lookup round',async()=>{
+ let now=0,calls=0;const f=pollingFixture();
+ const api=async(path:string)=>{calls++;now+=40;return f.api(path);};
+ await expect(waitForIntegration({apiFactory:()=>api,sha,since:0,mode:'merge_group',onlyCompile:true,clock:()=>now,sleep:async(ms:number)=>{now+=ms;},budgetMs:50})).rejects.toThrow('TIMEOUT');expect(calls).toBe(2);
+});
+it.each([45,53,Infinity])('preserves terminal proof budget for three producers at minute%i',async readyMinute=>{
+ const {waitForIntegrationSpecs}=await import('./ci-devapp-integration-gate.mjs');let now=0,calls=0;
+ const specs=['one','two','three'].map((name,i)=>({workflowPath:`.github/workflows/${name}.yml`,checks:['check'],id:i+1}));
+ const apiFactory=()=>async(path:string)=>{
+  calls++;const metadata=specs.find(s=>path===`/actions/workflows/${s.workflowPath.split('/').at(-1)}`);
+  if(metadata)return{id:metadata.id,path:metadata.workflowPath,state:'active'};
+  const id=Number(path.split('/')[3]);const spec=specs.find(s=>path.includes('/workflows/')?s.id===id:s.id+20===id)!;
+  const current={id:spec.id+20,workflow_id:spec.id,path:spec.workflowPath,head_sha:sha,head_branch:'develop',event:'push',run_attempt:1,created_at:run.created_at,status:now>=readyMinute*60000?'completed':'in_progress',conclusion:now>=readyMinute*60000?'success':null};
+  if(path.includes('/runs?'))return{total_count:1,workflow_runs:[current]};
+  if(path.includes('/jobs?'))return{total_count:1,jobs:[{name:'check',run_id:current.id,run_attempt:1,head_sha:sha,status:current.status,conclusion:current.conclusion}]};
+  return current;
+ };
+ const outcome=waitForIntegrationSpecs({apiFactory,sha,since:0,event:'push',specs,clock:()=>now,sleep:async(ms:number)=>{now+=ms;}});
+ if(Number.isFinite(readyMinute)){await expect(outcome).resolves.toMatchObject({state:'success'});expect(now).toBeGreaterThanOrEqual(readyMinute*60000);expect(now).toBeLessThan(55*60000);}else{await expect(outcome).rejects.toThrow('TIMEOUT');expect(now).toBe(55*60000);}
+ expect(calls).toBeLessThanOrEqual(45);
+});
