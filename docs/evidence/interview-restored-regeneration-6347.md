@@ -1,0 +1,11 @@
+# #6347 explicit regeneration restores a clean draft
+
+Review discussion4501983515 was confirmed rather than blindly resolved. Edit a question, restore its saved value, then explicitly regenerate. Before repair, dirty.current remained true; accepted new source was stored but both synchronization paths skipped the editor, so it displayed the old question and could not confirm the new baseline.
+
+Minimal production change: after existing immutable/save-first guards accept explicit regeneration, release the baseline of the no-longer-unsaved draft. Existing accepted-snapshot/version handling updates the editor. No manual application of potentially stale API responses, automatic confirmation or execution is introduced. Actual different nonempty drafts remain blocked by save-first.
+
+Regression evidence: new behavioral component case RED1fail/51unselected against exact parent product; final complete suite52/52 PASS. New actual Next/headless Playwright case is independently RED against old product (expected新生成问题,received原始问题,original5-second bound), then final original-save-confirm and restored-edit-regeneration cases2/2 PASS, zero retries and the same5-second bound. Both cases retain generated questions as draft until explicit user confirmation; request versions and refresh do not replay execution. Scoped TypeScript for production/component/browser files exits0.
+
+Frontend evidence uses the existing f465 archive (app product identical to parent7e3; only browser test changed between those commits), overlaid candidate production/tests and installed workspace dependencies. This is controlled routed-HTTP frontend behavior, not real backend/model acceptance, a frozen whole build or full CI. Standard with-test-isolation reserved ports/resources; no user Chrome, API/model/database or compose stack started. Temporary Next/PW exited and cleanup completed. Logs and old-product trace are under /tmp/fix-6370-regeneration-review/ and remain private.
+
+Independent incremental source review accepts guards, accepted-snapshot semantics and behavioral regressions. Fresh exact-head CI and protected merge candidate validation remain required before delivery; the required review thread is resolved only after the reviewed fix is committed and the reply names its exact SHA.

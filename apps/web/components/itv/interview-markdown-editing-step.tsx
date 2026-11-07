@@ -111,21 +111,12 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
     setMarkdown(persistedMarkdown);
     dirty.current = false; callbacks.current.onDirtyChange(false); return next;
   }
-  async function generateStep(targetStep: "experts" | "outline", current?: InterviewMarkdownEnvelope, confirmGenerated = false) {
+  async function generateStep(targetStep: "experts" | "outline", current?: InterviewMarkdownEnvelope) {
     const latest = current ?? source ?? await loadInterviewMarkdown(interviewId);
-    const operation = async () => {
-      const next = await generateInterviewMarkdown(interviewId, targetStep, { expectedVersion: latest.version, expectedDocumentVersion: latest.documents.find((doc) => doc.step === targetStep)?.version ?? 0 });
-      if (!confirmGenerated) return next;
-      const questions = next.documents.find(doc => doc.step === "outline");
-      if (!questions) throw new Error("QUESTIONS_REQUIRED");
-      return confirmInterviewMarkdown(interviewId, "outline", { expectedVersion: next.version, expectedDocumentVersion: questions.version });
-    };
-    const next = receive(await (targetStep === "outline" ? runInterviewGeneration(interviewId, "outline", operation, { revisionId: latest.revisionId, version: latest.version }) : operation()));
-    if (targetStep === step) {
-      setMarkdown(next.documents.find((doc) => doc.step === targetStep)?.markdown ?? "");
-      dirty.current = false; callbacks.current.onDirtyChange(false);
-    }
-    return next;
+    const operation = () => generateInterviewMarkdown(interviewId, targetStep, { expectedVersion: latest.version, expectedDocumentVersion: latest.documents.find((doc) => doc.step === targetStep)?.version ?? 0 });
+    return receive(targetStep === "outline"
+      ? await runInterviewGeneration(interviewId, targetStep, operation, { revisionId: latest.revisionId, version: latest.version })
+      : await operation());
   }
   async function confirm() {
     const saved = await save(source ?? await loadInterviewMarkdown(interviewId));
@@ -137,13 +128,8 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
       const hasExpertQuestions = outline ? interviewMarkdown.parseInterviewMarkdown(outline).blocks.some((block) =>
         block.links.some((link) => /^#expert-[^\s#]+$/u.test(link.url))) : false;
       callbacks.current.onContinue("outline");
-      const ready = !hasExpertQuestions ? await generateStep("outline", confirmed, true) : await runInterviewGeneration(interviewId, "outline", async () => {
-        const questions = outline!;
-        const status = confirmed.states.find(item => item.documentId === questions.documentId)?.status;
-        return status === "confirmed" || status === "completed" ? confirmed : confirmInterviewMarkdown(interviewId, "outline", { expectedVersion: confirmed.version, expectedDocumentVersion: questions.version });
-      }, { revisionId: confirmed.revisionId, version: confirmed.version });
-      receive(ready);
-      callbacks.current.onContinue("runs");
+      if (!hasExpertQuestions) await generateStep("outline", confirmed);
+      // Generated questions remain a draft until the user reviews and confirms them.
       return;
     }
     callbacks.current.onContinue("runs");
@@ -206,6 +192,9 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
     onGenerate: () => {
       if (immutable) { setError("itv.editing.immutable"); return; }
       if (markdown.trim() && markdown !== saved?.markdown) { setError("itv.editing.saveFirst"); return; }
+      // Restoring an edit to the saved text leaves no unsaved draft. Release the
+      // dirty baseline so accepted generation snapshots can update this editor.
+      dirty.current = false; draftBase.current = null; callbacks.current.onDirtyChange(false);
       setGenerating(true);
       void action(async () => {
         await generateStep(step);

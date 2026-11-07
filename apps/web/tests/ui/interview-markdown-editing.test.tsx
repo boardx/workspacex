@@ -447,7 +447,7 @@ it("does not let a delayed initial read clear newly generated questions", async 
   expect(screen.getByDisplayValue("新生成问题？")).toBeVisible();
 });
 
-it("confirms generated questions and continues directly to interviewing after expert confirmation", async () => {
+it("keeps generated questions pending review after expert confirmation", async () => {
   vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:4100"); vi.stubEnv("NEXT_PUBLIC_API_PATH_PREFIX", "");
   const expert = { ...source, markdown: "## [护理专家](#expert-nurse)\n\n专业角色：护理" };
   const outline = { ...source, documentId: "auto-questions", step: "outline" as const, markdown: "## [护理专家](#expert-nurse)\n\n1. 最近一次发生了什么？" };
@@ -467,9 +467,9 @@ it("confirms generated questions and continues directly to interviewing after ex
   render(<InterviewMarkdownEditingStep interviewId="itv-direct-start" step="experts" onVersionChange={vi.fn()} onDirtyChange={vi.fn()} onContinue={continueStep} />);
   await vi.waitFor(() => expect(screen.getByRole("button", { name: "确认专家并生成问题" })).toBeEnabled());
   fireEvent.click(screen.getByRole("button", { name: "确认专家并生成问题" }));
-  await vi.waitFor(() => expect(continueStep).toHaveBeenLastCalledWith("runs"));
-  expect(continueStep.mock.calls).toEqual([["outline"], ["runs"]]);
-  expect(questionConfirmations).toEqual([{ expectedVersion: 3, expectedDocumentVersion: 1 }]);
+  await vi.waitFor(() => expect(current.version).toBe(3));
+  expect(continueStep.mock.calls).toEqual([["outline"]]);
+  expect(questionConfirmations).toEqual([]);
 });
 
 it("refreshes conflicted expert versions but requires explicit re-review before retry", async () => {
@@ -538,7 +538,7 @@ it.each(["new revision", "new saved version"])("does not replay completed questi
   fireEvent.click(screen.getByRole("button", { name: "返回访谈首页" }));
   finish(new Response(JSON.stringify(generated)));
   const { getInterviewGenerationSession } = await import("@/lib/interview-generation-session");
-  await waitFor(() => expect(versions).toHaveBeenCalledWith(4));
+  await waitFor(() => expect(versions).toHaveBeenCalledWith(3));
   expect(getInterviewGenerationSession(id)).toBeNull();
   canonical = current;
   versions.mockClear();
@@ -587,14 +587,15 @@ it.each(["initialize first", "generate first"])("delivers questions across the r
     finishGeneration(new Response(JSON.stringify(generated)));
   } else {
     finishGeneration(new Response(JSON.stringify(generated)));
-    await waitFor(() => expect(screen.getByText("访谈执行页")).toBeVisible());
+    await waitFor(() => expect(screen.getByRole("textbox", { name: "编辑问题 1" })).toHaveValue("新生成问题？"));
     finishRead(new Response(JSON.stringify(confirmed)));
   }
-  await waitFor(() => expect(screen.getByText("访谈执行页")).toBeVisible());
+  await waitFor(() => expect(screen.getByRole("textbox", { name: "编辑问题 1" })).toHaveValue("新生成问题？"));
   fireEvent.click(screen.getByRole("button", { name: "审阅问题页" }));
   await waitFor(() => expect(screen.getByRole("textbox", { name: "编辑问题 1" })).toHaveValue("新生成问题？"));
-  expect(screen.getByRole("button", { name: "确认问题并开始访谈" })).toBeDisabled();
-  expect(versions.mock.calls.at(-1)).toEqual([4]);
+  expect(screen.getByRole("button", { name: "确认问题并开始访谈" })).toBeEnabled();
+  expect(versions.mock.calls.at(-1)).toEqual([3]);
+  expect(questionsConfirmed).toBe(false);
   const { getInterviewGenerationSession } = await import("@/lib/interview-generation-session");
   expect(getInterviewGenerationSession(id)).toBeNull();
 });
@@ -713,4 +714,69 @@ it("keeps unsaved selected expert names free of avatar draft and internal ID gui
   expect(screen.queryByText("请先保存专家草稿，再修改虚拟专家头像。")).not.toBeInTheDocument();
   expect(screen.queryByText(/专家绑定稳定 ID/u)).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "修改林知远头像" })).toBeDisabled();
+});
+it("leaves generated outline unconfirmed for user review after confirming experts", async () => {
+  vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:4100"); vi.stubEnv("NEXT_PUBLIC_API_PATH_PREFIX", "");
+  const expert = { ...source, markdown: "## [张浩宇](#expert-one)\n\n专业角色：AI 专家\n" };
+  const outline = { ...source, documentId: "review-outline", step: "outline", markdown: "## [张浩宇](#expert-one)\n\n1. 请描述最近一次经历？\n" };
+  const base = { interviewId: "itv-review-draft", revisionId: "rev-review", version: 1, documents: [expert], states: [{ documentId: expert.documentId, status: "draft", failure: null }] };
+  let current: any = base;
+  const writes: string[] = [];
+  vi.stubGlobal("fetch", async (url: string, init: RequestInit = {}) => {
+    if (url.endsWith("/digital/experts")) return new Response(JSON.stringify({ items: [] }));
+    if (init.method === "POST") writes.push(url);
+    if (url.endsWith("/experts/confirm")) current = { ...base, version: 2, states: [{ ...base.states[0], status: "confirmed" }] };
+    if (url.endsWith("/outline/generate")) current = { ...current, version: 3, documents: [expert, outline], states: [...current.states, { documentId: outline.documentId, status: "draft", failure: null }] };
+    return new Response(JSON.stringify(current));
+  });
+  const next = vi.fn();
+  render(<InterviewMarkdownEditingStep interviewId={base.interviewId} step="experts" onVersionChange={vi.fn()} onDirtyChange={vi.fn()} onContinue={next} />);
+  await vi.waitFor(() => expect(screen.getByRole("button", { name: "确认专家并生成问题" })).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", { name: "确认专家并生成问题" }));
+  await vi.waitFor(() => expect(writes.some(url => url.endsWith('/outline/generate'))).toBe(true));
+  await vi.waitFor(() => expect(screen.getByRole("button", { name: "确认专家并生成问题" })).not.toHaveAttribute('aria-busy', 'true'));
+  expect(writes.some(url => url.endsWith('/outline/confirm'))).toBe(false);
+  expect(next).not.toHaveBeenCalledWith('runs');
+  expect(next).toHaveBeenLastCalledWith('outline');
+});
+
+
+it("synchronizes explicitly regenerated questions after an edit is restored, then confirms the new version", async () => {
+  vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:4100"); vi.stubEnv("NEXT_PUBLIC_API_PATH_PREFIX", "");
+  const outline = { ...source, documentId: "restored-outline", step: "outline" as const,
+    markdown: "## [模拟专家](#expert-restored)\n\n1. 原始问题？\n" };
+  let current = { interviewId: "itv-restored-generation-review", revisionId: "rev-restored", version: 2,
+    documents: [outline], states: [{ documentId: outline.documentId, status: "draft", failure: null }] };
+  const posts: string[] = [], dirty = vi.fn(), next = vi.fn();
+  vi.stubGlobal("fetch", async (url: string, init: RequestInit = {}) => {
+    if (url.endsWith("/digital/experts")) return new Response(JSON.stringify({ items: [] }));
+    if (init.method === "POST") {
+      posts.push(url);
+      if (url.endsWith("/outline/generate")) {
+        expect(JSON.parse(String(init.body))).toEqual({ expectedVersion: 2, expectedDocumentVersion: 1 });
+        current = { ...current, version: 3, documents: [{ ...outline, version: 2,
+          markdown: "## [模拟专家](#expert-restored)\n\n1. 新生成问题？\n" }] };
+      } else if (url.endsWith("/outline/confirm")) {
+        expect(JSON.parse(String(init.body))).toEqual({ expectedVersion: 3, expectedDocumentVersion: 2 });
+        current = { ...current, version: 4, states: current.states.map(state => ({ ...state, status: "confirmed" })) };
+      } else throw new Error(`Unexpected write: ${url}`);
+    }
+    return new Response(JSON.stringify(current));
+  });
+  render(<InterviewMarkdownEditingStep interviewId={current.interviewId} step="outline" onVersionChange={vi.fn()} onDirtyChange={dirty} onContinue={next} />);
+  const input = await screen.findByRole("textbox", { name: "编辑问题 1" });
+  await waitFor(() => expect(input).toHaveValue("原始问题？"));
+  fireEvent.change(input, { target: { value: "临时修改？" } });
+  fireEvent.change(input, { target: { value: "原始问题？" } });
+  expect(dirty).toHaveBeenLastCalledWith(true);
+  fireEvent.click(screen.getByRole("button", { name: "生成访谈问题" }));
+  await waitFor(() => expect(screen.getByRole("textbox", { name: "编辑问题 1" })).toHaveValue("新生成问题？"));
+  expect(dirty).toHaveBeenLastCalledWith(false);
+  expect(posts.map(url => url.split("/markdown/")[1])).toEqual(["outline/generate"]);
+  expect(current.states[0]?.status).toBe("draft"); expect(next).not.toHaveBeenCalled();
+  expect(screen.queryByText(/已在其他位置更新|操作未完成/)).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "确认问题并开始访谈" }));
+  await waitFor(() => expect(next).toHaveBeenCalledWith("runs"));
+  expect(next).toHaveBeenCalledTimes(1);
+  expect(posts.map(url => url.split("/markdown/")[1])).toEqual(["outline/generate", "outline/confirm"]);
 });

@@ -1,0 +1,15 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+
+ ✓ tests/ui/interview-markdown-editing.test.tsx (51 tests) 5262ms
+   ✓ persisted add refreshes the source and enables avatar editing without confirming experts 314ms
+   ✓ refreshes conflicted expert versions but requires explicit re-review before retry 512ms
+   ✓ preserves dirty expert selection when virtual persistence conflicts with a newer source 355ms
+   ✓ blocks expert dialog saves opened after a dirty selection receives remote changes 372ms
+ ✓ tests/ui/research-new-project-context.test.tsx (1 test) 28ms
+
+ Test Files  2 passed (2)
+      Tests  52 passed (52)
+   Start at  03:34:20
+   Duration  10.04s (transform 1.57s, setup 257ms, collect 2.51s, tests 5.29s, environment 1.31s, prepare 99ms)
