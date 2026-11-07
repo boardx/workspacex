@@ -241,7 +241,7 @@ export function GuidedResearchFlow({
       ) : (
         <>
           {entryPending && <p role="status">{t("research.intake.analyzing")}</p>}
-          {restoredStep === "home" && <ResearchHome onNavigate={navigate} />}
+          {restoredStep === "home" && <ResearchHome onNavigate={navigate} projectId={projectId} />}
           {restoredStep === "brief" && <BriefScreen onPending={setEntryPending} projectId={projectId} sessionId={activeSessionId} session={sessionSnapshot} workflow={workflowSnapshot} onSession={setSessionSnapshot} onWorkflow={setWorkflowSnapshot} onNavigate={navigate} />}
           {restoredStep === "directions" && <DirectionsScreen sessionId={activeSessionId} session={sessionSnapshot} workflow={workflowSnapshot} onSession={setSessionSnapshot} onWorkflow={setWorkflowSnapshot} onNavigate={navigate} />}
           {restoredStep === "outline" && <OutlineScreen sessionId={activeSessionId} session={sessionSnapshot} workflow={workflowSnapshot} onSession={setSessionSnapshot} onWorkflow={setWorkflowSnapshot} onNavigate={navigate} />}
@@ -316,8 +316,9 @@ function PageHeading({ eyebrow, title, description, action }: { eyebrow: string;
   );
 }
 
-function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, sessionId?: string) => void }) {
+function ResearchHome({ onNavigate, projectId = null }: { onNavigate: (step: GuidedResearchStep, sessionId?: string) => void; projectId?: string | null }) {
   const { t, locale } = useI18n();
+  const createHref = withProjectId("/research/new", projectId);
   const [history, setHistory] = React.useState<GuidedResearchSession[] | null>(null);
   const [loadFailed, setLoadFailed] = React.useState(false);
   const startResearch = () => {
@@ -351,7 +352,7 @@ function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, s
         <div className="flex items-baseline gap-2"><h1 className="text-30 font-semibold tracking-tight">{t("research.home.title")}</h1>{history && <span className="text-sm text-muted-foreground">{t("research.home.count", { count: history.length })}</span>}</div>
 
       </div>
-<div className="flex gap-3"><label className="relative flex-1 md:w-96"><span className="sr-only">{t("research.home.search")}</span><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden /><Input data-testid="research-history-search" maxLength={100} value={query} onChange={event => setQuery(event.target.value)} placeholder={searchPlaceholder(t("research.business"), locale)} className="h-9 pl-9 text-14" /></label><WorkflowActionButton type="button" variant="primary" data-testid="research-create" asChild><a href="/research/new" onClick={startResearch}><Plus className="size-5" aria-hidden />{t("research.home.create")}</a></WorkflowActionButton></div>
+<div className="flex gap-3"><label className="relative flex-1 md:w-96"><span className="sr-only">{t("research.home.search")}</span><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden /><Input data-testid="research-history-search" maxLength={100} value={query} onChange={event => setQuery(event.target.value)} placeholder={searchPlaceholder(t("research.business"), locale)} className="h-9 pl-9 text-14" /></label><WorkflowActionButton type="button" variant="primary" data-testid="research-create" asChild><a href={createHref} onClick={startResearch}><Plus className="size-5" aria-hidden />{t("research.home.create")}</a></WorkflowActionButton></div>
     </header>
     <div className="flex flex-wrap items-center gap-3"><TagFilterBar tags={tags.map(tag => ({ tag }))} selected={selectedTags} onChange={setSelectedTags} prefix="research-history" business={t("research.business")} /><Button variant="ghost" className="ml-auto" data-testid="research-history-sort" aria-label={t("research.home.sort", { sort: t(sort === "recent" ? "research.home.recent" : "research.home.oldest") })} onClick={() => setSort(sort === "recent" ? "oldest" : "recent")}>{t(sort === "recent" ? "research.home.recent" : "research.home.oldest")}</Button></div>
     {history && history.length > 0 && <details><summary className="cursor-pointer text-sm text-muted-foreground">{t("research.home.statusFilter")}</summary><div className="mt-3"><GuidedResearchHomeSummary sessions={history} selectedFilter={statusFilter} onFilterChange={setStatusFilter} /></div></details>}
@@ -359,7 +360,7 @@ function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, s
     <section className="space-y-3" data-testid="research-history" aria-label={t("research.home.history")}>
       {history === null && !loadFailed && <div data-testid="research-history-loading" className="grid animate-pulse gap-5 md:grid-cols-2 xl:grid-cols-3">{[1,2,3,4].map(key => <div key={key} className="h-64 rounded-lg bg-muted" />)}</div>}
       {loadFailed && <div role="alert" data-testid="research-history-error" className="rounded-lg border border-destructive p-6 text-12 text-destructive">{t("research.home.loadFailed")}<Button variant="outline" className="ml-3" onClick={() => setRevision(value => value + 1)}>{t("ui.retry")}</Button></div>}
-      {history && visible.length === 0 && !loadFailed && <div data-testid="research-history-empty" className="flex min-h-64 flex-col items-center justify-center gap-4 rounded-lg border border-dashed p-6 text-center text-12 text-muted-foreground"><p>{t(history.length ? statusFilter ? "research.home.noStatusMatches" : "research.home.noMatches" : "research.home.empty")}</p>{statusFilter || selectedTags.length > 0 || query.trim() ? <Button variant="outline" onClick={() => { setStatusFilter(undefined); setSelectedTags([]); setQuery(""); }}>{t(statusFilter ? "research.home.clearStatus" : "research.home.clearFilters")}</Button> : <Button variant="primary" asChild><a href="/research/new" onClick={startResearch}>{t("research.home.create")}</a></Button>}</div>}
+      {history && visible.length === 0 && !loadFailed && <div data-testid="research-history-empty" className="flex min-h-64 flex-col items-center justify-center gap-4 rounded-lg border border-dashed p-6 text-center text-12 text-muted-foreground"><p>{t(history.length ? statusFilter ? "research.home.noStatusMatches" : "research.home.noMatches" : "research.home.empty")}</p>{statusFilter || selectedTags.length > 0 || query.trim() ? <Button variant="outline" onClick={() => { setStatusFilter(undefined); setSelectedTags([]); setQuery(""); }}>{t(statusFilter ? "research.home.clearStatus" : "research.home.clearFilters")}</Button> : <Button variant="primary" asChild><a href={createHref} onClick={startResearch}>{t("research.home.create")}</a></Button>}</div>}
       {!loadFailed && visible.length > 0 && <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">{visible.map(item => { const presentation = guidedResearchHomePresentation(item, locale); return <ResearchHistoryCard key={item.sessionId} testId={`research-history-${item.sessionId}`} title={item.title}
         status={<Badge tone={presentation.statusTone}>{presentation.statusLabel}</Badge>}
         description={item.brief.goal} tags={item.tags}
@@ -369,7 +370,7 @@ function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, s
           onSave={async draft => { await updateGuidedResearchMetadata(item.sessionId, { title: draft.name, tags: [...draft.tags] }); setNotice("updated"); setRevision(value => value + 1); }}
           onDelete={async () => { await deleteGuidedResearchSession(item.sessionId); setHistory(current => current?.filter(row => row.sessionId !== item.sessionId) ?? null); setNotice("removed"); }} />}>
         <GuidedResearchCardProgress session={item} />
-      </ResearchHistoryCard>; })}<Button asChild variant="outline" className="h-auto min-h-36 flex-col gap-2 border-dashed p-4"><a href="/research/new" data-testid="research-create-card" onClick={startResearch}><Plus className="size-6" aria-hidden /><span>{t("research.home.create")}</span></a></Button></div>}
+      </ResearchHistoryCard>; })}<Button asChild variant="outline" className="h-auto min-h-36 flex-col gap-2 border-dashed p-4"><a href={createHref} data-testid="research-create-card" onClick={startResearch}><Plus className="size-6" aria-hidden /><span>{t("research.home.create")}</span></a></Button></div>}
     </section>
   </section>;
 }
