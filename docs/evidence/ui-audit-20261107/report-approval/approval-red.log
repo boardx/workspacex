@@ -1,0 +1,494 @@
+FFF                                                                      [100%]
+=================================== FAILURES ===================================
+_ test_report_call_waits_for_existing_approval_then_rechecks_exact_call[approve] _
+
+decision = 'approve'
+
+    @pytest.mark.parametrize('decision', ['approve', 'reject', 'edit'])
+    def test_report_call_waits_for_existing_approval_then_rechecks_exact_call(decision):
+        async def scenario():
+            calls=[]
+            @tool('report_render_probe')
+            def render_probe(value: str) -> str:
+                """Render a saved report in a controlled test."""
+                calls.append(value); return 'rendered'
+            class Authority:
+                approved=False
+                checked=[]
+                def check(self, call):
+                    self.checked.append(call.copy())
+                    if not self.approved:
+                        # The same validated denial shape returned by the production API.
+                        return auth.HttpNativeToolAuthority._validate(__import__('httpx').Response(200,json={'allowed':False,'reason':'approval_required'}))
+                    assert call['id']=='render-1'
+                    assert call['args']=={'value': 'edited' if decision=='edit' else 'frozen'}
+                    return {'allowed':True}
+                async def acheck(self,call): return self.check(call)
+            authority=Authority()
+            graph=create_native_graph(model(AIMessage(content='',tool_calls=[{'id':'render-1','name':'report_render_probe','args':{'value':'frozen'}}]),AIMessage(content='done')),
+                sandbox=sandbox(),pinned_skills=[],tool_authority=authority,interrupt_on={},tools=[render_probe],checkpointer=InMemorySaver())
+            config={'configurable':{'thread_id':f'approval-{decision}','disable_task_auto_classify':True}}
+            result=await graph.ainvoke({'messages':[{'role':'user','content':'export saved report'}]},config)
+            assert calls==[]
+            assert result.get('__interrupt__')
+            authority.approved=decision!='reject'
+            response={'type':decision}
+            if decision=='edit': response['edited_action']={'name':'report_render_probe','args':{'value':'edited'}}
+            result=await graph.ainvoke(Command(resume={'decisions':[response]}),config)
+            assert calls==([] if decision=='reject' else ['edited' if decision=='edit' else 'frozen'])
+            assert result['messages'][-1].content=='done'
+            assert len(authority.checked)==(1 if decision=='reject' else 2)
+>       asyncio.run(scenario())
+
+/tmp/report-authority-6362.AxezPF/deep/tests/test_native_report_approval.py:45:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+../../../../.local/share/uv/python/cpython-3.13.7-macos-aarch64-none/lib/python3.13/asyncio/runners.py:195: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+../../../../.local/share/uv/python/cpython-3.13.7-macos-aarch64-none/lib/python3.13/asyncio/runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../.local/share/uv/python/cpython-3.13.7-macos-aarch64-none/lib/python3.13/asyncio/base_events.py:725: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/tests/test_native_report_approval.py:35: in scenario
+    result=await graph.ainvoke({'messages':[{'role':'user','content':'export saved report'}]},config)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langgraph/pregel/main.py:4090: in ainvoke
+    async for chunk in self.astream(
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langgraph/pregel/main.py:3440: in astream
+    async for _ in runner.atick(
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langgraph/pregel/_runner.py:396: in atick
+    await arun_with_retry(
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langgraph/pregel/_retry.py:744: in arun_with_retry
+    return await task.proc.ainvoke(task.input, config)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langgraph/_internal/_runnable.py:756: in ainvoke
+    input = await asyncio.create_task(
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langgraph/_internal/_runnable.py:522: in ainvoke
+    ret = await self.afunc(*args, **kwargs)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langgraph/prebuilt/tool_node.py:858: in _afunc
+    outputs = await asyncio.gather(*coros)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langgraph/prebuilt/tool_node.py:1216: in _arun_one
+    content = _handle_tool_error(e, flag=self._handle_tool_errors)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langgraph/prebuilt/tool_node.py:434: in _handle_tool_error
+    content = flag(e)  # type: ignore [assignment, call-arg]
+              ^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langgraph/prebuilt/tool_node.py:391: in _default_handle_tool_errors
+    raise e
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langgraph/prebuilt/tool_node.py:1207: in _arun_one
+    return await self._awrap_tool_call(tool_request, execute)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langchain/agents/factory.py:754: in composed
+    return await outer(request, call_inner)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/deepagents/middleware/filesystem.py:3489: in awrap_tool_call
+    tool_result = await handler(request)
+                  ^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langchain/agents/factory.py:751: in call_inner
+    return await inner(req, execute)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langchain/agents/factory.py:754: in composed
+    return await outer(request, call_inner)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/private/tmp/report-authority-6362.AxezPF/deep/src/deep_agent_service/native_graph.py:347: in awrap_tool_call
+    return await handler(request)
+           ^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langchain/agents/factory.py:751: in call_inner
+    return await inner(req, execute)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langchain/agents/factory.py:754: in composed
+    return await outer(request, call_inner)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/private/tmp/report-authority-6362.AxezPF/deep/src/deep_agent_service/native_skill_activity.py:122: in awrap_tool_call
+    return await handler(request)
+           ^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langchain/agents/factory.py:751: in call_inner
+    return await inner(req, execute)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langchain/agents/factory.py:754: in composed
+    return await outer(request, call_inner)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langchain/agents/middleware/tool_retry.py:380: in awrap_tool_call
+    return await handler(request)
+           ^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langchain/agents/factory.py:751: in call_inner
+    return await inner(req, execute)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langchain/agents/factory.py:754: in composed
+    return await outer(request, call_inner)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/private/tmp/report-authority-6362.AxezPF/deep/src/deep_agent_service/native_sandbox_dispatch.py:132: in awrap_tool_call
+    return await asyncio.shield(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+/private/tmp/report-authority-6362.AxezPF/deep/src/deep_agent_service/native_sandbox_dispatch.py:126: in dispatch
+    result = await handler(request)
+             ^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langchain/agents/factory.py:751: in call_inner
+    return await inner(req, execute)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langchain/agents/factory.py:754: in composed
+    return await outer(request, call_inner)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/private/tmp/report-authority-6362.AxezPF/deep/src/deep_agent_service/native_tool_authority.py:113: in awrap_tool_call
+    decision=await self._authority.acheck(request.tool_call)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/tests/test_native_report_approval.py:30: in acheck
+    async def acheck(self,call): return self.check(call)
+                                        ^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/tests/test_native_report_approval.py:26: in check
+    return auth.HttpNativeToolAuthority._validate(__import__('httpx').Response(200,json={'allowed':False,'reason':'approval_required'}))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+response = <Response [200 OK]>
+
+    @staticmethod
+    def _validate(response):
+        try:
+            if response.status_code != 200: raise ValueError()
+            body=response.json(); _OUTPUT.validate(body)
+            if body['allowed'] is not True:
+                if body.get('reason')=='report_output_published' and body.get('reportFile',{}).get('published') is True:
+                    raise ReportOutputPublished('Report output is already staged; no further mutation was executed')
+>               raise ToolAuthorityError(f"Tool execution denied: {body['reason']}")
+E               deep_agent_service.native_tool_authority.ToolAuthorityError: Tool execution denied: approval_required
+E               During task with name 'tools' and id '22bb4f1a-a41c-9090-3716-a8791361d4b1'
+
+/private/tmp/report-authority-6362.AxezPF/deep/src/deep_agent_service/native_tool_authority.py:60: ToolAuthorityError
+_ test_report_call_waits_for_existing_approval_then_rechecks_exact_call[reject] _
+
+decision = 'reject'
+
+    @pytest.mark.parametrize('decision', ['approve', 'reject', 'edit'])
+    def test_report_call_waits_for_existing_approval_then_rechecks_exact_call(decision):
+        async def scenario():
+            calls=[]
+            @tool('report_render_probe')
+            def render_probe(value: str) -> str:
+                """Render a saved report in a controlled test."""
+                calls.append(value); return 'rendered'
+            class Authority:
+                approved=False
+                checked=[]
+                def check(self, call):
+                    self.checked.append(call.copy())
+                    if not self.approved:
+                        # The same validated denial shape returned by the production API.
+                        return auth.HttpNativeToolAuthority._validate(__import__('httpx').Response(200,json={'allowed':False,'reason':'approval_required'}))
+                    assert call['id']=='render-1'
+                    assert call['args']=={'value': 'edited' if decision=='edit' else 'frozen'}
+                    return {'allowed':True}
+                async def acheck(self,call): return self.check(call)
+            authority=Authority()
+            graph=create_native_graph(model(AIMessage(content='',tool_calls=[{'id':'render-1','name':'report_render_probe','args':{'value':'frozen'}}]),AIMessage(content='done')),
+                sandbox=sandbox(),pinned_skills=[],tool_authority=authority,interrupt_on={},tools=[render_probe],checkpointer=InMemorySaver())
+            config={'configurable':{'thread_id':f'approval-{decision}','disable_task_auto_classify':True}}
+            result=await graph.ainvoke({'messages':[{'role':'user','content':'export saved report'}]},config)
+            assert calls==[]
+            assert result.get('__interrupt__')
+            authority.approved=decision!='reject'
+            response={'type':decision}
+            if decision=='edit': response['edited_action']={'name':'report_render_probe','args':{'value':'edited'}}
+            result=await graph.ainvoke(Command(resume={'decisions':[response]}),config)
+            assert calls==([] if decision=='reject' else ['edited' if decision=='edit' else 'frozen'])
+            assert result['messages'][-1].content=='done'
+            assert len(authority.checked)==(1 if decision=='reject' else 2)
+>       asyncio.run(scenario())
+
+/tmp/report-authority-6362.AxezPF/deep/tests/test_native_report_approval.py:45:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+../../../../.local/share/uv/python/cpython-3.13.7-macos-aarch64-none/lib/python3.13/asyncio/runners.py:195: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+../../../../.local/share/uv/python/cpython-3.13.7-macos-aarch64-none/lib/python3.13/asyncio/runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../.local/share/uv/python/cpython-3.13.7-macos-aarch64-none/lib/python3.13/asyncio/base_events.py:725: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/tests/test_native_report_approval.py:35: in scenario
+    result=await graph.ainvoke({'messages':[{'role':'user','content':'export saved report'}]},config)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langgraph/pregel/main.py:4090: in ainvoke
+    async for chunk in self.astream(
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langgraph/pregel/main.py:3440: in astream
+    async for _ in runner.atick(
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langgraph/pregel/_runner.py:396: in atick
+    await arun_with_retry(
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langgraph/pregel/_retry.py:744: in arun_with_retry
+    return await task.proc.ainvoke(task.input, config)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langgraph/_internal/_runnable.py:756: in ainvoke
+    input = await asyncio.create_task(
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langgraph/_internal/_runnable.py:522: in ainvoke
+    ret = await self.afunc(*args, **kwargs)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langgraph/prebuilt/tool_node.py:858: in _afunc
+    outputs = await asyncio.gather(*coros)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langgraph/prebuilt/tool_node.py:1216: in _arun_one
+    content = _handle_tool_error(e, flag=self._handle_tool_errors)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langgraph/prebuilt/tool_node.py:434: in _handle_tool_error
+    content = flag(e)  # type: ignore [assignment, call-arg]
+              ^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langgraph/prebuilt/tool_node.py:391: in _default_handle_tool_errors
+    raise e
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langgraph/prebuilt/tool_node.py:1207: in _arun_one
+    return await self._awrap_tool_call(tool_request, execute)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langchain/agents/factory.py:754: in composed
+    return await outer(request, call_inner)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/deepagents/middleware/filesystem.py:3489: in awrap_tool_call
+    tool_result = await handler(request)
+                  ^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langchain/agents/factory.py:751: in call_inner
+    return await inner(req, execute)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langchain/agents/factory.py:754: in composed
+    return await outer(request, call_inner)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/private/tmp/report-authority-6362.AxezPF/deep/src/deep_agent_service/native_graph.py:347: in awrap_tool_call
+    return await handler(request)
+           ^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langchain/agents/factory.py:751: in call_inner
+    return await inner(req, execute)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langchain/agents/factory.py:754: in composed
+    return await outer(request, call_inner)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/private/tmp/report-authority-6362.AxezPF/deep/src/deep_agent_service/native_skill_activity.py:122: in awrap_tool_call
+    return await handler(request)
+           ^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langchain/agents/factory.py:751: in call_inner
+    return await inner(req, execute)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langchain/agents/factory.py:754: in composed
+    return await outer(request, call_inner)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langchain/agents/middleware/tool_retry.py:380: in awrap_tool_call
+    return await handler(request)
+           ^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langchain/agents/factory.py:751: in call_inner
+    return await inner(req, execute)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langchain/agents/factory.py:754: in composed
+    return await outer(request, call_inner)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/private/tmp/report-authority-6362.AxezPF/deep/src/deep_agent_service/native_sandbox_dispatch.py:132: in awrap_tool_call
+    return await asyncio.shield(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+/private/tmp/report-authority-6362.AxezPF/deep/src/deep_agent_service/native_sandbox_dispatch.py:126: in dispatch
+    result = await handler(request)
+             ^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langchain/agents/factory.py:751: in call_inner
+    return await inner(req, execute)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langchain/agents/factory.py:754: in composed
+    return await outer(request, call_inner)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/private/tmp/report-authority-6362.AxezPF/deep/src/deep_agent_service/native_tool_authority.py:113: in awrap_tool_call
+    decision=await self._authority.acheck(request.tool_call)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/tests/test_native_report_approval.py:30: in acheck
+    async def acheck(self,call): return self.check(call)
+                                        ^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/tests/test_native_report_approval.py:26: in check
+    return auth.HttpNativeToolAuthority._validate(__import__('httpx').Response(200,json={'allowed':False,'reason':'approval_required'}))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+response = <Response [200 OK]>
+
+    @staticmethod
+    def _validate(response):
+        try:
+            if response.status_code != 200: raise ValueError()
+            body=response.json(); _OUTPUT.validate(body)
+            if body['allowed'] is not True:
+                if body.get('reason')=='report_output_published' and body.get('reportFile',{}).get('published') is True:
+                    raise ReportOutputPublished('Report output is already staged; no further mutation was executed')
+>               raise ToolAuthorityError(f"Tool execution denied: {body['reason']}")
+E               deep_agent_service.native_tool_authority.ToolAuthorityError: Tool execution denied: approval_required
+E               During task with name 'tools' and id '586d092d-e719-bc66-304b-370cc913e9c4'
+
+/private/tmp/report-authority-6362.AxezPF/deep/src/deep_agent_service/native_tool_authority.py:60: ToolAuthorityError
+_ test_report_call_waits_for_existing_approval_then_rechecks_exact_call[edit] __
+
+decision = 'edit'
+
+    @pytest.mark.parametrize('decision', ['approve', 'reject', 'edit'])
+    def test_report_call_waits_for_existing_approval_then_rechecks_exact_call(decision):
+        async def scenario():
+            calls=[]
+            @tool('report_render_probe')
+            def render_probe(value: str) -> str:
+                """Render a saved report in a controlled test."""
+                calls.append(value); return 'rendered'
+            class Authority:
+                approved=False
+                checked=[]
+                def check(self, call):
+                    self.checked.append(call.copy())
+                    if not self.approved:
+                        # The same validated denial shape returned by the production API.
+                        return auth.HttpNativeToolAuthority._validate(__import__('httpx').Response(200,json={'allowed':False,'reason':'approval_required'}))
+                    assert call['id']=='render-1'
+                    assert call['args']=={'value': 'edited' if decision=='edit' else 'frozen'}
+                    return {'allowed':True}
+                async def acheck(self,call): return self.check(call)
+            authority=Authority()
+            graph=create_native_graph(model(AIMessage(content='',tool_calls=[{'id':'render-1','name':'report_render_probe','args':{'value':'frozen'}}]),AIMessage(content='done')),
+                sandbox=sandbox(),pinned_skills=[],tool_authority=authority,interrupt_on={},tools=[render_probe],checkpointer=InMemorySaver())
+            config={'configurable':{'thread_id':f'approval-{decision}','disable_task_auto_classify':True}}
+            result=await graph.ainvoke({'messages':[{'role':'user','content':'export saved report'}]},config)
+            assert calls==[]
+            assert result.get('__interrupt__')
+            authority.approved=decision!='reject'
+            response={'type':decision}
+            if decision=='edit': response['edited_action']={'name':'report_render_probe','args':{'value':'edited'}}
+            result=await graph.ainvoke(Command(resume={'decisions':[response]}),config)
+            assert calls==([] if decision=='reject' else ['edited' if decision=='edit' else 'frozen'])
+            assert result['messages'][-1].content=='done'
+            assert len(authority.checked)==(1 if decision=='reject' else 2)
+>       asyncio.run(scenario())
+
+/tmp/report-authority-6362.AxezPF/deep/tests/test_native_report_approval.py:45:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+../../../../.local/share/uv/python/cpython-3.13.7-macos-aarch64-none/lib/python3.13/asyncio/runners.py:195: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+../../../../.local/share/uv/python/cpython-3.13.7-macos-aarch64-none/lib/python3.13/asyncio/runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../.local/share/uv/python/cpython-3.13.7-macos-aarch64-none/lib/python3.13/asyncio/base_events.py:725: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/tests/test_native_report_approval.py:35: in scenario
+    result=await graph.ainvoke({'messages':[{'role':'user','content':'export saved report'}]},config)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langgraph/pregel/main.py:4090: in ainvoke
+    async for chunk in self.astream(
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langgraph/pregel/main.py:3440: in astream
+    async for _ in runner.atick(
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langgraph/pregel/_runner.py:396: in atick
+    await arun_with_retry(
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langgraph/pregel/_retry.py:744: in arun_with_retry
+    return await task.proc.ainvoke(task.input, config)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langgraph/_internal/_runnable.py:756: in ainvoke
+    input = await asyncio.create_task(
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langgraph/_internal/_runnable.py:522: in ainvoke
+    ret = await self.afunc(*args, **kwargs)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langgraph/prebuilt/tool_node.py:858: in _afunc
+    outputs = await asyncio.gather(*coros)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langgraph/prebuilt/tool_node.py:1216: in _arun_one
+    content = _handle_tool_error(e, flag=self._handle_tool_errors)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langgraph/prebuilt/tool_node.py:434: in _handle_tool_error
+    content = flag(e)  # type: ignore [assignment, call-arg]
+              ^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langgraph/prebuilt/tool_node.py:391: in _default_handle_tool_errors
+    raise e
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langgraph/prebuilt/tool_node.py:1207: in _arun_one
+    return await self._awrap_tool_call(tool_request, execute)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langchain/agents/factory.py:754: in composed
+    return await outer(request, call_inner)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/deepagents/middleware/filesystem.py:3489: in awrap_tool_call
+    tool_result = await handler(request)
+                  ^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langchain/agents/factory.py:751: in call_inner
+    return await inner(req, execute)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langchain/agents/factory.py:754: in composed
+    return await outer(request, call_inner)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/private/tmp/report-authority-6362.AxezPF/deep/src/deep_agent_service/native_graph.py:347: in awrap_tool_call
+    return await handler(request)
+           ^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langchain/agents/factory.py:751: in call_inner
+    return await inner(req, execute)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langchain/agents/factory.py:754: in composed
+    return await outer(request, call_inner)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/private/tmp/report-authority-6362.AxezPF/deep/src/deep_agent_service/native_skill_activity.py:122: in awrap_tool_call
+    return await handler(request)
+           ^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langchain/agents/factory.py:751: in call_inner
+    return await inner(req, execute)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langchain/agents/factory.py:754: in composed
+    return await outer(request, call_inner)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langchain/agents/middleware/tool_retry.py:380: in awrap_tool_call
+    return await handler(request)
+           ^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langchain/agents/factory.py:751: in call_inner
+    return await inner(req, execute)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langchain/agents/factory.py:754: in composed
+    return await outer(request, call_inner)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/private/tmp/report-authority-6362.AxezPF/deep/src/deep_agent_service/native_sandbox_dispatch.py:132: in awrap_tool_call
+    return await asyncio.shield(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+/private/tmp/report-authority-6362.AxezPF/deep/src/deep_agent_service/native_sandbox_dispatch.py:126: in dispatch
+    result = await handler(request)
+             ^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langchain/agents/factory.py:751: in call_inner
+    return await inner(req, execute)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/langchain/agents/factory.py:754: in composed
+    return await outer(request, call_inner)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/private/tmp/report-authority-6362.AxezPF/deep/src/deep_agent_service/native_tool_authority.py:113: in awrap_tool_call
+    decision=await self._authority.acheck(request.tool_call)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/tests/test_native_report_approval.py:30: in acheck
+    async def acheck(self,call): return self.check(call)
+                                        ^^^^^^^^^^^^^^^^
+/tmp/report-authority-6362.AxezPF/deep/tests/test_native_report_approval.py:26: in check
+    return auth.HttpNativeToolAuthority._validate(__import__('httpx').Response(200,json={'allowed':False,'reason':'approval_required'}))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+response = <Response [200 OK]>
+
+    @staticmethod
+    def _validate(response):
+        try:
+            if response.status_code != 200: raise ValueError()
+            body=response.json(); _OUTPUT.validate(body)
+            if body['allowed'] is not True:
+                if body.get('reason')=='report_output_published' and body.get('reportFile',{}).get('published') is True:
+                    raise ReportOutputPublished('Report output is already staged; no further mutation was executed')
+>               raise ToolAuthorityError(f"Tool execution denied: {body['reason']}")
+E               deep_agent_service.native_tool_authority.ToolAuthorityError: Tool execution denied: approval_required
+E               During task with name 'tools' and id 'afeeecd9-ce34-3e66-a23b-5bbf8e88e4d9'
+
+/private/tmp/report-authority-6362.AxezPF/deep/src/deep_agent_service/native_tool_authority.py:60: ToolAuthorityError
+=============================== warnings summary ===============================
+tests/test_native_report_approval.py::test_report_call_waits_for_existing_approval_then_rechecks_exact_call[approve]
+  /tmp/report-authority-6362.AxezPF/deep/.venv/lib/python3.13/site-packages/trustcall/_base.py:46: LangGraphDeprecatedSinceV10: Importing Send from langgraph.constants is deprecated. Please use 'from langgraph.types import Send' instead. Deprecated in LangGraph V1.0 to be removed in V2.0.
+    from langgraph.constants import Send
+
+tests/test_native_report_approval.py::test_report_call_waits_for_existing_approval_then_rechecks_exact_call[approve]
+  /private/tmp/report-authority-6362.AxezPF/deep/src/deep_agent_service/standard_sql_database.py:9: DeprecationWarning: `langchain-community` is being sunset and is no longer actively maintained. See https://github.com/langchain-ai/langchain-community/issues/674 for details and migration guidance toward standalone integration packages.
+    from langchain_community.agent_toolkits.sql.toolkit import SQLDatabaseToolkit
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED ../../../../../../tmp/report-authority-6362.AxezPF/deep/tests/test_native_report_approval.py::test_report_call_waits_for_existing_approval_then_rechecks_exact_call[approve]
+FAILED ../../../../../../tmp/report-authority-6362.AxezPF/deep/tests/test_native_report_approval.py::test_report_call_waits_for_existing_approval_then_rechecks_exact_call[reject]
+FAILED ../../../../../../tmp/report-authority-6362.AxezPF/deep/tests/test_native_report_approval.py::test_report_call_waits_for_existing_approval_then_rechecks_exact_call[edit]
+3 failed, 2 warnings in 26.73s

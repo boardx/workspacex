@@ -54,7 +54,7 @@ it("does not turn a persisted parent cancellation into an error when child adapt
 it("uses exact once authorization only after run, lease and attempt guards", async () => {
   const authorizeOnce = vi.fn().mockResolvedValue(true);
   const service = authority({authorizeOnce}).service;
-  expect(await service.check({...input, toolName: "external_write"})).toEqual({allowed: true});
+  expect(await service.check({...input, toolName: "external_write"})).toEqual({allowed: true, approvedOnce: true});
   expect(authorizeOnce).toHaveBeenCalledTimes(1);
   expect(await authority({authorizeOnce, attemptId: "other"}).service.check({...input, toolName: "external_write"})).toEqual({allowed: false, reason: "attempt_stale"});
   expect(authorizeOnce).toHaveBeenCalledTimes(1);

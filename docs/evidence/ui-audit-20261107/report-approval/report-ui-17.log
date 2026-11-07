@@ -1,0 +1,12 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+
+ ✓ tests/ui/report-file-actions.test.tsx (17 tests) 1264ms
+   ✓ invokes the product generation API and exposes download only after verified success 463ms
+
+ Test Files  1 passed (1)
+      Tests  17 passed (17)
+   Start at  05:33:13
+   Duration  12.93s (transform 3.94s, setup 607ms, collect 6.46s, tests 1.26s, environment 2.45s, prepare 232ms)
+

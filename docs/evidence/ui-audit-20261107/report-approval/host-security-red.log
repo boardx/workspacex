@@ -1,0 +1,73 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /private/tmp/report-authority-6362.AxezPF
+
+stderr | tests/report-files/reviewer-security.test.ts > does not execute original edited-away args under an existing run grant
+[tool-approval] once refused: digest_mismatch
+
+stderr | tests/report-files/reviewer-security.test.ts > does not execute original edited-away args under an existing standing grant
+[tool-approval] once refused: digest_mismatch
+
+ ❯ tests/report-files/reviewer-security.test.ts (11 tests | 4 failed) 24ms
+   × fails closed if resume marker is omitted despite a run grant 10ms
+     → expected { allowed: true } to deeply equal { allowed: false, …(1) }
+   × fails closed if resume marker is omitted despite a standing grant 2ms
+     → expected { allowed: true } to deeply equal { allowed: false, …(1) }
+   × fails closed if resume marker is stale despite a run grant 1ms
+     → expected { allowed: true } to deeply equal { allowed: false, …(1) }
+   × fails closed if resume marker is stale despite a standing grant 1ms
+     → expected { allowed: true } to deeply equal { allowed: false, …(1) }
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/report-files/reviewer-security.test.ts > fails closed if resume marker is omitted despite a run grant
+ FAIL  tests/report-files/reviewer-security.test.ts > fails closed if resume marker is omitted despite a standing grant
+AssertionError: expected { allowed: true } to deeply equal { allowed: false, …(1) }
+
+- Expected
++ Received
+
+  Object {
+-   "allowed": false,
+-   "reason": "approval_required",
++   "allowed": true,
+  }
+
+ ❯ tests/report-files/reviewer-security.test.ts:26:81
+     24|  const {service,grants}=env();
+     25|  if(scope==='run')await grants.grantForRun('org' as never,'run','execu…
+     26|  expect(await service.check({...input,permissionRequestId:undefined} a…
+       |                                                                                 ^
+     27| });
+     28| it.each(['run','standing'] as const)('fails closed if resume marker is…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  tests/report-files/reviewer-security.test.ts > fails closed if resume marker is stale despite a run grant
+ FAIL  tests/report-files/reviewer-security.test.ts > fails closed if resume marker is stale despite a standing grant
+AssertionError: expected { allowed: true } to deeply equal { allowed: false, …(1) }
+
+- Expected
++ Received
+
+  Object {
+-   "allowed": false,
+-   "reason": "approval_required",
++   "allowed": true,
+  }
+
+ ❯ tests/report-files/reviewer-security.test.ts:31:110
+     29|  const {service,grants}=env();
+     30|  if(scope==='run')await grants.grantForRun('org' as never,'run','execu…
+     31|  expect(await service.check({...input,permissionRequestId:'223e4567-e8…
+       |                                                                                                              ^
+     32| });
+     33| it('approves exactly edited args and preserves same-attempt resume mar…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 7 passed (11)
+   Start at  05:19:24
+   Duration  852ms (transform 190ms, setup 0ms, collect 280ms, tests 24ms, environment 0ms, prepare 152ms)
+

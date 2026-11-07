@@ -53,6 +53,10 @@
             "type": "boolean",
             "const": true
           },
+          "approvedOnce": {
+            "type": "boolean",
+            "const": true
+          },
           "reportFile": {
             "type": "object",
             "properties": {
