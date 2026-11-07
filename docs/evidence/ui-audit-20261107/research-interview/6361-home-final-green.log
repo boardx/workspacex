@@ -1,0 +1,16 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+
+stderr | tests/ui/guided-research-home-live.test.tsx > F168 guided research home live data > renders server history and resumes from the server-authored stage
+Not implemented: navigation to another Document
+
+ ✓ tests/ui/guided-research-home-live.test.tsx (32 tests) 3958ms
+   ✓ F168 guided research home live data > shows the real workflow stage and a specific next action instead of an opaque percentage 333ms
+   ✓ F168 guided research home live data > uses the status summary to filter the library and composes it with search 512ms
+
+ Test Files  1 passed (1)
+      Tests  32 passed (32)
+   Start at  05:49:24
+   Duration  15.59s (transform 4.25s, setup 413ms, collect 8.53s, tests 3.96s, environment 1.68s, prepare 225ms)
+

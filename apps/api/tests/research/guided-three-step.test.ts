@@ -58,7 +58,7 @@ describe("three visible stages with durable composite execution", () => {
     expect(result.brief.goal).toHaveLength(40000);
     const input = f.model.complete.mock.calls[0]![0];
     expect(input.system).toContain('Output exactly {"topic":string}');
-    expect(JSON.parse(input.user)).toEqual({ brief });
+    expect(JSON.parse(input.user)).toEqual({ brief, sourcePolicy: null });
     expect(f.model.complete).toHaveBeenCalledTimes(3);
   });
   it("keeps previous report, source and message bodies out of direction generation", async () => {
@@ -71,7 +71,7 @@ describe("three visible stages with durable composite execution", () => {
     const result = await f.run("generate", "directions");
     expect(result.errorCode).toBeNull();
     const input = f.model.complete.mock.calls[0]![0];
-    expect(JSON.parse(input.user)).toEqual({ brief: old.brief });
+    expect(JSON.parse(input.user)).toEqual({ brief: old.brief, sourcePolicy: null });
     expect(input.user).not.toContain("UNRELATED_");
     expect(result.directions.every(item => item.decisionQuestions?.length && item.evidenceNeeds?.length)).toBe(true);
   });
