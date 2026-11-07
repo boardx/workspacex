@@ -217,15 +217,14 @@ function renderLegacySession(flow?: string) {
  const page = ResearchPage({ searchParams: { session: "grs-live", ...(flow ? { flow } : {}) } });
  return render(<GuidedResearchFlow step={page.props.flow} sessionId={page.props.guidedSessionId} />);
 }
-it("fresh session-only legacy link restores the failed research runtime and its material gap", async () => {
+it("fresh session-only legacy link restores the failed research runtime and its source gap", async () => {
  const state = runtimeFixture("research");
  state.errorCode = "RESEARCH_SOURCES_REQUIRED"; state.busy = false; state.sources = [];
- state.sourcePolicy = { mode: "materials", domains: [], internalSourceIds: [], revision: 1 };
  state.tasks = [{ ...state.tasks[0]!, status: "pending", attempts: 0, errorCode: null }];
  vi.mocked(getResearchRuntime).mockResolvedValue(state);
  renderLegacySession();
  expect(await screen.findByTestId("research-flow-search")).toBeInTheDocument();
- // The separate #6372 copy patch specializes this same persisted error for materials.
+ // Route restoration uses this PR's existing source policy; materials is covered by #6372.
  expect(await screen.findByRole("alert")).toHaveTextContent(/本次材料不足|请先添加至少一个真实来源/);
  expect(screen.queryByTestId("research-flow-brief")).toBeNull();
  expect(executeResearchRuntime).not.toHaveBeenCalled();
