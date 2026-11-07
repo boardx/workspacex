@@ -12,6 +12,7 @@ from jsonschema import Draft7Validator, FormatChecker
 from langchain.agents.middleware import AgentMiddleware
 from langgraph.config import get_config
 from langgraph.types import interrupt
+from .native_tool_review import NativeToolReviewState, reviewed_by_hitl
 
 AUTHORITY_DEADLINE_SECONDS = 5.0
 AUTHORITY_MAX_RESPONSE_BYTES = 16 * 1024
@@ -97,6 +98,7 @@ class HttpNativeToolAuthority:
         return await self._perform(*self._request(tool_call))
 
 class NativeToolAuthority(AgentMiddleware):
+    state_schema = NativeToolReviewState
     def __init__(self, authority: ToolAuthority):
         if not callable(getattr(authority,'check',None)) or not callable(getattr(authority,'acheck',None)):
             raise TypeError('A trusted tool authority with sync and async checks is required')
@@ -109,13 +111,15 @@ class NativeToolAuthority(AgentMiddleware):
             try:
                 decision=self._authority.check(request.tool_call)
             except ToolApprovalRequired:
+                if reviewed_by_hitl(request):
+                    raise ToolAuthorityError("HITL approval did not authorize this exact host-bound call") from None
                 request=self._review_approval(request)
                 reviewed=True
                 if isinstance(request, ToolMessage): return request
                 decision=self._authority.check(request.tool_call)
         except ReportOutputPublished:
             return self._report_closed(request)
-        if not reviewed and isinstance(decision,dict) and decision.get("approvedOnce") is True:
+        if not reviewed and not reviewed_by_hitl(request) and isinstance(decision,dict) and decision.get("approvedOnce") is True:
             request=self._review_approval(request)
             if isinstance(request, ToolMessage): return request
             decision=self._authority.check(request.tool_call)
@@ -131,11 +135,13 @@ class NativeToolAuthority(AgentMiddleware):
             try:
                 decision=await self._authority.acheck(request.tool_call)
             except ToolApprovalRequired:
+                if reviewed_by_hitl(request):
+                    raise ToolAuthorityError("HITL approval did not authorize this exact host-bound call") from None
                 request=self._review_approval(request)
                 reviewed=True
                 if isinstance(request, ToolMessage): return request
                 decision=await self._authority.acheck(request.tool_call)
-            if not reviewed and isinstance(decision,dict) and decision.get("approvedOnce") is True:
+            if not reviewed and not reviewed_by_hitl(request) and isinstance(decision,dict) and decision.get("approvedOnce") is True:
                 request=self._review_approval(request)
                 reviewed=True
                 if isinstance(request, ToolMessage): return request
