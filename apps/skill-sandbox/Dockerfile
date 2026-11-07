@@ -117,7 +117,7 @@ RUN npm_config_registry="$NPM_REGISTRY" npm ci --omit=dev \
 # 时用内置 StandardFonts（0 字节），出现任何非拉丁字符才用这份嵌入字体。
 RUN sed -Ei "s#https?://deb.debian.org#${APT_MIRROR}#g" /etc/apt/sources.list.d/debian.sources \
  && apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates fonts-noto-cjk fonttools python3 bubblewrap \
+ && apt-get install -y --no-install-recommends ca-certificates fonts-noto-cjk fonttools python3 bubblewrap bash \
  && mkdir -p /usr/share/fonts/workspacex \
  && python3 -c "from fontTools.ttLib import TTCollection; ttc = TTCollection('/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc', lazy=True); name = lambda x: (x['name'].getDebugName(6) or '').lower(); f = next(x for x in ttc.fonts if 'sc-' in name(x) and 'mono' not in name(x)); f.save('/tmp/noto-sc-full.otf'); print('extracted', f['name'].getDebugName(6))" \
  && python3 -c "chars = [chr(c) for c in range(0x20, 0x7F)] + list('　，。、；：？！“”‘’（）《》【】…—～·¥％℃×÷±°§№') + [chr(c) for c in range(0x4E00, 0xA000)]; open('/tmp/charset.txt', 'w', encoding='utf-8').write(''.join(dict.fromkeys(chars))); print('charset', len(set(chars)))" \

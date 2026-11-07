@@ -1,3 +1,6 @@
+import {OrganizationRow} from "@repo/contracts/platform-organizations";
+import {enterpriseSummary} from "../billing/enterprise-summary";
+import { BILLING_ACCOUNTING_GENERATION, BILLING_PRICING_EPOCH_LOCK } from "../../domain/billing/billing-generation";
 import { randomUUID } from "node:crypto";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import { PlatformOrganizationError, type PlatformOrganizationRepository, type OrganizationListInput, type OrganizationList,
@@ -7,9 +10,9 @@ import {Configuration} from "@repo/contracts/ai-policy";
 import type {AiPolicyState,AiPolicyInput} from "../../application/system/platform-organization-ports";
 
 type Metadata = { id: string; name: string; kind: "organization" };
-type PlanRow = { plan: "ordinary" | "enterprise"; version: number; updated_at: Date; updated_by: string };
+type PlanRow = { billing_generation: string | null; plan: "ordinary" | "enterprise"; version: number; updated_at: Date; updated_by: string };
 const state = (row?: PlanRow): PlanState => ({ plan: row?.plan ?? null, version: row?.version ?? 0,
-  updatedAt: row?.updated_at.toISOString() ?? null, updatedBy: row?.updated_by ?? null, enforcement: "pending" });
+  updatedAt: row?.updated_at.toISOString() ?? null, updatedBy: row?.updated_by ?? null, enforcement: row?.billing_generation === BILLING_ACCOUNTING_GENERATION ? "active" : "pending", billingGeneration: row?.billing_generation ?? null });
 
 /** Catalog credential can see only SaaS id/name/kind. All plan/member queries stay tenant-scoped. */
 export class PgPlatformOrganizationRepository implements PlatformOrganizationRepository {
@@ -102,11 +105,14 @@ export class PgPlatformOrganizationRepository implements PlatformOrganizationRep
 
   async setPlan(orgId: OrgId, input: PlanInput, actorId: string): Promise<PlanState> {
     return this.db.withTenant(orgId, async s => {
+      await s.query("SELECT pg_advisory_xact_lock_shared(hashtextextended($1,0))",[BILLING_PRICING_EPOCH_LOCK]);
       // Lock the existing org, including initially unconfigured plans: no missing-row race.
       const org = await s.query<Metadata>("SELECT id, name, kind FROM organizations WHERE id=$1 AND kind='organization' FOR UPDATE", [orgId]);
       if (!org.rows[0]) throw new PlatformOrganizationError("ORGANIZATION_NOT_FOUND");
-      const previous = (await s.query<PlanRow>("SELECT plan, version, updated_at, updated_by FROM organization_plans WHERE org_id=$1", [orgId])).rows[0];
+      const previous = (await s.query<PlanRow>("SELECT plan, version, updated_at, updated_by, billing_generation FROM organization_plans WHERE org_id=$1", [orgId])).rows[0];
       if ((previous?.version ?? 0) !== input.expectedVersion) throw new PlatformOrganizationError("PLAN_VERSION_CONFLICT");
+      // Commercial Plan changes must use the recoverable Enterprise operation.
+      if(previous?.billing_generation != null) throw new PlatformOrganizationError("PLAN_VERSION_CONFLICT");
       const version = input.expectedVersion + 1;
       const updated = await s.query<PlanRow>(`INSERT INTO organization_plans (org_id, plan, version, updated_by)
         VALUES ($1,$2,$3,$4) ON CONFLICT (org_id) DO UPDATE SET plan=EXCLUDED.plan,
@@ -119,11 +125,18 @@ export class PgPlatformOrganizationRepository implements PlatformOrganizationRep
   }
 
   private async readOrganization(s: TenantSession, orgId: OrgId): Promise<OrganizationDetail["organization"] | null> {
-    const row = (await s.query<Metadata>("SELECT id, name, kind FROM organizations WHERE id=$1 AND kind='organization'", [orgId])).rows[0];
+    await s.query("SELECT pg_advisory_xact_lock_shared(hashtextextended($1,0))",[BILLING_PRICING_EPOCH_LOCK]);
+    const row = (await s.query<Metadata>("SELECT id, name, kind FROM organizations WHERE id=$1 AND kind='organization' FOR UPDATE", [orgId])).rows[0];
     if (!row) return null;
     const count = (await s.query<{ count: string }>("SELECT COUNT(*) AS count FROM org_memberships WHERE org_id=$1", [orgId])).rows[0];
-    const plan = (await s.query<PlanRow>("SELECT plan, version, updated_at, updated_by FROM organization_plans WHERE org_id=$1", [orgId])).rows[0];
-    return { orgId: row.id, name: row.name, kind: row.kind, memberCount: Number(count?.count ?? 0), plan: state(plan) };
+    const plan = (await s.query<PlanRow>("SELECT plan, version, updated_at, updated_by, billing_generation FROM organization_plans WHERE org_id=$1", [orgId])).rows[0];
+    const memberCount=Number(count?.count??0);
+    let billingSummary;
+    if(plan?.billing_generation===BILLING_ACCOUNTING_GENERATION){
+      try{billingSummary=await enterpriseSummary(s,orgId,plan.version,memberCount,plan.plan);}
+      catch{throw new PlatformOrganizationError("PLATFORM_CATALOG_UNAVAILABLE");}
+    }
+    return OrganizationRow.parse({ orgId: row.id, name: row.name, kind: row.kind, memberCount, plan: state(plan),...(billingSummary?{billingSummary}:{}) });
   }
 
   private async assertCatalogRole(s: TenantSession): Promise<void> {

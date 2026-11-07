@@ -1,0 +1,18 @@
+14 own source/test/config blobs byte-identical to204c6436ab1ff2447d00d9b8fddad6a5f92f58c9.
+apps/api/src/application/identity/list-own-activity.ts
+apps/api/src/interface/controllers/identity.controller.ts
+apps/api/tests/identity/activity-display.test.ts
+apps/api/vitest.identity-display-unit.config.ts
+apps/web/components/profile/profile-screen.tsx
+apps/web/e2e/self-service-profile.spec.ts
+apps/web/lib/generated/identity.mock.ts
+apps/web/lib/i18n/activity.ts
+apps/web/lib/i18n/namespaces/activity.ts
+apps/web/lib/live-identity.ts
+apps/web/tests/ui/profile-i18n.test.tsx
+packages/contracts/scripts/gen-mock.ts
+packages/contracts/src/identity.ts
+packages/contracts/tests/identity-activity-display.test.ts
+Merged dependency blob identical to actualdevelop44aeac6e10b688471fe03536fc8490a353824976: apps/api/src/infrastructure/skill/http-import-fetcher.ts
+Merged dependency blob identical to actualdevelop44aeac6e10b688471fe03536fc8490a353824976: packages/local-runtime/src/pglite-server.ts
+Merged dependency blob identical to actualdevelop44aeac6e10b688471fe03536fc8490a353824976: packages/local-runtime/test/backup-restore-roundtrip.test.ts

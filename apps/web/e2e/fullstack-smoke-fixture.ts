@@ -3,6 +3,24 @@ const scope = (process.env.WORKSPACEX_ISOLATION_ID ?? "fullstack-e2e")
   .slice(-24);
 
 export const FULLSTACK_E2E = {
+  // Dedicated read-only brain identity avoids concurrent device-session collisions.
+  brainEmail: `brain-${scope}@example.test`,
+  brainPassword: "Fullstack-E2E-brain-6171!",
+  brainUserId: `user-brain-${scope}`,
+  /** #6169: private org/actor and read-only persisted workflow rows. */
+  workflowRunsOrgId: `org-workflow-runs-${scope}`,
+  workflowRunsProjectId: `project-workflow-runs-${scope}`,
+  workflowRunsUserId: `user-workflow-runs-${scope}`,
+  workflowRunsEmail: `workflow-runs-${scope}@example.test`,
+  workflowRunsPassword: "Fullstack-E2E-workflow-runs-6169!",
+  workflowRunsInstanceId: `wi-localized-${scope}`,
+  workflowRunsKey: `localized-list-${scope}`,
+  workflowRunsGoal: "原文目标 {goal}",
+  /** #6167: dedicated live-task identity, independent of other seeded journeys. */
+  tasksEmail: `fullstack-tasks-${scope}@example.test`,
+  tasksPassword: "Fullstack-E2E-tasks-6167!",
+  tasksUserId: `user-fullstack-tasks-${scope}`,
+
   email: `fullstack-${scope}@example.test`,
   password: "Fullstack-E2E-only-387!",
   orgId: `org-fullstack-${scope}`,

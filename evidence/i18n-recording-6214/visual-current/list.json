@@ -1,0 +1,29 @@
+{
+  "name": "list",
+  "command": [
+    "pnpm",
+    "exec",
+    "tsx",
+    ".harness/scripts/with-test-isolation.ts",
+    "--",
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "playwright",
+    "test",
+    "--config",
+    "playwright.fullstack-smoke.config.ts",
+    "--project=seeded",
+    "e2e/i18n-recording-journey.spec.ts",
+    "--workers=1",
+    "--retries=0",
+    "--max-failures=1",
+    "--list"
+  ],
+  "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61",
+  "exitCode": 0,
+  "seconds": 2.104,
+  "rawLogLocalPath": "/tmp/6214-visual-private-f8/list.log",
+  "rawLogSha256": "3c88aee86310101615f6eaf58aac33fba2abc8f171c91ed99f94539e0e4182bb"
+}

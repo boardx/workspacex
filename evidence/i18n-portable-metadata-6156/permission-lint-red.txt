@@ -1,0 +1,218 @@
+==> [harness] pre-push: 受影响模块 typecheck/lint（turbo --affected；跳过用 git push --no-verify）
+• turbo 2.10.5
+
+   • Packages in scope: //, @repo/api, @repo/contracts, @repo/desktop, @repo/dev-mode-accounts, @repo/local-runtime, @repo/ops-console, @repo/ops-telemetry, @repo/whiteboard-core, web
+   • Running typecheck, lint in 10 packages
+   • Remote caching disabled, using shared worktree cache
+
+@repo/contracts:typecheck: cache miss, executing ceff72b19aef105f
+@repo/contracts:lint: cache miss, executing cc0efb656da4cea2
+@repo/cloud-deploy:build: cache hit, replaying logs d2a92667c208ed74
+@repo/cloud-deploy:build: 
+@repo/cloud-deploy:build: > @repo/cloud-deploy@0.1.0 build /Users/shenyangjun/.codex/worktrees/72a6/workspacex/packages/cloud-deploy
+@repo/cloud-deploy:build: > tsc --noEmit
+@repo/cloud-deploy:build: 
+@repo/fabric-markdown:build: cache hit, replaying logs 731da9d16c66361e
+@repo/local-runtime:lint: cache hit, replaying logs a3fae86317fe286f
+@repo/local-asr-gateway:build: cache hit, replaying logs 16ba7203425c02c8
+@repo/local-runtime:build: cache hit, replaying logs 8b08d8ccc3d8d356
+@repo/skill-sandbox:build: cache hit, replaying logs 8a067388e7ddfa47
+@repo/local-asr-gateway:build: 
+@repo/local-asr-gateway:build: > @repo/local-asr-gateway@0.1.0 build /Users/shenyangjun/.codex/worktrees/deep-research-trust-console/workspacex/apps/local-asr-gateway
+@repo/local-runtime:lint: 
+@repo/local-runtime:lint: > @repo/local-runtime@0.1.0 lint /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/local-runtime
+@repo/local-runtime:lint: > echo 'lint: ok'
+@repo/local-runtime:lint: 
+@repo/local-runtime:lint: lint: ok
+@repo/fabric-markdown:build: 
+@repo/fabric-markdown:build: > @repo/fabric-markdown@0.1.0 build /Users/shenyangjun/.codex/worktrees/6712/workspacex/packages/fabric-markdown
+@repo/fabric-markdown:build: > tsc -p tsconfig.build.json
+@repo/local-asr-gateway:build: > tsc --noEmit
+@repo/local-asr-gateway:build: 
+@repo/fabric-markdown:build: 
+@repo/coord-access:build: cache hit, replaying logs 7e1022316f22738f
+@repo/local-runtime:typecheck: cache hit, replaying logs 5e3b2da95ef18839
+@repo/whiteboard-core:lint: cache miss, executing 45e650ba5c5885ed
+@repo/skill-sandbox:build: 
+@repo/skill-sandbox:build: > @repo/skill-sandbox@0.1.0 build /Users/shenyangjun/.codex/worktrees/72a6/workspacex/apps/skill-sandbox
+@repo/skill-sandbox:build: > tsc --noEmit
+@repo/skill-sandbox:build: 
+@repo/whiteboard-core:typecheck: cache miss, executing 75ae08c703aed825
+@repo/coord-access:build: 
+@repo/coord-access:build: > @repo/coord-access@0.1.0 build /Users/shenyangjun/.codex/worktrees/deep-research-trust-console/workspacex/packages/coord-access
+@repo/coord-access:build: > tsc --noEmit
+@repo/coord-access:build: 
+@repo/local-runtime:build: 
+@repo/local-runtime:build: > @repo/local-runtime@0.1.0 build /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/local-runtime
+@repo/local-runtime:build: > tsc --noEmit
+@repo/local-runtime:build: 
+@repo/local-runtime:typecheck: 
+@repo/local-runtime:typecheck: > @repo/local-runtime@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/local-runtime
+@repo/local-runtime:typecheck: > tsc --noEmit
+@repo/local-runtime:typecheck: 
+@repo/dev-mode-accounts:build: cache miss, executing 60122158ac0b0b31
+@repo/dev-mode-accounts:lint: cache miss, executing 0bdde31c6dbaaf37
+@repo/dev-mode-accounts:typecheck: cache miss, executing c665b869ce8550b0
+@repo/ops-console:typecheck: cache miss, executing 47004d0720677d1f
+@repo/ops-console:lint: cache miss, executing d36d3cb0c894eef4
+@repo/ops-telemetry:lint: cache miss, executing 2cdbdcf4cbb46436
+@repo/dev-mode-accounts:build: 
+@repo/dev-mode-accounts:build: > @repo/dev-mode-accounts@0.1.0 build /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/packages/dev-mode-accounts
+@repo/dev-mode-accounts:build: > tsc --noEmit
+@repo/dev-mode-accounts:build: 
+@repo/whiteboard-core:lint: 
+@repo/whiteboard-core:lint: > @repo/whiteboard-core@0.1.0 lint /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/packages/whiteboard-core
+@repo/whiteboard-core:lint: > tsc --noEmit
+@repo/whiteboard-core:lint: 
+@repo/ops-console:lint: 
+@repo/ops-console:lint: > @repo/ops-console@0.1.0 lint /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/ops-console
+@repo/ops-console:lint: > echo 'lint: ok'
+@repo/ops-console:lint: 
+@repo/dev-mode-accounts:lint: 
+@repo/dev-mode-accounts:lint: > @repo/dev-mode-accounts@0.1.0 lint /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/packages/dev-mode-accounts
+@repo/dev-mode-accounts:lint: > echo 'lint: ok'
+@repo/dev-mode-accounts:lint: 
+@repo/ops-telemetry:lint: 
+@repo/ops-telemetry:lint: > @repo/ops-telemetry@0.1.0 lint /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/ops-telemetry
+@repo/ops-telemetry:lint: > echo 'lint: ok'
+@repo/ops-telemetry:lint: 
+@repo/whiteboard-core:typecheck: 
+@repo/whiteboard-core:typecheck: > @repo/whiteboard-core@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/packages/whiteboard-core
+@repo/whiteboard-core:typecheck: > tsc --noEmit
+@repo/whiteboard-core:typecheck: 
+@repo/ops-console:typecheck: 
+@repo/ops-console:typecheck: > @repo/ops-console@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/ops-console
+@repo/ops-console:typecheck: > tsc --noEmit
+@repo/ops-console:typecheck: 
+@repo/ops-console:lint: lint: ok
+@repo/dev-mode-accounts:typecheck: 
+@repo/dev-mode-accounts:typecheck: > @repo/dev-mode-accounts@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/packages/dev-mode-accounts
+@repo/dev-mode-accounts:typecheck: > tsc --noEmit
+@repo/dev-mode-accounts:typecheck: 
+@repo/dev-mode-accounts:lint: lint: ok
+@repo/contracts:typecheck: 
+@repo/contracts:typecheck: > @repo/contracts@0.0.0 typecheck /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/packages/contracts
+@repo/contracts:typecheck: > tsc --noEmit
+@repo/contracts:typecheck: 
+@repo/contracts:lint: 
+@repo/contracts:lint: > @repo/contracts@0.0.0 lint /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/packages/contracts
+@repo/contracts:lint: > echo '(contracts: 由 lint-contract-source 门控)'
+@repo/contracts:lint: 
+@repo/ops-telemetry:lint: lint: ok
+@repo/ops-telemetry:typecheck: cache miss, executing 55fe8e8182fe6307
+@repo/contracts:lint: (contracts: 由 lint-contract-source 门控)
+@repo/desktop:lint: cache hit, replaying logs b439f0a31d948bb6
+@repo/desktop:lint: 
+@repo/desktop:lint: > @repo/desktop@0.3.0 lint /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/desktop
+@repo/desktop:lint: > echo 'lint: ok'
+@repo/desktop:lint: 
+@repo/desktop:lint: lint: ok
+@repo/desktop:typecheck: cache hit, replaying logs 6f76422c24ccb071
+@repo/desktop:typecheck: 
+@repo/desktop:typecheck: > @repo/desktop@0.3.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/desktop
+@repo/desktop:typecheck: > tsc --noEmit
+@repo/desktop:typecheck: 
+@repo/ops-telemetry:typecheck: 
+@repo/ops-telemetry:typecheck: > @repo/ops-telemetry@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/ops-telemetry
+@repo/ops-telemetry:typecheck: > tsc --noEmit
+@repo/ops-telemetry:typecheck: 
+web:typecheck: cache miss, executing 4fae59d2393d7a32
+@repo/api:typecheck: cache miss, executing 4646bbc2f7e30d20
+web:lint: cache miss, executing cdea5d0204bf107b
+@repo/api:lint: cache miss, executing 367c78a48d02f487
+web:lint: 
+web:lint: > web@0.1.0 lint /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/web
+web:lint: > next lint --max-warnings 0 && node scripts/gen-light-scope.mjs --check && ./scripts/lint-design.sh
+web:lint: 
+web:typecheck: 
+web:typecheck: > web@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/web
+web:typecheck: > tsc --noEmit
+@repo/api:typecheck: 
+@repo/api:typecheck: > @repo/api@0.0.0 typecheck /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/api
+@repo/api:typecheck: > tsc --noEmit
+@repo/api:typecheck: 
+web:typecheck: 
+@repo/api:lint: 
+@repo/api:lint: > @repo/api@0.0.0 lint /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/api
+@repo/api:lint: > node scripts/lint-error-leak.mjs && node scripts/lint-permission-paths.mjs && node scripts/lint-no-builtin-capabilities.mjs && node scripts/lint-global-scope-test-fixtures.mjs && node scripts/lint-design-facet-single-source.mjs && tsx scripts/gen-design-facet-catalog.ts --check && tsx scripts/gen-agenda-tier-catalog.ts --check && node scripts/lint-skill-context-api-only.mjs && node scripts/lint-naming-single-source.mjs && tsx scripts/lint-work-skill-manifests.ts && node ../../.harness/scripts/lint-arch-deps.mjs apps/api/src
+@repo/api:lint: 
+@repo/api:lint: ✅ lint-error-leak: 205 files in the interface layer, no error detail reaches a response
+@repo/api:lint: scanned=205
+@repo/api:lint: ✗ src/infrastructure/localization/pg-authored-display-update-repository.ts:22  reads tenant table `skills` outside the guarded read path
+@repo/api:lint:     It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+@repo/api:lint:     Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+@repo/api:lint: ✗ src/infrastructure/localization/pg-authored-display-update-repository.ts:24  reads tenant table `skill_catalog_entries` outside the guarded read path
+@repo/api:lint:     It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+@repo/api:lint:     Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+@repo/api:lint: ✗ src/infrastructure/localization/pg-authored-display-update-repository.ts:26  reads tenant table `agents` outside the guarded read path
+@repo/api:lint:     It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+@repo/api:lint:     Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+@repo/api:lint: ✗ src/infrastructure/localization/pg-authored-display-update-repository.ts:42  reads tenant table `skill_versions` outside the guarded read path
+@repo/api:lint:     It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+@repo/api:lint:     Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+@repo/api:lint: ✗ src/infrastructure/localization/pg-authored-display-update-repository.ts:47  reads tenant table `agents` outside the guarded read path
+@repo/api:lint:     It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+@repo/api:lint:     Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+@repo/api:lint: ✗ src/infrastructure/localization/pg-authored-display-update-repository.ts:55  reads tenant table `entity_display_metadata_receipts` outside the guarded read path
+@repo/api:lint:     It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+@repo/api:lint:     Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+@repo/api:lint: ✗ src/infrastructure/localization/pg-authored-display-update-repository.ts:78  reads tenant table `entity_display_update_requests` outside the guarded read path
+@repo/api:lint:     It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+@repo/api:lint:     Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+@repo/api:lint: ✗ src/infrastructure/localization/pg-authored-display-update-repository.ts:93  reads tenant table `entity_display_metadata_receipts` outside the guarded read path
+@repo/api:lint:     It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+@repo/api:lint:     Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+@repo/api:lint: ✗ src/infrastructure/localization/pg-authored-display-update-repository.ts:98  reads tenant table `entity_display_update_requests` outside the guarded read path
+@repo/api:lint:     It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+@repo/api:lint:     Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+@repo/api:lint: ✗ src/infrastructure/localization/pg-portable-export-repository.ts:35  reads tenant table `skills` outside the guarded read path
+@repo/api:lint:     It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+@repo/api:lint:     Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+@repo/api:lint: ✗ src/infrastructure/localization/pg-portable-export-repository.ts:36  reads tenant table `skill_versions` outside the guarded read path
+@repo/api:lint:     It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+@repo/api:lint:     Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+@repo/api:lint: ✗ src/infrastructure/localization/pg-portable-export-repository.ts:40  reads tenant table `skill_version_files` outside the guarded read path
+@repo/api:lint:     It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+@repo/api:lint:     Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+@repo/api:lint: ✗ src/infrastructure/localization/pg-portable-export-repository.ts:50  reads tenant table `agents` outside the guarded read path
+@repo/api:lint:     It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+@repo/api:lint:     Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+@repo/api:lint: ✗ src/infrastructure/localization/pg-portable-export-repository.ts:54  reads tenant table `skill_versions` outside the guarded read path
+@repo/api:lint:     It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+@repo/api:lint:     Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+@repo/api:lint: ✗ src/infrastructure/localization/pg-portable-import.ts:44  reads tenant table `agents` outside the guarded read path
+@repo/api:lint:     It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+@repo/api:lint:     Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+@repo/api:lint: ✗ src/infrastructure/localization/pg-portable-import.ts:57  reads tenant table `skills` outside the guarded read path
+@repo/api:lint:     It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+@repo/api:lint:     Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+@repo/api:lint: ✗ src/infrastructure/localization/pg-portable-import.ts:58  reads tenant table `skill_versions` outside the guarded read path
+@repo/api:lint:     It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+@repo/api:lint:     Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+@repo/api:lint: ✗ src/infrastructure/localization/pg-portable-import.ts:60  reads tenant table `capability_listings` outside the guarded read path
+@repo/api:lint:     It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+@repo/api:lint:     Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+@repo/api:lint: ✗ src/infrastructure/localization/pg-portable-import.ts:73  reads tenant table `agents` outside the guarded read path
+@repo/api:lint:     It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+@repo/api:lint:     Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+@repo/api:lint: ✗ src/infrastructure/localization/pg-portable-import.ts:74  reads tenant table `capability_listings` outside the guarded read path
+@repo/api:lint:     It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+@repo/api:lint:     Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+@repo/api:lint: ✗ src/infrastructure/localization/pg-portable-import.ts:118  reads tenant table `skill_versions` outside the guarded read path
+@repo/api:lint:     It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+@repo/api:lint:     Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+@repo/api:lint: 
+@repo/api:lint: ❌ 21 unguarded tenant read(s). See UC-0.3 R7 / coherence X-1.
+@repo/api:lint: scanned=2233 tenant-tables=330 allowlisted=162
+@repo/api:lint:  ELIFECYCLE  Command failed with exit code 1.
+@repo/api#lint:  ERROR  command (/Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/api) /Users/shenyangjun/Library/pnpm/.tools/pnpm/9.15.0/bin/pnpm run lint exited (1)
+
+ Tasks:    20 successful, 25 total
+Cached:    10 cached, 25 total
+  Time:    26.329s 
+Failed:    @repo/api#lint
+
+ WARNING  no output files found for task @repo/dev-mode-accounts#build. Please check your `outputs` key in `turbo.json`
+ ERROR  run failed: command  exited (1)
+✗ [harness] 受影响模块 typecheck/lint 失败，push 中止。修复后再推，或 git push --no-verify 临时跳过。
+error: failed to push some refs to 'https://github.com/boardx/workspacex.git'

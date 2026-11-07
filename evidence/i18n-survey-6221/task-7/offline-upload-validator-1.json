@@ -1,0 +1,28 @@
+{
+  "name": "offline-upload-validator-1",
+  "command": [
+    "pnpm",
+    "--filter",
+    "@repo/api",
+    "exec",
+    "tsx",
+    "-e",
+    "import {readFileSync} from \"node:fs\";import {createHash} from \"node:crypto\";import {validateSurveyUpload} from \"./src/application/survey/survey-attachment-service\";import {sniffKind} from \"./src/domain/files/mime-sniff\";import {scanForMalware} from \"./src/domain/files/malware-scan\";const b=readFileSync(\"/tmp/6221-task7-private/remote-upload-original-bytes.bin\");let utf8Valid=true;try{new TextDecoder(\"utf8\",{fatal:true}).decode(b);}catch{utf8Valid=false;}let outcome=\"PASS\",code;try{validateSurveyUpload(b,\"text/plain\");}catch(e){outcome=\"FAIL\";code=(e as Error).message;}console.log(JSON.stringify({fileBytes:b.length,sha256:createHash(\"sha256\").update(b).digest(\"hex\"),mime:\"text/plain\",sniffKind:sniffKind(b),malwareClean:scanForMalware(b).clean,utf8Valid,containsNul:b.includes(0),acceptedValidator:outcome,code}));if(outcome!==\"PASS\")process.exitCode=1;"
+  ],
+  "source": "fbbd0beb6d82e6b36280f8de1c9020d2f74b20d4",
+  "exitCode": 0,
+  "seconds": 1.349,
+  "rawLogSha256": "b3d6e24dd76db348f67611e1230e1bafaa3f07611f2b35dec2f9cd99d1c4130e",
+  "sourceAfter": "fbbd0beb6d82e6b36280f8de1c9020d2f74b20d4",
+  "sourceStable": true,
+  "environment": {},
+  "acceptedValidator": "PASS",
+  "fileBytes": 55,
+  "fileSha256": "85c305b7d6247a4d13386736b33e2d0aa165f03625d36e6d8682336077fdb372",
+  "mime": "text/plain",
+  "sniffKind": "text",
+  "malwareClean": true,
+  "utf8Valid": true,
+  "containsNul": false,
+  "interpretation": "Pure accepted byte validator only. Does not override publication allowlist or prove remote server received identical bytes."
+}

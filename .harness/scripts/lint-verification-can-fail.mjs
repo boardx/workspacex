@@ -248,7 +248,7 @@ export function classify(cmd) {
   }
 
   // playwright（按 -g 正则跑）：pnpm --filter <pkg> exec playwright test -c <config> -g '<pattern>'
-  // 与 vitest-file 同一族：失败传导路径逐字相同——`-g` 命中不到任何 test.describe/test
+  // 检查真实 config 的用例发现与退出码传导：`-g` 命中不到任何 test.describe/test
   // 时 playwright 打「Error: No tests found」并非 0 退出（已实测，见下方 discovered）。
   // 指向物是那个 `-g` 正则模式：把它换成一个必然不存在的探针字符串就是「必然失败变体」。
   // config 路径本身不做静态存在性检查（同 test-file 的理由：config 写错会让 playwright
@@ -258,7 +258,10 @@ export function classify(cmd) {
     const [, pkg, config] = m;
     return {
       shape: `playwright-grep:${pkg}:${config}`,
-      probe: `pnpm --filter ${pkg} exec playwright test -c ${config} -g '${PROBE_TOKEN}'`,
+      // This probe tests selection/exit propagation, not application behavior.
+      // --list keeps the real config and missing-test failure without starting
+      // global setup, web servers, databases or seed pipelines for an absent test.
+      probe: `pnpm --filter ${pkg} exec playwright test -c ${config} --list -g '${PROBE_TOKEN}'`,
       checks: [{ type: "package", pkg }],
     };
   }
@@ -454,6 +457,15 @@ export function lintVerificationCanFail({
               `    静默放过等于给下一种恒 0 形态留门——V-1 就是这么进来的。`,
           );
           continue;
+        }
+        // Keep the package-script exit path, but avoid starting its application
+        // when the script is provably the direct Playwright CLI. Unknown wrappers
+        // keep their original probes; a matching script name alone is not proof.
+        if (cls.shape.startsWith('pnpm-script-arg:')) {
+          const target = cls.checks.find(check => check.type === 'package-script');
+          if (target && pkgs.get(target.pkg)?.scripts[target.script]?.trim() === 'playwright test') {
+            cls.probe += ' --list';
+          }
         }
 
         /* ② 静态存在性 */

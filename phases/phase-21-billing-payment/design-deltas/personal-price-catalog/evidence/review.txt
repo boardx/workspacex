@@ -1,0 +1,1 @@
+独立只读审查未发现需修改具体缺陷；独立运行新增目录6项全部通过。确认中美金额/币种/额度、DevApp CN目录、未知市场503、非法查询400、PrincipalGuard和渠道单源，未接收款/权益写入。边界：HTTP使用隔离Nest fixture，未独立启动完整API；BillingModule接线静态核对。

@@ -121,9 +121,13 @@ describe("platform start receipt persistence",()=>{
  it.each([undefined,"0c479acf-6523-4d3c-84b8-1986a40255aa"])("persists optional formal platform provenance %s without fake run identities",async platformTestId=>{
   const query=vi.fn(async(sql:string,_params?:readonly unknown[])=>{
    if(sql.startsWith("SELECT o.kind"))return {rows:[{kind:"organization"}]};
+   // This provenance fixture models the legacy epoch, retaining real credit admission.
+   if(sql.startsWith("SELECT id FROM organizations")){expect(_params).toEqual([actor.orgId]);return {rows:[{id:actor.orgId}]};}
+   if(sql.includes("FROM billing_pricing_epoch"))return {rows:[{generation:null,active:null}]};
    if(sql.startsWith("SELECT wallet_id,balance"))return {rows:[{wallet_id:"fixture-wallet",balance:"0.00",held_hundredths:"0",unbounded_requests:"0"}]};
    if(sql.startsWith("SELECT balance::text FROM credit_wallets"))return {rows:[{balance:"0.00"}]};
    if(sql.startsWith("SELECT credit_preflight_enabled"))return {rows:[{credit_preflight_enabled:false}]};
+   if(sql.startsWith("INSERT INTO credit_consumption_requests")){expect(sql).toContain("RETURNING request_id");return {rows:[{request_id:_params?.[0]}]};}
    return {rows:[]};
   });
   const db={withTenant:async(_org:unknown,work:Function)=>work({query})} as unknown as DatabasePort;

@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+ ✓ tests/billing/personal-stripe-checkout.test.ts (14 tests) 53ms
+
+ Test Files  1 passed (1)
+      Tests  14 passed (14)
+   Start at  00:34:22
+   Duration  583ms (transform 149ms, setup 0ms, collect 214ms, tests 53ms, environment 0ms, prepare 95ms)
+

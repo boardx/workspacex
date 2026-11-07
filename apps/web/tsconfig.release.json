@@ -1,0 +1,22 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "next-env.d.ts",
+    "middleware.ts",
+    "app/**/*.ts",
+    "app/**/*.tsx",
+    "components/**/*.ts",
+    "components/**/*.tsx",
+    "lib/**/*.ts",
+    "lib/**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next-chat-read-e2e/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "__fixtures__",
+    "e2e",
+    "tests",
+    "scripts"
+  ]
+}

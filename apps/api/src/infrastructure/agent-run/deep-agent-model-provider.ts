@@ -1,4 +1,5 @@
 import {throwPrivateCreditFailure} from "./private-credit-failure";
+import { deepAgentToolResultSucceeded } from "./deep-agent-command-outcome";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { composeAssistantBodies } from "../../application/agent-run/assistant-body-composition";
 const subtaskCallSignal = new AsyncLocalStorage<AbortSignal | undefined>();
@@ -260,6 +261,7 @@ class ProgressDeliveryError extends Error {
 }
 
 interface ThreadMessage {
+  readonly artifact?: unknown;
   readonly id?: string;
   readonly status?: unknown;
   readonly type?: string;
@@ -457,7 +459,7 @@ function extractToolCallEvents(
           toolName: call.name, toolArgsSummary: call.argsSummary,
           toolResultSummary: resultSummary, planningNote: call.planningNote,
           phase: "complete", toolCallId: id,
-          toolArgsFull: call.argsFull, toolResultFull: message.content, ok: message.status !== "error",
+          toolArgsFull: call.argsFull, toolResultFull: message.content, ok: deepAgentToolResultSucceeded(call.name, message),
         },
       });
       pending.delete(id);

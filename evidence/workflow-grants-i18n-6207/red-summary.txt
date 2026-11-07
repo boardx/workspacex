@@ -1,0 +1,33 @@
+× renders English capability view, keeps authored workflow text and switches without refetch 185ms
+   × keeps selected dialog level through locale switches and exposes localized impact and confirm 102ms
+   × submits canonical grant values and retranslates the stored success notice and audit 40ms
+   × submits revoke category unchanged and disables unchanged confirmation 31ms
+   × retranslates a retained API error without leaking its body or resetting the selected level 1038ms
+   × localizes audit actions, date and member fallback without translating raw names 1021ms
+   × keeps deep-link focus while localizing workflow view 15ms
+   × localizes missing workflow and empty capability states 8ms
+   × localizes denied state without reading admin data 3ms
+   × retranslates load errors and retries only through explicit action 1006ms
+   × keeps legacy Chinese helpers and localizes unknown capabilities and targets 3ms
+   × localizes closed API errors and safe network/unknown fallbacks 1ms
+   × keeps a pending canonical mutation busy through locale switches until its original result arrives 22ms
+   × cancels an edited dialog without issuing a grant or revoke 76ms
+⎯⎯⎯⎯⎯⎯ Failed Tests 14 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/ui/workflow-grants-i18n.test.tsx > renders English capability view, keeps authored workflow text and switches without refetch
+ FAIL  tests/ui/workflow-grants-i18n.test.tsx > keeps selected dialog level through locale switches and exposes localized impact and confirm
+ FAIL  tests/ui/workflow-grants-i18n.test.tsx > submits canonical grant values and retranslates the stored success notice and audit
+ FAIL  tests/ui/workflow-grants-i18n.test.tsx > submits revoke category unchanged and disables unchanged confirmation
+ FAIL  tests/ui/workflow-grants-i18n.test.tsx > retranslates a retained API error without leaking its body or resetting the selected level
+ FAIL  tests/ui/workflow-grants-i18n.test.tsx > localizes audit actions, date and member fallback without translating raw names
+ FAIL  tests/ui/workflow-grants-i18n.test.tsx > keeps deep-link focus while localizing workflow view
+ FAIL  tests/ui/workflow-grants-i18n.test.tsx > localizes missing workflow and empty capability states
+ FAIL  tests/ui/workflow-grants-i18n.test.tsx > localizes denied state without reading admin data
+ FAIL  tests/ui/workflow-grants-i18n.test.tsx > retranslates load errors and retries only through explicit action
+ FAIL  tests/ui/workflow-grants-i18n.test.tsx > keeps legacy Chinese helpers and localizes unknown capabilities and targets
+ FAIL  tests/ui/workflow-grants-i18n.test.tsx > localizes closed API errors and safe network/unknown fallbacks
+ FAIL  tests/ui/workflow-grants-i18n.test.tsx > keeps a pending canonical mutation busy through locale switches until its original result arrives
+ FAIL  tests/ui/workflow-grants-i18n.test.tsx > cancels an edited dialog without issuing a grant or revoke
+ Test Files  1 failed (1)
+      Tests  14 failed (14)
+   Start at  04:53:53
+   Duration  5.30s (transform 249ms, setup 162ms, collect 477ms, tests 3.55s, environment 766ms, prepare 100ms)

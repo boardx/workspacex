@@ -1,0 +1,16 @@
+{
+  "name": "web-type-final",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "typecheck"
+  ],
+  "source": "fda71b3eacd39c379a0d3043207e6db4a63d1ffa",
+  "exitCode": 0,
+  "seconds": 79.284,
+  "rawLogSha256": "cd5788cc155241ad0932956ca7dd287ae173e2f213993b615bdafdcb93bc7ce4",
+  "sourceAfter": "fda71b3eacd39c379a0d3043207e6db4a63d1ffa",
+  "sourceStable": true,
+  "environment": {}
+}

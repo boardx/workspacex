@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
 import * as React from "react";
 import { MessageSquarePlus } from "lucide-react";
 import { useOptionalFeedback } from "./feedback-provider";
@@ -36,13 +37,14 @@ export function FeedbackButton({
   className?: string;
   testid?: string;
 }) {
+  const { t } = useI18n();
   const feedback = useOptionalFeedback();
   if (feedback === null) return null;
 
   const label =
     target.kind === "product"
-      ? "提交反馈"
-      : `对${target.kind === "agent" ? " Agent " : " Skill "}${targetLabel ?? ""}提反馈`;
+      ? t("ui.sendFeedback")
+      : t("feedback.target", { kind: target.kind === "agent" ? " Agent " : " Skill ", name: targetLabel ?? "" });
 
   if (variant === "rail") {
     return (
@@ -60,7 +62,7 @@ export function FeedbackButton({
         )}
       >
         <MessageSquarePlus aria-hidden className="h-4 w-4" />
-        <span className="text-10">反馈</span>
+        <span className="text-10">{t("feedback.short")}</span>
       </button>
     );
   }

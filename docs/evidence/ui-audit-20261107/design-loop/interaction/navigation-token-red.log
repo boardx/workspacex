@@ -1,0 +1,67 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+
+ ❯ tests/ui/prototype-table-interactions.test.tsx (5 tests | 2 failed) 233ms
+   × leaves ancestor data-goto navigation in charge without opening local details 13ms
+     → expected <div role="dialog" …(3)>…(3)</div> to be null
+   × matches explicit fields exactly when their values start with all 6ms
+     → expected '' to be 'none' // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/prototype-table-interactions.test.tsx > leaves ancestor data-goto navigation in charge without opening local details
+AssertionError: expected <div role="dialog" …(3)>…(3)</div> to be null
+
+- Expected: 
+null
+
++ Received: 
+<div
+  aria-label="资料详情预览"
+  aria-modal="true"
+  role="dialog"
+  style="position: fixed; inset: 15%; z-index: 9999; padding: 24px; background: white; color: rgb(17, 17, 17); border-radius: 12px; box-shadow: 0 0 0 100vmax #0008; overflow: auto; border: 1px solid rgb(204, 204, 204);"
+>
+  <h2>
+    资料详情预览
+  </h2>
+  <p>
+    资料
+  </p>
+  <button>
+    关闭
+  </button>
+</div>
+
+ ❯ tests/ui/prototype-table-interactions.test.tsx:60:52
+     58|  document.body.innerHTML='<table><tbody><tr data-goto="1" data-link="r…
+     59|  new Function(PROTOTYPE_TABLE_INTERACTIONS)();document.querySelector('…
+     60|  expect(document.querySelector('[role="dialog"]')).toBeNull();
+       |                                                    ^
+     61| });
+     62| it('matches explicit fields exactly when their values start with all',…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/ui/prototype-table-interactions.test.tsx > matches explicit fields exactly when their values start with all
+AssertionError: expected '' to be 'none' // Object.is equality
+
+- Expected
++ Received
+
+- none
+
+ ❯ tests/ui/prototype-table-interactions.test.tsx:65:79
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 3 passed (5)
+   Start at  04:35:06
+   Duration  2.21s (transform 94ms, setup 247ms, collect 55ms, tests 233ms, environment 931ms, prepare 125ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/prototype-table-interactions.test.tsx

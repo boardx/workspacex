@@ -13,7 +13,7 @@ Runtime: repository with-test-isolation wrapper, fresh isolated database/ports, 
 Before dispatch, freeze the pushed branch and compare existing workflow run events/head_sha. A pull_request run cannot satisfy the Chat lane because of its protected condition. If no eligible same-SHA dispatch is already running, issue exactly one existing workflow_dispatch:
 
 ```sh
-gh workflow run harness-verify.yml --repo boardx/workspacex \
+gh workflow run harness-acceptance.yml --repo boardx/workspacex \
   --ref codex/paper-design-system-20261004 \
   -F fresh_run=true -F run_e2e_full=true \
   -F run_chat_task_workbench=false -F run_chat_path_coverage=false

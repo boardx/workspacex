@@ -1,0 +1,98 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts
+
+ ❯ tests/billing-team-operations-design.test.ts (11 tests | 11 failed) 31ms
+   × distinguishes a recoverable in-progress operation from actual Enterprise activation 14ms
+     → Cannot read properties of undefined (reading 'parse')
+   × rejects fabricated or incoherent activation facts {"prepaidTeamPolicy":"stop"} 1ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects fabricated or incoherent activation facts {"actorId":"another-operator"} 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects fabricated or incoherent activation facts {"appliedAt":"2026-11-17T10:00:00Z"} 2ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects fabricated or incoherent activation facts {"plan":{"plan":"enterprise","version":3,"updatedAt":"2026-11-16T10:01:00Z","updatedBy":"platform-operator","enforcement":"active","billingGeneration":"pricing-v1"}} 1ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects fabricated or incoherent activation facts {"plan":{"plan":"enterprise","version":2,"updatedAt":"2026-11-16T10:01:00Z","updatedBy":"platform-operator","enforcement":"active","billingGeneration":"old"}} 1ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects fabricated or incoherent activation facts {"plan":{"plan":"ordinary","version":2,"updatedAt":"2026-11-16T10:01:00Z","updatedBy":"platform-operator","enforcement":"active","billingGeneration":"pricing-v1"}} 1ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects fabricated or incoherent activation facts {"retainedTeamPayment":{"term":{"purchaseAnchor":"2026-11-01T10:00:00Z","paidPeriodStart":"2026-11-01T10:00:00Z","paidPeriodEnd":"2027-11-01T10:00:00Z","billingCycle":"year","purchasedSeats":7,"monthlyCredits":130000},"provider":"stripe","renewalMode":"automatic","cancelAtPeriodEnd":false,"subscriptionStatus":"active"}} 1ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × retains a canceled paid Stripe term and allows Enterprise without prior Team 2ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × uses the production code envelope, keeping unknown failures distinct 2ms
+     → Cannot read properties of undefined (reading 'parse')
+   × exports each organization/platform operation once without caller-owned route scope in mutations 1ms
+     → Cannot convert undefined or null to object
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 11 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing-team-operations-design.test.ts > distinguishes a recoverable in-progress operation from actual Enterprise activation
+TypeError: Cannot read properties of undefined (reading 'parse')
+ ❯ tests/billing-team-operations-design.test.ts:9:36
+      7| const success={...pending,status:"succeeded",receipt,code:null,nextAct…
+      8| it("distinguishes a recoverable in-progress operation from actual Ente…
+      9|  expect(EnterpriseUpgradeOperation.parse(pending)).toEqual(pending);ex…
+       |                                    ^
+     10|  expect(EnterpriseUpgradeOperation.safeParse({...pending,receipt}).suc…
+     11|  expect(EnterpriseUpgradeOperation.safeParse({...success,receipt:null}…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/11]⎯
+
+ FAIL  tests/billing-team-operations-design.test.ts > rejects fabricated or incoherent activation facts {"prepaidTeamPolicy":"stop"}
+ FAIL  tests/billing-team-operations-design.test.ts > rejects fabricated or incoherent activation facts {"actorId":"another-operator"}
+ FAIL  tests/billing-team-operations-design.test.ts > rejects fabricated or incoherent activation facts {"appliedAt":"2026-11-17T10:00:00Z"}
+ FAIL  tests/billing-team-operations-design.test.ts > rejects fabricated or incoherent activation facts {"plan":{"plan":"enterprise","version":3,"updatedAt":"2026-11-16T10:01:00Z","updatedBy":"platform-operator","enforcement":"active","billingGeneration":"pricing-v1"}}
+ FAIL  tests/billing-team-operations-design.test.ts > rejects fabricated or incoherent activation facts {"plan":{"plan":"enterprise","version":2,"updatedAt":"2026-11-16T10:01:00Z","updatedBy":"platform-operator","enforcement":"active","billingGeneration":"old"}}
+ FAIL  tests/billing-team-operations-design.test.ts > rejects fabricated or incoherent activation facts {"plan":{"plan":"ordinary","version":2,"updatedAt":"2026-11-16T10:01:00Z","updatedBy":"platform-operator","enforcement":"active","billingGeneration":"pricing-v1"}}
+ FAIL  tests/billing-team-operations-design.test.ts > rejects fabricated or incoherent activation facts {"retainedTeamPayment":{"term":{"purchaseAnchor":"2026-11-01T10:00:00Z","paidPeriodStart":"2026-11-01T10:00:00Z","paidPeriodEnd":"2027-11-01T10:00:00Z","billingCycle":"year","purchasedSeats":7,"monthlyCredits":130000},"provider":"stripe","renewalMode":"automatic","cancelAtPeriodEnd":false,"subscriptionStatus":"active"}}
+TypeError: Cannot read properties of undefined (reading 'safeParse')
+ ❯ tests/billing-team-operations-design.test.ts:18:36
+     16|  {retainedTeamPayment:{...receipt.retainedTeamPayment,cancelAtPeriodEn…
+     17| ])("rejects fabricated or incoherent activation facts %j",patch=>{
+     18|  expect(EnterpriseUpgradeOperation.safeParse({...success,receipt:{...r…
+       |                                    ^
+     19| });
+     20| it("retains a canceled paid Stripe term and allows Enterprise without …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/11]⎯
+
+ FAIL  tests/billing-team-operations-design.test.ts > retains a canceled paid Stripe term and allows Enterprise without prior Team
+TypeError: Cannot read properties of undefined (reading 'safeParse')
+ ❯ tests/billing-team-operations-design.test.ts:21:36
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/11]⎯
+
+ FAIL  tests/billing-team-operations-design.test.ts > uses the production code envelope, keeping unknown failures distinct
+TypeError: Cannot read properties of undefined (reading 'parse')
+ ❯ tests/billing-team-operations-design.test.ts:26:30
+     24| it("uses the production code envelope, keeping unknown failures distin…
+     25|  const error={error:"conflict",traceId:"trace-a",code:"capacity_insuff…
+     26|  expect(TeamBillingRejection.parse(error)).toEqual(error);
+       |                              ^
+     27|  expect(TeamBillingRejection.safeParse({...error,code:"unknown"}).succ…
+     28|  expect(TeamBillingRejection.safeParse({error:"conflict",traceId:"trac…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/11]⎯
+
+ FAIL  tests/billing-team-operations-design.test.ts > exports each organization/platform operation once without caller-owned route scope in mutations
+TypeError: Cannot convert undefined or null to object
+ ❯ tests/billing-team-operations-design.test.ts:31:23
+     29| });
+     30| it("exports each organization/platform operation once without caller-o…
+     31|  const entries=Object.values(operations);expect(new Set(entries.map(o=…
+       |                       ^
+     32|  expect(operations.getTeamCatalog.path).toBe("/billing/organizations/:…
+     33|  expect(operations.getTeamPurchase.out).toBe(operations.createTeamChec…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/11]⎯
+
+ Test Files  1 failed (1)
+      Tests  11 failed (11)
+   Start at  10:23:19
+   Duration  3.59s (transform 473ms, setup 0ms, collect 586ms, tests 31ms, environment 0ms, prepare 559ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing-team-operations-design.test.ts

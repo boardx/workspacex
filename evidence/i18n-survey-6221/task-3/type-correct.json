@@ -1,0 +1,15 @@
+{
+  "name": "type-correct",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "typecheck"
+  ],
+  "source": "54e80ec708a3475660e06f98a890bd834dd7900d",
+  "exitCode": 2,
+  "seconds": 50.02,
+  "rawLogSha256": "43fd9743ebc564ee90b34e4e33f6195380c14bedd468b04007f425ea54aaf564",
+  "environment": {},
+  "classification": "Actual tsc exit2; only three TS18046 diagnostics in new caught-error test; fixed with explicit instanceof guard after original assertion."
+}

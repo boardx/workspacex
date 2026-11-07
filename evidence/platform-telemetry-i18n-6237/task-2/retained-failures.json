@@ -1,0 +1,41 @@
+{
+  "sourceTyping": {
+    "source": "e309f92210ea75f9dd60ef5fa8daa144f0f06818",
+    "exit": 2,
+    "cause": "TS2339 generic Node.getAttribute in new identity callback",
+    "repair": "real Element guard preserving connectedness and same-node assertions",
+    "fixedSource": "3e7e579cea24ab9b1effdabb408c453fd571cc8d",
+    "coveringWebTypeExit": 0
+  },
+  "discovery": [
+    {
+      "attempt": 1,
+      "nativeExit": 1,
+      "wrapperExit": 1,
+      "outerExit": 1,
+      "selectedTests": 0,
+      "selectedFiles": 0,
+      "cause": "private grep start anchor incorrectly excluded prefixed full title"
+    },
+    {
+      "attempt": 2,
+      "nativeExit": 0,
+      "wrapperExit": 0,
+      "outerExit": 1,
+      "selectedTests": 187,
+      "selectedFiles": 65,
+      "cause": "dependency projects included; exact-one guard correctly rejected selection"
+    },
+    {
+      "attempt": 3,
+      "nativeExit": 0,
+      "wrapperExit": 0,
+      "outerExit": 0,
+      "selectedTests": 1,
+      "selectedFiles": 1,
+      "correction": "private scoped canonical command includes --no-deps and unique full title suffix"
+    }
+  ],
+  "browserFailures": 0,
+  "notes": "All discovery attempts cleaned owned containers, volumes and all13 reserved listener ports before peer release. No browser started in the failed discovery attempts. Raw output stays private."
+}

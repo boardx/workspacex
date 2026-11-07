@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
+import { graphClaimKindLabel } from "@/lib/knowledge-graph-copy";
 import { Sparkles } from "lucide-react";
 import {
   applyHumanAction, fetchMessageExtraction, fetchThreadKnowledge, knowledgeGraphErrorCode, undoAutoPersonalCopy,
@@ -8,7 +10,6 @@ import {
 } from "@/lib/knowledge-graph-api";
 import { describeHumanActionFailure } from "@/lib/knowledge-graph-failure";
 import { truncateStatement } from "@/lib/knowledge-graph-recall";
-import { KG_CLAIM_KIND_LABEL_ZH } from "@/lib/knowledge-graph-view";
 import { requestKnowledgeReload, requestRememberStatement, useKnowledgeSnapshot } from "@/lib/knowledge-graph-events";
 import { isHandoffControlStatement } from "@/lib/agent-handoff";
 import { TURN_MEMORY_REPOLL_DELAYS_MS } from "./turn-memory-line";
@@ -81,12 +82,13 @@ export function ExtractionFeedbackChip({
   /** 这条消息的原文：「记一条」把它预填进「记住」确认卡。不给 ⇒ 只显示说明，不给「记一条」。 */
   readonly statement?: string;
 }) {
+  const { t, locale } = useI18n();
   const [claims, setClaims] = React.useState<MessageExtraction["claims"]>([]);
   const [status, setStatus] = React.useState<MessageExtraction["status"] | null>(null);
   const [rememberRequested, setRememberRequested] = React.useState(false);
   const [handled, setHandled] = React.useState<ReadonlySet<string>>(() => new Set());
   const [undoingId, setUndoingId] = React.useState<string | null>(null);
-  const [errorFor, setErrorFor] = React.useState<Readonly<Record<string, string>>>({});
+  const [errorFor, setErrorFor] = React.useState<Readonly<Record<string, { cause: unknown }>>>({});
   const snapshot = useKnowledgeSnapshot(threadId);
   const canUndo = snapshot?.canEdit === true;
 
@@ -153,7 +155,7 @@ export function ExtractionFeedbackChip({
       if (knowledgeGraphErrorCode(e) === "KG_CLAIM_NOT_FOUND") {
         setHandled((cur) => (cur.has(claimId) ? cur : new Set(cur).add(claimId)));
       } else {
-        setErrorFor((cur) => ({ ...cur, [claimId]: describeHumanActionFailure(e) }));
+        setErrorFor((cur) => ({ ...cur, [claimId]: { cause: e } }));
       }
     } finally {
       setUndoingId(null);
@@ -171,9 +173,9 @@ export function ExtractionFeedbackChip({
       <p
         className="mt-1 flex items-center gap-1 text-10 text-muted-foreground/70"
         data-testid="kg-extraction-empty"
-        title="助手没有从这句话里提取出需要长期记住的信息；如果它很重要，可以手动记住。"
+        title={t("chatKnowledge.extraction.emptyHint")}
       >
-        这句话没有自动记入记忆
+        {t("chatKnowledge.extraction.empty")}
         {canUndo && rememberText !== "" ? (
           <>
             <span aria-hidden>·</span>
@@ -184,7 +186,7 @@ export function ExtractionFeedbackChip({
               disabled={rememberRequested}
               onClick={() => { setRememberRequested(true); requestRememberStatement(rememberText); }}
             >
-              手动记住
+              {t("chatKnowledge.extraction.manual")}
             </button>
           </>
         ) : null}
@@ -201,12 +203,12 @@ export function ExtractionFeedbackChip({
             <Sparkles aria-hidden className="h-3 w-3" />
             {/* 一整段放进同一个 span：这一行是 flex + gap，分开的文字节点之间会被拉出空隙（「已记下 目标 ：」）。 */}
             <span>
-              已记下<span data-testid={`kg-extraction-kind-${c.claimId}`}>{KG_CLAIM_KIND_LABEL_ZH[c.kind]}</span>：{truncateStatement(c.statement)}
+              {t("chatKnowledge.extraction.savedPrefix")}<span data-testid={`kg-extraction-kind-${c.claimId}`}>{graphClaimKindLabel(c.kind, locale)}</span>{t("chatKnowledge.extraction.separator")}{truncateStatement(c.statement)}
             </span>
             {c.personalCopyClaimId !== null ? (
               <>
                 <span aria-hidden>·</span>
-                <span data-testid={`kg-extraction-personal-${c.claimId}`}>已记入个人记忆</span>
+                <span data-testid={`kg-extraction-personal-${c.claimId}`}>{t("chatKnowledge.extraction.personal")}</span>
               </>
             ) : null}
             {canUndo || c.personalCopyClaimId !== null ? (
@@ -219,14 +221,14 @@ export function ExtractionFeedbackChip({
                   disabled={undoingId === c.claimId}
                   onClick={() => void undo(c.claimId, c.personalCopyClaimId)}
                 >
-                  {undoingId === c.claimId ? "撤销中…" : "撤销"}
+                  {undoingId === c.claimId ? t("chatKnowledge.notice.undoing") : t("chatKnowledge.memory.undo")}
                 </button>
               </>
             ) : null}
           </p>
           {errorFor[c.claimId] !== undefined ? (
             <p role="alert" className="text-10 text-destructive" data-testid={`kg-extraction-undo-error-${c.claimId}`}>
-              {errorFor[c.claimId]}
+              {describeHumanActionFailure(errorFor[c.claimId]?.cause, locale)}
             </p>
           ) : null}
         </div>

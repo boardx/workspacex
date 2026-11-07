@@ -52,6 +52,8 @@ class CreditRuntimeUsageError(RuntimeUsageError):
         self.payload = {"code": payload["code"]}
         if payload["code"] == "credit_required" and payload.get("ownerType") in ("user", "team") and isinstance(payload.get("ownerId"), str):
             self.payload.update(ownerType=payload["ownerType"], ownerId=payload["ownerId"])
+            if payload.get("reason") == "member_monthly_limit":
+                self.payload["reason"] = "member_monthly_limit"
         super().__init__(payload["code"])
 
 
@@ -456,8 +458,16 @@ class UsageParser:
         self.buffer = b""
         self.overflow = False
         self.usage = {}
+        self.completed = False
+        self._event_data = []
+        self._event_size = 0
+        self._skip_lf = False
+        self._invalid_event = False
 
     def read(self, value):
+        if isinstance(value, dict) and "error" in value:
+            self._invalid_event = True
+            self.completed = False
         if not isinstance(value, dict) or not isinstance(value.get("usage"), dict):
             return
         raw = value["usage"]
@@ -482,18 +492,57 @@ class UsageParser:
             else:
                 self.buffer = b""; self.overflow = True
             return
+        # SSE accepts CR, LF, and CRLF, including CRLF split across reads.
+        if self._skip_lf and chunk.startswith(b"\n"):
+            chunk = chunk[1:]
+            self._skip_lf = False
+        if not chunk:
+            return
+        self._skip_lf = False
         for piece in chunk.splitlines(keepends=True):
-            if not self.overflow and len(self.buffer) + len(piece) <= 262_144:
+            self._skip_lf = piece.endswith(b"\r")
+            self._event_size += len(piece)
+            if not self.overflow and self._event_size <= 262_144:
                 self.buffer += piece
             else:
                 self.buffer = b""; self.overflow = True
-            if piece.endswith(b"\n"):
-                if not self.overflow and self.buffer.startswith(b"data:"):
-                    try:
-                        self.read(json.loads(self.buffer[5:].strip()))
-                    except (ValueError, TypeError, AttributeError):
-                        pass
-                self.buffer = b""; self.overflow = False
+                self._event_data = []
+                self._invalid_event = True
+                self.completed = False
+            if piece.endswith((b"\n", b"\r")):
+                line = self.buffer.rstrip(b"\r\n")
+                try:
+                    line.decode("utf-8")
+                except UnicodeDecodeError:
+                    # The SDK decodes every SSE line, including comments.
+                    self._invalid_event = True
+                    self.completed = False
+                if not line:
+                    # SSE data belongs to the complete event, including embedded
+                    # newlines. The SDK closes at DONE without draining HTTP EOF.
+                    if not self.overflow and self._event_data:
+                        data = b"\n".join(self._event_data)
+                        if data == b"[DONE]":
+                            self.completed = not self._invalid_event
+                        else:
+                            try:
+                                self.read(json.loads(data))
+                            except (ValueError, TypeError, AttributeError):
+                                self._invalid_event = True
+                                self.completed = False
+                    self._event_data = []
+                    self._event_size = 0
+                    self.overflow = False
+                elif not self.overflow:
+                    field, separator, value = line.partition(b":")
+                    if separator and value.startswith(b" "):
+                        value = value[1:]
+                    if field == b"data":
+                        self._event_data.append(value)
+                    elif field == b"event" and value == b"error":
+                        self._invalid_event = True
+                        self.completed = False
+                self.buffer = b""
 
     def finish(self):
         if not self.sse and not self.overflow:
@@ -592,6 +641,7 @@ def apply_admitted_dispatch(request, start, acknowledgement):
 
 def terminal(start: dict, parser: UsageParser, success: bool):
     parser.finish()
+    success = success and (not parser.sse or parser.completed)
     return {k: start[k] for k in ("orgId", "attemptId", "leaseEpoch", "requestId") if k in start} | {"endedAt": now(), "outcome": "succeeded" if success else "failed", "usage": parser.usage}
 
 
@@ -642,7 +692,7 @@ class AccountedSyncStream(httpx.SyncByteStream):
         try:
             self.stream.close()
         finally:
-            self.finish(False)
+            self.finish(self.success and self.parser.completed)
 
 
 class AccountedAsyncStream(httpx.AsyncByteStream):
@@ -692,7 +742,7 @@ class AccountedAsyncStream(httpx.AsyncByteStream):
         try:
             await self.stream.aclose()
         finally:
-            await self.finish(False)
+            await self.finish(self.success and self.parser.completed)
 
 
 def receipt_requested():

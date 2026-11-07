@@ -1,0 +1,18 @@
+{
+  "name": "balanced-current-type",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "typecheck"
+  ],
+  "source": "b4db99fa0a9f0933ac2a80528be7a4181cb429fa",
+  "exitCode": 0,
+  "seconds": 12.593,
+  "rawLogSha256": "cd5788cc155241ad0932956ca7dd287ae173e2f213993b615bdafdcb93bc7ce4",
+  "sourceAfter": "b4db99fa0a9f0933ac2a80528be7a4181cb429fa",
+  "sourceStable": true,
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  }
+}

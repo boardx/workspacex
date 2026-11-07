@@ -1,0 +1,838 @@
+TAP version 13
+# Subtest: src/infrastructure/chat-queue/thread-message-queue.ts existing boundary recognized
+ok 1 - src/infrastructure/chat-queue/thread-message-queue.ts existing boundary recognized
+  ---
+  duration_ms: 72.156959
+  type: 'test'
+  ...
+# Subtest: reject queue await this.authorize(orgId,userId,threadId);
+ok 2 - reject queue await this.authorize(orgId,userId,threadId);
+  ---
+  duration_ms: 19.883833
+  type: 'test'
+  ...
+# Subtest: reject queue await this.authorize(orgId,userId,threadId,true);
+ok 3 - reject queue await this.authorize(orgId,userId,threadId,true);
+  ---
+  duration_ms: 10.264208
+  type: 'test'
+  ...
+# Subtest: reject queue access.kind!=="allow"
+ok 4 - reject queue access.kind!=="allow"
+  ---
+  duration_ms: 12.443333
+  type: 'test'
+  ...
+# Subtest: reject queue userId:row.actor_id
+ok 5 - reject queue userId:row.actor_id
+  ---
+  duration_ms: 15.906084
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/db/pg-database.ts existing boundary recognized
+not ok 6 - src/infrastructure/db/pg-database.ts existing boundary recognized
+  ---
+  duration_ms: 15.477917
+  type: 'test'
+  location: '/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api/scripts/tests/workbench-permission-boundary.test.mjs:7:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly deep-equal:
+    + actual - expected
+    
+    + [
+    +   'lease query must disclose only id under exact tenant/epoch/expiry fencing'
+    + ]
+    - []
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual:
+    0: 'lease query must disclose only id under exact tenant/epoch/expiry fencing'
+  operator: 'deepStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api/scripts/tests/workbench-permission-boundary.test.mjs:7:56)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: reject lease SELECT id FROM agent_runs
+ok 7 - reject lease SELECT id FROM agent_runs
+  ---
+  duration_ms: 5.820542
+  type: 'test'
+  ...
+# Subtest: reject lease orgId!==lease.orgId
+ok 8 - reject lease orgId!==lease.orgId
+  ---
+  duration_ms: 6.4025
+  type: 'test'
+  ...
+# Subtest: reject lease lease_expires_at>now()
+ok 9 - reject lease lease_expires_at>now()
+  ---
+  duration_ms: 5.566375
+  type: 'test'
+  ...
+# Subtest: reject lease lease_epoch=$3
+ok 10 - reject lease lease_epoch=$3
+  ---
+  duration_ms: 5.461333
+  type: 'test'
+  ...
+# Subtest: reject lease org_id=$1 AND id=$2
+ok 11 - reject lease org_id=$1 AND id=$2
+  ---
+  duration_ms: 4.623417
+  type: 'test'
+  ...
+# Subtest: reject lease FOR NO KEY UPDATE
+ok 12 - reject lease FOR NO KEY UPDATE
+  ---
+  duration_ms: 4.77
+  type: 'test'
+  ...
+# Subtest: reject lease FOR NO KEY UPDATE
+ok 13 - reject lease FOR NO KEY UPDATE
+  ---
+  duration_ms: 3.754375
+  type: 'test'
+  ...
+# Subtest: reject lease FOR NO KEY UPDATE
+ok 14 - reject lease FOR NO KEY UPDATE
+  ---
+  duration_ms: 5.251208
+  type: 'test'
+  ...
+# Subtest: reject lease FOR NO KEY UPDATE
+ok 15 - reject lease FOR NO KEY UPDATE
+  ---
+  duration_ms: 3.755792
+  type: 'test'
+  ...
+# Subtest: current control paths satisfy all bounded permission premises
+not ok 16 - current control paths satisfy all bounded permission premises
+  ---
+  duration_ms: 18.847042
+  type: 'test'
+  location: '/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api/scripts/workbench-permission-boundaries.test.mjs:9:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly deep-equal:
+    + actual - expected
+    
+    + [
+    +   'src/infrastructure/db/pg-database.ts: authority invariant missing (src/infrastructure/db/pg-database.ts: /SELECT id FROM agent_runs WHERE org_id=\\$1 AND id=\\$2\\s+AND lease_epoch=\\$3 AND lease_expires_at>now\\(\\) FOR UPDATE/)'
+    + ]
+    - []
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual:
+    0: 'src/infrastructure/db/pg-database.ts: authority invariant missing (src/infrastructure/db/pg-database.ts: /SELECT id FROM agent_runs WHERE org_id=\\$1 AND id=\\$2\\s+AND lease_epoch=\\$3 AND lease_expires_at>now\\(\\) FOR UPDATE/)'
+  operator: 'deepStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api/scripts/workbench-permission-boundaries.test.mjs:9:81)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.start (node:internal/test_runner/test:944:17)
+    startSubtestAfterBootstrap (node:internal/test_runner/harness:296:17)
+  ...
+# Subtest: src/infrastructure/billing/pg-auxiliary-model-accounting.ts: newly read tenant table is not exempt
+ok 17 - src/infrastructure/billing/pg-auxiliary-model-accounting.ts: newly read tenant table is not exempt
+  ---
+  duration_ms: 5.429375
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/billing/pg-auxiliary-model-accounting.ts: removing authority prerequisite /this\\.db\\.withTenant\\(orgId/ fails
+ok 18 - src/infrastructure/billing/pg-auxiliary-model-accounting.ts: removing authority prerequisite /this\\.db\\.withTenant\\(orgId/ fails
+  ---
+  duration_ms: 6.260333
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/billing/pg-auxiliary-model-accounting.ts: removing authority prerequisite /WHERE org_id=\\$1 AND id=\\$2 FOR UPDATE/ fails
+ok 19 - src/infrastructure/billing/pg-auxiliary-model-accounting.ts: removing authority prerequisite /WHERE org_id=\\$1 AND id=\\$2 FOR UPDATE/ fails
+  ---
+  duration_ms: 5.185916
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/billing/pg-auxiliary-model-accounting.ts: removing authority prerequisite /if\\(!op\\?\\.active\\|\\|op\\.model_provider!==provider\\|\\|op\\.model_id!==input\\.modelId\\)/ fails
+ok 20 - src/infrastructure/billing/pg-auxiliary-model-accounting.ts: removing authority prerequisite /if\\(!op\\?\\.active\\|\\|op\\.model_provider!==provider\\|\\|op\\.model_id!==input\\.modelId\\)/ fails
+  ---
+  duration_ms: 5.347334
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/billing/pg-auxiliary-model-accounting.ts: removing authority prerequisite /stored\\.body_hash!==createHash\\('sha256'\\)\\.update\\(input\\.serializedBody\\)\\.digest\\('hex'\\)\\|\\|stored\\.output_cap!==input\\.outputTokenLimit\\|\\|stored\\.operation_id!==id/ fails
+ok 21 - src/infrastructure/billing/pg-auxiliary-model-accounting.ts: removing authority prerequisite /stored\\.body_hash!==createHash\\('sha256'\\)\\.update\\(input\\.serializedBody\\)\\.digest\\('hex'\\)\\|\\|stored\\.output_cap!==input\\.outputTokenLimit\\|\\|stored\\.operation_id!==id/ fails
+  ---
+  duration_ms: 6.226583
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/billing/pg-auxiliary-model-accounting.ts: removing authority prerequisite /if\\(!row\\.active\\|\\|row\\.model_id!==input\\.modelId/ fails
+ok 22 - src/infrastructure/billing/pg-auxiliary-model-accounting.ts: removing authority prerequisite /if\\(!row\\.active\\|\\|row\\.model_id!==input\\.modelId/ fails
+  ---
+  duration_ms: 4.466666
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/billing/pg-auxiliary-model-accounting.ts: removing authority prerequisite /WHERE r\\.org_id=\\$1 AND r\\.operation_id=\\$2 AND r\\.request_id=\\$3/ fails
+ok 23 - src/infrastructure/billing/pg-auxiliary-model-accounting.ts: removing authority prerequisite /WHERE r\\.org_id=\\$1 AND r\\.operation_id=\\$2 AND r\\.request_id=\\$3/ fails
+  ---
+  duration_ms: 7.300291
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/billing/pg-auxiliary-model-accounting.ts: removing authority prerequisite /new PgCreditConsumption\\(this\\.db\\)\\.resolvePayer\\(orgId,row\\.user_id\\)/ fails
+ok 24 - src/infrastructure/billing/pg-auxiliary-model-accounting.ts: removing authority prerequisite /new PgCreditConsumption\\(this\\.db\\)\\.resolvePayer\\(orgId,row\\.user_id\\)/ fails
+  ---
+  duration_ms: 6.813875
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/billing/pg-auxiliary-model-accounting.ts: removing authority prerequisite /scope\\.userId !== userId/ fails
+ok 25 - src/infrastructure/billing/pg-auxiliary-model-accounting.ts: removing authority prerequisite /scope\\.userId !== userId/ fails
+  ---
+  duration_ms: 5.815708
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/billing/pg-auxiliary-model-accounting.ts: removing authority prerequisite /!timingSafeEqual\\(expected,actual\\)/ fails
+ok 26 - src/infrastructure/billing/pg-auxiliary-model-accounting.ts: removing authority prerequisite /!timingSafeEqual\\(expected,actual\\)/ fails
+  ---
+  duration_ms: 6.743792
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/billing/pg-auxiliary-model-accounting.ts: removing authority prerequisite /private credit refusal restores trusted recharge guidance, never matching arbitrary vendor text/ fails
+ok 27 - src/infrastructure/billing/pg-auxiliary-model-accounting.ts: removing authority prerequisite /private credit refusal restores trusted recharge guidance, never matching arbitrary vendor text/ fails
+  ---
+  duration_ms: 5.328042
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/billing/credit-model-gateway.ts: newly read tenant table is not exempt
+ok 28 - src/infrastructure/billing/credit-model-gateway.ts: newly read tenant table is not exempt
+  ---
+  duration_ms: 5.6085
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/billing/credit-model-gateway.ts: removing authority prerequisite /scope\\.orgId !== orgId/ fails
+ok 29 - src/infrastructure/billing/credit-model-gateway.ts: removing authority prerequisite /scope\\.orgId !== orgId/ fails
+  ---
+  duration_ms: 7.018334
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/billing/credit-model-gateway.ts: removing authority prerequisite /scope\\.userId !== userId/ fails
+ok 30 - src/infrastructure/billing/credit-model-gateway.ts: removing authority prerequisite /scope\\.userId !== userId/ fails
+  ---
+  duration_ms: 7.500958
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/billing/credit-model-gateway.ts: removing authority prerequisite /await meter\\.startRequest\\(orgId/ fails
+ok 31 - src/infrastructure/billing/credit-model-gateway.ts: removing authority prerequisite /await meter\\.startRequest\\(orgId/ fails
+  ---
+  duration_ms: 6.232542
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/billing/pg-credit-consumption.ts: newly read tenant table is not exempt
+ok 32 - src/infrastructure/billing/pg-credit-consumption.ts: newly read tenant table is not exempt
+  ---
+  duration_ms: 6.450708
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/billing/pg-credit-consumption.ts: removing authority prerequisite /JOIN org_memberships m ON m\\.org_id=o\\.id WHERE o\\.id=\\$1 AND m\\.user_id=\\$2/ fails
+ok 33 - src/infrastructure/billing/pg-credit-consumption.ts: removing authority prerequisite /JOIN org_memberships m ON m\\.org_id=o\\.id WHERE o\\.id=\\$1 AND m\\.user_id=\\$2/ fails
+  ---
+  duration_ms: 8.049291
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/billing/pg-credit-consumption.ts: removing authority prerequisite /credit_start_replay_mismatch/ fails
+ok 34 - src/infrastructure/billing/pg-credit-consumption.ts: removing authority prerequisite /credit_start_replay_mismatch/ fails
+  ---
+  duration_ms: 8.97825
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/billing/pg-credit-consumption.ts: removing authority prerequisite /await settleCreditReceipt\\(s,orgId,usage\\)/ fails
+ok 35 - src/infrastructure/billing/pg-credit-consumption.ts: removing authority prerequisite /await settleCreditReceipt\\(s,orgId,usage\\)/ fails
+  ---
+  duration_ms: 5.6915
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/billing/pg-credit-consumption.ts: removing authority prerequisite /credit_receipt_provenance_mismatch/ fails
+ok 36 - src/infrastructure/billing/pg-credit-consumption.ts: removing authority prerequisite /credit_receipt_provenance_mismatch/ fails
+  ---
+  duration_ms: 6.696083
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/billing/pg-credit-receipt.ts: newly read tenant table is not exempt
+ok 37 - src/infrastructure/billing/pg-credit-receipt.ts: newly read tenant table is not exempt
+  ---
+  duration_ms: 6.276417
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/billing/pg-credit-receipt.ts: removing authority prerequisite /WHERE request_id=\\$1 AND org_id=\\$2/ fails
+ok 38 - src/infrastructure/billing/pg-credit-receipt.ts: removing authority prerequisite /WHERE request_id=\\$1 AND org_id=\\$2/ fails
+  ---
+  duration_ms: 6.972542
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/billing/pg-credit-receipt.ts: removing authority prerequisite /row\\.user_id !== usage\\.userId/ fails
+ok 39 - src/infrastructure/billing/pg-credit-receipt.ts: removing authority prerequisite /row\\.user_id !== usage\\.userId/ fails
+  ---
+  duration_ms: 9.989166
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/billing/pg-credit-receipt.ts: removing authority prerequisite /credit_receipt_provenance_mismatch/ fails
+ok 40 - src/infrastructure/billing/pg-credit-receipt.ts: removing authority prerequisite /credit_receipt_provenance_mismatch/ fails
+  ---
+  duration_ms: 7.81225
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/billing/pg-credit-receipt.ts: removing authority prerequisite /credit_receipt_replay_mismatch/ fails
+ok 41 - src/infrastructure/billing/pg-credit-receipt.ts: removing authority prerequisite /credit_receipt_replay_mismatch/ fails
+  ---
+  duration_ms: 7.663334
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/billing/pg-native-credit-tariff-repository.ts: newly read tenant table is not exempt
+ok 42 - src/infrastructure/billing/pg-native-credit-tariff-repository.ts: newly read tenant table is not exempt
+  ---
+  duration_ms: 14.37875
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/billing/pg-native-credit-tariff-repository.ts: removing authority prerequisite /this\\.db\\.withTenant\\(toOrgId\\(orgId\\)/ fails
+ok 43 - src/infrastructure/billing/pg-native-credit-tariff-repository.ts: removing authority prerequisite /this\\.db\\.withTenant\\(toOrgId\\(orgId\\)/ fails
+  ---
+  duration_ms: 11.511208
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/billing/pg-native-credit-tariff-repository.ts: removing authority prerequisite /if\\(!await this\\.isOperator\\(principal\\.userId\\)\\)throw new ConsumptionSettingsForbidden\\(\\)/ fails
+ok 44 - src/infrastructure/billing/pg-native-credit-tariff-repository.ts: removing authority prerequisite /if\\(!await this\\.isOperator\\(principal\\.userId\\)\\)throw new ConsumptionSettingsForbidden\\(\\)/ fails
+  ---
+  duration_ms: 8.033875
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/billing/pg-native-credit-tariff-repository.ts: removing authority prerequisite /INSERT INTO credit_native_tariff_changes/ fails
+ok 45 - src/infrastructure/billing/pg-native-credit-tariff-repository.ts: removing authority prerequisite /INSERT INTO credit_native_tariff_changes/ fails
+  ---
+  duration_ms: 9.605667
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/model/platform-test-wiring.ts: newly read tenant table is not exempt
+ok 46 - src/infrastructure/model/platform-test-wiring.ts: newly read tenant table is not exempt
+  ---
+  duration_ms: 11.814292
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/model/platform-test-wiring.ts: removing authority prerequisite /await deps\\.repo\\.authorizeActor\\(actor\\);const models=await pool\\(deps\\.db\\)\\.listForOrg\\(actor\\.orgId\\)/ fails
+ok 47 - src/infrastructure/model/platform-test-wiring.ts: removing authority prerequisite /await deps\\.repo\\.authorizeActor\\(actor\\);const models=await pool\\(deps\\.db\\)\\.listForOrg\\(actor\\.orgId\\)/ fails
+  ---
+  duration_ms: 9.363375
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/model/platform-test-wiring.ts: removing authority prerequisite /pool\\(scoped\\)\\.listForOrg\\(op\\.request\\.orgId\\)/ fails
+ok 48 - src/infrastructure/model/platform-test-wiring.ts: removing authority prerequisite /pool\\(scoped\\)\\.listForOrg\\(op\\.request\\.orgId\\)/ fails
+  ---
+  duration_ms: 11.107167
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/model/platform-test-wiring.ts: removing authority prerequisite /policy\\(scoped\\)\\.resolveBudgetPolicy\\(toOrgId\\(op\\.request\\.orgId\\),op\\.operatorUserId/ fails
+ok 49 - src/infrastructure/model/platform-test-wiring.ts: removing authority prerequisite /policy\\(scoped\\)\\.resolveBudgetPolicy\\(toOrgId\\(op\\.request\\.orgId\\),op\\.operatorUserId/ fails
+  ---
+  duration_ms: 12.0405
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/model/platform-test-wiring.ts: removing authority prerequisite /beforeDispatch:async call=>\\{assertPrepared\\(op,state,call\\);/ fails
+ok 50 - src/infrastructure/model/platform-test-wiring.ts: removing authority prerequisite /beforeDispatch:async call=>\\{assertPrepared\\(op,state,call\\);/ fails
+  ---
+  duration_ms: 8.883541
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/model/platform-test-wiring.ts: removing authority prerequisite /await accounting\\.assertDispatch\\(op,call\\.physicalReceiptId\\);/ fails
+ok 51 - src/infrastructure/model/platform-test-wiring.ts: removing authority prerequisite /await accounting\\.assertDispatch\\(op,call\\.physicalReceiptId\\);/ fails
+  ---
+  duration_ms: 8.658583
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/model/platform-test-wiring.ts: removing authority prerequisite /if\\(!await r\\.verifyDeploymentBinding\\(\\)\\)throw Error\\("TEST_BINDING_REVOKED"\\)/ fails
+ok 52 - src/infrastructure/model/platform-test-wiring.ts: removing authority prerequisite /if\\(!await r\\.verifyDeploymentBinding\\(\\)\\)throw Error\\("TEST_BINDING_REVOKED"\\)/ fails
+  ---
+  duration_ms: 9.6825
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/model/platform-test-wiring.ts: removing authority prerequisite /m\\.serializedBodySha256!==sha\\(state\\.prepared\\.serializedBody\\)/ fails
+ok 53 - src/infrastructure/model/platform-test-wiring.ts: removing authority prerequisite /m\\.serializedBodySha256!==sha\\(state\\.prepared\\.serializedBody\\)/ fails
+  ---
+  duration_ms: 8.459791
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/model/platform-test-wiring.ts: removing authority prerequisite /call\\.serializedBody!==state\\.prepared\\.serializedBody/ fails
+ok 54 - src/infrastructure/model/platform-test-wiring.ts: removing authority prerequisite /call\\.serializedBody!==state\\.prepared\\.serializedBody/ fails
+  ---
+  duration_ms: 7.294584
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/model/platform-test-wiring.ts: removing authority prerequisite /unauthorized candidate actor causes zero pool or configuration reads/ fails
+ok 55 - src/infrastructure/model/platform-test-wiring.ts: removing authority prerequisite /unauthorized candidate actor causes zero pool or configuration reads/ fails
+  ---
+  duration_ms: 7.983916
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/model/org-core-model-availability.ts: newly read tenant table is not exempt
+ok 56 - src/infrastructure/model/org-core-model-availability.ts: newly read tenant table is not exempt
+  ---
+  duration_ms: 9.916833
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/model/org-core-model-availability.ts: removing authority prerequisite /findOrgMembership\\(actorId,orgId\\)\\)\\?\\.orgRole!=="admin"/ fails
+ok 57 - src/infrastructure/model/org-core-model-availability.ts: removing authority prerequisite /findOrgMembership\\(actorId,orgId\\)\\)\\?\\.orgRole!=="admin"/ fails
+  ---
+  duration_ms: 6.205542
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/model/org-core-model-availability.ts: removing authority prerequisite /if\\(!await new PgIdentityRepository\\(scoped\\)\\.findOrgMembership\\(actorId,orgId\\)\\)return null;/ fails
+ok 58 - src/infrastructure/model/org-core-model-availability.ts: removing authority prerequisite /if\\(!await new PgIdentityRepository\\(scoped\\)\\.findOrgMembership\\(actorId,orgId\\)\\)return null;/ fails
+  ---
+  duration_ms: 6.283583
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/model/org-core-model-availability.ts: removing authority prerequisite /SELECT configuration,price_version FROM organization_ai_policies WHERE org_id=\\$1/ fails
+ok 59 - src/infrastructure/model/org-core-model-availability.ts: removing authority prerequisite /SELECT configuration,price_version FROM organization_ai_policies WHERE org_id=\\$1/ fails
+  ---
+  duration_ms: 7.4495
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/model/org-core-model-availability.ts: removing authority prerequisite /registry\\.formalModelId\\(registration\\.binding\\.modelProvider,registration\\.binding\\.runtimeModelId\\)!==row\\.modelId/ fails
+ok 60 - src/infrastructure/model/org-core-model-availability.ts: removing authority prerequisite /registry\\.formalModelId\\(registration\\.binding\\.modelProvider,registration\\.binding\\.runtimeModelId\\)!==row\\.modelId/ fails
+  ---
+  duration_ms: 8.058458
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/model/org-core-model-availability.ts: removing authority prerequisite /deployment\\.coreModelRequiredCapabilities\\.some\\(tag=>!tag\\.trim\\(\\)\\|\\|!row\\.capabilityTags\\.includes\\(tag\\)\\|\\|!registration\\.binding\\.capabilityTags\\.includes\\(tag\\)\\)/ fails
+ok 61 - src/infrastructure/model/org-core-model-availability.ts: removing authority prerequisite /deployment\\.coreModelRequiredCapabilities\\.some\\(tag=>!tag\\.trim\\(\\)\\|\\|!row\\.capabilityTags\\.includes\\(tag\\)\\|\\|!registration\\.binding\\.capabilityTags\\.includes\\(tag\\)\\)/ fails
+  ---
+  duration_ms: 7.142083
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/model/org-core-model-availability.ts: removing authority prerequisite /NOT_ORG_ADMIN/ fails
+ok 62 - src/infrastructure/model/org-core-model-availability.ts: removing authority prerequisite /NOT_ORG_ADMIN/ fails
+  ---
+  duration_ms: 8.097792
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/model/pg-org-core-model-repository.ts: newly read tenant table is not exempt
+ok 63 - src/infrastructure/model/pg-org-core-model-repository.ts: newly read tenant table is not exempt
+  ---
+  duration_ms: 6.316833
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/model/pg-org-core-model-repository.ts: removing authority prerequisite /findOrgMembership\\(input\\.actorId,orgId\\)\\)\\?\\.orgRole!=="admin"/ fails
+ok 64 - src/infrastructure/model/pg-org-core-model-repository.ts: removing authority prerequisite /findOrgMembership\\(input\\.actorId,orgId\\)\\)\\?\\.orgRole!=="admin"/ fails
+  ---
+  duration_ms: 6.321167
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/model/pg-org-core-model-repository.ts: removing authority prerequisite /if\\(current\\.version!==input\\.expectedVersion\\)/ fails
+ok 65 - src/infrastructure/model/pg-org-core-model-repository.ts: removing authority prerequisite /if\\(current\\.version!==input\\.expectedVersion\\)/ fails
+  ---
+  duration_ms: 8.666
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/model/pg-org-core-model-repository.ts: removing authority prerequisite /INSERT INTO organization_core_model_changes/ fails
+ok 66 - src/infrastructure/model/pg-org-core-model-repository.ts: removing authority prerequisite /INSERT INTO organization_core_model_changes/ fails
+  ---
+  duration_ms: 7.089167
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/model/pg-org-core-model-repository.ts: removing authority prerequisite /if\\(!current\\|\\|!sameCoreModelBinding\\(frozen,current\\)\\)/ fails
+ok 67 - src/infrastructure/model/pg-org-core-model-repository.ts: removing authority prerequisite /if\\(!current\\|\\|!sameCoreModelBinding\\(frozen,current\\)\\)/ fails
+  ---
+  duration_ms: 6.826291
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/model/pg-org-core-model-repository.ts: removing authority prerequisite /return creditModelGateway\\(guardCoreModelCalls\\(raw,createCoreModelRuntimeGuard\\(db,new VerifiedOrgCoreModelAvailability\\(db,configuration,raw\\)\\)\\),db,creditUsageMeter\\(db\\)\\)/ fails
+ok 68 - src/infrastructure/model/pg-org-core-model-repository.ts: removing authority prerequisite /return creditModelGateway\\(guardCoreModelCalls\\(raw,createCoreModelRuntimeGuard\\(db,new VerifiedOrgCoreModelAvailability\\(db,configuration,raw\\)\\)\\),db,creditUsageMeter\\(db\\)\\)/ fails
+  ---
+  duration_ms: 6.464208
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/model/pg-org-core-model-repository.ts: removing authority prerequisite /new PgRuntimeModelUsageRepository\\(db,usage,new PgAiAdmissionRepository\\(db\\),wiring\\?\\.runtime,guard\\)/ fails
+ok 69 - src/infrastructure/model/pg-org-core-model-repository.ts: removing authority prerequisite /new PgRuntimeModelUsageRepository\\(db,usage,new PgAiAdmissionRepository\\(db\\),wiring\\?\\.runtime,guard\\)/ fails
+  ---
+  duration_ms: 6.951834
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/model/pg-org-core-model-repository.ts: removing authority prerequisite /await this\\.coreModelGuard\\?\\.assertAccepted\\(orgId,owner\\.root_run_id,coreModelScopedDb\\(s,orgId\\)\\)/ fails
+ok 70 - src/infrastructure/model/pg-org-core-model-repository.ts: removing authority prerequisite /await this\\.coreModelGuard\\?\\.assertAccepted\\(orgId,owner\\.root_run_id,coreModelScopedDb\\(s,orgId\\)\\)/ fails
+  ---
+  duration_ms: 8.813209
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/model/pg-platform-model-test-repository.ts: newly read tenant table is not exempt
+ok 71 - src/infrastructure/model/pg-platform-model-test-repository.ts: newly read tenant table is not exempt
+  ---
+  duration_ms: 8.109584
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/model/pg-platform-model-test-repository.ts: removing authority prerequisite /if\\(!await this\\.authority\\.isOperator\\(actor\\.operatorUserId,scoped,orgId\\)\\)/ fails
+ok 72 - src/infrastructure/model/pg-platform-model-test-repository.ts: removing authority prerequisite /if\\(!await this\\.authority\\.isOperator\\(actor\\.operatorUserId,scoped,orgId\\)\\)/ fails
+  ---
+  duration_ms: 6.997375
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/model/pg-platform-model-test-repository.ts: removing authority prerequisite /!await this\\.authority\\.identities\\(scoped\\)\\.findOrgMembership\\(actor\\.operatorUserId,orgId\\)/ fails
+ok 73 - src/infrastructure/model/pg-platform-model-test-repository.ts: removing authority prerequisite /!await this\\.authority\\.identities\\(scoped\\)\\.findOrgMembership\\(actor\\.operatorUserId,orgId\\)/ fails
+  ---
+  duration_ms: 8.809792
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/model/pg-platform-model-test-repository.ts: removing authority prerequisite /if\\(!row\\|\\|row\\.operator_user_id!==actor\\.operatorUserId\\)/ fails
+ok 74 - src/infrastructure/model/pg-platform-model-test-repository.ts: removing authority prerequisite /if\\(!row\\|\\|row\\.operator_user_id!==actor\\.operatorUserId\\)/ fails
+  ---
+  duration_ms: 8.7195
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/model/pg-platform-model-test-repository.ts: removing authority prerequisite /previous\\.operator_user_id!==actor\\.operatorUserId\\|\\|previous\\.input_hash!==hash\\(input\\)/ fails
+ok 75 - src/infrastructure/model/pg-platform-model-test-repository.ts: removing authority prerequisite /previous\\.operator_user_id!==actor\\.operatorUserId\\|\\|previous\\.input_hash!==hash\\(input\\)/ fails
+  ---
+  duration_ms: 8.772792
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/model/pg-platform-model-test-repository.ts: removing authority prerequisite /r\\.user_id=platform_model_tests\\.operator_user_id AND r\\.state='held'/ fails
+ok 76 - src/infrastructure/model/pg-platform-model-test-repository.ts: removing authority prerequisite /r\\.user_id=platform_model_tests\\.operator_user_id AND r\\.state='held'/ fails
+  ---
+  duration_ms: 9.329084
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/model/pg-platform-model-test-repository.ts: removing authority prerequisite /invisible foreign UUID collision is generic and uses no unscoped lookup/ fails
+ok 77 - src/infrastructure/model/pg-platform-model-test-repository.ts: removing authority prerequisite /invisible foreign UUID collision is generic and uses no unscoped lookup/ fails
+  ---
+  duration_ms: 13.030834
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/artifacts-steering/accept-message-artifact-run-launcher.ts: newly read tenant table is not exempt
+ok 78 - src/infrastructure/artifacts-steering/accept-message-artifact-run-launcher.ts: newly read tenant table is not exempt
+  ---
+  duration_ms: 17.356292
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/artifacts-steering/accept-message-artifact-run-launcher.ts: removing authority prerequisite /SELECT agent_id FROM agent_runs WHERE org_id=\\$1 AND id=\\$2 AND thread_id=\\$3/ fails
+ok 79 - src/infrastructure/artifacts-steering/accept-message-artifact-run-launcher.ts: removing authority prerequisite /SELECT agent_id FROM agent_runs WHERE org_id=\\$1 AND id=\\$2 AND thread_id=\\$3/ fails
+  ---
+  duration_ms: 21.72875
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/artifacts-steering/accept-message-artifact-run-launcher.ts: removing authority prerequisite /await acceptHumanMessage\\(this\\.deps, \\{ orgId,userId: input\\.userId,threadId: input\\.threadId/ fails
+ok 80 - src/infrastructure/artifacts-steering/accept-message-artifact-run-launcher.ts: removing authority prerequisite /await acceptHumanMessage\\(this\\.deps, \\{ orgId,userId: input\\.userId,threadId: input\\.threadId/ fails
+  ---
+  duration_ms: 11.190084
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/artifacts-steering/accept-message-artifact-run-launcher.ts: removing authority prerequisite /discloseDecided\\([\\s\\S]*?if \\(!isDisclosed\\(disclosedVersion\\)\\) throw[\\s\\S]*?deps\\.launcher\\.launch/ fails
+ok 81 - src/infrastructure/artifacts-steering/accept-message-artifact-run-launcher.ts: removing authority prerequisite /discloseDecided\\([\\s\\S]*?if \\(!isDisclosed\\(disclosedVersion\\)\\) throw[\\s\\S]*?deps\\.launcher\\.launch/ fails
+  ---
+  duration_ms: 9.805625
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/artifacts-steering/pg-artifact-continuation-reader.ts: newly read tenant table is not exempt
+ok 82 - src/infrastructure/artifacts-steering/pg-artifact-continuation-reader.ts: newly read tenant table is not exempt
+  ---
+  duration_ms: 9.302541
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/artifacts-steering/pg-artifact-continuation-reader.ts: removing authority prerequisite /a\\.org_id=c\\.org_id AND a\\.id=c\\.artifact_id/ fails
+ok 83 - src/infrastructure/artifacts-steering/pg-artifact-continuation-reader.ts: removing authority prerequisite /a\\.org_id=c\\.org_id AND a\\.id=c\\.artifact_id/ fails
+  ---
+  duration_ms: 13.294042
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/artifacts-steering/pg-artifact-continuation-reader.ts: removing authority prerequisite /v\\.org_id=c\\.org_id AND v\\.artifact_id=c\\.artifact_id AND v\\.version=c\\.based_on_version/ fails
+ok 84 - src/infrastructure/artifacts-steering/pg-artifact-continuation-reader.ts: removing authority prerequisite /v\\.org_id=c\\.org_id AND v\\.artifact_id=c\\.artifact_id AND v\\.version=c\\.based_on_version/ fails
+  ---
+  duration_ms: 16.559167
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/artifacts-steering/pg-artifact-continuation-reader.ts: removing authority prerequisite /WHERE c\\.org_id=\\$1 AND c\\.run_id=\\$2/ fails
+ok 85 - src/infrastructure/artifacts-steering/pg-artifact-continuation-reader.ts: removing authority prerequisite /WHERE c\\.org_id=\\$1 AND c\\.run_id=\\$2/ fails
+  ---
+  duration_ms: 10.134375
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/artifacts-steering/pg-artifact-continuation-reader.ts: removing authority prerequisite /artifactContinuations\\?\\.prepare\\(orgId, run\\.runId\\)/ fails
+ok 86 - src/infrastructure/artifacts-steering/pg-artifact-continuation-reader.ts: removing authority prerequisite /artifactContinuations\\?\\.prepare\\(orgId, run\\.runId\\)/ fails
+  ---
+  duration_ms: 8.926
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/artifacts-steering/register-run-artifacts.ts: newly read tenant table is not exempt
+ok 87 - src/infrastructure/artifacts-steering/register-run-artifacts.ts: newly read tenant table is not exempt
+  ---
+  duration_ms: 8.031667
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/artifacts-steering/register-run-artifacts.ts: removing authority prerequisite /WHERE org_id=\\$1 AND thread_id=\\$2 AND message_id=\\$3 AND storage_ref=\\$4/ fails
+ok 88 - src/infrastructure/artifacts-steering/register-run-artifacts.ts: removing authority prerequisite /WHERE org_id=\\$1 AND thread_id=\\$2 AND message_id=\\$3 AND storage_ref=\\$4/ fails
+  ---
+  duration_ms: 6.435709
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/artifacts-steering/register-run-artifacts.ts: removing authority prerequisite /JOIN chat_messages m ON m\\.org_id=r\\.org_id AND m\\.id=r\\.input_message_id WHERE r\\.org_id=\\$2 AND r\\.id=\\$5/ fails
+ok 89 - src/infrastructure/artifacts-steering/register-run-artifacts.ts: removing authority prerequisite /JOIN chat_messages m ON m\\.org_id=r\\.org_id AND m\\.id=r\\.input_message_id WHERE r\\.org_id=\\$2 AND r\\.id=\\$5/ fails
+  ---
+  duration_ms: 6.985292
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/artifacts-steering/register-run-artifacts.ts: removing authority prerequisite /await registerRunArtifacts\\(s, \\{ orgId, runId: input\\.runId, threadId: input\\.threadId, messageId/ fails
+ok 90 - src/infrastructure/artifacts-steering/register-run-artifacts.ts: removing authority prerequisite /await registerRunArtifacts\\(s, \\{ orgId, runId: input\\.runId, threadId: input\\.threadId, messageId/ fails
+  ---
+  duration_ms: 9.083167
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/agent-run/pg-interjection-store.ts: newly read tenant table is not exempt
+ok 91 - src/infrastructure/agent-run/pg-interjection-store.ts: newly read tenant table is not exempt
+  ---
+  duration_ms: 6.662584
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/agent-run/pg-interjection-store.ts: removing authority prerequisite /async interjectionStatus[\\s\\S]*?await this\\.run\\(principal,\\s*runId\\);\\s*return \\{items:await this\\.interjections\\.listPublic/ fails
+ok 92 - src/infrastructure/agent-run/pg-interjection-store.ts: removing authority prerequisite /async interjectionStatus[\\s\\S]*?await this\\.run\\(principal,\\s*runId\\);\\s*return \\{items:await this\\.interjections\\.listPublic/ fails
+  ---
+  duration_ms: 10.165625
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/agent-run/pg-interjection-store.ts: removing authority prerequisite /async poll\\([\\s\\S]*?this\\.assertInternalKey\\(key\\);[\\s\\S]*?this\\.runs\\.findLocator[\\s\\S]*?this\\.queue\\.pollForKernel/ fails
+ok 93 - src/infrastructure/agent-run/pg-interjection-store.ts: removing authority prerequisite /async poll\\([\\s\\S]*?this\\.assertInternalKey\\(key\\);[\\s\\S]*?this\\.runs\\.findLocator[\\s\\S]*?this\\.queue\\.pollForKernel/ fails
+  ---
+  duration_ms: 6.14775
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/agent-run/pg-interjection-store.ts: removing authority prerequisite /WHERE i\\.org_id=\\$1 AND i\\.run_id=\\$2/ fails
+ok 94 - src/infrastructure/agent-run/pg-interjection-store.ts: removing authority prerequisite /WHERE i\\.org_id=\\$1 AND i\\.run_id=\\$2/ fails
+  ---
+  duration_ms: 6.755625
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/agent-run/pg-interjection-store.ts: removing authority prerequisite /JOIN chat_messages m ON m\\.org_id=r\\.org_id AND m\\.id=r\\.input_message_id\\n\\s*WHERE i\\.org_id=\\$1 AND i\\.status='carry_over_pending'/ fails
+ok 95 - src/infrastructure/agent-run/pg-interjection-store.ts: removing authority prerequisite /JOIN chat_messages m ON m\\.org_id=r\\.org_id AND m\\.id=r\\.input_message_id\\n\\s*WHERE i\\.org_id=\\$1 AND i\\.status='carry_over_pending'/ fails
+  ---
+  duration_ms: 8.427458
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/agent-run/pg-interjection-store.ts: removing authority prerequisite /userId: batch\\.requesterUserId, orgId, threadId: batch\\.threadId/ fails
+ok 96 - src/infrastructure/agent-run/pg-interjection-store.ts: removing authority prerequisite /userId: batch\\.requesterUserId, orgId, threadId: batch\\.threadId/ fails
+  ---
+  duration_ms: 7.153792
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/agent-run/pg-parent-run-control.ts: newly read tenant table is not exempt
+ok 97 - src/infrastructure/agent-run/pg-parent-run-control.ts: newly read tenant table is not exempt
+  ---
+  duration_ms: 6.248792
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/agent-run/pg-parent-run-control.ts: removing authority prerequisite /FROM agent_runs r WHERE r\\.org_id=\\$1 AND r\\.id=\\$2 FOR UPDATE OF r/ fails
+ok 98 - src/infrastructure/agent-run/pg-parent-run-control.ts: removing authority prerequisite /FROM agent_runs r WHERE r\\.org_id=\\$1 AND r\\.id=\\$2 FOR UPDATE OF r/ fails
+  ---
+  duration_ms: 7.606667
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/agent-run/pg-parent-run-control.ts: removing authority prerequisite /r\\.lease_epoch=\\$3 AND r\\.lease_expires_at>now\\(\\)/ fails
+ok 99 - src/infrastructure/agent-run/pg-parent-run-control.ts: removing authority prerequisite /r\\.lease_epoch=\\$3 AND r\\.lease_expires_at>now\\(\\)/ fails
+  ---
+  duration_ms: 6.514375
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/agent-run/pg-parent-run-control.ts: removing authority prerequisite /async checkTool\\([\\s\\S]*?this\\.assertInternalKey\\(key\\);[\\s\\S]*?this\\.authority\\.check/ fails
+ok 100 - src/infrastructure/agent-run/pg-parent-run-control.ts: removing authority prerequisite /async checkTool\\([\\s\\S]*?this\\.assertInternalKey\\(key\\);[\\s\\S]*?this\\.authority\\.check/ fails
+  ---
+  duration_ms: 6.279917
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/agent-run/pg-parent-run-control.ts: removing authority prerequisite /const row = rows\\[0\\] \\?\\? \\(await session\\.query/ fails
+ok 101 - src/infrastructure/agent-run/pg-parent-run-control.ts: removing authority prerequisite /const row = rows\\[0\\] \\?\\? \\(await session\\.query/ fails
+  ---
+  duration_ms: 8.937209
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/agent-run/pg-parent-run-control.ts: removing authority prerequisite /NULL AS pending_permission_request_id, NULL AS pending_tool_call_id, NULL AS pending_tool_name,/ fails
+ok 102 - src/infrastructure/agent-run/pg-parent-run-control.ts: removing authority prerequisite /NULL AS pending_permission_request_id, NULL AS pending_tool_call_id, NULL AS pending_tool_name,/ fails
+  ---
+  duration_ms: 12.866917
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/agent-run/pg-parent-run-control.ts: removing authority prerequisite /FROM subtask_runs c JOIN agent_runs p ON p\\.org_id=c\\.org_id AND p\\.id=c\\.parent_run_id/ fails
+ok 103 - src/infrastructure/agent-run/pg-parent-run-control.ts: removing authority prerequisite /FROM subtask_runs c JOIN agent_runs p ON p\\.org_id=c\\.org_id AND p\\.id=c\\.parent_run_id/ fails
+  ---
+  duration_ms: 6.16725
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/agent-run/pg-parent-run-control.ts: removing authority prerequisite /WHERE c\\.org_id=\\$1 AND c\\.id=\\$2 FOR UPDATE OF p,c/ fails
+ok 104 - src/infrastructure/agent-run/pg-parent-run-control.ts: removing authority prerequisite /WHERE c\\.org_id=\\$1 AND c\\.id=\\$2 FOR UPDATE OF p,c/ fails
+  ---
+  duration_ms: 5.565041
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/agent-run/pg-parent-run-control.ts: removing authority prerequisite /c\\.cancel_requested_at IS NOT NULL OR p\\.cancel_requested_at IS NOT NULL AS cancel_requested/ fails
+ok 105 - src/infrastructure/agent-run/pg-parent-run-control.ts: removing authority prerequisite /c\\.cancel_requested_at IS NOT NULL OR p\\.cancel_requested_at IS NOT NULL AS cancel_requested/ fails
+  ---
+  duration_ms: 6.551458
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/agent-run/pg-parent-run-control.ts: removing authority prerequisite /c\\.lease_epoch=\\$3 AS lease_valid/ fails
+ok 106 - src/infrastructure/agent-run/pg-parent-run-control.ts: removing authority prerequisite /c\\.lease_epoch=\\$3 AS lease_valid/ fails
+  ---
+  duration_ms: 6.110084
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/agent-run/pg-parent-run-control.ts: removing authority prerequisite /CASE WHEN c\\.output_policy IS NOT NULL THEN ARRAY\\[\\$4::text\\] ELSE ARRAY\\[\\]::text\\[\\] END AS allowed_tools/ fails
+ok 107 - src/infrastructure/agent-run/pg-parent-run-control.ts: removing authority prerequisite /CASE WHEN c\\.output_policy IS NOT NULL THEN ARRAY\\[\\$4::text\\] ELSE ARRAY\\[\\]::text\\[\\] END AS allowed_tools/ fails
+  ---
+  duration_ms: 6.347625
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/agent-run/pg-parent-run-control.ts: removing authority prerequisite /input\\.leaseEpoch, NATIVE_ARTIFACT_TOOL\\]\\)\\)\\.rows\\[0\\]/ fails
+ok 108 - src/infrastructure/agent-run/pg-parent-run-control.ts: removing authority prerequisite /input\\.leaseEpoch, NATIVE_ARTIFACT_TOOL\\]\\)\\)\\.rows\\[0\\]/ fails
+  ---
+  duration_ms: 5.768375
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/agent-run/pg-run-recovery.ts: newly read tenant table is not exempt
+ok 109 - src/infrastructure/agent-run/pg-run-recovery.ts: newly read tenant table is not exempt
+  ---
+  duration_ms: 6.238708
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/agent-run/pg-run-recovery.ts: removing authority prerequisite /WHERE r\\.org_id=\\$1/ fails
+ok 110 - src/infrastructure/agent-run/pg-run-recovery.ts: removing authority prerequisite /WHERE r\\.org_id=\\$1/ fails
+  ---
+  duration_ms: 6.484667
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/agent-run/pg-run-recovery.ts: removing authority prerequisite /FOR UPDATE SKIP LOCKED/ fails
+ok 111 - src/infrastructure/agent-run/pg-run-recovery.ts: removing authority prerequisite /FOR UPDATE SKIP LOCKED/ fails
+  ---
+  duration_ms: 5.001833
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/agent-run/pg-run-recovery.ts: removing authority prerequisite /await withRunLease\\(/ fails
+ok 112 - src/infrastructure/agent-run/pg-run-recovery.ts: removing authority prerequisite /await withRunLease\\(/ fails
+  ---
+  duration_ms: 5.187041
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/agent-run/pg-run-recovery.ts: removing authority prerequisite /reconcileExistingRun\\(/ fails
+ok 113 - src/infrastructure/agent-run/pg-run-recovery.ts: removing authority prerequisite /reconcileExistingRun\\(/ fails
+  ---
+  duration_ms: 4.974375
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/agent-run/pg-run-recovery.ts: removing authority prerequisite /return candidates\\.length;/ fails
+ok 114 - src/infrastructure/agent-run/pg-run-recovery.ts: removing authority prerequisite /return candidates\\.length;/ fails
+  ---
+  duration_ms: 4.46675
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/chat-queue/thread-message-queue.ts: newly read tenant table is not exempt
+ok 115 - src/infrastructure/chat-queue/thread-message-queue.ts: newly read tenant table is not exempt
+  ---
+  duration_ms: 5.596958
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/chat-queue/thread-message-queue.ts: removing authority prerequisite /async list\\([\\s\\S]*?await this\\.authorize\\(orgId,userId,threadId\\);/ fails
+ok 116 - src/infrastructure/chat-queue/thread-message-queue.ts: removing authority prerequisite /async list\\([\\s\\S]*?await this\\.authorize\\(orgId,userId,threadId\\);/ fails
+  ---
+  duration_ms: 5.085875
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/chat-queue/thread-message-queue.ts: removing authority prerequisite /async enqueue\\([\\s\\S]*?await this\\.authorize\\(orgId,userId,threadId,true\\);/ fails
+ok 117 - src/infrastructure/chat-queue/thread-message-queue.ts: removing authority prerequisite /async enqueue\\([\\s\\S]*?await this\\.authorize\\(orgId,userId,threadId,true\\);/ fails
+  ---
+  duration_ms: 5.015625
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/chat-queue/thread-message-queue.ts: removing authority prerequisite /async cancel\\([\\s\\S]*?await this\\.authorize\\(orgId,userId,threadId,true\\);/ fails
+ok 118 - src/infrastructure/chat-queue/thread-message-queue.ts: removing authority prerequisite /async cancel\\([\\s\\S]*?await this\\.authorize\\(orgId,userId,threadId,true\\);/ fails
+  ---
+  duration_ms: 5.509167
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/chat-queue/thread-message-queue.ts: removing authority prerequisite /async update\\([\\s\\S]*?await this\\.authorize\\(orgId,userId,threadId,true\\);/ fails
+ok 119 - src/infrastructure/chat-queue/thread-message-queue.ts: removing authority prerequisite /async update\\([\\s\\S]*?await this\\.authorize\\(orgId,userId,threadId,true\\);/ fails
+  ---
+  duration_ms: 5.132292
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/chat-queue/thread-message-queue.ts: removing authority prerequisite /SET body=\\$5 WHERE org_id=\\$1 AND thread_id=\\$2 AND actor_id=\\$3 AND id=\\$4::uuid AND status='pending'/ fails
+ok 120 - src/infrastructure/chat-queue/thread-message-queue.ts: removing authority prerequisite /SET body=\\$5 WHERE org_id=\\$1 AND thread_id=\\$2 AND actor_id=\\$3 AND id=\\$4::uuid AND status='pending'/ fails
+  ---
+  duration_ms: 5.32325
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/chat-queue/thread-message-queue.ts: removing authority prerequisite /resolveVisibility\\(this\\.deps,\\{orgId,userId,threadId,projectId:facts\\.projectId\\}\\)/ fails
+ok 121 - src/infrastructure/chat-queue/thread-message-queue.ts: removing authority prerequisite /resolveVisibility\\(this\\.deps,\\{orgId,userId,threadId,projectId:facts\\.projectId\\}\\)/ fails
+  ---
+  duration_ms: 6.914916
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/chat-queue/thread-message-queue.ts: removing authority prerequisite /WHERE org_id=\\$1 AND thread_id=\\$2 AND actor_id=\\$3/ fails
+ok 122 - src/infrastructure/chat-queue/thread-message-queue.ts: removing authority prerequisite /WHERE org_id=\\$1 AND thread_id=\\$2 AND actor_id=\\$3/ fails
+  ---
+  duration_ms: 8.675167
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/chat-queue/thread-message-queue.ts: removing authority prerequisite /await acceptHumanMessage\\(this\\.deps,\\{orgId,userId:row\\.actor_id,threadId:row\\.thread_id/ fails
+ok 123 - src/infrastructure/chat-queue/thread-message-queue.ts: removing authority prerequisite /await acceptHumanMessage\\(this\\.deps,\\{orgId,userId:row\\.actor_id,threadId:row\\.thread_id/ fails
+  ---
+  duration_ms: 5.903958
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/db/pg-database.ts: newly read tenant table is not exempt
+ok 124 - src/infrastructure/db/pg-database.ts: newly read tenant table is not exempt
+  ---
+  duration_ms: 5.052958
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/db/pg-database.ts: removing authority prerequisite /SELECT id FROM agent_runs WHERE org_id=\\$1 AND id=\\$2\\s+AND lease_epoch=\\$3 AND lease_expires_at>now\\(\\) FOR UPDATE/ fails
+ok 125 - src/infrastructure/db/pg-database.ts: removing authority prerequisite /SELECT id FROM agent_runs WHERE org_id=\\$1 AND id=\\$2\\s+AND lease_epoch=\\$3 AND lease_expires_at>now\\(\\) FOR UPDATE/ fails
+  ---
+  duration_ms: 5.700625
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/db/pg-database.ts: removing authority prerequisite /if\\(!ownership\\.rows\\.length\\)throw new RunLeaseLostError\\(\\)/ fails
+ok 126 - src/infrastructure/db/pg-database.ts: removing authority prerequisite /if\\(!ownership\\.rows\\.length\\)throw new RunLeaseLostError\\(\\)/ fails
+  ---
+  duration_ms: 4.968583
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/db/pg-database.ts: removing authority prerequisite /set_config\\('app.current_org', \\$1, true\\)/ fails
+ok 127 - src/infrastructure/db/pg-database.ts: removing authority prerequisite /set_config\\('app.current_org', \\$1, true\\)/ fails
+  ---
+  duration_ms: 5.194833
+  type: 'test'
+  ...
+# Subtest: lease fencing rejects weaker lock FOR SHARE
+ok 128 - lease fencing rejects weaker lock FOR SHARE
+  ---
+  duration_ms: 7.203167
+  type: 'test'
+  ...
+# Subtest: lease fencing rejects weaker lock FOR KEY SHARE
+ok 129 - lease fencing rejects weaker lock FOR KEY SHARE
+  ---
+  duration_ms: 7.58175
+  type: 'test'
+  ...
+# Subtest: lease fencing rejects weaker lock 
+ok 130 - lease fencing rejects weaker lock 
+  ---
+  duration_ms: 7.228334
+  type: 'test'
+  ...
+1..130
+# tests 130
+# suites 0
+# pass 128
+# fail 2
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1049.162917

@@ -1,0 +1,32 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/apps/api
+
+ ❯ tests/billing/enterprise-organization-summary.test.ts (2 tests | 1 failed) 34ms
+   × current ordinary with no license returns coherent actual wallet facts in detail and list 24ms
+     → PLATFORM_CATALOG_UNAVAILABLE
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/enterprise-organization-summary.test.ts > current ordinary with no license returns coherent actual wallet facts in detail and list
+Error: PLATFORM_CATALOG_UNAVAILABLE
+ ❯ PgPlatformOrganizationRepository.readOrganization src/infrastructure/system/pg-platform-organization-repository.ts:137:19
+    135|     if(plan?.billing_generation===BILLING_ACCOUNTING_GENERATION){
+    136|       try{billingSummary=await enterpriseSummary(s,orgId,plan.version,…
+    137|       catch{throw new PlatformOrganizationError("PLATFORM_CATALOG_UNAV…
+       |                   ^
+    138|     }
+    139|     return OrganizationRow.parse({ orgId: row.id, name: row.name, kind…
+ ❯ src/infrastructure/system/pg-platform-organization-repository.ts:87:28
+ ❯ PgPlatformOrganizationRepository.detail src/infrastructure/system/pg-platform-organization-repository.ts:86:20
+ ❯ tests/billing/enterprise-organization-summary.test.ts:28:83
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  22:11:40
+   Duration  5.16s (transform 2.71s, setup 0ms, collect 4.45s, tests 34ms, environment 1ms, prepare 197ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.enterprise-management.config.ts tests/billing/enterprise-organization-summary.test.ts

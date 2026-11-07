@@ -1,31 +1,12 @@
-import { readFileSync } from 'node:fs';
-import { parse } from 'yaml';
-import { describe, expect, it } from 'vitest';
-import { evaluateIf } from './lib/ci-job-conditions.mjs';
-
-const harness = parse(readFileSync('.github/workflows/harness-verify.yml', 'utf8'));
-const backend = parse(readFileSync('.github/workflows/backend-gates.yml', 'utf8'));
-const commands = (job: any) => job.steps.map((step: any) => step.run ?? '').join('\n');
-const probe = (eventName: string) => ({ id: eventName, eventName, ref: 'refs/heads/develop', baseBranch: 'develop', label: eventName });
-
-describe('static validation has one PR producer, retaining standalone deployment validation', () => {
-  it('retains full build followed by full typecheck/lint in the required compile gate', () => {
-    const runs = harness.jobs['verify-full-compile'].steps.map((step: any) => step.run).filter(Boolean);
-    expect(runs).toContain('pnpm turbo run build');
-    expect(runs).toContain('pnpm turbo run typecheck lint --continue');
-    expect(runs.indexOf('pnpm turbo run build')).toBeLessThan(runs.indexOf('pnpm turbo run typecheck lint --continue'));
-    for (const event of ['pull_request', 'merge_group', 'push']) {
-      expect(evaluateIf(harness.jobs['verify-full-compile'].if, probe(event))).toBe(true);
-    }
-  });
-  it('affected validation owns tests without running static tasks a second time', () => {
-    expect(commands(harness.jobs['verify-affected'])).not.toMatch(/turbo run typecheck lint/);
-    expect(commands(harness.jobs['verify-affected'])).toContain('node .github/scripts/run-affected-tests.mjs');
-  });
-  it('backend keeps its standalone static validation on deployment events, but delegates PR static work', () => {
-    const step = backend.jobs['gates-fast'].steps.find((step: any) => step.run === 'pnpm turbo run typecheck lint --filter=@repo/api');
-    expect(step).toBeDefined();
-    expect(evaluateIf(step.if ?? '', probe('pull_request'))).toBe(false);
-    for (const event of ['push', 'workflow_dispatch']) expect(evaluateIf(step.if ?? '', probe(event))).toBe(true);
-  });
+import {readFileSync} from 'node:fs';
+import {parse} from 'yaml';
+import {expect,it} from 'vitest';
+const h=parse(readFileSync('.github/workflows/harness-verify.yml','utf8')),full=parse(readFileSync('.github/workflows/harness-acceptance.yml','utf8'));
+it('requires full build before full typecheck/lint on PR/fork/queue without static duplication in affected units',()=>{
+ const commands=h.jobs['verify-full-compile'].steps.map((s:any)=>s.run).filter(Boolean);expect(commands).toEqual(['pnpm install --frozen-lockfile','pnpm turbo run build','pnpm turbo run typecheck lint']);expect(h.jobs['verify-full-compile'].if).toBeUndefined();
+ const units=JSON.stringify(h.jobs['verify-affected']);expect(units).toContain('ci-lightweight.mjs units');expect(units).not.toMatch(/run-affected-tests|turbo run typecheck lint/);
+});
+it('hourly/manual full compilation executes locally on its frozen source, never waits for candidate workflow proof',()=>{
+ const base=full.jobs['base-compile'];expect(base.needs).toContain('freeze-source');
+ const compile=base.steps.filter((s:any)=>s.run?.startsWith('pnpm turbo run'));expect(compile.map((s:any)=>s.run)).toEqual(['pnpm turbo run build','pnpm turbo run typecheck lint']);for(const step of compile)expect(step.if).toBeUndefined();expect(JSON.stringify(base)).not.toContain('ci-queue-ready');
 });

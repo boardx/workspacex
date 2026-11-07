@@ -1,0 +1,22 @@
+{
+  "worker": "746efabbfa50a8c4ae1a5b53c0fdc65dda4361f0",
+  "upstream": "ec1695d8fd646e004ca40dafbfa8e03bf01f20ef",
+  "allMergeBases": [
+    "2dfcf827d84bc8992c830a615643b4aacb548064",
+    "3644ae2c8213770614866c1c39ac4df2b8920c05"
+  ],
+  "comparisonBase": "2dfcf827d84bc8992c830a615643b4aacb548064",
+  "classification": {
+    "workerOnly": 252,
+    "upstreamOnly": 193,
+    "sharedChangedIdentical": 33,
+    "sharedUnchanged": 23155
+  },
+  "differentChangesOnBothSides": [
+    "apps/web/lib/i18n/messages/en.ts",
+    "apps/web/lib/i18n/messages/zh-CN.ts",
+    "apps/web/playwright.fullstack-smoke.config.ts"
+  ],
+  "unresolvedPaths": [],
+  "allOtherModeBlobsPreserved": true
+}

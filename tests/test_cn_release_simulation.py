@@ -1,4 +1,4 @@
-import importlib.util,json,os,subprocess,sys,tempfile,unittest
+import ast,importlib.util,json,os,re,subprocess,sys,tempfile,unittest
 from pathlib import Path
 from unittest.mock import patch
 ROOT=Path(__file__).resolve().parents[1]
@@ -70,21 +70,26 @@ class SimulationTests(unittest.TestCase):
  def test_workflow_no_production_auth_and_always_evidence(self):
   text=(ROOT/'.github/workflows/cn-release-simulation.yml').read_text()
   for forbidden in ('id-token:','environment:','secrets.','production-cn','workflow_run:'):self.assertNotIn(forbidden,text)
-  self.assertEqual(text.count('sudo -n env -i'),2);self.assertIn('scripts/cn-release-simulation-ci.py --sha "$GITHUB_SHA"',text)
+  self.assertEqual(text.count('sudo -n env -i'),3);self.assertIn('scripts/cn-release-simulation-ci.py --sha "$GITHUB_SHA"',text)
   self.assertIn('if: always()',text);self.assertIn('persist-credentials: false',text)
  def test_targeted_heavy_contracts_have_independent_matrix_jobs(self):
   text=(ROOT/'.github/workflows/cn-release-simulation.yml').read_text()
-  self.assertIn("options: ['all', 'targeted', 'linux-application-recovery-complete', 'linux-six-business', 'linux-boundary-reap']",text)
+  lane=re.search(r"(?ms)^      lane:\n(.*?)(?=^      [a-z_]+:|\Z)",text)
+  self.assertIsNotNone(lane)
+  options=re.search(r"(?m)^        options:\s*(\[[^\r\n]*\])\s*$",lane.group(1))
+  self.assertIsNotNone(options)
+  self.assertEqual(ast.literal_eval(options.group(1)),['all','release','targeted','linux-application-recovery-complete','linux-six-business','linux-boundary-reap'])
   self.assertIn('fail-fast: false',text)
-  self.assertIn('if [ \"$LANE\" != all ] && [ \"$ROUNDS\" = 10 ]; then',text)
-  self.assertIn('*) echo CI_FIXED_LANE_REQUIRED >&2; exit 1',text)
-  matrix=next(line for line in text.splitlines()if 'suite: ${{ fromJSON('in line)
-  self.assertIn("inputs.lane == 'targeted'",matrix)
-  self.assertIn("inputs.lane == 'linux-boundary-reap' && '[\"linux-boundary-reap\"]'",matrix)
-  for suite in ('release','linux-api-outer-recovery','linux-application-recovery-complete','linux-six-business'):self.assertIn('"'+suite+'"',matrix)
-  self.assertIn("|| '[\"all\"]'",matrix)
+  self.assertIn('sim.workflow_plan(',text)
+  self.assertIn('suite: ${{ fromJSON(needs.plan.outputs.suites) }}',text)
+  expected=['release','linux-api-outer-recovery','linux-application-recovery-complete','linux-six-business']
+  self.assertEqual(m.workflow_plan('targeted',1,'acceptance'),dict(suites=expected,split=False))
+  self.assertEqual(m.workflow_plan('all',10,'acceptance'),dict(suites=['all'],split=False))
+  self.assertEqual(m.workflow_plan('linux-boundary-reap',1,'acceptance'),dict(suites=['linux-boundary-reap'],split=False))
+  for lane in ('targeted','release','unknown'):
+   with self.assertRaises(ValueError):m.workflow_plan(lane,10,'acceptance')
   self.assertIn('--suite "$SUITE" --workers "$WORKERS"',text)
-  self.assertIn("matrix.suite == 'all' && '3' || '1'",text)
+  self.assertIn("(matrix.suite == 'all' || matrix.suite == 'remaining') && '3' || '1'",text)
   self.assertIn('${{ github.run_attempt }}-${{ matrix.suite }}',text)
  def test_ten_rounds_fixed_commit_distinct_seed_and_output(self):
   seen=[]

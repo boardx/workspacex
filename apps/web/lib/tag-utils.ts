@@ -1,3 +1,5 @@
+import { translate } from "./i18n/messages";
+import type { Locale } from "./i18n/locale";
 /**
  * 标签的纯函数——**全仓唯一一份**（2026-09-30 人类要求「统一 tag 的创建、搜索体验」）。
  *
@@ -80,6 +82,6 @@ export function matchesQuery(
 }
 
 /** 搜索框统一占位文案：明确告诉用户标签也能搜。 */
-export function searchPlaceholder(business: string): string {
-  return `搜索${business}名称或标签`;
+export function searchPlaceholder(business: string, locale: Locale = "zh-CN"): string {
+  return translate(locale, "controls.searchPlaceholder", { business });
 }

@@ -1,0 +1,36 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts
+
+ ❯ tests/billing-team-quote-design.test.ts (13 tests | 1 failed) 13ms
+   × allows a zero-credit estimate when rounding the final fraction below 0.01 5ms
+     → expected false to be true // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing-team-quote-design.test.ts > allows a zero-credit estimate when rounding the final fraction below 0.01
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/billing-team-quote-design.test.ts:41:74
+     39| 
+     40| it("allows a zero-credit estimate when rounding the final fraction bel…
+     41|  expect(TeamQuote.safeParse({...addon,estimatedFirstCredits:0}).succes…
+       |                                                                          ^
+     42| });
+     43| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 12 passed (13)
+   Start at  08:14:16
+   Duration  418ms (transform 92ms, setup 0ms, collect 111ms, tests 13ms, environment 0ms, prepare 102ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing-team-quote-design.test.ts

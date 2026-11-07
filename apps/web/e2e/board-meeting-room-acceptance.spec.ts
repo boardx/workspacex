@@ -1,4 +1,4 @@
-import {assertRoomChrome,roomZoom} from './support/board-meeting-room-ui';
+import {assertRoomChrome,assertRoomPresentation,roomZoom} from './support/board-meeting-room-ui';
 import {randomUUID} from 'node:crypto';
 import {writeFile} from 'node:fs/promises';
 import {performance} from 'node:perf_hooks';
@@ -18,7 +18,7 @@ test('meeting room real 30 minute presentation, recovery, CAS and revocation lif
   const [owner, display, follower] = await Promise.all(contexts.map(context => context.newPage()));
   const receipts: RoomReceipt[] = [], observationErrors: string[] = [];
   const chunks = observeRuntimeChunks(owner!); const events: RoomEvent[] = [], samples: RoomSample[] = [];
-  let boardId: string | undefined, ownerToken: string | undefined, archived = false;
+  let boardId: string | undefined, ownerToken: string | undefined, archived = false, followerRevoked = false;
   const roomId = `acceptance-${randomUUID()}`, displayActor = `room:${roomId}:meeting-room-display`;
   const record = (type: string, before: number, after: number, detail: unknown, status?: number) => events.push({...roomClock(), type, before, after, detail, detailHash: roomHash(detail), ...(status === undefined ? {} : {status})});
   try {
@@ -109,6 +109,8 @@ test('meeting room real 30 minute presentation, recovery, CAS and revocation lif
       const committed = await response.json() as RoomState;
       expect(committed.revision).toBe(before!.revision + 1);
       receipts.push({...roomClock(), id: randomUUID(), clientId, status: response.status(), method: 'POST', command, state: committed});
+      const clients: Array<[Page,string]> = [[owner!,F.adminUserId],[display!,displayActor],...(followerRevoked?[]:[[follower!,F.userId] as [Page,string]])];
+      await Promise.all(clients.map(([client,actor])=>assertRoomPresentation(client,committed,actor)));
     };
     await roomAction(owner!, '开始演示');
     await expect.poll(async () => (await state()).presenterId).toBe(F.adminUserId);
@@ -182,6 +184,8 @@ test('meeting room real 30 minute presentation, recovery, CAS and revocation lif
     await roomAction(owner!, '跟随演示者');
     await roomZoom(display!,'in'); await expect.poll(async () => (await state()).revision).toBeGreaterThan(current.revision);
     current = await state(); await expect.poll(() => readRoomViewport(owner!)).toEqual(current.viewport);
+    await assertRoomPresentation(follower!,current,F.userId);
+    await expect.poll(() => readRoomViewport(follower!)).toEqual(current.viewport);
     // Following must release when a user deliberately pans; an absent product behavior fails here.
     await follower!.getByTestId('board-tool-hand').click(); const box = await follower!.getByTestId('board-fabric-surface').boundingBox(); expect(box).not.toBeNull();
     await follower!.mouse.move(box!.x + 400, box!.y + 300); await follower!.mouse.down(); await follower!.mouse.move(box!.x + 510, box!.y + 340, {steps: 12}); await follower!.mouse.up();
@@ -191,7 +195,7 @@ test('meeting room real 30 minute presentation, recovery, CAS and revocation lif
       expect(roomHash(await canonicalRows(page))).toBe(contentHash);
     }
     await boardApi(api, ownerToken, 'DELETE', `/whiteboards/${boardId}/members/${encodeURIComponent(F.userId)}`);
-    await expect(follower!.getByTestId('denied')).toBeVisible({timeout: 30_000}); await expect(follower!.getByTestId('collaborative-editor')).toHaveCount(0);
+    await expect(follower!.getByTestId('denied')).toBeVisible({timeout: 30_000}); await expect(follower!.getByTestId('collaborative-editor')).toHaveCount(0); followerRevoked = true;
     current = await state(); record('revoke', current.revision, current.revision, {actorId: F.userId});
     const deniedRead = await api.get(`${apiOrigin()}/v1/whiteboards/${boardId}/presentation?roomId=${encodeURIComponent(roomId)}`, {headers: {authorization: `Bearer ${followerToken}`}});
     receipts.push({...roomClock(), id: randomUUID(), clientId: F.userId, method: 'GET', status: deniedRead.status()});

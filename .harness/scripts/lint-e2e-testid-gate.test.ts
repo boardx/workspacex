@@ -195,7 +195,7 @@ describe("真仓库", () => {
    * 那边在临时 worktree 里跑真进程，这边在内存里跑纯函数，快到可以进 verify:harness。
    */
   it("变异反证：源码里改掉一个 e2e 还锚着的 testid ⇒ 立刻红", () => {
-    const declFile = "apps/web/components/chat/copilotkit-v2-panel-body.tsx";
+    const declFile = "apps/web/components/chat/copilotkit-v2-panel-view.tsx";
     const specs = (listFiles(SPEC_ROOTS[0], [".ts"]) as string[]).map((f) => [f, readFileSync(join(ROOT, f), "utf8")]);
     const sources = SOURCE_ROOTS.flatMap((r: string) => listFiles(r, SOURCE_EXTS) as string[]).map((f: string) => {
       const text = readFileSync(join(ROOT, f), "utf8");

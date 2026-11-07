@@ -4,13 +4,16 @@ import { ServerCog, User, CloudOff } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useOptionalSession } from "@/components/session/session-provider";
+import { useI18n } from "@/lib/i18n/provider";
+import { httpFailureText } from "@/lib/http-failure-text";
+import { localOrgGuaranteeKey, localOrgStartupHint } from "@/lib/i18n/namespaces/local-org";
 import { ApiError } from "@/lib/api-client";
 import { listCapabilities, type CapabilityListing } from "@/lib/live-capabilities";
 import {
   getLocalOrg, getLocalRuntimeStatus,
   type GetLocalOrgOut, type GetLocalRuntimeStatusOut,
 } from "@/lib/live-identity";
-import { LOCAL_RUNTIME_STARTUP_HINT, isLocalModelEndpoint, localOrgCloudDisabledReason } from "@/lib/identity";
+import { LOCAL_ORG_GUARANTEES, LOCAL_RUNTIME_STARTUP_HINT, isLocalModelEndpoint, localOrgCloudDisabledReason } from "@/lib/identity";
 
 /**
  * #1172 —— 「我的本地」屏的三块数据接 **F16 / F15 的既有真端点**。
@@ -42,9 +45,10 @@ type Loaded = {
 };
 
 export function LocalOrgLive() {
+  const { locale, t } = useI18n();
   // 所有者就是当前登录的人（本地组织恒为单人）。名字读会话里已解析的 identity，
   // 不用 `mockIdentity()`——那是这一屏最后一处 mock 读点。
-  const ownerDisplayName = useOptionalSession()?.identity?.displayName ?? "我";
+  const ownerDisplayName = useOptionalSession()?.identity?.displayName ?? t("localOrg.self");
   const [data, setData] = React.useState<Loaded | null>(null);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -69,16 +73,24 @@ export function LocalOrgLive() {
     return () => { cancelled = true; };
   }, []);
 
+  const errorText = error === "NO_ORG_MEMBERSHIP"
+    ? t("localOrg.membershipError")
+    : error === "LOCAL_ORG_ONLY"
+      ? t("localOrg.localOnlyError")
+      : error?.match(/^http_(\d+)$/)
+        ? httpFailureText(Number(error.slice(5)), locale)
+        : error;
+
   return (
     <>
       {/* ── 成员：只有自己，且没有邀请入口 ── */}
       <section className="flex flex-col gap-2" data-testid="local-org-members">
         <div className="flex items-center gap-1.5">
           <User aria-hidden className="h-4 w-4 text-muted-foreground" />
-          <h2 className="text-14 font-semibold">成员</h2>
+          <h2 className="text-14 font-semibold">{t("localOrg.members")}</h2>
           {data && (
             <span className="text-11 text-muted-foreground" data-testid="local-org-member-count">
-              · 共 {data.org.memberCount} 人
+              {t("localOrg.memberCount", { count: data.org.memberCount })}
             </span>
           )}
         </div>
@@ -86,12 +98,11 @@ export function LocalOrgLive() {
           <CardContent className="flex flex-col gap-2 pt-3">
             <div className="flex items-center gap-2">
               <span className="text-13 font-medium">{ownerDisplayName}</span>
-              <Badge tone="outline">所有者</Badge>
+              <Badge tone="outline">{t("localOrg.owner")}</Badge>
             </div>
             {/* 没有「邀请成员」按钮，而且这里说清楚为什么——空着会读作「功能还没做」 */}
             <p className="text-12 text-muted-foreground" data-testid="local-org-no-invite">
-              本地组织恒为单人，因此没有邀请入口。需要多人协作又要求不出网的场景，
-              请用私有部署的正式组织并把模型策略设为「只用自托管模型」——那是可配置策略，与这里的承诺不同。
+              {t("localOrg.noInvite")}
             </p>
           </CardContent>
         </Card>
@@ -101,21 +112,21 @@ export function LocalOrgLive() {
       <section className="flex flex-col gap-2" data-testid="local-org-models">
         <div className="flex items-center gap-1.5">
           <ServerCog aria-hidden className="h-4 w-4 text-muted-foreground" />
-          <h2 className="text-14 font-semibold">可用模型</h2>
-          <span className="text-11 text-muted-foreground">· 端点不在本机的整行禁用</span>
+          <h2 className="text-14 font-semibold">{t("localOrg.models")}</h2>
+          <span className="text-11 text-muted-foreground">{t("localOrg.endpointRule")}</span>
         </div>
         <Card>
           <CardContent className="flex flex-col pt-2">
             {error && (
               <p className="py-2 text-12 text-muted-foreground" data-testid="local-org-load-failed">
-                读不到本地组织（{error}）。这里<strong className="font-semibold">不</strong>退回示例数据——显示假清单会让人以为模型已经配好了。
+                {t("localOrg.loadFailed", { error: errorText ?? error })}
               </p>
             )}
             {data?.models.length === 0 && (
               // ⚠ F15 V1：组织没配模型就是空的。产品代码里不存在内置默认清单，
               //   `lint-no-builtin-capabilities` 把 `lib/mock/` 之外的清单形状当违规。
               <p className="py-2 text-12 text-muted-foreground" data-testid="local-org-models-empty">
-                这个组织还没有配置任何模型。产品不提供内置默认清单——先在本机启动推理运行时并把它登记为组织能力。
+                {t("localOrg.modelsEmpty")}
               </p>
             )}
             {(data?.models ?? []).map((m) => {
@@ -133,18 +144,23 @@ export function LocalOrgLive() {
                   </span>
                   <code className="text-11 text-muted-foreground">{m.endpoint ?? "—"}</code>
                   {local ? (
-                    <Badge tone="outline">本机</Badge>
+                    <Badge tone="outline">{t("localOrg.onDevice")}</Badge>
                   ) : (
                     <>
                       <Badge tone="outline">
                         <CloudOff aria-hidden className="mr-1 h-3 w-3" />
-                        已禁用
+                        {t("localOrg.disabled")}
                       </Badge>
                       {/* 原因就摆在行上——「禁用但不说为什么」和隐藏一样让人误解 */}
                       <p className="w-full text-11 text-muted-foreground" data-testid={`local-org-model-reason-${m.id}`}>
                         {m.endpoint === null
-                          ? "这条能力没有端点，无法确认它只在本机运行。"
-                          : localOrgCloudDisabledReason(m.endpoint)}
+                          ? t("localOrg.noEndpoint")
+                          : locale === "zh-CN"
+                            ? localOrgCloudDisabledReason(m.endpoint)
+                            : t("localOrg.cloudDisabledReason", {
+                                endpoint: m.endpoint,
+                                guarantee: t(localOrgGuaranteeKey(LOCAL_ORG_GUARANTEES[0].id)),
+                              })}
                       </p>
                     </>
                   )}
@@ -159,27 +175,27 @@ export function LocalOrgLive() {
       <section className="flex flex-col gap-2" data-testid="local-org-runtime">
         <div className="flex items-center gap-1.5">
           <ServerCog aria-hidden className="h-4 w-4 text-muted-foreground" />
-          <h2 className="text-14 font-semibold">本地运行时</h2>
+          <h2 className="text-14 font-semibold">{t("localOrg.runtime")}</h2>
         </div>
         <Card>
           <CardContent className="flex flex-col gap-1.5 pt-3">
             {data ? (
               <>
                 <div className="flex items-center gap-2">
-                  <Badge tone="outline">{data.runtime.available ? "已就绪" : "未就绪"}</Badge>
+                  <Badge tone="outline">{data.runtime.available ? t("localOrg.ready") : t("localOrg.notReady")}</Badge>
                   <code className="text-11 text-muted-foreground">{data.runtime.endpoint}</code>
                 </div>
                 {!data.runtime.available && (
                   // ⚠ 启动指引，不是「稍后重试」，也没有任何切换到云端的入口。
                   //   文案取契约常量：服务端在 200 body 里也带一份 startupHint，
-                  //   两处必须是同一句话，所以前端读常量而不是另写。
+                  //   已知契约指引只做显示翻译；未知服务端指引保持原样，不改写。
                   <p className="text-12 text-muted-foreground" data-testid="local-org-runtime-hint">
-                    {LOCAL_RUNTIME_STARTUP_HINT}
+                    {localOrgStartupHint(t, data.runtime.failure?.startupHint ?? LOCAL_RUNTIME_STARTUP_HINT)}
                   </p>
                 )}
               </>
             ) : (
-              <p className="text-12 text-muted-foreground">读取中…</p>
+              <p className="text-12 text-muted-foreground">{t("localOrg.loading")}</p>
             )}
           </CardContent>
         </Card>

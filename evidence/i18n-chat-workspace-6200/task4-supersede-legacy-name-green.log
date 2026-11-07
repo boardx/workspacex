@@ -1,0 +1,11 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/ui/i18n-chat-supersede-parent-errors.test.tsx (3 tests) 249ms
+ ✓ tests/chat-recall-legacy-name-i18n.test.ts (3 tests) 4ms
+
+ Test Files  2 passed (2)
+      Tests  6 passed (6)
+   Start at  17:56:02
+   Duration  15.70s (transform 4.94s, setup 933ms, collect 8.46s, tests 253ms, environment 3.43s, prepare 302ms)

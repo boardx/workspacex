@@ -78,13 +78,14 @@ afterAll(cleanup);
 describe("计费六表结构", () => {
   it("列的集合被逐表钉住", async () => {
     expect(await columns("credit_packages")).toEqual([
-      "amount_fen", "base_credits", "bonus_credits", "bonus_rate", "currency", "enabled",
-      "owner_type", "package_id", "region", "sort_order", "total_credits",
+      "amount_fen", "base_credits", "billing_cycle", "bonus_credits", "bonus_rate", "currency", "enabled",
+      "extra_seat_amount_fen", "extra_seat_monthly_credits", "included_seats",
+      "owner_type", "package_id", "product_kind", "region", "sort_order", "total_credits",
     ]);
     expect(await columns("billing_orders")).toEqual([
       "amount_fen", "base_credits", "bonus_credits", "channel_order_no", "closed_at", "created_at",
       "created_by", "currency", "expired_at", "last_error_code", "last_error_message", "notify_at",
-      "order_no", "owner_id", "owner_type", "package_id", "paid_at", "provider", "qr_code_url", "status",
+      "order_no", "owner_id", "owner_type", "package_id", "paid_at", "provider", "qr_code_url", "status", "stripe_session_ref",
     ]);
     expect(await columns("credit_wallets")).toEqual([
       "balance", "held_hundredths", "owner_id", "owner_type", "total_granted", "total_purchased", "unbounded_requests", "updated_at", "wallet_id",

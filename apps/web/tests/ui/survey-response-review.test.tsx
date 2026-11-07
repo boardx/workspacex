@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within, waitFor } from '@testing-library/react';
 import { filterSurveyResponses, LiveResponseList } from '@/components/survey/live/response-list';
 const question={id:'q1',order:1,chapterId:'general',title:'真实问题',type:'open' as const,required:false,options:[]};
 const answer={id:'included-answer',submittedAt:'2026-09-21T00:00:00Z',durationSeconds:20,quality:'normal' as const,analysis:'included' as const,role:'未填写',companySize:'未填写',answers:[{questionId:'q1',value:'真实回答'}]};
@@ -30,14 +30,14 @@ it('switches between real quality groups and adjacent response details',()=>{
  expect(screen.getByRole('button',{name:'待复核 1'})).toHaveAttribute('aria-pressed','true');
  expect(screen.getByRole('button',{name:'上一条答卷'})).toBeDisabled();
 });
-it('exports visible answers as Markdown without synthetic metadata',()=>{
+it('exports visible answers as Markdown without synthetic metadata',async()=>{
  const click=vi.spyOn(HTMLAnchorElement.prototype,'click').mockImplementation(()=>{});
  const create=vi.fn(()=> 'blob:export');
  Object.defineProperty(URL,'createObjectURL',{configurable:true,value:create});
  Object.defineProperty(URL,'revokeObjectURL',{configurable:true,value:vi.fn()});
  render(<LiveResponseList responses={[answer]} questions={[question]} busy={false} onReview={vi.fn()}/>);
  fireEvent.click(screen.getByRole('button',{name:'导出 Markdown'}));
- expect(create).toHaveBeenCalledWith(expect.any(Blob));expect(click).toHaveBeenCalled();click.mockRestore();
+ await waitFor(()=>expect(create).toHaveBeenCalledWith(expect.any(Blob)));expect(click).toHaveBeenCalled();click.mockRestore();
 });
 it('searches real answer text and keeps the selected detail aligned with the filtered list',()=>{
  const second={...answer,id:'second-answer',answers:[{questionId:'q1',value:'独特建议'}]};

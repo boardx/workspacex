@@ -1,0 +1,36 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ❯ tests/ui/chat-share-i18n.test.tsx (8 tests | 1 failed) 763ms
+   ✓ translates anonymous wrappers without refetching or changing raw snapshot content 347ms
+   × translates shared code controls without resetting disclosure or replaying clipboard 15ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  12 lines
+Received:
+  typescript· 12 行复制显示代码
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/chat-share-i18n.test.tsx > translates shared code controls without resetting disclosure or replaying clipboard
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  12 lines
+Received:
+  typescript· 12 行复制显示代码
+ ❯ tests/ui/chat-share-i18n.test.tsx:48:48
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 7 passed (8)
+   Start at  12:07:28
+   Duration  5.53s (transform 1.74s, setup 314ms, collect 2.98s, tests 763ms, environment 908ms, prepare 58ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/chat-share-i18n.test.tsx --minWorkers=1 --maxWorkers=1

@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
 
 import * as React from "react";
 import { useInterviewRevalidation, useInterviewSessionValue } from "./interview-session-provider";
@@ -9,6 +10,7 @@ import { DigitalInterviewWorkflow, PersistentDigitalInterviewWorkflow, type Work
 import { InterviewMarkdownWorkbench } from "./interview-markdown-workbench";
 
 export function DigitalInterviewSetup({ interviewId, initialWorkbenchStep, reportPin, canonicalNewInterview = false }: { interviewId: string; initialWorkbenchStep?: WorkbenchStep; reportPin?: { documentId: string; version: number }; canonicalNewInterview?: boolean }) {
+ const { t } = useI18n();
   const { cache, value: cachedIdentity } = useInterviewSessionValue<DigitalInterviewWorkflowView | MockDigitalInterviewDraft>(`identity/${interviewId}`);
   const [draft, setDraft] = React.useState<MockDigitalInterviewDraft | null>(null);
   const [workflow, setWorkflow] = React.useState<DigitalInterviewWorkflowView | null>(null);
@@ -30,11 +32,11 @@ export function DigitalInterviewSetup({ interviewId, initialWorkbenchStep, repor
   }, [interviewId, refreshIdentity]);
   const currentWorkflow = (cachedIdentity && !cachedIdentity.interviewId.startsWith("mock-batch-") ? cachedIdentity as DigitalInterviewWorkflowView : null) ?? (workflow?.interviewId === interviewId ? workflow : null);
 
-  if (error && !currentWorkflow) return <State text={`加载访谈失败：${error}`} />;
+  if (error && !currentWorkflow) return <State text={t("itv.setup.failure", { detail: error })} />;
   if (currentWorkflow && initialWorkbenchStep) return <InterviewMarkdownWorkbench identity={currentWorkflow} step={initialWorkbenchStep} reportPin={reportPin} />;
   if (currentWorkflow && canonicalNewInterview && currentWorkflow.currentStep === "topic") return <InterviewMarkdownWorkbench identity={currentWorkflow} step="intake" />;
   if (currentWorkflow) return <PersistentDigitalInterviewWorkflow initialView={currentWorkflow} />;
-  if (!draft) return <State text="正在恢复访谈草稿…" />;
+  if (!draft) return <State text={t("itv.setup.loading")} />;
   return <DigitalInterviewWorkflow initialDraft={draft} />;
 }
 

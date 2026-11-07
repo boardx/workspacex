@@ -1,0 +1,78 @@
+[stack-admission] load1=9.75 cores=10 perCore=0.97 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvxyi5lt-e1d31092-3cd883e34d31 db=wsx_3cd883e34d3152eee3b7 compose=wsx-3cd883e34d3152eee3b7 pg=20499 redis=21499 api=24499 web=25499 sandbox=26499 model=27499 deep-agent=28499 asr=29499 vision=30499 loopback-sandbox=31499 mail=19499
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_3cd883e34d3152eee3b7 capacity=100 current=6 required=32
+ ❯ tests/billing/personal-credit-terms-pg.test.ts (7 tests | 2 failed) 34153ms
+   × rejects mismatched money, currency, period and replay ownership without changing the wallet 161ms
+     → expected [Function] to throw error including 'personal_term_replay_mismatch' but got 'personal_term_subscription_mismatch'
+   ✓ recovers twelve elapsed periods without reviving expired credits or deleting permanent debt 654ms
+   ✓ recovers only elapsed months and preserves permanent credits across a repeated late run 310ms
+   ✓ advances across all twelve anchored months with a controlled database clock 1724ms
+   × an authenticated wallet read reconciles a due term without a scheduler tick 109ms
+     → expected { ownerType: 'user', …(10) } to match object { balance: 20007, …(3) }
+(7 matching properties omitted from actual)
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/personal-credit-terms-pg.test.ts > rejects mismatched money, currency, period and replay ownership without changing the wallet
+AssertionError: expected [Function] to throw error including 'personal_term_replay_mismatch' but got 'personal_term_subscription_mismatch'
+
+Expected: "personal_term_replay_mismatch"
+Received: "personal_term_subscription_mismatch"
+
+ ❯ tests/billing/personal-credit-terms-pg.test.ts:44:3
+     42|   await f.record();
+     43|   const other = await fixture("other");
+     44|   await expect(other.record({...f.input,userId:other.userId})).rejects…
+       |   ^
+     45|   expect(await other.wallet()).toMatchObject({ balance: "7.00", total_…
+     46| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/billing/personal-credit-terms-pg.test.ts > an authenticated wallet read reconciles a due term without a scheduler tick
+AssertionError: expected { ownerType: 'user', …(10) } to match object { balance: 20007, …(3) }
+(7 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  Object {
+-   "balance": 20007,
++   "balance": 7,
+    "permanentBalance": 7,
+-   "subscriptionCredits": 20000,
+-   "totalGranted": 40000,
++   "subscriptionCredits": 0,
++   "totalGranted": 20000,
+  }
+
+ ❯ tests/billing/personal-credit-terms-pg.test.ts:91:18
+     89|   expect(await f.wallet()).toMatchObject({balance:"20007.00",total_gra…
+     90|   const wallet=(await new PgBillingWalletRepository(db).wallet({orgId:…
+     91|   expect(wallet).toMatchObject({balance:20007,permanentBalance:7,subsc…
+       |                  ^
+     92| });
+     93| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 5 passed (7)
+   Start at  23:00:02
+   Duration  45.23s (transform 940ms, setup 27ms, collect 583ms, tests 34.15s, environment 1ms, prepare 152ms)
+
+[db-isolation] db=wsx_3cd883e34d3152eee3b7 peak_connections=5
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/personal-credit-terms-pg.test.ts
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/personal-credit-terms-pg.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：47s
+  清理：1s
+  总计：48s

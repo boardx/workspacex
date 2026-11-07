@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
 
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,8 +15,9 @@ export function InterviewSkillDrawer({ open, onOpenChange, view, currentStep, on
   readonly onApply: (proposalId: string) => Promise<boolean>;
   readonly onReject: (proposalId: string) => Promise<boolean>;
 }) {
+ const { t } = useI18n();
   return <aside data-testid="itv-skill-drawer" aria-hidden={!open} className={open ? "fixed inset-y-0 right-0 z-50 w-full max-w-md overflow-y-auto border-l border-border bg-card shadow-2xl" : "hidden"}>
-    <div className="flex justify-end p-3"><Button type="button" variant="ghost" size="icon" aria-label="关闭访谈助手" onClick={() => onOpenChange(false)}><X className="size-4" aria-hidden /></Button></div>
+    <div className="flex justify-end p-3"><Button type="button" variant="ghost" size="icon" aria-label={t("itv.skill.close")} onClick={() => onOpenChange(false)}><X className="size-4" aria-hidden /></Button></div>
     <PersistentInterviewSkillAssistant view={view} currentStep={currentStep} onSend={onSend} onApply={onApply} onReject={onReject} />
   </aside>;
 }

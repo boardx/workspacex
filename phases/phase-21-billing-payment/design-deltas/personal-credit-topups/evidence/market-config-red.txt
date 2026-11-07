@@ -1,0 +1,66 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+ ❯ tests/billing/pricing-topup-market.test.ts (7 tests | 2 failed) 44ms
+   × fails closed when market config is undefined (method missing: false) 16ms
+     → promise resolved "{ items: [ { …(10) }, { …(10) } ] }" instead of rejecting
+   × fails closed when market config is undefined (method missing: true) 3ms
+     → promise resolved "{ items: [ { …(10) }, { …(10) } ] }" instead of rejecting
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/pricing-topup-market.test.ts > fails closed when market config is undefined (method missing: false)
+ FAIL  tests/billing/pricing-topup-market.test.ts > fails closed when market config is undefined (method missing: true)
+AssertionError: promise resolved "{ items: [ { …(10) }, { …(10) } ] }" instead of rejecting
+
+- Expected
++ Received
+
+- [Error: rejected promise]
++ Object {
++   "items": Array [
++     Object {
++       "amountFen": 12900,
++       "baseCredits": 10000,
++       "bonusCredits": 0,
++       "bonusRate": 0,
++       "currency": "CNY",
++       "displayAmount": "¥129.00",
++       "ownerType": "both",
++       "packageId": "credit-cn-10000-v1",
++       "region": "cn",
++       "totalCredits": 10000,
++     },
++     Object {
++       "amountFen": 1900,
++       "baseCredits": 10000,
++       "bonusCredits": 0,
++       "bonusRate": 0,
++       "currency": "USD",
++       "displayAmount": "$19.00",
++       "ownerType": "both",
++       "packageId": "credit-us-10000-v1",
++       "region": "us",
++       "totalCredits": 10000,
++     },
++   ],
++ }
+
+ ❯ tests/billing/pricing-topup-market.test.ts:58:68
+     56| it.each([false, true])("fails closed when market config is undefined (…
+     57|   const f = setup(undefined, missing);
+     58|   await expect(f.service.packages(principal, { ownerType: "user" })).r…
+       |                                                                    ^
+     59|   await expect(f.service.create(principal, { packageId: cn.packageId, …
+     60|   expect(f.native.createNativeOrder).not.toHaveBeenCalled();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 5 passed (7)
+   Start at  22:50:00
+   Duration  722ms (transform 153ms, setup 0ms, collect 237ms, tests 44ms, environment 0ms, prepare 147ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.billing-provider.config.ts tests/billing/pricing-topup-market.test.ts

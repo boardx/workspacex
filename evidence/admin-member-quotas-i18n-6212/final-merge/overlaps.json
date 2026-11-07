@@ -1,0 +1,60 @@
+{
+  "source": "9194ab5de3754e79d03c640928b835efbeaa02e6",
+  "registries": {
+    "apps/web/lib/i18n/messages/en.ts": {
+      "worker": {
+        "addedLines": [
+          "  \"common.http.forbidden\": \"You do not have permission to perform this action. Contact your administrator if you need access.\","
+        ],
+        "noDeletedOrEditedLines": true
+      },
+      "accepted": {
+        "addedLines": [
+          "import { aiUsageEn } from \"../namespaces/ai-usage\";",
+          "import { adminLimitPolicyEn } from \"../namespaces/admin-limit-policy\";",
+          "import { adminMemberQuotasEn } from \"../namespaces/admin-member-quotas\";",
+          "import { adminCommonEn } from \"../namespaces/admin-common\";",
+          "  ...aiUsageEn,",
+          "  ...adminLimitPolicyEn,",
+          "  ...adminMemberQuotasEn,",
+          "  ...adminCommonEn,"
+        ],
+        "noDeletedOrEditedLines": true
+      }
+    },
+    "apps/web/lib/i18n/messages/zh-CN.ts": {
+      "worker": {
+        "addedLines": [
+          "  \"common.http.forbidden\": \"\u4f60\u6ca1\u6709\u6743\u9650\u6267\u884c\u6b64\u64cd\u4f5c\uff0c\u5982\u9700\u8bbf\u95ee\u8bf7\u8054\u7cfb\u7ba1\u7406\u5458\","
+        ],
+        "noDeletedOrEditedLines": true
+      },
+      "accepted": {
+        "addedLines": [
+          "import { aiUsageZhCN } from \"../namespaces/ai-usage\";",
+          "import { adminLimitPolicyZhCN } from \"../namespaces/admin-limit-policy\";",
+          "import { adminMemberQuotasZhCN } from \"../namespaces/admin-member-quotas\";",
+          "import { adminCommonZhCN } from \"../namespaces/admin-common\";",
+          "  ...aiUsageZhCN,",
+          "  ...adminLimitPolicyZhCN,",
+          "  ...adminMemberQuotasZhCN,",
+          "  ...adminCommonZhCN,"
+        ],
+        "noDeletedOrEditedLines": true
+      }
+    }
+  },
+  "apiAndSharedDependencyPaths": [
+    "apps/api",
+    "packages",
+    "package.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+    "turbo.json",
+    "tsconfig.json",
+    "tsconfig.base.json"
+  ],
+  "apiAndSharedSourceByteIdenticalTo": "4639ef2dd55e0826b21736429e09713173cc1da7",
+  "apiAndSharedChangedPaths": [],
+  "apiTypeEvidenceReused": "accepted-api/api-type receipt at identical source; normalhooks later verifycurrentdependencygraph"
+}

@@ -1,0 +1,41 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/apps/web
+
+ ❯ tests/ui/recording-project-i18n.test.tsx (20 tests | 1 failed) 704ms
+   × translates fixed verification states while preserving transcript and model-authored theme content 13ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Quote
+Received:
+  SpeakersP-10 Weber61%林可27%Uncertain14Chapters背景与现状采购决策过程供应商比选Markers引述11Pain points6
+ ✓ tests/lib/i18n-resources.test.ts (5 tests) 105ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/recording-project-i18n.test.tsx > translates fixed verification states while preserving transcript and model-authored theme content
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Quote
+Received:
+  SpeakersP-10 Weber61%林可27%Uncertain14Chapters背景与现状采购决策过程供应商比选Markers引述11Pain points6
+ ❯ tests/ui/recording-project-i18n.test.tsx:80:125
+     78|  expect(screen.getByTestId("rec-verify-navspeaker-uncertain")).toHaveT…
+     79|  expect(screen.getByTestId("rec-verify-item-v-3")).toHaveTextContent("…
+     80|  expect(screen.getByTestId("rec-verify-nav")).toHaveTextContent("Pain …
+       |                                                                                                                             ^
+     81|  expect(screen.getByTestId("rec-verify-theme-t-3")).toHaveTextContent(…
+     82|  expect(screen.getByTestId("rec-verify-item-v-1")).toHaveTextContent("…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  1 failed | 24 passed (25)
+   Start at  08:37:27
+   Duration  3.89s (transform 1.32s, setup 190ms, collect 2.03s, tests 809ms, environment 490ms, prepare 82ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/recording-project-i18n.test.tsx tests/lib/i18n-resources.test.ts --maxWorkers=1 --minWorkers=1

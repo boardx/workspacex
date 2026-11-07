@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/apps/api
+
+ ✓ tests/auth/platform-usage-boundaries.test.ts (7 tests | 6 skipped) 16ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 6 skipped (7)
+   Start at  22:54:19
+   Duration  43.89s (transform 21.82s, setup 0ms, collect 43.12s, tests 16ms, environment 1ms, prepare 213ms)
+

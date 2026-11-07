@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
+import type { MessageKey, MessageParams } from "@/lib/i18n/messages";
 import { CircleAlert, KeyRound, LoaderCircle, ShieldCheck } from "lucide-react";
 import { auth as authContract } from "@repo/contracts";
 import { ApiError } from "@/lib/api-client";
@@ -28,6 +30,7 @@ import { AuthShell } from "@/components/entry/auth-shell";
  *   已经全部登出，这正是这次重置要做的事。
  */
 export function ResetPassword({ token }: { token: string | null }) {
+  const { t } = useI18n();
   const [pwd, setPwd] = React.useState("");
   const [confirmPwd, setConfirmPwd] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
@@ -39,7 +42,7 @@ export function ResetPassword({ token }: { token: string | null }) {
       <Card>
         <p role="alert" className="flex items-start gap-2 text-13 text-destructive" data-testid="reset-password-missing-token">
           <CircleAlert aria-hidden className="mt-0.5 h-4 w-4 shrink-0" />
-          链接不完整，请使用邮件里完整的重置链接。也可以回登录页重新申请一封。
+          {t("account.reset.missingLink")}
         </p>
       </Card>
     );
@@ -51,11 +54,10 @@ export function ResetPassword({ token }: { token: string | null }) {
         <div className="flex flex-col gap-3" data-testid="reset-password-success">
           <p className="flex items-start gap-2 text-13 text-success">
             <ShieldCheck aria-hidden className="mt-0.5 h-4 w-4 shrink-0" />
-            密码已重置。为安全起见，已让 {done.revokedSessionCount} 台已登录设备重新登录，
-            请用新密码登录。
+            {t("account.reset.completed", { count: done.revokedSessionCount })}
           </p>
           <Button size="sm" variant="primary" onClick={() => window.location.assign("/login")} data-testid="reset-password-success-continue">
-            前往登录
+            {t("account.goToLogin")}
           </Button>
         </div>
       </Card>
@@ -72,7 +74,7 @@ export function ResetPassword({ token }: { token: string | null }) {
 
   async function doSubmit() {
     if (pwd !== confirmPwd) {
-      setError({ kind: "terminal", field: "confirm", message: "两次输入的密码不一致。" });
+      setError({ kind: "terminal", field: "confirm", message: "account.reset.mismatch" });
       return;
     }
     setError(null);
@@ -91,10 +93,10 @@ export function ResetPassword({ token }: { token: string | null }) {
     <Card>
       <form className="flex flex-col gap-4" onSubmit={submit} data-testid="reset-password-form" noValidate>
         <p className="text-12 text-muted-foreground" data-testid="reset-password-intro">
-          设置这个账号的新密码。提交后，旧密码与全部已登录设备将立即失效。
+          {t("account.reset.intro")}
         </p>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="reset-password-pwd">新密码</Label>
+          <Label htmlFor="reset-password-pwd">{t("account.reset.newPassword")}</Label>
           <Input
             id="reset-password-pwd"
             type="password"
@@ -103,19 +105,19 @@ export function ResetPassword({ token }: { token: string | null }) {
               setPwd(e.currentTarget.value);
               if (error?.field === "password") setError(null);
             }}
-            placeholder={`至少 ${authContract.AUTH_POLICY.passwordMinLen} 位`}
+            placeholder={t("account.reset.placeholder", { min: authContract.AUTH_POLICY.passwordMinLen })}
             disabled={submitting}
             aria-invalid={error?.field === "password"}
             data-testid="reset-password-pwd"
           />
           {error?.field === "password" && (
             <p role="alert" className="text-10 text-destructive" data-testid="err-reset-password-pwd">
-              {error.message}
+              {t(error.message, error.params)}
             </p>
           )}
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="reset-password-confirm">确认新密码</Label>
+          <Label htmlFor="reset-password-confirm">{t("account.reset.confirmPassword")}</Label>
           <Input
             id="reset-password-confirm"
             type="password"
@@ -130,7 +132,7 @@ export function ResetPassword({ token }: { token: string | null }) {
           />
           {(mismatch || error?.field === "confirm") && (
             <p role="alert" className="text-10 text-destructive" data-testid="err-reset-password-confirm">
-              两次输入的密码不一致。
+              {t("account.reset.mismatch")}
             </p>
           )}
         </div>
@@ -143,16 +145,16 @@ export function ResetPassword({ token }: { token: string | null }) {
           >
             <p className="flex items-start gap-2 text-12 text-destructive">
               <CircleAlert aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              {error.message}
+              {t(error.message, error.params)}
             </p>
             {error.kind === "unavailable" && (
               <Button type="button" size="sm" variant="outline" disabled={submitting} onClick={() => void doSubmit()} data-testid="reset-password-retry">
-                重试
+                {t("state.retry")}
               </Button>
             )}
             {error.kind === "terminal" && error.reason === "token-invalid" && (
               <Button type="button" size="sm" variant="outline" onClick={() => window.location.assign("/login")} data-testid="reset-password-goto-login">
-                返回登录页重新申请
+                {t("account.reset.reapply")}
               </Button>
             )}
           </div>
@@ -161,10 +163,10 @@ export function ResetPassword({ token }: { token: string | null }) {
         <Button type="submit" size="lg" variant="primary" disabled={!canSubmit} data-testid="reset-password-submit">
           {submitting ? (
             <>
-              <LoaderCircle aria-hidden className="h-3.5 w-3.5 animate-spin" /> 正在提交…
+              <LoaderCircle aria-hidden className="h-3.5 w-3.5 animate-spin" /> {t("account.reset.submitting")}
             </>
           ) : (
-            "设置新密码"
+            t("account.reset.submit")
           )}
         </Button>
       </form>
@@ -173,11 +175,12 @@ export function ResetPassword({ token }: { token: string | null }) {
 }
 
 function Card({ children }: { children: React.ReactNode }) {
+  const { t } = useI18n();
   return (
     <AuthShell
       icon={<KeyRound aria-hidden className="h-5 w-5 text-muted-foreground" />}
-      title="重置密码"
-      footer={<a href="/login" className="text-primary underline-offset-4 transition-colors duration-base hover:underline">返回登录</a>}
+      title={t("account.reset.title")}
+      footer={<a href="/login" className="text-primary underline-offset-4 transition-colors duration-base hover:underline">{t("ui.backToSignIn")}</a>}
     >
       {children}
     </AuthShell>
@@ -189,14 +192,13 @@ function Card({ children }: { children: React.ReactNode }) {
  *   字段级（password）             → 就地字段文案（弱口令/太短，同 registration/activate 的既有文案）；
  *   `terminal`（令牌失效）         → 明确失效 + 「返回登录页重新申请」，重试没有意义（同一个令牌不会变有效）；
  *   `unavailable`                  → 服务不可达/5xx，显式重试（同 invite-activation/link-activation 既有做法）；
- *     令牌在这条路径上**未被消耗**（`completePasswordReset` 先消费令牌再改密码，
- *     一次成功的消费不可能同时抛 5xx——见后端 `password-reset.ts` 的顺序注释），
- *     所以这里的重试是安全的，不会撞上"令牌已用过"。
+ *     网络或响应丢失时无法判断服务端事务是否已提交，因此不承诺令牌仍有效。
+ *     保留显式重试；若链接已失效，按既有 terminal 分支引导重新申请。
  */
 type ResetFailure =
-  | { kind: "field"; field: "password"; message: string }
-  | { kind: "terminal"; field: "confirm" | null; reason?: "token-invalid"; message: string }
-  | { kind: "unavailable"; field: null; message: string };
+  | { kind: "field"; field: "password"; message: MessageKey; params?: MessageParams }
+  | { kind: "terminal"; field: "confirm" | null; reason?: "token-invalid"; message: MessageKey; params?: MessageParams }
+  | { kind: "unavailable"; field: null; message: MessageKey; params?: MessageParams };
 
 function describeResetFailure(err: unknown): ResetFailure {
   const issues = contractFieldIssues(err);
@@ -204,7 +206,7 @@ function describeResetFailure(err: unknown): ResetFailure {
     return {
       kind: "field",
       field: "password",
-      message: `密码不符合要求：至少 ${authContract.AUTH_POLICY.passwordMinLen} 位，且不能是常见泄露口令。`,
+      message: "account.reset.policy", params: { min: authContract.AUTH_POLICY.passwordMinLen },
     };
   }
   if (isResetTokenInvalid(err)) {
@@ -212,7 +214,7 @@ function describeResetFailure(err: unknown): ResetFailure {
       kind: "terminal",
       field: null,
       reason: "token-invalid",
-      message: "重置链接无效或已失效（可能已过期、已使用过，或已重新申请了新链接）。请回登录页重新申请一封。",
+      message: "account.reset.invalidLink",
     };
   }
   if (err instanceof ApiError && err.status >= 500) {
@@ -222,11 +224,11 @@ function describeResetFailure(err: unknown): ResetFailure {
     return {
       kind: "unavailable",
       field: null,
-      message: `重置未完成（${err.reasonCode ?? `HTTP ${err.status}`}），请稍后重试。`,
+      message: "account.reset.incomplete", params: { reason: err.reasonCode ?? `HTTP ${err.status}` },
     };
   }
   // 非 ApiError ⇒ 请求根本没得到一个 HTTP 响应（连接拒绝/断网/超时）。
   return { kind: "unavailable", field: null, message: UNAVAILABLE_MESSAGE };
 }
 
-const UNAVAILABLE_MESSAGE = "服务暂时不可用，请稍后重试。这次失败不会消耗你的重置链接。";
+const UNAVAILABLE_MESSAGE: MessageKey = "account.reset.unavailable";

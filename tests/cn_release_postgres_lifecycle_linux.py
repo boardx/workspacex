@@ -100,6 +100,7 @@ def main():
             if item.is_dir():item.chmod(0o700)
         source=ROOT/'apps/api/src/infrastructure/db/migrator.ts'
         raw=source.read_bytes();put('migrator.ts',raw)
+        put('native-tariff-force-replay.ts',(source.parent/'native-tariff-force-replay.ts').read_bytes())
         put('package.json',b'{"type":"module"}\n')
         fixture=ROOT/'tests/fixtures/cn-postgres-lifecycle/lifecycle.mjs';put('lifecycle.mjs',fixture.read_bytes())
         loader=copied_modules/'tsx/dist/loader.mjs'

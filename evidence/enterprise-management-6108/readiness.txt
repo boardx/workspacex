@@ -1,0 +1,25 @@
+
+> agentic-harness-template@ harness /Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108
+> tsx .harness/scripts/cli.ts "readiness"
+
+==> 核心闭环就绪度 CLR = 3 / 10   未达标（门槛 9，还差 6）   （实测 HEAD: 737b269064db）
+   公式：min( 可达性 10 , 体验均值 3 )
+   —— 走不到的地方做得再好也等于 0，所以可达性是天花板不是加数。
+   ⚠ 4 条 track 的分数已过期：**仍计入 CLR**（方案 A：数字要有信息量），
+      但「达标」要求全部新鲜——过期的那几条需要在当前 HEAD 上重评。
+
+| track | 记录分 | 计入分 | 为什么 |
+|---|---|---|---|
+| R 真实用户可达性 | 10 | 10 | 分数已过期（评分后 watch 路径有改动） |
+| B 行为体验（对标 Claude Code） | 9 | 9 | 分数已过期（评分后 watch 路径有改动） |
+| V-D 项目对话主屏原型保真（ChatReadScreen） | 0 | 0 | 分数已过期（评分后 watch 路径有改动） |
+| V-P 个人对话屏（PersonalChatScreen） | 0 | 0 | 分数已过期（评分后 watch 路径有改动） |
+
+==> 统一队列（所有 agent 的唯一取活口，从上往下做）
+    1. #2307
+    2. #2272
+    3. #2275
+    4. #2278
+    5. #2281
+
+   排序规则：R（天花板）的阻塞项永远在最前——其余 track 修到满分也抬不动总分。

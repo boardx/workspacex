@@ -1,0 +1,33 @@
+[stack-admission] load1=9.81 cores=10 perCore=0.98 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvy3hh9o-cb0e04d4-dc2939fd703e db=wsx_dc2939fd703e679f95cd compose=wsx-dc2939fd703e679f95cd pg=20341 redis=21341 api=24341 web=25341 sandbox=26341 model=27341 deep-agent=28341 asr=29341 vision=30341 loopback-sandbox=31341 mail=19341
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_dc2939fd703e679f95cd capacity=100 current=6 required=32
+ ✓ tests/billing/personal-payment-settlement-pg.test.ts (10 tests) 88828ms
+   ✓ credits one monthly batch from one annual WeChat payment under concurrent callbacks 777ms
+   ✓ permanent us topups repay debt once without creating an expiring period 399ms
+   ✓ rejects mismatched amount, currency and provider before any receipt or credit is recorded 3002ms
+   ✓ does not reassign the same verified payment to another purchase or owner 342ms
+   ✓ does not extend a manual Pro term by replaying its transaction with another payment time 341ms
+   ✓ rolls receipt, balance and fulfillment back together on a real transaction failure 419ms
+   ✓ retains a capacity failure for manual recovery even after the balance later changes 329ms
+   ✓ rolls an ungrantable Pro term back before recording manual recovery 351ms
+   ✓ refuses to credit a payment while the accounting epoch is inactive 460ms
+ ✓ tests/billing/personal-checkout-intents-pg.test.ts (7 tests) 1096ms
+ ✓ tests/billing/personal-checkout-http.test.ts (2 tests) 863ms
+
+ Test Files  3 passed (3)
+      Tests  19 passed (19)
+   Start at  01:19:30
+   Duration  119.31s (transform 3.59s, setup 63ms, collect 4.35s, tests 90.79s, environment 1ms, prepare 539ms)
+
+[db-isolation] db=wsx_dc2939fd703e679f95cd peak_connections=5
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/personal-payment-settlement-pg.test.ts tests/billing/personal-checkout-intents-pg.test.ts tests/billing/personal-checkout-http.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：2m3s
+  清理：1s
+  总计：2m4s

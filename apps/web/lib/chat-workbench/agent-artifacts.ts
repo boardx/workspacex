@@ -26,8 +26,9 @@ export function isTextArtifact(name: string): boolean {
 }
 
 export interface DiffLine { readonly kind: "same" | "added" | "removed"; readonly text: string }
+export const ARTIFACT_DIFF_LINE_LIMIT = 600;
 /** Bounded line LCS. The UI explicitly reports clipping, never invents binary diffs. */
-export function diffArtifactLines(before: string, after: string, limit=600): { lines: DiffLine[]; truncated: boolean } {
+export function diffArtifactLines(before: string, after: string, limit=ARTIFACT_DIFF_LINE_LIMIT): { lines: DiffLine[]; truncated: boolean } {
   const old=before.split(/\r?\n/), current=after.split(/\r?\n/);
   const truncated=old.length>limit||current.length>limit;
   const a=old.slice(0,limit), b=current.slice(0,limit);

@@ -7,6 +7,8 @@ RUN corepack enable && npm_config_registry="$NPM_REGISTRY" corepack prepare pnpm
 COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json ./
 COPY --chown=node:node patches ./patches
 COPY --chown=node:node packages ./packages
+COPY --chown=node:node skills/localizations ./skills/localizations
+COPY --chown=node:node skills/starter-packs ./skills/starter-packs
 COPY --chown=node:node apps/api ./apps/api
 COPY --chown=node:node apps/local-asr-gateway ./apps/local-asr-gateway
 COPY --chown=node:node apps/skill-sandbox ./apps/skill-sandbox
@@ -14,7 +16,7 @@ COPY --chown=node:node apps/deep-agent-service/langgraph.json ./apps/api/config/
 COPY --chown=node:node deploy/aliyun/images/api.tsconfig.json ./apps/api/tsconfig.release.json
 FROM sources AS build
 RUN --mount=type=cache,id=workspacex-cloud-pnpm,target=/root/.local/share/pnpm/store npm_config_registry="$NPM_REGISTRY" pnpm install --frozen-lockfile --filter @repo/api...
-RUN --network=none pnpm --filter @repo/contracts typecheck \
+RUN --network=none pnpm --filter @repo/contracts exec tsc -p tsconfig.release.json \
  && pnpm --filter @repo/api exec tsc -p tsconfig.release.json \
  && printf typechecked > /api-typecheck.ok
 # Only production dependencies enter the distributed runtime layers.
@@ -26,6 +28,7 @@ ARG SOURCE_REVISION
 RUN test "${#SOURCE_REVISION}" = 40
 LABEL org.opencontainers.image.revision=$SOURCE_REVISION
 ENV NODE_ENV=production
+ENV SKILL_STARTER_PACK_ROOT=/opt/workspacex/skills/starter-packs
 USER node
 WORKDIR /opt/workspacex/apps/api
 RUN set -eu; for entry in \
@@ -41,7 +44,9 @@ RUN set -eu; for entry in \
   scripts/cloud-business-probe.ts; \
   do test -r "$entry"; done; \
   test -r ../../packages/contracts/package.json; \
+  test -r ../../skills/localizations/work-stack-v2.json; \
   test -n "$(find migrations -maxdepth 1 -type f -print -quit)"; \
-  node --import tsx --input-type=module -e "await import('zod')"
+  node --import tsx --input-type=module -e "await import('zod'); const {loadInterviewReportSkill}=await import('./src/infrastructure/skill/interview-report-skill.ts'); const {FileSkillStarterPackSource,resolveSkillStarterPackRoot}=await import('./src/infrastructure/skill/file-skill-starter-pack-source.ts'); await loadInterviewReportSkill(new FileSkillStarterPackSource(resolveSkillStarterPackRoot()))"; \
+  node --import tsx scripts/verify-official-role-packs.ts
 EXPOSE 3200
 CMD ["node", "--import", "tsx", "src/main.ts"]

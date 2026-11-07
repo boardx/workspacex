@@ -9,8 +9,10 @@ export function listPlatformOrganizations(search: string, cursor?: string): Prom
   const query = new URLSearchParams({ search, limit: "25", ...(cursor ? { cursor } : {}) });
   return apiRequest(`${C.operations.listOrganizations.path}?${query}`);
 }
-export function getPlatformOrganization(orgId: string): Promise<OrganizationDetail> {
-  return apiRequest(C.operations.getOrganization.path.replace(":orgId", encodeURIComponent(orgId)));
+export async function getPlatformOrganization(orgId: string): Promise<OrganizationDetail> {
+  const out=C.operations.getOrganization.out.parse(await apiRequest<unknown>(C.operations.getOrganization.path.replace(":orgId", encodeURIComponent(orgId))));
+  if(out.organization.orgId!==orgId)throw new Error("platform_organization_response_mismatch");
+  return out;
 }
 export function setPlatformOrganizationPlan(orgId: string, input: PlanInput): Promise<z.infer<typeof C.PlanState>> {
   return apiRequest(C.operations.setPlan.path.replace(":orgId", encodeURIComponent(orgId)), { method: "PATCH", body: input });

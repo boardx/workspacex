@@ -1,0 +1,9 @@
+# Project workbench navigation/access i18n — issue6178
+
+Current saved responsive source resumed under user2026-11-04 authorization. It integrates develop44ae with9owned product/helper/spec/unit blobs unchanged frombccc. Scope: real general/workshop header, kind-specific tabs/subnavigation, role explanation and access/dependency states. Content/survey/other tab bodies, wizard and workflow details are explicitly remaining work; screenshots show those untranslated bodies rather than claiming whole-project coverage.
+
+Fresh initquick0,34unit0,ESLint0,webtype3/3; all11requesteffects/callbacks and canonicalnavigation/identity unchanged from44ae. Direct Playwright--list outside isolation failedmissing#74env and is retained as failure, not collection success. The actual standard-isolation registered3case browser subsequently passed at0bf8ee5ed706dcf2e776c52f2c3d229416a60aa2 with retries0: general7.1s/workshop4.4s/nonmember4.7s, total7m51s,cleanup2s. Four375/1280screenshots inspected: mobile role explanation spans a readable full row with >=80%widthassertion; raw names/URLs and actual403 preserved. scopewsx-977229b00eaa38690344 containers0/all11ports0 confirmed.
+
+Historical firstproduction3/3 predates mobileCSS correction and is not the finalproof. The later cancelled geometry round exit130 before tests is not a pass; its old providerorphans were precisely cleaned and issue6178corrected. Historical RED/tests remain labelledhistorical. Current actualbrowser log is a labelled safe original excerpt; rawtrace/auth is private and never committed.
+
+Existing strict test-only#6163create-output compatibility gap remains explicit and unchanged, not a productioncontractfix. Independent code review at0bf8 vs44ae found noC/I. Final evidence review/normalpush/newsourceCI/candidate/actualmerge remain required. Actual canonical vitest-config-reachability scanner is run locally before normalpush; no test/config/check weakening.

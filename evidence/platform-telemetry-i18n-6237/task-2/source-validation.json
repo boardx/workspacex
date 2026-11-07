@@ -1,0 +1,160 @@
+{
+  "source": "3e7e579cea24ab9b1effdabb408c453fd571cc8d",
+  "priorSource": "e309f92210ea75f9dd60ef5fa8daa144f0f06818",
+  "apiTypeSourceUnchanged": true,
+  "gates": [
+    {
+      "gate": "task-2-api-type",
+      "source": "e309f92210ea75f9dd60ef5fa8daa144f0f06818",
+      "command": [
+        "pnpm",
+        "--filter",
+        "@repo/api",
+        "typecheck"
+      ],
+      "cwd": ".",
+      "exit": 0,
+      "seconds": 48.722,
+      "logSha256": "4a063ac5f56fa0ecec2a3d001d9be0340ab89af460f06e4767193149f294518d",
+      "rawPrivate": true
+    },
+    {
+      "gate": "task-2-web-type",
+      "source": "e309f92210ea75f9dd60ef5fa8daa144f0f06818",
+      "command": [
+        "pnpm",
+        "--filter",
+        "web",
+        "typecheck"
+      ],
+      "cwd": ".",
+      "exit": 2,
+      "seconds": 9.975,
+      "logSha256": "b1c58505e6521166cdb8f1605232ff531f7e0b0f7850d859efac2025de8ed442",
+      "rawPrivate": true
+    },
+    {
+      "gate": "task-2-fix1-normal-commit",
+      "source": "3e7e579cea24ab9b1effdabb408c453fd571cc8d",
+      "command": [
+        "git",
+        "commit",
+        "-m",
+        "test(i18n): narrow telemetry locale identity nodes"
+      ],
+      "exit": 0,
+      "seconds": 0.196,
+      "rawPrivate": true,
+      "logSha256": "ced0422fcd9985079eaa53309db3a9691ce59f86b8f9eb7ff6afdd53ea45ddb0"
+    },
+    {
+      "gate": "task-2-fix1-web-type",
+      "source": "3e7e579cea24ab9b1effdabb408c453fd571cc8d",
+      "command": [
+        "pnpm",
+        "--filter",
+        "web",
+        "typecheck"
+      ],
+      "exit": 0,
+      "seconds": 9.092,
+      "rawPrivate": true,
+      "logSha256": "ea30d6b748ad9ab96126527df942acbf5a2e0557ed6674beeb887f3f9571595a"
+    },
+    {
+      "gate": "task-2-fix1-web-lint",
+      "source": "3e7e579cea24ab9b1effdabb408c453fd571cc8d",
+      "command": [
+        "pnpm",
+        "exec",
+        "eslint",
+        "e2e/entity-localization-fixture.ts",
+        "e2e/entity-localization.spec.ts",
+        "playwright.fullstack-smoke.config.ts"
+      ],
+      "exit": 0,
+      "seconds": 2.829,
+      "rawPrivate": true,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "gate": "task-2-fix1-api-lint",
+      "source": "3e7e579cea24ab9b1effdabb408c453fd571cc8d",
+      "command": [
+        "pnpm",
+        "--filter",
+        "@repo/api",
+        "lint"
+      ],
+      "exit": 0,
+      "seconds": 8.69,
+      "rawPrivate": true,
+      "logSha256": "c42f21755fe72e8ad819fd7de8c7ec4779c6f27a82763e41fb73d431752c5150"
+    },
+    {
+      "gate": "task-2-fix1-testid",
+      "source": "3e7e579cea24ab9b1effdabb408c453fd571cc8d",
+      "command": [
+        "pnpm",
+        "run",
+        "lint:e2e-testid-gate"
+      ],
+      "exit": 0,
+      "seconds": 3.681,
+      "rawPrivate": true,
+      "logSha256": "1ce0a238fe8f0fb5c11ee45947f51ce4d7b17e1cf24768489f0c3dc390feca62"
+    },
+    {
+      "gate": "task-2-fix1-ui-wiring",
+      "source": "3e7e579cea24ab9b1effdabb408c453fd571cc8d",
+      "command": [
+        "pnpm",
+        "run",
+        "lint:ui-wiring"
+      ],
+      "exit": 0,
+      "seconds": 3.748,
+      "rawPrivate": true,
+      "logSha256": "aa2b48236a0e4e0dc9efb47f91a1c0b5181e4933c4b7ade256d6ea1c721987e9"
+    },
+    {
+      "gate": "task-2-fix1-fullstack-spec",
+      "source": "3e7e579cea24ab9b1effdabb408c453fd571cc8d",
+      "command": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "--config",
+        ".harness/vitest.config.ts",
+        "--dir",
+        ".harness",
+        ".harness/scripts/fullstack-smoke.test.ts",
+        "--maxWorkers=1"
+      ],
+      "exit": 0,
+      "seconds": 34.109,
+      "rawPrivate": true,
+      "logSha256": "7c82cc5f5487401cebfa6576ca22a46cb642a218bf8a552176e3fcd64e44b1b7"
+    },
+    {
+      "gate": "task-2-fix1-init",
+      "source": "3e7e579cea24ab9b1effdabb408c453fd571cc8d",
+      "command": [
+        "./init.sh"
+      ],
+      "exit": 0,
+      "seconds": 8.803,
+      "rawPrivate": true,
+      "logSha256": "afbed895e0dbf3b2822a4f13de35d2b4f35709e35ff2a82a8238791f1a5b3fff"
+    }
+  ],
+  "independentSourceReview": "PASS after one scoped Element guard fix; no remaining P1/P2",
+  "runtime": "Actual1PASS/24.569s, wrapper339.475s, retry/skip/flaky/global0;16 individually reviewed PNGs PASS",
+  "notes": [
+    "The first web typecheck failed on the newly added callback Node.getAttribute; first failure retained and gates stopped.",
+    "Fullstack configuration tests:20 passed/1 file; inherited Vite CJS deprecation retained.",
+    "First isolated discovery selected0/exit1 because private runner used a title start anchor; no browser ran. Private-only selection correction was subsequently verified by exact-one discovery3 and the actual passing native case.",
+    "Synthetic history plus disabled test reporter do not prove outbound sending."
+  ]
+}

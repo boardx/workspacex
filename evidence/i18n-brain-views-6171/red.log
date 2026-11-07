@@ -1,0 +1,766 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ❯ tests/brain/brain-navigation-i18n.test.tsx (7 tests | 7 failed) 209ms
+   × localizes live shell/tabs without re-reading or resetting the selected tab 167ms
+     → Unable to find an accessible element with the role "heading" and name "Brain"
+
+Here are the accessible roles:
+
+  combobox:
+
+  Name "Language":
+  [36m<select[39m
+    [33maria-label[39m=[32m"Language"[39m
+    [33mclass[39m=[32m"max-w-full rounded-control border border-border bg-card px-2 py-1 text-12 text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"language-switcher"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  option:
+
+  Name "简体中文":
+  [36m<option[39m
+    [33mlang[39m=[32m"zh-CN"[39m
+    [33mvalue[39m=[32m"zh-CN"[39m
+  [36m/>[39m
+
+  Name "English":
+  [36m<option[39m
+    [33mlang[39m=[32m"en"[39m
+    [33mvalue[39m=[32m"en"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  banner:
+
+  Name "":
+  [36m<header[39m
+    [33mclass[39m=[32m"flex flex-wrap items-end justify-between gap-2"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "大脑":
+  [36m<h1[39m
+    [33mclass[39m=[32m"text-20 font-semibold tracking-tight"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "刷新":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"brain-refresh"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tablist:
+
+  Name "":
+  [36m<div[39m
+    [33maria-orientation[39m=[32m"horizontal"[39m
+    [33mclass[39m=[32m"inline-flex items-center gap-0.5 border-b border-border"[39m
+    [33mdata-orientation[39m=[32m"horizontal"[39m
+    [33mdata-testid[39m=[32m"brain-tabs"[39m
+    [33mrole[39m=[32m"tablist"[39m
+    [33mstyle[39m=[32m"outline: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tab:
+
+  Name "我的长期记忆0":
+  [36m<button[39m
+    [33maria-controls[39m=[32m"radix-:r0:-content-personal"[39m
+    [33maria-selected[39m=[32m"true"[39m
+    [33mclass[39m=[32m"-mb-px inline-flex items-center gap-1 border-b-2 border-transparent px-2.5 py-1.5 text-12 font-medium text-muted-foreground transition-all duration-200 hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=active]:border-primary data-[state=active]:text-background-foreground"[39m
+    [33mdata-orientation[39m=[32m"horizontal"[39m
+    [33mdata-radix-collection-item[39m=[32m""[39m
+    [33mdata-state[39m=[32m"active"[39m
+    [33mdata-testid[39m=[32m"brain-tab-personal"[39m
+    [33mid[39m=[32m"radix-:r0:-trigger-personal"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "对话里的记忆1":
+  [36m<button[39m
+    [33maria-controls[39m=[32m"radix-:r0:-content-sessions"[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"-mb-px inline-flex items-center gap-1 border-b-2 border-transparent px-2.5 py-1.5 text-12 font-medium text-muted-foreground transition-all duration-200 hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=active]:border-primary data-[state=active]:text-background-foreground"[39m
+    [33mdata-orientation[39m=[32m"horizontal"[39m
+    [33mdata-radix-collection-item[39m=[32m""[39m
+    [33mdata-state[39m=[32m"inactive"[39m
+    [33mdata-testid[39m=[32m"brain-tab-sessions"[39m
+    [33mid[39m=[32m"radix-:r0:-trigger-sessions"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "项目与组织":
+  [36m<button[39m
+    [33maria-controls[39m=[32m"radix-:r0:-content-shared"[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"-mb-px inline-flex items-center gap-1 border-b-2 border-transparent px-2.5 py-1.5 text-12 font-medium text-muted-foreground transition-all duration-200 hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=active]:border-primary data-[state=active]:text-background-foreground"[39m
+    [33mdata-orientation[39m=[32m"horizontal"[39m
+    [33mdata-radix-collection-item[39m=[32m""[39m
+    [33mdata-state[39m=[32m"inactive"[39m
+    [33mdata-testid[39m=[32m"brain-tab-shared"[39m
+    [33mid[39m=[32m"radix-:r0:-trigger-shared"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tabpanel:
+
+  Name "我的长期记忆0":
+  [36m<div[39m
+    [33maria-labelledby[39m=[32m"radix-:r0:-trigger-personal"[39m
+    [33mclass[39m=[32m"mt-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 flex flex-col gap-4"[39m
+    [33mdata-orientation[39m=[32m"horizontal"[39m
+    [33mdata-state[39m=[32m"active"[39m
+    [33mid[39m=[32m"radix-:r0:-content-personal"[39m
+    [33mrole[39m=[32m"tabpanel"[39m
+    [33mstyle[39m=[32m"animation-duration: 0s;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<select[39m
+      [33maria-label[39m=[32m"Language"[39m
+      [33mclass[39m=[32m"max-w-full rounded-control border border-border bg-card px-2 py-1 text-12 text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"language-switcher"[39m
+    [36m>[39m
+      [36m<option[39m
+        [33mlang[39m=[32m"zh-CN"[39m
+        [33mvalue[39m=[32m"zh-CN"[39m
+      [36m>[39m
+        [0m简体中文[0m
+      [36m</option>[39m
+      [36m<option[39m
+        [33mlang[39m=[32m"en"[39m
+        [33mvalue[39m=[32m"en"[39m
+      [36m>[39m
+        [0mEnglish[0m
+      [36m</option>[39m
+    [36m</select>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mx-auto flex w-full max-w-4xl flex-col gap-4 p-5"[39m
+      [33mdata-testid[39m=[32m"brain-screen"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"flex flex-wrap items-end justify-between gap-2"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col gap-1"[39m
+        [36m>[39m
+          [36m<h1[39m
+            [33mclass[39m=[32m"text-20 font-semibold tracking-tight"[39m
+          [36m>[39m
+            [0m大脑[0m
+          [36m</h1>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+          [36m>[39m
+            [0m你在对话里让我记下的东西都在这里。长期记忆只有你自己看得到。[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+          [33mdata-testid[39m=[32m"brain-refresh"[39m
+        [36m>[39m
+          [0m刷新[0m
+        [36m</button>[39m
+      [36m</header>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-col gap-4"[39m
+        [33mdata-orientation[39m=[32m"horizontal"[39m
+        [33mdir[39m=[32m"ltr"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33maria-orientation[39m=[32m"horizontal"[39m
+          [33mclass[39m=[32m"inline-flex items-center gap-0.5 border-b border-border"[39m
+          [33mdata-orientation[39m=[32m"horizontal"[39m
+          [33mdata-testid[39m=[32m"brain-tabs"[39m
+          [33mrole[39m=[32m"tablist"[39m
+          [33mstyle[39m=[32m"outline: none;"[39m
+          [33mtabindex[39m=[32m"0"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33maria-controls[39m=[32m"radix-:r0:-content-personal"[39m
+            [33maria-selected[39m=[32m"true"[39m
+            [33mclass[39m=[32m"-mb-px inline-flex items-center gap-1 border-b-2 border-transparent px-2.5 py-1.5 text-12 font-medium text-muted-foreground transition-all duration-200 hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=active]:border-primary data-[state=active]:text-background-foreground"[39m
+            [33mdata-orientation[39m=[32m"horizontal"[39m
+            [33mdata-radix-collection-item[39m=[32m""[39m
+            [33mdata-state[39m=[32m"active"[39m
+            [33mdata-testid[39m=[32m"brain-tab-personal"[39m
+            [33mid[39m=[32m"radix-:r0:-trigger-personal"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtabindex[39m=[32m"-1"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0m我的长期记忆[0m
+            [36m<span[39m
+              [33mclass[39m=[32m"tabular-nums text-10 text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"brain-tab-personal-count"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</button>[39m
+          [36m<button[39m
+            [33maria-controls[39m=[32m"radix-:r0:-content-sessions"[39m
+            [33maria-selected[39m=[32m"false"[39m
+            [33mclass[39m=[32m"-mb-px inline-flex items-center gap-1 border-b-2 border-transparent px-2.5 py-1.5 text-12 font-medium text-muted-foreground transition-all duration-200 hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=active]:border-primary data-[state=active]:text-background-foreground"[39m
+            [33mdata-orientation[39m=[32m"horizontal"[39m
+            [33mdata-radix-collection-item[39m=[32m""[39m
+            [33mdata-state[39m=[32m"inactive"[39m
+            [33mdata-testid[39m=[32m"brain-tab-sessions"[39m
+            [33mid[39m=[32m"radix-:r0:-trigger-sessions"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtabindex[39m=[32m"-1"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0m对话里的记忆[0m
+            [36m<span[39m
+              [33mclass[39m=[32m"tabular-nums text-10 text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"brain-tab-sessions-count"[39m
+            [36m>[39m
+              [0m1[0m
+            [36m</span>[39m
+          [36m</button>[39m
+          [36m<button[39m
+            [33maria-controls[39m=[32m"radix-:r0:-content-shared"[39m
+            [33maria-selected[39m=[32m"false"[39m
+            [33mclass[39m=[32m"-mb-px inline-flex items-center gap-1 border-b-2 border-transparent px-2.5 py-1.5 text-12 font-medium text-muted-foreground transition-all duration-200 hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=active]:border-primary data-[state=active]:text-background-foreground"[39m
+            [33mdata-orientation[39m=[32m"horizontal"[39m
+            [33mdata-radix-collection-item[39m=[32m""[39m
+            [33mdata-state[39m=[32m"inactive"[39m
+            [33mdata-testid[39m=[32m"brain-tab-shared"[39m
+            [33mid[39m=[32m"radix-:r0:-trigger-shared"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtabindex[39m=[32m"-1"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0m项目与组织[0m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-labelledby[39m=[32m"radix-:r0:-trigger-personal"[39m
+          [33mclass[39m=[32m"mt-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 flex flex-col gap-4"[39m
+          [33mdata-orientation[39m=[32m"horizontal"[39m
+          [33mdata-state[39m=[32m"active"[39m
+          [33mid[39m=[32m"radix-:r0:-content-personal"[39m
+          [33mrole[39m=[32m"tabpanel"[39m
+          [33mstyle[39m=[32m"animation-duration: 0s;"[39m
+          [33mtabindex[39m=[32m"0"[39m
+        [36m/>[39m
+        [36m<div[39m
+          [33maria-labelledby[39m=[32m"radix-:r0:-trigger-sessions"[39m
+          [33mclass[39m=[32m"mt-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"[39m
+          [33mdata-orientation[39m=[32m"horizontal"[39m
+          [33mdata-state[39m=[32m"inactive"[39m
+          [33mhidden[39m=[32m""[39m
+          [33mid[39m=[32m"radix-:r0:-content-sessions"[39m
+          [33mrole[39m=[32m"tabpanel"[39m
+          [33mtabindex[39m=[32m"0"[39m
+        [36m/>[39m
+        [36m<div[39m
+          [33maria-labelledby[39m=[32m"radix-:r0:-trigger-shared"[39m
+          [33mclass[39m=[32m"mt-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"[39m
+          [33mdata-orientation[39m=[32m"horizontal"[39m
+          [33mdata-state[39m=[32m"inactive"[39m
+          [33mhidden[39m=[32m""[39m
+          [33mid[39m=[32m"radix-:r0:-content-shared"[39m
+          [33mrole[39m=[32m"tabpanel"[39m
+          [33mtabindex[39m=[32m"0"[39m
+        [36m/>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × preserves original titles/links/counts and translates tri-state wrappers and dates 26ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  1 conversation
+Received:
+  1 个对话共记下 3 条，其中 1 条等你确认，1 条有矛盾。
+   × localizes empty and untitled conversation states without changing the destination 3ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  No conversation memories yet
+Received:
+  还没有哪个对话记下东西。在对话里聊到的决定、事实和风险，会自动记在那个对话的「记忆」里。
+   × localizes the loading state and retains reload behavior 3ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Loading…
+Received:
+  加载中…
+   × localizes the failed state and retains reload behavior 3ms
+     → expect(element).not.toHaveTextContent()
+
+Expected element not to have text content:
+  暂时读不到
+Received:
+  大脑你在对话里让我记下的东西都在这里。长期记忆只有你自己看得到。刷新Service unavailable暂时读不到你的记忆，请稍后再试。Retry
+   × localizes the denied state and retains reload behavior 3ms
+     → expect(element).not.toHaveTextContent()
+
+Expected element not to have text content:
+  你已不在
+Received:
+  大脑你在对话里让我记下的东西都在这里。长期记忆只有你自己看得到。刷新You do not have permission to view this contentOrganization restriction: 你已不在当前组织里，看不到这里的记忆。可以切换到别的组织再看。
+   × retranslates an existing organization denial without replaying its read 4ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Project memory
+Received:
+  项目记忆已开放一个项目里大家共同确认过的决定和事实，项目成员都能用上。查看项目记忆在项目对话的知识面板里点「记到项目大脑」，记下的内容就进入该项目的记忆；项目里的对话会自动想起它。
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/brain/brain-navigation-i18n.test.tsx > localizes live shell/tabs without re-reading or resetting the selected tab
+TestingLibraryElementError: Unable to find an accessible element with the role "heading" and name "Brain"
+
+Here are the accessible roles:
+
+  combobox:
+
+  Name "Language":
+  [36m<select[39m
+    [33maria-label[39m=[32m"Language"[39m
+    [33mclass[39m=[32m"max-w-full rounded-control border border-border bg-card px-2 py-1 text-12 text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"language-switcher"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  option:
+
+  Name "简体中文":
+  [36m<option[39m
+    [33mlang[39m=[32m"zh-CN"[39m
+    [33mvalue[39m=[32m"zh-CN"[39m
+  [36m/>[39m
+
+  Name "English":
+  [36m<option[39m
+    [33mlang[39m=[32m"en"[39m
+    [33mvalue[39m=[32m"en"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  banner:
+
+  Name "":
+  [36m<header[39m
+    [33mclass[39m=[32m"flex flex-wrap items-end justify-between gap-2"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "大脑":
+  [36m<h1[39m
+    [33mclass[39m=[32m"text-20 font-semibold tracking-tight"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "刷新":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"brain-refresh"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tablist:
+
+  Name "":
+  [36m<div[39m
+    [33maria-orientation[39m=[32m"horizontal"[39m
+    [33mclass[39m=[32m"inline-flex items-center gap-0.5 border-b border-border"[39m
+    [33mdata-orientation[39m=[32m"horizontal"[39m
+    [33mdata-testid[39m=[32m"brain-tabs"[39m
+    [33mrole[39m=[32m"tablist"[39m
+    [33mstyle[39m=[32m"outline: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tab:
+
+  Name "我的长期记忆0":
+  [36m<button[39m
+    [33maria-controls[39m=[32m"radix-:r0:-content-personal"[39m
+    [33maria-selected[39m=[32m"true"[39m
+    [33mclass[39m=[32m"-mb-px inline-flex items-center gap-1 border-b-2 border-transparent px-2.5 py-1.5 text-12 font-medium text-muted-foreground transition-all duration-200 hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=active]:border-primary data-[state=active]:text-background-foreground"[39m
+    [33mdata-orientation[39m=[32m"horizontal"[39m
+    [33mdata-radix-collection-item[39m=[32m""[39m
+    [33mdata-state[39m=[32m"active"[39m
+    [33mdata-testid[39m=[32m"brain-tab-personal"[39m
+    [33mid[39m=[32m"radix-:r0:-trigger-personal"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "对话里的记忆1":
+  [36m<button[39m
+    [33maria-controls[39m=[32m"radix-:r0:-content-sessions"[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"-mb-px inline-flex items-center gap-1 border-b-2 border-transparent px-2.5 py-1.5 text-12 font-medium text-muted-foreground transition-all duration-200 hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=active]:border-primary data-[state=active]:text-background-foreground"[39m
+    [33mdata-orientation[39m=[32m"horizontal"[39m
+    [33mdata-radix-collection-item[39m=[32m""[39m
+    [33mdata-state[39m=[32m"inactive"[39m
+    [33mdata-testid[39m=[32m"brain-tab-sessions"[39m
+    [33mid[39m=[32m"radix-:r0:-trigger-sessions"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "项目与组织":
+  [36m<button[39m
+    [33maria-controls[39m=[32m"radix-:r0:-content-shared"[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"-mb-px inline-flex items-center gap-1 border-b-2 border-transparent px-2.5 py-1.5 text-12 font-medium text-muted-foreground transition-all duration-200 hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=active]:border-primary data-[state=active]:text-background-foreground"[39m
+    [33mdata-orientation[39m=[32m"horizontal"[39m
+    [33mdata-radix-collection-item[39m=[32m""[39m
+    [33mdata-state[39m=[32m"inactive"[39m
+    [33mdata-testid[39m=[32m"brain-tab-shared"[39m
+    [33mid[39m=[32m"radix-:r0:-trigger-shared"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tabpanel:
+
+  Name "我的长期记忆0":
+  [36m<div[39m
+    [33maria-labelledby[39m=[32m"radix-:r0:-trigger-personal"[39m
+    [33mclass[39m=[32m"mt-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 flex flex-col gap-4"[39m
+    [33mdata-orientation[39m=[32m"horizontal"[39m
+    [33mdata-state[39m=[32m"active"[39m
+    [33mid[39m=[32m"radix-:r0:-content-personal"[39m
+    [33mrole[39m=[32m"tabpanel"[39m
+    [33mstyle[39m=[32m"animation-duration: 0s;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<select[39m
+      [33maria-label[39m=[32m"Language"[39m
+      [33mclass[39m=[32m"max-w-full rounded-control border border-border bg-card px-2 py-1 text-12 text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"language-switcher"[39m
+    [36m>[39m
+      [36m<option[39m
+        [33mlang[39m=[32m"zh-CN"[39m
+        [33mvalue[39m=[32m"zh-CN"[39m
+      [36m>[39m
+        [0m简体中文[0m
+      [36m</option>[39m
+      [36m<option[39m
+        [33mlang[39m=[32m"en"[39m
+        [33mvalue[39m=[32m"en"[39m
+      [36m>[39m
+        [0mEnglish[0m
+      [36m</option>[39m
+    [36m</select>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mx-auto flex w-full max-w-4xl flex-col gap-4 p-5"[39m
+      [33mdata-testid[39m=[32m"brain-screen"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"flex flex-wrap items-end justify-between gap-2"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col gap-1"[39m
+        [36m>[39m
+          [36m<h1[39m
+            [33mclass[39m=[32m"text-20 font-semibold tracking-tight"[39m
+          [36m>[39m
+            [0m大脑[0m
+          [36m</h1>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+          [36m>[39m
+            [0m你在对话里让我记下的东西都在这里。长期记忆只有你自己看得到。[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+          [33mdata-testid[39m=[32m"brain-refresh"[39m
+        [36m>[39m
+          [0m刷新[0m
+        [36m</button>[39m
+      [36m</header>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-col gap-4"[39m
+        [33mdata-orientation[39m=[32m"horizontal"[39m
+        [33mdir[39m=[32m"ltr"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33maria-orientation[39m=[32m"horizontal"[39m
+          [33mclass[39m=[32m"inline-flex items-center gap-0.5 border-b border-border"[39m
+          [33mdata-orientation[39m=[32m"horizontal"[39m
+          [33mdata-testid[39m=[32m"brain-tabs"[39m
+          [33mrole[39m=[32m"tablist"[39m
+          [33mstyle[39m=[32m"outline: none;"[39m
+          [33mtabindex[39m=[32m"0"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33maria-controls[39m=[32m"radix-:r0:-content-personal"[39m
+            [33maria-selected[39m=[32m"true"[39m
+            [33mclass[39m=[32m"-mb-px inline-flex items-center gap-1 border-b-2 border-transparent px-2.5 py-1.5 text-12 font-medium text-muted-foreground transition-all duration-200 hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=active]:border-primary data-[state=active]:text-background-foreground"[39m
+            [33mdata-orientation[39m=[32m"horizontal"[39m
+            [33mdata-radix-collection-item[39m=[32m""[39m
+            [33mdata-state[39m=[32m"active"[39m
+            [33mdata-testid[39m=[32m"brain-tab-personal"[39m
+            [33mid[39m=[32m"radix-:r0:-trigger-personal"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtabindex[39m=[32m"-1"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0m我的长期记忆[0m
+            [36m<span[39m
+              [33mclass[39m=[32m"tabular-nums text-10 text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"brain-tab-personal-count"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</button>[39m
+          [36m<button[39m
+            [33maria-controls[39m=[32m"radix-:r0:-content-sessions"[39m
+            [33maria-selected[39m=[32m"false"[39m
+            [33mclass[39m=[32m"-mb-px inline-flex items-center gap-1 border-b-2 border-transparent px-2.5 py-1.5 text-12 font-medium text-muted-foreground transition-all duration-200 hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=active]:border-primary data-[state=active]:text-background-foreground"[39m
+            [33mdata-orientation[39m=[32m"horizontal"[39m
+            [33mdata-radix-collection-item[39m=[32m""[39m
+            [33mdata-state[39m=[32m"inactive"[39m
+            [33mdata-testid[39m=[32m"brain-tab-sessions"[39m
+            [33mid[39m=[32m"radix-:r0:-trigger-sessions"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtabindex[39m=[32m"-1"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0m对话里的记忆[0m
+            [36m<span[39m
+              [33mclass[39m=[32m"tabular-nums text-10 text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"brain-tab-sessions-count"[39m
+            [36m>[39m
+              [0m1[0m
+            [36m</span>[39m
+          [36m</button>[39m
+          [36m<button[39m
+            [33maria-controls[39m=[32m"radix-:r0:-content-shared"[39m
+            [33maria-selected[39m=[32m"false"[39m
+            [33mclass[39m=[32m"-mb-px inline-flex items-center gap-1 border-b-2 border-transparent px-2.5 py-1.5 text-12 font-medium text-muted-foreground transition-all duration-200 hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=active]:border-primary data-[state=active]:text-background-foreground"[39m
+            [33mdata-orientation[39m=[32m"horizontal"[39m
+            [33mdata-radix-collection-item[39m=[32m""[39m
+            [33mdata-state[39m=[32m"inactive"[39m
+            [33mdata-testid[39m=[32m"brain-tab-shared"[39m
+            [33mid[39m=[32m"radix-:r0:-trigger-shared"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mtabindex[39m=[32m"-1"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0m项目与组织[0m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-labelledby[39m=[32m"radix-:r0:-trigger-personal"[39m
+          [33mclass[39m=[32m"mt-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 flex flex-col gap-4"[39m
+          [33mdata-orientation[39m=[32m"horizontal"[39m
+          [33mdata-state[39m=[32m"active"[39m
+          [33mid[39m=[32m"radix-:r0:-content-personal"[39m
+          [33mrole[39m=[32m"tabpanel"[39m
+          [33mstyle[39m=[32m"animation-duration: 0s;"[39m
+          [33mtabindex[39m=[32m"0"[39m
+        [36m/>[39m
+        [36m<div[39m
+          [33maria-labelledby[39m=[32m"radix-:r0:-trigger-sessions"[39m
+          [33mclass[39m=[32m"mt-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"[39m
+          [33mdata-orientation[39m=[32m"horizontal"[39m
+          [33mdata-state[39m=[32m"inactive"[39m
+          [33mhidden[39m=[32m""[39m
+          [33mid[39m=[32m"radix-:r0:-content-sessions"[39m
+          [33mrole[39m=[32m"tabpanel"[39m
+          [33mtabindex[39m=[32m"0"[39m
+        [36m/>[39m
+        [36m<div[39m
+          [33maria-labelledby[39m=[32m"radix-:r0:-trigger-shared"[39m
+          [33mclass[39m=[32m"mt-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"[39m
+          [33mdata-orientation[39m=[32m"horizontal"[39m
+          [33mdata-state[39m=[32m"inactive"[39m
+          [33mhidden[39m=[32m""[39m
+          [33mid[39m=[32m"radix-:r0:-content-shared"[39m
+          [33mrole[39m=[32m"tabpanel"[39m
+          [33mtabindex[39m=[32m"0"[39m
+        [36m/>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/brain/brain-navigation-i18n.test.tsx:26:16
+     24|  const fetcher = vi.fn(async (input: RequestInfo | URL) => String(inpu…
+     25|  show(<BrainScreen />); await screen.findByTestId("brain-tabs");
+     26|  expect(screen.getByRole("heading", { name: "Brain" })).toBeTruthy();
+       |                ^
+     27|  fireEvent.click(screen.getByTestId("brain-tab-sessions"));
+     28|  expect(screen.getByTestId("brain-sessions")).toContainHTML("原文 {tit…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+
+ FAIL  tests/brain/brain-navigation-i18n.test.tsx > preserves original titles/links/counts and translates tri-state wrappers and dates
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  1 conversation
+Received:
+  1 个对话共记下 3 条，其中 1 条等你确认，1 条有矛盾。
+ ❯ tests/brain/brain-navigation-i18n.test.tsx:37:55
+     35| it("preserves original titles/links/counts and translates tri-state wr…
+     36|  show(<SessionMemory threads={threads} />);
+     37|  expect(screen.getByTestId("brain-sessions-summary")).toHaveTextConten…
+       |                                                       ^
+     38|  expect(screen.getByTestId("brain-sessions-summary")).toHaveTextConten…
+     39|  const row = screen.getByTestId("brain-session-row"); expect(row).toHa…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯
+
+ FAIL  tests/brain/brain-navigation-i18n.test.tsx > localizes empty and untitled conversation states without changing the destination
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  No conversation memories yet
+Received:
+  还没有哪个对话记下东西。在对话里聊到的决定、事实和风险，会自动记在那个对话的「记忆」里。
+ ❯ tests/brain/brain-navigation-i18n.test.tsx:44:96
+     42| });
+     43| it("localizes empty and untitled conversation states without changing …
+     44|  const node=show(<SessionMemory threads={[]} />); expect(screen.getByT…
+       |                                                                                                ^
+     45|  show(<SessionMemory threads={[{ ...threads[0]!, title: "  ", lastActi…
+     46|  expect(screen.getByTestId("brain-session-row")).toHaveTextContent("Un…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯
+
+ FAIL  tests/brain/brain-navigation-i18n.test.tsx > localizes the loading state and retains reload behavior
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Loading…
+Received:
+  加载中…
+ ❯ tests/brain/brain-navigation-i18n.test.tsx:51:69
+     49|  const reload=vi.fn(); show(<BrainView state={{ status }} reload={relo…
+     50|  const root=screen.getByTestId("brain-screen"); expect(root).not.toHav…
+     51|  if(status==="loading") expect(screen.getByTestId("brain-refresh")).to…
+       |                                                                     ^
+     52|  if(status==="failed") expect(root).toHaveTextContent("Could not read …
+     53|  if(status==="denied") expect(root).toHaveTextContent("no longer a mem…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯
+
+ FAIL  tests/brain/brain-navigation-i18n.test.tsx > localizes the failed state and retains reload behavior
+Error: expect(element).not.toHaveTextContent()
+
+Expected element not to have text content:
+  暂时读不到
+Received:
+  大脑你在对话里让我记下的东西都在这里。长期记忆只有你自己看得到。刷新Service unavailable暂时读不到你的记忆，请稍后再试。Retry
+ ❯ tests/brain/brain-navigation-i18n.test.tsx:50:66
+     48| it.each(["loading", "failed", "denied"] as const)("localizes the %s st…
+     49|  const reload=vi.fn(); show(<BrainView state={{ status }} reload={relo…
+     50|  const root=screen.getByTestId("brain-screen"); expect(root).not.toHav…
+       |                                                                  ^
+     51|  if(status==="loading") expect(screen.getByTestId("brain-refresh")).to…
+     52|  if(status==="failed") expect(root).toHaveTextContent("Could not read …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯
+
+ FAIL  tests/brain/brain-navigation-i18n.test.tsx > localizes the denied state and retains reload behavior
+Error: expect(element).not.toHaveTextContent()
+
+Expected element not to have text content:
+  你已不在
+Received:
+  大脑你在对话里让我记下的东西都在这里。长期记忆只有你自己看得到。刷新You do not have permission to view this contentOrganization restriction: 你已不在当前组织里，看不到这里的记忆。可以切换到别的组织再看。
+ ❯ tests/brain/brain-navigation-i18n.test.tsx:50:111
+     48| it.each(["loading", "failed", "denied"] as const)("localizes the %s st…
+     49|  const reload=vi.fn(); show(<BrainView state={{ status }} reload={relo…
+     50|  const root=screen.getByTestId("brain-screen"); expect(root).not.toHav…
+       |                                                                                                               ^
+     51|  if(status==="loading") expect(screen.getByTestId("brain-refresh")).to…
+     52|  if(status==="failed") expect(root).toHaveTextContent("Could not read …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/7]⎯
+
+ FAIL  tests/brain/brain-navigation-i18n.test.tsx > retranslates an existing organization denial without replaying its read
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Project memory
+Received:
+  项目记忆已开放一个项目里大家共同确认过的决定和事实，项目成员都能用上。查看项目记忆在项目对话的知识面板里点「记到项目大脑」，记下的内容就进入该项目的记忆；项目里的对话会自动想起它。
+ ❯ tests/brain/brain-navigation-i18n.test.tsx:58:76
+     56| it("retranslates an existing organization denial without replaying its…
+     57|  const fetcher=vi.fn(async () => json({ code:"KG_NOT_VISIBLE", message…
+     58|  show(<SharedLayers />); expect(screen.getByTestId("brain-layer-projec…
+       |                                                                            ^
+     59|  fireEvent.click(screen.getByRole("button",{name:"View organization me…
+     60|  await waitFor(() => expect(screen.getByRole("alert")).toHaveTextConte…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/7]⎯
+
+ Test Files  1 failed (1)
+      Tests  7 failed (7)
+   Start at  09:07:24
+   Duration  1.72s (transform 195ms, setup 177ms, collect 389ms, tests 209ms, environment 752ms, prepare 47ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/brain/brain-navigation-i18n.test.tsx --maxWorkers=1 --minWorkers=1

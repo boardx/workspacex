@@ -1,0 +1,43 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/api
+
+[db-isolation] selection is DB-free (tests/support/db-free-tests.ts); skipping database setup
+ ❯ tests/arch-gate.test.ts (7 tests | 1 failed) 733ms
+   ✓ lint-arch-deps > actually scans the real source tree (V2: assert the file count, not the exit code) 466ms
+   × lint-arch-deps > the composition root is allowlisted, and only the reviewed files are exempt 43ms
+     → every composition exemption requires explicit review: expected [ 'billing.module.ts', …(4) ] to deeply equal [ 'billing.module.ts', …(3) ]
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/arch-gate.test.ts > lint-arch-deps > the composition root is allowlisted, and only the reviewed files are exempt
+AssertionError: every composition exemption requires explicit review: expected [ 'billing.module.ts', …(4) ] to deeply equal [ 'billing.module.ts', …(3) ]
+
+- Expected
++ Received
+
+  Array [
+    "billing.module.ts",
+    "enterprise-management.wiring.ts",
+    "kernel.module.ts",
++   "localization.module.ts",
+    "main.ts",
+  ]
+
+ ❯ tests/arch-gate.test.ts:68:84
+     66|     const list = /const COMPOSITION_ROOT = new Set\(\[([^\]]*)\]\)/.ex…
+     67|     const entries = JSON.parse(`[${list}]`) as string[];
+     68|     expect(entries.sort(), "every composition exemption requires expli…
+       |                                                                                    ^
+     69|       "billing.module.ts", "enterprise-management.wiring.ts", "kernel.…
+     70|     ]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 6 passed (7)
+   Start at  05:40:40
+   Duration  1.28s (transform 204ms, setup 12ms, collect 10ms, tests 733ms, environment 0ms, prepare 83ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/arch-gate.test.ts --maxWorkers=1 --minWorkers=1

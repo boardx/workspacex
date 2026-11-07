@@ -356,7 +356,8 @@ describe("RealtimeTranscriptionWorkspace", () => {
       selectedDeviceId="mic-1" onSelectDevice={onSelectDevice} onStart={vi.fn()} onStop={vi.fn()} />);
 
     expect(screen.getByTestId("rec-mic-device-select")).toHaveAttribute("title", "麦克风：会议室麦克风");
-    expect(screen.getByTestId("rec-mic-device-select")).not.toHaveTextContent("会议室麦克风");
+    expect(screen.getByTestId("rec-mic-device-select")).toHaveTextContent("会议室麦克风");
+    expect(screen.getByTestId("rec-input-device-name")).toHaveTextContent("会议室麦克风");
     expect(screen.getByTestId("rec-live-toggle").parentElement).toHaveClass("flex-wrap");
     expect(screen.getByTestId("rec-live-input-level")).toHaveAttribute("aria-valuenow", "0");
     fireEvent.click(screen.getByTestId("rec-mic-device-select"));

@@ -45,14 +45,15 @@ const {
 }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace }) }));
-vi.mock("@/components/session/session-provider", () => ({
-  useSession: () => ({
+vi.mock("@/components/session/session-provider", () => {
+  const context = () => ({
     status: "authenticated",
     session: sessionState,
     identity: null,
     error: null,
-  }),
-}));
+  });
+  return { useSession: context, useOptionalSession: context };
+});
 vi.mock("@/components/shell/app-shell", () => ({
   AppShell: ({ left, right, children }: {
     left?: React.ReactNode;

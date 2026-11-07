@@ -49,6 +49,10 @@ export interface ParityGroup {
  * ⚠ 顺序无意义，分组才有意义；一个名字只能出现在一组里（测试钉住）。
  */
 export const BILLING_PAYMENT_ENV_KEYS: readonly string[] = [
+  "BILLING_DEPLOYMENT",
+  "BILLING_CATALOG_MARKET",
+  "BILLING_STRIPE_ENABLED",
+  "BILLING_WECHAT_ENABLED",
   "WECHAT_PAY_APP_ID",
   "WECHAT_PAY_MCH_ID",
   "WECHAT_PAY_API_V3_KEY",
@@ -68,6 +72,14 @@ export const BILLING_PAYMENT_ENV_KEYS: readonly string[] = [
 ];
 
 export const LOCAL_ENV_PARITY: readonly ParityGroup[] = [
+  {
+    status: "cloud-only",
+    reason: "Global tariff activation uses a separately provisioned cloud PostgreSQL writer role. " +
+      "Local PGlite does not provision this role or its credentials; when both values are absent, " +
+      "billingTariffWriterConfig returns no writer and price activation remains unavailable. " +
+      "Local configuration must not invent or inherit cloud writer credentials.",
+    names: ["BILLING_TARIFF_DB_USER", "BILLING_TARIFF_DB_PASSWORD"],
+  },
   {
     status: "default-ok",
     reason: "PATH 由 processes.ts 的 baseEnv 继承宿主环境，图片解码子进程沿用该搜索路径。" +

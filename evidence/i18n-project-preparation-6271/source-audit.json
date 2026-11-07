@@ -1,0 +1,41 @@
+{
+  "scope": "6271 source-only completion audit",
+  "notTypecheck": true,
+  "notRuntime": true,
+  "apiFunctionsByteExact": {
+    "apps/web/lib/live-projects.ts": 12,
+    "apps/web/lib/live-project-prep.ts": 8,
+    "apps/web/lib/live-workflow-orchestration.ts": 2
+  },
+  "effectCallbackByteExact": 4,
+  "keys": 101,
+  "parseDiagnostics": {
+    "apps/web/components/project/tab-prep.tsx": 0,
+    "apps/web/components/project/parts.tsx": 0,
+    "apps/web/components/tpl/save-as-org-template-action.tsx": 0,
+    "apps/web/lib/project-preparation-labels.ts": 0,
+    "apps/web/lib/live-project-prep.ts": 0,
+    "apps/web/lib/live-projects.ts": 0,
+    "apps/web/lib/live-workflow-orchestration.ts": 0,
+    "apps/web/lib/i18n/namespaces/project-preparation.ts": 0,
+    "apps/web/lib/i18n/messages/en.ts": 0,
+    "apps/web/lib/i18n/messages/zh-CN.ts": 0
+  },
+  "sourceSHA256": {
+    "apps/web/components/project/tab-prep.tsx": "b70ae5877acf33e3ffe60105f1c739d3e64cdd83244a7fc5e11ad4d33f480bcc",
+    "apps/web/components/project/parts.tsx": "6746e7b737a01ec5b026d543dc8877e84ec9bfe7b83140116e45623e2bbdca7f",
+    "apps/web/components/tpl/save-as-org-template-action.tsx": "d55225efbfa2cc8c4d22d112ed35017e316ad0fceb5cb4b25c1fcf6561f50a1e",
+    "apps/web/lib/project-preparation-labels.ts": "c9d1e1af8d6640d4a028c654a7c61aa49f6b77adb0e8cc797f2c2d23cd781333",
+    "apps/web/lib/live-project-prep.ts": "8730a87443f214c68d0f7836cffffceb2573cff81a3b9bca8889942671e22a68",
+    "apps/web/lib/live-projects.ts": "2edde50d28818a4e5e7fd1c254ef5f7215f3fe1b2d7158d22a1e3d384ff7b6a0",
+    "apps/web/lib/live-workflow-orchestration.ts": "47b34fb33b082d44cd07ef54f5e2f92e8cb82b2e10ef24a2a37f0bf1ba3174ea",
+    "apps/web/lib/i18n/namespaces/project-preparation.ts": "490690150c2060d1c1c50dd2faa6d0e11d5acd562a2d6a775d6d8dcf47dabe26",
+    "apps/web/lib/i18n/messages/en.ts": "d716435844b6e687e19b937bc734b7d7081f17e0fe493b9600c141ec236a114e",
+    "apps/web/lib/i18n/messages/zh-CN.ts": "1f4d9af5b166d5bbb131ec5449bba2849997d208a13976c8ace13798bffc2be6"
+  },
+  "remainingOwnedChineseLiterals": {
+    "apps/web/components/project/tab-prep.tsx": 0,
+    "apps/web/components/project/parts.tsx": 0,
+    "apps/web/components/tpl/save-as-org-template-action.tsx": 0
+  }
+}

@@ -1,3 +1,5 @@
+import { ABOUT_ME_E2E } from "./e2e/about-me-fixture";
+import { ENTITY_LOCALIZATION_E2E, PLATFORM_MEMBERS_E2E, TELEMETRY_HISTORY_E2E } from "./e2e/entity-localization-fixture";
 import path from "node:path";
 import {partitionSmokeProjects} from "./smoke-project-partition";
 import {BOARD_UNIFIED_REGRESSION_SPECS} from "./board-unified-regression-registry";
@@ -90,7 +92,37 @@ const compose = `docker compose -f ../api/docker-compose.dev.yml -p "${required(
  */
 const serverStartTimeoutMs = Number(process.env.FULLSTACK_E2E_SERVER_TIMEOUT_MS ?? 600_000);
 const fixtureEnv = {
+  FULLSTACK_ENTITY_LOCALIZATION_TELEMETRY_HISTORY: JSON.stringify(TELEMETRY_HISTORY_E2E),
+  FULLSTACK_ABOUT_ME_FIXTURE: JSON.stringify(ABOUT_ME_E2E),
+  FULLSTACK_ENTITY_LOCALIZATION_ORG_ID: ENTITY_LOCALIZATION_E2E.orgId,
+  FULLSTACK_ENTITY_LOCALIZATION_PROJECT_ID: ENTITY_LOCALIZATION_E2E.projectId,
+  FULLSTACK_ENTITY_LOCALIZATION_ADMIN_USER_ID: ENTITY_LOCALIZATION_E2E.adminUserId,
+  FULLSTACK_ENTITY_LOCALIZATION_ADMIN_EMAIL: ENTITY_LOCALIZATION_E2E.adminEmail,
+  FULLSTACK_ENTITY_LOCALIZATION_ADMIN_PASSWORD: ENTITY_LOCALIZATION_E2E.adminPassword,
+  FULLSTACK_ENTITY_LOCALIZATION_MEMBER_USER_ID: ENTITY_LOCALIZATION_E2E.memberUserId,
+  FULLSTACK_ENTITY_LOCALIZATION_MEMBER_EMAIL: ENTITY_LOCALIZATION_E2E.memberEmail,
+  FULLSTACK_ENTITY_LOCALIZATION_MEMBER_PASSWORD: ENTITY_LOCALIZATION_E2E.memberPassword,
+
+  FULLSTACK_ENTITY_LOCALIZATION_PLATFORM_SUPERUSER_ID: PLATFORM_MEMBERS_E2E.superuserId,
+  FULLSTACK_ENTITY_LOCALIZATION_PLATFORM_SUPERUSER_EMAIL: PLATFORM_MEMBERS_E2E.superuserEmail,
+  FULLSTACK_ENTITY_LOCALIZATION_PLATFORM_SUPERUSER_NAME: PLATFORM_MEMBERS_E2E.superuserName,
+  FULLSTACK_ENTITY_LOCALIZATION_PLATFORM_TARGET_ID: PLATFORM_MEMBERS_E2E.targetId,
+  FULLSTACK_ENTITY_LOCALIZATION_PLATFORM_TARGET_EMAIL: PLATFORM_MEMBERS_E2E.targetEmail,
+  FULLSTACK_ENTITY_LOCALIZATION_PLATFORM_TARGET_NAME: PLATFORM_MEMBERS_E2E.targetName,
+  FULLSTACK_ENTITY_LOCALIZATION_PLATFORM_ORG_A_ID: PLATFORM_MEMBERS_E2E.orgAId,
+  FULLSTACK_ENTITY_LOCALIZATION_PLATFORM_ORG_A_NAME: PLATFORM_MEMBERS_E2E.orgAName,
+  FULLSTACK_ENTITY_LOCALIZATION_PLATFORM_PROJECT_A_ID: PLATFORM_MEMBERS_E2E.projectAId,
+  FULLSTACK_ENTITY_LOCALIZATION_PLATFORM_ORG_B_ID: PLATFORM_MEMBERS_E2E.orgBId,
+  FULLSTACK_ENTITY_LOCALIZATION_PLATFORM_ORG_B_NAME: PLATFORM_MEMBERS_E2E.orgBName,
+  FULLSTACK_ENTITY_LOCALIZATION_PLATFORM_PROJECT_B_ID: PLATFORM_MEMBERS_E2E.projectBId,
+  FULLSTACK_ENTITY_LOCALIZATION_PLATFORM_SUPERUSER_PASSWORD: ENTITY_LOCALIZATION_E2E.adminPassword,
+  FULLSTACK_ENTITY_LOCALIZATION_PLATFORM_TARGET_PASSWORD: ENTITY_LOCALIZATION_E2E.memberPassword,
+  PLATFORM_SUPERUSER_EMAILS: PLATFORM_MEMBERS_E2E.superuserEmail,
+
   FULLSTACK_E2E_FIXTURE: "1",
+  FULLSTACK_E2E_TASKS_EMAIL: FULLSTACK_E2E.tasksEmail,
+  FULLSTACK_E2E_TASKS_PASSWORD: FULLSTACK_E2E.tasksPassword,
+  FULLSTACK_E2E_TASKS_USER_ID: FULLSTACK_E2E.tasksUserId,
   FULLSTACK_E2E_EMAIL: FULLSTACK_E2E.email,
   FULLSTACK_E2E_PASSWORD: FULLSTACK_E2E.password,
   FULLSTACK_E2E_ORG_ID: FULLSTACK_E2E.orgId,
@@ -100,6 +132,17 @@ const fixtureEnv = {
   FULLSTACK_E2E_ARTIFACT_ID: FULLSTACK_E2E.artifactId,
   FULLSTACK_E2E_BOARD_ARTIFACT_ID: FULLSTACK_E2E.boardArtifactId,
   FULLSTACK_E2E_SENTINEL_FILE: FULLSTACK_E2E.sentinelFile,
+  FULLSTACK_E2E_BRAIN_EMAIL: FULLSTACK_E2E.brainEmail,
+  FULLSTACK_E2E_BRAIN_PASSWORD: FULLSTACK_E2E.brainPassword,
+  FULLSTACK_E2E_BRAIN_USER_ID: FULLSTACK_E2E.brainUserId,
+  FULLSTACK_E2E_WORKFLOW_RUNS_ORG_ID: FULLSTACK_E2E.workflowRunsOrgId,
+  FULLSTACK_E2E_WORKFLOW_RUNS_PROJECT_ID: FULLSTACK_E2E.workflowRunsProjectId,
+  FULLSTACK_E2E_WORKFLOW_RUNS_USER_ID: FULLSTACK_E2E.workflowRunsUserId,
+  FULLSTACK_E2E_WORKFLOW_RUNS_EMAIL: FULLSTACK_E2E.workflowRunsEmail,
+  FULLSTACK_E2E_WORKFLOW_RUNS_PASSWORD: FULLSTACK_E2E.workflowRunsPassword,
+  FULLSTACK_E2E_WORKFLOW_RUNS_INSTANCE_ID: FULLSTACK_E2E.workflowRunsInstanceId,
+  FULLSTACK_E2E_WORKFLOW_RUNS_KEY: FULLSTACK_E2E.workflowRunsKey,
+  FULLSTACK_E2E_WORKFLOW_RUNS_GOAL: FULLSTACK_E2E.workflowRunsGoal,
   FULLSTACK_E2E_ADMIN_EMAIL: FULLSTACK_E2E.adminEmail,
   FULLSTACK_E2E_ADMIN_PASSWORD: FULLSTACK_E2E.adminPassword,
   FULLSTACK_E2E_ADMIN_USER_ID: FULLSTACK_E2E.adminUserId,
@@ -308,9 +351,16 @@ export default defineConfig({
       name: "seeded",
       testMatch: [
         "fullstack-smoke.spec.ts",
+        "i18n-brain-navigation.spec.ts",
+        "i18n-public-design-share.spec.ts",
+        "i18n-about-me.spec.ts",
         // Anonymous sharing layout/error regressions; real persistence uses its isolated API lane.
         "chat-public-share.spec.ts",
         "guided-research-runtime.spec.ts",
+        "i18n-research-entry.spec.ts",
+        "i18n-interview-journey.spec.ts",
+        "i18n-recording-journey.spec.ts",
+        "i18n-survey-journey.spec.ts",
         // Trust-console preview is deterministic, but keeping it in a CI-reachable project
         // prevents the browser acceptance contract from silently becoming local-only.
         "guided-research-trust-console.spec.ts",
@@ -326,6 +376,7 @@ export default defineConfig({
         "agent-directory-entry-point.spec.ts",
         // #4582：项目中枢第三批真栈走查（问卷答卷入证据 / 大脑空态 / AI 权限关来源 / 观察者脱敏）。
         "project-hub-b3-walkthrough.spec.ts",
+        "project-invited-list-persistence.spec.ts",
         // #2490：controller 路由 ↔ rewrite 成对的**运行时**反证（静态 lint 之外的那一半）。
         "rewrite-coverage-live-smoke.spec.ts",
         "capability-mutate-smoke.spec.ts",
@@ -346,6 +397,11 @@ export default defineConfig({
         // ⚠ PJ-01 / #976 同理排在 `seeded`：它要用种子里的 `lead`（新建项目唯一有权的角色）
         //   与 consultant（反证：非 lead 必须被服务端拒绝）两个账号。
         "project-create-smoke.spec.ts",
+        "i18n-workflow-runs.spec.ts",
+        "i18n-live-tasks.spec.ts",
+        "i18n-project-list.spec.ts",
+        "i18n-project-workbench.spec.ts",
+        "i18n-project-general-overview.spec.ts",
         // ⚠ #853 同理排在 `seeded`：它要用种子里的 sentinel 工作坊（`FULLSTACK_E2E.projectId`）
         //   与该工作坊的 facilitator（`FULLSTACK_E2E.email`，agendaSegment.create 只属这个角色）。
         "agenda-segment-create-smoke.spec.ts",
@@ -485,6 +541,10 @@ export default defineConfig({
        */
       name: "seeded-github-import",
       testMatch: [
+        // Display authoring imports Work Skills; keep it after catalog-empty assertions.
+        "entity-localization.spec.ts",
+        "i18n-platform-model-tests.spec.ts",
+        "platform-model-catalog-i18n.spec.ts",
         "skill-agent-import-usecase-audit.spec.ts",
         "core-journey-03-skill-lifecycle-chat.spec.ts",
         "core-journey-04-canvas-template-lifecycle-chat.spec.ts",
@@ -809,6 +869,8 @@ export default defineConfig({
       reuseExistingServer: false,
       env: {
         ...process.env, ...fixtureEnv, ...modelProviderEnv, ...mailProviderEnv,
+        // Isolated acceptance API: no telemetry timer or outbound transport.
+        WSX_TELEMETRY_DISABLED: "1",
         WORKSPACEX_DEPLOYMENT_MARKER: process.env.BOARD_ACCEPTANCE_RUNTIME_MARKER,
         // #466 反证 `no-asr-provider`：把 ASR 上游的配置整组撤掉，
         // WS 面必须以 `ASR_NOT_CONFIGURED` 诚实降级，而不是静默失败或换个提供方。

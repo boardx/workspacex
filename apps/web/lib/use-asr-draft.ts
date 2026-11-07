@@ -11,6 +11,7 @@
  */
 "use client";
 import * as React from "react";
+import { ASR_DRAFT_ERROR_TEXT as ERROR_TEXT } from "./asr-draft-error-text";
 import { openAsrDraftStream, type AsrDraftErrorReason } from "./live-asr-draft";
 import { LiveRecordingError } from "./live-recording";
 import { RealtimeReconnect } from "./realtime-reconnect";
@@ -85,13 +86,7 @@ export interface UseAsrDraftResult {
   readonly retry?: () => void;
 }
 
-const ERROR_TEXT: Record<AsrDraftErrorReason, string> = {
-  CREDIT_REQUIRED: "可用额度不足，请确认计费账户并充值后继续语音输入。",
-  CREDIT_ACCOUNTING_UNAVAILABLE: "计费服务暂时不可用，请稍后重试或联系管理员。",
-  ASR_PROVIDER_UNAVAILABLE: "语音识别服务暂时不可用，请稍后重试。",
-  ASR_NOT_CONFIGURED: "当前环境尚未配置语音转写服务，暂时无法使用语音输入，请手动输入。",
-  AUDIO_FORMAT_REJECTED: "音频格式被服务拒绝，请刷新页面后重试。",
-};
+
 
 /**
  * 浏览器是否具备"能开一条这样的录音"的基本能力——麦克风采音 + WebSocket。

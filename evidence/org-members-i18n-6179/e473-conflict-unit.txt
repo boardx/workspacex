@@ -1,0 +1,25 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/web
+
+ ✓ tests/ui/org-members-i18n.test.tsx (7 tests) 735ms
+ ✓ tests/ui/account-entry-i18n.test.tsx (7 tests) 1770ms
+   ✓ preserves registration values and request payload while retranslating a stored field failure 775ms
+ ✓ tests/ui/org-admin-role-scope.test.tsx (7 tests) 1332ms
+   ✓ org-admin 组织级屏不再挂项目角色视角切换器 > ① members / activate / boundary 三屏隐藏「视角」行，改显组织级说明 424ms
+   ✓ org-admin 组织级屏不再挂项目角色视角切换器 > ② invites / roster / roles / grant 四个项目级屏仍然渲染项目角色「视角」行 392ms
+   ✓ issue #2622 反证：preview 三屏不再渲染任何团队相关元素 > ① MembersScreen：团队增删改区块、成员行/审批队列团队展示、邀请弹层团队选择器均不存在 402ms
+ ✓ tests/ui/org-admin-members-reviewer-function.test.tsx (4 tests) 238ms
+ ✓ tests/ui/org-admin-screen-admin-nav.test.tsx (1 test) 473ms
+   ✓ /org-admin/members 接上组织后台左栏（AdminNav） > 左栏、组织 scope、「成员」高亮项都真实渲染 471ms
+ ✓ tests/ui/org-admin-members-org-role.test.tsx (4 tests) 413ms
+ ✓ tests/ui/org-shared-invites-i18n.test.tsx (2 tests) 415ms
+ ✓ tests/ui/org-members-preview-i18n.test.tsx (8 tests) 797ms
+   ✓ organization member previews localization > translates invitation roles and switches the open dialog without losing state 307ms
+ ✓ tests/ui/org-admin-invite-form-novalidate.test.tsx (1 test) 83ms
+ ✓ tests/lib/i18n-resources.test.ts (5 tests) 98ms
+
+ Test Files  10 passed (10)
+      Tests  46 passed (46)
+   Start at  16:37:09
+   Duration  61.08s (transform 6.79s, setup 4.50s, collect 25.74s, tests 6.35s, environment 18.51s, prepare 1.50s)

@@ -1,0 +1,26 @@
+[stack-admission] load1=2.49 cores=10 perCore=0.25 running=0/2
+[test-isolation] id=run-mvy7o3jx-b0c9aa97-b80aae45e60d db=wsx_b80aae45e60d1352bf33 compose=wsx-b80aae45e60d1352bf33 pg=20717 redis=21717 api=24717 web=25717 sandbox=26717 model=27717 deep-agent=28717 asr=29717 vision=30717 loopback-sandbox=31717 mail=19717
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_b80aae45e60d1352bf33 capacity=100 current=6 required=32
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+{"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+{"level":"error","msg":"http exception","traceId":"d3ac8a4d-13b5-4988-822d-62ca71613a4b","detail":{"name":"UnauthorizedException","message":"unauthenticated","stack":"UnauthorizedException: unauthenticated\n    at PrincipalGuard.canActivate (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api/src/interface/guards/principal.guard.ts:54:27)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)"}}
+{"level":"info","msg":"billing_personal_payment_recovery","traceId":"personal-payment-recovery:b6bff33c-792e-4fd5-bf98-1bb9980bddf5","processed":1,"failed":0}
+ ✓ tests/billing/personal-payment-recovery-root-http.test.ts (1 test) 24832ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  03:16:34
+   Duration  29.28s (transform 6.07s, setup 8ms, collect 730ms, tests 24.83s, environment 0ms, prepare 48ms)
+
+[db-isolation] db=wsx_b80aae45e60d1352bf33 peak_connections=6
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/personal-payment-recovery-root-http.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：30s
+  清理：0s
+  总计：31s

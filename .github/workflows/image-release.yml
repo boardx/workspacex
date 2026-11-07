@@ -19,12 +19,10 @@ on:
       source_revision:
         type: string
         default: ''
-  push:
-    branches: [develop]
   workflow_dispatch:
     inputs:
       environment:
-        description: "Environment (auto: develop → DevApp, main → CN, main-us → US)"
+        description: "Target environment (all environments reuse a tag or build the selected branch)"
         required: true
         default: auto
         type: choice
@@ -36,16 +34,16 @@ on:
         type: choice
         options: [all, api, web, agent, sandbox, postgres]
       build_only:
-        description: Build and publish only, without any host deployment
+        description: Build selected branch without deployment
         required: false
         default: false
         type: boolean
       tag:
-        description: Existing tag, e.g. 40174623496-1 (empty builds this commit)
+        description: Existing immutable image tag (empty builds the selected branch)
         required: false
         type: string
       source_revision:
-        description: Optional exact source SHA for baseline builds (requires build_only)
+        description: Optional exact diagnostic source SHA (run from develop with build_only)
         required: false
         type: string
 
@@ -54,12 +52,9 @@ permissions:
 
 jobs:
   plan:
-    # develop auto-deploys DevApp; main/CN and main-us/US require manual dispatch.
+    # All image builds and deployments require an explicit manual dispatch.
     # Legacy source deployment is retired in backend-gates in this same commit.
-    if: >-
-      (github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
-      (github.event_name == 'workflow_dispatch' &&
-       (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main-us' || inputs.build_only))
+    if: github.event_name == 'workflow_dispatch' && github.ref_type == 'branch'
     runs-on: ubuntu-24.04
     outputs:
       source: ${{ steps.plan.outputs.source }}
@@ -186,6 +181,7 @@ jobs:
     needs: [plan, build, manifest]
     if: >-
       always() && !cancelled() && !inputs.build_only && needs.plan.result == 'success' &&
+      github.event_name == 'workflow_dispatch' &&
       ((needs.plan.outputs.build == 'true' && needs.build.result == 'success' && needs.manifest.result == 'success') ||
        (needs.plan.outputs.build == 'false' && needs.build.result == 'skipped' && needs.manifest.result == 'skipped'))
     runs-on: ${{ fromJSON(needs.plan.outputs.runner) }}
@@ -196,23 +192,48 @@ jobs:
       cancel-in-progress: false
     steps:
       # No checkout or sudo execution of checkout code on production.
-      - name: Reject an automatic release superseded while its images built
-        if: github.event_name == 'push'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          EXPECTED_SOURCE: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-          actual=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$GITHUB_REF_NAME" --jq .object.sha)
-          test "$actual" = "$EXPECTED_SOURCE" || { echo 'Automatic release superseded by a newer push'; exit 1; }
       - name: Show requested immutable image tag
         env:
           TARGET_ENVIRONMENT: ${{ needs.plan.outputs.target }}
           IMAGE_TAG: ${{ needs.plan.outputs.tag }}
         run: |
           printf '### Requested deployment\n\nEnvironment: `%s`\n\nImage tag: `%s`\n\nThis is the requested tag; deployment outcome is recorded below in the job log.\n' "$TARGET_ENVIRONMENT" "$IMAGE_TAG" >> "$GITHUB_STEP_SUMMARY"
-      - name: Pull tag, deploy, verify and recover automatically on failure
+      - name: Preflight schema, route release, verify and recover on failure
         env:
           TARGET_ENVIRONMENT: ${{ needs.plan.outputs.target }}
           IMAGE_TAG: ${{ needs.plan.outputs.tag }}
-        run: sudo -n /usr/local/bin/workspacex-image-release "$TARGET_ENVIRONMENT" "$IMAGE_TAG"
+        run: |
+          set -uo pipefail
+          result=$(mktemp)
+          trap 'rm -f -- "$result"' EXIT
+          set +e
+          sudo -n /usr/local/bin/workspacex-image-release "$TARGET_ENVIRONMENT" "$IMAGE_TAG" | tee "$result"
+          release_status=${PIPESTATUS[0]}
+          set -e
+          python3 - "$result" "$GITHUB_STEP_SUMMARY" <<'PY'
+          import json,re,sys
+          result={}
+          for line in open(sys.argv[1]):
+              try:
+                  row=json.loads(line)
+                  if isinstance(row,dict) and isinstance(row.get('status'),str): result=row
+              except ValueError: pass
+          safe={}
+          for key in ('status','code','stage','route','nextAction'):
+              value=result.get(key)
+              if isinstance(value,str) and re.fullmatch(r'[A-Za-z0-9_-]{1,128}',value): safe[key]=value
+          if result.get('applyAttempted') is False: safe['applyAttempted']=False
+          if result.get('schemaPlanComplete') is False: safe['schemaPlanComplete']=False
+          changes=[]
+          for row in result.get('schemaChanges',[]) if isinstance(result.get('schemaChanges'),list) else []:
+              if not isinstance(row,dict) or row.get('role') not in ('api','agent'): continue
+              change={'role':row['role']}
+              for key in ('added','removed','changed'):
+                  values=row.get(key,[])
+                  if isinstance(values,list): change[key]=[name for name in values if isinstance(name,str) and re.fullmatch(r'[A-Za-z0-9_./-]{1,200}',name)][:100]
+              changes.append(change)
+          if changes: safe['schemaChanges']=changes[:20]
+          with open(sys.argv[2],'a') as out:
+              out.write('\n### Deployment outcome\n\n```json\n'+json.dumps(safe or {'status':'STRUCTURED_RESULT_UNAVAILABLE'},ensure_ascii=True,indent=2)+'\n```\n')
+          PY
+          exit "$release_status"

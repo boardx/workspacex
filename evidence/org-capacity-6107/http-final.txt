@@ -1,0 +1,19 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/team-capacity-6107/apps/api
+
+[db-isolation] db=wsx_c81f89481a3d3d89d37e capacity=100 current=6 required=32
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+{"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+{"level":"error","msg":"http exception","traceId":"5524c7d1-eafd-4038-9ed9-1079be6f318e","detail":{"name":"BadRequestException","message":"Bad Request Exception","stack":"BadRequestException: Bad Request Exception\n    at OrgInviteController.activate (/Users/shenyangjun/boardx/workspacex/.worktrees/team-capacity-6107/apps/api/src/interface/controllers/org-invite.controller.ts:189:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+{"level":"error","msg":"http exception","traceId":"143f5162-f0c5-4be0-8d8f-b2cf276e3bd6","detail":{"name":"BadRequestException","message":"Bad Request Exception","stack":"BadRequestException: Bad Request Exception\n    at OrgInviteController.activate (/Users/shenyangjun/boardx/workspacex/.worktrees/team-capacity-6107/apps/api/src/interface/controllers/org-invite.controller.ts:189:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+ ✓ tests/org-capacity/commercial-capacity-http.test.ts (2 tests) 139213ms
+   ✓ real anonymous activation reports capacity and preserves invitation and account even with forged org/role query claims 1793ms
+   ✓ an invalid invitation remains indistinguishable from absent invite 1428ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  13:59:58
+   Duration  145.43s (transform 58.16s, setup 25ms, collect 2.49s, tests 139.21s, environment 0ms, prepare 618ms)
+
+[db-isolation] db=wsx_c81f89481a3d3d89d37e peak_connections=7

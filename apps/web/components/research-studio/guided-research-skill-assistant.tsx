@@ -3,6 +3,8 @@
 import * as React from "react";
 import { Loader2, MessageCircle, Send, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/lib/i18n/provider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { runGuidedResearchSkillTurn, type GuidedResearchSkillDraft } from "@/lib/guided-research-api";
 import {
   applyResearchSkillSuggestion,
@@ -14,12 +16,28 @@ import {
   type ResearchSkillState,
 } from "@/lib/guided-research-skill-state";
 
-const QUICK_PROMPTS: Record<ResearchEditableSnapshot["step"], readonly string[]> = {
-  brief: ["补充研究目标", "明确决策问题"],
-  directions: ["补充研究方向", "检查方向覆盖"],
-  outline: ["补充报告章节", "优化报告大纲"],
-  search: ["完成下一项检索任务", "检查检索进度"],
-  report: ["完善报告摘要", "补充关键结论"],
+// Display labels may translate; these messages remain the original wire/history intents.
+const QUICK_PROMPTS: Record<ResearchEditableSnapshot["step"], readonly { message: string; label: MessageKey }[]> = {
+  brief: [
+    { message: "补充研究目标", label: "research.skillAssistant.briefGoal" },
+    { message: "明确决策问题", label: "research.skillAssistant.briefDecision" },
+  ],
+  directions: [
+    { message: "补充研究方向", label: "research.skillAssistant.addDirections" },
+    { message: "检查方向覆盖", label: "research.skillAssistant.checkDirections" },
+  ],
+  outline: [
+    { message: "补充报告章节", label: "research.skillAssistant.addSections" },
+    { message: "优化报告大纲", label: "research.skillAssistant.refineOutline" },
+  ],
+  search: [
+    { message: "完成下一项检索任务", label: "research.skillAssistant.nextSearch" },
+    { message: "检查检索进度", label: "research.skillAssistant.checkSearch" },
+  ],
+  report: [
+    { message: "完善报告摘要", label: "research.skillAssistant.improveSummary" },
+    { message: "补充关键结论", label: "research.skillAssistant.addConclusions" },
+  ],
 };
 
 export function GuidedResearchSkillAssistant({
@@ -35,6 +53,7 @@ export function GuidedResearchSkillAssistant({
   snapshot: ResearchEditableSnapshot | ResearchEditableSnapshotInput;
   onSnapshotChange: (snapshot: ResearchEditableSnapshot) => void;
 }) {
+  const { t } = useI18n();
   const [input, setInput] = React.useState("");
   const [sending, setSending] = React.useState(false);
   const [sendError, setSendError] = React.useState(false);
@@ -142,7 +161,7 @@ export function GuidedResearchSkillAssistant({
     >
       <div className="flex items-center gap-2">
         <MessageCircle aria-hidden className="size-5 text-primary" />
-        <h2 className="font-semibold">研究 Skill 助手</h2>
+        <h2 className="font-semibold">{t("research.assistant.skill")}</h2>
         {progressLabel && (
           <span
             className="ml-auto rounded-full border border-border bg-muted px-2 py-0.5 text-11 font-medium text-muted-foreground"
@@ -152,15 +171,15 @@ export function GuidedResearchSkillAssistant({
           </span>
         )}
       </div>
-      <p className="mt-2 text-12 leading-5 text-muted-foreground">通过对话优化当前步骤；建议只有点击应用后才会修改内容。</p>
+      <p className="mt-2 text-12 leading-5 text-muted-foreground">{t("research.skillAssistant.help")}</p>
       <div className="mt-4 flex flex-wrap gap-2">
-        {QUICK_PROMPTS[step].map((prompt) => (
-          <button key={prompt} type="button" disabled={sending} onClick={() => void send(prompt)} className="rounded-full border border-border px-3 py-1 text-12 text-muted-foreground transition-colors hover:text-background-foreground disabled:bg-disabled disabled:text-disabled-foreground">
-            {prompt}
+        {QUICK_PROMPTS[step].map(({ message, label }) => (
+          <button key={message} type="button" disabled={sending} onClick={() => void send(message)} className="rounded-full border border-border px-3 py-1 text-12 text-muted-foreground transition-colors hover:text-background-foreground disabled:bg-disabled disabled:text-disabled-foreground">
+            {t(label)}
           </button>
         ))}
       </div>
-      {sendError && <p className="mt-2 text-11 text-destructive" role="alert">模型暂时不可用，内容没有被 Mock 替代。请重试。</p>}
+      {sendError && <p className="mt-2 text-11 text-destructive" role="alert">{t("research.skillAssistant.failed")}</p>}
       <div data-testid="research-skill-messages" className="mt-4 min-h-32 flex-1 space-y-3 overflow-y-auto pr-1">
         {skillState.messages.map((message) => (
           <div key={message.id} className={message.role === "user" ? "ml-6 rounded-lg bg-primary px-3 py-2 text-12 text-primary-foreground" : "mr-3 rounded-lg bg-muted px-3 py-2 text-12 leading-5 text-background-foreground"}>
@@ -169,25 +188,25 @@ export function GuidedResearchSkillAssistant({
         ))}
         {skillState.pendingSuggestion && (
           <div data-testid="research-skill-suggestion" className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-12 leading-5">
-            <strong>Skill 建议</strong>
+            <strong>{t("research.skillAssistant.suggestion")}</strong>
             <p className="mt-1">{skillState.pendingSuggestion.text}</p>
-            <Button type="button" variant="primary" size="sm" className="mt-3" onClick={apply}>应用建议</Button>
+            <Button type="button" variant="primary" size="sm" className="mt-3" onClick={apply}>{t("research.assistant.apply")}</Button>
           </div>
         )}
       </div>
-      {skillState.undoSnapshot && <Button type="button" variant="outline" size="sm" className="mt-3 self-start" onClick={undo}><Undo2 aria-hidden className="size-3" />撤销上次应用</Button>}
+      {skillState.undoSnapshot && <Button type="button" variant="outline" size="sm" className="mt-3 self-start" onClick={undo}><Undo2 aria-hidden className="size-3" />{t("research.skillAssistant.undo")}</Button>}
       <div data-testid="research-skill-composer" className="mt-4 flex shrink-0 gap-2">
         <input
           data-testid="research-skill-input"
           value={input}
           onChange={(event) => setInput(event.target.value)}
           onKeyDown={(event) => { if (event.key === "Enter") void send(); }}
-          placeholder="和 Skill 讨论如何优化…"
+          placeholder={t("research.skillAssistant.placeholder")}
           className="h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
         />
-        <Button data-testid="research-skill-send" type="button" variant="primary" size="icon" aria-label="发送建议" disabled={!input.trim() || sending} onClick={() => void send()}>{sending ? <Loader2 aria-hidden className="size-4 animate-spin" /> : <Send aria-hidden className="size-4" />}</Button>
+        <Button data-testid="research-skill-send" type="button" variant="primary" size="icon" aria-label={t("research.skillAssistant.send")} disabled={!input.trim() || sending} onClick={() => void send()}>{sending ? <Loader2 aria-hidden className="size-4 animate-spin" /> : <Send aria-hidden className="size-4" />}</Button>
       </div>
-      <p className="mt-3 text-11 text-muted-foreground">{modelId === null ? "建议由模型生成；应用前不会修改研究内容。" : `由 ${modelId} 生成建议；应用前不会修改研究内容。`}</p>
+      <p className="mt-3 text-11 text-muted-foreground">{modelId === null ? t("research.skillAssistant.modelUnknown") : t("research.skillAssistant.model", { modelId })}</p>
     </section>
   );
 }

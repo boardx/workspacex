@@ -8,72 +8,49 @@ import { Avatar } from "@/components/ui/avatar";
 import { PopoverSelect } from "@/components/org-admin/org-admin-screen";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { ApiError } from "@/lib/api-client";
-import { ORG_ROLE_LABEL, type OrgRole } from "@/lib/identity";
+import type { OrgRole } from "@/lib/identity";
+import { useI18n } from "@/lib/i18n/provider";
+import { httpFailureText } from "@/lib/http-failure-text";
 import {
   grantPlatformAdmin, listPlatformMembers, revokePlatformAdmin, setPlatformMemberOrgRole,
   type PlatformMemberRow, type PlatformMembershipRow,
 } from "@/lib/live-platform-members";
 import type { UiState } from "@/lib/ui-state";
 
-/**
- * `/platform-admin/members`（原 `/admin/platform`，2026-09-02 迁入平台后台）—— 成员管理的**平台级**（member-role-management delta）。
- *
- * 与 `/org-admin` 的「成员」标签页（组织级）是同一件事的两个视角：那边是组织 admin 看
- * **本组织**的人、改本组织里的角色；这边是平台超管看**全平台**的账号、改任一组织里的角色。
- * 两边改角色落的是同一列、走的是同一条「最后一名 admin」判定，只有授权面不同。
- *
- * ⚠ 两条接口都只对平台超管放行。403 `NOT_PLATFORM_SUPERUSER` **不是**失败态——它是
- *   「你不是这个身份」的正常结果，渲染成一句说明而不是重试按钮（同旧 `feedback-screen.tsx`
- *   系统异常区的处置——该文件已随 B3.6 旧屏退役删除，处置模式沿用到这里）。
- *
- * lint-no-backend-badge:backed-by-children —— 本屏的真实请求都在本文件内
- * （`listPlatformMembers` / `setPlatformMemberOrgRole`，`lib/live-platform-members.ts`）。
- */
-
+/** Platform operators read/change organization roles; only superusers grant/revoke platform admins. */
+type Failure =
+  | { kind: "LAST_ADMIN" | "MEMBER_NOT_FOUND" | "NOT_PLATFORM_SUPERUSER" }
+  | { kind: "http"; status: number }
+  | { kind: "network" };
+function failureCause(error: unknown): Failure {
+  if (!(error instanceof ApiError)) return { kind: "network" };
+  if (error.reasonCode === "LAST_ADMIN" || error.reasonCode === "MEMBER_NOT_FOUND" || error.reasonCode === "NOT_PLATFORM_SUPERUSER") return { kind: error.reasonCode };
+  return { kind: "http", status: error.status };
+}
+type I18n = ReturnType<typeof useI18n>;
+function failureText(failure: Failure, operation: "role" | "admin" | "list", { t, locale }: I18n): string {
+  switch (failure.kind) {
+    case "LAST_ADMIN": return t("platformMembers.lastAdmin");
+    case "MEMBER_NOT_FOUND": return t(operation === "admin" ? "platformMembers.accountMissing" : "platformMembers.membershipMissing");
+    case "NOT_PLATFORM_SUPERUSER": return t(operation === "role" ? "platformMembers.roleDenied" : "platformMembers.adminDenied");
+    case "http": return httpFailureText(failure.status, locale);
+    case "network": return httpFailureText(0, locale);
+  }
+}
 type Load =
   | { kind: "loading" }
   | { kind: "ready"; members: PlatformMemberRow[] }
   | { kind: "forbidden" }
-  | { kind: "failed"; reason: string };
-
-const ORG_ROLE_OPTIONS: ReadonlyArray<{ id: OrgRole; label: string }> = (
-  ["consultant", "lead", "compliance", "admin"] as const
-).map((r) => ({ id: r, label: ORG_ROLE_LABEL[r] }));
-
-function describeRoleChangeFailure(failure: unknown): string {
-  if (failure instanceof ApiError) {
-    switch (failure.reasonCode) {
-      case "LAST_ADMIN":
-        return "这是该组织最后一名管理员，不能降级：先把该组织的另一位成员设为管理员。";
-      case "MEMBER_NOT_FOUND":
-        return "这条成员身份已不存在（可能刚被移除），请刷新名册。";
-      case "NOT_PLATFORM_SUPERUSER":
-        return "只有平台超管能调整角色。";
-      default:
-        return `${failure.reasonCode ?? "操作失败"}（HTTP ${failure.status}）`;
-    }
-  }
-  return failure instanceof Error ? failure.message : "操作失败，请稍后重试。";
-}
-
-/** 授予/撤销平台管理员失败的说明——只有 `grantPlatformAdmin`/`revokePlatformAdmin` 会走到这里。 */
-function describePlatformAdminChangeFailure(failure: unknown): string {
-  if (failure instanceof ApiError) {
-    switch (failure.reasonCode) {
-      case "MEMBER_NOT_FOUND":
-        return "这个账号已不存在（可能刚被注销），请刷新名册。";
-      case "NOT_PLATFORM_SUPERUSER":
-        return "只有平台超管能授予/撤销平台管理员——平台管理员自己不能。";
-      default:
-        return `${failure.reasonCode ?? "操作失败"}（HTTP ${failure.status}）`;
-    }
-  }
-  return failure instanceof Error ? failure.message : "操作失败，请稍后重试。";
-}
+  | { kind: "failed"; failure: Failure };
+type Notice =
+  | { kind: "role"; name: string; org: string; previous: OrgRole; next: OrgRole }
+  | { kind: "admin"; name: string; next: boolean };
 
 export function PlatformMembersScreen({ state }: { state: UiState }) {
+  const i18n = useI18n();
+  const { t } = i18n;
   const [load, setLoad] = React.useState<Load>({ kind: "loading" });
-  const [banner, setBanner] = React.useState<string | null>(null);
+  const [banner, setBanner] = React.useState<Notice | null>(null);
   const session = useOptionalSession();
   const viewerUserId = session?.session?.userId ?? null;
   // 只有真正的平台超管能授予/撤销平台管理员——名册里查一下自己那一行的 `platformSuperuser`，
@@ -93,7 +70,7 @@ export function PlatformMembersScreen({ state }: { state: UiState }) {
       }
       setLoad({
         kind: "failed",
-        reason: err instanceof ApiError ? (err.reasonCode ?? `http_${err.status}`) : String(err),
+        failure: failureCause(err),
       });
     }
   }, []);
@@ -104,8 +81,8 @@ export function PlatformMembersScreen({ state }: { state: UiState }) {
 
   React.useEffect(() => {
     if (!banner) return;
-    const t = setTimeout(() => setBanner(null), 4000);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setBanner(null), 4000);
+    return () => clearTimeout(timer);
   }, [banner]);
 
   // 改角色成功后就地更新那一条成员身份，不整表重拉（名册按人 × 组织展开，重拉会整屏闪）。
@@ -119,7 +96,7 @@ export function PlatformMembersScreen({ state }: { state: UiState }) {
       );
       const who = prev.members.find((m) => m.userId === userId);
       const org = who?.memberships.find((ms) => ms.orgId === orgId);
-      setBanner(`已更新组织角色：${who?.displayName ?? userId} · ${org?.orgName ?? orgId}：${ORG_ROLE_LABEL[previous]} → ${ORG_ROLE_LABEL[next]}`);
+      setBanner({ kind: "role", name: who?.displayName ?? userId, org: org?.orgName ?? orgId, previous, next });
       return { kind: "ready", members };
     });
   };
@@ -130,7 +107,7 @@ export function PlatformMembersScreen({ state }: { state: UiState }) {
       if (prev.kind !== "ready") return prev;
       const members = prev.members.map((m) => (m.userId === userId ? { ...m, platformAdmin: next } : m));
       const who = prev.members.find((m) => m.userId === userId);
-      setBanner(`${who?.displayName ?? userId}：${next ? "已设为平台管理员" : "已撤销平台管理员身份"}`);
+      setBanner({ kind: "admin", name: who?.displayName ?? userId, next });
       return { kind: "ready", members };
     });
   };
@@ -140,37 +117,39 @@ export function PlatformMembersScreen({ state }: { state: UiState }) {
   return (
     <AdminScreen
       state={state}
-      moduleLabel="平台成员"
-      title="平台成员"
+      moduleLabel={t("adminNavigation.item.platform")}
+      title={t("adminNavigation.item.platform")}
       liveBacked
       hideOrgIdentity
-      intro="平台上全部账号及其在各组织里的成员身份。这是成员管理的平台级：只对平台超管或被指定的平台管理员开放；每个组织自己的成员管理在「组织管理 → 成员」。"
-      emptyHint="平台上还没有任何账号"
-      depFailure="名册读取依赖身份服务；不可用时不显示任何账号，不用旧数据顶替。"
-      denialReason="平台成员仅平台超管或平台管理员可见；组织管理员请到「组织管理」调整本组织成员。"
-      successMessage="已更新组织角色；本次操作已记入该组织的审计"
+      intro={t("platformMembers.intro")}
+      emptyHint={t("platformMembers.empty")}
+      depFailure={t("platformMembers.dependency")}
+      denialReason={t("platformMembers.denial")}
+      successMessage={t("platformMembers.auditSuccess")}
     >
       <div className="flex flex-col gap-3" data-testid="admin-platform-members">
         <div className="flex flex-wrap items-center gap-2">
           <Globe aria-hidden className="h-4 w-4 text-muted-foreground" />
           <span className="text-11 text-muted-foreground" data-testid="admin-platform-members-count">
-            {total === null ? "全平台账号" : `全平台 ${total} 个账号`}（本地组织与平台维护身份不在名册内）
+            {total === null ? t("platformMembers.accounts") : t("platformMembers.count", { count: total })}{t("platformMembers.excluded")}
           </span>
           {load.kind === "ready" && (
             <Button size="xs" variant="outline" className="ml-auto" onClick={() => void reload()} data-testid="admin-platform-members-reload">
-              <RefreshCw aria-hidden className="h-3 w-3" /> 刷新
+              <RefreshCw aria-hidden className="h-3 w-3" /> {t("adminCommon.refresh")}
             </Button>
           )}
         </div>
 
         {banner ? (
           <div role="status" data-testid="admin-platform-members-banner" className="rounded-md border border-success/30 bg-success/10 px-3 py-2 text-11 text-success">
-            {banner}
+            {banner.kind === "role"
+              ? t("platformMembers.roleChange", { name: banner.name, org: banner.org, previous: t(`role.${banner.previous}`), next: t(`role.${banner.next}`) })
+              : t(banner.next ? "platformMembers.granted" : "platformMembers.revoked", { name: banner.name })}
           </div>
         ) : null}
 
         {load.kind === "loading" && (
-          <div data-testid="admin-platform-members-loading" className="flex animate-pulse flex-col gap-2">
+          <div role="status" aria-label={t("platformMembers.loading")} data-testid="admin-platform-members-loading" className="flex animate-pulse flex-col gap-2">
             {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="h-12 rounded-lg bg-muted" />
             ))}
@@ -179,22 +158,21 @@ export function PlatformMembersScreen({ state }: { state: UiState }) {
 
         {load.kind === "forbidden" && (
           <p className="rounded-md border border-border bg-panel p-3 text-12 text-muted-foreground" data-testid="admin-platform-members-forbidden">
-            这块屏仅平台运维（平台超管白名单 <code className="text-11">PLATFORM_SUPERUSER_EMAILS</code>，或被超管指定的平台管理员）可见——你当前的账号看不到全平台名册，这不是数据缺失。
-            本组织的成员与角色请到「组织管理 → 成员」调整。
+            {t("platformMembers.denial")}
           </p>
         )}
 
         {load.kind === "failed" && (
           <div className="flex flex-col items-start gap-2" data-testid="admin-platform-members-failed">
             <p className="text-12 text-muted-foreground">
-              没能读到平台名册（{load.reason}）。这不是「没有账号」——数据没有丢，只是这次没取到。
+              {t("platformMembers.loadFailed")} {failureText(load.failure, "list", i18n)}
             </p>
-            <Button size="sm" variant="outline" onClick={() => void reload()}>重试</Button>
+            <Button size="sm" variant="outline" onClick={() => void reload()}>{t("adminCommon.retry")}</Button>
           </div>
         )}
 
         {load.kind === "ready" && load.members.length === 0 && (
-          <p className="text-12 text-muted-foreground" data-testid="admin-platform-members-empty">平台上还没有任何账号。</p>
+          <p className="text-12 text-muted-foreground" data-testid="admin-platform-members-empty">{t("platformMembers.empty")}</p>
         )}
 
         {load.kind === "ready" && load.members.length > 0 && (
@@ -223,30 +201,33 @@ function PlatformMemberItem({
   viewerIsSuperuser: boolean;
   onAdminChanged: (userId: string, next: boolean) => void;
 }) {
+  const { t, locale } = useI18n();
   return (
     <li className="flex flex-col gap-2 px-3 py-2" data-testid={`admin-platform-member-${member.userId}`}>
       <div className="flex flex-wrap items-center gap-2">
-        <Avatar initials={member.displayName.slice(0, 1)} size="sm" />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate text-13 font-medium" data-testid={`admin-platform-member-${member.userId}-name`}>{member.displayName}</span>
-          <span className="truncate text-10 text-muted-foreground">{member.email}</span>
+        <div className="flex w-full min-w-0 items-start gap-2 sm:w-auto sm:min-w-48 sm:flex-1 sm:items-center">
+          <Avatar initials={member.displayName.slice(0, 1)} size="sm" />
+          <div className="flex min-w-0 flex-1 flex-col">
+            <span className="break-words text-13 font-medium" data-testid={`admin-platform-member-${member.userId}-name`}>{member.displayName}</span>
+            <span className="break-all text-10 text-muted-foreground">{member.email}</span>
+          </div>
         </div>
         {member.platformSuperuser && (
           <Badge tone="danger" data-testid={`admin-platform-member-${member.userId}-superuser`}>
             <ShieldCheck aria-hidden className="mr-1 h-3 w-3" />
-            平台超管
+            {t("platformMembers.superuser")}
           </Badge>
         )}
         {/* 平台超管不需要再叠一个"平台管理员"徽章——权限已经在超管之上，见 domain 头注。 */}
         {!member.platformSuperuser && (
           <PlatformAdminBadge member={member} viewerIsSuperuser={viewerIsSuperuser} onAdminChanged={onAdminChanged} />
         )}
-        {!member.emailVerified && <Badge tone="warning">邮箱未验证</Badge>}
-        <span className="text-10 text-muted-foreground">{new Date(member.createdAt).toLocaleDateString("zh-CN")} 注册</span>
+        {!member.emailVerified && <Badge tone="warning">{t("platformMembers.unverified")}</Badge>}
+        <span className="text-10 text-muted-foreground">{t("platformMembers.registered", { date: new Date(member.createdAt).toLocaleDateString(locale === "en" ? "en-US" : "zh-CN") })}</span>
       </div>
       {member.memberships.length === 0 ? (
         <p className="pl-8 text-10 text-muted-foreground" data-testid={`admin-platform-member-${member.userId}-no-org`}>
-          尚未加入任何正式组织
+          {t("platformMembers.noOrg")}
         </p>
       ) : (
         <ul className="flex flex-col gap-1 pl-8">
@@ -274,8 +255,10 @@ function PlatformAdminBadge({
   viewerIsSuperuser: boolean;
   onAdminChanged: (userId: string, next: boolean) => void;
 }) {
+  const i18n = useI18n();
+  const { t } = i18n;
   const [busy, setBusy] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<Failure | null>(null);
   const testid = `admin-platform-member-${member.userId}-admin`;
 
   const toggle = async () => {
@@ -287,18 +270,18 @@ function PlatformAdminBadge({
         : await grantPlatformAdmin(member.userId);
       onAdminChanged(member.userId, out.platformAdmin);
     } catch (err) {
-      setError(describePlatformAdminChangeFailure(err));
+      setError(failureCause(err));
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <span className="flex items-center gap-1">
+    <span className="flex max-w-full flex-wrap items-center gap-1">
       {member.platformAdmin && (
         <Badge tone="primary" data-testid={`${testid}-badge`}>
           <UserCog aria-hidden className="mr-1 h-3 w-3" />
-          平台管理员
+          {t("platformMembers.admin")}
         </Badge>
       )}
       {viewerIsSuperuser && (
@@ -308,13 +291,16 @@ function PlatformAdminBadge({
           disabled={busy}
           onClick={() => void toggle()}
           data-testid={`${testid}-toggle`}
+          className="h-auto whitespace-normal py-1 text-left"
         >
-          {member.platformAdmin ? "撤销平台管理员" : "设为平台管理员"}
+          {t(member.platformAdmin
+            ? (busy ? "platformMembers.revoking" : "platformMembers.revoke")
+            : (busy ? "platformMembers.granting" : "platformMembers.grant"))}
         </Button>
       )}
       {error && (
         <span role="alert" className="text-10 text-destructive" data-testid={`${testid}-error`}>
-          {error}
+          {failureText(error, "admin", i18n)}
         </span>
       )}
     </span>
@@ -332,8 +318,10 @@ function MembershipRow({
   membership: PlatformMembershipRow;
   onChanged: (userId: string, orgId: string, next: OrgRole, previous: OrgRole) => void;
 }) {
+  const i18n = useI18n();
+  const { t, locale } = i18n;
   const [busy, setBusy] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<Failure | null>(null);
   const testid = `admin-platform-member-${userId}-org-${membership.orgId}`;
 
   const handleSelect = async (id: string) => {
@@ -345,7 +333,7 @@ function MembershipRow({
       const out = await setPlatformMemberOrgRole(userId, membership.orgId, next);
       onChanged(userId, membership.orgId, out.orgRole, out.previousOrgRole);
     } catch (err) {
-      setError(describeRoleChangeFailure(err));
+      setError(failureCause(err));
     } finally {
       setBusy(false);
     }
@@ -353,21 +341,21 @@ function MembershipRow({
 
   return (
     <li className="flex flex-wrap items-center gap-2" data-testid={testid}>
-      <span className="text-12" data-testid={`${testid}-name`}>{membership.orgName}</span>
-      <span className="text-10 text-muted-foreground">{new Date(membership.joinedAt).toLocaleDateString("zh-CN")} 加入</span>
-      <div className="ml-auto w-32">
+      <span className="max-w-full break-words text-12" data-testid={`${testid}-name`}>{membership.orgName}</span>
+      <span className="text-10 text-muted-foreground">{t("platformMembers.joined", { date: new Date(membership.joinedAt).toLocaleDateString(locale === "en" ? "en-US" : "zh-CN") })}</span>
+      <div className="ml-auto w-40 max-w-full">
         <PopoverSelect
           value={membership.orgRole}
-          options={ORG_ROLE_OPTIONS}
+          options={(["consultant", "lead", "compliance", "admin"] as const).map((id) => ({ id, label: t(`role.${id}`) }))}
           onSelect={(id) => void handleSelect(id)}
           disabled={busy}
           testid={`${testid}-role`}
-          ariaLabel={`${membership.orgName} 的组织角色`}
+          ariaLabel={t("platformMembers.roleLabel", { name: membership.orgName })}
         />
       </div>
       {error && (
         <span role="alert" className="basis-full text-10 text-destructive" data-testid={`${testid}-role-error`}>
-          {error}
+          {failureText(error, "role", i18n)}
         </span>
       )}
     </li>

@@ -1,12 +1,11 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
+import { isLocale } from "@/lib/i18n/locale";
 import * as React from "react";
 import Link from "next/link";
-import { billingCredits } from "@repo/contracts";
-import { apiRequest } from "@/lib/api-client";
-import { useOptionalSession } from "@/components/session/session-provider";
 import { BarChart3, BrainCircuit, LogOut, User } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
-import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
+import { Menu, MenuContent, MenuItem, MenuLabel, MenuRadioGroup, MenuRadioItem, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
 import { cn } from "@/lib/utils";
 import { PERSONAL_BILLING_ENTRY } from "@/lib/navigation";
 
@@ -31,25 +30,15 @@ import { PERSONAL_BILLING_ENTRY } from "@/lib/navigation";
 export function PersonalMenu({
   avatarInitial, onLogout,
 }: { avatarInitial: string; onLogout?: () => void }) {
+  const { t, locale, setLocale } = useI18n();
   const [open, setOpen] = React.useState(false);
-  const session = useOptionalSession()?.session;
-  const token = session?.sessionToken ?? null;
-  const [purchase, setPurchase] = React.useState<{ token: string; enabled: boolean } | null>(null);
-  React.useEffect(() => {
-    if (!open || !token) return;
-    const controller = new AbortController(); setPurchase(null);
-    void apiRequest<unknown>(billingCredits.operations.getBillingConfig.path, { sessionToken: token, signal: controller.signal })
-      .then(raw => { const enabled = billingCredits.operations.getBillingConfig.out.parse(raw).enabledProviders.includes("wechat"); if (!controller.signal.aborted) setPurchase({ token, enabled }); })
-      .catch(() => { if (!controller.signal.aborted) setPurchase(null); });
-    return () => controller.abort();
-  }, [open, token]);
   return (
-    <Menu open={open} onOpenChange={next => { setPurchase(null); setOpen(next); }}>
+    <Menu open={open} onOpenChange={setOpen}>
       <MenuTrigger asChild>
         <button
           type="button"
           data-testid="rail-profile-menu"
-          aria-label="个人菜单"
+          aria-label={t("ui.accountMenu")}
           className="mt-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent text-11 font-medium text-accent-foreground transition-all duration-base hover:bg-accent/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span data-testid="rail-avatar" aria-hidden>{avatarInitial}</span>
@@ -59,34 +48,34 @@ export function PersonalMenu({
         side="right"
         align="end"
         sideOffset={8}
-        aria-label="个人菜单"
+        aria-label={t("ui.accountMenu")}
         data-testid="rail-personal-menu"
         className="w-48"
       >
         <MenuItem asChild data-testid="personal-menu-profile-item">
           <Link href="/profile" data-testid="personal-menu-profile" className="gap-2">
             <User aria-hidden className="h-3.5 w-3.5" />
-            个人资料
-          </Link>
+            {t("ui.profile")}</Link>
         </MenuItem>
         <MenuItem asChild data-testid="personal-menu-brain-item">
           <Link href="/brain" data-testid="personal-menu-brain" className="gap-2">
             <BrainCircuit aria-hidden className="h-3.5 w-3.5" />
-            个人 Brain
-          </Link>
+            {t("ui.personalBrain")}</Link>
         </MenuItem>
         <MenuItem asChild data-testid="personal-menu-usage-item">
-          <Link href="/usage" className="gap-2"><BarChart3 aria-hidden className="h-3.5 w-3.5"/>我的 AI 用量</Link>
+          <Link href="/usage" className="gap-2"><BarChart3 aria-hidden className="h-3.5 w-3.5"/>{t("ui.myAiUsage")}</Link>
         </MenuItem>
         <MenuItem asChild data-testid="personal-menu-billing-item">
           <Link href={PERSONAL_BILLING_ENTRY.href} data-testid="personal-menu-billing" className="gap-2">
             <PERSONAL_BILLING_ENTRY.icon aria-hidden className="h-3.5 w-3.5" />
-            {PERSONAL_BILLING_ENTRY.label}
+            {t("ui.creditsAndSubscription")}
           </Link>
         </MenuItem>
-        {open && token && purchase?.token === token && purchase.enabled && <MenuItem asChild data-testid="billing-menu-purchase">
-          <Link href={`${PERSONAL_BILLING_ENTRY.href}?purchase=1`} className="gap-2"><PERSONAL_BILLING_ENTRY.icon aria-hidden className="h-3.5 w-3.5" />购买额度</Link>
-        </MenuItem>}
+        <MenuLabel>{t("common.language")}</MenuLabel>
+        <MenuRadioGroup value={locale} onValueChange={(next) => { if (isLocale(next)) setLocale(next); }}>
+          <MenuRadioItem value="zh-CN" lang="zh-CN">简体中文</MenuRadioItem>
+          <MenuRadioItem value="en" lang="en">English</MenuRadioItem>
+        </MenuRadioGroup>
         <MenuSeparator />
         <MenuItem asChild onSelect={(e) => e.preventDefault()}>
           <ThemeToggle testId="personal-menu-theme" className="rounded-md" />
@@ -100,8 +89,7 @@ export function PersonalMenu({
               className={cn("text-destructive data-[highlighted]:text-destructive")}
             >
               <LogOut aria-hidden className="h-3.5 w-3.5" />
-              退出
-            </MenuItem>
+              {t("account.signOut")}</MenuItem>
           </>
         )}
       </MenuContent>

@@ -1,0 +1,14 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/api
+
+[db-isolation] selection is DB-free (tests/support/db-free-tests.ts); skipping database setup
+ ✓ tests/contract-single-source.test.ts (4 tests) 54918ms
+   ✓ contract as single source, backend side > no backend file redefines a contract type 25096ms
+   ✓ the contract gate reaches the backend at all > V10: lint-contract-source scans apps/api, not just the frontend 29664ms
+ ✓ tests/localization/portable-source-definition.test.ts (6 tests) 10ms
+ ✓ tests/localization/portable-pack-integrity.test.ts (4 tests) 136ms
+
+ Test Files  3 passed (3)
+      Tests  14 passed (14)
+   Start at  10:06:00
+   Duration  57.89s (transform 1.01s, setup 16ms, collect 2.01s, tests 55.06s, environment 0ms, prepare 132ms)

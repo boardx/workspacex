@@ -1,0 +1,11 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/ui/project-list-i18n.test.tsx (4 tests) 450ms
+ ✓ tests/ui/local-first-run-empty-states.test.tsx (3 tests) 135ms
+
+ Test Files  2 passed (2)
+      Tests  7 passed (7)
+   Start at  06:53:16
+   Duration  5.37s (transform 1.13s, setup 282ms, collect 2.37s, tests 585ms, environment 1.26s, prepare 112ms)

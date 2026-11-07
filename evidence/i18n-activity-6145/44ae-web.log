@@ -1,0 +1,12 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/ui/profile-i18n.test.tsx (15 tests) 497ms
+ ✓ tests/ui/profile-mobile-actions.test.tsx (4 tests) 174ms
+ ✓ tests/lib/i18n-resources.test.ts (5 tests) 48ms
+
+ Test Files  3 passed (3)
+      Tests  24 passed (24)
+   Start at  23:46:12
+   Duration  3.98s (transform 434ms, setup 400ms, collect 895ms, tests 719ms, environment 1.44s, prepare 144ms)

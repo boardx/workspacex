@@ -1,0 +1,15 @@
+{
+  "source": "cb933851f59127646052ec0ad67ed099d65152ec",
+  "gate": "api-type",
+  "command": [
+    "pnpm",
+    "--filter",
+    "@repo/api",
+    "typecheck"
+  ],
+  "exit": 0,
+  "seconds": 64.455,
+  "rawPrivate": true,
+  "logSha256": "4a063ac5f56fa0ecec2a3d001d9be0340ab89af460f06e4767193149f294518d",
+  "summary": []
+}

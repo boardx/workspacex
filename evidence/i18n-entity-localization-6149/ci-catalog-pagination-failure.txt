@@ -1,0 +1,723 @@
+Observed head cb5632e52; run41544783307/job125617817122.
+Artifact13189476678: phase-01-fullstack-smoke-evidence-41544783307.
+# Instructions
+
+- Following Playwright test failed.
+- Explain why, be concise, respect Playwright best practices.
+- Provide a snippet of code with the fix, if possible.
+
+# Test info
+
+- Name: entity-localization.spec.ts >> admin authors display copy; members switch language; clearing keeps original execution bytes
+- Location: e2e/entity-localization.spec.ts:20:5
+
+# Error details
+
+```
+Test timeout of 30000ms exceeded.
+```
+
+```
+Error: locator.click: Test timeout of 30000ms exceeded.
+Call log:
+  - waiting for getByTestId('work-catalog-row-S157')
+
+```
+
+# Page snapshot
+
+```yaml
+- generic [active] [ref=f2e1]:
+  - alert [ref=f2e2]
+  - generic [ref=f2e3]:
+    - link "跳到主要内容" [ref=f2e4] [cursor=pointer]:
+      - /url: "#wsx-main-content"
+    - navigation "主导航" [ref=f2e6]:
+      - button "组织菜单，当前：org org-fullstack-k1-1f0f2a66-3b4d67f3bb68" [ref=f2e8] [cursor=pointer]:
+        - generic [ref=f2e9]: o
+      - generic [ref=f2e10]:
+        - generic [ref=f2e11]:
+          - link "首页" [ref=f2e12] [cursor=pointer]:
+            - /url: /home
+          - link "对话" [ref=f2e17] [cursor=pointer]:
+            - /url: /chat
+        - link "项目" [ref=f2e23] [cursor=pointer]:
+          - /url: /projects
+        - generic [ref=f2e27]:
+          - link "研究" [ref=f2e28] [cursor=pointer]:
+            - /url: /research
+          - link "访谈" [ref=f2e33] [cursor=pointer]:
+            - /url: /itv
+        - generic [ref=f2e38]:
+          - link "大脑" [ref=f2e39] [cursor=pointer]:
+            - /url: /brain
+          - link "任务" [ref=f2e51] [cursor=pointer]:
+            - /url: /tasks
+          - link "工作流" [ref=f2e56] [cursor=pointer]:
+            - /url: /workflows
+        - link "组织后台" [ref=f2e63] [cursor=pointer]:
+          - /url: /admin
+      - button "更多" [ref=f2e69] [cursor=pointer]
+      - generic [ref=f2e75]:
+        - generic [ref=f2e76]:
+          - button "任务提醒，9 条未读" [ref=f2e77] [cursor=pointer]:
+            - generic [ref=f2e78]: "9"
+            - generic [ref=f2e83]: 提醒
+          - generic [ref=f2e84]: 9 条未读
+        - button "提交反馈" [ref=f2e85] [cursor=pointer]:
+          - generic [ref=f2e88]: 反馈
+        - button "个人菜单" [ref=f2e89] [cursor=pointer]:
+          - generic [ref=f2e90]: F
+    - generic [ref=f2e91]:
+      - banner [ref=f2e92]:
+        - generic [ref=f2e93]: org org-fullstack-k1-1f0f2a66-3b4d67f3bb68
+        - paragraph [ref=f2e100]: 管理员
+        - paragraph [ref=f2e101]: 不在具体项目里 · 引导师/组长/组员等项目内角色暂不适用
+        - combobox "语言" [ref=f2e103]:
+          - option "简体中文" [selected]
+          - option "English"
+      - generic [ref=f2e104]:
+        - complementary [ref=f2e105]:
+          - separator "调整左栏宽度" [ref=f2e106]
+          - button "收起左栏" [ref=f2e108] [cursor=pointer]: ‹
+          - navigation "平台后台模块" [ref=f2e109]:
+            - generic [ref=f2e110]:
+              - generic [ref=f2e111]: 平台后台
+              - generic [ref=f2e112]: 全平台的 AI 能力、账号与运营管理面
+            - generic [ref=f2e113]:
+              - generic [ref=f2e114]: AI 能力
+              - link "Agent 目录 Agent 目录 共 9 项" [ref=f2e115] [cursor=pointer]:
+                - /url: /platform-admin/agent
+                - generic [ref=f2e119]: Agent 目录
+                - generic "Agent 目录 共 9 项" [ref=f2e120]: "9"
+              - link "Skill 目录 Skill 目录 共 107 项" [ref=f2e121] [cursor=pointer]:
+                - /url: /skill
+                - generic [ref=f2e132]: Skill 目录
+                - generic "Skill 目录 共 107 项" [ref=f2e133]: "107"
+              - link "模型 模型 计数暂不可用" [ref=f2e134] [cursor=pointer]:
+                - /url: /platform-admin/model
+                - generic [ref=f2e138]: 模型
+                - generic "模型 计数暂不可用" [ref=f2e139]: —
+              - link "MCP MCP 计数暂不可用" [ref=f2e140] [cursor=pointer]:
+                - /url: /platform-admin/mcp
+                - generic [ref=f2e143]: MCP
+                - generic "MCP 计数暂不可用" [ref=f2e144]: —
+              - link "画布模板 画布模板 计数暂不可用" [ref=f2e145] [cursor=pointer]:
+                - /url: /canvas/template-admin
+                - generic [ref=f2e150]: 画布模板
+                - generic "画布模板 计数暂不可用" [ref=f2e151]: —
+              - link "项目模板 项目模板 计数暂不可用" [ref=f2e152] [cursor=pointer]:
+                - /url: /tpl/list
+                - generic [ref=f2e157]: 项目模板
+                - generic "项目模板 计数暂不可用" [ref=f2e158]: —
+            - generic [ref=f2e159]:
+              - generic [ref=f2e160]: 运营
+              - link "运营状态 运营状态 计数暂不可用" [ref=f2e161] [cursor=pointer]:
+                - /url: /platform-admin/ops-status
+                - generic [ref=f2e164]: 运营状态
+                - generic "运营状态 计数暂不可用" [ref=f2e165]: —
+              - link "上报设置 上报设置 计数暂不可用" [ref=f2e166] [cursor=pointer]:
+                - /url: /platform-admin/telemetry
+                - generic [ref=f2e170]: 上报设置
+                - generic "上报设置 计数暂不可用" [ref=f2e171]: —
+              - link "反馈草稿 反馈草稿 共 0 项" [ref=f2e172] [cursor=pointer]:
+                - /url: /platform-admin/feedback-drafts
+                - generic [ref=f2e177]: 反馈草稿
+                - generic "反馈草稿 共 0 项" [ref=f2e178]: "0"
+              - link "运营收件箱 运营收件箱 计数暂不可用" [ref=f2e179] [cursor=pointer]:
+                - /url: /platform-admin/inbox
+                - generic [ref=f2e183]: 运营收件箱
+                - generic "运营收件箱 计数暂不可用" [ref=f2e184]: —
+              - link "PM 设计工作台 PM 设计工作台 计数暂不可用" [ref=f2e185] [cursor=pointer]:
+                - /url: /platform-admin/design-workbench
+                - generic [ref=f2e193]: PM 设计工作台
+                - generic "PM 设计工作台 计数暂不可用" [ref=f2e194]: —
+            - generic [ref=f2e195]:
+              - generic [ref=f2e196]: 平台
+              - link "模型能力测试 模型能力测试 计数暂不可用" [ref=f2e197] [cursor=pointer]:
+                - /url: /platform-admin/model-tests
+                - generic [ref=f2e201]: 模型能力测试
+                - generic "模型能力测试 计数暂不可用" [ref=f2e202]: —
+              - link "组织与套餐 组织与套餐 计数暂不可用" [ref=f2e203] [cursor=pointer]:
+                - /url: /platform-admin/organizations
+                - generic [ref=f2e207]: 组织与套餐
+                - generic "组织与套餐 计数暂不可用" [ref=f2e208]: —
+              - link "平台成员 平台成员 计数暂不可用" [ref=f2e209] [cursor=pointer]:
+                - /url: /platform-admin/members
+                - generic [ref=f2e213]: 平台成员
+                - generic "平台成员 计数暂不可用" [ref=f2e214]: —
+        - main [ref=f2e215]:
+          - generic [ref=f2e218]:
+            - complementary [ref=f2e219]:
+              - generic [ref=f2e220]:
+                - generic [ref=f2e221]: 领域
+                - combobox "领域" [ref=f2e222]:
+                  - option "全部领域" [selected]
+                  - option "Customer Success"
+                  - option "Data"
+                  - option "Data & Research"
+                  - option "Engineering"
+                  - option "Executive"
+                  - option "Operations"
+                  - option "Operations & Project"
+                  - option "Operations / Engineering"
+                  - option "Product"
+                  - option "Product & Delivery"
+                  - option "Product & Design"
+                  - option "Product / Design"
+                  - option "Research"
+                  - option "Sales"
+                  - option "Shared"
+              - generic [ref=f2e223]:
+                - generic [ref=f2e224]: 通道
+                - button "候选" [ref=f2e225] [cursor=pointer]
+                - button "已验证" [ref=f2e226] [cursor=pointer]
+              - generic [ref=f2e227]:
+                - checkbox "显示已废弃" [ref=f2e229] [cursor=pointer]
+                - generic [ref=f2e230] [cursor=pointer]: 显示已废弃
+            - generic [ref=f2e232]:
+              - textbox "搜索名称 / stableId / 领域 / 描述" [ref=f2e233]
+              - list [ref=f2e234]:
+                - listitem [ref=f2e235]:
+                  - button "S003 S003 Research 候选 低风险 缺 4 项 G4✓ G5✓" [ref=f2e236] [cursor=pointer]:
+                    - generic [ref=f2e237]: S003
+                    - generic [ref=f2e238]: S003
+                    - generic [ref=f2e239]: Research
+                    - generic [ref=f2e240]: 候选
+                    - generic [ref=f2e241]: 低风险
+                    - generic [ref=f2e242]: 缺 4 项
+                    - generic "G4 通过 · G5 通过" [ref=f2e243]: G4✓ G5✓
+                - listitem [ref=f2e244]:
+                  - button "S005 S005 Sales 候选 低风险 缺 3 项 G4✗ G5✗" [ref=f2e245] [cursor=pointer]:
+                    - generic [ref=f2e246]: S005
+                    - generic [ref=f2e247]: S005
+                    - generic [ref=f2e248]: Sales
+                    - generic [ref=f2e249]: 候选
+                    - generic [ref=f2e250]: 低风险
+                    - generic [ref=f2e251]: 缺 3 项
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e252]: G4✗ G5✗
+                - listitem [ref=f2e253]:
+                  - button "S006 S006 Shared 候选 低风险 可运行 G4✗ G5✗" [ref=f2e254] [cursor=pointer]:
+                    - generic [ref=f2e255]: S006
+                    - generic [ref=f2e256]: S006
+                    - generic [ref=f2e257]: Shared
+                    - generic [ref=f2e258]: 候选
+                    - generic [ref=f2e259]: 低风险
+                    - generic [ref=f2e260]: 可运行
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e261]: G4✗ G5✗
+                - listitem [ref=f2e262]:
+                  - button "S007 S007 Shared 候选 低风险 缺 2 项 G4✗ G5✗" [ref=f2e263] [cursor=pointer]:
+                    - generic [ref=f2e264]: S007
+                    - generic [ref=f2e265]: S007
+                    - generic [ref=f2e266]: Shared
+                    - generic [ref=f2e267]: 候选
+                    - generic [ref=f2e268]: 低风险
+                    - generic [ref=f2e269]: 缺 2 项
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e270]: G4✗ G5✗
+                - listitem [ref=f2e271]:
+                  - button "S008 S008 Shared 候选 低风险 可运行 G4✗ G5✗" [ref=f2e272] [cursor=pointer]:
+                    - generic [ref=f2e273]: S008
+                    - generic [ref=f2e274]: S008
+                    - generic [ref=f2e275]: Shared
+                    - generic [ref=f2e276]: 候选
+                    - generic [ref=f2e277]: 低风险
+                    - generic [ref=f2e278]: 可运行
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e279]: G4✗ G5✗
+                - listitem [ref=f2e280]:
+                  - button "S009 S009 Shared 候选 低风险 缺 1 项 G4✗ G5✗" [ref=f2e281] [cursor=pointer]:
+                    - generic [ref=f2e282]: S009
+                    - generic [ref=f2e283]: S009
+                    - generic [ref=f2e284]: Shared
+                    - generic [ref=f2e285]: 候选
+                    - generic [ref=f2e286]: 低风险
+                    - generic [ref=f2e287]: 缺 1 项
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e288]: G4✗ G5✗
+                - listitem [ref=f2e289]:
+                  - button "S010 S010 Shared 候选 低风险 缺 2 项 G4✗ G5✗" [ref=f2e290] [cursor=pointer]:
+                    - generic [ref=f2e291]: S010
+                    - generic [ref=f2e292]: S010
+                    - generic [ref=f2e293]: Shared
+                    - generic [ref=f2e294]: 候选
+                    - generic [ref=f2e295]: 低风险
+                    - generic [ref=f2e296]: 缺 2 项
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e297]: G4✗ G5✗
+                - listitem [ref=f2e298]:
+                  - button "S011 S011 Operations 候选 低风险 缺 1 项 G4✗ G5✗" [ref=f2e299] [cursor=pointer]:
+                    - generic [ref=f2e300]: S011
+                    - generic [ref=f2e301]: S011
+                    - generic [ref=f2e302]: Operations
+                    - generic [ref=f2e303]: 候选
+                    - generic [ref=f2e304]: 低风险
+                    - generic [ref=f2e305]: 缺 1 项
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e306]: G4✗ G5✗
+                - listitem [ref=f2e307]:
+                  - button "S012 S012 Shared 候选 低风险 缺 2 项 G4✗ G5✗" [ref=f2e308] [cursor=pointer]:
+                    - generic [ref=f2e309]: S012
+                    - generic [ref=f2e310]: S012
+                    - generic [ref=f2e311]: Shared
+                    - generic [ref=f2e312]: 候选
+                    - generic [ref=f2e313]: 低风险
+                    - generic [ref=f2e314]: 缺 2 项
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e315]: G4✗ G5✗
+                - listitem [ref=f2e316]:
+                  - button "S013 S013 Shared 候选 低风险 可运行 G4✗ G5✗" [ref=f2e317] [cursor=pointer]:
+                    - generic [ref=f2e318]: S013
+                    - generic [ref=f2e319]: S013
+                    - generic [ref=f2e320]: Shared
+                    - generic [ref=f2e321]: 候选
+                    - generic [ref=f2e322]: 低风险
+                    - generic [ref=f2e323]: 可运行
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e324]: G4✗ G5✗
+                - listitem [ref=f2e325]:
+                  - button "S015 S015 Shared 候选 低风险 缺 1 项 G4✗ G5✗" [ref=f2e326] [cursor=pointer]:
+                    - generic [ref=f2e327]: S015
+                    - generic [ref=f2e328]: S015
+                    - generic [ref=f2e329]: Shared
+                    - generic [ref=f2e330]: 候选
+                    - generic [ref=f2e331]: 低风险
+                    - generic [ref=f2e332]: 缺 1 项
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e333]: G4✗ G5✗
+                - listitem [ref=f2e334]:
+                  - button "S016 S016 Shared 候选 低风险 缺 3 项 G4✗ G5✗" [ref=f2e335] [cursor=pointer]:
+                    - generic [ref=f2e336]: S016
+                    - generic [ref=f2e337]: S016
+                    - generic [ref=f2e338]: Shared
+                    - generic [ref=f2e339]: 候选
+                    - generic [ref=f2e340]: 低风险
+                    - generic [ref=f2e341]: 缺 3 项
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e342]: G4✗ G5✗
+                - listitem [ref=f2e343]:
+                  - button "S017 S017 Shared 候选 低风险 可运行 G4✗ G5✗" [ref=f2e344] [cursor=pointer]:
+                    - generic [ref=f2e345]: S017
+                    - generic [ref=f2e346]: S017
+                    - generic [ref=f2e347]: Shared
+                    - generic [ref=f2e348]: 候选
+                    - generic [ref=f2e349]: 低风险
+                    - generic [ref=f2e350]: 可运行
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e351]: G4✗ G5✗
+                - listitem [ref=f2e352]:
+                  - button "S018 S018 Operations 候选 低风险 缺 1 项 G4✗ G5✗" [ref=f2e353] [cursor=pointer]:
+                    - generic [ref=f2e354]: S018
+                    - generic [ref=f2e355]: S018
+                    - generic [ref=f2e356]: Operations
+                    - generic [ref=f2e357]: 候选
+                    - generic [ref=f2e358]: 低风险
+                    - generic [ref=f2e359]: 缺 1 项
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e360]: G4✗ G5✗
+                - listitem [ref=f2e361]:
+                  - button "S020 S020 Research 候选 低风险 缺 1 项 G4✗ G5✗" [ref=f2e362] [cursor=pointer]:
+                    - generic [ref=f2e363]: S020
+                    - generic [ref=f2e364]: S020
+                    - generic [ref=f2e365]: Research
+                    - generic [ref=f2e366]: 候选
+                    - generic [ref=f2e367]: 低风险
+                    - generic [ref=f2e368]: 缺 1 项
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e369]: G4✗ G5✗
+                - listitem [ref=f2e370]:
+                  - button "S021 S021 Sales 候选 低风险 缺 4 项 G4✗ G5✗" [ref=f2e371] [cursor=pointer]:
+                    - generic [ref=f2e372]: S021
+                    - generic [ref=f2e373]: S021
+                    - generic [ref=f2e374]: Sales
+                    - generic [ref=f2e375]: 候选
+                    - generic [ref=f2e376]: 低风险
+                    - generic [ref=f2e377]: 缺 4 项
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e378]: G4✗ G5✗
+                - listitem [ref=f2e379]:
+                  - button "S022 S022 Sales 候选 低风险 可运行 G4✗ G5✗" [ref=f2e380] [cursor=pointer]:
+                    - generic [ref=f2e381]: S022
+                    - generic [ref=f2e382]: S022
+                    - generic [ref=f2e383]: Sales
+                    - generic [ref=f2e384]: 候选
+                    - generic [ref=f2e385]: 低风险
+                    - generic [ref=f2e386]: 可运行
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e387]: G4✗ G5✗
+                - listitem [ref=f2e388]:
+                  - button "S023 S023 Sales 候选 低风险 可运行 G4✗ G5✗" [ref=f2e389] [cursor=pointer]:
+                    - generic [ref=f2e390]: S023
+                    - generic [ref=f2e391]: S023
+                    - generic [ref=f2e392]: Sales
+                    - generic [ref=f2e393]: 候选
+                    - generic [ref=f2e394]: 低风险
+                    - generic [ref=f2e395]: 可运行
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e396]: G4✗ G5✗
+                - listitem [ref=f2e397]:
+                  - button "S024 S024 Sales 候选 低风险 缺 5 项 G4✗ G5✗" [ref=f2e398] [cursor=pointer]:
+                    - generic [ref=f2e399]: S024
+                    - generic [ref=f2e400]: S024
+                    - generic [ref=f2e401]: Sales
+                    - generic [ref=f2e402]: 候选
+                    - generic [ref=f2e403]: 低风险
+                    - generic [ref=f2e404]: 缺 5 项
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e405]: G4✗ G5✗
+                - listitem [ref=f2e406]:
+                  - button "S025 S025 Sales 候选 低风险 可运行 G4✗ G5✗" [ref=f2e407] [cursor=pointer]:
+                    - generic [ref=f2e408]: S025
+                    - generic [ref=f2e409]: S025
+                    - generic [ref=f2e410]: Sales
+                    - generic [ref=f2e411]: 候选
+                    - generic [ref=f2e412]: 低风险
+                    - generic [ref=f2e413]: 可运行
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e414]: G4✗ G5✗
+                - listitem [ref=f2e415]:
+                  - button "S026 S026 Sales 候选 中风险 可运行 G4✗ G5✗" [ref=f2e416] [cursor=pointer]:
+                    - generic [ref=f2e417]: S026
+                    - generic [ref=f2e418]: S026
+                    - generic [ref=f2e419]: Sales
+                    - generic [ref=f2e420]: 候选
+                    - generic [ref=f2e421]: 中风险
+                    - generic [ref=f2e422]: 可运行
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e423]: G4✗ G5✗
+                - listitem [ref=f2e424]:
+                  - button "S028 S028 Sales 候选 低风险 缺 1 项 G4✗ G5✗" [ref=f2e425] [cursor=pointer]:
+                    - generic [ref=f2e426]: S028
+                    - generic [ref=f2e427]: S028
+                    - generic [ref=f2e428]: Sales
+                    - generic [ref=f2e429]: 候选
+                    - generic [ref=f2e430]: 低风险
+                    - generic [ref=f2e431]: 缺 1 项
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e432]: G4✗ G5✗
+                - listitem [ref=f2e433]:
+                  - button "S029 S029 Sales 候选 高风险 缺 1 项 G4✗ G5✗" [ref=f2e434] [cursor=pointer]:
+                    - generic [ref=f2e435]: S029
+                    - generic [ref=f2e436]: S029
+                    - generic [ref=f2e437]: Sales
+                    - generic [ref=f2e438]: 候选
+                    - generic [ref=f2e439]: 高风险
+                    - generic [ref=f2e440]: 缺 1 项
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e441]: G4✗ G5✗
+                - listitem [ref=f2e442]:
+                  - button "S030 S030 Sales 候选 低风险 可运行 G4✗ G5✗" [ref=f2e443] [cursor=pointer]:
+                    - generic [ref=f2e444]: S030
+                    - generic [ref=f2e445]: S030
+                    - generic [ref=f2e446]: Sales
+                    - generic [ref=f2e447]: 候选
+                    - generic [ref=f2e448]: 低风险
+                    - generic [ref=f2e449]: 可运行
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e450]: G4✗ G5✗
+                - listitem [ref=f2e451]:
+                  - button "S031 S031 Sales 候选 低风险 可运行 G4✗ G5✗" [ref=f2e452] [cursor=pointer]:
+                    - generic [ref=f2e453]: S031
+                    - generic [ref=f2e454]: S031
+                    - generic [ref=f2e455]: Sales
+                    - generic [ref=f2e456]: 候选
+                    - generic [ref=f2e457]: 低风险
+                    - generic [ref=f2e458]: 可运行
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e459]: G4✗ G5✗
+                - listitem [ref=f2e460]:
+                  - button "S032 S032 Sales 候选 低风险 可运行 G4✗ G5✗" [ref=f2e461] [cursor=pointer]:
+                    - generic [ref=f2e462]: S032
+                    - generic [ref=f2e463]: S032
+                    - generic [ref=f2e464]: Sales
+                    - generic [ref=f2e465]: 候选
+                    - generic [ref=f2e466]: 低风险
+                    - generic [ref=f2e467]: 可运行
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e468]: G4✗ G5✗
+                - listitem [ref=f2e469]:
+                  - button "S033 S033 Sales 候选 低风险 缺 1 项 G4✗ G5✗" [ref=f2e470] [cursor=pointer]:
+                    - generic [ref=f2e471]: S033
+                    - generic [ref=f2e472]: S033
+                    - generic [ref=f2e473]: Sales
+                    - generic [ref=f2e474]: 候选
+                    - generic [ref=f2e475]: 低风险
+                    - generic [ref=f2e476]: 缺 1 项
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e477]: G4✗ G5✗
+                - listitem [ref=f2e478]:
+                  - button "S034 S034 Sales 候选 低风险 可运行 G4✗ G5✗" [ref=f2e479] [cursor=pointer]:
+                    - generic [ref=f2e480]: S034
+                    - generic [ref=f2e481]: S034
+                    - generic [ref=f2e482]: Sales
+                    - generic [ref=f2e483]: 候选
+                    - generic [ref=f2e484]: 低风险
+                    - generic [ref=f2e485]: 可运行
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e486]: G4✗ G5✗
+                - listitem [ref=f2e487]:
+                  - button "S035 S035 Sales 候选 低风险 缺 1 项 G4✗ G5✗" [ref=f2e488] [cursor=pointer]:
+                    - generic [ref=f2e489]: S035
+                    - generic [ref=f2e490]: S035
+                    - generic [ref=f2e491]: Sales
+                    - generic [ref=f2e492]: 候选
+                    - generic [ref=f2e493]: 低风险
+                    - generic [ref=f2e494]: 缺 1 项
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e495]: G4✗ G5✗
+                - listitem [ref=f2e496]:
+                  - button "S036 S036 Sales 候选 低风险 缺 1 项 G4✗ G5✗" [ref=f2e497] [cursor=pointer]:
+                    - generic [ref=f2e498]: S036
+                    - generic [ref=f2e499]: S036
+                    - generic [ref=f2e500]: Sales
+                    - generic [ref=f2e501]: 候选
+                    - generic [ref=f2e502]: 低风险
+                    - generic [ref=f2e503]: 缺 1 项
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e504]: G4✗ G5✗
+                - listitem [ref=f2e505]:
+                  - button "S061 S061 Product & Design 候选 低风险 缺 2 项 G4✗ G5✗" [ref=f2e506] [cursor=pointer]:
+                    - generic [ref=f2e507]: S061
+                    - generic [ref=f2e508]: S061
+                    - generic [ref=f2e509]: Product & Design
+                    - generic [ref=f2e510]: 候选
+                    - generic [ref=f2e511]: 低风险
+                    - generic [ref=f2e512]: 缺 2 项
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e513]: G4✗ G5✗
+                - listitem [ref=f2e514]:
+                  - button "S062 S062 Product 候选 低风险 可运行 G4✗ G5✗" [ref=f2e515] [cursor=pointer]:
+                    - generic [ref=f2e516]: S062
+                    - generic [ref=f2e517]: S062
+                    - generic [ref=f2e518]: Product
+                    - generic [ref=f2e519]: 候选
+                    - generic [ref=f2e520]: 低风险
+                    - generic [ref=f2e521]: 可运行
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e522]: G4✗ G5✗
+                - listitem [ref=f2e523]:
+                  - button "S063 S063 Research 候选 低风险 缺 2 项 G4✗ G5✗" [ref=f2e524] [cursor=pointer]:
+                    - generic [ref=f2e525]: S063
+                    - generic [ref=f2e526]: S063
+                    - generic [ref=f2e527]: Research
+                    - generic [ref=f2e528]: 候选
+                    - generic [ref=f2e529]: 低风险
+                    - generic [ref=f2e530]: 缺 2 项
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e531]: G4✗ G5✗
+                - listitem [ref=f2e532]:
+                  - button "S064 S064 Product & Design 候选 低风险 可运行 G4✗ G5✗" [ref=f2e533] [cursor=pointer]:
+                    - generic [ref=f2e534]: S064
+                    - generic [ref=f2e535]: S064
+                    - generic [ref=f2e536]: Product & Design
+                    - generic [ref=f2e537]: 候选
+                    - generic [ref=f2e538]: 低风险
+                    - generic [ref=f2e539]: 可运行
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e540]: G4✗ G5✗
+                - listitem [ref=f2e541]:
+                  - button "S065 S065 Product & Design 候选 低风险 可运行 G4✗ G5✗" [ref=f2e542] [cursor=pointer]:
+                    - generic [ref=f2e543]: S065
+                    - generic [ref=f2e544]: S065
+                    - generic [ref=f2e545]: Product & Design
+                    - generic [ref=f2e546]: 候选
+                    - generic [ref=f2e547]: 低风险
+                    - generic [ref=f2e548]: 可运行
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e549]: G4✗ G5✗
+                - listitem [ref=f2e550]:
+                  - button "S066 S066 Product & Design 候选 低风险 可运行 G4✗ G5✗" [ref=f2e551] [cursor=pointer]:
+                    - generic [ref=f2e552]: S066
+                    - generic [ref=f2e553]: S066
+                    - generic [ref=f2e554]: Product & Design
+                    - generic [ref=f2e555]: 候选
+                    - generic [ref=f2e556]: 低风险
+                    - generic [ref=f2e557]: 可运行
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e558]: G4✗ G5✗
+                - listitem [ref=f2e559]:
+                  - button "S067 S067 Product & Design 候选 低风险 缺 1 项 G4✗ G5✗" [ref=f2e560] [cursor=pointer]:
+                    - generic [ref=f2e561]: S067
+                    - generic [ref=f2e562]: S067
+                    - generic [ref=f2e563]: Product & Design
+                    - generic [ref=f2e564]: 候选
+                    - generic [ref=f2e565]: 低风险
+                    - generic [ref=f2e566]: 缺 1 项
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e567]: G4✗ G5✗
+                - listitem [ref=f2e568]:
+                  - button "S068 S068 Product 候选 低风险 可运行 G4✗ G5✗" [ref=f2e569] [cursor=pointer]:
+                    - generic [ref=f2e570]: S068
+                    - generic [ref=f2e571]: S068
+                    - generic [ref=f2e572]: Product
+                    - generic [ref=f2e573]: 候选
+                    - generic [ref=f2e574]: 低风险
+                    - generic [ref=f2e575]: 可运行
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e576]: G4✗ G5✗
+                - listitem [ref=f2e577]:
+                  - button "S069 S069 Product 候选 低风险 可运行 G4✗ G5✗" [ref=f2e578] [cursor=pointer]:
+                    - generic [ref=f2e579]: S069
+                    - generic [ref=f2e580]: S069
+                    - generic [ref=f2e581]: Product
+                    - generic [ref=f2e582]: 候选
+                    - generic [ref=f2e583]: 低风险
+                    - generic [ref=f2e584]: 可运行
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e585]: G4✗ G5✗
+                - listitem [ref=f2e586]:
+                  - button "S070 S070 Product & Delivery 候选 低风险 可运行 G4✗ G5✗" [ref=f2e587] [cursor=pointer]:
+                    - generic [ref=f2e588]: S070
+                    - generic [ref=f2e589]: S070
+                    - generic [ref=f2e590]: Product & Delivery
+                    - generic [ref=f2e591]: 候选
+                    - generic [ref=f2e592]: 低风险
+                    - generic [ref=f2e593]: 可运行
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e594]: G4✗ G5✗
+                - listitem [ref=f2e595]:
+                  - button "S071 S071 Product 候选 低风险 可运行 G4✗ G5✗" [ref=f2e596] [cursor=pointer]:
+                    - generic [ref=f2e597]: S071
+                    - generic [ref=f2e598]: S071
+                    - generic [ref=f2e599]: Product
+                    - generic [ref=f2e600]: 候选
+                    - generic [ref=f2e601]: 低风险
+                    - generic [ref=f2e602]: 可运行
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e603]: G4✗ G5✗
+                - listitem [ref=f2e604]:
+                  - button "S072 S072 Product & Design 候选 低风险 缺 1 项 G4✗ G5✗" [ref=f2e605] [cursor=pointer]:
+                    - generic [ref=f2e606]: S072
+                    - generic [ref=f2e607]: S072
+                    - generic [ref=f2e608]: Product & Design
+                    - generic [ref=f2e609]: 候选
+                    - generic [ref=f2e610]: 低风险
+                    - generic [ref=f2e611]: 缺 1 项
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e612]: G4✗ G5✗
+                - listitem [ref=f2e613]:
+                  - button "S073 S073 Product 候选 低风险 可运行 G4✗ G5✗" [ref=f2e614] [cursor=pointer]:
+                    - generic [ref=f2e615]: S073
+                    - generic [ref=f2e616]: S073
+                    - generic [ref=f2e617]: Product
+                    - generic [ref=f2e618]: 候选
+                    - generic [ref=f2e619]: 低风险
+                    - generic [ref=f2e620]: 可运行
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e621]: G4✗ G5✗
+                - listitem [ref=f2e622]:
+                  - button "S074 S074 Product 候选 低风险 缺 2 项 G4✗ G5✗" [ref=f2e623] [cursor=pointer]:
+                    - generic [ref=f2e624]: S074
+                    - generic [ref=f2e625]: S074
+                    - generic [ref=f2e626]: Product
+                    - generic [ref=f2e627]: 候选
+                    - generic [ref=f2e628]: 低风险
+                    - generic [ref=f2e629]: 缺 2 项
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e630]: G4✗ G5✗
+                - listitem [ref=f2e631]:
+                  - button "S075 S075 Product & Design 候选 低风险 可运行 G4✗ G5✗" [ref=f2e632] [cursor=pointer]:
+                    - generic [ref=f2e633]: S075
+                    - generic [ref=f2e634]: S075
+                    - generic [ref=f2e635]: Product & Design
+                    - generic [ref=f2e636]: 候选
+                    - generic [ref=f2e637]: 低风险
+                    - generic [ref=f2e638]: 可运行
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e639]: G4✗ G5✗
+                - listitem [ref=f2e640]:
+                  - button "S076 S076 Product / Design 候选 低风险 缺 2 项 G4✗ G5✗" [ref=f2e641] [cursor=pointer]:
+                    - generic [ref=f2e642]: S076
+                    - generic [ref=f2e643]: S076
+                    - generic [ref=f2e644]: Product / Design
+                    - generic [ref=f2e645]: 候选
+                    - generic [ref=f2e646]: 低风险
+                    - generic [ref=f2e647]: 缺 2 项
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e648]: G4✗ G5✗
+                - listitem [ref=f2e649]:
+                  - button "S141 S141 Operations 候选 低风险 可运行 G4✗ G5✗" [ref=f2e650] [cursor=pointer]:
+                    - generic [ref=f2e651]: S141
+                    - generic [ref=f2e652]: S141
+                    - generic [ref=f2e653]: Operations
+                    - generic [ref=f2e654]: 候选
+                    - generic [ref=f2e655]: 低风险
+                    - generic [ref=f2e656]: 可运行
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e657]: G4✗ G5✗
+                - listitem [ref=f2e658]:
+                  - button "S142 S142 Operations & Project 候选 低风险 缺 1 项 G4✗ G5✗" [ref=f2e659] [cursor=pointer]:
+                    - generic [ref=f2e660]: S142
+                    - generic [ref=f2e661]: S142
+                    - generic [ref=f2e662]: Operations & Project
+                    - generic [ref=f2e663]: 候选
+                    - generic [ref=f2e664]: 低风险
+                    - generic [ref=f2e665]: 缺 1 项
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e666]: G4✗ G5✗
+                - listitem [ref=f2e667]:
+                  - button "S143 S143 Operations 候选 低风险 缺 1 项 G4✗ G5✗" [ref=f2e668] [cursor=pointer]:
+                    - generic [ref=f2e669]: S143
+                    - generic [ref=f2e670]: S143
+                    - generic [ref=f2e671]: Operations
+                    - generic [ref=f2e672]: 候选
+                    - generic [ref=f2e673]: 低风险
+                    - generic [ref=f2e674]: 缺 1 项
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e675]: G4✗ G5✗
+                - listitem [ref=f2e676]:
+                  - button "S144 S144 Operations 候选 中风险 缺 1 项 G4✗ G5✗" [ref=f2e677] [cursor=pointer]:
+                    - generic [ref=f2e678]: S144
+                    - generic [ref=f2e679]: S144
+                    - generic [ref=f2e680]: Operations
+                    - generic [ref=f2e681]: 候选
+                    - generic [ref=f2e682]: 中风险
+                    - generic [ref=f2e683]: 缺 1 项
+                    - generic "G4 未通过 · G5 未通过" [ref=f2e684]: G4✗ G5✗
+              - button "加载更多" [ref=f2e686] [cursor=pointer]
+```
+
+# Test source
+
+```ts
+  1  | import { randomUUID } from "node:crypto";
+  2  | import { expect, test, type Page } from "@playwright/test";
+  3  | import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
+  4  | import { EntityLocalizationAdminView } from "@repo/contracts/entity-localization";
+  5  | import { SkillFileSnapshot, operations as fileOperations } from "@repo/contracts/skill-file-edit";
+  6  | 
+  7  | async function login(page: Page, admin: boolean) {
+  8  |   await page.goto("/login");
+  9  |   await page.getByTestId("login-email").fill(admin ? FULLSTACK_E2E.adminEmail : FULLSTACK_E2E.memberEmail);
+  10 |   await page.getByTestId("login-password").fill(admin ? FULLSTACK_E2E.adminPassword : FULLSTACK_E2E.memberPassword);
+  11 |   await page.getByTestId("login-submit").click();
+  12 |   await expect(page).toHaveURL(/\/home$/);
+  13 | }
+  14 | async function authorization(page: Page) {
+  15 |   const token = await page.evaluate(() => localStorage.getItem("wsx.sessionToken"));
+  16 |   expect(token).toBeTruthy();
+  17 |   return { Authorization: `Bearer ${token}` };
+  18 | }
+  19 | 
+  20 | test("admin authors display copy; members switch language; clearing keeps original execution bytes", async ({ page, browser }, testInfo) => {
+  21 |   await login(page, true);
+  22 |   const headers = await authorization(page);
+  23 |   const imported = await page.request.post("/__fullstack_api/admin/skills/starter-pack-imports", {
+  24 |     headers, data: { packId: "work-research", packVersion: "1.0.1", idempotencyKey: randomUUID() },
+  25 |   });
+  26 |   expect(imported.status()).toBe(201);
+  27 |   const { skillIds, versionIds } = await imported.json() as { skillIds: string[]; versionIds: string[] };
+  28 |   const skillId = skillIds[0]!;
+  29 |   const versionId = versionIds[0]!;
+  30 |   const snapshotPath = `/__fullstack_api${fileOperations.getSkillFileSnapshot.path.replace(":skillId", encodeURIComponent(skillId))}?versionId=${encodeURIComponent(versionId)}`;
+  31 |   const beforeResponse = await page.request.get(snapshotPath, { headers });
+  32 |   expect(beforeResponse.status()).toBe(200);
+  33 |   const before = SkillFileSnapshot.parse(await beforeResponse.json());
+  34 |   const adminPath = `/__fullstack_api/admin/skills/${encodeURIComponent(skillId)}/localizations/en`;
+  35 |   const originalResponse = await page.request.get(adminPath, { headers });
+  36 |   expect(originalResponse.status()).toBe(200);
+  37 |   const original = EntityLocalizationAdminView.parse(await originalResponse.json());
+  38 | 
+  39 |   await page.goto("/skill?screen=work-catalog");
+  40 |   const row = page.getByTestId("work-catalog-row-S157");
+> 41 |   await row.click();
+     |             ^ Error: locator.click: Test timeout of 30000ms exceeded.
+  42 |   await page.getByTestId("entity-localization-toggle").click();
+  43 |   const editor = page.getByTestId("entity-localization-editor");
+  44 |   await expect(editor).toBeVisible();
+  45 |   await editor.getByRole("button", { name: "译文语言", exact: true }).click();
+  46 |   await page.getByRole("menuitemradio", { name: "英语", exact: true }).click();
+  47 |   await page.getByTestId("entity-localization-name").fill("Exploration translation acceptance");
+  48 |   await page.getByTestId("entity-localization-summary").fill("Translated display summary only");
+  49 |   await editor.getByRole("button", { name: "保存译文", exact: true }).click();
+  50 |   await expect(editor.getByRole("status")).toHaveText("译文已保存");
+  51 |   await page.getByTestId("language-switcher").selectOption("en");
+  52 |   await expect(row).toContainText("Exploration translation acceptance");
+  53 |   await expect(page.getByTestId("work-skill-detail")).toContainText("Translated display summary only");
+  54 |   await page.screenshot({ path: testInfo.outputPath("admin-translation.png"), fullPage: true });
+  55 | 
+  56 |   const memberContext = await browser.newContext({ baseURL: testInfo.project.use.baseURL });
+  57 |   try {
+  58 |     const member = await memberContext.newPage();
+  59 |     await login(member, false);
+  60 |     const memberHeaders = await authorization(member);
+  61 |     expect((await member.request.get(adminPath, { headers: memberHeaders })).status()).toBe(403);
+  62 |     await member.goto("/skill?screen=work-catalog");
+  63 |     await member.getByTestId("language-switcher").selectOption("en");
+  64 |     await member.getByTestId("work-catalog-search").fill("Exploration translation acceptance");
+  65 |     const memberRow = member.getByTestId("work-catalog-row-S157");
+  66 |     await expect(memberRow).toHaveCount(1);
+  67 |     await expect(memberRow).toContainText("Exploration translation acceptance");
+  68 |     await memberRow.click();
+  69 |     await expect(member.getByTestId("entity-localization-toggle")).toHaveCount(0);
+  70 |     await member.screenshot({ path: testInfo.outputPath("member-translation.png"), fullPage: true });
+  71 |     await member.getByTestId("work-catalog-search").fill("");
+  72 |     await member.getByTestId("language-switcher").selectOption("zh-CN");
+  73 |     await expect(member.getByTestId("work-catalog-row-S157")).toContainText(original.source.fields.name!);
+  74 |   } finally { await memberContext.close(); }
+  75 | 
+  76 |   await editor.getByRole("button", { name: "Remove translation", exact: true }).click();
+  77 |   await expect(editor.getByRole("status")).toHaveText("Translation removed. The original is shown.");
+  78 |   await expect(page.getByTestId("work-catalog-row-S157")).toContainText(original.source.fields.name!);
+  79 |   const afterResponse = await page.request.get(snapshotPath, { headers });
+  80 |   expect(afterResponse.status()).toBe(200);
+  81 |   expect(SkillFileSnapshot.parse(await afterResponse.json())).toEqual(before);
+  82 |   const afterSource = EntityLocalizationAdminView.parse(await (await page.request.get(adminPath, { headers })).json());
+  83 |   expect(afterSource.source).toEqual(original.source);
+  84 | });
+  85 | 
+```

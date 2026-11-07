@@ -1,0 +1,37 @@
+ FAIL  tests/ui/org-home-config-i18n.test.tsx > switches all tabs without replacing authored inputs, selected tab or config read
+TestingLibraryElementError: Unable to find an accessible element with the role "heading" and name "Home configuration"
+ FAIL  tests/ui/org-home-config-i18n.test.tsx > saves original fields and stable settings once and retranslates saved feedback
+Error: expect(element).toHaveTextContent()
+ FAIL  tests/ui/org-home-config-i18n.test.tsx > keeps the submitted validation failures translatable without saving or reloading
+TestingLibraryElementError: Unable to find an element with the text: Title is required. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+ FAIL  tests/ui/org-home-config-i18n.test.tsx > retranslates retained service failure using the existing canonical error helper
+Error: expect(element).toHaveTextContent()
+ FAIL  tests/ui/org-home-config-i18n.test.tsx > keeps the ordinary-member denial without reading administrator configuration
+Error: expect(element).toHaveTextContent()
+ FAIL  tests/ui/org-home-config-i18n.test.tsx > localizes presets and color validation without changing selected preset or raw color
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Ocean"
+ FAIL  tests/ui/org-home-config-i18n.test.tsx > retains an in-flight banner upload and original File across locale changes
+Error: expect(element).toHaveTextContent()
+ FAIL  tests/ui/org-home-config-i18n.test.tsx > retranslates a server banner rejection without resubmitting the file
+Error: expect(element).toHaveTextContent()
+ FAIL  tests/ui/org-home-config-i18n.test.tsx > localizes theme controls while preserving raw color values
+TestingLibraryElementError: Unable to find a label with the text of: Primary color value
+ FAIL  tests/ui/org-home-config-i18n.test.tsx > keeps pending logo upload and retranslates its immediate-update success notice
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Processing…"
+ FAIL  tests/ui/org-home-config-i18n.test.tsx > preserves picker selection, raw agent snapshots and notes without refetching
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Add agent"
+ FAIL  tests/ui/org-home-config-i18n.test.tsx > retains a pending skill catalog and localizes empty state without refetch
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Add skill"
+ FAIL  tests/ui/org-home-config-i18n.test.tsx > keeps the real preview inert and authored draft visible across locale changes
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Back to editing"
+ FAIL  tests/ui/org-home-config-i18n.test.tsx > keeps pure validator guards/default copy while offering localized violations
+AssertionError: expected { title: '标题不能为空', …(1) } to match object { title: 'Title is required', …(1) }
+ FAIL  tests/ui/org-home-config-i18n.test.tsx > retranslates a logo upload rejection while keeping its original authorized call
+TestingLibraryElementError: Unable to find an element with the text: Only PNG, JPEG, and WebP images are supported.. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+ FAIL  tests/ui/org-home-config-i18n.test.tsx > localizes catalog failures without reopening or refetching the picker
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Add skill"
+ FAIL  tests/ui/org-home-config-i18n.test.tsx > retains original skill identifiers, snapshots and notes after switching locale
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Add skill"
+ Test Files  1 failed (1)
+      Tests  17 failed (17)
+   Duration  7.79s (transform 1.09s, setup 176ms, collect 1.73s, tests 4.84s, environment 842ms, prepare 51ms)

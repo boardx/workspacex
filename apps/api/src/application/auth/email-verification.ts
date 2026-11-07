@@ -1,3 +1,4 @@
+import { authenticateCredentials, type LoginDeps, type LoginInput } from "./login";
 import { EMAIL_VERIFICATION_TTL_MS } from "../../domain/auth/email-verification";
 import { normalizeEmail } from "../../domain/auth/registration";
 import type {
@@ -22,6 +23,8 @@ export async function confirmEmailVerification(input: {
 export async function resendEmailVerification(input: {
   email: string;
   pendingIdentityProof: string | null;
+  /** Set only after server-side password verification. Never accepted from HTTP. */
+  authenticatedUserId?: string;
   now: Date;
   repo: EmailVerificationRepository;
   tokens: EmailVerificationTokenCodec;
@@ -30,6 +33,7 @@ export async function resendEmailVerification(input: {
   const raw = input.tokens.tokenForChallenge(challengeId);
   const issued = await input.repo.requestResend({
     email: normalizeEmail(input.email),
+    authenticatedUserId: input.authenticatedUserId,
     proofChallengeId: input.pendingIdentityProof
       ? input.tokens.challengeIdFromPendingProof(input.pendingIdentityProof)
       : null,
@@ -77,4 +81,19 @@ export async function deliverOneVerificationMail(input: {
     });
     return retryable ? "retryable" : "failed";
   }
+}
+
+export async function resendVerificationWithPassword(
+  deps: Pick<LoginDeps, "credentials" | "hasher" | "attempts" | "clock"> & {
+    repo: EmailVerificationRepository; tokens: EmailVerificationTokenCodec;
+  },
+  input: LoginInput,
+) {
+  const credential = await authenticateCredentials(deps, input);
+  // An already verified account has no verification mail to resend.
+  if (credential.emailVerifiedAt !== null) return { verificationDelivery: "queued" as const };
+  return resendEmailVerification({
+    email: credential.email, authenticatedUserId: credential.userId,
+    pendingIdentityProof: null, now: deps.clock.now(), repo: deps.repo, tokens: deps.tokens,
+  });
 }

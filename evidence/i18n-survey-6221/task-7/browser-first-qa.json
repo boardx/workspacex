@@ -1,0 +1,132 @@
+{
+  "source": "9a419be34b0a74907d264a04bba0b09eb313b3a9",
+  "viewedAt": "2026-11-04T14:13:48.309564+00:00",
+  "actualImages": 10,
+  "individuallyViewed": 10,
+  "images": [
+    {
+      "name": "question-library-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "da31e03397ba416a67058708dc5f4f89e316c50e7017980ba9fe196a0c5b42e7",
+      "viewedIndividually": true,
+      "layoutMaterialClipping": false,
+      "findings": [
+        "English count grammar: 1 report chapters"
+      ],
+      "verdict": "WITH_COPY_FINDINGS",
+      "publishedImage": false
+    },
+    {
+      "name": "question-library-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "b622ccfa38077d3fe1fac7f5e93efa0061946262358c4bd616c4d8f4baae7e83",
+      "viewedIndividually": true,
+      "layoutMaterialClipping": false,
+      "findings": [
+        "English count grammar: 1 report chapters"
+      ],
+      "verdict": "WITH_COPY_FINDINGS",
+      "publishedImage": false
+    },
+    {
+      "name": "designer-raw-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "64bfd024c53cb65f2388bd188b243ac3f9e76ce093767e828e36ec51ad137a1a",
+      "viewedIndividually": true,
+      "layoutMaterialClipping": false,
+      "findings": [
+        "English count grammar: 1 design issues found"
+      ],
+      "verdict": "WITH_COPY_FINDINGS",
+      "publishedImage": false
+    },
+    {
+      "name": "designer-raw-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "e4165772b94cc3b45b93b7a070b311f5318b7b901010fbc6a261ad880423d4fe",
+      "viewedIndividually": true,
+      "layoutMaterialClipping": false,
+      "findings": [
+        "English count grammar: 1 design issues found"
+      ],
+      "verdict": "WITH_COPY_FINDINGS",
+      "publishedImage": false
+    },
+    {
+      "name": "report-file-binding-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "9c5c9973eab21cca622e85195110bee88afdd9da6830817549eff09fb1404eee",
+      "viewedIndividually": true,
+      "layoutMaterialClipping": false,
+      "findings": [],
+      "verdict": "PASS",
+      "publishedImage": false
+    },
+    {
+      "name": "report-file-binding-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "aac7641d48609e363539271d698288a67721274a83b4c46a65538c80d80396e7",
+      "viewedIndividually": true,
+      "layoutMaterialClipping": false,
+      "findings": [
+        "English count grammar: 1 content blocks"
+      ],
+      "verdict": "WITH_COPY_FINDINGS",
+      "publishedImage": false
+    },
+    {
+      "name": "publication-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "6391a302f4a26a85587c1edf5e71681707f03f7ce5dde6a4f1ca3f9e627f528a",
+      "viewedIndividually": true,
+      "layoutMaterialClipping": false,
+      "findings": [],
+      "verdict": "PASS",
+      "publishedImage": false
+    },
+    {
+      "name": "publication-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "3859292727adc60f3b76e8289235683f98f1933aedd99930ab2244da2266d48e",
+      "viewedIndividually": true,
+      "layoutMaterialClipping": false,
+      "findings": [],
+      "verdict": "PASS",
+      "publishedImage": false
+    },
+    {
+      "name": "test-failed-1.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "8b43d75cd122e9e8f70a660296960cb49ef3f0ee13c59beb7047bdabf4afb6a1",
+      "viewedIndividually": true,
+      "layoutMaterialClipping": false,
+      "findings": [
+        "Sharing instruction and start date concatenate without a separating space",
+        "Contains an isolated response capability: keep original private"
+      ],
+      "verdict": "WITH_COPY_FINDINGS",
+      "publishedImage": false
+    },
+    {
+      "name": "test-failed-2.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "b15d293332d7c67c151c5761e693b3cae7e405593cfa88d1a9ea58b37d55feb7",
+      "viewedIndividually": true,
+      "layoutMaterialClipping": false,
+      "findings": [],
+      "verdict": "PASS",
+      "publishedImage": false
+    }
+  ],
+  "scope": "Actual first-run eight planned viewport captures plus two native diagnostic screenshots. Planned375/1280 captures use natural page/nested scrolling. No material clipping observed in these captured states; English minor-copy findings are real and require repair. This does not validate unexecuted anonymous/report/template/intake states. All original images remain private for this failed run; the capability-bearing diagnostic is never publishable."
+}

@@ -1,0 +1,13 @@
+# B8 handoff
+
+Use the existing worktree `/Users/shenyangjun/boardx/workspacex-i18n-agent-skill`; never create another for this session or apply any stash by index. The older metadata backup stash981114a516b9b50e84ce668907d55c8fc7f511a7 is superseded by its committed source and is unrelated to B8.
+
+Issue#6179 owns this branch. Source is limited to real members/invites, their previews, dedicated dictionaries/tests, and necessary shared panel labels. API/permission/role/status semantics and user data remain unchanged. Production evidence and tested boundaries are in README.md. The preview shared-role-key and lazy-feedback followups have final39-test green evidence (including4 red-before-green counterexamples); normal push must retain all hooks and then the creator follows CI/reviews through the main coordinator's merge.
+
+Shared heavy windows are serialized across the three user-owned chats. This browser window was released after wrapper cleanup to the phase1 CI-performance worker's normalpush, then phase2's older-PR conflict fixes/final workbench browser. Coordinate before full tsc/Next/PG/normalpush; light review and narrow1worker units are allowed. No owned services/containers remain from this browser. Do not remove other owners' old stacks or alter CI policy files: the CI performance worker owns them.
+
+#6172 merged into develop05:27:24Z at `bbc63c39a970b246ea2e1e6a399b828d36a6b793`; no production deployment claim. B8 merged that baseline in `77e6df101bb47459dd08d503ef59f11fcbdf3199`. All upstream metadata cases and B8 case are preserved byte-for-byte; dedicated B8 product/test/namespace blobs are unchanged from the reviewed fd06765e8. Independent latest-source confirmation and postmerge39tests pass. Normal push/typecheck and B8 CI remain required.
+
+Latest conflict repair merges actualdevelope4732894d; only en/zh imports/spreads conflict, retain both B8 and upstream namespaces, place B8 aftercontrols. 13ownproduct/namespace/unit/browser blobs unchanged, independentreviewclean. Fresh46unit + finalresources5subset + ESLint/init0. Evidencee473-*.txt. No PG/browser rerun. Latestsource/queuecandidate checks required; historicalbb299 green is insufficient. Push window follows phase2 6147→6154; do not selfmerge or resumeNav.
+
+Final pre-push placement supersedes controls anchor above: B8 three namespaces now follow aboutMemory, avoiding6170 workflow/controls,6147 activity/projectList,6154 notifications/profile. Final independent review clean, finalresource5subset+ESLint0. Actualbaseadvancedb7be8e0e6; inert merge-tree clean, so no needless refresh. Window explicitly released by phase2; queueEntry null verified before normal push.

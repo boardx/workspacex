@@ -1077,7 +1077,7 @@ export const GuidedResearchRuntime = z.object({
   researchPlan: GuidedResearchPlanDescription.nullable().optional(),
   // Durable composite intent; absence preserves legacy single-node execution.
   executionGoal: z.enum(["plan", "report"]).optional(),
-  progress: z.object({ executionVersion: z.number().int().nonnegative().optional(), stage: z.enum(["planning", "searching", "organizing", "writing", "reviewing", "synthesizing"]), completed: z.number().int().nonnegative(), total: z.number().int().nonnegative(), sectionId: z.string().optional() }).strict().nullable().optional(),
+  progress: z.object({ executionVersion: z.number().int().nonnegative().optional(), stage: z.enum(["planning", "searching", "organizing", "writing", "reviewing", "synthesizing"]), completed: z.number().int().nonnegative(), total: z.number().int().nonnegative(), sectionId: z.string().optional(), sourceCounts: z.object({ discovered: z.number().int().nonnegative(), read: z.number().int().nonnegative(), screened: z.number().int().nonnegative(), reading: z.number().int().nonnegative(), screening: z.number().int().nonnegative() }).strict().optional() }).strict().nullable().optional(),
   reportCheckpoint: z.object({ basis: z.string().min(1), instruction: z.string().max(10000).optional(), chapters: GuidedResearchReport.shape.sections.min(0) }).strict().nullable().optional(),
   reportSourceAliases: z.array(z.object({ alias: z.string().min(1), sourceId: z.string().min(1) }).strict()).optional(),
   reportPartial: z.boolean().optional(),

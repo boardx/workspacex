@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import { requestOpenFileInRightPanel } from "@/lib/chat-workbench/panel-document";
 import { FileImage, FileSpreadsheet, FileText, File as FileIcon, Presentation, RefreshCw } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -71,19 +72,20 @@ export function ChatMaterialsPanel({
   /** issue #3347 —— 整条右栏正在被拖拽悬停（落区在 `ChatTaskInspector` 根节点）。 */
   dropActive?: boolean;
 }) {
+  const { t } = useI18n();
   const [previewing, setPreviewing] = React.useState<ChatAttachment | null>(null);
   return (
     <div className="flex flex-col" data-testid="chat-materials-panel" data-drop-active={dropActive ? "true" : "false"}>
       <div className="flex items-center gap-2 border-b border-border-subtle p-3">
         <FileText aria-hidden className="h-4 w-4 text-muted-foreground" />
-        <h2 className="flex-1 text-12 font-medium">材料{materials ? `（${materials.items.length}）` : ""}</h2>
+        <h2 className="flex-1 text-12 font-medium">{materials ? t("chatInspector.materials.count", { count: materials.items.length }) : t("chatInspector.materials")}</h2>
         {uploadCtl ? (
           <ChatSidebarUploadButton ctl={uploadCtl} disabled={!hasSelection || readOnlyReason !== null} />
         ) : null}
       </div>
       {uploadCtl ? (
         <p className="px-3 pt-2 text-10 text-muted-foreground" data-testid="chat-materials-upload-hint">
-          {readOnlyReason ?? "点「+」选文件，或把文件拖到这一栏。上传的文件会加入下一条消息的附件，发送后才会出现在这个列表里。"}
+          {readOnlyReason ?? t("chatInspector.materials.hint")}
         </p>
       ) : null}
       {/* 人类实测：从本页签点「+」上传时，「材料 (0)」在传完之前毫无反馈，唯一的进度卡
@@ -95,14 +97,14 @@ export function ChatMaterialsPanel({
           data-testid="chat-materials-uploading-count"
         >
           <RefreshCw aria-hidden className="h-3 w-3 animate-spin" />
-          {`正在上传 ${String(uploadingCount)} 个文件…`}
+          {t(uploadingCount === 1 ? "chatInspector.materials.uploading.one" : "chatInspector.materials.uploading", { count: uploadingCount })}
         </p>
       ) : null}
       {/* issue #3347 —— 拖进来后「有没有生效」必须看得见。`pendingCount` 是 composer
           那份 `uploadedIds.length`（同一事实，经外壳原样转发），不是这里重新数一遍。 */}
       {pendingCount > 0 ? (
         <p className="px-3 pt-2 text-10 text-muted-foreground" data-testid="chat-materials-pending-count">
-          已加入下一条消息的附件：{pendingCount} 个（发送后进入下面的列表）
+          {t(pendingCount === 1 ? "chatInspector.materials.pending.one" : "chatInspector.materials.pending", { count: pendingCount })}
         </p>
       ) : null}
       {uploadNotice ? (
@@ -125,16 +127,16 @@ export function ChatMaterialsPanel({
           「线程」换成用户语言「对话」，句子说的是用户该做的动作，不是系统要做的事。 */}
       {!hasSelection ? (
         <p className="p-3 text-12 text-muted-foreground" data-testid="chat-materials-no-selection">
-          还没有选择对话。在左侧选一条对话，这里会列出随消息发出的文件。
+          {t("chatInspector.materials.noSelection")}
         </p>
       ) : null}
       {/* issue #2075（TW-P2-7）—— 同 `chat-artifacts-panel.tsx`：加载态换成真骨架。 */}
-      {hasSelection && loading ? <ChatPanelSkeleton label="正在读取材料列表" /> : null}
+      {hasSelection && loading ? <ChatPanelSkeleton label={t("chatInspector.materials.loading")} /> : null}
       {error ? (
         <div className="flex flex-col items-start gap-2 p-3" data-testid="chat-materials-error">
           <p className="text-12 text-destructive">{error}</p>
           <Button size="xs" variant="outline" data-testid="chat-materials-retry" onClick={onRetry}>
-            <RefreshCw aria-hidden className="h-3 w-3" />重试
+            <RefreshCw aria-hidden className="h-3 w-3" />{t("chatInspector.retry")}
           </Button>
         </div>
       ) : null}
@@ -142,7 +144,7 @@ export function ChatMaterialsPanel({
         <div className="flex flex-col gap-2 p-3">
           {materials.items.length === 0 ? (
             <p className="text-12 text-muted-foreground" data-testid="chat-materials-empty">
-              这条线程还没有随消息发出的材料。
+              {t("chatInspector.materials.empty")}
             </p>
           ) : null}
           {materials.items.map((item) => {

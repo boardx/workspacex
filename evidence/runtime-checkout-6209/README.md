@@ -1,0 +1,20 @@
+# Runtime checkout deadline repair — #6209
+
+Actual failure: native candidate `1d05f47893d551a7bd11ecaf5bdcf96e6bed8ce6`, job126174296929, fetch command fetched every branch and tag for14m12.757s. Checkout began20:08:08; dependencies installed in18.4s; the15-minute job deadline canceled before RLS/runtime/migration assertions ran. See `native-log-excerpt.txt` and its raw-log SHA256. This is not evidence that a product assertion failed.
+
+Audited call chains:
+- `verify-rls.sh` → shared `lib.sh`, current `migrate-cli.ts` → `migrator.ts`/`pg-config.ts`, current `rls-assert.ts` and SQL queries.
+- `verify-runtime-gates.sh` → same lib/migration, `runtime-gate-assert.ts` → imported `createApp` and current `src/main.ts` child spawned with tsx.
+- `pnpm --filter api run migrate:check` → `verify-migrations.sh` → same lib, `migrate-check.ts` → current migration files/schema/data digests.
+- The helper sets local paths/PG variables, starts PG and resets its isolated database. Migration discovery uses `readdirSync` on the current SQL directory. No git history/log/diff/merge-base/tag operation exists in these commands or their implementation. Remaining text matches in API source are comments, not executable history dependencies.
+
+The proposed workflow delta only sets `gates-runtime` checkout depth1 and explicit fetch-tagsfalse. No `ref` or repository override changes event-selected SHA; required dependencies,15-minute limit, all commands, environment and cleanup remain unchanged. Other checkout jobs retain their existing history policy.
+
+Root's existing-workflow regression actually failed with expecteddepth1/received0 before the change (1 failed,13 unselected,619ms). GREEN/related gates, independent reviews and normal push are recorded after actual execution. Local configuration checks cannot establish native CI runtime completion or timings; main owns queue and fresh candidate acceptance.
+
+Final local results at899ec7946ce371c833b20494b25789e916c503b2: selected new regression + existing required/shard invariant2PASS581ms (19 others explicitly unselected, not green); full queue wiring7/7PASS736ms; normalized whole YAML equalityPASS. Independent task and most-capable whole-branch reviews CLEAN, noP1/P2. Normalpush27/27 tasks allcached2.794s, remote899ecverified. This evidence/report commit changes no workflow/test source. Native runtime completion and recovered timing remain pending.
+
+
+Scope update authorized by main after the initial publication: #6205 shard2 also fetched all branch/tag history for11m35.929s, installed in14s, then ran tests only5m05.265s before the20-minute deadline. The same PR now adds ONLY `gates-test` checkout depth1/tagsfalse alongside runtime. Audit covers default Vitest include/exclude/globalSetup/fileCleanup and all test git/child-process references. The only executable git is `report-files/native-live.test.ts:219` recording `git rev-parse HEAD` (already excluded from defaultshards; still supported atdepth1). Other matches are comments or mockedGitHubHTTP. Childprocesses execute current lint/build/seed/tsx/Python/SQL/Docker/tsc code; DB support uses current migration files/PG. `api-test-plan` already uses default shallowcheckout and reads current JSON to output matrix; leave it unchanged. Neither job needs commit ancestry/tags. Matrix/needs/count/failfast/timeouts/commands/env/cleanup all unchanged. New actual shard regression:1FAIL expecteddepth1 received0,1runtimePASS,13unselected491ms. Earlier single-job proof describes the initial revision only; final expanded exact-source results follow separately.
+
+Expanded final local checks:3selectedPASS519ms (12 explicitly unselected), full queue7/7PASS656ms; normalized entire YAML equalityPASS allowing exactly the two checkout inputs. Spawned lint gate callees also inspected: arch/error-leak/contract/design-facet/skill-context/work-stack gates, work-skill manifest and contract suite validators use current files; only `.git` match is directory skip in manifest traversal. No historical ref dependency. No runtime/PG/browser rerun. Expanded independent reviews and exact published head follow after actual completion.

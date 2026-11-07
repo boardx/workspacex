@@ -1,6 +1,8 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import { Button } from "@/components/ui/button";
+import { displaySurveyMessage, type SurveyDisplayMessage } from "@/lib/survey/display-message";
 import { Input } from "@/components/ui/input";
 export type SurveyUpload = (
   file: File,
@@ -31,8 +33,9 @@ export function QuestionMaterial({
   maxFiles?: number;
   maxBytes?: number;
 }) {
+  const { t, locale } = useI18n();
   const [busy, setBusy] = React.useState(false);
-  const [error, setError] = React.useState("");
+  const [error, setError] = React.useState<SurveyDisplayMessage | null>(null);
   const [pending, setPending] = React.useState<File>();
   const [names, setNames] = React.useState<Record<string, string>>({});
   const [typed, setTyped] = React.useState("");
@@ -45,13 +48,13 @@ export function QuestionMaterial({
     if (maxBytes && file.size > maxBytes) {
       setPending(undefined);
       setError(
-        `文件超过 ${Math.round(maxBytes / 1024 / 1024)} MiB 上限，请选择较小文件。`,
+        { key: "survey.design.fileTooLarge", params: { max: Math.round(maxBytes / 1024 / 1024) } },
       );
       return;
     }
     lock.current = true;
     setBusy(true);
-    setError("");
+    setError(null);
     setPending(file);
     try {
       const asset = await upload(file, questionId);
@@ -59,7 +62,7 @@ export function QuestionMaterial({
       onChange([...value, asset.id]);
       setPending(undefined);
     } catch {
-      setError("上传失败，文件尚未提交。请重试。");
+      setError({ key: "survey.design.uploadFailed" });
     } finally {
       lock.current = false;
       setBusy(false);
@@ -75,7 +78,7 @@ export function QuestionMaterial({
   function saveSignature() {
     const element = canvas.current;
     if (!element || (!typed.trim() && !drawn.current)) {
-      setError("请手写或键入签名。");
+      setError({ key: "survey.design.signatureRequired" });
       return;
     }
     const context = element.getContext("2d");
@@ -88,24 +91,24 @@ export function QuestionMaterial({
     element.toBlob((blob) => {
       if (blob)
         void send(new File([blob], "signature.png", { type: "image/png" }));
-      else setError("无法生成签名图片，请重试。");
+      else setError({ key: "survey.design.signatureFailed" });
     }, "image/png");
   }
   return (
     <div className="space-y-3">
       {!upload && (
-        <p className="text-12 text-muted-foreground">预览模式不上传文件。</p>
+        <p className="text-12 text-muted-foreground">{t("survey.design.materialPreview")}</p>
       )}
       {signature ? (
         <>
           <p className="text-12 text-muted-foreground">
-            可以手写或键入签名。签名不代表电子合同认证。
+            {t("survey.design.signatureHint")}
           </p>
           <canvas
             ref={canvas}
             width={600}
             height={320}
-            aria-label="手写签名画布，也可以使用下方键入签名"
+            aria-label={t("survey.design.signatureCanvas")}
             className="h-auto w-full touch-none rounded-md border border-border bg-white"
             onPointerDown={(event) => {
               if (busy || value.length) return;
@@ -144,9 +147,9 @@ export function QuestionMaterial({
             }}
           />
           <label className="block text-12">
-            键入签名
+            {t("survey.design.typeSignature")}
             <Input
-              aria-label="键入签名"
+              aria-label={t("survey.design.typeSignature")}
               maxLength={80}
               value={typed}
               disabled={busy || !!value.length}
@@ -160,23 +163,24 @@ export function QuestionMaterial({
               disabled={busy}
               onClick={clear}
             >
-              清除签名草稿
+              {t("survey.design.clearSignature")}
             </Button>
             <Button
               type="button"
               disabled={!upload || busy || !!value.length}
               onClick={saveSignature}
             >
-              保存签名
+              {t("survey.design.saveSignature")}
             </Button>
           </div>
         </>
       ) : (
         <label className="block text-12">
-          选择文件
+          {t("survey.design.chooseFile")}
+          {accept && <span className="mt-1 block text-muted-foreground">{t("survey.design.acceptedFormats", { formats: accept })}</span>}
           <Input
             type="file"
-            aria-label="选择文件"
+            aria-label={t("survey.design.chooseFile")}
             accept={accept}
             disabled={!upload || busy || value.length >= maxFiles}
             onChange={(event) => {
@@ -189,19 +193,19 @@ export function QuestionMaterial({
       )}
       {busy && (
         <p role="status" className="text-12">
-          正在上传，请稍候…
+          {t("survey.design.uploading")}
         </p>
       )}
       {error && (
         <div role="alert" className="text-12 text-destructive">
-          {error}
+          {displaySurveyMessage(error, t, locale)}
           {pending && (
             <Button
               type="button"
               disabled={busy}
               onClick={() => void send(pending)}
             >
-              重试上传
+              {t("survey.design.retryUpload")}
             </Button>
           )}
         </div>
@@ -212,7 +216,7 @@ export function QuestionMaterial({
             key={id}
             className="flex items-center justify-between gap-2 text-12"
           >
-            <span className="break-all">{names[id] ?? "已上传材料"}</span>
+            <span className="break-all">{names[id] ?? t("survey.design.uploadedMaterial")}</span>
             <Button
               type="button"
               variant="outline"
@@ -225,14 +229,14 @@ export function QuestionMaterial({
                   await removeUpload?.(id, questionId);
                   onChange(value.filter((item) => item !== id));
                 } catch {
-                  setError("删除失败，请重试。");
+                  setError({ key: "survey.design.removeFailed" });
                 } finally {
                   lock.current = false;
                   setBusy(false);
                 }
               }}
             >
-              删除材料
+              {t("survey.design.deleteMaterial")}
             </Button>
           </li>
         ))}

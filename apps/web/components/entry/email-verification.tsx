@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import { CheckCircle2, CircleAlert, LoaderCircle } from "lucide-react";
 import { auth as C } from "@repo/contracts";
 import { useSession } from "@/components/session/session-provider";
@@ -11,6 +12,7 @@ import { AuthShell } from "@/components/entry/auth-shell";
 type VerificationState = "verifying" | "completed" | "invalid" | "unavailable" | "session-failed";
 
 export function EmailVerification() {
+  const { t } = useI18n();
   const session = useSession();
   const started = React.useRef(false);
   const [state, setState] = React.useState<VerificationState>("verifying");
@@ -54,19 +56,19 @@ export function EmailVerification() {
   }, [session]);
 
   const content = {
-    verifying: { testId: "email-verification-pending", icon: <LoaderCircle className="h-6 w-6 animate-spin" aria-hidden />, title: "正在验证邮箱", body: "请稍候，不要关闭这个页面。" },
-    completed: { testId: "email-verification-success", icon: <CheckCircle2 className="h-6 w-6 text-success" aria-hidden />, title: "邮箱已验证", body: "现在可以返回 WorkspaceX 登录。" },
-    invalid: { testId: "email-verification-invalid", icon: <CircleAlert className="h-6 w-6 text-warning" aria-hidden />, title: "验证链接不可用", body: "链接可能已过期。请重新申请验证邮件。" },
-    "session-failed": { testId: "email-verification-session-failed", icon: <CircleAlert className="h-6 w-6 text-warning" aria-hidden />, title: "邮箱已验证，登录未完成", body: "请前往登录页，使用注册时的邮箱和密码登录。" },
-    unavailable: { testId: "email-verification-unavailable", icon: <CircleAlert className="h-6 w-6 text-destructive" aria-hidden />, title: "暂时无法验证", body: "暂时无法完成。邮箱可能已验证，请尝试登录，或从邮件重新打开验证链接。" },
+    verifying: { testId: "email-verification-pending", icon: <LoaderCircle className="h-6 w-6 animate-spin" aria-hidden />, title: t("account.verify.pendingTitle"), body: t("account.verify.pendingBody") },
+    completed: { testId: "email-verification-success", icon: <CheckCircle2 className="h-6 w-6 text-success" aria-hidden />, title: t("account.verify.completedTitle"), body: t("account.verify.completedBody") },
+    invalid: { testId: "email-verification-invalid", icon: <CircleAlert className="h-6 w-6 text-warning" aria-hidden />, title: t("account.verify.invalidTitle"), body: t("account.verify.invalidBody") },
+    "session-failed": { testId: "email-verification-session-failed", icon: <CircleAlert className="h-6 w-6 text-warning" aria-hidden />, title: t("account.verify.sessionFailedTitle"), body: t("account.verify.sessionFailedBody") },
+    unavailable: { testId: "email-verification-unavailable", icon: <CircleAlert className="h-6 w-6 text-destructive" aria-hidden />, title: t("account.verify.unavailableTitle"), body: t("account.verify.unavailableBody") },
   }[state];
 
   return (
     <AuthShell testId={content.testId} icon={content.icon} title={content.title}>
       <p className="text-13 text-muted-foreground" data-testid="email-verification-status">{content.body}</p>
-      {(state === "completed" || state === "unavailable" || state === "session-failed") && (
+      {(state === "completed" || state === "invalid" || state === "unavailable" || state === "session-failed") && (
         <Button asChild variant="primary" size="lg">
-          <a href="/login">前往登录</a>
+          <a href="/login">{state === "invalid" ? t("account.verify.resendLink") : t("account.goToLogin")}</a>
         </Button>
       )}
     </AuthShell>

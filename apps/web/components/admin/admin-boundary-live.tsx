@@ -1,11 +1,11 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
 import * as React from "react";
 import { EyeOff, ScrollText, FileClock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { useOptionalSession } from "@/components/session/session-provider";
-import { ApiError } from "@/lib/api-client";
+import { memberFailure } from "@/lib/admin-member-copy";
 import {
   getPersonalLayerSummary, listMyAccessLog, listOrgMembers,
   type ListMyAccessLogOut,
@@ -34,12 +34,13 @@ import {
  * 那需要新的签核，而 F163 的全部价值就是「不新增契约地把已有的真数接上」。
  */
 export function AdminBoundaryLive() {
+  const { t, locale } = useI18n();
   const orgId = useOptionalSession()?.session?.currentOrgId ?? null;
   const [counts, setCounts] = React.useState<
     { userId: string; displayName: string; itemCount: number }[] | null
   >(null);
   const [logs, setLogs] = React.useState<ListMyAccessLogOut["entries"] | null>(null);
-  const [error, setError] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<{ cause: unknown } | null>(null);
 
   React.useEffect(() => {
     if (!orgId) return;
@@ -55,7 +56,7 @@ export function AdminBoundaryLive() {
         if (!cancelled) setCounts(summaries);
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof ApiError ? (err.reasonCode ?? `http_${err.status}`) : String(err));
+          setError({ cause: err });
         }
       }
     })();
@@ -77,26 +78,25 @@ export function AdminBoundaryLive() {
     <section className="flex flex-col gap-2" data-testid="admin-members-boundary">
       <div className="flex items-center gap-1.5">
         <EyeOff aria-hidden className="h-4 w-4 text-muted-foreground" />
-        <h2 className="text-14 font-semibold">你作为管理员看不到什么</h2>
+        <h2 className="text-14 font-semibold">{t("adminMemberQuotas.boundary")}</h2>
       </div>
       <Card>
         <CardContent className="flex flex-col gap-3 pt-4">
           <p className="text-12 text-muted-foreground">
-            这不是缺失功能，是产品的硬约束。个人层是三层记忆里唯一对管理员封闭的一层——顾问敢把半成品判断写进系统，
-            前提是这一层<strong className="text-background-foreground">组织管理员看不到、agent 也读不到</strong>。
+            {t("adminMemberQuotas.boundaryExplanation")}
           </p>
 
           <div className="flex flex-col gap-1.5 rounded-md border border-border-subtle bg-panel p-3" data-testid="admin-members-private-counts">
-            <span className="text-12 font-medium">个人层 · 只有计数（内容不可见、不可搜索、不可导出、不进 AI 检索）</span>
+            <span className="text-12 font-medium">{t("adminMemberQuotas.privateLayer")}</span>
             {error && (
               <span className="text-11 text-destructive" data-testid="admin-boundary-counts-failed">
-                个人层计数读取失败：{error}
+                {t("adminMemberQuotas.privateFailed", { error: memberFailure(error.cause, locale) })}
               </span>
             )}
-            {!error && counts === null && <span className="text-11 text-muted-foreground">读取中…</span>}
+            {!error && counts === null && <span className="text-11 text-muted-foreground">{t("adminMemberQuotas.loading")}</span>}
             {!error && counts !== null && withEntries.length === 0 && (
               <span className="text-11 text-muted-foreground" data-testid="admin-boundary-counts-empty">
-                组织里目前没有人写过个人层条目。
+                {t("adminMemberQuotas.noPrivate")}
               </span>
             )}
             <div className="flex flex-wrap gap-2">
@@ -107,9 +107,9 @@ export function AdminBoundaryLive() {
                   className="inline-flex items-center gap-1.5 rounded-sm border border-border bg-card px-2 py-1 text-11"
                 >
                   <span className="font-medium">{m.displayName}</span>
-                  <span className="text-muted-foreground">私有条目 {m.itemCount} 条</span>
+                  <span className="text-muted-foreground">{t("adminMemberQuotas.privateCount", { count: m.itemCount })}</span>
                   {/* 这个徽标在**说明**约束，不是在执行它：响应体里结构上就没有内容字段。 */}
-                  <Badge tone="neutral">内容不可见</Badge>
+                  <Badge tone="neutral">{t("adminMemberQuotas.hidden")}</Badge>
                 </span>
               ))}
             </div>
@@ -119,22 +119,19 @@ export function AdminBoundaryLive() {
             <div className="flex items-start gap-2">
               <ScrollText aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
               <p className="text-12">
-                出于审计目的你可以读项目内容，但<strong className="text-background-foreground">每次访问都会写入审计日志，并对项目负责人可见</strong>。
-                {/* 「访问过几个项目」也是真数：按留痕里的 projectId 去重，不是一个写死的数字。 */}
-                本月你访问过 {new Set((logs ?? []).map((l) => l.projectId)).size} 个项目。
-                「升到项目层」是获取内容的唯一路径——不存在申请、提权、临时授权等旁路。
+                {t("adminMemberQuotas.auditExplanation", { count: new Set((logs ?? []).map((l) => l.projectId)).size })}
               </p>
             </div>
           </div>
 
           <div className="flex flex-col gap-1" data-testid="admin-members-access-logs">
             <span className="text-11 font-medium text-muted-foreground" data-testid="admin-members-my-access">
-              我的项目层访问（每条都对该项目负责人可见）
+              {t("adminMemberQuotas.accessTitle")}
             </span>
-            {logs === null && <span className="text-11 text-muted-foreground">读取中…</span>}
+            {logs === null && <span className="text-11 text-muted-foreground">{t("adminMemberQuotas.loading")}</span>}
             {logs !== null && logs.length === 0 && (
               <span className="text-11 text-muted-foreground" data-testid="admin-boundary-logs-empty">
-                你还没有读过任何项目内容。
+                {t("adminMemberQuotas.noAccess")}
               </span>
             )}
             {(logs ?? []).map((log) => (
@@ -147,7 +144,7 @@ export function AdminBoundaryLive() {
                 <span className="font-medium">{log.projectId}</span>
                 <span className="font-mono text-10 text-muted-foreground">{log.objectRef}</span>
                 <span className="ml-auto text-muted-foreground">{log.readAt}</span>
-                <Badge tone="primary">对负责人可见</Badge>
+                <Badge tone="primary">{t("adminMemberQuotas.visible")}</Badge>
               </div>
             ))}
           </div>

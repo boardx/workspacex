@@ -1,0 +1,17 @@
+{
+  "worker": "56efe8dc915e366b06592506ef2ab69abee91e37",
+  "accepted": "b0f94fea1cf16ceacfdc28054bb25ac612f599c2",
+  "merge": "9194ab5de3754e79d03c640928b835efbeaa02e6",
+  "base": "4119fc3d318801215b15bd0a5665983fa25bfe2a",
+  "protected": {
+    "common": 23459,
+    "workerOnly": 165,
+    "acceptedOnly": 11
+  },
+  "overlaps": [
+    "apps/web/lib/i18n/messages/en.ts",
+    "apps/web/lib/i18n/messages/zh-CN.ts"
+  ],
+  "protectedFailures": [],
+  "method": "all union paths; exact Git mode/type/object identity including deletions; divergent overlaps require separate review"
+}

@@ -2,15 +2,16 @@
 import { readFileSync } from 'node:fs';
 
 export const POLICY_PATH = '.harness/config/ci-check-policy.json';
+export const V5_REQUIRED_CHECKS=Object.freeze(['verify-control-plane','verify-affected','verify-full-compile','merge-gate','backend-required','queue-ready']);
 // Frozen pre-versioning contract, used only when the verified commit lacks a policy file.
 export const LEGACY_POLICY = Object.freeze({ version: 1, requiredChecks: ['verify-control-plane', 'verify-affected', 'verify-full-compile'], aggregates: {}, allowedMergeMethods: ['merge', 'squash', 'rebase'] });
 const names = value => Array.isArray(value) && value.length > 0 && value.every(x => typeof x === 'string' && /^[a-z][a-z0-9-]*$/.test(x)) && new Set(value).size === value.length;
 export const INDEPENDENT_CHECKS = Object.freeze(['native-board', 'meeting-room']);
 export function validIndependentCheck(name, policy) {
-  return policy.version === 4 && INDEPENDENT_CHECKS.includes(name) && !policy.requiredChecks.includes(name) && !Object.values(policy.aggregates ?? {}).some(deps => deps.includes(name));
+  return [4,5].includes(policy.version) && INDEPENDENT_CHECKS.includes(name) && !policy.requiredChecks.includes(name) && !Object.values(policy.aggregates ?? {}).some(deps => deps.includes(name));
 }
 export function parsePolicy(value) {
-  if (![2, 3, 4].includes(value?.version) || !names(value.requiredChecks) || !value.aggregates || typeof value.aggregates !== 'object' || Array.isArray(value.aggregates)) throw new Error('Invalid CI check policy');
+  if (![2, 3, 4, 5].includes(value?.version) || !names(value.requiredChecks) || !value.aggregates || typeof value.aggregates !== 'object' || Array.isArray(value.aggregates)) throw new Error('Invalid CI check policy');
   for (const [name, dependencies] of Object.entries(value.aggregates)) {
     if (!value.requiredChecks.includes(name) || !names(dependencies) || dependencies.includes(name)) throw new Error('Invalid aggregate policy');
   }
@@ -20,7 +21,13 @@ export function parsePolicy(value) {
     if (!names(value.deferredChecks) || value.deferredChecks.some(name => name !== 'visual-deferred' || value.requiredChecks.includes(name) || Object.values(value.aggregates).some(deps => deps.includes(name)))) throw new Error('Invalid deferred visual policy');
   }
   if (value.version < 4 && Object.hasOwn(value, 'independentChecks')) throw new Error('Independent checks require v4');
-  if (value.version === 4 && (!names(value.independentChecks) || value.independentChecks.some(name => !validIndependentCheck(name, value)))) throw new Error('Invalid independent revalidation policy');
+  if (value.version >= 4 && (!names(value.independentChecks) || value.independentChecks.some(name => !validIndependentCheck(name, value)))) throw new Error('Invalid independent revalidation policy');
+  if (Object.hasOwn(value, 'sourceVerificationEvent') && (![4,5].includes(value.version) || !['push', 'merge_group'].includes(value.sourceVerificationEvent))) throw new Error('Invalid source verification event');
+  if(value.version===5){
+    if(JSON.stringify(value.requiredChecks)!==JSON.stringify(V5_REQUIRED_CHECKS)||value.mergeVerificationMode!=='lightweight'||value.sourceVerificationEvent!=='merge_group'||JSON.stringify(Object.keys(value.aggregates))!==JSON.stringify(['queue-ready'])||JSON.stringify(value.aggregates['queue-ready'])!==JSON.stringify(value.requiredChecks.filter(name=>name!=='queue-ready'))||!value.requiredChecks.includes('queue-ready'))throw Error('Invalid lightweight merge policy');
+    const full=value.fullRegression;
+    if(full?.workflowPath!=='.github/workflows/harness-acceptance.yml'||JSON.stringify(full.events)!==JSON.stringify(['schedule','workflow_dispatch'])||full.cron!=='17 * * * *'||full.coverage!=='frozen-develop-snapshot-not-every-commit')throw Error('Invalid hourly full regression policy');
+  }else if(Object.hasOwn(value,'mergeVerificationMode')||Object.hasOwn(value,'fullRegression'))throw Error('Lightweight metadata requires v5');
   return value;
 }
 export const CURRENT_POLICY = parsePolicy(JSON.parse(readFileSync(new URL('../../config/ci-check-policy.json', import.meta.url), 'utf8')));

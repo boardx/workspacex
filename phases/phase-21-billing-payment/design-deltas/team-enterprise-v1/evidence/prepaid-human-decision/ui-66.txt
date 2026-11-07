@@ -1,0 +1,34 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web
+
+ ✓ tests/ui/payment-url.test.ts (8 tests) 13ms
+ ✓ tests/ui/pricing-team-entitlement-preview.test.ts (3 tests) 25ms
+ ✓ tests/ui/pricing-team-purchase-preview.test.ts (3 tests) 29ms
+ ✓ tests/ui/pricing-team-catalog-preview.test.ts (4 tests) 30ms
+ ✓ tests/ui/personal-checkout-state.test.ts (5 tests) 76ms
+ ✓ tests/ui/pricing-team-quote-preview.test.ts (3 tests) 24ms
+ ✓ tests/ui/pricing-team-history-preview.test.tsx (2 tests) 1836ms
+   ✓ renders one confirmed annual payment from the strict history response 1383ms
+   ✓ preserves the actual expired payment term without presenting it as current entitlement 451ms
+ ✓ tests/ui/pricing-team-contract-preview.test.tsx (4 tests) 1746ms
+   ✓ shows purchased capacity and its full monthly pool independently of four current members 413ms
+   ✓ uses the same monthly seat grant in the adopted add-on quote preview 767ms
+   ✓ switches an open seat quote from CNY to USD without constructing a WeChat USD quote 333ms
+ ✓ tests/ui/pricing-enterprise-contract.test.tsx (7 tests) 3013ms
+   ✓ rejects the overlong reason through the shared contract without modifying the preview balance 1407ms
+   ✓ rejects invalid manual credit -1 without modifying the preview 305ms
+   ✓ rejects invalid manual credit 1000001 without modifying the preview 386ms
+ ✓ tests/ui/personal-pricing-checkout.test.tsx (27 tests) 7014ms
+   ✓ saves the original request before posting and only shows success after the owned server outcome 1249ms
+   ✓ retries an ambiguous POST only on user action and reuses its original idempotency key 314ms
+   ✓ does not render another payer's payment link or claim a successful payment 488ms
+   ✓ retains a manually reviewed payment without showing success or another payable checkout 315ms
+   ✓ only releases the original local purchase after confirmed closure and explicit reselection 370ms
+   ✓ uses the production code envelope to allow reselection for 'payment_provider_not_configured' 343ms
+
+ Test Files  10 passed (10)
+      Tests  66 passed (66)
+   Start at  09:49:20
+   Duration  20.03s (transform 4.63s, setup 8.53s, collect 12.36s, tests 13.81s, environment 15.90s, prepare 2.75s)
+

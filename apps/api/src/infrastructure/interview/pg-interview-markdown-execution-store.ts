@@ -72,9 +72,17 @@ export class PgInterviewMarkdownExecutionStore implements InterviewMarkdownExecu
       for(const task of tasks) task.status="running";
       const claimId=randomUUID();
       await session.query(`UPDATE interview_markdown_execution SET tasks=$3::jsonb,claim_id=$4,claim_expires_at=now()+interval '5 minutes',updated_at=now() WHERE org_id=$1 AND revision_id=$2`,[input.orgId,header.revision_id,JSON.stringify(row.tasks),claimId]);
-      const runs=await session.query<{markdown:string}>(`SELECT markdown FROM digital_interview_artifact_versions WHERE org_id=$1 AND revision_id=$2 AND step='runs' AND content_source IS NOT NULL ORDER BY version_number DESC LIMIT 1`,[input.orgId,header.revision_id]);
+      const runs=await session.query<{markdown:string;answer_spans:interviewMarkdown.InterviewMarkdownDocument["answerSpans"];content_hash:string}>(`SELECT markdown,answer_spans,content_hash FROM digital_interview_artifact_versions WHERE org_id=$1 AND revision_id=$2 AND step='runs' AND content_source IS NOT NULL ORDER BY version_number DESC LIMIT 1`,[input.orgId,header.revision_id]);
+      const previous = runs.rows[0];
+      if (previous && interviewMarkdownContentHash(previous.markdown) !== previous.content_hash) throw new Error("MARKDOWN_CONTENT_INTEGRITY_FAILED");
+      const spans = interviewMarkdown.InterviewAnswerSpan.array().parse(previous?.answer_spans ?? []);
+      const partialFor = (expertId: string) => spans.filter(span => span.expertId === expertId).map(span => {
+        const fragment = previous!.markdown.slice(span.start, span.end);
+        if (span.end > previous!.markdown.length || interviewMarkdownContentHash(fragment) !== span.contentHash) throw new Error("MARKDOWN_CONTENT_INTEGRITY_FAILED");
+        return fragment;
+      }).join("\n\n");
       await this.bump(session,input);
-      return {claimId,tasks:tasks.map(task=>({expertId:task.expertId,content:guard({kind:"interview",id:input.interviewId},{sources,partial:runs.rows[0]?.markdown??""})}))};
+      return {claimId,tasks:tasks.map(task=>({expertId:task.expertId,content:guard({kind:"interview",id:input.interviewId},{sources,partial:partialFor(task.expertId)})}))};
     });
   }
   finish(input:MarkdownExecutionActor & {claimId:string;results:readonly {expertId:string;markdown:string;failed:boolean}[]}) {

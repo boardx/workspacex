@@ -1,0 +1,116 @@
+{
+  "issue": 6258,
+  "baseline": "72a409bf712dca90e7012bfc01b5398c60bca343",
+  "sourceSha256": {
+    "apps/web/components/project/tab-general-overview.tsx": "f46fba26f537facffa1d8ccf25a4b405fe33a01fa2ea19aa7e9872a488fb1040",
+    "apps/web/components/project/project-content.tsx": "132b325dcba99b67fe8c3caaf3ed239ad0311d61b6b45c94d44168f0e305b3dd",
+    "apps/web/components/project/project-resource-section.tsx": "556222f1b3e2fe872bb4c84607b1032cf483a081ac63e5057c511aeb3e3f8ffc",
+    "apps/web/lib/project-content-filters.ts": "b3c25456e647ed6ca2b0a5f900317e113d86590fbb4fe5d24c56008d53e5fb39",
+    "apps/web/lib/i18n/namespaces/project-overview.ts": "ca7c820c3ce24760cad4fbf87d80b2762e620a940190f74594a58b7ed5636d0e",
+    "apps/web/lib/i18n/messages/zh-CN.ts": "36c35e8f10a0d328003db17c23835875e64efce95bfa9f51a52b11846e0c62f4",
+    "apps/web/lib/i18n/messages/en.ts": "e0063e2cf45609b7d26aa3be59683782496316e05f15aea27ad5f41974246ca1",
+    "apps/web/tests/ui/project-general-overview-i18n.test.tsx": "b4785bca17f4b102038378604549418056de5b61dd19fc49913254788b1b35f8"
+  },
+  "originalProviderRed": {
+    "exitCode": 1,
+    "semanticFailures": 6,
+    "nativeSeconds": 4.82,
+    "logSha256": "54c5bad2e647c24a8f29a2012c6e685089f154f9d9f820ca40df43a1c3f18b1e"
+  },
+  "firstGreenAttempt": {
+    "steps": [
+      {
+        "label": "neighbors",
+        "command": [
+          "pnpm",
+          "--filter",
+          "web",
+          "exec",
+          "vitest",
+          "run",
+          "tests/ui/project-general-overview-i18n.test.tsx",
+          "tests/ui/project-workbench-non-workshop.test.tsx",
+          "tests/ui/project-resource-section.test.tsx",
+          "tests/lib/i18n-resources.test.ts"
+        ],
+        "exitCode": 0,
+        "seconds": 15.014,
+        "logSha256": "5ff30aae45c9e54056ac0391ab9a4093f811696baca7c56862c282b43a44f765"
+      },
+      {
+        "label": "lint",
+        "command": [
+          "pnpm",
+          "--filter",
+          "web",
+          "exec",
+          "eslint",
+          "components/project/tab-general-overview.tsx",
+          "components/project/project-content.tsx",
+          "components/project/project-resource-section.tsx",
+          "lib/project-content-filters.ts",
+          "lib/i18n/namespaces/project-overview.ts",
+          "lib/i18n/messages/zh-CN.ts",
+          "lib/i18n/messages/en.ts",
+          "tests/ui/project-general-overview-i18n.test.tsx"
+        ],
+        "exitCode": 0,
+        "seconds": 2.455,
+        "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "label": "type",
+        "command": [
+          "pnpm",
+          "--filter",
+          "web",
+          "typecheck"
+        ],
+        "exitCode": 2,
+        "seconds": 52.19,
+        "logSha256": "16f65b59aaea4233e732243a23129627ec33f5f7184fc8c71d825802147b4875"
+      }
+    ],
+    "nativeNeighborVerdict": {
+      "files": 4,
+      "passed": 42,
+      "nativeSeconds": 13.63
+    },
+    "typeFailure": "Only new-test knowledge scope used obsolete level/org fields; corrected to canonical kind/id without product changes"
+  },
+  "coveringAttempt": {
+    "steps": [
+      {
+        "label": "type",
+        "exitCode": 0,
+        "seconds": 10.756,
+        "logSha256": "e9b019d37db080d36b121892b06e0818b37e0b4f08f68f45cd0110befa237e7e"
+      },
+      {
+        "label": "lint",
+        "exitCode": 0,
+        "seconds": 1.97,
+        "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "label": "provider",
+        "exitCode": 0,
+        "seconds": 4.937,
+        "logSha256": "76439c650134f4578010199e3f64bcd48412690991de20a28cbfc9c1940119d2"
+      }
+    ],
+    "nativeProviderVerdict": {
+      "passed": 6,
+      "nativeSeconds": 3.95
+    },
+    "productSourceUnchangedFrom42Pass": true
+  },
+  "rawDirectories": [
+    "/tmp/project6258-provider-first-private",
+    "/tmp/project6258-green-first-private",
+    "/tmp/project6258-fixture-covering-private"
+  ],
+  "browser": "UNRUN; source gates do not establish page/overlay runtime or screenshot QA",
+  "servicesCreated": false,
+  "sourceWindowExitedAndReleasedBeforeAnalysis": true
+}

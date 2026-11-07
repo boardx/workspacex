@@ -1,0 +1,26 @@
+export const activityZhCN = {
+  "activity.profileRenamed": '显示名改为"{displayName}"',
+  "activity.profileRenamedGeneric": "修改了显示名",
+  "activity.avatarChanged": "更换了头像",
+  "activity.avatarCleared": "清除了头像",
+  "activity.passwordChanged": "修改了密码",
+  "activity.teamCreated": '创建了团队"{name}"',
+  "activity.teamCreatedGeneric": "创建了团队",
+  "activity.teamRenamed": '把团队改名为"{name}"',
+  "activity.teamRenamedGeneric": "修改了团队名称",
+  "activity.teamDeleted": '删除了团队"{name}"',
+  "activity.teamDeletedGeneric": "删除了团队",
+} as const;
+export const activityEn: Record<keyof typeof activityZhCN, string> = {
+  "activity.profileRenamed": 'Display name changed to "{displayName}"',
+  "activity.profileRenamedGeneric": "Changed display name",
+  "activity.avatarChanged": "Changed avatar",
+  "activity.avatarCleared": "Removed avatar",
+  "activity.passwordChanged": "Changed password",
+  "activity.teamCreated": 'Created team "{name}"',
+  "activity.teamCreatedGeneric": "Created team",
+  "activity.teamRenamed": 'Renamed team to "{name}"',
+  "activity.teamRenamedGeneric": "Renamed team",
+  "activity.teamDeleted": 'Deleted team "{name}"',
+  "activity.teamDeletedGeneric": "Deleted team",
+};

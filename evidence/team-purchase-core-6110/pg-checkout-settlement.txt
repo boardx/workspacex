@@ -1,0 +1,30 @@
+[stack-admission] load1=43.42 cores=10 perCore=4.34 running=0/2
+[stack-admission] 排队中：机器每核负载 4.34（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 0s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.02（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 5s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.76（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 10s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.49（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 15s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.25（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 20s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.06（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 25s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.84（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 30s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.66（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 35s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排到了，等了 40s
+[test-isolation] id=run-mvzcaku0-cfc7a92f-51b6751ef9a7 db=wsx_51b6751ef9a7b1258b97 compose=wsx-51b6751ef9a7b1258b97 pg=20030 redis=21030 api=24030 web=25030 sandbox=26030 model=27030 deep-agent=28030 asr=29030 vision=30030 loopback-sandbox=31030 mail=19030
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/team-receipt-anchor-6099/apps/api
+
+[db-isolation] db=wsx_51b6751ef9a7b1258b97 capacity=100 current=6 required=32
+ ✓ tests/billing/team-checkout-intents-pg.test.ts (3 tests) 17531ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  22:14:28
+   Duration  25.08s (transform 309ms, setup 9ms, collect 203ms, tests 17.53s, environment 0ms, prepare 64ms)
+
+[db-isolation] db=wsx_51b6751ef9a7b1258b97 peak_connections=4
+[timing] pnpm --filter api exec vitest run tests/billing/team-checkout-intents-pg.test.ts --maxWorkers=1 --minWorkers=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：40s
+  命令执行：26s
+  清理：1s
+  总计：1m7s

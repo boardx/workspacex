@@ -1,0 +1,33 @@
+{
+  "left": "00c87fef75429e3ed99d0791d68ec9cb5e376e6d",
+  "acceptedDevelop": "ec1695d8fd646e004ca40dafbfa8e03bf01f20ef",
+  "head": "4639ef2dd55e0826b21736429e09713173cc1da7",
+  "mergeBases": [
+    "3644ae2c8213770614866c1c39ac4df2b8920c05",
+    "ca3f9e4482ae84adea3124ef497b2b2da78b0933"
+  ],
+  "commonFilesPreserved": 22938,
+  "leftOnlyProtected": 114,
+  "rightOnlyProtected": 443,
+  "overlap": [
+    "apps/web/e2e/entity-localization.spec.ts",
+    "apps/web/lib/i18n/messages/en.ts",
+    "apps/web/lib/i18n/messages/zh-CN.ts"
+  ],
+  "allProtectedModeTypeBlobEqual": true,
+  "registryDelta": [
+    {
+      "path": "apps/web/lib/i18n/messages/en.ts",
+      "oldLinesDeleted": 0,
+      "acceptedImportsAndSpreadsAdded": 8,
+      "blankLinesAdded": 4
+    },
+    {
+      "path": "apps/web/lib/i18n/messages/zh-CN.ts",
+      "oldLinesDeleted": 0,
+      "acceptedImportsAndSpreadsAdded": 8,
+      "blankLinesAdded": 4
+    }
+  ],
+  "unsafe6aeAncestor": false
+}

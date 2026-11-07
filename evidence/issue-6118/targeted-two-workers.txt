@@ -1,0 +1,182 @@
+[heavy-e2e-lock] 排到了，等了 0s
+[stack-admission] load1=139.64 cores=10 perCore=13.96 running=0/2
+[stack-admission] 排队中：机器每核负载 13.96（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 0s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 13.92（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 5s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 13.66（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 10s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 13.32（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 15s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 12.85（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 20s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 12.43（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 25s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 11.93（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 30s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 11.47（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 35s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 10.80（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 40s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 10.25（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 45s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 9.64（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 50s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 9.16（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 55s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 8.74（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 60s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 8.21（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 65s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 7.81（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 70s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 7.44（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 75s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 6.98（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 80s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 6.55（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 85s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 6.40（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 90s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 6.00（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 95s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 5.62（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 100s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 5.48（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 105s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 5.14（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 110s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 5.06（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 115s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.72（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 120s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.40（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 125s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.08（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 130s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.78（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 135s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.57（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 140s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.36（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 145s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.46（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 150s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.32（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 155s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.22（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 160s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.01（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 165s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.90（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 170s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.76（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 175s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.72（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 180s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.70（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 185s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.54（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 190s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排到了，等了 195s
+[test-isolation] id=run-mvywnh0u-3aa0de5a-f6ef93414e90 db=wsx_f6ef93414e90f3d936ca compose=wsx-f6ef93414e90f3d936ca pg=20937 redis=21937 api=24937 web=25937 sandbox=26937 model=27937 deep-agent=28937 asr=29937 vision=30937 loopback-sandbox=31937 mail=19937
+[WebServer] (node:64824) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:64847) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:64854) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:64859) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:64878) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:64884) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:64886) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:64887) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:64893) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:64896) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:64897) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:64903) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:64905) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:64908) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:64914) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  Image localhost/workspacex-postgres-age:pg16-age1.6.0 Building 
+[WebServer] #1 [internal] load local bake definitions
+[WebServer] #1 reading from stdin 710B done
+[WebServer] #1 DONE 0.0s
+[WebServer] 
+[WebServer] #2 [internal] load build definition from Dockerfile
+[WebServer] #2 transferring dockerfile:
+[WebServer] #2 transferring dockerfile: 2.76kB 0.0s done
+[WebServer] #2 DONE 0.2s
+[WebServer] 
+[WebServer] #3 [internal] load metadata for docker.io/pgvector/pgvector:pg16
+[WebServer] #3 DONE 0.4s
+[WebServer] 
+[WebServer] #4 [internal] load .dockerignore
+[WebServer] #4 transferring context: 2B 0.0s done
+[WebServer] #4 DONE 0.1s
+[WebServer] 
+[WebServer] #5 [1/2] FROM docker.io/pgvector/pgvector:pg16@sha256:ad2e18408bf447f62092a8a5259e7df10505c5a0360bd1a1853ac8b8b0763da2
+[WebServer] #5 resolve docker.io/pgvector/pgvector:pg16@sha256:ad2e18408bf447f62092a8a5259e7df10505c5a0360bd1a1853ac8b8b0763da2 0.1s done
+[WebServer] #5 DONE 0.1s
+[WebServer] 
+[WebServer] #6 [2/2] RUN set -eux;     apt_host="deb.debian.org"; apt_host="${apt_host%%/*}";     sed -Ei "s#//deb\.debian\.org#//${apt_host}#g" /etc/apt/sources.list.d/debian.sources;     apt-get update;     apt-get install -y --no-install-recommends       build-essential ca-certificates git flex bison postgresql-server-dev-16;     git init /tmp/age;     git -C /tmp/age fetch --depth 1 "https://github.com/apache/age.git" "2db2f060c4c9265a14d40f007eb8c56febf31e4c";     git -C /tmp/age checkout FETCH_HEAD;     test "$(git -C /tmp/age rev-parse HEAD)" = "2db2f060c4c9265a14d40f007eb8c56febf31e4c";     make -C /tmp/age;     make -C /tmp/age install;     rm -rf /tmp/age;     apt-get purge -y --auto-remove build-essential git flex bison postgresql-server-dev-16;     rm -rf /var/lib/apt/lists/*
+[WebServer] #6 CACHED
+[WebServer] 
+[WebServer] #7 exporting to image
+[WebServer] #7 exporting layers 0.1s done
+[WebServer] #7 exporting manifest sha256:f09f8e5742bb910fe4283f00d29cd72e253604b565f6b0a0d68e0b286fc97eda 0.1s done
+[WebServer] #7 exporting config sha256:03d0a637c1032f497f8873bf46b090e2d5fe9d728e34cd204c106bef98f4a91a 0.0s done
+[WebServer] #7 exporting attestation manifest sha256:643c9c9f14f4cc781772ca372fbf2c8332e7406a022ee22b3e14ed4cc03c29ad 0.1s done
+[WebServer] #7 exporting manifest list sha256:c07706d7cbcfd9acafd44d18a8f34c269513af9a236d4908ed12f499c17d1eba 0.0s done
+[WebServer] #7 naming to localhost/workspacex-postgres-age:pg16-age1.6.0 done
+[WebServer] #7 unpacking to localhost/workspacex-postgres-age:pg16-age1.6.0
+[WebServer] #7 unpacking to localhost/workspacex-postgres-age:pg16-age1.6.0 0.1s done
+[WebServer] #7 DONE 0.6s
+[WebServer] 
+[WebServer] #8 resolving provenance for metadata file
+[WebServer] #8 DONE 0.0s
+[WebServer]  Image localhost/workspacex-postgres-age:pg16-age1.6.0 Built 
+[WebServer]  Network wsx-f6ef93414e90f3d936ca_default Creating 
+[WebServer]  Network wsx-f6ef93414e90f3d936ca_default Created 
+[WebServer]  Container wsx-f6ef93414e90f3d936ca-postgres-1 Creating 
+[WebServer]  Container wsx-f6ef93414e90f3d936ca-redis-1 Creating 
+[WebServer]  Container wsx-f6ef93414e90f3d936ca-minio-1 Creating 
+[WebServer]  Container wsx-f6ef93414e90f3d936ca-minio-1 Created 
+[WebServer]  Container wsx-f6ef93414e90f3d936ca-postgres-1 Created 
+[WebServer]  Container wsx-f6ef93414e90f3d936ca-redis-1 Created 
+[WebServer]  Container wsx-f6ef93414e90f3d936ca-postgres-1 Starting 
+[WebServer]  Container wsx-f6ef93414e90f3d936ca-redis-1 Starting 
+[WebServer]  Container wsx-f6ef93414e90f3d936ca-minio-1 Starting 
+[WebServer]  Container wsx-f6ef93414e90f3d936ca-minio-1 Started 
+[WebServer]  Container wsx-f6ef93414e90f3d936ca-postgres-1 Started 
+[WebServer]  Container wsx-f6ef93414e90f3d936ca-redis-1 Started 
+[WebServer]  Container wsx-f6ef93414e90f3d936ca-minio-1 Waiting 
+[WebServer]  Container wsx-f6ef93414e90f3d936ca-redis-1 Waiting 
+[WebServer]  Container wsx-f6ef93414e90f3d936ca-postgres-1 Waiting 
+[WebServer]  Container wsx-f6ef93414e90f3d936ca-minio-1 Healthy 
+[WebServer]  Container wsx-f6ef93414e90f3d936ca-redis-1 Healthy 
+[WebServer]  Container wsx-f6ef93414e90f3d936ca-postgres-1 Healthy 
+[WebServer] (node:65004) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:65005) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:65011) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] [fullstack-fixture] recording thread=thread-466-0u-3aa0de5a-f6ef93414e90 title=FULLSTACK_RECORDING_THREAD_0u-3aa0de5a-f6ef93414e90
+[WebServer] [fullstack-fixture] db=wsx_f6ef93414e90f3d936ca project=project-fullstack-0u-3aa0de5a-f6ef93414e90 sentinel=FULLSTACK_SENTINEL_0u-3aa0de5a-f6ef93414e90.md
+[WebServer] (node:65268) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:65269) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] {"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+[WebServer] {"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+[WebServer] {"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+[WebServer] (node:65275) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] api listening on 24937
+[WebServer] {"level":"error","msg":"service uptime check: target reported down","traceId":"service-uptime-poll-worker","detail":{"raw":"fetch failed"}}
+[WebServer] platform skill catalog: org created, skills created=[pptx-create,docx-create,xlsx-create,pdf-create] alreadyExisted=[]
+[WebServer] fullstack test API listening on 24937; voice supplier LOCAL_PROTOCOL
+[WebServer] (node:65349) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]   ▲ Next.js 14.2.15
+[WebServer]   - Experiments (use with caution):
+[WebServer]     · proxyTimeout
+[WebServer] 
+[WebServer]    Creating an optimized production build ...
+[WebServer] {"level":"error","msg":"service uptime check: target reported down","traceId":"service-uptime-poll-worker","detail":{"raw":"fetch failed"}}
+[WebServer] {"level":"error","msg":"service uptime check: target reported down","traceId":"service-uptime-poll-worker","detail":{"raw":"fetch failed"}}
+[WebServer] {"level":"error","msg":"service uptime check: target reported down","traceId":"service-uptime-poll-worker","detail":{"raw":"fetch failed"}}
+[WebServer] {"level":"error","msg":"service uptime check: target reported down","traceId":"service-uptime-poll-worker","detail":{"raw":"fetch failed"}}
+[WebServer] {"level":"error","msg":"service uptime check: target reported down","traceId":"service-uptime-poll-worker","detail":{"raw":"fetch failed"}}
+[WebServer] {"level":"error","msg":"service uptime check: target reported down","traceId":"service-uptime-poll-worker","detail":{"raw":"fetch failed"}}
+[WebServer] {"level":"error","msg":"service uptime check: target reported down","traceId":"service-uptime-poll-worker","detail":{"raw":"fetch failed"}}
+[WebServer] {"level":"error","msg":"service uptime check: target reported down","traceId":"service-uptime-poll-worker","detail":{"raw":"fetch failed"}}
+[WebServer] {"level":"error","msg":"service uptime check: target reported down","traceId":"service-uptime-poll-worker","detail":{"raw":"fetch failed"}}
+[WebServer] {"level":"error","msg":"service uptime check: target reported down","traceId":"service-uptime-poll-worker","detail":{"raw":"fetch failed"}}
+Error: Timed out waiting 600000ms from config.webServer.
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/survey-r1-isolation-6118/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: playwright test --config playwright.fullstack-smoke.config.ts survey-complete-flow.spec.ts survey-trusted-publishing.spec.ts --project=seeded --workers=2 --grep R1 问卷体验：空列表单一主入口与创建键盘校验|发布门控展示全部阻断，修复后显式进入回收且匿名方式被冻结
+[timing] pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts survey-complete-flow.spec.ts survey-trusted-publishing.spec.ts --project=seeded --workers=2 --grep R1 问卷体验：空列表单一主入口与创建键盘校验|发布门控展示全部阻断，修复后显式进入回收且匿名方式被冻结
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：3m15s
+  命令执行：12m32s
+  清理：3s
+  总计：15m51s
+[test-isolation] 零测试执行：Playwright webServer 启动失败。检查端口占用/服务就绪；这不是测试断言失败。

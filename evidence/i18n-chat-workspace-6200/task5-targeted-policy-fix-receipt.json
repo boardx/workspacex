@@ -1,0 +1,37 @@
+{
+  "headBeforeFix": "0f7253fa93e9001cd4164e24c7540bbc20449068",
+  "runId": 41929717144,
+  "attempt": 1,
+  "jobId": 126923238843,
+  "firstFailedTest": ".harness/scripts/ci-targeted-ui.test.ts:7",
+  "rawJobLogSha256": "ccae345a4f85a12cc61d67193b89032cae93d0bf9cfd1cc15bc024794b7961e2",
+  "cause": "Actual source now has runtime i18n imports/calls and correctly fails the original narrow pure-presentation policy. Old tests incorrectly expected eligibility and used removed copy replacement anchors.",
+  "productPolicyConfigWorkflowChanged": false,
+  "testSourceSha256": "8e4a75f083404e0996548fcedeac6e3acb876991bb0c29f7f291268ff9219e24",
+  "gates": {
+    "command": [
+      "pnpm",
+      "exec",
+      "vitest",
+      "run",
+      "--config",
+      ".harness/vitest.config.ts",
+      ".harness/scripts/ci-targeted-ui.test.ts",
+      ".harness/scripts/ci-targeted-routing.test.ts",
+      ".harness/scripts/ci-targeted-wiring.test.ts"
+    ],
+    "exitCode": 0,
+    "seconds": 9.891
+  },
+  "files": 3,
+  "passed": 17,
+  "skipped": 0,
+  "review": "Same independent reviewer exact single-file STATIC CLEAN; no independent runtime or CI verdict.",
+  "lintBoundary": "Hidden harness file remains outside the canonical web ESLint scope; no new unignore policy introduced.",
+  "chatRuntime": "CANCELLED_NO_NATIVE_REPORT_OR_PNG_AVAILABLE",
+  "logPublication": {
+    "rawSha256": "a81383366c88caa0f935ed7047c7b5ca690f67575d6017dc7b85990b3c166f6e",
+    "publishedSha256": "a5c4e8b1a9054a4f4a662ea65f6e185b694558979f0f2990ef3a6a725f93eb15",
+    "nonWhitespaceEqual": true
+  }
+}

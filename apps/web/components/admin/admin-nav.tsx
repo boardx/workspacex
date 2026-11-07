@@ -4,13 +4,16 @@ import Link from "next/link";
 import { Bot, Boxes, Cpu, Plug, Shapes, LayoutTemplate, LayoutDashboard, Users, UserCog, Mail, Lock, Globe, Settings, Activity, FileEdit, Inbox, PencilRuler, Send, Home, KeyRound } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import * as React from "react";
-import { ADMIN_NAV, ADMIN_MODULE_SCOPE, ADMIN_SCOPE_META, adminNavForScope, type AdminModuleKey, type AdminScope } from "@/lib/admin-nav-metadata";
+import { ADMIN_NAV, ADMIN_MODULE_SCOPE, adminNavForScope, type AdminModuleKey, type AdminScope } from "@/lib/admin-nav-metadata";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { useLiveAdminNavCounts } from "@/lib/live-admin-nav-counts";
 import { ADMIN_NAV_TESTID } from "./asset-kind-nav";
 import { resolveAdminNavCounts, type AdminNavCountSource } from "@/lib/admin-nav-counts";
 import { ADMIN_SECOND_LEVEL } from "@/lib/navigation";
 import { Badge } from "@/components/ui/badge";
+import { useI18n } from "@/lib/i18n/provider";
+import { navigationLabel } from "@/lib/i18n/navigation";
+import { adminNavigationGroupKeys } from "@/lib/i18n/namespaces/admin-navigation";
 import { cn } from "@/lib/utils";
 
 /** 后台二级模块（从 navigation.ts 的「后台」children 取）的稳定 testid —— 供 e2e 锚定。 */
@@ -155,32 +158,34 @@ export function AdminNav({
 }) {
   // ⚠ `useOptionalSession` 而不是 `useSession`：本组件在若干测试里被裸渲染（无 Provider），
   //   `useSession` 会直接抛。没有会话 ⇒ 拿不到 orgId ⇒ 计数「—」，这本身就是诚实的答案。
+  const { t } = useI18n();
   const session = useOptionalSession();
   const liveSources = useLiveAdminNavCounts(session?.session?.currentOrgId ?? null, ALL_NAV_KEYS);
   const counts = resolveAdminNavCounts(countSources ?? liveSources);
   const resolvedScope: AdminScope = scope ?? ADMIN_MODULE_SCOPE[active];
-  const scopeMeta = ADMIN_SCOPE_META[resolvedScope];
+  const scopeTitle = t(resolvedScope === "org" ? "navigation.admin" : "navigation.platform-admin");
   // 「能力域 · 全生命周期」二级组是组织后台的东西（束的现行屏全部是组织级），平台面不画。
   const secondLevelVisible = resolvedScope === "org"
     ? ADMIN_SECOND_LEVEL.filter((item) => !MERGED_SECOND_LEVEL_KEYS.has(item.key))
     : [];
   return (
     <nav
-      aria-label={`${scopeMeta.title}模块`}
+      aria-label={t("adminNavigation.modules", { title: scopeTitle })}
       data-testid="admin-nav"
       data-admin-scope={resolvedScope}
       className="flex flex-col gap-4 p-3"
     >
       <div className="flex flex-col gap-0.5 px-1">
-        <span className="text-13 font-semibold" data-testid="admin-nav-title">{scopeMeta.title}</span>
-        <span className="text-11 text-muted-foreground">{scopeMeta.intro}</span>
+        <span className="text-13 font-semibold" data-testid="admin-nav-title">{scopeTitle}</span>
+        <span className="text-11 text-muted-foreground">{t(`adminNavigation.scope.${resolvedScope}.intro`)}</span>
       </div>
       {adminNavForScope(resolvedScope).map((group) => (
         <div key={group.group} className="flex flex-col gap-1">
           <span className="select-none px-1 text-10 font-medium uppercase tracking-wide text-muted-foreground">
-            {group.group}
+            {adminNavigationGroupKeys[group.group] ? t(adminNavigationGroupKeys[group.group]!) : group.group}
           </span>
           {group.items.map((item) => {
+            const label = t(`adminNavigation.item.${item.key}`);
             const Icon = ICONS[item.key];
             const isActive = item.key === active;
             const count = counts[item.key];
@@ -199,10 +204,10 @@ export function AdminNav({
                 )}
               >
                 <Icon aria-hidden className="h-4 w-4 shrink-0" />
-                <span className="flex-1 truncate">{item.label}</span>
+                <span className="flex-1 truncate">{label}</span>
                 <span
                   data-testid={`${ADMIN_NAV_TESTID[item.key]}-count`}
-                  aria-label={countUnavailable ? `${item.label} 计数暂不可用` : `${item.label} 共 ${count} 项`}
+                  aria-label={countUnavailable ? t("adminNavigation.count.unavailable", { label }) : t("adminNavigation.count.available", { label, count })}
                   /**
                    * #881：告诉用户「—」是什么意思。
                    *
@@ -211,7 +216,7 @@ export function AdminNav({
                    * ⚠ 这句话只说**事实**（这一项还没接真实数据源），不承诺什么时候接，
                    *   也不假装它是 0。
                    */
-                  title={countUnavailable ? `${item.label}：尚未接入真实数据源，因此不显示数字（不是 0）` : undefined}
+                  title={countUnavailable ? t("adminNavigation.count.description", { label }) : undefined}
                   /*
                    * 2026-09-22：`scripts/audit-text-contrast.mjs` 量出这一支只有 2.55:1，低于 AA。
                    * 这是**刻意**的弱化——它要和「接了真实数据源的数字」在视觉上分得开，而含义由
@@ -240,9 +245,10 @@ export function AdminNav({
       {secondLevelVisible.length > 0 && (
         <div className="flex flex-col gap-1">
           <span className="select-none px-1 text-10 font-medium uppercase tracking-wide text-muted-foreground">
-            能力域 · 全生命周期
+            {t("adminNavigation.secondary.title")}
           </span>
           {secondLevelVisible.map((item) => {
+            const label = navigationLabel(item.key, item.label, t);
             const Icon = item.icon;
             return (
               <div key={item.key} className="flex flex-col gap-0.5">
@@ -252,15 +258,15 @@ export function AdminNav({
                   className="flex items-center gap-2 rounded-md px-2 py-1.5 text-12 text-muted-foreground transition-all duration-200 hover:bg-muted hover:text-background-foreground"
                 >
                   <Icon aria-hidden className="h-4 w-4 shrink-0" />
-                  <span className="flex-1 truncate">{item.label}</span>
+                  <span className="flex-1 truncate">{label}</span>
                   {item.isPrototype && (
                     <Badge
                       tone="warning"
                       data-testid={`${adminSubNavTestId(item.key)}-prototype-badge`}
-                      aria-label={`${item.label}：预览，尚未接入真实后端`}
+                      aria-label={t("adminNavigation.secondary.previewDescription", { label })}
                       className="shrink-0"
                     >
-                      预览 · 未接后端
+                      {t("adminNavigation.secondary.preview")}
                     </Badge>
                   )}
                 </Link>

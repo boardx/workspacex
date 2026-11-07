@@ -1,0 +1,61 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts
+
+ ❯ tests/billing-welcome-credit.test.ts (1 test | 1 failed) 9ms
+   × declares welcome grant and expiry independently of admin and paid subscription sources 8ms
+     → [
+  {
+    "received": "welcome_grant",
+    "code": "invalid_enum_value",
+    "options": [
+      "purchase",
+      "bonus",
+      "grant",
+      "consume",
+      "subscription_grant",
+      "subscription_expire"
+    ],
+    "path": [],
+    "message": "Invalid enum value. Expected 'purchase' | 'bonus' | 'grant' | 'consume' | 'subscription_grant' | 'subscription_expire', received 'welcome_grant'"
+  }
+]
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing-welcome-credit.test.ts > declares welcome grant and expiry independently of admin and paid subscription sources
+ZodError: [
+  {
+    "received": "welcome_grant",
+    "code": "invalid_enum_value",
+    "options": [
+      "purchase",
+      "bonus",
+      "grant",
+      "consume",
+      "subscription_grant",
+      "subscription_expire"
+    ],
+    "path": [],
+    "message": "Invalid enum value. Expected 'purchase' | 'bonus' | 'grant' | 'consume' | 'subscription_grant' | 'subscription_expire', received 'welcome_grant'"
+  }
+]
+ ❯ Object.get error [as error] ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:39:31
+ ❯ ZodEnum.parse ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:114:22
+ ❯ tests/billing-welcome-credit.test.ts:4:33
+      2| import { BillingTransactionType, BillingTransactionSourceType, CreditP…
+      3| it("declares welcome grant and expiry independently of admin and paid …
+      4|   expect(BillingTransactionType.parse("welcome_grant")).toBe("welcome_…
+       |                                 ^
+      5|   expect(BillingTransactionType.parse("welcome_expire")).toBe("welcome…
+      6|   expect(BillingTransactionSourceType.parse("welcome_period")).toBe("w…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  23:43:30
+   Duration  1.12s (transform 156ms, setup 0ms, collect 173ms, tests 9ms, environment 0ms, prepare 168ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing-welcome-credit.test.ts

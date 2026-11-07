@@ -1,0 +1,93 @@
+{
+  "source": "89a22aeb2a7faf0d2392615d94298ef86e502cc4",
+  "runtimeEvidenceHead": "c05394075710749eb3bedcb52e4cf30013957d63",
+  "browser": "actual PASS; process exit and cleanup checked separately by root",
+  "screenshotQa": "15/15 actually visually inspected by root; desktop/mobile views, grant/revoke top+footer and denied screen readable; mobile actions fully visible. Audit table intentionally retains its contained horizontal scroller at375.",
+  "images": [
+    {
+      "name": "workflow-grants-workflow-1280.png",
+      "sha256": "a43ae6a28170c48906bf3f6fe069c18318bcc10f435f79b8f8ab78ae0f5454fd",
+      "visuallyInspected": true
+    },
+    {
+      "name": "workflow-grants-workflow-375.png",
+      "sha256": "a46e02d14d05fd4bec8c0a5f49e45e3a9ce02cbf980e8f47f30706250d3572c0",
+      "visuallyInspected": true
+    },
+    {
+      "name": "workflow-grants-capability-1280.png",
+      "sha256": "263ba5a716140bee565de07de04a7bb89721c7820d1e9d4f68e6cda5ed55944d",
+      "visuallyInspected": true
+    },
+    {
+      "name": "workflow-grants-capability-375.png",
+      "sha256": "2b68d59b5276df9e9e057d8821121ed4cdc0ae22f9aaf2fac96a9683d83a4c2d",
+      "visuallyInspected": true
+    },
+    {
+      "name": "workflow-grants-dialog-top-1280.png",
+      "sha256": "2f857403b550787a15c3273d6ad2e20e3b1485cbc4233eb5eae768e3bc451f57",
+      "visuallyInspected": true
+    },
+    {
+      "name": "workflow-grants-dialog-top-375.png",
+      "sha256": "54db86afe5fa37c62f684dab4db45568ea4c1738dafb048f646a031126bfb8cd",
+      "visuallyInspected": true
+    },
+    {
+      "name": "workflow-grants-dialog-1280.png",
+      "sha256": "2f857403b550787a15c3273d6ad2e20e3b1485cbc4233eb5eae768e3bc451f57",
+      "visuallyInspected": true
+    },
+    {
+      "name": "workflow-grants-dialog-375.png",
+      "sha256": "0869a23751516dd1bee33d638c075744840e57b363f0ef7b6ca1debc9265bf04",
+      "visuallyInspected": true
+    },
+    {
+      "name": "workflow-grants-audit-1280.png",
+      "sha256": "bba625ebe6a892ea599d09b9426b73a5f6b260e8702f1dccfaa54994161e555c",
+      "visuallyInspected": true
+    },
+    {
+      "name": "workflow-grants-audit-375.png",
+      "sha256": "07137ddc066d0b095847810c8699481365b414c6ea84fd6eea61f3b8d908925d",
+      "visuallyInspected": true
+    },
+    {
+      "name": "workflow-grants-revoke-top-1280.png",
+      "sha256": "ba220fe02b927e1e215b0ef7e658586103a943c1895468210857ab312347e2b6",
+      "visuallyInspected": true
+    },
+    {
+      "name": "workflow-grants-revoke-top-375.png",
+      "sha256": "a94803fe9f10fda5f8ad9c52b3d5767cdaae421ed5c38da5ba61391d0a79f87d",
+      "visuallyInspected": true
+    },
+    {
+      "name": "workflow-grants-revoke-1280.png",
+      "sha256": "ba220fe02b927e1e215b0ef7e658586103a943c1895468210857ab312347e2b6",
+      "visuallyInspected": true
+    },
+    {
+      "name": "workflow-grants-revoke-375.png",
+      "sha256": "1a40037c4a692fa11e4f666799e8670c713b606418246dc4e7fb65a33da64c85",
+      "visuallyInspected": true
+    },
+    {
+      "name": "workflow-grants-member-denied-375.png",
+      "sha256": "8e551e3a834a4b7a8c4dc5240469185e84f0c325001b5370b615f06913b64fba",
+      "visuallyInspected": true
+    }
+  ],
+  "cleanup": {
+    "scope": "wsx-57d5c526c41d17fee319",
+    "containersAfterExit": 0,
+    "ownedListenersAfterExit": 0,
+    "commandExit": 0,
+    "caseSeconds": 10.2,
+    "total": "4m1s",
+    "cleanupSeconds": 1
+  },
+  "postBrowserCopyDelta": "One English shortfall literal corrected to count-neutral wording after browser source89a22. Same keys/parameters/Chinese/behavior; existing resource catalog5/5PASS783ms and namespaceESLint0. No full browser rerun claimed for this literal-only delta."
+}

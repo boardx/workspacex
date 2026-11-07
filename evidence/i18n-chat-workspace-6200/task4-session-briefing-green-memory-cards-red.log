@@ -1,0 +1,1379 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ❯ tests/ui/i18n-chat-memory-cards.test.tsx (12 tests | 12 failed) 237ms
+   × keeps edited raw memory and one pending explicit acceptance across locale 134ms
+     → Unable to find an accessible element with the role "textbox" and name "Memory to save (editable)"
+
+Here are the accessible roles:
+
+  textbox:
+
+  Name "要记住的内容（可改）":
+  [36m<textarea[39m
+    [33maria-label[39m=[32m"要记住的内容（可改）"[39m
+    [33mclass[39m=[32m"flex min-h-16 w-full rounded-control border border-input bg-card px-3 py-2.5 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed text-11"[39m
+    [33mdata-testid[39m=[32m"kg-card-remember-text"[39m
+    [33mmaxlength[39m=[32m"2000"[39m
+    [33mrows[39m=[32m"2"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "记住":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-secondary text-secondary-foreground hover:bg-muted active:scale-[0.98] h-6 px-2 text-11"[39m
+    [33mdata-testid[39m=[32m"kg-card-accept"[39m
+  [36m/>[39m
+
+  Name "不用了":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"[39m
+    [33mdata-testid[39m=[32m"kg-card-dismiss"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mt-2 flex flex-col gap-2 rounded-lg border border-ai-tint bg-ai-tint/40 p-3"[39m
+      [33mdata-testid[39m=[32m"kg-card-remember"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-center gap-1.5"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-sparkles h-4 w-4 text-ai-tint-foreground"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M20 3v4"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M22 5h-4"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M4 17v2"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M5 18H3"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-11 font-medium text-ai-tint-foreground"[39m
+        [36m>[39m
+          [0m要记到你的长期记忆吗？[0m
+        [36m</span>[39m
+      [36m</div>[39m
+      [36m<textarea[39m
+        [33maria-label[39m=[32m"要记住的内容（可改）"[39m
+        [33mclass[39m=[32m"flex min-h-16 w-full rounded-control border border-input bg-card px-3 py-2.5 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed text-11"[39m
+        [33mdata-testid[39m=[32m"kg-card-remember-text"[39m
+        [33mmaxlength[39m=[32m"2000"[39m
+        [33mrows[39m=[32m"2"[39m
+      [36m>[39m
+        [0m原始记忆 {count} const raw = '{locale}';[0m
+      [36m</textarea>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-center gap-1.5"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-secondary text-secondary-foreground hover:bg-muted active:scale-[0.98] h-6 px-2 text-11"[39m
+          [33mdata-testid[39m=[32m"kg-card-accept"[39m
+        [36m>[39m
+          [0m记住[0m
+        [36m</button>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"[39m
+          [33mdata-testid[39m=[32m"kg-card-dismiss"[39m
+        [36m>[39m
+          [0m不用了[0m
+        [36m</button>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × retains the exact subset of raw claim IDs for explicit forgetting through locale 39ms
+     → Unable to find an accessible element with the role "checkbox" and name "Forget 另一条原文 {item}"
+
+Here are the accessible roles:
+
+  list:
+
+  Name "":
+  [36m<ul[39m
+    [33mclass[39m=[32m"flex flex-col gap-1"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  listitem:
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"flex items-start gap-2"[39m
+    [33mdata-testid[39m=[32m"kg-card-forget-item-raw-one"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"flex items-start gap-2"[39m
+    [33mdata-testid[39m=[32m"kg-card-forget-item-raw-two"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  checkbox:
+
+  Name "忘掉 原始记忆 {count} const raw = '{locale}';":
+  [36m<input[39m
+    [33maria-label[39m=[32m"忘掉 原始记忆 {count} const raw = '{locale}';"[39m
+    [33mchecked[39m=[32m""[39m
+    [33mclass[39m=[32m"peer h-4 w-4 cursor-pointer appearance-none rounded-control border border-input bg-card transition-all duration-200 checked:border-primary checked:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:bg-disabled"[39m
+    [33mdata-testid[39m=[32m"kg-card-forget-check-raw-one"[39m
+    [33mid[39m=[32m":r0:"[39m
+    [33mtype[39m=[32m"checkbox"[39m
+  [36m/>[39m
+
+  Name "忘掉 另一条原文 {item}":
+  [36m<input[39m
+    [33maria-label[39m=[32m"忘掉 另一条原文 {item}"[39m
+    [33mchecked[39m=[32m""[39m
+    [33mclass[39m=[32m"peer h-4 w-4 cursor-pointer appearance-none rounded-control border border-input bg-card transition-all duration-200 checked:border-primary checked:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:bg-disabled"[39m
+    [33mdata-testid[39m=[32m"kg-card-forget-check-raw-two"[39m
+    [33mid[39m=[32m":r1:"[39m
+    [33mtype[39m=[32m"checkbox"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "忘掉（2）":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-destructive text-destructive-foreground hover:bg-destructive-hover active:scale-[0.98] h-6 px-2 text-11"[39m
+    [33mdata-testid[39m=[32m"kg-card-accept"[39m
+  [36m/>[39m
+
+  Name "不用了":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"[39m
+    [33mdata-testid[39m=[32m"kg-card-dismiss"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mt-2 flex flex-col gap-2 rounded-lg border border-ai-tint bg-ai-tint/40 p-3"[39m
+      [33mdata-testid[39m=[32m"kg-card-forget"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-center gap-1.5"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-trash2 h-4 w-4 text-destructive"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M3 6h18"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"[39m
+          [36m/>[39m
+          [36m<line[39m
+            [33mx1[39m=[32m"10"[39m
+            [33mx2[39m=[32m"10"[39m
+            [33my1[39m=[32m"11"[39m
+            [33my2[39m=[32m"17"[39m
+          [36m/>[39m
+          [36m<line[39m
+            [33mx1[39m=[32m"14"[39m
+            [33mx2[39m=[32m"14"[39m
+            [33my1[39m=[32m"11"[39m
+            [33my2[39m=[32m"17"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-11 font-medium text-ai-tint-foreground"[39m
+        [36m>[39m
+          [0m要忘掉这些吗？忘掉后我就不再提了[0m
+        [36m</span>[39m
+      [36m</div>[39m
+      [36m<ul[39m
+        [33mclass[39m=[32m"flex flex-col gap-1"[39m
+      [36m>[39m
+        [36m<li[39m
+          [33mclass[39m=[32m"flex items-start gap-2"[39m
+          [33mdata-testid[39m=[32m"kg-card-forget-item-raw-one"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex items-start gap-2 mt-0.5"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"relative mt-0.5 inline-flex h-4 w-4 shrink-0"[39m
+            [36m>[39m
+              [36m<input[39m
+                [33maria-label[39m=[32m"忘掉 原始记忆 {count} const raw = '{locale}';"[39m
+                [33mchecked[39m=[32m""[39m
+                [33mclass[39m=[32m"peer h-4 w-4 cursor-pointer appearance-none rounded-control border border-input bg-card transition-all duration-200 checked:border-primary checked:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:bg-disabled"[39m
+                [33mdata-testid[39m=[32m"kg-card-forget-check-raw-one"[39m
+                [33mid[39m=[32m":r0:"[39m
+                [33mtype[39m=[32m"checkbox"[39m
+              [36m/>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-check pointer-events-none absolute left-0.5 top-0.5 h-3 w-3 text-primary-foreground opacity-0 transition-opacity duration-200 peer-checked:opacity-100"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M20 6 9 17l-5-5"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"text-11 text-background-foreground"[39m
+          [36m>[39m
+            [0m原始记忆 {count} const raw = '{locale}';[0m
+          [36m</span>[39m
+        [36m</li>[39m
+        [36m<li[39m
+          [33mclass[39m=[32m"flex items-start gap-2"[39m
+          [33mdata-testid[39m=[32m"kg-card-forget-item-raw-two"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex items-start gap-2 mt-0.5"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"relative mt-0.5 inline-flex h-4 w-4 shrink-0"[39m
+            [36m>[39m
+              [36m<input[39m
+                [33maria-label[39m=[32m"忘掉 另一条原文 {item}"[39m
+                [33mchecked[39m=[32m""[39m
+                [33mclass[39m=[32m"peer h-4 w-4 cursor-pointer appearance-none rounded-control border border-input bg-card transition-all duration-200 checked:border-primary checked:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:bg-disabled"[39m
+                [33mdata-testid[39m=[32m"kg-card-forget-check-raw-two"[39m
+                [33mid[39m=[32m":r1:"[39m
+                [33mtype[39m=[32m"checkbox"[39m
+              [36m/>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-check pointer-events-none absolute left-0.5 top-0.5 h-3 w-3 text-primary-foreground opacity-0 transition-opacity duration-200 peer-checked:opacity-100"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M20 6 9 17l-5-5"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"text-11 text-background-foreground"[39m
+          [36m>[39m
+            [0m另一条原文 {item}[0m
+          [36m</span>[39m
+        [36m</li>[39m
+      [36m</ul>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-center gap-1.5"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-destructive text-destructive-foreground hover:bg-destructive-hover active:scale-[0.98] h-6 px-2 text-11"[39m
+          [33mdata-testid[39m=[32m"kg-card-accept"[39m
+        [36m>[39m
+          [0m忘掉（2）[0m
+        [36m</button>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"[39m
+          [33mdata-testid[39m=[32m"kg-card-dismiss"[39m
+        [36m>[39m
+          [0m不用了[0m
+        [36m</button>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × renders an overview using raw statements and source titles with canonical links and no actions 11ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  What I remember about you
+Received:
+  我记得的关于你的事（只有你看得到）事实原始记忆 {count} const raw = '{locale}';来自「原对话标题 {title}」在「大脑」里看全部、改或忘掉
+   × localizes terminal 'stale' without reactivating decisions 3ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  This card changed and was not applied
+Received:
+  这张卡上的内容已经变了，没有生效。需要的话请再说一次。
+   × localizes terminal 'dismissed' without reactivating decisions 2ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  This memory was not saved to long-term memory
+Received:
+  好的，这条没有记在长期记忆里
+   × localizes terminal 'undone' without reactivating decisions 1ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Restored
+Received:
+  已撤销，这 1 条都恢复了，之后的对话照常会用到
+   × preserves the server-based undo outcome undone through locale without another undo 9ms
+     → Unable to find an accessible element with the role "button" and name "Undo"
+
+Here are the accessible roles:
+
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"flex items-center gap-1.5 text-10 text-muted-foreground"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "撤销":
+  [36m<button[39m
+    [33mclass[39m=[32m"underline-offset-2 transition-colors duration-base hover:underline disabled:cursor-not-allowed disabled:text-disabled-foreground"[39m
+    [33mdata-testid[39m=[32m"kg-card-undo"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mt-2 flex flex-col gap-1"[39m
+      [33mdata-testid[39m=[32m"kg-card-done"[39m
+    [36m>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"flex items-center gap-1.5 text-10 text-muted-foreground"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-check h-3 w-3 text-success"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M20 6 9 17l-5-5"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+        [0m已记住[0m
+        [36m<span[39m
+          [33maria-hidden[39m=[32m"true"[39m
+        [36m>[39m
+          [0m·[0m
+        [36m</span>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"underline-offset-2 transition-colors duration-base hover:underline disabled:cursor-not-allowed disabled:text-disabled-foreground"[39m
+          [33mdata-testid[39m=[32m"kg-card-undo"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [0m撤销[0m
+        [36m</button>[39m
+      [36m</p>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × preserves the server-based undo outcome kept through locale without another undo 7ms
+     → Unable to find an accessible element with the role "button" and name "Undo"
+
+Here are the accessible roles:
+
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"flex items-center gap-1.5 text-10 text-muted-foreground"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "撤销":
+  [36m<button[39m
+    [33mclass[39m=[32m"underline-offset-2 transition-colors duration-base hover:underline disabled:cursor-not-allowed disabled:text-disabled-foreground"[39m
+    [33mdata-testid[39m=[32m"kg-card-undo"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mt-2 flex flex-col gap-1"[39m
+      [33mdata-testid[39m=[32m"kg-card-done"[39m
+    [36m>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"flex items-center gap-1.5 text-10 text-muted-foreground"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-check h-3 w-3 text-success"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M20 6 9 17l-5-5"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+        [0m已记住[0m
+        [36m<span[39m
+          [33maria-hidden[39m=[32m"true"[39m
+        [36m>[39m
+          [0m·[0m
+        [36m</span>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"underline-offset-2 transition-colors duration-base hover:underline disabled:cursor-not-allowed disabled:text-disabled-foreground"[39m
+          [33mdata-testid[39m=[32m"kg-card-undo"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [0m撤销[0m
+        [36m</button>[39m
+      [36m</p>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × preserves the server-based undo outcome not_undoable through locale without another undo 7ms
+     → Unable to find an accessible element with the role "button" and name "Undo"
+
+Here are the accessible roles:
+
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"flex items-center gap-1.5 text-10 text-muted-foreground"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "撤销":
+  [36m<button[39m
+    [33mclass[39m=[32m"underline-offset-2 transition-colors duration-base hover:underline disabled:cursor-not-allowed disabled:text-disabled-foreground"[39m
+    [33mdata-testid[39m=[32m"kg-card-undo"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mt-2 flex flex-col gap-1"[39m
+      [33mdata-testid[39m=[32m"kg-card-done"[39m
+    [36m>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"flex items-center gap-1.5 text-10 text-muted-foreground"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-check h-3 w-3 text-success"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M20 6 9 17l-5-5"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+        [0m已记住[0m
+        [36m<span[39m
+          [33maria-hidden[39m=[32m"true"[39m
+        [36m>[39m
+          [0m·[0m
+        [36m</span>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"underline-offset-2 transition-colors duration-base hover:underline disabled:cursor-not-allowed disabled:text-disabled-foreground"[39m
+          [33mdata-testid[39m=[32m"kg-card-undo"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [0m撤销[0m
+        [36m</button>[39m
+      [36m</p>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × preserves the server-based undo outcome unknown through locale without another undo 6ms
+     → Unable to find an accessible element with the role "button" and name "Undo"
+
+Here are the accessible roles:
+
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"flex items-center gap-1.5 text-10 text-muted-foreground"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "撤销":
+  [36m<button[39m
+    [33mclass[39m=[32m"underline-offset-2 transition-colors duration-base hover:underline disabled:cursor-not-allowed disabled:text-disabled-foreground"[39m
+    [33mdata-testid[39m=[32m"kg-card-undo"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mt-2 flex flex-col gap-1"[39m
+      [33mdata-testid[39m=[32m"kg-card-done"[39m
+    [36m>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"flex items-center gap-1.5 text-10 text-muted-foreground"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-check h-3 w-3 text-success"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M20 6 9 17l-5-5"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+        [0m已记住[0m
+        [36m<span[39m
+          [33maria-hidden[39m=[32m"true"[39m
+        [36m>[39m
+          [0m·[0m
+        [36m</span>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"underline-offset-2 transition-colors duration-base hover:underline disabled:cursor-not-allowed disabled:text-disabled-foreground"[39m
+          [33mdata-testid[39m=[32m"kg-card-undo"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [0m撤销[0m
+        [36m</button>[39m
+      [36m</p>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × keeps a caller-provided failure raw and does not repeat acceptance on locale 15ms
+     → Unable to find an accessible element with the role "button" and name "Remember"
+
+Here are the accessible roles:
+
+  textbox:
+
+  Name "要记住的内容（可改）":
+  [36m<textarea[39m
+    [33maria-label[39m=[32m"要记住的内容（可改）"[39m
+    [33mclass[39m=[32m"flex min-h-16 w-full rounded-control border border-input bg-card px-3 py-2.5 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed text-11"[39m
+    [33mdata-testid[39m=[32m"kg-card-remember-text"[39m
+    [33mmaxlength[39m=[32m"2000"[39m
+    [33mrows[39m=[32m"2"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "记住":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-secondary text-secondary-foreground hover:bg-muted active:scale-[0.98] h-6 px-2 text-11"[39m
+    [33mdata-testid[39m=[32m"kg-card-accept"[39m
+  [36m/>[39m
+
+  Name "不用了":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"[39m
+    [33mdata-testid[39m=[32m"kg-card-dismiss"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mt-2 flex flex-col gap-2 rounded-lg border border-ai-tint bg-ai-tint/40 p-3"[39m
+      [33mdata-testid[39m=[32m"kg-card-remember"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-center gap-1.5"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-sparkles h-4 w-4 text-ai-tint-foreground"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M20 3v4"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M22 5h-4"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M4 17v2"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M5 18H3"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-11 font-medium text-ai-tint-foreground"[39m
+        [36m>[39m
+          [0m要记到你的长期记忆吗？[0m
+        [36m</span>[39m
+      [36m</div>[39m
+      [36m<textarea[39m
+        [33maria-label[39m=[32m"要记住的内容（可改）"[39m
+        [33mclass[39m=[32m"flex min-h-16 w-full rounded-control border border-input bg-card px-3 py-2.5 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed text-11"[39m
+        [33mdata-testid[39m=[32m"kg-card-remember-text"[39m
+        [33mmaxlength[39m=[32m"2000"[39m
+        [33mrows[39m=[32m"2"[39m
+      [36m>[39m
+        [0m原始记忆 {count} const raw = '{locale}';[0m
+      [36m</textarea>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-center gap-1.5"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-secondary text-secondary-foreground hover:bg-muted active:scale-[0.98] h-6 px-2 text-11"[39m
+          [33mdata-testid[39m=[32m"kg-card-accept"[39m
+        [36m>[39m
+          [0m记住[0m
+        [36m</button>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"[39m
+          [33mdata-testid[39m=[32m"kg-card-dismiss"[39m
+        [36m>[39m
+          [0m不用了[0m
+        [36m</button>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × keeps readonly raw memory visible without any editor or decision 2ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Save this to your long-term memory?
+Received:
+  要记到你的长期记忆吗？原始记忆 {count} const raw = '{locale}';
+ ✓ tests/ui/i18n-chat-session-briefing.test.tsx (3 tests) 189ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 12 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/i18n-chat-memory-cards.test.tsx > keeps edited raw memory and one pending explicit acceptance across locale
+TestingLibraryElementError: Unable to find an accessible element with the role "textbox" and name "Memory to save (editable)"
+
+Here are the accessible roles:
+
+  textbox:
+
+  Name "要记住的内容（可改）":
+  [36m<textarea[39m
+    [33maria-label[39m=[32m"要记住的内容（可改）"[39m
+    [33mclass[39m=[32m"flex min-h-16 w-full rounded-control border border-input bg-card px-3 py-2.5 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed text-11"[39m
+    [33mdata-testid[39m=[32m"kg-card-remember-text"[39m
+    [33mmaxlength[39m=[32m"2000"[39m
+    [33mrows[39m=[32m"2"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "记住":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-secondary text-secondary-foreground hover:bg-muted active:scale-[0.98] h-6 px-2 text-11"[39m
+    [33mdata-testid[39m=[32m"kg-card-accept"[39m
+  [36m/>[39m
+
+  Name "不用了":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"[39m
+    [33mdata-testid[39m=[32m"kg-card-dismiss"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mt-2 flex flex-col gap-2 rounded-lg border border-ai-tint bg-ai-tint/40 p-3"[39m
+      [33mdata-testid[39m=[32m"kg-card-remember"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-center gap-1.5"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-sparkles h-4 w-4 text-ai-tint-foreground"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M20 3v4"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M22 5h-4"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M4 17v2"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M5 18H3"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-11 font-medium text-ai-tint-foreground"[39m
+        [36m>[39m
+          [0m要记到你的长期记忆吗？[0m
+        [36m</span>[39m
+      [36m</div>[39m
+      [36m<textarea[39m
+        [33maria-label[39m=[32m"要记住的内容（可改）"[39m
+        [33mclass[39m=[32m"flex min-h-16 w-full rounded-control border border-input bg-card px-3 py-2.5 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed text-11"[39m
+        [33mdata-testid[39m=[32m"kg-card-remember-text"[39m
+        [33mmaxlength[39m=[32m"2000"[39m
+        [33mrows[39m=[32m"2"[39m
+      [36m>[39m
+        [0m原始记忆 {count} const raw = '{locale}';[0m
+      [36m</textarea>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-center gap-1.5"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-secondary text-secondary-foreground hover:bg-muted active:scale-[0.98] h-6 px-2 text-11"[39m
+          [33mdata-testid[39m=[32m"kg-card-accept"[39m
+        [36m>[39m
+          [0m记住[0m
+        [36m</button>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"[39m
+          [33mdata-testid[39m=[32m"kg-card-dismiss"[39m
+        [36m>[39m
+          [0m不用了[0m
+        [36m</button>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-memory-cards.test.tsx:17:24
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/12]⎯
+
+ FAIL  tests/ui/i18n-chat-memory-cards.test.tsx > retains the exact subset of raw claim IDs for explicit forgetting through locale
+TestingLibraryElementError: Unable to find an accessible element with the role "checkbox" and name "Forget 另一条原文 {item}"
+
+Here are the accessible roles:
+
+  list:
+
+  Name "":
+  [36m<ul[39m
+    [33mclass[39m=[32m"flex flex-col gap-1"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  listitem:
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"flex items-start gap-2"[39m
+    [33mdata-testid[39m=[32m"kg-card-forget-item-raw-one"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"flex items-start gap-2"[39m
+    [33mdata-testid[39m=[32m"kg-card-forget-item-raw-two"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  checkbox:
+
+  Name "忘掉 原始记忆 {count} const raw = '{locale}';":
+  [36m<input[39m
+    [33maria-label[39m=[32m"忘掉 原始记忆 {count} const raw = '{locale}';"[39m
+    [33mchecked[39m=[32m""[39m
+    [33mclass[39m=[32m"peer h-4 w-4 cursor-pointer appearance-none rounded-control border border-input bg-card transition-all duration-200 checked:border-primary checked:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:bg-disabled"[39m
+    [33mdata-testid[39m=[32m"kg-card-forget-check-raw-one"[39m
+    [33mid[39m=[32m":r0:"[39m
+    [33mtype[39m=[32m"checkbox"[39m
+  [36m/>[39m
+
+  Name "忘掉 另一条原文 {item}":
+  [36m<input[39m
+    [33maria-label[39m=[32m"忘掉 另一条原文 {item}"[39m
+    [33mchecked[39m=[32m""[39m
+    [33mclass[39m=[32m"peer h-4 w-4 cursor-pointer appearance-none rounded-control border border-input bg-card transition-all duration-200 checked:border-primary checked:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:bg-disabled"[39m
+    [33mdata-testid[39m=[32m"kg-card-forget-check-raw-two"[39m
+    [33mid[39m=[32m":r1:"[39m
+    [33mtype[39m=[32m"checkbox"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "忘掉（2）":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-destructive text-destructive-foreground hover:bg-destructive-hover active:scale-[0.98] h-6 px-2 text-11"[39m
+    [33mdata-testid[39m=[32m"kg-card-accept"[39m
+  [36m/>[39m
+
+  Name "不用了":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"[39m
+    [33mdata-testid[39m=[32m"kg-card-dismiss"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mt-2 flex flex-col gap-2 rounded-lg border border-ai-tint bg-ai-tint/40 p-3"[39m
+      [33mdata-testid[39m=[32m"kg-card-forget"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-center gap-1.5"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-trash2 h-4 w-4 text-destructive"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M3 6h18"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"[39m
+          [36m/>[39m
+          [36m<line[39m
+            [33mx1[39m=[32m"10"[39m
+            [33mx2[39m=[32m"10"[39m
+            [33my1[39m=[32m"11"[39m
+            [33my2[39m=[32m"17"[39m
+          [36m/>[39m
+          [36m<line[39m
+            [33mx1[39m=[32m"14"[39m
+            [33mx2[39m=[32m"14"[39m
+            [33my1[39m=[32m"11"[39m
+            [33my2[39m=[32m"17"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-11 font-medium text-ai-tint-foreground"[39m
+        [36m>[39m
+          [0m要忘掉这些吗？忘掉后我就不再提了[0m
+        [36m</span>[39m
+      [36m</div>[39m
+      [36m<ul[39m
+        [33mclass[39m=[32m"flex flex-col gap-1"[39m
+      [36m>[39m
+        [36m<li[39m
+          [33mclass[39m=[32m"flex items-start gap-2"[39m
+          [33mdata-testid[39m=[32m"kg-card-forget-item-raw-one"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex items-start gap-2 mt-0.5"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"relative mt-0.5 inline-flex h-4 w-4 shrink-0"[39m
+            [36m>[39m
+              [36m<input[39m
+                [33maria-label[39m=[32m"忘掉 原始记忆 {count} const raw = '{locale}';"[39m
+                [33mchecked[39m=[32m""[39m
+                [33mclass[39m=[32m"peer h-4 w-4 cursor-pointer appearance-none rounded-control border border-input bg-card transition-all duration-200 checked:border-primary checked:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:bg-disabled"[39m
+                [33mdata-testid[39m=[32m"kg-card-forget-check-raw-one"[39m
+                [33mid[39m=[32m":r0:"[39m
+                [33mtype[39m=[32m"checkbox"[39m
+              [36m/>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-check pointer-events-none absolute left-0.5 top-0.5 h-3 w-3 text-primary-foreground opacity-0 transition-opacity duration-200 peer-checked:opacity-100"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M20 6 9 17l-5-5"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"text-11 text-background-foreground"[39m
+          [36m>[39m
+            [0m原始记忆 {count} const raw = '{locale}';[0m
+          [36m</span>[39m
+        [36m</li>[39m
+        [36m<li[39m
+          [33mclass[39m=[32m"flex items-start gap-2"[39m
+          [33mdata-testid[39m=[32m"kg-card-forget-item-raw-two"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex items-start gap-2 mt-0.5"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"relative mt-0.5 inline-flex h-4 w-4 shrink-0"[39m
+            [36m>[39m
+              [36m<input[39m
+                [33maria-label[39m=[32m"忘掉 另一条原文 {item}"[39m
+                [33mchecked[39m=[32m""[39m
+                [33mclass[39m=[32m"peer h-4 w-4 cursor-pointer appearance-none rounded-control border border-input bg-card transition-all duration-200 checked:border-primary checked:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:bg-disabled"[39m
+                [33mdata-testid[39m=[32m"kg-card-forget-check-raw-two"[39m
+                [33mid[39m=[32m":r1:"[39m
+                [33mtype[39m=[32m"checkbox"[39m
+              [36m/>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-check pointer-events-none absolute left-0.5 top-0.5 h-3 w-3 text-primary-foreground opacity-0 transition-opacity duration-200 peer-checked:opacity-100"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M20 6 9 17l-5-5"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"text-11 text-background-foreground"[39m
+          [36m>[39m
+            [0m另一条原文 {item}[0m
+          [36m</span>[39m
+        [36m</li>[39m
+      [36m</ul>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-center gap-1.5"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-destructive text-destructive-foreground hover:bg-destructive-hover active:scale-[0.98] h-6 px-2 text-11"[39m
+          [33mdata-testid[39m=[32m"kg-card-accept"[39m
+        [36m>[39m
+          [0m忘掉（2）[0m
+        [36m</button>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"[39m
+          [33mdata-testid[39m=[32m"kg-card-dismiss"[39m
+        [36m>[39m
+          [0m不用了[0m
+        [36m</button>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-memory-cards.test.tsx:27:27
+     25|   const actOn = vi.fn(async () => ({ ...forget, state: "done" as const…
+     26|   render(<I18nProvider initialLocale="en"><Driver /><MemoryCard card={…
+     27|   const checkbox = screen.getByRole("checkbox", { name: `Forget ${forg…
+       |                           ^
+     28|   act(() => changeLocale()); expect(screen.getByTestId("kg-card-forget…
+     29|   fireEvent.click(screen.getByTestId("kg-card-accept")); await screen.…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/12]⎯
+
+ FAIL  tests/ui/i18n-chat-memory-cards.test.tsx > renders an overview using raw statements and source titles with canonical links and no actions
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  What I remember about you
+Received:
+  我记得的关于你的事（只有你看得到）事实原始记忆 {count} const raw = '{locale}';来自「原对话标题 {title}」在「大脑」里看全部、改或忘掉
+ ❯ tests/ui/i18n-chat-memory-cards.test.tsx:37:69
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/12]⎯
+
+ FAIL  tests/ui/i18n-chat-memory-cards.test.tsx > localizes terminal 'stale' without reactivating decisions
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  This card changed and was not applied
+Received:
+  这张卡上的内容已经变了，没有生效。需要的话请再说一次。
+ ❯ tests/ui/i18n-chat-memory-cards.test.tsx:49:53
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/12]⎯
+
+ FAIL  tests/ui/i18n-chat-memory-cards.test.tsx > localizes terminal 'dismissed' without reactivating decisions
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  This memory was not saved to long-term memory
+Received:
+  好的，这条没有记在长期记忆里
+ ❯ tests/ui/i18n-chat-memory-cards.test.tsx:49:53
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/12]⎯
+
+ FAIL  tests/ui/i18n-chat-memory-cards.test.tsx > localizes terminal 'undone' without reactivating decisions
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Restored
+Received:
+  已撤销，这 1 条都恢复了，之后的对话照常会用到
+ ❯ tests/ui/i18n-chat-memory-cards.test.tsx:49:53
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/12]⎯
+
+ FAIL  tests/ui/i18n-chat-memory-cards.test.tsx > preserves the server-based undo outcome undone through locale without another undo
+ FAIL  tests/ui/i18n-chat-memory-cards.test.tsx > preserves the server-based undo outcome kept through locale without another undo
+ FAIL  tests/ui/i18n-chat-memory-cards.test.tsx > preserves the server-based undo outcome not_undoable through locale without another undo
+ FAIL  tests/ui/i18n-chat-memory-cards.test.tsx > preserves the server-based undo outcome unknown through locale without another undo
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Undo"
+
+Here are the accessible roles:
+
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"flex items-center gap-1.5 text-10 text-muted-foreground"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "撤销":
+  [36m<button[39m
+    [33mclass[39m=[32m"underline-offset-2 transition-colors duration-base hover:underline disabled:cursor-not-allowed disabled:text-disabled-foreground"[39m
+    [33mdata-testid[39m=[32m"kg-card-undo"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mt-2 flex flex-col gap-1"[39m
+      [33mdata-testid[39m=[32m"kg-card-done"[39m
+    [36m>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"flex items-center gap-1.5 text-10 text-muted-foreground"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-check h-3 w-3 text-success"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M20 6 9 17l-5-5"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+        [0m已记住[0m
+        [36m<span[39m
+          [33maria-hidden[39m=[32m"true"[39m
+        [36m>[39m
+          [0m·[0m
+        [36m</span>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"underline-offset-2 transition-colors duration-base hover:underline disabled:cursor-not-allowed disabled:text-disabled-foreground"[39m
+          [33mdata-testid[39m=[32m"kg-card-undo"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [0m撤销[0m
+        [36m</button>[39m
+      [36m</p>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-memory-cards.test.tsx:58:26
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/12]⎯
+
+ FAIL  tests/ui/i18n-chat-memory-cards.test.tsx > keeps a caller-provided failure raw and does not repeat acceptance on locale
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Remember"
+
+Here are the accessible roles:
+
+  textbox:
+
+  Name "要记住的内容（可改）":
+  [36m<textarea[39m
+    [33maria-label[39m=[32m"要记住的内容（可改）"[39m
+    [33mclass[39m=[32m"flex min-h-16 w-full rounded-control border border-input bg-card px-3 py-2.5 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed text-11"[39m
+    [33mdata-testid[39m=[32m"kg-card-remember-text"[39m
+    [33mmaxlength[39m=[32m"2000"[39m
+    [33mrows[39m=[32m"2"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "记住":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-secondary text-secondary-foreground hover:bg-muted active:scale-[0.98] h-6 px-2 text-11"[39m
+    [33mdata-testid[39m=[32m"kg-card-accept"[39m
+  [36m/>[39m
+
+  Name "不用了":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"[39m
+    [33mdata-testid[39m=[32m"kg-card-dismiss"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mt-2 flex flex-col gap-2 rounded-lg border border-ai-tint bg-ai-tint/40 p-3"[39m
+      [33mdata-testid[39m=[32m"kg-card-remember"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-center gap-1.5"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-sparkles h-4 w-4 text-ai-tint-foreground"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M20 3v4"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M22 5h-4"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M4 17v2"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M5 18H3"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-11 font-medium text-ai-tint-foreground"[39m
+        [36m>[39m
+          [0m要记到你的长期记忆吗？[0m
+        [36m</span>[39m
+      [36m</div>[39m
+      [36m<textarea[39m
+        [33maria-label[39m=[32m"要记住的内容（可改）"[39m
+        [33mclass[39m=[32m"flex min-h-16 w-full rounded-control border border-input bg-card px-3 py-2.5 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed text-11"[39m
+        [33mdata-testid[39m=[32m"kg-card-remember-text"[39m
+        [33mmaxlength[39m=[32m"2000"[39m
+        [33mrows[39m=[32m"2"[39m
+      [36m>[39m
+        [0m原始记忆 {count} const raw = '{locale}';[0m
+      [36m</textarea>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-center gap-1.5"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-secondary text-secondary-foreground hover:bg-muted active:scale-[0.98] h-6 px-2 text-11"[39m
+          [33mdata-testid[39m=[32m"kg-card-accept"[39m
+        [36m>[39m
+          [0m记住[0m
+        [36m</button>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"[39m
+          [33mdata-testid[39m=[32m"kg-card-dismiss"[39m
+        [36m>[39m
+          [0m不用了[0m
+        [36m</button>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-memory-cards.test.tsx:66:26
+     64|   const reason = "调用方失败原文 {reason}"; const actOn = vi.fn(async …
+     65|   render(<I18nProvider initialLocale="en"><Driver /><MemoryCard card={…
+     66|   fireEvent.click(screen.getByRole("button", { name: "Remember" })); c…
+       |                          ^
+     67|   act(() => changeLocale()); expect(screen.getByTestId("kg-card-error"…
+     68| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/12]⎯
+
+ FAIL  tests/ui/i18n-chat-memory-cards.test.tsx > keeps readonly raw memory visible without any editor or decision
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Save this to your long-term memory?
+Received:
+  要记到你的长期记忆吗？原始记忆 {count} const raw = '{locale}';
+ ❯ tests/ui/i18n-chat-memory-cards.test.tsx:73:69
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/12]⎯
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  12 failed | 3 passed (15)
+   Start at  13:57:59
+   Duration  4.76s (transform 1.13s, setup 294ms, collect 2.19s, tests 426ms, environment 1.44s, prepare 103ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/i18n-chat-session-briefing.test.tsx tests/ui/i18n-chat-memory-cards.test.tsx --maxWorkers=1 --minWorkers=1

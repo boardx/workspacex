@@ -1,0 +1,10 @@
+{
+  "head": "063809984cc2b45e58cb1f23ccbf835133debff3",
+  "run": 41808929750,
+  "job": 126502909131,
+  "failure": ".harness/scripts/lint-user-facing-error-text.test.ts:24",
+  "rawPrivate": true,
+  "rawLogSha256": "61bbc2abe55e24f206848c79b41eb6b8208b90a198621ddec7c929650225f7f4",
+  "actualParentSummary": "onefailed2828passed;244passedfiles;othercancelledchecksarefailfastpropagation",
+  "playwrightChild": "ci-fail-fast-wiring.test.ts:74 intentionalfailure child, parent8/8PASS; notsecondrootcause"
+}

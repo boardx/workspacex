@@ -106,6 +106,21 @@ class Tests(unittest.TestCase):
   d.run.side_effect=read
   self.assertEqual(m.resolved_config_hash(d,model,'example','api',self.root),['api','expected-hash'])
   self.assertEqual(list(self.root.glob('.resolved-compose-*')),[])
+ def test_resolved_hash_inverts_compose_serialized_dollars_exactly_once(self):
+  from unittest.mock import Mock
+  import copy
+  m=release_module();d=Mock()
+  serialized={'services':{'api':{'environment':{'ONE':'before$$after','TWO':'before$$$$after','BRACED':'$${DO_NOT_EXPAND}','EMPTY':'','NULL':None},'command':['echo','$$SHELL'],'labels':{'literal':'$$LABEL'}}}}
+  unchanged=copy.deepcopy(serialized);semantic=copy.deepcopy(serialized)
+  semantic['services']['api']['environment'].update(ONE='before$after',TWO='before$$after',BRACED='${DO_NOT_EXPAND}')
+  semantic['services']['api']['command']=['echo','$SHELL'];semantic['services']['api']['labels']={'literal':'$LABEL'}
+  def inspect_private_model(args):
+   self.assertIn('--no-interpolate',args);path=pathlib.Path(args[args.index('--file')+1]);self.assertEqual(path.stat().st_mode&0o777,0o600)
+   self.assertEqual(json.loads(path.read_text()),semantic)
+   return b'api actual-live-hash'
+  d.run.side_effect=inspect_private_model
+  self.assertEqual(m.resolved_config_hash(d,serialized,'example','api',self.root),['api','actual-live-hash'])
+  self.assertEqual(serialized,unchanged);self.assertEqual(list(self.root.glob('.resolved-compose-*')),[])
  def tearDown(self):self.server.shutdown();self.server.server_close();self.thread.join();self.temp.cleanup()
  def run_cli(self,apply=False,**updates):
   self.state.update(updates);self.statepath.write_text(json.dumps(self.state))

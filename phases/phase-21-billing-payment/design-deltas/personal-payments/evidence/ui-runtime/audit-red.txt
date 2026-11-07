@@ -1,0 +1,44 @@
+[stack-admission] load1=1.77 cores=10 perCore=0.18 running=0/2
+[test-isolation] id=run-mvy9ic8b-be8963f8-0e03919ccc5c db=wsx_0e03919ccc5c274b3f2d compose=wsx-0e03919ccc5c274b3f2d pg=20908 redis=21908 api=24908 web=25908 sandbox=26908 model=27908 deep-agent=28908 asr=29908 vision=30908 loopback-sandbox=31908 mail=19908
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_0e03919ccc5c274b3f2d capacity=100 current=6 required=32
+ ❯ tests/billing/personal-stripe-settlement-pg.test.ts (31 tests | 1 failed | 30 skipped) 13339ms
+   × permits rejection audits in the active epoch without reopening legacy financial writes 45ms
+     → payment_provider_not_configured
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/personal-stripe-settlement-pg.test.ts > permits rejection audits in the active epoch without reopening legacy financial writes
+Error: payment_provider_not_configured
+ ❯ Module.requireLegacyOrderEpoch src/infrastructure/billing/legacy-billing-epoch.ts:11:9
+      9| export async function requireLegacyOrderEpoch(session: TenantSession):…
+     10|   try { if (await pricingEpochMode(session) === "legacy") return; } ca…
+     11|   throw new BillingOrderError("payment_provider_not_configured");
+       |         ^
+     12| }
+     13| export async function requireLegacySubscriptionEpoch(session: TenantSe…
+ ❯ src/infrastructure/billing/pg-billing-crediting-store.ts:19:7
+ ❯ PgDatabase.inTx src/infrastructure/db/pg-database.ts:74:19
+ ❯ PgBillingCreditingStore.auditRejection src/infrastructure/billing/pg-billing-crediting-store.ts:109:5
+ ❯ tests/billing/personal-stripe-settlement-pg.test.ts:358:3
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 30 skipped (31)
+   Start at  04:08:05
+   Duration  18.18s (transform 1.04s, setup 8ms, collect 1.62s, tests 13.34s, environment 0ms, prepare 44ms)
+
+[db-isolation] db=wsx_0e03919ccc5c274b3f2d peak_connections=2
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/personal-stripe-settlement-pg.test.ts -t permits rejection audits
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/personal-stripe-settlement-pg.test.ts -t permits rejection audits
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：19s
+  清理：0s
+  总计：19s

@@ -14,6 +14,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PaginationLoadMore } from "@/components/ui/pagination";
 import { StateShell, type UiState } from "@/components/state/state-shell";
+import { activitySummary } from "@/lib/i18n/activity";
+import { useI18n } from "@/lib/i18n/provider";
+import type { MessageKey, MessageParams } from "@/lib/i18n/messages";
 import { ApiError } from "@/lib/api-client";
 import { PERSONAL_BILLING_ENTRY } from "@/lib/navigation";
 import {
@@ -29,6 +32,7 @@ const AVATAR_ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"];
  * 改密码、活动记录三块）。
  */
 export function ProfileScreen() {
+  const { t } = useI18n();
   const { session, identity, updateDisplayName, updateAvatarUrl, logout } = useSession();
 
   // 迭代 4 顺带修复（复核额外发现）：改名/换头像/改密码成功后，活动记录不会自己刷新——
@@ -45,7 +49,7 @@ export function ProfileScreen() {
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <User aria-hidden className="h-5 w-5 text-muted-foreground" />
-            <h1 className="text-16 font-semibold tracking-tight">个人资料</h1>
+            <h1 className="text-16 font-semibold tracking-tight">{t("profile.title")}</h1>
           </div>
 
           {/*
@@ -65,7 +69,7 @@ export function ProfileScreen() {
               onClick={logout}
             >
               <LogOut aria-hidden className="h-3 w-3" />
-              退出
+              {t("profile.logout")}
             </Button>
           </div>
         </div>
@@ -83,8 +87,8 @@ export function ProfileScreen() {
         >
           <BrainCircuit aria-hidden className="h-5 w-5 text-muted-foreground" />
           <div className="flex flex-1 flex-col">
-            <span className="text-13 font-medium">我的 Brain</span>
-            <span className="text-10 text-muted-foreground">长期记忆 / 对话里记下的</span>
+            <span className="text-13 font-medium">{t("profile.brainTitle")}</span>
+            <span className="text-10 text-muted-foreground">{t("profile.brainHint")}</span>
           </div>
           <ChevronRight aria-hidden className="h-4 w-4 text-muted-foreground" />
         </Link>
@@ -96,8 +100,8 @@ export function ProfileScreen() {
         >
           <PERSONAL_BILLING_ENTRY.icon aria-hidden className="h-5 w-5 text-muted-foreground" />
           <div className="flex flex-1 flex-col">
-            <span className="text-13 font-medium">{PERSONAL_BILLING_ENTRY.label}</span>
-            <span className="text-10 text-muted-foreground">个人额度、订阅与支付渠道</span>
+            <span className="text-13 font-medium">{t("ui.creditsAndSubscription")}</span>
+            <span className="text-10 text-muted-foreground">{t("profile.billingHint")}</span>
           </div>
           <ChevronRight aria-hidden className="h-4 w-4 text-muted-foreground" />
         </Link>
@@ -123,7 +127,7 @@ export function ProfileScreen() {
           <div data-testid="loading" className="flex animate-pulse flex-col gap-3">
             <div className="h-14 rounded-lg bg-muted" />
             <div className="h-9 rounded-lg bg-muted" />
-            <span className="sr-only">加载中</span>
+            <span className="sr-only">{t("state.loading")}</span>
           </div>
         )}
       </div>
@@ -141,10 +145,11 @@ function ProfileForm({
   onSavedName: (displayName: string) => void;
   onSavedAvatar: (avatarUrl: string | null) => void;
 }) {
+  const { t } = useI18n();
   const [displayName, setDisplayName] = React.useState(initialDisplayName);
   const [savedName, setSavedName] = React.useState(initialDisplayName);
   const [state, setState] = React.useState<UiState>("default");
-  const [failureMessage, setFailureMessage] = React.useState<string | null>(null);
+  const [failure, setFailure] = React.useState<unknown>(null);
 
   const trimmed = displayName.trim();
   const dirty = trimmed !== savedName;
@@ -156,7 +161,7 @@ function ProfileForm({
       return;
     }
     setState("loading");
-    setFailureMessage(null);
+    setFailure(null);
     try {
       const out = await updateOwnProfile({ displayName: trimmed });
       setSavedName(out.displayName);
@@ -164,7 +169,7 @@ function ProfileForm({
       setState("success");
       onSavedName(out.displayName);
     } catch (err) {
-      setFailureMessage(describeFailure(err));
+      setFailure(err);
       setState("dep-failed");
     }
   }
@@ -177,12 +182,12 @@ function ProfileForm({
         <StateShell
           state={state}
           skeletonRows={1}
-          errors={{ "display-name": "姓名不能为空" }}
-          depFailure={{ what: failureMessage ?? "个人资料服务暂时不可用", retry: () => setState("default") }}
-          successMessage="已保存"
+          errors={{ "display-name": t("profile.nameRequired") }}
+          depFailure={{ what: failure === null ? t("profile.unavailable") : describeFailure(failure, t), retry: () => setState("default") }}
+          successMessage={t("state.saved")}
         >
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="display-name">显示名</Label>
+            <Label htmlFor="display-name">{t("profile.displayName")}</Label>
             <Input
               id="display-name"
               value={displayName}
@@ -205,7 +210,7 @@ function ProfileForm({
             disabled={state === "loading" || !dirty}
             data-testid="profile-save"
           >
-            {state === "loading" ? "保存中…" : "保存"}
+            {state === "loading" ? t("profile.saving") : t("profile.save")}
           </Button>
         </div>
       </form>
@@ -218,10 +223,13 @@ type AvatarUiState = "idle" | "uploading" | "error";
 function AvatarUpload({
   avatarUrl, displayName, onSaved,
 }: { avatarUrl: string | null; displayName: string; onSaved: (avatarUrl: string | null) => void }) {
+  const { t } = useI18n();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
   const [state, setState] = React.useState<AvatarUiState>("idle");
-  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const [errorFailure, setErrorFailure] = React.useState<unknown>(null);
+
+  const errorMessage = errorFailure === null ? null : describeAvatarFailure(errorFailure, t);
 
   // 读回已保存的头像——`avatarUrl` 要求 Authorization 头，<img src> 做不到，
   // 所以用 fetch 换成 Blob URL（见 `live-identity.ts` 的 `fetchAvatarObjectUrl`）。
@@ -236,7 +244,7 @@ function AvatarUpload({
           setPreviewUrl(url);
         })
         .catch(() => {
-          if (!cancelled) setErrorMessage("头像加载失败，稍后重试");
+          if (!cancelled) setErrorFailure({ key: "profile.avatarLoadFailed" });
         });
     } else {
       setPreviewUrl(null);
@@ -252,17 +260,17 @@ function AvatarUpload({
     e.currentTarget.value = ""; // 允许重复选同一个文件也能触发 onChange
     if (!file) return;
 
-    setErrorMessage(null);
+    setErrorFailure(null);
 
     // 前端预检——体验优化，服务端会重做全部校验（真正的把关在那边）。
     if (file.size > AVATAR_MAX_BYTES) {
       setState("error");
-      setErrorMessage(`文件太大（${(file.size / 1024 / 1024).toFixed(1)}MB）——头像最大 5MB。`);
+      setErrorFailure({ key: "profile.avatarSize", params: { size: (file.size / 1024 / 1024).toFixed(1) } });
       return;
     }
     if (!AVATAR_ALLOWED_TYPES.includes(file.type)) {
       setState("error");
-      setErrorMessage(`不支持的文件类型（${file.type || "未知"}）——只支持 PNG / JPEG / WebP。`);
+      setErrorFailure({ key: "profile.avatarType", params: { type: file.type } });
       return;
     }
 
@@ -279,7 +287,7 @@ function AvatarUpload({
       setState("idle");
     } catch (err) {
       setState("error");
-      setErrorMessage(describeAvatarFailure(err));
+      setErrorFailure(err);
     }
   }
 
@@ -304,9 +312,9 @@ function AvatarUpload({
           data-testid="profile-avatar-upload"
         >
           <ImagePlus aria-hidden className="h-3 w-3" />
-          {state === "uploading" ? "上传中…" : "更换头像"}
+          {state === "uploading" ? t("profile.uploading") : t("profile.changeAvatar")}
         </Button>
-        <p className="text-10 text-muted-foreground">PNG / JPEG / WebP，最大 5MB。</p>
+        <p className="text-10 text-muted-foreground">{t("profile.avatarHint")}</p>
         {state === "error" && errorMessage ? (
           <p role="alert" data-testid="profile-avatar-error" className="flex items-center gap-1 text-10 text-destructive">
             <AlertTriangle aria-hidden className="h-3 w-3 shrink-0" />
@@ -318,14 +326,15 @@ function AvatarUpload({
   );
 }
 
-function describeAvatarFailure(failure: unknown): string {
+function describeAvatarFailure(failure: unknown, t: Translator): string {
+  if (isAvatarCopy(failure)) return t(failure.key, failure.params ? { ...failure.params, type: failure.params.type || t("profile.unknown") } : undefined);
   if (failure instanceof ApiError) {
-    if (failure.reasonCode === "FILE_TOO_LARGE") return "文件太大——头像最大 5MB。";
-    if (failure.reasonCode === "UNSUPPORTED_CONTENT_TYPE") return "文件类型不支持或与声明不符——只支持 PNG / JPEG / WebP。";
-    if (failure.status === 401) return "登录已失效（HTTP 401），请重新登录。";
-    return `${failure.reasonCode ?? "上传失败"}（HTTP ${failure.status}）`;
+    if (failure.reasonCode === "FILE_TOO_LARGE") return t("profile.avatarTooLarge");
+    if (failure.reasonCode === "UNSUPPORTED_CONTENT_TYPE") return t("profile.avatarUnsupported");
+    if (failure.status === 401) return t("profile.sessionExpired");
+    return t("profile.httpError", { message: failure.reasonCode ?? t("profile.uploadError"), status: failure.status });
   }
-  return failure instanceof Error ? failure.message : "上传失败，请稍后重试。";
+  return failure instanceof Error ? failure.message : t("profile.uploadFailed");
 }
 
 /* ═══════════════════════════ 改密码 ═══════════════════════════ */
@@ -333,21 +342,24 @@ function describeAvatarFailure(failure: unknown): string {
 type PasswordUiState = "idle" | "submitting" | "invalid" | "error" | "success";
 
 function PasswordSection({ onChanged }: { onChanged: () => void }) {
+  const { t } = useI18n();
   const [currentPassword, setCurrentPassword] = React.useState("");
   const [newPassword, setNewPassword] = React.useState("");
   const [state, setState] = React.useState<PasswordUiState>("idle");
-  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const [errorFailure, setErrorFailure] = React.useState<unknown>(null);
   const [revokedCount, setRevokedCount] = React.useState<number | null>(null);
+
+  const errorMessage = state === "invalid" ? t("profile.passwordMin") : errorFailure === null ? null : describePasswordFailure(errorFailure, t);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (newPassword.length < 12) {
       setState("invalid");
-      setErrorMessage("新密码至少需要 12 个字符");
+
       return;
     }
     setState("submitting");
-    setErrorMessage(null);
+    setErrorFailure(null);
     setRevokedCount(null);
     try {
       const out = await changeOwnPassword({ currentPassword, newPassword });
@@ -358,7 +370,7 @@ function PasswordSection({ onChanged }: { onChanged: () => void }) {
       onChanged();
     } catch (err) {
       setState("error");
-      setErrorMessage(describePasswordFailure(err));
+      setErrorFailure(err);
     }
   }
 
@@ -366,12 +378,12 @@ function PasswordSection({ onChanged }: { onChanged: () => void }) {
     <div className="flex flex-col gap-3 rounded-lg border border-border bg-panel p-4" data-testid="profile-password-section">
       <div className="flex items-center gap-2">
         <KeyRound aria-hidden className="h-4 w-4 text-muted-foreground" />
-        <h2 className="text-13 font-semibold">修改密码</h2>
+        <h2 className="text-13 font-semibold">{t("profile.changePassword")}</h2>
       </div>
 
       <form className="flex flex-col gap-3" onSubmit={handleSubmit} data-testid="profile-password-form">
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="current-password">当前密码</Label>
+          <Label htmlFor="current-password">{t("profile.currentPassword")}</Label>
           <Input
             id="current-password"
             type="password"
@@ -386,7 +398,7 @@ function PasswordSection({ onChanged }: { onChanged: () => void }) {
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="new-password">新密码</Label>
+          <Label htmlFor="new-password">{t("profile.newPassword")}</Label>
           <Input
             id="new-password"
             type="password"
@@ -399,7 +411,7 @@ function PasswordSection({ onChanged }: { onChanged: () => void }) {
             data-testid="profile-new-password-input"
             aria-invalid={state === "invalid"}
           />
-          <p className="text-10 text-muted-foreground">至少 12 个字符，不能是常见弱密码。</p>
+          <p className="text-10 text-muted-foreground">{t("profile.passwordHint")}</p>
         </div>
 
         {state === "invalid" && errorMessage ? (
@@ -419,13 +431,13 @@ function PasswordSection({ onChanged }: { onChanged: () => void }) {
           >
             <span className="flex items-center gap-1.5 font-medium">
               <CheckCircle2 aria-hidden className="h-3.5 w-3.5 shrink-0" />
-              密码已修改
+              {t("profile.passwordChanged")}
             </span>
             {/* 硬约束：改密后"其它设备已登出"必须让用户看得见，不能是静默副作用。 */}
             <span data-testid="profile-password-revoked-count">
               {revokedCount !== null && revokedCount > 0
-                ? `已同时登出其它 ${revokedCount} 台设备/会话，本设备保持登录。`
-                : "本次没有其它设备在线，无需额外登出。"}
+                ? t("profile.sessionsRevoked", { count: revokedCount })
+                : t("profile.noOtherSessions")}
             </span>
           </div>
         ) : null}
@@ -438,7 +450,7 @@ function PasswordSection({ onChanged }: { onChanged: () => void }) {
             disabled={state === "submitting" || currentPassword.length === 0 || newPassword.length === 0}
             data-testid="profile-password-submit"
           >
-            {state === "submitting" ? "修改中…" : "修改密码"}
+            {state === "submitting" ? t("profile.changingPassword") : t("profile.changePassword")}
           </Button>
         </div>
       </form>
@@ -446,33 +458,34 @@ function PasswordSection({ onChanged }: { onChanged: () => void }) {
   );
 }
 
-function describePasswordFailure(failure: unknown): string {
+function describePasswordFailure(failure: unknown, t: Translator): string {
   if (failure instanceof ApiError) {
-    if (failure.reasonCode === "CURRENT_PASSWORD_INVALID") return "当前密码不正确。";
-    if (failure.reasonCode === "PASSWORD_POLICY_VIOLATION") return "新密码强度不够（太短或是常见弱密码），换一个更强的。";
-    if (failure.status === 401) return "登录已失效（HTTP 401），请重新登录。";
-    return `${failure.reasonCode ?? "修改失败"}（HTTP ${failure.status}）`;
+    if (failure.reasonCode === "CURRENT_PASSWORD_INVALID") return t("profile.passwordInvalid");
+    if (failure.reasonCode === "PASSWORD_POLICY_VIOLATION") return t("profile.passwordWeak");
+    if (failure.status === 401) return t("profile.sessionExpired");
+    return t("profile.httpError", { message: failure.reasonCode ?? t("profile.passwordError"), status: failure.status });
   }
-  return failure instanceof Error ? failure.message : "修改失败，请稍后重试。";
+  return failure instanceof Error ? failure.message : t("profile.passwordFailed");
 }
 
 /* ═══════════════════════════ 活动记录 ═══════════════════════════ */
 
 function ActivitySection({ refreshKey }: { refreshKey: number }) {
+  const { t, locale } = useI18n();
   const [state, setState] = React.useState<UiState>("loading");
-  const [failureMessage, setFailureMessage] = React.useState<string | null>(null);
+  const [failure, setFailure] = React.useState<unknown>(null);
   const [out, setOut] = React.useState<ListOwnActivityOut | null>(null);
   const [loadingMore, setLoadingMore] = React.useState(false);
 
   const load = React.useCallback(async () => {
     setState("loading");
-    setFailureMessage(null);
+    setFailure(null);
     try {
       const result = await listOwnActivity({ cursor: null, limit: 20 });
       setOut(result);
       setState(result.events.length === 0 ? "empty" : "default");
     } catch (err) {
-      setFailureMessage(describeActivityFailure(err));
+      setFailure(err);
       setState("dep-failed");
     }
   }, []);
@@ -500,13 +513,13 @@ function ActivitySection({ refreshKey }: { refreshKey: number }) {
     <div className="flex flex-col gap-3 rounded-lg border border-border bg-panel p-4" data-testid="profile-activity-section">
       <div className="flex items-center gap-2">
         <Clock aria-hidden className="h-4 w-4 text-muted-foreground" />
-        <h2 className="text-13 font-semibold">活动记录</h2>
+        <h2 className="text-13 font-semibold">{t("profile.activityTitle")}</h2>
       </div>
 
       <StateShell
         state={state}
-        emptyHint="还没有活动记录。"
-        depFailure={{ what: failureMessage ?? "活动记录服务暂时不可用", retry: load }}
+        emptyHint={t("profile.noActivity")}
+        depFailure={{ what: failure === null ? t("profile.activityUnavailable") : describeActivityFailure(failure, t), retry: load }}
       >
         <ul className="flex flex-col gap-2" data-testid="profile-activity-list">
           {out?.events.map((event) => (
@@ -516,10 +529,10 @@ function ActivitySection({ refreshKey }: { refreshKey: number }) {
               className="flex items-start justify-between gap-3 border-b border-border/60 pb-2 last:border-none last:pb-0"
             >
               <div className="flex flex-col gap-0.5 overflow-hidden">
-                <span className="truncate text-12">{event.summary}</span>
+                <span className="truncate text-12">{activitySummary(event, t)}</span>
               </div>
               <time className="shrink-0 text-10 text-muted-foreground" dateTime={event.occurredAt}>
-                {formatActivityTime(event.occurredAt)}
+                {formatActivityTime(event.occurredAt, locale)}
               </time>
             </li>
           ))}
@@ -528,36 +541,45 @@ function ActivitySection({ refreshKey }: { refreshKey: number }) {
 
       {state === "default" && out?.nextCursor ? (
         <PaginationLoadMore
+          pendingLabel={t("profile.loadingMore")}
           pending={loadingMore}
           onClick={loadMore}
           data-testid="profile-activity-load-more"
-        />
+        >{t("profile.loadMore")}</PaginationLoadMore>
       ) : null}
     </div>
   );
 }
 
-function formatActivityTime(iso: string): string {
+function formatActivityTime(iso: string, locale: string): string {
   try {
-    return new Date(iso).toLocaleString("zh-CN", { hour12: false });
+    return new Date(iso).toLocaleString(locale, { hour12: false });
   } catch {
     return iso;
   }
 }
 
-function describeActivityFailure(failure: unknown): string {
+function describeActivityFailure(failure: unknown, t: Translator): string {
   if (failure instanceof ApiError) {
-    if (failure.status === 401) return "登录已失效（HTTP 401），请重新登录。";
-    return `${failure.reasonCode ?? "加载失败"}（HTTP ${failure.status}）`;
+    if (failure.status === 401) return t("profile.sessionExpired");
+    return t("profile.httpError", { message: failure.reasonCode ?? t("profile.loadError"), status: failure.status });
   }
-  return failure instanceof Error ? failure.message : "加载失败，请稍后重试。";
+  return failure instanceof Error ? failure.message : t("profile.loadFailed");
 }
 
-function describeFailure(failure: unknown): string {
+function describeFailure(failure: unknown, t: Translator): string {
   if (failure instanceof ApiError) {
-    if (failure.status === 401) return "登录已失效（HTTP 401），请重新登录。";
-    if (failure.status === 400) return `${failure.reasonCode ?? "输入不合法"}（HTTP 400）。`;
-    return `${failure.reasonCode ?? "保存失败"}（HTTP ${failure.status}）`;
+    if (failure.status === 401) return t("profile.sessionExpired");
+    if (failure.status === 400) return t("profile.httpError", { message: failure.reasonCode ?? t("profile.invalidInput"), status: 400 });
+    return t("profile.httpError", { message: failure.reasonCode ?? t("profile.saveError"), status: failure.status });
   }
-  return failure instanceof Error ? failure.message : "保存失败，请稍后重试。";
+  return failure instanceof Error ? failure.message : t("profile.saveFailed");
+}
+
+
+type Translator = ReturnType<typeof useI18n>["t"];
+type AvatarCopy = { key: MessageKey; params?: MessageParams };
+function isAvatarCopy(value: unknown): value is AvatarCopy {
+  return typeof value === "object" && value !== null && "key" in value
+    && (value.key === "profile.avatarLoadFailed" || value.key === "profile.avatarSize" || value.key === "profile.avatarType");
 }

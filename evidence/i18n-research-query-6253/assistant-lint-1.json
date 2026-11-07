@@ -1,0 +1,20 @@
+{
+  "name": "assistant-lint-1",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "eslint",
+    "components/research-studio/guided-research-skill-assistant.tsx",
+    "lib/i18n/namespaces/research.ts",
+    "tests/ui/guided-research-skill-assistant-i18n.test.tsx"
+  ],
+  "source": "6c3760927ad16f2ab0c905c2896be3c0c60b0a03",
+  "exitCode": 0,
+  "seconds": 2.253,
+  "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "sourceAfter": "6c3760927ad16f2ab0c905c2896be3c0c60b0a03",
+  "sourceStable": true,
+  "environment": {}
+}

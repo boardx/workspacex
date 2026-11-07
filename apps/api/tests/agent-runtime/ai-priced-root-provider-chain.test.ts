@@ -1,3 +1,4 @@
+// @global-scope-fixture table:credit_global_native_tariffs: fixed fake provider/model keys use idempotent seeding; the isolated test database owns cleanup, never organization deletion of shared prices.
 import {createServer,type Server} from 'node:http';
 import {createHash,randomUUID} from 'node:crypto';
 import {beforeAll,afterAll,it,expect} from 'vitest';
@@ -19,7 +20,7 @@ import {appConfig} from '../../src/infrastructure/db/pg-config';
 import {toOrgId} from '../../src/domain/org-id';
 import {addChatThread,addChatMessage} from '../support/chat-db';
 import {seedAgentRun} from '../support/agent-run-db';
-import {ensureDatabase,migrateOnce,seedOrg,addOrgMember,asApp,resetOrgs} from '../support/db';
+import {ensureDatabase,migrateOnce,seedOrg,addOrgMember,asApp,resetOrgs,asOwner} from '../support/db';
 /** Real HTTP/PG coordinator boundary, not executeQueuedRuns/lease acceptance.
  * Classification/bounds are test-only fixtures, not deployment/tokenizer proof. */
 let db:PgDatabase,server:Server,model:ConfiguredModelProvider,vendorBaseUrl:string;
@@ -319,7 +320,7 @@ it('actual native not-applicable Token receipt preserves image dimension and con
  const f=await fixture('ordinary','10'),before=requests.length,nativeId=randomUUID();
  // Explicit native tariff and physical admission precede the trusted image receipt.
  // The fixture does not invent image Tokens or a production provider bound.
- await asApp(f.org,c=>c.query("INSERT INTO credit_native_tariffs(org_id,model_provider,model_id,unit,quantum,hundredths_per_quantum,version) VALUES($1,'test-http','runtime-image','image',1,1,'fixture-native-v1')",[f.org]));
+ await asOwner(c=>c.query("INSERT INTO credit_global_native_tariffs(model_provider,model_id,unit,quantum,hundredths_per_quantum,version) VALUES('test-http','runtime-image','image',1,1,'fixture-native-v1') ON CONFLICT DO NOTHING"));
  await f.deps.usage.startRequest(f.org,{requestId:nativeId,userId:'caller',runId:null,executionAttemptId:null,callPurpose:'auxiliary',projectId:f.subject.projectId,modelProvider:'test-http',modelId:'runtime-image',startedAt:new Date().toISOString(),nativeMaximum:{unit:'image',quantity:1n}});
  await f.deps.usage.record(f.org,{eventId:nativeId,userId:'caller',runId:null,modelProvider:'test-http',modelId:'runtime-image',
   tokensTotal:0,promptTokens:null,completionTokens:null,totalSource:'not-applicable',outcome:'succeeded',

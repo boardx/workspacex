@@ -499,15 +499,17 @@ export class IdentityController {
     @CurrentPrincipal() principal: Principal,
     @Query("cursor") cursor: string | undefined,
     @Query("limit") limitRaw: string | undefined,
+    @Query("displayFormat") displayFormatRaw: string | undefined,
   ) {
     assertPrincipal(principal);
-    const input = LIST_OWN_ACTIVITY_SCHEMA.parse({
+    const input = new ZodBodyPipe(LIST_OWN_ACTIVITY_SCHEMA).transform({
       cursor: cursor ?? null,
       limit: limitRaw ? Number(limitRaw) : 20,
-    });
+      displayFormat: displayFormatRaw,
+    }) as ReturnType<typeof LIST_OWN_ACTIVITY_SCHEMA.parse>;
     return await listOwnActivity(
       { reader: this.provenanceReader },
-      { userId: principal.userId, orgId: toOrgId(principal.orgId), cursor: input.cursor, limit: input.limit },
+      { userId: principal.userId, orgId: toOrgId(principal.orgId), cursor: input.cursor, limit: input.limit, displayFormat: input.displayFormat },
     );
   }
 }

@@ -150,6 +150,11 @@ function onlyLaunchable(row: AgentDirectoryRow, launchable: ReadonlySet<string> 
   return launchable === null ? row : { ...row, workflowAllowlist: row.workflowAllowlist.filter((id) => launchable.has(id)) };
 }
 
+export function matchesAgentDirectoryQuery(row: Pick<AgentDirectoryRow, "name" | "roleLabel" | "tags">, query: string | null) {
+  const q = query?.trim().toLowerCase() ?? "";
+  return q.length === 0 || `${row.name}${row.roleLabel}${row.tags.join("")}`.toLowerCase().includes(q);
+}
+
 export async function listAgentDirectory(
   input: { readonly orgId: OrgId; readonly actorId: string; readonly roleCategory: AgentRoleCategory | null; readonly q: string | null },
   deps: AgentDirectoryDeps,
@@ -158,10 +163,9 @@ export async function listAgentDirectory(
   if (!membership) throw new AgentDirectoryError("UNAUTHENTICATED");
 
   const rows = await deps.repository.listVisible(input.orgId);
-  const q = input.q?.trim().toLowerCase() ?? "";
   const filtered = rows.filter((row) => {
     if (input.roleCategory !== null && row.roleCategory !== input.roleCategory) return false;
-    if (q.length > 0 && !`${row.name}${row.roleLabel}${row.tags.join("")}`.toLowerCase().includes(q)) return false;
+    if (!matchesAgentDirectoryQuery(row, input.q)) return false;
     return true;
   });
   const launchable = deps.launchable ? await deps.launchable.publishedWorkflowIds(input.orgId) : null;

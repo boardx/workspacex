@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import { Plus, Search, ArrowDownWideNarrow } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { WorkflowActionButton } from "@/components/research-studio/research-workflow-actions";
@@ -14,11 +15,12 @@ export type HistorySort = "recent" | "oldest";
 export function StudioHistoryHeader({ business, title, count, createTestId, countTestId, onCreate }: {
   business: string; title?: string; description: string; count?: number; createTestId: string; countTestId?: string; onCreate: React.MouseEventHandler<HTMLButtonElement>;
 }) {
+  const { t } = useI18n();
   return <header className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
     <div className="min-w-0 space-y-2">
-      <div className="flex items-center gap-2"><h1 className="text-30 font-semibold tracking-tight">{title ?? `历史${business}`}</h1>{count !== undefined && <span data-testid={countTestId} className="text-18 text-muted-foreground">· {count}</span>}</div>
+      <div className="flex items-center gap-2"><h1 className="text-30 font-semibold tracking-tight">{title ?? t("studio.history.title", { business })}</h1>{count !== undefined && <span data-testid={countTestId} className="text-18 text-muted-foreground">· {count}</span>}</div>
     </div>
-    <WorkflowActionButton type="button" variant="primary" data-testid={createTestId} onClick={onCreate}><Plus className="size-4" aria-hidden />新建{business}</WorkflowActionButton>
+    <WorkflowActionButton type="button" variant="primary" data-testid={createTestId} onClick={onCreate}><Plus className="size-4" aria-hidden />{t("studio.history.create", { business })}</WorkflowActionButton>
   </header>;
 }
 
@@ -31,11 +33,13 @@ export function StudioHistoryFilters({ business, prefix, tags, selectedTags, onT
   query: string; onQueryChange: (value: string) => void; sort: HistorySort; onSortChange: (sort: HistorySort) => void;
   searchFirst?: boolean;
 }) {
+  const { t, locale } = useI18n();
+  const sortLabel = t(sort === "recent" ? "studio.history.recent" : "studio.history.oldest");
   return <div className={searchFirst ? "flex flex-col gap-4" : "flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"}>
     <div className={searchFirst ? "order-2" : "min-w-0"}><TagFilterBar tags={tags.map(tag => ({ tag }))} selected={selectedTags} onChange={onTagsChange} prefix={prefix} business={business} mode={tagMode} /></div>
     <div className={searchFirst ? "order-1 flex w-full flex-col gap-2 sm:flex-row" : "flex shrink-0 flex-col gap-2 sm:flex-row"}>
-      <label className={searchFirst ? "relative block min-w-0 flex-1" : "relative block min-w-0 sm:w-64"}><span className="sr-only">搜索{business}</span><Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input data-testid={`${prefix}-search`} maxLength={100} value={query} onChange={event => onQueryChange(event.target.value)} placeholder={searchPlaceholder(business)} className={searchFirst ? "h-12 pl-10 text-base" : "h-9 pl-9"} /></label>
-      <Button variant="outline" className={searchFirst ? "h-12" : "h-9"} data-testid={`${prefix}-sort`} onClick={() => onSortChange(sort === "recent" ? "oldest" : "recent")} aria-label={`当前${sort === "recent" ? "最近更新" : "最早更新"}，点击切换排序`}><ArrowDownWideNarrow className="size-4" aria-hidden />{sort === "recent" ? "最近更新" : "最早更新"}</Button>
+      <label className={searchFirst ? "relative block min-w-0 flex-1" : "relative block min-w-0 sm:w-64"}><span className="sr-only">{t("studio.history.search", { business })}</span><Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input data-testid={`${prefix}-search`} maxLength={100} value={query} onChange={event => onQueryChange(event.target.value)} placeholder={searchPlaceholder(business, locale)} className={searchFirst ? "h-12 pl-10 text-base" : "h-9 pl-9"} /></label>
+      <Button variant="outline" className={searchFirst ? "h-12" : "h-9"} data-testid={`${prefix}-sort`} onClick={() => onSortChange(sort === "recent" ? "oldest" : "recent")} aria-label={t("studio.history.sort", { sort: sortLabel })}><ArrowDownWideNarrow className="size-4" aria-hidden />{sortLabel}</Button>
     </div>
   </div>;
 }
@@ -54,5 +58,6 @@ export function StudioHistoryCard({ testId, title, status, description, tags, me
 }
 
 export function StudioHistoryCreateCard({ business, testId, onCreate }: { business: string; testId: string; onCreate: () => void }) {
-  return <Button type="button" variant="outline" data-testid={testId} onClick={onCreate} className="h-auto min-h-64 flex-col gap-3 border-dashed p-6"><Plus aria-hidden className="size-6 text-muted-foreground" /><span className="text-13 font-semibold">新建{business}</span></Button>;
+  const { t } = useI18n();
+  return <Button type="button" variant="outline" data-testid={testId} onClick={onCreate} className="h-auto min-h-64 flex-col gap-3 border-dashed p-6"><Plus aria-hidden className="size-6 text-muted-foreground" /><span className="text-13 font-semibold">{t("studio.history.create", { business })}</span></Button>;
 }

@@ -199,3 +199,14 @@ describe("cloud deployment configuration", () => {
     expect(JSON.stringify(result.plan)).not.toContain(value.provision.githubIssueProfile.tokenSecretRef);
   });
 });
+
+it("accepts only a secret reference for the fixed tariff writer profile", () => {
+ const config=deploymentExample("production");
+ const invalidCredential = ["fixture-only", "invalid-profile"].join("-");
+ for(const passwordSecretRef of ["env:CN_TARIFF_PASSWORD","file:/etc/workspacex-cn/billing-tariff-password"]) {
+  expect(validateDeploymentConfig({...config,provision:{...config.provision,billingTariffProfile:{passwordSecretRef}}}).ok).toBe(true);
+ }
+ for(const profile of [{passwordSecretRef:"literal-private-password"},{passwordSecretRef:"env:CN_TARIFF_PASSWORD",user:"postgres"},{password:invalidCredential}]) {
+  expect(validateDeploymentConfig({...config,provision:{...config.provision,billingTariffProfile:profile}}).ok).toBe(false);
+ }
+});

@@ -3,6 +3,11 @@
  * remain mandatory. Supporting behavior tests do not substitute for these checks. */
 const exact=text=>new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"));
 export const modelMetadataPermissionBoundaries=new Map([
+ ["src/infrastructure/billing/resolve-native-credit-tariff.ts", {
+  tables:[],globalCalls:0,globalTables:["credit_global_image_schedule","credit_global_native_tariffs"],
+  reason:"#6268: financial tariff metadata only. Receives the existing tenant transaction from PgCreditConsumption after authenticated membership/payer checks; provider/model/unit lookup reads the two disjoint global authorities within that admitted transaction. Bailian-image reads only the image CAS schedule; every other provider reads the CHECK-protected nonimage store. No legacy organization-price fallback exists. No content or tariff rows leave the reservation boundary. global-image-tariff-pg.test.ts and credit-consumption-pg.test.ts verify real reservations, membership rejection, both payers and frozen settlement.",
+  checks:[[null,exact("WHERE model_provider=$1 AND model_id=$2 AND unit=$3")],["src/infrastructure/billing/pg-credit-consumption.ts",exact("const tariff=await resolveNativeCreditTariff(s,orgId,input.modelProvider,input.modelId,native.unit)")],["tests/billing/global-image-tariff-pg.test.ts",exact("old markup cannot override either payer")]],
+ }],
   ["src/infrastructure/billing/pg-auxiliary-model-accounting.ts", {
     tables:["auxiliary_model_operations","auxiliary_model_requests"],
     reason:"#5894: private auxiliary operation/request rows contain only server-created payer identity, pinned model, finite expiry, immutable request hash/cap and timestamps. They contain no prompt, response or Artifact content and create no formal agent run/chat. Trusted gateway principal creates the owner; authenticated private callback resolves that persisted operation under tenant RLS, never a body-supplied payer. New starts require active operation and exact model/body binding; terminal receipts only resolve an admitted request, including after closure. Financial resolvePayer rechecks same-org membership and selects the wallet. private-auxiliary-credit-pg.test.ts proves zero HTTP at zero credit, actual reported usage debit/replay, foreign tenant/missing user refusal, changed body/model denial and closure/expiry fences. This exception is invalid if metadata expands to content or any listed authority/immutability check disappears.",
@@ -27,12 +32,17 @@ export const modelMetadataPermissionBoundaries=new Map([
   ["src/infrastructure/billing/pg-credit-consumption.ts", {
     tables:["organizations","org_memberships","credit_native_tariffs","ai_request_reservations"],
     reason:"#5877: financial configuration and authenticated same-org payer metadata have no Artifact content ACL. Admission rechecks persisted org membership, locks payer wallet, snapshots configured tariffs and validates immutable request facts. Settlement only uses an admitted request identity. credit-consumption-pg.test.ts covers cross-org wallets, concurrent holds, replay and revoked-member settlement.",
-    checks:[[null,exact("JOIN org_memberships m ON m.org_id=o.id WHERE o.id=$1 AND m.user_id=$2")],[null,exact("credit_start_replay_mismatch")],[null,exact("credit_receipt_provenance_mismatch")]],
+    checks:[[null,exact("JOIN org_memberships m ON m.org_id=o.id WHERE o.id=$1 AND m.user_id=$2")],[null,exact("credit_start_replay_mismatch")],[null,exact("await settleCreditReceipt(s,orgId,usage)")],["src/infrastructure/billing/pg-credit-receipt.ts",exact("credit_receipt_provenance_mismatch")]],
+  }],
+  ["src/infrastructure/billing/pg-credit-receipt.ts", {
+    tables:["credit_consumption_receipts"],
+    reason:"#5997: immutable financial usage receipt metadata, not Artifact content. Tenant RLS and the composite request/org foreign key bind receipts to the admitted physical request. Settlement rechecks actor/model/run/wallet identity under the wallet and request locks; no raw receipt rows leave this boundary. credit-stream-settlement.test.ts covers cumulative deduplication and cross-tenant receipt isolation; credit-consumption-pg.test.ts covers rejected provenance and revoked-member completion.",
+    checks:[[null,exact("WHERE request_id=$1 AND org_id=$2")],[null,exact("row.user_id !== usage.userId")],[null,exact("credit_receipt_provenance_mismatch")],[null,exact("credit_receipt_replay_mismatch")]],
   }],
   ["src/infrastructure/billing/pg-native-credit-tariff-repository.ts", {
-    tables:["credit_native_tariffs"],
-    reason:"#5877: native credit prices are tenant financial metadata, not content. Public controller passes authenticated principal to NativeCreditTariffService, which checks the actual platform operator before any read/write. Tenant RLS isolates organization prices; immutable audit records actor and old/new price. native-credit-tariff-pg.test.ts and consumption-settings.test.ts prove operator refusal and tenant isolation.",
-    checks:[[null,exact("this.db.withTenant(toOrgId(orgId)")],["src/application/billing/native-credit-tariff-service.ts",exact("if(!await this.isOperator(principal.userId))throw new ConsumptionSettingsForbidden()")],[null,exact("INSERT INTO credit_native_tariff_changes")]],
+    tables:["credit_packages"],globalCalls:2,globalTables:["credit_global_native_tariffs","credit_global_native_tariff_changes"],
+    reason:"#6290: user-approved global per-model retail prices contain no tenant content. Exactly two global operations list non-bailian prices or atomically upsert through the separately credentialed shared tariff writer. The existing image CN-catalog read retains its tenant context and signed operator gate. The existing authoritative platform operator check precedes every call. No organization membership grants pricing authority, no org override remains, and the SQL boundary refuses all other tables or extra global operations. Real PostgreSQL native-credit-tariff-pg.test.ts proves same global price across wallets/new orgs, immutable old snapshots, operator refusal and legacy write denial.",
+    checks:[[null,exact("this.db.withoutTenant(")],["src/application/billing/native-credit-tariff-service.ts",exact("if(!await this.isOperator(principal.userId))throw new ConsumptionSettingsForbidden()")],[null,exact("INSERT INTO credit_global_native_tariff_changes")],[null,exact("if(!this.writer)throw new NativeTariffWriterUnavailable()")]],
   }],
   ["src/infrastructure/model/platform-test-wiring.ts", {
     tables:["organization_plans", "organization_ai_policies"],

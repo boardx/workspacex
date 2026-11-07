@@ -1,0 +1,11 @@
+name: CI fail fast supervisor
+on:
+  workflow_dispatch: null
+permissions:
+  contents: read
+jobs:
+  retired-monitor:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Per-run long-lived supervision retired. Lightweight DAG publishes its
+          failure; hourly workflow_run reports full-regression failures."

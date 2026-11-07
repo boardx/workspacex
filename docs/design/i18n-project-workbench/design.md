@@ -1,0 +1,11 @@
+# Project workbench navigation and access — #6178
+
+Started independently on actual develop dec5223e5; synchronized actual bbc63c39a970b246ea2e1e6a399b828d36a6b793 before final validation; source scope header, kind-specific tabs, contextual subnavigation, workshop role explanation, shared organization-disabled badge, and access/dependency states. Tab body modules, creation wizard and development preview toolbar remain separate.
+
+Keep lib/project-workbench.ts and lib/identity.ts byte-identical: canonical navigation structure, alias resolution, role permissions and Chinese configuration remain the authority. A separate display helper maps those structures to typed English keys, returning the original Chinese configuration references by default. Chinese resources reference canonical labels/scope notes rather than copy them. Kind/status reuse existing projects namespace. Unknown copy keys fail explicitly; no raw user text is used as a key.
+
+Locale is render-only, not a request dependency. Names, project IDs, role IDs, tab/sub/as values and diagnostic codes remain exact. Workshop role switcher may wrap within available width to accommodate English labels; authorization stays server-owned. Shared disabled banner changes its visible badge only; original caller-provided content remains unchanged.
+
+Browser preconditions reuse canonical fullstack actors. A lead creates one real general project through the existing UI; the only known create-output gap remains #6163. Its existing strict compatibility check is extracted unchanged into one shared test helper, preserving the exact one-missing-provenance-field restriction; no fake ID, production parser change or full-create-contract claim. Workshop actor already has facilitator membership; another consultant has no project role and must receive actual403. No new privileged seed, bypass or HTTP mock.
+
+Validation: provider tests retain raw title/tab nodes/URLs and avoid overview refetch across locale; observer projection stays read only; structured denial/dependency states translate without automatic retry, explicit retry recovers. Existing project-kind/access tests retain default Chinese. Real browser verifies general/workshop navigation,3 actual identities and nonmember403;375/1280 shell geometry/screenshots and reload.

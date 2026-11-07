@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/local-runtime
+
+ ✓ test/no-egress-endpoints.test.ts (3 tests) 5ms
+ ✓ test/parity.test.ts (5 tests) 370ms
+
+ Test Files  2 passed (2)
+      Tests  8 passed (8)
+   Start at  03:53:33
+   Duration  780ms (transform 61ms, setup 0ms, collect 86ms, tests 375ms, environment 0ms, prepare 93ms)

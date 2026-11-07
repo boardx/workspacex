@@ -26,7 +26,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { DB_OWNER_ROLE, resolveLocalConfig } from "../src/config";
+import pgClient from "pg";
+import { DB_NAME, DB_OWNER_ROLE, resolveLocalConfig } from "../src/config";
 import { ensureDatabaseExists, startPgliteServer } from "../src/pglite-server";
 import { runMigrations } from "../src/seeds";
 
@@ -63,6 +64,19 @@ describe("全新安装的数据库", () => {
     const lines: string[] = [];
     try {
       await runMigrations(c, (l) => lines.push(l));
+      // Community/local mode must still create accounts after billing migrations,
+      // with the online accounting epoch dormant. Exercise the actual INSERT trigger.
+      const client = new pgClient.Client({host:"127.0.0.1",port,user:DB_OWNER_ROLE,password:"local",database:DB_NAME});
+      await client.connect();
+      try {
+        await client.query("BEGIN");
+        const userId="pglite-billing-registration-probe";
+        await client.query("INSERT INTO credentials(user_id,email,display_name,password_hash) VALUES($1,'billing-probe@local.test','Local billing probe','$2b$12$test-fixture-already-hashed')",[userId]);
+        const wallets=await client.query("SELECT count(*)::int AS n FROM credit_wallets WHERE owner_type='user' AND owner_id=$1",[userId]);
+        expect(wallets.rows[0].n).toBe(0);
+        await client.query("ROLLBACK");
+      } finally { await client.end(); }
+
     } catch (e) {
       // migrate-cli 为了不泄露凭据只打一句 migration_failed；在这台只有测试数据的库上，
       // 把能拿到的都打出来，免得下一个人又要自己写探针去找是哪一条。

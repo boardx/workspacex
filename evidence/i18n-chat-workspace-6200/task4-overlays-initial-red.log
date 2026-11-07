@@ -1,0 +1,2505 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ❯ tests/ui/i18n-chat-artifact-detail.test.tsx (2 tests | 2 failed) 206ms
+   × keeps loaded version copy/download bytes and action state through a locale change 175ms
+     → Unable to find an accessible element with the role "button" and name "Copy full text"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  [36m<button />[39m
+
+  Name "Collapse task inspector":
+  [36m<button[39m
+    [33maria-expanded[39m=[32m"true"[39m
+    [33maria-label[39m=[32m"Collapse task inspector"[39m
+    [33mclass[39m=[32m"ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-inspector-collapse"[39m
+    [33mtitle[39m=[32m"Collapse task inspector"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "产物":
+  [36m<button[39m
+    [33mclass[39m=[32m"flex items-center gap-1 rounded px-1.5 py-1 text-12 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-inspector-artifact-back"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "复制全文":
+  [36m<button[39m
+    [33maria-label[39m=[32m"复制全文"[39m
+    [33mclass[39m=[32m"rounded p-1 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-inspector-artifact-copy"[39m
+    [33mtitle[39m=[32m"复制全文"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "下载":
+  [36m<button[39m
+    [33maria-label[39m=[32m"下载"[39m
+    [33mclass[39m=[32m"rounded p-1 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-inspector-artifact-download"[39m
+    [33mtitle[39m=[32m"下载"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "放大查看":
+  [36m<button[39m
+    [33maria-label[39m=[32m"放大查看"[39m
+    [33mclass[39m=[32m"rounded p-1 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-inspector-artifact-enlarge"[39m
+    [33mtitle[39m=[32m"放大查看"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "跳到原消息":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex items-center gap-0.5 rounded px-1 text-primary transition-colors duration-fast hover:bg-muted"[39m
+    [33mdata-testid[39m=[32m"chat-inspector-artifact-source-jump"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  complementary:
+
+  Name "Task inspector":
+  [36m<aside[39m
+    [33maria-label[39m=[32m"Task inspector"[39m
+    [33mclass[39m=[32m"relative flex shrink-0 flex-col border-l border-border-subtle bg-panel-alt"[39m
+    [33mdata-active-tab[39m=[32m"artifacts"[39m
+    [33mdata-collapsed[39m=[32m"false"[39m
+    [33mdata-drop-active[39m=[32m"false"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-inspector"[39m
+    [33mstyle[39m=[32m"width: 288px;"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  separator:
+
+  Name "Resize task inspector":
+  [36m<div[39m
+    [33maria-label[39m=[32m"Resize task inspector"[39m
+    [33maria-orientation[39m=[32m"vertical"[39m
+    [33maria-valuemax[39m=[32m"720"[39m
+    [33maria-valuemin[39m=[32m"240"[39m
+    [33maria-valuenow[39m=[32m"288"[39m
+    [33mclass[39m=[32m"group absolute inset-y-0 z-10 w-1.5 cursor-col-resize touch-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring -left-0.5"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-inspector-resize"[39m
+    [33mrole[39m=[32m"separator"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tablist:
+
+  Name "Task inspector tabs":
+  [36m<div[39m
+    [33maria-label[39m=[32m"Task inspector tabs"[39m
+    [33maria-orientation[39m=[32m"horizontal"[39m
+    [33mclass[39m=[32m"flex shrink-0 items-center border-b border-border-subtle flex-row justify-center gap-1 px-2 py-2.5"[39m
+    [33mrole[39m=[32m"tablist"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tab:
+
+  Name "Materials":
+  [36m<button[39m
+    [33maria-label[39m=[32m"Materials"[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"relative flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40 w-8 px-0 text-muted-foreground hover:bg-card hover:text-card-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-inspector-tab-materials"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtitle[39m=[32m"Materials"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Artifacts":
+  [36m<button[39m
+    [33maria-label[39m=[32m"Artifacts"[39m
+    [33maria-selected[39m=[32m"true"[39m
+    [33mclass[39m=[32m"relative flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40 px-3 bg-card font-medium text-card-foreground shadow-sm"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-inspector-tab-artifacts"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtitle[39m=[32m"Artifacts"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Run details":
+  [36m<button[39m
+    [33maria-label[39m=[32m"Run details"[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"relative flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40 w-8 px-0 text-muted-foreground hover:bg-card hover:text-card-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-inspector-tab-run-details"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtitle[39m=[32m"Run details"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tabpanel:
+
+  Name "Artifacts":
+  [36m<div[39m
+    [33maria-label[39m=[32m"Artifacts"[39m
+    [33mclass[39m=[32m"flex min-h-0 flex-1 flex-col overflow-y-auto"[39m
+    [33mrole[39m=[32m"tabpanel"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle px-3 py-1 text-10 text-muted-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-artifact-sources"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mswitch language[0m
+    [36m</button>[39m
+    [36m<aside[39m
+      [33maria-label[39m=[32m"Task inspector"[39m
+      [33mclass[39m=[32m"relative flex shrink-0 flex-col border-l border-border-subtle bg-panel-alt"[39m
+      [33mdata-active-tab[39m=[32m"artifacts"[39m
+      [33mdata-collapsed[39m=[32m"false"[39m
+      [33mdata-drop-active[39m=[32m"false"[39m
+      [33mdata-testid[39m=[32m"chat-task-workbench-inspector"[39m
+      [33mstyle[39m=[32m"width: 288px;"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33maria-label[39m=[32m"Resize task inspector"[39m
+        [33maria-orientation[39m=[32m"vertical"[39m
+        [33maria-valuemax[39m=[32m"720"[39m
+        [33maria-valuemin[39m=[32m"240"[39m
+        [33maria-valuenow[39m=[32m"288"[39m
+        [33mclass[39m=[32m"group absolute inset-y-0 z-10 w-1.5 cursor-col-resize touch-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring -left-0.5"[39m
+        [33mdata-testid[39m=[32m"chat-task-workbench-inspector-resize"[39m
+        [33mrole[39m=[32m"separator"[39m
+        [33mtabindex[39m=[32m"0"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-transparent transition-colors duration-fast group-hover:bg-ring group-focus-visible:bg-ring"[39m
+        [36m/>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33maria-label[39m=[32m"Task inspector tabs"[39m
+        [33maria-orientation[39m=[32m"horizontal"[39m
+        [33mclass[39m=[32m"flex shrink-0 items-center border-b border-border-subtle flex-row justify-center gap-1 px-2 py-2.5"[39m
+        [33mrole[39m=[32m"tablist"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33maria-label[39m=[32m"Materials"[39m
+          [33maria-selected[39m=[32m"false"[39m
+          [33mclass[39m=[32m"relative flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40 w-8 px-0 text-muted-foreground hover:bg-card hover:text-card-foreground"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-inspector-tab-materials"[39m
+          [33mrole[39m=[32m"tab"[39m
+          [33mtitle[39m=[32m"Materials"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-folder-open h-4 w-4 shrink-0"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33maria-label[39m=[32m"Artifacts"[39m
+          [33maria-selected[39m=[32m"true"[39m
+          [33mclass[39m=[32m"relative flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40 px-3 bg-card font-medium text-card-foreground shadow-sm"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-inspector-tab-artifacts"[39m
+          [33mrole[39m=[32m"tab"[39m
+          [33mtitle[39m=[32m"Artifacts"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-package h-4 w-4 shrink-0"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 22V12"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m3.3 7 7.703 4.734a2 2 0 0 0 1.994 0L20.7 7"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m7.5 4.27 9 5.15"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"truncate"[39m
+          [36m>[39m
+            [0mArtifacts[0m
+          [36m</span>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33maria-label[39m=[32m"Run details"[39m
+          [33maria-selected[39m=[32m"false"[39m
+          [33mclass[39m=[32m"relative flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40 w-8 px-0 text-muted-foreground hover:bg-card hover:text-card-foreground"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-inspector-tab-run-details"[39m
+          [33mrole[39m=[32m"tab"[39m
+          [33mtitle[39m=[32m"Run details"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-settings2 h-4 w-4 shrink-0"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+      ...
+   × does not refetch or enable actions merely because locale changed while source was pending 30ms
+     → Unable to find an accessible element with the role "button" and name "Copy full text"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "产物":
+  [36m<button[39m
+    [33mclass[39m=[32m"flex items-center gap-1 rounded px-1.5 py-1 text-12 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-inspector-artifact-back"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "复制全文":
+  [36m<button[39m
+    [33maria-label[39m=[32m"复制全文"[39m
+    [33mclass[39m=[32m"rounded p-1 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-inspector-artifact-copy"[39m
+    [33mdisabled[39m=[32m""[39m
+    [33mtitle[39m=[32m"复制全文"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "下载":
+  [36m<button[39m
+    [33maria-label[39m=[32m"下载"[39m
+    [33mclass[39m=[32m"rounded p-1 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-inspector-artifact-download"[39m
+    [33mdisabled[39m=[32m""[39m
+    [33mtitle[39m=[32m"下载"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle px-3 py-1 text-10 text-muted-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-artifact-sources"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "跳到原消息":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex items-center gap-0.5 rounded px-1 text-primary transition-colors duration-fast hover:bg-muted"[39m
+    [33mdata-testid[39m=[32m"chat-inspector-artifact-source-jump"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<div[39m
+  [33mclass[39m=[32m"flex min-h-0 flex-1 flex-col"[39m
+  [33mdata-testid[39m=[32m"chat-inspector-artifact-detail"[39m
+[36m>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"flex items-center gap-1 border-b border-border px-2 py-1.5"[39m
+  [36m>[39m
+    [36m<button[39m
+      [33mclass[39m=[32m"flex items-center gap-1 rounded px-1.5 py-1 text-12 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground"[39m
+      [33mdata-testid[39m=[32m"chat-inspector-artifact-back"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-arrow-left size-3.5"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m12 19-7-7 7-7"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M19 12H5"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+      [0m产物[0m
+    [36m</button>[39m
+    [36m<span[39m
+      [33mclass[39m=[32m"min-w-0 flex-1 truncate text-12 font-medium text-card-foreground"[39m
+      [33mtitle[39m=[32m"模型标题 {title}"[39m
+    [36m>[39m
+      [0m模型标题 {title}[0m
+    [36m</span>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"复制全文"[39m
+      [33mclass[39m=[32m"rounded p-1 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"[39m
+      [33mdata-testid[39m=[32m"chat-inspector-artifact-copy"[39m
+      [33mdisabled[39m=[32m""[39m
+      [33mtitle[39m=[32m"复制全文"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-copy size-3.5"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<rect[39m
+          [33mheight[39m=[32m"14"[39m
+          [33mrx[39m=[32m"2"[39m
+          [33mry[39m=[32m"2"[39m
+          [33mwidth[39m=[32m"14"[39m
+          [33mx[39m=[32m"8"[39m
+          [33my[39m=[32m"8"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"下载"[39m
+      [33mclass[39m=[32m"rounded p-1 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"[39m
+      [33mdata-testid[39m=[32m"chat-inspector-artifact-download"[39m
+      [33mdisabled[39m=[32m""[39m
+      [33mtitle[39m=[32m"下载"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-download size-3.5"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"[39m
+        [36m/>[39m
+        [36m<polyline[39m
+          [33mpoints[39m=[32m"7 10 12 15 17 10"[39m
+        [36m/>[39m
+        [36m<line[39m
+          [33mx1[39m=[32m"12"[39m
+          [33mx2[39m=[32m"12"[39m
+          [33my1[39m=[32m"15"[39m
+          [33my2[39m=[32m"3"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<p[39m
+    [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle px-3 py-1 text-10 text-muted-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-artifact-sources"[39m
+  [36m>[39m
+    [36m<span>[39m
+      [0m已挂出处[0m
+    [36m</span>[39m
+    [36m<button[39m
+      [33mclass[39m=[32m"inline-flex items-center gap-0.5 rounded px-1 text-primary transition-colors duration-fast hover:bg-muted"[39m
+      [33mdata-testid[39m=[32m"chat-inspector-artifact-source-jump"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-corner-up-left size-3"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<polyline[39m
+          [33mpoints[39m=[32m"9 14 4 9 9 4"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M20 20v-7a4 4 0 0 0-4-4H4"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+      [0m跳到原消息[0m
+    [36m</button>[39m
+  [36m</p>[39m
+  [36m<div[39m
+    [33mdata-testid[39m=[32m"actual-detail-source-boundary"[39m
+  [36m>[39m
+    [0mraw-artifact[0m
+  [36m</div>[39m
+[36m</div>[39m
+ ❯ tests/ui/i18n-chat-produced-file.test.tsx (2 tests | 2 failed) 156ms
+   × keeps the produced image overlay and exact authorized bytes while translating its actions 127ms
+     → Unable to find an accessible element with the role "button" and name "Enlarge preview 原图 {count}.png"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  [36m<button />[39m
+
+  Name "放大预览 原图 {count}.png":
+  [36m<button[39m
+    [33maria-label[39m=[32m"放大预览 原图 {count}.png"[39m
+    [33mclass[39m=[32m"group relative overflow-hidden rounded-md bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"chat-produced-file-inline-preview-trigger"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  img:
+
+  Name "原图 {count}.png":
+  [36m<img[39m
+    [33malt[39m=[32m"原图 {count}.png"[39m
+    [33mclass[39m=[32m"max-h-72 max-w-full object-contain transition-transform duration-fast group-hover:scale-[1.01]"[39m
+    [33mdata-testid[39m=[32m"chat-produced-file-inline-image"[39m
+    [33msrc[39m=[32m"blob:authorized-image"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"truncate text-13 font-semibold text-card-foreground"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  link:
+
+  Name "下载":
+  [36m<a[39m
+    [33maria-disabled[39m=[32m"false"[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-6 px-2 text-11 shrink-0"[39m
+    [33mdata-testid[39m=[32m"chat-produced-file-inline-download"[39m
+    [33mdownload[39m=[32m"原图 {count}.png"[39m
+    [33mhref[39m=[32m"blob:authorized-image"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mswitch language[0m
+    [36m</button>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex w-fit max-w-full gap-3 rounded-container border border-border-subtle bg-card p-3 shadow-md flex-col"[39m
+      [33mdata-testid[39m=[32m"chat-produced-file-inline-card"[39m
+    [36m>[39m
+      [36m<button[39m
+        [33maria-label[39m=[32m"放大预览 原图 {count}.png"[39m
+        [33mclass[39m=[32m"group relative overflow-hidden rounded-md bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+        [33mdata-testid[39m=[32m"chat-produced-file-inline-preview-trigger"[39m
+        [33mtype[39m=[32m"button"[39m
+      [36m>[39m
+        [36m<img[39m
+          [33malt[39m=[32m"原图 {count}.png"[39m
+          [33mclass[39m=[32m"max-h-72 max-w-full object-contain transition-transform duration-fast group-hover:scale-[1.01]"[39m
+          [33mdata-testid[39m=[32m"chat-produced-file-inline-image"[39m
+          [33msrc[39m=[32m"blob:authorized-image"[39m
+        [36m/>[39m
+      [36m</button>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex min-w-0 items-center gap-2"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"min-w-0 flex-1"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex min-w-0 items-center gap-1.5"[39m
+          [36m>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"truncate text-13 font-semibold text-card-foreground"[39m
+            [36m>[39m
+              [0m原图 {count}.png[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+          [36m>[39m
+            [0m1 KB[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex shrink-0 items-center gap-1.5"[39m
+        [36m>[39m
+          [36m<a[39m
+            [33maria-disabled[39m=[32m"false"[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-6 px-2 text-11 shrink-0"[39m
+            [33mdata-testid[39m=[32m"chat-produced-file-inline-download"[39m
+            [33mdownload[39m=[32m"原图 {count}.png"[39m
+            [33mhref[39m=[32m"blob:authorized-image"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-download h-3.5 w-3.5"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"[39m
+              [36m/>[39m
+              [36m<polyline[39m
+                [33mpoints[39m=[32m"7 10 12 15 17 10"[39m
+              [36m/>[39m
+              [36m<line[39m
+                [33mx1[39m=[32m"12"[39m
+                [33mx2[39m=[32m"12"[39m
+                [33my1[39m=[32m"15"[39m
+                [33my2[39m=[32m"3"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0m下载[0m
+          [36m</a>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × renders PDF preview chrome around the same original file and preserves its frame through locale 28ms
+     → Unable to find an accessible element with the role "button" and name "Preview"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  [36m<button />[39m
+
+  Name "预览":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-6 px-2 text-11 shrink-0"[39m
+    [33mdata-testid[39m=[32m"chat-produced-file-pdf-preview-trigger"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"truncate text-13 font-semibold text-card-foreground"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  link:
+
+  Name "下载":
+  [36m<a[39m
+    [33maria-disabled[39m=[32m"false"[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-6 px-2 text-11 shrink-0"[39m
+    [33mdata-testid[39m=[32m"chat-produced-file-inline-download"[39m
+    [33mdownload[39m=[32m"原稿 {title}.pdf"[39m
+    [33mhref[39m=[32m"blob:authorized-pdf"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mswitch language[0m
+    [36m</button>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex w-fit max-w-full gap-3 rounded-container border border-border-subtle bg-card p-3 shadow-md items-center px-4"[39m
+      [33mdata-testid[39m=[32m"chat-produced-file-inline-card"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-file-text h-5 w-5 shrink-0 text-primary"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M14 2v4a2 2 0 0 0 2 2h4"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M10 9H8"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M16 13H8"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M16 17H8"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex min-w-0 items-center gap-2"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"min-w-0 flex-1"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex min-w-0 items-center gap-1.5"[39m
+          [36m>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"truncate text-13 font-semibold text-card-foreground"[39m
+            [36m>[39m
+              [0m原稿 {title}.pdf[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+          [36m>[39m
+            [0m1 KB[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex shrink-0 items-center gap-1.5"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-6 px-2 text-11 shrink-0"[39m
+            [33mdata-testid[39m=[32m"chat-produced-file-pdf-preview-trigger"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-eye h-3.5 w-3.5"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"[39m
+              [36m/>[39m
+              [36m<circle[39m
+                [33mcx[39m=[32m"12"[39m
+                [33mcy[39m=[32m"12"[39m
+                [33mr[39m=[32m"3"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0m预览[0m
+          [36m</button>[39m
+          [36m<a[39m
+            [33maria-disabled[39m=[32m"false"[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-6 px-2 text-11 shrink-0"[39m
+            [33mdata-testid[39m=[32m"chat-produced-file-inline-download"[39m
+            [33mdownload[39m=[32m"原稿 {title}.pdf"[39m
+            [33mhref[39m=[32m"blob:authorized-pdf"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-download h-3.5 w-3.5"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"[39m
+              [36m/>[39m
+              [36m<polyline[39m
+                [33mpoints[39m=[32m"7 10 12 15 17 10"[39m
+              [36m/>[39m
+              [36m<line[39m
+                [33mx1[39m=[32m"12"[39m
+                [33mx2[39m=[32m"12"[39m
+                [33my1[39m=[32m"15"[39m
+                [33my2[39m=[32m"3"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0m下载[0m
+          [36m</a>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ tests/ui/i18n-chat-roster.test.tsx (2 tests | 2 failed) 139ms
+   × keeps org names, duties and selected canonical candidate while changing roster chrome 134ms
+     → Unable to find an accessible element with the role "button" and name "Edit"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  [36m<button />[39m
+
+  Name "编辑":
+  [36m<button[39m
+    [33maria-expanded[39m=[32m"false"[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"[39m
+    [33mdata-testid[39m=[32m"chat-roster-edit"[39m
+  [36m/>[39m
+
+  Name "移出":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"[39m
+    [33mdata-testid[39m=[32m"chat-roster-remove-raw-agent"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "本线程的 AI 团队 · 1":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-11 font-medium text-muted-foreground"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  list:
+
+  Name "":
+  [36m<ul[39m
+    [33mclass[39m=[32m"flex flex-col"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  listitem:
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"flex items-start gap-2 rounded-md px-1.5 py-1.5 transition-colors hover:bg-muted"[39m
+    [33mdata-testid[39m=[32m"chat-roster-agent-raw-agent"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"truncate text-12 font-medium"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"truncate text-10 text-muted-foreground"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mswitch language[0m
+    [36m</button>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col gap-2 px-3 pb-3"[39m
+      [33mdata-testid[39m=[32m"chat-read-roster"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-center justify-between gap-2 pt-1"[39m
+      [36m>[39m
+        [36m<h2[39m
+          [33mclass[39m=[32m"text-11 font-medium text-muted-foreground"[39m
+        [36m>[39m
+          [0m本线程的 AI 团队[0m
+          [0m · 1[0m
+        [36m</h2>[39m
+        [36m<button[39m
+          [33maria-expanded[39m=[32m"false"[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"[39m
+          [33mdata-testid[39m=[32m"chat-roster-edit"[39m
+        [36m>[39m
+          [0m编辑[0m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<ul[39m
+        [33mclass[39m=[32m"flex flex-col"[39m
+      [36m>[39m
+        [36m<li[39m
+          [33mclass[39m=[32m"flex items-start gap-2 rounded-md px-1.5 py-1.5 transition-colors hover:bg-muted"[39m
+          [33mdata-testid[39m=[32m"chat-roster-agent-raw-agent"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"inline-flex shrink-0 items-center justify-center rounded-full font-medium transition-colors duration-200 bg-ai-tint text-ai-tint-foreground h-6 w-6 text-10 overflow-hidden p-0 mt-0.5"[39m
+          [36m>[39m
+            [0mOR[0m
+          [36m</span>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0 flex-1"[39m
+          [36m>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"truncate text-12 font-medium"[39m
+            [36m>[39m
+              [0m组织原名 {name}[0m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-muted-foreground"[39m
+              [36m>[39m
+                [0m · [0m
+                [0m组织头衔[0m
+              [36m</span>[39m
+            [36m</p>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"truncate text-10 text-muted-foreground"[39m
+            [36m>[39m
+              [0m职责原文 {duty}[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"text-10 text-primary"[39m
+          [36m>[39m
+            [0m在场[0m
+          [36m</span>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"[39m
+            [33mdata-testid[39m=[32m"chat-roster-remove-raw-agent"[39m
+          [36m>[39m
+            [0m移出[0m
+          [36m</button>[39m
+        [36m</li>[39m
+      [36m</ul>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × preserves the readonly and pending mutation gates without inventing roster writes 5ms
+     → Unable to find an element with the text: Read only. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col gap-2 px-3 pb-3"[39m
+      [33mdata-testid[39m=[32m"chat-read-roster"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-center justify-between gap-2 pt-1"[39m
+      [36m>[39m
+        [36m<h2[39m
+          [33mclass[39m=[32m"text-11 font-medium text-muted-foreground"[39m
+        [36m>[39m
+          [0m本线程的 AI 团队[0m
+          [0m · 1[0m
+        [36m</h2>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-10 text-muted-foreground"[39m
+        [36m>[39m
+          [0m只读[0m
+        [36m</span>[39m
+      [36m</div>[39m
+      [36m<ul[39m
+        [33mclass[39m=[32m"flex flex-col"[39m
+      [36m>[39m
+        [36m<li[39m
+          [33mclass[39m=[32m"flex items-start gap-2 rounded-md px-1.5 py-1.5 transition-colors hover:bg-muted"[39m
+          [33mdata-testid[39m=[32m"chat-roster-agent-raw-agent"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"inline-flex shrink-0 items-center justify-center rounded-full font-medium transition-colors duration-200 bg-ai-tint text-ai-tint-foreground h-6 w-6 text-10 overflow-hidden p-0 mt-0.5"[39m
+          [36m>[39m
+            [0mOR[0m
+          [36m</span>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0 flex-1"[39m
+          [36m>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"truncate text-12 font-medium"[39m
+            [36m>[39m
+              [0m组织原名 {name}[0m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-muted-foreground"[39m
+              [36m>[39m
+                [0m · [0m
+                [0m组织头衔[0m
+              [36m</span>[39m
+            [36m</p>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"truncate text-10 text-muted-foreground"[39m
+            [36m>[39m
+              [0m职责原文 {duty}[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"text-10 text-primary"[39m
+          [36m>[39m
+            [0m在场[0m
+          [36m</span>[39m
+        [36m</li>[39m
+      [36m</ul>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ tests/ui/i18n-chat-artifact-source.test.tsx (2 tests | 2 failed) 41ms
+   × keeps the original source request and exact loaded version through an in-flight locale change 28ms
+     → expected '正在加载产物…' to be 'Loading artifact…' // Object.is equality
+   × re-renders a persisted structured visibility failure without retrying or exposing internal details 13ms
+     → expected '这份产物你现在看不到：可能是别人的草稿，也可能已经被删掉' to be 'You cannot view this artifact: it may…' // Object.is equality
+ ❯ tests/ui/i18n-chat-knowledge-panel.test.tsx (2 tests | 2 failed) 47ms
+   × keeps the read-only memory graph selection and visibility identity across locale without granting writes 41ms
+     → expected '只读' to be 'Read only' // Object.is equality
+   × translates the structured permission failure and retries only on an explicit click 6ms
+     → expected '你没有这条对话的访问权限。' to be 'You do not have access to this conver…' // Object.is equality
+ ❯ tests/ui/i18n-chat-materials-notice.test.tsx (2 tests | 1 failed) 153ms
+   × stores the non-file drop outcome semantically without uploading or clearing it on locale 59ms
+     → expected '只支持拖入文件。拖进来的是文字、链接或文件夹（浏览器不把文件夹当文件交给网…' to be 'Only files can be dropped here. Text,…' // Object.is equality
+ ❯ tests/ui/i18n-chat-capability-edition.test.tsx (2 tests | 2 failed) 41ms
+   × keeps the local gated footer expanded and the same contract capability identities across locale 36ms
+     → Unable to find an element with the text: Unavailable on this computer (7 capabilities). This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<details[39m
+  [33mclass[39m=[32m"group px-1 text-11 text-muted-foreground"[39m
+  [33mdata-testid[39m=[32m"capability-edition-note"[39m
+[36m>[39m
+  [36m<summary[39m
+    [33mclass[39m=[32m"cursor-pointer select-none rounded-sm py-1 transition-colors duration-fast hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+  [36m>[39m
+    [0m这台电脑上做不到的事[0m
+    [0m（[0m
+    [0m7[0m
+    [0m 项）[0m
+  [36m</summary>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"pb-1 pl-2"[39m
+  [36m>[39m
+    [36m<ul[39m
+      [33mclass[39m=[32m"mt-1 space-y-0.5"[39m
+    [36m>[39m
+      [36m<li[39m
+        [33mclass[39m=[32m"text-11 leading-snug text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"capability-edition-absent-cloud-models"[39m
+      [36m>[39m
+        [0m云端大模型（更强的推理与长上下文）[0m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-muted-foreground"[39m
+        [36m>[39m
+          [0m — [0m
+          [0m本地版不支持[0m
+        [36m</span>[39m
+      [36m</li>[39m
+      [36m<li[39m
+        [33mclass[39m=[32m"text-11 leading-snug text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"capability-edition-absent-mcp-egress"[39m
+      [36m>[39m
+        [0mMCP 外部工具（连第三方系统）[0m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-muted-foreground"[39m
+        [36m>[39m
+          [0m — [0m
+          [0m本地版不支持[0m
+        [36m</span>[39m
+      [36m</li>[39m
+      [36m<li[39m
+        [33mclass[39m=[32m"text-11 leading-snug text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"capability-edition-absent-subagents"[39m
+      [36m>[39m
+        [0m子代理与深度研究（多智能体分工）[0m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-muted-foreground"[39m
+        [36m>[39m
+          [0m — [0m
+          [0m本地版不支持[0m
+        [36m</span>[39m
+      [36m</li>[39m
+      [36m<li[39m
+        [33mclass[39m=[32m"text-11 leading-snug text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"capability-edition-absent-collaboration"[39m
+      [36m>[39m
+        [0m多人协作：成员邀请、共享、跨组织检索[0m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-muted-foreground"[39m
+        [36m>[39m
+          [0m — [0m
+          [0m本地版不支持[0m
+        [36m</span>[39m
+      [36m</li>[39m
+      [36m<li[39m
+        [33mclass[39m=[32m"text-11 leading-snug text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"capability-edition-absent-outbound-notifications"[39m
+      [36m>[39m
+        [0m邮件与外发通知[0m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-muted-foreground"[39m
+        [36m>[39m
+          [0m — [0m
+          [0m本地版不支持[0m
+        [36m</span>[39m
+      [36m</li>[39m
+      [36m<li[39m
+        [33mclass[39m=[32m"text-11 leading-snug text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"capability-edition-absent-image-generation"[39m
+      [36m>[39m
+        [0mAI 出图（文生图）[0m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-muted-foreground"[39m
+        [36m>[39m
+          [0m — [0m
+          [0m本地版不支持[0m
+        [36m</span>[39m
+      [36m</li>[39m
+      [36m<li[39m
+        [33mclass[39m=[32m"text-11 leading-snug text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"capability-edition-absent-error-log-ai-summary"[39m
+      [36m>[39m
+        [0m系统异常的 AI 研判摘要[0m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-muted-foreground"[39m
+        [36m>[39m
+          [0m — [0m
+          [0m本地版不支持[0m
+        [36m</span>[39m
+      [36m</li>[39m
+    [36m</ul>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"mt-1.5 text-11 leading-snug text-muted-foreground"[39m
+    [36m>[39m
+      [0m这些要连在线正式系统才行。本地版的数据和模型都在这台电脑上，这是代价的另一半。[0m
+    [36m</p>[39m
+  [36m</div>[39m
+[36m</details>[39m
+   × uses the cloud column for the actual unavailable state rather than reusing the local list 5ms
+     → expected '断网可用 — 本版次不支持' to contain 'Offline use — Not supported in this e…'
+ ❯ tests/ui/i18n-chat-feedback-receipt.test.tsx (1 test | 1 failed) 32ms
+   × keeps a persisted receipt and its exact encoded link across locale and same-session remount without POST 31ms
+     → expected '已保存，反馈编号：saved/原文?{id}。若无法打开收件箱，打开已保存…' to contain 'Saved. Feedback ID:'
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 14 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/i18n-chat-artifact-detail.test.tsx > keeps loaded version copy/download bytes and action state through a locale change
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Copy full text"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  [36m<button />[39m
+
+  Name "Collapse task inspector":
+  [36m<button[39m
+    [33maria-expanded[39m=[32m"true"[39m
+    [33maria-label[39m=[32m"Collapse task inspector"[39m
+    [33mclass[39m=[32m"ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-inspector-collapse"[39m
+    [33mtitle[39m=[32m"Collapse task inspector"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "产物":
+  [36m<button[39m
+    [33mclass[39m=[32m"flex items-center gap-1 rounded px-1.5 py-1 text-12 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-inspector-artifact-back"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "复制全文":
+  [36m<button[39m
+    [33maria-label[39m=[32m"复制全文"[39m
+    [33mclass[39m=[32m"rounded p-1 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-inspector-artifact-copy"[39m
+    [33mtitle[39m=[32m"复制全文"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "下载":
+  [36m<button[39m
+    [33maria-label[39m=[32m"下载"[39m
+    [33mclass[39m=[32m"rounded p-1 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-inspector-artifact-download"[39m
+    [33mtitle[39m=[32m"下载"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "放大查看":
+  [36m<button[39m
+    [33maria-label[39m=[32m"放大查看"[39m
+    [33mclass[39m=[32m"rounded p-1 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-inspector-artifact-enlarge"[39m
+    [33mtitle[39m=[32m"放大查看"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "跳到原消息":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex items-center gap-0.5 rounded px-1 text-primary transition-colors duration-fast hover:bg-muted"[39m
+    [33mdata-testid[39m=[32m"chat-inspector-artifact-source-jump"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  complementary:
+
+  Name "Task inspector":
+  [36m<aside[39m
+    [33maria-label[39m=[32m"Task inspector"[39m
+    [33mclass[39m=[32m"relative flex shrink-0 flex-col border-l border-border-subtle bg-panel-alt"[39m
+    [33mdata-active-tab[39m=[32m"artifacts"[39m
+    [33mdata-collapsed[39m=[32m"false"[39m
+    [33mdata-drop-active[39m=[32m"false"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-inspector"[39m
+    [33mstyle[39m=[32m"width: 288px;"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  separator:
+
+  Name "Resize task inspector":
+  [36m<div[39m
+    [33maria-label[39m=[32m"Resize task inspector"[39m
+    [33maria-orientation[39m=[32m"vertical"[39m
+    [33maria-valuemax[39m=[32m"720"[39m
+    [33maria-valuemin[39m=[32m"240"[39m
+    [33maria-valuenow[39m=[32m"288"[39m
+    [33mclass[39m=[32m"group absolute inset-y-0 z-10 w-1.5 cursor-col-resize touch-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring -left-0.5"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-inspector-resize"[39m
+    [33mrole[39m=[32m"separator"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tablist:
+
+  Name "Task inspector tabs":
+  [36m<div[39m
+    [33maria-label[39m=[32m"Task inspector tabs"[39m
+    [33maria-orientation[39m=[32m"horizontal"[39m
+    [33mclass[39m=[32m"flex shrink-0 items-center border-b border-border-subtle flex-row justify-center gap-1 px-2 py-2.5"[39m
+    [33mrole[39m=[32m"tablist"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tab:
+
+  Name "Materials":
+  [36m<button[39m
+    [33maria-label[39m=[32m"Materials"[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"relative flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40 w-8 px-0 text-muted-foreground hover:bg-card hover:text-card-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-inspector-tab-materials"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtitle[39m=[32m"Materials"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Artifacts":
+  [36m<button[39m
+    [33maria-label[39m=[32m"Artifacts"[39m
+    [33maria-selected[39m=[32m"true"[39m
+    [33mclass[39m=[32m"relative flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40 px-3 bg-card font-medium text-card-foreground shadow-sm"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-inspector-tab-artifacts"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtitle[39m=[32m"Artifacts"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Run details":
+  [36m<button[39m
+    [33maria-label[39m=[32m"Run details"[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"relative flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40 w-8 px-0 text-muted-foreground hover:bg-card hover:text-card-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-inspector-tab-run-details"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtitle[39m=[32m"Run details"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tabpanel:
+
+  Name "Artifacts":
+  [36m<div[39m
+    [33maria-label[39m=[32m"Artifacts"[39m
+    [33mclass[39m=[32m"flex min-h-0 flex-1 flex-col overflow-y-auto"[39m
+    [33mrole[39m=[32m"tabpanel"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle px-3 py-1 text-10 text-muted-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-artifact-sources"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mswitch language[0m
+    [36m</button>[39m
+    [36m<aside[39m
+      [33maria-label[39m=[32m"Task inspector"[39m
+      [33mclass[39m=[32m"relative flex shrink-0 flex-col border-l border-border-subtle bg-panel-alt"[39m
+      [33mdata-active-tab[39m=[32m"artifacts"[39m
+      [33mdata-collapsed[39m=[32m"false"[39m
+      [33mdata-drop-active[39m=[32m"false"[39m
+      [33mdata-testid[39m=[32m"chat-task-workbench-inspector"[39m
+      [33mstyle[39m=[32m"width: 288px;"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33maria-label[39m=[32m"Resize task inspector"[39m
+        [33maria-orientation[39m=[32m"vertical"[39m
+        [33maria-valuemax[39m=[32m"720"[39m
+        [33maria-valuemin[39m=[32m"240"[39m
+        [33maria-valuenow[39m=[32m"288"[39m
+        [33mclass[39m=[32m"group absolute inset-y-0 z-10 w-1.5 cursor-col-resize touch-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring -left-0.5"[39m
+        [33mdata-testid[39m=[32m"chat-task-workbench-inspector-resize"[39m
+        [33mrole[39m=[32m"separator"[39m
+        [33mtabindex[39m=[32m"0"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-transparent transition-colors duration-fast group-hover:bg-ring group-focus-visible:bg-ring"[39m
+        [36m/>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33maria-label[39m=[32m"Task inspector tabs"[39m
+        [33maria-orientation[39m=[32m"horizontal"[39m
+        [33mclass[39m=[32m"flex shrink-0 items-center border-b border-border-subtle flex-row justify-center gap-1 px-2 py-2.5"[39m
+        [33mrole[39m=[32m"tablist"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33maria-label[39m=[32m"Materials"[39m
+          [33maria-selected[39m=[32m"false"[39m
+          [33mclass[39m=[32m"relative flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40 w-8 px-0 text-muted-foreground hover:bg-card hover:text-card-foreground"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-inspector-tab-materials"[39m
+          [33mrole[39m=[32m"tab"[39m
+          [33mtitle[39m=[32m"Materials"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-folder-open h-4 w-4 shrink-0"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33maria-label[39m=[32m"Artifacts"[39m
+          [33maria-selected[39m=[32m"true"[39m
+          [33mclass[39m=[32m"relative flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40 px-3 bg-card font-medium text-card-foreground shadow-sm"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-inspector-tab-artifacts"[39m
+          [33mrole[39m=[32m"tab"[39m
+          [33mtitle[39m=[32m"Artifacts"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-package h-4 w-4 shrink-0"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 22V12"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m3.3 7 7.703 4.734a2 2 0 0 0 1.994 0L20.7 7"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m7.5 4.27 9 5.15"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"truncate"[39m
+          [36m>[39m
+            [0mArtifacts[0m
+          [36m</span>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33maria-label[39m=[32m"Run details"[39m
+          [33maria-selected[39m=[32m"false"[39m
+          [33mclass[39m=[32m"relative flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40 w-8 px-0 text-muted-foreground hover:bg-card hover:text-card-foreground"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-inspector-tab-run-details"[39m
+          [33mrole[39m=[32m"tab"[39m
+          [33mtitle[39m=[32m"Run details"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-settings2 h-4 w-4 shrink-0"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+      ...
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-artifact-detail.test.tsx:31:23
+     29|   const enlarge = vi.fn();
+     30|   render(<I18nProvider initialLocale="en"><LocaleControl /><ChatTaskIn…
+     31|   const copy = screen.getByRole("button", { name: "Copy full text" });
+       |                       ^
+     32|   const loaded = screen.getByTestId("actual-detail-source-boundary");
+     33|   expect(screen.getByTestId("chat-task-workbench-artifact-sources").te…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/14]⎯
+
+ FAIL  tests/ui/i18n-chat-artifact-detail.test.tsx > does not refetch or enable actions merely because locale changed while source was pending
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Copy full text"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "产物":
+  [36m<button[39m
+    [33mclass[39m=[32m"flex items-center gap-1 rounded px-1.5 py-1 text-12 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-inspector-artifact-back"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "复制全文":
+  [36m<button[39m
+    [33maria-label[39m=[32m"复制全文"[39m
+    [33mclass[39m=[32m"rounded p-1 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-inspector-artifact-copy"[39m
+    [33mdisabled[39m=[32m""[39m
+    [33mtitle[39m=[32m"复制全文"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "下载":
+  [36m<button[39m
+    [33maria-label[39m=[32m"下载"[39m
+    [33mclass[39m=[32m"rounded p-1 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-inspector-artifact-download"[39m
+    [33mdisabled[39m=[32m""[39m
+    [33mtitle[39m=[32m"下载"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle px-3 py-1 text-10 text-muted-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-artifact-sources"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "跳到原消息":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex items-center gap-0.5 rounded px-1 text-primary transition-colors duration-fast hover:bg-muted"[39m
+    [33mdata-testid[39m=[32m"chat-inspector-artifact-source-jump"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<div[39m
+  [33mclass[39m=[32m"flex min-h-0 flex-1 flex-col"[39m
+  [33mdata-testid[39m=[32m"chat-inspector-artifact-detail"[39m
+[36m>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"flex items-center gap-1 border-b border-border px-2 py-1.5"[39m
+  [36m>[39m
+    [36m<button[39m
+      [33mclass[39m=[32m"flex items-center gap-1 rounded px-1.5 py-1 text-12 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground"[39m
+      [33mdata-testid[39m=[32m"chat-inspector-artifact-back"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-arrow-left size-3.5"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m12 19-7-7 7-7"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M19 12H5"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+      [0m产物[0m
+    [36m</button>[39m
+    [36m<span[39m
+      [33mclass[39m=[32m"min-w-0 flex-1 truncate text-12 font-medium text-card-foreground"[39m
+      [33mtitle[39m=[32m"模型标题 {title}"[39m
+    [36m>[39m
+      [0m模型标题 {title}[0m
+    [36m</span>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"复制全文"[39m
+      [33mclass[39m=[32m"rounded p-1 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"[39m
+      [33mdata-testid[39m=[32m"chat-inspector-artifact-copy"[39m
+      [33mdisabled[39m=[32m""[39m
+      [33mtitle[39m=[32m"复制全文"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-copy size-3.5"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<rect[39m
+          [33mheight[39m=[32m"14"[39m
+          [33mrx[39m=[32m"2"[39m
+          [33mry[39m=[32m"2"[39m
+          [33mwidth[39m=[32m"14"[39m
+          [33mx[39m=[32m"8"[39m
+          [33my[39m=[32m"8"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"下载"[39m
+      [33mclass[39m=[32m"rounded p-1 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"[39m
+      [33mdata-testid[39m=[32m"chat-inspector-artifact-download"[39m
+      [33mdisabled[39m=[32m""[39m
+      [33mtitle[39m=[32m"下载"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-download size-3.5"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"[39m
+        [36m/>[39m
+        [36m<polyline[39m
+          [33mpoints[39m=[32m"7 10 12 15 17 10"[39m
+        [36m/>[39m
+        [36m<line[39m
+          [33mx1[39m=[32m"12"[39m
+          [33mx2[39m=[32m"12"[39m
+          [33my1[39m=[32m"15"[39m
+          [33my2[39m=[32m"3"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<p[39m
+    [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle px-3 py-1 text-10 text-muted-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-artifact-sources"[39m
+  [36m>[39m
+    [36m<span>[39m
+      [0m已挂出处[0m
+    [36m</span>[39m
+    [36m<button[39m
+      [33mclass[39m=[32m"inline-flex items-center gap-0.5 rounded px-1 text-primary transition-colors duration-fast hover:bg-muted"[39m
+      [33mdata-testid[39m=[32m"chat-inspector-artifact-source-jump"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-corner-up-left size-3"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<polyline[39m
+          [33mpoints[39m=[32m"9 14 4 9 9 4"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M20 20v-7a4 4 0 0 0-4-4H4"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+      [0m跳到原消息[0m
+    [36m</button>[39m
+  [36m</p>[39m
+  [36m<div[39m
+    [33mdata-testid[39m=[32m"actual-detail-source-boundary"[39m
+  [36m>[39m
+    [0mraw-artifact[0m
+  [36m</div>[39m
+[36m</div>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-artifact-detail.test.tsx:45:31
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/14]⎯
+
+ FAIL  tests/ui/i18n-chat-artifact-source.test.tsx > keeps the original source request and exact loaded version through an in-flight locale change
+AssertionError: expected '正在加载产物…' to be 'Loading artifact…' // Object.is equality
+
+Expected: "Loading artifact…"
+Received: "正在加载产物…"
+
+ ❯ tests/ui/i18n-chat-artifact-source.test.tsx:17:75
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/14]⎯
+
+ FAIL  tests/ui/i18n-chat-artifact-source.test.tsx > re-renders a persisted structured visibility failure without retrying or exposing internal details
+AssertionError: expected '这份产物你现在看不到：可能是别人的草稿，也可能已经被删掉' to be 'You cannot view this artifact: it may…' // Object.is equality
+
+Expected: "You cannot view this artifact: it may be someone else's draft or may have been deleted"
+Received: "这份产物你现在看不到：可能是别人的草稿，也可能已经被删掉"
+
+ ❯ tests/ui/i18n-chat-artifact-source.test.tsx:29:31
+     27|   render(<I18nProvider initialLocale="en"><LocaleControl /><ChatArtifa…
+     28|   const failure = await screen.findByTestId("chat-artifact-preview-err…
+     29|   expect(failure.textContent).toBe("You cannot view this artifact: it …
+       |                               ^
+     30|   fireEvent.click(screen.getByRole("button", { name: "switch language"…
+     31|   expect(screen.getByTestId("chat-artifact-preview-error")).toBe(failu…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/14]⎯
+
+ FAIL  tests/ui/i18n-chat-capability-edition.test.tsx > keeps the local gated footer expanded and the same contract capability identities across locale
+TestingLibraryElementError: Unable to find an element with the text: Unavailable on this computer (7 capabilities). This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<details[39m
+  [33mclass[39m=[32m"group px-1 text-11 text-muted-foreground"[39m
+  [33mdata-testid[39m=[32m"capability-edition-note"[39m
+[36m>[39m
+  [36m<summary[39m
+    [33mclass[39m=[32m"cursor-pointer select-none rounded-sm py-1 transition-colors duration-fast hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+  [36m>[39m
+    [0m这台电脑上做不到的事[0m
+    [0m（[0m
+    [0m7[0m
+    [0m 项）[0m
+  [36m</summary>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"pb-1 pl-2"[39m
+  [36m>[39m
+    [36m<ul[39m
+      [33mclass[39m=[32m"mt-1 space-y-0.5"[39m
+    [36m>[39m
+      [36m<li[39m
+        [33mclass[39m=[32m"text-11 leading-snug text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"capability-edition-absent-cloud-models"[39m
+      [36m>[39m
+        [0m云端大模型（更强的推理与长上下文）[0m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-muted-foreground"[39m
+        [36m>[39m
+          [0m — [0m
+          [0m本地版不支持[0m
+        [36m</span>[39m
+      [36m</li>[39m
+      [36m<li[39m
+        [33mclass[39m=[32m"text-11 leading-snug text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"capability-edition-absent-mcp-egress"[39m
+      [36m>[39m
+        [0mMCP 外部工具（连第三方系统）[0m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-muted-foreground"[39m
+        [36m>[39m
+          [0m — [0m
+          [0m本地版不支持[0m
+        [36m</span>[39m
+      [36m</li>[39m
+      [36m<li[39m
+        [33mclass[39m=[32m"text-11 leading-snug text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"capability-edition-absent-subagents"[39m
+      [36m>[39m
+        [0m子代理与深度研究（多智能体分工）[0m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-muted-foreground"[39m
+        [36m>[39m
+          [0m — [0m
+          [0m本地版不支持[0m
+        [36m</span>[39m
+      [36m</li>[39m
+      [36m<li[39m
+        [33mclass[39m=[32m"text-11 leading-snug text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"capability-edition-absent-collaboration"[39m
+      [36m>[39m
+        [0m多人协作：成员邀请、共享、跨组织检索[0m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-muted-foreground"[39m
+        [36m>[39m
+          [0m — [0m
+          [0m本地版不支持[0m
+        [36m</span>[39m
+      [36m</li>[39m
+      [36m<li[39m
+        [33mclass[39m=[32m"text-11 leading-snug text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"capability-edition-absent-outbound-notifications"[39m
+      [36m>[39m
+        [0m邮件与外发通知[0m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-muted-foreground"[39m
+        [36m>[39m
+          [0m — [0m
+          [0m本地版不支持[0m
+        [36m</span>[39m
+      [36m</li>[39m
+      [36m<li[39m
+        [33mclass[39m=[32m"text-11 leading-snug text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"capability-edition-absent-image-generation"[39m
+      [36m>[39m
+        [0mAI 出图（文生图）[0m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-muted-foreground"[39m
+        [36m>[39m
+          [0m — [0m
+          [0m本地版不支持[0m
+        [36m</span>[39m
+      [36m</li>[39m
+      [36m<li[39m
+        [33mclass[39m=[32m"text-11 leading-snug text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"capability-edition-absent-error-log-ai-summary"[39m
+      [36m>[39m
+        [0m系统异常的 AI 研判摘要[0m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-muted-foreground"[39m
+        [36m>[39m
+          [0m — [0m
+          [0m本地版不支持[0m
+        [36m</span>[39m
+      [36m</li>[39m
+    [36m</ul>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"mt-1.5 text-11 leading-snug text-muted-foreground"[39m
+    [36m>[39m
+      [0m这些要连在线正式系统才行。本地版的数据和模型都在这台电脑上，这是代价的另一半。[0m
+    [36m</p>[39m
+  [36m</div>[39m
+[36m</details>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-capability-edition.test.tsx:14:32
+     12|   const note = screen.getByTestId("capability-edition-note");
+     13|   const absent = capabilitiesMissingIn("local").filter(row => row.loca…
+     14|   const summary = within(note).getByText(`Unavailable on this computer…
+       |                                ^
+     15|   fireEvent.click(summary); expect(note).toHaveAttribute("open");
+     16|   const image = screen.getByTestId("capability-edition-absent-image-ge…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/14]⎯
+
+ FAIL  tests/ui/i18n-chat-capability-edition.test.tsx > uses the cloud column for the actual unavailable state rather than reusing the local list
+AssertionError: expected '断网可用 — 本版次不支持' to contain 'Offline use — Not supported in this e…'
+
+Expected: "Offline use — Not supported in this edition"
+Received: "断网可用 — 本版次不支持"
+
+ ❯ tests/ui/i18n-chat-capability-edition.test.tsx:28:31
+     26|   render(<I18nProvider initialLocale="en"><EditionProvider edition="cl…
+     27|   const offline = screen.getByTestId("capability-edition-absent-offlin…
+     28|   expect(offline.textContent).toContain("Offline use — Not supported i…
+       |                               ^
+     29|   expect(screen.queryByTestId("capability-edition-absent-image-generat…
+     30|   expect(screen.getByTestId("capability-edition-note").textContent).to…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/14]⎯
+
+ FAIL  tests/ui/i18n-chat-feedback-receipt.test.tsx > keeps a persisted receipt and its exact encoded link across locale and same-session remount without POST
+AssertionError: expected '已保存，反馈编号：saved/原文?{id}。若无法打开收件箱，打开已保存…' to contain 'Saved. Feedback ID:'
+
+Expected: "Saved. Feedback ID:"
+Received: "已保存，反馈编号：saved/原文?{id}。若无法打开收件箱，打开已保存的反馈，或从「提反馈」的「我提过的」回看，无需重新提交。关闭"
+
+ ❯ tests/ui/i18n-chat-feedback-receipt.test.tsx:19:31
+     17|   const view = render(app);
+     18|   const receipt = screen.getByTestId("feedback-saved-receipt");
+     19|   expect(receipt.textContent).toContain("Saved. Feedback ID:"); expect…
+       |                               ^
+     20|   const link = within(receipt).getByRole("link", { name: "Open saved f…
+     21|   expect(link).toHaveAttribute("href", `/platform-admin/inbox?open=${e…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/14]⎯
+
+ FAIL  tests/ui/i18n-chat-knowledge-panel.test.tsx > keeps the read-only memory graph selection and visibility identity across locale without granting writes
+AssertionError: expected '只读' to be 'Read only' // Object.is equality
+
+Expected: "Read only"
+Received: "只读"
+
+ ❯ tests/ui/i18n-chat-knowledge-panel.test.tsx:14:63
+     12|   const retry = vi.fn(); const source = vi.fn(); const apply = vi.fn();
+     13|   render(<I18nProvider initialLocale="en"><LocaleControl /><KnowledgeP…
+     14|   expect(screen.getByTestId("kg-readonly-badge").textContent).toBe("Re…
+       |                                                               ^
+     15|   const visibility = screen.getByTestId("kg-visibility"); expect(visib…
+     16|   expect(screen.getByTestId("kg-ingestion-inactive").textContent).toCo…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/14]⎯
+
+ FAIL  tests/ui/i18n-chat-knowledge-panel.test.tsx > translates the structured permission failure and retries only on an explicit click
+AssertionError: expected '你没有这条对话的访问权限。' to be 'You do not have access to this conver…' // Object.is equality
+
+Expected: "You do not have access to this conversation."
+Received: "你没有这条对话的访问权限。"
+
+ ❯ tests/ui/i18n-chat-knowledge-panel.test.tsx:28:61
+     26|   const retry = vi.fn();
+     27|   render(<I18nProvider initialLocale="en"><LocaleControl /><KnowledgeP…
+     28|   expect(screen.getByTestId("kg-error-reason").textContent).toBe("You …
+       |                                                             ^
+     29|   fireEvent.click(screen.getByRole("button", { name: "switch language"…
+     30|   expect(screen.getByTestId("kg-error-reason").textContent).toBe("你没…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/14]⎯
+
+ FAIL  tests/ui/i18n-chat-materials-notice.test.tsx > stores the non-file drop outcome semantically without uploading or clearing it on locale
+AssertionError: expected '只支持拖入文件。拖进来的是文字、链接或文件夹（浏览器不把文件夹当文件交给网…' to be 'Only files can be dropped here. Text,…' // Object.is equality
+
+Expected: "Only files can be dropped here. Text, links and folders were not uploaded."
+Received: "只支持拖入文件。拖进来的是文字、链接或文件夹（浏览器不把文件夹当文件交给网页），没有上传任何东西。"
+
+ ❯ tests/ui/i18n-chat-materials-notice.test.tsx:15:30
+     13|   fireEvent.drop(surface, { dataTransfer: { files: [], types: ["text/p…
+     14|   const notice = screen.getByTestId("chat-materials-upload-notice");
+     15|   expect(notice.textContent).toBe("Only files can be dropped here. Tex…
+       |                              ^
+     16|   expect(surface).toHaveAttribute("data-active-tab", "materials"); exp…
+     17|   fireEvent.click(screen.getByRole("button", { name: "switch language"…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/14]⎯
+
+ FAIL  tests/ui/i18n-chat-produced-file.test.tsx > keeps the produced image overlay and exact authorized bytes while translating its actions
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Enlarge preview 原图 {count}.png"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  [36m<button />[39m
+
+  Name "放大预览 原图 {count}.png":
+  [36m<button[39m
+    [33maria-label[39m=[32m"放大预览 原图 {count}.png"[39m
+    [33mclass[39m=[32m"group relative overflow-hidden rounded-md bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"chat-produced-file-inline-preview-trigger"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  img:
+
+  Name "原图 {count}.png":
+  [36m<img[39m
+    [33malt[39m=[32m"原图 {count}.png"[39m
+    [33mclass[39m=[32m"max-h-72 max-w-full object-contain transition-transform duration-fast group-hover:scale-[1.01]"[39m
+    [33mdata-testid[39m=[32m"chat-produced-file-inline-image"[39m
+    [33msrc[39m=[32m"blob:authorized-image"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"truncate text-13 font-semibold text-card-foreground"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  link:
+
+  Name "下载":
+  [36m<a[39m
+    [33maria-disabled[39m=[32m"false"[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-6 px-2 text-11 shrink-0"[39m
+    [33mdata-testid[39m=[32m"chat-produced-file-inline-download"[39m
+    [33mdownload[39m=[32m"原图 {count}.png"[39m
+    [33mhref[39m=[32m"blob:authorized-image"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mswitch language[0m
+    [36m</button>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex w-fit max-w-full gap-3 rounded-container border border-border-subtle bg-card p-3 shadow-md flex-col"[39m
+      [33mdata-testid[39m=[32m"chat-produced-file-inline-card"[39m
+    [36m>[39m
+      [36m<button[39m
+        [33maria-label[39m=[32m"放大预览 原图 {count}.png"[39m
+        [33mclass[39m=[32m"group relative overflow-hidden rounded-md bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+        [33mdata-testid[39m=[32m"chat-produced-file-inline-preview-trigger"[39m
+        [33mtype[39m=[32m"button"[39m
+      [36m>[39m
+        [36m<img[39m
+          [33malt[39m=[32m"原图 {count}.png"[39m
+          [33mclass[39m=[32m"max-h-72 max-w-full object-contain transition-transform duration-fast group-hover:scale-[1.01]"[39m
+          [33mdata-testid[39m=[32m"chat-produced-file-inline-image"[39m
+          [33msrc[39m=[32m"blob:authorized-image"[39m
+        [36m/>[39m
+      [36m</button>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex min-w-0 items-center gap-2"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"min-w-0 flex-1"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex min-w-0 items-center gap-1.5"[39m
+          [36m>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"truncate text-13 font-semibold text-card-foreground"[39m
+            [36m>[39m
+              [0m原图 {count}.png[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+          [36m>[39m
+            [0m1 KB[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex shrink-0 items-center gap-1.5"[39m
+        [36m>[39m
+          [36m<a[39m
+            [33maria-disabled[39m=[32m"false"[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-6 px-2 text-11 shrink-0"[39m
+            [33mdata-testid[39m=[32m"chat-produced-file-inline-download"[39m
+            [33mdownload[39m=[32m"原图 {count}.png"[39m
+            [33mhref[39m=[32m"blob:authorized-image"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-download h-3.5 w-3.5"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"[39m
+              [36m/>[39m
+              [36m<polyline[39m
+                [33mpoints[39m=[32m"7 10 12 15 17 10"[39m
+              [36m/>[39m
+              [36m<line[39m
+                [33mx1[39m=[32m"12"[39m
+                [33mx2[39m=[32m"12"[39m
+                [33my1[39m=[32m"15"[39m
+                [33my2[39m=[32m"3"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0m下载[0m
+          [36m</a>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-produced-file.test.tsx:15:26
+     13|   download.mockReturnValue({ src: "blob:authorized-image", failed: fal…
+     14|   render(<I18nProvider initialLocale="en"><LocaleControl /><ProducedFi…
+     15|   fireEvent.click(screen.getByRole("button", { name: `Enlarge preview …
+       |                          ^
+     16|   const overlay = screen.getByTestId("chat-produced-file-preview-porta…
+     17|   const image = screen.getByTestId("chat-produced-file-preview-image");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/14]⎯
+
+ FAIL  tests/ui/i18n-chat-produced-file.test.tsx > renders PDF preview chrome around the same original file and preserves its frame through locale
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Preview"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  [36m<button />[39m
+
+  Name "预览":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-6 px-2 text-11 shrink-0"[39m
+    [33mdata-testid[39m=[32m"chat-produced-file-pdf-preview-trigger"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"truncate text-13 font-semibold text-card-foreground"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  link:
+
+  Name "下载":
+  [36m<a[39m
+    [33maria-disabled[39m=[32m"false"[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-6 px-2 text-11 shrink-0"[39m
+    [33mdata-testid[39m=[32m"chat-produced-file-inline-download"[39m
+    [33mdownload[39m=[32m"原稿 {title}.pdf"[39m
+    [33mhref[39m=[32m"blob:authorized-pdf"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mswitch language[0m
+    [36m</button>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex w-fit max-w-full gap-3 rounded-container border border-border-subtle bg-card p-3 shadow-md items-center px-4"[39m
+      [33mdata-testid[39m=[32m"chat-produced-file-inline-card"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-file-text h-5 w-5 shrink-0 text-primary"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M14 2v4a2 2 0 0 0 2 2h4"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M10 9H8"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M16 13H8"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M16 17H8"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex min-w-0 items-center gap-2"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"min-w-0 flex-1"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex min-w-0 items-center gap-1.5"[39m
+          [36m>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"truncate text-13 font-semibold text-card-foreground"[39m
+            [36m>[39m
+              [0m原稿 {title}.pdf[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+          [36m>[39m
+            [0m1 KB[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex shrink-0 items-center gap-1.5"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-6 px-2 text-11 shrink-0"[39m
+            [33mdata-testid[39m=[32m"chat-produced-file-pdf-preview-trigger"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-eye h-3.5 w-3.5"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"[39m
+              [36m/>[39m
+              [36m<circle[39m
+                [33mcx[39m=[32m"12"[39m
+                [33mcy[39m=[32m"12"[39m
+                [33mr[39m=[32m"3"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0m预览[0m
+          [36m</button>[39m
+          [36m<a[39m
+            [33maria-disabled[39m=[32m"false"[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-6 px-2 text-11 shrink-0"[39m
+            [33mdata-testid[39m=[32m"chat-produced-file-inline-download"[39m
+            [33mdownload[39m=[32m"原稿 {title}.pdf"[39m
+            [33mhref[39m=[32m"blob:authorized-pdf"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-download h-3.5 w-3.5"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"[39m
+              [36m/>[39m
+              [36m<polyline[39m
+                [33mpoints[39m=[32m"7 10 12 15 17 10"[39m
+              [36m/>[39m
+              [36m<line[39m
+                [33mx1[39m=[32m"12"[39m
+                [33mx2[39m=[32m"12"[39m
+                [33my1[39m=[32m"15"[39m
+                [33my2[39m=[32m"3"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0m下载[0m
+          [36m</a>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-produced-file.test.tsx:31:26
+     29|   download.mockReturnValue({ src: "blob:authorized-pdf", failed: false…
+     30|   render(<I18nProvider initialLocale="en"><LocaleControl /><ProducedFi…
+     31|   fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+       |                          ^
+     32|   const frame = screen.getByTitle(`${pdf.name} PDF preview`); expect(f…
+     33|   fireEvent.click(screen.getByRole("button", { name: "switch language"…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/14]⎯
+
+ FAIL  tests/ui/i18n-chat-roster.test.tsx > keeps org names, duties and selected canonical candidate while changing roster chrome
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Edit"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  [36m<button />[39m
+
+  Name "编辑":
+  [36m<button[39m
+    [33maria-expanded[39m=[32m"false"[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"[39m
+    [33mdata-testid[39m=[32m"chat-roster-edit"[39m
+  [36m/>[39m
+
+  Name "移出":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"[39m
+    [33mdata-testid[39m=[32m"chat-roster-remove-raw-agent"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "本线程的 AI 团队 · 1":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-11 font-medium text-muted-foreground"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  list:
+
+  Name "":
+  [36m<ul[39m
+    [33mclass[39m=[32m"flex flex-col"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  listitem:
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"flex items-start gap-2 rounded-md px-1.5 py-1.5 transition-colors hover:bg-muted"[39m
+    [33mdata-testid[39m=[32m"chat-roster-agent-raw-agent"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"truncate text-12 font-medium"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"truncate text-10 text-muted-foreground"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mswitch language[0m
+    [36m</button>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col gap-2 px-3 pb-3"[39m
+      [33mdata-testid[39m=[32m"chat-read-roster"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-center justify-between gap-2 pt-1"[39m
+      [36m>[39m
+        [36m<h2[39m
+          [33mclass[39m=[32m"text-11 font-medium text-muted-foreground"[39m
+        [36m>[39m
+          [0m本线程的 AI 团队[0m
+          [0m · 1[0m
+        [36m</h2>[39m
+        [36m<button[39m
+          [33maria-expanded[39m=[32m"false"[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"[39m
+          [33mdata-testid[39m=[32m"chat-roster-edit"[39m
+        [36m>[39m
+          [0m编辑[0m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<ul[39m
+        [33mclass[39m=[32m"flex flex-col"[39m
+      [36m>[39m
+        [36m<li[39m
+          [33mclass[39m=[32m"flex items-start gap-2 rounded-md px-1.5 py-1.5 transition-colors hover:bg-muted"[39m
+          [33mdata-testid[39m=[32m"chat-roster-agent-raw-agent"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"inline-flex shrink-0 items-center justify-center rounded-full font-medium transition-colors duration-200 bg-ai-tint text-ai-tint-foreground h-6 w-6 text-10 overflow-hidden p-0 mt-0.5"[39m
+          [36m>[39m
+            [0mOR[0m
+          [36m</span>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0 flex-1"[39m
+          [36m>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"truncate text-12 font-medium"[39m
+            [36m>[39m
+              [0m组织原名 {name}[0m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-muted-foreground"[39m
+              [36m>[39m
+                [0m · [0m
+                [0m组织头衔[0m
+              [36m</span>[39m
+            [36m</p>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"truncate text-10 text-muted-foreground"[39m
+            [36m>[39m
+              [0m职责原文 {duty}[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"text-10 text-primary"[39m
+          [36m>[39m
+            [0m在场[0m
+          [36m</span>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"[39m
+            [33mdata-testid[39m=[32m"chat-roster-remove-raw-agent"[39m
+          [36m>[39m
+            [0m移出[0m
+          [36m</button>[39m
+        [36m</li>[39m
+      [36m</ul>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-roster.test.tsx:15:26
+     13|   const p = props();
+     14|   render(<I18nProvider initialLocale="en"><LocaleControl /><RosterPane…
+     15|   fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+       |                          ^
+     16|   const select = screen.getByTestId("chat-roster-add-input");
+     17|   fireEvent.change(select, { target: { value: candidate.id } });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/14]⎯
+
+ FAIL  tests/ui/i18n-chat-roster.test.tsx > preserves the readonly and pending mutation gates without inventing roster writes
+TestingLibraryElementError: Unable to find an element with the text: Read only. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col gap-2 px-3 pb-3"[39m
+      [33mdata-testid[39m=[32m"chat-read-roster"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-center justify-between gap-2 pt-1"[39m
+      [36m>[39m
+        [36m<h2[39m
+          [33mclass[39m=[32m"text-11 font-medium text-muted-foreground"[39m
+        [36m>[39m
+          [0m本线程的 AI 团队[0m
+          [0m · 1[0m
+        [36m</h2>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-10 text-muted-foreground"[39m
+        [36m>[39m
+          [0m只读[0m
+        [36m</span>[39m
+      [36m</div>[39m
+      [36m<ul[39m
+        [33mclass[39m=[32m"flex flex-col"[39m
+      [36m>[39m
+        [36m<li[39m
+          [33mclass[39m=[32m"flex items-start gap-2 rounded-md px-1.5 py-1.5 transition-colors hover:bg-muted"[39m
+          [33mdata-testid[39m=[32m"chat-roster-agent-raw-agent"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"inline-flex shrink-0 items-center justify-center rounded-full font-medium transition-colors duration-200 bg-ai-tint text-ai-tint-foreground h-6 w-6 text-10 overflow-hidden p-0 mt-0.5"[39m
+          [36m>[39m
+            [0mOR[0m
+          [36m</span>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0 flex-1"[39m
+          [36m>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"truncate text-12 font-medium"[39m
+            [36m>[39m
+              [0m组织原名 {name}[0m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-muted-foreground"[39m
+              [36m>[39m
+                [0m · [0m
+                [0m组织头衔[0m
+              [36m</span>[39m
+            [36m</p>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"truncate text-10 text-muted-foreground"[39m
+            [36m>[39m
+              [0m职责原文 {duty}[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"text-10 text-primary"[39m
+          [36m>[39m
+            [0m在场[0m
+          [36m</span>[39m
+        [36m</li>[39m
+      [36m</ul>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-roster.test.tsx:29:17
+     27|   const p = props();
+     28|   const view = render(<I18nProvider initialLocale="en"><RosterPanel {.…
+     29|   expect(screen.getByText("Read only")).toBeTruthy(); expect(screen.qu…
+       |                 ^
+     30|   view.rerender(<I18nProvider initialLocale="en"><RosterPanel {...p} p…
+     31|   expect(screen.getByTestId("chat-roster-remove-raw-agent")).toBeDisab…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/14]⎯
+
+ Test Files  8 failed (8)
+      Tests  14 failed | 1 passed (15)
+   Start at  09:33:55
+   Duration  12.75s (transform 1.98s, setup 806ms, collect 5.65s, tests 817ms, environment 4.20s, prepare 342ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/i18n-chat-feedback-receipt.test.tsx tests/ui/i18n-chat-capability-edition.test.tsx tests/ui/i18n-chat-knowledge-panel.test.tsx tests/ui/i18n-chat-produced-file.test.tsx tests/ui/i18n-chat-artifact-detail.test.tsx tests/ui/i18n-chat-artifact-source.test.tsx tests/ui/i18n-chat-materials-notice.test.tsx tests/ui/i18n-chat-roster.test.tsx --maxWorkers=1 --minWorkers=1

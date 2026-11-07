@@ -124,7 +124,13 @@ export const listOwnActivityMock: z.infer<typeof identity.operations.listOwnActi
       "eventId": "eventId-1",
       "kind": "kind-1",
       "occurredAt": "occurredAt-1",
-      "summary": "summary-1"
+      "summary": "summary-1",
+      "display": {
+        "code": "profile-renamed",
+        "params": {
+          "displayName": "displayName-1"
+        }
+      }
     }
   ],
   "nextCursor": null

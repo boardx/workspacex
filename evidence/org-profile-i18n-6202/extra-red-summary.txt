@@ -1,0 +1,9 @@
+FAIL  tests/ui/org-profile-i18n.test.tsx > translates only the description-length violation and keeps its source limit
+TestingLibraryElementError: Unable to find an element with the text: Description cannot exceed 500 characters. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+ FAIL  tests/ui/org-profile-i18n.test.tsx > retranslates an in-flight revoke without restarting or resolving it
+Error: expect(element).toHaveTextContent()
+ Test Files  1 failed (1)
+      Tests  2 failed | 8 skipped (10)
+   Start at  01:23:41
+   Duration  3.12s (transform 1.06s, setup 156ms, collect 1.68s, tests 102ms, environment 754ms, prepare 46ms)
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/org-profile-i18n.test.tsx --maxWorkers=1 --minWorkers=1 --testNamePattern translates only the description-length|retranslates an in-flight revoke

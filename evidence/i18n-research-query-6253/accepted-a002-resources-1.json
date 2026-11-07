@@ -1,0 +1,24 @@
+{
+  "name": "accepted-a002-resources-1",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/lib/i18n-resources.test.ts"
+  ],
+  "source": "4ec1ba1f59455140fe39c964440ee3dfd2b3cefa",
+  "exitCode": 0,
+  "seconds": 4.243,
+  "rawLogSha256": "9a7fb12b98acdb5caa1b27c490a792c9c6f6add7aea496eaaeff653deae6aea7",
+  "sourceAfter": "4ec1ba1f59455140fe39c964440ee3dfd2b3cefa",
+  "sourceStable": true,
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "passed": 5,
+  "skipped": 0,
+  "scope": "Accepted-parent resource integration only; separate from prior51/14"
+}

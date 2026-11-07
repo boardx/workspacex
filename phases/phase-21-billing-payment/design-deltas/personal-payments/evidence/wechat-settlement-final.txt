@@ -1,0 +1,23 @@
+[stack-admission] load1=2.94 cores=10 perCore=0.29 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvy3umpz-e503823c-2113814ca217 db=wsx_2113814ca217d5d68cda compose=wsx-2113814ca217d5d68cda pg=20412 redis=21412 api=24412 web=25412 sandbox=26412 model=27412 deep-agent=28412 asr=29412 vision=30412 loopback-sandbox=31412 mail=19412
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_2113814ca217d5d68cda capacity=100 current=6 required=32
+ ✓ tests/billing/personal-wechat-callback-pg.test.ts (5 tests) 14048ms
+ ✓ tests/billing/personal-payment-settlement-pg.test.ts (10 tests) 954ms
+
+ Test Files  2 passed (2)
+      Tests  15 passed (15)
+   Start at  01:29:41
+   Duration  20.57s (transform 344ms, setup 13ms, collect 1.26s, tests 15.00s, environment 0ms, prepare 95ms)
+
+[db-isolation] db=wsx_2113814ca217d5d68cda peak_connections=4
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/personal-wechat-callback-pg.test.ts tests/billing/personal-payment-settlement-pg.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：21s
+  清理：0s
+  总计：22s

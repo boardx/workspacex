@@ -87,13 +87,21 @@ export function mergeGateExitCode(passed: boolean, advisoryOnly: boolean): 0 | 1
   return advisoryOnly ? 0 : 1;
 }
 
+/** Read synthetic candidate merges only; a missing/unknown Git history remains fail-closed. */
+export function readMergeGroupPrNumbers(ref: string, baseSha: string, headSha: string, cwd?: string): number[] {
+  if (!/^[0-9a-f]{40}$/.test(baseSha) || !/^[0-9a-f]{40}$/.test(headSha)) return [];
+  const result = sh(`git log --first-parent --format=%H%x09%P%x09%s ${baseSha}..${headSha}`, cwd);
+  if (result.code !== 0) return [];
+  return parseMergeGroupPrNumbers(ref, result.stdout.trim().split("\n").filter(Boolean), baseSha, headSha);
+}
+
 /**
  * 合并队列候选组模式（#3238）：`pnpm harness merge-gate --merge-group`。
  *
  * 队列启用后，这道 required check 必须在 merge_group 事件上继续出结论——候选组上
  * SKIPPED 就是队列永久卡住（#848「声明了必需、却永不产出结论」的队列版本）。
  * 候选组里可以批量含多个 PR：队列 ref 只写得下最后一个，其余在 `base..head` 区间
- * 各自的 commit 标题里，两个来源都要（解析规则在 lib/merge-queue.ts，不在这里另写一份）。
+ * 合成 merge 的 first-parent 链里；完整链与 ref 必须一致（规则在 lib/merge-queue.ts）。
  *
  * **解析不出任何 PR 号时直接失败**：那说明我们不知道这个组里有什么，不知道就不能放行
  * （fail-closed）。这条与 MERGE_GATE_ADVISORY_ONLY 不是一回事——后者是「规则判失败但
@@ -103,14 +111,7 @@ function mergeGateForGroup(args: Args): void {
   const ref = args.opts["ref"] ?? process.env["GITHUB_REF"] ?? "";
   const baseSha = args.opts["base-sha"] ?? process.env["MERGE_GROUP_BASE_SHA"] ?? "";
   const headSha = args.opts["head-sha"] ?? process.env["MERGE_GROUP_HEAD_SHA"] ?? "";
-  const subjects =
-    baseSha && headSha
-      ? (() => {
-          const r = sh(`git log --format=%s ${baseSha}..${headSha}`);
-          return r.code === 0 ? r.stdout.split("\n").filter((l) => l.trim() !== "") : [];
-        })()
-      : [];
-  const numbers = parseMergeGroupPrNumbers(ref, subjects);
+  const numbers = readMergeGroupPrNumbers(ref, baseSha, headSha);
   if (numbers.length === 0) {
     die(
       `候选组 \`${ref || "(缺失 ref)"}\` 里解析不出任何 PR 号（base=${baseSha || "缺失"} head=${headSha || "缺失"}）——` +

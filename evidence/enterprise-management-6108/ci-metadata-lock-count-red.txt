@@ -1,0 +1,12 @@
+Excerpt from actual run41463951557 job125340147856; raw failed-job log retained locally.
+2026-11-02T14:49:51.6481929Z  ❯ tests/auth/platform-usage-boundaries.test.ts (7 tests | 1 failed) 22ms
+2026-11-02T14:49:51.6484455Z    × #5261 metadata exemption enforced premises > all target read/write paths reject excluded organization kinds 6ms
+2026-11-02T14:49:51.6486120Z      → expected "spy" to be called 3 times, but got 5 times
+2026-11-02T14:49:51.7096892Z  FAIL  tests/auth/platform-usage-boundaries.test.ts > #5261 metadata exemption enforced premises > all target read/write paths reject excluded organization kinds
+2026-11-02T14:49:51.7116309Z AssertionError: expected "spy" to be called 3 times, but got 5 times
+2026-11-02T14:49:51.7117874Z  ❯ tests/auth/platform-usage-boundaries.test.ts:78:17
+2026-11-02T14:49:51.7390756Z      78|   expect(query).toHaveBeenCalledTimes(3);
+2026-11-02T14:49:51.7397027Z  Test Files  1 failed | 104 passed | 1 skipped (210)
+2026-11-02T14:49:51.7406464Z       Tests  1 failed | 1307 passed | 5 skipped (1313)
+2026-11-02T14:49:51.7494457Z ##[error]AssertionError: expected "spy" to be called 3 times, but got 5 times
+ ❯ tests/auth/platform-usage-boundaries.test.ts:78:17

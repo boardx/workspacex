@@ -1,0 +1,24 @@
+{
+  "checkedAt": "2026-11-04T14:01:08.704148+00:00",
+  "scope": "wsx-613e5ba998e2d55dd9d1",
+  "ports": [
+    20649,
+    21649,
+    24649,
+    25649,
+    26649,
+    27649,
+    28649,
+    29649,
+    30649,
+    31649,
+    19649
+  ],
+  "containers": [],
+  "dockerExit": 0,
+  "volumes": [],
+  "volumeExit": 0,
+  "listeners": [],
+  "lsofExit": 1,
+  "errors": []
+}

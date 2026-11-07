@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import { Plus, Tag } from "lucide-react";
 import { TagChip } from "@/components/ui/tag-chip";
 import { cn } from "@/lib/utils";
@@ -44,10 +45,11 @@ export function InlineTagEditor({
   /** 保存失败的一句话（调用方给，显示在编辑器旁）。 */
   error?: string | null;
 }) {
+  const { t: text } = useI18n();
   const tags = React.useMemo<readonly string[]>(() => tagsIn ?? [], [tagsIn]);
   const [editing, setEditingState] = React.useState(false);
   const [draft, setDraft] = React.useState("");
-  const [notice, setNotice] = React.useState<string | null>(null);
+  const [notice, setNotice] = React.useState<"duplicate" | null>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const composing = React.useRef(false);
   const listId = React.useId();
@@ -63,7 +65,7 @@ export function InlineTagEditor({
   const commit = () => {
     const t = normalizeTag(draft).slice(0, maxTagLength);
     if (t === "" || full) return;
-    if (hasTag(tags, t)) { setNotice("已经有这个标签了"); return; }
+    if (hasTag(tags, t)) { setNotice("duplicate"); return; }
     setNotice(null);
     setDraft("");
     onChange([...tags, t]);
@@ -82,14 +84,14 @@ export function InlineTagEditor({
       onKeyDown={(e) => e.stopPropagation()}
       onPointerDown={(e) => e.stopPropagation()}
     >
-      {!compact && tags.length === 0 && !editing && <span className="text-11 text-muted-foreground">还没有标签</span>}
+      {!compact && tags.length === 0 && !editing && <span className="text-11 text-muted-foreground">{text("tags.empty")}</span>}
       {tags.map((t) => (
         <TagChip
           key={t}
           testId={`${testidPrefix}-tag-${t}`}
           removeTestId={`${testidPrefix}-tag-remove-${t}`}
           filterTestId={`${testidPrefix}-tag-${t}-filter`}
-          filterTitle={`只看标签「${t}」`}
+          filterTitle={text("tags.filterOnly", { tag: t })}
           onClick={onFilter === undefined ? undefined : () => onFilter(t)}
           onRemove={() => onChange(tags.filter((x) => !sameTag(x, t)))}
           disabled={busy}
@@ -104,8 +106,8 @@ export function InlineTagEditor({
             value={draft}
             maxLength={maxTagLength}
             disabled={busy}
-            aria-label="新标签"
-            placeholder="标签，回车添加"
+            aria-label={text("tags.new")}
+            placeholder={text("tags.placeholder")}
             list={suggestions.length > 0 ? listId : undefined}
             onChange={(e) => { setDraft(e.target.value); setNotice(null); }}
             onCompositionStart={() => { composing.current = true; }}
@@ -129,8 +131,8 @@ export function InlineTagEditor({
       ) : (
         <button
           type="button"
-          aria-label="添加标签"
-          title={full ? `最多 ${String(maxTags)} 个标签` : "添加标签"}
+          aria-label={text("tags.add")}
+          title={full ? text("tags.limit", { count: maxTags }) : text("tags.add")}
           disabled={busy || full}
           onClick={() => setEditing(true)}
           data-testid={`${testidPrefix}-tag-add`}
@@ -140,10 +142,10 @@ export function InlineTagEditor({
           )}
         >
           {compact ? <Plus aria-hidden className="h-3 w-3" /> : <Tag aria-hidden className="h-3 w-3" />}
-          {!compact && "加标签"}
+          {!compact && text("tags.addShort")}
         </button>
       )}
-      {notice || error ? <span className="text-10 text-destructive" data-testid={`${testidPrefix}-tags-error`}>{notice ?? error}</span> : null}
+      {notice || error ? <span className="text-10 text-destructive" data-testid={`${testidPrefix}-tags-error`}>{notice ? text("tags.duplicate") : error}</span> : null}
     </div>
   );
 }

@@ -1,0 +1,15 @@
+# Independent account-entry scope — #6157
+
+Retain previous stacked head 2fbe544f39084eaa7e81a728246e73a801bb6b6f as backup/i18n-account-entry-stacked-2fbe544. Its historical range includes unrelated enterprise integration; use an explicit 27-path allowlist only for this issue: four authentication/animation components, i18n-entry browser spec, account-entry namespace/two aggregators, two unit files and this issue's docs/evidence. Apply directly to develop ceea2245bc4e482e6ccc8c88b77c25c07785a7fd. No enterprise, activity or notification implementation is carried, and no API/authorization/contract behavior changes.
+
+Only the dictionary aggregators conflicted. Rebuild each from base plus accountEntry import/spread. Eight own component/test/namespace bodies match the previously reviewed 2fbe544 exactly. Shared animation captions belong to this slice per the earlier ownership transfer; the invitation slice uses AuthShell/Metamorphosis and must honestly depend on this caption implementation or an integrated base.
+
+On the independent base, 41 auth/resource/provider cases passed. The existing CI-reachable public organization-create lane lists exactly two i18n-entry tests and both passed in 18.9s with CI=1 disabling server reuse, one worker, no DB. These are actual public browser page/copy/state checks; invalid HTTP responses are controlled by the existing spec, and valid registration/email delivery/account verification are not claimed here. Component regressions retain API payload/claim/retry/once-only checks. UI wiring passed. New isolated-* logs/screenshots are separate from earlier historical evidence. Exact-head review, normal push and final CI remain required.
+
+## Actual develop integration after queue conflict
+
+Synchronized actual develop dec5223e5 after GitHub reported DIRTY. Only two dictionary aggregator conflicts; retain develop resources plus accountEntry. All four account components, namespace and tests unchanged from reviewed786a815. Merge candidateb2b2f4e9d exact review: no findings. Fresh41 distinct cases (23core +13registration/email +5resources) and public browser2/2 (19.6s, CI=1 no reuse), UI wiring pass. Public proof retains existing bounded invalid-response/no-successful-registration boundary. Next dev added only its generated types include; inspected and restored that generated tsconfig change before normal gates. Port30494 dynamically has no listener. Fresh evidence uses develop-*; new-head CI still required.
+
+## Actual develop bbc63 conflict repair
+
+Merged develop bbc63c39a970b246ea2e1e6a399b828d36a6b793 into dd193193957319879d78a028abc9ecedee3a0ec4. Exactly two dictionary conflicts, resolved from actual base plus accountEntry end import/spread, preserving task/failure resources. Eight owned source/test blobs unchanged. Fresh selected auth/resource regressions and dictionary ESLint exited0; bbc-* logs record exact counts and elapsed time. Previous public-browser results remain historical unchanged-source evidence. No valid registration/email-delivery proof is added. Normal push and new-head CI remain required.

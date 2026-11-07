@@ -1,0 +1,119 @@
+[stack-admission] load1=25.97 cores=10 perCore=2.60 running=0/2
+[stack-admission] 排队中：机器每核负载 2.60（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 0s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排到了，等了 5s
+[test-isolation] id=run-mw0kt69f-78056aed-dc00dc32f3ad db=wsx_dc00dc32f3adb3d830b6 compose=wsx-dc00dc32f3adb3d830b6 pg=20890 redis=21890 api=24890 web=25890 sandbox=26890 model=27890 deep-agent=28890 asr=29890 vision=30890 loopback-sandbox=31890 mail=19890
+[6190-exact-argv] ["pnpm","--filter","web","exec","playwright","test","--config","playwright.chat-read.config.ts","--project=chat-read","--max-failures=1","--workers=1","e2e/chat-agent-skill-context.spec.ts","--grep","#6190|F65/#1559"]
+Listing tests:
+  [chat-read] › chat-agent-skill-context.spec.ts:197:7 › #6190：1280px 延迟官方角色列表重排仍选中指定 agent
+  [chat-read] › chat-agent-skill-context.spec.ts:197:7 › #6190：390px 延迟官方角色列表重排仍选中指定 agent
+  [chat-read] › chat-agent-skill-context.spec.ts:320:5 › F65/#1559 → #2514：不挂任何 skill，已启用 skill 已在 run 快照里且正文到达模型；再挂同一个是幂等的
+Total: 3 tests in 1 file
+[6190-scope-accepted] Same argv/env; only --list removed. Three cases, one file, one worker.
+[WebServer] (node:61444) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61446) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61452) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61453) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61454) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61460) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61461) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61462) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61468) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61470) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61471) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61477) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61478) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61479) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61485) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  Image localhost/workspacex-postgres-age:pg16-age1.6.0 Building 
+[WebServer]  Image localhost/workspacex-postgres-age:pg16-age1.6.0 Built 
+[WebServer]  Network wsx-dc00dc32f3adb3d830b6_default Creating 
+[WebServer]  Network wsx-dc00dc32f3adb3d830b6_default Created 
+[WebServer]  Container wsx-dc00dc32f3adb3d830b6-postgres-1 Creating 
+[WebServer]  Container wsx-dc00dc32f3adb3d830b6-redis-1 Creating 
+[WebServer]  Container wsx-dc00dc32f3adb3d830b6-postgres-1 Created 
+[WebServer]  Container wsx-dc00dc32f3adb3d830b6-redis-1 Created 
+[WebServer]  Container wsx-dc00dc32f3adb3d830b6-postgres-1 Starting 
+[WebServer]  Container wsx-dc00dc32f3adb3d830b6-redis-1 Starting 
+[WebServer]  Container wsx-dc00dc32f3adb3d830b6-postgres-1 Started 
+[WebServer]  Container wsx-dc00dc32f3adb3d830b6-redis-1 Started 
+[WebServer]  Container wsx-dc00dc32f3adb3d830b6-postgres-1 Waiting 
+[WebServer]  Container wsx-dc00dc32f3adb3d830b6-redis-1 Waiting 
+[WebServer]  Container wsx-dc00dc32f3adb3d830b6-redis-1 Healthy 
+[WebServer]  Container wsx-dc00dc32f3adb3d830b6-postgres-1 Healthy 
+[WebServer] (node:61502) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61518) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61524) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61691) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61692) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61698) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61732) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61740) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[chat-route-warmup] compiling /api/copilotkit/info
+[WebServer] (node:61877) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[chat-route-warmup] compiling /chat
+[WebServer] Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+[chat-route-warmup] compiling /chat/warmup-route-compile-only
+[WebServer] (node:61961) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] Multiple versions of Lit loaded. Loading multiple versions is not recommended. See https://lit.dev/msg/multiple-versions for more information.
+[chat-route-warmup] compiling /login
+[chat-route-warmup] compiling /home
+[chat-route-warmup] compiling /projects
+[WebServer] (node:61740) [DEP0060] DeprecationWarning: The `util._extend` API is deprecated. Please use Object.assign() instead.
+
+Running 3 tests using 1 worker
+
+(node:61963) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:61971) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [chat-read] › e2e/chat-agent-skill-context.spec.ts:197:7 › #6190：1280px 延迟官方角色列表重排仍选中指定 agent (11.2s)
+[WebServer] (node:62016) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  2 [chat-read] › e2e/chat-agent-skill-context.spec.ts:197:7 › #6190：390px 延迟官方角色列表重排仍选中指定 agent (10.1s)
+[WebServer] (node:62020) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:62021) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:62061) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:62062) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:62067) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:62102) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  3 [chat-read] › e2e/chat-agent-skill-context.spec.ts:320:5 › F65/#1559 → #2514：不挂任何 skill，已启用 skill 已在 run 快照里且正文到达模型；再挂同一个是幂等的 (57.0s)
+
+  3 passed (3.6m)
+[timing] node /tmp/6190-run-selected.mjs playwright test --config playwright.chat-read.config.ts --project=chat-read --max-failures=1 --workers=1 e2e/chat-agent-skill-context.spec.ts --grep #6190|F65/#1559
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：5s
+  命令执行：3m37s
+  清理：1s
+  总计：3m43s

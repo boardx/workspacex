@@ -1,0 +1,16 @@
+{
+  "name": "api-type-final",
+  "command": [
+    "pnpm",
+    "--filter",
+    "@repo/api",
+    "typecheck"
+  ],
+  "source": "fda71b3eacd39c379a0d3043207e6db4a63d1ffa",
+  "exitCode": 0,
+  "seconds": 72.752,
+  "rawLogSha256": "c85dd5417e6c07523da56cbe1648802ed8f3a8e14ba018603dd453cb69188f89",
+  "sourceAfter": "fda71b3eacd39c379a0d3043207e6db4a63d1ffa",
+  "sourceStable": true,
+  "environment": {}
+}

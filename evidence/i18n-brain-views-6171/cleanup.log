@@ -1,0 +1,1 @@
+docker ps -a --filter label=com.docker.compose.project=wsx-1ce3a2378b5c1e6b39ee --format {{.ID}}: exit0, zero containers including stopped.

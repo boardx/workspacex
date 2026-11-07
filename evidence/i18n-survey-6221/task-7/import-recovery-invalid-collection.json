@@ -1,0 +1,23 @@
+{
+  "name": "red-import-recovery",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/survey-import-retry-i18n.test.tsx",
+    "tests/ui/survey-entry-runtime-errors-i18n.test.tsx",
+    "-t",
+    "retries a failed source|renders a typed project-link"
+  ],
+  "source": "06d853d30f615f092c8f733c623599f13534836c",
+  "exitCode": 1,
+  "seconds": 4.168,
+  "rawLogSha256": "580e4940650c857a1a5a4246d671b436a51c267795a33fae89709b2ecd7b52bd",
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "classification": "INVALID RED: two suite collection errors, zero tests; split vi.hoisted declarations before testing product behavior."
+}

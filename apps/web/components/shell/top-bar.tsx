@@ -1,26 +1,28 @@
 "use client";
+import { LanguageSwitcher } from "./language-switcher";
+import { useI18n } from "@/lib/i18n/provider";
 import * as React from "react";
 import { Building2, FolderKanban, Lock, ShieldCheck } from "lucide-react";
 import { FeedbackButton } from "@/components/feedback/feedback-button";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
-  describeOrgLayer, describeProjectLayer, isLocalOrg, LOCAL_ORG_GUARANTEES,
-  selfHostedOnly, SELF_HOSTED_SOURCE_LABEL,
-  PROJECT_ROLES, PROJECT_ROLE_LABEL, type Identity, type ProjectRole,
+  isLocalOrg, LOCAL_ORG_GUARANTEES,
+  selfHostedOnly,
+  PROJECT_ROLES, type Identity, type ProjectRole,
 } from "@/lib/identity";
-import { resolveProjectContext } from "@/lib/project-context";
+import { resolveProjectContext, supportsProjectQuery } from "@/lib/project-context";
 import { listProjects } from "@/lib/live-projects";
 import { OrgMenu } from "./org-menu";
 import { Button } from "@/components/ui/button";
 
 /**
- * 项目路径及 `/chat?projectId=…` 的项目显示名——`resolveProjectContext` 只解得出 `id`（见该文件
+ * 项目路径、项目对话及带 projectId 的 Studio 内容页的项目显示名——`resolveProjectContext` 只解得出 `id`（见该文件
  * 头注释），这里补上「id → 人类可读名」这一步。用**已经真实挂了**的
  * `listProjects(orgId)`（F185 之后是去重扁平数组），不新开一个「按 id 查单个项目」的
  * 端点——本组件只是从组织的项目列表里找同一个 id 那一条，找不到（列表还没到、或这个
- * id 不在当前组织可见范围）时返回 null，由展示层沿用「项目」占位。
+ * id 不在当前组织可见范围）时返回 null；Studio 不展示项目，项目路径/对话沿用「项目」占位。
  *
- * ⚠ 只在真实项目上下文内发请求——项目路径或带显式 projectId 的对话；不在独立工具页上
+ * ⚠ 只在真实项目上下文内发请求——项目路径或带显式 projectId 的对话/Studio 内容页；不在独立工具页上
  *   为了「可能用得上」预取整个项目列表。
  */
 /**
@@ -29,12 +31,13 @@ import { Button } from "@/components/ui/button";
  * `TopBar` 是几乎每个页面共用的外壳，把整棵树都包进 Suspense 影响面太大，所以只把
  * 这一个纯读取查询串、不渲染任何东西的组件单独摘出来，外面套一层局部 Suspense。
  */
-function ChatProjectIdFromSearchParams({ onChange }: { onChange: (id: string | null) => void }) {
+function ProjectIdFromSearchParams({ pathname, onChange }: {
+  pathname: string;
+  onChange: (value: { pathname: string; id: string | null }) => void;
+}) {
   const searchParams = useSearchParams();
-  const chatProjectId = searchParams.get("projectId");
-  React.useEffect(() => {
-    onChange(chatProjectId);
-  }, [chatProjectId, onChange]);
+  const id = searchParams.get("projectId");
+  React.useEffect(() => { onChange({ pathname, id }); }, [pathname, id, onChange]);
   return null;
 }
 
@@ -102,28 +105,26 @@ export function TopBar({
   onSwitchOrganization: (orgId: string) => void;
   switching?: boolean;
 }) {
+  const { t } = useI18n();
   const pathname = usePathname();
-  // 只有 /chat 才读这个查询串——其它路由的 projectId 出现在路径段里，已经被
-  // resolveProjectContext 的第一条规则接住了，这里不重复解析。`chatProjectId` 由下方
-  // Suspense 包裹的 `ChatProjectIdFromSearchParams` 异步喂进来，不在本组件里直接调
-  // `useSearchParams()`（原因见该组件注释）。
-  const [chatProjectIdParam, setChatProjectIdParam] = React.useState<string | null>(null);
-  const chatProjectId = pathname === "/chat" ? chatProjectIdParam : null;
-  const project = resolveProjectContext(pathname, chatProjectId);
-  const projectName = useProjectName(identity.org.id, project?.id ?? null);
-  // 名称尚未解析或不在当前可见列表时沿用 main 的「项目」占位，不展示内部 ID。
-  const displayProject = project
-    ? { ...project, name: projectName ?? (project.name === project.id ? "项目" : project.name) }
-    : project;
+  // Query IDs only select a candidate. Studio context is visible only after the
+  // current organization's authorized project list confirms it; no role comes from the query.
+  const [projectIdParam, setProjectIdParam] = React.useState<{ pathname: string; id: string | null } | null>(null);
+  const queryProjectId = projectIdParam?.pathname === pathname ? projectIdParam.id : null;
+  const candidate = resolveProjectContext(pathname, queryProjectId);
+  const projectName = useProjectName(identity.org.id, candidate?.id ?? null);
+  const isStudioContext = supportsProjectQuery(pathname) && pathname !== "/chat";
+  const project = isStudioContext && projectName === null ? null : candidate;
+  const displayProject = project ? { ...project, name: projectName ?? t("ui.projects") } : null;
   const isDev = process.env.NODE_ENV !== "production";
-  const projectLayer = project ? describeProjectLayer(identity) : null;
+  const projectLayer = project && !isStudioContext && identity.projectRole ? [t(`role.${identity.projectRole}`), identity.groupName].filter(Boolean).join(" · ") : null;
   // UC-0.5 R8：切到本地组织时整个应用要有**可感知**的状态变化——
   // 隐私模式若不可见，等于不存在。
   const local = isLocalOrg(identity.org);
   // UC-0.5 V12：同样是「只用自托管」，**承诺**与**策略**必须在界面上可分辨
   const sh = selfHostedOnly(identity.org);
   // 顶栏是否出自己的预览切换器：在项目上下文里、开发态、且本页没有自带一套
-  const showOwnSwitcher = isDev && !!project && !hideRoleSwitcher;
+  const showOwnSwitcher = isDev && !!project && !isStudioContext && !hideRoleSwitcher;
   const currentOrgLabel =
     organizations.find((o) => o.id === identity.org.id)?.label ?? identity.org.name;
   // 2026-09-03 人类反馈：后台管理页（/admin、/platform-admin）自己的 AdminHeader 已经
@@ -144,15 +145,15 @@ export function TopBar({
         local ? "border-ai/30 bg-ai-tint" : "border-border bg-card",
       ].join(" ")}
     >
-      {pathname === "/chat" && (
+      {supportsProjectQuery(pathname) && (
         <React.Suspense fallback={null}>
-          <ChatProjectIdFromSearchParams onChange={setChatProjectIdParam} />
+          <ProjectIdFromSearchParams pathname={pathname} onChange={setProjectIdParam} />
         </React.Suspense>
       )}
       {/* ── 组织层：全局常驻 ── */}
-      <div className="flex shrink-0 items-center gap-1.5">
+      <div className="flex min-w-0 items-center gap-1.5">
         {/* <md 时 IconRail 隐藏，组织菜单（切换 + 组织管理）在这里补一个入口；≥md 由 rail 承担 */}
-        <div className="md:hidden">
+        <div className="shrink-0 md:hidden">
           <OrgMenu
             identity={identity}
             organizations={organizations}
@@ -166,7 +167,7 @@ export function TopBar({
           FB-2 —— <md 时 IconRail 隐藏，反馈入口在这里补一个；≥md 由 rail 承担。
           同 OrgMenu 的处置：小屏不丢入口，但也不在两处同时出现。
         */}
-        <div className="md:hidden">
+        <div className="shrink-0 md:hidden">
           <FeedbackButton
             target={{ kind: "product" }}
             targetLabel={null}
@@ -175,8 +176,8 @@ export function TopBar({
           />
         </div>
         {!isAdminRoute && (local
-          ? <Lock aria-hidden className="h-3.5 w-3.5 text-ai-tint-foreground" data-testid="topbar-local-lock" />
-          : <Building2 aria-hidden className="h-3.5 w-3.5 text-muted-foreground" />)}
+          ? <Lock aria-hidden className="h-3.5 w-3.5 shrink-0 text-ai-tint-foreground" data-testid="topbar-local-lock" />
+          : <Building2 aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />)}
         {!isAdminRoute && (
           <span data-testid="topbar-org-name" className="max-w-[12rem] truncate text-12 font-medium text-card-foreground">
             {currentOrgLabel}
@@ -188,7 +189,7 @@ export function TopBar({
 
       {!isAdminRoute && (
         <p data-testid="role-bar-org" className="min-w-0 flex-1 truncate text-12 text-muted-foreground">
-          {describeOrgLayer(identity)}
+          {[t(`role.${identity.orgRole}`), identity.org.team].filter(Boolean).join(" · ")}
         </p>
       )}
 
@@ -214,10 +215,10 @@ export function TopBar({
           data-testid="role-preview-switcher"
           className="ml-auto hidden shrink-0 items-center gap-1 rounded-md border border-border-subtle bg-panel p-1 lg:flex"
         >
-          <span className="px-1 text-10 uppercase tracking-wide text-muted-foreground">本项目视角</span>
+          <span className="px-1 text-10 uppercase tracking-wide text-muted-foreground">{t("ui.projectPerspective")}</span>
           {PROJECT_ROLES.map((r) => (
             <Button key={r} asChild size="xs" variant={r === previewRole ? "primary" : "ghost"} data-testid={`role-switch-${r}`}>
-              <a href={`?as=${r}`}>{PROJECT_ROLE_LABEL[r]}</a>
+              <a href={`?as=${r}`}>{t(`role.${r}`)}</a>
             </Button>
           ))}
         </div>
@@ -231,8 +232,7 @@ export function TopBar({
           title={LOCAL_ORG_GUARANTEES.map((g) => g.statement).join("；")}
           className="ml-auto hidden shrink-0 text-10 font-medium text-ai-tint-foreground lg:block"
         >
-          本地模式 · 只用本地模型 · 数据不出本机
-          <span className="ml-1 text-muted-foreground">（{SELF_HOSTED_SOURCE_LABEL.promise}）</span>
+          {t("ui.localModeLocalModelsOnlyDataStaysOnThisDevice")}<span className="ml-1 text-muted-foreground">（{t("policy.promise")}）</span>
         </p>
       )}
 
@@ -241,12 +241,11 @@ export function TopBar({
         <p
           data-testid="topbar-selfhosted-policy"
           data-guarantee-source="policy"
-          title="本组织的模型策略被管理员设为「只用自托管模型」。这是可配置策略，与个人本地组织的产品承诺不同。"
+          title={t("policy.description")}
           className="ml-auto hidden shrink-0 items-center gap-1 text-10 font-medium text-accent-foreground lg:flex"
         >
           <ShieldCheck aria-hidden className="h-3 w-3" />
-          本组织只用自托管模型
-          <span className="text-muted-foreground">（{SELF_HOSTED_SOURCE_LABEL.policy}）</span>
+          {t("ui.thisOrganizationUsesSelfHostedModelsOnly")}<span className="text-muted-foreground">（{t("policy.policy")}）</span>
         </p>
       )}
 
@@ -280,10 +279,10 @@ export function TopBar({
         && pathname !== "/admin" && !pathname.startsWith("/admin/")
         && pathname !== "/platform-admin" && !pathname.startsWith("/platform-admin/") && (
         <p className="ml-auto hidden shrink-0 text-10 text-muted-foreground lg:block" data-testid="topbar-no-project-hint">
-          不在具体项目里 · 引导师/组长/组员等项目内角色暂不适用
-        </p>
+          {t("ui.outsideAProjectProjectRolesDoNotApply")}</p>
       )}
 
+      <div className="ml-auto shrink-0"><LanguageSwitcher /></div>
     </header>
   );
 }

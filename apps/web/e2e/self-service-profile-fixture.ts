@@ -34,6 +34,12 @@ export const SELF_SERVICE_PROFILE_E2E = {
    * 共用账号，账号密码被换掉之后本文件会集体登录失败——同 fixture 头注说明的道理。
    * 键盘走查这条用例只改显示名、不碰密码，专属账号避免与 admin 用例的执行顺序耦合。
    */
+  /** #6165: independent TopBar geometry account; other specs may mutate their profiles. */
+  topbarUserId: "user-ssp-e2e-topbar",
+  topbarEmail: "ssp-e2e-topbar@example.test",
+  topbarPassword: "Ssp-e2e-topbar-only-6165!",
+  topbarDisplayName: "SSP E2E TopBar",
+
   keyboardUserId: "user-ssp-e2e-keyboard",
   keyboardEmail: "ssp-e2e-keyboard@example.test",
   keyboardPassword: "Ssp-e2e-keyboard-only-1869!",

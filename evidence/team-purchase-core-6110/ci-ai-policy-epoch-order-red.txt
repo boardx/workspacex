@@ -1,0 +1,26 @@
+PR6130 exact70f9faea82397305264483ef523074bfe3934b0a
+CI job https://github.com/boardx/workspacex/actions/runs/41493528293/job/125442724028
+Raw failure excerpt with ANSI escapes removed.
+
+2026-11-02T17:49:00.8829707Z    × immutable per-user policy materialization > uses authenticated membership and audited operator attribution before creating a window 7ms
+2026-11-02T17:49:00.8831185Z      → expected 'SELECT pg_advisory_xact_lock_shared(h…' to contain 'pg_advisory_xact_lock(hashtext($1))'
+2026-11-02T17:49:00.9104561Z 
+2026-11-02T17:49:00.9121595Z ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+2026-11-02T17:49:00.9121955Z 
+2026-11-02T17:49:00.9123579Z  FAIL  tests/auth/ai-policy-configuration.test.ts > immutable per-user policy materialization > uses authenticated membership and audited operator attribution before creating a window
+2026-11-02T17:49:00.9140818Z AssertionError: expected 'SELECT pg_advisory_xact_lock_shared(h…' to contain 'pg_advisory_xact_lock(hashtext($1))'
+2026-11-02T17:49:00.9141898Z 
+2026-11-02T17:49:00.9142498Z Expected: "pg_advisory_xact_lock(hashtext($1))"
+2026-11-02T17:49:00.9143505Z Received: "SELECT pg_advisory_xact_lock_shared(hashtextextended($1,0))"
+2026-11-02T17:49:00.9144024Z 
+2026-11-02T17:49:00.9144527Z  ❯ tests/auth/ai-policy-configuration.test.ts:79:36
+2026-11-02T17:49:00.9321145Z      77|  it("uses authenticated membership and audited operator attribution be…
+2026-11-02T17:49:00.9322807Z      78|   const {repo,query}=fixture();expect(await repo.resolveBudgetPolicy(o…
+2026-11-02T17:49:00.9324431Z      79|   expect(query.mock.calls[0]?.[0]).toContain("pg_advisory_xact_lock(ha…
+2026-11-02T17:49:00.9340735Z  Test Files  1 failed | 42 passed | 1 skipped (212)
+2026-11-02T17:49:00.9354099Z        |                                    ^
+2026-11-02T17:49:00.9355195Z       Tests  1 failed | 905 passed | 7 skipped (917)
+2026-11-02T17:49:00.9357133Z      80|   expect(query.mock.calls[2]?.[0]).toContain("FOR UPDATE");
+2026-11-02T17:49:00.9358092Z    Start at  17:45:11
+2026-11-02T17:49:00.9359766Z      81|   const insert=query.mock.calls.find(([sql])=>sql.includes("INSERT INT…
+2026-11-02T17:49:00.9361302Z    Duration  229.30s (transform 8.47s, setup 227ms, collect 21.60s, tests 198.24s, environment 8ms, prepare 2.45s)

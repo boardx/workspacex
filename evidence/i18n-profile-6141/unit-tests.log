@@ -1,0 +1,16 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/lib/i18n-resources.test.ts (5 tests) 60ms
+ ✓ tests/ui/state-shell-reserved-testid.test.tsx (4 tests) 154ms
+ ✓ tests/ui/profile-mobile-actions.test.tsx (4 tests) 510ms
+   ✓ `/profile` 移动端顶部动作行 > 移动端我页可发现计费入口，桌面档隐藏该入口避免重复 403ms
+ ✓ tests/ui/profile-i18n.test.tsx (11 tests) 1060ms
+   ✓ shows English profile controls while preserving the original display name 600ms
+
+ Test Files  4 passed (4)
+      Tests  24 passed (24)
+   Start at  03:32:21
+   Duration  6.82s (transform 1.02s, setup 2.02s, collect 2.92s, tests 1.78s, environment 8.55s, prepare 1.33s)
+

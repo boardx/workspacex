@@ -1,0 +1,140 @@
+{
+  "status": "Root individually inspected all16 actual planned PNGs from failedattempt; no wholejourney/final20 acceptance",
+  "actualPlannedPng": 16,
+  "missingPlannedStates": [
+    "foreign-owner-404-en",
+    "revoked-403-en"
+  ],
+  "items": [
+    {
+      "name": "model-tests-ordinary-403-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "a4f930b4d5796e15b8a0feb3175e2fb6c4aecb48b24b94cd534c0cc21b30be93",
+      "qa": "INDIVIDUALLY_VIEWED_PARTIAL_NO_ACTIONABLE_OWNED_COPY_OR_LAYOUT_FINDING",
+      "notes": "Readable actual403 permission copy; no record data. Mobile scroll deliberately crops unrelated intro above the focused denial."
+    },
+    {
+      "name": "model-tests-ordinary-403-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "72da400901386238e3c114985e19d7fefba529db245c7edf48a90264b2bee622",
+      "qa": "INDIVIDUALLY_VIEWED_PARTIAL_NO_ACTIONABLE_OWNED_COPY_OR_LAYOUT_FINDING",
+      "notes": "Readable actual403 permission copy; no record data. Mobile scroll deliberately crops unrelated intro above the focused denial."
+    },
+    {
+      "name": "model-tests-preparation-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "67262315f6d3e0cc3ee8f02297961a8081909ef9cd8692088aac0cbcb66e7f27",
+      "qa": "INDIVIDUALLY_VIEWED_PARTIAL_NO_ACTIONABLE_OWNED_COPY_OR_LAYOUT_FINDING",
+      "notes": "Translated owned labels/hints, raw organization name and full UUID preserved. Lower result section outside the mobile preparation slice is not claimed captured."
+    },
+    {
+      "name": "model-tests-preparation-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "d01c0fdae016de33c19ec31841732c12ea04d976eec9e089281aa5f891141177",
+      "qa": "INDIVIDUALLY_VIEWED_PARTIAL_NO_ACTIONABLE_OWNED_COPY_OR_LAYOUT_FINDING",
+      "notes": "Translated owned labels/hints, raw organization name and full UUID preserved. Lower result section outside the mobile preparation slice is not claimed captured."
+    },
+    {
+      "name": "model-tests-preparation-zh-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "8a0757d844bc9c32e5fc68e61d90fde0180e835ec1817b846b2dda346f296835",
+      "qa": "INDIVIDUALLY_VIEWED_PARTIAL_NO_ACTIONABLE_OWNED_COPY_OR_LAYOUT_FINDING",
+      "notes": "Translated owned labels/hints, raw organization name and full UUID preserved. Lower result section outside the mobile preparation slice is not claimed captured."
+    },
+    {
+      "name": "model-tests-preparation-zh-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "97a00ebcc6a4b35e5abcbdb3faaee2bfb66a12d979779b9f344b5fe8200baed8",
+      "qa": "INDIVIDUALLY_VIEWED_PARTIAL_NO_ACTIONABLE_OWNED_COPY_OR_LAYOUT_FINDING",
+      "notes": "Translated owned labels/hints, raw organization name and full UUID preserved. Lower result section outside the mobile preparation slice is not claimed captured."
+    },
+    {
+      "name": "model-tests-previous-history-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "b99062361162a423356d3bf6c6645a714a3e26228ec3463438753d32247777f0",
+      "qa": "INDIVIDUALLY_VIEWED_PARTIAL_NO_ACTIONABLE_OWNED_COPY_OR_LAYOUT_FINDING",
+      "notes": "Previous raw UUID, failed/unconfirmed labels and query control visible; no new execution or settlement claim."
+    },
+    {
+      "name": "model-tests-previous-history-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "1e1f25847f527200401bf0389ddb0225df17dbe36c72d11d3b1e6274add6d41a",
+      "qa": "INDIVIDUALLY_VIEWED_PARTIAL_NO_ACTIONABLE_OWNED_COPY_OR_LAYOUT_FINDING",
+      "notes": "Previous raw UUID, failed/unconfirmed labels and query control visible; no new execution or settlement claim."
+    },
+    {
+      "name": "model-tests-recovered-financial-caution-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "fa4336a98664c5c921cb13edb0eed85574fa1b5383576297d730866e01f51f11",
+      "qa": "INDIVIDUALLY_VIEWED_PARTIAL_NO_ACTIONABLE_OWNED_COPY_OR_LAYOUT_FINDING",
+      "notes": "Complete local caution, unknown amounts/currency/units and acknowledgement/prepare controls readable. Partial summary above mobile slice is covered by companion summary. Source apostrophe is correct test\u2019s, no copy defect."
+    },
+    {
+      "name": "model-tests-recovered-financial-caution-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "fddbdf67b609e77c8780be9b1df9c3df49ced55e5fe1ac5edcca61df4221966f",
+      "qa": "INDIVIDUALLY_VIEWED_PARTIAL_NO_ACTIONABLE_OWNED_COPY_OR_LAYOUT_FINDING",
+      "notes": "Complete local caution, unknown amounts/currency/units and acknowledgement/prepare controls readable. Partial summary above mobile slice is covered by companion summary. Source apostrophe is correct test\u2019s, no copy defect."
+    },
+    {
+      "name": "model-tests-recovered-financial-caution-zh-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "dd9c1276a721c8413e8c76e03f51b553145568e8f3e5ea666079da89bbbf98fe",
+      "qa": "INDIVIDUALLY_VIEWED_PARTIAL_NO_ACTIONABLE_OWNED_COPY_OR_LAYOUT_FINDING",
+      "notes": "Complete local caution, unknown amounts/currency/units and acknowledgement/prepare controls readable. Partial summary above mobile slice is covered by companion summary. Source apostrophe is correct test\u2019s, no copy defect."
+    },
+    {
+      "name": "model-tests-recovered-financial-caution-zh-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "2a5e4b07db8043ae3327f96e645c6c121a3d33bdcfc3e39b96c1ff0cccfde795",
+      "qa": "INDIVIDUALLY_VIEWED_PARTIAL_NO_ACTIONABLE_OWNED_COPY_OR_LAYOUT_FINDING",
+      "notes": "Complete local caution, unknown amounts/currency/units and acknowledgement/prepare controls readable. Partial summary above mobile slice is covered by companion summary. Source apostrophe is correct test\u2019s, no copy defect."
+    },
+    {
+      "name": "model-tests-recovered-summary-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "de579928e7dea6797d93edac889a709654af31942d593ed6fedc0ca2a42fc5a0",
+      "qa": "INDIVIDUALLY_VIEWED_PARTIAL_NO_ACTIONABLE_OWNED_COPY_OR_LAYOUT_FINDING",
+      "notes": "UUID/status/query/cancel visible together. Long English caution continues below mobile slice and is covered by companion financial image; no whole-card-fit claim."
+    },
+    {
+      "name": "model-tests-recovered-summary-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "edcfc9025cabbca900d31ad105489779551f036b07fb417c759b14529396d849",
+      "qa": "INDIVIDUALLY_VIEWED_PARTIAL_NO_ACTIONABLE_OWNED_COPY_OR_LAYOUT_FINDING",
+      "notes": "UUID/status/query/cancel visible together. Long English caution continues below mobile slice and is covered by companion financial image; no whole-card-fit claim."
+    },
+    {
+      "name": "model-tests-recovered-summary-zh-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "dd9c1276a721c8413e8c76e03f51b553145568e8f3e5ea666079da89bbbf98fe",
+      "qa": "INDIVIDUALLY_VIEWED_PARTIAL_NO_ACTIONABLE_OWNED_COPY_OR_LAYOUT_FINDING",
+      "notes": "UUID/status/query/cancel visible together. Long English caution continues below mobile slice and is covered by companion financial image; no whole-card-fit claim."
+    },
+    {
+      "name": "model-tests-recovered-summary-zh-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "2a5e4b07db8043ae3327f96e645c6c121a3d33bdcfc3e39b96c1ff0cccfde795",
+      "qa": "INDIVIDUALLY_VIEWED_PARTIAL_NO_ACTIONABLE_OWNED_COPY_OR_LAYOUT_FINDING",
+      "notes": "UUID/status/query/cancel visible together. Long English caution continues below mobile slice and is covered by companion financial image; no whole-card-fit claim."
+    }
+  ],
+  "visualReviewer": "ROOT",
+  "remainingNative": "foreign UI404 + revocation403 not reached/captured"
+}

@@ -1,6 +1,8 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
 import * as React from "react";
 import { useInterviewSource } from "./interview-session-provider";
+import { withProjectId } from "@/components/project/project-links";
 import { useRouter } from "next/navigation";
 import type { DigitalInterviewWorkflowView } from "@/lib/interview-api";
 import { loadInterviewMarkdown, branchInterviewMarkdown, type InterviewMarkdownEnvelope } from "@/lib/interview-markdown-api";
@@ -23,6 +25,7 @@ function completionOf(interviewId: string, source: InterviewMarkdownEnvelope) {
 
 /** Legacy workflow contributes identity metadata only, never an editable research body. */
 export function InterviewMarkdownWorkbench({ identity, step, reportPin }: { identity: DigitalInterviewWorkflowView; step: WorkbenchStep; reportPin?: { documentId: string; version: number } }) {
+ const { t } = useI18n();
   const router = useRouter();
   const { source: sharedSource, setSource, refresh, cache, syncError } = useInterviewSource(identity.interviewId);
   const completion = React.useContext(InterviewCompletionContext);
@@ -37,7 +40,7 @@ export function InterviewMarkdownWorkbench({ identity, step, reportPin }: { iden
   const [branchEpoch, setBranchEpoch] = React.useState(0);
   const [branching, setBranching] = React.useState(false);
   const [runningStep, setRunningStep] = React.useState<string | null>(null);
-  const [error, setError] = React.useState("");
+  const [error, setError] = React.useState(false);
   const dirty = React.useRef(false);
   React.useEffect(() => {
     const controller = new AbortController();
@@ -54,31 +57,33 @@ export function InterviewMarkdownWorkbench({ identity, step, reportPin }: { iden
     return () => window.removeEventListener("beforeunload", protect);
   }, []);
   function navigate(path: string) {
-    if (dirty.current && !window.confirm("有未保存的 Markdown 修改，确定离开并放弃这些修改吗？")) return;
-    dirty.current = false; router.push(path);
+    if (dirty.current && !window.confirm(t("itv.unsaved"))) return;
+    dirty.current = false;
+    const projectId = new URLSearchParams(window.location.search).get("projectId") ?? identity.scope.projectId;
+    router.push(withProjectId(path, projectId));
   }
   const onContinue = (next: string) => navigate(`/itv/${encodeURIComponent(identity.interviewId)}/${next}`);
   async function revise() {
     if (branching || runningStep !== null || !["intake", "analysis", "experts", "outline"].includes(step)) return;
-    if (!window.confirm("创建新修订将保留旧版本，并在新修订中重新确认当前及后续步骤。继续吗？")) return;
-    setBranching(true); setError("");
+    if (!window.confirm(t("itv.revision.confirm"))) return;
+    setBranching(true); setError(false);
     try {
       const current = await loadInterviewMarkdown(identity.interviewId);
       const next = await branchInterviewMarkdown(identity.interviewId, { expectedVersion: current.version, fromStep: step as "intake" | "analysis" | "experts" | "outline" });
       const value = completionOf(identity.interviewId, next);
       setSnapshot(value); publishCompletion?.(value); setSource(next);
       dirty.current = false; setBranchEpoch((value) => value + 1); setVersion(next.version);
-    } catch { setError("新修订未创建；原版本保持不变。请重新载入当前版本后重试。"); }
+    } catch { setError(true); }
     finally { setBranching(false); }
   }
   const editing = { interviewId: identity.interviewId, onVersionChange: setVersion, onRunningStepChange: setRunningStep, onDirtyChange: (value: boolean) => { dirty.current = value; } };
   return <div data-testid="itv-markdown-workbench" className="min-h-dvh min-w-0 bg-muted/20">
-      <InterviewWorkbenchHeader name={identity.name} tags={identity.tags} steps={INTERVIEW_WORKBENCH_STEPS} activeStep={step} runningStep={runningStep} completedSteps={completed} completionPending={!currentCompletion || currentCompletion.interviewId !== identity.interviewId} status="Markdown 研究工作台" version={sharedSource?.version ?? version} topic={null} onStepChange={onContinue} onReturnToList={() => navigate("/itv?tab=history")} />
+      <InterviewWorkbenchHeader name={identity.name} tags={identity.tags} steps={INTERVIEW_WORKBENCH_STEPS} activeStep={step} runningStep={runningStep} completedSteps={completed} completionPending={!currentCompletion || currentCompletion.interviewId !== identity.interviewId} status={t("itv.workbench.status")} version={sharedSource?.version ?? version} topic={null} onStepChange={onContinue} onReturnToList={() => navigate("/itv?tab=history")} />
       <main className={cn(researchWorkspaceStyle.main, "pb-8")}>
-      {completionError && <div role="alert" className="mt-4 flex flex-wrap items-center gap-3 text-sm text-muted-foreground"><p>步骤状态暂时无法更新，已知状态与访谈内容保留。</p><Button variant="outline" size="sm" onClick={() => { setCompletionError(false); setRetryEpoch(value => value + 1); }}>重试步骤状态</Button></div>}
-      {syncError && <div role="status" className="mt-4 flex items-center gap-3 text-sm text-muted-foreground"><p>{syncError}</p><Button variant="outline" size="sm" onClick={() => void refresh().catch(() => {})}>重试同步</Button></div>}
-      {error && <p role="alert" className="mt-4 text-sm text-destructive">{error}</p>}
-      <InterviewRevisionAction.Provider value={completed.includes(step) && ["intake", "analysis", "experts", "outline"].includes(step) ? <ActionButton variant="outline" loading={branching} disabled={branching || runningStep !== null} onClick={() => void revise()}>{branching ? "正在创建新修订…" : "创建新修订并修改"}</ActionButton> : null}>
+      {completionError && <div role="alert" className="mt-4 flex flex-wrap items-center gap-3 text-sm text-muted-foreground"><p>{t("itv.workbench.completionFailed")}</p><Button variant="outline" size="sm" onClick={() => { setCompletionError(false); setRetryEpoch(value => value + 1); }}>{t("itv.workbench.retrySteps")}</Button></div>}
+      {syncError && <div role="status" className="mt-4 flex items-center gap-3 text-sm text-muted-foreground"><p>{syncError}</p><Button variant="outline" size="sm" onClick={() => void refresh().catch(() => {})}>{t("itv.workbench.retrySync")}</Button></div>}
+      {error && <p role="alert" className="mt-4 text-sm text-destructive">{t("itv.revision.failed")}</p>}
+      <InterviewRevisionAction.Provider value={completed.includes(step) && ["intake", "analysis", "experts", "outline"].includes(step) ? <ActionButton variant="outline" loading={branching} disabled={branching || runningStep !== null} onClick={() => void revise()}>{branching ? t("itv.revision.pending") : t("itv.revision.create")}</ActionButton> : null}>
       <section key={`${step}:${branchEpoch}`} className="mt-4">
         {(step === "intake" || step === "analysis") && <InterviewMarkdownPlanningStep {...editing} step={step} onContinue={onContinue} />}
         {(step === "experts" || step === "outline") && <InterviewMarkdownEditingStep {...editing} step={step} onContinue={onContinue} />}

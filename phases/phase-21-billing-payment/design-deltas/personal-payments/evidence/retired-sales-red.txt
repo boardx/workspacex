@@ -1,0 +1,68 @@
+[stack-admission] load1=1.96 cores=10 perCore=0.20 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvy8743l-a2cb39cb-1ca72b3d9a05 db=wsx_1ca72b3d9a05716860e9 compose=wsx-1ca72b3d9a05716860e9 pg=20629 redis=21629 api=24629 web=25629 sandbox=26629 model=27629 deep-agent=28629 asr=29629 vision=30629 loopback-sandbox=31629 mail=19629
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_1ca72b3d9a05716860e9 capacity=100 current=6 required=32
+ ❯ tests/billing/personal-stripe-settlement-pg.test.ts (29 tests | 1 failed | 28 skipped) 13204ms
+   × retires old sales before merchant calls and rejects direct legacy reservation in the active epoch 55ms
+     → promise resolved "{ order: { …(17) } }" instead of rejecting
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/personal-stripe-settlement-pg.test.ts > retires old sales before merchant calls and rejects direct legacy reservation in the active epoch
+AssertionError: promise resolved "{ order: { …(17) } }" instead of rejecting
+
+- Expected
++ Received
+
+- [Error: rejected promise]
++ Object {
++   "order": Object {
++     "amountFen": 12900,
++     "baseCredits": 10000,
++     "bonusCredits": 0,
++     "closedAt": null,
++     "createdAt": "2026-11-01T19:31:39.671Z",
++     "currency": "CNY",
++     "expiredAt": "2026-11-01T19:46:39.671Z",
++     "lastErrorCode": null,
++     "notifyAt": null,
++     "orderNo": "bg20261101193139nyw1Oa",
++     "ownerId": "stripe-term-c4acd2ae-retired-sales",
++     "ownerType": "user",
++     "packageId": "credit-cn-10000-v1",
++     "paidAt": null,
++     "provider": "wechat",
++     "qrCodeUrl": "weixin://wxpay/fixture",
++     "status": "PENDING",
++   },
++ }
+
+ ❯ tests/billing/personal-stripe-settlement-pg.test.ts:316:130
+    314|   const service = new BillingOrderService(new PgBillingOrderRepository…
+    315|     { getPricingMarket: () => "cn", getPublicConfig: () => ({ enabledP…
+    316|   await expect(service.create(principal, { ownerType: "user", packageI…
+       |                                                                                                                                  ^
+    317|   expect(native.createNativeOrder).not.toHaveBeenCalled();
+    318|   await expect(new PgMonthlyPassRepository(db).reserve(principal)).rej…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 28 skipped (29)
+   Start at  03:31:22
+   Duration  17.75s (transform 1.03s, setup 7ms, collect 1.55s, tests 13.20s, environment 0ms, prepare 44ms)
+
+[db-isolation] db=wsx_1ca72b3d9a05716860e9 peak_connections=3
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/personal-stripe-settlement-pg.test.ts -t retires old sales
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/personal-stripe-settlement-pg.test.ts -t retires old sales
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：18s
+  清理：0s
+  总计：19s

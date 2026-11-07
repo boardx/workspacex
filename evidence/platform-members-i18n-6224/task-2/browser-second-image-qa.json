@@ -1,0 +1,249 @@
+{
+  "source": "e523132999f0490b44703ece3fe5aca5500e34ed",
+  "freeze": "bc266f70bf0ab158de6f68ab61821936548090bf",
+  "run": "browser-second",
+  "nativeResult": "PASS,1/90.317s,retry0",
+  "visualResult": "WITH_FINDINGS,2rolelabel-truncation images; not final acceptance",
+  "images": [
+    {
+      "file": "platform-members-grant-result-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "1671413179325d763efc32bfa3cb5367c61267bdca1948e90c52c4e96568f7d8",
+      "individuallyViewed": true,
+      "privacy": "synthetic fixture names/emails only; no bearer/cookie/private exception visible",
+      "verdict": "PASS",
+      "note": "Focused state/readable translated chrome and full relevant controls visible; authored Chinese/braced names preserved",
+      "pngChunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ]
+    },
+    {
+      "file": "platform-members-grant-result-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "70fe37334742fd6b927824e23bf6a3db17fcb77638a08d4c1d4cbc497c227403",
+      "individuallyViewed": true,
+      "privacy": "synthetic fixture names/emails only; no bearer/cookie/private exception visible",
+      "verdict": "PASS",
+      "note": "Focused state/readable translated chrome and full relevant controls visible; authored Chinese/braced names preserved",
+      "pngChunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ]
+    },
+    {
+      "file": "platform-members-last-admin-error-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "d45e3d3bb16ee8b1ef94b70d7e8e7bb5dc122a25891dc765232e75b28135615e",
+      "individuallyViewed": true,
+      "privacy": "synthetic fixture names/emails only; no bearer/cookie/private exception visible",
+      "verdict": "PASS",
+      "note": "Focused state/readable translated chrome and full relevant controls visible; authored Chinese/braced names preserved",
+      "pngChunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ]
+    },
+    {
+      "file": "platform-members-last-admin-error-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "edb5b205e94074e7ffa192a35b6a090ae919ed11d7595db4cdd2938356d33465",
+      "individuallyViewed": true,
+      "privacy": "synthetic fixture names/emails only; no bearer/cookie/private exception visible",
+      "verdict": "PASS",
+      "note": "Focused state/readable translated chrome and full relevant controls visible; authored Chinese/braced names preserved",
+      "pngChunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ]
+    },
+    {
+      "file": "platform-members-operator-roster-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "02613fb86c5febd956d5246f813c3d7db72495655b61e4cef073eec26bff5e47",
+      "individuallyViewed": true,
+      "privacy": "synthetic fixture names/emails only; no bearer/cookie/private exception visible",
+      "verdict": "FINDING",
+      "note": "Selected Compliance lead ellipsized at both375/1280 by page-local w32 role wrapper; identity layout now physically good",
+      "pngChunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ]
+    },
+    {
+      "file": "platform-members-operator-roster-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "ea91ec909336ab27c6dc3c5a56fd6643fd4be71ee6e67a441d8f1d6be5aecf05",
+      "individuallyViewed": true,
+      "privacy": "synthetic fixture names/emails only; no bearer/cookie/private exception visible",
+      "verdict": "FINDING",
+      "note": "Selected Compliance lead ellipsized at both375/1280 by page-local w32 role wrapper; identity layout now physically good",
+      "pngChunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ]
+    },
+    {
+      "file": "platform-members-ordinary-admin-denial-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "6bf51155aa94031a873ac059a0527df684144ea028ca99420dd64422ee689ae0",
+      "individuallyViewed": true,
+      "privacy": "synthetic fixture names/emails only; no bearer/cookie/private exception visible",
+      "verdict": "PASS",
+      "note": "Focused state/readable translated chrome and full relevant controls visible; authored Chinese/braced names preserved",
+      "pngChunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ]
+    },
+    {
+      "file": "platform-members-ordinary-admin-denial-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "7af3ecf4aa5152f2a429824f8622edfbfaef7196bd645f1a543fe19959a64df4",
+      "individuallyViewed": true,
+      "privacy": "synthetic fixture names/emails only; no bearer/cookie/private exception visible",
+      "verdict": "PASS",
+      "note": "Focused state/readable translated chrome and full relevant controls visible; authored Chinese/braced names preserved",
+      "pngChunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ]
+    },
+    {
+      "file": "platform-members-revoked-target-denial-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "b5ac44f1be26cc0af94cf117e627c4b19bd6e973eaf217d7541714e02006549f",
+      "individuallyViewed": true,
+      "privacy": "synthetic fixture names/emails only; no bearer/cookie/private exception visible",
+      "verdict": "PASS",
+      "note": "Focused state/readable translated chrome and full relevant controls visible; authored Chinese/braced names preserved",
+      "pngChunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ]
+    },
+    {
+      "file": "platform-members-revoked-target-denial-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "c56e359b179d07222ecdd2851f8b1de58cc6099f94729b03088e7bd1513f20ab",
+      "individuallyViewed": true,
+      "privacy": "synthetic fixture names/emails only; no bearer/cookie/private exception visible",
+      "verdict": "PASS",
+      "note": "Focused state/readable translated chrome and full relevant controls visible; authored Chinese/braced names preserved",
+      "pngChunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ]
+    },
+    {
+      "file": "platform-members-role-change-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "b71117bc627e1aa5c15309fd26ad822f004232d22c18169c04600d0995d33646",
+      "individuallyViewed": true,
+      "privacy": "synthetic fixture names/emails only; no bearer/cookie/private exception visible",
+      "verdict": "PASS",
+      "note": "Focused state/readable translated chrome and full relevant controls visible; authored Chinese/braced names preserved",
+      "pngChunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ]
+    },
+    {
+      "file": "platform-members-role-change-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "54bc4fb8bc0bf3f5e90c3ca598c611f9112858ddc9d1690603f4e23f23b5c4e2",
+      "individuallyViewed": true,
+      "privacy": "synthetic fixture names/emails only; no bearer/cookie/private exception visible",
+      "verdict": "PASS",
+      "note": "Focused state/readable translated chrome and full relevant controls visible; authored Chinese/braced names preserved",
+      "pngChunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ]
+    },
+    {
+      "file": "platform-members-role-popover-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "79a3c4fe7945d102b56eea4935ed090724b73841277022f1ae900c53e5aa4db2",
+      "individuallyViewed": true,
+      "privacy": "synthetic fixture names/emails only; no bearer/cookie/private exception visible",
+      "verdict": "PASS",
+      "note": "Focused state/readable translated chrome and full relevant controls visible; authored Chinese/braced names preserved",
+      "pngChunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ]
+    },
+    {
+      "file": "platform-members-role-popover-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "bfe46c98c50873bcf46552c723b5a87518367473baf09a610eb9d2881a1d5502",
+      "individuallyViewed": true,
+      "privacy": "synthetic fixture names/emails only; no bearer/cookie/private exception visible",
+      "verdict": "PASS",
+      "note": "Focused state/readable translated chrome and full relevant controls visible; authored Chinese/braced names preserved",
+      "pngChunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ]
+    },
+    {
+      "file": "platform-members-superuser-roster-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "0f2d5bf84312b4ea50e4e7187b31eddb027fbb3dd606f9360a19ead7270ea4af",
+      "individuallyViewed": true,
+      "privacy": "synthetic fixture names/emails only; no bearer/cookie/private exception visible",
+      "verdict": "PASS",
+      "note": "Focused state/readable translated chrome and full relevant controls visible; authored Chinese/braced names preserved",
+      "pngChunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ]
+    },
+    {
+      "file": "platform-members-superuser-roster-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "4196c2f0db32a08bfbad0c613a1da5a90fe83b0d7fee969b51b3f7a9219296ee",
+      "individuallyViewed": true,
+      "privacy": "synthetic fixture names/emails only; no bearer/cookie/private exception visible",
+      "verdict": "PASS",
+      "note": "Focused state/readable translated chrome and full relevant controls visible; authored Chinese/braced names preserved",
+      "pngChunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ]
+    }
+  ]
+}

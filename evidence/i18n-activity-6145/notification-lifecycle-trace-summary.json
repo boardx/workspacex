@@ -1,0 +1,56 @@
+{
+  "candidate": "930331a3a44b382bee6b66f301d8f962851716e3",
+  "run": 41682815784,
+  "attempt": 1,
+  "job": 126084666955,
+  "profileGotoStart": 124947.473,
+  "notifications": [
+    {
+      "start": 126332.813,
+      "date": "2026-11-03T17:32:50.711Z",
+      "status": 200,
+      "bodyRecorded": false
+    },
+    {
+      "start": 126334.354,
+      "date": "2026-11-03T17:32:50.719Z",
+      "status": 200,
+      "bodyRecorded": false
+    },
+    {
+      "start": 127435.959,
+      "date": "2026-11-03T17:32:51.908Z",
+      "status": 200,
+      "bodyRecorded": true
+    },
+    {
+      "start": 127442.655,
+      "date": "2026-11-03T17:32:51.911Z",
+      "status": 200,
+      "bodyRecorded": true
+    }
+  ],
+  "boundary": "Only times/status/body-presence exported; request URLs/headers/bodies/auth remain private.",
+  "documentEvidence": [
+    {
+      "start": 126332.813,
+      "refererPath": "/home",
+      "bodyRecorded": false
+    },
+    {
+      "start": 126334.354,
+      "refererPath": "/home",
+      "bodyRecorded": false
+    },
+    {
+      "start": 127435.959,
+      "refererPath": "/profile",
+      "bodyRecorded": true
+    },
+    {
+      "start": 127442.655,
+      "refererPath": "/profile",
+      "bodyRecorded": true
+    }
+  ]
+}

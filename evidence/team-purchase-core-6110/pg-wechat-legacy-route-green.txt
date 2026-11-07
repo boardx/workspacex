@@ -1,0 +1,43 @@
+[stack-admission] load1=6.80 cores=10 perCore=0.68 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvzm2hw3-53d543a9-8762f03717d7 db=wsx_8762f03717d7d7a492e5 compose=wsx-8762f03717d7d7a492e5 pg=20183 redis=21183 api=24183 web=25183 sandbox=26183 model=27183 deep-agent=28183 asr=29183 vision=30183 loopback-sandbox=31183 mail=19183
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/team-receipt-anchor-6099/apps/api
+
+[db-isolation] db=wsx_8762f03717d7d7a492e5 capacity=100 current=6 required=32
+ ✓ tests/billing/team-checkout-http.test.ts (2 tests) 31069ms
+stdout | tests/billing/wechat-reference-compatibility.test.ts > reference backend WeChat compatibility > signs Native requests without a platform key and credits unsigned callbacks exactly once
+wechat_callback_http_response { status: 200, body: { code: 'SUCCESS' } }
+
+stdout | tests/billing/wechat-reference-compatibility.test.ts > reference backend WeChat compatibility > signs Native requests without a platform key and credits unsigned callbacks exactly once
+wechat_callback_http_response { status: 200, body: { code: 'SUCCESS' } }
+
+stdout | tests/billing/wechat-reference-compatibility.test.ts > reference backend WeChat compatibility > still rejects failed AES-GCM authentication without crediting
+wechat_callback_http_response { status: 400, body: { code: 'FAIL' } }
+
+stdout | tests/billing/wechat-reference-compatibility.test.ts > reference backend WeChat compatibility > rejects mismatched merchant/order facts: {"appid":"wrong"}
+wechat_callback_http_response { status: 400, body: { code: 'FAIL' } }
+
+stdout | tests/billing/wechat-reference-compatibility.test.ts > reference backend WeChat compatibility > rejects mismatched merchant/order facts: {"mchid":"9999999999"}
+wechat_callback_http_response { status: 400, body: { code: 'FAIL' } }
+
+stdout | tests/billing/wechat-reference-compatibility.test.ts > reference backend WeChat compatibility > rejects mismatched merchant/order facts: {"amount":{"total":9901,"currency":"CNY"}}
+wechat_callback_http_response { status: 400, body: { code: 'FAIL' } }
+
+ ✓ tests/billing/wechat-reference-compatibility.test.ts (5 tests) 2336ms
+   ✓ reference backend WeChat compatibility > signs Native requests without a platform key and credits unsigned callbacks exactly once 370ms
+   ✓ reference backend WeChat compatibility > rejects mismatched merchant/order facts: {"amount":{"total":9901,"currency":"CNY"}} 421ms
+
+ Test Files  2 passed (2)
+      Tests  7 passed (7)
+   Start at  02:47:27
+   Duration  42.10s (transform 1.85s, setup 31ms, collect 3.92s, tests 33.40s, environment 0ms, prepare 193ms)
+
+[db-isolation] db=wsx_8762f03717d7d7a492e5 peak_connections=6
+[timing] pnpm --filter @repo/api exec vitest run --config /tmp/team-6110-wechat-route-pg.config.mts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：43s
+  清理：1s
+  总计：44s

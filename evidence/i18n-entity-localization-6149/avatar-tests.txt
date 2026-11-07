@@ -1,0 +1,12 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/web
+
+ ✓ tests/ui/entity-localization-directory.test.tsx (2 tests) 388ms
+   ✓ directory locale-aware content > refetches on language switch and renders translated copy without changing original IDs 301ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  05:10:58
+   Duration  5.65s (transform 1.60s, setup 308ms, collect 2.55s, tests 388ms, environment 1.60s, prepare 96ms)
+

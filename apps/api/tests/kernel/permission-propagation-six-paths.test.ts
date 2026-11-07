@@ -1268,7 +1268,10 @@ describe("lint-permission-paths: counter-proof", () => {
     };
     expect(boundaryAudit.failures).toEqual([]);
     // #5877 and #5894 add four narrowly checked financial metadata boundaries.
-    expect(boundaryAudit.rules).toHaveLength(33);
+    // #5997 adds the tenant-scoped append-only credit receipt boundary.
+    // #6268 adds the narrowly checked native tariff resolver metadata boundary.
+    expect(boundaryAudit.rules).toHaveLength(35);
+    expect(boundaryAudit.rules.filter(rule => rule.path === "src/infrastructure/billing/resolve-native-credit-tariff.ts")).toHaveLength(1);
     for (const rule of boundaryAudit.rules) {
       expect(rule.reason.length, rule.path).toBeGreaterThan(40);
       expect(rule.checks, rule.path).toBeGreaterThan(0);

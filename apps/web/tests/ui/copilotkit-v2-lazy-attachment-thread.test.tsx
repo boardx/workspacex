@@ -31,7 +31,8 @@ vi.mock("@/lib/agent-run", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/agent-run")>()),
   getAgentRun,
 }));
-vi.mock("@/components/session/session-provider", () => ({
+vi.mock("@/components/session/session-provider", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/components/session/session-provider")>()),
   useSession: () => ({
     session: { sessionToken: "b", userId: "u", orgIds: ["org-1"], currentOrgId: "org-1", expiresAt: "2099-01-01T00:00:00.000Z" },
   }),

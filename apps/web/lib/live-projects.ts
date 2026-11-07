@@ -1,3 +1,5 @@
+import { translate } from "./i18n/messages";
+import type { Locale } from "./i18n/locale";
 /**
  * F122 —— 真实 API 的类型化薄封装，供 `/project/live` 页面使用。
  *
@@ -62,9 +64,9 @@ export type BackflowEntry = z.infer<typeof artifact.BackflowEntry>;
  * 两个组件都从这里 import，不各自抄一份。
  */
 export const BACKFLOW_BADGE_LABEL: Record<BackflowEntry["badge"], string> = {
-  draft: "草稿",
-  live: "实时 · 随源变动",
-  pinned: "已定版",
+  draft: translate("zh-CN", "workshopOverview.backflow.draft"),
+  live: translate("zh-CN", "workshopOverview.backflow.live"),
+  pinned: translate("zh-CN", "workshopOverview.backflow.pinned"),
 };
 
 /**
@@ -79,14 +81,21 @@ export async function getProjectOverview(projectId: string): Promise<ProjectOver
   );
 }
 
+export function projectKindLabel(kind: z.infer<typeof project.ProjectKind>, locale: Locale = "zh-CN"): string {
+  return translate(locale, `projects.kind.${kind}`);
+}
+export function projectStatusLabel(status: z.infer<typeof project.ProjectStatus>, locale: Locale = "zh-CN"): string {
+  return translate(locale, `projects.status.${status}`);
+}
+/** Legacy consumers keep Chinese until migrated; translated copy has one dictionary source. */
 export const PROJECT_KIND_LABEL: Record<z.infer<typeof project.ProjectKind>, string> = {
-  general: "项目",
-  workshop: "工作坊",
+  general: projectKindLabel("general"),
+  workshop: projectKindLabel("workshop"),
 };
 
 export const PROJECT_STATUS_LABEL: Record<z.infer<typeof project.ProjectStatus>, string> = {
-  active: "进行中",
-  archived: "已归档",
+  active: projectStatusLabel("active"),
+  archived: projectStatusLabel("archived"),
 };
 
 export interface CreateProjectInput {
@@ -199,12 +208,7 @@ export async function listAgendaSegments(workshopId: string): Promise<ListAgenda
   );
 }
 
-export const AGENDA_SEGMENT_STATE_LABEL: Record<AgendaSegment["state"], string> = {
-  pending: "待开始",
-  active: "进行中",
-  closed: "已结束",
-  skipped: "已跳过",
-};
+export { AGENDA_SEGMENT_STATE_LABEL } from "./project-preparation-labels";
 
 export type AdvanceAgendaSegmentAction = z.infer<typeof project.AgendaSegmentAdvanceAction>;
 export type AdvanceAgendaSegmentOut = z.infer<typeof project.operations.advanceAgendaSegment.out>;

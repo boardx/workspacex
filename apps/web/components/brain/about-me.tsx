@@ -1,7 +1,9 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
+import type { MessageKey } from "@/lib/i18n/messages";
+import type { KgProfileSection, KgClaimKind } from "@repo/contracts/chat-knowledge-graph";
 import { Target, UserRound } from "lucide-react";
-import { KG_CLAIM_KIND_LABEL_ZH } from "@/lib/knowledge-graph-view";
 import { ClaimTriStateBadge } from "@/components/chat/knowledge/claim-tri-state-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,14 +15,30 @@ import { forgetPlan, originsByClaim, type PersonalClaimOrigin } from "@/lib/brai
 import {
   fetchSessionBriefing, revisePersonalClaim, setGoalLink, setSessionBriefingDismissed, type PersonalKnowledge,
 } from "@/lib/knowledge-graph-api";
-import { BRAIN_FORGET_STILL_LIVE_ZH, describeBrainActionFailure } from "@/lib/knowledge-graph-failure";
+import { describeBrainActionFailure } from "@/lib/knowledge-graph-failure";
 import { OriginLinks } from "./personal-memory";
 
 type Claim = PersonalKnowledge["claims"][number];
-interface ActionError { readonly claimId: string; readonly message: string }
+interface ActionError { readonly claimId: string; readonly failure: { kind: "still-live" } | { kind: "request"; cause: unknown } }
 
 /** 挂目标下拉里「不挂」那一项的值（目标 id 不会是空串）。 */
 const NO_GOAL = "";
+const SECTION_KEYS: Record<KgProfileSection, MessageKey> = {
+  goals: "aboutMemory.section.goals",
+  preferences: "aboutMemory.section.preferences",
+  identity: "aboutMemory.section.identity",
+  doing: "aboutMemory.section.doing",
+};
+const KIND_KEYS: Record<KgClaimKind, MessageKey> = {
+  decision: "aboutMemory.kind.decision",
+  fact: "aboutMemory.kind.fact",
+  risk: "aboutMemory.kind.risk",
+  hypothesis: "aboutMemory.kind.hypothesis",
+  todo: "aboutMemory.kind.todo",
+  goal: "aboutMemory.kind.goal",
+  preference: "aboutMemory.kind.preference",
+};
+
 
 /**
  * issue #4360「关于我」：/brain 个人空间顶部。按 目标 / 偏好 / 约束与身份 / 在做的事 列出长期记忆里描述「你」的条目，
@@ -38,6 +56,7 @@ export function AboutMe({
   origins: readonly PersonalClaimOrigin[];
   onChanged: () => Promise<PersonalKnowledge>;
 }) {
+  const { locale, t } = useI18n();
   const view = React.useMemo(() => aboutMe(personal), [personal]);
   const byClaim = React.useMemo(() => originsByClaim(origins), [origins]);
   const goals = view.groups.find((g) => g.section === "goals")?.claims ?? [];
@@ -45,7 +64,7 @@ export function AboutMe({
   const [editing, setEditing] = React.useState<{ claimId: string; text: string } | null>(null);
   const [error, setError] = React.useState<ActionError | null>(null);
 
-  const run = async (claimId: string, act: () => Promise<void>, check: (fresh: PersonalKnowledge) => string | null = () => null) => {
+  const run = async (claimId: string, act: () => Promise<void>, check: (fresh: PersonalKnowledge) => "still-live" | null = () => null) => {
     if (pending !== null) return;
     setPending(claimId);
     setError(null);
@@ -53,9 +72,9 @@ export function AboutMe({
       await act();
       const fresh = await onChanged().catch(() => null);
       const notDone = fresh === null ? null : check(fresh);
-      if (notDone !== null) setError({ claimId, message: notDone });
+      if (notDone !== null) setError({ claimId, failure: { kind: "still-live" } });
     } catch (e) {
-      setError({ claimId, message: describeBrainActionFailure(e) });
+      setError({ claimId, failure: { kind: "request", cause: e } });
       await onChanged().catch(() => undefined);
     } finally {
       setPending(null);
@@ -69,7 +88,7 @@ export function AboutMe({
   const forget = (c: Claim) => {
     const steps = forgetPlan(c, byClaim.get(c.id) ?? []);
     if (steps === null) return;
-    void run(c.id, () => forgetFromBrain(steps), (fresh) => (fresh.claims.some((x) => x.id === c.id) ? BRAIN_FORGET_STILL_LIVE_ZH : null));
+    void run(c.id, () => forgetFromBrain(steps), (fresh) => (fresh.claims.some((x) => x.id === c.id) ? "still-live" : null));
   };
   const link = (c: Claim, goalId: string) => {
     void run(c.id, async () => { await setGoalLink(c.id, goalId === NO_GOAL ? null : goalId); });
@@ -96,33 +115,33 @@ export function AboutMe({
             <Input
               value={editing.text}
               onChange={(ev) => setEditing({ claimId: c.id, text: ev.target.value })}
-              aria-label="改写这一条"
+              aria-label={t("aboutMemory.editLabel")}
               className="min-w-0 flex-1"
               autoFocus
               data-testid="about-me-edit-input"
             />
             <Button size="xs" variant="primary" type="submit" disabled={pending !== null || editing.text.trim() === ""} data-testid="about-me-edit-save">
-              保存
+              {t("aboutMemory.save")}
             </Button>
-            <Button size="xs" variant="ghost" type="button" onClick={() => setEditing(null)} data-testid="about-me-edit-cancel">取消</Button>
+            <Button size="xs" variant="ghost" type="button" onClick={() => setEditing(null)} data-testid="about-me-edit-cancel">{t("aboutMemory.cancel")}</Button>
           </form>
         ) : (
           <div className="flex items-start gap-2">
-            {nested ? <Badge tone="outline">{KG_CLAIM_KIND_LABEL_ZH[c.kind]}</Badge> : null}
+            {nested ? <Badge tone="outline">{t(KIND_KEYS[c.kind])}</Badge> : null}
             <p className="min-w-0 flex-1 text-13" data-testid="about-me-statement">{c.statement}</p>
-            <ClaimTriStateBadge status={c.status} />
+            <ClaimTriStateBadge status={c.status} locale={locale} />
           </div>
         )}
-        <OriginLinks origins={from} />
+        <OriginLinks origins={from} locale={locale} />
         <div className="flex flex-wrap items-center justify-end gap-1.5">
           {doing && goals.length > 0 ? (
             <label className="mr-auto inline-flex items-center gap-1.5 text-11 text-muted-foreground">
               <Target aria-hidden className="h-3 w-3" />
-              为了
+              {t("aboutMemory.for")}
               <Select
                 className="h-6 min-w-[8rem] text-11"
                 value={view.goalOf.get(c.id) ?? NO_GOAL}
-                options={[{ value: NO_GOAL, label: "不挂到目标" }, ...goals.map((g) => ({ value: g.id, label: g.statement }))]}
+                options={[{ value: NO_GOAL, label: t("aboutMemory.noGoal") }, ...goals.map((g) => ({ value: g.id, label: g.statement }))]}
                 onValueChange={(v) => link(c, v)}
                 disabled={pending !== null}
                 data-testid="about-me-goal-select"
@@ -131,19 +150,19 @@ export function AboutMe({
           ) : null}
           {!isEditing ? (
             <Button size="xs" variant="ghost" disabled={pending !== null} onClick={() => setEditing({ claimId: c.id, text: c.statement })} data-testid="about-me-edit">
-              改写
+              {t("aboutMemory.rewrite")}
             </Button>
           ) : null}
           {canForget ? (
             <Button size="xs" variant="ghost" disabled={pending !== null} onClick={() => forget(c)} data-testid="about-me-forget">
-              忘掉这条
+              {t("aboutMemory.forget")}
             </Button>
           ) : null}
         </div>
-        {error?.claimId === c.id ? <p role="alert" className="text-11 text-destructive" data-testid="err-about-me">{error.message}</p> : null}
+        {error?.claimId === c.id ? <p role="alert" className="text-11 text-destructive" data-testid="err-about-me">{error.failure.kind === "still-live" ? t("aboutMemory.stillLive") : describeBrainActionFailure(error.failure.cause, locale)}</p> : null}
         {children.length > 0 ? (
           <div className="flex flex-col gap-1.5 border-l-2 border-border-subtle pl-3" data-testid="about-me-goal-children">
-            <p className="text-11 text-muted-foreground">为这个目标在做的事 · {children.length}</p>
+            <p className="text-11 text-muted-foreground">{t("aboutMemory.children", { count: children.length })}</p>
             <ul className="flex flex-col gap-1.5">{children.map((x) => item(x, true))}</ul>
           </div>
         ) : null}
@@ -156,25 +175,25 @@ export function AboutMe({
       <header className="flex flex-wrap items-end justify-between gap-2">
         <div className="flex items-center gap-2">
           <UserRound aria-hidden className="h-4 w-4 text-muted-foreground" />
-          <h2 id="about-me-title" className="text-14 font-semibold">关于我</h2>
+          <h2 id="about-me-title" className="text-14 font-semibold">{t("aboutMemory.heading")}</h2>
           <span className="tabular-nums text-11 text-muted-foreground" data-testid="about-me-count">{view.total}</span>
         </div>
-        <p className="text-11 text-muted-foreground">开新对话时我会先想起这些，不用你再交代一遍。</p>
+        <p className="text-11 text-muted-foreground">{t("aboutMemory.hint")}</p>
       </header>
       {error !== null && !personal.claims.some((c) => c.id === error.claimId) ? (
-        <p role="alert" className="text-11 text-destructive" data-testid="err-about-me">{error.message}</p>
+        <p role="alert" className="text-11 text-destructive" data-testid="err-about-me">{error.failure.kind === "still-live" ? t("aboutMemory.stillLive") : describeBrainActionFailure(error.failure.cause, locale)}</p>
       ) : null}
       {view.total === 0 ? (
         <p className="rounded-lg border border-dashed border-border py-4 text-center text-12 text-muted-foreground" data-testid="about-me-empty">
-          还不了解你。在对话里说说你的目标（「我的目标是…」）、偏好（「我更喜欢…」）或你是谁，我会记在这里。
+          {t("aboutMemory.empty")}
         </p>
       ) : (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {view.groups.map((g) => (
             <div key={g.section} className="flex min-w-0 flex-col gap-2" data-testid={`about-me-group-${g.section}`}>
-              <h3 className="text-11 font-semibold text-muted-foreground">{g.label} · {g.claims.length}</h3>
+              <h3 className="text-11 font-semibold text-muted-foreground">{t(SECTION_KEYS[g.section])} · {g.claims.length}</h3>
               {g.claims.length === 0 ? (
-                <p className="text-11 text-muted-foreground" data-testid={`about-me-group-empty-${g.section}`}>暂无</p>
+                <p className="text-11 text-muted-foreground" data-testid={`about-me-group-empty-${g.section}`}>{t("aboutMemory.none")}</p>
               ) : (
                 <ul className="flex flex-col gap-2">{g.claims.map((c) => item(c, false))}</ul>
               )}
@@ -189,6 +208,7 @@ export function AboutMe({
 
 /** 开场简报关掉过 ⇒ 一行「重新打开」；没关过 / 读不到 ⇒ 什么都不显示（不是这一页的主要内容）。 */
 function BriefingPreference() {
+  const { t } = useI18n();
   const [dismissed, setDismissed] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [failed, setFailed] = React.useState(false);
@@ -200,7 +220,7 @@ function BriefingPreference() {
   if (!dismissed) return null;
   return (
     <div className="flex flex-wrap items-center gap-2 text-11 text-muted-foreground" data-testid="about-me-briefing-off">
-      <span>新对话开头的「接着上次」简报已关闭。</span>
+      <span>{t("aboutMemory.briefingOff")}</span>
       <Button
         size="xs"
         variant="outline"
@@ -212,9 +232,9 @@ function BriefingPreference() {
         }}
         data-testid="about-me-briefing-reopen"
       >
-        重新打开
+        {t("aboutMemory.briefingReopen")}
       </Button>
-      {failed ? <span role="alert" className="text-destructive" data-testid="err-about-me-briefing">没能打开，请稍后再试。</span> : null}
+      {failed ? <span role="alert" className="text-destructive" data-testid="err-about-me-briefing">{t("aboutMemory.briefingFailed")}</span> : null}
     </div>
   );
 }

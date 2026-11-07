@@ -1,0 +1,18 @@
+{
+  "baseline": "fbbd0beb6d82e6b36280f8de1c9020d2f74b20d4",
+  "source": "72b0dd34a7e1e03338c43635743dc4fc50d1cb79",
+  "onlyProductDelta": "One existing signature paragraph bound to existing i18n provider; one typed key added in both languages",
+  "materialByteExactAfterReversingOneBinding": true,
+  "namespaceByteExactAfterRemovingOnlyTwoNewPairs": true,
+  "allOtherProductFilesUnchanged": true,
+  "newApiContractsWorkflowDiff": [],
+  "sourceHashes": {
+    "apps/web/components/survey/live/question-material.tsx": "fd53cb5a37e20b95d0b3ee18d8acd6cbb51681c1ac0e0c6f08acafb3b2cd2623",
+    "apps/web/lib/i18n/namespaces/survey-design.ts": "9638a7a738fdeb29ab156bdb9c32e4c88e61517b3acbcf2a0f5d427ab6ec62ed",
+    "apps/web/tests/ui/survey-question-controls-i18n.test.tsx": "528769d7a73282f94c2f7d389c0125aa3bc7fb77189be2d8d83fed0daae306ca",
+    "apps/web/e2e/i18n-survey-journey.spec.ts": "d6ecf95795a25c7c7939cf03fca6a66ab43cb7d642fdf47c428f3476cb2fc409"
+  },
+  "tddRed": "signature-caption-red-1.json",
+  "tddGreen": "signature-caption-green-1.json",
+  "driverProof": "ci-fixture-order-fix-proof.json"
+}

@@ -30,7 +30,7 @@ export interface CreateOrgInviteInput {
   readonly email: string;
   readonly orgRole: string;
   readonly teamId: string | null;
-  /** `pending` | `awaiting-review`，由 `initialInviteStatus` 推出，仓储不再判一次。 */
+  /** New invitations use pending; awaiting-review is retained for historical records. */
   readonly status: "pending" | "awaiting-review";
   /**
    * `null` ⟺ `status = "awaiting-review"`（I-3：双人复核前不签发）。
@@ -118,7 +118,7 @@ export type ActivateOrgInviteResult =
    * 分开就是把「这个组织存在吗」做成一个探测器（V10）。与 `InviteCodeInvalidError`
    * 同一条理由，同一种取舍。
    */
-  | { readonly ok: false; readonly reason: "not-found" | "already-member" };
+  | { readonly ok: false; readonly reason: "not-found" | "already-member" | "quota-exhausted" };
 
 /* ─────────────────── 重发 / 撤销（#363：契约里有、路由上没有） ─────────────────── */
 

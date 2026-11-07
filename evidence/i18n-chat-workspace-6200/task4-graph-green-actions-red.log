@@ -1,0 +1,2849 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/ui/i18n-chat-knowledge-graph.test.tsx (3 tests) 379ms
+ ❯ tests/ui/i18n-chat-knowledge-actions.test.tsx (6 tests | 6 failed) 286ms
+   × localizes 'revise' without resetting entered data, selected IDs or submitting on locale 155ms
+     → Unable to find an accessible element with the role "dialog" and name "Rewrite this memory"
+
+Here are the accessible roles:
+
+  dialog:
+
+  Name "改写这条记忆":
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:r2:"[39m
+    [33maria-labelledby[39m=[32m"radix-:r1:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"kg-revise-dialog-claim-one"[39m
+    [33mid[39m=[32m"radix-:r0:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "改写这条记忆":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+    [33mid[39m=[32m"radix-:r1:"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+    [33mid[39m=[32m"radix-:r2:"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  textbox:
+
+  Name "新的说法":
+  [36m<textarea[39m
+    [33maria-label[39m=[32m"新的说法"[39m
+    [33mclass[39m=[32m"flex min-h-16 w-full rounded-control border border-input bg-card px-3 py-2.5 text-14 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"[39m
+    [33mdata-testid[39m=[32m"kg-revise-input-claim-one"[39m
+    [33mmaxlength[39m=[32m"2000"[39m
+    [33mrows[39m=[32m"4"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "取消":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"kg-revise-cancel-claim-one"[39m
+  [36m/>[39m
+
+  Name "保存":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"kg-revise-submit-claim-one"[39m
+    [33mdisabled[39m=[32m""[39m
+  [36m/>[39m
+
+  Name "Close":
+  [36m<button[39m
+    [33maria-label[39m=[32m"Close"[39m
+    [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"dialog-close"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mdata-scroll-locked[39m=[32m"1"[39m
+  [33mstyle[39m=[32m"pointer-events: none;"[39m
+[36m>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:r2:"[39m
+    [33maria-labelledby[39m=[32m"radix-:r1:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"kg-revise-dialog-claim-one"[39m
+    [33mid[39m=[32m"radix-:r0:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col gap-1"[39m
+    [36m>[39m
+      [36m<h2[39m
+        [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+        [33mid[39m=[32m"radix-:r1:"[39m
+      [36m>[39m
+        [0m改写这条记忆[0m
+      [36m</h2>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [33mid[39m=[32m"radix-:r2:"[39m
+      [36m>[39m
+        [0m改写后旧的说法会被新的取代，之后的回答用新的说法。[0m
+      [36m</p>[39m
+    [36m</div>[39m
+    [36m<textarea[39m
+      [33maria-label[39m=[32m"新的说法"[39m
+      [33mclass[39m=[32m"flex min-h-16 w-full rounded-control border border-input bg-card px-3 py-2.5 text-14 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"[39m
+      [33mdata-testid[39m=[32m"kg-revise-input-claim-one"[39m
+      [33mmaxlength[39m=[32m"2000"[39m
+      [33mrows[39m=[32m"4"[39m
+    [36m>[39m
+      [0m原始记忆 {count} const value = '{locale}';[0m
+    [36m</textarea>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mt-1 flex items-center justify-end gap-2"[39m
+    [36m>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+        [33mdata-testid[39m=[32m"kg-revise-cancel-claim-one"[39m
+      [36m>[39m
+        [0m取消[0m
+      [36m</button>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+        [33mdata-testid[39m=[32m"kg-revise-submit-claim-one"[39m
+        [33mdisabled[39m=[32m""[39m
+      [36m>[39m
+        [0m保存[0m
+      [36m</button>[39m
+    [36m</div>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"Close"[39m
+      [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"dialog-close"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M18 6 6 18"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m6 6 12 12"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+[36m</body>[39m
+   × localizes 'revoke' without resetting entered data, selected IDs or submitting on locale 27ms
+     → Unable to find an accessible element with the role "dialog" and name "Forget this memory?"
+
+Here are the accessible roles:
+
+  dialog:
+
+  Name "忘掉这条记忆？":
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:r5:"[39m
+    [33maria-labelledby[39m=[32m"radix-:r4:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"kg-delete-confirm-claim-one"[39m
+    [33mid[39m=[32m"radix-:r3:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "忘掉这条记忆？":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+    [33mid[39m=[32m"radix-:r4:"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+    [33mid[39m=[32m"radix-:r5:"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"rounded-md bg-muted p-2 text-11 text-muted-foreground"[39m
+    [33mdata-testid[39m=[32m"kg-delete-impact-claim-one"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "取消":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"kg-delete-cancel-claim-one"[39m
+  [36m/>[39m
+
+  Name "忘掉这条":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-destructive text-destructive-foreground hover:bg-destructive-hover active:scale-[0.98] h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"kg-delete-confirm-btn-claim-one"[39m
+  [36m/>[39m
+
+  Name "Close":
+  [36m<button[39m
+    [33maria-label[39m=[32m"Close"[39m
+    [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"dialog-close"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mdata-scroll-locked[39m=[32m"1"[39m
+  [33mstyle[39m=[32m"pointer-events: none;"[39m
+[36m>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:r5:"[39m
+    [33maria-labelledby[39m=[32m"radix-:r4:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"kg-delete-confirm-claim-one"[39m
+    [33mid[39m=[32m"radix-:r3:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col gap-1"[39m
+    [36m>[39m
+      [36m<h2[39m
+        [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+        [33mid[39m=[32m"radix-:r4:"[39m
+      [36m>[39m
+        [0m忘掉这条记忆？[0m
+      [36m</h2>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [33mid[39m=[32m"radix-:r5:"[39m
+      [36m>[39m
+        [0m忘掉不是彻底抹除：这条会退出关系图和之后的召回，反对它的证据仍留在记录里。 你记到长期记忆里的副本会同时失效。此操作会在 5 分钟内影响之后的回答。[0m
+      [36m</p>[39m
+    [36m</div>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"rounded-md bg-muted p-2 text-11 text-muted-foreground"[39m
+      [33mdata-testid[39m=[32m"kg-delete-impact-claim-one"[39m
+    [36m>[39m
+      [0m「[0m
+      [0m原始记忆 {count} const value = '{locale}';[0m
+      [0m」[0m
+    [36m</p>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mt-1 flex items-center justify-end gap-2"[39m
+    [36m>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+        [33mdata-testid[39m=[32m"kg-delete-cancel-claim-one"[39m
+      [36m>[39m
+        [0m取消[0m
+      [36m</button>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-destructive text-destructive-foreground hover:bg-destructive-hover active:scale-[0.98] h-7 px-2.5 text-12"[39m
+        [33mdata-testid[39m=[32m"kg-delete-confirm-btn-claim-one"[39m
+      [36m>[39m
+        [0m忘掉这条[0m
+      [36m</button>[39m
+    [36m</div>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"Close"[39m
+      [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"dialog-close"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M18 6 6 18"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m6 6 12 12"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+[36m</body>[39m
+   × localizes 'contest' without resetting entered data, selected IDs or submitting on locale 28ms
+     → Unable to find an accessible element with the role "dialog" and name "Which memory conflicts?"
+
+Here are the accessible roles:
+
+  dialog:
+
+  Name "和哪一条有矛盾？":
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:r8:"[39m
+    [33maria-labelledby[39m=[32m"radix-:r7:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"kg-contest-dialog-claim-one"[39m
+    [33mid[39m=[32m"radix-:r6:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "和哪一条有矛盾？":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+    [33mid[39m=[32m"radix-:r7:"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+    [33mid[39m=[32m"radix-:r8:"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  radiogroup:
+
+  Name "":
+  [36m<div[39m
+    [33mclass[39m=[32m"flex max-h-48 flex-col gap-1 overflow-y-auto rounded-md border border-border-subtle p-1.5"[39m
+    [33mrole[39m=[32m"radiogroup"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  radio:
+
+  Name "另一条原始记忆 {raw}":
+  [36m<input[39m
+    [33mdata-testid[39m=[32m"kg-contest-target-claim-one-claim-two"[39m
+    [33mname[39m=[32m"contest-claim-one"[39m
+    [33mtype[39m=[32m"radio"[39m
+    [33mvalue[39m=[32m"claim-two"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "取消":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"kg-contest-cancel-claim-one"[39m
+  [36m/>[39m
+
+  Name "标为有矛盾":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"kg-contest-submit-claim-one"[39m
+    [33mdisabled[39m=[32m""[39m
+  [36m/>[39m
+
+  Name "Close":
+  [36m<button[39m
+    [33maria-label[39m=[32m"Close"[39m
+    [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"dialog-close"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mdata-scroll-locked[39m=[32m"1"[39m
+  [33mstyle[39m=[32m"pointer-events: none;"[39m
+[36m>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:r8:"[39m
+    [33maria-labelledby[39m=[32m"radix-:r7:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"kg-contest-dialog-claim-one"[39m
+    [33mid[39m=[32m"radix-:r6:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col gap-1"[39m
+    [36m>[39m
+      [36m<h2[39m
+        [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+        [33mid[39m=[32m"radix-:r7:"[39m
+      [36m>[39m
+        [0m和哪一条有矛盾？[0m
+      [36m</h2>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [33mid[39m=[32m"radix-:r8:"[39m
+      [36m>[39m
+        [0m两条都会标成「有矛盾」，之后由你决定保留哪条。[0m
+      [36m</p>[39m
+    [36m</div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex max-h-48 flex-col gap-1 overflow-y-auto rounded-md border border-border-subtle p-1.5"[39m
+      [33mrole[39m=[32m"radiogroup"[39m
+    [36m>[39m
+      [36m<label[39m
+        [33mclass[39m=[32m"flex cursor-pointer items-center gap-2 rounded-control px-1.5 py-1 text-12 transition-colors duration-base hover:bg-muted"[39m
+      [36m>[39m
+        [36m<input[39m
+          [33mdata-testid[39m=[32m"kg-contest-target-claim-one-claim-two"[39m
+          [33mname[39m=[32m"contest-claim-one"[39m
+          [33mtype[39m=[32m"radio"[39m
+          [33mvalue[39m=[32m"claim-two"[39m
+        [36m/>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-background-foreground"[39m
+        [36m>[39m
+          [0m另一条原始记忆 {raw}[0m
+        [36m</span>[39m
+      [36m</label>[39m
+    [36m</div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mt-1 flex items-center justify-end gap-2"[39m
+    [36m>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+        [33mdata-testid[39m=[32m"kg-contest-cancel-claim-one"[39m
+      [36m>[39m
+        [0m取消[0m
+      [36m</button>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+        [33mdata-testid[39m=[32m"kg-contest-submit-claim-one"[39m
+        [33mdisabled[39m=[32m""[39m
+      [36m>[39m
+        [0m标为有矛盾[0m
+      [36m</button>[39m
+    [36m</div>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"Close"[39m
+      [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"dialog-close"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M18 6 6 18"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m6 6 12 12"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+[36m</body>[39m
+   × localizes 'merge' without resetting entered data, selected IDs or submitting on locale 26ms
+     → Unable to find an accessible element with the role "dialog" and name "Merge people and things"
+
+Here are the accessible roles:
+
+  dialog:
+
+  Name "合并两个人和事":
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:rb:"[39m
+    [33maria-labelledby[39m=[32m"radix-:ra:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"kg-merge-dialog-claim-one"[39m
+    [33mid[39m=[32m"radix-:r9:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "合并两个人和事":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+    [33mid[39m=[32m"radix-:ra:"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+    [33mid[39m=[32m"radix-:rb:"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-11 font-medium text-muted-foreground"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-11 font-medium text-muted-foreground"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  radiogroup:
+
+  Name "":
+  [36m<div[39m
+    [33mclass[39m=[32m"flex max-h-48 flex-col gap-1 overflow-y-auto rounded-md border border-border-subtle p-1.5"[39m
+    [33mrole[39m=[32m"radiogroup"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<div[39m
+    [33mclass[39m=[32m"flex max-h-48 flex-col gap-1 overflow-y-auto rounded-md border border-border-subtle p-1.5"[39m
+    [33mrole[39m=[32m"radiogroup"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  radio:
+
+  Name "组织人名 one {name}人物":
+  [36m<input[39m
+    [33mchecked[39m=[32m""[39m
+    [33mdata-testid[39m=[32m"kg-merge-keep-claim-one-one"[39m
+    [33mname[39m=[32m"merge-keep-claim-one"[39m
+    [33mtype[39m=[32m"radio"[39m
+    [33mvalue[39m=[32m"one"[39m
+  [36m/>[39m
+
+  Name "组织人名 two {name}人物":
+  [36m<input[39m
+    [33mdata-testid[39m=[32m"kg-merge-other-claim-one-two"[39m
+    [33mname[39m=[32m"merge-other-claim-one"[39m
+    [33mtype[39m=[32m"radio"[39m
+    [33mvalue[39m=[32m"two"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "取消":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"kg-merge-cancel-claim-one"[39m
+  [36m/>[39m
+
+  Name "合并":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"kg-merge-submit-claim-one"[39m
+    [33mdisabled[39m=[32m""[39m
+  [36m/>[39m
+
+  Name "Close":
+  [36m<button[39m
+    [33maria-label[39m=[32m"Close"[39m
+    [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"dialog-close"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mdata-scroll-locked[39m=[32m"1"[39m
+  [33mstyle[39m=[32m"pointer-events: none;"[39m
+[36m>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:rb:"[39m
+    [33maria-labelledby[39m=[32m"radix-:ra:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"kg-merge-dialog-claim-one"[39m
+    [33mid[39m=[32m"radix-:r9:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col gap-1"[39m
+    [36m>[39m
+      [36m<h2[39m
+        [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+        [33mid[39m=[32m"radix-:ra:"[39m
+      [36m>[39m
+        [0m合并两个人和事[0m
+      [36m</h2>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [33mid[39m=[32m"radix-:rb:"[39m
+      [36m>[39m
+        [0m把重复的那个并进保留的这个，提到它的记忆都会改指向保留的这个。[0m
+      [36m</p>[39m
+    [36m</div>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-11 font-medium text-muted-foreground"[39m
+    [36m>[39m
+      [0m保留[0m
+    [36m</p>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex max-h-48 flex-col gap-1 overflow-y-auto rounded-md border border-border-subtle p-1.5"[39m
+      [33mrole[39m=[32m"radiogroup"[39m
+    [36m>[39m
+      [36m<label[39m
+        [33mclass[39m=[32m"flex cursor-pointer items-center gap-2 rounded-control px-1.5 py-1 text-12 transition-colors duration-base hover:bg-muted"[39m
+      [36m>[39m
+        [36m<input[39m
+          [33mchecked[39m=[32m""[39m
+          [33mdata-testid[39m=[32m"kg-merge-keep-claim-one-one"[39m
+          [33mname[39m=[32m"merge-keep-claim-one"[39m
+          [33mtype[39m=[32m"radio"[39m
+          [33mvalue[39m=[32m"one"[39m
+        [36m/>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-background-foreground"[39m
+        [36m>[39m
+          [0m组织人名 one {name}[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-10 text-muted-foreground"[39m
+        [36m>[39m
+          [0m人物[0m
+        [36m</span>[39m
+      [36m</label>[39m
+    [36m</div>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-11 font-medium text-muted-foreground"[39m
+    [36m>[39m
+      [0m并入[0m
+      [0m「组织人名 one {name}」[0m
+      [0m的是[0m
+    [36m</p>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex max-h-48 flex-col gap-1 overflow-y-auto rounded-md border border-border-subtle p-1.5"[39m
+      [33mrole[39m=[32m"radiogroup"[39m
+    [36m>[39m
+      [36m<label[39m
+        [33mclass[39m=[32m"flex cursor-pointer items-center gap-2 rounded-control px-1.5 py-1 text-12 transition-colors duration-base hover:bg-muted"[39m
+      [36m>[39m
+        [36m<input[39m
+          [33mdata-testid[39m=[32m"kg-merge-other-claim-one-two"[39m
+          [33mname[39m=[32m"merge-other-claim-one"[39m
+          [33mtype[39m=[32m"radio"[39m
+          [33mvalue[39m=[32m"two"[39m
+        [36m/>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-background-foreground"[39m
+        [36m>[39m
+          [0m组织人名 two {name}[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-10 text-muted-foreground"[39m
+        [36m>[39m
+          [0m人物[0m
+        [36m</span>[39m
+      [36m</label>[39m
+    [36m</div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mt-1 flex items-center justify-end gap-2"[39m
+    [36m>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+        [33mdata-testid[39m=[32m"kg-merge-cancel-claim-one"[39m
+      [36m>[39m
+        [0m取消[0m
+      [36m</button>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+        [33mdata-testid[39m=[32m"kg-merge-submit-claim-one"[39m
+        [33mdisabled[39m=[32m""[39m
+      [36m>[39m
+        [0m合并[0m
+      [36m</button>[39m
+    [36m</div>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"Close"[39m
+      [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"dialog-close"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M18 6 6 18"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m6 6 12 12"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+[36m</body>[39m
+   × localizes 'split' without resetting entered data, selected IDs or submitting on locale 29ms
+     → Unable to find an accessible element with the role "dialog" and name "Split a person or thing"
+
+Here are the accessible roles:
+
+  dialog:
+
+  Name "拆分人和事":
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:re:"[39m
+    [33maria-labelledby[39m=[32m"radix-:rd:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"kg-split-dialog-claim-one"[39m
+    [33mid[39m=[32m"radix-:rc:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "拆分人和事":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+    [33mid[39m=[32m"radix-:rd:"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+    [33mid[39m=[32m"radix-:re:"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-11 font-medium text-muted-foreground"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  radiogroup:
+
+  Name "":
+  [36m<div[39m
+    [33mclass[39m=[32m"flex max-h-48 flex-col gap-1 overflow-y-auto rounded-md border border-border-subtle p-1.5"[39m
+    [33mrole[39m=[32m"radiogroup"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  radio:
+
+  Name "组织人名 one {name}人物":
+  [36m<input[39m
+    [33mchecked[39m=[32m""[39m
+    [33mdata-testid[39m=[32m"kg-split-object-claim-one-one"[39m
+    [33mname[39m=[32m"split-object-claim-one"[39m
+    [33mtype[39m=[32m"radio"[39m
+    [33mvalue[39m=[32m"one"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  textbox:
+
+  Name "新的名字":
+  [36m<input[39m
+    [33maria-label[39m=[32m"新的名字"[39m
+    [33mclass[39m=[32m"flex h-9 min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"[39m
+    [33mdata-testid[39m=[32m"kg-split-name-claim-one"[39m
+    [33mmaxlength[39m=[32m"200"[39m
+    [33mplaceholder[39m=[32m"新的名字"[39m
+    [33mvalue[39m=[32m""[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  checkbox:
+
+  Name "原始记忆 {count} const value = '{locale}';":
+  [36m<input[39m
+    [33mchecked[39m=[32m""[39m
+    [33mdata-testid[39m=[32m"kg-split-claim-claim-one-claim-one"[39m
+    [33mtype[39m=[32m"checkbox"[39m
+  [36m/>[39m
+
+  Name "另一条原始记忆 {raw}":
+  [36m<input[39m
+    [33mdata-testid[39m=[32m"kg-split-claim-claim-one-claim-two"[39m
+    [33mtype[39m=[32m"checkbox"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "取消":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"kg-split-cancel-claim-one"[39m
+  [36m/>[39m
+
+  Name "拆分":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"kg-split-submit-claim-one"[39m
+    [33mdisabled[39m=[32m""[39m
+  [36m/>[39m
+
+  Name "Close":
+  [36m<button[39m
+    [33maria-label[39m=[32m"Close"[39m
+    [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"dialog-close"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mdata-scroll-locked[39m=[32m"1"[39m
+  [33mstyle[39m=[32m"pointer-events: none;"[39m
+[36m>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:re:"[39m
+    [33maria-labelledby[39m=[32m"radix-:rd:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"kg-split-dialog-claim-one"[39m
+    [33mid[39m=[32m"radix-:rc:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col gap-1"[39m
+    [36m>[39m
+      [36m<h2[39m
+        [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+        [33mid[39m=[32m"radix-:rd:"[39m
+      [36m>[39m
+        [0m拆分人和事[0m
+      [36m</h2>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [33mid[39m=[32m"radix-:re:"[39m
+      [36m>[39m
+        [0m其实是两个不同的人或事时，拆出一个新的，并选哪些记忆跟着新的走。[0m
+      [36m</p>[39m
+    [36m</div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex max-h-48 flex-col gap-1 overflow-y-auto rounded-md border border-border-subtle p-1.5"[39m
+      [33mrole[39m=[32m"radiogroup"[39m
+    [36m>[39m
+      [36m<label[39m
+        [33mclass[39m=[32m"flex cursor-pointer items-center gap-2 rounded-control px-1.5 py-1 text-12 transition-colors duration-base hover:bg-muted"[39m
+      [36m>[39m
+        [36m<input[39m
+          [33mchecked[39m=[32m""[39m
+          [33mdata-testid[39m=[32m"kg-split-object-claim-one-one"[39m
+          [33mname[39m=[32m"split-object-claim-one"[39m
+          [33mtype[39m=[32m"radio"[39m
+          [33mvalue[39m=[32m"one"[39m
+        [36m/>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-background-foreground"[39m
+        [36m>[39m
+          [0m组织人名 one {name}[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-10 text-muted-foreground"[39m
+        [36m>[39m
+          [0m人物[0m
+        [36m</span>[39m
+      [36m</label>[39m
+    [36m</div>[39m
+    [36m<input[39m
+      [33maria-label[39m=[32m"新的名字"[39m
+      [33mclass[39m=[32m"flex h-9 min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"[39m
+      [33mdata-testid[39m=[32m"kg-split-name-claim-one"[39m
+      [33mmaxlength[39m=[32m"200"[39m
+      [33mplaceholder[39m=[32m"新的名字"[39m
+      [33mvalue[39m=[32m""[39m
+    [36m/>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-11 font-medium text-muted-foreground"[39m
+    [36m>[39m
+      [0m跟着新的走的记忆[0m
+    [36m</p>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex max-h-40 flex-col gap-1 overflow-y-auto"[39m
+    [36m>[39m
+      [36m<label[39m
+        [33mclass[39m=[32m"flex items-center gap-2 text-12"[39m
+      [36m>[39m
+        [36m<input[39m
+          [33mchecked[39m=[32m""[39m
+          [33mdata-testid[39m=[32m"kg-split-claim-claim-one-claim-one"[39m
+          [33mtype[39m=[32m"checkbox"[39m
+        [36m/>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-background-foreground"[39m
+        [36m>[39m
+          [0m原始记忆 {count} const value = '{locale}';[0m
+        [36m</span>[39m
+      [36m</label>[39m
+      [36m<label[39m
+        [33mclass[39m=[32m"flex items-center gap-2 text-12"[39m
+      [36m>[39m
+        [36m<input[39m
+          [33mdata-testid[39m=[32m"kg-split-claim-claim-one-claim-two"[39m
+          [33mtype[39m=[32m"checkbox"[39m
+        [36m/>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-background-foreground"[39m
+        [36m>[39m
+          [0m另一条原始记忆 {raw}[0m
+        [36m</span>[39m
+      [36m</label>[39m
+    [36m</div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mt-1 flex items-center justify-end gap-2"[39m
+    [36m>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+        [33mdata-testid[39m=[32m"kg-split-cancel-claim-one"[39m
+      [36m>[39m
+        [0m取消[0m
+      [36m</button>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+        [33mdata-testid[39m=[32m"kg-split-submit-claim-one"[39m
+        [33mdisabled[39m=[32m""[39m
+      [36m>[39m
+        [0m拆分[0m
+      [36m</button>[39m
+    [36m</div>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"Close"[39m
+      [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"dialog-close"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M18 6 6 18"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m6 6 12 12"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+[36m</body>[39m
+   × localizes 'rename' without resetting entered data, selected IDs or submitting on locale 19ms
+     → Unable to find an accessible element with the role "dialog" and name "Rename"
+
+Here are the accessible roles:
+
+  dialog:
+
+  Name "改名":
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:rh:"[39m
+    [33maria-labelledby[39m=[32m"radix-:rg:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"kg-rename-dialog-claim-one"[39m
+    [33mid[39m=[32m"radix-:rf:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "改名":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+    [33mid[39m=[32m"radix-:rg:"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+    [33mid[39m=[32m"radix-:rh:"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  radiogroup:
+
+  Name "":
+  [36m<div[39m
+    [33mclass[39m=[32m"flex max-h-48 flex-col gap-1 overflow-y-auto rounded-md border border-border-subtle p-1.5"[39m
+    [33mrole[39m=[32m"radiogroup"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  radio:
+
+  Name "组织人名 one {name}人物":
+  [36m<input[39m
+    [33mchecked[39m=[32m""[39m
+    [33mdata-testid[39m=[32m"kg-rename-object-claim-one-one"[39m
+    [33mname[39m=[32m"rename-object-claim-one"[39m
+    [33mtype[39m=[32m"radio"[39m
+    [33mvalue[39m=[32m"one"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  textbox:
+
+  Name "新的名字":
+  [36m<input[39m
+    [33maria-label[39m=[32m"新的名字"[39m
+    [33mclass[39m=[32m"flex h-9 min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"[39m
+    [33mdata-testid[39m=[32m"kg-rename-input-claim-one"[39m
+    [33mmaxlength[39m=[32m"200"[39m
+    [33mvalue[39m=[32m"组织人名 one {name}"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "取消":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"kg-rename-cancel-claim-one"[39m
+  [36m/>[39m
+
+  Name "保存":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"kg-rename-submit-claim-one"[39m
+    [33mdisabled[39m=[32m""[39m
+  [36m/>[39m
+
+  Name "Close":
+  [36m<button[39m
+    [33maria-label[39m=[32m"Close"[39m
+    [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"dialog-close"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mdata-scroll-locked[39m=[32m"1"[39m
+  [33mstyle[39m=[32m"pointer-events: none;"[39m
+[36m>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:rh:"[39m
+    [33maria-labelledby[39m=[32m"radix-:rg:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"kg-rename-dialog-claim-one"[39m
+    [33mid[39m=[32m"radix-:rf:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col gap-1"[39m
+    [36m>[39m
+      [36m<h2[39m
+        [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+        [33mid[39m=[32m"radix-:rg:"[39m
+      [36m>[39m
+        [0m改名[0m
+      [36m</h2>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [33mid[39m=[32m"radix-:rh:"[39m
+      [36m>[39m
+        [0m改的是人和事的名字，提到它的记忆会一起跟着改。[0m
+      [36m</p>[39m
+    [36m</div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex max-h-48 flex-col gap-1 overflow-y-auto rounded-md border border-border-subtle p-1.5"[39m
+      [33mrole[39m=[32m"radiogroup"[39m
+    [36m>[39m
+      [36m<label[39m
+        [33mclass[39m=[32m"flex cursor-pointer items-center gap-2 rounded-control px-1.5 py-1 text-12 transition-colors duration-base hover:bg-muted"[39m
+      [36m>[39m
+        [36m<input[39m
+          [33mchecked[39m=[32m""[39m
+          [33mdata-testid[39m=[32m"kg-rename-object-claim-one-one"[39m
+          [33mname[39m=[32m"rename-object-claim-one"[39m
+          [33mtype[39m=[32m"radio"[39m
+          [33mvalue[39m=[32m"one"[39m
+        [36m/>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-background-foreground"[39m
+        [36m>[39m
+          [0m组织人名 one {name}[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-10 text-muted-foreground"[39m
+        [36m>[39m
+          [0m人物[0m
+        [36m</span>[39m
+      [36m</label>[39m
+    [36m</div>[39m
+    [36m<input[39m
+      [33maria-label[39m=[32m"新的名字"[39m
+      [33mclass[39m=[32m"flex h-9 min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"[39m
+      [33mdata-testid[39m=[32m"kg-rename-input-claim-one"[39m
+      [33mmaxlength[39m=[32m"200"[39m
+      [33mvalue[39m=[32m"组织人名 one {name}"[39m
+    [36m/>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mt-1 flex items-center justify-end gap-2"[39m
+    [36m>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+        [33mdata-testid[39m=[32m"kg-rename-cancel-claim-one"[39m
+      [36m>[39m
+        [0m取消[0m
+      [36m</button>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+        [33mdata-testid[39m=[32m"kg-rename-submit-claim-one"[39m
+        [33mdisabled[39m=[32m""[39m
+      [36m>[39m
+        [0m保存[0m
+      [36m</button>[39m
+    [36m</div>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"Close"[39m
+      [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"dialog-close"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M18 6 6 18"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m6 6 12 12"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+[36m</body>[39m
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/i18n-chat-knowledge-actions.test.tsx > localizes 'revise' without resetting entered data, selected IDs or submitting on locale
+TestingLibraryElementError: Unable to find an accessible element with the role "dialog" and name "Rewrite this memory"
+
+Here are the accessible roles:
+
+  dialog:
+
+  Name "改写这条记忆":
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:r2:"[39m
+    [33maria-labelledby[39m=[32m"radix-:r1:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"kg-revise-dialog-claim-one"[39m
+    [33mid[39m=[32m"radix-:r0:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "改写这条记忆":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+    [33mid[39m=[32m"radix-:r1:"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+    [33mid[39m=[32m"radix-:r2:"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  textbox:
+
+  Name "新的说法":
+  [36m<textarea[39m
+    [33maria-label[39m=[32m"新的说法"[39m
+    [33mclass[39m=[32m"flex min-h-16 w-full rounded-control border border-input bg-card px-3 py-2.5 text-14 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"[39m
+    [33mdata-testid[39m=[32m"kg-revise-input-claim-one"[39m
+    [33mmaxlength[39m=[32m"2000"[39m
+    [33mrows[39m=[32m"4"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "取消":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"kg-revise-cancel-claim-one"[39m
+  [36m/>[39m
+
+  Name "保存":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"kg-revise-submit-claim-one"[39m
+    [33mdisabled[39m=[32m""[39m
+  [36m/>[39m
+
+  Name "Close":
+  [36m<button[39m
+    [33maria-label[39m=[32m"Close"[39m
+    [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"dialog-close"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mdata-scroll-locked[39m=[32m"1"[39m
+  [33mstyle[39m=[32m"pointer-events: none;"[39m
+[36m>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:r2:"[39m
+    [33maria-labelledby[39m=[32m"radix-:r1:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"kg-revise-dialog-claim-one"[39m
+    [33mid[39m=[32m"radix-:r0:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col gap-1"[39m
+    [36m>[39m
+      [36m<h2[39m
+        [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+        [33mid[39m=[32m"radix-:r1:"[39m
+      [36m>[39m
+        [0m改写这条记忆[0m
+      [36m</h2>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [33mid[39m=[32m"radix-:r2:"[39m
+      [36m>[39m
+        [0m改写后旧的说法会被新的取代，之后的回答用新的说法。[0m
+      [36m</p>[39m
+    [36m</div>[39m
+    [36m<textarea[39m
+      [33maria-label[39m=[32m"新的说法"[39m
+      [33mclass[39m=[32m"flex min-h-16 w-full rounded-control border border-input bg-card px-3 py-2.5 text-14 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"[39m
+      [33mdata-testid[39m=[32m"kg-revise-input-claim-one"[39m
+      [33mmaxlength[39m=[32m"2000"[39m
+      [33mrows[39m=[32m"4"[39m
+    [36m>[39m
+      [0m原始记忆 {count} const value = '{locale}';[0m
+    [36m</textarea>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mt-1 flex items-center justify-end gap-2"[39m
+    [36m>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+        [33mdata-testid[39m=[32m"kg-revise-cancel-claim-one"[39m
+      [36m>[39m
+        [0m取消[0m
+      [36m</button>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+        [33mdata-testid[39m=[32m"kg-revise-submit-claim-one"[39m
+        [33mdisabled[39m=[32m""[39m
+      [36m>[39m
+        [0m保存[0m
+      [36m</button>[39m
+    [36m</div>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"Close"[39m
+      [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"dialog-close"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M18 6 6 18"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m6 6 12 12"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-knowledge-actions.test.tsx:35:25
+     33|   const close = vi.fn();
+     34|   render(<I18nProvider initialLocale="en"><Driver /><ClaimActionDialog…
+     35|   const dialog = screen.getByRole("dialog", { name: title });
+       |                         ^
+     36|   const control = prepare(dialog);
+     37|   expect(apply).not.toHaveBeenCalled();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  tests/ui/i18n-chat-knowledge-actions.test.tsx > localizes 'revoke' without resetting entered data, selected IDs or submitting on locale
+TestingLibraryElementError: Unable to find an accessible element with the role "dialog" and name "Forget this memory?"
+
+Here are the accessible roles:
+
+  dialog:
+
+  Name "忘掉这条记忆？":
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:r5:"[39m
+    [33maria-labelledby[39m=[32m"radix-:r4:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"kg-delete-confirm-claim-one"[39m
+    [33mid[39m=[32m"radix-:r3:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "忘掉这条记忆？":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+    [33mid[39m=[32m"radix-:r4:"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+    [33mid[39m=[32m"radix-:r5:"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"rounded-md bg-muted p-2 text-11 text-muted-foreground"[39m
+    [33mdata-testid[39m=[32m"kg-delete-impact-claim-one"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "取消":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"kg-delete-cancel-claim-one"[39m
+  [36m/>[39m
+
+  Name "忘掉这条":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-destructive text-destructive-foreground hover:bg-destructive-hover active:scale-[0.98] h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"kg-delete-confirm-btn-claim-one"[39m
+  [36m/>[39m
+
+  Name "Close":
+  [36m<button[39m
+    [33maria-label[39m=[32m"Close"[39m
+    [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"dialog-close"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mdata-scroll-locked[39m=[32m"1"[39m
+  [33mstyle[39m=[32m"pointer-events: none;"[39m
+[36m>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:r5:"[39m
+    [33maria-labelledby[39m=[32m"radix-:r4:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"kg-delete-confirm-claim-one"[39m
+    [33mid[39m=[32m"radix-:r3:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col gap-1"[39m
+    [36m>[39m
+      [36m<h2[39m
+        [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+        [33mid[39m=[32m"radix-:r4:"[39m
+      [36m>[39m
+        [0m忘掉这条记忆？[0m
+      [36m</h2>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [33mid[39m=[32m"radix-:r5:"[39m
+      [36m>[39m
+        [0m忘掉不是彻底抹除：这条会退出关系图和之后的召回，反对它的证据仍留在记录里。 你记到长期记忆里的副本会同时失效。此操作会在 5 分钟内影响之后的回答。[0m
+      [36m</p>[39m
+    [36m</div>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"rounded-md bg-muted p-2 text-11 text-muted-foreground"[39m
+      [33mdata-testid[39m=[32m"kg-delete-impact-claim-one"[39m
+    [36m>[39m
+      [0m「[0m
+      [0m原始记忆 {count} const value = '{locale}';[0m
+      [0m」[0m
+    [36m</p>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mt-1 flex items-center justify-end gap-2"[39m
+    [36m>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+        [33mdata-testid[39m=[32m"kg-delete-cancel-claim-one"[39m
+      [36m>[39m
+        [0m取消[0m
+      [36m</button>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-destructive text-destructive-foreground hover:bg-destructive-hover active:scale-[0.98] h-7 px-2.5 text-12"[39m
+        [33mdata-testid[39m=[32m"kg-delete-confirm-btn-claim-one"[39m
+      [36m>[39m
+        [0m忘掉这条[0m
+      [36m</button>[39m
+    [36m</div>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"Close"[39m
+      [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"dialog-close"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M18 6 6 18"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m6 6 12 12"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-knowledge-actions.test.tsx:35:25
+     33|   const close = vi.fn();
+     34|   render(<I18nProvider initialLocale="en"><Driver /><ClaimActionDialog…
+     35|   const dialog = screen.getByRole("dialog", { name: title });
+       |                         ^
+     36|   const control = prepare(dialog);
+     37|   expect(apply).not.toHaveBeenCalled();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  tests/ui/i18n-chat-knowledge-actions.test.tsx > localizes 'contest' without resetting entered data, selected IDs or submitting on locale
+TestingLibraryElementError: Unable to find an accessible element with the role "dialog" and name "Which memory conflicts?"
+
+Here are the accessible roles:
+
+  dialog:
+
+  Name "和哪一条有矛盾？":
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:r8:"[39m
+    [33maria-labelledby[39m=[32m"radix-:r7:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"kg-contest-dialog-claim-one"[39m
+    [33mid[39m=[32m"radix-:r6:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "和哪一条有矛盾？":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+    [33mid[39m=[32m"radix-:r7:"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+    [33mid[39m=[32m"radix-:r8:"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  radiogroup:
+
+  Name "":
+  [36m<div[39m
+    [33mclass[39m=[32m"flex max-h-48 flex-col gap-1 overflow-y-auto rounded-md border border-border-subtle p-1.5"[39m
+    [33mrole[39m=[32m"radiogroup"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  radio:
+
+  Name "另一条原始记忆 {raw}":
+  [36m<input[39m
+    [33mdata-testid[39m=[32m"kg-contest-target-claim-one-claim-two"[39m
+    [33mname[39m=[32m"contest-claim-one"[39m
+    [33mtype[39m=[32m"radio"[39m
+    [33mvalue[39m=[32m"claim-two"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "取消":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"kg-contest-cancel-claim-one"[39m
+  [36m/>[39m
+
+  Name "标为有矛盾":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"kg-contest-submit-claim-one"[39m
+    [33mdisabled[39m=[32m""[39m
+  [36m/>[39m
+
+  Name "Close":
+  [36m<button[39m
+    [33maria-label[39m=[32m"Close"[39m
+    [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"dialog-close"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mdata-scroll-locked[39m=[32m"1"[39m
+  [33mstyle[39m=[32m"pointer-events: none;"[39m
+[36m>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:r8:"[39m
+    [33maria-labelledby[39m=[32m"radix-:r7:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"kg-contest-dialog-claim-one"[39m
+    [33mid[39m=[32m"radix-:r6:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col gap-1"[39m
+    [36m>[39m
+      [36m<h2[39m
+        [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+        [33mid[39m=[32m"radix-:r7:"[39m
+      [36m>[39m
+        [0m和哪一条有矛盾？[0m
+      [36m</h2>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [33mid[39m=[32m"radix-:r8:"[39m
+      [36m>[39m
+        [0m两条都会标成「有矛盾」，之后由你决定保留哪条。[0m
+      [36m</p>[39m
+    [36m</div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex max-h-48 flex-col gap-1 overflow-y-auto rounded-md border border-border-subtle p-1.5"[39m
+      [33mrole[39m=[32m"radiogroup"[39m
+    [36m>[39m
+      [36m<label[39m
+        [33mclass[39m=[32m"flex cursor-pointer items-center gap-2 rounded-control px-1.5 py-1 text-12 transition-colors duration-base hover:bg-muted"[39m
+      [36m>[39m
+        [36m<input[39m
+          [33mdata-testid[39m=[32m"kg-contest-target-claim-one-claim-two"[39m
+          [33mname[39m=[32m"contest-claim-one"[39m
+          [33mtype[39m=[32m"radio"[39m
+          [33mvalue[39m=[32m"claim-two"[39m
+        [36m/>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-background-foreground"[39m
+        [36m>[39m
+          [0m另一条原始记忆 {raw}[0m
+        [36m</span>[39m
+      [36m</label>[39m
+    [36m</div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mt-1 flex items-center justify-end gap-2"[39m
+    [36m>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+        [33mdata-testid[39m=[32m"kg-contest-cancel-claim-one"[39m
+      [36m>[39m
+        [0m取消[0m
+      [36m</button>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+        [33mdata-testid[39m=[32m"kg-contest-submit-claim-one"[39m
+        [33mdisabled[39m=[32m""[39m
+      [36m>[39m
+        [0m标为有矛盾[0m
+      [36m</button>[39m
+    [36m</div>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"Close"[39m
+      [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"dialog-close"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M18 6 6 18"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m6 6 12 12"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-knowledge-actions.test.tsx:35:25
+     33|   const close = vi.fn();
+     34|   render(<I18nProvider initialLocale="en"><Driver /><ClaimActionDialog…
+     35|   const dialog = screen.getByRole("dialog", { name: title });
+       |                         ^
+     36|   const control = prepare(dialog);
+     37|   expect(apply).not.toHaveBeenCalled();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ FAIL  tests/ui/i18n-chat-knowledge-actions.test.tsx > localizes 'merge' without resetting entered data, selected IDs or submitting on locale
+TestingLibraryElementError: Unable to find an accessible element with the role "dialog" and name "Merge people and things"
+
+Here are the accessible roles:
+
+  dialog:
+
+  Name "合并两个人和事":
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:rb:"[39m
+    [33maria-labelledby[39m=[32m"radix-:ra:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"kg-merge-dialog-claim-one"[39m
+    [33mid[39m=[32m"radix-:r9:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "合并两个人和事":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+    [33mid[39m=[32m"radix-:ra:"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+    [33mid[39m=[32m"radix-:rb:"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-11 font-medium text-muted-foreground"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-11 font-medium text-muted-foreground"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  radiogroup:
+
+  Name "":
+  [36m<div[39m
+    [33mclass[39m=[32m"flex max-h-48 flex-col gap-1 overflow-y-auto rounded-md border border-border-subtle p-1.5"[39m
+    [33mrole[39m=[32m"radiogroup"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<div[39m
+    [33mclass[39m=[32m"flex max-h-48 flex-col gap-1 overflow-y-auto rounded-md border border-border-subtle p-1.5"[39m
+    [33mrole[39m=[32m"radiogroup"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  radio:
+
+  Name "组织人名 one {name}人物":
+  [36m<input[39m
+    [33mchecked[39m=[32m""[39m
+    [33mdata-testid[39m=[32m"kg-merge-keep-claim-one-one"[39m
+    [33mname[39m=[32m"merge-keep-claim-one"[39m
+    [33mtype[39m=[32m"radio"[39m
+    [33mvalue[39m=[32m"one"[39m
+  [36m/>[39m
+
+  Name "组织人名 two {name}人物":
+  [36m<input[39m
+    [33mdata-testid[39m=[32m"kg-merge-other-claim-one-two"[39m
+    [33mname[39m=[32m"merge-other-claim-one"[39m
+    [33mtype[39m=[32m"radio"[39m
+    [33mvalue[39m=[32m"two"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "取消":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"kg-merge-cancel-claim-one"[39m
+  [36m/>[39m
+
+  Name "合并":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"kg-merge-submit-claim-one"[39m
+    [33mdisabled[39m=[32m""[39m
+  [36m/>[39m
+
+  Name "Close":
+  [36m<button[39m
+    [33maria-label[39m=[32m"Close"[39m
+    [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"dialog-close"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mdata-scroll-locked[39m=[32m"1"[39m
+  [33mstyle[39m=[32m"pointer-events: none;"[39m
+[36m>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:rb:"[39m
+    [33maria-labelledby[39m=[32m"radix-:ra:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"kg-merge-dialog-claim-one"[39m
+    [33mid[39m=[32m"radix-:r9:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col gap-1"[39m
+    [36m>[39m
+      [36m<h2[39m
+        [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+        [33mid[39m=[32m"radix-:ra:"[39m
+      [36m>[39m
+        [0m合并两个人和事[0m
+      [36m</h2>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [33mid[39m=[32m"radix-:rb:"[39m
+      [36m>[39m
+        [0m把重复的那个并进保留的这个，提到它的记忆都会改指向保留的这个。[0m
+      [36m</p>[39m
+    [36m</div>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-11 font-medium text-muted-foreground"[39m
+    [36m>[39m
+      [0m保留[0m
+    [36m</p>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex max-h-48 flex-col gap-1 overflow-y-auto rounded-md border border-border-subtle p-1.5"[39m
+      [33mrole[39m=[32m"radiogroup"[39m
+    [36m>[39m
+      [36m<label[39m
+        [33mclass[39m=[32m"flex cursor-pointer items-center gap-2 rounded-control px-1.5 py-1 text-12 transition-colors duration-base hover:bg-muted"[39m
+      [36m>[39m
+        [36m<input[39m
+          [33mchecked[39m=[32m""[39m
+          [33mdata-testid[39m=[32m"kg-merge-keep-claim-one-one"[39m
+          [33mname[39m=[32m"merge-keep-claim-one"[39m
+          [33mtype[39m=[32m"radio"[39m
+          [33mvalue[39m=[32m"one"[39m
+        [36m/>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-background-foreground"[39m
+        [36m>[39m
+          [0m组织人名 one {name}[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-10 text-muted-foreground"[39m
+        [36m>[39m
+          [0m人物[0m
+        [36m</span>[39m
+      [36m</label>[39m
+    [36m</div>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-11 font-medium text-muted-foreground"[39m
+    [36m>[39m
+      [0m并入[0m
+      [0m「组织人名 one {name}」[0m
+      [0m的是[0m
+    [36m</p>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex max-h-48 flex-col gap-1 overflow-y-auto rounded-md border border-border-subtle p-1.5"[39m
+      [33mrole[39m=[32m"radiogroup"[39m
+    [36m>[39m
+      [36m<label[39m
+        [33mclass[39m=[32m"flex cursor-pointer items-center gap-2 rounded-control px-1.5 py-1 text-12 transition-colors duration-base hover:bg-muted"[39m
+      [36m>[39m
+        [36m<input[39m
+          [33mdata-testid[39m=[32m"kg-merge-other-claim-one-two"[39m
+          [33mname[39m=[32m"merge-other-claim-one"[39m
+          [33mtype[39m=[32m"radio"[39m
+          [33mvalue[39m=[32m"two"[39m
+        [36m/>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-background-foreground"[39m
+        [36m>[39m
+          [0m组织人名 two {name}[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-10 text-muted-foreground"[39m
+        [36m>[39m
+          [0m人物[0m
+        [36m</span>[39m
+      [36m</label>[39m
+    [36m</div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mt-1 flex items-center justify-end gap-2"[39m
+    [36m>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+        [33mdata-testid[39m=[32m"kg-merge-cancel-claim-one"[39m
+      [36m>[39m
+        [0m取消[0m
+      [36m</button>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+        [33mdata-testid[39m=[32m"kg-merge-submit-claim-one"[39m
+        [33mdisabled[39m=[32m""[39m
+      [36m>[39m
+        [0m合并[0m
+      [36m</button>[39m
+    [36m</div>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"Close"[39m
+      [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"dialog-close"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M18 6 6 18"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m6 6 12 12"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-knowledge-actions.test.tsx:35:25
+     33|   const close = vi.fn();
+     34|   render(<I18nProvider initialLocale="en"><Driver /><ClaimActionDialog…
+     35|   const dialog = screen.getByRole("dialog", { name: title });
+       |                         ^
+     36|   const control = prepare(dialog);
+     37|   expect(apply).not.toHaveBeenCalled();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+
+ FAIL  tests/ui/i18n-chat-knowledge-actions.test.tsx > localizes 'split' without resetting entered data, selected IDs or submitting on locale
+TestingLibraryElementError: Unable to find an accessible element with the role "dialog" and name "Split a person or thing"
+
+Here are the accessible roles:
+
+  dialog:
+
+  Name "拆分人和事":
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:re:"[39m
+    [33maria-labelledby[39m=[32m"radix-:rd:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"kg-split-dialog-claim-one"[39m
+    [33mid[39m=[32m"radix-:rc:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "拆分人和事":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+    [33mid[39m=[32m"radix-:rd:"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+    [33mid[39m=[32m"radix-:re:"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-11 font-medium text-muted-foreground"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  radiogroup:
+
+  Name "":
+  [36m<div[39m
+    [33mclass[39m=[32m"flex max-h-48 flex-col gap-1 overflow-y-auto rounded-md border border-border-subtle p-1.5"[39m
+    [33mrole[39m=[32m"radiogroup"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  radio:
+
+  Name "组织人名 one {name}人物":
+  [36m<input[39m
+    [33mchecked[39m=[32m""[39m
+    [33mdata-testid[39m=[32m"kg-split-object-claim-one-one"[39m
+    [33mname[39m=[32m"split-object-claim-one"[39m
+    [33mtype[39m=[32m"radio"[39m
+    [33mvalue[39m=[32m"one"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  textbox:
+
+  Name "新的名字":
+  [36m<input[39m
+    [33maria-label[39m=[32m"新的名字"[39m
+    [33mclass[39m=[32m"flex h-9 min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"[39m
+    [33mdata-testid[39m=[32m"kg-split-name-claim-one"[39m
+    [33mmaxlength[39m=[32m"200"[39m
+    [33mplaceholder[39m=[32m"新的名字"[39m
+    [33mvalue[39m=[32m""[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  checkbox:
+
+  Name "原始记忆 {count} const value = '{locale}';":
+  [36m<input[39m
+    [33mchecked[39m=[32m""[39m
+    [33mdata-testid[39m=[32m"kg-split-claim-claim-one-claim-one"[39m
+    [33mtype[39m=[32m"checkbox"[39m
+  [36m/>[39m
+
+  Name "另一条原始记忆 {raw}":
+  [36m<input[39m
+    [33mdata-testid[39m=[32m"kg-split-claim-claim-one-claim-two"[39m
+    [33mtype[39m=[32m"checkbox"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "取消":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"kg-split-cancel-claim-one"[39m
+  [36m/>[39m
+
+  Name "拆分":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"kg-split-submit-claim-one"[39m
+    [33mdisabled[39m=[32m""[39m
+  [36m/>[39m
+
+  Name "Close":
+  [36m<button[39m
+    [33maria-label[39m=[32m"Close"[39m
+    [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"dialog-close"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mdata-scroll-locked[39m=[32m"1"[39m
+  [33mstyle[39m=[32m"pointer-events: none;"[39m
+[36m>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:re:"[39m
+    [33maria-labelledby[39m=[32m"radix-:rd:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"kg-split-dialog-claim-one"[39m
+    [33mid[39m=[32m"radix-:rc:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col gap-1"[39m
+    [36m>[39m
+      [36m<h2[39m
+        [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+        [33mid[39m=[32m"radix-:rd:"[39m
+      [36m>[39m
+        [0m拆分人和事[0m
+      [36m</h2>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [33mid[39m=[32m"radix-:re:"[39m
+      [36m>[39m
+        [0m其实是两个不同的人或事时，拆出一个新的，并选哪些记忆跟着新的走。[0m
+      [36m</p>[39m
+    [36m</div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex max-h-48 flex-col gap-1 overflow-y-auto rounded-md border border-border-subtle p-1.5"[39m
+      [33mrole[39m=[32m"radiogroup"[39m
+    [36m>[39m
+      [36m<label[39m
+        [33mclass[39m=[32m"flex cursor-pointer items-center gap-2 rounded-control px-1.5 py-1 text-12 transition-colors duration-base hover:bg-muted"[39m
+      [36m>[39m
+        [36m<input[39m
+          [33mchecked[39m=[32m""[39m
+          [33mdata-testid[39m=[32m"kg-split-object-claim-one-one"[39m
+          [33mname[39m=[32m"split-object-claim-one"[39m
+          [33mtype[39m=[32m"radio"[39m
+          [33mvalue[39m=[32m"one"[39m
+        [36m/>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-background-foreground"[39m
+        [36m>[39m
+          [0m组织人名 one {name}[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-10 text-muted-foreground"[39m
+        [36m>[39m
+          [0m人物[0m
+        [36m</span>[39m
+      [36m</label>[39m
+    [36m</div>[39m
+    [36m<input[39m
+      [33maria-label[39m=[32m"新的名字"[39m
+      [33mclass[39m=[32m"flex h-9 min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"[39m
+      [33mdata-testid[39m=[32m"kg-split-name-claim-one"[39m
+      [33mmaxlength[39m=[32m"200"[39m
+      [33mplaceholder[39m=[32m"新的名字"[39m
+      [33mvalue[39m=[32m""[39m
+    [36m/>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-11 font-medium text-muted-foreground"[39m
+    [36m>[39m
+      [0m跟着新的走的记忆[0m
+    [36m</p>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex max-h-40 flex-col gap-1 overflow-y-auto"[39m
+    [36m>[39m
+      [36m<label[39m
+        [33mclass[39m=[32m"flex items-center gap-2 text-12"[39m
+      [36m>[39m
+        [36m<input[39m
+          [33mchecked[39m=[32m""[39m
+          [33mdata-testid[39m=[32m"kg-split-claim-claim-one-claim-one"[39m
+          [33mtype[39m=[32m"checkbox"[39m
+        [36m/>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-background-foreground"[39m
+        [36m>[39m
+          [0m原始记忆 {count} const value = '{locale}';[0m
+        [36m</span>[39m
+      [36m</label>[39m
+      [36m<label[39m
+        [33mclass[39m=[32m"flex items-center gap-2 text-12"[39m
+      [36m>[39m
+        [36m<input[39m
+          [33mdata-testid[39m=[32m"kg-split-claim-claim-one-claim-two"[39m
+          [33mtype[39m=[32m"checkbox"[39m
+        [36m/>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-background-foreground"[39m
+        [36m>[39m
+          [0m另一条原始记忆 {raw}[0m
+        [36m</span>[39m
+      [36m</label>[39m
+    [36m</div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mt-1 flex items-center justify-end gap-2"[39m
+    [36m>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+        [33mdata-testid[39m=[32m"kg-split-cancel-claim-one"[39m
+      [36m>[39m
+        [0m取消[0m
+      [36m</button>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+        [33mdata-testid[39m=[32m"kg-split-submit-claim-one"[39m
+        [33mdisabled[39m=[32m""[39m
+      [36m>[39m
+        [0m拆分[0m
+      [36m</button>[39m
+    [36m</div>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"Close"[39m
+      [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"dialog-close"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M18 6 6 18"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m6 6 12 12"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-knowledge-actions.test.tsx:35:25
+     33|   const close = vi.fn();
+     34|   render(<I18nProvider initialLocale="en"><Driver /><ClaimActionDialog…
+     35|   const dialog = screen.getByRole("dialog", { name: title });
+       |                         ^
+     36|   const control = prepare(dialog);
+     37|   expect(apply).not.toHaveBeenCalled();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯
+
+ FAIL  tests/ui/i18n-chat-knowledge-actions.test.tsx > localizes 'rename' without resetting entered data, selected IDs or submitting on locale
+TestingLibraryElementError: Unable to find an accessible element with the role "dialog" and name "Rename"
+
+Here are the accessible roles:
+
+  dialog:
+
+  Name "改名":
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:rh:"[39m
+    [33maria-labelledby[39m=[32m"radix-:rg:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"kg-rename-dialog-claim-one"[39m
+    [33mid[39m=[32m"radix-:rf:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "改名":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+    [33mid[39m=[32m"radix-:rg:"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+    [33mid[39m=[32m"radix-:rh:"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  radiogroup:
+
+  Name "":
+  [36m<div[39m
+    [33mclass[39m=[32m"flex max-h-48 flex-col gap-1 overflow-y-auto rounded-md border border-border-subtle p-1.5"[39m
+    [33mrole[39m=[32m"radiogroup"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  radio:
+
+  Name "组织人名 one {name}人物":
+  [36m<input[39m
+    [33mchecked[39m=[32m""[39m
+    [33mdata-testid[39m=[32m"kg-rename-object-claim-one-one"[39m
+    [33mname[39m=[32m"rename-object-claim-one"[39m
+    [33mtype[39m=[32m"radio"[39m
+    [33mvalue[39m=[32m"one"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  textbox:
+
+  Name "新的名字":
+  [36m<input[39m
+    [33maria-label[39m=[32m"新的名字"[39m
+    [33mclass[39m=[32m"flex h-9 min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"[39m
+    [33mdata-testid[39m=[32m"kg-rename-input-claim-one"[39m
+    [33mmaxlength[39m=[32m"200"[39m
+    [33mvalue[39m=[32m"组织人名 one {name}"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "取消":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"kg-rename-cancel-claim-one"[39m
+  [36m/>[39m
+
+  Name "保存":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"kg-rename-submit-claim-one"[39m
+    [33mdisabled[39m=[32m""[39m
+  [36m/>[39m
+
+  Name "Close":
+  [36m<button[39m
+    [33maria-label[39m=[32m"Close"[39m
+    [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"dialog-close"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mdata-scroll-locked[39m=[32m"1"[39m
+  [33mstyle[39m=[32m"pointer-events: none;"[39m
+[36m>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:rh:"[39m
+    [33maria-labelledby[39m=[32m"radix-:rg:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"kg-rename-dialog-claim-one"[39m
+    [33mid[39m=[32m"radix-:rf:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col gap-1"[39m
+    [36m>[39m
+      [36m<h2[39m
+        [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+        [33mid[39m=[32m"radix-:rg:"[39m
+      [36m>[39m
+        [0m改名[0m
+      [36m</h2>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [33mid[39m=[32m"radix-:rh:"[39m
+      [36m>[39m
+        [0m改的是人和事的名字，提到它的记忆会一起跟着改。[0m
+      [36m</p>[39m
+    [36m</div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex max-h-48 flex-col gap-1 overflow-y-auto rounded-md border border-border-subtle p-1.5"[39m
+      [33mrole[39m=[32m"radiogroup"[39m
+    [36m>[39m
+      [36m<label[39m
+        [33mclass[39m=[32m"flex cursor-pointer items-center gap-2 rounded-control px-1.5 py-1 text-12 transition-colors duration-base hover:bg-muted"[39m
+      [36m>[39m
+        [36m<input[39m
+          [33mchecked[39m=[32m""[39m
+          [33mdata-testid[39m=[32m"kg-rename-object-claim-one-one"[39m
+          [33mname[39m=[32m"rename-object-claim-one"[39m
+          [33mtype[39m=[32m"radio"[39m
+          [33mvalue[39m=[32m"one"[39m
+        [36m/>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-background-foreground"[39m
+        [36m>[39m
+          [0m组织人名 one {name}[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-10 text-muted-foreground"[39m
+        [36m>[39m
+          [0m人物[0m
+        [36m</span>[39m
+      [36m</label>[39m
+    [36m</div>[39m
+    [36m<input[39m
+      [33maria-label[39m=[32m"新的名字"[39m
+      [33mclass[39m=[32m"flex h-9 min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"[39m
+      [33mdata-testid[39m=[32m"kg-rename-input-claim-one"[39m
+      [33mmaxlength[39m=[32m"200"[39m
+      [33mvalue[39m=[32m"组织人名 one {name}"[39m
+    [36m/>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mt-1 flex items-center justify-end gap-2"[39m
+    [36m>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+        [33mdata-testid[39m=[32m"kg-rename-cancel-claim-one"[39m
+      [36m>[39m
+        [0m取消[0m
+      [36m</button>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+        [33mdata-testid[39m=[32m"kg-rename-submit-claim-one"[39m
+        [33mdisabled[39m=[32m""[39m
+      [36m>[39m
+        [0m保存[0m
+      [36m</button>[39m
+    [36m</div>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"Close"[39m
+      [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"dialog-close"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M18 6 6 18"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m6 6 12 12"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-knowledge-actions.test.tsx:35:25
+     33|   const close = vi.fn();
+     34|   render(<I18nProvider initialLocale="en"><Driver /><ClaimActionDialog…
+     35|   const dialog = screen.getByRole("dialog", { name: title });
+       |                         ^
+     36|   const control = prepare(dialog);
+     37|   expect(apply).not.toHaveBeenCalled();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  6 failed | 3 passed (9)
+   Start at  12:32:14
+   Duration  3.33s (transform 497ms, setup 192ms, collect 953ms, tests 665ms, environment 1.00s, prepare 86ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/i18n-chat-knowledge-graph.test.tsx tests/ui/i18n-chat-knowledge-actions.test.tsx --maxWorkers=1 --minWorkers=1

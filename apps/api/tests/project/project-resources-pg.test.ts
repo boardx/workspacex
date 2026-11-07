@@ -256,3 +256,40 @@ describe("#4615 W2：访谈 / 白板 / 设计（真实 PG）", () => {
     expect(await unlinkProjectResource(deps, cmd)).toEqual({ removed: false });
   });
 });
+
+it('projects canonical interview status with archive and legacy precedence', async () => {
+  const {createHash}=await import('node:crypto');
+  await asApp(ORG,async c=>{
+    await c.query("UPDATE interview_sessions SET digital_status='topic_pending',source_kind='virtual' WHERE org_id=$1 AND id='i1'",[ORG]);
+    await c.query("INSERT INTO digital_interview_revisions(org_id,id,interview_id,revision_number,created_by) VALUES($1,'project-status-rev','i1',2,$2)",[ORG,OWNER]);
+    await c.query("INSERT INTO digital_interview_revisions(org_id,id,interview_id,revision_number,created_by,is_current,superseded_at) VALUES($1,'project-status-old','i1',1,$2,false,now())",[ORG,OWNER]);
+    const oldMarkdown="# Historical failure";
+    await c.query(`INSERT INTO digital_interview_artifact_versions(org_id,artifact_id,interview_id,revision_id,step,version_number,title,markdown,status,evidence_mode,content_source,content_hash,failure) VALUES($1,'project-status-old-report','i1','project-status-old','report',1,'old',$2,'failed','simulated','markdown-v1',$3,'{"code":"AI_GENERATION_UNAVAILABLE","retryable":true}'::jsonb)`,[ORG,oldMarkdown,createHash('sha256').update(oldMarkdown).digest('hex')]);
+    for(const [step,status] of [['runs','completed'],['report','draft']]){
+      const markdown=`# ${step}\n真实保存的状态投影证据`;
+      await c.query(`INSERT INTO digital_interview_artifact_versions(org_id,artifact_id,interview_id,revision_id,step,version_number,title,markdown,status,evidence_mode,content_source,content_hash) VALUES($1,$2,'i1','project-status-rev',$3,1,$3,$4,$5,'simulated','markdown-v1',$6)`,[ORG,`project-status-${step}`,step,markdown,status,createHash('sha256').update(markdown).digest('hex')]);
+    }
+  });
+  const interview=async()=> (await listProjectResources(deps,asUser(OBSERVER))).items.find(item=>item.id==='i1');
+  expect((await interview())?.status).toBe('completed');
+  const {PgDigitalInterviewRepository}=await import('../../src/infrastructure/interview/pg-digital-interview-repository');
+  const {discloseDecided,isDisclosed}=await import('../../src/application/security/permission-filter');
+  const homeRows=await new PgDigitalInterviewRepository(db).listVisible({orgId:ORG_ID,viewerUserId:OBSERVER});
+  const home=homeRows.find(row=>row.item.ref.id==='i1');
+  expect(home).toBeDefined();
+  const disclosed=discloseDecided(home!.item,{allowed:true,decisionId:'project-status-read-model'} as never);
+  expect(isDisclosed(disclosed)&&disclosed.payload.status).toBe('completed');
+  await asApp(ORG,async c=>{
+    const markdown="# Failed current report";
+    await c.query(`INSERT INTO digital_interview_artifact_versions(org_id,artifact_id,interview_id,revision_id,step,version_number,title,markdown,status,evidence_mode,content_source,content_hash,failure) VALUES($1,'project-status-report-2','i1','project-status-rev','report',2,'report',$2,'failed','simulated','markdown-v1',$3,'{"code":"AI_GENERATION_UNAVAILABLE","retryable":true}'::jsonb)`,[ORG,markdown,createHash('sha256').update(markdown).digest('hex')]);
+  });
+  expect((await interview())?.status).toBe('failed');
+  await asApp(ORG,c=>c.query("UPDATE interview_sessions SET archived=true WHERE org_id=$1 AND id='i1'",[ORG]));
+  expect((await interview())?.status).toBe('archived');
+  await asApp(ORG,c=>c.query("UPDATE interview_sessions SET archived=false WHERE org_id=$1 AND id='i1'",[ORG]));
+  await asApp(ORG,c=>c.query("INSERT INTO interview_sessions(id,org_id,project_id,source_kind,title,created_by,digital_status) VALUES('project-status-legacy',$1,$2,'virtual','Legacy',$3,'topic_pending')",[ORG,P_A,OWNER]));
+  const legacy=(await listProjectResources(deps,asUser(OBSERVER))).items.find(item=>item.id==='project-status-legacy');
+  expect(legacy?.status).toBe('topic_pending');
+  const raw=await asApp(ORG,c=>c.query("SELECT digital_status FROM interview_sessions WHERE org_id=$1 AND id='i1'",[ORG]));
+  expect(raw.rows[0].digital_status).toBe('topic_pending');
+});

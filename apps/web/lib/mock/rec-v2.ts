@@ -1,3 +1,5 @@
+import { RECORDING_DISPLAY_ZH, formatRecordingDisplayCopy } from "@/lib/recording-display-copy";
+
 /**
  * rec-v2 补画三屏的 mock 数据 —— 准备室（逐人×三项授权矩阵）/ 处理状态 / 逐字稿校对。
  *
@@ -22,16 +24,16 @@
 
 export type AuthzValue = "allow" | "deny" | "pending";
 export const AUTHZ_LABEL: Record<AuthzValue, string> = {
-  allow: "允许",
-  deny: "拒绝",
-  pending: "待签",
+  allow: RECORDING_DISPLAY_ZH["rec.project.auth.allow"],
+  deny: RECORDING_DISPLAY_ZH["rec.project.auth.deny"],
+  pending: RECORDING_DISPLAY_ZH["rec.project.auth.pending"],
 };
 export const AUTHZ_COLS = ["record", "transcribe", "aiAnalysis"] as const;
 export type AuthzCol = (typeof AUTHZ_COLS)[number];
 export const AUTHZ_COL_LABEL: Record<AuthzCol, string> = {
-  record: "录音",
-  transcribe: "转录",
-  aiAnalysis: "AI 分析",
+  record: RECORDING_DISPLAY_ZH["rec.project.consentLabel.record"],
+  transcribe: RECORDING_DISPLAY_ZH["rec.project.tasks.transcribe"],
+  aiAnalysis: RECORDING_DISPLAY_ZH["rec.project.auth.aiAnalysis"],
 };
 
 export interface PrepParticipant {
@@ -70,10 +72,10 @@ export const PREP_CAN_START = PREP_INCOMPLETE.length === 0;
 export type CheckState = "ok" | "warn";
 export interface PrepCheck { id: string; label: string; state: CheckState; }
 export const PREP_CHECKS: PrepCheck[] = [
-  { id: "mic", label: "麦克风 · 输入正常", state: "ok" },
-  { id: "storage", label: "本地存储 · 可录 6.5 小时", state: "ok" },
-  { id: "lang", label: "转录语言 · 德语→中文", state: "ok" },
-  { id: "voiceprint", label: "声纹校准 · P-12 未采样", state: "warn" },
+  { id: "mic", label: RECORDING_DISPLAY_ZH["rec.project.checks.mic"], state: "ok" },
+  { id: "storage", label: RECORDING_DISPLAY_ZH["rec.project.checks.storage"], state: "ok" },
+  { id: "lang", label: RECORDING_DISPLAY_ZH["rec.project.checks.lang"], state: "ok" },
+  { id: "voiceprint", label: RECORDING_DISPLAY_ZH["rec.project.checks.voiceprint"], state: "warn" },
 ];
 
 /** 发言人标签（校准态） */
@@ -89,20 +91,20 @@ export const PREP_SPEAKER_LABELS: PrepSpeakerLabel[] = [
 export const PREP_MATERIALS = ["责任归属清单原型 v3", "三条路径对比一页纸"];
 
 export const PREP_META = {
-  title: "准备室 · 访谈 11",
-  startDisabledLabel: "开始访谈 · 待 P-12 授权",
-  startEnabledLabel: "开始访谈",
-  footnote: "未完成授权前，系统不会开启录音、转录与任何 AI 分析。",
+  title: RECORDING_DISPLAY_ZH["rec.project.prep.title"],
+  startDisabledLabel: RECORDING_DISPLAY_ZH["rec.project.prep.startDisabled"],
+  startEnabledLabel: RECORDING_DISPLAY_ZH["rec.project.prep.start"],
+  footnote: RECORDING_DISPLAY_ZH["rec.project.prep.footnote"],
 } as const;
 
 /* ─────────────────────── 处理状态 · 六任务独立报状态（16121854）─────────────────────── */
 
 export type TaskState = "done" | "running" | "failed" | "blocked";
 export const TASK_STATE_LABEL: Record<TaskState, string> = {
-  done: "完成",
-  running: "进行中",
-  failed: "失败",
-  blocked: "等待前序",
+  done: RECORDING_DISPLAY_ZH["rec.project.state.done"],
+  running: RECORDING_DISPLAY_ZH["rec.project.state.running"],
+  failed: RECORDING_DISPLAY_ZH["rec.project.state.failed"],
+  blocked: RECORDING_DISPLAY_ZH["rec.project.state.blocked"],
 };
 
 export interface ProcessingTask {
@@ -117,21 +119,21 @@ export interface ProcessingTask {
 }
 
 export const PROCESSING_TASKS: ProcessingTask[] = [
-  { id: "upload", label: "音频上传", state: "done", detail: "412 MB · 完成" },
-  { id: "transcribe", label: "转录", state: "done", detail: "1,284 句 · 完成" },
-  { id: "diarize", label: "发言人识别", state: "running", detail: "92% · 14 句待人工指派" },
-  { id: "mask", label: "敏感信息遮盖", state: "done", detail: "3 处 · 完成" },
+  { id: "upload", label: RECORDING_DISPLAY_ZH["rec.project.tasks.upload"], state: "done", detail: formatRecordingDisplayCopy("rec.project.taskDetail.upload", { amount: "412 MB" }) },
+  { id: "transcribe", label: RECORDING_DISPLAY_ZH["rec.project.tasks.transcribe"], state: "done", detail: formatRecordingDisplayCopy("rec.project.taskDetail.transcribe", { count: "1,284" }) },
+  { id: "diarize", label: RECORDING_DISPLAY_ZH["rec.project.tasks.diarize"], state: "running", detail: formatRecordingDisplayCopy("rec.project.taskDetail.diarize", { percent: 92, count: 14 }) },
+  { id: "mask", label: RECORDING_DISPLAY_ZH["rec.project.tasks.mask"], state: "done", detail: formatRecordingDisplayCopy("rec.project.taskDetail.mask", { count: 3 }) },
   {
-    id: "translate", label: "德语→中文对照翻译", state: "failed", detail: "本地模型队列超时（第 3 次）",
-    failNote: "本地模型队列超时（第 3 次）· 音频与原文不受影响", retryable: true,
+    id: "translate", label: RECORDING_DISPLAY_ZH["rec.project.tasks.translate"], state: "failed", detail: formatRecordingDisplayCopy("rec.project.taskDetail.translate", { attempt: 3 }),
+    failNote: formatRecordingDisplayCopy("rec.project.taskFailNote", { attempt: 3 }), retryable: true,
   },
-  { id: "summary", label: "AI 摘要与证据提取", state: "blocked", detail: "等翻译完成" },
+  { id: "summary", label: RECORDING_DISPLAY_ZH["rec.project.tasks.summary"], state: "blocked", detail: RECORDING_DISPLAY_ZH["rec.project.taskDetail.summary"] },
 ];
 
 export const PROCESS_META = {
-  title: "处理状态 · 访谈 10（68 分钟）",
-  failedBadge: "1 个任务失败",
-  principle: "每个任务单独报状态，不用一个「处理中」盖住全部。失败任务不阻塞已完成的部分——你现在就可以去校对逐字稿。",
+  title: RECORDING_DISPLAY_ZH["rec.project.process.title"],
+  failedBadge: RECORDING_DISPLAY_ZH["rec.project.process.failed"],
+  principle: RECORDING_DISPLAY_ZH["rec.project.process.principle"],
 } as const;
 
 /* ─────────────────────── 逐字稿校对 · 播放器 + 改词 + 进证据库（16125909）─────────────────────── */
@@ -140,7 +142,7 @@ export interface VerifyNavSpeaker { id: string; name: string; pct: number; tone:
 export const VERIFY_NAV_SPEAKERS: VerifyNavSpeaker[] = [
   { id: "p-10", name: "P-10 Weber", pct: 61, tone: "person" },
   { id: "host", name: "林可", pct: 27, tone: "host" },
-  { id: "uncertain", name: "不确定", pct: 0, tone: "uncertain", count: 14 },
+  { id: "uncertain", name: RECORDING_DISPLAY_ZH["rec.project.verify.uncertainSpeaker"], pct: 0, tone: "uncertain", count: 14 },
 ];
 export const VERIFY_CHAPTERS = [
   { id: "bg", name: "背景与现状", active: false },
@@ -148,8 +150,8 @@ export const VERIFY_CHAPTERS = [
   { id: "vendor", name: "供应商比选", active: false },
 ];
 export const VERIFY_MARKS = [
-  { id: "quote", label: "引述", count: 11 },
-  { id: "pain", label: "痛点", count: 6 },
+  { id: "quote", label: RECORDING_DISPLAY_ZH["rec.project.quote.130"], count: 11 },
+  { id: "pain", label: RECORDING_DISPLAY_ZH["rec.project.verify.painMarker"], count: 6 },
 ];
 
 /** 逐字稿段：普通 / 低置信改词 / 发言人不确定 三类，各有行内决策出口。 */
@@ -174,28 +176,28 @@ export const VERIFY_ITEMS: VerifyItem[] = [
   {
     id: "v-2", tc: "00:32:05", kind: "low-confidence",
     text: "我们法务只认 Vertragswerk。",
-    lowConf: { term: "Vertragswerk", score: "0.42", actions: ["听这一段", "改为「合同文本」", "保留原词"] },
+    lowConf: { term: "Vertragswerk", score: "0.42", actions: [RECORDING_DISPLAY_ZH["rec.project.correction.listen"], RECORDING_DISPLAY_ZH["rec.project.correction.replace"], RECORDING_DISPLAY_ZH["rec.project.correction.keep"]] },
   },
   {
     id: "v-3", tc: "00:32:30", kind: "speaker-uncertain",
     text: "…那次其实我们也试过，但权限一直对不上。",
-    speakerUncertain: { note: "发言人不确定 · 两人重叠", actions: ["指派 Weber", "指派 Kraus", "拆成两段"] },
+    speakerUncertain: { note: RECORDING_DISPLAY_ZH["rec.project.verify.overlapHint"], actions: [RECORDING_DISPLAY_ZH["rec.project.correction.weber"], RECORDING_DISPLAY_ZH["rec.project.correction.kraus"], RECORDING_DISPLAY_ZH["rec.project.correction.split"]] },
   },
 ];
 
 /** 右栏 AI 识别的主题与证据（含「待你判断」附和处理） */
 export interface VerifyTheme { id: string; name: string; meta: string; strength: "中" | "弱"; kind: "theme" | "judge"; actions?: string[]; note?: string; }
 export const VERIFY_THEMES: VerifyTheme[] = [
-  { id: "t-1", name: "责任无人承担", meta: "3 条引述 · 1 个具体流程 · 强度：中", strength: "中", kind: "theme", actions: ["确认", "改名"] },
+  { id: "t-1", name: "责任无人承担", meta: "3 条引述 · 1 个具体流程 · 强度：中", strength: "中", kind: "theme", actions: [RECORDING_DISPLAY_ZH["rec.project.correction.confirm"], RECORDING_DISPLAY_ZH["rec.project.correction.rename"]] },
   { id: "t-2", name: "法务是隐形门槛", meta: "1 条引述 · 待追问 · 强度：弱", strength: "弱", kind: "theme" },
-  { id: "t-3", name: "待你判断", meta: "", strength: "弱", kind: "judge", note: "Kraus 的「对，我们也是这样」算不算独立证据？默认按附和处理，不计入强度。" },
+  { id: "t-3", name: RECORDING_DISPLAY_ZH["rec.project.verify.reviewNeeded"], meta: "", strength: "弱", kind: "judge", note: "Kraus 的「对，我们也是这样」算不算独立证据？默认按附和处理，不计入强度。" },
 ];
 
 export const VERIFY_META = {
-  title: "逐字稿校对 · 访谈 10",
-  pendingBadge: "14 处待确认",
-  commitLabel: "确认并入证据库",
+  title: RECORDING_DISPLAY_ZH["rec.project.verify.title"],
+  pendingBadge: RECORDING_DISPLAY_ZH["rec.project.verify.pending"],
+  commitLabel: RECORDING_DISPLAY_ZH["rec.project.verify.commit"],
   duration: "31:04 / 68:12",
   progressPct: 47,
-  evidenceNote: "确认后逐字稿才进正式证据库；未确认的内容不会被其他 Studio 检索到。",
+  evidenceNote: RECORDING_DISPLAY_ZH["rec.project.verify.evidence"],
 } as const;

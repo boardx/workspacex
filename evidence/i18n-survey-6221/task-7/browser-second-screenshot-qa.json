@@ -1,0 +1,160 @@
+{
+  "source": "b8b7ed4655a44bd7c70bc3409c87dba6ec8fe3f2",
+  "actualScreenshots": 15,
+  "plannedActual": 12,
+  "nativeFailureScreenshots": 3,
+  "wholeJourneyQaPassed": false,
+  "privacy": "Original screenshots and trace remain private; test-failed-1 contains an isolated public share capability.",
+  "screenshots": [
+    {
+      "name": "designer-raw-en-1280.png",
+      "sha256": "b52047ed4803e7c3fe58365de142ed00d87b8e02d04901e4085172fba2562309",
+      "width": 1280,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "privateOnly": true,
+      "notes": "No new material clipping, overlap or unreadable fixed controls in this captured viewport; offscreen content remains outside this verdict."
+    },
+    {
+      "name": "designer-raw-en-375.png",
+      "sha256": "6304744a307c95d1ed1424463b749cd85b435eeae061751c2cc552ce8560480f",
+      "width": 375,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "privateOnly": true,
+      "notes": "No new material clipping, overlap or unreadable fixed controls in this captured viewport; offscreen content remains outside this verdict."
+    },
+    {
+      "name": "public-validation-en-1280.png",
+      "sha256": "3a4e40138253bd59fd9fd1d3a35d16ab2ef6ae85e409f6c60da4a2d9aed23d1a",
+      "width": 1280,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "privateOnly": true,
+      "notes": "No new material clipping, overlap or unreadable fixed controls in this captured viewport; offscreen content remains outside this verdict."
+    },
+    {
+      "name": "public-validation-en-375.png",
+      "sha256": "15adb85304abe6986da729fc97e6ca9202096b2d9d85c352a03fd252f684d4bf",
+      "width": 375,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "privateOnly": true,
+      "notes": "No new material clipping, overlap or unreadable fixed controls in this captured viewport; offscreen content remains outside this verdict."
+    },
+    {
+      "name": "publication-en-1280.png",
+      "sha256": "762837a4cd31d003c9beda6d44ee1228932505f3208c1c049e72f2650ca995dc",
+      "width": 1280,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "privateOnly": true,
+      "notes": "No new material clipping, overlap or unreadable fixed controls in this captured viewport; offscreen content remains outside this verdict."
+    },
+    {
+      "name": "publication-en-375.png",
+      "sha256": "ab9cd9962657795e2dca1c85ec61d6414d0b155481f34917ae5d39b39124c1d7",
+      "width": 375,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "privateOnly": true,
+      "notes": "No new material clipping, overlap or unreadable fixed controls in this captured viewport; offscreen content remains outside this verdict."
+    },
+    {
+      "name": "publication-settings-en-1280.png",
+      "sha256": "762837a4cd31d003c9beda6d44ee1228932505f3208c1c049e72f2650ca995dc",
+      "width": 1280,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "privateOnly": true,
+      "notes": "No new material clipping, overlap or unreadable fixed controls in this captured viewport; offscreen content remains outside this verdict."
+    },
+    {
+      "name": "publication-settings-en-375.png",
+      "sha256": "26ba8d7a6644777feb8438f9e005a89cd58ea42b3eaff66fe2db58f178663b21",
+      "width": 375,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "privateOnly": true,
+      "notes": "No new material clipping, overlap or unreadable fixed controls in this captured viewport; offscreen content remains outside this verdict."
+    },
+    {
+      "name": "question-library-en-1280.png",
+      "sha256": "26bd05b1825b3364801fccba2bfb672e8100d714d088fc4a41db4c3a0a4235d9",
+      "width": 1280,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "privateOnly": true,
+      "notes": "No new material clipping, overlap or unreadable fixed controls in this captured viewport; offscreen content remains outside this verdict."
+    },
+    {
+      "name": "question-library-en-375.png",
+      "sha256": "c593dfa9ab41b771c1f1f10cfd3fac9322e7af0eab91025d33c73e9feebd47f8",
+      "width": 375,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "privateOnly": true,
+      "notes": "No new material clipping, overlap or unreadable fixed controls in this captured viewport; offscreen content remains outside this verdict."
+    },
+    {
+      "name": "report-file-binding-en-1280.png",
+      "sha256": "b126e7c014607220451a2e517e5c1a0fa68de907c738c6a64970894bc742ae45",
+      "width": 1280,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "privateOnly": true,
+      "notes": "No new material clipping, overlap or unreadable fixed controls in this captured viewport; offscreen content remains outside this verdict."
+    },
+    {
+      "name": "report-file-binding-en-375.png",
+      "sha256": "9c5c9973eab21cca622e85195110bee88afdd9da6830817549eff09fb1404eee",
+      "width": 375,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "privateOnly": true,
+      "notes": "No new material clipping, overlap or unreadable fixed controls in this captured viewport; offscreen content remains outside this verdict."
+    },
+    {
+      "name": "test-failed-1.png",
+      "sha256": "ed0ddd1feffdc8069e00b925cf42378f321888080dc137279d10cca295358e3a",
+      "width": 1280,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "privateOnly": true,
+      "notes": "No new material clipping, overlap or unreadable fixed controls in this captured viewport; offscreen content remains outside this verdict."
+    },
+    {
+      "name": "test-failed-2.png",
+      "sha256": "37864690e9965849b3e463077d9aaa6cfc8f4255a7b18126437eaf1db05dc5e7",
+      "width": 1280,
+      "height": 720,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "privateOnly": true,
+      "notes": "No new material clipping, overlap or unreadable fixed controls in this captured viewport; offscreen content remains outside this verdict."
+    },
+    {
+      "name": "test-failed-3.png",
+      "sha256": "91addb9b622002037739b6599e05f6a1de796896df10fc3c8410b8077c0ed8e5",
+      "width": 1280,
+      "height": 900,
+      "individuallyViewed": true,
+      "capturedStateQa": "PASS",
+      "privateOnly": true,
+      "notes": "No new material clipping, overlap or unreadable fixed controls in this captured viewport; offscreen content remains outside this verdict."
+    }
+  ]
+}

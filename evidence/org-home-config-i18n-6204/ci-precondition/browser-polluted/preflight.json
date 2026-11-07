@@ -1,0 +1,25 @@
+{
+  "head": "70e987b7ef8672cf262c9f99fc3849d81c093fc8",
+  "verifiedSource": "bfc88e0970c7f08d1a3c83c12aff1c8573c1825e",
+  "command": [
+    "pnpm",
+    "exec",
+    "tsx",
+    ".harness/scripts/with-test-isolation.ts",
+    "--",
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "playwright",
+    "test",
+    "--config",
+    "playwright.entity-localization.config.ts",
+    "-g",
+    "admin authors display copy; members switch language; clearing keeps original execution bytes|an installed organization explicitly updates authored titles without changing execution or manual copy|organization home configuration preserves",
+    "--reporter=list,json",
+    "--max-failures=1"
+  ],
+  "diskFreeBytes": 13792858112,
+  "rawReportPolicy": "local-only0700/0600; publish whitelisted receipt/safe screenshots"
+}

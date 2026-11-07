@@ -1,7 +1,7 @@
 /**
  * 组织共享邀请链接的域规则（shared-invite-links delta）—— 纯函数，没有库、没有 HTTP。
  *
- * 与 `org-invite.ts`（单人邀请）的分工：`needsDualReview` 从那边 **import 复用**——
+ * 与 `org-invite.ts`（单人邀请）的分工：historical review predicates live there——
  * 「邀一个 admin 要双人复核」与「建一条 admin 级共享链接要双人复核」是**同一条不变量
  * （O-28⑥）的两个适用点**，判据（被授予的角色）也相同，第二份 `role === "admin"`
  * 就是第二处规则声明点。
@@ -11,7 +11,6 @@
  */
 import { createHash, randomBytes } from "node:crypto";
 
-export { needsDualReview } from "./org-invite";
 
 /**
  * 有效期三档 → 毫秒（拍板①②）。**全仓唯一一份**——契约 `OrgInviteLinkExpiry` 声明

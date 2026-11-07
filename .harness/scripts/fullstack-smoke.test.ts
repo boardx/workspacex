@@ -257,20 +257,29 @@ describe("#387 trusted full-stack gate contract", () => {
   });
 
   it("CI jobs execute the public scripts and retain success or failure evidence", () => {
-    const workflow = read(".github/workflows/harness-verify.yml");
+    const workflow = read(".github/workflows/harness-acceptance.yml");
     expect(workflow).toMatch(/^  fullstack-smoke:\n/m);
     expect(workflow).toMatch(/^  e2e-full:\n/m);
     expect(workflow).toContain("pnpm run verify:fullstack-product");
     expect(workflow).toContain("pnpm run verify:fullstack-board");
-    expect(workflow).toContain("TURBO_FORCE=true pnpm run verify:ci-base");
+    expect(workflow).toContain("TURBO_FORCE=true pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm exec turbo run test --concurrency=1 --filter='!@repo/api' --filter='!web'");
+    expect(workflow).toContain("ci-parallel-evidence.mjs bundle web");
+    expect(workflow).toContain("ci-targeted-routing.mjs base");
     expect(workflow).not.toContain("TURBO_FORCE=true pnpm run verify:full");
     // Executed lanes upload after failures; reused lanes keep the source artifact link.
-    for (const name of Object.keys(LANES)) {
-      const job = parse(workflow).jobs[name];
-      expect(job.steps.some((step: { uses?: string }) => step.uses?.startsWith("actions/upload-artifact@"))).toBe(true);
-      for (const step of job.steps ?? []) {
-        if (step.uses?.startsWith("actions/upload-artifact@")) {
-          expect(step.if).toBe("always() && steps.dedup.outputs.run == 'true'");
+    const jobs = parse(workflow).jobs;
+    for (const lane of Object.keys(LANES)) {
+      const producers = lane === 'chat-read' ? ['chat-test-shards']
+        : lane === 'full-regression-core' ? ['base-package-tests', 'web-test-shards', 'full-regression-core'] : [lane];
+      for (const name of producers) {
+        const job = jobs[name];
+        const uploads = job.steps.filter((step: { uses?: string }) => step.uses?.startsWith("actions/upload-artifact@"));
+        expect(uploads.length).toBeGreaterThan(0);
+        for (const step of uploads) {
+          if(name==='full-regression-core')expect(step.if).toBe(step.with.name.startsWith('targeted-ui-')
+            ? "always() && needs.doc-smoke-scope.outputs.mode == 'targeted-ui'" : "always() && needs.doc-smoke-scope.outputs.mode != 'targeted-ui'");
+          else expect(step.if).toBe(['chat-test-shards','base-package-tests','web-test-shards'].includes(name)
+            ? 'always()' : "always() && steps.dedup.outputs.run == 'true'");
         }
       }
     }
@@ -282,7 +291,7 @@ describe("#387 trusted full-stack gate contract", () => {
   });
 
   it("keeps the chat-task-workbench scorecard lane opt-in and off the blocking path (issue #2114)", () => {
-    const workflow = read(".github/workflows/harness-verify.yml");
+    const workflow = read(".github/workflows/harness-acceptance.yml");
     expect(workflow).toMatch(/^  chat-task-workbench:\n/m);
     // 只认 workflow_dispatch 且显式勾选，默认 false：不会随普通 dispatch（比如只想跑
     // e2e-full）顺带被拉起,也绝不会出现在 pull_request/push/schedule 触发的运行里。

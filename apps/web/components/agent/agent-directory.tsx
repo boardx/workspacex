@@ -2,6 +2,9 @@
 
 import { ResourceCard, ResourceCardTags } from "@/components/ui/resource-card";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
+import type { Locale } from "@repo/contracts/locale";
+import { translatedText } from "@/lib/entity-localization";
 import Link from "next/link";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -50,6 +53,7 @@ export function readinessReasonText(card: Pick<AgentDirectoryCard, "readiness" |
 
 function AgentCard({ card, onStartChat }: { card: AgentDirectoryCard; onStartChat: (agentId: string, prefill?: string) => void }) {
   const name = agentDisplayName(card);
+  const avatarAlt = translatedText(card.display, "avatarAlt");
   const subtitle = agentSubtitle(card);
   const detailHref = `/agent/${encodeURIComponent(card.agentId)}`;
   const workflowLabels = workflowLabelsOf(card);
@@ -68,6 +72,7 @@ function AgentCard({ card, onStartChat }: { card: AgentDirectoryCard; onStartCha
           data-testid="agent-card-avatar"
           initials={card.initials}
           avatarKey={card.avatar?.key ?? null}
+          {...(avatarAlt ? { "aria-label": avatarAlt } : {})}
           tone="ai"
           className="h-16 w-16 text-20"
         />
@@ -139,7 +144,7 @@ function sortByCategory(cards: readonly AgentDirectoryCard[]): readonly AgentDir
 
 export interface AgentDirectoryProps {
   /** 测试/宿主可注入；默认使用真实 `listAgentDirectory`。 */
-  fetchDirectory?: (filters: { roleCategory?: AgentRoleCategory; q?: string }) => Promise<readonly AgentDirectoryCard[]>;
+  fetchDirectory?: (filters: { roleCategory?: AgentRoleCategory; q?: string; locale?: Locale }) => Promise<readonly AgentDirectoryCard[]>;
   onStartChat?: (agentId: string, prefill?: string) => void;
   /** Authenticated, organization-scoped host owns the actual offer and imports. */
   officialRoles?: React.ReactNode;
@@ -154,6 +159,7 @@ type LoadState =
   | { readonly kind: "ready"; readonly cards: readonly AgentDirectoryCard[] };
 
 export function AgentDirectory({ fetchDirectory = listAgentDirectory, onStartChat, officialRoles, canManageOfficial = false, directoryRefreshKey = 0 }: AgentDirectoryProps) {
+  const { locale } = useI18n();
   const [tab, setTab] = React.useState<"organization" | "official">("organization");
   const [category, setCategory] = React.useState<AgentRoleCategory | "all">("all");
   const [query, setQuery] = React.useState("");
@@ -163,7 +169,7 @@ export function AgentDirectory({ fetchDirectory = listAgentDirectory, onStartCha
   const load = React.useCallback((filters: { roleCategory?: AgentRoleCategory; q?: string }) => {
     const id = ++requestId.current;
     setState({ kind: "loading" });
-    fetchDirectory(filters).then(
+    fetchDirectory({ ...filters, locale }).then(
       (cards) => { if (requestId.current === id) setState({ kind: "ready", cards }); },
       (error: unknown) => {
         if (requestId.current !== id) return;
@@ -172,7 +178,7 @@ export function AgentDirectory({ fetchDirectory = listAgentDirectory, onStartCha
         setState({ kind: "error", message: error instanceof ApiError ? httpFailureText(error.status) : "网络连接出了问题，稍后再试一次" });
       },
     );
-  }, [fetchDirectory]);
+  }, [fetchDirectory, locale]);
 
   React.useEffect(() => {
     if (tab !== "organization") return;
@@ -197,7 +203,7 @@ export function AgentDirectory({ fetchDirectory = listAgentDirectory, onStartCha
             </div>
             {officialRoles && canManageOfficial && tab === "organization" ? (
               <Button type="button" variant="outline" onClick={() => setTab("official")} data-testid="agent-directory-enable-official">
-                <UserRoundPlus aria-hidden className="h-4 w-4" />启用官方数字人
+                <UserRoundPlus aria-hidden className="h-4 w-4" />{locale === "en" ? "Manage official colleagues" : "管理官方数字人"}
               </Button>
             ) : null}
           </div>

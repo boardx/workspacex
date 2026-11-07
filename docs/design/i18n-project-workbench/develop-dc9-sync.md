@@ -1,0 +1,11 @@
+# PR6199 normal develop sync after PR6147 delivery
+
+Main authorized syncing this existing project-shell branch with actual merged developdc9bc31b5658aacd4376ffa3f66e6794293ac953 and triggering fresh source CI. The earlier backend-required cancellations remain historical failures to execute that job; neither is a pass and no third blind rerun is used. A normal merge, not copied maintenance patches, produces source79d1c7e2f8d46a2f9e3b59aeb140a2a098d3f7bf from90964cd8e81cd3fc5990b02798aee1353fd7a4de. Inert actual-SHA merge and actual merge both clean; an earlier invalid guessed local ref was not a conflict result.
+
+Ten nonshared original runtime/helper/spec/test/config blobs remain byte-identical. Only the two global locale roots changed: the actualdevelop admin-navigation/activity source is retained, and the final delta versus dc9 adds only projectWorkbench import+spread in each locale. Canonical IDs, all11 request effects/callbacks, API/permission behavior, original three browser cases and strict test-only6163 create-output compatibility helper are preserved. This does not repair the known full create-output provenance contract gap.
+
+Current new-base validation: four original focused suites34/34PASS4.67s including namespace parity; actual canonical config scanner70configs/12live exit0. Root independently reviewed dc9...79d1 scope/global dictionaries and all ten protected blobs, no new P1/P2. Prior original real3-case general-create201/workshop/nonmember403 browser proof with four375/1280 images is retained at its tested source; no new7m browser is claimed for this base sync. The product remains shell/header/kind-tabs/subnav/access only; tab bodies, wizard and workflow details remain future i18n scope.
+
+Normal hooks/push and fresh new-head source checks are pending at this evidence checkpoint, then canonical readiness and a complete fresh candidate under main alone. Old9096 green/cancelled checks cannot be borrowed as new-head CI. Report-only metadata updates will use PR/issue records instead of refreshing a clean pushed head.
+
+Chat i18n WIP on a886 was safely preserved with a named retained stash and SHA256/mode verification of67files+21ignored logs before reusing this same checkout. No Chat WIP source is in this PR; restore and verify after publishing this sync, then continue Task3/4/5 and the whole i18n phase.

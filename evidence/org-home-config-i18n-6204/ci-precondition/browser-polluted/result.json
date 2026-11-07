@@ -1,0 +1,36 @@
+{
+  "stats": {
+    "expected": 3,
+    "unexpected": 0,
+    "flaky": 0,
+    "skipped": 0,
+    "duration": 258173.362
+  },
+  "tests": [
+    {
+      "title": "admin authors display copy; members switch language; clearing keeps original execution bytes",
+      "project": "entity-localization",
+      "status": "passed",
+      "durationMs": 13205,
+      "retry": 0
+    },
+    {
+      "title": "an installed organization explicitly updates authored titles without changing execution or manual copy",
+      "project": "entity-localization",
+      "status": "passed",
+      "durationMs": 11618,
+      "retry": 0
+    },
+    {
+      "title": "organization home configuration preserves drafts, real previews and recommendation snapshots across locales",
+      "project": "entity-localization",
+      "status": "passed",
+      "durationMs": 6931,
+      "retry": 0
+    }
+  ],
+  "head": "70e987b7ef8672cf262c9f99fc3849d81c093fc8",
+  "rawLogSha256": "e562ac10e6daba1ce715c51b3e70f8abce7744b5a70624aa032c6890a965d5b9",
+  "rawReportSha256": "0c81f1ee5914ac83edde3f3921a6d365a2191b49740c9c53cc4dde5d42221877",
+  "rawOnlyPrivate": true
+}

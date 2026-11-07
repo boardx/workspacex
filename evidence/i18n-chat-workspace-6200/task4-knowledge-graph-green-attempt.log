@@ -1,0 +1,504 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/knowledge/answer-memory-citations.test.tsx (19 tests) 230ms
+ ❯ tests/ui/i18n-chat-knowledge-graph.test.tsx (3 tests | 1 failed) 413ms
+   × keeps expanded manual placement and actual node DOM across locale without a reset or extra source action 123ms
+     → Unable to find an accessible element with the role "button" and name "Close"
+
+Here are the accessible roles:
+
+  heading:
+
+  Name "关系图":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+    [33mid[39m=[32m"radix-:r4:"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+    [33mid[39m=[32m"radix-:r5:"[39m
+  [36m/>[39m
+
+  --------------------------------------------------group:
+
+  Name "人物：用户人物原名 {name}":
+  [36m<div[39m
+    [33maria-label[39m=[32m"人物：用户人物原名 {name}"[39m
+    [33mdata-focused[39m=[32m"false"[39m
+    [33mdata-testid[39m=[32m"flow-node-object:raw-person"[39m
+    [33mdata-x[39m=[32m"351"[39m
+    [33mdata-y[39m=[32m"217"[39m
+    [33mrole[39m=[32m"group"[39m
+  [36m/>[39m
+
+  Name "决定：模型原始记忆 {count} 与 const x = '{locale}';":
+  [36m<div[39m
+    [33maria-label[39m=[32m"决定：模型原始记忆 {count} 与 const x = '{locale}';"[39m
+    [33mdata-focused[39m=[32m"false"[39m
+    [33mdata-testid[39m=[32m"flow-node-claim:raw-claim"[39m
+    [33mdata-x[39m=[32m"336"[39m
+    [33mdata-y[39m=[32m"0"[39m
+    [33mrole[39m=[32m"group"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "放大":
+  [36m<button[39m
+    [33maria-label[39m=[32m"放大"[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-8 w-8 p-0"[39m
+    [33mtitle[39m=[32m"放大"[39m
+  [36m/>[39m
+
+  Name "缩小":
+  [36m<button[39m
+    [33maria-label[39m=[32m"缩小"[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-8 w-8 p-0"[39m
+    [33mtitle[39m=[32m"缩小"[39m
+  [36m/>[39m
+
+  Name "适应画布":
+  [36m<button[39m
+    [33maria-label[39m=[32m"适应画布"[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-8 w-8 p-0"[39m
+    [33mtitle[39m=[32m"适应画布"[39m
+  [36m/>[39m
+
+  Name "重新编排":
+  [36m<button[39m
+    [33maria-label[39m=[32m"重新编排"[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-8 w-8 p-0"[39m
+    [33mtitle[39m=[32m"重新编排"[39m
+  [36m/>[39m
+
+  --------------------------------------------------button:
+
+  Name "关闭":
+  [36m<button[39m
+    [33maria-label[39m=[32m"关闭"[39m
+    [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"dialog-close"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<div[39m
+  [33maria-describedby[39m=[32m"radix-:r5:"[39m
+  [33maria-labelledby[39m=[32m"radix-:r4:"[39m
+  [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-w-7xl"[39m
+  [33mdata-state[39m=[32m"open"[39m
+  [33mid[39m=[32m"radix-:r3:"[39m
+  [33mrole[39m=[32m"dialog"[39m
+  [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [33mtabindex[39m=[32m"-1"[39m
+[36m>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"flex flex-col gap-1"[39m
+  [36m>[39m
+    [36m<h2[39m
+      [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+      [33mid[39m=[32m"radix-:r4:"[39m
+    [36m>[39m
+      [0m关系图[0m
+    [36m</h2>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mid[39m=[32m"radix-:r5:"[39m
+    [36m>[39m
+      [0m人物、记下的条目与相关人和事分栏展示。悬停或选中节点，查看它的关系。[0m
+    [36m</p>[39m
+  [36m</div>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"h-[75vh] w-full"[39m
+  [36m>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex h-full min-h-0 flex-col"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border px-3 py-2 text-11 text-muted-foreground"[39m
+      [36m>[39m
+        [36m<span>[39m
+          [0m1 个人和事 · 1 条记忆[0m
+        [36m</span>[39m
+        [36m<span>[39m
+          [0m拖动节点整理 · 点击记忆查看来源[0m
+        [36m</span>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"relative min-h-0 flex-1"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mdata-draggable[39m=[32m"true"[39m
+          [33mdata-testid[39m=[32m"kg-real-renderer-bridge"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33maria-label[39m=[32m"人物：用户人物原名 {name}"[39m
+            [33mdata-focused[39m=[32m"false"[39m
+            [33mdata-testid[39m=[32m"flow-node-object:raw-person"[39m
+            [33mdata-x[39m=[32m"351"[39m
+            [33mdata-y[39m=[32m"217"[39m
+            [33mrole[39m=[32m"group"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"rounded-xl border p-4 text-left shadow-sm transition-opacity duration-base border-border bg-card text-background-foreground "[39m
+              [33mdata-testid[39m=[32m"kg-graph-node-object-raw-person"[39m
+              [33mstyle[39m=[32m"width: 208px; height: 96px; opacity: 1;"[39m
+              [33mtitle[39m=[32m"用户人物原名 {name}"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"mb-2 flex items-center gap-2 text-11 text-muted-foreground"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-user-round h-3.5 w-3.5"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"24"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"24"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<circle[39m
+                    [33mcx[39m=[32m"12"[39m
+                    [33mcy[39m=[32m"8"[39m
+                    [33mr[39m=[32m"5"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M20 21a8 8 0 0 0-16 0"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span>[39m
+                  [0m人物[0m
+                [36m</span>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"break-words text-sm font-medium leading-5 line-clamp-2"[39m
+              [36m>[39m
+                [0m用户人物原名 {name}[0m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33maria-label[39m=[32m"决定：模型原始记忆 {count} 与 const x = '{locale}';"[39m
+            [33mdata-focused[39m=[32m"false"[39m
+            [33mdata-testid[39m=[32m"flow-node-claim:raw-claim"[39m
+            [33mdata-x[39m=[32m"336"[39m
+            [33mdata-y[39m=[32m"0"[39m
+            [33mrole[39m=[32m"group"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"rounded-xl border p-4 text-left shadow-sm transition-opacity duration-base border-success/40 bg-card text-background-foreground "[39m
+              [33mdata-testid[39m=[32m"kg-graph-node-claim-raw-claim"[39m
+              [33mstyle[39m=[32m"width: 352px; height: 128px; opacity: 1;"[39m
+              [33mtitle[39m=[32m"模型原始记忆 {count} 与 const x = '{locale}';"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"mb-2 flex items-center gap-2 text-11 text-muted-foreground"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-sticky-note h-3.5 w-3.5"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"24"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"24"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8Z"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M15 3v4a2 2 0 0 0 2 2h4"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span>[39m
+                  [0m决定[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"ml-auto rounded-full border border-current/20 px-2 py-0.5 text-10"[39m
+                [36m>[39m
+                  [0m你确认过[0m
+                [36m</span>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"break-words text-sm font-medium leading-5 line-clamp-3"[39m
+ ...
+ ✓ tests/knowledge/knowledge-graph-layout.test.ts (5 tests) 17ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/i18n-chat-knowledge-graph.test.tsx > keeps expanded manual placement and actual node DOM across locale without a reset or extra source action
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Close"
+
+Here are the accessible roles:
+
+  heading:
+
+  Name "关系图":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+    [33mid[39m=[32m"radix-:r4:"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+    [33mid[39m=[32m"radix-:r5:"[39m
+  [36m/>[39m
+
+  --------------------------------------------------group:
+
+  Name "人物：用户人物原名 {name}":
+  [36m<div[39m
+    [33maria-label[39m=[32m"人物：用户人物原名 {name}"[39m
+    [33mdata-focused[39m=[32m"false"[39m
+    [33mdata-testid[39m=[32m"flow-node-object:raw-person"[39m
+    [33mdata-x[39m=[32m"351"[39m
+    [33mdata-y[39m=[32m"217"[39m
+    [33mrole[39m=[32m"group"[39m
+  [36m/>[39m
+
+  Name "决定：模型原始记忆 {count} 与 const x = '{locale}';":
+  [36m<div[39m
+    [33maria-label[39m=[32m"决定：模型原始记忆 {count} 与 const x = '{locale}';"[39m
+    [33mdata-focused[39m=[32m"false"[39m
+    [33mdata-testid[39m=[32m"flow-node-claim:raw-claim"[39m
+    [33mdata-x[39m=[32m"336"[39m
+    [33mdata-y[39m=[32m"0"[39m
+    [33mrole[39m=[32m"group"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "放大":
+  [36m<button[39m
+    [33maria-label[39m=[32m"放大"[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-8 w-8 p-0"[39m
+    [33mtitle[39m=[32m"放大"[39m
+  [36m/>[39m
+
+  Name "缩小":
+  [36m<button[39m
+    [33maria-label[39m=[32m"缩小"[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-8 w-8 p-0"[39m
+    [33mtitle[39m=[32m"缩小"[39m
+  [36m/>[39m
+
+  Name "适应画布":
+  [36m<button[39m
+    [33maria-label[39m=[32m"适应画布"[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-8 w-8 p-0"[39m
+    [33mtitle[39m=[32m"适应画布"[39m
+  [36m/>[39m
+
+  Name "重新编排":
+  [36m<button[39m
+    [33maria-label[39m=[32m"重新编排"[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-8 w-8 p-0"[39m
+    [33mtitle[39m=[32m"重新编排"[39m
+  [36m/>[39m
+
+  --------------------------------------------------button:
+
+  Name "关闭":
+  [36m<button[39m
+    [33maria-label[39m=[32m"关闭"[39m
+    [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"dialog-close"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<div[39m
+  [33maria-describedby[39m=[32m"radix-:r5:"[39m
+  [33maria-labelledby[39m=[32m"radix-:r4:"[39m
+  [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-w-7xl"[39m
+  [33mdata-state[39m=[32m"open"[39m
+  [33mid[39m=[32m"radix-:r3:"[39m
+  [33mrole[39m=[32m"dialog"[39m
+  [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [33mtabindex[39m=[32m"-1"[39m
+[36m>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"flex flex-col gap-1"[39m
+  [36m>[39m
+    [36m<h2[39m
+      [33mclass[39m=[32m"text-16 font-bold tracking-tight"[39m
+      [33mid[39m=[32m"radix-:r4:"[39m
+    [36m>[39m
+      [0m关系图[0m
+    [36m</h2>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [33mid[39m=[32m"radix-:r5:"[39m
+    [36m>[39m
+      [0m人物、记下的条目与相关人和事分栏展示。悬停或选中节点，查看它的关系。[0m
+    [36m</p>[39m
+  [36m</div>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"h-[75vh] w-full"[39m
+  [36m>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex h-full min-h-0 flex-col"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border px-3 py-2 text-11 text-muted-foreground"[39m
+      [36m>[39m
+        [36m<span>[39m
+          [0m1 个人和事 · 1 条记忆[0m
+        [36m</span>[39m
+        [36m<span>[39m
+          [0m拖动节点整理 · 点击记忆查看来源[0m
+        [36m</span>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"relative min-h-0 flex-1"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mdata-draggable[39m=[32m"true"[39m
+          [33mdata-testid[39m=[32m"kg-real-renderer-bridge"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33maria-label[39m=[32m"人物：用户人物原名 {name}"[39m
+            [33mdata-focused[39m=[32m"false"[39m
+            [33mdata-testid[39m=[32m"flow-node-object:raw-person"[39m
+            [33mdata-x[39m=[32m"351"[39m
+            [33mdata-y[39m=[32m"217"[39m
+            [33mrole[39m=[32m"group"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"rounded-xl border p-4 text-left shadow-sm transition-opacity duration-base border-border bg-card text-background-foreground "[39m
+              [33mdata-testid[39m=[32m"kg-graph-node-object-raw-person"[39m
+              [33mstyle[39m=[32m"width: 208px; height: 96px; opacity: 1;"[39m
+              [33mtitle[39m=[32m"用户人物原名 {name}"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"mb-2 flex items-center gap-2 text-11 text-muted-foreground"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-user-round h-3.5 w-3.5"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"24"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"24"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<circle[39m
+                    [33mcx[39m=[32m"12"[39m
+                    [33mcy[39m=[32m"8"[39m
+                    [33mr[39m=[32m"5"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M20 21a8 8 0 0 0-16 0"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span>[39m
+                  [0m人物[0m
+                [36m</span>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"break-words text-sm font-medium leading-5 line-clamp-2"[39m
+              [36m>[39m
+                [0m用户人物原名 {name}[0m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33maria-label[39m=[32m"决定：模型原始记忆 {count} 与 const x = '{locale}';"[39m
+            [33mdata-focused[39m=[32m"false"[39m
+            [33mdata-testid[39m=[32m"flow-node-claim:raw-claim"[39m
+            [33mdata-x[39m=[32m"336"[39m
+            [33mdata-y[39m=[32m"0"[39m
+            [33mrole[39m=[32m"group"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"rounded-xl border p-4 text-left shadow-sm transition-opacity duration-base border-success/40 bg-card text-background-foreground "[39m
+              [33mdata-testid[39m=[32m"kg-graph-node-claim-raw-claim"[39m
+              [33mstyle[39m=[32m"width: 352px; height: 128px; opacity: 1;"[39m
+              [33mtitle[39m=[32m"模型原始记忆 {count} 与 const x = '{locale}';"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"mb-2 flex items-center gap-2 text-11 text-muted-foreground"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-sticky-note h-3.5 w-3.5"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"24"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"24"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8Z"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M15 3v4a2 2 0 0 0 2 2h4"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span>[39m
+                  [0m决定[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"ml-auto rounded-full border border-current/20 px-2 py-0.5 text-10"[39m
+                [36m>[39m
+                  [0m你确认过[0m
+                [36m</span>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"break-words text-sm font-medium leading-5 line-clamp-3"[39m
+ ...
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-knowledge-graph.test.tsx:110:34
+    108|   expect(person).toHaveAttribute("data-x", "351"); expect(person).toHa…
+    109|   expect(flow.fitView).not.toHaveBeenCalled(); expect(open).not.toHave…
+    110|   fireEvent.click(within(dialog).getByRole("button", { name: "Close" }…
+       |                                  ^
+    111| });
+    112|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 2 passed (3)
+      Tests  1 failed | 26 passed (27)
+   Start at  12:26:40
+   Duration  4.22s (transform 838ms, setup 281ms, collect 1.55s, tests 660ms, environment 1.02s, prepare 128ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/i18n-chat-knowledge-graph.test.tsx tests/knowledge/knowledge-graph-layout.test.ts tests/knowledge/answer-memory-citations.test.tsx --maxWorkers=1 --minWorkers=1

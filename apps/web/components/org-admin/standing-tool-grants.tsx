@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import { ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StateShell, type UiState } from "@/components/state/state-shell";
@@ -31,10 +32,11 @@ import {
  * 这条事实本身——它与"这个功能不存在"是两件事，所以有独立文案，不是隐藏区块。
  */
 export function StandingToolGrantsSection(): JSX.Element {
+  const { t, locale } = useI18n();
   const [state, setState] = React.useState<UiState>("loading");
   const [rows, setRows] = React.useState<StandingToolGrantsOut>([]);
   const [busyId, setBusyId] = React.useState<string | null>(null);
-  const [error, setError] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<"missing" | "failed" | null>(null);
 
   const load = React.useCallback(async () => {
     setState("loading");
@@ -60,8 +62,7 @@ export function StandingToolGrantsSection(): JSX.Element {
       await load();
     } catch (cause) {
       setError(cause instanceof ApiError && cause.status === 404
-        ? "这条授权已经不存在了（可能已被另一位管理员撤销）。"
-        : "撤销失败，请重试。");
+        ? "missing" : "failed");
       await load();
     } finally {
       setBusyId(null);
@@ -72,20 +73,19 @@ export function StandingToolGrantsSection(): JSX.Element {
     <section className="flex flex-col gap-3" data-testid="standing-tool-grants">
       <div className="flex items-center gap-2">
         <ShieldCheck aria-hidden className="h-4 w-4 text-muted-foreground" />
-        <h2 className="text-14 font-semibold">长期工具授权</h2>
+        <h2 className="text-14 font-semibold">{t("orgProfile.grantsTitle")}</h2>
       </div>
       <p className="text-12 text-muted-foreground">
-        成员在审批卡片上选择「以后都允许」后，该工具在本组织内不再逐次询问。撤销后，
-        下一次同类操作会重新弹出审批。
+        {t("orgProfile.grantsHelp")}
       </p>
       <StateShell
         state={state}
-        denial={{ layer: "organization", reason: "只有组织管理员可以查看和撤销长期工具授权。" }}
-        depFailure={{ what: "长期工具授权列表", retry: () => void load() }}
+        denial={{ layer: "organization", reason: t("orgProfile.grantsDenied") }}
+        depFailure={{ what: t("orgProfile.grantsList"), retry: () => void load() }}
       >
         {rows.length === 0 ? (
           <p data-testid="standing-tool-grants-empty" className="text-12 text-muted-foreground">
-            本组织当前没有任何长期工具授权。
+            {t("orgProfile.grantsEmpty")}
           </p>
         ) : (
           <ul className="flex flex-col gap-2">
@@ -98,8 +98,8 @@ export function StandingToolGrantsSection(): JSX.Element {
                 <div className="flex flex-col gap-0.5">
                   <span className="text-13 font-medium">{row.toolName}</span>
                   <span className="text-11 text-muted-foreground">
-                    {row.grantedByUserId ? `由 ${row.grantedByUserId} 批准` : "批准人未记录"}
-                    {` · ${new Date(row.grantedAt).toLocaleString()}`}
+                    {row.grantedByUserId ? t("orgProfile.approver", { userId: row.grantedByUserId }) : t("orgProfile.missingApprover")}
+                    {` · ${new Date(row.grantedAt).toLocaleString(locale)}`}
                   </span>
                 </div>
                 <Button
@@ -108,13 +108,13 @@ export function StandingToolGrantsSection(): JSX.Element {
                   disabled={busyId !== null}
                   onClick={() => void revoke(row.grantId)}
                 >
-                  {busyId === row.grantId ? "撤销中…" : "撤销"}
+                  {busyId === row.grantId ? t("orgProfile.revoking") : t("orgProfile.revoke")}
                 </Button>
               </li>
             ))}
           </ul>
         )}
-        {error ? <p role="alert" className="text-12 text-destructive">{error}</p> : null}
+        {error ? <p role="alert" className="text-12 text-destructive">{t(error === "missing" ? "orgProfile.grantMissing" : "orgProfile.revokeFailed")}</p> : null}
       </StateShell>
     </section>
   );

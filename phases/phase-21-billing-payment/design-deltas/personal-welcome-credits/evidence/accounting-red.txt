@@ -1,0 +1,85 @@
+[stack-admission] load1=4.43 cores=10 perCore=0.44 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvy0en9m-67677c6b-71ad564ad896 db=wsx_71ad564ad8967f663a73 compose=wsx-71ad564ad8967f663a73 pg=20226 redis=21226 api=24226 web=25226 sandbox=26226 model=27226 deep-agent=28226 asr=29226 vision=30226 loopback-sandbox=31226 mail=19226
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_71ad564ad8967f663a73 capacity=100 current=6 required=32
+ ❯ tests/billing/welcome-credit-pg.test.ts (4 tests | 2 failed) 41880ms
+   × gifts a real new credential exactly 1000 with 30-day expiry, independently of paid quota 202ms
+     → expected { ownerType: 'user', …(10) } to match object { balance: 1000, …(3) }
+(7 matching properties omitted from actual)
+   × expires the welcome source once while retaining a permanent balance 282ms
+     → expected [ …(2) ] to deeply equal [ …(2) ]
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/welcome-credit-pg.test.ts > gifts a real new credential exactly 1000 with 30-day expiry, independently of paid quota
+AssertionError: expected { ownerType: 'user', …(10) } to match object { balance: 1000, …(3) }
+(7 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  Object {
+    "balance": 1000,
+    "permanentBalance": 0,
+-   "subscriptionCredits": 0,
++   "subscriptionCredits": 1000,
+    "totalGranted": 1000,
+  }
+
+ ❯ tests/billing/welcome-credit-pg.test.ts:45:37
+     43|   expect(rows[0]).toMatchObject({source_kind:"welcome",granted_hundred…
+     44|   expect(rows[0].period_end.getTime()-rows[0].period_start.getTime()).…
+     45|   expect((await f.wallet()).wallet).toMatchObject({balance:1000,perman…
+       |                                     ^
+     46| });
+     47| it("expires the welcome source once while retaining a permanent balanc…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/billing/welcome-credit-pg.test.ts > expires the welcome source once while retaining a permanent balance
+AssertionError: expected [ …(2) ] to deeply equal [ …(2) ]
+
+- Expected
++ Received
+
+  Array [
+    Object {
+      "credits": "1000.00",
+      "direction": 1,
+      "source_type": "welcome_period",
+      "type": "welcome_grant",
+    },
+    Object {
+      "credits": "1000.00",
+      "direction": -1,
+-     "source_type": "welcome_period",
+-     "type": "welcome_expire",
++     "source_type": "subscription_period",
++     "type": "subscription_expire",
+    },
+  ]
+
+ ❯ tests/billing/welcome-credit-pg.test.ts:55:18
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 2 passed (4)
+   Start at  23:53:17
+   Duration  52.07s (transform 773ms, setup 23ms, collect 473ms, tests 41.88s, environment 0ms, prepare 132ms)
+
+[db-isolation] db=wsx_71ad564ad8967f663a73 peak_connections=4
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/welcome-credit-pg.test.ts
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/welcome-credit-pg.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：54s
+  清理：1s
+  总计：55s

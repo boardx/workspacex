@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
 import { Badge } from "@/components/ui/badge";
 import { ResourceCard } from "@/components/ui/resource-card";
 import Link from "next/link";
@@ -18,12 +19,13 @@ export function BuiltinTemplateCards({
   onCopy: (item: BuiltinSurveyTemplate) => void;
   onCreate: (item: BuiltinSurveyTemplate) => void;
 }) {
+  const { t } = useI18n();
   return (
-    <section aria-label="内置模板" className="space-y-4">
+    <section aria-label={t("survey.templates.builtin")} className="space-y-4">
       <div>
-        <h2 className="text-16 font-semibold">内置模板</h2>
+        <h2 className="text-16 font-semibold">{t("survey.templates.builtin")}</h2>
         <p className="mt-1 text-12 text-muted-foreground">
-          可直接使用；修改后保存到我的模板，保留原始模板。
+          {t("survey.templates.builtinHint")}
         </p>
       </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -31,28 +33,28 @@ export function BuiltinTemplateCards({
           <ResourceCard
             key={item.id}
             title={item.title}
-            subtitle={`${item.questions.length} 道题目 · ${item.template.sections.length} 个报告章节`}
+            subtitle={t("survey.templates.counts", { questions: item.questions.length, sections: item.template.sections.length })}
             badges={
               <Badge tone="primary">
                 {item.kind === "report"
-                  ? "报告模板"
+                  ? t("survey.templates.reportOne")
                   : item.id.startsWith("builtin-survey-")
-                    ? "完整问卷"
-                    : "题目模块"}
+                    ? t("survey.templates.completeSurvey")
+                    : t("survey.templates.module")}
               </Badge>
             }
             description={item.description}
             actions={
               <>
                 <Button asChild size="sm" variant="outline">
-                  <Link href={`${base}/${encodeURIComponent(item.id)}`}>查看并编辑</Link>
+                  <Link href={`${base}/${encodeURIComponent(item.id)}`}>{t("survey.templates.viewEdit")}</Link>
                 </Button>
                 <Button size="sm" variant="outline" disabled={busy} onClick={() => onCopy(item)}>
-                  保存到我的模板
+                  {t("survey.templates.saveMine")}
                 </Button>
                 {item.kind === "question" && (
                   <Button size="sm" disabled={busy} onClick={() => onCreate(item)}>
-                    使用并创建问卷
+                    {t("survey.templates.useCreate")}
                   </Button>
                 )}
               </>
@@ -61,7 +63,7 @@ export function BuiltinTemplateCards({
         ))}
       </div>
       {!items.length && (
-        <p className="text-13 text-muted-foreground">没有匹配的内置模板。</p>
+        <p className="text-13 text-muted-foreground">{t("survey.templates.noBuiltin")}</p>
       )}
     </section>
   );

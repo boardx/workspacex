@@ -1,3 +1,4 @@
+import { researchZhCN } from "@/lib/i18n/namespaces/research";
 import { research as C } from "@repo/contracts";
 import type { GuidedResearchRuntime } from "@/lib/guided-research-api";
 import { CheckCircle2, Circle } from "lucide-react";
@@ -11,7 +12,8 @@ export function ResearchChapterTasks({ state }: { state: GuidedResearchRuntime }
     return <li key={chapter.id} className={`flex gap-4 py-5 ${running ? "rounded-lg border bg-muted/30 px-4" : ""}`}><span className={`flex size-11 shrink-0 items-center justify-center rounded-full border text-xl ${running ? "bg-primary text-primary-foreground" : "bg-muted/40"}`}>{index + 1}</span><div className="min-w-0 flex-1"><h3 className="text-lg font-semibold">{chapter.title}</h3><p className="mt-1 text-base text-muted-foreground">{done ? "已完成" : failed ? "检索失败" : running ? "正在研究" : "待开始"} · {completed}/{tasks.length} 个任务</p>{running && <progress aria-label={`${chapter.title}任务进度`} value={completed} max={tasks.length || 1} className="mt-3 h-2 w-full appearance-none overflow-hidden rounded-full bg-muted [&::-webkit-progress-bar]:bg-muted [&::-webkit-progress-value]:bg-primary [&::-moz-progress-bar]:bg-primary" />}</div>{done ? <CheckCircle2 className="mt-2 size-5 text-muted-foreground" /> : <Circle className="mt-2 size-5 text-muted-foreground" />}</li>;
   })}</ol>;
 }
-export const researchStageLabels = { planning: "规划研究任务", searching: "检索资料", reading: "阅读资料", validating: "核查证据", organizing: "整理来源证据", writing: "撰写报告章节", reviewing: "检查分析与证据质量", synthesizing: "综合研究结论" } as const;
+export const researchStageMessageKeys = { planning: "research.progress.stage.planning", searching: "research.timeline.search", reading: "research.progress.stage.reading", validating: "research.progress.stage.validating", organizing: "research.progress.stage.organizing", writing: "research.progress.stage.writing", reviewing: "research.progress.stage.reviewing", synthesizing: "research.progress.stage.synthesizing" } as const;
+export const researchStageLabels = Object.fromEntries(Object.entries(researchStageMessageKeys).map(([stage, key]) => [stage, researchZhCN[key]])) as Record<keyof typeof researchStageMessageKeys, string>;
 export function GuidedResearchRuntimeProgress({ state }: { state: GuidedResearchRuntime }) {
   const progress = state.progress;
   if (!progress) return null;

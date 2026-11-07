@@ -1,0 +1,62 @@
+
+> @repo/ops-telemetry@0.1.0 test /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/ops-telemetry
+> node scripts/run-tests.mjs
+
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/ops-telemetry
+
+[vpw:debug] Adding `enable_nodejs_tty_module` compatibility flag during tests as this feature is needed to support the Vitest runner.
+[vpw:debug] Adding `enable_nodejs_fs_module` compatibility flag during tests as this feature is needed to support the Vitest runner.
+[vpw:debug] Adding `enable_nodejs_http_modules` compatibility flag during tests as this feature is needed to support the Vitest runner.
+[vpw:debug] Adding `enable_nodejs_perf_hooks_module` compatibility flag during tests as this feature is needed to support the Vitest runner.
+[vpw:info] Starting single runtime for vitest.config.ts...
+[mf:warn] The latest compatibility date supported by the installed Cloudflare Workers Runtime is "2026-03-10",
+but you've requested "2026-07-01". Falling back to "2026-03-10"...
+ ✓ test/fleet.test.ts (9 tests) 51ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  12:03:31
+   Duration  4.39s (transform 238ms, setup 0ms, collect 426ms, tests 51ms, environment 1ms, prepare 475ms)
+
+[vpw:debug] Shutting down runtimes...
+[vpw:debug] Disposing remote proxy sessions...
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/ops-telemetry
+
+[vpw:debug] Adding `enable_nodejs_tty_module` compatibility flag during tests as this feature is needed to support the Vitest runner.
+[vpw:debug] Adding `enable_nodejs_fs_module` compatibility flag during tests as this feature is needed to support the Vitest runner.
+[vpw:debug] Adding `enable_nodejs_http_modules` compatibility flag during tests as this feature is needed to support the Vitest runner.
+[vpw:debug] Adding `enable_nodejs_perf_hooks_module` compatibility flag during tests as this feature is needed to support the Vitest runner.
+[vpw:info] Starting single runtime for vitest.config.ts...
+[mf:warn] The latest compatibility date supported by the installed Cloudflare Workers Runtime is "2026-03-10",
+but you've requested "2026-07-01". Falling back to "2026-03-10"...
+ ✓ test/reporter-contract.test.ts (5 tests) 225ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  12:03:37
+   Duration  5.36s (transform 415ms, setup 0ms, collect 736ms, tests 225ms, environment 0ms, prepare 312ms)
+
+[vpw:debug] Shutting down runtimes...
+[vpw:debug] Disposing remote proxy sessions...
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/ops-telemetry
+
+[vpw:debug] Adding `enable_nodejs_tty_module` compatibility flag during tests as this feature is needed to support the Vitest runner.
+[vpw:debug] Adding `enable_nodejs_fs_module` compatibility flag during tests as this feature is needed to support the Vitest runner.
+[vpw:debug] Adding `enable_nodejs_http_modules` compatibility flag during tests as this feature is needed to support the Vitest runner.
+[vpw:debug] Adding `enable_nodejs_perf_hooks_module` compatibility flag during tests as this feature is needed to support the Vitest runner.
+[vpw:info] Starting single runtime for vitest.config.ts...
+[mf:warn] The latest compatibility date supported by the installed Cloudflare Workers Runtime is "2026-03-10",
+but you've requested "2026-07-01". Falling back to "2026-03-10"...
+ ✓ test/worker.test.ts (11 tests) 188ms
+
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+   Start at  12:03:46
+   Duration  1.66s (transform 93ms, setup 0ms, collect 159ms, tests 188ms, environment 0ms, prepare 84ms)
+
+[vpw:debug] Shutting down runtimes...
+[vpw:debug] Disposing remote proxy sessions...
+[ops-telemetry isolated] 3/3 test files passed

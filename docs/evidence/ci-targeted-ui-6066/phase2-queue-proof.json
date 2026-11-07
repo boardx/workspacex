@@ -1,0 +1,236 @@
+{
+  "databaseId": 41227906350,
+  "headSha": "de530c255fd882df80ba369ecb86e84ebdf14a10",
+  "event": "merge_group",
+  "status": "completed",
+  "conclusion": "success",
+  "createdAt": "2026-10-31T18:08:16Z",
+  "updatedAt": "2026-10-31T18:39:06Z",
+  "url": "https://github.com/boardx/workspacex/actions/runs/41227906350",
+  "jobs": [
+    {
+      "name": "base-compile",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-31T18:08:20Z",
+      "completedAt": "2026-10-31T18:16:04Z"
+    },
+    {
+      "name": "web-test-plan",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-31T18:08:20Z",
+      "completedAt": "2026-10-31T18:09:34Z"
+    },
+    {
+      "name": "doc-smoke-scope",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-31T18:08:20Z",
+      "completedAt": "2026-10-31T18:08:48Z"
+    },
+    {
+      "name": "chat-test-plan",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-31T18:08:20Z",
+      "completedAt": "2026-10-31T18:09:43Z"
+    },
+    {
+      "name": "self-service-profile",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-31T18:08:20Z",
+      "completedAt": "2026-10-31T18:12:56Z"
+    },
+    {
+      "name": "base-api-plan",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-31T18:08:20Z",
+      "completedAt": "2026-10-31T18:09:14Z"
+    },
+    {
+      "name": "base-control-plane",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-31T18:08:20Z",
+      "completedAt": "2026-10-31T18:19:06Z"
+    },
+    {
+      "name": "base-package-tests",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-31T18:08:19Z",
+      "completedAt": "2026-10-31T18:16:06Z"
+    },
+    {
+      "name": "chat-path-coverage",
+      "status": "completed",
+      "conclusion": "skipped",
+      "startedAt": "2026-10-31T18:08:17Z",
+      "completedAt": "2026-10-31T18:08:16Z"
+    },
+    {
+      "name": "chat-task-workbench",
+      "status": "completed",
+      "conclusion": "skipped",
+      "startedAt": "2026-10-31T18:08:17Z",
+      "completedAt": "2026-10-31T18:08:16Z"
+    },
+    {
+      "name": "board-smoke",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-31T18:08:51Z",
+      "completedAt": "2026-10-31T18:24:52Z"
+    },
+    {
+      "name": "directory-smoke",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-31T18:08:50Z",
+      "completedAt": "2026-10-31T18:16:37Z"
+    },
+    {
+      "name": "fullstack-smoke",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-31T18:08:51Z",
+      "completedAt": "2026-10-31T18:34:04Z"
+    },
+    {
+      "name": "base-api-shards (6)",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-31T18:09:17Z",
+      "completedAt": "2026-10-31T18:17:57Z"
+    },
+    {
+      "name": "base-api-shards (1)",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-31T18:09:17Z",
+      "completedAt": "2026-10-31T18:18:32Z"
+    },
+    {
+      "name": "base-api-shards (3)",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-31T18:09:17Z",
+      "completedAt": "2026-10-31T18:21:16Z"
+    },
+    {
+      "name": "base-api-shards (2)",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-31T18:09:18Z",
+      "completedAt": "2026-10-31T18:20:10Z"
+    },
+    {
+      "name": "base-api-shards (4)",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-31T18:09:17Z",
+      "completedAt": "2026-10-31T18:20:59Z"
+    },
+    {
+      "name": "base-api-shards (8)",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-31T18:09:17Z",
+      "completedAt": "2026-10-31T18:20:51Z"
+    },
+    {
+      "name": "base-api-shards (5)",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-31T18:09:17Z",
+      "completedAt": "2026-10-31T18:18:00Z"
+    },
+    {
+      "name": "base-api-shards (7)",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-31T18:09:17Z",
+      "completedAt": "2026-10-31T18:19:30Z"
+    },
+    {
+      "name": "web-test-shards (4)",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-31T18:09:36Z",
+      "completedAt": "2026-10-31T18:13:54Z"
+    },
+    {
+      "name": "web-test-shards (3)",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-31T18:09:37Z",
+      "completedAt": "2026-10-31T18:15:40Z"
+    },
+    {
+      "name": "web-test-shards (2)",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-31T18:09:37Z",
+      "completedAt": "2026-10-31T18:14:58Z"
+    },
+    {
+      "name": "web-test-shards (1)",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-31T18:09:37Z",
+      "completedAt": "2026-10-31T18:13:20Z"
+    },
+    {
+      "name": "chat-test-shards (2)",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-31T18:09:46Z",
+      "completedAt": "2026-10-31T18:29:37Z"
+    },
+    {
+      "name": "chat-test-shards (1)",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-31T18:09:47Z",
+      "completedAt": "2026-10-31T18:37:11Z"
+    },
+    {
+      "name": "base-api-exclusive",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-31T18:21:19Z",
+      "completedAt": "2026-10-31T18:25:14Z"
+    },
+    {
+      "name": "full-regression-core",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-31T18:25:17Z",
+      "completedAt": "2026-10-31T18:26:43Z"
+    },
+    {
+      "name": "chat-read",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-31T18:37:14Z",
+      "completedAt": "2026-10-31T18:38:12Z"
+    },
+    {
+      "name": "e2e-full",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-31T18:38:15Z",
+      "completedAt": "2026-10-31T18:38:38Z"
+    },
+    {
+      "name": "queue-ready",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-31T18:38:40Z",
+      "completedAt": "2026-10-31T18:39:05Z"
+    }
+  ]
+}

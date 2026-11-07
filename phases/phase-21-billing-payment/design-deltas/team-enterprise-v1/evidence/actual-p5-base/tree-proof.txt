@@ -1,0 +1,3 @@
+expected_tree=eadb9e221dece7fdcaaf6c6a94b31252a9751029
+actual_tree=eadb9e221dece7fdcaaf6c6a94b31252a9751029
+Exact full-tree match: actual P5 base plus original Team delta.

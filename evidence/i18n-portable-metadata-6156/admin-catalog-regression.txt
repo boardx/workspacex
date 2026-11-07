@@ -1,0 +1,11 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/web
+
+ ✓ tests/ui/admin-agent-catalog.test.tsx (7 tests) 433ms
+ ✓ tests/lib/official-role-import-scope.test.ts (10 tests) 10ms
+
+ Test Files  2 passed (2)
+      Tests  17 passed (17)
+   Start at  09:24:51
+   Duration  5.13s (transform 1.99s, setup 262ms, collect 3.15s, tests 443ms, environment 872ms, prepare 107ms)

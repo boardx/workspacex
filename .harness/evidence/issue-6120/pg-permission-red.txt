@@ -1,0 +1,44 @@
+[stack-admission] load1=4.35 cores=10 perCore=0.43 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvyylmo1-8478de13-3dad01f11c8e db=wsx_3dad01f11c8e3dd3c2fc compose=wsx-3dad01f11c8e3dd3c2fc pg=20401 redis=21401 api=24401 web=25401 sandbox=26401 model=27401 deep-agent=28401 asr=29401 vision=30401 loopback-sandbox=31401 mail=19401
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[heavy-e2e-lock] 排到了，等了 0s
+[db-isolation] db=wsx_3dad01f11c8e3dd3c2fc capacity=100 current=6 required=32
+ ❯ tests/billing/product-configuration.integration.ts (1 test | 1 failed) 13419ms
+   × prices new orders from configuration while paid annual grants retain their purchased quantity 38ms
+     → dependency_unavailable
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/product-configuration.integration.ts > prices new orders from configuration while paid annual grants retain their purchased quantity
+Error: dependency_unavailable
+ ❯ src/infrastructure/billing/pg-personal-checkout-repository.ts:59:87
+     57|       if (existing) { const purchase = view(existing); assertSamePerso…
+     58|       let configured;
+     59|       try{configured=await readProductConfiguration(session,market,tru…
+       |                                                                                       ^
+     60|       if(request.catalogVersion!==configured.version)throw new Persona…
+     61|       let products;
+ ❯ PgDatabase.inTx src/infrastructure/db/pg-database.ts:74:19
+ ❯ tests/billing/product-configuration.integration.ts:46:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  15:50:29
+   Duration  17.28s (transform 374ms, setup 8ms, collect 185ms, tests 13.42s, environment 0ms, prepare 55ms)
+
+[db-isolation] db=wsx_3dad01f11c8e3dd3c2fc peak_connections=2
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.billing-cashier.config.ts tests/billing/product-configuration.integration.ts --bail=1
+[timing] pnpm --filter api exec vitest run --config vitest.billing-cashier.config.ts tests/billing/product-configuration.integration.ts --bail=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：18s
+  清理：0s
+  总计：19s

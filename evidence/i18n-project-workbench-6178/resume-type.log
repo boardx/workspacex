@@ -1,0 +1,25 @@
+• turbo 2.10.5
+
+   • Packages in scope: web
+   • Running typecheck in 1 packages
+   • Remote caching disabled, using shared worktree cache
+
+@repo/fabric-markdown:build: cache hit, replaying logs 731da9d16c66361e
+@repo/fabric-markdown:build:
+@repo/fabric-markdown:build: > @repo/fabric-markdown@0.1.0 build /Users/shenyangjun/.codex/worktrees/6712/workspacex/packages/fabric-markdown
+@repo/fabric-markdown:build: > tsc -p tsconfig.build.json
+@repo/fabric-markdown:build:
+@repo/dev-mode-accounts:build: cache hit, replaying logs 6e3d0b47896bde78
+@repo/dev-mode-accounts:build:
+@repo/dev-mode-accounts:build: > @repo/dev-mode-accounts@0.1.0 build /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/packages/dev-mode-accounts
+@repo/dev-mode-accounts:build: > tsc --noEmit
+@repo/dev-mode-accounts:build:
+web:typecheck: cache miss, executing ea27578edefa0dd4
+web:typecheck:
+web:typecheck: > web@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+web:typecheck: > tsc --noEmit
+web:typecheck:
+
+ Tasks:    3 successful, 3 total
+Cached:    2 cached, 3 total
+  Time:    1m13.247s

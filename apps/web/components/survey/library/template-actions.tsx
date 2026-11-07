@@ -1,4 +1,7 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
+import type { MessageKey } from "@/lib/i18n/messages";
+import { displaySurveyTemplateMessage } from "@/lib/survey/display-template-message";
 import * as React from "react";
 import Link from "next/link";
 import {
@@ -44,12 +47,13 @@ export function SurveyTemplateActions({
   disabled = false,
   saveOnly = false,
 }: Props) {
-  const label = kind === "question" ? "问卷模板" : "报告模板";
+  const { t, locale } = useI18n();
+  const label = t(kind === "question" ? "survey.templates.questionOne" : "survey.templates.reportOne");
   const [mode, setMode] = React.useState<"save" | "use" | null>(null);
   const [name, setName] = React.useState("");
-  const [error, setError] = React.useState("");
-  const [loadError, setLoadError] = React.useState("");
-  const [notice, setNotice] = React.useState("");
+  const [error, setError] = React.useState<Error | string>("");
+  const [loadError, setLoadError] = React.useState<Error | string>("");
+  const [notice, setNotice] = React.useState<MessageKey | null>(null);
   const [busy, setBusy] = React.useState(false);
   const saveLock = React.useRef(false);
   const [loading, setLoading] = React.useState(false);
@@ -84,7 +88,7 @@ export function SurveyTemplateActions({
         if (active) setRows(parsed.data);
       })
       .catch((e) => {
-        if (active) setLoadError((e as Error).message);
+        if (active) setLoadError(e instanceof Error ? e : String(e));
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -96,7 +100,7 @@ export function SurveyTemplateActions({
   const open = (next: "save" | "use") => {
     setName(kind === "question" ? draft.title : draft.template.title);
     setError("");
-    setNotice("");
+    setNotice(null);
     setLoadError("");
     setSelected("");
     setBindings({});
@@ -129,10 +133,10 @@ export function SurveyTemplateActions({
       );
       if (!saved.success || saved.data.kind !== kind)
         throw new Error("模板保存结果无法确认，请前往模板库核对后重试。");
-      setNotice(`已保存到${label}库`);
+      setNotice("survey.templates.savedLibrary");
       setMode(null);
     } catch (e) {
-      setError((e as Error).message);
+      setError(e instanceof Error ? e : String(e));
     } finally {
       saveLock.current = false;
       setBusy(false);
@@ -161,23 +165,23 @@ export function SurveyTemplateActions({
       if (
         !window.confirm(
           kind === "question"
-            ? "将替换当前题目及配套报告模板，未保存修改会被替换。继续吗？"
-            : "将替换当前报告模板，保留问卷题目和已有答卷。继续吗？",
+            ? t("survey.templates.replaceQuestions")
+            : t("survey.templates.replaceReport"),
         )
       )
         return;
       onApply(next);
       setUnbound(null);
       setMode(null);
-      setNotice("模板已应用，请保存问卷修改。");
+      setNotice("survey.templates.applied");
     } catch (e) {
-      setError((e as Error).message);
+      setError(e instanceof Error ? e : String(e));
     }
   };
   return (
     <section
       className={saveOnly ? "" : "border-b border-border bg-card px-5 py-3"}
-      aria-label={`${label}操作`}
+      aria-label={t("survey.templates.actions", { label })}
     >
       <div className="flex flex-wrap items-center gap-2">
         {!saveOnly && <Button
@@ -185,7 +189,7 @@ export function SurveyTemplateActions({
           disabled={disabled || locked}
           onClick={() => open("use")}
         >
-          使用{label}
+          {t("survey.templates.use", { label })}
         </Button>}
         <Button
           variant={saveOnly ? "primary" : "outline"}
@@ -193,13 +197,13 @@ export function SurveyTemplateActions({
           disabled={disabled}
           onClick={() => open("save")}
         >
-          保存为{label}
+          {t("survey.templates.saveAs", { label })}
         </Button>
         {!saveOnly && <Link
           className="px-2 text-12 text-muted-foreground underline"
           href={`/studio/survey?tab=${kind === "question" ? "modules" : "reports"}`}
         >
-          管理模板库
+          {t("survey.templates.manage")}
         </Link>}
         {kind === "report" && !saveOnly && draft.template.sections.length > 0 && (
           <Button variant="outline" disabled={disabled || busy || locked} onClick={() => {
@@ -207,26 +211,26 @@ export function SurveyTemplateActions({
             const cleared = { id: crypto.randomUUID(), title: draft.title.trim(), sections: [] };
             setUnbound({ previous: structuredClone(draft.template), cleared });
             onApply({ ...draft, template: cleared }, "unbind");
-            setNotice("已不使用报告模板，可撤销解绑。修改将自动保存。");
-          }}>不使用报告模板</Button>
+            setNotice("survey.templates.unlinked");
+          }}>{t("survey.templates.unlink")}</Button>
         )}
         {kind === "report" && !saveOnly && canUndoUnbind && (
           <Button variant="outline" disabled={disabled || busy || locked} onClick={() => {
             if (disabled || busy || locked || !unbound) return;
             onApply({ ...draft, template: structuredClone(unbound.previous) }, "undo-unbind");
             setUnbound(null);
-            setNotice("已恢复报告模板。修改将自动保存。");
-          }}>撤销解绑</Button>
+            setNotice("survey.templates.restored");
+          }}>{t("survey.templates.undo")}</Button>
         )}
         {locked && !saveOnly && (
           <span className="text-12 text-muted-foreground">
-            已发布题目不可替换，仍可保存为模板。
+            {t("survey.templates.locked")}
           </span>
         )}
       </div>
       {notice && (
         <p role="status" className="mt-2 text-12 text-success">
-          {notice}
+          {t(notice, { label })}
         </p>
       )}
       <Dialog
@@ -238,31 +242,30 @@ export function SurveyTemplateActions({
         <DialogContent className={`max-h-[85vh] overflow-y-auto sm:max-w-xl ${saveOnly ? "[&_button:not(:disabled)]:bg-primary [&_button:not(:disabled)]:text-primary-foreground [&_button:not(:disabled):hover]:bg-primary-hover" : ""}`}>
           <DialogHeader>
             <DialogTitle>
-              {mode === "save" ? "保存为" : "使用"}
-              {label}
+              {t(mode === "save" ? "survey.templates.saveAs" : "survey.templates.use", { label })}
             </DialogTitle>
             <DialogDescription>
               {mode === "save"
-                ? "只保存题目和报告配置，不包含答卷或发布信息。"
-                : "应用后保存为当前问卷的独立副本，不改变原模板。"}
+                ? t("survey.templates.saveHint")
+                : t("survey.templates.applyHint")}
             </DialogDescription>
           </DialogHeader>
           {error && (
             <p role="alert" className="text-12 text-destructive">
-              {error}
+              {displaySurveyTemplateMessage(error, t, locale)}
             </p>
           )}
           {mode === "use" && loadError && (
             <p role="alert" className="text-12 text-destructive">
-              {loadError}
+              {displaySurveyTemplateMessage(loadError, t, locale)}
             </p>
           )}
           {mode === "save" ? (
             <>
               <label className="space-y-2 text-12">
-                模板名称
+                {t("survey.templates.name")}
                 <Input
-                  aria-label="保存模板名称"
+                  aria-label={t("survey.templates.saveName")}
                   value={name}
                   maxLength={200}
                   disabled={busy || disabled}
@@ -274,31 +277,31 @@ export function SurveyTemplateActions({
                 disabled={busy || disabled || !name.trim()}
                 onClick={() => void save()}
               >
-                {busy ? "正在保存…" : "保存到模板库"}
+                {t(busy ? "survey.templates.saving" : "survey.templates.saveLibrary")}
               </Button>
             </>
           ) : (
             <>
-              {loading && <p role="status">正在加载我的模板…</p>}
+              {loading && <p role="status">{t("survey.templates.loadingMine")}</p>}
               {loadError && (
                 <Button
                   variant="outline"
                   disabled={loading}
                   onClick={() => setAttempt((n) => n + 1)}
                 >
-                  重试加载
+                  {t("survey.templates.retryLoad")}
                 </Button>
               )}
               {!loading && !loadError && !rows.length && (
                 <p className="text-12 text-muted-foreground">
-                  还没有个人{label}，可选择内置模板，或先保存自己的配置。
+                  {t("survey.templates.noPersonal", { label })}
                 </p>
               )}
               {choices.length > 0 && (
                 <label className="space-y-2 text-12">
-                  选择{label}
+                  {t("survey.templates.select", { label })}
                   <select
-                    aria-label={`选择${label}`}
+                    aria-label={t("survey.templates.select", { label })}
                     className={selectStyle}
                     value={selected}
                     disabled={busy || disabled}
@@ -308,8 +311,8 @@ export function SurveyTemplateActions({
                       setError("");
                     }}
                   >
-                    <option value="">请选择模板</option>
-                    <optgroup label="内置模板">
+                    <option value="">{t("survey.templates.selectPlaceholder")}</option>
+                    <optgroup label={t("survey.templates.builtin")}>
                       {builtins.map((row) => (
                         <option key={row.id} value={row.id}>
                           {row.title}
@@ -317,7 +320,7 @@ export function SurveyTemplateActions({
                       ))}
                     </optgroup>
                     {rows.length > 0 && (
-                      <optgroup label="我的模板">
+                      <optgroup label={t("survey.templates.mine")}>
                         {rows.map((row) => (
                           <option key={row.id} value={row.id}>
                             {row.title}
@@ -330,25 +333,24 @@ export function SurveyTemplateActions({
               )}
               {source && (
                 <p className="text-12 text-muted-foreground">
-                  {source.questions.length} 道题目 ·{" "}
-                  {source.template.sections.length} 个报告章节
+                  {t("survey.templates.counts", { questions: source.questions.length, sections: source.template.sections.length })}
                   {source.id.startsWith("builtin-")
-                    ? " · 内置配置，应用后独立编辑"
+                    ? t("survey.templates.builtinIndependent")
                     : ""}
                 </p>
               )}
               {refs.length > 0 && (
                 <fieldset className="space-y-3" disabled={busy || disabled}>
                   <legend className="mb-3 text-14 font-medium">
-                    将模板题目对应到当前问卷
+                    {t("survey.templates.matchLegend")}
                   </legend>
                   {refs.map((id) => {
                     const question = source!.questions.find((q) => q.id === id);
                     return (
                       <label key={id} className="block space-y-1 text-12">
-                        {question?.title ?? "模板题目引用已失效"}
+                        {question?.title ?? t("survey.templates.invalidReference")}
                         <select
-                          aria-label={`对应题目：${question?.title ?? id}`}
+                          aria-label={t("survey.templates.match", { title: question?.title ?? id })}
                           className={selectStyle}
                           value={bindings[id] ?? ""}
                           onChange={(event) =>
@@ -358,7 +360,7 @@ export function SurveyTemplateActions({
                             })
                           }
                         >
-                          <option value="">请选择当前问卷题目</option>
+                          <option value="">{t("survey.templates.selectCurrent")}</option>
                           {draft.questions
                             .filter((q) => q.type === question?.type)
                             .map((q) => (
@@ -382,7 +384,7 @@ export function SurveyTemplateActions({
                 }
                 onClick={apply}
               >
-                应用模板
+                {t("survey.templates.apply")}
               </Button>
             </>
           )}

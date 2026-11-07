@@ -1,3 +1,5 @@
+import { translate } from "../i18n/messages";
+import type { Locale } from "../i18n/locale";
 /**
  * 2026-09-22 —— 「计划里每一步都被标成完成了，可是这次执行失败了」这一幕。
  *
@@ -21,9 +23,7 @@ export interface PlanStepStatusLike {
   readonly status: string;
 }
 
-export const PLAN_ALL_DONE_BUT_FAILED_NOTE =
-  "计划里的每一步都被标成「完成」了——那些勾是模型自己打的，代表它认为该做的动作做完了，"
-  + "不代表产物真的生成并保存下来了。这一轮最终没有产出可用结果，所以仍然算失败。";
+export { PLAN_ALL_DONE_BUT_FAILED_NOTE } from "../plan-control-display-labels";
 
 /**
  * 这一轮该不该多说那一句。`null` = 不该（不是空字符串：空字符串会被渲染成一行空白）。
@@ -36,7 +36,8 @@ export const PLAN_ALL_DONE_BUT_FAILED_NOTE =
 export function planAllDoneButFailedNote(
   steps: readonly PlanStepStatusLike[],
   runFailed: boolean,
+  locale: Locale = "zh-CN",
 ): string | null {
   if (!runFailed || steps.length === 0) return null;
-  return steps.every((s) => s.status === "completed") ? PLAN_ALL_DONE_BUT_FAILED_NOTE : null;
+  return steps.every((s) => s.status === "completed") ? translate(locale, "chatPlanControl.allDoneFailed") : null;
 }

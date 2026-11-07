@@ -1,0 +1,53 @@
+Observed process exit code: 1
+Raw log SHA-256: 39a9ccb55f2a57e6333e5d499d44dade4e19232e7015e258a33488e4305719d8
+
+
+ ❯ tests/ui/research-overlays-i18n.test.tsx (8 tests | 2 failed) 346ms
+   × en prefills a new editable plan title once and preserves subsequent user edits 20ms
+     → expect(element).toHaveValue(New plan)
+
+Expected the element to have value:
+  New plan
+Received:
+  新计划
+   × en prefills new chapter and subsection titles once without overwriting edits 17ms
+     → expect(element).toHaveValue(New chapter)
+
+Expected the element to have value:
+  New chapter
+Received:
+  新章节
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/research-overlays-i18n.test.tsx > en prefills a new editable plan title once and preserves subsequent user edits
+Error: expect(element).toHaveValue(New plan)
+
+Expected the element to have value:
+  New plan
+Received:
+  新计划
+ ❯ tests/ui/research-overlays-i18n.test.tsx:83:18
+     81|   fireEvent.click(screen.getByRole("button", { name: locale === "en" ?…
+     82|   const editor = screen.getByRole("textbox", { name: locale === "en" ?…
+     83|   expect(editor).toHaveValue(locale === "en" ? "New plan" : "新计划");
+
+ FAIL  tests/ui/research-overlays-i18n.test.tsx > en prefills new chapter and subsection titles once without overwriting edits
+Error: expect(element).toHaveValue(New chapter)
+
+Expected the element to have value:
+  New chapter
+Received:
+  新章节
+ ❯ tests/ui/research-overlays-i18n.test.tsx:95:17
+     93|   fireEvent.click(screen.getByRole("button", { name: locale === "en" ?…
+     94|   const title = screen.getByRole("textbox", { name: locale === "en" ? …
+     95|   expect(title).toHaveValue(locale === "en" ? "New chapter" : "新章节"…
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 6 passed (8)
+   Start at  01:23:15
+   Duration  3.26s (transform 965ms, setup 157ms, collect 1.56s, tests 346ms, environment 734ms, prepare 49ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/apps/web:

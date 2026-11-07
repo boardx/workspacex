@@ -1,0 +1,27 @@
+
+> @repo/api@0.0.0 test:team-core-unit /Users/shenyangjun/boardx/workspacex/.worktrees/team-receipt-anchor-6099/apps/api
+> vitest run --config vitest.team-core-unit.config.ts
+
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/team-receipt-anchor-6099/apps/api
+
+ ✓ tests/billing/team-catalog-market.test.ts (6 tests) 64ms
+ ✓ tests/billing/team-wechat-crediting.test.ts (5 tests) 115ms
+ ✓ tests/billing/team-wechat-payment.test.ts (14 tests) 229ms
+ ✓ tests/billing/team-recovery-sweep.test.ts (3 tests) 102ms
+ ✓ tests/billing/team-checkout-core.test.ts (5 tests) 26ms
+ ✓ tests/billing/team-purchase-core.test.ts (9 tests) 43ms
+ ✓ tests/billing/team-billing-access.test.ts (6 tests) 28ms
+ ✓ tests/billing/team-credit-admission-core.test.ts (1 test) 32ms
+ ✓ tests/billing/team-recovery-worker.test.ts (3 tests) 56ms
+ ✓ tests/billing/team-payment-decision.test.ts (10 tests) 25ms
+ ✓ tests/billing/team-credit-core.test.ts (2 tests) 18ms
+ ✓ tests/billing/team-ai-license.test.ts (5 tests) 15ms
+ ✓ tests/billing/team-error-boundary.test.ts (2 tests) 14ms
+ ✓ tests/billing/team-auth-lock-order.test.ts (2 tests) 23ms
+ ✓ tests/billing/team-approved-defaults.test.ts (1 test) 10ms
+
+ Test Files  15 passed (15)
+      Tests  74 passed (74)
+   Start at  16:40:59
+   Duration  43.06s (transform 7.36s, setup 0ms, collect 21.85s, tests 799ms, environment 50ms, prepare 5.97s)

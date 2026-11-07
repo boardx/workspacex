@@ -1,0 +1,42 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ❯ tests/ui/thread-card-button.test.tsx (0 test)
+ ❯ tests/ui/i18n-chat-entry.test.tsx (0 test)
+ ❯ tests/ui/chat-task-workbench-empty-state.test.tsx (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/chat-task-workbench-empty-state.test.tsx [ tests/ui/chat-task-workbench-empty-state.test.tsx ]
+ FAIL  tests/ui/i18n-chat-entry.test.tsx [ tests/ui/i18n-chat-entry.test.tsx ]
+ FAIL  tests/ui/thread-card-button.test.tsx [ tests/ui/thread-card-button.test.tsx ]
+Error: Transform failed with 1 error:
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/messages/zh-CN.ts:269:59: ERROR: Unexpected "..."
+  Plugin: vite:esbuild
+  File: /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/messages/zh-CN.ts:269:59
+
+  Unexpected "..."
+  267|
+  268|  import { codeFenceZhCN } from "../namespaces/code-fence";
+  269|  import { chatShareZhCN } from "../namespaces/chat-share";  ...chatEntryZhCN,
+     |                                                             ^
+  270|
+  271|
+
+ ❯ failureErrorWithLog ../../node_modules/.pnpm/esbuild@0.21.5/node_modules/esbuild/lib/main.js:1472:15
+ ❯ ../../node_modules/.pnpm/esbuild@0.21.5/node_modules/esbuild/lib/main.js:755:50
+ ❯ responseCallbacks.<computed> ../../node_modules/.pnpm/esbuild@0.21.5/node_modules/esbuild/lib/main.js:622:9
+ ❯ handleIncomingPacket ../../node_modules/.pnpm/esbuild@0.21.5/node_modules/esbuild/lib/main.js:677:12
+ ❯ Socket.readFromStdout ../../node_modules/.pnpm/esbuild@0.21.5/node_modules/esbuild/lib/main.js:600:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ Test Files  3 failed (3)
+      Tests  no tests
+   Start at  01:10:49
+   Duration  2.63s (transform 100ms, setup 285ms, collect 0ms, tests 0ms, environment 1.50s, prepare 128ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/i18n-chat-entry.test.tsx tests/ui/chat-task-workbench-empty-state.test.tsx tests/ui/thread-card-button.test.tsx --maxWorkers=1 --minWorkers=1

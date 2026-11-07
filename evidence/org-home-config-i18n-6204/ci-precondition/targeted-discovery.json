@@ -1,0 +1,48 @@
+{
+  "home": {
+    "exit": 0,
+    "seconds": 2.05,
+    "tests": 1,
+    "command": [
+      "pnpm",
+      "exec",
+      "tsx",
+      ".harness/scripts/with-test-isolation.ts",
+      "--",
+      "pnpm",
+      "--filter",
+      "web",
+      "exec",
+      "playwright",
+      "test",
+      "--config",
+      "playwright.entity-localization.config.ts",
+      "--list",
+      "-g",
+      "organization home configuration preserves"
+    ]
+  },
+  "polluted": {
+    "exit": 0,
+    "seconds": 2.06,
+    "tests": 3,
+    "command": [
+      "pnpm",
+      "exec",
+      "tsx",
+      ".harness/scripts/with-test-isolation.ts",
+      "--",
+      "pnpm",
+      "--filter",
+      "web",
+      "exec",
+      "playwright",
+      "test",
+      "--config",
+      "playwright.entity-localization.config.ts",
+      "--list",
+      "-g",
+      "admin authors display copy; members switch language; clearing keeps original execution bytes|an installed organization explicitly updates authored titles without changing execution or manual copy|organization home configuration preserves"
+    ]
+  }
+}

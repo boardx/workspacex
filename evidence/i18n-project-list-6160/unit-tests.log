@@ -1,0 +1,18 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/ui/projects-screen-live.test.tsx (17 tests) 1765ms
+   ✓ F164 /projects：⋯ 菜单接真 archiveProject / unarchiveProject > 菜单只有真实可用的两项（复制项目链接 / 归档），没有删除项，也没有禁用占位和内部备注 303ms
+ ✓ tests/ui/project-list-i18n.test.tsx (4 tests) 786ms
+   ✓ translates real cards and view/filter controls while preserving original name, tags and pending search without refetch 466ms
+ ✓ tests/ui/create-project-dialog.test.tsx (4 tests) 460ms
+ ✓ tests/ui/tag-primitives.test.tsx (6 tests) 220ms
+ ✓ tests/ui/inline-tag-editor.test.tsx (6 tests) 133ms
+ ✓ tests/lib/tag-utils.test.ts (7 tests) 21ms
+ ✓ tests/lib/i18n-resources.test.ts (5 tests) 46ms
+
+ Test Files  7 passed (7)
+      Tests  49 passed (49)
+   Start at  05:45:03
+   Duration  22.01s (transform 2.79s, setup 1.54s, collect 7.59s, tests 3.43s, environment 6.58s, prepare 1.18s)

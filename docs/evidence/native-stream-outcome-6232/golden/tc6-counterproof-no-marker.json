@@ -1,0 +1,13 @@
+{
+  "tc": "tc6-counterproof-no-marker",
+  "collected_at_utc": "2026-11-04T13:58:48.381784+00:00",
+  "harness": "in-process pytest, ScriptedChatModel（假模型，非真模型质量证据）",
+  "scenario": "反证①：无任务模式标记 → 不强制，原样复现 #2220 的真实故障",
+  "dimensions": [
+    "D1"
+  ],
+  "model_call_tool_choices": [
+    null
+  ],
+  "tool_call_names_in_transcript": []
+}

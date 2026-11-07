@@ -75,7 +75,10 @@ import { existsSync, readFileSync } from "node:fs";
 import { readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { ciJobCommands } from "./lib/ci-job-conditions.mjs";
+import { ciJobCommands,readWorkflows } from "./lib/ci-job-conditions.mjs";
+import {CURRENT_POLICY} from "./lib/ci-check-policy.mjs";
+import {scheduledJobLabels} from "./lib/ci-hourly-reachability.mjs";
+import { chatProductionInvocations } from "./lib/chat-production-gate.mjs";
 
 const REPO_ROOT = fileURLToPath(new URL("../..", import.meta.url));
 
@@ -281,6 +284,11 @@ const EXEMPTIONS = [
  * 写这里的代价是：这条 spec 被共享包改动打红时，CI 不会告诉任何人。
  */
 const CONDITIONAL_COVERAGE_EXEMPTIONS = [
+  ...["apps/web/e2e/board-connector-authority.spec.ts", "apps/web/e2e/board-connector-copy-defaults.spec.ts", "apps/web/e2e/board-connector-history.spec.ts", "apps/web/e2e/board-connector-independent-process.spec.ts", "apps/web/e2e/board-connector-interchange.spec.ts", "apps/web/e2e/board-files-boundaries.spec.ts", "apps/web/e2e/board-files-filenames.spec.ts", "apps/web/e2e/board-files-placement.spec.ts", "apps/web/e2e/board-files-retry.spec.ts", "apps/web/e2e/board-meeting-room-acceptance.spec.ts", "apps/web/e2e/board-peer-origin-close.spec.ts", "apps/web/e2e/board-r01-native-matrix.spec.ts", "apps/web/e2e/board-sync-lifecycle.spec.ts"].map(spec => ({spec,reason: "#6057: user-approved lifecycle cleanup moves independent heavy native Board measurements to explicit manual acceptance. The original suites and evidence protocol remain in board-native-acceptance.yml; normal scoped Board PR/queue and core smoke remain automatic. This is conditional manual coverage, not unconditional source acceptance."})),
+  {
+    spec: "apps/web/e2e/skill-file-pin-live.spec.ts",
+    reason: "#6052: Skill browser acceptance is conditional on all apps/**, packages/**, scripts/**, .harness/** and root dependency/runtime configuration; ci-skill-scope.test.ts pins this conservative set. Documentation-only changes outside those inputs no longer launch the browser. This is conditional coverage, never unconditional acceptance; manual dispatch remains available.",
+  },
   {
     spec: "apps/web/e2e/cn-release-six-business.spec.ts",
     reason: "CN release simulation owner: cn-release-simulation.yml executes this full application fixture via the AST-verified Python runner/session chain. The workflow has explicit release/source path filters and manual dispatch, so this is conditional coverage, not an unconditional product E2E gate. Exact-candidate/production acceptance remains separate.",
@@ -542,6 +550,12 @@ export function resolveInvokedConfigs(root = REPO_ROOT) {
   while (queue.length > 0) {
     const { text, pkgDir, unconditional, via } = queue.pop();
 
+    // Only the audited owned builder is transparent; arbitrary tsx wrappers and
+    // restricted selectors must never make the whole chat config reachable.
+    for (const command of chatProductionInvocations(text, root)) {
+      queue.push({ text: command, pkgDir: "apps/web", unconditional, via });
+    }
+
     // This lane invokes Playwright through owned Python process supervision.
     // A filename mention alone is insufficient: inspect the actual AST edges
     // through all-suite selection, module.main and the final fixed spawn.
@@ -688,7 +702,7 @@ export function specsMatchedBy({ pkgDir, configPath, projects = [] }) {
  * 尤其是 `covered-but-exempt` 与两种陈旧豁免，它们在真实仓库里（希望）永远不出现，
  * 而「永远不出现的分支」正是最容易写错又永远测不到的那种。
  */
-export function classifySpecs({ population, coveredBy, exemptions, conditionalExemptions = [] }) {
+export function classifySpecs({ population, coveredBy, exemptions, conditionalExemptions = [], policy=CURRENT_POLICY }) {
   const exemptBySpec = new Map(exemptions.map((e) => [e.spec, e]));
   const conditionalBySpec = new Map(conditionalExemptions.map((e) => [e.spec, e]));
 
@@ -707,8 +721,9 @@ export function classifySpecs({ population, coveredBy, exemptions, conditionalEx
       verdict = exemption || conditionalExemption ? "covered-but-exempt" : "covered";
       reason = (exemption ?? conditionalExemption)?.reason;
     } else if (conditionalBy.length > 0) {
-      verdict = conditionalExemption ? "conditional-exempt" : "conditionally-covered";
-      reason = conditionalExemption?.reason;
+      const hourly=policy.version===5&&coverage.some(c=>c.hourlyFull===true);
+      verdict = conditionalExemption||hourly ? "conditional-exempt" : "conditionally-covered";
+      reason = conditionalExemption?.reason??(hourly?"Policy v5 (#6397): registered hourly full regression on frozen develop; not premerge coverage or executed success.":undefined);
     } else {
       verdict = exemption ? "exempt" : "unrun";
       reason = exemption?.reason;
@@ -737,11 +752,12 @@ export function classifySpecs({ population, coveredBy, exemptions, conditionalEx
 export function auditSpecGateCoverage() {
   const population = allSpecFiles();
   const invoked = resolveInvokedConfigs();
+  const hourly=scheduledJobLabels(new Map(readWorkflows().map(w=>[w.file,w.document])),CURRENT_POLICY);
   const coveredBy = new Map(population.map((spec) => [spec, []]));
   for (const config of invoked) {
     for (const spec of specsMatchedBy(config)) {
       if (coveredBy.has(spec)) {
-        coveredBy.get(spec).push({ configPath: config.configPath, unconditional: config.unconditional });
+        coveredBy.get(spec).push({ configPath: config.configPath, unconditional: config.unconditional,hourlyFull:config.via.some(v=>hourly.has(v)) });
       }
     }
   }
@@ -817,7 +833,7 @@ function main() {
     process.exit(1);
   }
   console.log(
-    "\n✅ 每一条 spec 都已被某个**无条件** CI job 的 --project 跑到（或有署名豁免）——" +
+    "\n✅ 每一条 spec 都注册了 CI --project 链路或明确条件豁免；v5 hourly 注册不等于合入前覆盖或本趟执行——" +
       // 迭代 24：这句话原文是「注册 ≠ 本趟执行」，那是闭包还停在 config 粒度时的如实免责。
       // 现在 `--project` 已经接进闭包，"注册了但那条命令不跑它"会红，所以这句改成说现在的事实。
       "闭包已收紧到 project 粒度；仍未接进来的是 -g/--grep 过滤（本仓 CI 命令目前不用）",

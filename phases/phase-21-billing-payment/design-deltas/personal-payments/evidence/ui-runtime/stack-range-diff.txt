@@ -1,0 +1,11 @@
+ 1:  c517aabf6 =  1:  6c261c8f5 feat(billing): persist personal checkout intents and provider protocols Refs #6093
+ 2:  344bc7afc =  2:  8c5776147 feat(billing): settle verified personal WeChat payments atomically Refs #6093
+ 3:  7073ad7de =  3:  2eb2c3f33 feat(billing): bind verified Stripe renewals and expose personal entitlement Refs #6093
+ 4:  d196fb5df =  4:  5654d344e feat(billing): reconcile authoritative pending personal payments Refs #6093
+ 5:  346223a73 =  5:  66e8ab5c8 feat(billing): backfill paid personal invoices with resumable pages Refs #6093
+ 6:  177872994 =  6:  6f43e836d feat(billing): reconcile missed personal payments automatically; Refs #6093
+ 7:  ff98ae968 =  7:  ab7976833 feat(billing): read verified management history and retire legacy sales; Refs #6093
+ 8:  ecb383b16 =  8:  92d5fd758 feat(billing): expose owned personal payment outcomes through order reads; Refs #6093
+ 9:  2544baa96 =  9:  045ed4959 feat(billing): bind adopted personal account cards to verified reads; Refs #6093
+10:  7ac972e45 = 10:  4f0142071 feat(billing): select catalog products and preserve personal checkout retries; Refs #6093
+11:  ed94e716b = 11:  5bdd0be77 fix(billing): use a defined token for checkout quote totals; Refs #6093

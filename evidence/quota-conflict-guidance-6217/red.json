@@ -1,0 +1,14 @@
+{
+  "exit": 1,
+  "seconds": 3.27,
+  "command": [
+    "pnpm",
+    "exec",
+    "vitest",
+    "run",
+    "--config",
+    "vitest.billing-provider.config.ts",
+    "tests/billing/global-error-boundary.test.ts"
+  ],
+  "filterUnchanged": true
+}

@@ -19,6 +19,7 @@
  * 再转 blob URL。不另写第二份取字节实现。
  */
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import { apiUrl } from "@/lib/api-client";
 import { useAuthedImageSrc } from "@/lib/use-authed-image-src";
 import { iconKindForMime, type AttachmentIconKind } from "@/lib/chat-attachment-format";
@@ -38,6 +39,7 @@ export function previewMode(
 }
 
 export function TextAttachmentPreview({ src }: { src: string }) {
+  const { t } = useI18n();
   const [text, setText] = React.useState<string | null>(null);
   const [failed, setFailed] = React.useState(false);
   React.useEffect(() => {
@@ -48,8 +50,8 @@ export function TextAttachmentPreview({ src }: { src: string }) {
     });
     return () => { controller.abort(); };
   }, [src]);
-  if (failed) return <p className="text-13 text-muted-foreground" data-testid="chat-attachment-preview-text-failed">文本预览加载失败，请下载查看。</p>;
-  if (text === null) return <p className="text-13 text-muted-foreground" data-testid="chat-attachment-preview-text-loading">正在读取内容…</p>;
+  if (failed) return <p className="text-13 text-muted-foreground" data-testid="chat-attachment-preview-text-failed">{t("chatAttachments.textFailed")}</p>;
+  if (text === null) return <p className="text-13 text-muted-foreground" data-testid="chat-attachment-preview-text-loading">{t("chatAttachments.textLoading")}</p>;
   return <pre className="max-h-[60vh] w-full overflow-auto whitespace-pre-wrap break-words rounded-md border border-border-subtle bg-muted p-3 text-11 text-card-foreground" data-testid="chat-attachment-preview-text">{text}</pre>;
 }
 
@@ -77,6 +79,7 @@ export function ChatAttachmentView({
   readonly compact?: boolean;
   readonly onState?: (state: AttachmentViewHandle) => void;
 }): React.JSX.Element {
+  const { t } = useI18n();
   const contentUrl = apiUrl(`/chat/threads/${threadId}/attachments/${attachmentId}/content`);
   const { src, failed } = useAuthedImageSrc(contentUrl);
   const mode = previewMode(iconKindForMime(mime), mime);
@@ -93,10 +96,10 @@ export function ChatAttachmentView({
     : "h-[60vh] w-full rounded-md border border-border-subtle";
 
   if (failed) {
-    return <p className="text-13 text-muted-foreground" data-testid="chat-attachment-preview-failed">加载失败，请重试或直接下载。</p>;
+    return <p className="text-13 text-muted-foreground" data-testid="chat-attachment-preview-failed">{t("chatAttachments.previewFailed")}</p>;
   }
   if (!src) {
-    return <p className="text-13 text-muted-foreground" data-testid="chat-attachment-preview-loading">正在加载…</p>;
+    return <p className="text-13 text-muted-foreground" data-testid="chat-attachment-preview-loading">{t("chatAttachments.previewLoading")}</p>;
   }
   if (mode === "image") {
     // eslint-disable-next-line @next/next/no-img-element -- blob URL，不是可优化的远程图
@@ -113,7 +116,7 @@ export function ChatAttachmentView({
   }
   return (
     <p className="text-13 text-muted-foreground" data-testid="chat-attachment-preview-unsupported">
-      该文件类型不支持预览，请下载查看。
+      {t("chatAttachments.previewUnsupported")}
     </p>
   );
 }

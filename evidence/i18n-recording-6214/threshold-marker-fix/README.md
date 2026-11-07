@@ -1,0 +1,13 @@
+# Recording candidate threshold gate correction
+
+PR6220; prior source f998aadc66a08090302533ed629afdf9a039a47f; source fix89745fd03525e4422b8d6c638b018488eacaddc0; accepted develop ec1695d8fd646e004ca40dafbfa8e03bf01f20ef.
+
+Both merge candidates failed the same real package assertion, not the recording browser or an infrastructure timeout. Candidate f7fd3a9d2367ac3a1b26848733d7b5fde9b1147c and candidate6f5dbb2984caea3196da2c70615efdf1d71201e7 both have parents[ec169,f998]. Their checkout logs confirm each candidate SHA; CI_SCOPE_BASE_SHA was ec169. The uncached trusted-base command runs candidate package tests. The sole failed job in each complete34-job acceptance run was base-package-tests, specifically @repo/contracts tests/pending-thresholds.test.ts:139 retentionMaterial. Other cancelled jobs are not counted as passing or as the first failure.
+
+The literal had been moved to the shared recording copy declaration; its original accepted inline annotation remained at the old caller. The correction moves the exact existing marker/reason with that literal and removes the old annotation. No new or broader exemption, threshold, text, test or workflow change. One explicit JSX space preserves the separator previously adjacent to the old JSX comment. Literal bytes, original reason, marker count1 and both comment-free emitted modules are proven equal. Compiler equality is a static proof, not a new browser run. The previous frozen browser proof is inherited as documented separately.
+
+Original local RED: f998,1FAIL/6PASS,exit1/4.764s. First full-package attempt used the pnpm test alias, which rejected worker flags before any tests; it is not GREEN. Explicit run test then reached1065PASS/61files and the original threshold7PASS, but exited1 on one local ignored/untracked Finder metadata file. That exact file was moved reversibly into private storage with hash/size recorded; no glob cleanup, source or test alteration. The same full package then actually passed:143files/1443tests,exit0/127.105s (native121.07s); original threshold7PASS. No test was skipped or excluded in this run.
+
+Independent limited source review: STATIC CLEAN/noP1P2 for exactf998→89745,2files only. It did not execute the browser or tests. Normal hooks/publication/source CI and any future candidate verdict must be recorded separately; no third enqueue or blind rerun was performed by this worker. Both old enqueue events identify usersyj with no performed-via app; that does not identify a client or chat.
+
+Raw job logs, metadata responses and local command output remain private0700/0600; this directory will contain only allowlisted receipts, hashes and the static review.

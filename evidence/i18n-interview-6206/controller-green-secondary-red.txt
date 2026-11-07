@@ -1,0 +1,58 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/apps/web
+
+ ❯ tests/ui/interview-journey-i18n.test.tsx (7 tests | 1 failed) 345ms
+   × localizes controlled text-import validation errors while preserving the requirement 15ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Only UTF-8 TXT / Markdown files are supported
+[intermediate output omitted; full log SHA-256 in validation.json]
+   × localizes controlled text-import validation errors while preserving the requirement 15ms
+   × preserves a pending quick message and exact source version through locale changes 1021ms
+   × localizes quick loading errors without reissuing the identity read 1008ms
+   × keeps live-list login input and its one pending login across locale changes 19ms
+   × localizes live scope and empty results while preserving canonical query values 1015ms
+   × prefills a localized editable shortcut without auto-send and retains edits on locale changes 32ms
+   × keeps a persistent assistant send pending without replaying it or translating private messages 13ms
+   × localizes proposal scaffolding without rewriting machine patch IDs 2ms
+   × prepares and selects the localized default before opening after a closed-dialog locale change 1033ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 9 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/ui/interview-create-i18n.test.tsx > prepares and selects the localized default before opening after a closed-dialog locale change
+AssertionError: expected 5 to be +0 // Object.is equality
+ FAIL  tests/ui/interview-journey-i18n.test.tsx > localizes controlled text-import validation errors while preserving the requirement
+Error: expect(element).toHaveTextContent()
+ FAIL  tests/ui/interview-secondary-i18n.test.tsx > preserves a pending quick message and exact source version through locale changes
+TestingLibraryElementError: Unable to find role="textbox" and name "Interview question"
+ FAIL  tests/ui/interview-secondary-i18n.test.tsx > localizes quick loading errors without reissuing the identity read
+TestingLibraryElementError: Unable to find an element with the text: /The quick interview could not be loaded/. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+ FAIL  tests/ui/interview-secondary-i18n.test.tsx > keeps live-list login input and its one pending login across locale changes
+TestingLibraryElementError: Unable to find an element with the placeholder text of: Email
+ FAIL  tests/ui/interview-secondary-i18n.test.tsx > localizes live scope and empty results while preserving canonical query values
+TestingLibraryElementError: Unable to find role="button" and name "Refresh interviews"
+ FAIL  tests/ui/interview-secondary-i18n.test.tsx > prefills a localized editable shortcut without auto-send and retains edits on locale changes
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Recommend experts"
+ FAIL  tests/ui/interview-secondary-i18n.test.tsx > keeps a persistent assistant send pending without replaying it or translating private messages
+TestingLibraryElementError: Unable to find an accessible element with the role "heading" and name "Interview Skill assistant"
+ FAIL  tests/ui/interview-secondary-i18n.test.tsx > localizes proposal scaffolding without rewriting machine patch IDs
+TestingLibraryElementError: Unable to find an element with the text: Expert profile unavailable. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+ Test Files  3 failed | 3 passed (6)
+      Tests  9 failed | 25 passed (34)
+   Duration  15.62s (transform 1.61s, setup 599ms, collect 4.70s, tests 5.93s, environment 3.33s, prepare 252ms)
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/interview-journey-i18n.test.tsx tests/ui/interview-create-i18n.test.tsx tests/ui/interview-workspace-i18n.test.tsx tests/ui/interview-overlays-i18n.test.tsx tests/ui/interview-controller-i18n.test.tsx tests/ui/interview-secondary-i18n.test.tsx --maxWorkers=1 --minWorkers=1
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/interview-secondary-i18n.test.tsx:51:142
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/9]⎯
+
+ Test Files  3 failed | 3 passed (6)
+      Tests  9 failed | 25 passed (34)
+   Start at  04:13:07
+   Duration  15.62s (transform 1.61s, setup 599ms, collect 4.70s, tests 5.93s, environment 3.33s, prepare 252ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/interview-journey-i18n.test.tsx tests/ui/interview-create-i18n.test.tsx tests/ui/interview-workspace-i18n.test.tsx tests/ui/interview-overlays-i18n.test.tsx tests/ui/interview-controller-i18n.test.tsx tests/ui/interview-secondary-i18n.test.tsx --maxWorkers=1 --minWorkers=1

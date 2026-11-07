@@ -4,6 +4,10 @@ import type { BillingConfigPort } from "../../application/billing/billing-config
 
 function readDeployment() {
   return {
+    BILLING_DEPLOYMENT: process.env.BILLING_DEPLOYMENT,
+    BILLING_CATALOG_MARKET: process.env.BILLING_CATALOG_MARKET,
+    BILLING_WECHAT_ENABLED: process.env.BILLING_WECHAT_ENABLED,
+    BILLING_STRIPE_ENABLED: process.env.BILLING_STRIPE_ENABLED,
     WECHAT_PAY_APP_ID: process.env.WECHAT_PAY_APP_ID,
     WECHAT_PAY_MCH_ID: process.env.WECHAT_PAY_MCH_ID,
     WECHAT_PAY_API_V3_KEY: process.env.WECHAT_PAY_API_V3_KEY,
@@ -32,6 +36,11 @@ export type StripeDeployment = Readonly<{
   secretKey: string; webhookSecret: string; paymentLink: string; managementPortal: string; returnUrl?: string;
 }>;
 function text(env: Deployment, name: string): string { return env[name]?.trim() ?? ""; }
+// Unspecified switches preserve existing deployments. Invalid explicit values fail closed.
+function purchaseEnabled(env: Deployment, name: string): boolean {
+  const value = text(env, name).toLowerCase();
+  return !value || value === "true" || value === "1";
+}
 function httpsUrl(value: string): boolean {
   try { const url = new URL(value); return url.protocol === "https:" && Boolean(url.hostname) && !url.username && !url.password; }
   catch { return false; }
@@ -85,21 +94,36 @@ function stripe(env: Deployment): StripeDeployment | null {
     catch { /* Invalid configured return URLs disable the provider. */ }
   }
   if (!/^sk_(test|live)_[A-Za-z0-9]+$/.test(secretKey) || !/^whsec_.+$/.test(webhookSecret)
-    || !httpsUrl(paymentLink) || (managementPortal && !httpsUrl(managementPortal)) || !validReturn) return null;
+    || (paymentLink && !httpsUrl(paymentLink)) || (managementPortal && !httpsUrl(managementPortal)) || !validReturn) return null;
   return Object.freeze({ secretKey, webhookSecret, paymentLink, managementPortal, ...(returnUrl ? { returnUrl } : {}) });
 }
 
 /** One immutable startup snapshot, shared by public availability and later payment adapters. */
 export class DeploymentBillingConfig implements BillingConfigPort {
+  private readonly pricingMarket: "cn" | "us" | null;
   private readonly wechat: WechatDeployment | null;
   private readonly stripe: StripeDeployment | null;
+  private readonly wechatEnabled: boolean;
+  private readonly stripeEnabled: boolean;
   constructor(env: Deployment = readDeployment()) {
     this.wechat = wechat(env);
     this.stripe = stripe(env);
+    const deployment=text(env,"BILLING_DEPLOYMENT").toLowerCase();
+    const testMarket = text(env, "BILLING_CATALOG_MARKET").toLowerCase();
+    this.pricingMarket = deployment === "devapp"
+      ? testMarket === "us" ? "us" : !testMarket || testMarket === "cn" ? "cn" : null
+      : deployment === "us" ? "us" : deployment === "cn" ? "cn" : null;
+    const valid=["","cn","us","devapp"].includes(deployment);
+    const validTestMarket = deployment !== "devapp" || this.pricingMarket !== null;
+    this.wechatEnabled = valid&&validTestMarket&&deployment!=="us"&&!(deployment==="devapp"&&this.pricingMarket==="us")&&purchaseEnabled(env, "BILLING_WECHAT_ENABLED");
+    const stripeModeAllowed=deployment==="devapp"?this.stripe?.secretKey.startsWith("sk_test_"):deployment==="us"?this.stripe?.secretKey.startsWith("sk_live_"):true;
+    this.stripeEnabled = valid&&validTestMarket&&deployment!=="cn"&&!!stripeModeAllowed&&purchaseEnabled(env, "BILLING_STRIPE_ENABLED");
   }
   getPublicConfig(): ReturnType<BillingConfigPort["getPublicConfig"]> {
-    return { enabledProviders: [...(this.wechat ? ["wechat" as const] : []), ...(this.stripe ? ["stripe" as const] : [])] };
+    return { enabledProviders: [...(this.wechat && this.wechatEnabled ? ["wechat" as const] : []), ...(this.stripe && this.stripeEnabled ? ["stripe" as const] : [])] };
   }
+  getPricingMarket(): "cn" | "us" | null { return this.pricingMarket; }
+  // Credential access remains available for existing-order callbacks and renewal settlement.
   getWechat(): WechatDeployment | null { return this.wechat; }
   getStripe(): StripeDeployment | null { return this.stripe; }
 }

@@ -164,3 +164,12 @@ describe("元素编号与局部替换", () => {
 function designHtmlPage_element(ref: string): string | null {
   return htmlPageElement(sanitizeHtmlPage('<style>.a{color:red}</style><div class="page"><h1>标题</h1><ul><li>甲</li><li>乙</li></ul><button data-goto="1">去</button></div>').html, ref)?.html ?? null;
 }
+
+it("retains safe explicit table/search/filter column bindings and drops selector payloads", () => {
+  const clean = sanitizeHtmlPage('<table data-prototype-table="docs"><tr><th data-prototype-column="type">类型</th></tr></table><input data-prototype-search="docs"><select data-prototype-filter="docs" data-prototype-column="type"><option>PDF</option></select>').html;
+  expect(clean).toContain('data-prototype-table="docs"');
+  expect(clean).toContain('data-prototype-search="docs"');
+  expect(clean).toContain('data-prototype-filter="docs"');
+  expect(clean).toContain('data-prototype-column="type"');
+  expect(sanitizeHtmlPage('<input data-prototype-search="docs[x]">').html).not.toContain('data-prototype-search');
+});

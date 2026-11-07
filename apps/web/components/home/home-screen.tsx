@@ -1,9 +1,10 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
+import { describeHomeConfigFailure } from "@/lib/home-config-failure";
 import * as React from "react";
 import { useSession } from "@/components/session/session-provider";
 import { getHomeConfig, type HomeConfig } from "@/lib/live-home-config";
 import { homeThemeStyle } from "@/lib/home-theme";
-import { describeHomeConfigFailure } from "@/lib/home-config-failure";
 import { HomeBanner } from "./home-banner";
 import { useHomeTasks, useHomeWork } from "./use-home-work";
 import {
@@ -20,7 +21,7 @@ import {
  */
 type ConfigState =
   | { status: "loading" }
-  | { status: "error"; message: string }
+  | { status: "error"; error: unknown }
   | { status: "ready"; config: HomeConfig };
 
 /**
@@ -31,6 +32,7 @@ type ConfigState =
 export function HomeView({
   config: c, orgId, displayName,
 }: { config: HomeConfig; orgId: string | null; displayName: string | null }): JSX.Element {
+  const { t } = useI18n();
   const showRecent = c.sections.recentWork;
   const showTasks = c.sections.currentTasks;
   // 项目列表同时喂「继续你的工作」与「当前任务」，任一栏开着就要拉。
@@ -41,7 +43,7 @@ export function HomeView({
       <HomeBanner
         orgId={orgId}
         title={c.title}
-        greeting={displayName ? `你好，${displayName}` : "欢迎回来"}
+        greeting={displayName ? t("home.greeting", { name: displayName }) : t("ui.welcomeBack")}
         headline={c.bannerHeadline}
         tagline={c.bannerTagline}
         preset={c.bannerPreset}
@@ -59,6 +61,7 @@ export function HomeView({
 }
 
 export function HomeScreen(): JSX.Element {
+  const { t, locale } = useI18n();
   const session = useSession();
   const orgId = session.identity?.org.id ?? null;
   const displayName = session.identity?.displayName ?? null;
@@ -69,17 +72,17 @@ export function HomeScreen(): JSX.Element {
     let cancelled = false;
     getHomeConfig(orgId)
       .then((config) => { if (!cancelled) setState({ status: "ready", config }); })
-      .catch((err: unknown) => { if (!cancelled) setState({ status: "error", message: describeHomeConfigFailure(err) }); });
+      .catch((error: unknown) => { if (!cancelled) setState({ status: "error", error }); });
     return () => { cancelled = true; };
   }, [orgId]);
 
   if (state.status === "loading") {
-    return <div className="p-8 text-13 text-muted-foreground" data-testid="loading">正在加载首页…</div>;
+    return <div className="p-8 text-13 text-muted-foreground" data-testid="loading">{t("ui.loadingYourHomePage")}</div>;
   }
   if (state.status === "error") {
     return (
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-8">
-        <div className="text-13 text-destructive" role="alert" data-testid="home-screen-error">{state.message}</div>
+        <div className="text-13 text-destructive" role="alert" data-testid="home-screen-error">{describeHomeConfigFailure(state.error, locale)}</div>
         <FeedbackRow />
       </div>
     );

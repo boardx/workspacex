@@ -1,0 +1,21 @@
+{
+  "base": "bbc63c39a970b246ea2e1e6a399b828d36a6b793",
+  "baseKeysCompared": {
+    "en": 454,
+    "zhCN": 454
+  },
+  "ownNamespaceKeysCompared": {
+    "en": 38,
+    "zhCN": 38
+  },
+  "finalKeys": {
+    "en": 492,
+    "zhCN": 492
+  },
+  "allValuesPreserved": true,
+  "originalHead": "4bb122bcdef69950d86e4163e113b21c793a1b10",
+  "resolvedDictionaryBlobs": {
+    "apps/web/lib/i18n/messages/en.ts": "8ed1676f8f019de41984db8247a8da19fd363b60",
+    "apps/web/lib/i18n/messages/zh-CN.ts": "f2e56bf6e4cf329be97bd8d0da2337e0ff11396d"
+  }
+}

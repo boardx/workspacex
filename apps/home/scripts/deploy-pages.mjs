@@ -12,7 +12,7 @@ const ORIGIN = 'https://workspacex.us';
 const API = `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}/pages/projects/${PROJECT}`;
 
 export async function cutover({ env = process.env, fetchImpl = fetch, run = spawnSync, pause = delay, now = () => performance.now(), output, record = () => {} }) {
-  if (env.GITHUB_EVENT_NAME !== 'push' || env.GITHUB_REF !== 'refs/heads/main') throw new Error('production requires a push to main');
+  if (env.GITHUB_EVENT_NAME !== 'workflow_dispatch' || env.GITHUB_REF !== 'refs/heads/main') throw new Error('production requires a manual dispatch on main');
   if (env.CLOUDFLARE_ACCOUNT_ID !== ACCOUNT || !env.CLOUDFLARE_API_TOKEN) throw new Error('configured Cloudflare identity missing or wrong account');
   if (!/^[a-f0-9]{40}$/.test(env.GITHUB_SHA ?? '')) throw new Error('exact commit SHA required');
   // 420s forward work + at most 90s rollback leaves headroom in the 600s job.

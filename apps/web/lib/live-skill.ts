@@ -21,6 +21,7 @@
  */
 import { skills } from "@repo/contracts";
 import type { z } from "zod";
+import type { Locale } from "@repo/contracts/locale";
 import { apiRequest } from "./api-client";
 
 export type DeclarativeContract = z.infer<typeof skills.DeclarativeContract>;
@@ -36,10 +37,10 @@ type ListSkillsOut = z.infer<typeof skills.operations.listSkills.out>;
  */
 const LIBRARY_ENTRY = "library" as const;
 
-export async function listSkills(orgId: string): Promise<readonly SkillListItem[]> {
+export async function listSkills(orgId: string, locale?: Locale): Promise<readonly SkillListItem[]> {
   const out = await apiRequest<ListSkillsOut>(skills.operations.listSkills.path, {
     method: "GET",
-    query: { orgId, entry: LIBRARY_ENTRY },
+    query: { orgId, entry: LIBRARY_ENTRY, ...(locale !== undefined ? { locale } : {}) },
   });
   // ⚠ 空结果就是 `[]`，由调用方渲染**真实空态**；这里不塞任何示例 skill（契约 A1/V10）。
   return out.items;
@@ -54,10 +55,10 @@ export async function createSkillDraft(input: CreateSkillDraftIn): Promise<Creat
   });
 }
 
-export async function getSkillDetail(skillId: string): Promise<SkillDetail> {
+export async function getSkillDetail(skillId: string, locale?: Locale): Promise<SkillDetail> {
   return apiRequest<SkillDetail>(
     skills.operations.getSkillDetail.path.replace(":skillId", encodeURIComponent(skillId)),
-    { method: "GET" },
+    { method: "GET", ...(locale !== undefined ? { query: { locale } } : {}) },
   );
 }
 

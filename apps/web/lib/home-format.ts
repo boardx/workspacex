@@ -1,9 +1,20 @@
+import type { Locale } from "@repo/contracts/locale";
+
 /** 首页卡片用的「多久以前」。纯函数（`now` 可注入以便单测）；解析不了的时间返回 null，由调用方省略而不是显示 NaN。 */
-export function formatRelativeTime(iso: string | null | undefined, now: number = Date.now()): string | null {
+export function formatRelativeTime(iso: string | null | undefined, now: number = Date.now(), locale: Locale = "zh-CN"): string | null {
   if (!iso) return null;
   const t = Date.parse(iso);
   if (Number.isNaN(t)) return null;
   const sec = Math.max(0, Math.floor((now - t) / 1000));
+  if (locale === "en") {
+    if (sec < 60) return "just now";
+    const format = new Intl.RelativeTimeFormat(locale, { numeric: "always" });
+    if (sec < 3600) return format.format(-Math.floor(sec / 60), "minute");
+    if (sec < 86400) return format.format(-Math.floor(sec / 3600), "hour");
+    if (sec < 2592000) return format.format(-Math.floor(sec / 86400), "day");
+    if (sec < 31536000) return format.format(-Math.floor(sec / 2592000), "month");
+    return format.format(-Math.floor(sec / 31536000), "year");
+  }
   if (sec < 60) return "刚刚";
   const min = Math.floor(sec / 60);
   if (min < 60) return `${String(min)} 分钟前`;

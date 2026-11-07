@@ -1,6 +1,7 @@
 name: CN read-only diagnostic isolated tests
 on:
   pull_request:
+    branches: [develop]
     paths:
       - scripts/cn-single-host-readonly-diagnostic.py
       - tests/test_cn_single_host_readonly_diagnostic.py

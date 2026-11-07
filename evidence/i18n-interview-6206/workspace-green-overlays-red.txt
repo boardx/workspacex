@@ -1,0 +1,43 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/apps/web
+
+ ✓ tests/ui/interview-journey-i18n.test.tsx (6 tests) 320ms
+ ✓ tests/ui/interview-workspace-i18n.test.tsx (7 tests) 566ms
+ ❯ tests/ui/interview-overlays-i18n.test.tsx (4 tests | 4 failed) 253ms
+   × keeps the selected avatar and exact pending save across locale changes 125ms
+     → Unable to find an accessible element with the role "button" and name "Change avatar for 原专家 {count}"
+
+[intermediate output omitted; full log SHA-256 in validation.json]
+   × keeps the selected avatar and exact pending save across locale changes 125ms
+   × localizes optional profile field labels while preserving raw values and callbacks 90ms
+   × localizes profile-detail field names and missing-value UI without rewriting private content 8ms
+   × localizes streaming report progress while preserving partial model output 30ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/ui/interview-overlays-i18n.test.tsx > keeps the selected avatar and exact pending save across locale changes
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Change avatar for 原专家 {count}"
+ FAIL  tests/ui/interview-overlays-i18n.test.tsx > localizes optional profile field labels while preserving raw values and callbacks
+TestingLibraryElementError: Unable to find an accessible element with the role "textbox" and name "Occupation"
+ FAIL  tests/ui/interview-overlays-i18n.test.tsx > localizes profile-detail field names and missing-value UI without rewriting private content
+TestingLibraryElementError: Unable to find an element with the text: Professional domains. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+ FAIL  tests/ui/interview-overlays-i18n.test.tsx > localizes streaming report progress while preserving partial model output
+TestingLibraryElementError: Unable to find an accessible element with the role "list" and name "Report generation progress"
+ Test Files  1 failed | 3 passed (4)
+      Tests  4 failed | 16 passed (20)
+   Duration  7.72s (transform 1.36s, setup 343ms, collect 3.32s, tests 1.42s, environment 1.92s, prepare 164ms)
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/interview-journey-i18n.test.tsx tests/ui/interview-create-i18n.test.tsx tests/ui/interview-workspace-i18n.test.tsx tests/ui/interview-overlays-i18n.test.tsx --maxWorkers=1 --minWorkers=1
+     35|  show(<InterviewReportGeneration session={session}/>);expect(screen.ge…
+       |                                                                     ^
+     36|  expect(screen.getByTestId("itv-report-stream-markdown")).toHaveTextCo…
+     37| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+ Test Files  1 failed | 3 passed (4)
+      Tests  4 failed | 16 passed (20)
+   Start at  03:40:48
+   Duration  7.72s (transform 1.36s, setup 343ms, collect 3.32s, tests 1.42s, environment 1.92s, prepare 164ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/interview-journey-i18n.test.tsx tests/ui/interview-create-i18n.test.tsx tests/ui/interview-workspace-i18n.test.tsx tests/ui/interview-overlays-i18n.test.tsx --maxWorkers=1 --minWorkers=1

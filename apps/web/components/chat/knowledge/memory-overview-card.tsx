@@ -5,9 +5,10 @@ import Link from "next/link";
 import { Brain, MessageSquare } from "lucide-react";
 import {
   KG_CLAIM_KIND_DISPLAY_ORDER,
-  KG_CLAIM_KIND_LABEL_ZH,
   type KgMemoryCard,
 } from "@repo/contracts/chat-knowledge-graph";
+import { useI18n } from "@/lib/i18n/provider";
+import { graphClaimKindLabel } from "@/lib/knowledge-graph-copy";
 import { chatMemoryHref } from "@/lib/chat-memory-link";
 
 type Item = KgMemoryCard["items"][number];
@@ -22,6 +23,7 @@ type Item = KgMemoryCard["items"][number];
  * - 卡上最多 20 条；底部一条去「大脑」页看全部的链接。
  */
 export function MemoryOverviewCard({ card }: { card: KgMemoryCard }) {
+  const { t, locale } = useI18n();
   const groups = KG_CLAIM_KIND_DISPLAY_ORDER
     .map((kind) => ({ kind, items: card.items.filter((it) => it.claimKind === kind) }))
     .filter((g) => g.items.length > 0);
@@ -31,11 +33,11 @@ export function MemoryOverviewCard({ card }: { card: KgMemoryCard }) {
     <div className="mt-2 flex flex-col gap-2 rounded-lg border border-ai-tint bg-ai-tint/40 p-3" data-testid="kg-card-overview">
       <div className="flex items-center gap-1.5">
         <Brain aria-hidden className="h-4 w-4 text-ai-tint-foreground" />
-        <span className="text-11 font-medium text-ai-tint-foreground">我记得的关于你的事（只有你看得到）</span>
+        <span className="text-11 font-medium text-ai-tint-foreground">{t("chatKnowledge.memory.overview")}</span>
       </div>
       {groups.map((g) => (
         <section key={g.kind} className="flex flex-col gap-1" data-testid={`kg-overview-group-${g.kind}`}>
-          <h4 className="text-10 font-medium text-muted-foreground">{KG_CLAIM_KIND_LABEL_ZH[g.kind]}</h4>
+          <h4 className="text-10 font-medium text-muted-foreground">{graphClaimKindLabel(g.kind, locale)}</h4>
           <ul className="flex flex-col gap-1">
             {g.items.map((it) => <OverviewItem key={it.claimId ?? it.statement} item={it} />)}
           </ul>
@@ -49,13 +51,14 @@ export function MemoryOverviewCard({ card }: { card: KgMemoryCard }) {
         className="self-start text-10 text-primary underline-offset-2 transition-colors duration-base hover:underline"
         data-testid="kg-overview-brain-link"
       >
-        在「大脑」里看全部、改或忘掉
+        {t("chatKnowledge.memory.brain")}
       </Link>
     </div>
   );
 }
 
 function OverviewItem({ item }: { item: Item }) {
+  const { t } = useI18n();
   const href = item.source ? chatMemoryHref({ threadId: item.source.threadId, projectId: null }) : null;
   return (
     <li className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5" data-testid={`kg-overview-item-${item.claimId ?? ""}`}>
@@ -74,10 +77,10 @@ function OverviewItem({ item }: { item: Item }) {
           data-testid="kg-overview-source-link"
         >
           <MessageSquare aria-hidden className="h-3 w-3" />
-          来自「{item.source.title}」
+          {t("chatKnowledge.memory.source", { title: item.source.title })}
         </Link>
       ) : (
-        <span className="text-10 text-muted-foreground" data-testid="kg-overview-source-longterm">长期记忆</span>
+        <span className="text-10 text-muted-foreground" data-testid="kg-overview-source-longterm">{t("chatKnowledge.memory.longTerm")}</span>
       )}
     </li>
   );

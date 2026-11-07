@@ -351,3 +351,18 @@ it("does not authorize a new revision when a failed cached initial read recovers
   expect(api.executeInterviewMarkdown).not.toHaveBeenCalled();
   expect(cache.get<InterviewMarkdownEnvelope>(`source/${source.interviewId}`)?.revisionId).toBe("revision-remote-recovery");
 });
+
+it("offers report generation after reload when completed answers exist but no report was saved", async () => {
+  const ready: InterviewMarkdownEnvelope = { ...source, interviewId: "itv-report-reload", version: 9,
+    documents: [{ documentId: "answers-ready", step: "runs", version: 1, markdown: "已保存回答。", contentHash: "a".repeat(64), evidenceMode: "simulated", references: [] }],
+    states: [{ documentId: "answers-ready", status: "completed", failure: null }],
+    execution: { status: "completed", tasks: [{ expertId: "expert-ready", status: "completed", errorCode: null }] } };
+  api.initializeInterviewMarkdown.mockResolvedValue(ready);
+  api.loadInterviewMarkdown.mockResolvedValue(ready);
+  api.streamInterviewMarkdownReport.mockResolvedValue(savedReport("itv-report-reload"));
+  render(<InterviewMarkdownResultsStep interviewId="itv-report-reload" step="report" runs={[]} onVersionChange={vi.fn()} onReport={vi.fn()} />);
+  const retry = await screen.findByRole("button", { name: "继续生成报告" });
+  expect(retry).toBeEnabled();
+  fireEvent.click(retry);
+  await waitFor(() => expect(api.streamInterviewMarkdownReport).toHaveBeenCalledWith("itv-report-reload", { expectedVersion: 9, expectedDocumentVersion: 0 }, expect.any(Function)));
+});

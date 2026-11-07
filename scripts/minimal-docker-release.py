@@ -137,7 +137,10 @@ def resolved_config_hash(d, original, project, service, out):
     # second interpolation of literal dollars, and no retained evidence copy.
     fd,path=tempfile.mkstemp(prefix='.resolved-compose-',suffix='.json',dir=out)
     try:
-        with os.fdopen(fd,'wb') as output: output.write(encoded(original))
+        # Compose v2.40.3 cmd/compose/config.go escapeDollarSign doubles every
+        # dollar in serialized config JSON. Invert that transport escaping once;
+        # --no-interpolate below preserves literal $ and ${...} semantic values.
+        with os.fdopen(fd,'wb') as output: output.write(encoded(original).replace(b'$$',b'$'))
         return d.run(['compose','--project-name',project,'--file',path,
                       'config','--no-interpolate','--hash',service]).decode().strip().split()
     finally: os.unlink(path)

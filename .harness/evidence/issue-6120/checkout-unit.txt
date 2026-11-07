@@ -1,0 +1,12 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+ ✓ tests/billing/pricing-catalog.test.ts (8 tests) 734ms
+   ✓ server-owned personal pricing catalog > returns 503 for an unconfigured deployment instead of inventing a market 577ms
+ ✓ tests/billing/personal-checkout-service.test.ts (12 tests) 58ms
+
+ Test Files  2 passed (2)
+      Tests  20 passed (20)
+   Start at  15:27:52
+   Duration  4.10s (transform 367ms, setup 0ms, collect 1.84s, tests 792ms, environment 1ms, prepare 408ms)
+

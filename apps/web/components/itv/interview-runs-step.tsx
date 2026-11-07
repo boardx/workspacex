@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
 import * as React from "react";
 import { Check, FileText, Loader2 } from "lucide-react";
 import { interviewMarkdown } from "@repo/contracts";
@@ -12,7 +13,7 @@ import { InterviewQuestionAnswers } from "./interview-question-answers";
 import styles from "./interview-runs-step.module.css";
 type RunMetadata = Readonly<{ expertId: string; displayName: string; status: "pending" | "running" | "completed" | "failed"; completedQuestions: number; totalQuestions: number }>;
 type InsightKind = "观点" | "发现" | "风险" | "追问";
-const insightTitles: Record<InsightKind, string> = { 观点: "关键观点", 发现: "核心发现", 风险: "争议点与风险", 追问: "后续追问方向" };
+const insightTitleKeys = {"观点": "itv.runs.insight.views", "发现": "itv.runs.insight.findings", "风险": "itv.runs.insight.risks", "追问": "itv.runs.insight.followups"} as const;
 function insightKind(title: string): InsightKind | null {
   const normalized = title.trim().replace(/[：:]$/u, "").replace(/\s+/gu, "");
   const headings: Record<string, InsightKind> = {
@@ -44,6 +45,7 @@ export function InterviewRunsStep({ runs, document, pending, generatingReport = 
   readonly taskProgress?: boolean;
   readonly actions?: React.ReactNode;
 }) {
+ const { t } = useI18n();
   const [expert, setExpert] = React.useState<string | null>(null);
   const projection = document ? interviewMarkdown.parseInterviewMarkdown(document) : null;
   // Provider headings may be shallower than the server's expert wrapper. Only
@@ -54,27 +56,28 @@ export function InterviewRunsStep({ runs, document, pending, generatingReport = 
       ? [document!.markdown.slice(block.start, attributed[index + 1]?.start ?? document!.markdown.length)] : [],
   ).join("\n\n");
   const displayMarkdown = summaryMarkdown ? interviewTranscriptDisplay(summaryMarkdown, document?.evidenceMode === "simulated", runs) : undefined;
-  const insights = document && projection ? savedInsights(document, projection).filter((item) => !expert || item.expertId === expert) : [];
+  const displayDocument = document && displayMarkdown ? { ...document, markdown: displayMarkdown } : null;
+  const insights = displayDocument ? savedInsights(displayDocument, interviewMarkdown.parseInterviewMarkdown(displayDocument)).filter((item) => !expert || item.expertId === expert) : [];
   const total = runs.reduce((sum, run) => sum + run.totalQuestions, 0);
   const completed = runs.filter((run) => run.status === "completed").length;
   const answered = runs.reduce((sum, run) => sum + Math.min(run.completedQuestions, run.totalQuestions), 0);
   const ready = runs.length > 0 && runs.every((run) => run.status === "completed") && Boolean(document?.markdown.trim());
   const statusCounts = [
-    { status: "completed", label: "已完成", color: "bg-success/10 text-success" },
-    { status: "running", label: "进行中", color: "bg-primary/10 text-primary" },
-    { status: "pending", label: "等待访谈", color: "bg-muted text-muted-foreground" },
-    { status: "failed", label: "执行失败", color: "bg-destructive/10 text-destructive" },
+    { status: "completed", label: t("itv.runs.completed"), color: "bg-success/10 text-success" },
+    { status: "running", label: t("itv.runs.running"), color: "bg-primary/10 text-primary" },
+    { status: "pending", label: t("itv.runs.waiting"), color: "bg-muted text-muted-foreground" },
+    { status: "failed", label: t("itv.runs.failed"), color: "bg-destructive/10 text-destructive" },
   ] as const;
   return <div data-testid="itv-source-runs" className="space-y-5">
-    <InterviewStepHeader title="访谈内容" testId="itv-runs-report-action" />
-    <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground"><span>{taskProgress ? `已完成专家 ${completed}/${runs.length}` : `已保存回答 ${answered}/${total}`}</span><div aria-label="专家任务状态" className="flex flex-wrap gap-2">{statusCounts.map(({ status, label, color }) => { const count = runs.filter((run) => run.status === status).length; return count ? <span key={status} className={`rounded-full px-2 py-1 ${color}`}>{label} {count}</span> : null; })}</div></div>
+    <InterviewStepHeader title={t("itv.runs.title")} testId="itv-runs-report-action" />
+    <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground"><span>{taskProgress ? t("itv.runs.expertProgress", { completed, total: runs.length }) : t("itv.runs.answerProgress", { completed: answered, total })}</span><div aria-label={t("itv.runs.status")} className="flex flex-wrap gap-2">{statusCounts.map(({ status, label, color }) => { const count = runs.filter((run) => run.status === status).length; return count ? <span key={status} className={`rounded-full px-2 py-1 ${color}`}>{label} {count}</span> : null; })}</div></div>
     <div className="grid items-start overflow-hidden rounded-xl border border-border bg-card lg:grid-cols-[18rem_minmax(0,1fr)] xl:grid-cols-[20rem_minmax(0,1fr)]">
-      <aside aria-label="访谈专家" className="min-w-0 border-b border-border bg-muted/20 p-4 lg:self-stretch lg:border-b-0 lg:p-5">
-        <div className="mb-4 flex items-center justify-between px-2"><h3 className="text-sm font-semibold">访谈专家</h3><span className="text-xs text-muted-foreground">{runs.length} 位</span></div>
+      <aside aria-label={t("itv.outline.experts")} className="min-w-0 border-b border-border bg-muted/20 p-4 lg:self-stretch lg:border-b-0 lg:p-5">
+        <div className="mb-4 flex items-center justify-between px-2"><h3 className="text-sm font-semibold">{t("itv.outline.experts")}</h3><span className="text-xs text-muted-foreground">{t("itv.runs.expertCount", { count: runs.length })}</span></div>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">{runs.map((run) => {
           const selected = expert === run.expertId;
           const name = run.displayName.match(/^(.+?)\s*[（(]([^）)]+)[）)]$/u);
-          const status = run.status === "completed" ? "已完成" : run.status === "failed" ? "执行失败，已保存内容保留" : run.status === "pending" ? "等待访谈" : "进行中";
+          const status = run.status === "completed" ? t("itv.runs.completed") : run.status === "failed" ? t("itv.runs.failedPreserved") : run.status === "pending" ? t("itv.runs.waiting") : t("itv.runs.running");
           return <button key={run.expertId} type="button" aria-label={`${run.displayName} ${status}`} aria-current={selected ? "true" : undefined} aria-pressed={selected} onClick={() => setExpert(selected ? null : run.expertId)} className={`min-w-0 w-full rounded-lg p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${selected ? "bg-background shadow-sm ring-1 ring-inset ring-border" : "hover:bg-background/80"}`}>
             <div className="flex items-start gap-3"><ExpertAvatar expertId={run.expertId} displayName={run.displayName} className="size-10" /><div className="min-w-0 flex-1">
               <h4 className="break-words text-sm font-semibold leading-6 [word-break:normal]">{name?.[1] ?? run.displayName}</h4>
@@ -86,18 +89,18 @@ export function InterviewRunsStep({ runs, document, pending, generatingReport = 
             </div></div>
           </button>;
         })}</div>
-        {!runs.length && <p className="px-2 text-sm text-muted-foreground">暂无已登记访谈任务。</p>}
+        {!runs.length && <p className="px-2 text-sm text-muted-foreground">{t("itv.runs.emptyTasks")}</p>}
       </aside>
       <section className="min-w-0 overflow-hidden lg:border-l lg:border-border">
         <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-5 py-4 sm:px-8">
-          <h3 className="text-base font-semibold">访谈记录</h3>
+          <h3 className="text-base font-semibold">{t("itv.runs.records")}</h3>
         </header>
-        <div role="region" className={`${styles.transcript} px-5 py-6 sm:px-8 sm:py-7`} aria-label={expert ? `${runs.find((run) => run.expertId === expert)?.displayName ?? "专家"}访谈摘要` : "全部访谈摘要"}>
-          {insights.length > 0 && <div data-testid="itv-saved-insights" className="mb-7 grid gap-4 border-b border-border pb-6 xl:grid-cols-2">{(["观点", "发现", "风险", "追问"] as const).map((kind) => { const group = insights.filter((item) => item.kind === kind); return group.length ? <section key={kind} className="min-w-0 border-l-2 border-border pl-4"><h4 className="font-semibold">{insightTitles[kind]}（{group.reduce((sum, item) => sum + item.count, 0)}）</h4>{group.map((item) => <InterviewReportMarkdown key={item.headingId} markdown={item.markdown} testId={`itv-saved-insight-${item.headingId}`} />)}</section> : null; })}</div>}
-          {displayMarkdown ? <div data-testid="itv-source-runs-markdown"><InterviewQuestionAnswers document={document} markdown={displayMarkdown} /></div> : <p className="mt-4 text-sm text-muted-foreground">{expert ? "暂无归属于该专家的已保存回答。" : "暂无已保存的 Markdown 回答。"}</p>}
+        <div role="region" className={`${styles.transcript} px-5 py-6 sm:px-8 sm:py-7`} aria-label={expert ? t("itv.runs.summaryFor", { name: runs.find((run) => run.expertId === expert)?.displayName ?? t("itv.runs.expert") }) : t("itv.runs.allSummary")}>
+          {insights.length > 0 && <div data-testid="itv-saved-insights" className="mb-7 grid gap-4 border-b border-border pb-6 xl:grid-cols-2">{(["观点", "发现", "风险", "追问"] as const).map((kind) => { const group = insights.filter((item) => item.kind === kind); return group.length ? <section key={kind} className="min-w-0 border-l-2 border-border pl-4"><h4 className="font-semibold">{t(insightTitleKeys[kind])}（{group.reduce((sum, item) => sum + item.count, 0)}）</h4>{group.map((item) => <InterviewReportMarkdown key={item.headingId} markdown={item.markdown} testId={`itv-saved-insight-${item.headingId}`} />)}</section> : null; })}</div>}
+          {displayMarkdown ? <div data-testid="itv-source-runs-markdown"><InterviewQuestionAnswers document={document} markdown={displayMarkdown} /></div> : <p className="mt-4 text-sm text-muted-foreground">{expert ? t("itv.runs.noExpertAnswers") : t("itv.runs.noAnswers")}</p>}
         </div>
         </section>
     </div>
-    <InterviewStepActions>{actions}<ActionButton variant="primary" loading={generatingReport} icon={<FileText className="size-4" aria-hidden />} disabled={!ready || pending} onClick={onGenerateReport}>{generatingReport ? "正在生成报告…" : "生成报告"}</ActionButton></InterviewStepActions>
+    <InterviewStepActions>{actions}<ActionButton variant="primary" loading={generatingReport} icon={<FileText className="size-4" aria-hidden />} disabled={!ready || pending} onClick={onGenerateReport}>{generatingReport ? t("itv.runs.generatingReport") : t("itv.generateReport")}</ActionButton></InterviewStepActions>
   </div>;
 }

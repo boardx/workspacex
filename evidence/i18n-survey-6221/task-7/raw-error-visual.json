@@ -1,0 +1,14 @@
+{
+  "name": "raw-error-visual",
+  "command": [
+    "node",
+    ".harness/scripts/lint-user-facing-error-text.mjs"
+  ],
+  "source": "ee9b845a1090082251563c48a2791d1034ff7cb7",
+  "exitCode": 0,
+  "seconds": 1.015,
+  "rawLogSha256": "e5614a8f4e5f17c20fdbf687464d8550fcde1cb9c71d845534d6efb78e158339",
+  "sourceAfter": "ee9b845a1090082251563c48a2791d1034ff7cb7",
+  "sourceStable": true,
+  "environment": {}
+}

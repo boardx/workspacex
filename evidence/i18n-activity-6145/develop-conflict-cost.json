@@ -1,0 +1,31 @@
+{
+  "pr": 6147,
+  "old_head": "e0f2af43ea449a950fd463d5095297ae469b0185",
+  "base": "97c19b3c423534966114c4ba869abd58efe24748",
+  "conflicts": [
+    "apps/web/lib/i18n/messages/en.ts",
+    "apps/web/lib/i18n/messages/zh-CN.ts"
+  ],
+  "unchanged_owned_blobs": 11,
+  "fresh_tests": {
+    "contracts": {
+      "count": 9,
+      "seconds": 0.949
+    },
+    "api": {
+      "count": 11,
+      "seconds": 4.65
+    },
+    "web": {
+      "count": 24,
+      "seconds": 9.48
+    }
+  },
+  "own_assembly_error": {
+    "tests_executed": 0,
+    "seconds": 4.2,
+    "reason": "missing comma before appended namespace, corrected"
+  },
+  "local_production_browser_repeated": false,
+  "normal_prepush": "pending serial window"
+}

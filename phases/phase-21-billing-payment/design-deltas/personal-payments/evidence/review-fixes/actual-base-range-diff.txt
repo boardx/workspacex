@@ -1,0 +1,38 @@
+ 1:  6c261c8f5 =  1:  f91096452 feat(billing): persist personal checkout intents and provider protocols Refs #6093
+ 2:  8c5776147 =  2:  83128fc28 feat(billing): settle verified personal WeChat payments atomically Refs #6093
+ 3:  2eb2c3f33 =  3:  d5b6cc3ac feat(billing): bind verified Stripe renewals and expose personal entitlement Refs #6093
+ 4:  5654d344e =  4:  83be66570 feat(billing): reconcile authoritative pending personal payments Refs #6093
+ 5:  66e8ab5c8 =  5:  3e8150f0c feat(billing): backfill paid personal invoices with resumable pages Refs #6093
+ 6:  6f43e836d =  6:  82271ef0a feat(billing): reconcile missed personal payments automatically; Refs #6093
+ 7:  ab7976833 =  7:  1ea26e582 feat(billing): read verified management history and retire legacy sales; Refs #6093
+ 8:  92d5fd758 =  8:  dd7162062 feat(billing): expose owned personal payment outcomes through order reads; Refs #6093
+ 9:  045ed4959 =  9:  50718e0d4 feat(billing): bind adopted personal account cards to verified reads; Refs #6093
+10:  4f0142071 = 10:  d5e0fa797 feat(billing): select catalog products and preserve personal checkout retries; Refs #6093
+11:  5bdd0be77 = 11:  575440ee3 fix(billing): use a defined token for checkout quote totals; Refs #6093
+12:  3e034a8ce = 12:  bdd96e1f3 feat(billing): connect personal pricing UI and signed browser flows; Refs #6093
+13:  1b6748d18 = 13:  fb813aafc fix(billing): retry QR rendering for the original payment; Refs #6093
+14:  025045d6f = 14:  2e92f1b86 docs(billing): record authorized order recovery design; Refs #6093
+15:  bdddf4ff6 = 15:  7b4d2fda7 fix(billing): recover terminal purchases without checkout bindings; Refs #6093
+16:  52e2f95bc = 16:  ded73693a docs(billing): retain complete order recovery browser evidence; Refs #6093
+17:  4e506f947 ! 17:  e7f86bed5 test(billing): review personal checkout migration suffix; Refs #6093
+    @@ phases/phase-21-billing-payment/design-deltas/personal-payments/session-handoff.
+     
+      ## tests/fixtures/cn-application-recovery/migration-scope.ts ##
+     @@ tests/fixtures/cn-application-recovery/migration-scope.ts: export const reviewedSuffix = [
+    -   "20261031091000_billing_wechat_monthly.sql",
+    -   "20261031150000_billing_subscription_amount_snapshot.sql",
+    -   "20261101220000_personal_credit_packages.sql",
+    -+  "20261101230000_personal_credit_terms.sql",
+    -+  "20261101233000_personal_credit_schedule.sql",
+    -+  "20261102000000_welcome_credit_periods.sql",
+    +   "20261101230000_personal_credit_terms.sql",
+    +   "20261101233000_personal_credit_schedule.sql",
+    +   "20261102000000_welcome_credit_periods.sql",
+     +  "20261102010000_personal_checkout_intents.sql",
+     +  "20261102020000_personal_payment_receipts.sql",
+     +  "20261102030000_personal_stripe_bindings.sql",
+18:  f2884c794 = 18:  a38e12be9 fix(billing): retain legitimate Stripe checkout fragments; Refs #6093
+19:  192dfd950 = 19:  d89eca85e docs(billing): preserve Stripe review fix verification evidence; Refs #6093
+20:  c2d3873c2 = 20:  51e1c0835 fix(billing): satisfy error text and browser lane gates; Refs #6093
+21:  66c067388 = 21:  246c8a98d docs(billing): record Node patch baseline and actual annual integration; Refs #6093
+22:  80e287ca9 = 22:  fb5f22702 docs(billing): retain full check boundaries and cleanup proof; Refs #6093

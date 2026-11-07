@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/apps/api
+
+ ✓ tests/billing/enterprise-organization-summary.test.ts (2 tests) 33ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  22:13:07
+   Duration  21.33s (transform 11.87s, setup 0ms, collect 20.11s, tests 33ms, environment 1ms, prepare 236ms)
+

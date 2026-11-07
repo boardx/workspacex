@@ -81,3 +81,21 @@ test('actual workflow builds once and verifies the same-run artifact before cuto
   const cutover = deploy.findIndex(s => s.run?.includes('node scripts/pages-cutover.mjs'));
   assert.ok(verification >= 0 && extraction > verification && cutover > extraction);
 });
+
+test('all publishing workflows require manual dispatch and preserve PR validation', () => {
+  const { parse } = createRequire(import.meta.url)('yaml');
+  for (const name of ['image-release', 'deploy-home', 'deploy-devportal', 'deploy-coord-gateway']) {
+    const workflow = parse(readFileSync(new URL(`../workflows/${name}.yml`, import.meta.url), 'utf8'));
+    assert.ok(Object.hasOwn(workflow.on, 'workflow_dispatch'), name);
+    for (const trigger of Object.keys(workflow.on)) {
+      assert.ok(['workflow_dispatch', 'workflow_call', 'pull_request'].includes(trigger), `${name}: ${trigger}`);
+    }
+    assert.match(workflow.jobs[name === 'image-release' ? 'plan' : 'deploy'].if, /github.event_name == 'workflow_dispatch'/, name);
+    if (name !== 'image-release') assert.ok(workflow.on.pull_request, name);
+    if (name === 'deploy-devportal') {
+      for (const step of workflow.jobs.validate.steps.filter(s => s.id === 'artifact-identity' || s.uses?.startsWith('actions/upload-artifact@'))) {
+        assert.equal(step.if, "github.event_name == 'workflow_dispatch'");
+      }
+    }
+  }
+});

@@ -1,0 +1,13 @@
+{
+  "base": "3f384743222a574f7b7bfab4fe78c4539c7817ad",
+  "head": "5705209a876cdbfa359f4c0e341af2b86b852dfd",
+  "requestAndValidationCallsUnchanged": true,
+  "trackedCallCount": 9,
+  "persistentRefInitializersUnchanged": true,
+  "uploadSessionAndUploadRemoveFunctionsByteEqual": true,
+  "dependencyArrays": [
+    "[token]"
+  ],
+  "canonicalContractsTreeEqual": true,
+  "scope": "Static AST/tree comparison only. Original errors remain state/focus input; translation occurs only on renderer props. Not a runtime/browser/CI verdict."
+}

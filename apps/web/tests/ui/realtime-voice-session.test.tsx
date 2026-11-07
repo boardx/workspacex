@@ -168,6 +168,15 @@ describe("RealtimeVoiceSession", () => {
     expect(calls).toHaveLength(1); // no reconnect after a fatal error
   });
 
+  it.each(["CREDIT_REQUIRED", "CREDIT_ACCOUNTING_UNAVAILABLE"] as const)("stops automatic reconnect after %s", async reason => {
+    const {connect,calls}=fakeConnect();renderSession(connect);
+    await waitFor(()=>expect(calls).toHaveLength(1));
+    act(()=>{calls[0]!.handlers.onError("credit failure",reason);calls[0]!.handlers.onClosed();});
+    expect(screen.queryByTestId("realtime-voice-retry")).toBeNull();
+    expect(calls).toHaveLength(1);
+    expect(screen.getByTestId("realtime-voice-error").textContent).not.toContain("CREDIT_");
+  });
+
   it("shows agent-unavailable as a friendly fatal state", async () => {
     const { connect, calls } = fakeConnect();
     renderSession(connect);

@@ -1,0 +1,60 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/apps/web
+
+stderr | tests/ui/interview-journey-i18n.test.tsx > preserves an unknown imported error named constructor without treating it as a translation
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/boardx/workspacex/apps/web/lib/i18n/messages.ts:14:18)
+    at t (/Users/shenyangjun/boardx/workspacex/apps/web/lib/i18n/provider.tsx:28:107)
+    at InterviewIntakeStep (/Users/shenyangjun/boardx/workspacex/apps/web/components/itv/interview-intake-step.tsx:74:152)
+    at renderWithHooks (/Users/shenyangjun/boardx/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+[intermediate output omitted; full log SHA-256 in validation.json]
+TypeError: Cannot read properties of undefined (reading 'replace')
+TypeError: Cannot read properties of undefined (reading 'replace')
+TypeError: Cannot read properties of undefined (reading 'replace')
+TypeError: Cannot read properties of undefined (reading 'replace')
+TypeError: Cannot read properties of undefined (reading 'replace')
+TypeError: Cannot read properties of undefined (reading 'replace')
+   × preserves an unknown imported error named constructor without treating it as a translation 1011ms
+   × preserves an unknown imported error named toString without treating it as a translation 1013ms
+   × preserves an unknown imported error named __proto__ without treating it as a translation 1012ms
+   × preserves unknown category constructor as raw data 4ms
+   × preserves unknown category toString as raw data 0ms
+   × preserves unknown category __proto__ as raw data 0ms
+   × preserves unknown diagnostic code constructor and its authored text 1ms
+   × preserves unknown diagnostic code toString and its authored text 0ms
+   × preserves unknown diagnostic code __proto__ and its authored text 0ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 9 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/lib/interview-ui-text.test.ts > preserves unknown category constructor as raw data
+ FAIL  tests/lib/interview-ui-text.test.ts > preserves unknown category toString as raw data
+ FAIL  tests/lib/interview-ui-text.test.ts > preserves unknown category __proto__ as raw data
+TypeError: Cannot read properties of undefined (reading 'replace')
+ FAIL  tests/lib/interview-ui-text.test.ts > preserves unknown diagnostic code constructor and its authored text
+ FAIL  tests/lib/interview-ui-text.test.ts > preserves unknown diagnostic code toString and its authored text
+ FAIL  tests/lib/interview-ui-text.test.ts > preserves unknown diagnostic code __proto__ and its authored text
+TypeError: Cannot read properties of undefined (reading 'replace')
+ FAIL  tests/ui/interview-journey-i18n.test.tsx > preserves an unknown imported error named constructor without treating it as a translation
+ FAIL  tests/ui/interview-journey-i18n.test.tsx > preserves an unknown imported error named toString without treating it as a translation
+ FAIL  tests/ui/interview-journey-i18n.test.tsx > preserves an unknown imported error named __proto__ without treating it as a translation
+TestingLibraryElementError: Unable to find role="alert"
+TypeError: Cannot read properties of undefined (reading 'replace')
+TypeError: Cannot read properties of undefined (reading 'replace')
+TypeError: Cannot read properties of undefined (reading 'replace')
+ Test Files  2 failed (2)
+      Tests  9 failed | 7 passed (16)
+   Duration  7.09s (transform 1.30s, setup 244ms, collect 2.08s, tests 3.39s, environment 738ms, prepare 87ms)
+ ❯ workLoopSync ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:26505:5
+ ❯ renderRootSync ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:26473:7
+
+This error originated in "tests/ui/interview-journey-i18n.test.tsx" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+The latest test that might've caused the error is "preserves an unknown imported error named __proto__ without treating it as a translation". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+
+ Test Files  2 failed (2)
+      Tests  9 failed | 7 passed (16)
+     Errors  3 errors
+   Start at  05:07:36
+   Duration  7.09s (transform 1.30s, setup 244ms, collect 2.08s, tests 3.39s, environment 738ms, prepare 87ms)
+

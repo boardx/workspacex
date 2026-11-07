@@ -68,3 +68,18 @@ Shape 的 FixedLayout 逻辑容器与子对象描边的可见外沿不是同一�
 追加经验可以随功能 PR；新规则/重组/权限与完成定义变更必须走正常 review。
 
 - 2026-10-05：[PR #5356](https://github.com/boardx/workspacex/pull/5356) 全菜单浏览器矩阵发现子菜单自然高度遗漏边框、展开属性沿用紧凑宽度限位、便利贴文字回调拒绝 sticky 三个真实断点；回归入口为 `board-tool-popover-above`、`board-object-toolbar-above-independent`、`board-contextual-toolbar`，统一收据见 `evidence/whiteboard-menu-audit-2026-10-05/combined-receipt.json`。创建自由多点箭头时预览只绘制路径，不能暴露编辑按钮/body hit 抢占后续点击；`board-connector-handles` 回归覆盖该边界。验收 fixture 的全局字体必须作用于 body portal，生产与 fixture/runner 指纹同时冻结。组件与内存 Yjs 浏览器通过不等于远端 API、AI 模型或导入服务通过；此 PR 新增自由箭头的真实全栈保存/刷新 lane，结果读取最新 head CI。
+
+### 2026-10-30：图片上传响应不等于白板同步确认（#6018）
+恢复导航后重新上传的验收先等真实绘制与“已同步”，再创建 canonical export。POST 201 只表示资产上传，首次导出可能仍是旧 seq；5s poll 超时后未完成的下载还可能与 finally 归档竞争，得到 409 ARCHIVED。保留原始 trace、字节、取消及权限反证，不把旧导出快照当作图片丢失，也不提高超时掩盖同步问题。
+
+## 2026-10-31 会议室角色就绪竞态（#6048）
+
+API claim/follow 成功不证明页面已经消费角色：LiveBoard 的轮询存在读取窗口，
+首次本地缩放可变成 110% 而没有 viewport POST（develop bc8a0ba、5451916 两次 CI）。
+`board-editor-region` 的只读 presentation 属性与 layout 阶段输入 guard 同次提交；
+协议 setup 后等待实际页面的 board/room/actor/revision/presenter/following，再操作视口。
+撤权客户端必须先通过 denied 断言，再退出后续可访问页面的就绪检查；不得恢复隐藏的播放控件、
+重试严格 CAS、缩短 30 分钟生产者或把网络响应当 React 已提交。
+反例/回归入口：`live-board-collaboration-status.test.tsx` 延迟读取后检查就绪和真实发布参数；
+正式 `board-meeting-room-acceptance.spec.ts` 仍检查手势、持久回执和 canonical 内容。
+本地组件回归通过不表示正式三端长时验收、生产发布已通过，后者以 exact SHA CI 证据为准。

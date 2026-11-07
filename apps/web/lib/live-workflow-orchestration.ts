@@ -1,3 +1,5 @@
+import { translate } from "./i18n/messages";
+import type { Locale } from "./i18n/locale";
 /**
  * 工作流编排（`workflow-screen.tsx`）的真实 API 薄封装（F26 契约 `getWorkflowOrchestration`
  * / `saveAsOrgTemplate`）。
@@ -54,16 +56,16 @@ export async function saveAsOrgTemplate(projectId: string, name: string): Promis
  * `project-prep-save-template` / `workflow-screen.tsx` 的 `tpl-wf-saveorg`）共用这一份，
  * 不各自抄一遍——它们是同一个契约操作的同一组错误码，不是两件事。
  */
-export function describeSaveAsOrgTemplateError(e: unknown): string {
+export function describeSaveAsOrgTemplateError(e: unknown, locale: Locale = "zh-CN"): string {
   if (e instanceof ApiError) {
     if (e.reasonCode === "ROLE_INSUFFICIENT" || e.reasonCode === "NO_PROJECT_ROLE") {
-      return "你在这个项目里没有另存为组织模板的权限";
+      return translate(locale, "projectPrep.saveTemplateDenied");
     }
     if (e.reasonCode === "DEPENDENCY_UNAVAILABLE") {
-      return "这个项目还没有工作流编排数据，没有可另存的内容";
+      return translate(locale, "projectPrep.noWorkflowData");
     }
-    return `${e.reasonCode ?? "无 reasonCode"}（HTTP ${e.status}）`;
+    return translate(locale, "projectPrep.codedError", { code: e.reasonCode ?? translate(locale, "projectPrep.noReasonCode"), status: e.status });
   }
   if (e instanceof Error) return e.message;
-  return "未知错误";
+  return translate(locale, "projectPrep.unknownError");
 }

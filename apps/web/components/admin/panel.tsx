@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import { AlertTriangle, Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -106,6 +107,7 @@ export function ConfirmDialog({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
+  const { t } = useI18n();
   const [reason, setReason] = React.useState("");
   const canConfirm = !requireReason || reason.trim().length >= 4;
   return (
@@ -115,14 +117,14 @@ export function ConfirmDialog({
       onClose={onCancel}
       footer={
         <>
-          <Button size="sm" variant="ghost" onClick={onCancel} data-testid={`${testid}-cancel`}>取消</Button>
+          <Button size="sm" variant="ghost" onClick={onCancel} data-testid={`${testid}-cancel`}>{t("common.cancel")}</Button>
           <Button
             size="sm"
             variant={tone}
             disabled={!canConfirm}
             onClick={onConfirm}
             data-testid={`${testid}-confirm`}
-            title={canConfirm ? undefined : "填写理由后才可确认"}
+            title={canConfirm ? undefined : t("controls.reasonBeforeConfirm")}
           >
             {confirmLabel}
           </Button>
@@ -136,7 +138,7 @@ export function ConfirmDialog({
         </div>
         {requireReason && (
           <div className="flex flex-col gap-1.5">
-            <label htmlFor={`${testid}-reason`} className="text-12 font-medium">理由（必填，写入审计）</label>
+            <label htmlFor={`${testid}-reason`} className="text-12 font-medium">{t("controls.auditReason")}</label>
             <textarea
               id={`${testid}-reason`}
               rows={2}
@@ -164,6 +166,7 @@ export function Toast({
   testid: string;
   onDismiss: () => void;
 }) {
+  const { t } = useI18n();
   React.useEffect(() => {
     if (!message) return;
     const t = setTimeout(onDismiss, 5000);
@@ -178,7 +181,7 @@ export function Toast({
     >
       <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-success" />
       <p className="text-12">{message}</p>
-      <Button size="icon" variant="ghost" onClick={onDismiss} aria-label="关闭提示" data-testid={`${testid}-close`}>
+      <Button size="icon" variant="ghost" onClick={onDismiss} aria-label={t("controls.dismissNotification")} data-testid={`${testid}-close`}>
         <X aria-hidden className="h-3.5 w-3.5" />
       </Button>
     </div>

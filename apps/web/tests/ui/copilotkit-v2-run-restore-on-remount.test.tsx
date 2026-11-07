@@ -19,7 +19,8 @@
  *    渲染出来——不是假装完成，是真的把持久化数据捞回来。
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { I18nProvider, useI18n } from "@/lib/i18n/provider";
 
 const copilotkitV2CssPath = vi.hoisted(() => require.resolve("@copilotkit/react-core/v2/styles.css"));
 vi.mock(copilotkitV2CssPath, () => ({}));
@@ -43,7 +44,8 @@ vi.mock("@/lib/agent-run", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/agent-run")>()),
   getAgentRun,
 }));
-vi.mock("@/components/session/session-provider", () => ({
+vi.mock("@/components/session/session-provider", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/components/session/session-provider")>()),
   useSession: () => ({
     session: { sessionToken: "b", userId: "u", orgIds: ["org-1"], currentOrgId: "org-1", expiresAt: "2099-01-01T00:00:00.000Z" },
   }),
@@ -79,6 +81,11 @@ import { CopilotKitV2AgentSelectionProvider } from "@/lib/copilotkit-v2-agent-se
 import { CopilotKitV2Panel } from "@/components/chat/copilotkit-v2-panel";
 
 const THREAD_ID = "thr-restore";
+
+function RestoreLocaleControl() {
+  const { locale, setLocale } = useI18n();
+  return <button onClick={() => setLocale(locale === "en" ? "zh-CN" : "en")}>Change restore locale</button>;
+}
 
 /** 顶替浏览器原生 `WebSocket`——`lib/agent-kernel-stream.ts` 打开的每条订阅都落在这里，
  *  测试用 `emit` 模拟网关推来的 `KernelStreamEvent`（同 `tests/lib/
@@ -164,6 +171,30 @@ beforeEach(() => {
     ],
     nextCursor: null,
   }));
+});
+
+it("owned restored run phase follows locale on the same input without repeating recovery reads", async () => {
+  getAgentRun.mockResolvedValue({ runId: "run-1", threadId: THREAD_ID, status: "running", error: null, resultMessageId: null });
+  render(<I18nProvider initialLocale="en"><RestoreLocaleControl />
+    <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
+      <CopilotKitV2AgentSelectionProvider>
+        <CopilotKitV2Panel chatThreadId={THREAD_ID} archived={false} canGeneratePersona={false} />
+      </CopilotKitV2AgentSelectionProvider>
+    </CopilotKit>
+  </I18nProvider>);
+  const phase = await screen.findByTestId("copilotkit-v2-thinking-phase");
+  await waitFor(() => expect(phase).toHaveTextContent("Executing"));
+  await waitFor(() => expect(sockets.length).toBe(1));
+  const input = screen.getByTestId("copilotkit-v2-input");
+  const reads = getAgentRun.mock.calls.length;
+  const historyReads = listMessages.mock.calls.length;
+  fireEvent.click(screen.getByRole("button", { name: "Change restore locale" }));
+  expect(screen.getByTestId("copilotkit-v2-thinking-phase")).toBe(phase);
+  expect(phase).toHaveTextContent("正在执行");
+  expect(screen.getByTestId("copilotkit-v2-input")).toBe(input);
+  expect(getAgentRun).toHaveBeenCalledTimes(reads);
+  expect(listMessages).toHaveBeenCalledTimes(historyReads);
+  expect(screen.getByText("帮我把这份纪要生成一份 PDF")).toBeTruthy();
 });
 
 describe("copilotkit-v2 切会话再切回 ⇒ 未写回的 run 状态不丢失", () => {

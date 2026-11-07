@@ -9,6 +9,7 @@ on:
         description: SHA256 of that commit's recipe-files.json
         required: true
   pull_request:
+    branches: [develop]
     paths:
       - 'scripts/build-cn-linux-runtime.py'
       - 'scripts/check-cn-linux-runtime.py'

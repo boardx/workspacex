@@ -1,0 +1,16 @@
+{
+  "name": "testid",
+  "command": [
+    "pnpm",
+    "run",
+    "lint:e2e-testid-gate"
+  ],
+  "source": "8e865198778985cb53965f6b72d2d36e0c4538fe",
+  "exitCode": 0,
+  "seconds": 3.832,
+  "rawLogLocalPath": "/tmp/6205-integration-testid.log",
+  "rawLogSha256": "8872aeab6e35e799b562c8134337e9377ead00f56c2f48f606467196db3d6d97",
+  "receiptPath": "testid.txt",
+  "receiptSha256": "8872aeab6e35e799b562c8134337e9377ead00f56c2f48f606467196db3d6d97",
+  "receiptNormalization": "trailing blank EOF normalized; original raw log hash retained"
+}

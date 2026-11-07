@@ -31,6 +31,8 @@
  *   `SkillError` 的每一个成员都在下方某个操作的 `err` 里出现。
  */
 import { z } from "zod";
+import { Locale } from "./locale";
+import { LocalizedEntityDisplay } from "./entity-localization";
 import { ArtifactError } from "./artifact";
 import { AgentRuntimeError } from "./agent-runtime";
 
@@ -365,6 +367,7 @@ export const TrialRun = z
 /** 列表项。⚠ `satisfaction` 为 `null` ⇒ 样本不足，前端显示「样本不足」**而非百分比**（I-21） */
 export const SkillListItem = z
   .object({
+    display: LocalizedEntityDisplay.optional(),
     skillId: z.string(),
     name: z.string(),
     duty: z.string(),
@@ -669,6 +672,7 @@ export const operations = {
         status: SkillStatus.nullable(),
         visibility: z.enum(["org-wide", "team-only"]).nullable(),
         q: z.string().nullable(),
+        locale: Locale.optional(),
       })
       .strict(),
     out: z
@@ -684,7 +688,7 @@ export const operations = {
   getSkillDetail: {
     method: "GET",
     path: "/skills/:skillId",
-    in: z.object({ skillId: z.string() }).strict(),
+    in: z.object({ skillId: z.string(), locale: Locale.optional() }).strict(),
     out: z
       .object({
         skill: SkillListItem,

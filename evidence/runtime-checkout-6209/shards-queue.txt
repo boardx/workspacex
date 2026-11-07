@@ -1,0 +1,8 @@
+RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-agent-skill
+
+ ✓ .harness/scripts/ci-queue-wiring.test.ts (7 tests) 203ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  04:44:42
+   Duration  656ms (transform 80ms, setup 0ms, collect 123ms, tests 203ms, environment 0ms, prepare 51ms)

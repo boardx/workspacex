@@ -1,0 +1,27 @@
+{
+  "worker": "e953145fdc228977c09122ba8b985213cd13aadd",
+  "upstream": "3644ae2c8213770614866c1c39ac4df2b8920c05",
+  "candidate": "WORKTREE",
+  "locales": {
+    "zh": {
+      "workerKeys": 2687,
+      "upstreamKeys": 1180,
+      "mergedKeys": 2767,
+      "sourceValueConflicts": 0
+    },
+    "en": {
+      "workerKeys": 2687,
+      "upstreamKeys": 1180,
+      "mergedKeys": 2767,
+      "sourceValueConflicts": 0
+    }
+  },
+  "allEffectiveObjectsUnique": true,
+  "objectsChecked": 153,
+  "modulesEvaluated": 118,
+  "externalDependencies": [
+    "zod",
+    "lucide-react"
+  ],
+  "candidateValueSha256": "bbbe15ac0e74d781b8211f94cecc092765dc35f632928c6cf6634cf59c53cd7a"
+}

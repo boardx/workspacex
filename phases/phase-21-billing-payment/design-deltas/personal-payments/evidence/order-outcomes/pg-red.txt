@@ -1,0 +1,64 @@
+[stack-admission] load1=2.46 cores=10 perCore=0.25 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvybu98s-03a12b7f-d3d0c39f32ff db=wsx_d3d0c39f32ff5707808a compose=wsx-d3d0c39f32ff5707808a pg=20143 redis=21143 api=24143 web=25143 sandbox=26143 model=27143 deep-agent=28143 asr=29143 vision=30143 loopback-sandbox=31143 mail=19143
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_d3d0c39f32ff5707808a capacity=100 current=6 required=32
+ ❯ tests/billing/personal-stripe-settlement-pg.test.ts (34 tests | 3 failed | 31 skipped) 14442ms
+   × reads verified payment settled without original checkout binding without regranting credits 87ms
+     → payment_provider_not_configured
+   × reads closed without original checkout binding as a terminal outcome 29ms
+     → payment_provider_not_configured
+   × reads manual review without original checkout binding as a terminal outcome 32ms
+     → payment_provider_not_configured
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/personal-stripe-settlement-pg.test.ts > reads verified payment settled without original checkout binding without regranting credits
+Error: payment_provider_not_configured
+ ❯ src/infrastructure/billing/pg-personal-order-reader.ts:22:43
+     20|         const p = personalPurchaseView(row);
+     21|         // Unresolved creation has no safe payment address; do not fab…
+     22|         if (!p.url || !p.expiresAt) throw new BillingOrderError("payme…
+       |                                           ^
+     23|         const receipt = (await s.query<{paid_at:Date|null}>(`SELECT pa…
+     24|           WHERE purchase_ref=$1 AND NOT manual_review ORDER BY verifie…
+ ❯ PgDatabase.inTx src/infrastructure/db/pg-database.ts:74:19
+ ❯ PgPersonalOrderReader.read src/infrastructure/billing/pg-personal-order-reader.ts:15:14
+ ❯ tests/billing/personal-stripe-settlement-pg.test.ts:367:29
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  tests/billing/personal-stripe-settlement-pg.test.ts > reads closed without original checkout binding as a terminal outcome
+ FAIL  tests/billing/personal-stripe-settlement-pg.test.ts > reads manual review without original checkout binding as a terminal outcome
+Error: payment_provider_not_configured
+ ❯ src/infrastructure/billing/pg-personal-order-reader.ts:22:43
+     20|         const p = personalPurchaseView(row);
+     21|         // Unresolved creation has no safe payment address; do not fab…
+     22|         if (!p.url || !p.expiresAt) throw new BillingOrderError("payme…
+       |                                           ^
+     23|         const receipt = (await s.query<{paid_at:Date|null}>(`SELECT pa…
+     24|           WHERE purchase_ref=$1 AND NOT manual_review ORDER BY verifie…
+ ❯ PgDatabase.inTx src/infrastructure/db/pg-database.ts:74:19
+ ❯ PgPersonalOrderReader.read src/infrastructure/billing/pg-personal-order-reader.ts:15:14
+ ❯ tests/billing/personal-stripe-settlement-pg.test.ts:374:9
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 31 skipped (34)
+   Start at  05:13:21
+   Duration  20.22s (transform 1.13s, setup 8ms, collect 1.90s, tests 14.44s, environment 0ms, prepare 44ms)
+
+[db-isolation] db=wsx_d3d0c39f32ff5707808a peak_connections=2
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/personal-stripe-settlement-pg.test.ts -t without original
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/personal-stripe-settlement-pg.test.ts -t without original
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：21s
+  清理：1s
+  总计：22s

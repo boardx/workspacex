@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import { Check, X, ShieldAlert, ShieldCheck } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -54,6 +55,7 @@ export function ToolPermissionCard({
    *  `respond(...)` 调用。缺省时按钮只更新组件内部展示态（既有行为）。 */
   readonly onDecide?: (decision: ToolPermissionCardDecision) => void;
 }) {
+  const { t } = useI18n();
   const req = request;
   const [localDecision, setLocalDecision] = React.useState<ToolPermissionCardDecision | null>(null);
   const decision = decided !== undefined ? decided : localDecision;
@@ -63,38 +65,42 @@ export function ToolPermissionCard({
   };
 
   return (
-    <Card data-testid="tool-permission-card" className="max-w-lg border-warning/40 shadow-lg">
+    <Card data-testid="tool-permission-card" className="w-full min-w-0 max-w-lg border-warning/40 shadow-lg">
       <CardHeader className="gap-1">
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <ShieldAlert aria-hidden className="h-4 w-4 text-warning" />
-          <CardTitle className="text-14">agent 请求执行一个高风险操作</CardTitle>
+          <CardTitle className="text-14">{t("chatPermissions.title")}</CardTitle>
           <RiskBadge risk={req.risk} />
         </div>
         <CardDescription className="text-12">
-          这类操作不可逆或会外发，未经你同意不会执行。
+          {t("chatPermissions.description")}
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-3">
+      <CardContent className="flex min-w-0 flex-col gap-3">
         <div className="flex flex-col gap-1">
-          <span className="text-11 font-medium text-muted-foreground">想做什么</span>
+          <span className="text-11 font-medium text-muted-foreground">{t("chatPermissions.intent")}</span>
           <p data-testid="perm-intent" className="text-13 text-background-foreground">{req.intent}</p>
         </div>
         <div className="flex flex-col gap-1">
-          <span className="text-11 font-medium text-muted-foreground">为什么</span>
+          <span className="text-11 font-medium text-muted-foreground">{t("chatPermissions.rationale")}</span>
           <p data-testid="perm-rationale" className="text-13 text-background-foreground">{req.rationale}</p>
         </div>
         <div className="flex flex-col gap-1">
-          <span className="text-11 font-medium text-muted-foreground">具体命令（完整，未截断）</span>
-          <pre data-testid="perm-command" className="overflow-x-auto rounded-control bg-muted p-2 text-11">
+          <span className="text-11 font-medium text-muted-foreground">{t("chatPermissions.command")}</span>
+          <pre data-testid="perm-command" className="w-full min-w-0 max-w-full overflow-x-auto rounded-control bg-muted p-2 text-11">
             <code className="font-mono">{req.command}</code>
           </pre>
+          <p data-testid="perm-review-guidance" className="text-12 text-muted-foreground">
+            {t(req.command.includes("[TRUNCATED]") || req.command.endsWith("…")
+              ? "chatPermissions.reviewTruncated" : "chatPermissions.reviewSummary")}
+          </p>
         </div>
         <div className="flex items-start gap-1.5 rounded-control bg-muted p-2 text-11 text-muted-foreground">
           <ShieldCheck aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           {/* issue #2767 -- 补一个独立 testid：`chat-task-workbench-approval.spec.ts`
               TW-P0-6② 记录过"审批弹窗没有披露影响面"这个差距，这行内容本来就有，只是
               此前没有可寻址的锚点。 */}
-          <span data-testid="perm-affects">影响范围：{req.affects}</span>
+          <span data-testid="perm-affects">{t("chatPermissions.affects", { affects: req.affects })}</span>
         </div>
 
         {decision && (
@@ -103,29 +109,29 @@ export function ToolPermissionCard({
             data-testid="saved"
             className="text-12 text-success transition-opacity duration-slow"
           >
-            {decision === "once" && "已允许本次执行，agent 继续。"}
-            {decision === "run" && "本次 run 内同类操作将不再打断你。"}
+            {decision === "once" && t("chatPermissions.onceResult")}
+            {decision === "run" && t("chatPermissions.runResult")}
             {/* issue #3068 —— 原文案是「可在下次弹出时改选拒绝以撤销」：这条授权是组织级、
                 跨 run、无过期的，写下之后同类操作被自动放行，弹层不会再出现，那句话
                 承诺的撤销方式在结构上不可能发生。改成指向真实存在的入口
                 （`/org-admin/profile` 的「长期工具授权」区块，组织 admin 面）。 */}
-            {decision === "always" && "已记为长期允许，本组织同类操作以后不再询问；组织管理员可在「组织管理 → 组织资料 → 长期工具授权」中随时撤销。"}
-            {decision === "deny" && "已拒绝。agent 会据此调整后续计划，而不是直接失败。"}
+            {decision === "always" && t("chatPermissions.alwaysResult")}
+            {decision === "deny" && t("chatPermissions.denyResult")}
           </p>
         )}
 
         <div className="flex flex-col gap-2 border-t border-border pt-3 sm:flex-row sm:justify-end sm:flex-wrap">
           <Button variant="outline" data-testid="perm-once" onClick={() => handleDecide("once")}>
-            <Check aria-hidden className="h-4 w-4" /> 仅本次允许
+            <Check aria-hidden className="h-4 w-4" /> {t("chatPermissions.once")}
           </Button>
           <Button variant="outline" data-testid="perm-run" onClick={() => handleDecide("run")}>
-            本 run 内都允许
+            {t("chatPermissions.run")}
           </Button>
           <Button variant="outline" data-testid="perm-always" onClick={() => handleDecide("always")}>
-            以后都允许
+            {t("chatPermissions.always")}
           </Button>
           <Button variant="destructive" data-testid="perm-deny" onClick={() => handleDecide("deny")}>
-            <X aria-hidden className="h-4 w-4" /> 拒绝
+            <X aria-hidden className="h-4 w-4" /> {t("chatPermissions.deny")}
           </Button>
         </div>
       </CardContent>

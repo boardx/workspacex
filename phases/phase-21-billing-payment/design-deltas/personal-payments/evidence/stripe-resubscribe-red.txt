@@ -1,0 +1,112 @@
+[stack-admission] load1=4.08 cores=10 perCore=0.41 running=0/2
+[test-isolation] id=run-mvy4t9wl-901c895b-db25d587c9a9 db=wsx_db25d587c9a9dc3c75fa compose=wsx-db25d587c9a9dc3c75fa pg=20799 redis=21799 api=24799 web=25799 sandbox=26799 model=27799 deep-agent=28799 asr=29799 vision=30799 loopback-sandbox=31799 mail=19799
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_db25d587c9a9dc3c75fa capacity=100 current=6 required=32
+ ❯ tests/billing/personal-stripe-settlement-pg.test.ts (11 tests | 2 failed) 16504ms
+   × blocks a second Pro checkout while the original Stripe subscription can still renew 123ms
+     → promise resolved "{ …(14) }" instead of rejecting
+   × keeps a webhook-established Checkout identity when the creation response arrives later 100ms
+     → promise resolved "{ …(14) }" instead of rejecting
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/personal-stripe-settlement-pg.test.ts > blocks a second Pro checkout while the original Stripe subscription can still renew
+AssertionError: promise resolved "{ …(14) }" instead of rejecting
+
+- Expected
++ Received
+
+- [Error: rejected promise]
++ Object {
++   "catalogVersion": "pricing-2026-11-v1",
++   "closedAt": null,
++   "createdAt": 2026-11-01T17:56:59.001Z,
++   "expiresAt": null,
++   "fulfilledAt": null,
++   "generation": "billing-credits-2026-11-v1",
++   "idempotencyKey": "renewing-22006535-6d4d-471a-9268-0988c9b972c3",
++   "paymentReviewRequired": false,
++   "product": Object {
++     "amountMinor": 2900,
++     "currency": "USD",
++     "cycle": "month",
++     "kind": "subscription",
++     "monthlyCredits": 20000,
++     "sku": "pro-us-month-v1",
++   },
++   "provider": "stripe",
++   "purchaseRef": "bm20261101175659soZ8dC",
++   "sessionRef": null,
++   "url": null,
++   "userId": "stripe-term-4e79823a-still-renewing",
++ }
+
+ ❯ tests/billing/personal-stripe-settlement-pg.test.ts:118:118
+    116|   const f = await fixture("still-renewing", false, new Date("2020-01-3…
+    117|   await expect(checkout.reserve({ userId: f.userId, orgId: org }, { sk…
+    118|     catalogVersion: PERSONAL_PRICE_CATALOG_VERSION, idempotencyKey: `r…
+       |                                                                                                                      ^
+    119| });
+    120| it("keeps a webhook-established Checkout identity when the creation re…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/billing/personal-stripe-settlement-pg.test.ts > keeps a webhook-established Checkout identity when the creation response arrives later
+AssertionError: promise resolved "{ …(14) }" instead of rejecting
+
+- Expected
++ Received
+
+- [Error: rejected promise]
++ Object {
++   "catalogVersion": "pricing-2026-11-v1",
++   "closedAt": null,
++   "createdAt": 2026-11-01T17:56:59.000Z,
++   "expiresAt": 2026-11-02T17:56:59.104Z,
++   "fulfilledAt": 2026-11-01T17:56:59.083Z,
++   "generation": "billing-credits-2026-11-v1",
++   "idempotencyKey": "stripe-8c41b7b5-1594-4e94-8cdb-a9e6cc21d866",
++   "paymentReviewRequired": false,
++   "product": Object {
++     "amountMinor": 29000,
++     "currency": "USD",
++     "cycle": "year",
++     "kind": "subscription",
++     "monthlyCredits": 20000,
++     "sku": "pro-us-year-v1",
++   },
++   "provider": "stripe",
++   "purchaseRef": "bm20261101175659hwIBYo",
++   "sessionRef": "cs_wronglateidentity",
++   "url": "https://checkout.stripe.com/c/pay/fixture",
++   "userId": "stripe-term-4e79823a-late-creation",
++ }
+
+ ❯ tests/billing/personal-stripe-settlement-pg.test.ts:124:95
+    122|   await asOwner(c => c.query("UPDATE billing_personal_purchases SET se…
+    123|   const result = { sessionRef: "cs_wronglateidentity", url: "https://c…
+    124|   await expect(checkout.bind({ userId: f.userId, orgId: org }, f.purch…
+       |                                                                                               ^
+    125| });
+    126| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 9 passed (11)
+   Start at  01:56:37
+   Duration  21.53s (transform 410ms, setup 12ms, collect 301ms, tests 16.50s, environment 0ms, prepare 75ms)
+
+[db-isolation] db=wsx_db25d587c9a9dc3c75fa peak_connections=4
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/personal-stripe-settlement-pg.test.ts
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/personal-stripe-settlement-pg.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：23s
+  清理：1s
+  总计：23s

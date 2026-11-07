@@ -1,3 +1,4 @@
+import { LanguageSwitcher } from "@/components/shell/language-switcher";
 import { AppShell } from "@/components/shell/app-shell";
 import { resolvePreviewRole } from "@/lib/identity";
 import { HomeScreen } from "@/components/home/home-screen";
@@ -11,6 +12,7 @@ export default function HomePage({ searchParams }: { searchParams: { as?: string
   const previewRole = resolvePreviewRole(searchParams.as);
   return (
     <AppShell previewRole={previewRole} hideTopBar>
+      <div className="flex justify-end px-4 pt-4"><LanguageSwitcher /></div>
       <HomeScreen />
     </AppShell>
   );

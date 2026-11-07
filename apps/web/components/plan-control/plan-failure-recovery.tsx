@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
 import * as React from "react";
 import { AlertTriangle, RotateCcw, Pencil } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,7 +15,7 @@ import { Button } from "@/components/ui/button";
  *
  * issue #3132 —— `failedStepIndex`/`failedStepLabel` 改为可选：**失败的 run 不保证
  * 产出过计划步骤**（模型一次 `write_todos` 都没调就死了）。缺步骤时不编一个"第 1 步"
- * 出来，如实只说"这次任务执行失败"，两个恢复动作照常给——用户遇到失败必须有可操作
+ * 出来，如实只说t("chatPlanControl.failedTask")，两个恢复动作照常给——用户遇到失败必须有可操作
  * 入口，"没有计划就没有恢复路径"是缺陷不是设计（coordinator 裁决 ②，#3132）。
  */
 export const PLAN_FAILURE_RETRY_STEP_TESTID = "chat-task-workbench-failure-retry-step";
@@ -25,6 +26,7 @@ export interface PlanFailureRecoveryProps {
   readonly failedStepIndex?: number;
   readonly failedStepLabel?: string;
   readonly reason: string;
+  readonly busy?: boolean;
   /**
    * 2026-09-22 —— 「每一步都标了完成、这一轮却失败了」时多说的一句解释
    * （单一事实源 `lib/chat-workbench/plan-failure-shape.ts`）。缺省 ⇒ 不渲染这一行，
@@ -36,20 +38,24 @@ export interface PlanFailureRecoveryProps {
 }
 
 export function PlanFailureRecovery(
-  { failedStepIndex, failedStepLabel, reason, note = null, onRetryStep, onEditInput }: PlanFailureRecoveryProps,
+  { failedStepIndex, failedStepLabel, reason, busy = false, note = null, onRetryStep, onEditInput }: PlanFailureRecoveryProps,
 ): React.JSX.Element {
+  const { t } = useI18n();
   return (
-    <Card className="border-destructive/30">
+    <Card className="border-destructive/30" aria-busy={busy}>
       <CardContent className="flex flex-col gap-3 py-3">
         <div className="flex items-start gap-2">
           <AlertTriangle aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
           <div className="flex flex-col gap-0.5">
             <span className="text-13">
               {failedStepIndex !== undefined && failedStepLabel !== undefined
-                ? `第 ${failedStepIndex} 步「${failedStepLabel}」失败`
-                : "这次任务执行失败"}
+                ? t("chatPlanControl.failedStep", { index: failedStepIndex, step: failedStepLabel })
+                : t("chatPlanControl.failedTask")}
             </span>
             <span className="whitespace-pre-line text-12 text-muted-foreground">{reason}</span>
+            {failedStepIndex !== undefined && (
+              <span className="text-12 text-muted-foreground">{t("chatPlanControl.retainedSteps")}</span>
+            )}
             {note !== null && (
               <span data-testid={PLAN_FAILURE_NOTE_TESTID} className="mt-1 text-12 text-muted-foreground">
                 {note}
@@ -58,12 +64,12 @@ export function PlanFailureRecovery(
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button size="sm" variant="primary" data-testid={PLAN_FAILURE_RETRY_STEP_TESTID} onClick={onRetryStep}>
+          <Button size="sm" variant="primary" data-testid={PLAN_FAILURE_RETRY_STEP_TESTID} onClick={onRetryStep} disabled={busy}>
             <RotateCcw aria-hidden className="h-3.5 w-3.5" />
-            {failedStepIndex !== undefined ? "重试该步" : "重试任务"}
+            {busy ? t("chatPlanControl.retrying") : failedStepIndex !== undefined ? t("chatPlanControl.retryStep") : t("chatPlanControl.retryTask")}
           </Button>
-          <Button size="sm" variant="outline" data-testid={PLAN_FAILURE_EDIT_INPUT_TESTID} onClick={onEditInput}>
-            <Pencil aria-hidden className="h-3.5 w-3.5" /> 修改输入
+          <Button size="sm" variant="outline" data-testid={PLAN_FAILURE_EDIT_INPUT_TESTID} onClick={onEditInput} disabled={busy}>
+            <Pencil aria-hidden className="h-3.5 w-3.5" /> {t("chatPlanControl.editInput")}
           </Button>
         </div>
       </CardContent>

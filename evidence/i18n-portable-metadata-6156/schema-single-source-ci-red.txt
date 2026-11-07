@@ -1,0 +1,14 @@
+2026-11-03T02:03:36.6558550Z
+2026-11-03T02:03:36.6561291Z  FAIL  tests/contract-single-source.test.ts > contract as single source, backend side > no backend file declares its own zod object schema (schemas belong in the contract)
+2026-11-03T02:03:36.6584532Z AssertionError: Request/response shapes are defined once, in packages/contracts.
+2026-11-03T02:03:36.6587462Z   domain/localization/skill-execution-representation.ts:5  const Representation = z.object({ manifest: z.record(z.unknown()),: expected [ Array(1) ] to deeply equal []
+2026-11-03T02:03:36.6589250Z
+2026-11-03T02:03:36.6589805Z - Expected
+2026-11-03T02:03:36.6590885Z + Received
+2026-11-03T02:03:36.6591344Z
+2026-11-03T02:03:36.6592051Z - Array []
+2026-11-03T02:03:36.6592932Z + Array [
+2026-11-03T02:03:36.6595045Z +   "domain/localization/skill-execution-representation.ts:5  const Representation = z.object({ manifest: z.record(z.unknown()),",
+2026-11-03T02:03:36.6596722Z + ]
+2026-11-03T02:03:36.6597172Z
+2026-11-03T02:03:36.6598418Z  ❯ tests/contract-single-source.test.ts:76:7

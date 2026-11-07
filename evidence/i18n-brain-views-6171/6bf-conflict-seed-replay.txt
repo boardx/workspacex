@@ -1,0 +1,76 @@
+[stack-admission] load1=8.40 cores=10 perCore=0.84 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw0dn7ap-deee2b5e-d362ab0499d9 db=wsx_d362ab0499d953273037 compose=wsx-d362ab0499d953273037 pg=20884 redis=21884 api=24884 web=25884 sandbox=26884 model=27884 deep-agent=28884 asr=29884 vision=30884 loopback-sandbox=31884 mail=19884
+ Image localhost/workspacex-postgres-age:pg16-age1.6.0 Building
+#1 [internal] load local bake definitions
+#1 reading from stdin 672B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 2.76kB 0.0s done
+#2 DONE 0.1s
+
+#3 [internal] load metadata for docker.io/pgvector/pgvector:pg16
+#3 DONE 0.3s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.1s
+
+#5 [1/2] FROM docker.io/pgvector/pgvector:pg16@sha256:ad2e18408bf447f62092a8a5259e7df10505c5a0360bd1a1853ac8b8b0763da2
+#5 resolve docker.io/pgvector/pgvector:pg16@sha256:ad2e18408bf447f62092a8a5259e7df10505c5a0360bd1a1853ac8b8b0763da2 0.0s done
+#5 DONE 0.1s
+
+#6 [2/2] RUN set -eux;     apt_host="deb.debian.org"; apt_host="${apt_host%%/*}";     sed -Ei "s#//deb\.debian\.org#//${apt_host}#g" /etc/apt/sources.list.d/debian.sources;     apt-get update;     apt-get install -y --no-install-recommends       build-essential ca-certificates git flex bison postgresql-server-dev-16;     git init /tmp/age;     git -C /tmp/age fetch --depth 1 "https://github.com/apache/age.git" "2db2f060c4c9265a14d40f007eb8c56febf31e4c";     git -C /tmp/age checkout FETCH_HEAD;     test "$(git -C /tmp/age rev-parse HEAD)" = "2db2f060c4c9265a14d40f007eb8c56febf31e4c";     make -C /tmp/age;     make -C /tmp/age install;     rm -rf /tmp/age;     apt-get purge -y --auto-remove build-essential git flex bison postgresql-server-dev-16;     rm -rf /var/lib/apt/lists/*
+#6 CACHED
+
+#7 exporting to image
+#7 exporting layers 0.0s done
+#7 exporting manifest sha256:4ac9f25e1890d3cf6ffe1c584699fec015f6eb7f34505dbc3ba3d76891bf6f31 0.0s done
+#7 exporting config sha256:ae51c64a34ab9e1b40eaa46d4e5665959a3575c7c27e0127778c5d5cf13c38df 0.0s done
+#7 exporting attestation manifest sha256:8c945c22f4ea5e0765e73d06c1e596bc47a267982f5f57d3e694191d63efddb2 0.2s done
+#7 exporting manifest list sha256:1f51b4bf01e4ad499464160852c29b73ba0b30a6099b3fee932b7ae27c1ce518
+#7 exporting manifest list sha256:1f51b4bf01e4ad499464160852c29b73ba0b30a6099b3fee932b7ae27c1ce518 0.1s done
+#7 naming to localhost/workspacex-postgres-age:pg16-age1.6.0 done
+#7 unpacking to localhost/workspacex-postgres-age:pg16-age1.6.0 0.1s done
+#7 DONE 0.6s
+
+#8 resolving provenance for metadata file
+#8 DONE 0.0s
+ Image localhost/workspacex-postgres-age:pg16-age1.6.0 Built
+ Network wsx-d362ab0499d953273037_default Creating
+ Network wsx-d362ab0499d953273037_default Created
+ Container wsx-d362ab0499d953273037-minio-1 Creating
+ Container wsx-d362ab0499d953273037-redis-1 Creating
+ Container wsx-d362ab0499d953273037-postgres-1 Creating
+ Container wsx-d362ab0499d953273037-minio-1 Created
+ Container wsx-d362ab0499d953273037-postgres-1 Created
+ Container wsx-d362ab0499d953273037-redis-1 Created
+ Container wsx-d362ab0499d953273037-postgres-1 Starting
+ Container wsx-d362ab0499d953273037-minio-1 Starting
+ Container wsx-d362ab0499d953273037-redis-1 Starting
+ Container wsx-d362ab0499d953273037-postgres-1 Started
+ Container wsx-d362ab0499d953273037-minio-1 Started
+ Container wsx-d362ab0499d953273037-redis-1 Started
+ Container wsx-d362ab0499d953273037-minio-1 Waiting
+ Container wsx-d362ab0499d953273037-redis-1 Waiting
+ Container wsx-d362ab0499d953273037-postgres-1 Waiting
+ Container wsx-d362ab0499d953273037-minio-1 Healthy
+ Container wsx-d362ab0499d953273037-redis-1 Healthy
+ Container wsx-d362ab0499d953273037-postgres-1 Healthy
+[fullstack-fixture] recording thread=thread-466-ap-deee2b5e-d362ab0499d9 title=FULLSTACK_RECORDING_THREAD_ap-deee2b5e-d362ab0499d9
+[fullstack-fixture] db=wsx_d362ab0499d953273037 project=project-fullstack-ap-deee2b5e-d362ab0499d9 sentinel=FULLSTACK_SENTINEL_ap-deee2b5e-d362ab0499d9.md
+[about-me-i18n-fixture] org=about-org-fullstack-ap-deee2b5e-d362ab0499d9 actor=consultant personal=2 accepted-by-promotion sources=2 canonical-executor extraction=disabled
+[brain-seed-replay] seed1 exit=0
+[fullstack-fixture] recording thread=thread-466-ap-deee2b5e-d362ab0499d9 title=FULLSTACK_RECORDING_THREAD_ap-deee2b5e-d362ab0499d9
+[fullstack-fixture] db=wsx_d362ab0499d953273037 project=project-fullstack-ap-deee2b5e-d362ab0499d9 sentinel=FULLSTACK_SENTINEL_ap-deee2b5e-d362ab0499d9.md
+[about-me-i18n-fixture] org=about-org-fullstack-ap-deee2b5e-d362ab0499d9 actor=consultant personal=2 accepted-by-promotion sources=2 canonical-executor extraction=disabled
+[brain-seed-replay] seed2 exit=0
+[brain-seed-replay] same-database repeat succeeded; no Next/server/browser started
+[timing] pnpm --filter web exec tsx scripts/verify-brain-seed-replay.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1m38s
+  清理：2s
+  总计：1m39s

@@ -1,0 +1,22 @@
+2026-11-02T08:25:17.3027868Z  Image localhost/workspacex-postgres-age:pg16-age1.6.0 Building 
+2026-11-02T08:25:17.9512654Z  Image localhost/workspacex-postgres-age:pg16-age1.6.0 Built 
+2026-11-02T08:25:17.9625365Z  Container workspacex-kernel-postgres-1 Recreate 
+2026-11-02T08:25:18.6401419Z  Container workspacex-kernel-postgres-1 Recreated 
+2026-11-02T08:25:18.6508193Z  Container workspacex-kernel-postgres-1 Starting 
+2026-11-02T08:25:18.8462464Z  Container workspacex-kernel-postgres-1 Started 
+2026-11-02T08:25:20.1766870Z NOTICE:  database "wsx_ci_41412600721_runtime" does not exist, skipping
+2026-11-02T08:25:32.1500397Z   applied 448 migration(s) to an empty database
+2026-11-02T08:25:49.5896340Z /home/runner/work/workspacex/workspacex/apps/api/src/infrastructure/db/migrator.ts:131
+2026-11-02T08:25:49.5897725Z           throw new Error(`migration ${name} failed: ${msg}`);
+2026-11-02T08:25:49.5898822Z                 ^
+2026-11-02T08:25:49.5899175Z 
+2026-11-02T08:25:49.5900298Z Error: migration 20261102050000_product_configuration.sql failed: column "product_kind" of relation "credit_packages" already exists
+2026-11-02T08:25:49.5901530Z     at migrate (/home/runner/work/workspacex/workspacex/apps/api/src/infrastructure/db/migrator.ts:131:17)
+2026-11-02T08:25:49.5902617Z     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+2026-11-02T08:25:49.5903714Z     at async <anonymous> (/home/runner/work/workspacex/workspacex/apps/api/scripts/migrate-check.ts:128:16)
+2026-11-02T08:25:49.5904387Z 
+2026-11-02T08:25:49.5904631Z Node.js v22.23.4
+2026-11-02T08:25:49.6146652Z /home/runner/work/workspacex/workspacex/apps/api:
+2026-11-02T08:25:49.6147584Z  ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @repo/api@0.0.0 migrate:check: `./scripts/verify-migrations.sh`
+2026-11-02T08:25:49.6147993Z Exit status 1
+2026-11-02T08:25:49.6476609Z ##[error]Process completed with exit code 1.

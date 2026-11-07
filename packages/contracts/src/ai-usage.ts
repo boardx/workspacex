@@ -7,12 +7,12 @@ export const Query=z.object({start:Timestamp,end:Timestamp,timezone:Zone,asOf:Ti
  modelProvider:z.string().max(200).optional(),modelId:z.string().max(200).optional(),userId:z.string().max(200).optional(),
  projectId:z.string().max(200).optional(),unassignedProject:z.enum(["true","false"]).optional(),
  runId:z.string().max(200).optional(),threadId:z.string().max(200).optional(),agentId:z.string().max(200).optional(),
- cursorTime:Timestamp.optional(),cursorId:z.string().max(200).optional(),limit:z.coerce.number().int().min(1).max(100).default(25),
+ cursorTime:Timestamp.optional(),cursorId:z.string().max(1000).optional(),limit:z.coerce.number().int().min(1).max(100).default(25),
 }).strict().refine(q=>Date.parse(q.end)>Date.parse(q.start)&&Date.parse(q.end)-Date.parse(q.start)<=366*86_400_000,"Window must be positive and at most 366 days")
  .refine(q=>Boolean(q.cursorTime)===Boolean(q.cursorId),"Both cursor fields are required")
  .refine(q=>!(q.projectId&&q.unassignedProject==="true"),"Project filters conflict");
 export const Totals=z.object({inputTokens:Tokens,outputTokens:Tokens,totalTokens:Tokens,callCount:Count,failedCalls:Count,
- reportedCalls:Count,legacyCalls:Count,unknownCalls:Count,unknownInputCalls:Count,unknownOutputCalls:Count,nativeCalls:Count.default(0)}).strict();
+ reportedCalls:Count,legacyCalls:Count,unknownCalls:Count,unknownInputCalls:Count,unknownOutputCalls:Count,nativeCalls:Count.default(0),creditHundredths:Tokens.optional(),pendingCreditCalls:Count.optional()}).strict();
 export const NATIVE_UNITS=["image","pixel","millisecond","microsecond","character","request"] as const;
 export const NativeUsage=z.object({unit:z.enum(NATIVE_UNITS),quantity:Tokens.nullable(),source:z.enum(["reported","estimated","unknown"])}).strict();
 export const CostSummary=z.object({currency:z.string(),costMicros:Tokens,pricedCalls:Count}).strict();
@@ -29,7 +29,7 @@ export const Summary=z.object({asOf:Timestamp,start:Timestamp,end:Timestamp,time
  matrix:z.array(z.object({userId:z.string(),modelProvider:z.string(),modelId:z.string(),totalTokens:Tokens,callCount:Count}).strict()),
  projects:z.array(z.object({projectId:z.string().nullable(),totalTokens:Tokens,callCount:Count}).strict()),
 }).strict();
-export const Call=z.object({id:z.string(),subtaskId:z.string().nullable().default(null),userId:z.string(),runId:z.string().nullable(),projectId:z.string().nullable(),
+export const Call=z.object({orgId:z.string().optional(),organizationName:z.string().nullable().optional(),creditHundredths:Tokens.nullable().optional(),creditStatus:z.enum(["settled","pending","unbilled"]).optional(),payer:z.object({ownerType:z.enum(["user","team"]),ownerId:z.string()}).strict().nullable().optional(),id:z.string(),subtaskId:z.string().nullable().default(null),userId:z.string(),runId:z.string().nullable(),projectId:z.string().nullable(),
  threadId:z.string().nullable(),agentId:z.string().nullable(),modelProvider:z.string(),modelId:z.string(),
  occurredAt:Timestamp,startedAt:Timestamp.nullable(),endedAt:Timestamp.nullable(),executionAttemptId:z.string().nullable(),
  totalTokens:Tokens,inputTokens:Tokens.nullable(),outputTokens:Tokens.nullable(),
@@ -40,6 +40,8 @@ export const Call=z.object({id:z.string(),subtaskId:z.string().nullable().defaul
 export const Calls=z.object({asOf:Timestamp,coverage:z.literal("partial"),calls:z.array(Call),
  nextCursor:z.object({occurredAt:Timestamp,id:z.string()}).strict().nullable()}).strict();
 export const operations={
+ selfSummary:{method:"GET",path:"/billing/usage",in:Query,out:Summary,err:["FORBIDDEN"]},
+ selfCalls:{method:"GET",path:"/billing/usage/calls",in:Query,out:Calls,err:["FORBIDDEN"]},
  summary:{method:"GET",path:"/organizations/:orgId/ai-usage",in:Query,out:Summary,err:["FORBIDDEN","NO_ORG_MEMBERSHIP"]},
  calls:{method:"GET",path:"/organizations/:orgId/ai-usage/calls",in:Query,out:Calls,err:["FORBIDDEN","NO_ORG_MEMBERSHIP"]},
  platformSummary:{method:"GET",path:"/platform/organizations/:orgId/ai-usage",in:Query,out:Summary,err:["NOT_PLATFORM_SUPERUSER","ORGANIZATION_NOT_FOUND"]},

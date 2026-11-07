@@ -1,3 +1,4 @@
+import { PROTOTYPE_TABLE_INTERACTIONS } from "./prototype-table-interactions";
 /**
  * 把清洗过的 HTML 页片段装成 iframe 的 `srcDoc`。
  *
@@ -38,7 +39,7 @@ const BASE_CSS =
  *     父页面回传当前选中的编号，桥把选中框画在它上面。点击一律 preventDefault：编辑时不让链接/按钮真的生效。
  */
 const BRIDGE = `(function(){var S="${HTML_PAGE_MESSAGE_SOURCE}",P="${HTML_PAGE_PARENT_SOURCE}",edit=document.documentElement.getAttribute("data-mode")==="edit";` +
-  `if(!edit){document.addEventListener("click",function(e){var t=e.target;if(!t||!t.closest)return;var a=t.closest("a");if(a)e.preventDefault();var g=t.closest("[data-goto]");if(g&&g.getAttribute("data-link"))parent.postMessage({source:S,type:"goto",id:g.getAttribute("data-link")},"*")},true);return}` +
+  `if(!edit){${PROTOTYPE_TABLE_INTERACTIONS}document.addEventListener("click",function(e){var t=e.target;if(!t||!t.closest)return;var a=t.closest("a");if(a)e.preventDefault();var g=t.closest("[data-goto]");if(g&&g.getAttribute("data-link"))parent.postMessage({source:S,type:"goto",id:g.getAttribute("data-link")},"*")},true);return}` +
   `var hl=document.createElement("div");hl.setAttribute("style","position:absolute;pointer-events:none;z-index:2147483647;outline:2px solid #3b82f6;outline-offset:1px;background:rgba(59,130,246,.08);display:none");document.body.appendChild(hl);` +
   `var sel=null;function box(el){var r=el.getBoundingClientRect();hl.style.display="block";hl.style.left=(r.left+window.scrollX)+"px";hl.style.top=(r.top+window.scrollY)+"px";hl.style.width=r.width+"px";hl.style.height=r.height+"px"}` +
   `function rest(){if(sel)box(sel);else hl.style.display="none"}` +

@@ -1,0 +1,10 @@
+{
+  "stage": "green",
+  "exitCode": 0,
+  "total": 4,
+  "passed": 4,
+  "failed": 0,
+  "runtimeErrorSuites": "Native JSON does not emit this field; all4 assertions have expected executed statuses, with exactly1 semantic failure in RED and0 in GREEN.",
+  "assertions": 4,
+  "failedTitles": []
+}

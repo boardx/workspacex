@@ -1,5 +1,7 @@
 "use client";
-import * as React from "react";
+import { recordingFixedDisplay } from "./recording-project-display";
+import { useRecordingNotice } from "./use-recording-notice";
+import { useI18n } from "@/lib/i18n/provider";
 import { Play, Volume2, ShieldCheck } from "lucide-react";
 import { Toast } from "@/components/admin/panel";
 import { StateShell } from "@/components/state/state-shell";
@@ -21,37 +23,45 @@ import {
  *   右（AI 识别的主题与证据 + 「待你判断」附和处理 + 确认才进证据库）。
  */
 export function RecVerify({ state, view }: { state: UiState; view: RecView }) {
+  const { t: recT } = useI18n();
   const readOnly = isReadOnlyRec(view);
   const canWrite = canWriteRec(view) && !readOnly;
-  const [toast, setToast] = React.useState<string | null>(null);
+  const fixedCaptionKeys = {
+    speakers: { uncertain: "rec.project.verify.uncertainSpeaker" },
+    markers: { quote: "rec.project.quote.130", pain: "rec.project.verify.painMarker" },
+    hints: { "speaker-uncertain": "rec.project.verify.overlapHint" },
+    themes: { judge: "rec.project.verify.reviewNeeded" },
+  } as const;
+  const correctionKeys = { listen: "rec.project.correction.listen", replace: "rec.project.correction.replace", keep: "rec.project.correction.keep", weber: "rec.project.correction.weber", kraus: "rec.project.correction.kraus", split: "rec.project.correction.split", confirm: "rec.project.correction.confirm", rename: "rec.project.correction.rename" } as const;
+  const [toast, setToast] = useRecordingNotice();
 
   return (
     <div className="flex flex-col gap-3 p-4" data-testid="rec-verify">
       <header className="flex flex-wrap items-center gap-2">
-        <h1 className="text-18 font-semibold tracking-tight">{VERIFY_META.title}</h1>
-        <Badge tone="warning" data-testid="rec-verify-pending-badge">{VERIFY_META.pendingBadge}</Badge>
+        <h1 className="text-18 font-semibold tracking-tight">{recT("rec.project.verify.title")}</h1>
+        <Badge tone="warning" data-testid="rec-verify-pending-badge">{recT("rec.project.verify.pending")}</Badge>
         <div className="flex-1" />
-        <Button size="sm" variant="primary" disabled={!canWrite} onClick={() => setToast("14 处已确认 → 逐字稿并入正式证据库（mock）")} data-testid="rec-verify-commit">
-          {VERIFY_META.commitLabel}
+        <Button size="sm" variant="primary" disabled={!canWrite} onClick={() => setToast({ key: "rec.project.14.items.confirmed.the.transcript.is.added" })} data-testid="rec-verify-commit">
+          {recT("rec.project.verify.commit")}
         </Button>
       </header>
 
       <StateShell
         state={state}
         skeletonRows={6}
-        emptyHint="本场没有待校对的段落——转写全部定稿，或本场未产生逐字稿。"
+        emptyHint={recT("rec.project.no.segments.need.review.all.transcript.segments")}
         errors={{
-          confidence: "第 00:32:05 段的改词与另一名研究员冲突（乐观并发）：你选「改为合同文本」，他选「保留原词」。系统不静默覆盖，保留争议待裁定。",
+          confidence: recT("rec.project.a.correction.at.003205.conflicts.with.another"),
         }}
-        depFailure={{ what: "音频回放服务暂不可用；逐字稿文本与改词出口不受影响，可先做文本校对。" }}
-        denial={{ layer: "project", reason: "只有引导师/研究员可校对并入证据库；你可查看逐字稿但不能改词或确认。" }}
-        successMessage="14 处已确认 → 逐字稿并入正式证据库；未确认前的内容不会被其他 Studio 检索到。"
+        depFailure={{ what: recT("rec.project.audio.playback.is.temporarily.unavailable.transcript.text") }}
+        denial={{ layer: "project", reason: recT("rec.project.only.facilitators.and.researchers.can.review.and") }}
+        successMessage={recT("rec.project.14.items.confirmed.the.transcript.is.added.27")}
       >
         <div className="grid gap-3 lg:grid-cols-[184px_minmax(260px,1fr)_280px]">
           {/* 左：导航 */}
           <nav className="flex flex-col gap-3" data-testid="rec-verify-nav">
             <div className="flex flex-col gap-1.5">
-              <span className="text-10 font-medium text-muted-foreground">发言人</span>
+              <span className="text-10 font-medium text-muted-foreground">{recT("rec.project.speakers")}</span>
               {VERIFY_NAV_SPEAKERS.map((s) => (
                 <div
                   key={s.id}
@@ -62,7 +72,7 @@ export function RecVerify({ state, view }: { state: UiState; view: RecView }) {
                   )}
                 >
                   <span className="h-2.5 w-2.5 shrink-0 rounded-sm bg-muted" />
-                  <span className={cn("flex-1", s.tone === "uncertain" && "text-destructive")}>{s.name}</span>
+                  <span className={cn("flex-1", s.tone === "uncertain" && "text-destructive")}>{recordingFixedDisplay(recT, fixedCaptionKeys.speakers, s.id, s.name)}</span>
                   <span className={cn("font-mono text-9", s.tone === "uncertain" ? "text-destructive" : "text-muted-foreground")}>
                     {s.count != null ? s.count : `${s.pct}%`}
                   </span>
@@ -70,7 +80,7 @@ export function RecVerify({ state, view }: { state: UiState; view: RecView }) {
               ))}
             </div>
             <div className="flex flex-col gap-1.5">
-              <span className="text-10 font-medium text-muted-foreground">章节</span>
+              <span className="text-10 font-medium text-muted-foreground">{recT("rec.project.chapters")}</span>
               {VERIFY_CHAPTERS.map((c) => (
                 <div
                   key={c.id}
@@ -85,10 +95,10 @@ export function RecVerify({ state, view }: { state: UiState; view: RecView }) {
               ))}
             </div>
             <div className="flex flex-col gap-1.5">
-              <span className="text-10 font-medium text-muted-foreground">标记</span>
+              <span className="text-10 font-medium text-muted-foreground">{recT("rec.project.markers")}</span>
               {VERIFY_MARKS.map((m) => (
                 <div key={m.id} className="flex items-center rounded-md border border-border-subtle px-2.5 py-1.5 text-10">
-                  <span className="flex-1">{m.label}</span>
+                  <span className="flex-1">{recordingFixedDisplay(recT, fixedCaptionKeys.markers, m.id, m.label)}</span>
                   <span className="font-mono text-9 text-muted-foreground">{m.count}</span>
                 </div>
               ))}
@@ -99,7 +109,7 @@ export function RecVerify({ state, view }: { state: UiState; view: RecView }) {
           <section className="flex flex-col gap-2.5" data-testid="rec-verify-transcript">
             {/* 播放器 */}
             <div className="flex items-center gap-3 rounded-lg border border-border-subtle bg-card p-3" data-testid="rec-verify-player">
-              <Button size="icon" variant="outline" aria-label="播放" onClick={() => setToast("播放 31:04 / 68:12（mock，不真放音）")} data-testid="rec-verify-play">
+              <Button size="icon" variant="outline" aria-label={recT("rec.project.play")} onClick={() => setToast({ key: "rec.project.play.3104.6812.preview.no.audio.playback" })} data-testid="rec-verify-play">
                 <Play aria-hidden className="h-3 w-3" />
               </Button>
               <div className="relative h-1 flex-1 overflow-hidden rounded-full bg-muted">
@@ -121,7 +131,7 @@ export function RecVerify({ state, view }: { state: UiState; view: RecView }) {
                 {it.kind === "low-confidence" && it.lowConf && (
                   <div className="min-w-0 flex-1 rounded-lg border border-warning/40 bg-warning/5 p-2.5">
                     <div className="mb-1.5 flex items-center gap-2">
-                      <span className="font-mono text-9 text-warning">低置信度 · 专有名词</span>
+                      <span className="font-mono text-9 text-warning">{recT("rec.project.low.confidence.proper.noun")}</span>
                       <span className="flex-1" />
                       <span className="font-mono text-9 text-muted-foreground">{it.lowConf.score}</span>
                     </div>
@@ -135,10 +145,10 @@ export function RecVerify({ state, view }: { state: UiState; view: RecView }) {
                           size="xs"
                           variant={i === 0 ? "primary" : "outline"}
                           disabled={i !== 0 && !canWrite}
-                          onClick={() => setToast(`「${it.lowConf!.term}」· ${a}（mock）`)}
+                          onClick={() => setToast({ key: "rec.project.correctionNotice", params: { term: it.lowConf!.term }, translatedParams: { action: ([correctionKeys.listen, correctionKeys.replace, correctionKeys.keep] as const)[i] ?? correctionKeys.keep } })}
                           data-testid={`rec-verify-lowconf-${it.id}-${i}`}
                         >
-                          {i === 0 && <Volume2 aria-hidden className="h-2.5 w-2.5" />} {a}
+                          {i === 0 && <Volume2 aria-hidden className="h-2.5 w-2.5" />} {recT(([correctionKeys.listen, correctionKeys.replace, correctionKeys.keep] as const)[i] ?? correctionKeys.keep)}
                         </Button>
                       ))}
                     </div>
@@ -146,7 +156,7 @@ export function RecVerify({ state, view }: { state: UiState; view: RecView }) {
                 )}
                 {it.kind === "speaker-uncertain" && it.speakerUncertain && (
                   <div className="min-w-0 flex-1 rounded-lg border border-border-subtle bg-card p-2.5">
-                    <p className="mb-1.5 font-mono text-9 text-muted-foreground">{it.speakerUncertain.note}</p>
+                    <p className="mb-1.5 font-mono text-9 text-muted-foreground">{recordingFixedDisplay(recT, fixedCaptionKeys.hints, it.kind, it.speakerUncertain.note)}</p>
                     <p className="mb-2 text-11 leading-relaxed">{it.text}</p>
                     <div className="flex flex-wrap gap-1.5">
                       {it.speakerUncertain.actions.map((a, i) => (
@@ -155,10 +165,10 @@ export function RecVerify({ state, view }: { state: UiState; view: RecView }) {
                           size="xs"
                           variant="outline"
                           disabled={!canWrite}
-                          onClick={() => setToast(`${a}（mock）`)}
+                          onClick={() => setToast({ key: "rec.project.actionNotice", translatedParams: { action: ([correctionKeys.weber, correctionKeys.kraus, correctionKeys.split] as const)[i] ?? correctionKeys.split } })}
                           data-testid={`rec-verify-speaker-${it.id}-${i}`}
                         >
-                          {a}
+                          {recT(([correctionKeys.weber, correctionKeys.kraus, correctionKeys.split] as const)[i] ?? correctionKeys.split)}
                         </Button>
                       ))}
                     </div>
@@ -170,7 +180,7 @@ export function RecVerify({ state, view }: { state: UiState; view: RecView }) {
 
           {/* 右：AI 识别的主题与证据 + 确认进证据库 */}
           <aside className="flex flex-col gap-2" data-testid="rec-verify-themes">
-            <span className="text-11 font-medium">AI 识别的主题与证据</span>
+            <span className="text-11 font-medium">{recT("rec.project.aiidentified.themes.and.evidence")}</span>
             {VERIFY_THEMES.map((t) => (
               <div
                 key={t.id}
@@ -180,14 +190,14 @@ export function RecVerify({ state, view }: { state: UiState; view: RecView }) {
                   t.kind === "judge" ? "border-warning/40 bg-warning/5" : "border-border-subtle bg-card",
                 )}
               >
-                <p className="mb-1 text-11 font-medium">{t.name}</p>
+                <p className="mb-1 text-11 font-medium">{recordingFixedDisplay(recT, fixedCaptionKeys.themes, t.kind, t.name)}</p>
                 {t.meta && <p className="text-10 leading-relaxed text-muted-foreground">{t.meta}</p>}
                 {t.note && <p className="text-10 leading-relaxed text-muted-foreground">{t.note}</p>}
                 {t.actions && (
                   <div className="mt-2 flex gap-1.5">
                     {t.actions.map((a, i) => (
-                      <Button key={a} size="xs" variant={i === 0 ? "primary" : "outline"} disabled={!canWrite} onClick={() => setToast(`${t.name} · ${a}（mock）`)} data-testid={`rec-verify-theme-action-${t.id}-${i}`}>
-                        {a}
+                      <Button key={a} size="xs" variant={i === 0 ? "primary" : "outline"} disabled={!canWrite} onClick={() => setToast({ key: "rec.project.themeNotice", params: { name: t.name }, translatedParams: { action: i === 0 ? correctionKeys.confirm : correctionKeys.rename } })} data-testid={`rec-verify-theme-action-${t.id}-${i}`}>
+                        {recT(i === 0 ? correctionKeys.confirm : correctionKeys.rename)}
                       </Button>
                     ))}
                   </div>
@@ -196,7 +206,7 @@ export function RecVerify({ state, view }: { state: UiState; view: RecView }) {
             ))}
             <div className="mt-1 flex items-start gap-2 rounded-lg border border-dashed border-border-subtle bg-panel p-2.5" data-testid="rec-verify-evidence-note">
               <ShieldCheck aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />
-              <p className="text-9 leading-relaxed text-muted-foreground">{VERIFY_META.evidenceNote}</p>
+              <p className="text-9 leading-relaxed text-muted-foreground">{recT("rec.project.verify.evidence")}</p>
             </div>
           </aside>
         </div>

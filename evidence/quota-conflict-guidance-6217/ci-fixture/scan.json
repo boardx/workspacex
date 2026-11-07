@@ -1,0 +1,12 @@
+{
+  "gate": "scan",
+  "exit": 0,
+  "seconds": 7.642,
+  "head": "ab1147adb4d349c25b980a57e0d2f83e8e332291",
+  "rawLogSha256": "9de1217c40aa39e0f44c229661aa94b6cef96fe77fc3f98725f0fce8ff8c94bf",
+  "summary": [
+    "\u626b\u63cf\u8303\u56f4          \u4ec5\u5de5\u4f5c\u6811",
+    "\u57fa\u7ebf 99 \u6761 \u00b7 \u57fa\u7ebf\u5916\u65b0\u547d\u4e2d 0 \u5904",
+    "\u2705 \u6ca1\u6709\u57fa\u7ebf\u5916\u7684\u65b0\u547d\u4e2d"
+  ]
+}

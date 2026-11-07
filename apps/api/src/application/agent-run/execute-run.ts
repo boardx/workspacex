@@ -988,10 +988,10 @@ async function executeClaimed(
   const requestAccounting = Boolean(deps.usage?.startRequest && deps.model.supportsRequestAccounting?.(run.modelProvider));
 
   /**
-   * #1747 —— provider 交上来的候选脚本来源（deep-agent 的 `call_skill` 工具结果正文）。
-   * 恒为数组，缺席时是空的——空数组喂给 `maybeRunSkillScript` 与不传逐字等价。
+   * Provider 产物保留同一份完成快照；候选脚本与已归档文件不另建平行状态。
+   * #1747 的脚本候选缺席时在消费处取空数组；文件仍走既有消息附件写回。
    */
-  let scriptCandidates: readonly string[] = [];
+  let providerOutput: { scriptCandidates?: readonly string[]; files?: readonly ProducedFile[] } = {};
   // #741: this used to be advanced by `executeToolLoop` as it recorded `tool_call` steps;
   // with that loop retired, `model_called` is the step right after context_built for a
   // FRESH run (stepSeqBase=1 ⇒ context_built=2 ⇒ this starts at 3, the pre-existing
@@ -1205,7 +1205,7 @@ async function executeClaimed(
     if (completion.finalMessageId) await deps.runs.appendExecutionEvent?.(orgId, run.runId, { kind: "final_message", attemptId: executionAttemptId, messageId: `${executionAttemptId}:${completion.finalMessageId}` });
     text = completion.text;
     // #1747：缺席 ⇒ 空数组 ⇒ 下面的判据退化成改动前那一条（只看 `text`）。
-    scriptCandidates = completion.scriptCandidates ?? [];
+    providerOutput = completion;
   } catch (e) {
     const code: RunFailureCode = e instanceof CreditConsumptionError ? (e.code === "credit_required" ? "CREDIT_REQUIRED" : "CREDIT_ACCOUNTING_UNAVAILABLE") : e instanceof ModelCallError ? e.code : "MODEL_CALL_FAILED";
     /*
@@ -1316,11 +1316,11 @@ async function executeClaimed(
           return retryScriptSource(retry);
         },
       },
-      { owner: { orgId, userId: run.requesterUserId ?? "unattributed" }, runId: run.runId, pinnedSkillCount: toolSkills.length, reply: text, scriptSources: scriptCandidates, inputFiles: artifactContinuation?.inputFiles },
+      { owner: { orgId, userId: run.requesterUserId ?? "unattributed" }, runId: run.runId, pinnedSkillCount: toolSkills.length, reply: text, scriptSources: providerOutput.scriptCandidates ?? [], inputFiles: artifactContinuation?.inputFiles },
     );
     if (scripted.kind === "cancelled") return;
     text = scripted.text;
-    outputFiles = scripted.files;
+    outputFiles = [...(providerOutput.files ?? []), ...scripted.files];
   }
 
   if (await deps.runs.cancelAtCheckpoint?.(orgId, run.runId)) return;

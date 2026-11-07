@@ -1,0 +1,20 @@
+TAP version 13
+# Subtest: actual migration catalog keeps the historical prefix and includes every reviewed new migration
+ok 1 - actual migration catalog keeps the historical prefix and includes every reviewed new migration
+  ---
+  duration_ms: 1.89175
+  ...
+# Subtest: future or missing migrations cannot silently alter the tested upgrade
+ok 2 - future or missing migrations cannot silently alter the tested upgrade
+  ---
+  duration_ms: 1.454458
+  ...
+1..2
+# tests 2
+# suites 0
+# pass 2
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 225.921541

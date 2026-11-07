@@ -1,0 +1,21 @@
+{
+  "name": "result-copy-layout-push-1",
+  "command": [
+    "git",
+    "push",
+    "origin",
+    "HEAD:refs/heads/worker/i18n-survey-journey-6221"
+  ],
+  "source": "65e5fe99d93792f2b19831cbfac7e37f46b5f42c",
+  "exitCode": 1,
+  "seconds": 43.222,
+  "rawLogSha256": "9af2f7afa8cfb5a1794fc4170598a80a6434e2964984deba3b2c2d7994603af5",
+  "sourceAfter": "65e5fe99d93792f2b19831cbfac7e37f46b5f42c",
+  "sourceStable": true,
+  "environment": {},
+  "hookTasksPassed": 27,
+  "hookTasksTotal": 27,
+  "hookCached": 25,
+  "hookSeconds": 35.039,
+  "failure": "GitHub GH006: PR in mergequeue; all27 localhooks passed. Coordinator dequeued/restoredDraft before normalpush2."
+}

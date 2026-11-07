@@ -66,6 +66,9 @@ function sample(schema: z.ZodTypeAny, key = "", depth = 0): unknown {
       return null;
     case "ZodOptional":
       return sample(def.innerType as z.ZodTypeAny, key, depth + 1);
+    case "ZodDiscriminatedUnion":
+      // Pick the first declared branch deterministically; null is not a union value.
+      return sample((def.options as z.ZodTypeAny[])[0]!, key, depth + 1);
     case "ZodArray":
       return [sample(def.type as z.ZodTypeAny, key, depth + 1)];
     case "ZodRecord":

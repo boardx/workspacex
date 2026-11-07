@@ -1,0 +1,24 @@
+{
+  "worker": "7a35864b274146a804c24c57d9221e022f43e210",
+  "upstream": "b992054dd498530092d09a1fa559f0b12a33406b",
+  "merged": "080bbba0ee858525f57fedefe42fa68ea938d91b",
+  "registries": {
+    "en": {
+      "importBindings": 43,
+      "literalProperties": 210,
+      "spreads": 42,
+      "parentValueConflicts": 0,
+      "duplicateBindingsOrProperties": 0,
+      "extraOrMissingEntries": 0
+    },
+    "zh-CN": {
+      "importBindings": 42,
+      "literalProperties": 210,
+      "spreads": 42,
+      "parentValueConflicts": 0,
+      "duplicateBindingsOrProperties": 0,
+      "extraOrMissingEntries": 0
+    }
+  },
+  "scope": "AST import/literal-property/spread union. All parent explicit values retained exactly; pure namespace files separately preserved by mode/blob proof. Actual resolved resource parity still requires resource suite."
+}

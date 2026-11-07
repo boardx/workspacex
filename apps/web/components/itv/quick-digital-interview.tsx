@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
 
 import * as React from "react";
 import Link from "next/link";
@@ -21,6 +22,7 @@ export function QuickDigitalInterview({
   interviewId: string;
   expertId?: string;
 }) {
+ const { t } = useI18n();
   const { push } = useRouter();
   const [quick, setQuick] = React.useState<QuickInterview | null>(null);
   const [question, setQuestion] = React.useState("");
@@ -76,8 +78,8 @@ export function QuickDigitalInterview({
     }
   }
 
-  if (error && !quick) return <PageState text={`加载失败：${error}`} />;
-  if (!quick) return <PageState text="正在准备快捷访谈…" />;
+  if (error && !quick) return <PageState text={t("itv.quick.loadFailed", { detail: error })} />;
+  if (!quick) return <PageState text={t("itv.quick.loading")} />;
   const mockExpert = findMockDigitalExpert(quick.expert.expertId);
 
   return (
@@ -91,11 +93,11 @@ export function QuickDigitalInterview({
               className="inline-flex items-center gap-2 text-sm text-muted-foreground"
             >
               <ArrowLeft className="size-4" aria-hidden />
-              返回专家列表
+              {t("itv.experts.back")}
             </Link>
             <h1 className="mt-3 text-2xl font-semibold">{quick.expert.displayName}</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              {quick.expert.role} · 探索性对话
+              {quick.expert.role} · {t("itv.quick.exploratoryChat")}
             </p>
           </div>
           <button
@@ -104,13 +106,13 @@ export function QuickDigitalInterview({
             onClick={convert}
             className="whitespace-nowrap rounded-lg bg-primary px-5 py-3 text-sm font-medium text-primary-foreground shadow-sm disabled:bg-disabled disabled:text-disabled-foreground"
           >
-            转为批量访谈
+            {t("itv.quick.convert")}
           </button>
         </div>
       </header>
 
       <section
-        aria-label="对话记录"
+        aria-label={t("itv.quick.messages")}
         className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-4 overflow-y-auto px-6 py-8"
       >
         {mockExpert && (
@@ -119,21 +121,21 @@ export function QuickDigitalInterview({
             className="rounded-xl border border-primary/20 bg-primary/5 p-5"
           >
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-sm font-semibold">关于这位专家</h2>
-              <span className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary">Mock 专家</span>
+              <h2 className="text-sm font-semibold">{t("itv.quick.about")}</h2>
+              <span className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary">{t("itv.experts.mock")}</span>
             </div>
             <p className="mt-3 text-sm leading-7 text-muted-foreground">{mockExpert.bio}</p>
             <p className="mt-3 text-xs leading-6 text-muted-foreground">
-              <span className="font-medium text-background-foreground">典型建议：</span>{mockExpert.typicalAdvice}
+              <span className="font-medium text-background-foreground">{t("itv.quick.advice")}</span>{mockExpert.typicalAdvice}
             </p>
             <p className="mt-2 text-xs leading-6 text-muted-foreground">
-              <span className="font-medium text-background-foreground">使用边界：</span>{mockExpert.materialBoundary}
+              <span className="font-medium text-background-foreground">{t("itv.experts.useBoundary")}</span>{mockExpert.materialBoundary}
             </p>
           </article>
         )}
         {quick.messages.length === 0 ? (
           <p className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
-            直接提出第一个需要验证的问题。
+            {t("itv.quick.empty")}
           </p>
         ) : quick.messages.map((message) => (
           <article
@@ -144,23 +146,23 @@ export function QuickDigitalInterview({
           >
             <p>{message.text}</p>
             {message.role === "assistant" && (
-              <span className="mt-2 block text-xs text-muted-foreground">探索性回答</span>
+              <span className="mt-2 block text-xs text-muted-foreground">{t("itv.quick.exploratoryAnswer")}</span>
             )}
           </article>
         ))}
-        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+        {error && <p role="alert" className="text-sm text-destructive">{t("itv.quick.operationFailed", { detail: error })}</p>}
       </section>
 
       <div className="border-t border-border bg-background px-6 py-4">
         <div className="mx-auto flex max-w-4xl gap-3">
-          <label className="sr-only" htmlFor="quick-question">访谈问题</label>
+          <label className="sr-only" htmlFor="quick-question">{t("itv.quick.question")}</label>
           <textarea
             id="quick-question"
-            aria-label="访谈问题"
+            aria-label={t("itv.quick.question")}
             value={question}
             onChange={(event) => setQuestion(event.target.value)}
             className="min-h-20 flex-1 resize-none rounded-xl border border-border bg-background p-3"
-            placeholder="输入你的问题…"
+            placeholder={t("itv.quick.placeholder")}
           />
           <button
             disabled={busy || !question.trim()}
@@ -168,7 +170,7 @@ export function QuickDigitalInterview({
             className="inline-flex h-12 items-center gap-2 self-end rounded-lg bg-primary px-5 text-sm text-primary-foreground shadow-sm disabled:bg-disabled disabled:text-disabled-foreground"
           >
             <Send className="size-4" aria-hidden />
-            {busy ? "发送中…" : "发送"}
+            {busy ? t("itv.sending") : t("itv.send")}
           </button>
         </div>
       </div>

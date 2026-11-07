@@ -1,0 +1,161 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts
+
+ ❯ tests/billing-team-entitlement-design.test.ts (19 tests | 19 failed) 8ms
+   × keeps actual members, purchased capacity, paid year and current monthly grant separate 3ms
+     → Cannot read properties of undefined (reading 'parse')
+   × rejects a contradictory entitlement {"licenseStatus":"none"} 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects a contradictory entitlement {"teamPayment":null} 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects a contradictory entitlement {"asOf":"2027-11-01T10:00:00Z"} 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects a contradictory entitlement {"teamPayment":{"term":{"purchaseAnchor":"2026-11-01T10:00:00Z","paidPeriodStart":"2026-11-01T10:00:00Z","paidPeriodEnd":"2027-11-01T10:00:00Z","billingCycle":"year","purchasedSeats":5,"monthlyCredits":100000},"provider":"stripe","renewalMode":"manual","cancelAtPeriodEnd":false}} 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects a contradictory entitlement {"teamPayment":{"term":{"purchaseAnchor":"2026-11-01T10:00:00Z","paidPeriodStart":"2026-11-01T10:00:00Z","paidPeriodEnd":"2027-11-01T10:00:00Z","billingCycle":"year","purchasedSeats":5,"monthlyCredits":100000},"provider":"wechat","renewalMode":"manual","cancelAtPeriodEnd":true}} 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects a contradictory entitlement {"creditGrant":{"status":"granted","grant":{"credits":100000,"remainingCredits":64000,"periodStart":"2026-11-01T10:00:00Z","periodEnd":"2027-11-01T10:00:00Z"}}} 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects a contradictory entitlement {"creditGrant":{"status":"granted","grant":{"credits":100000,"remainingCredits":100001,"periodStart":"2026-11-01T10:00:00Z","periodEnd":"2026-12-01T10:00:00Z"}}} 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects a contradictory entitlement {"creditGrant":{"status":"granted","grant":{"credits":1200000,"remainingCredits":64000,"periodStart":"2026-11-01T10:00:00Z","periodEnd":"2026-12-01T10:00:00Z"}}} 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × represents delayed monthly granting without inventing issued credits 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × requires a closed old grant at paid expiry while retaining permanent funds 0ms
+     → Cannot read properties of undefined (reading 'parse')
+   × keeps an unconfigured organization distinct from a purchased five-seat team 0ms
+     → Cannot read properties of undefined (reading 'parse')
+   × shows Enterprise without inventing Team limits or destroying known prepaid facts 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects a wallet from another scope via ownerType 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects a wallet from another scope via ownerId 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × does not fabricate a missing wallet fact permanentBalance 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × does not fabricate a missing wallet fact subscriptionCredits 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × does not fabricate a missing wallet fact subscriptionExpiresAt 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects a mismatched monthly balance and unknown financial facts 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 19 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing-team-entitlement-design.test.ts > keeps actual members, purchased capacity, paid year and current monthly grant separate
+TypeError: Cannot read properties of undefined (reading 'parse')
+ ❯ tests/billing-team-entitlement-design.test.ts:8:25
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/19]⎯
+
+ FAIL  tests/billing-team-entitlement-design.test.ts > rejects a contradictory entitlement {"licenseStatus":"none"}
+ FAIL  tests/billing-team-entitlement-design.test.ts > rejects a contradictory entitlement {"teamPayment":null}
+ FAIL  tests/billing-team-entitlement-design.test.ts > rejects a contradictory entitlement {"asOf":"2027-11-01T10:00:00Z"}
+ FAIL  tests/billing-team-entitlement-design.test.ts > rejects a contradictory entitlement {"teamPayment":{"term":{"purchaseAnchor":"2026-11-01T10:00:00Z","paidPeriodStart":"2026-11-01T10:00:00Z","paidPeriodEnd":"2027-11-01T10:00:00Z","billingCycle":"year","purchasedSeats":5,"monthlyCredits":100000},"provider":"stripe","renewalMode":"manual","cancelAtPeriodEnd":false}}
+ FAIL  tests/billing-team-entitlement-design.test.ts > rejects a contradictory entitlement {"teamPayment":{"term":{"purchaseAnchor":"2026-11-01T10:00:00Z","paidPeriodStart":"2026-11-01T10:00:00Z","paidPeriodEnd":"2027-11-01T10:00:00Z","billingCycle":"year","purchasedSeats":5,"monthlyCredits":100000},"provider":"wechat","renewalMode":"manual","cancelAtPeriodEnd":true}}
+ FAIL  tests/billing-team-entitlement-design.test.ts > rejects a contradictory entitlement {"creditGrant":{"status":"granted","grant":{"credits":100000,"remainingCredits":64000,"periodStart":"2026-11-01T10:00:00Z","periodEnd":"2027-11-01T10:00:00Z"}}}
+ FAIL  tests/billing-team-entitlement-design.test.ts > rejects a contradictory entitlement {"creditGrant":{"status":"granted","grant":{"credits":100000,"remainingCredits":100001,"periodStart":"2026-11-01T10:00:00Z","periodEnd":"2026-12-01T10:00:00Z"}}}
+ FAIL  tests/billing-team-entitlement-design.test.ts > rejects a contradictory entitlement {"creditGrant":{"status":"granted","grant":{"credits":1200000,"remainingCredits":64000,"periodStart":"2026-11-01T10:00:00Z","periodEnd":"2026-12-01T10:00:00Z"}}}
+TypeError: Cannot read properties of undefined (reading 'safeParse')
+ ❯ tests/billing-team-entitlement-design.test.ts:19:25
+     17|  {creditGrant:{...grant,grant:{...grant.grant,credits:1200000}}},
+     18| ])("rejects a contradictory entitlement %j",patch=>{
+     19|  expect(TeamEntitlement.safeParse({...active,...patch}).success).toBe(…
+       |                         ^
+     20| });
+     21| it("represents delayed monthly granting without inventing issued credi…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/19]⎯
+
+ FAIL  tests/billing-team-entitlement-design.test.ts > represents delayed monthly granting without inventing issued credits
+TypeError: Cannot read properties of undefined (reading 'safeParse')
+ ❯ tests/billing-team-entitlement-design.test.ts:23:25
+     21| it("represents delayed monthly granting without inventing issued credi…
+     22|  const wallet={...active.wallet,balance:8600,subscriptionCredits:0,sub…
+     23|  expect(TeamEntitlement.safeParse({...active,creditGrant:{status:"pend…
+       |                         ^
+     24|  expect(TeamEntitlement.safeParse({...active,creditGrant:{status:"pend…
+     25| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/19]⎯
+
+ FAIL  tests/billing-team-entitlement-design.test.ts > requires a closed old grant at paid expiry while retaining permanent funds
+TypeError: Cannot read properties of undefined (reading 'parse')
+ ❯ tests/billing-team-entitlement-design.test.ts:28:25
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/19]⎯
+
+ FAIL  tests/billing-team-entitlement-design.test.ts > keeps an unconfigured organization distinct from a purchased five-seat team
+TypeError: Cannot read properties of undefined (reading 'parse')
+ ❯ tests/billing-team-entitlement-design.test.ts:33:25
+     31| it("keeps an unconfigured organization distinct from a purchased five-…
+     32|  const none={...active,licenseStatus:"none",teamPayment:null,creditGra…
+     33|  expect(TeamEntitlement.parse(none)).toEqual(none);
+       |                         ^
+     34|  expect(TeamEntitlement.safeParse({...none,teamPayment:active.teamPaym…
+     35| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/19]⎯
+
+ FAIL  tests/billing-team-entitlement-design.test.ts > shows Enterprise without inventing Team limits or destroying known prepaid facts
+TypeError: Cannot read properties of undefined (reading 'safeParse')
+ ❯ tests/billing-team-entitlement-design.test.ts:37:25
+     35| });
+     36| it("shows Enterprise without inventing Team limits or destroying known…
+     37|  expect(TeamEntitlement.safeParse({...active,licenseStatus:"enterprise…
+       |                         ^
+     38|  const stripe={...active.teamPayment,provider:"stripe",renewalMode:"au…
+     39|  expect(TeamEntitlement.safeParse({...active,licenseStatus:"enterprise…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/19]⎯
+
+ FAIL  tests/billing-team-entitlement-design.test.ts > rejects a wallet from another scope via ownerType
+ FAIL  tests/billing-team-entitlement-design.test.ts > rejects a wallet from another scope via ownerId
+TypeError: Cannot read properties of undefined (reading 'safeParse')
+ ❯ tests/billing-team-entitlement-design.test.ts:43:25
+     41| });
+     42| it.each(["ownerType","ownerId"])("rejects a wallet from another scope …
+     43|  expect(TeamEntitlement.safeParse({...active,wallet:{...wallet,[field]…
+       |                         ^
+     44| });
+     45| it.each(["permanentBalance","subscriptionCredits","subscriptionExpires…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/19]⎯
+
+ FAIL  tests/billing-team-entitlement-design.test.ts > does not fabricate a missing wallet fact permanentBalance
+ FAIL  tests/billing-team-entitlement-design.test.ts > does not fabricate a missing wallet fact subscriptionCredits
+ FAIL  tests/billing-team-entitlement-design.test.ts > does not fabricate a missing wallet fact subscriptionExpiresAt
+TypeError: Cannot read properties of undefined (reading 'safeParse')
+ ❯ tests/billing-team-entitlement-design.test.ts:47:25
+     45| it.each(["permanentBalance","subscriptionCredits","subscriptionExpires…
+     46|  const incomplete:Record<string,unknown>={...wallet};delete incomplete…
+     47|  expect(TeamEntitlement.safeParse({...active,wallet:incomplete}).succe…
+       |                         ^
+     48| });
+     49| it("rejects a mismatched monthly balance and unknown financial facts",…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/19]⎯
+
+ FAIL  tests/billing-team-entitlement-design.test.ts > rejects a mismatched monthly balance and unknown financial facts
+TypeError: Cannot read properties of undefined (reading 'safeParse')
+ ❯ tests/billing-team-entitlement-design.test.ts:51:26
+     49| it("rejects a mismatched monthly balance and unknown financial facts",…
+     50|  for(const patch of [{wallet:{...wallet,subscriptionCredits:63000}},{w…
+     51|   expect(TeamEntitlement.safeParse({...active,...patch}).success).toBe…
+       |                          ^
+     52| });
+     53| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/19]⎯
+
+ Test Files  1 failed (1)
+      Tests  19 failed (19)
+   Start at  08:21:38
+   Duration  447ms (transform 115ms, setup 0ms, collect 138ms, tests 8ms, environment 0ms, prepare 61ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing-team-entitlement-design.test.ts

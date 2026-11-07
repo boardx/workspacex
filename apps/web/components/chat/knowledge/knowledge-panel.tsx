@@ -1,6 +1,9 @@
 "use client";
 
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
+import { translate } from "@/lib/i18n/messages";
+import type { Locale } from "@/lib/i18n/locale";
 import { Brain, List, Share2, RefreshCw, Loader2, AlertTriangle, Eye, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,9 +13,9 @@ import { KnowledgeGraphView } from "./knowledge-graph-view";
 import { ClaimSourceDrawer } from "./claim-source-drawer";
 import { PromotionResultList } from "./promotion-result-list";
 import { NominationCard } from "./nomination-card";
-import { usePromotionFlow, visibleNominations, type PromoteFn } from "./use-promotion-flow";
+import { usePromotionFlow, visibleNominations, type PromoteFn, type PromotionFailure } from "./use-promotion-flow";
 import { countByTriState } from "@/lib/knowledge-graph-view";
-import { describeHumanActionFailure } from "@/lib/knowledge-graph-failure";
+import { describeHumanActionFailure, describePromotionFailure } from "@/lib/knowledge-graph-failure";
 import { onOpenClaimSources, requestRememberStatement, takePendingClaimSources } from "@/lib/knowledge-graph-events";
 import {
   knowledgeGraphErrorCode,
@@ -24,8 +27,6 @@ import {
 import {
   claimTriState,
   KG_PROMOTE_MAX_BATCH,
-  KG_TRI_STATE_LABEL_ZH,
-  KG_VISIBILITY_LABEL_ZH,
   type KgClaim,
   type KgHumanAction,
 } from "@repo/contracts/chat-knowledge-graph";
@@ -57,18 +58,18 @@ export interface KnowledgePanelWriteActions {
 }
 
 /** 面板读取失败的人话（按契约 `getThreadKnowledge.err`）；不是本束可识别的码时给通用说法。 */
-export function threadKnowledgeErrorText(code: string | null | undefined): string {
-  if (code === "KG_NOT_VISIBLE") return "你没有这条对话的访问权限。";
-  if (code === "KG_THREAD_NOT_FOUND") return "对话不存在或已被删除。";
-  return "记忆服务暂时连不上，请稍后重试。";
+export function threadKnowledgeErrorText(code: string | null | undefined, locale: Locale = "zh-CN"): string {
+  if (code === "KG_NOT_VISIBLE") return translate(locale, "chatKnowledge.error.denied");
+  if (code === "KG_THREAD_NOT_FOUND") return translate(locale, "chatKnowledge.error.notFound");
+  return translate(locale, "chatKnowledge.error.unavailable");
 }
 
-function claimSourcesErrorText(e: unknown): string {
+function claimSourcesErrorText(e: unknown, locale: Locale = "zh-CN"): string {
   const code = knowledgeGraphErrorCode(e);
-  if (code === "KG_NOT_VISIBLE") return "你没有权限查看这一条的来源。";
+  if (code === "KG_NOT_VISIBLE") return translate(locale, "chatKnowledge.source.denied");
   // 看不见与不存在对外同一个出口（I-3：不泄露别人的记忆是否存在），所以两种可能都照实说。
-  if (code === "KG_CLAIM_NOT_FOUND") return "这一条已经不在了，或你无权查看。";
-  return "没能读到这一条的来源，请稍后重试。";
+  if (code === "KG_CLAIM_NOT_FOUND") return translate(locale, "chatKnowledge.source.notFound");
+  return translate(locale, "chatKnowledge.source.failed");
 }
 
 /**
@@ -103,6 +104,7 @@ export function KnowledgePanel({
   /** 来源抽屉的「跳到原消息」（F15 / E4）：真实 `/chat` 传，把那条消息滚到眼前并高亮；不传 = 签核预览，只回调不导航。 */
   onJumpToSource?: (input: { claim: KgClaim; sourceKind: string; sourceRef: string }) => void;
 }) {
+  const { t, locale } = useI18n();
   const [view, setView] = React.useState<PanelView>(initialView);
   const [selectMode, setSelectMode] = React.useState(false);
   const [selected, setSelected] = React.useState<Record<string, boolean>>({});
@@ -116,7 +118,7 @@ export function KnowledgePanel({
       : (sourceKind: string, sourceRef: string) => onJumpToSource({ claim: drawerClaim, sourceKind, sourceRef })),
     [onJumpToSource, drawerClaim],
   );
-  const [actionError, setActionError] = React.useState<string | null>(null);
+  const [actionError, setActionError] = React.useState<PromotionFailure | { readonly kind: "human"; readonly cause: unknown } | null>(null);
 
   /** 执行一个编辑动作；成功返回 true（对话框据此关闭），失败把人话挂在面板顶部并返回 false。 */
   const runAction = React.useCallback(async (action: KgHumanAction): Promise<boolean> => {
@@ -126,7 +128,7 @@ export function KnowledgePanel({
       await writeActions.apply(action);
       return true;
     } catch (e) {
-      setActionError(describeHumanActionFailure(e));
+      setActionError({ kind: "human", cause: e });
       return false;
     }
   }, [writeActions]);
@@ -137,7 +139,7 @@ export function KnowledgePanel({
     setActionError(null);
     void Promise.resolve()
       .then(() => onReindexAction())
-      .catch((e: unknown) => { setActionError(describeHumanActionFailure(e)); });
+      .catch((e: unknown) => { setActionError({ kind: "human", cause: e }); });
   }), [onReindexAction]);
 
   const canEdit = data?.canEdit ?? false;
@@ -186,16 +188,16 @@ export function KnowledgePanel({
         <div className="flex items-center gap-2">
           <Brain aria-hidden className="h-4 w-4 text-muted-foreground" />
           <h2 className="text-12 font-medium" data-testid="kg-panel-title">
-            记忆{data ? `（${data.claims.length}）` : ""}
+            {data ? t("chatKnowledge.titleCount", { count: data.claims.length }) : t("chatKnowledge.title")}
           </h2>
           {data && !canEdit ? (
-            <Badge tone="outline" data-testid="kg-readonly-badge">只读</Badge>
+            <Badge tone="outline" data-testid="kg-readonly-badge">{t("chatKnowledge.readonly")}</Badge>
           ) : null}
           <div className="ml-auto flex items-center gap-1">
             <Button
               variant={view === "list" ? "secondary" : "ghost"}
               size="xs"
-              aria-label="列表视图"
+              aria-label={t("chatKnowledge.list")}
               aria-pressed={view === "list"}
               data-active={view === "list"}
               data-testid="kg-view-list"
@@ -206,7 +208,7 @@ export function KnowledgePanel({
             <Button
               variant={view === "graph" ? "secondary" : "ghost"}
               size="xs"
-              aria-label="关系图"
+              aria-label={t("chatKnowledge.graph")}
               aria-pressed={view === "graph"}
               data-active={view === "graph"}
               data-testid="kg-view-graph"
@@ -229,7 +231,7 @@ export function KnowledgePanel({
             ) : (
               <Eye aria-hidden className="h-3 w-3" />
             )}
-            {KG_VISIBILITY_LABEL_ZH[data.visibility]}
+            {t(data.visibility === "owner_only" ? "chatKnowledge.visibility.owner" : "chatKnowledge.visibility.members")}
           </span>
         ) : null}
 
@@ -239,9 +241,9 @@ export function KnowledgePanel({
         {/* 三态计数 */}
         {data && data.claims.length > 0 ? (
           <div className="flex items-center gap-1.5" data-testid="kg-tri-counts">
-            <Badge tone="warning">{KG_TRI_STATE_LABEL_ZH.pending} {counts.pending}</Badge>
-            <Badge tone="success">{KG_TRI_STATE_LABEL_ZH.confirmed} {counts.confirmed}</Badge>
-            <Badge tone="danger">{KG_TRI_STATE_LABEL_ZH.conflict} {counts.conflict}</Badge>
+            <Badge tone="warning">{t("aboutMemory.tri.pending")} {counts.pending}</Badge>
+            <Badge tone="success">{t("aboutMemory.tri.confirmed")} {counts.confirmed}</Badge>
+            <Badge tone="danger">{t("aboutMemory.tri.conflict")} {counts.conflict}</Badge>
           </div>
         ) : null}
 
@@ -264,7 +266,7 @@ export function KnowledgePanel({
                     setSelected({});
                   }}
                 >
-                  记到我的长期记忆（{selectedIds.length}）
+                  {t("chatKnowledge.promotion.saveMany", { count: selectedIds.length })}
                 </Button>
                 ) : null}
                 {canPromoteProject ? (
@@ -279,27 +281,27 @@ export function KnowledgePanel({
                     setSelected({});
                   }}
                 >
-                  记到项目大脑（{selectedIds.length}）
+                  {t("chatKnowledge.panel.projectSaveMany", { count: selectedIds.length })}
                 </Button>
                 ) : null}
                 <Button size="xs" variant="ghost" data-testid="kg-promote-cancel" onClick={() => { setSelectMode(false); setSelected({}); }}>
-                  取消
+                  {t("common.cancel")}
                 </Button>
                 {/* U-3：点这个按钮本身就算确认——先说清楚，再让人点 */}
                 <span className="text-10 text-muted-foreground" data-testid="kg-promote-hint">
                   {selectedIds.length > KG_PROMOTE_MAX_BATCH
-                    ? `一次最多记 ${String(KG_PROMOTE_MAX_BATCH)} 条`
-                    : "记下后即视为你确认过"}
+                    ? t("chatKnowledge.panel.limitHint", { limit: KG_PROMOTE_MAX_BATCH })
+                    : t("chatKnowledge.promotion.confirms")}
                 </span>
               </>
             ) : (
               <Button size="xs" variant="outline" disabled={promo.busy || promoP.busy} data-testid="kg-promote-enter" onClick={() => setSelectMode(true)}>
                 {promo.busy || promoP.busy ? <Loader2 aria-hidden className="h-3 w-3 animate-spin" /> : null}
-                {canPromote ? "记到我的长期记忆…" : "记到项目大脑…"}
+                {t(canPromote ? "chatKnowledge.panel.enterPersonal" : "chatKnowledge.panel.enterProject")}
               </Button>
             )}
             {promotedToProject > 0 ? (
-              <span className="text-10 text-muted-foreground" data-testid="kg-promote-project-result">已记到项目大脑 {promotedToProject} 条</span>
+              <span className="text-10 text-muted-foreground" data-testid="kg-promote-project-result">{t("chatKnowledge.panel.projectResult", { count: promotedToProject })}</span>
             ) : null}
           </div>
         ) : null}
@@ -314,14 +316,14 @@ export function KnowledgePanel({
             data-testid="kg-action-error"
           >
             <AlertTriangle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            <span className="flex-1">{actionError}</span>
+            <span className="flex-1">{actionError.kind === "human" ? describeHumanActionFailure(actionError.cause, locale) : describePromotionFailure(actionError.cause, locale)}</span>
             <button
               type="button"
               className="text-10 text-muted-foreground underline-offset-2 transition-colors duration-base hover:underline"
               onClick={() => setActionError(null)}
               data-testid="kg-action-error-dismiss"
             >
-              知道了
+              {t("chatKnowledge.panel.dismissError")}
             </button>
           </div>
         ) : null}
@@ -338,15 +340,15 @@ export function KnowledgePanel({
           <div className="flex flex-col items-start gap-2" data-testid="err-panel" role="alert">
             <div className="flex items-center gap-1.5 text-12 text-destructive">
               <AlertTriangle aria-hidden className="h-4 w-4" />
-              没能读到这条对话的记忆
+              {t("chatKnowledge.error.title")}
             </div>
             <p className="text-11 text-muted-foreground" data-testid="kg-error-reason">
-              {threadKnowledgeErrorText(errorCode)}
+              {threadKnowledgeErrorText(errorCode, locale)}
             </p>
             {onRetry ? (
               <Button size="xs" variant="outline" data-testid="kg-error-retry" onClick={onRetry}>
                 <RefreshCw aria-hidden className="h-3 w-3" />
-                重试
+                {t("chatKnowledge.retry")}
               </Button>
             ) : null}
           </div>
@@ -371,7 +373,7 @@ export function KnowledgePanel({
               {promoResult ? (
                 <div className="rounded-lg border border-border-subtle bg-muted/40 p-2" data-testid="kg-promotion-summary">
                   <p className="mb-1.5 text-11 font-medium text-muted-foreground" role="status">
-                    {promotionSummaryText(promoResult)}
+                    {promotionSummaryText(promoResult, locale)}
                   </p>
                   <PromotionResultList
                     data={promoResult}
@@ -384,7 +386,7 @@ export function KnowledgePanel({
               {/* U-2：列表头部「全部确认」批量 —— 只在有「AI 记下的」且可编辑时出现 */}
               {editable && pendingCount > 0 && !selectMode ? (
                 <div className="flex items-center justify-between rounded-md border border-border-subtle bg-muted/40 px-2 py-1.5">
-                  <span className="text-11 text-muted-foreground">有 {pendingCount} 条是 AI 记下的，还没经你确认</span>
+                  <span className="text-11 text-muted-foreground">{t("chatKnowledge.panel.pending", { count: pendingCount })}</span>
                   <Button
                     size="xs"
                     variant="secondary"
@@ -393,7 +395,7 @@ export function KnowledgePanel({
                       void runAction({ type: "confirmClaims", claimIds: pendingIds.slice(0, CONFIRM_BATCH_MAX) });
                     }}
                   >
-                    全部确认
+                    {t("chatKnowledge.panel.confirmAll")}
                   </Button>
                 </div>
               ) : null}
@@ -429,13 +431,13 @@ export function KnowledgePanel({
 }
 
 /** 逐条结果上方那一行：几条记下了，几条还要你选 / 没记下（原因见下面逐条）。 */
-function promotionSummaryText(result: PromotionResults): string {
+function promotionSummaryText(result: PromotionResults, locale: Locale = "zh-CN"): string {
   const done = result.results.filter((r) => r.outcome !== "needs_choice" && r.outcome !== "rejected").length;
   const choosing = result.results.filter((r) => r.outcome === "needs_choice").length;
   const rejected = result.results.filter((r) => r.outcome === "rejected").length;
-  const parts = [`已记到长期记忆 ${String(done)} 条`];
-  if (choosing > 0) parts.push(`${String(choosing)} 条等你选`);
-  if (rejected > 0) parts.push(`${String(rejected)} 条没记下`);
+  const parts = [translate(locale, "chatKnowledge.panel.summaryDone", { count: done })];
+  if (choosing > 0) parts.push(translate(locale, "chatKnowledge.panel.summaryChoosing", { count: choosing }));
+  if (rejected > 0) parts.push(translate(locale, "chatKnowledge.panel.summaryRejected", { count: rejected }));
   return parts.join(" · ");
 }
 
@@ -443,20 +445,21 @@ function promotionSummaryText(result: PromotionResults): string {
  * 来源抽屉的取数状态。换一条时丢弃上一条的在途结果（按请求代次），不让慢响应覆盖新选中的那条。
  */
 export function useClaimSourcesDrawer(loadSources: ((claimId: string) => Promise<ClaimSources>) | undefined) {
+  const { locale } = useI18n();
   const [claim, setClaim] = React.useState<string | null>(null);
   const [data, setData] = React.useState<ClaimSources | null>(null);
   const [loading, setLoading] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  const [failure, setFailure] = React.useState<{ kind: "unavailable" } | { kind: "cause"; cause: unknown } | null>(null);
   const generation = React.useRef(0);
 
   const load = React.useCallback((target: string) => {
     const gen = ++generation.current;
     setClaim(target);
     setData(null);
-    setError(null);
+    setFailure(null);
     if (!loadSources) {
       setLoading(false);
-      setError("暂时看不了这一条的来源。");
+      setFailure({ kind: "unavailable" });
       return;
     }
     setLoading(true);
@@ -468,7 +471,7 @@ export function useClaimSourcesDrawer(loadSources: ((claimId: string) => Promise
       },
       (e: unknown) => {
         if (gen !== generation.current) return;
-        setError(claimSourcesErrorText(e));
+        setFailure({ kind: "cause", cause: e });
         setLoading(false);
       },
     );
@@ -479,11 +482,13 @@ export function useClaimSourcesDrawer(loadSources: ((claimId: string) => Promise
     setClaim(null);
     setData(null);
     setLoading(false);
-    setError(null);
+    setFailure(null);
   }, []);
 
   const retry = React.useCallback(() => { if (claim) load(claim); }, [claim, load]);
 
+  const error = failure === null ? null : failure.kind === "unavailable"
+    ? translate(locale, "chatKnowledge.source.unavailable") : claimSourcesErrorText(failure.cause, locale);
   return { isOpen: claim !== null, data, loading, error, open: load, close, retry };
 }
 
@@ -498,13 +503,14 @@ export function useClaimSourcesDrawer(loadSources: ((claimId: string) => Promise
  * 这条手动入口不绕过它）。
  */
 function RememberQuickAdd(): JSX.Element {
+  const { t } = useI18n();
   const [open, setOpen] = React.useState(false);
   const [text, setText] = React.useState("");
 
   if (!open) {
     return (
       <Button size="xs" variant="outline" data-testid="kg-remember-quick-add-open" onClick={() => setOpen(true)}>
-        + 记一条
+        {t("chatKnowledge.panel.quickAdd")}
       </Button>
     );
   }
@@ -528,8 +534,8 @@ function RememberQuickAdd(): JSX.Element {
         type="text"
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder="要记住的一句话…"
-        aria-label="要记住的一句话"
+        placeholder={t("chatKnowledge.panel.quickPlaceholder")}
+        aria-label={t("chatKnowledge.panel.quickLabel")}
         data-testid="kg-remember-quick-add-input"
         className="h-7 flex-1 text-11"
       />
@@ -539,7 +545,7 @@ function RememberQuickAdd(): JSX.Element {
         disabled={text.trim().length === 0}
         data-testid="kg-remember-quick-add-submit"
       >
-        记住
+        {t("chatKnowledge.panel.quickSubmit")}
       </Button>
       <Button
         size="xs"
@@ -548,7 +554,7 @@ function RememberQuickAdd(): JSX.Element {
         data-testid="kg-remember-quick-add-cancel"
         onClick={() => { setText(""); setOpen(false); }}
       >
-        取消
+        {t("common.cancel")}
       </Button>
     </form>
   );
@@ -561,15 +567,16 @@ function RememberQuickAdd(): JSX.Element {
  * 失败两态用不同的 `data-testid` 区分（面板测试与本函数逐条断言）。
  */
 function IngestionStatus({ data, onReindex }: { data: ThreadKnowledge; onReindex?: () => void }) {
+  const { t } = useI18n();
   const { queued, running, failed } = data.ingestion;
   const busy = queued + running > 0;
   if (!data.extractionActive) {
     // issue #4352（人类决定 2026-09-27）：关着期间发的消息照旧不排队（不改行为），这里把后果说清楚。
     return (
       <div className="flex flex-col gap-0.5" data-testid="kg-ingestion-inactive">
-        <p className="text-10 text-muted-foreground">自动记忆未开启</p>
+        <p className="text-10 text-muted-foreground">{t("chatKnowledge.ingestion.off")}</p>
         <p className="text-10 text-muted-foreground" data-testid="kg-ingestion-inactive-hint">
-          关闭期间的消息不会整理，可用「整理本会话」补
+          {t("chatKnowledge.ingestion.offHint")}
         </p>
       </div>
     );
@@ -578,12 +585,12 @@ function IngestionStatus({ data, onReindex }: { data: ThreadKnowledge; onReindex
     return (
       <div className="flex items-center gap-2">
         <p className="text-10 text-muted-foreground" data-testid="kg-ingestion-idle">
-          已整理到最新
+          {t("chatKnowledge.ingestion.current")}
         </p>
         {onReindex ? (
           <Button size="xs" variant="ghost" data-testid="kg-reindex" onClick={onReindex}>
             <RefreshCw aria-hidden className="h-3 w-3" />
-            整理本会话
+            {t("chatKnowledge.list.organize")}
           </Button>
         ) : null}
       </div>
@@ -594,16 +601,16 @@ function IngestionStatus({ data, onReindex }: { data: ThreadKnowledge; onReindex
       {busy ? (
         <span className="flex items-center gap-1 text-10 text-muted-foreground" data-testid="kg-ingestion-running">
           <Loader2 aria-hidden className="h-3 w-3 animate-spin" />
-          整理中（{queued + running} 条）
+          {t("chatKnowledge.ingestion.busy", { count: queued + running })}
         </span>
       ) : null}
       {failed > 0 ? (
         <span className="flex items-center gap-1.5" data-testid="kg-ingestion-failed">
-          <Badge tone="danger">失败 {failed} 条</Badge>
+          <Badge tone="danger">{t("chatKnowledge.ingestion.failed", { count: failed })}</Badge>
           {onReindex ? (
             <Button size="xs" variant="ghost" data-testid="kg-ingestion-retry" onClick={onReindex}>
               <RefreshCw aria-hidden className="h-3 w-3" />
-              重试
+              {t("chatKnowledge.retry")}
             </Button>
           ) : null}
         </span>

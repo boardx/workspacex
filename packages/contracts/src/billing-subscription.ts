@@ -10,9 +10,24 @@
  * 参考实现已知缺陷**不照搬**：Stripe 配置缺失不得阻塞服务启动（requirements/00-overview.md R2-3）。
  */
 import { z } from "zod";
+import {CreditBalance,ConfiguredCreditQuantity} from "./billing-credits";
 
 /** Monthly credit entitlement; payment prices remain deployment configuration. */
 export const MONTHLY_SUBSCRIPTION_CREDITS = 20_000;
+export const MONTHLY_PASS_AMOUNT_FEN = 18_000;
+export const MONTHLY_PASS_PRODUCT = "monthly_pass_v1";
+
+/** Paid credit entitlement is distinct from the subscription's provider status. */
+export const SubscriptionCreditGrant = z.object({
+  status:z.enum(["none","pending","granted","expired"]),
+  grant:z.object({credits:ConfiguredCreditQuantity,remainingCredits:CreditBalance.refine(value=>value>=0),
+    periodStart:z.string().datetime({offset:true}),periodEnd:z.string().datetime({offset:true})}).strict().nullable(),
+}).strict().superRefine((value,context)=>{
+  if((value.status==="granted"||value.status==="expired")!==Boolean(value.grant))context.addIssue({code:"custom",message:"grant state and period must agree"});
+  if(value.grant&&value.grant.remainingCredits>value.grant.credits)context.addIssue({code:"custom",message:"remaining credits exceed their frozen grant"});
+  if(value.grant&&(Date.parse(value.grant.periodEnd)<=Date.parse(value.grant.periodStart)||value.status==="expired"&&value.grant.remainingCredits!==0))context.addIssue({code:"custom",message:"invalid grant period"});
+});
+export type SubscriptionCreditGrant = z.infer<typeof SubscriptionCreditGrant>;
 
 /* ── 封闭枚举（新增成员须经 ADR；见 domain.md §三） ────────────────────── */
 
@@ -69,8 +84,22 @@ export const SubscriptionInfo = z
     planRef: z.string().min(1).nullable(), // Stripe 侧价格/产品标识；展示名映射属 UI 层（usecases Q1）
     currentPeriodEnd: z.string().min(1).nullable(), // ISO 8601
     cancelAtPeriodEnd: z.boolean().default(false),
+    creditGrant: SubscriptionCreditGrant.optional(),
+    paymentProvider: z.enum(["wechat","stripe"]).optional(),
+    purchaseMode: z.literal("manual_monthly").optional(),
+    checkoutPending: z.boolean().optional(),
+    paymentReviewRequired: z.boolean().optional(),
   })
   .strict();
+
+/** Authenticated user's confirmed subscription periods; unknown historical facts stay null. */
+export const SubscriptionHistoryItem=z.object({
+ id:z.string().min(1),item:z.enum(["Pro 月度订阅","Pro 订阅"]),
+ periodStart:z.string().datetime({offset:true}).nullable(),periodEnd:z.string().datetime({offset:true}).nullable(),
+ amountMinor:z.number().int().nonnegative().safe().nullable(),currency:z.string().regex(/^[A-Z]{3}$/).nullable(),
+}).strict().refine(v=>(v.amountMinor===null)===(v.currency===null),"amount and currency must agree");
+export const SubscriptionHistory=z.object({items:z.array(SubscriptionHistoryItem).max(100),hasMore:z.boolean()}).strict();
+export const SubscriptionHistoryQuery=z.object({limit:z.coerce.number().int().min(1).max(100).default(5),offset:z.coerce.number().int().min(0).max(10000).default(0)}).strict();
 
 /** 跳转链接（升级支付页 / 管理门户共用形状）。 */
 export const SubscriptionLink = z
@@ -89,6 +118,9 @@ export const StripeWebhookAck = z
 /* ── operations（HTTP 路径为本束提案；落地时同步 navigation/nav-reachability） ── */
 
 export const operations = {
+  getSubscriptionHistory: {
+    method:"GET",path:"/billing/subscription/history",in:SubscriptionHistoryQuery,out:SubscriptionHistory,err:[] as const,
+  },
   /** UC-BS-1：读取订阅状态（纯读；webhook 未到时返回当前已存状态，绝不把已订阅报成 none）。 */
   getSubscriptionInfo: {
     method: "GET",
@@ -100,9 +132,9 @@ export const operations = {
 
   /** UC-BS-2：取升级链接（仅未订阅；含用户引用与语言预填）。 */
   getUpgradeLink: {
-    method: "GET",
+    method: "POST",
     path: "/billing/subscription/upgrade-link",
-    in: z.object({}).strict(),
+    in: z.object({provider:z.enum(["wechat","stripe"]).optional()}).strict(),
     out: SubscriptionLink,
     err: ["payment_provider_not_configured", "already_subscribed"] as const,
   },

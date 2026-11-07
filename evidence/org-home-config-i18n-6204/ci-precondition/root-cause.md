@@ -1,0 +1,7 @@
+# Source CI6203 shared-tenant precondition failure
+
+Actual sourceca3 fullstack-smoke run41751864174/job126318845794 fails HOMEcase original+retry on real role starterpackPOST: expected201, received409AGENT_STARTER_PACK_CONFLICT. The preceding same-file authored-title case already installed and explicitly edited/upgraded roles in the same private tenant. HOME's unconditional installation tries to overwrite a legitimate existing authoring state. The importer correctly refuses; installer/API must not be changed and409must not be ignored.
+
+Minimal test-only preparation: read actual directories/libraries first, canonicalparse, reuse stable published officialagent/enabledskill IDs and source versions, assert identity/name preservation; genuinely absentofficialagent still follows actual dependency+role install withstrict201 and canonical returnedIDs. No arbitraryitems[0], extra retry/timeout/responsemock or weakened laterHOME mutation/snapshot/permission/geometry assertions. Verification requires separatefreshstandaloneHOMEinstall path and actualsame-tenant predecessor2cases→HOME reuse path. SourceCI remainsFAILuntilnewexact passes; oldstandalone evidence is not newsourceproof.
+
+API6217 realHTTPRED/tests/evidence safely committed7b52 on its separatebranch andproductionfixHOLD. Quota6ae preservesallfailedtrace/PNG/hash. Current6203fixscope doesnot includeAPIpatch orquotaimplementation. Freshdevelop3644 addsprojectWorkbench namespace; merge separately preserving it beforefinalverification/push.

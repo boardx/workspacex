@@ -1,0 +1,24 @@
+{
+  "name": "red-original",
+  "command": [
+    "pnpm",
+    "--filter",
+    "@repo/contracts",
+    "exec",
+    "vitest",
+    "run",
+    "tests/pending-thresholds.test.ts",
+    "--maxWorkers=1",
+    "--minWorkers=1"
+  ],
+  "source": "f998aadc66a08090302533ed629afdf9a039a47f",
+  "exitCode": 1,
+  "seconds": 4.764,
+  "rawLogSha256": "3c2c13eeb83fb65d9cbe69f83961bb3bef3f4c650309f6c0f7c5d966e576bece",
+  "environment": {},
+  "files": 1,
+  "tests": 7,
+  "failed": 1,
+  "passed": 6,
+  "classification": "Valid original retentionMaterial assertion at recording-display-copy.ts:293; no implementation at this run."
+}

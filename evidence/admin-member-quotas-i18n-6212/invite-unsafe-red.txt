@@ -1,0 +1,7 @@
+ FAIL  tests/ui/admin-member-quotas-i18n.test.tsx > keeps unknown invitation failures safe and translatable without closing the edited form: ApiError: PRIVATE_INVITE_CODE { status: 502, reasonCode: 'PRIVATE_INVITE_CODE', raw: { message: 'private invitation body' }, rawBody: undefined }
+Error: expect(element).not.toHaveTextContent()
+ FAIL  tests/ui/admin-member-quotas-i18n.test.tsx > keeps unknown invitation failures safe and translatable without closing the edited form: Error: private invitation exception
+Error: expect(element).not.toHaveTextContent()
+ Test Files  1 failed (1)
+      Tests  2 failed | 14 skipped (16)
+   Duration  3.04s (transform 1.10s, setup 160ms, collect 1.74s, tests 194ms, environment 757ms, prepare 48ms)

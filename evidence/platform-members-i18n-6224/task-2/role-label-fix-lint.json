@@ -1,0 +1,18 @@
+{
+  "source": "6eec6508908617d54a168241ada9a35fb6f4bbc5",
+  "gate": "lint",
+  "command": [
+    "pnpm",
+    "exec",
+    "eslint",
+    "components/admin/platform-members-screen.tsx",
+    "e2e/entity-localization.spec.ts",
+    "--max-warnings",
+    "0"
+  ],
+  "exit": 0,
+  "seconds": 7.052,
+  "rawPrivate": true,
+  "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "summary": []
+}

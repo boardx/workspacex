@@ -1,0 +1,48 @@
+[stack-admission] load1=7.38 cores=10 perCore=0.74 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvzd1644-88da0923-c8272989a84a db=wsx_c8272989a84a08f27cda compose=wsx-c8272989a84a08f27cda pg=20737 redis=21737 api=24737 web=25737 sandbox=26737 model=27737 deep-agent=28737 asr=29737 vision=30737 loopback-sandbox=31737 mail=19737
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/team-receipt-anchor-6099/apps/api
+
+[db-isolation] db=wsx_c8272989a84a08f27cda capacity=100 current=6 required=32
+ ❯ tests/billing/team-checkout-http.test.ts (2 tests | 2 skipped)
+ ❯ tests/billing/team-checkout-http.test.ts (2 tests | 2 skipped) 20657ms
+ ✓ tests/billing/team-checkout-intents-pg.test.ts (6 tests) 1275ms
+   ✓ rejects a legacy paid-period reuse and replays both new migrations over paid facts 345ms
+ ✓ tests/billing/team-settlement-edge-pg.test.ts (3 tests) 2681ms
+   ✓ retains late cash and Plan-version races as real reconciliation receipts without financial side effects 606ms
+   ✓ does not revive an expired first window; the original-anchor current month still grants once after Enterprise 368ms
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/team-checkout-http.test.ts [ tests/billing/team-checkout-http.test.ts ]
+error: new row for relation "org_memberships" violates check constraint "org_memberships_org_role_check"
+ ❯ ../../../../node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/client.js:652:17
+ ❯ asApp tests/support/db.ts:263:17
+    261|     await c.query("BEGIN");
+    262|     if (orgId !== null) await c.query("SELECT set_config('app.current_…
+    263|     const out = await fn(c);
+       |                 ^
+    264|     await c.query("COMMIT");
+    265|     return out;
+ ❯ Module.addOrgMember tests/support/db.ts:404:3
+ ❯ tests/billing/team-checkout-http.test.ts:35:155
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 2 passed (3)
+      Tests  9 passed | 2 skipped (11)
+   Start at  22:34:29
+   Duration  31.74s (transform 1.24s, setup 17ms, collect 2.20s, tests 24.61s, environment 0ms, prepare 153ms)
+
+[db-isolation] db=wsx_c8272989a84a08f27cda peak_connections=4
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/team-receipt-anchor-6099/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/team-checkout-http.test.ts tests/billing/team-settlement-edge-pg.test.ts tests/billing/team-checkout-intents-pg.test.ts --maxWorkers=1 --minWorkers=1
+[timing] pnpm --filter api exec vitest run tests/billing/team-checkout-http.test.ts tests/billing/team-settlement-edge-pg.test.ts tests/billing/team-checkout-intents-pg.test.ts --maxWorkers=1 --minWorkers=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：33s
+  清理：1s
+  总计：33s

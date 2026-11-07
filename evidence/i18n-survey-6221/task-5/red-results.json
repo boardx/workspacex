@@ -1,0 +1,24 @@
+{
+  "name": "red-results",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/survey-results-i18n.test.tsx",
+    "tests/ui/survey-report-editor-i18n.test.tsx"
+  ],
+  "source": "a5123b6d06d6bbb054fc96baffe272f22f37bb58",
+  "exitCode": 1,
+  "seconds": 11.961,
+  "rawLogSha256": "53963a477cebe3a90a269e17f53b729eba33777fba8afb36ec0802f3b944dce8",
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "testFiles": 2,
+  "failed": 37,
+  "passed": 0,
+  "classification": "Intended UI/async copy failures and actual late old-response download error; chart assertion subsequently strengthened to keep canonical series identity and translate only legend display."
+}

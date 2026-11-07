@@ -1,0 +1,1382 @@
+# Full regression only: hourly frozen develop and explicit manual runs. Never a merge-queue gate.
+# Complete integration evidence for the exact develop commit; optional lanes remain manual.
+name: harness-acceptance
+on:
+  workflow_dispatch:
+    inputs:
+      verification_lane:
+        description: "all 完整验证；base 完整基础门禁；chat-refresh 仅手动窄诊断，不声明完整 E2E 通过"
+        type: choice
+        options: [ all, base, chat-refresh ]
+        default: all
+      fresh_run:
+        description: "重新执行，忽略同 SHA 已有验证证据"
+        type: boolean
+        default: false
+      run_e2e_full:
+        description: "跑全量浏览器 e2e（e2e-full）"
+        type: boolean
+        default: true
+      # issue #2114 —— Chat 任务工作台记分牌车道的开关。默认 false：这批 11 个
+      # `chat-task-workbench-*.spec.ts`（#2068）设计上就该大面积红（把人类对 /chat
+      # 的界面审计转成断言，不是回归门），跑它不是为了看绿灯，是为了拿分数——默认
+      # 关掉，免得每次为 e2e-full 手动 dispatch 的人顺带多付这一趟钱；真要拿分数时
+      # 显式勾选。
+      run_chat_task_workbench:
+        description: "跑 Chat 任务工作台记分牌车道（chat-task-workbench：尚未实现能力的验收断言，设计上会红，仅供打分；条数以 playwright.chat-read.config.ts 的 testMatch 为准，别在这里再声明一份）"
+        type: boolean
+        default: false
+      # 路径覆盖车道的开关（`.harness/instructions/chat-path-coverage-matrix.md`）。
+      # 默认 false 的理由与上面那条**不同**：这批不是记分牌，红是意外状态；默认关掉
+      # 只是因为它们还没在 CI 上跑绿过、尚未搬进阻塞车道（矩阵文档「首跑与搬家」一节）。
+      # 搬家之后这个开关连同下面的 job 一起删掉，别留着。
+      run_chat_path_coverage:
+        description: "跑 Chat 路径覆盖车道（chat-path-coverage，矩阵里此前零覆盖的那批路径）"
+        type: boolean
+        default: false
+  schedule:
+    - cron: 17 * * * *
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+  issues: read
+concurrency:
+  group: ${{ github.event_name == 'schedule' && 'harness-acceptance-hourly' || format('harness-acceptance-manual-{0}', github.run_id) }}
+  cancel-in-progress: false
+  queue: single
+env:
+  CI_SCOPE_BASE_SHA: ${{ github.sha }}
+  CI_FRESH_RUN: "true"
+
+jobs:
+  doc-smoke-scope:
+    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-doc-smoke-scope' || 'doc-smoke-scope' }}
+    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (always() && !cancelled())
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    timeout-minutes: 10
+    outputs:
+      full: ${{ steps.scope.outputs.full }}
+      mode: ${{ steps.regression.outputs.mode }}
+      plan_digest: ${{ steps.regression.outputs.plan_digest }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: scope
+        run: node .harness/scripts/ci-doc-smoke-scope.mjs
+      - id: preflight
+        run: node .harness/scripts/ci-targeted-ui.mjs --preflight
+      - uses: pnpm/action-setup@v4.4.0
+        if: steps.preflight.outputs.candidate == 'true'
+      - uses: actions/setup-node@v5
+        if: steps.preflight.outputs.candidate == 'true'
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        if: steps.preflight.outputs.candidate == 'true'
+      - id: regression
+        run: |-
+          mkdir -p "$RUNNER_TEMP/regression"
+          node .harness/scripts/ci-targeted-ui.mjs --full "$RUNNER_TEMP/regression/plan.json"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: regression-plan-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/regression/plan.json
+          if-no-files-found: error
+    needs:
+      - freeze-source
+
+  # ADR-106 batch-1/6（#1277）：原 `verify` job 是一条顺序链——控制平面静态检查
+  # （doctor/lint doctor/harness 自测，全部毫秒级、不碰 DB）与"受影响模块
+  # typecheck/lint/test"（turbo --affected，唯一真正耗时的一步）串在一起跑。
+  # 拆成两个并行 job，wall-clock ≈ 两者中较慢的那个，不是两者之和。
+  #
+  # ⚠ 范围刻意收窄，不是 ADR-106 描述的完整五 job 方案：
+  #   1. 没有新增"全仓 typecheck/lint/build 强制门"（ADR-106 item 8 的 Job B）——
+  #      2026-08-05 人类已经明确指令"PR 上不再跑全仓单测,只跑 affected,提高速度"
+  #      （见下方 e2e-full job 注释），新增全仓强制门会直接推翻这条裁决，需要
+  #      人类重新确认，不该由这个 issue 单方面改回去。
+  #   2. 没有把这里的 control-plane job 换成本 PR 系列 #1273 新增的
+  #      `verify:harness` 命令（尽管语义上更完整，含全部 19 个 lint doctor）——
+  #      dry-run 实测发现 `verify:harness:raw` 里的 `lint:readiness --strict` 在
+  #      当前 main（f4f0c3c5）上就是红的（统一队列引用了已关闭的 issue #750，
+  #      跟本次改动无关，是 main 上已有的过期状态）。把它接进 CI 门控会让**所有**
+  #      PR 立刻卡死，不是本 issue 该单方面承担的决定；已另开 issue 修那条过期
+  #      引用，`lint:readiness` 干净之后再考虑把 control-plane job 换成
+  #      `verify:harness` 一条命令。
+  #   两项差距都是刻意的范围收窄，不是遗漏——本次只做"把已经在跑、已经全绿的
+  #   两段拆成并行 job"这一件事。
+  base-compile:
+    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-base-compile' || 'base-compile' }}
+    if: github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: 全仓编译（build）
+        run: pnpm turbo run build
+      - name: 全仓 typecheck + lint
+        run: pnpm turbo run typecheck lint
+    needs:
+      - freeze-source
+
+  # 机械合并门禁（#956）——2026-08-11 20:33 CST 事故：`pr-queue` 在 20:32 仍把
+  # #954/#943/#922 裁成 WAITING_REVIEW/MERGE_BLOCKED，repo owner（有 admin bypass
+  # 权限）4 秒内直接合并三项，`latestReviews=[]`、`labels=[]`，#922 body 里连
+  # `Closes #N` 都没有。`pr-queue` 从来是只读建议（不合并、不改 label），门禁
+  # 完全靠 coordinator 自律——admin 一按就绕过。
+  #
+  # 本 job 是"机械阻止"的第一层：对着当前 PR 的**当前 head SHA**跑
+  # `pnpm harness merge-gate`，判定独立 APPROVE / 唯一 verdict label / Closes
+  # 关联三条，任一不满足就报红（.harness/scripts/lib/merge-gate.ts，反证测试见
+  # 同目录 merge-gate.test.ts）。
+  #
+  # ⚠ 这个 job 红了只能挡住 CI 状态与自动化流程里"当前 PR 是否绿"的判断——它
+  # **不能**单靠自己阻止 repo admin 在 GitHub 网页端直接点击合并（2026-08-11
+  # 那三次事故正是管理员 bypass）。要让它真正拦人，需要人类在 GitHub 仓库
+  # Settings → Branches 把 main 分支保护规则里加一条 required status check
+  # 指向这个 job（job 名 `merge-gate`），并勾选 "Include administrators"（或
+  # ruleset 等价设置）——这一步是账号级配置变更，agent 不会代为执行，见本
+  # PR 描述。没有这一步，本 job 仍然只是"CI 报红"，不是"物理挡住合并"。
+  board-smoke:
+    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-board-smoke' || 'board-smoke' }}
+    timeout-minutes: 30
+    needs:
+      - doc-smoke-scope
+    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((always() && !cancelled() && (true && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && (github.event_name != 'pull_request' || needs.doc-smoke-scope.outputs.full != 'false')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
+    runs-on: ubuntu-latest
+    outputs:
+      verdict: ${{ steps.smoke-verdict.outputs.verdict }}
+    # Independent runner: Board acceptance has its own fresh stack and evidence.
+    # PR remains informational; full regression requires the actual verdict below.
+    continue-on-error: true
+    # Serialize identical lanes, then reuse retained evidence. Never cancel the producer.
+    concurrency:
+      group: harness-lane-board-smoke-${{ github.sha }}-${{ github.event_name == 'pull_request' && github.ref || 'shared' }}-${{ (inputs.fresh_run || github.run_attempt > 1) && format('{0}-{1}', github.run_id, github.run_attempt) || 'reuse' }}
+      cancel-in-progress: false
+      queue: max
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0, persist-credentials: false }
+      - name: Find existing verification (same SHA and lane)
+        id: dedup
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_FRESH_RUN: ${{ github.event_name == 'schedule' || inputs.fresh_run }}
+        run: node .harness/scripts/ci-lane-dedup.mjs
+      - uses: pnpm/action-setup@v4.4.0
+        if: steps.dedup.outputs.run == 'true'
+      - uses: actions/setup-node@v5
+        if: steps.dedup.outputs.run == 'true'
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        if: steps.dedup.outputs.run == 'true'
+      # Independent fresh seeds; this branch never imports the official catalog.
+      - name: Verify unified Board smoke in isolated runtime
+        id: board
+        timeout-minutes: 25
+        if: steps.dedup.outputs.run == 'true'
+        shell: bash
+        run: |
+          mkdir -p phases/phase-01-run-a-project/evidence/ci
+          set -o pipefail
+          node .harness/scripts/ci-fullstack-runtime.mjs board -- pnpm run verify:fullstack-board 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/board-smoke.log
+      - name: Upload Board evidence (success or failure)
+        id: evidence
+        if: always() && steps.dedup.outputs.run == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: phase-01-board-smoke-evidence-${{ github.run_id }}
+          path: |
+            phases/phase-01-run-a-project/evidence/ci/
+            apps/web/test-results/
+          if-no-files-found: error
+      - name: Publish actual smoke verdict for full regression
+        id: smoke-verdict
+        if: always() && (steps.dedup.outputs.run == 'true' || steps.dedup.outputs.run == 'false')
+        env:
+          CI_SMOKE_LANE: board-smoke
+          CI_SMOKE_RUN: ${{ steps.dedup.outputs.run }}
+          CI_SMOKE_SOURCE_RESULT: ${{ steps.dedup.outputs.result }}
+          CI_SMOKE_STEPS: ${{ toJSON(steps) }}
+        run: node .harness/scripts/ci-smoke-verdict.mjs
+      - name: Preserve reused verification verdict
+        if: always() && steps.dedup.outputs.run == 'false'
+        env:
+          CI_SOURCE_RESULT: ${{ steps.dedup.outputs.result }}
+        run: node .harness/scripts/ci-lane-dedup.mjs verdict
+
+  directory-smoke:
+    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-directory-smoke' || 'directory-smoke' }}
+    timeout-minutes: 30
+    needs:
+      - doc-smoke-scope
+    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((always() && !cancelled() && (true && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && (github.event_name != 'pull_request' || needs.doc-smoke-scope.outputs.full != 'false')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
+    runs-on: ubuntu-latest
+    outputs:
+      verdict: ${{ steps.smoke-verdict.outputs.verdict }}
+    # Independent runner: directory acceptance has its own fresh stack and evidence.
+    # PR remains informational; full regression requires the actual verdict below.
+    continue-on-error: true
+    # Serialize identical lanes, then reuse retained evidence. Never cancel the producer.
+    concurrency:
+      group: harness-lane-directory-smoke-${{ github.sha }}-${{ github.event_name == 'pull_request' && github.ref || 'shared' }}-${{ (inputs.fresh_run || github.run_attempt > 1) && format('{0}-{1}', github.run_id, github.run_attempt) || 'reuse' }}
+      cancel-in-progress: false
+      queue: max
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0, persist-credentials: false }
+      - name: Find existing verification (same SHA and lane)
+        id: dedup
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_FRESH_RUN: ${{ github.event_name == 'schedule' || inputs.fresh_run }}
+        run: node .harness/scripts/ci-lane-dedup.mjs
+      - uses: pnpm/action-setup@v4.4.0
+        if: steps.dedup.outputs.run == 'true'
+      - uses: actions/setup-node@v5
+        if: steps.dedup.outputs.run == 'true'
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        if: steps.dedup.outputs.run == 'true'
+      # #5704: official imports need a fresh seeded catalog, separate from smoke.
+      - name: Verify digital directory cards in isolated runtime
+        id: directory
+        timeout-minutes: 25
+        if: steps.dedup.outputs.run == 'true'
+        shell: bash
+        run: |
+          mkdir -p phases/phase-01-run-a-project/evidence/ci
+          set -o pipefail
+          node .harness/scripts/ci-fullstack-runtime.mjs directory -- pnpm run verify:digital-directory-cards 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/digital-directory-cards.log
+      - name: Upload directory evidence (success or failure)
+        id: evidence
+        if: always() && steps.dedup.outputs.run == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: phase-01-directory-smoke-evidence-${{ github.run_id }}
+          path: |
+            phases/phase-01-run-a-project/evidence/ci/
+            apps/web/test-results/
+          if-no-files-found: error
+      - name: Publish actual smoke verdict for full regression
+        id: smoke-verdict
+        if: always() && (steps.dedup.outputs.run == 'true' || steps.dedup.outputs.run == 'false')
+        env:
+          CI_SMOKE_LANE: directory-smoke
+          CI_SMOKE_RUN: ${{ steps.dedup.outputs.run }}
+          CI_SMOKE_SOURCE_RESULT: ${{ steps.dedup.outputs.result }}
+          CI_SMOKE_STEPS: ${{ toJSON(steps) }}
+        run: node .harness/scripts/ci-smoke-verdict.mjs
+      - name: Preserve reused verification verdict
+        if: always() && steps.dedup.outputs.run == 'false'
+        env:
+          CI_SOURCE_RESULT: ${{ steps.dedup.outputs.result }}
+        run: node .harness/scripts/ci-lane-dedup.mjs verdict
+
+  fullstack-smoke:
+    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-fullstack-smoke' || 'fullstack-smoke' }}
+    needs:
+      - doc-smoke-scope
+    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((always() && !cancelled() && (true && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && (github.event_name != 'pull_request' || needs.doc-smoke-scope.outputs.full != 'false')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
+    runs-on: ubuntu-latest
+    outputs:
+      verdict: ${{ steps.smoke-verdict.outputs.verdict }}
+    # Directory acceptance runs independently; preserve the complete browser suite.
+    timeout-minutes: 50
+    # #633（人类裁决 2026-08-06）：不再阻塞合并——`continue-on-error: true` 让本 job
+    # 无论步骤是否失败，check run 结论都报 success，仅剩信息性价值（红了不拦 PR，
+    # 但 evidence/日志仍然照常上传，供人回看）。真正阻塞发布的是 backend-gates.yml 的
+    # `e2e-core-loop`（deploy 前置条件）。
+    continue-on-error: true
+    # Serialize identical lanes, then reuse retained evidence. Never cancel the producer.
+    concurrency:
+      group: harness-lane-fullstack-smoke-${{ github.sha }}-${{ github.event_name == 'pull_request' && github.ref || 'shared' }}-${{ (inputs.fresh_run || github.run_attempt > 1) && format('{0}-{1}', github.run_id, github.run_attempt) || 'reuse' }}
+      cancel-in-progress: false
+      queue: max
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0, persist-credentials: false }
+      - name: Find existing verification (same SHA and lane)
+        id: dedup
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_FRESH_RUN: ${{ github.event_name == 'schedule' || inputs.fresh_run }}
+        run: node .harness/scripts/ci-lane-dedup.mjs
+      - uses: pnpm/action-setup@v4.4.0
+        if: steps.dedup.outputs.run == 'true'
+      - uses: actions/setup-node@v5
+        if: steps.dedup.outputs.run == 'true'
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        if: steps.dedup.outputs.run == 'true'
+      - name: Verify dedicated public Skill import authentication (optional)
+        if: steps.dedup.outputs.run == 'true'
+        env:
+          WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN: ${{ secrets.WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN }}
+        run: node .harness/scripts/ci-skill-import-auth-probe.mjs
+      # Optional public-repository read-only credential; never substitute github.token.
+      - name: Execute trusted full-stack smoke
+        id: smoke
+        if: steps.dedup.outputs.run == 'true'
+        env:
+          WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN: ${{ secrets.WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          mkdir -p phases/phase-01-run-a-project/evidence/ci
+          set +e
+          node .harness/scripts/ci-fullstack-runtime.mjs product -- pnpm run verify:fullstack-product 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/runtime.log
+          status=${PIPESTATUS[0]}
+          set -e
+          if [ "$status" -eq 0 ]; then
+            pnpm exec tsx .harness/scripts/record-readiness-evidence.ts \
+              --phase 01 --kind runtime --commit "$GITHUB_SHA" \
+              --command "pnpm run verify:fullstack-product" \
+              --log phases/phase-01-run-a-project/evidence/ci/runtime.log \
+              --output phases/phase-01-run-a-project/evidence/ci/runtime-manifest.json
+          fi
+          exit "$status"
+      - name: Verify real Fabric sticky text containment
+        id: sticky
+        if: success() && steps.dedup.outputs.run == 'true'
+        shell: bash
+        run: |
+          mkdir -p phases/phase-01-run-a-project/evidence/ci
+          set -o pipefail
+          node .harness/scripts/ci-fullstack-runtime.mjs sticky -- pnpm --filter web exec playwright test --config playwright.chat-sticky-browser.config.ts --max-failures=1 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/chat-sticky-browser.log
+      # #3205: reuse this lane's browser installation and retain independent output.
+      - name: Execute trace disclosure geometry
+        id: geometry
+        if: success() && steps.dedup.outputs.run == 'true'
+        shell: bash
+        run: |
+          mkdir -p phases/phase-01-run-a-project/evidence/ci
+          set -o pipefail
+          node .harness/scripts/ci-fullstack-runtime.mjs geometry -- pnpm --filter web run e2e:trace-geometry --max-failures=1 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/trace-geometry.log
+      - name: Upload runtime evidence (success or failure)
+        id: evidence
+        if: always() && steps.dedup.outputs.run == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: phase-01-fullstack-smoke-evidence-${{ github.run_id }}
+          path: |
+            phases/phase-01-run-a-project/evidence/ci/
+            apps/web/test-results/
+          if-no-files-found: error
+      - name: Publish actual smoke verdict for full regression
+        id: smoke-verdict
+        if: always() && (steps.dedup.outputs.run == 'true' || steps.dedup.outputs.run == 'false')
+        env:
+          CI_SMOKE_RUN: ${{ steps.dedup.outputs.run }}
+          CI_SMOKE_SOURCE_RESULT: ${{ steps.dedup.outputs.result }}
+          CI_SMOKE_STEPS: ${{ toJSON(steps) }}
+        run: node .harness/scripts/ci-smoke-verdict.mjs
+      - name: Preserve reused verification verdict
+        if: always() && steps.dedup.outputs.run == 'false'
+        env:
+          CI_SOURCE_RESULT: ${{ steps.dedup.outputs.result }}
+        run: node .harness/scripts/ci-lane-dedup.mjs verdict
+
+  # Full regression shares the sole smoke producer above; core retains the complete base suite.
+  # Public journey commands each create and clean their own database isolation scope.
+  base-api-plan:
+    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-base-api-plan' || 'base-api-plan' }}
+    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
+    needs:
+      - doc-smoke-scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      count: ${{ steps.plan.outputs.count }}
+      shards: ${{ steps.plan.outputs.shards }}
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - id: plan
+        run: node .harness/scripts/ci-api-shards.mjs --plan
+      - name: Prove installed API discovery partitions cover the entire default suite
+        run: |
+          mkdir -p phases/phase-01-run-a-project/evidence/ci/api/coverage
+          node .harness/scripts/ci-base-api.mjs discover phases/phase-01-run-a-project/evidence/ci/api/coverage
+          node .harness/scripts/ci-base-api.mjs coverage phases/phase-01-run-a-project/evidence/ci/api/coverage
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: base-api-coverage-${{ github.run_id }}-${{ github.run_attempt }}
+          path: phases/phase-01-run-a-project/evidence/ci/api/
+          if-no-files-found: error
+
+  base-api-shards:
+    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-base-api-shards' || 'base-api-shards' }} (${{ matrix.shard }})
+    needs:
+      - base-api-plan
+      - doc-smoke-scope
+    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: true # Stop remaining shards after the first failure.
+      matrix:
+        shard: ${{ fromJSON(needs.base-api-plan.outputs.shards) }}
+      max-parallel: 4
+    env:
+      WORKSPACEX_DB: wsx_base_${{ github.run_id }}_${{ github.run_attempt }}_shard_${{ matrix.shard }}
+      API_EVIDENCE: phases/phase-01-run-a-project/evidence/ci/api/shard-${{ matrix.shard }}
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: astral-sh/setup-uv@v7.0.0
+        with:
+          version: "0.12.5"
+      - name: Install locked Python runtime for cross-language API integration tests
+        working-directory: apps/deep-agent-service
+        run: uv sync --frozen --extra dev
+      - name: Start isolated PostgreSQL
+        run: docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel up -d postgres
+      - name: Execute complete API partition
+        timeout-minutes: 20
+        shell: bash
+        run: |
+          mkdir -p "$API_EVIDENCE"
+          set -o pipefail
+          pnpm --filter api exec vitest run --shard=${{ matrix.shard }}/${{ needs.base-api-plan.outputs.count }} --reporter=default --reporter=json --outputFile="$GITHUB_WORKSPACE/$API_EVIDENCE/report.json" --bail=1 2>&1 | tee "$API_EVIDENCE/test.log"
+          node .harness/scripts/ci-base-api.mjs record "$API_EVIDENCE"
+      - name: Retain API execution evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: base-api-shard-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: phases/phase-01-run-a-project/evidence/ci/api/
+          if-no-files-found: error
+      - name: Release isolated PostgreSQL
+        if: always()
+        run: docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel down -v
+
+  base-api-exclusive:
+    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-base-api-exclusive' || 'base-api-exclusive' }}
+    needs:
+      - base-api-plan
+      - base-api-shards
+      - doc-smoke-scope
+    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      WORKSPACEX_DB: wsx_base_${{ github.run_id }}_${{ github.run_attempt }}_exclusive
+      API_EVIDENCE: phases/phase-01-run-a-project/evidence/ci/api/exclusive
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: astral-sh/setup-uv@v7.0.0
+        with:
+          version: "0.12.5"
+      - name: Install locked Python runtime for cross-language API integration tests
+        working-directory: apps/deep-agent-service
+        run: uv sync --frozen --extra dev
+      - name: Start isolated PostgreSQL
+        run: docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel up -d postgres
+      - name: Execute complete API partition
+        timeout-minutes: 20
+        shell: bash
+        run: |
+          mkdir -p "$API_EVIDENCE"
+          set -o pipefail
+          pnpm --filter api exec vitest run --config vitest.exclusive.config.ts --reporter=default --reporter=json --outputFile="$GITHUB_WORKSPACE/$API_EVIDENCE/report.json" --bail=1 2>&1 | tee "$API_EVIDENCE/test.log"
+          node .harness/scripts/ci-base-api.mjs record "$API_EVIDENCE"
+      - name: Retain API execution evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: base-api-exclusive-${{ github.run_id }}-${{ github.run_attempt }}
+          path: phases/phase-01-run-a-project/evidence/ci/api/
+          if-no-files-found: error
+      - name: Release isolated PostgreSQL
+        if: always()
+        run: docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel down -v
+
+  web-test-plan:
+    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-web-test-plan' || 'web-test-plan' }}
+    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((always() && !cancelled() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base'))) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
+    outputs:
+      count: ${{ steps.plan.outputs.count }}
+      shards: ${{ steps.plan.outputs.shards }}
+    needs:
+      - doc-smoke-scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with: { node-version-file: .nvmrc, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - id: plan
+        run: node .harness/scripts/ci-web-shards.mjs --plan
+      - name: Discover complete partitions
+        run: |
+          mkdir -p "$RUNNER_TEMP/coverage"
+          node .harness/scripts/ci-web-shards.mjs --verify "$RUNNER_TEMP/coverage/coverage.json"
+          node .harness/scripts/ci-parallel-evidence.mjs stamp "$RUNNER_TEMP/coverage/coverage.json"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: parallel-web-coverage-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/coverage/
+          if-no-files-found: error
+
+  web-test-shards:
+    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-web-test-shards' || 'web-test-shards' }} (${{ matrix.shard }})
+    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
+    needs:
+      - web-test-plan
+      - doc-smoke-scope
+    strategy:
+      fail-fast: true
+      matrix:
+        shard: ${{ fromJSON(needs.web-test-plan.outputs.shards) }}
+      max-parallel: 2
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with: { node-version-file: .nvmrc, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+      - name: Execute actual isolated shard
+        timeout-minutes: 50
+        env:
+          WORKSPACEX_WEB_TEST_MAX_WORKERS: "2"
+          CI_CHAT_ARTIFACT_DIR: ${{ runner.temp }}/shard
+        run: |
+          mkdir -p "$RUNNER_TEMP/shard"
+          set -o pipefail
+          pnpm exec tsx .harness/scripts/with-test-isolation.ts -- node .harness/scripts/ci-web-shards.mjs --run ${{ matrix.shard }} "$RUNNER_TEMP/shard"
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: parallel-web-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/shard/
+          if-no-files-found: error
+
+  chat-test-plan:
+    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-chat-test-plan' || 'chat-test-plan' }}
+    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
+    outputs:
+      count: ${{ steps.plan.outputs.count }}
+      shards: ${{ steps.plan.outputs.shards }}
+    needs:
+      - doc-smoke-scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with: { node-version-file: .nvmrc, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - id: plan
+        run: node .harness/scripts/ci-chat-shards.mjs --plan
+      - name: Discover complete partitions
+        run: |
+          mkdir -p "$RUNNER_TEMP/coverage"
+          node .harness/scripts/ci-chat-shards.mjs --verify > "$RUNNER_TEMP/coverage/coverage.json"
+          node .harness/scripts/ci-parallel-evidence.mjs stamp "$RUNNER_TEMP/coverage/coverage.json"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: parallel-chat-coverage-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/coverage/
+          if-no-files-found: error
+
+  chat-test-shards:
+    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-chat-test-shards' || 'chat-test-shards' }} (${{ matrix.shard }})
+    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base') && needs.chat-test-plan.result == 'success') && needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
+    needs:
+      - chat-test-plan
+      - doc-smoke-scope
+    strategy:
+      fail-fast: true
+      matrix:
+        shard: ${{ fromJSON(needs.chat-test-plan.outputs.shards) }}
+      max-parallel: 1
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with: { node-version-file: .nvmrc, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+      - name: Execute actual isolated shard
+        timeout-minutes: 50
+        env:
+          WORKSPACEX_WEB_TEST_MAX_WORKERS: "2"
+          WSX_CHAT_REFRESH_PRODUCTION_WEB: "1"
+          CI_CHAT_ARTIFACT_DIR: ${{ runner.temp }}/shard
+          PLAYWRIGHT_JSON_OUTPUT_NAME: ${{ runner.temp }}/shard/report.json
+        run: |
+          mkdir -p "$RUNNER_TEMP/shard"
+          set -o pipefail
+          mkdir -p phases/phase-01-run-a-project/evidence/ci
+          pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm exec tsx apps/web/e2e/support/chat-refresh-production-build.ts --config playwright.chat-read.config.ts --project=chat-read --max-failures=1 --shard=${{ matrix.shard }}/${{ needs.chat-test-plan.outputs.count }} --reporter=json 2> "$RUNNER_TEMP/shard/server.log" | tee phases/phase-01-run-a-project/evidence/ci/chat-read.log "$RUNNER_TEMP/shard/chat-read.log"
+          node .harness/scripts/ci-chat-shards.mjs --record ${{ matrix.shard }}
+      - name: Verify shard owned groups and independent dist absence
+        if: always()
+        run: node apps/web/e2e/support/chat-refresh-owned-process.cjs
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: parallel-chat-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/shard/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: parallel-chat-diagnostics-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            phases/phase-01-run-a-project/evidence/ci/chat-read.log
+            apps/web/test-results/chat-read/
+            apps/web/e2e/__evidence__/chat-refresh-diagnostics/
+          if-no-files-found: warn
+
+  base-package-tests:
+    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-base-package-tests' || 'base-package-tests' }}
+    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((always() && !cancelled() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base'))) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
+    needs:
+      - doc-smoke-scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    concurrency:
+      group: harness-lane-base-package-tests-${{ github.sha }}-${{ github.event_name == 'pull_request' && github.ref || 'shared' }}-${{ (inputs.fresh_run || github.run_attempt > 1) && format('{0}-{1}', github.run_id, github.run_attempt) || 'reuse' }}
+      cancel-in-progress: false
+      queue: max
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Reject known dependency admission failures before browser/Python preparation.
+      # The full base gate remains unchanged after this cheap fail-fast probe.
+      - name: Preflight dependency license admission
+        shell: bash
+        run: |
+          mkdir -p phases/phase-01-run-a-project/evidence/ci
+          set -o pipefail
+          pnpm run lint:third-party-license 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/base-preflight.log
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+      # Preserve the existing base runtime; API producers prepare their own locked Python.
+      - uses: astral-sh/setup-uv@v7.0.0
+        with:
+          version: "0.12.5"
+      - name: Install locked Python runtime for cross-language API integration tests
+        working-directory: apps/deep-agent-service
+        run: uv sync --frozen --extra dev
+      - name: Execute uncached trusted base gate
+        timeout-minutes: 80
+        shell: bash
+        run: |
+          mkdir -p phases/phase-01-run-a-project/evidence/ci
+          set +e
+          TURBO_FORCE=true pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm exec turbo run test --concurrency=1 --filter='!@repo/api' --filter='!web' -- --bail=1 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/non-api-tests.log
+          status=${PIPESTATUS[0]}
+          set -e
+          cp phases/phase-01-run-a-project/evidence/ci/non-api-tests.log phases/phase-01-run-a-project/evidence/ci/e2e.log
+          exit "$status"
+      - name: Collect base task logs (success or failure)
+        if: always()
+        shell: bash
+        run: |
+          destination=phases/phase-01-run-a-project/evidence/ci/task-logs
+          mkdir -p "$destination"
+          for source in apps packages; do
+            if [ -d "$source" ]; then
+              find "$source" -type d -name node_modules -prune -o -type f -path '*/.turbo/turbo-test.log' -print0 |
+                while IFS= read -r -d '' log; do
+                  task_dir=${log%/.turbo/turbo-test.log}
+                  mkdir -p "$destination/$task_dir"
+                  cp "$log" "$destination/$task_dir/test.log"
+                done
+            fi
+          done
+      - name: Upload E2E evidence (success or failure)
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: parallel-packages-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            phases/phase-01-run-a-project/evidence/ci/
+            apps/web/test-results/
+          if-no-files-found: error
+
+  base-control-plane:
+    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-base-control-plane' || 'base-control-plane' }}
+    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (always() && !cancelled() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with: { node-version-file: .nvmrc, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: Require single authoritative control-plane producer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = merge_group ]; then
+            node .harness/scripts/ci-harness-static.mjs
+            node .harness/scripts/ci-queue-ready.mjs --control-plane
+          else
+            pnpm run verify:harness:raw
+          fi
+    needs:
+      - freeze-source
+
+  full-regression-core:
+    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-full-regression-core' || 'full-regression-core' }}
+    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (always() && !cancelled() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base')))
+    needs:
+      - base-compile
+      - base-api-plan
+      - base-api-shards
+      - base-api-exclusive
+      - base-package-tests
+      - base-control-plane
+      - web-test-plan
+      - web-test-shards
+      - doc-smoke-scope
+      - targeted-ui-unit
+      - targeted-ui-browser
+    outputs:
+      verification_mode: ${{ steps.route.outputs.mode }}
+      plan_digest: ${{ steps.route.outputs.plan_digest }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - id: route
+        name: Require the complete active regression route
+        env:
+          CI_ROUTED_NEEDS: ${{ toJSON(needs) }}
+          GH_TOKEN: ${{ github.token }}
+        run: node .harness/scripts/ci-targeted-routing.mjs base
+      - name: Verify complete current API evidence
+        if: needs.doc-smoke-scope.outputs.mode != 'targeted-ui'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node .harness/scripts/ci-base-api.mjs download "$RUNNER_TEMP/api"
+          node .harness/scripts/ci-base-api.mjs bundle "$RUNNER_TEMP/api"
+      - name: Verify complete current Web evidence
+        if: needs.doc-smoke-scope.outputs.mode != 'targeted-ui'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node .harness/scripts/ci-parallel-evidence.mjs bundle web "$RUNNER_TEMP/web-evidence"
+      - name: Retain complete base evidence
+        if: needs.doc-smoke-scope.outputs.mode != 'targeted-ui'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/package-evidence" phases/phase-01-run-a-project/evidence/ci
+          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "parallel-packages-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" --dir "$RUNNER_TEMP/package-evidence"
+          node .harness/scripts/ci-parallel-evidence.mjs combine-base "$RUNNER_TEMP" phases/phase-01-run-a-project/evidence/ci/e2e.log
+          pnpm exec tsx .harness/scripts/record-readiness-evidence.ts --phase 01 --kind e2e --commit "$GITHUB_SHA" --command "verified API partitions + complete Web partitions + base packages + authoritative control plane" --log phases/phase-01-run-a-project/evidence/ci/e2e.log --output phases/phase-01-run-a-project/evidence/ci/e2e-manifest.json
+      - uses: actions/upload-artifact@v6
+        if: always() && needs.doc-smoke-scope.outputs.mode != 'targeted-ui'
+        with:
+          name: phase-01-e2e-full-evidence-${{ github.run_id }}
+          path: phases/phase-01-run-a-project/evidence/ci/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v6
+        if: always() && needs.doc-smoke-scope.outputs.mode == 'targeted-ui'
+        with:
+          name: targeted-ui-core-proof-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/routed-base/receipt.json
+          if-no-files-found: error
+
+  chat-read:
+    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-chat-read' || 'chat-read' }}
+    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((always() && !cancelled() && ((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base'))) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
+    needs:
+      - chat-test-plan
+      - chat-test-shards
+      - doc-smoke-scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with: { node-version-file: .nvmrc, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: Require complete chat producer outcomes
+        env:
+          CI_CHAT_NEEDS: ${{ toJSON(needs) }}
+        run: node .harness/scripts/ci-parallel-evidence.mjs chat-prerequisites --routed
+      - name: Verify actual current chat reports
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node .harness/scripts/ci-parallel-evidence.mjs bundle chat "$RUNNER_TEMP/chat-evidence"
+
+  self-service-profile:
+    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-self-service-profile' || 'self-service-profile' }}
+    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
+    needs:
+      - doc-smoke-scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: harness-lane-self-service-profile-${{ github.sha }}-${{ github.event_name == 'pull_request' && github.ref || 'shared' }}-${{ (inputs.fresh_run || github.run_attempt > 1) && format('{0}-{1}', github.run_id, github.run_attempt) || 'reuse' }}
+      cancel-in-progress: false
+      queue: max
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      - name: Find existing verification (same SHA and lane)
+        id: dedup
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_FRESH_RUN: ${{ github.event_name == 'schedule' || inputs.fresh_run }}
+        run: node .harness/scripts/ci-lane-dedup.mjs
+      - uses: pnpm/action-setup@v4.4.0
+        if: steps.dedup.outputs.run == 'true'
+      - uses: actions/setup-node@v5
+        if: steps.dedup.outputs.run == 'true'
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        if: steps.dedup.outputs.run == 'true'
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+        if: steps.dedup.outputs.run == 'true'
+      - name: Execute self-service profile journey (own isolation scope)
+        if: steps.dedup.outputs.run == 'true'
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          mkdir -p phases/phase-01-run-a-project/evidence/ci
+          set -o pipefail
+          pnpm run verify:self-service-profile 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/self-service-profile.log
+      - name: Upload self-service-profile evidence (success or failure)
+        if: always() && steps.dedup.outputs.run == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: phase-01-self-service-profile-evidence-${{ github.run_id }}
+          path: |
+            phases/phase-01-run-a-project/evidence/ci/self-service-profile.log
+            apps/web/test-results/
+          if-no-files-found: error
+      - name: Preserve reused verification verdict
+        if: always() && steps.dedup.outputs.run == 'false'
+        env:
+          CI_SOURCE_RESULT: ${{ steps.dedup.outputs.result }}
+        run: node .harness/scripts/ci-lane-dedup.mjs verdict
+
+  # Stable full-regression verdict: missing, skipped, failed or canceled lanes cannot pass.
+  e2e-full:
+    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-e2e-full' || 'e2e-full' }}
+    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((always() && !cancelled() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full))) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base'))
+    needs:
+      - fullstack-smoke
+      - directory-smoke
+      - board-smoke
+      - full-regression-core
+      - chat-read
+      - self-service-profile
+      - doc-smoke-scope
+      - targeted-ui-unit
+      - targeted-ui-browser
+    outputs:
+      verification_mode: ${{ steps.route.outputs.mode }}
+      plan_digest: ${{ steps.route.outputs.plan_digest }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4.4.0
+        if: needs.doc-smoke-scope.outputs.mode == 'targeted-ui'
+      - uses: actions/setup-node@v5
+        if: needs.doc-smoke-scope.outputs.mode == 'targeted-ui'
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        if: needs.doc-smoke-scope.outputs.mode == 'targeted-ui'
+      - id: route
+        name: Require actual evidence for the active regression route
+        env:
+          CI_ROUTED_NEEDS: ${{ toJSON(needs) }}
+          GH_TOKEN: ${{ github.token }}
+        run: node .harness/scripts/ci-targeted-routing.mjs e2e
+
+  # Optional evidence lanes keep separate dispatch switches and are not aggregate dependencies.
+  # chat-path-coverage is the path-coverage matrix lane; chat-task-workbench is an opt-in scorecard.
+  chat-path-coverage:
+    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-chat-path-coverage' || 'chat-path-coverage' }}
+    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((github.event_name == 'workflow_dispatch' && inputs.run_chat_path_coverage) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    # Serialize identical lanes, then reuse retained evidence. Never cancel the producer.
+    concurrency:
+      group: harness-lane-chat-path-coverage-${{ github.sha }}-${{ github.event_name == 'pull_request' && github.ref || 'shared' }}-${{ (inputs.fresh_run || github.run_attempt > 1) && format('{0}-{1}', github.run_id, github.run_attempt) || 'reuse' }}
+      cancel-in-progress: false
+      queue: max
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      - name: Find existing verification (same SHA and lane)
+        id: dedup
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_FRESH_RUN: ${{ github.event_name == 'schedule' || inputs.fresh_run }}
+        run: node .harness/scripts/ci-lane-dedup.mjs
+      - uses: pnpm/action-setup@v4.4.0
+        if: steps.dedup.outputs.run == 'true'
+      - uses: actions/setup-node@v5
+        if: steps.dedup.outputs.run == 'true'
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        if: steps.dedup.outputs.run == 'true'
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+        if: steps.dedup.outputs.run == 'true'
+      - name: Execute chat path coverage lane (own isolation scope)
+        if: steps.dedup.outputs.run == 'true'
+        run: pnpm run verify:chat-path-coverage
+      - name: Upload chat-path-coverage evidence (success or failure)
+        if: always() && steps.dedup.outputs.run == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: phase-01-chat-path-coverage-evidence-${{ github.run_id }}
+          path: |
+            apps/web/test-results/
+            apps/web/e2e/__evidence__/chat-path-coverage/
+          if-no-files-found: warn
+      - name: Preserve reused verification verdict
+        if: always() && steps.dedup.outputs.run == 'false'
+        env:
+          CI_SOURCE_RESULT: ${{ steps.dedup.outputs.result }}
+        run: node .harness/scripts/ci-lane-dedup.mjs verdict
+    needs:
+      - freeze-source
+
+  chat-task-workbench:
+    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-chat-task-workbench' || 'chat-task-workbench' }}
+    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((github.event_name == 'workflow_dispatch' && inputs.run_chat_task_workbench) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Serialize identical lanes, then reuse retained evidence. Never cancel the producer.
+    concurrency:
+      group: harness-lane-chat-task-workbench-${{ github.sha }}-${{ github.event_name == 'pull_request' && github.ref || 'shared' }}-${{ (inputs.fresh_run || github.run_attempt > 1) && format('{0}-{1}', github.run_id, github.run_attempt) || 'reuse' }}
+      cancel-in-progress: false
+      queue: max
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      - name: Find existing verification (same SHA and lane)
+        id: dedup
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_FRESH_RUN: ${{ github.event_name == 'schedule' || inputs.fresh_run }}
+        run: node .harness/scripts/ci-lane-dedup.mjs
+      - uses: pnpm/action-setup@v4.4.0
+        if: steps.dedup.outputs.run == 'true'
+      - uses: actions/setup-node@v5
+        if: steps.dedup.outputs.run == 'true'
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        if: steps.dedup.outputs.run == 'true'
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+        if: steps.dedup.outputs.run == 'true'
+      - name: Execute Chat task workbench scorecard (own isolation scope)
+        if: steps.dedup.outputs.run == 'true'
+        run: pnpm run verify:chat-task-workbench
+      - name: Upload chat-task-workbench evidence (success or failure)
+        if: always() && steps.dedup.outputs.run == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: phase-01-chat-task-workbench-evidence-${{ github.run_id }}
+          path: apps/web/test-results/
+          if-no-files-found: error
+      - name: Preserve reused verification verdict
+        if: always() && steps.dedup.outputs.run == 'false'
+        env:
+          CI_SOURCE_RESULT: ${{ steps.dedup.outputs.result }}
+        run: node .harness/scripts/ci-lane-dedup.mjs verdict
+    needs:
+      - freeze-source
+
+  targeted-ui-unit:
+    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-targeted-ui-unit' || 'targeted-ui-unit' }}
+    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (needs.doc-smoke-scope.outputs.mode == 'targeted-ui')
+    needs:
+      - doc-smoke-scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with: { node-version-file: .nvmrc, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: Execute actual web-unit selection
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WORKSPACEX_WEB_TEST_MAX_WORKERS: "2"
+        run: |
+          mkdir -p "$RUNNER_TEMP/targeted-ui/suite"
+          set -o pipefail
+          node .harness/scripts/ci-targeted-runner.mjs web-unit "$RUNNER_TEMP/targeted-ui" 2>&1 | tee "$RUNNER_TEMP/targeted-ui/suite/runner.log"
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: targeted-ui-web-unit-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/targeted-ui/suite/
+          if-no-files-found: error
+
+  targeted-ui-browser:
+    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-targeted-ui-browser' || 'targeted-ui-browser' }}
+    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (needs.doc-smoke-scope.outputs.mode == 'targeted-ui')
+    needs:
+      - doc-smoke-scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with: { node-version-file: .nvmrc, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+      - name: Execute actual selected UI browser tests
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WORKSPACEX_WEB_TEST_MAX_WORKERS: "2"
+        run: |
+          mkdir -p "$RUNNER_TEMP/targeted-ui/suite"
+          set -o pipefail
+          pnpm exec tsx .harness/scripts/with-test-isolation.ts -- node .harness/scripts/ci-targeted-runner.mjs chat-ui "$RUNNER_TEMP/targeted-ui" 2>&1 | tee "$RUNNER_TEMP/targeted-ui/suite/runner.log"
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: targeted-ui-chat-ui-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/targeted-ui/suite/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: targeted-ui-browser-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: apps/web/test-results/
+          if-no-files-found: warn
+
+  chat-refresh-diagnostic:
+    # Explicit manual experiment only. Not a required lane or a full-regression verdict.
+    if: github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0, persist-credentials: false }
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with: { node-version-file: .nvmrc, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+      - name: One isolated Linux refresh observation with original concurrent scenarios
+        timeout-minutes: 18
+        env:
+          WSX_CHAT_REFRESH_DIAGNOSTICS: "1"
+          WSX_CHAT_REFRESH_PRODUCTION_WEB: "1"
+          WORKSPACEX_WEB_TEST_MAX_WORKERS: "2"
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm exec tsx apps/web/e2e/support/chat-refresh-production-build.ts --config playwright.chat-read.config.ts --project=chat-read --workers=2 --grep '简单聊天：一轮问答|复杂任务把 write_todos' --max-failures=1 --reporter=line
+      - name: Verify owned groups exited before runner orphan cleanup
+        if: always()
+        shell: bash
+        run: node apps/web/e2e/support/chat-refresh-owned-process.cjs
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: chat-refresh-diagnostic-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            apps/web/e2e/__evidence__/chat-refresh-diagnostics/
+            apps/web/test-results/chat-read/
+          if-no-files-found: error
+          retention-days: 7
+    needs:
+      - freeze-source
+  freeze-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      sha: ${{ steps.freeze.outputs.sha }}
+      frozen_at: ${{ steps.freeze.outputs.frozen_at }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - id: freeze
+        run: node .harness/scripts/ci-lightweight.mjs frozen-develop
+  backend-full:
+    needs:
+      - freeze-source
+      - full-regression-core
+    uses: ./.github/workflows/backend-gates.yml
+    secrets: inherit
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    with:
+      api_source: acceptance-base
+      api_source_sha: ${{ needs.freeze-source.outputs.sha }}
+  board-full:
+    needs:
+      - freeze-source
+      - e2e-full
+      - backend-full
+    uses: ./.github/workflows/board-acceptance.yml
+    secrets: inherit
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+  skill-full:
+    needs:
+      - freeze-source
+      - board-full
+    uses: ./.github/workflows/skill-files-e2e.yml
+    secrets: inherit
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+  billing-full:
+    needs:
+      - freeze-source
+      - skill-full
+    uses: ./.github/workflows/billing-cashier-glue.yml
+    secrets: inherit
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+  hourly-full-result:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    if: always() && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full))
+    needs:
+      - freeze-source
+      - e2e-full
+      - backend-full
+      - board-full
+      - skill-full
+      - billing-full
+      - organization-create
+      - hourly-cn-content-sync-tests
+      - hourly-cn-release-simulation
+      - hourly-local-windows
+      - hourly-whiteboard-outbox-browser
+      - hourly-self-host-upgrade-drill
+      - hourly-minimal-docker-release-test
+      - hourly-unified-release-tests
+      - hourly-web-only-release-tests
+      - hourly-native-cwd-probe
+      - hourly-home-gates
+      - hourly-archive-bridge-tests
+      - devportal-browser
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - env:
+          CI_FULL_NEEDS: ${{ toJSON(needs) }}
+        run: node .harness/scripts/ci-hourly-result.mjs
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: hourly-full-receipt-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/hourly-full/receipt.json
+          if-no-files-found: error
+  organization-create:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+      - run: pnpm --filter web exec playwright test --config playwright.organization-create.config.ts --max-failures=1
+      - name: Verify research route continuity with controlled HTTP
+        run: pnpm --filter web exec playwright test --config e2e/research-route-continuity.config.ts --max-failures=1
+      - name: Upload research route fixture screenshots and traces
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: research-route-continuity-api-fixture-${{ github.run_id }}
+          path: docs/evidence/research-route-5969/browser-results/
+      - name: Upload organization creation fixture screenshots
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: organization-create-api-fixture-${{ github.run_id }}
+          path: evidence/org-create-5494/*.png
+    needs:
+      - freeze-source
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+  hourly-cn-content-sync-tests:
+    needs:
+      - freeze-source
+      - billing-full
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    uses: ./.github/workflows/cn-content-sync-tests.yml
+  hourly-cn-release-simulation:
+    needs:
+      - freeze-source
+      - hourly-cn-content-sync-tests
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    uses: ./.github/workflows/cn-release-simulation.yml
+  hourly-local-windows:
+    needs:
+      - freeze-source
+      - hourly-cn-release-simulation
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    uses: ./.github/workflows/local-windows.yml
+  hourly-whiteboard-outbox-browser:
+    needs:
+      - freeze-source
+      - hourly-local-windows
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    uses: ./.github/workflows/whiteboard-outbox-browser.yml
+  hourly-self-host-upgrade-drill:
+    needs:
+      - freeze-source
+      - hourly-whiteboard-outbox-browser
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    uses: ./.github/workflows/self-host-upgrade-drill.yml
+  hourly-minimal-docker-release-test:
+    needs:
+      - freeze-source
+      - hourly-self-host-upgrade-drill
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    uses: ./.github/workflows/minimal-docker-release-test.yml
+  hourly-unified-release-tests:
+    needs:
+      - freeze-source
+      - hourly-minimal-docker-release-test
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    uses: ./.github/workflows/unified-release-tests.yml
+  hourly-web-only-release-tests:
+    needs:
+      - freeze-source
+      - hourly-unified-release-tests
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    uses: ./.github/workflows/web-only-release-tests.yml
+  hourly-native-cwd-probe:
+    needs:
+      - freeze-source
+      - hourly-web-only-release-tests
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    uses: ./.github/workflows/native-cwd-probe.yml
+  hourly-home-gates:
+    needs:
+      - freeze-source
+      - hourly-native-cwd-probe
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    uses: ./.github/workflows/home-gates.yml
+  hourly-archive-bridge-tests:
+    needs:
+      - freeze-source
+      - hourly-home-gates
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    uses: ./.github/workflows/archive-bridge-tests.yml
+  devportal-browser:
+    needs:
+      - freeze-source
+      - hourly-archive-bridge-tests
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4.4.0
+      - name: Setup Node (read .nvmrc)
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile --filter @repo/devportal...
+      - name: Verify artifact identity and workflow contracts
+        run: node --test .github/scripts/devportal-artifact.test.mjs
+      - name: Typecheck / lint / test
+        run: pnpm --filter @repo/devportal run typecheck && pnpm --filter @repo/devportal run lint && pnpm --filter @repo/devportal run test
+      - name: Install Playwright Chromium
+        run: pnpm --filter @repo/devportal exec playwright install --with-deps chromium
+      - name: E2E (repeatable local gateway fixture)
+        run: pnpm --filter @repo/devportal run e2e

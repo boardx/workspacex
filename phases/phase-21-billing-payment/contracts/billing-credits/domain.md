@@ -38,13 +38,10 @@
 
 ## 三、封闭枚举（新增成员须走 ADR；测试断言「集合与契约一致 + 未声明值不通过」，不断言长度）
 
-- `BillingOrderStatus`：PENDING / PROCESSING / SUCCESS / FAILED / CLOSED。
-- `BillingTransactionType`：purchase / bonus / grant / consume。消费方向为 −1，按实际模型请求去重；欠额以余额表达，不增加第二次扣款。
-- `BillingOwnerType`：user / team。
-- `BillingErrorCode`（HTTP 失败码，snake_case）：`payment_provider_not_configured` / `package_not_found` / `package_disabled` /
-  `org_billing_disabled` / `order_not_found` / `forbidden` / `wechat_upstream_failed` / `order_not_pending` /
-  `invalid_amount` / `reason_required` / `owner_not_found` / `signature_invalid` / `amount_mismatch` / `mock_forbidden`。
-- `WechatNotifyAck { code: "SUCCESS" | "FAIL" }`（回调应答仅此两值）。
+- 所有具体成员只在 `packages/contracts/src/billing-credits.ts` 对应导出定义；此处不维护第二份列表。
+- 订单、主体、失败码与回调应答分别引用 `BillingOrderStatus`、`BillingOwnerType`、`BillingErrorCode` 和 `WechatNotifyAck`。
+- 流水及来源引用 `BillingTransactionType` / `BillingTransactionSourceType`，周期批次引用 `CreditPeriodKind`；订阅扩展见 ADR-125，欢迎赠送扩展见 ADR-126。
+- 消费方向为 −1，按实际模型请求去重；欠额以余额表达，不增加第二次扣款。
 
 ## 四、不变量（任何时刻为真，违反即数据损坏；每条可写成断言）
 

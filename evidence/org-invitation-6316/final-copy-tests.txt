@@ -1,0 +1,12 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/2e5d/workspacex/apps/web
+
+ ✓ tests/ui/admin-member-quotas-i18n.test.tsx (19 tests) 685ms
+ ✓ tests/ui/org-shared-invites-i18n.test.tsx (4 tests) 745ms
+   ✓ switches shared invite labels and one-time reveal without refetching or changing original values 324ms
+
+ Test Files  2 passed (2)
+      Tests  23 passed (23)
+   Start at  19:02:27
+   Duration  16.26s (transform 5.16s, setup 420ms, collect 10.33s, tests 1.43s, environment 3.12s, prepare 272ms)

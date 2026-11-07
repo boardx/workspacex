@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import { TagChip } from "@/components/ui/tag-chip";
 import { hasTag, normalizeTag, sameTag } from "@/lib/tag-utils";
 
@@ -59,6 +60,7 @@ export function TagInput({
   readonly testIdPrefix?: string;
   readonly emptyHint?: string;
 }) {
+  const { t: translate } = useI18n();
   const composing = React.useRef(false);
   const [uncontrolled, setUncontrolled] = React.useState("");
   const text = onDraftChange === undefined ? uncontrolled : draft;
@@ -67,7 +69,7 @@ export function TagInput({
   const full = maxTags !== undefined && value.length >= maxTags;
 
   // 被拒绝/被截断时的一句人话（输入框再动就消失）——不静默吞掉用户的输入
-  const [notice, setNotice] = React.useState<string | null>(null);
+  const [notice, setNotice] = React.useState<{ kind: "duplicate" | "truncated"; tag: string } | null>(null);
 
   function add(tag: string): void {
     const normalized = normalizeTag(tag);
@@ -75,8 +77,8 @@ export function TagInput({
     setText("");
     if (t.length === 0 || full) return;
     // 忽略大小写去重：「Client」「client」是同一个标签（lib/tag-utils.ts）
-    if (hasTag(value, t)) { setNotice(`「${t}」已经有了`); return; }
-    setNotice(t.length < normalized.length ? `标签最多 ${String(maxTagLength)} 个字，已截断为「${t}」` : null);
+    if (hasTag(value, t)) { setNotice({ kind: "duplicate", tag: t }); return; }
+    setNotice(t.length < normalized.length ? { kind: "truncated", tag: t } : null);
     onChange([...value, t]);
   }
 
@@ -107,7 +109,7 @@ export function TagInput({
       .slice(0, 8)
       .map(([tag, count]) => ({ tag, note: noteFor?.(count) ?? "", isNew: false }));
     if (trimmed.length > 0 && !hasTag([...knownTags.keys()], trimmed) && !hasTag(value, trimmed)) {
-      return [{ tag: trimmed, note: "回车也可以", isNew: true }, ...pool];
+      return [{ tag: trimmed, note: "", isNew: true }, ...pool];
     }
     return pool;
   }, [knownTags, value, trimmed, noteFor, full]);
@@ -130,7 +132,7 @@ export function TagInput({
         ))}
         <input
           className="min-w-32 flex-1 rounded-control bg-transparent text-12 outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed"
-          placeholder={full ? "" : value.length === 0 ? "输入标签，回车确认" : ""}
+          placeholder={full ? "" : value.length === 0 ? translate("tags.placeholder") : ""}
           value={text}
           disabled={disabled || full}
           maxLength={maxTagLength}
@@ -138,7 +140,7 @@ export function TagInput({
           onCompositionStart={() => { composing.current = true; }}
           onCompositionEnd={() => { composing.current = false; }}
           onKeyDown={onKeyDown}
-          aria-label="添加标签"
+          aria-label={translate("tags.add")}
           data-testid={`${testIdPrefix}-input`}
         />
       </div>
@@ -156,8 +158,8 @@ export function TagInput({
               onClick={() => add(s.tag)}
               data-testid={`${testIdPrefix}-suggestion-${s.tag}`}
             >
-              <span className="font-medium">{s.isNew ? `＋ 新建标签「${s.tag}」` : s.tag}</span>
-              {s.note !== "" && <span className="ml-auto text-10 text-muted-foreground">{s.note}</span>}
+              <span className="font-medium">{s.isNew ? translate("tags.createNamed", { tag: s.tag }) : s.tag}</span>
+              {(s.isNew || s.note !== "") && <span className="ml-auto text-10 text-muted-foreground">{s.isNew ? translate("tags.enterHint") : s.note}</span>}
             </button>
           ))}
         </div>
@@ -165,12 +167,12 @@ export function TagInput({
 
       <span className="text-10 text-muted-foreground" data-testid={`${testIdPrefix}-hint`}>
         {full
-          ? `最多 ${String(maxTags)} 个标签，已经满了——删掉一个才能再加`
+          ? translate("tags.full", { count: maxTags ?? 0 })
           : notice !== null
-            ? notice
+            ? notice.kind === "duplicate" ? translate("tags.duplicateNamed", { tag: notice.tag }) : translate("tags.truncated", { count: maxTagLength ?? 0, tag: notice.tag })
             : value.length > 0
-            ? `已选 ${String(value.length)} 个标签`
-            : (emptyHint ?? "输入即搜索已有标签，回车新建一个")}
+            ? translate("tags.selected", { count: value.length })
+            : (emptyHint ?? translate("tags.searchOrCreate"))}
       </span>
     </div>
   );
@@ -194,7 +196,7 @@ export function commitDraft(
  * 计数的 testid 是 `${testIdPrefix}-count`。
  */
 export function TagField({
-  label = "标签（可选）", value, onChange, draft, onDraftChange, knownTags, maxTags, maxTagLength, noteFor, disabled, testIdPrefix, emptyHint,
+  label, value, onChange, draft, onDraftChange, knownTags, maxTags, maxTagLength, noteFor, disabled, testIdPrefix, emptyHint,
 }: {
   label?: string;
   value: readonly string[];
@@ -209,17 +211,18 @@ export function TagField({
   testIdPrefix: string;
   emptyHint?: string;
 }) {
+  const { t } = useI18n();
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-3">
-        <span className="text-13 font-medium text-card-foreground">{label}</span>
+        <span className="text-13 font-medium text-card-foreground">{label ?? t("tags.optional")}</span>
         <span data-testid={`${testIdPrefix}-count`} className="text-11 text-muted-foreground">{maxTags === undefined ? String(value.length) : `${String(value.length)}/${String(maxTags)}`}</span>
       </div>
       <TagInput
         value={value}
         onChange={onChange}
         knownTags={knownTags ?? EMPTY_KNOWN}
-        noteFor={noteFor ?? ((n) => (n > 0 ? `${String(n)} 个在用` : ""))}
+        noteFor={noteFor ?? ((n) => (n > 0 ? t("tags.usedBy", { count: n }) : ""))}
         maxTags={maxTags}
         maxTagLength={maxTagLength}
         disabled={disabled}

@@ -1,0 +1,11 @@
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/ui/org-members-preview-i18n.test.tsx > organization member previews localization > updates visible members-export feedback when locale changes
+AssertionError: expected 'Member and quota CSV exported' not to be 'Member and quota CSV exported' // Object.is equality
+ FAIL  tests/ui/org-members-preview-i18n.test.tsx > organization member previews localization > updates visible members-resend feedback when locale changes
+AssertionError: expected 'Resent to 陈默; old link invalidated (c…' not to be 'Resent to 陈默; old link invalidated (c…' // Object.is equality
+ FAIL  tests/ui/org-members-preview-i18n.test.tsx > organization member previews localization > updates visible roster-copy feedback when locale changes
+AssertionError: expected 'Copied join link for group 1' not to be 'Copied join link for group 1' // Object.is equality
+ FAIL  tests/ui/org-members-preview-i18n.test.tsx > organization member previews localization > updates visible roster-qr feedback when locale changes
+AssertionError: expected 'QR code generated (ready to present)' not to be 'QR code generated (ready to present)' // Object.is equality
+ Test Files  1 failed (1)
+      Tests  4 failed | 4 passed (8)

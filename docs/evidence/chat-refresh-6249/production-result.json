@@ -1,0 +1,83 @@
+{
+  "exactSha": "a673c1044388c0eeb711b14bf87047a9bda8d6da",
+  "runId": 42024570314,
+  "jobId": 127235444725,
+  "artifactId": 13413946145,
+  "runnerImage": "ubuntu-26.04",
+  "runnerImageVersion": "20261025.179.1",
+  "scenarioPassCount": 2,
+  "fullShardVerified": false,
+  "buildDurationMs": 173349,
+  "externalOwnedProof": {
+    "observed": 4,
+    "groups": [],
+    "owners": []
+  },
+  "runnerOrphanTerminations": 0,
+  "distReadback": "not_recorded_in_this_run",
+  "events": [
+    {
+      "at": 1793880667251,
+      "event": "comparison-start",
+      "scopeHash": "4f1828879582b3d6ce3b79989c1f1356fa2287233bf53b67af446b31bce5b522",
+      "ownerPid": 2975
+    },
+    {
+      "at": 1793880667252,
+      "event": "build-start",
+      "budgetMs": 600000
+    },
+    {
+      "at": 1793880667256,
+      "event": "owned-start",
+      "scopeHash": "4f1828879582b3d6ce3b79989c1f1356fa2287233bf53b67af446b31bce5b522",
+      "ownerPid": 2975,
+      "pid": 2995,
+      "pgid": 2995,
+      "purpose": "build"
+    },
+    {
+      "at": 1793880769238,
+      "event": "compiled",
+      "durationMs": null
+    },
+    {
+      "at": 1793880840601,
+      "event": "owned-exit",
+      "pgid": 2995,
+      "code": 0,
+      "expired": false,
+      "interrupted": false
+    },
+    {
+      "at": 1793880840601,
+      "event": "build-end",
+      "durationMs": 173349,
+      "code": 0
+    },
+    {
+      "at": 1793880840604,
+      "event": "owned-start",
+      "scopeHash": "4f1828879582b3d6ce3b79989c1f1356fa2287233bf53b67af446b31bce5b522",
+      "ownerPid": 2975,
+      "pid": 3171,
+      "pgid": 3171,
+      "purpose": "scenarios"
+    },
+    {
+      "at": 1793880941161,
+      "event": "owned-exit",
+      "pgid": 3171,
+      "code": 0,
+      "expired": false,
+      "interrupted": false
+    },
+    {
+      "at": 1793880941162,
+      "event": "owned-cleanup",
+      "observed": 4,
+      "groups": [],
+      "owners": []
+    }
+  ]
+}

@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "globalPrefixes": [
+    "packages/contracts/",
+    ".github/",
+    ".harness/"
+  ],
+  "globalFiles": [
+    "package.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+    "turbo.json",
+    ".nvmrc",
+    ".npmrc"
+  ],
+  "modules": {
+    "billing": {
+      "prefixes": [
+        "apps/web/app/billing/",
+        "apps/web/components/billing/",
+        "apps/api/src/application/billing/",
+        "apps/api/src/domain/billing/",
+        "apps/api/src/infrastructure/billing/",
+        "apps/api/tests/billing/"
+      ],
+      "dependencies": [
+        "identity"
+      ],
+      "suites": [
+        "billing"
+      ],
+      "risk": "high"
+    },
+    "identity": {
+      "prefixes": [
+        "apps/api/src/application/identity/",
+        "apps/api/src/domain/identity/",
+        "apps/api/src/infrastructure/identity/",
+        "apps/web/lib/session/"
+      ],
+      "dependencies": [],
+      "suites": [
+        "identity"
+      ],
+      "risk": "high"
+    },
+    "chat": {
+      "prefixes": [
+        "apps/web/app/chat/",
+        "apps/web/components/chat/",
+        "apps/api/src/application/chat/",
+        "apps/api/src/domain/chat/",
+        "apps/api/src/infrastructure/chat/"
+      ],
+      "dependencies": [
+        "identity"
+      ],
+      "suites": [
+        "chat"
+      ],
+      "risk": "normal"
+    },
+    "docs": {
+      "prefixes": [
+        "docs/"
+      ],
+      "dependencies": [],
+      "suites": [
+        "docs"
+      ],
+      "risk": "normal",
+      "extensions": [
+        ".md",
+        ".txt"
+      ]
+    }
+  }
+}

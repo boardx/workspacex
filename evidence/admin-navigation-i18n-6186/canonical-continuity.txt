@@ -1,0 +1,4 @@
+Independent canonical snapshot before/after: byte-identical.
+Fields: ADMIN_NAV,ADMIN_SCOPE_META,ADMIN_MODULE_SCOPE,AI_CAPABILITY_GROUP.
+22items/4sourcegroups/2scopes; stablelabelvalues/key/URL/UCrefs/title/intro/rootHref preserved.
+SHA256=a70771df4fd6c24c46b17277e8710d48a3b99b0efad89f5efc4d3d14db07a215

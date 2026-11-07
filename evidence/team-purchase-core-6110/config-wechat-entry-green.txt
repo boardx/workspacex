@@ -1,0 +1,15 @@
+
+> @repo/api@0.0.0 test:team-wechat-unit /Users/shenyangjun/boardx/workspacex/.worktrees/team-receipt-anchor-6099/apps/api
+> vitest run --config vitest.team-wechat-unit.config.ts
+
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/team-receipt-anchor-6099/apps/api
+
+ ✓ tests/billing/personal-wechat-payment.test.ts (18 tests) 179ms
+ ✓ tests/billing/team-wechat-checkout.test.ts (20 tests) 114ms
+ ✓ tests/billing/native-read-deadline.test.ts (2 tests) 96ms
+
+ Test Files  3 passed (3)
+      Tests  40 passed (40)
+   Start at  16:42:07
+   Duration  5.10s (transform 706ms, setup 0ms, collect 1.73s, tests 390ms, environment 1ms, prepare 1.02s)

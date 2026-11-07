@@ -1,0 +1,74 @@
+{
+  "sources": {
+    "apps/web/components/design-loop/shared-design-view.tsx": "18109a1aae2abf11d5220aa24f128f945f62f256d69f71c8a2d9b45bf6f460e6",
+    "apps/web/components/design-loop/prototype-canvas.tsx": "4ed042ca723a6424b512fd42c43d320acf672a1758f70ff78b6431dd1152faea",
+    "apps/web/lib/human-time.ts": "aad98b2ea2dbd2768b30f43c228b4a82740e87d15a6519eebb30b122534e92f0",
+    "apps/web/lib/i18n/messages/en.ts": "04357e319226a562ad2e630c44bd78f8e88d7acddb633120a6ce9c98d078a7b8",
+    "apps/web/lib/i18n/messages/zh-CN.ts": "a149a9a79890ab4320aca3e514f9ed502f8d5eba56d9524ad0585df023c43200",
+    "apps/web/lib/i18n/namespaces/public-design-share.ts": "597fe188f76e84f8841368025464dd6774851cae57f1a2e54fa12f6ab12241e9",
+    "apps/web/tests/ui/public-design-share-i18n.test.tsx": "ab02e940907861a05e8505b16021b88f020edc3c15bb4dae1f7741328dc5c6cb",
+    "apps/web/tests/lib/human-time-i18n.test.ts": "78024a1d7711e414fd0c2ef8d59331517eda692b0c15807241546a90fcc8fcc9",
+    "apps/web/e2e/i18n-public-design-share.spec.ts": "e7b55c73d7b8afb95cd078cd37183bf8b1193dc409b87acdc1db074b2040a877",
+    "apps/web/playwright.fullstack-smoke.config.ts": "485411fd80610684dbe892f357b0a9aa571bf31898b40064d404e38e10394ac2"
+  },
+  "steps": [
+    {
+      "name": "driver-lint",
+      "exit": 0,
+      "seconds": 2.4329140000000002
+    },
+    {
+      "name": "type",
+      "exit": 0,
+      "seconds": 9.350319583000001
+    },
+    {
+      "name": "list",
+      "exit": 0,
+      "seconds": 2.9290072500000015
+    }
+  ],
+  "cleanup": {
+    "containers": 0,
+    "volumes": 0,
+    "listeners": {
+      "PGPORT": 0,
+      "REDIS_PORT": 0,
+      "MINIO_PORT": 0,
+      "MINIO_CONSOLE_PORT": 0,
+      "WORKSPACEX_API_PORT": 0,
+      "WORKSPACEX_WEB_PORT": 0,
+      "SKILL_SANDBOX_PORT": 0,
+      "WORKSPACEX_MODEL_PROVIDER_PORT": 0,
+      "WORKSPACEX_DEEP_AGENT_PROVIDER_PORT": 0,
+      "WORKSPACEX_ASR_PROVIDER_PORT": 0,
+      "WORKSPACEX_VISION_PROVIDER_PORT": 0,
+      "WORKSPACEX_LOOPBACK_SANDBOX_PORT": 0,
+      "WORKSPACEX_MAIL_PROVIDER_PORT": 0
+    }
+  },
+  "exit": 0,
+  "actualDiscovery": [
+    {
+      "file": "i18n-public-design-share.spec.ts",
+      "title": "public design share real publication, locale/navigation and revocation 1280",
+      "project": "seeded",
+      "timeout": 30000
+    },
+    {
+      "file": "i18n-public-design-share.spec.ts",
+      "title": "public design share real publication, locale/navigation and revocation 375",
+      "project": "seeded",
+      "timeout": 30000
+    }
+  ],
+  "discoveryOnly": true,
+  "browserExecuted": false,
+  "canonicalSetupParse": "SHARE_PATCH is parsed at module load, so exact discovery executes the actual fixture schema refinement.",
+  "headBeforeFix": "52c272b7e8b154eefac22e437e9bebe195c4751a",
+  "privateLogSha256": {
+    "driver-lint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "type": "e9b019d37db080d36b121892b06e0818b37e0b4f08f68f45cd0110befa237e7e",
+    "list": "8e8f496a5516447928f0b50b49c950298ee67bf6a6c8cebad4d1830e58630092"
+  }
+}

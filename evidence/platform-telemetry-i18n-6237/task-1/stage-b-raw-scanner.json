@@ -1,0 +1,15 @@
+{
+  "source": "f7f8ca20f0a85777f206f90eb7b603cc4bdd7082",
+  "gate": "raw-scanner",
+  "command": [
+    "node",
+    ".harness/scripts/lint-user-facing-error-text.mjs"
+  ],
+  "exit": 0,
+  "seconds": 0.429,
+  "rawPrivate": true,
+  "logSha256": "458beba2d68ec1238fbf5bee8df850593b34af6ee2e36147a7da4003aa3e6253",
+  "summary": [
+    "✅ [user-facing-error-text] 新代码没有内部错误码上屏；存量基线 55 个文件 / 70 处（只准变小）"
+  ]
+}

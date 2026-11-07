@@ -1,0 +1,21 @@
+{
+  "parent": "ec3d35d3d2269752ce9643cd04a8bcd1a9a3030d",
+  "gitDiffExitCode": 0,
+  "diffBytes": 0,
+  "unchanged": [
+    "apps/api",
+    "packages/contracts",
+    "apps/web/lib/live-recording.ts",
+    "apps/web/lib/BoardxRealtimeAsrClient.ts",
+    "apps/web/lib/realtime-reconnect.ts",
+    "apps/web/lib/realtime-asr-flow.ts",
+    "apps/web/lib/withdrawal-flow.ts"
+  ],
+  "displayExtractionFiles": [
+    "apps/web/lib/mock/rec.ts",
+    "apps/web/lib/mock/rec-v2.ts",
+    "apps/web/lib/recording-display-copy.ts"
+  ],
+  "extractionValues": "copy-equivalence.json proves complete non-function module exports, consent probes and project dictionaries unchanged",
+  "boundary": "Static scope/value checks do not prove runtime audio or persistence."
+}

@@ -1,0 +1,195 @@
+[heavy-e2e-lock] 排到了，等了 0s
+[stack-admission] load1=2.87 cores=10 perCore=0.29 running=0/2
+[test-isolation] id=run-mw1h4m77-68b8f37e-900c7077e367 db=wsx_900c7077e3670c5ac0fc compose=wsx-900c7077e3670c5ac0fc pg=20327 redis=21327 api=24327 web=25327 sandbox=26327 model=27327 deep-agent=28327 asr=29327 vision=30327 loopback-sandbox=31327 mail=19327
+Listing tests:
+  [seeded] › agenda-segment-create-smoke.spec.ts:42:5 › facilitator creates an agenda segment in the browser; PostgreSQL keeps it across a reload
+  [seeded] › agent-directory-entry-point.spec.ts:23:5 › Agent 目录从左栏导航可达，不是只能敲 URL 进的孤岛
+  [seeded] › blueprint-contract-gap-audit.spec.ts:92:7 › 蓝本管理闭环 + 契约缺口审计（F175→F193/F174→F177(边界)→F179→F23→F29，见文件头注） › F175: 组织后台在真实浏览器里新建蓝本，刷新后仍在（真实 POST/GET /blueprints）
+  [seeded] › blueprint-contract-gap-audit.spec.ts:131:7 › 蓝本管理闭环 + 契约缺口审计（F175→F193/F174→F177(边界)→F179→F23→F29，见文件头注） › F193: /tpl/designer 真实 UI 打开一项设计配置面板，编辑并保存，刷新后改动仍在（真落库）
+  [seeded] › blueprint-contract-gap-audit.spec.ts:198:7 › 蓝本管理闭环 + 契约缺口审计（F175→F193/F174→F177(边界)→F179→F23→F29，见文件头注） › F174: 填一项设计环节内容并真实 PUT 保存，刷新后完成度真的变化（不是前端 state）
+  [seeded] › blueprint-contract-gap-audit.spec.ts:237:7 › 蓝本管理闭环 + 契约缺口审计（F175→F193/F174→F177(边界)→F179→F23→F29，见文件头注） › F177 边界证明：换时长档位端点真实存在且乐观并发闸门有效（不是假装完成了一次被契约允许的写入）
+  [seeded] › blueprint-contract-gap-audit.spec.ts:271:7 › 蓝本管理闭环 + 契约缺口审计（F175→F193/F174→F177(边界)→F179→F23→F29，见文件头注） › F179: 试跑 → 发布蓝本版本（真实 POST /trial-runs + POST /versions），刷新后 /tpl/list 显示已发布 v1
+  [seeded] › blueprint-contract-gap-audit.spec.ts:344:7 › 蓝本管理闭环 + 契约缺口审计（F175→F193/F174→F177(边界)→F179→F23→F29，见文件头注） › F23（issue #1667 补实现）：套用蓝本真实新建项目——POST /blueprints/:id/apply 201，刷新 /projects 后仍在（真实落库）
+  [seeded] › blueprint-contract-gap-audit.spec.ts:406:7 › 蓝本管理闭环 + 契约缺口审计（F175→F193/F174→F177(边界)→F179→F23→F29，见文件头注） › F29（issue #1667 补实现）：提回蓝本——GET 偏离 + POST 提交 201，GET /pending-changes 刷新后仍在（真实落库）
+  [seeded] › blueprint-designer-16-panels.spec.ts:54:7 › 端到端自检：蓝本设计器 14 项全部结构化，真读真写真落库 › 建一个蓝本，拿到它的 id
+  [seeded] › blueprint-designer-16-panels.spec.ts:78:7 › 端到端自检：蓝本设计器 14 项全部结构化，真读真写真落库 › ① 逐个点开 13 项 + 基本配置：每一项都是结构化面板，无一是通用自由文本框
+  [seeded] › blueprint-designer-16-panels.spec.ts:119:7 › 端到端自检：蓝本设计器 14 项全部结构化，真读真写真落库 › ② 挑三项做真实编辑并刷新：值回到原来那一格（真落库），完成度随服务端响应联动
+  [seeded] › blueprint-designer-16-panels.spec.ts:214:7 › 端到端自检：蓝本设计器 14 项全部结构化，真读真写真落库 › ③ 完成度是服务端派生：已填 3 项，重新进页面时徽标仍是服务端给的数（不是前端记忆）
+  [seeded] › canvas-template-create-smoke.spec.ts:143:5 › admin creates a canvas template in the browser; PostgreSQL keeps it across reloads, and publishing makes it usable
+  [seeded] › canvas-template-create-smoke.spec.ts:245:5 › counterproof: with the create request stubbed out in the browser, the row does not survive a reload
+  [seeded] › canvas-template-create-smoke.spec.ts:327:5 › admin mints a new draft version from a published template; the v2 draft survives a reload and draft rows expose no mint entry
+  [seeded] › canvas-template-library-design.spec.ts:92:5 › Design.pdf §3：模板库**默认**就是卡片网格，不需要先切视图
+  [seeded] › canvas-template-library-design.spec.ts:117:5 › 模板库对照 Design.pdf §3：卡片网格 + A1 缩略图 + 真实标签筛选 + 改名换标签
+  [seeded] › canvas-template-library-design.spec.ts:202:5 › Design.pdf §7 第 3 条：进编辑器加分区再返回，卡片上的字段数/区块数同步更新
+  [seeded] › canvas-template-library-design.spec.ts:244:5 › Design.pdf §4：三栏拖拽编辑器 —— 拖到画布、显示设置 mm 实尺、从画布移除保留字段
+  [seeded] › canvas-template-library-design.spec.ts:319:5 › #2535：列数选 1 列、最多条数减到 1、换贴纸色 → 保存不再 400，刷新后仍是这些值
+  [seeded] › canvas-template-library-design.spec.ts:365:5 › Design.pdf §7 第 6/7 条：纸面与内容区比值精确，且贴纸内文字不被裁切
+  [seeded] › canvas-template-library-design.spec.ts:423:5 › Design.pdf 补充 · 试运行：填一份数据，画布上渲染出真实内容
+  [seeded] › canvas-template-simulate-smoke.spec.ts:45:5 › admin types a prompt into chat 模拟, gets a real model round trip back, and it renders on the canvas grid
+  [seeded] › canvas-template-simulate-smoke.spec.ts:189:5 › counterproof: the rendered result reflects the network response body, not the typed prompt verbatim
+  [seeded] › canvas-template-simulate-smoke.spec.ts:253:5 › R2：结果画布真的可以编辑——点「＋便签」工具落一张便签，画布状态真的变了
+  [seeded] › canvas-template-simulate-smoke.spec.ts:332:5 › R2：模型调不通时，浏览器里看到的是诚实的错误提示，不是卡死或假成功
+  [seeded] › canvas-tpl-sticky-not-clipped.spec.ts:98:7 › A1 纸：贴纸不被贴纸网格外层裁掉一部分（约束宽度 + 全屏两档）
+  [seeded] › canvas-tpl-sticky-not-clipped.spec.ts:98:7 › A3 纸：贴纸不被贴纸网格外层裁掉一部分（约束宽度 + 全屏两档）
+  [seeded] › canvas-tpl-sticky-not-clipped.spec.ts:98:7 › A4 纸：贴纸不被贴纸网格外层裁掉一部分（约束宽度 + 全屏两档）
+  [seeded] › capability-mutate-smoke.spec.ts:35:5 › admin creates and disables an Agent through the browser, and PostgreSQL keeps it across reloads
+  [seeded] › capability-mutate-smoke.spec.ts:117:5 › a non-admin session is refused by the SERVER, not by a hidden button
+  [seeded] › chat-public-share.spec.ts:15:7 › anonymous snapshot: image, code and no page overflow at 375px
+  [seeded] › chat-public-share.spec.ts:15:7 › anonymous snapshot: image, code and no page overflow at 1440px
+  [seeded] › chat-public-share.spec.ts:34:5 › revoked or nonexistent anonymous link gives an actionable error
+  [seeded] › chat-public-share.spec.ts:41:5 › real owner publishes, anonymous friends read on phone/desktop, then owner revokes
+  [seeded] › chat-vision-honest-degrade.spec.ts:66:5 › P2/#1561：上传图片发消息，视觉能力缺席时模型收到诚实告知而非被静默丢图
+  [seeded] › core-journey-01-registration.spec.ts:62:7 › 旅程①邀请注册：t 激活后直接进入工作台，刷新仍保留正确身份
+  [seeded] › core-journey-01-registration.spec.ts:62:7 › 旅程①邀请注册：lt 激活后直接进入工作台，刷新仍保留正确身份
+  [seeded] › core-journey-01-registration.spec.ts:125:5 › 旅程①邀请注册：真实跨标签页锁保留先提交的密码登录会话
+  [seeded] › core-journey-01-registration.spec.ts:226:5 › 旅程①：开放注册出的新用户，验证邮箱、登录后能真的用上项目与个人 chat（不是停在一个空 URL）
+  [seeded] › core-journey-01-registration.spec.ts:303:5 › 旅程①附：刚注册的全新组织，个人 chat 第一条消息真的收到 agent 回复（#2318 已修复）
+  [seeded] › core-journey-02-org-management.spec.ts:34:5 › 旅程②：组织管理员邀请一位新成员 → 受邀人用一次性链接激活账号 → 出现在成员列表里
+  [seeded] › core-journey-05-voice-skill-multichannel-context.spec.ts:43:5 › 旅程⑤：转写内录音落库并挂入项目 → 项目线程里挂 skill 的 agent 生成回复 → 转录与标记不跨渠道漏进个人 chat
+  [seeded] › design-workbench-smoke.spec.ts:88:7 › 设计工作台端到端：新建/深化 → 详情 → 推送 → 收件箱 › ① 工作台直接新建 → 详情渲染 → 推送 → 收件箱出现设计方案卡片
+  [seeded] › design-workbench-smoke.spec.ts:136:7 › 设计工作台端到端：新建/深化 → 详情 → 推送 → 收件箱 › ② 从反馈「深化」→ 详情 → 推送 → 收件箱出现设计方案 + 原反馈标「已生成」
+  [seeded] › digital-interview-density-live.spec.ts:7:5 › six populated interviews and a long Markdown report survive a real API/DB browser reload
+  [seeded] › digital-interview-density-live.spec.ts:74:5 › interview workflow actions share footer placement and remain usable at 375 768 and 1280
+  [seeded] › digital-interview-intake-failure-live.spec.ts:6:5 › failed upload and denied microphone preserve Markdown through a saved interview
+  [seeded] › digital-interview-report-export-live.spec.ts:7:5 › Skill file controls use the current saved canonical source and reject an outdated request
+  [seeded] › digital-interview-report-export-live.spec.ts:73:5 › browser downloads use the canonical Chinese title for PDF and Word
+  [seeded] › digital-interview-research-quality.spec.ts:56:5 › expert avatar changes persist, reset and fit desktop/tablet/mobile
+  [seeded] › digital-interview-research-quality.spec.ts:111:5 › a maintained persona survives Markdown save, reload and explicit confirmation
+  [seeded] › digital-interview-research-quality.spec.ts:170:5 › new setup opens the canonical intake route content and remains responsive
+  [seeded] › digital-interview-research-quality.spec.ts:198:5 › the six-stage workbench restores a direct stage route and updates it from the timeline
+  [seeded] › digital-interview-research-quality.spec.ts:243:5 › virtual-expert model proposal stays unsaved until explicit save
+  [seeded] › digital-interview-research-quality.spec.ts:307:5 › a failed report keeps its partial content and exposes retry in a real browser
+  [seeded] › digital-interview-research-quality.spec.ts:333:5 › a completed report separates the decision brief and replaces an empty evidence table with guidance
+  [seeded] › digital-interview-research-quality.spec.ts:353:5 › report displays saved Markdown without duplicate statistics or review panels
+  [seeded] › digital-interview-research-quality.spec.ts:382:5 › prototype journey keeps the list shell separate from all six full-screen stages
+  [seeded] › digital-interview-research-quality.spec.ts:621:5 › saved execution metadata and Markdown insights survive the direct route and reload
+  [seeded] › digital-interview-research-quality.spec.ts:692:5 › report stream exposes partial output before completion and survives stage navigation
+  [seeded] › digital-interview-research-quality.spec.ts:763:5 › expert confirmation shows question generation then automatically starts saved questions once
+  [seeded] › digital-interview-research-quality.spec.ts:836:5 › report repair retains saved candidate through failure and refresh
+  [seeded] › feedback-drafts-smoke.spec.ts:51:7 › 反馈草稿端到端：存草稿到提交进收件箱 › ① 非管理员：存草稿 → 草稿列表可见 → 继续完善（首次自动追加澄清问题）→ 追加对话 → 提交 → 从列表消失、导航到收件箱后自动打开自己那条、正文可见
+  [seeded] › feedback-drafts-smoke.spec.ts:147:7 › 反馈草稿端到端：存草稿到提交进收件箱 › ② 管理员：这条反馈确实落在收件箱、状态待处理（证明数据链路是通的）
+  [seeded] › feedback-loop-smoke.spec.ts:176:7 › 反馈端到端：不同种类从前端提交，后台真的看得见 › ① 产品级 · 缺陷 —— 引导师，图标栏入口
+  [seeded] › feedback-loop-smoke.spec.ts:187:7 › 反馈端到端：不同种类从前端提交，后台真的看得见 › ② 产品级 · 需求 —— 非管理员成员，图标栏入口
+  [seeded] › feedback-loop-smoke.spec.ts:197:7 › 反馈端到端：不同种类从前端提交，后台真的看得见 › 管理员产品原入口仍切到我提过的
+  [seeded] › feedback-loop-smoke.spec.ts:204:7 › 反馈端到端：不同种类从前端提交，后台真的看得见 › ③④ Skill·缺陷 与 Agent·需求 —— 引导师，会话内两处入口
+  [seeded] › feedback-loop-smoke.spec.ts:204:7 › 反馈端到端：不同种类从前端提交，后台真的看得见 › ③④ Skill·缺陷 与 Agent·需求 —— 管理员，会话内两处入口
+  [seeded] › feedback-loop-smoke.spec.ts:272:7 › 反馈端到端：不同种类从前端提交，后台真的看得见 › D3 反证：非管理员看得到标题看不到别人的正文
+  [seeded] › feedback-loop-smoke.spec.ts:290:7 › 反馈端到端：不同种类从前端提交，后台真的看得见 › 管理员：正文可见、分诊转已进入迭代、带理由拒绝
+  [seeded] › fullstack-smoke.spec.ts:4:5 › anonymous root fails closed in production HTML, RSC, and no-JS navigation
+  [seeded] › fullstack-smoke.spec.ts:37:5 › real login reaches the PG-seeded sentinel through project and Files product entries
+  [seeded] › guided-research-runtime.spec.ts:4:5 › research persists the confirmed-question pipeline through the real UI, API and PostgreSQL
+  [seeded] › guided-research-trust-console.spec.ts:3:5 › trust console validates boundaries, steering and publication readiness
+  [seeded] › i18n-about-me.spec.ts:8:5 › About me retains a raw editing draft across languages and persists one real revision with goal links
+  [seeded] › i18n-brain-navigation.spec.ts:7:5 › brain shell and session/shared views retain real empty API state across locale and reload
+  [seeded] › i18n-live-tasks.spec.ts:11:5 › live tasks retain raw drafts and persisted fields across languages and real status transitions
+  [seeded] › i18n-project-list.spec.ts:30:5 › project list locale preserves real creation, tags and archive/restore state across reload
+  [seeded] › i18n-project-list.spec.ts:98:5 › a consultant creation attempt is refused by the real API with localized recoverable feedback
+  [seeded] › i18n-project-workbench.spec.ts:22:5 › general project keeps raw title and tab links through locale and real navigation
+  [seeded] › i18n-project-workbench.spec.ts:34:5 › workshop retains canonical research navigation and facilitator controls
+  [seeded] › i18n-project-workbench.spec.ts:40:5 › nonmember keeps actual 403 and translates invitation guidance without rereading
+  [seeded] › i18n-workflow-runs.spec.ts:8:5 › My runs preserves persisted raw goals and own visibility while locale changes do not reread
+  [seeded] › inbox-smoke.spec.ts:45:7 › 统一收件箱端到端：直接提交、看板拖拽迁移、不做需理由 › ① 直接提交反馈 → 跳转收件箱并自动打开该条详情 drawer
+  [seeded] › inbox-smoke.spec.ts:82:7 › 统一收件箱端到端：直接提交、看板拖拽迁移、不做需理由 › ①b 已真实保存但收件箱读取失败，保留ID和回看路径且不重发
+  [seeded] › inbox-smoke.spec.ts:114:7 › 统一收件箱端到端：直接提交、看板拖拽迁移、不做需理由 › ② 看板拖拽换状态触发真实 API 迁移，刷新后仍是新状态
+  [seeded] › inbox-smoke.spec.ts:170:7 › 统一收件箱端到端：直接提交、看板拖拽迁移、不做需理由 › ③ 转「不做」需要理由：不填不让确认，填了才能确认，理由随状态一起可见
+  [seeded] › interview-expert-library-live.spec.ts:19:5 › built-in experts and private custom experts persist and can be selected into a saved interview
+  [seeded] › interview-expert-library-live.spec.ts:85:5 › four rounds of interview interaction with isolated saved data
+  [seeded] › interview-expert-library-live.spec.ts:134:5 › contextual analysis advice survives persistence and responsive rendering
+  [seeded] › interview-subjects-smoke.spec.ts:41:5 › facilitator fills a group's interview-subject table in the browser; PostgreSQL keeps it across a reload
+  [seeded] › interview-subjects-smoke.spec.ts:119:5 › F950 regression: facilitator saves the project topic in the browser (path param must not be in the PUT body)
+  [seeded] › mail-loopback-smoke.spec.ts:43:5 › 验证邮件进入回环收件箱：链接源正确、令牌与库里逐字一致、点开即验证
+  [seeded] › mail-loopback-smoke.spec.ts:79:5 › 反证：替身对该收件人 reject ⇒ 产品确实尝试发送，但收件箱里没有这封邮件
+  [seeded] › project-create-smoke.spec.ts:51:5 › org lead creates a project through the wizard, and PostgreSQL keeps it across a reload
+  [seeded] › project-create-smoke.spec.ts:126:5 › a non-lead walking the same wizard is refused by the server, and the refusal is shown
+  [seeded] › project-create-smoke.spec.ts:146:5 › counterproof: with the create request stubbed out in the browser, the project does not survive a reload
+  [seeded] › project-hub-b3-walkthrough.spec.ts:87:5 › 第三批真栈走查：问卷答卷入证据 → 来源列表 / 大脑空态 / AI 权限关来源 / 观察者脱敏
+  [seeded] › project-hub-b3-walkthrough.spec.ts:190:5 › 通用项目：负责人加协作者 → 协作者打开工作台（无工作坊专属 tab）→ 负责人移出后协作者被拒
+  [seeded] › rewrite-coverage-live-smoke.spec.ts:25:9 › #2490 rewrite 运行时可达：Next 同源代理把路由交给 API，不是自己的 404 HTML › /tasks 到达 API（JSON + 鉴权状态码，不是 HTML）
+  [seeded] › rewrite-coverage-live-smoke.spec.ts:25:9 › #2490 rewrite 运行时可达：Next 同源代理把路由交给 API，不是自己的 404 HTML › /tasks/today 到达 API（JSON + 鉴权状态码，不是 HTML）
+  [seeded] › rewrite-coverage-live-smoke.spec.ts:25:9 › #2490 rewrite 运行时可达：Next 同源代理把路由交给 API，不是自己的 404 HTML › /system/error-logs 到达 API（JSON + 鉴权状态码，不是 HTML）
+  [seeded] › rewrite-coverage-live-smoke.spec.ts:39:9 › #2490 rewrite 运行时可达：Next 同源代理把路由交给 API，不是自己的 404 HTML › #3282 GET /schedule-notifications reaches authenticated API JSON
+  [seeded] › rewrite-coverage-live-smoke.spec.ts:39:9 › #2490 rewrite 运行时可达：Next 同源代理把路由交给 API，不是自己的 404 HTML › #3282 POST /schedule-notifications/read reaches authenticated API JSON
+  [seeded] › rewrite-coverage-live-smoke.spec.ts:50:7 › #2490 rewrite 运行时可达：Next 同源代理把路由交给 API，不是自己的 404 HTML › 反空转：没接 rewrite 的路径确实被 Next 接成 404 HTML
+  [seeded] › save-as-org-template-smoke.spec.ts:82:7 › #1666：另存为组织模板——两处按钮真实接线 + 持久化反证 › tab-prep.tsx「另存为组织模板」：真实 POST，成功文案含服务端真实 id（不是编好的固定文案）
+  [seeded] › save-as-org-template-smoke.spec.ts:126:7 › #1666：另存为组织模板——两处按钮真实接线 + 持久化反证 › workflow-screen.tsx「另存为组织模板」：真实 POST，toast 文案含服务端真实 id
+  [seeded] › save-as-org-template-smoke.spec.ts:163:7 › #1666：另存为组织模板——两处按钮真实接线 + 持久化反证 › 反证：服务端真实失败时，界面如实显示失败，不再是「点了就说成功」的本地 toast
+  [seeded] › save-as-org-template-smoke.spec.ts:190:7 › #1666：另存为组织模板——两处按钮真实接线 + 持久化反证 › 持久化反证：workflow-screen 存下来的组织模板真的在 PostgreSQL 里，全新项目 + 全新会话读得回来
+  [seeded] › skill-create-smoke.spec.ts:49:5 › F192 · /skill 库屏没有「完全新建」入口，弹窗默认落在真实可达的导入路径上
+  [seeded] › skill-create-smoke.spec.ts:86:5 › F192 · POST /skills 对真实已认证会话恒 410（不是本地 stub，走同源代理到真实 SkillController）
+  [seeded] › skill-review-gate.spec.ts:139:7 › #552 双重门禁：用户自己造出一个「已启用」skill 并在会话里用上它 › 提交人建出草稿，过安全扫描，提交进人工门禁（刷新后仍是「待审核」）
+  [seeded] › skill-review-gate.spec.ts:190:7 › #552 双重门禁：用户自己造出一个「已启用」skill 并在会话里用上它 › 反证 A-1：同一个身份走完评审 ⇒ SELF_REVIEW_FORBIDDEN，且库内状态未变
+  [seeded] › skill-review-gate.spec.ts:211:7 › #552 双重门禁：用户自己造出一个「已启用」skill 并在会话里用上它 › 反证 A-2：安全评审人按下批准 ⇒ REVIEWER_FUNCTION_MISMATCH，且库内状态未变
+  [seeded] › skill-review-gate.spec.ts:241:7 › #552 双重门禁：用户自己造出一个「已启用」skill 并在会话里用上它 › 第二位方法论审核人批准 ⇒ 已启用，且刷新后仍是已启用
+  [seeded] › skill-review-gate.spec.ts:272:7 › #552 双重门禁：用户自己造出一个「已启用」skill 并在会话里用上它 › 提交人在会话内挂上自己刚造出来的那个 skill；草稿状态的那个被服务端拒绝（反证 C）
+  [seeded] › study-workflow-actions.spec.ts:24:5 › research and interview use consistent command controls without model execution
+  [seeded] › survey-complete-flow.spec.ts:9:5 › 题目原位编辑后真实保存并在刷新后恢复显示
+  [seeded] › survey-complete-flow.spec.ts:65:5 › AI 提案先校对再应用并保存为 Markdown
+  [seeded] › survey-complete-flow.spec.ts:163:5 › 问卷 inline 语音权限拒绝与设备缺失保留原文可重试
+  [seeded] › survey-complete-flow.spec.ts:180:5 › 紧凑问卷输入与发布设置在桌面平板手机保持可操作
+  [seeded] › survey-complete-flow.spec.ts:229:5 › R1 问卷体验：空列表单一主入口与创建键盘校验
+  [seeded] › survey-complete-flow.spec.ts:291:5 › R1 问卷体验：读取失败后直接重选同一文件保留原文
+  [seeded] › survey-complete-flow.spec.ts:312:5 › R2 问卷体验：自动保存保留标题焦点并可刷新恢复
+  [seeded] › survey-complete-flow.spec.ts:332:5 › R3 问卷体验：生成失败重试与取消保留原文且未应用提案
+  [seeded] › survey-complete-flow.spec.ts:356:5 › R4 问卷体验：长需求在手机平板桌面保持单层输入与键盘工具入口
+  [seeded] › survey-complete-flow.spec.ts:410:5 › 用户可从模板完整走通创建、发布、答题、查看答卷和正式报告
+  [seeded] › survey-complete-flow.spec.ts:565:5 › 空白创建直接进入设计而不经过 AI 导入
+  [seeded] › survey-complete-flow.spec.ts:580:5 › 新建弹窗可从真实模板创建并在刷新后保留名称
+  [seeded] › survey-complete-flow.spec.ts:594:5 › 5840 三轮列表状态验收：真实创建、筛选、失败恢复与窄屏
+  [seeded] › survey-trusted-publishing.spec.ts:67:5 › 发布门控展示全部阻断，修复后显式进入回收且匿名方式被冻结
+  [seeded] › survey-trusted-publishing.spec.ts:112:5 › 管理员可在真实答卷页排除测试答卷且保留审计理由
+  [seeded] › whiteboard-live.spec.ts:47:5 › realtime presence field convergence
+  [seeded] › whiteboard-live.spec.ts:182:5 › comments anchor ACL
+  [seeded] › whiteboard-live.spec.ts:219:5 › undo offline reconnect recovery
+  [seeded] › whiteboard-live.spec.ts:247:5 › multi-user undo redo preserves the other editor and survives reload
+  [official-digital-human] › digital-human-journey.spec.ts:133:5 › official roles: administrator enables dependencies; member checks seven role skill scopes and runs independent persisted chats
+  [realtime-voice] › realtime-voice-journey.spec.ts:48:5 › real voice audio, interrupt, persisted hangup and remote disconnect cleanup/retry
+  [official-role-workflow] › w029-browser-journey.spec.ts:15:5 › W029 direct role launch: real grants, four real approval confirmations, persisted PRD and reload
+  [board-image-ingress] › board-image-ingress-acceptance.spec.ts:14:5 › HTTPS image entry rejects real CORS and malformed ranges then retries durable bytes
+  [board-image-ingress] › board-image-ingress-acceptance.spec.ts:67:70 › real completed image upload cannot commit after close
+  [board-image-ingress] › board-image-ingress-acceptance.spec.ts:67:70 › real completed image upload cannot commit after navigate
+  [board-image-ingress] › board-image-ingress-acceptance.spec.ts:67:70 › real completed image upload cannot commit after revoke
+  [seeded-github-import] › entity-localization.spec.ts:435:5 › organization home configuration preserves drafts, real previews and recommendation snapshots across locales
+  [research-ux-r4] › research-ux-rounds.spec.ts:187:5 › R4 saved long research content and file controls remain readable and keyboard usable
+  [board-unified-desktop] › board-connector-fast-snap.spec.ts:37:7 › #5666 create fast endpoint snap survives release
+  [board-unified-desktop] › board-connector-fast-snap.spec.ts:37:7 › #5666 create slow endpoint snap survives release
+  [board-unified-desktop] › board-connector-fast-snap.spec.ts:37:7 › #5666 create cancel endpoint snap survives release
+  [board-unified-desktop] › board-connector-fast-snap.spec.ts:37:7 › #5666 create lock endpoint snap survives release
+  [board-unified-desktop] › board-connector-fast-snap.spec.ts:37:7 › #5666 create release-lock endpoint snap survives release
+  [board-unified-desktop] › board-connector-fast-snap.spec.ts:37:7 › #5666 create release-delete endpoint snap survives release
+  [board-unified-desktop] › board-connector-fast-snap.spec.ts:37:7 › #5666 rebind fast endpoint snap survives release
+  [board-unified-desktop] › board-connector-fast-snap.spec.ts:37:7 › #5666 rebind slow endpoint snap survives release
+  [board-unified-desktop] › board-connector-fast-snap.spec.ts:37:7 › #5666 rebind cancel endpoint snap survives release
+  [board-unified-desktop] › board-connector-fast-snap.spec.ts:37:7 › #5666 rebind lock endpoint snap survives release
+  [board-unified-desktop] › board-connector-fast-snap.spec.ts:37:7 › #5666 rebind release-lock endpoint snap survives release
+  [board-unified-desktop] › board-connector-fast-snap.spec.ts:37:7 › #5666 rebind release-delete endpoint snap survives release
+  [board-unified-desktop] › board-download.spec.ts:8:5 › Board operation menu downloads PNG and PDF without selection chrome
+  [board-unified-desktop] › board-download.spec.ts:51:46 › nonempty Board export preserves full pixels after pan and zoom
+  [board-unified-desktop] › board-download.spec.ts:51:46 › nonempty Board export rejects unavailable image bytes
+  [board-unified-desktop] › board-edge-pan.spec.ts:9:99 › selected widget drag pans left edge and commits once
+  [board-unified-desktop] › board-edge-pan.spec.ts:9:99 › selected widget drag pans right edge and commits once
+  [board-unified-desktop] › board-edge-pan.spec.ts:9:99 › selected widget drag pans top edge and commits once
+  [board-unified-desktop] › board-edge-pan.spec.ts:9:99 › selected widget drag pans bottom edge and commits once
+  [board-unified-desktop] › board-edge-pan.spec.ts:9:99 › selected multiple widgets drag pans left edge and commits once
+  [board-unified-desktop] › board-edge-pan.spec.ts:9:99 › selected multiple widgets drag pans right edge and commits once
+  [board-unified-desktop] › board-edge-pan.spec.ts:9:99 › selected multiple widgets drag pans top edge and commits once
+  [board-unified-desktop] › board-edge-pan.spec.ts:9:99 › selected multiple widgets drag pans bottom edge and commits once
+  [board-unified-desktop] › board-free-connector-snap.spec.ts:9:62 › #5677 free initial enter binds sticky and follows its move after reload
+  [board-unified-desktop] › board-free-connector-snap.spec.ts:9:62 › #5677 free initial doubleclick binds sticky and follows its move after reload
+  [board-unified-desktop] › board-library-thumbnail.spec.ts:29:5 › Board library generates canonical thumbnails, updates after ACK, reloads and rejects unauthorized cached pixels
+  [board-unified-desktop] › board-menu-layout.spec.ts:46:6 › #5668/#5667 actual Board menus 1440px
+  [board-unified-desktop] › board-menu-layout.spec.ts:46:6 › #5668/#5667 actual Board menus 390px
+  [board-unified-desktop] › board-multi-image-upload.spec.ts:8:5 › multiple image files preserve successful tiles and only retry a failed upload with exact bytes after refresh
+  [board-unified-desktop] › board-native-mindmap.spec.ts:8:5 › native mindmap root child sibling collapse reparent undo redo source and peer refresh
+  [board-unified-desktop] › board-viewport-persistence.spec.ts:39:5 › #5675 real pan/zoom persist immediately across reload, boards and users
+  [board-unified-desktop] › board-widget-keyboard.spec.ts:7:5 › real canvas sticky and rectangle Tab continue/select; Delete and each undo persist atomically
+  [board-unified-mobile] › board-widget-keyboard.spec.ts:7:5 › real canvas sticky and rectangle Tab continue/select; Delete and each undo persist atomically
+  [board-collaboration-regressions] › board-acl-race.spec.ts:8:5 › comment and checkpoint operations recheck permissions after a real PostgreSQL lock wait
+  [board-collaboration-regressions] › board-shared-outbox.spec.ts:30:1 › same-browser tabs drain a shared durable outbox without duplicate commits
+Total: 183 tests in 62 files
+[timing] pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded-github-import e2e/entity-localization.spec.ts --workers=1 --list -g organization home configuration preserves
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：2s
+  清理：0s
+  总计：2s

@@ -16,7 +16,9 @@
 import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
+import { I18nProvider } from "@/lib/i18n/provider";
+import { LanguageSwitcher } from "@/components/shell/language-switcher";
+import { ApiError, SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
 import { resolveTabForKind, tabDefsForKind, TAB_DEFS_BY_KIND } from "@/lib/project-workbench";
 
 const getProjectOverview = vi.fn();
@@ -408,4 +410,34 @@ describe("#4615 通用项目的工作台", () => {
     await waitFor(() => expect(screen.getByTestId("project-ai-settings-save")).toBeInTheDocument());
     expect(screen.getByTestId("project-ai-source-whiteboard")).toBeInTheDocument();
   });
+  it("i18n: keeps general navigation URLs and raw project title without refetching", async () => {
+    getProjectOverview.mockResolvedValue({...overviewOf("general"),name:"原文项目 {name}"});
+    render(<I18nProvider initialLocale="en"><LanguageSwitcher/><ProjectWorkbench uiState="default" tab="overview" view="facilitator" sub={null} qs={{}} projectId="p-rp"/></I18nProvider>);
+    await waitFor(()=>expect(screen.getByTestId("project-title")).toHaveTextContent("原文项目 {name}"));
+    expect(screen.getByTestId("project-tab-content")).toHaveTextContent("Content");expect(screen.getByTestId("project-tab-results")).toHaveTextContent("Results");expect(screen.getByTestId("project-header-meta")).toHaveTextContent("Project");
+    const tab=screen.getByTestId("project-tab-content"),href=tab.getAttribute("href"),reads=getProjectOverview.mock.calls.length;
+    fireEvent.change(screen.getByTestId("language-switcher"),{target:{value:"zh-CN"}});expect(tab).toHaveTextContent("内容");fireEvent.change(screen.getByTestId("language-switcher"),{target:{value:"en"}});
+    expect(screen.getByTestId("project-tab-content")).toBe(tab);expect(tab).toHaveAttribute("href",href);expect(getProjectOverview).toHaveBeenCalledTimes(reads);expect(screen.queryByTestId("project-role-scope-note")).toBeNull();
+  });
+  it("i18n: retains workshop observer scope while translating labels", async () => {
+    getProjectOverview.mockResolvedValue(overviewOf("workshop"));
+    render(<I18nProvider initialLocale="en"><LanguageSwitcher/><ProjectWorkbench uiState="loading" tab="overview" view="observer" sub={null} qs={{}} projectId="p-rp"/></I18nProvider>);
+    await screen.findByTestId("project-role-scope-note");expect(screen.getByTestId("project-role-badge")).toHaveTextContent("Observer");expect(screen.getByTestId("project-scope-readonly")).toHaveTextContent("Read only");expect(screen.queryByTestId("project-scope-can-write")).toBeNull();expect(screen.queryByTestId("project-scope-stage-control")).toBeNull();
+    const reads=getProjectOverview.mock.calls.length;fireEvent.change(screen.getByTestId("language-switcher"),{target:{value:"zh-CN"}});expect(screen.getByTestId("project-role-badge")).toHaveTextContent("观察者");fireEvent.change(screen.getByTestId("language-switcher"),{target:{value:"en"}});expect(getProjectOverview).toHaveBeenCalledTimes(reads);expect(screen.getByTestId("project-role-observer")).toHaveAttribute("href",expect.stringContaining("as=observer"));
+  });
+  it("i18n: retranslates structured access failure without retrying or rendering project data", async () => {
+    getProjectOverview.mockRejectedValue(new ApiError(403,"NO_PROJECT_ROLE",{}));
+    render(<I18nProvider initialLocale="en"><LanguageSwitcher/><ProjectWorkbench uiState="default" tab="overview" view="facilitator" sub={null} qs={{}} projectId="p-rp"/></I18nProvider>);
+    const denial=await screen.findByTestId("project-access-denied");expect(denial).toHaveTextContent("not in this project");expect(denial).toHaveAttribute("data-reason","NO_PROJECT_ROLE");const reads=getProjectOverview.mock.calls.length;
+    fireEvent.change(screen.getByTestId("language-switcher"),{target:{value:"zh-CN"}});expect(denial).toHaveTextContent("你还不在这个项目里");fireEvent.change(screen.getByTestId("language-switcher"),{target:{value:"en"}});expect(getProjectOverview).toHaveBeenCalledTimes(reads);expect(screen.queryByTestId("project-general-overview")).toBeNull();expect(screen.getByTestId("project-title")).toHaveTextContent("Invitation required");expect(screen.queryByTestId("project-header-meta")).toBeNull();expect(screen.queryByText("德国工商业储能调研")).toBeNull();
+  });
+
+  it("i18n: translates dependency failure and retries only explicitly", async () => {
+    getProjectOverview.mockRejectedValue(new ApiError(503,"UPSTREAM_UNAVAILABLE",{}));
+    render(<I18nProvider initialLocale="en"><LanguageSwitcher/><ProjectWorkbench uiState="default" tab="overview" view="facilitator" sub={null} qs={{}} projectId="p-rp"/></I18nProvider>);
+    const failed=await screen.findByTestId("project-load-failed");expect(failed).toHaveTextContent("Cannot open this project right now");const reads=getProjectOverview.mock.calls.length;
+    fireEvent.change(screen.getByTestId("language-switcher"),{target:{value:"zh-CN"}});expect(failed).toHaveTextContent("项目暂时打不开");fireEvent.change(screen.getByTestId("language-switcher"),{target:{value:"en"}});expect(getProjectOverview).toHaveBeenCalledTimes(reads);
+    getProjectOverview.mockResolvedValue(overviewOf("general"));fireEvent.click(screen.getByTestId("project-load-failed-retry"));await waitFor(()=>expect(screen.getByTestId("project-title")).toHaveTextContent("德国工商业储能调研"));expect(getProjectOverview).toHaveBeenCalledTimes(reads+1);expect(screen.queryByTestId("project-load-failed")).toBeNull();
+  });
+
 });

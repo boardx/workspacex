@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
 import * as React from "react";
 import { useInterviewSource } from "./interview-session-provider";
 import { interviewMarkdown } from "@repo/contracts";
@@ -11,7 +12,8 @@ import { InterviewReportStep } from "./interview-report-step";
 import { getInterviewGenerationSession, subscribeInterviewGeneration, runInterviewGeneration } from "@/lib/interview-generation-session";
 import { InterviewReportGeneration } from "./interview-report-generation";
 import { InterviewStepHeader, InterviewStepActions } from "./interview-step-header";
-import { interviewReportFailureMessage } from "@/lib/interview-report-failure";
+import { interviewReportFailureKey } from "@/lib/interview-report-failure";
+import { interviewExpertDisplayNames } from "./interview-transcript-display";
 
 export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySelectedExpertIds, onVersionChange, onReport, reportPin, onBusyChange, onRunningStepChange }: {
   readonly interviewId: string; readonly step: "runs" | "report";
@@ -22,11 +24,12 @@ export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySe
   readonly onBusyChange?: (busy: boolean) => void;
   readonly onRunningStepChange?: (step: string | null) => void;
 }) {
+ const { t } = useI18n();
   const session = React.useSyncExternalStore(subscribeInterviewGeneration, () => getInterviewGenerationSession(interviewId), () => null);
   const { source, setSource, refresh, cache } = useInterviewSource(interviewId);
   const [pending, setPending] = React.useState(false);
   const generatingReport = session?.step === "report" && session.status === "running" && Boolean(source && session.revisionId === source.revisionId);
-  const [error, setError] = React.useState("");
+  const [error, setError] = React.useState<import("@/lib/i18n/messages").MessageKey | "">("");
   const dispatching = React.useRef(false);
   const mounted = React.useRef(true);
   const latestVersion = React.useRef(0);
@@ -67,7 +70,7 @@ export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySe
     } catch {
       if (mounted.current) {
         try { receive(await loadInterviewMarkdown(interviewId)); } catch { /* Retain saved answers. */ }
-        setError("访谈执行未完成，已保存回答保留。请审阅状态后重试。");
+        setError("itv.results.executionFailed");
       }
     } finally {
       if (action !== "pause") { dispatching.current = false; if (mounted.current) setPending(false); }
@@ -104,10 +107,10 @@ export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySe
           setError(""); initialLoadFailed = false;
         }
       }
-    }).catch(() => { if (!controller.signal.aborted) setError("文档载入失败；已显示的内容保留，请重试。"); });
+    }).catch(() => { if (!controller.signal.aborted) setError("itv.results.loadFailed"); });
     void (cache?.get<InterviewMarkdownEnvelope>(`source/${interviewId}`) ? refresh() : cache ? cache.read(`source/${interviewId}`, () => initializeInterviewMarkdown(interviewId)) : initializeInterviewMarkdown(interviewId, controller.signal)).then((next) => {
       if (!controller.signal.aborted) { receive(next); setVerifiedRevision(next.revisionId); }
-    }).catch(() => { if (!controller.signal.aborted) { initialLoadFailed = true; setError("文档初始化失败；请重试，不会用空编辑器替代旧材料。"); } });
+    }).catch(() => { if (!controller.signal.aborted) { initialLoadFailed = true; setError("itv.results.initializeFailed"); } });
     const interval = step === "runs" ? window.setInterval(reload, 5000) : undefined;
     return () => { controller.abort(); if (interval !== undefined) window.clearInterval(interval); };
   }, [interviewId, step, receive, cache, refresh]);
@@ -126,7 +129,7 @@ export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySe
     // transport can still follow a successful save, so reconcile durable state
     // here rather than relying on the old route's catch handler or a refresh.
     const controller = new AbortController();
-    setError(interviewReportFailureMessage(session.error instanceof ApiError ? session.error.reasonCode : null));
+    setError(interviewReportFailureKey(session.error instanceof ApiError ? session.error.reasonCode : null));
     void loadInterviewMarkdown(interviewId, controller.signal).then(next => {
       if (!controller.signal.aborted && next.revisionId === session.revisionId) receive(next);
     }).catch(() => { /* Preserve the current saved document and actual failure. */ });
@@ -147,10 +150,10 @@ export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySe
   }, [step, reportSessionStatus, reportAttempt, reportRevisionId, reportSessionRevisionId, interviewId, receive]);
   const document = source?.documents.find((item) => item.step === step);
   const state = source?.states.find((item) => item.documentId === document?.documentId);
-  if (step === "report" && source && reportPin && (!document || document.documentId !== reportPin.documentId || document.version !== reportPin.version)) return <p role="alert" className="rounded-lg border border-border p-5">分享链接指向的报告版本已不是当前版本。为避免冒用新结论，此处不显示或导出不同版本；请向报告所有者获取最新链接。</p>;
+  if (step === "report" && source && reportPin && (!document || document.documentId !== reportPin.documentId || document.version !== reportPin.version)) return <p role="alert" className="rounded-lg border border-border p-5">{t("itv.results.pinChanged")}</p>;
   const execution = source?.execution;
   const experts = source?.documents.find((item) => item.step === "experts");
-  const names = new Map(experts ? interviewMarkdown.projectInterviewMarkdownExperts(experts).map((expert) => [expert.expertId, expert.displayName]) : []);
+  const names = experts ? interviewExpertDisplayNames(experts) : new Map<string, string>();
   // Before the first `start` command there is no durable execution row yet. Keep
   // the confirmed expert anchors visible in that state instead of rendering an
   // empty progress column; the start action will create the tasks from these IDs.
@@ -184,22 +187,22 @@ export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySe
     catch (cause) {
       if (mounted.current) {
         try { receive(await loadInterviewMarkdown(interviewId)); } catch { /* Retain saved source. */ }
-        setError(interviewReportFailureMessage(cause instanceof ApiError ? cause.reasonCode : null));
+        setError(interviewReportFailureKey(cause instanceof ApiError ? cause.reasonCode : null));
       }
     } finally { if (mounted.current) setPending(false); }
   }
-  if (!source && !error) return <><InterviewStepHeader title={step === "runs" ? "访谈内容" : "研究报告"} /><p role="status" className="animate-pulse rounded-xl border border-border p-8 text-sm text-muted-foreground">{step === "runs" ? "正在载入访谈记录…" : "正在载入报告与生成进度…"}</p></>;
+  if (!source && !error) return <><InterviewStepHeader title={step === "runs" ? t("itv.runs.title") : t("itv.report.title")} /><p role="status" className="animate-pulse rounded-xl border border-border p-8 text-sm text-muted-foreground">{step === "runs" ? t("itv.results.loadingRuns") : t("itv.results.loadingReport")}</p></>;
   if (step === "report" && generatingReport && session && !document) return <InterviewReportGeneration session={session} />;
-  const reportRetry = step === "report" && !generatingReport && (state?.status === "failed" || error) ? <ActionButton variant="primary" loading={pending} disabled={pending || !sourceRuns.length || sourceRuns.some((run) => run.status !== "completed")} onClick={() => void generateReport()}>继续生成报告</ActionButton> : null;
+  const reportRetry = step === "report" && !generatingReport && (!document || state?.status === "failed" || error) ? <ActionButton variant="primary" loading={pending} disabled={pending || !sourceRuns.length || sourceRuns.some((run) => run.status !== "completed")} onClick={() => void generateReport()}>{t("itv.results.continueReport")}</ActionButton> : null;
   return <div>
     {step === "report" && generatingReport && session && document && <InterviewReportGeneration session={session} />}
-    {error && <div role="alert" className="mb-4 rounded-lg border border-destructive/20 p-4 text-sm text-destructive"><p>{error}</p><ActionButton variant="outline" className="mt-3" disabled={pending} onClick={() => void loadInterviewMarkdown(interviewId).then((next) => { receive(next); setVerifiedRevision(next.revisionId); setError(""); }).catch(() => setError("载入失败，请稍后重试。"))}>重新载入状态</ActionButton></div>}
-    {state?.status === "failed" && !error && <p role="alert" className="mb-4 text-sm text-destructive">{interviewReportFailureMessage(state.failure?.code)}已保存内容不代表完整报告。</p>}
+    {error && <div role="alert" className="mb-4 rounded-lg border border-destructive/20 p-4 text-sm text-destructive"><p>{t(error)}</p><ActionButton variant="outline" className="mt-3" disabled={pending} onClick={() => void loadInterviewMarkdown(interviewId).then((next) => { receive(next); setVerifiedRevision(next.revisionId); setError(""); }).catch(() => setError("itv.results.reloadFailed"))}>{t("itv.results.reload")}</ActionButton></div>}
+    {state?.status === "failed" && !error && <p role="alert" className="mb-4 text-sm text-destructive">{t(interviewReportFailureKey(state.failure?.code))}{t("itv.results.incompleteReport")}</p>}
     {step === "runs" ? <InterviewRunsStep runs={sourceRuns} taskProgress={Boolean(execution)} document={document} pending={pending} generatingReport={generatingReport} onGenerateReport={() => void generateReport()} actions={<>
-      {!execution && <ActionButton variant="primary" loading={pending} disabled={pending || !source} onClick={() => void execute("start")}>开始模拟访谈</ActionButton>}
-      {execution?.status === "running" && <ActionButton variant="outline" onClick={() => void execute("pause")}>暂停后续访谈</ActionButton>}
-      {execution?.status === "paused" && <ActionButton variant="primary" loading={pending} disabled={pending} onClick={() => void execute("resume")}>继续访谈</ActionButton>}
-      {execution?.status === "failed" && <ActionButton variant="primary" loading={pending} disabled={pending} onClick={() => void execute("retry")}>重试未完成专家</ActionButton>}
-    </>} /> : document ? <InterviewReportStep interviewId={interviewId} revisionId={source?.revisionId} actions={reportRetry} document={document} sourceDocuments={source?.documents ?? []} expertsDocument={experts} execution={execution} legacySelectedExpertIds={legacySelectedExpertIds} legacyRuns={runs} reportStatus={state?.status} shareUrl={`/itv/${encodeURIComponent(interviewId)}/report?documentId=${encodeURIComponent(document.documentId)}&version=${document.version}`} /> : <><InterviewStepHeader title="研究报告"/><p className="text-sm text-muted-foreground">暂无已保存的报告 Markdown，请先完成访谈。</p><InterviewStepActions>{reportRetry}</InterviewStepActions></>}
+      {!execution && <ActionButton variant="primary" loading={pending} disabled={pending || !source} onClick={() => void execute("start")}>{t("itv.results.start")}</ActionButton>}
+      {execution?.status === "running" && <ActionButton variant="outline" onClick={() => void execute("pause")}>{t("itv.results.pause")}</ActionButton>}
+      {execution?.status === "paused" && <ActionButton variant="primary" loading={pending} disabled={pending} onClick={() => void execute("resume")}>{t("itv.continue")}</ActionButton>}
+      {execution?.status === "failed" && <ActionButton variant="primary" loading={pending} disabled={pending} onClick={() => void execute("retry")}>{t("itv.results.retryExperts")}</ActionButton>}
+    </>} /> : document ? <InterviewReportStep interviewId={interviewId} revisionId={source?.revisionId} actions={reportRetry} document={document} sourceDocuments={source?.documents ?? []} expertsDocument={experts} execution={execution} legacySelectedExpertIds={legacySelectedExpertIds} legacyRuns={runs} reportStatus={state?.status} shareUrl={`/itv/${encodeURIComponent(interviewId)}/report?documentId=${encodeURIComponent(document.documentId)}&version=${document.version}`} /> : <><InterviewStepHeader title={t("itv.report.title")}/><p className="text-sm text-muted-foreground">{t("itv.results.noReport")}</p><InterviewStepActions>{reportRetry}</InterviewStepActions></>}
   </div>;
 }

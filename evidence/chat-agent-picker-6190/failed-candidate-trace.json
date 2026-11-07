@@ -1,0 +1,61 @@
+{
+  "candidate": "61f77d8c936d3c2fdb2b6f36de38392db367d2e2",
+  "run": 41617230208,
+  "job": 125854313320,
+  "attempt": 1,
+  "artifact": 13221964046,
+  "traceSource": "chat-agent-skill-context trace.zip",
+  "events": [
+    {
+      "event": "offer response",
+      "monotonicStartMs": 714744.084,
+      "durationMs": 119.563,
+      "status": 200
+    },
+    {
+      "event": "actual request",
+      "path": "/api/copilotkit/agent/default/run",
+      "selectedAgentHeader": null,
+      "forwardedProps": {
+        "clientMessageId": "35dd89fb-2228-48da-ac8e-89173cac2a25",
+        "chatThreadId": "thread-chat-read-e2e-causal-check"
+      },
+      "status": 200
+    },
+    {
+      "runId": "e6c40594-a9d7-4082-afc0-9fa0f597aea9",
+      "threadId": "thread-chat-read-e2e-causal-check",
+      "inputMessageId": "c4b9bfc2-27a6-41ae-8df6-3c242ae85c39",
+      "agentId": "agent-chat-read-e2e-deep",
+      "agentVersionId": "agent-chat-read-e2e-deep-version-2",
+      "modelProvider": "deep-agent",
+      "modelId": "deep-agent-loopback",
+      "status": "succeeded",
+      "skillVersionIds": [
+        "skill-chat-read-e2e-mountable-v1",
+        "skill-version-416c5363-4ce3-4c00-a02d-7625fe63d80d"
+      ],
+      "resultMessageId": "fcc803fc-99c9-48d0-99e0-d9017bca2ede"
+    },
+    {
+      "type": "before",
+      "startTime": 714753.828,
+      "params": {
+        "selector": "[data-testid=\"chat-task-workbench-capability-card\"][data-agent-id=\"agent-chat-read-e2e\"]",
+        "strict": true
+      }
+    },
+    {
+      "type": "input",
+      "point": {
+        "x": 636.17,
+        "y": 472.5
+      }
+    },
+    {
+      "type": "after",
+      "endTime": 714988.486
+    }
+  ],
+  "conclusion": "The selected echo agent was not applied. Deep-agent succeeded and echoed the real skill sentinel, but this is not evidence that the requested echo agent ran. Preserve [loopback] and verify selection, outgoing header, and persisted run identity."
+}

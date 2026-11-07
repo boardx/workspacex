@@ -1,3 +1,6 @@
+import {ORG_INVITATION_DELIVERY} from "./application/auth/org-invitation-delivery";
+import {OrgInvitationMailDelivery} from "./infrastructure/auth/org-invitation-mail-delivery";
+import { LocalizationModule } from "./localization.module";
 import {AuxiliaryModelUsageController} from './interface/controllers/auxiliary-model-usage.controller';
 import {AUXILIARY_MODEL_ACCOUNTING} from './application/billing/auxiliary-model-accounting';
 import {PgAuxiliaryModelAccounting} from './infrastructure/billing/pg-auxiliary-model-accounting';
@@ -34,6 +37,7 @@ import {PgAiAdmissionRepository} from "./infrastructure/auth/pg-ai-admission-rep
 import { AiUsageController } from "./interface/controllers/ai-usage.controller";
 import { AI_USAGE_REPOSITORY } from "./application/auth/ai-usage-ports";
 import { PgAiUsageRepository } from "./infrastructure/auth/pg-ai-usage-repository";
+import {enterpriseManagementControllers,enterpriseManagementProviders} from "./enterprise-management.wiring";
 import { PlatformOrganizationController } from "./interface/controllers/platform-organization.controller";
 import { PLATFORM_ORGANIZATION_REPOSITORY } from "./application/system/platform-organization-ports";
 import { PgPlatformOrganizationRepository } from "./infrastructure/system/pg-platform-organization-repository";
@@ -143,6 +147,7 @@ import {PgImageRequestAccounting} from "./infrastructure/auth/pg-image-request-a
 import { DefaultStandardImageService } from "./infrastructure/agent-run/standard-image-service";
 import { StandardImageController } from "./interface/controllers/standard-image.controller";
 import { createGeneratedImageDownloader } from "./infrastructure/agent-run/generated-image-downloader";
+import { DurableImageModelProvider } from "./infrastructure/agent-run/durable-image-model-provider";
 import { selectImageProvider } from "./infrastructure/agent-run/select-image-provider";
 import { STANDARD_SCHEDULE, SCHEDULED_RUN_NOTIFIER, type ScheduledRunNotifier } from "./application/agent-run/standard-schedule";
 import { PgBossScheduler, type ScheduleWake } from "./infrastructure/agent-run/pg-boss-scheduler";
@@ -1233,7 +1238,7 @@ const BOARD_AGENT_API_ACCEPTANCE = boardAgentApiAcceptanceEnabled();
 const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRepository');
 
 @Module({
-  imports: [BillingModule, IdentityPersistenceModule],
+  imports: [BillingModule, IdentityPersistenceModule, LocalizationModule],
   controllers: [
     WhiteboardFilesController,
     WorkflowRuntimeController,
@@ -1295,6 +1300,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     PlatformAccessController,
     PlatformMemberController,
     PlatformOrganizationController,
+    ...enterpriseManagementControllers,
     OrgCoreModelController,
     PlatformModelTestController,
     AiUsageController,
@@ -1371,6 +1377,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     ModelController,
   ],
   providers: [
+    ...enterpriseManagementProviders,
     ...reportFileProviders,
     {provide: INTERVIEW_CUSTOM_EXPERT_LIBRARY, useFactory:(db:DatabasePort)=>new PgCustomExpertLibrary(db),inject:[DATABASE_PORT]},
     { provide: EXPERT_AVATAR_PREFERENCE_REPOSITORY, useFactory: (db: DatabasePort) => new PgExpertAvatarPreferenceRepository(db), inject: [DATABASE_PORT] },
@@ -2102,6 +2109,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     },
     // ⚠ lazy：配置校验推迟到**第一次真正用到**时。用 `cloudflareEmailConfig()`
     //   会让整个 API 在 DI 阶段因为一个可能用不到的子系统而起不来（见该函数注释）。
+    { provide: ORG_INVITATION_DELIVERY, useClass: OrgInvitationMailDelivery },
     { provide: CLOUDFLARE_EMAIL_CONFIG, useFactory: () => lazyCloudflareEmailConfig() },
     {
       provide: VERIFICATION_MAIL_TRANSPORT,
@@ -2264,7 +2272,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
       // `modelProvider` 字符串分派，不是"配一个、其它 fallback 过去"——见该类头注，这是
       // `ConfiguredModelProvider` "no fallback" 纪律在多 provider 场景下的延伸，不是放弃它。
       provide: MODEL_CALL_PORT,
-      useFactory: (db:DatabasePort,configuration:AiQuotaRuntimeConfiguration|null) => {
+      useFactory: (db:DatabasePort,configuration:AiQuotaRuntimeConfiguration|null,objects:ObjectStore) => {
         const chatConfig = readModelProviderConfig();
         const loopbackAliases = readLoopbackProviderAliases(process.env, chatConfig);
         const chatPort = new ConfiguredModelProvider(chatConfig, loopbackAliases);
@@ -2287,11 +2295,11 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
            */
           ...(capabilityAvailability(readDeploymentEdition(), "image-generation") === "absent"
             ? []
-            : [[BAILIAN_IMAGE_PROVIDER_NAME, new BailianImageProvider(readBailianImageProviderConfig(),new PgCreditImageAdmission(db),false)] as const]),
+            : [[BAILIAN_IMAGE_PROVIDER_NAME, new DurableImageModelProvider(new BailianImageProvider(readBailianImageProviderConfig(),new PgCreditImageAdmission(db),false),objects,createGeneratedImageDownloader())] as const]),
         ], loopbackAliases, chatPort)), kernelServed);
         return creditModelGateway(guardCoreModelCalls(raw,createCoreModelRuntimeGuard(db,new VerifiedOrgCoreModelAvailability(db,configuration,raw))),db,creditUsageMeter(db));
       },
-      inject:[DATABASE_PORT,AI_QUOTA_RUNTIME_CONFIGURATION],
+      inject:[DATABASE_PORT,AI_QUOTA_RUNTIME_CONFIGURATION,OBJECT_STORE],
     },
     {
       // 追问建议（`ChatFollowUpSuggestionsController`）固定走这个标准 provider，不看

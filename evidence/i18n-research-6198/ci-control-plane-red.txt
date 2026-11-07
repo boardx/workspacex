@@ -1,0 +1,29 @@
+verify-control-plane	跨层接线（屏 → 适配器 → controller → application 用例）	﻿2026-11-03T19:27:28.3919693Z ##[group]Run pnpm exec tsx .harness/scripts/lint-ui-wiring.mjs
+verify-control-plane	跨层接线（屏 → 适配器 → controller → application 用例）	2026-11-03T19:27:28.3920882Z ^[[36;1mpnpm exec tsx .harness/scripts/lint-ui-wiring.mjs^[[0m
+verify-control-plane	跨层接线（屏 → 适配器 → controller → application 用例）	2026-11-03T19:27:28.3951549Z shell: /usr/bin/bash -e {0}
+verify-control-plane	跨层接线（屏 → 适配器 → controller → application 用例）	2026-11-03T19:27:28.3951852Z env:
+verify-control-plane	跨层接线（屏 → 适配器 → controller → application 用例）	2026-11-03T19:27:28.3952159Z   CI_SCOPE_BASE_SHA: c49fee15b89f2621d8ceaa582ef6a9c0f6c931cc
+verify-control-plane	跨层接线（屏 → 适配器 → controller → application 用例）	2026-11-03T19:27:28.3952600Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+verify-control-plane	跨层接线（屏 → 适配器 → controller → application 用例）	2026-11-03T19:27:28.3952976Z ##[endgroup]
+verify-control-plane	跨层接线（屏 → 适配器 → controller → application 用例）	2026-11-03T19:27:31.2968752Z [ui-wiring] 路由 137 条：已接线 57 / mock 豁免 23（上限 35）/ 无数据面 18 / 原型 39；controller 167 个。
+verify-control-plane	跨层接线（屏 → 适配器 → controller → application 用例）	2026-11-03T19:27:31.2969762Z 
+verify-control-plane	跨层接线（屏 → 适配器 → controller → application 用例）	2026-11-03T19:27:31.2970443Z 跨层接线门控发现 18 处问题：
+verify-control-plane	跨层接线（屏 → 适配器 → controller → application 用例）	2026-11-03T19:27:31.2971935Z   ✗ [shell 长出数据面] / 声明为 shell（无数据面），但它已经够得到 [apps/web/lib/live-asr-draft.ts, apps/web/lib/live-recording.ts] —— 改成 wired 并补齐跨层声明。
+verify-control-plane	跨层接线（屏 → 适配器 → controller → application 用例）	2026-11-03T19:27:31.2974234Z   ✗ [shell 长出数据面] /admin/agent/[id] 声明为 shell（无数据面），但它已经够得到 [apps/web/lib/live-asr-draft.ts, apps/web/lib/live-recording.ts] —— 改成 wired 并补齐跨层声明。
+verify-control-plane	跨层接线（屏 → 适配器 → controller → application 用例）	2026-11-03T19:27:31.2976996Z   ✗ [shell 长出数据面] /admin/skill/[id] 声明为 shell（无数据面），但它已经够得到 [apps/web/lib/live-asr-draft.ts, apps/web/lib/live-recording.ts] —— 改成 wired 并补齐跨层声明。
+verify-control-plane	跨层接线（屏 → 适配器 → controller → application 用例）	2026-11-03T19:27:31.2979483Z   ✗ [shell 长出数据面] /auth/activate 声明为 shell（无数据面），但它已经够得到 [apps/web/lib/live-asr-draft.ts, apps/web/lib/live-recording.ts] —— 改成 wired 并补齐跨层声明。
+verify-control-plane	跨层接线（屏 → 适配器 → controller → application 用例）	2026-11-03T19:27:31.2982218Z   ✗ [shell 长出数据面] /auth/register 声明为 shell（无数据面），但它已经够得到 [apps/web/lib/live-asr-draft.ts, apps/web/lib/live-recording.ts] —— 改成 wired 并补齐跨层声明。
+verify-control-plane	跨层接线（屏 → 适配器 → controller → application 用例）	2026-11-03T19:27:31.2985600Z   ✗ [shell 长出数据面] /auth/reset-password 声明为 shell（无数据面），但它已经够得到 [apps/web/lib/live-asr-draft.ts, apps/web/lib/live-recording.ts] —— 改成 wired 并补齐跨层声明。
+verify-control-plane	跨层接线（屏 → 适配器 → controller → application 用例）	2026-11-03T19:27:31.2988174Z   ✗ [shell 长出数据面] /auth/verify-email 声明为 shell（无数据面），但它已经够得到 [apps/web/lib/live-asr-draft.ts, apps/web/lib/live-recording.ts] —— 改成 wired 并补齐跨层声明。
+verify-control-plane	跨层接线（屏 → 适配器 → controller → application 用例）	2026-11-03T19:27:31.2990401Z   ✗ [shell 长出数据面] /canvas 声明为 shell（无数据面），但它已经够得到 [apps/web/lib/live-asr-draft.ts, apps/web/lib/live-recording.ts] —— 改成 wired 并补齐跨层声明。
+verify-control-plane	跨层接线（屏 → 适配器 → controller → application 用例）	2026-11-03T19:27:31.2992507Z   ✗ [shell 长出数据面] /itv/new 声明为 shell（无数据面），但它已经够得到 [apps/web/lib/live-asr-draft.ts, apps/web/lib/live-recording.ts] —— 改成 wired 并补齐跨层声明。
+verify-control-plane	跨层接线（屏 → 适配器 → controller → application 用例）	2026-11-03T19:27:31.2994583Z   ✗ [shell 长出数据面] /org-admin 声明为 shell（无数据面），但它已经够得到 [apps/web/lib/live-asr-draft.ts, apps/web/lib/live-recording.ts] —— 改成 wired 并补齐跨层声明。
+verify-control-plane	跨层接线（屏 → 适配器 → controller → application 用例）	2026-11-03T19:27:31.2996712Z   ✗ [shell 长出数据面] /platform-admin 声明为 shell（无数据面），但它已经够得到 [apps/web/lib/live-asr-draft.ts, apps/web/lib/live-recording.ts] —— 改成 wired 并补齐跨层声明。
+verify-control-plane	跨层接线（屏 → 适配器 → controller → application 用例）	2026-11-03T19:27:31.2998901Z   ✗ [shell 长出数据面] /project 声明为 shell（无数据面），但它已经够得到 [apps/web/lib/live-asr-draft.ts, apps/web/lib/live-recording.ts] —— 改成 wired 并补齐跨层声明。
+verify-control-plane	跨层接线（屏 → 适配器 → controller → application 用例）	2026-11-03T19:27:31.3001205Z   ✗ [shell 长出数据面] /studio/interview 声明为 shell（无数据面），但它已经够得到 [apps/web/lib/live-asr-draft.ts, apps/web/lib/live-recording.ts] —— 改成 wired 并补齐跨层声明。
+verify-control-plane	跨层接线（屏 → 适配器 → controller → application 用例）	2026-11-03T19:27:31.3003599Z   ✗ [shell 长出数据面] /studio/interview/[id] 声明为 shell（无数据面），但它已经够得到 [apps/web/lib/live-asr-draft.ts, apps/web/lib/live-recording.ts] —— 改成 wired 并补齐跨层声明。
+verify-control-plane	跨层接线（屏 → 适配器 → controller → application 用例）	2026-11-03T19:27:31.3005854Z   ✗ [shell 长出数据面] /studio/prototype 声明为 shell（无数据面），但它已经够得到 [apps/web/lib/live-asr-draft.ts, apps/web/lib/live-recording.ts] —— 改成 wired 并补齐跨层声明。
+verify-control-plane	跨层接线（屏 → 适配器 → controller → application 用例）	2026-11-03T19:27:31.3007064Z   ✗ [shell 长出数据面] /studio/research 声明为 shell（无数据面），但它已经够得到 [apps/web/lib/live-asr-draft.ts, apps/web/lib/live-recording.ts] —— 改成 wired 并补齐跨层声明。
+verify-control-plane	跨层接线（屏 → 适配器 → controller → application 用例）	2026-11-03T19:27:31.3008190Z   ✗ [shell 长出数据面] /surveys/[token] 声明为 shell（无数据面），但它已经够得到 [apps/web/lib/live-asr-draft.ts, apps/web/lib/live-recording.ts] —— 改成 wired 并补齐跨层声明。
+verify-control-plane	跨层接线（屏 → 适配器 → controller → application 用例）	2026-11-03T19:27:31.3009288Z   ✗ [shell 长出数据面] /workflows 声明为 shell（无数据面），但它已经够得到 [apps/web/lib/live-asr-draft.ts, apps/web/lib/live-recording.ts] —— 改成 wired 并补齐跨层声明。
+verify-control-plane	跨层接线（屏 → 适配器 → controller → application 用例）	2026-11-03T19:27:31.3299544Z ##[error]Process completed with exit code 1.

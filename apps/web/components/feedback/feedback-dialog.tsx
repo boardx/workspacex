@@ -31,11 +31,14 @@ import {
   type FeedbackTarget,
 } from "@/lib/live-feedback";
 import { FeedbackTagsInput, commitFeedbackTags } from "./feedback-tags";
-import { FeedbackStructuredView, STRUCTURED_FIELDS } from "./feedback-structured";
+import { FeedbackStructuredView, STRUCTURED_FIELDS, feedbackStructuredFieldLabel } from "./feedback-structured";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/files/overlay";
 import { TextAttachmentPreview } from "@/components/chat/chat-attachment-preview-modal";
+import { useI18n } from "@/lib/i18n/provider";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+import type { Locale } from "@/lib/i18n/locale";
 import { cn } from "@/lib/utils";
 
 /** 附件上限与类型白名单都从契约来（UC-17.8 D3），本文件不写第二份。 */
@@ -135,12 +138,12 @@ const STATUS_TONE: Record<FeedbackStatus, "warning" | "ai" | "primary" | "neutra
  *
  * 复现步骤这类多行字段给一个 `1. 2. 3.` 的编号骨架，其余留一行空白让人填。
  */
-const FEEDBACK_TEMPLATES: Record<FeedbackKind, string> = Object.fromEntries(
+function feedbackTemplates(locale: Locale): Record<FeedbackKind, string> { return Object.fromEntries(
   FEEDBACK_KINDS.map((k) => [
     k,
-    STRUCTURED_FIELDS[k].map((f) => `${f.label}：\n${f.multiline === true ? "1. \n2. \n3. \n" : "\n"}`).join("\n"),
+    STRUCTURED_FIELDS[k].map((f) => `${feedbackStructuredFieldLabel(f, locale)}：\n${f.multiline === true ? "1. \n2. \n3. \n" : "\n"}`).join("\n"),
   ]),
-) as Record<FeedbackKind, string>;
+) as Record<FeedbackKind, string>; }
 
 /**
  * 2026-09-02 人类要求：表单去掉「一句话说清楚」，只留「详细说说」。契约的 `title` 仍然
@@ -169,16 +172,19 @@ interface PendingAttachment {
   readonly previewUrl: string | null;
   readonly status: "uploading" | "done" | "failed";
   readonly attachmentId?: string;
-  readonly error?: string;
+  readonly error?: { cause: unknown };
 }
 
-function targetHeading(target: FeedbackTarget, label: string | null): string {
-  if (target.kind === "product") return "对产品提反馈";
+const FEEDBACK_KIND_KEYS: Record<FeedbackKind, MessageKey> = { 缺陷: "feedbackOverlay.kind.bug", 需求: "feedbackOverlay.kind.request" };
+const FEEDBACK_STATUS_KEYS: Record<FeedbackStatus, MessageKey> = { 待处理: "feedbackOverlay.status.pending", 已进入迭代: "feedbackOverlay.status.iteration", 已修复: "feedbackOverlay.status.fixed", 不做: "feedbackOverlay.status.declined", 已归档: "feedbackOverlay.status.archived" };
+
+function targetHeading(target: FeedbackTarget, label: string | null, locale: Locale = "zh-CN"): string {
+  if (target.kind === "product") return translate(locale, "feedbackOverlay.heading.product");
   const noun = target.kind === "agent" ? "Agent" : "Skill";
   // ⚠ 名字缺失时退回 id，**不写「未命名」**：反馈要能被分诊的人对上具体对象，
   //   一个 id 不好看但准确，「未命名」好看但指向不了任何东西。
   const shown = label ?? (target.kind === "agent" ? target.agentId : target.skillId);
-  return `对 ${noun}「${shown}」提反馈`;
+  return translate(locale, "feedbackOverlay.heading.object", { kind: noun, name: shown });
 }
 
 export function FeedbackDialog({
@@ -200,6 +206,7 @@ export function FeedbackDialog({
    */
   onDraftSaved?: (draftId: string) => void;
 }) {
+  const { locale, t } = useI18n();
   const pathname = usePathname();
   const router = useRouter();
   const [tab, setTab] = React.useState<"submit" | "mine">("submit");
@@ -225,9 +232,9 @@ export function FeedbackDialog({
   const [title, setTitle] = React.useState("");
   const [draftSaved, setDraftSaved] = React.useState(false);
   const [draftBusy, setDraftBusy] = React.useState(false);
-  const [draftError, setDraftError] = React.useState<string | null>(null);
+  const [draftError, setDraftError] = React.useState<{ cause: unknown } | null>(null);
   const [busy, setBusy] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<{ cause: unknown } | null>(null);
   const [justSubmitted, setJustSubmitted] = React.useState<string | null>(null);
 
   // FB-5——语音。**与 chat composer 同一套交互**（人类 2026-09-02 实测反馈：转录文字
@@ -237,7 +244,7 @@ export function FeedbackDialog({
   // 不会"说了半天什么都没出来"。此前的做法是把转录存在一个只在录音中才显示的
   // 小字里、停止后才去整理，整理慢或失败时屏上就是空的。
   const [structuring, setStructuring] = React.useState(false);
-  const [structureError, setStructureError] = React.useState<string | null>(null);
+  const [structureError, setStructureError] = React.useState<{ cause: unknown } | null>(null);
   const detailRef = React.useRef("");
   detailRef.current = detail;
 
@@ -299,7 +306,7 @@ export function FeedbackDialog({
         setDetail(composeReviewDetail(draft.kind, draft.detail, draft.structured));
       })
       .catch((err) => {
-        setStructureError(describeFailure(err));
+        setStructureError({ cause: err });
         // 整理失败也进 review：转录已经在「详细说说」里，标题退回派生规则，
         // 用户自己能看到并填写各字段，不必被"AI 没整理成功"卡住。
         setTitle(deriveFeedbackTitle(transcript));
@@ -323,18 +330,18 @@ export function FeedbackDialog({
     if (voice.phase === "connecting") {
       return (
         <ComposerStatusBar tone="neutral" testId="feedback-voice-connecting" icon={<Loader2 className="h-4 w-4 animate-spin" />}
-          title="正在连接语音识别" description="请稍候，正在申请麦克风并建立连接"
-          actions={[{ label: "取消", onClick: voice.discard, testId: "feedback-voice-cancel" }]} />
+          title={t("chatComposer.voiceConnecting")} description={t("chatComposer.voiceConnectingHint")}
+          actions={[{ label: t("common.cancel"), onClick: voice.discard, testId: "feedback-voice-cancel" }]} />
       );
     }
     if (voice.phase === "listening" && voice.silenceHint) {
       return (
         <ComposerStatusBar tone="warning" testId="feedback-voice-listening" icon={<AlertTriangle className="h-4 w-4" />}
-          title={`${voice.silentSeconds} 秒未听到声音`}
-          description={`请靠近麦克风，或换一个设备${voice.autoPause ? ` · 静音 ${SILENCE_AUTO_PAUSE_AFTER_SECONDS} 秒后自动暂停` : ""}`}
+          title={t("chatComposer.voiceSilent", { seconds: voice.silentSeconds })}
+          description={t("chatComposer.voiceSilentHint") + (voice.autoPause ? t("chatComposer.voiceAutoPauseHint", { seconds: SILENCE_AUTO_PAUSE_AFTER_SECONDS }) : "")}
           actions={[
-            { label: "换麦克风", onClick: voice.requestDeviceMenu, testId: "feedback-voice-switch-device" },
-            { label: "停止", onClick: voice.finish, variant: "solid-destructive", testId: "feedback-voice-stop" },
+            { label: t("chatComposer.changeMicrophone"), onClick: voice.requestDeviceMenu, testId: "feedback-voice-switch-device" },
+            { label: t("chatComposer.stop"), onClick: voice.finish, variant: "solid-destructive", testId: "feedback-voice-stop" },
           ]} />
       );
     }
@@ -342,36 +349,36 @@ export function FeedbackDialog({
       return (
         <ComposerStatusBar tone="destructive" testId="feedback-voice-listening"
           icon={<span className="h-2 w-2 animate-pulse rounded-pill bg-destructive" />}
-          title={`正在听 ${formatElapsed(voice.totalSeconds)}`}
-          description={`文字实时写入「详细说说」 · 已 ${chars} 字 · 说完点「停止」`}
+          title={t("chatComposer.voiceListening", { elapsed: formatElapsed(voice.totalSeconds) })}
+          description={t("feedbackOverlay.voice.listeningHint", { count: chars })}
           actions={[
-            { label: "暂停", onClick: voice.pause, testId: "feedback-voice-pause" },
-            { label: "停止", onClick: voice.finish, variant: "solid-destructive", testId: "feedback-voice-stop" },
+            { label: t("chatComposer.pause"), onClick: voice.pause, testId: "feedback-voice-pause" },
+            { label: t("chatComposer.stop"), onClick: voice.finish, variant: "solid-destructive", testId: "feedback-voice-stop" },
           ]} />
       );
     }
     if (voice.phase === "stopping" || structuring) {
       return (
         <ComposerStatusBar tone="neutral" testId="feedback-voice-stopping" icon={<Loader2 className="h-4 w-4 animate-spin" />}
-          title={voice.phase === "stopping" ? "正在停止" : "AI 整理中…"}
-          description={voice.phase === "stopping" ? "等待最后一段转录落定" : undefined} />
+          title={voice.phase === "stopping" ? t("chatComposer.voiceStopping") : t("feedbackOverlay.voice.structuring")}
+          description={voice.phase === "stopping" ? t("chatComposer.voiceStoppingHint") : undefined} />
       );
     }
     if (voice.phase === "paused") {
       return (
         <ComposerStatusBar tone="neutral" testId="feedback-voice-paused" icon={<Pause className="h-4 w-4" />}
-          title={`已暂停 ${formatElapsed(voice.totalSeconds)}`}
-          description={`已转录 ${chars} 字 · 继续录音会接在后面`}
+          title={t("chatComposer.voicePaused", { elapsed: formatElapsed(voice.totalSeconds) })}
+          description={t("chatComposer.voicePausedHint", { count: chars })}
           actions={[
-            { label: "丢弃", onClick: voice.discard, testId: "feedback-voice-cancel" },
-            { label: "继续", onClick: voice.start, testId: "feedback-voice-resume" },
-            { label: "完成", onClick: voice.finish, variant: "solid", testId: "feedback-voice-finish" },
+            { label: t("chatComposer.discard"), onClick: voice.discard, testId: "feedback-voice-cancel" },
+            { label: t("chatComposer.continue"), onClick: voice.start, testId: "feedback-voice-resume" },
+            { label: t("chatComposer.done"), onClick: voice.finish, variant: "solid", testId: "feedback-voice-finish" },
           ]} />
       );
     }
     if (voice.phase === "error") {
       // 说什么、给不给「重试」：与另一处 composer 共用 `voiceErrorStatus`（chat-composer-status-bar.tsx）。
-      const bar = voiceErrorStatus(speech, { onRetry: voice.start, retryTestId: "feedback-voice-retry", helpTestId: "feedback-voice-permission-help" });
+      const bar = voiceErrorStatus(speech, { onRetry: voice.start, retryTestId: "feedback-voice-retry", helpTestId: "feedback-voice-permission-help" }, locale);
       return (
         <ComposerStatusBar tone="warning" testId="feedback-voice-error" icon={<AlertTriangle className="h-4 w-4" />}
           title={bar.title} description={bar.description} actions={bar.actions} />
@@ -399,7 +406,7 @@ export function FeedbackDialog({
         );
       })
       .catch((err) => {
-        const reason = describeFailure(err);
+        const reason = { cause: err };
         setAttachments((prev) => prev.map((a) => (a.localId === localId ? { ...a, status: "failed", error: reason } : a)));
       });
   }, []);
@@ -407,7 +414,7 @@ export function FeedbackDialog({
   /** 被拒收的文件名（类型不在契约白名单）；再选一次或改正文就清掉。 */
   const [rejectedFiles, setRejectedFiles] = React.useState<readonly string[]>([]);
   /** 迭代 35：超量/已满这一类——与"类型不对"同样要说出来，不能只有一半会说话。 */
-  const [quotaNotice, setQuotaNotice] = React.useState<string | null>(null);
+  const [quotaNotice, setQuotaNotice] = React.useState<{ accepted: number; extra: number } | null>(null);
 
   const addAttachments = React.useCallback((files: FileList | null) => {
     if (files === null || files.length === 0) return;
@@ -431,7 +438,7 @@ export function FeedbackDialog({
     setRejectedFiles(rejected);
     setQuotaNotice(
       accepted.length > room
-        ? `只收下了 ${String(room)} 个——最多 ${String(MAX_ATTACHMENTS)} 个，另外 ${String(accepted.length - room)} 个没加进来。`
+        ? { accepted: room, extra: accepted.length - room }
         : null,
     );
     for (const { file, mime } of accepted.slice(0, room)) {
@@ -453,7 +460,7 @@ export function FeedbackDialog({
   }, []);
 
   /** 剩余空间放不下完整模板时，说给用户听的一句话；套用成功或改了正文就清掉。 */
-  const [templateNotice, setTemplateNotice] = React.useState<string | null>(null);
+  const [templateNotice, setTemplateNotice] = React.useState<number | null>(null);
 
   /**
    * 把模板填进「详细说说」。正文是空的（或全是空白）就直接换成模板；已经写了点东西，
@@ -464,23 +471,21 @@ export function FeedbackDialog({
    * 拒绝这次操作并如实说明，正文原样不动，不是静默截断。
    */
   const applyTemplate = React.useCallback(() => {
-    const template = FEEDBACK_TEMPLATES[kind];
+    const template = feedbackTemplates(locale)[kind];
     if (detail.trim() === "") {
       setDetail(template);
       setTemplateNotice(null);
     } else {
       const merged = `${detail}\n\n${template}`;
       if (merged.length > DETAIL_MAX) {
-        setTemplateNotice(
-          `正文剩下的空间放不下完整模板（还差 ${merged.length - DETAIL_MAX} 字）。先删一点，或者手动照着「复现步骤/期望结果/实际结果」写。`,
-        );
+        setTemplateNotice(merged.length - DETAIL_MAX);
         return; // 正文原样不动
       }
       setDetail(merged);
       setTemplateNotice(null);
     }
     detailInputRef.current?.focus();
-  }, [kind, detail]);
+  }, [kind, detail, locale]);
 
   React.useEffect(() => {
     detailInputRef.current?.focus();
@@ -535,7 +540,7 @@ export function FeedbackDialog({
       setTitle(draft.title);
       setDetail(composeReviewDetail(draft.kind, draft.detail, draft.structured));
     } catch (err) {
-      setStructureError(describeFailure(err));
+      setStructureError({ cause: err });
       setTitle(deriveFeedbackTitle(text));
     } finally {
       setStructuring(false);
@@ -572,7 +577,7 @@ export function FeedbackDialog({
         router.push("/platform-admin/feedback-drafts");
       }
     } catch (err) {
-      setDraftError(describeFailure(err));
+      setDraftError({ cause: err });
     } finally {
       setDraftBusy(false);
     }
@@ -623,7 +628,7 @@ export function FeedbackDialog({
         }
       }
     } catch (err) {
-      setError(describeFailure(err));
+      setError({ cause: err });
     } finally {
       sending.current = false;
       setBusy(false);
@@ -639,7 +644,7 @@ export function FeedbackDialog({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="提交反馈"
+        aria-label={t("feedbackOverlay.dialog")}
         data-testid="feedback-dialog"
         data-fullscreen={fullscreen}
         className={cn(
@@ -650,10 +655,10 @@ export function FeedbackDialog({
         <header className="flex items-start justify-between gap-3 border-b border-border p-4 pb-3">
           <div className="min-w-0">
             <h2 className="text-14 font-semibold" data-testid="feedback-dialog-title">
-              {targetHeading(target, targetLabel)}
+              {targetHeading(target, targetLabel, locale)}
             </h2>
             <p className="mt-0.5 text-11 text-muted-foreground">
-              提了会有人看：每条反馈都有状态与去向，在「我提过的」里跟进。
+              {t("feedbackOverlay.header.hint")}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-1">
@@ -661,12 +666,12 @@ export function FeedbackDialog({
               variant="ghost"
               size="icon"
               onClick={() => setFullscreen((v) => !v)}
-              aria-label={fullscreen ? "退出全屏" : "全屏"}
+              aria-label={t(fullscreen ? "feedbackOverlay.exitFullscreen" : "feedbackOverlay.fullscreen")}
               data-testid="feedback-dialog-fullscreen-toggle"
             >
               {fullscreen ? <Minimize2 aria-hidden className="h-4 w-4" /> : <Maximize2 aria-hidden className="h-4 w-4" />}
             </Button>
-            <Button variant="ghost" size="icon" onClick={onClose} aria-label="关闭" data-testid="feedback-dialog-close">
+            <Button variant="ghost" size="icon" onClick={onClose} aria-label={t("feedbackOverlay.close")} data-testid="feedback-dialog-close">
               <X aria-hidden className="h-4 w-4" />
             </Button>
           </div>
@@ -674,10 +679,10 @@ export function FeedbackDialog({
 
         <div className="flex gap-1 border-b border-border px-4 pt-2" role="tablist">
           <TabButton active={tab === "submit"} onClick={() => setTab("submit")} testid="feedback-tab-submit">
-            提交
+            {t("feedbackOverlay.submitTab")}
           </TabButton>
           <TabButton active={tab === "mine"} onClick={() => setTab("mine")} testid="feedback-tab-mine">
-            我提过的
+            {t("feedbackOverlay.mineTab")}
           </TabButton>
         </div>
 
@@ -692,7 +697,7 @@ export function FeedbackDialog({
               <>
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-11 text-muted-foreground" data-testid="feedback-review-hint">
-                    {structureError ? "自动整理暂不可用，原文已保留。请确认标题和正文后提交。" : "AI 帮你整理好了下面这些，看看对不对，改完再提交。"}
+                    {t(structureError ? "feedbackOverlay.review.unavailable" : "feedbackOverlay.review.hint")}
                   </p>
                   <Button
                     type="button"
@@ -702,12 +707,12 @@ export function FeedbackDialog({
                     onClick={() => setStage("compose")}
                     data-testid="feedback-back-to-compose"
                   >
-                    ← 返回重新说
+                    {t("feedbackOverlay.review.back")}
                   </Button>
                 </div>
 
                 <fieldset className="flex flex-col gap-1.5">
-                  <legend className="text-11 font-medium text-muted-foreground">这是什么</legend>
+                  <legend className="text-11 font-medium text-muted-foreground">{t("feedbackOverlay.review.kind")}</legend>
                   <div className="flex gap-1.5">
                     {FEEDBACK_KINDS.map((k) => {
                       const Icon = KIND_ICON[k];
@@ -727,7 +732,7 @@ export function FeedbackDialog({
                           )}
                         >
                           <Icon aria-hidden className="h-3.5 w-3.5" />
-                          {k}
+                          {t(FEEDBACK_KIND_KEYS[k])}
                         </button>
                       );
                     })}
@@ -737,7 +742,7 @@ export function FeedbackDialog({
                 {/* issue #2679 ②——review 阶段才有的可编辑标题；契约 `title` 必填，
                     此前一直是从正文派生、不给编辑入口，这里让用户能直接看到并改。 */}
                 <label className="flex flex-col gap-1 text-11 font-medium text-muted-foreground">
-                  标题 <span className="font-normal">（{title.length}/{TITLE_MAX}）</span>
+                  {t("feedbackOverlay.review.title")} <span className="font-normal">（{title.length}/{TITLE_MAX}）</span>
                   <input
                     value={title}
                     maxLength={TITLE_MAX}
@@ -753,7 +758,7 @@ export function FeedbackDialog({
             <div className="flex flex-col gap-1">
               <div className="flex items-center justify-between gap-2">
                 <label htmlFor="feedback-detail-input" className="text-11 font-medium text-muted-foreground">
-                  详细说说 <span className="font-normal">（{detail.length}/{DETAIL_MAX}）</span>
+                  {t("feedbackOverlay.review.detail")} <span className="font-normal">（{detail.length}/{DETAIL_MAX}）</span>
                 </label>
                 {/* 按当前 kind 套用对应模板（复现步骤/期望结果/实际结果，或需求版）；已有内容不覆盖，追加在后面。
                     compose 阶段还没有 kind/结构化字段的概念，模板按钮跟着挪到 review 阶段。 */}
@@ -767,7 +772,7 @@ export function FeedbackDialog({
                     data-testid="feedback-template-button"
                   >
                     <FileText aria-hidden className="h-3 w-3" />
-                    套用模板
+                    {t("feedbackOverlay.template")}
                   </Button>
                 )}
               </div>
@@ -780,16 +785,22 @@ export function FeedbackDialog({
                 rows={stage === "compose" ? 8 : 6}
                 placeholder={
                   stage === "compose"
-                    ? "说说是什么问题——什么都行，先写下来或说出来，下一步 AI 会帮你整理成标题、复现步骤这些字段。"
+                    ? t("feedbackOverlay.compose.placeholder")
                     : kind === "缺陷"
-                      ? "你当时在做什么、期望看到什么、实际看到什么。第一句会作为标题。"
-                      : "你想解决的是什么问题？现在是怎么绕过去的？第一句会作为标题。"
+                      ? t("feedbackOverlay.review.bugPlaceholder")
+                      : t("feedbackOverlay.review.requestPlaceholder")
                 }
                 data-testid="feedback-detail-input"
                 className="resize-y rounded-md border border-border-subtle bg-panel p-2 text-13 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
               {templateNotice !== null && (
-                <p className="text-11 text-destructive" data-testid="feedback-template-notice">{templateNotice}</p>
+                <p className="text-11 text-destructive" data-testid="feedback-template-notice">{t("feedbackOverlay.template.full", {
+                  count: templateNotice,
+                  fields: (["reproSteps", "expectedResult", "actualResult"] as const)
+                    .map(key => STRUCTURED_FIELDS.缺陷.find(field => field.key === key))
+                    .filter(field => field !== undefined)
+                    .map(field => feedbackStructuredFieldLabel(field, locale)).join("/"),
+                })}</p>
               )}
             </div>
 
@@ -798,7 +809,7 @@ export function FeedbackDialog({
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-11 text-muted-foreground">
-                  说一段话，边说边转成文字，说完 AI 帮你整理成标题、复现步骤这些字段。
+                  {t("feedbackOverlay.voice.guidance")}
                 </p>
                 <ComposerVoiceControl
                   status={speech.status}
@@ -826,7 +837,7 @@ export function FeedbackDialog({
               )}
               {structureError !== null && (
                 <p role="alert" className="text-11 text-destructive" data-testid="feedback-structure-error">
-                  没能把这段话整理成表单（{structureError}）。你说的话已经在「详细说说」里——可以自己改标题和正文。
+                  {t("feedbackOverlay.structure.failed", { reason: describeFailure(structureError.cause, locale) })}
                 </p>
               )}
             </div>
@@ -884,19 +895,19 @@ export function FeedbackDialog({
                     data-testid="feedback-attachment-add"
                   >
                     <Paperclip aria-hidden className="h-3.5 w-3.5" />
-                    加文件（{attachments.length}/{MAX_ATTACHMENTS}）
+                    {t("feedbackOverlay.attachment.add", { count: attachments.length, limit: MAX_ATTACHMENTS })}
                   </Button>
-                  <span className="text-10 text-muted-foreground">或把文件拖拽到这里</span>
+                  <span className="text-10 text-muted-foreground">{t("feedbackOverlay.attachment.drop")}</span>
                 </div>
               ) : (
-                <p className="text-10 text-muted-foreground" data-testid="feedback-attachment-full">已到 {MAX_ATTACHMENTS} 个上限，删掉一个再加。</p>
+                <p className="text-10 text-muted-foreground" data-testid="feedback-attachment-full">{t("feedbackOverlay.attachment.full", { limit: MAX_ATTACHMENTS })}</p>
               )}
               {quotaNotice !== null && (
-                <p className="text-10 text-destructive" data-testid="feedback-attachment-quota">{quotaNotice}</p>
+                <p className="text-10 text-destructive" data-testid="feedback-attachment-quota">{t("feedbackOverlay.attachment.quota", { count: quotaNotice.accepted, limit: MAX_ATTACHMENTS, extra: quotaNotice.extra })}</p>
               )}
               {rejectedFiles.length > 0 && (
                 <p className="text-10 text-destructive" data-testid="feedback-attachment-rejected">
-                  {rejectedFiles.join("、")}：不支持的文件类型，没有上传。只收图片、PDF、纯文本/Markdown。
+                  {t("feedbackOverlay.attachment.rejected", { names: rejectedFiles.join("、") })}
                 </p>
               )}
               {attachments.length > 0 && (
@@ -912,7 +923,7 @@ export function FeedbackDialog({
                             type="button"
                             className="block h-16 w-16 overflow-hidden rounded-md"
                             onClick={() => setPreview({ url: a.previewUrl!, name: a.file.name })}
-                            aria-label={`预览 ${a.file.name}`}
+                            aria-label={t("feedbackOverlay.attachment.previewNamed", { name: a.file.name })}
                             data-testid={`feedback-attachment-open-${a.localId}`}
                           >
                             {/* eslint-disable-next-line @next/next/no-img-element -- blob URL，不是可优化的远程图（同 chat-attachment-preview-modal.tsx 既有先例） */}
@@ -947,7 +958,7 @@ export function FeedbackDialog({
                         )}
                         <button
                           type="button"
-                          aria-label="移除这个附件"
+                          aria-label={t("feedbackOverlay.attachment.remove")}
                           data-testid={`feedback-attachment-remove-${a.localId}`}
                           className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-inverse text-inverse-foreground"
                           onClick={() => removeAttachment(a.localId)}
@@ -960,10 +971,10 @@ export function FeedbackDialog({
                           {/* 错误全文放 title；行内只留一行截断——64px 宽的缩略图下面放不下一整句。 */}
                           <p
                             className="w-16 truncate text-9 text-destructive"
-                            title={a.error}
+                            title={a.error ? describeFailure(a.error.cause, locale) : undefined}
                             data-testid={`feedback-attachment-error-${a.localId}`}
                           >
-                            {a.error}
+                            {a.error ? describeFailure(a.error.cause, locale) : null}
                           </p>
                           <button
                             type="button"
@@ -971,7 +982,7 @@ export function FeedbackDialog({
                             data-testid={`feedback-attachment-retry-${a.localId}`}
                             onClick={() => runUpload(a.localId, a.file, a.mime)}
                           >
-                            重试上传
+                            {t("feedbackOverlay.attachment.retry")}
                           </button>
                         </>
                       )}
@@ -993,31 +1004,31 @@ export function FeedbackDialog({
                   data-testid="feedback-proceed-review"
                 >
                   {structuring && <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />}
-                  下一步
+                  {t("feedbackOverlay.next")}
                 </Button>
               </div>
             ) : (
             <>
             {/* I-F1：收集了什么，明写出来。见文件头。 */}
             <p className="text-10 text-muted-foreground" data-testid="feedback-context-notice">
-              将一并附带：当前页面 <code className="font-mono">{pathname ?? "（未知）"}</code>
-              {appVersion === null ? " · 版本未知" : ` · 版本 ${appVersion}`} · 你的账号。
-              {" "}正文只有组织管理员和你自己能看到。
+              {t("feedbackOverlay.context.prefix")}<code className="font-mono">{pathname ?? t("feedbackOverlay.context.unknownRoute")}</code>
+              {appVersion === null ? t("feedbackOverlay.context.unknownVersion") : t("feedbackOverlay.context.version", { version: appVersion })}{t("feedbackOverlay.context.account")}
+              {" "}{t("feedbackOverlay.context.privacy")}
             </p>
 
             {error !== null && (
               <p role="alert" className="text-11 text-destructive" data-testid="feedback-submit-error">
-                没能提交（{error}）。这条反馈没有被保存，可以再试一次。
+                {t("feedbackOverlay.submitFailure", { reason: describeFailure(error.cause, locale) })}
               </p>
             )}
             {draftError !== null && (
               <p className="text-11 text-destructive" data-testid="feedback-draft-error">
-                没能存草稿（{draftError}）。草稿没有被保存，你写的还在，可以再试一次。
+                {t("feedbackOverlay.draft.failed", { reason: describeFailure(draftError.cause, locale) })}
               </p>
             )}
             {draftSaved && (
               <p className="text-11 text-primary" data-testid="feedback-draft-saved">
-                已存为草稿。在「反馈草稿」里继续完善，想清楚了再提交到收件箱。
+                {t("feedbackOverlay.draft.savedReceipt")}
               </p>
             )}
 
@@ -1031,10 +1042,10 @@ export function FeedbackDialog({
                 className="inline-flex items-center gap-1 text-11 text-primary transition-colors duration-fast hover:underline"
               >
                 <PencilRuler aria-hidden className="h-3 w-3" />
-                更复杂？直接在 PM 设计工作台从头设计
+                {t("feedbackOverlay.workbench")}
               </Link>
               <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm" onClick={onClose}>取消</Button>
+                <Button variant="ghost" size="sm" onClick={onClose}>{t("feedbackOverlay.cancel")}</Button>
                 {/* UC-17.8 B1：存草稿是真栈（不依赖 mock Provider）。草稿允许空正文（契约
                     `createFeedbackDraft.in.detail` 无 `.min(1)`），但一个什么都没写的草稿没有意义，
                     这里仍要求正文非空——「先占个位」由用户写第一句来占。 */}
@@ -1046,7 +1057,7 @@ export function FeedbackDialog({
                   data-testid="feedback-save-draft"
                 >
                   {draftBusy ? <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" /> : draftSaved ? <Check aria-hidden className="h-3.5 w-3.5" /> : null}
-                  {draftSaved ? "已存草稿" : "存为草稿"}
+                  {draftSaved ? t("feedbackOverlay.draft.savedButton") : t("feedbackOverlay.draft.save")}
                 </Button>
                 <Button
                   variant="primary"
@@ -1056,7 +1067,7 @@ export function FeedbackDialog({
                   data-testid="feedback-submit"
                 >
                   {busy && <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />}
-                  直接提交
+                  {t("feedbackOverlay.submit")}
                 </Button>
               </div>
             </div>
@@ -1067,9 +1078,9 @@ export function FeedbackDialog({
           <>
             {inboxOpenFailed && justSubmitted !== null && (
               <p role="status" className="p-3 text-12" data-testid="feedback-inbox-open-failed">
-                已保存，无法打开收件箱。反馈编号：{justSubmitted}。
-                <Link href={`/platform-admin/inbox?open=${encodeURIComponent(justSubmitted)}`}>打开已保存的反馈</Link>
-                ，也可在下方「我提过的」回看，无需重新提交。
+                {t("feedbackOverlay.inbox.failed", { id: justSubmitted })}
+                <Link href={`/platform-admin/inbox?open=${encodeURIComponent(justSubmitted)}`}>{t("feedbackOverlay.open")}</Link>
+                {t("feedbackOverlay.inbox.tail")}
               </p>
             )}
             <MyFeedbackList highlightId={justSubmitted} />
@@ -1134,8 +1145,9 @@ function TabButton({
  *   列表，在界面上必须分得开，否则用户会以为自己提的那条丢了。
  */
 function MyFeedbackList({ highlightId }: { highlightId: string | null }) {
+  const { t, locale } = useI18n();
   const [state, setState] = React.useState<
-    { kind: "loading" } | { kind: "ready"; items: readonly FeedbackItem[] } | { kind: "failed"; reason: string }
+    { kind: "loading" } | { kind: "ready"; items: readonly FeedbackItem[] } | { kind: "failed"; cause: unknown }
   >({ kind: "loading" });
 
   const load = React.useCallback(async () => {
@@ -1143,7 +1155,7 @@ function MyFeedbackList({ highlightId }: { highlightId: string | null }) {
     try {
       setState({ kind: "ready", items: await listFeedback({ kind: "mine" }) });
     } catch (err) {
-      setState({ kind: "failed", reason: describeFailure(err) });
+      setState({ kind: "failed", cause: err });
     }
   }, []);
 
@@ -1153,23 +1165,23 @@ function MyFeedbackList({ highlightId }: { highlightId: string | null }) {
 
   if (state.kind === "loading") {
     return (
-      <p className="p-4 text-12 text-muted-foreground" data-testid="feedback-mine-loading">正在读取…</p>
+      <p className="p-4 text-12 text-muted-foreground" data-testid="feedback-mine-loading">{t("feedbackOverlay.mine.loading")}</p>
     );
   }
   if (state.kind === "failed") {
     return (
       <div className="flex flex-col items-start gap-2 p-4" data-testid="feedback-mine-failed">
         <p className="text-12 text-muted-foreground">
-          没能读到你提过的反馈（{state.reason}）。它们没有丢，只是这次没取到。
+          {t("feedbackOverlay.mine.failed", { reason: describeFailure(state.cause, locale) })}
         </p>
-        <Button size="sm" variant="outline" onClick={() => void load()}>重试</Button>
+        <Button size="sm" variant="outline" onClick={() => void load()}>{t("ui.retry")}</Button>
       </div>
     );
   }
   if (state.items.length === 0) {
     return (
       <p className="p-4 text-12 text-muted-foreground" data-testid="feedback-mine-empty">
-        你还没提过反馈。
+        {t("feedbackOverlay.mine.empty")}
       </p>
     );
   }
@@ -1186,8 +1198,8 @@ function MyFeedbackList({ highlightId }: { highlightId: string | null }) {
           )}
         >
           <div className="flex flex-wrap items-center gap-1.5">
-            <Badge tone={STATUS_TONE[item.status]}>{item.status}</Badge>
-            <Badge tone="outline">{item.kind}</Badge>
+            <Badge tone={STATUS_TONE[item.status]}>{t(FEEDBACK_STATUS_KEYS[item.status])}</Badge>
+            <Badge tone="outline">{t(FEEDBACK_KIND_KEYS[item.kind])}</Badge>
             <span className="min-w-0 flex-1 truncate text-12 font-medium">{item.title}</span>
             <span className="inline-flex items-center gap-1 text-11 text-muted-foreground">
               <ThumbsUp aria-hidden className="h-3 w-3" />
@@ -1196,7 +1208,7 @@ function MyFeedbackList({ highlightId }: { highlightId: string | null }) {
             {item.id === highlightId && (
               <span className="inline-flex items-center gap-1 text-11 text-primary" data-testid="feedback-just-submitted">
                 <Check aria-hidden className="h-3 w-3" />
-                刚提交
+                {t("feedbackOverlay.mine.justSubmitted")}
               </span>
             )}
           </div>
@@ -1228,7 +1240,7 @@ function MyFeedbackList({ highlightId }: { highlightId: string | null }) {
           )}
           {item.statusReason !== null && (
             <p className="line-clamp-1 text-11 text-card-foreground" title={item.statusReason} data-testid={`feedback-status-reason-${item.id}`}>
-              处理说明：{item.statusReason}
+              {t("feedbackOverlay.mine.reason", { reason: item.statusReason })}
             </p>
           )}
         </li>
@@ -1284,6 +1296,7 @@ function FeedbackFilePreviewModal({ src, mime, name, testid, onClose }: {
  * 文件不预下载（没有缩略图可生成，滚进视口也不该白花一次带鉴权的下载），点开才拉字节。
  */
 function AttachmentFileCard({ url, mime }: { url: string; mime: string }) {
+  const { t } = useI18n();
   const [objectUrl, setObjectUrl] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [failed, setFailed] = React.useState(false);
@@ -1316,8 +1329,8 @@ function AttachmentFileCard({ url, mime }: { url: string; mime: string }) {
           failed && "border-destructive/60",
         )}
         onClick={open}
-        aria-label={`预览 ${badge} 附件`}
-        title={failed ? "加载失败，点一下重试" : `${badge} 附件，点开预览`}
+        aria-label={t("feedbackOverlay.attachment.previewFile", { badge })}
+        title={failed ? t("feedbackOverlay.attachment.loadFailed") : t("feedbackOverlay.attachment.previewFileHint", { badge })}
         data-testid="feedback-mine-attachment-open"
         data-mime={mime}
       >
@@ -1331,7 +1344,7 @@ function AttachmentFileCard({ url, mime }: { url: string; mime: string }) {
         )}
       </button>
       {objectUrl !== null && (
-        <FeedbackFilePreviewModal src={objectUrl} mime={mime} name={`${badge} 附件`} testid="feedback-mine-attachment-preview" onClose={close} />
+        <FeedbackFilePreviewModal src={objectUrl} mime={mime} name={t("feedbackOverlay.attachment.fileTitle", { badge })} testid="feedback-mine-attachment-preview" onClose={close} />
       )}
     </>
   );
@@ -1343,6 +1356,7 @@ function AttachmentThumbnail({ url, mime }: { url: string; mime: string }) {
 }
 
 function AttachmentImageThumbnail({ url }: { url: string }) {
+  const { t } = useI18n();
   const [objectUrl, setObjectUrl] = React.useState<string | null>(null);
   const [failed, setFailed] = React.useState(false);
   const [inView, setInView] = React.useState(false);
@@ -1407,14 +1421,14 @@ function AttachmentImageThumbnail({ url }: { url: string }) {
             type="button"
             className="block h-9 w-9 overflow-hidden rounded-md border border-border-subtle"
             onClick={() => setOpen(true)}
-            aria-label="预览附件"
+            aria-label={t("feedbackOverlay.attachment.preview")}
             data-testid="feedback-mine-attachment-open"
           >
             {/* eslint-disable-next-line @next/next/no-img-element -- blob URL，不是可优化的远程图（同 chat-attachment-preview-modal.tsx 既有先例） */}
             <img src={objectUrl} alt="" loading="lazy" className="h-9 w-9 object-cover" />
           </button>
           {open && (
-            <Modal testid="feedback-mine-attachment-preview" title="附件预览" onClose={() => setOpen(false)} width="lg">
+            <Modal testid="feedback-mine-attachment-preview" title={t("feedbackOverlay.attachment.previewTitle")} onClose={() => setOpen(false)} width="lg">
               <div className="grid min-h-[240px] place-items-center">
                 {/* eslint-disable-next-line @next/next/no-img-element -- blob URL，不是可优化的远程图 */}
                 <img src={objectUrl} alt="" className="max-h-[60vh] max-w-full rounded-md object-contain" data-testid="feedback-mine-attachment-preview-image" />

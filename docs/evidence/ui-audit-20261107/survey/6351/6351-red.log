@@ -1,0 +1,34 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+
+ ❯ tests/whiteboard/live-board-collaboration-status.test.tsx (11 tests | 1 failed) 239ms
+   × persists an editor title change through the board API 9ms
+     → expected undefined to be type of 'function'
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/whiteboard/live-board-collaboration-status.test.tsx > persists an editor title change through the board API
+AssertionError: expected undefined to be type of 'function'
+
+Expected: "function"
+Received: "undefined"
+
+ ❯ tests/whiteboard/live-board-collaboration-status.test.tsx:164:31
+    162|  act(()=>harness.state?.(online));
+    163|  const editor=harness.editor as unknown as {onTitleChange?:(name:strin…
+    164|  expect(editor.onTitleChange).toBeTypeOf('function');
+       |                               ^
+    165|  await act(async()=>editor.onTitleChange?.('新白板名称'));
+    166|  expect(updateBoard).toHaveBeenCalledWith('00000000-0000-4000-8000-000…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 10 passed (11)
+   Start at  03:30:48
+   Duration  3.90s (transform 530ms, setup 261ms, collect 815ms, tests 239ms, environment 1.57s, prepare 155ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/whiteboard/live-board-collaboration-status.test.tsx

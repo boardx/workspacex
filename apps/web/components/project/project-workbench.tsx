@@ -1,5 +1,7 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
+import { localizedProjectTabs, localizedProjectSubNav } from "@/lib/i18n/project-workbench-copy";
 import Link from "next/link";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { ChevronLeft } from "lucide-react";
@@ -11,15 +13,14 @@ import { OrgDisabledBanner } from "./parts";
 import { UI_STATES, UI_STATE_LABEL, type UiState } from "@/lib/ui-state";
 import type { Identity } from "@/lib/identity";
 import {
-  SUB_NAV, ROLE_SCOPE_NOTE, ROLE_CAN_WRITE, ROLE_STAGE_CONTROL,
-  ROLE_BADGE_TONE, PROJECT_ROLE_LABEL, PROJECT_ROLES,
-  orgDisabledBanner, tabDefsForKind, resolveTabForKind, tabLabelForKind,
+  ROLE_CAN_WRITE, ROLE_STAGE_CONTROL,
+  ROLE_BADGE_TONE, PROJECT_ROLES,
+  resolveTabForKind,
   type ProjectTab, type ProjectRole, type ProjectContainerKind,
 } from "@/lib/project-workbench";
 import { getStoredSessionToken, ApiError } from "@/lib/api-client";
 import {
   findProject, getProjectOverview, listAgendaSegments,
-  PROJECT_KIND_LABEL, PROJECT_STATUS_LABEL,
   type ProjectListItem, type ProjectOverview, type ListAgendaSegmentsOut,
 } from "@/lib/live-projects";
 import {
@@ -90,6 +91,7 @@ export function ProjectWorkbench({
    */
   projectId?: string;
 }) {
+  const { locale, t } = useI18n();
   const canWrite = ROLE_CAN_WRITE[view] && !orgDisabled;
   const stageControl = ROLE_STAGE_CONTROL[view] && !orgDisabled;
   const isObserver = view === "observer";
@@ -222,7 +224,7 @@ export function ProjectWorkbench({
    * 种类未知（还没读到）时按工作坊渲染，同设置页的处置。
    */
   const projectKind = headerProject?.kind ?? null;
-  const tabDefs = tabDefsForKind(projectKind);
+  const tabDefs = localizedProjectTabs(projectKind, locale);
   const shownTab = resolveTabForKind(tab, projectKind, sub);
   /** 种类未落定时不挂通用项目没有的 tab 内容（见 `overviewSettled` 注释）。 */
   /**
@@ -457,7 +459,7 @@ export function ProjectWorkbench({
 
   // 通用项目的「成果」等 tab 没有分页可切：此前仍画出工作坊的「洞察报告 / 结论与决策 / 产出物 / 行动项」
   // 子导航，点哪个都还是同一页——假导航。只有工作坊（各子页真的不同）才出子导航。
-  const subNav = accessDenied || projectKind === "general" ? undefined : SUB_NAV[shownTab];
+  const subNav = accessDenied || projectKind === "general" ? undefined : localizedProjectSubNav(shownTab, locale);
 
   return (
     // hideRoleSwitcher：工作台自带四视角切换器（project-role-switcher），顶栏让位不再出第二套
@@ -469,16 +471,16 @@ export function ProjectWorkbench({
          <div className={showWorkshopRoles ? undefined : "mx-auto w-full max-w-5xl sm:px-6"}>
           <div className="mb-3.5 flex flex-wrap items-start gap-3">
             <Button asChild size="sm" variant="outline" data-testid="project-back-to-list">
-              <Link href="/projects"><ChevronLeft aria-hidden className="h-3.5 w-3.5" />全部项目</Link>
+              <Link href="/projects"><ChevronLeft aria-hidden className="h-3.5 w-3.5" />{t("projectWorkbench.back")}</Link>
             </Button>
             <div className="min-w-0 flex-1">
               <h1 className={showWorkshopRoles ? "text-14 font-medium" : "text-20 font-semibold leading-tight tracking-tight"} data-testid="project-title">
-                {headerProject?.name ?? (liveOverviewLoading || liveLoading ? "读取项目中…" : accessDenied ? "需要邀请才能进入的项目" : "项目信息暂时读不到")}
+                {headerProject?.name ?? (liveOverviewLoading || liveLoading ? t("projectWorkbench.loading") : accessDenied ? t("projectWorkbench.inviteTitle") : t("projectWorkbench.unavailableTitle"))}
               </h1>
               {headerProject && (
                 <div className="mt-1 flex flex-wrap items-center gap-2" data-testid="project-header-meta">
-                  <Badge tone="outline">{PROJECT_KIND_LABEL[headerProject.kind]}</Badge>
-                  <Badge tone="outline">{PROJECT_STATUS_LABEL[headerProject.status]}</Badge>
+                  <Badge tone="outline">{t(`projects.kind.${headerProject.kind}`)}</Badge>
+                  <Badge tone="outline">{t(`projects.status.${headerProject.status}`)}</Badge>
                 </div>
               )}
             </div>
@@ -488,22 +490,22 @@ export function ProjectWorkbench({
             {/* 视角切换器（四档）—— 预览手段，生产不可达在 page 层控制 */}
             <div
               data-testid="project-role-switcher"
-              className="flex shrink-0 items-center gap-0.5 rounded-lg border border-border-subtle bg-panel p-1"
+              className="flex min-w-0 max-w-full flex-wrap items-center gap-0.5 rounded-lg border border-border-subtle bg-panel p-1"
             >
-              <span className="px-1.5 font-mono text-9 uppercase tracking-wider text-muted-foreground">视角</span>
+              <span className="px-1.5 font-mono text-9 uppercase tracking-wider text-muted-foreground">{t("projectWorkbench.view")}</span>
               {PROJECT_ROLES.map((r) => (
                 <Button key={r} asChild size="xs" variant={r === view ? "primary" : "ghost"} className="transition-colors" data-testid={`project-role-${r}`}>
-                  <a href={href({ as: r })}>{PROJECT_ROLE_LABEL[r]}</a>
+                  <a href={href({ as: r })}>{t(`projectWorkbench.role.${r}`)}</a>
                 </Button>
               ))}
             </div>
 
             {/* 角色相关动作（组长/组员有；观察者无——只读；组织停用时也隐藏） */}
             {view === "groupLead" && canWrite && (
-              <Button size="sm" variant="primary" data-testid="project-submit-group">提交本组产出</Button>
+              <Button size="sm" variant="primary" data-testid="project-submit-group">{t("projectWorkbench.submitGroup")}</Button>
             )}
             {view === "member" && canWrite && (
-              <Button size="sm" variant="outline" data-testid="project-raise-hand">举手</Button>
+              <Button size="sm" variant="outline" data-testid="project-raise-hand">{t("projectWorkbench.raiseHand")}</Button>
             )}
               </>
             )}
@@ -515,7 +517,7 @@ export function ProjectWorkbench({
               {loadFailed ? null : [0, 1, 2, 3].map((i) => <span key={i} className="h-3 w-10 animate-pulse rounded bg-muted" />)}
             </div>
           ) : (
-          <nav className="flex gap-1 overflow-x-auto" data-testid="project-tabs" aria-label="项目标签">
+          <nav className="flex gap-1 overflow-x-auto" data-testid="project-tabs" aria-label={t("projectWorkbench.tabs")}>
             {tabDefs.map((t) => {
               const active = t.key === shownTab;
               return (
@@ -547,12 +549,12 @@ export function ProjectWorkbench({
             data-testid="project-role-scope-note"
             className="-mx-6 mt-0 flex flex-wrap items-center gap-2.5 border-t border-border bg-panel px-6 py-2"
           >
-            <Badge tone={ROLE_BADGE_TONE[view]} data-testid="project-role-badge">{PROJECT_ROLE_LABEL[view]} 视角</Badge>
-            <span className="min-w-0 flex-1 text-11 leading-relaxed text-muted-foreground">{ROLE_SCOPE_NOTE[view]}</span>
+            <Badge tone={ROLE_BADGE_TONE[view]} data-testid="project-role-badge">{t("projectWorkbench.roleView", { role: t(`projectWorkbench.role.${view}`) })}</Badge>
+            <span data-testid="project-scope-description" className="order-last min-w-0 basis-full text-11 leading-relaxed text-muted-foreground md:order-none md:basis-0 md:flex-1">{t(`projectWorkbench.note.${view}`)}</span>
             {canWrite
-              ? <span className="shrink-0 font-mono text-9 text-success" data-testid="project-scope-can-write">可发言</span>
-              : <span className="shrink-0 font-mono text-9 text-muted-foreground" data-testid="project-scope-readonly">只读</span>}
-            {stageControl && <span className="shrink-0 font-mono text-9 text-primary" data-testid="project-scope-stage-control">全场控制</span>}
+              ? <span className="shrink-0 font-mono text-9 text-success" data-testid="project-scope-can-write">{t("projectWorkbench.canWrite")}</span>
+              : <span className="shrink-0 font-mono text-9 text-muted-foreground" data-testid="project-scope-readonly">{t("projectWorkbench.readOnly")}</span>}
+            {stageControl && <span className="shrink-0 font-mono text-9 text-primary" data-testid="project-scope-stage-control">{t("projectWorkbench.stageControl")}</span>}
           </div>
           )}
         </div>
@@ -590,7 +592,7 @@ export function ProjectWorkbench({
           <div className="min-h-0 min-w-0 flex-1 overflow-y-auto" data-testid="project-main">
             {orgDisabled && (
               <div className="p-6 pb-0">
-                <OrgDisabledBanner {...orgDisabledBanner(null)} />
+                <OrgDisabledBanner title={t("projectWorkbench.org.title")} reason={t("projectWorkbench.org.reason")} hint={t("projectWorkbench.org.hint")} />
               </div>
             )}
             {accessDenied ? (
@@ -601,19 +603,19 @@ export function ProjectWorkbench({
             <StateShell
               state={uiState}
               className={showWorkshopRoles ? "p-6" : "p-0 sm:p-6"}
-              emptyHint={`${tabLabelForKind(shownTab, projectKind)}还没有内容——套用蓝本或从空白开始后，这里才会有结构。`}
-              errors={{ 发布范围: "发布结论前必须绑定一个确定的产出版本（不能绑草稿）" }}
-              depFailure={{ what: "转写 / 知识图谱服务暂时不可用；已排队，恢复后自动补齐。" }}
+              emptyHint={t("projectWorkbench.empty", { tab: t(`projectWorkbench.tab.${projectKind ?? "workshop"}.${shownTab}`) })}
+              errors={{ [t("projectWorkbench.publicationField")]: t("projectWorkbench.requiresVersion") }}
+              depFailure={{ what: t("projectWorkbench.dependency") }}
               denial={{
                 layer: "project",
                 reason: isObserver
-                  ? "观察者只读：原始转写、私聊与操作按钮不在你的授权范围内。"
-                  : "你在本项目中没有查看这块内容的项目角色（两层交集判定在服务端执行）。",
+                  ? t("projectWorkbench.observerDenied")
+                  : t("projectWorkbench.roleDenied"),
               }}
-              successMessage="已发布 · 绑定 v2，审计已留痕"
+              successMessage={t("projectWorkbench.published")}
             >
               {kindPending ? (
-                <div className="flex flex-col gap-3" data-testid="project-tab-kind-pending" role="status" aria-label="读取项目中">
+                <div className="flex flex-col gap-3" data-testid="project-tab-kind-pending" role="status" aria-label={t("projectWorkbench.loadingAria")}>
                   <span className="h-20 animate-pulse rounded-lg bg-muted" />
                   <span className="h-32 animate-pulse rounded-lg bg-muted" />
                   <span className="h-24 animate-pulse rounded-lg bg-muted" />
@@ -640,19 +642,20 @@ export function ProjectWorkbench({
 
 /** overview 读取失败（非 403）：说清楚发生了什么、能怎么办；原始码只作小字附注。 */
 function ProjectLoadFailed({ code, busy, onRetry }: { code: string; busy: boolean; onRetry: () => void }) {
+  const { t } = useI18n();
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-3 p-6" data-testid="project-load-failed" role="alert">
-      <h2 className="text-16 font-semibold">项目暂时打不开</h2>
+      <h2 className="text-16 font-semibold">{t("projectWorkbench.loadFailedTitle")}</h2>
       <p className="text-12 leading-relaxed text-muted-foreground">
-        读取项目信息时出了问题，你的内容没有丢。请稍后重试；如果反复出现，请联系管理员。
+        {t("projectWorkbench.loadFailedHint")}
       </p>
       <p className="font-mono text-11 text-muted-foreground">{code}</p>
       <div className="flex gap-2">
         <Button size="sm" variant="primary" disabled={busy} onClick={onRetry} data-testid="project-load-failed-retry">
-          {busy ? "重试中…" : "重试"}
+          {busy ? t("projectWorkbench.retrying") : t("projectWorkbench.retry")}
         </Button>
         <Button asChild size="sm" variant="outline" data-testid="project-load-failed-back">
-          <a href="/projects">回到项目列表</a>
+          <a href="/projects">{t("projectWorkbench.backList")}</a>
         </Button>
       </div>
     </div>
@@ -664,21 +667,22 @@ function ProjectLoadFailed({ code, busy, onRetry }: { code: string; busy: boolea
  * 不渲染任何 tab 内容。两种 403 分别说明（项目层 / 组织层），原始码保留在文案末尾。
  */
 function ProjectAccessDenied({ code, projectId }: { code: string; projectId: string }) {
+  const { t } = useI18n();
   const projectLayer = code === "NO_PROJECT_ROLE";
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-3 p-6" data-testid="project-access-denied" data-reason={code}>
-      <h2 className="text-16 font-semibold">你还不在这个项目里</h2>
+      <h2 className="text-16 font-semibold">{t("projectWorkbench.accessTitle")}</h2>
       <p className="text-12 leading-relaxed text-muted-foreground">
         {projectLayer
-          ? "项目是受邀才能进入的空间：只有被项目负责人加入后，才能看到项目内的对话、材料与产出。请向负责人索取邀请。"
-          : "组织管理员默认看不到项目内部数据（组织层限制）；需要跨项目查看，得先被提升为超级用户，或由项目负责人邀请你加入。"}
+          ? t("projectWorkbench.projectDenied")
+          : t("projectWorkbench.orgDenied")}
       </p>
       <p className="font-mono text-10 text-muted-foreground">
-        项目 {projectId} · {code}
+        {t("projectWorkbench.projectCode", { id: projectId, code })}
       </p>
       <div>
         <Button asChild size="sm" variant="outline" data-testid="project-access-denied-back">
-          <a href="/projects">回到我的项目</a>
+          <a href="/projects">{t("projectWorkbench.backMine")}</a>
         </Button>
       </div>
     </div>

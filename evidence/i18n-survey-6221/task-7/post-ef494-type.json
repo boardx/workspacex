@@ -1,0 +1,18 @@
+{
+  "name": "post-ef494-type",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "typecheck"
+  ],
+  "source": "232421f2a9ff9bdfaaf020b3c3f943c08eabff0a",
+  "exitCode": 0,
+  "seconds": 68.913,
+  "rawLogSha256": "cd5788cc155241ad0932956ca7dd287ae173e2f213993b615bdafdcb93bc7ce4",
+  "sourceAfter": "232421f2a9ff9bdfaaf020b3c3f943c08eabff0a",
+  "sourceStable": true,
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  }
+}

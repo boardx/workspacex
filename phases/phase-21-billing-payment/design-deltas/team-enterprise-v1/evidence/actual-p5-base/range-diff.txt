@@ -1,0 +1,12 @@
+ 1:  89d576a65 =  1:  9813bb467 docs(billing): draft Team and Enterprise contract materials; Refs #6099
+ 2:  c7df7efe2 =  2:  244965aab docs(billing): refine Team design boundaries and review prerequisites; Refs #6099
+ 3:  84c4eafdc =  3:  07574fc56 docs(billing): record Team draft review and correct personal signoff reference; Refs #6099
+ 4:  4c6ab8db3 =  4:  308bf4a4c feat(contracts): prepare strict Team design inputs and prototype consumption; Refs #6099
+ 5:  095671339 =  5:  6df6d6bc3 design(billing): validate immutable Team quotes in prototype Refs #6099
+ 6:  155dd2fe9 =  6:  ffea2108f fix(billing): constrain WeChat Team quote currency Refs #6099
+ 7:  5809b682b =  7:  cef1bd167 design(billing): compose Team entitlement and fractional wallet facts Refs #6099
+ 8:  c95aaa328 =  8:  57ab66b7f fix(billing): retain canceled Stripe Team payment facts Refs #6099
+ 9:  1309a8fa3 =  9:  e14bd374c design(billing): share catalog rules and scope Team products Refs #6099
+10:  d6e4c12e7 = 10:  9eccfe078 design(billing): model paid Team history without duplicate grants Refs #6099
+11:  1b79b19d0 = 11:  891bfee6b fix(billing): reject future confirmed Team history payments Refs #6099
+12:  3f82fb7b2 = 12:  299fc7a27 design(billing): checkpoint recoverable Team purchase outcomes Refs #6099

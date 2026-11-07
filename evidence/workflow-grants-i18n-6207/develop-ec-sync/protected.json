@@ -1,0 +1,20 @@
+{
+  "left": "4b4cb362cd599b11329e95960910869789b74c98",
+  "acceptedDevelop": "ec1695d8fd646e004ca40dafbfa8e03bf01f20ef",
+  "head": "bf3d9de11ca7f4e5afb73c36cb1668c42e5838e0",
+  "mergeBases": [
+    "bfb608070b6ebb77156e63fde2d7f6b7c97101a6"
+  ],
+  "commonFilesPreserved": 22735,
+  "workerOnlyProtected": 71,
+  "upstreamOnlyProtected": 661,
+  "overlap": [
+    ".agents/skills/mod-org-identity/SKILL.md",
+    "apps/web/e2e/entity-localization.spec.ts",
+    "apps/web/lib/i18n/messages/en.ts",
+    "apps/web/lib/i18n/messages/zh-CN.ts"
+  ],
+  "allProtectedModeTypeBlobEqual": true,
+  "registryDeltaOnlyWorkflowNamespaceImportAndSpread": true,
+  "knowledgeAppendBothSidesPreserved": true
+}

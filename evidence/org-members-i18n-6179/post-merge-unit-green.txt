@@ -1,0 +1,18 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/web
+
+ ✓ tests/ui/org-members-i18n.test.tsx (7 tests) 587ms
+ ✓ tests/ui/org-admin-role-scope.test.tsx (7 tests) 764ms
+ ✓ tests/ui/org-admin-members-reviewer-function.test.tsx (4 tests) 147ms
+ ✓ tests/ui/org-admin-screen-admin-nav.test.tsx (1 test) 192ms
+ ✓ tests/ui/org-admin-members-org-role.test.tsx (4 tests) 181ms
+ ✓ tests/ui/org-shared-invites-i18n.test.tsx (2 tests) 190ms
+ ✓ tests/ui/org-members-preview-i18n.test.tsx (8 tests) 609ms
+ ✓ tests/ui/org-admin-invite-form-novalidate.test.tsx (1 test) 43ms
+ ✓ tests/lib/i18n-resources.test.ts (5 tests) 56ms
+
+ Test Files  9 passed (9)
+      Tests  39 passed (39)
+   Start at  13:31:23
+   Duration  29.02s (transform 2.85s, setup 2.31s, collect 11.65s, tests 2.77s, environment 8.80s, prepare 986ms)

@@ -1,0 +1,33 @@
+[stack-admission] load1=7.00 cores=10 perCore=0.70 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvxzatlv-768e863b-2f95cb958997 db=wsx_2f95cb958997109ea55d compose=wsx-2f95cb958997109ea55d pg=20133 redis=21133 api=24133 web=25133 sandbox=26133 model=27133 deep-agent=28133 asr=29133 vision=30133 loopback-sandbox=31133 mail=19133
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_2f95cb958997109ea55d capacity=100 current=6 required=32
+ ❯ tests/billing/personal-credit-terms-pg.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/personal-credit-terms-pg.test.ts [ tests/billing/personal-credit-terms-pg.test.ts ]
+Error: Failed to load url ../../src/infrastructure/billing/pg-personal-credit-schedule-store (resolved id: ../../src/infrastructure/billing/pg-personal-credit-schedule-store) in /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api/tests/billing/personal-credit-terms-pg.test.ts. Does the file exist?
+ ❯ loadAndTransform ../../node_modules/.pnpm/vite@5.4.21_@types+node@22.20.1_terser@5.50.0/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:51969:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  23:22:19
+   Duration  7.18s (transform 624ms, setup 18ms, collect 0ms, tests 0ms, environment 0ms, prepare 117ms)
+
+[db-isolation] db=wsx_2f95cb958997109ea55d peak_connections=1
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/personal-credit-terms-pg.test.ts
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/personal-credit-terms-pg.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：9s
+  清理：1s
+  总计：9s

@@ -22,6 +22,8 @@ import type { PrincipalResolverPort } from "../../src/application/ports/principa
 
 const STREAM = C.streamOperations.realtimeDigitalHuman;
 const TOKEN = "valid-token";
+// This protocol-only fixture controls accounting; real WS/PG charging is asserted in realtime-voice-credit-pg.test.ts.
+const usage = {startRequest:async()=>undefined,record:async()=>undefined};
 
 class FakePrincipals implements PrincipalResolverPort {
   async resolve(headers: { authorization?: string }) {
@@ -109,7 +111,7 @@ describe("WS /chat/realtime-digital-human — Chat 语音模式", () => {
     };
     voice = new FakeVoice();
     server = createServer();
-    attachRealtimeDigitalHumanGateway(server, { principals: new FakePrincipals(), voice, config: () => config });
+    attachRealtimeDigitalHumanGateway(server, { usage, principals: new FakePrincipals(), voice, config: () => config });
     port = await listen(server);
   });
 
@@ -172,7 +174,7 @@ describe("WS /chat/realtime-digital-human — Chat 语音模式", () => {
   it("fails closed when the gateway has no voice port wired (Chat host)", async () => {
     await new Promise<void>((resolve) => server.close(() => resolve()));
     server = createServer();
-    attachRealtimeDigitalHumanGateway(server, { principals: new FakePrincipals(), config: () => config });
+    attachRealtimeDigitalHumanGateway(server, { usage, principals: new FakePrincipals(), config: () => config });
     port = await listen(server);
     const { ws, frames, closed } = await connect(port);
     ws.send(JSON.stringify({ type: "session.start", threadId: "t-1" }));

@@ -1,0 +1,6 @@
+
+> @repo/contracts@0.0.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts
+> tsc --noEmit
+
+
+退出码：0

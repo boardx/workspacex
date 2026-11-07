@@ -1,0 +1,23 @@
+{
+  "source": "f7f8ca20f0a85777f206f90eb7b603cc4bdd7082",
+  "gate": "focused",
+  "command": [
+    "pnpm",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/telemetry-settings-i18n.test.tsx",
+    "tests/ui/telemetry-settings-screen.test.tsx",
+    "tests/lib/i18n-resources.test.ts",
+    "--maxWorkers=1"
+  ],
+  "exit": 0,
+  "seconds": 10.061,
+  "rawPrivate": true,
+  "logSha256": "6f72b1311922a731bfb490b2ef79c251b57d6cbc6b7d52d14fa9cc98bae95fb7",
+  "summary": [
+    "Test Files  3 passed (3)",
+    "Tests  30 passed (30)",
+    "Duration  8.13s (transform 2.20s, setup 485ms, collect 3.85s, tests 826ms, environment 1.96s, prepare 165ms)"
+  ]
+}

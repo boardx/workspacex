@@ -1,0 +1,96 @@
+[stack-admission] load1=156.29 cores=10 perCore=15.63 running=0/2
+[stack-admission] 排队中：机器每核负载 15.63（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 0s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 14.52（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 5s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 13.46（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 10s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 12.55（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 15s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 11.68（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 20s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 10.90（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 25s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 10.23（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 30s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 9.52（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 35s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 8.91（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 40s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 8.29（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 45s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 7.92（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 50s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 7.38（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 55s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 6.92（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 60s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 6.45（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 65s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 6.14（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 70s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 5.79（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 75s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 5.50（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 80s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 5.44（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 85s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 5.20（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 90s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.98（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 95s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 5.54（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 100s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 6.59（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 105s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 7.30（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 110s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 8.16（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 115s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 9.41（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 120s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 10.32（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 125s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 10.51（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 130s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 10.12（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 135s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 9.88（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 140s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 9.54（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 145s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 9.08（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 150s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 8.61（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 155s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 8.19（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 160s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 7.71（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 165s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 7.34（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 170s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 6.99（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 175s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 6.65（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 180s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 6.32（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 185s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 5.88（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 190s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 5.60（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 195s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 5.32（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 200s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.99（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 205s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.66（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 210s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.40（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 215s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.18（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 220s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.89（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 225s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.72（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 230s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.48（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 235s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.25（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 240s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.05（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 245s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.89（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 250s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.70（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 255s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.52（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 260s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排到了，等了 265s
+[test-isolation] id=run-mvyrbvyf-e76eb91a-dd64a86f09af db=wsx_dd64a86f09afaa78546a compose=wsx-dd64a86f09afaa78546a pg=20455 redis=21455 api=24455 web=25455 sandbox=26455 model=27455 deep-agent=28455 asr=29455 vision=30455 loopback-sandbox=31455 mail=19455
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/team-capacity-6107/apps/api
+
+[db-isolation] db=wsx_dd64a86f09afaa78546a capacity=100 current=6 required=32
+ ❯ tests/org-capacity/commercial-capacity-pg.test.ts (2 tests | 2 skipped)
+ ❯ tests/org-capacity/commercial-capacity-pg.test.ts (2 tests | 2 skipped) 105186ms
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/org-capacity/commercial-capacity-pg.test.ts [ tests/org-capacity/commercial-capacity-pg.test.ts ]
+error: new row for relation "org_memberships" violates check constraint "org_memberships_org_role_check"
+ ❯ ../../node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/client.js:652:17
+ ❯ asApp tests/support/db.ts:263:17
+    261|     await c.query("BEGIN");
+    262|     if (orgId !== null) await c.query("SELECT set_config('app.current_…
+    263|     const out = await fn(c);
+       |                 ^
+    264|     await c.query("COMMIT");
+    265|     return out;
+ ❯ Module.addOrgMember tests/support/db.ts:404:3
+ ❯ tests/org-capacity/commercial-capacity-pg.test.ts:14:22
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 skipped (2)
+   Start at  12:31:27
+   Duration  120.43s (transform 1.37s, setup 33ms, collect 544ms, tests 105.19s, environment 4ms, prepare 203ms)
+
+[db-isolation] db=wsx_dd64a86f09afaa78546a peak_connections=3
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/team-capacity-6107/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/org-capacity/commercial-capacity-pg.test.ts
+[timing] pnpm --filter api exec vitest run tests/org-capacity/commercial-capacity-pg.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：4m25s
+  命令执行：2m6s
+  清理：3s
+  总计：6m34s

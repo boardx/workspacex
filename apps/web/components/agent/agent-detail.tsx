@@ -1,6 +1,9 @@
 "use client";
 
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
+import type { Locale } from "@repo/contracts/locale";
+import { localizedText, translatedText } from "@/lib/entity-localization";
 import type { agentRole } from "@repo/contracts";
 import type { z } from "zod";
 import Link from "next/link";
@@ -21,9 +24,11 @@ import {
   getAgentDirectoryProfile,
   officialRoleDuty,
   type AgentDirectoryCard,
+  type AgentDirectoryProfile,
 } from "@/lib/agent-directory";
 import { getSkillDetail, listSkills, type SkillListItem } from "@/lib/live-skill";
 import { workSkillDisplayName } from "@/lib/work-skill-display-copy";
+import { skillTaskDescription as skillDuty } from "@/lib/skill-task-description";
 import { WorkflowRunEntry } from "@/components/workflow/workflow-lists";
 import { UNNAMED_WORKFLOW_LABEL, agentWorkflowLabel } from "@/lib/workflow-catalog-title-copy";
 
@@ -52,29 +57,16 @@ export interface AgentDetailExtras {
   readonly skillSource: "agent" | "org";
   readonly skills: readonly AgentSkillSummary[];
   readonly pendingSkills?: readonly z.infer<typeof agentRole.PendingSkillBinding>[];
-  readonly delegationTargets: readonly {
-    readonly agentId: string;
-    readonly name: string;
-    readonly initials: string;
-    readonly roleLabel: string;
-    readonly avatar: AgentDirectoryCard["avatar"];
-  }[];
+  readonly delegationTargets: Readonly<AgentDirectoryProfile["delegationTargets"]>;
   readonly requireApprovalForHandoff: boolean;
-}
-
-/** wave2 文件形式技能的 `duty` 是一句「怎么编辑源码」的说明，不是职责——不展示。 */
-const FILE_BACKED_DUTY_MARKER = "文件形式";
-function skillDuty(item: { readonly duty: string }): string | null {
-  const d = item.duty.trim();
-  return d.length === 0 || d.includes(FILE_BACKED_DUTY_MARKER) ? null : d;
 }
 
 const NO_SKILLS: readonly SkillListItem[] = [];
 
-export async function loadAgentDetailExtras(agentId: string, orgId: string | null): Promise<AgentDetailExtras> {
+export async function loadAgentDetailExtras(agentId: string, orgId: string | null, locale?: Locale): Promise<AgentDetailExtras> {
   const [profile, catalog] = await Promise.all([
-    getAgentDirectoryProfile(agentId),
-    orgId ? listSkills(orgId).catch(() => NO_SKILLS) : Promise.resolve(NO_SKILLS),
+    locale === undefined ? getAgentDirectoryProfile(agentId) : getAgentDirectoryProfile(agentId, locale),
+    orgId ? (locale === undefined ? listSkills(orgId) : listSkills(orgId, locale)).catch(() => NO_SKILLS) : Promise.resolve(NO_SKILLS),
   ]);
   const published = profile as typeof profile & {
     pinnedSkills?: readonly { skillId: string; versionId: string }[];
@@ -83,7 +75,7 @@ export async function loadAgentDetailExtras(agentId: string, orgId: string | nul
   const pins = published.pinnedSkills ?? [];
   const byId = new Map(catalog.map((item) => [item.skillId, item]));
   const missing = [...new Set(pins.filter((pin) => !byId.has(pin.skillId)).map((pin) => pin.skillId))];
-  const fetched = await Promise.allSettled(missing.map((id) => getSkillDetail(id)));
+  const fetched = await Promise.allSettled(missing.map((id) => locale === undefined ? getSkillDetail(id) : getSkillDetail(id, locale)));
   for (let i = 0; i < missing.length; i++) {
     const result = fetched[i];
     // Only directory metadata is used; a detail response's latest contract is never substituted for a pin.
@@ -92,12 +84,13 @@ export async function loadAgentDetailExtras(agentId: string, orgId: string | nul
   const skills = pins.flatMap((pin): AgentSkillSummary[] => {
     const item = byId.get(pin.skillId);
     if (!item) return [];
-    const name = workSkillDisplayName(item.name);
+    const display = item.currentVersionId === pin.versionId ? item.display : undefined;
+    const name = localizedText(display, "name", workSkillDisplayName(item.name));
     return name ? [{ skillId: pin.skillId, versionId: pin.versionId, name,
-      duty: item.currentVersionId === pin.versionId ? skillDuty(item) : null }] : [];
+      duty: item.currentVersionId === pin.versionId ? localizedText(display, "duty", skillDuty(item)) : null }] : [];
   });
   return {
-    duty: profile.duty, skillSource: "agent", skills,
+    duty: localizedText(profile.display, "duty", profile.duty), skillSource: "agent", skills,
     pendingSkills: published.pendingSkillBindings ?? [],
     delegationTargets: profile.delegationTargets,
     requireApprovalForHandoff: profile.requireApprovalForHandoff,
@@ -120,8 +113,8 @@ export interface AgentDetailProps {
   readonly agentId: string;
   /** 跳转对话；`prefill` 为预填到输入框的一句话（「在对话中发起」某个工作流）。 */
   readonly onStartChat: (agentId: string, prefill?: string) => void;
-  readonly fetchCard?: (agentId: string) => Promise<AgentDirectoryCard>;
-  readonly fetchExtras?: (agentId: string, orgId: string | null) => Promise<AgentDetailExtras>;
+  readonly fetchCard?: (agentId: string, locale?: Locale) => Promise<AgentDirectoryCard>;
+  readonly fetchExtras?: (agentId: string, orgId: string | null, locale?: Locale) => Promise<AgentDetailExtras>;
 }
 
 export function AgentDetail({
@@ -130,6 +123,7 @@ export function AgentDetail({
   fetchCard = getAgentDirectoryCard,
   fetchExtras = loadAgentDetailExtras,
 }: AgentDetailProps) {
+  const { locale } = useI18n();
   const orgId = useOptionalSession()?.session?.currentOrgId ?? null;
   const [state, setState] = React.useState<CardState>({ kind: "loading" });
   const [extras, setExtras] = React.useState<ExtrasState>({ kind: "loading" });
@@ -139,7 +133,7 @@ export function AgentDetail({
     let alive = true;
     setState({ kind: "loading" });
     setExtras({ kind: "loading" });
-    fetchCard(agentId).then(
+    fetchCard(agentId, locale).then(
       (card) => { if (alive) setState({ kind: "ready", card }); },
       (error: unknown) => {
         if (!alive) return;
@@ -148,12 +142,12 @@ export function AgentDetail({
         else setState({ kind: "error", message: error instanceof ApiError ? httpFailureText(error.status) : "网络连接出了问题，稍后再试一次" });
       },
     );
-    fetchExtras(agentId, orgId).then(
+    fetchExtras(agentId, orgId, locale).then(
       (value) => { if (alive) setExtras({ kind: "ready", extras: value }); },
       () => { if (alive) setExtras({ kind: "error" }); },
     );
     return () => { alive = false; };
-  }, [agentId, orgId, fetchCard, fetchExtras, attempt]);
+  }, [agentId, orgId, locale, fetchCard, fetchExtras, attempt]);
 
   return (
     <div data-testid="agent-detail" className="flex h-full min-h-0 flex-col">
@@ -266,6 +260,7 @@ function AgentDetailBody({ card, extras, onStartChat }: {
   onStartChat: (agentId: string, prefill?: string) => void;
 }) {
   const name = agentDisplayName(card);
+  const avatarAlt = translatedText(card.display, "avatarAlt");
   const serverDuty = extras.kind === "ready" ? extras.extras.duty : null;
   const duty = serverDuty ?? officialRoleDuty(card);
   const subtitle = agentSubtitle(card, duty);
@@ -279,6 +274,7 @@ function AgentDetailBody({ card, extras, onStartChat }: {
           data-testid="agent-detail-portrait"
           initials={card.initials}
           avatarKey={card.avatar?.key ?? null}
+          {...(avatarAlt ? { "aria-label": avatarAlt } : {})}
           tone="ai"
           className="h-20 w-20 text-24 ring-2 ring-ai-tint"
         />
@@ -429,19 +425,22 @@ function AgentDetailBody({ card, extras, onStartChat }: {
             {extras.kind === "ready" && extras.extras.delegationTargets.length > 0 && (
               <>
                 <ul className="mt-3 flex flex-col gap-1">
-                  {extras.extras.delegationTargets.map((t) => (
-                    <li key={t.agentId} data-testid="agent-detail-handoff-target">
-                      <Link
-                        href={`/agent/${encodeURIComponent(t.agentId)}`}
-                        className="flex items-center gap-2.5 rounded-control px-2 py-1.5 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      >
-                        <Avatar initials={t.initials} avatarKey={t.avatar?.key ?? null} tone="ai" size="lg" />
-                        <span className="min-w-0 truncate text-12 font-medium text-card-foreground">
-                          {agentDisplayNameByAvatar(t.avatar?.key, t.name)}
-                        </span>
-                      </Link>
-                    </li>
-                  ))}
+                  {extras.extras.delegationTargets.map((t) => {
+                    const targetAvatarAlt = translatedText(t.display, "avatarAlt");
+                    return (
+                      <li key={t.agentId} data-testid="agent-detail-handoff-target">
+                        <Link
+                          href={`/agent/${encodeURIComponent(t.agentId)}`}
+                          className="flex items-center gap-2.5 rounded-control px-2 py-1.5 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <Avatar initials={t.initials} avatarKey={t.avatar?.key ?? null} {...(targetAvatarAlt ? { "aria-label": targetAvatarAlt } : {})} tone="ai" size="lg" />
+                          <span className="min-w-0 truncate text-12 font-medium text-card-foreground">
+                            {agentDisplayNameByAvatar(t.avatar?.key, t.name, t.display)}
+                          </span>
+                        </Link>
+                      </li>
+                    );
+                  })}
                 </ul>
                 <p className="mt-2 text-11 text-muted-foreground">
                   {extras.extras.requireApprovalForHandoff ? "转交前会先征得你的确认。" : "遇到对方更擅长的事，它会直接转交。"}

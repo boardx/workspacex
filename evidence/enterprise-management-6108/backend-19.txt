@@ -1,0 +1,57 @@
+[stack-admission] load1=36.84 cores=10 perCore=3.68 running=0/2
+[stack-admission] 排队中：机器每核负载 3.68（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 0s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.45（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 5s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.20（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 10s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.02（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 15s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.97（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 20s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.09（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 25s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.90（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 30s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.75（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 35s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.57（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 40s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排到了，等了 45s
+[test-isolation] id=run-mvyu51g1-0c271b85-2b8bf67dc2d1 db=wsx_2b8bf67dc2d1bf5a18a5 compose=wsx-2b8bf67dc2d1bf5a18a5 pg=20893 redis=21893 api=24893 web=25893 sandbox=26893 model=27893 deep-agent=28893 asr=29893 vision=30893 loopback-sandbox=31893 mail=19893
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/apps/api
+
+ ✓ tests/billing/enterprise-grant.pg.test.ts (7 tests) 97814ms
+   ✓ actual wallet, ledger and immutable grant audit commit once 508ms
+   ✓ legacy Enterprise metadata cannot restore current generation rights 428ms
+   ✓ actual no-paid-Team upgrade preserves one Plan version and the same receipt 726ms
+   ✓ actual paid license remains unchanged while upgrade is processing 378ms
+   ✓ audit CHECK failure rolls back actual wallet and ledger 363ms
+   ✓ overflow leaves actual wallet unchanged and creates no grant receipt 457ms
+   ✓ platform detail hydrates active Enterprise from the same real wallet 6157ms
+ ✓ tests/billing/credit-grant-precision-pg.test.ts (8 tests) 6292ms
+   ✓ stores and exposes hundredth cumulative grants for user wallets 446ms
+   ✓ stores and exposes hundredth cumulative grants for team wallets 311ms
+   ✓ atomically accumulates independent hundredth increments without losing cents 1081ms
+   ✓ keeps the fractional counter through real monthly grant and duplicate delivery 523ms
+   ✓ rejects lifetime-counter overflow before inserting a period and rolls back all writes 405ms
+   ✓ preserves existing hundredths when the actual new-account gift trigger runs 339ms
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+{"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+{"level":"error","msg":"http exception","traceId":"f34ab5a3-4320-48c9-a661-b16988db1b3b","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at PlatformOperatorGuard.canActivate (/Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/apps/api/src/interface/guards/platform-operator.guard.ts:40:13)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at GuardsConsumer.tryActivate (/Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/guards/guards-consumer.js:16:17)\n    at canActivateFn (/Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:135:33)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:42:31\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"eaa6c31b-22d2-4da8-a612-f314c6e6da3c","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at PlatformOperatorGuard.canActivate (/Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/apps/api/src/interface/guards/platform-operator.guard.ts:40:13)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at GuardsConsumer.tryActivate (/Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/guards/guards-consumer.js:16:17)\n    at canActivateFn (/Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:135:33)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:42:31\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"3ab78174-91d3-43f2-bef1-c9be81125371","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at PlatformOperatorGuard.canActivate (/Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/apps/api/src/interface/guards/platform-operator.guard.ts:40:13)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at GuardsConsumer.tryActivate (/Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/guards/guards-consumer.js:16:17)\n    at canActivateFn (/Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:135:33)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:42:31\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"5b56cad5-f522-4dc5-a8ae-611c3f080359","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at PlatformOperatorGuard.canActivate (/Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/apps/api/src/interface/guards/platform-operator.guard.ts:40:13)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at GuardsConsumer.tryActivate (/Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/guards/guards-consumer.js:16:17)\n    at canActivateFn (/Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:135:33)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:42:31\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"f0efcdc8-bbb9-49a0-b6b9-0287001fdee2","detail":{"name":"EnterpriseHttpException","message":"Enterprise Http Exception","stack":"EnterpriseHttpException: Enterprise Http Exception\n    at EnterpriseManagementController.execute (/Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/apps/api/src/interface/controllers/enterprise-management.controller.ts:15:45)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+{"level":"error","msg":"http exception","traceId":"0b12a8a7-00f8-4e18-a5d4-30e194bfb9c0","detail":{"name":"EnterpriseHttpException","message":"Enterprise Http Exception","stack":"EnterpriseHttpException: Enterprise Http Exception\n    at EnterpriseManagementController.execute (/Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/apps/api/src/interface/controllers/enterprise-management.controller.ts:15:45)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+ ✓ tests/billing/enterprise-management.http.test.ts (2 tests) 158698ms
+   ✓ real authenticated org admin is denied both same-org and cross-org Enterprise writes 384ms
+   ✓ real HTTP composition upgrades, grants once, resumes original receipt and rejects version conflicts 1171ms
+ ✓ tests/billing/credit-grant-precision-schema-source.test.ts (1 test) 18ms
+ ✓ tests/billing/welcome-schema-source.test.ts (1 test) 10ms
+
+ Test Files  5 passed (5)
+      Tests  19 passed (19)
+   Start at  13:46:23
+   Duration  278.27s (transform 75.26s, setup 0ms, collect 7.24s, tests 262.83s, environment 3ms, prepare 3.20s)
+
+[timing] pnpm --filter @repo/api exec vitest run --config vitest.enterprise-management-pg.config.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：45s
+  命令执行：4m42s
+  清理：5s
+  总计：5m33s

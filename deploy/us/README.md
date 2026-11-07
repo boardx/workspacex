@@ -50,7 +50,7 @@ python3 scripts/image_install/installer.py package --output deploy/us/dist
 
 | 项目 | 本次值 |
 |---|---|
-| US 服务器 | `43.110.25.66` |
+| US 服务器 | `47.254.69.39` |
 | 域名 | `appv1.boardx.us`（统一小写） |
 | 五镜像 tag | `40216660127-1`；仅在该版本仍可获取且明确要部署它时使用 |
 | 系统 / 工具 | Ubuntu 26.04.1 x86_64、docker.io 29.1.3、docker-compose-v2 2.40.3 |
@@ -59,10 +59,10 @@ python3 scripts/image_install/installer.py package --output deploy/us/dist
 **本机执行：**
 
 ```bash
-ssh root@43.110.25.66
+ssh root@47.254.69.39
 ```
 
-其他服务器替换 IP。若超时，在本机检查 `nc -vz -G 5 43.110.25.66 22`（macOS）；同时从云控制台登录，检查 SSH 服务、安全组和系统防火墙。`ping` 成功只能说明 ICMP 可达，不能证明 TCP 22 可用。
+其他服务器替换 IP。若超时，在本机检查 `nc -vz -G 5 47.254.69.39 22`（macOS）；同时从云控制台登录，检查 SSH 服务、安全组和系统防火墙。`ping` 成功只能说明 ICMP 可达，不能证明 TCP 22 可用。
 
 **服务器执行：**
 
@@ -79,7 +79,7 @@ df -h / /var/lib
 
 安全组/防火墙：SSH 仅允许运维来源，公网开放 TCP 80/443。不要公开数据库 5432、Redis 6379、应用 3000/3200 或 Agent 8000。服务器需能访问仓库、模型服务、系统软件源、证书服务及自己的公网 HTTPS 域名。
 
-DNS 控制台配置：`A appv1 → 43.110.25.66`。本次首次安装使用 Cloudflare **仅 DNS（灰云）**；没有 IPv6 服务时不要保留失效的 AAAA 记录。本流程不包含安装后重新启用 Cloudflare 代理的验收。
+DNS 控制台配置：`A appv1 → 47.254.69.39`。本次首次安装使用 Cloudflare **仅 DNS（灰云）**；没有 IPv6 服务时不要保留失效的 AAAA 记录。本流程不包含安装后重新启用 Cloudflare 代理的验收。
 
 ```bash
 getent ahostsv4 appv1.boardx.us
@@ -141,7 +141,7 @@ nginx -T 2>/dev/null | grep -E '^# configuration file|^[[:space:]]*(listen|serve
 
 ```bash
 cd /Users/shenyangjun/boardx/workspacex/deploy/us/dist
-scp workspacex-install.tar.gz workspacex-install.tar.gz.sha256 root@43.110.25.66:/opt/
+scp workspacex-install.tar.gz workspacex-install.tar.gz.sha256 root@47.254.69.39:/opt/
 ```
 
 `scp` 上传成功后，文件在**远程服务器 `/opt/`**；本机终端不会自动变成服务器终端。在 Mac 上 `cd /opt` 查看的是 Mac 的目录。

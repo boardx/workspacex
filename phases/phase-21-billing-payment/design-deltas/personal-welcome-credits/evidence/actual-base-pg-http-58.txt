@@ -1,0 +1,35 @@
+[stack-admission] load1=1.97 cores=10 perCore=0.20 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvyf60h6-e67022fa-c5e55c8b4084 db=wsx_c5e55c8b40841bab649c compose=wsx-c5e55c8b40841bab649c pg=20987 redis=21987 api=24987 web=25987 sandbox=26987 model=27987 deep-agent=28987 asr=29987 vision=30987 loopback-sandbox=31987 mail=19987
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_c5e55c8b40841bab649c capacity=100 current=6 required=32
+ ✓ tests/billing/personal-credit-terms-pg.test.ts (16 tests) 15497ms
+   ✓ paginates 101 due owners without losing the second batch 799ms
+ ✓ tests/billing/credit-consumption-pg.test.ts (16 tests) 1203ms
+ ✓ tests/billing/welcome-credit-pg.test.ts (12 tests) 1295ms
+ ✓ tests/billing/credit-period-lifecycle-pg.test.ts (6 tests) 1198ms
+ ✓ tests/billing/credit-admission-policy-pg.test.ts (6 tests) 830ms
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+{"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+{"level":"error","msg":"http exception","traceId":"bc63ad85-4034-4c86-b205-04d2f367e4d7","detail":{"name":"UnauthorizedException","message":"unauthenticated","stack":"UnauthorizedException: unauthenticated\n    at PrincipalGuard.canActivate (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api/src/interface/guards/principal.guard.ts:54:27)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+{"level":"error","msg":"http exception","traceId":"32d400bc-68a8-44ae-aac5-bf71bdd8ee57","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at AuthRegistrationController.register (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api/src/interface/controllers/auth-registration.controller.ts:195:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+{"level":"error","msg":"contract validation failed","traceId":"7d536df4-f0db-4763-b405-b68bdab03d9a","detail":{"name":"ContractValidationError","message":"validation_failed","stack":"ContractValidationError: validation_failed\n    at ZodBodyPipe.transform (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api/src/interface/pipes/zod-body.pipe.ts:41:11)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/pipes/pipes-consumer.js:16:33\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+ ✓ tests/auth/welcome-registration-http.test.ts (2 tests) 11470ms
+   ✓ real registration commits its one welcome batch and durable verification outbox together 1466ms
+
+ Test Files  6 passed (6)
+      Tests  58 passed (58)
+   Start at  06:46:28
+   Duration  39.18s (transform 6.38s, setup 26ms, collect 2.98s, tests 31.49s, environment 1ms, prepare 249ms)
+
+[db-isolation] db=wsx_c5e55c8b40841bab649c peak_connections=7
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/welcome-credit-pg.test.ts tests/billing/personal-credit-terms-pg.test.ts tests/billing/credit-period-lifecycle-pg.test.ts tests/billing/credit-admission-policy-pg.test.ts tests/billing/credit-consumption-pg.test.ts tests/auth/welcome-registration-http.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：40s
+  清理：1s
+  总计：41s

@@ -1,0 +1,37 @@
+{
+  "baseHead": "cb463c5160a8f78a1c8d910fefd27c79ce438250",
+  "secretPatternHits": 0,
+  "rawPrivateBackup": "/tmp/chat6200-task5-geometry-before-checkpoint-private",
+  "logs": [
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task5-geometry-lint.log",
+      "originalSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "publishedSha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "nonWhitespaceEqual": true
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task5-geometry-neighbors.log",
+      "originalSha256": "5815aba8ee4295f9a7d4eab29c65d005682ebb24a902787bc3469c09c44b2f88",
+      "publishedSha256": "9fe0afdcd213ceab57734c00f4626fedf2223d13bcc1a7a6dc31829e4cbd083b",
+      "nonWhitespaceEqual": true
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task5-geometry-type.log",
+      "originalSha256": "e9b019d37db080d36b121892b06e0818b37e0b4f08f68f45cd0110befa237e7e",
+      "publishedSha256": "62543be5fd5bf1824e1a01ed8931f0607450a06735a9cb2ac84b1fb88de5122d",
+      "nonWhitespaceEqual": true
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task5-history-parent-green.log",
+      "originalSha256": "6715ed3bb87630045c710a963b31328880ebd7c597650b7cd011635bbc06b22c",
+      "publishedSha256": "9a06c247fce8008e93d32b6da1e3ae0d32c30494bf4c51bcca890eeb7c6de4c0",
+      "nonWhitespaceEqual": true
+    },
+    {
+      "path": "evidence/i18n-chat-workspace-6200/task5-history-parent-red.log",
+      "originalSha256": "ee60caae1dd343a563c2f8a6d6b51a64cd444f68128c0fdf15487278ed8991f2",
+      "publishedSha256": "7950e2e754b786d60b1a44f68ae3773f3b6b0867be6e9aac4a74064aaf521e8e",
+      "nonWhitespaceEqual": true
+    }
+  ]
+}

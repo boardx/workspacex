@@ -1,0 +1,20 @@
+{
+  "name": "resources",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/lib/i18n-resources.test.ts"
+  ],
+  "source": "4c6e437d87a6c3839c832130a9bea0980b61cb57",
+  "exitCode": 0,
+  "seconds": 1.839,
+  "rawLogLocalPath": "/tmp/6220-sync-private-ec169/resources.log",
+  "rawLogSha256": "cb63bf7f7e4582b87301b6a6d5c090786d623eddc1fd4d751e307f509994bdc7",
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  }
+}

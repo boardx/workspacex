@@ -1,0 +1,63 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/team-receipt-anchor-6099/apps/api
+
+ ❯ tests/billing/team-catalog-market.test.ts (5 tests | 1 failed) 44ms
+   × does not revive old Enterprise metadata as current entitlement (null) 23ms
+     → promise resolved "{ orgId: 'org-a', …(10) }" instead of rejecting
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/team-catalog-market.test.ts > does not revive old Enterprise metadata as current entitlement (null)
+AssertionError: promise resolved "{ orgId: 'org-a', …(10) }" instead of rejecting
+
+- Expected
++ Received
+
+- [Error: rejected promise]
++ Object {
++   "asOf": "2026-11-02T16:03:57.613Z",
++   "checkoutPending": false,
++   "creditGrant": Object {
++     "grant": null,
++     "status": "none",
++   },
++   "generation": "billing-credits-2026-11-v1",
++   "licenseStatus": "enterprise",
++   "memberCount": 1,
++   "orgId": "org-a",
++   "paymentReviewRequired": false,
++   "planVersion": 3,
++   "teamPayment": null,
++   "wallet": Object {
++     "availableBalance": 0,
++     "balance": 0,
++     "ownerId": "org-a",
++     "ownerType": "team",
++     "permanentBalance": 0,
++     "reservedCredits": 0,
++     "subscriptionCredits": 0,
++     "subscriptionExpiresAt": null,
++     "totalGranted": 0,
++     "totalPurchased": 0,
++     "updatedAt": "2026-11-02T16:03:57.614Z",
++   },
++ }
+
+ ❯ tests/billing/team-catalog-market.test.ts:27:82
+     25| it.each([null,"retired-generation"])("does not revive old Enterprise m…
+     26|  const f=entitlementRepository(prior);
+     27|  await expect(f.repo.entitlement({userId:"admin",orgId:"org-a"} as nev…
+       |                                                                                  ^
+     28| });
+     29| it("reads current-generation Enterprise entitlement from the actual re…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 passed (5)
+   Start at  00:03:56
+   Duration  1.39s (transform 448ms, setup 0ms, collect 652ms, tests 44ms, environment 0ms, prepare 227ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/team-receipt-anchor-6099/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.team-core-unit.config.ts tests/billing/team-catalog-market.test.ts

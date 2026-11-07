@@ -1,0 +1,49 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/apps/web
+
+ ❯ tests/ui/interview-journey-i18n.test.tsx (6 tests | 6 failed) 1303ms
+   × localizes the real six-step header while keeping raw identity and navigation IDs 176ms
+     → Unable to find an accessible element with the role "navigation" and name "Interview steps"
+
+Here are the accessible roles:
+
+[intermediate output omitted; full log SHA-256 in validation.json]
+   × localizes the real six-step header while keeping raw identity and navigation IDs 176ms
+   × keeps the editable intake and pending confirm identity across language changes 34ms
+   × retranslates an import error without another operation or draft loss 10ms
+   × localizes analysis empty and pending actions without invoking generation 14ms
+   × localizes report controls while preserving canonical headings and body bytes 44ms
+   × localizes the actual history home and retains a failed read until explicit retry 1024ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/ui/interview-journey-i18n.test.tsx > localizes the real six-step header while keeping raw identity and navigation IDs
+TestingLibraryElementError: Unable to find an accessible element with the role "navigation" and name "Interview steps"
+ FAIL  tests/ui/interview-journey-i18n.test.tsx > keeps the editable intake and pending confirm identity across language changes
+TestingLibraryElementError: Unable to find an accessible element with the role "textbox" and name "Research requirements Markdown"
+ FAIL  tests/ui/interview-journey-i18n.test.tsx > retranslates an import error without another operation or draft loss
+TestingLibraryElementError: Unable to find a label with the text of: Import research file
+ FAIL  tests/ui/interview-journey-i18n.test.tsx > localizes analysis empty and pending actions without invoking generation
+TestingLibraryElementError: Unable to find an accessible element with the role "heading" and name "AI analysis"
+ FAIL  tests/ui/interview-journey-i18n.test.tsx > localizes report controls while preserving canonical headings and body bytes
+TestingLibraryElementError: Unable to find an accessible element with the role "navigation" and name "Report contents"
+ FAIL  tests/ui/interview-journey-i18n.test.tsx > localizes the actual history home and retains a failed read until explicit retry
+TestingLibraryElementError: Unable to find role="heading" and name "Interviews"
+ Test Files  1 failed (1)
+      Tests  6 failed (6)
+   Duration  4.19s (transform 1.11s, setup 139ms, collect 1.82s, tests 1.30s, environment 707ms, prepare 47ms)
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/interview-journey-i18n.test.tsx --maxWorkers=1 --minWorkers=1
+     64|   expect(await screen.findByRole("heading", { name: "Interviews" })).t…
+       |                       ^
+     65|   expect(await screen.findByText(/Interview history could not be loade…
+     66|   expect(api.history).toHaveBeenCalledTimes(1); expect(screen.getByRol…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯
+
+ Test Files  1 failed (1)
+      Tests  6 failed (6)
+   Start at  03:17:38
+   Duration  4.19s (transform 1.11s, setup 139ms, collect 1.82s, tests 1.30s, environment 707ms, prepare 47ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/interview-journey-i18n.test.tsx --maxWorkers=1 --minWorkers=1

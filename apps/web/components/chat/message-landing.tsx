@@ -1,6 +1,9 @@
 "use client";
 
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
+import { translate } from "@/lib/i18n/messages";
+import type { Locale } from "@/lib/i18n/locale";
 import { FileOutput, FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,11 +40,11 @@ export type MessageLandingState =
   | { readonly status: "form"; readonly title: string }
   | { readonly status: "submitting"; readonly title: string }
   | { readonly status: "done"; readonly title: string; readonly artifactId: string }
-  | { readonly status: "error"; readonly title: string; readonly error: string };
+  | { readonly status: "error"; readonly title: string; readonly error: string; readonly failure?: { readonly cause: unknown } };
 
-export function defaultArtifactTitle(text: string): string {
+export function defaultArtifactTitle(text: string, locale: Locale = "zh-CN"): string {
   const firstLine = text.split("\n")[0]?.trim() ?? "";
-  return firstLine.length > 40 ? `${firstLine.slice(0, 40)}…` : (firstLine || "未命名产物");
+  return firstLine.length > 40 ? `${firstLine.slice(0, 40)}…` : (firstLine || translate(locale, "chatLanding.untitled"));
 }
 
 /**
@@ -57,7 +60,7 @@ export function useMessageLanding(input: {
   readonly onArtifactLanded?: () => void;
 }): {
   readonly stateFor: (messageId: string) => MessageLandingState | undefined;
-  readonly open: (message: LandableMessage) => void;
+  readonly open: (message: LandableMessage, locale?: Locale) => void;
   readonly updateTitle: (messageId: string, title: string) => void;
   readonly cancel: (messageId: string) => void;
   readonly submit: (message: LandableMessage) => Promise<void>;
@@ -65,10 +68,10 @@ export function useMessageLanding(input: {
   const [landingState, setLandingState] = React.useState<Record<string, MessageLandingState>>({});
   const { threadId, bearer, onArtifactLanded } = input;
 
-  const open = React.useCallback((message: LandableMessage) => {
+  const open = React.useCallback((message: LandableMessage, locale: Locale = "zh-CN") => {
     setLandingState((current) => ({
       ...current,
-      [message.id]: { status: "form", title: defaultArtifactTitle(message.text) },
+      [message.id]: { status: "form", title: defaultArtifactTitle(message.text, locale) },
     }));
   }, []);
 
@@ -111,7 +114,7 @@ export function useMessageLanding(input: {
     } catch (failure) {
       setLandingState((current) => ({
         ...current,
-        [message.id]: { status: "error", title, error: describeMessageFailure(failure, "落地为产物") },
+        [message.id]: { status: "error", title, error: describeMessageFailure(failure, "落地为产物"), failure: { cause: failure } },
       }));
     }
   }, [threadId, bearer, onArtifactLanded]);
@@ -128,7 +131,7 @@ export function useMessageLanding(input: {
  * 十项 UX 缺口第 5 项（issue #708）——内联「落地为产物」触发按钮。
  *
  * 2026-08-27 人类反馈（对照 Claude Design 原型）：此前这是一个独占一整行的
- * outline 文字按钮（"落地为产物（草稿）"），在消息动作条（复制/反馈/评分）之外
+ * outline 文字按钮（t("chatLanding.open")），在消息动作条（复制/反馈/评分）之外
  * 另起一行，读作与那一排不相关的东西。原型里这类附加动作是与复制/评分同一排的
  * 小图标——所以这里拆成两块：**未打开**时只是这个图标触发器，调用方把它塞进与
  * 复制/反馈同一个 flex 行；一旦打开（表单/提交中/出错/完成）交给下面
@@ -147,6 +150,7 @@ export function MessageLandingTrigger({
   state: MessageLandingState | undefined;
   onOpen: () => void;
 }): JSX.Element | null {
+  const { t } = useI18n();
   // 一旦进入表单/提交中/出错/完成任一态，块级的 `MessageLandingPanel` 接管展示，
   // 这个触发器不再需要（避免同一操作出现两个可点入口）。
   if (state !== undefined) return null;
@@ -154,8 +158,8 @@ export function MessageLandingTrigger({
     <button
       type="button"
       data-testid={`chat-land-artifact-open-${message.id}`}
-      aria-label="落地为产物（草稿）"
-      title="落地为产物（草稿）"
+      aria-label={t("chatLanding.open")}
+      title={t("chatLanding.open")}
       onClick={onOpen}
       className="inline-grid h-5 w-5 place-items-center rounded text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
@@ -179,9 +183,10 @@ export function MessageLandingPanel({
   onCancel: () => void;
   onSubmit: () => void;
 }): JSX.Element | null {
+  const { locale, t } = useI18n();
   // 2026-08-27（issue #2132 续）—— "未打开"态的入口已经不在这个组件里渲染：
   // 此前这里（以及更早、main 上 issue #2126 修过一次视觉的那版）画的是一个
-  // outline/ghost 文字按钮"落地为产物（草稿）"，自成一行，与复制/反馈/评分不在
+  // outline/ghost 文字按钮t("chatLanding.open")，自成一行，与复制/反馈/评分不在
   // 同一视觉层级。#2126 当时只把它的 variant 从 outline 换成 ghost，缓解了边框
   // 不对齐的问题，但没解决"自成一行"本身——对照 Claude Design 原型，这类附加
   // 动作应该是消息操作条上的一个小图标，见上面 `MessageLandingTrigger`（进
@@ -204,7 +209,7 @@ export function MessageLandingPanel({
       }}
     >
       <label className="text-10 text-muted-foreground" htmlFor={`chat-land-artifact-title-${message.id}`}>
-        产物标题（草稿，落地后仍可在右栏「产物」看到）
+        {t("chatLanding.title")}
       </label>
       <input
         id={`chat-land-artifact-title-${message.id}`}
@@ -221,15 +226,15 @@ export function MessageLandingPanel({
           data-testid={`chat-land-artifact-submit-${message.id}`}
           disabled={busy || state.title.trim() === ""}
         >
-          {busy ? "落地中…" : "确认落地"}
+          {busy ? t("chatLanding.saving") : t("chatLanding.confirm")}
         </Button>
         <Button size="xs" type="button" variant="outline" disabled={busy} onClick={onCancel}>
-          取消
+          {t("common.cancel")}
         </Button>
       </div>
       {state.status === "error" ? (
         <p className="text-10 text-destructive" data-testid={`chat-land-artifact-error-${message.id}`}>
-          {state.error}
+          {state.failure ? describeMessageFailure(state.failure.cause, t("chatLanding.action"), locale) : state.error}
         </p>
       ) : null}
     </form>
@@ -250,6 +255,7 @@ function LandedArtifactCard({
   title: string;
   sourceText: string;
 }): JSX.Element {
+  const { t } = useI18n();
   const [expanded, setExpanded] = React.useState(false);
   return (
     <div
@@ -262,7 +268,7 @@ function LandedArtifactCard({
         <Badge tone="ai">AI</Badge>
       </div>
       <div className="flex items-center justify-between">
-        <span className="text-10 text-muted-foreground">已落地为产物（草稿）</span>
+        <span className="text-10 text-muted-foreground">{t("chatLanding.saved")}</span>
         <Button
           size="xs"
           variant="ghost"
@@ -271,7 +277,7 @@ function LandedArtifactCard({
           data-testid={`chat-land-artifact-expand-${messageId}`}
           onClick={() => setExpanded((v) => !v)}
         >
-          {expanded ? "收起" : "展开"}
+          {expanded ? t("chatLanding.collapse") : t("chatLanding.expand")}
         </Button>
       </div>
       {expanded ? (

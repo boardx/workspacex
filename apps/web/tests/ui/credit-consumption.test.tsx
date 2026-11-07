@@ -6,6 +6,12 @@ import { ConsumptionSettingsPanel } from "@/components/admin/consumption-setting
 import { notifyCreditFailure } from "@/lib/credit-guidance";
 import { apiRequest } from "@/lib/api-client";
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+it("explains the fixed personal and enterprise admission policy without offering the legacy bypass switch", async () => {
+ vi.stubGlobal("fetch",vi.fn().mockResolvedValue(new Response(JSON.stringify({creditPreflightEnabled:false,admissionPolicy:"personal_nonnegative_enterprise_overdraft"}))));
+ render(<ConsumptionSettingsPanel />);
+ expect(await screen.findByText(/个人账户余额低于 0 时不能发起新请求/)).toBeTruthy();
+ expect(screen.queryByRole("switch")).toBeNull();
+});
 it("HTTP credit rejection preserves draft and offers scoped recharge without retry", async () => {
  const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({code:"credit_required",ownerType:"team",ownerId:"org-a",rechargePath:"/billing?ownerType=team&ownerId=org-a&purchase=1"}), {status:402})); vi.stubGlobal("fetch",fetcher);
  render(<><textarea aria-label="草稿" defaultValue="保留附件与问题" /><CreditConsumptionNotice /></>);
@@ -19,12 +25,12 @@ it("accounting outage never offers misleading recharge and unknown ownership gui
  fireEvent(window,new CustomEvent("workspacex:credit-failure",{detail:{code:"credit_accounting_unavailable"}}));
  expect(screen.getByRole("alert").textContent).toContain("计费服务暂时不可用"); expect(screen.queryByRole("link")).toBeNull();
  fireEvent(window,new CustomEvent("workspacex:credit-failure",{detail:{code:"CREDIT_REQUIRED"}}));
- expect(screen.getByRole("alert").textContent).toContain("管理员"); expect(screen.queryByRole("link")).toBeNull();
+ expect(screen.getByRole("alert").textContent).toContain("额度不足"); expect(screen.getByRole("link").getAttribute("href")).toBe("/billing");
 });
 it("untrusted recharge destinations cannot navigate away", () => {
  render(<CreditConsumptionNotice />);
  fireEvent(window,new CustomEvent("workspacex:credit-failure",{detail:{code:"credit_required",ownerType:"user",ownerId:"u",rechargePath:"https://evil.example/"}}));
- expect(screen.queryByRole("link")).toBeNull();
+ expect(screen.getByRole("link").getAttribute("href")).toBe("/billing");
  expect(notifyCreditFailure({code:"unrelated"})).toBe(false);
 });
 it("platform control reads authoritative setting and saves explicit choice", async () => {
@@ -46,7 +52,7 @@ import { TeamBillingOverview } from "@/components/billing/team-billing-overview"
 import { openAgentRunStream } from "@/lib/agent-run-stream";
 it("SSE credit terminal shows guidance without replaying", async()=>{
  const fetcher=vi.fn().mockResolvedValue(new Response('data: {"type":"final","status":"failed","error":"CREDIT_REQUIRED"}\n\n',{status:200}));vi.stubGlobal("fetch",fetcher);render(<CreditConsumptionNotice/>);
- const events:unknown[]=[];await openAgentRunStream("run-a",event=>events.push(event));await screen.findByRole("alert");expect(screen.getByRole("alert").textContent).toContain("计费账户");expect(events).toHaveLength(1);expect(fetcher).toHaveBeenCalledTimes(1);
+ const events:unknown[]=[];await openAgentRunStream("run-a",event=>events.push(event));await screen.findByRole("alert");expect(screen.getByRole("alert").textContent).toContain("额度不足");expect(screen.getByRole("link").getAttribute("href")).toBe("/billing");expect(events).toHaveLength(1);expect(fetcher).toHaveBeenCalledTimes(1);
 });
 it("fractional consume ledger shows negative movement and debt",()=>{
  render(<CashierLedgerHistory owner={{ownerType:"user",ownerId:"u"}} sessionToken="s" onDenied={()=>{}} initial={{items:[{txnId:"txn1",type:"consume",sourceType:"model_request",sourceId:"request1",operatorId:null,reason:null,direction:-1,credits:0.01,balanceAfter:-0.01,createdAt:"2026-10-22T00:00:00Z"}],nextCursor:null}}/>);
@@ -58,7 +64,7 @@ it("organization recharge never substitutes personal wallet after denial",async(
 });
 it("organization wallet fractional debt is visible",async()=>{
  vi.stubGlobal("fetch",vi.fn().mockResolvedValue(new Response(JSON.stringify({wallet:{ownerType:"team",ownerId:"org-a",balance:-0.07,totalPurchased:0,totalGranted:0,updatedAt:"2026-10-22T00:00:00Z"}}))));render(<TeamBillingOverview ownerId="org-a" sessionToken="s"/>);
- expect(await screen.findByText("-0.07")).toBeTruthy();expect(screen.getByText("待结算欠额 0.07 额度")).toBeTruthy();
+ expect(await screen.findByText("-0.07")).toBeTruthy();expect(screen.getByText(/待结算欠额 0.07 额度/)).toBeTruthy();
 });
 import { openAgentKernelRunEvents } from "@/lib/agent-kernel-stream";
 it("typed websocket credit failure closes intentionally without reconnect or replay",async()=>{
@@ -71,20 +77,27 @@ it("typed websocket credit failure closes intentionally without reconnect or rep
 import { NativeCreditTariffsPanel } from "@/components/admin/native-credit-tariffs-panel";
 it("native tariff requires explicit configured price and keeps native units",async()=>{
  const fetcher=vi.fn().mockImplementation((_url:string,options:RequestInit)=>Promise.resolve(new Response(JSON.stringify(options.method==="PUT"?JSON.parse(String(options.body)):{items:[]}))));vi.stubGlobal("fetch",fetcher);render(<NativeCreditTariffsPanel/>);
- fireEvent.change(screen.getByLabelText("费率组织 ID"),{target:{value:"org-a"}});fireEvent.click(screen.getByRole("button",{name:"查询组织费率"}));await screen.findByText("尚无原生用量费率，请按商户定价填写。");
+ fireEvent.click(screen.getByRole("button",{name:"查询全局费率"}));await screen.findByText("尚无原生用量费率，请按商户定价填写。");
  expect((screen.getByLabelText("每份价格（0.01 credit）") as HTMLInputElement).value).toBe("");
+ expect((screen.getByLabelText("原生用量单位") as HTMLSelectElement).value).toBe("millisecond");fireEvent.change(screen.getByLabelText("原生用量单位"),{target:{value:"image"}});
  for(const [label,value] of [["模型供应商","provider"],["模型 ID","image-model"],["每份用量","1"],["每份价格（0.01 credit）","5"],["费率版本","v2"]])fireEvent.change(screen.getByLabelText(label!),{target:{value}});
  fireEvent.click(screen.getByRole("button",{name:"保存模型费率"}));await screen.findByText("费率已保存，仅对后续新调用生效，历史用量仍保留原费率版本。");
- expect(JSON.parse(fetcher.mock.calls[1]![1].body)).toEqual({orgId:"org-a",modelProvider:"provider",modelId:"image-model",unit:"image",quantum:"1",hundredthsPerQuantum:"5",version:"v2"});expect(screen.getByText(/每 1 图片收取 5/)).toBeTruthy();
+ expect(JSON.parse(fetcher.mock.calls[1]![1].body)).toEqual({pricingBasis:{source:"operator",retailSnapshotId:"v2"},modelProvider:"provider",modelId:"image-model",unit:"image",quantum:"1",hundredthsPerQuantum:"5",version:"v2"});expect(screen.getByText(/每 1 图片收取 5/)).toBeTruthy();
+});
+it("native tariff refuses bailian image writes and directs the operator to global CAS",async()=>{
+ const fetcher=vi.fn().mockResolvedValue(new Response(JSON.stringify({items:[]})));vi.stubGlobal("fetch",fetcher);render(<NativeCreditTariffsPanel/>);
+ fireEvent.click(screen.getByRole("button",{name:"查询全局费率"}));await screen.findByRole("form",{name:"保存原生用量费率"});
+ fireEvent.change(screen.getByLabelText("模型供应商"),{target:{value:"bailian-image"}});fireEvent.submit(screen.getByRole("form",{name:"保存原生用量费率"}));
+ expect(screen.getByText("图片价格请使用全局图片价格发布（CAS）入口，本表不接受图片供应商写入。")).toBeTruthy();expect(fetcher).toHaveBeenCalledTimes(1);
 });
 it("native tariff rejects fractional native quantum without changing stored fee",async()=>{
- vi.stubGlobal("fetch",vi.fn().mockResolvedValue(new Response(JSON.stringify({items:[]}))));render(<NativeCreditTariffsPanel/>);fireEvent.change(screen.getByLabelText("费率组织 ID"),{target:{value:"org-a"}});fireEvent.click(screen.getByRole("button",{name:"查询组织费率"}));await screen.findByRole("form",{name:"保存原生用量费率"});
+ vi.stubGlobal("fetch",vi.fn().mockResolvedValue(new Response(JSON.stringify({items:[]}))));render(<NativeCreditTariffsPanel/>);fireEvent.click(screen.getByRole("button",{name:"查询全局费率"}));await screen.findByRole("form",{name:"保存原生用量费率"});
  for(const [label,value] of [["模型供应商","provider"],["模型 ID","image-model"],["每份用量","1.5"],["每份价格（0.01 credit）","5"],["费率版本","v2"]])fireEvent.change(screen.getByLabelText(label!),{target:{value}});
  fireEvent.submit(screen.getByRole("form",{name:"保存原生用量费率"}));expect(screen.getByText(/请完整填写模型、版本及正整数用量与价格/)).toBeTruthy();expect(fetch).toHaveBeenCalledTimes(1);
 });
 import { WalletAvailability } from "@/components/billing/wallet-availability";
 it("temporary held credits are distinct from posted consumption and unavailable data stays absent",()=>{
- const view=render(<WalletAvailability reservedCredits={0.03} availableBalance={0.07}/>);expect(screen.getByText("调用中暂留额度")).toBeTruthy();expect(screen.getByText("0.03")).toBeTruthy();expect(screen.getByText(/尚未记为消费/)).toBeTruthy();view.rerender(<WalletAvailability/>);expect(screen.queryByText("可用额度")).toBeNull();
+ const view=render(<WalletAvailability reservedCredits={0.03} availableBalance={0.07}/>);expect(screen.getByText("调用中预估额度")).toBeTruthy();expect(screen.getByText("0.03")).toBeTruthy();expect(screen.getByText(/不从当前可用余额扣除/)).toBeTruthy();view.rerender(<WalletAvailability/>);expect(screen.queryByText("可用额度")).toBeNull();
 });
 it("organization recharge mounts real cashier and queries only the selected organization's account",async()=>{
  const fetcher=vi.fn().mockImplementation((url:string)=>{const path=new URL(url).pathname;const body=path.endsWith("/wallet")?{wallet:{ownerType:"team",ownerId:"org-a",balance:1.23,reservedCredits:0.03,availableBalance:1.2,totalPurchased:0,totalGranted:0,updatedAt:"2026-10-22T00:00:00Z"}}:path.endsWith("/config")?{enabledProviders:["wechat"]}:path.endsWith("/packages")?{items:[]}:{items:[],nextCursor:null};return Promise.resolve(new Response(JSON.stringify(body)));});vi.stubGlobal("fetch",fetcher);

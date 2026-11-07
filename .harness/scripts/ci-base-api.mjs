@@ -6,10 +6,16 @@ import { pathToFileURL } from 'node:url';
 import { spawnSync, execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { shardPlan, discoverCoverage } from './ci-api-shards.mjs';
-const required = ['verify-full-compile', 'base-api-plan', 'base-api-shards', 'base-api-exclusive'];
+export const PARALLEL_BASE_PRODUCERS=['base-compile','base-api-plan','base-api-shards','base-api-exclusive','base-package-tests','base-control-plane','web-test-plan','web-test-shards'];
+const legacyRequired = ['verify-full-compile', 'base-api-plan', 'base-api-shards', 'base-api-exclusive'];
 const hash = value => createHash('sha256').update(value).digest('hex');
-export function assertPrerequisites(needs) {
-  if (!needs || Object.keys(needs).sort().join() !== [...required].sort().join() || required.some(name => needs[name]?.result !== 'success')) throw new Error('INCOMPLETE_BASE_PREREQUISITES');
+export function assertPrerequisites(needs,event=process.env.GITHUB_EVENT_NAME) {
+  if(!['merge_group','workflow_dispatch','schedule'].includes(event)) {
+    if (!needs || Object.keys(needs).sort().join() !== [...legacyRequired].sort().join() || legacyRequired.some(name => needs[name]?.result !== 'success')) throw new Error('INCOMPLETE_BASE_PREREQUISITES');
+    return;
+  }
+  const required=['base-api-plan','base-api-shards','base-api-exclusive','base-compile'];
+  if(!needs||Object.keys(needs).sort().join()!==required.sort().join()||required.some(k=>needs[k]?.result!=='success'))throw new Error('INCOMPLETE_BASE_PREREQUISITES');
 }
 export function validateReport(report, expectedFiles) {
   if (report?.success !== true || !(report.numPassedTests > 0)
@@ -94,7 +100,12 @@ export function bundle(directory, plan, env = process.env, producerAttempts) {
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const [command, directory] = process.argv.slice(2);
-  if (command === 'prerequisites') assertPrerequisites(JSON.parse(process.env.CI_BASE_NEEDS ?? 'null'));
+  if (command === 'prerequisites-parallel') {
+    const needs=JSON.parse(process.env.CI_BASE_NEEDS??'null');
+    const required=[...PARALLEL_BASE_PRODUCERS];
+    if(!needs||Object.keys(needs).sort().join()!==required.sort().join()||required.some(k=>needs[k]?.result!=='success'))throw Error('INCOMPLETE_PARALLEL_BASE');
+  }
+  else if (command === 'prerequisites') assertPrerequisites(JSON.parse(process.env.CI_BASE_NEEDS ?? 'null'));
   else if (command === 'download') download(directory);
   else if (command === 'record') record(directory);
   else if (command === 'discover') {

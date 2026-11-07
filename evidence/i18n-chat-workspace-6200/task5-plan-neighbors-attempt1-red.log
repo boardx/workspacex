@@ -1,0 +1,569 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/ui/copilotkit-v2-plan-control.test.tsx (52 tests | 4 skipped) 738ms
+ ❯ tests/ui/i18n-chat-canonical-chrome.test.tsx (8 tests | 1 failed) 446ms
+   × translates actual proposal and edit controls while keeping the draft action explicit 95ms
+     → Unable to find an accessible element with the role "button" and name "Edit plan"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "Change test locale":
+  [36m<button />[39m
+
+  Name "Expand plan panel":
+  [36m<button[39m
+    [33maria-expanded[39m=[32m"false"[39m
+    [33maria-label[39m=[32m"Expand plan panel"[39m
+    [33mclass[39m=[32m"flex min-w-0 items-center gap-2 rounded-control px-1 py-1 text-13 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-plan-collapse-toggle"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Confirm execution":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm-run"[39m
+  [36m/>[39m
+
+  Name "Continue editing":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm-edit"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  status:
+
+  Name "":
+  [36m<span[39m
+    [33mclass[39m=[32m"sr-only"[39m
+    [33mrole[39m=[32m"status"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<span[39m
+    [33mclass[39m=[32m"ml-auto text-10 text-warning-tint-foreground/70"[39m
+    [33mrole[39m=[32m"status"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  group:
+
+  Name "":
+  [36m<fieldset[39m
+    [33mclass[39m=[32m"min-w-0"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"mb-2 text-xs text-muted-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-plan-proposal-badge"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-12 text-warning-tint-foreground/80"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm-reason"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  strong:
+
+  Name "":
+  [36m<strong />[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mChange test locale[0m
+    [36m</button>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex max-h-48 shrink-0 flex-col gap-2 overflow-y-auto overscroll-contain md:max-h-64"[39m
+      [33mdata-testid[39m=[32m"chat-task-workbench-plan-control"[39m
+      [33mdata-thread-id[39m=[32m"raw-thread"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-center gap-1 rounded-control border border-border-subtle bg-panel px-3 py-1.5"[39m
+        [33mdata-phase[39m=[32m"planning"[39m
+        [33mdata-testid[39m=[32m"chat-task-workbench-phase-indicator"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"sr-only"[39m
+          [33mrole[39m=[32m"status"[39m
+        [36m>[39m
+          [0mCurrent phase: Planning[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"rounded-control px-1.5 py-0.5 text-12 transition-colors duration-base text-muted-foreground"[39m
+          [33mdata-phase-step[39m=[32m"preparing"[39m
+        [36m>[39m
+          [0mPreparing[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+        [36m>[39m
+          [0m›[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33maria-current[39m=[32m"step"[39m
+          [33mclass[39m=[32m"rounded-control px-1.5 py-0.5 text-12 transition-colors duration-base bg-primary font-semibold text-primary-foreground"[39m
+          [33mdata-phase-step[39m=[32m"planning"[39m
+        [36m>[39m
+          [0mPlanning[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+        [36m>[39m
+          [0m›[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"rounded-control px-1.5 py-0.5 text-12 transition-colors duration-base text-muted-foreground"[39m
+          [33mdata-phase-step[39m=[32m"executing"[39m
+        [36m>[39m
+          [0mExecuting[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+        [36m>[39m
+          [0m›[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"rounded-control px-1.5 py-0.5 text-12 transition-colors duration-base text-muted-foreground"[39m
+          [33mdata-phase-step[39m=[32m"approving"[39m
+        [36m>[39m
+          [0mApproval[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+        [36m>[39m
+          [0m›[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"rounded-control px-1.5 py-0.5 text-12 transition-colors duration-base text-muted-foreground"[39m
+          [33mdata-phase-step[39m=[32m"done"[39m
+        [36m>[39m
+          [0mCompleted[0m
+        [36m</span>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-center gap-2"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33maria-expanded[39m=[32m"false"[39m
+          [33maria-label[39m=[32m"Expand plan panel"[39m
+          [33mclass[39m=[32m"flex min-w-0 items-center gap-2 rounded-control px-1 py-1 text-13 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-plan-collapse-toggle"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-chevron-right h-4 w-4"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m9 18 6-6-6-6"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<span[39m
+            [33mdata-testid[39m=[32m"chat-task-workbench-plan-summary"[39m
+          [36m>[39m
+            [0mExecution plan · Awaiting confirmation · 0/1 step marked complete[0m
+          [36m</span>[39m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<fieldset[39m
+        [33mclass[39m=[32m"min-w-0"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"mb-2 text-xs text-muted-foreground"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-plan-proposal-badge"[39m
+        [36m>[39m
+          [0mThe following is a [0m
+          [36m<strong>[39m
+            [0mProposed plan[0m
+          [36m</strong>[39m
+          [0m; execution starts only after confirmation.[0m
+        [36m</p>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"rounded-card border text-card-foreground overflow-hidden border-warning/30 bg-warning-tint"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"p-4 flex flex-col gap-2 py-3"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-center gap-2"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 font-medium transition-colors duration-200 bg-warning-tint text-warning-tint-foreground text-10"[39m
+              [36m>[39m
+                [0mConfirmation required[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-13 font-semibold text-warning-tint-foreground"[39m
+              [36m>[39m
+                [0mExecute after confirmation[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-warning-tint-foreground/80"[39m
+              [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm-reason"[39m
+            [36m>[39m
+              [0mYou requested confirmation before execution. Check the plan and constraints.[0m
+            [36m</p>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-center gap-2"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+                [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm-run"[39m
+              [36m>[39m
+                [0mConfirm execution[0m
+              [36m</button>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+                [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm-edit"[39m
+              [36m>[39m
+                [0mContinue editing[0m
+              [36m</button>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"ml-auto text-10 text-warning-tint-foreground/70"[39m
+                [33mrole[39m=[32m"status"[39m
+              [36m>[39m
+                [0mWaiting for your confirmation…[0m
+              [36m</span>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</fieldset>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ✓ tests/ui/plan-display-unified.test.tsx (11 tests) 237ms
+ ✓ tests/ui/i18n-chat-plan-nested.test.tsx (15 tests) 306ms
+ ✓ tests/ui/plan-control-gate-and-recovery.test.tsx (13 tests) 80ms
+ ✓ tests/ui/plan-control-edit-mode.test.tsx (9 tests) 117ms
+ ✓ tests/ui/plan-control-phase-indicator.test.tsx (18 tests) 140ms
+ ✓ tests/ui/plan-control-panel-readonly.test.tsx (9 tests) 68ms
+ ✓ tests/ui/i18n-chat-plan-display.test.tsx (2 tests) 133ms
+ ✓ tests/lib/plan-failure-reason-names-the-tool.test.ts (3 tests) 3ms
+ ✓ tests/plan-control-summary-i18n.test.ts (2 tests) 3ms
+ ❯ tests/lib/i18n-resources.test.ts (5 tests | 1 failed) 73ms
+   × language resources > covers the same messages and interpolation parameters 39ms
+     → chatPlanControl.nextError.HITL_REJECTED: expected '' not to be '' // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/lib/i18n-resources.test.ts > language resources > covers the same messages and interpolation parameters
+AssertionError: chatPlanControl.nextError.HITL_REJECTED: expected '' not to be '' // Object.is equality
+ ❯ tests/lib/i18n-resources.test.ts:10:36
+      8|   expect(Object.keys(en).sort()).toEqual(Object.keys(zhCN).sort());
+      9|   for (const key of Object.keys(zhCN) as (keyof typeof zhCN)[]) {
+     10|    expect(en[key].trim(), key).not.toBe("");
+       |                                    ^
+     11|    expect((en[key].match(/\{\w+\}/g) ?? []).sort(), key).toEqual((zhCN…
+     12|   }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/ui/i18n-chat-canonical-chrome.test.tsx > translates actual proposal and edit controls while keeping the draft action explicit
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Edit plan"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "Change test locale":
+  [36m<button />[39m
+
+  Name "Expand plan panel":
+  [36m<button[39m
+    [33maria-expanded[39m=[32m"false"[39m
+    [33maria-label[39m=[32m"Expand plan panel"[39m
+    [33mclass[39m=[32m"flex min-w-0 items-center gap-2 rounded-control px-1 py-1 text-13 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-plan-collapse-toggle"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Confirm execution":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm-run"[39m
+  [36m/>[39m
+
+  Name "Continue editing":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm-edit"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  status:
+
+  Name "":
+  [36m<span[39m
+    [33mclass[39m=[32m"sr-only"[39m
+    [33mrole[39m=[32m"status"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<span[39m
+    [33mclass[39m=[32m"ml-auto text-10 text-warning-tint-foreground/70"[39m
+    [33mrole[39m=[32m"status"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  group:
+
+  Name "":
+  [36m<fieldset[39m
+    [33mclass[39m=[32m"min-w-0"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"mb-2 text-xs text-muted-foreground"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-plan-proposal-badge"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-12 text-warning-tint-foreground/80"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm-reason"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  strong:
+
+  Name "":
+  [36m<strong />[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mChange test locale[0m
+    [36m</button>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex max-h-48 shrink-0 flex-col gap-2 overflow-y-auto overscroll-contain md:max-h-64"[39m
+      [33mdata-testid[39m=[32m"chat-task-workbench-plan-control"[39m
+      [33mdata-thread-id[39m=[32m"raw-thread"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-center gap-1 rounded-control border border-border-subtle bg-panel px-3 py-1.5"[39m
+        [33mdata-phase[39m=[32m"planning"[39m
+        [33mdata-testid[39m=[32m"chat-task-workbench-phase-indicator"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"sr-only"[39m
+          [33mrole[39m=[32m"status"[39m
+        [36m>[39m
+          [0mCurrent phase: Planning[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"rounded-control px-1.5 py-0.5 text-12 transition-colors duration-base text-muted-foreground"[39m
+          [33mdata-phase-step[39m=[32m"preparing"[39m
+        [36m>[39m
+          [0mPreparing[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+        [36m>[39m
+          [0m›[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33maria-current[39m=[32m"step"[39m
+          [33mclass[39m=[32m"rounded-control px-1.5 py-0.5 text-12 transition-colors duration-base bg-primary font-semibold text-primary-foreground"[39m
+          [33mdata-phase-step[39m=[32m"planning"[39m
+        [36m>[39m
+          [0mPlanning[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+        [36m>[39m
+          [0m›[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"rounded-control px-1.5 py-0.5 text-12 transition-colors duration-base text-muted-foreground"[39m
+          [33mdata-phase-step[39m=[32m"executing"[39m
+        [36m>[39m
+          [0mExecuting[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+        [36m>[39m
+          [0m›[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"rounded-control px-1.5 py-0.5 text-12 transition-colors duration-base text-muted-foreground"[39m
+          [33mdata-phase-step[39m=[32m"approving"[39m
+        [36m>[39m
+          [0mApproval[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"text-11 text-muted-foreground"[39m
+        [36m>[39m
+          [0m›[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"rounded-control px-1.5 py-0.5 text-12 transition-colors duration-base text-muted-foreground"[39m
+          [33mdata-phase-step[39m=[32m"done"[39m
+        [36m>[39m
+          [0mCompleted[0m
+        [36m</span>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-center gap-2"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33maria-expanded[39m=[32m"false"[39m
+          [33maria-label[39m=[32m"Expand plan panel"[39m
+          [33mclass[39m=[32m"flex min-w-0 items-center gap-2 rounded-control px-1 py-1 text-13 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-plan-collapse-toggle"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-chevron-right h-4 w-4"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m9 18 6-6-6-6"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<span[39m
+            [33mdata-testid[39m=[32m"chat-task-workbench-plan-summary"[39m
+          [36m>[39m
+            [0mExecution plan · Awaiting confirmation · 0/1 step marked complete[0m
+          [36m</span>[39m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<fieldset[39m
+        [33mclass[39m=[32m"min-w-0"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"mb-2 text-xs text-muted-foreground"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-plan-proposal-badge"[39m
+        [36m>[39m
+          [0mThe following is a [0m
+          [36m<strong>[39m
+            [0mProposed plan[0m
+          [36m</strong>[39m
+          [0m; execution starts only after confirmation.[0m
+        [36m</p>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"rounded-card border text-card-foreground overflow-hidden border-warning/30 bg-warning-tint"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"p-4 flex flex-col gap-2 py-3"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-center gap-2"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 font-medium transition-colors duration-200 bg-warning-tint text-warning-tint-foreground text-10"[39m
+              [36m>[39m
+                [0mConfirmation required[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-13 font-semibold text-warning-tint-foreground"[39m
+              [36m>[39m
+                [0mExecute after confirmation[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-12 text-warning-tint-foreground/80"[39m
+              [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm-reason"[39m
+            [36m>[39m
+              [0mYou requested confirmation before execution. Check the plan and constraints.[0m
+            [36m</p>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-center gap-2"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"[39m
+                [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm-run"[39m
+              [36m>[39m
+                [0mConfirm execution[0m
+              [36m</button>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+                [33mdata-testid[39m=[32m"chat-task-workbench-plan-confirm-edit"[39m
+              [36m>[39m
+                [0mContinue editing[0m
+              [36m</button>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"ml-auto text-10 text-warning-tint-foreground/70"[39m
+                [33mrole[39m=[32m"status"[39m
+              [36m>[39m
+                [0mWaiting for your confirmation…[0m
+              [36m</span>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</fieldset>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-canonical-chrome.test.tsx:158:23
+    156|   fireEvent.click(await screen.findByTestId(PLAN_CONTROL_COLLAPSE_TOGG…
+    157|   expect(screen.getByTestId("chat-task-workbench-plan-proposal-badge")…
+    158|   const edit = screen.getByRole("button", { name: "Edit plan" });
+       |                       ^
+    159|   fireEvent.click(edit);
+    160|   expect(edit).toHaveTextContent("Finish editing");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  2 failed | 10 passed (12)
+      Tests  2 failed | 141 passed | 4 skipped (147)
+   Start at  02:58:12
+   Duration  24.23s (transform 4.98s, setup 1.33s, collect 12.99s, tests 2.34s, environment 5.45s, prepare 551ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/i18n-chat-plan-nested.test.tsx tests/ui/i18n-chat-canonical-chrome.test.tsx tests/ui/plan-control-gate-and-recovery.test.tsx tests/ui/plan-control-phase-indicator.test.tsx tests/ui/plan-control-panel-readonly.test.tsx tests/ui/plan-control-edit-mode.test.tsx tests/ui/copilotkit-v2-plan-control.test.tsx tests/ui/plan-display-unified.test.tsx tests/ui/i18n-chat-plan-display.test.tsx tests/lib/plan-failure-reason-names-the-tool.test.ts tests/plan-control-summary-i18n.test.ts tests/lib/i18n-resources.test.ts

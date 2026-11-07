@@ -1,0 +1,71 @@
+PR6130 exact8b87922b53346a5b8df52bc45bd4e4033e94f758
+Original CI job: https://github.com/boardx/workspacex/actions/runs/41485638395/job/125415415575
+Raw failure excerpt with ANSI escapes removed.
+
+2026-11-02T16:57:35.3163514Z    × F04 批量数字专家访谈 — HTTP 持久化验收门 > 显式确认推进主题、专家和问题；Skill 消息与 proposal 使用同一 aggregate version 并可重启恢复 1492ms
+2026-11-02T16:57:35.3164403Z      → expected [ { …(8) }, { …(8) } ] to deeply equal ArrayContaining{…}
+2026-11-02T16:57:35.3834176Z 
+2026-11-02T16:57:35.3840954Z ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+2026-11-02T16:57:35.3841443Z 
+2026-11-02T16:57:35.3843982Z  FAIL  tests/itv/digital-interview-setup.test.ts > F04 批量数字专家访谈 — HTTP 持久化验收门 > 显式确认推进主题、专家和问题；Skill 消息与 proposal 使用同一 aggregate version 并可重启恢复
+2026-11-02T16:57:35.3871006Z AssertionError: expected [ { …(8) }, { …(8) } ] to deeply equal ArrayContaining{…}
+2026-11-02T16:57:35.3872102Z 
+2026-11-02T16:57:35.3872651Z - Expected
+2026-11-02T16:57:35.3873603Z + Received
+2026-11-02T16:57:35.3874106Z 
+2026-11-02T16:57:35.3874624Z - ArrayContaining [
+2026-11-02T16:57:35.3875634Z -   ObjectContaining {
+2026-11-02T16:57:35.3876432Z + Array [
+2026-11-02T16:57:35.3877153Z +   Object {
+2026-11-02T16:57:35.3877952Z +     "answers": Array [
+2026-11-02T16:57:35.3878769Z +       Object {
+2026-11-02T16:57:35.3879733Z +         "answer": "我会先核对赛事数据，再结合本地实践提出建议。",
+2026-11-02T16:57:35.3880789Z +         "question": "作为足球青训教练，如何实现“完善人才梯队”？",
+2026-11-02T16:57:35.3882220Z +         "questionId": "itv-question-draft-ca085d75-4323-44ff-b342-c04d25f9a4ac",
+2026-11-02T16:57:35.3883644Z +       },
+2026-11-02T16:57:35.3884441Z +       Object {
+2026-11-02T16:57:35.3885339Z +         "answer": "我会先核对赛事数据，再结合本地实践提出建议。",
+2026-11-02T16:57:35.3886327Z +         "question": "针对“人才流失”，您会如何判断和行动？",
+2026-11-02T16:57:35.3887646Z +         "questionId": "itv-question-draft-3f0440d1-5e28-4ee0-b719-8ce1b667425a",
+2026-11-02T16:57:35.3888690Z +       },
+2026-11-02T16:57:35.3889729Z +       Object {
+2026-11-02T16:57:35.3890651Z +         "answer": "我会先核对赛事数据，再结合本地实践提出建议。",
+2026-11-02T16:57:35.3891873Z +         "question": "“先建立稳定的人才输送路径。”有哪些真实案例或证据？",
+2026-11-02T16:57:35.3893572Z +         "questionId": "itv-question-draft-33a5435d-7d52-4e85-a0c8-6c2111201771",
+2026-11-02T16:57:35.3894745Z +       },
+2026-11-02T16:57:35.3895418Z +     ],
+2026-11-02T16:57:35.3896298Z       "completedQuestions": 3,
+2026-11-02T16:57:35.3897432Z -     "expertId": "mock-persona:chen-yuxuan",
+2026-11-02T16:57:35.3898513Z +     "displayName": "江西足球青训教练",
+2026-11-02T16:57:35.3899373Z +     "errorCode": null,
+2026-11-02T16:57:35.3900652Z +     "expertId": "itv-generated-expert-7803f04d-48b6-47df-bfbd-6326291f8586",
+2026-11-02T16:57:35.3901941Z       "status": "completed",
+2026-11-02T16:57:35.3902914Z +     "totalQuestions": 3,
+2026-11-02T16:57:35.3904300Z +     "updatedAt": "2026-11-02T16:57:35.158Z",
+2026-11-02T16:57:35.3905200Z +   },
+2026-11-02T16:57:35.3905884Z +   Object {
+2026-11-02T16:57:35.3906668Z +     "answers": Array [],
+2026-11-02T16:57:35.3907523Z +     "completedQuestions": 0,
+2026-11-02T16:57:35.3908397Z +     "displayName": "陈宇轩",
+2026-11-02T16:57:35.3909396Z +     "errorCode": "MODEL_CALL_FAILED",
+2026-11-02T16:57:35.3910552Z +     "expertId": "mock-persona:chen-yuxuan",
+2026-11-02T16:57:35.3911503Z +     "status": "failed",
+2026-11-02T16:57:35.3912656Z +     "totalQuestions": 3,
+2026-11-02T16:57:35.3913989Z +     "updatedAt": "2026-11-02T16:57:35.160Z",
+2026-11-02T16:57:35.3914886Z     },
+2026-11-02T16:57:35.3915435Z   ]
+2026-11-02T16:57:35.3915649Z 
+2026-11-02T16:57:35.3916321Z  ❯ tests/itv/digital-interview-setup.test.ts:426:18
+2026-11-02T16:57:35.4237330Z     424|       await new Promise((resolve) => setTimeout(resolve, 20));
+2026-11-02T16:57:35.4238900Z  Test Files  1 failed | 5 passed (212)
+2026-11-02T16:57:35.4252176Z     425|     }
+2026-11-02T16:57:35.4253844Z     426|     expect(runs).toEqual(expect.arrayContaining([
+2026-11-02T16:57:35.4255158Z        |                  ^
+2026-11-02T16:57:35.4256846Z     427|       expect.objectContaining({ expertId: staticExpert.expertId, statu…
+2026-11-02T16:57:35.4258333Z     428|     ]));
+2026-11-02T16:57:35.4258896Z 
+2026-11-02T16:57:35.4259575Z ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+2026-11-02T16:57:35.4260192Z 
+2026-11-02T16:57:35.4264889Z       Tests  1 failed | 501 passed (503)
+2026-11-02T16:57:35.4266463Z    Start at  16:56:20
+2026-11-02T16:57:35.4267850Z    Duration  74.96s (transform 8.25s, setup 38ms, collect 5.32s, tests 67.47s, environment 1ms, prepare 407ms)

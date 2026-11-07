@@ -1,0 +1,21 @@
+[stack-admission] load1=1.94 cores=10 perCore=0.19 running=0/2
+[test-isolation] id=run-mvy8df2i-5934552d-f631b34eff57 db=wsx_f631b34eff576196effc compose=wsx-f631b34eff576196effc pg=20302 redis=21302 api=24302 web=25302 sandbox=26302 model=27302 deep-agent=28302 asr=29302 vision=30302 loopback-sandbox=31302 mail=19302
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_f631b34eff576196effc capacity=100 current=6 required=32
+ ✓ tests/billing/personal-stripe-settlement-pg.test.ts (30 tests) 15592ms
+
+ Test Files  1 passed (1)
+      Tests  30 passed (30)
+   Start at  03:36:16
+   Duration  20.15s (transform 1.04s, setup 7ms, collect 1.57s, tests 15.59s, environment 0ms, prepare 43ms)
+
+[db-isolation] db=wsx_f631b34eff576196effc peak_connections=4
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/personal-stripe-settlement-pg.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：21s
+  清理：0s
+  总计：21s

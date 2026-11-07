@@ -1,11 +1,14 @@
+import type { Locale } from "@/lib/i18n/locale";
+import { translate } from "@/lib/i18n/messages";
+import { aiUsageZhCN } from "@/lib/i18n/namespaces/ai-usage";
 import type { UsageCalls, UsageSummary } from "@/lib/live-ai-usage";
 
 export const USAGE_TIMEZONE = "Asia/Shanghai";
 const DAY_MS = 86_400_000;
-export const formatTokens = (value: string | null) => value === null ? "未上报" : BigInt(value).toLocaleString("zh-CN");
+export const formatTokens = (value: string | null, locale: Locale = "zh-CN") => value === null ? translate(locale, "aiUsage.notReported") : BigInt(value).toLocaleString(locale);
 export const usageDay = (value: string) => new Intl.DateTimeFormat("en-CA", { timeZone: USAGE_TIMEZONE, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(value));
-export const usageDateLabel = (value: string) => new Intl.DateTimeFormat("zh-CN", { timeZone: USAGE_TIMEZONE, year: "numeric", month: "long", day: "numeric" }).format(new Date(value));
-export const usageTime = (value: string) => new Intl.DateTimeFormat("zh-CN", { timeZone: USAGE_TIMEZONE, hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }).format(new Date(value));
+export const usageDateLabel = (value: string, locale: Locale = "zh-CN") => new Intl.DateTimeFormat(locale, { timeZone: USAGE_TIMEZONE, year: "numeric", month: "long", day: "numeric" }).format(new Date(value));
+export const usageTime = (value: string, locale: Locale = "zh-CN") => new Intl.DateTimeFormat(locale, { timeZone: USAGE_TIMEZONE, hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }).format(new Date(value));
 export type DatePreset = "today" | "week" | "month";
 export function dateRange(preset: DatePreset, now = new Date()) {
   const end = usageDay(now.toISOString());
@@ -24,25 +27,34 @@ export function dateQuery(start: string, end: string) {
   if (finish <= begin || finish.getTime() - begin.getTime() > 366 * DAY_MS) throw new Error("Invalid window");
   return { start: begin.toISOString(), end: finish.toISOString(), timezone: USAGE_TIMEZONE, limit: 25 };
 }
-export function recordedTotal(current: UsageSummary["current"]) {
-  if (current.callCount > 0 && current.nativeCalls === current.callCount) return "Token 不适用";
-  if (current.unknownCalls > 0 && current.reportedCalls + current.legacyCalls === 0) return "未上报";
-  return formatTokens(current.totalTokens);
+export function recordedTotal(current: UsageSummary["current"], locale: Locale = "zh-CN") {
+  if (current.callCount > 0 && current.nativeCalls === current.callCount) return translate(locale, "aiUsage.tokensNotApplicable");
+  if (current.unknownCalls > 0 && current.reportedCalls + current.legacyCalls === 0) return translate(locale, "aiUsage.notReported");
+  return formatTokens(current.totalTokens, locale);
 }
 /** Trend buckets do not carry coverage counts; zero in a partial report is ambiguous. */
-export function recordedBucketTotal(current: UsageSummary["current"], totalTokens: string) {
+export function recordedBucketTotal(current: UsageSummary["current"], totalTokens: string, locale: Locale = "zh-CN") {
   if (totalTokens === "0" && (current.unknownCalls > 0 || current.nativeCalls > 0)) {
-    const total = recordedTotal({ ...current, totalTokens });
-    return total === "0" ? "用量待确认" : total;
+    const total = recordedTotal({ ...current, totalTokens }, locale);
+    return total === "0" ? translate(locale, "aiUsage.usagePendingConfirmation") : total;
   }
-  return formatTokens(totalTokens);
+  return formatTokens(totalTokens, locale);
 }
-export const UNIT_LABELS = { image: "张图片", pixel: "像素", millisecond: "毫秒", microsecond: "微秒", character: "字符", request: "次请求" };
-export function nativeQuantity(usage: NonNullable<UsageCalls["calls"][number]["nativeUsage"]>) {
-  return `${formatTokens(usage.quantity)} ${UNIT_LABELS[usage.unit]}${usage.source === "estimated" ? "（估算）" : usage.source === "unknown" ? "（未上报）" : ""}`;
+export const UNIT_LABELS = { image: aiUsageZhCN["aiUsage.unit.image"], pixel: aiUsageZhCN["aiUsage.unit.pixel"], millisecond: aiUsageZhCN["aiUsage.unit.millisecond"], microsecond: aiUsageZhCN["aiUsage.unit.microsecond"], character: aiUsageZhCN["aiUsage.unit.character"], request: aiUsageZhCN["aiUsage.unit.request"] };
+export function nativeUnitLabel(unit: keyof typeof UNIT_LABELS, locale: Locale = "zh-CN") { return translate(locale, `aiUsage.unit.${unit}`); }
+export function nativeQuantity(usage: NonNullable<UsageCalls["calls"][number]["nativeUsage"]>, locale: Locale = "zh-CN") {
+  const suffix = usage.source === "estimated" ? translate(locale, "aiUsage.estimated") : usage.source === "unknown" ? translate(locale, "aiUsage.unreportedSuffix") : "";
+  return `${formatTokens(usage.quantity, locale)} ${nativeUnitLabel(usage.unit, locale)}${suffix}`;
 }
-export function costLabel(call: UsageCalls["calls"][number]) {
-  if (call.costMicros === null || call.currency === null) return "暂无数据";
+export function costLabel(call: UsageCalls["calls"][number], locale: Locale = "zh-CN") {
+  if (call.costMicros === null || call.currency === null) return translate(locale, "aiUsage.noData");
   const micros = BigInt(call.costMicros);
   return `${micros / 1_000_000n}.${(micros % 1_000_000n).toString().padStart(6, "0")} ${call.currency}`;
+}
+
+/** Financial hundredths are already rounded per physical request by the ledger. */
+export function creditLabel(value?: string | null, locale: Locale = "zh-CN"): string {
+ if (value == null) return translate(locale, "aiUsage.noData");
+ const hundredths = BigInt(value);
+ return `${(hundredths / 100n).toLocaleString(locale)}.${(hundredths % 100n).toString().padStart(2,"0")}`;
 }

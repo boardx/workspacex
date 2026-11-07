@@ -46,7 +46,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
-import { join } from "node:path";
+import { join, basename } from "node:path";
 import os from "node:os";
 import { alive } from "./stack-admission";
 
@@ -84,7 +84,9 @@ export const DEFAULT_HEAVY_SUITE_LOCK_POLICY: HeavySuiteLockPolicy = {
  * 不匹配 `verify:base`/`verify:harness` 这类 turbo/vitest 命令——它们不含 `playwright`。
  */
 export function isHeavyE2eCommand(command: string[]): boolean {
-  return command.includes("playwright") && command.includes("test");
+  const selectedBrowser = /^(node|node.exe)$/.test(basename(command[0] ?? "")) &&
+    /(?:^|\/)\.harness\/scripts\/ci-targeted-runner\.mjs$/.test((command[1] ?? "").replaceAll("\\", "/")) && command[2] === "chat-ui";
+  return selectedBrowser || (command.includes("playwright") && command.includes("test"));
 }
 
 /**

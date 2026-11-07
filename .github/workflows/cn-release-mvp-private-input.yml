@@ -1,6 +1,7 @@
 name: Existing private input reference contracts
 on:
   pull_request:
+    branches: [develop]
     paths:
       - 'scripts/cn-release-mvp-private-input.py'
       - 'tests/test_cn_mvp_private_input.py'

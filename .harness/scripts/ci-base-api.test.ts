@@ -1,15 +1,15 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { assertPrerequisites, validateReport } from './ci-base-api.mjs';
 const dependencies=['verify-full-compile','base-api-plan','base-api-shards','base-api-exclusive'];
 const good=()=>Object.fromEntries(dependencies.map(name=>[name,{result:'success'}]));
 describe('complete base API acceptance',()=>{
- it('requires all current producers',()=>expect(()=>assertPrerequisites(good())).not.toThrow());
+ it('requires all current producers',()=>expect(()=>assertPrerequisites(good(),'pull_request')).not.toThrow());
  it.each(['failure','cancelled','skipped',undefined])('rejects %s before historical reuse',result=>{
-  for(const name of dependencies)expect(()=>assertPrerequisites({...good(),[name]:{result}})).toThrow();
+  for(const name of dependencies)expect(()=>assertPrerequisites({...good(),[name]:{result}},'pull_request')).toThrow();
  });
  it('rejects missing and unexpected prerequisites',()=>{
-  expect(()=>assertPrerequisites({})).toThrow();
-  expect(()=>assertPrerequisites({...good(),extra:{result:'success'}})).toThrow();
+  expect(()=>assertPrerequisites({},'pull_request')).toThrow();
+  expect(()=>assertPrerequisites({...good(),extra:{result:'success'}},'pull_request')).toThrow();
  });
  it('requires real successful files and tests',()=>{
   const report={success:true,numTotalTests:3,numPassedTests:3,testResults:[{status:'passed'},{status:'passed'}]};
@@ -69,15 +69,16 @@ describe('real report/artifact assembly counterexamples',()=>{
 });
 
 it('workflow preserves complete API coverage, isolation and failure verdict before reuse',()=>{
- const w=parse(readFileSync('.github/workflows/harness-verify.yml','utf8')),jobs=w.jobs;
+ const w=parse(readFileSync('.github/workflows/harness-acceptance.yml','utf8')),jobs=w.jobs;
  const core=jobs['full-regression-core'];
  expect(core.if).toContain('always()');
- expect(core.needs).toEqual(dependencies);
- expect(core.steps[1]).toMatchObject({name:'Require complete base prerequisites',env:{CI_BASE_NEEDS:'${{ toJSON(needs) }}'}});
- expect(core.steps[1].if).toBeUndefined();
- expect(core.steps[2].id).toBe('dedup');
- expect(jobs['base-api-exclusive'].needs).toEqual(['base-api-plan','base-api-shards']);
- expect(jobs['base-api-shards'].strategy).toEqual({'fail-fast':false,matrix:{shard:'${{ fromJSON(needs.base-api-plan.outputs.shards) }}'}});
+ expect(core.needs).toEqual(['base-compile',...dependencies.slice(1),'base-package-tests','base-control-plane','web-test-plan','web-test-shards','doc-smoke-scope','targeted-ui-unit','targeted-ui-browser']);
+ const admission=core.steps.find((step:any)=>step.run?.includes('ci-targeted-routing.mjs base'));
+ expect(admission).toMatchObject({env:{CI_ROUTED_NEEDS:'${{ toJSON(needs) }}'}});
+ expect(admission.if).toBeUndefined();
+ expect(core.steps.some((step:any)=>step.id==='dedup')).toBe(false);
+ expect(jobs['base-api-exclusive'].needs).toEqual(['base-api-plan','base-api-shards','doc-smoke-scope']);
+ expect(jobs['base-api-shards'].strategy).toEqual({'fail-fast':true,'max-parallel':4,matrix:{shard:'${{ fromJSON(needs.base-api-plan.outputs.shards) }}'}});
  for(const name of ['base-api-shards','base-api-exclusive']){
   const job=jobs[name];expect(job['continue-on-error']).toBeUndefined();
   expect(job.env.WORKSPACEX_DB.replace(/\$\{\{.*?\}\}/g,'1')).toMatch(/^[a-z0-9_]+$/);
@@ -90,7 +91,8 @@ it('workflow preserves complete API coverage, isolation and failure verdict befo
  const scripts=JSON.parse(readFileSync('package.json','utf8')).scripts;
  expect(scripts['verify:ci-base:raw']).not.toContain('--filter');
  expect(scripts['verify:ci-base-other:raw']).toContain("--filter='!@repo/api'");
- expect(core.steps.find((step:any)=>step.name==='Execute uncached trusted base gate').run).toContain('non-api-tests.log phases/phase-01-run-a-project/evidence/ci/api-tests.log');
+ expect(core.steps.find((step:any)=>step.name==='Retain complete base evidence').run).toContain('ci-parallel-evidence.mjs combine-base');
+ expect(core.steps.findIndex((step:any)=>step.run?.includes('ci-targeted-routing.mjs base'))).toBeLessThan(core.steps.findIndex((step:any)=>step.run?.includes('combine-base')));
 });
 
 import { selectProducerArtifacts } from './ci-base-api.mjs';
@@ -108,4 +110,20 @@ it('verifies independently retained attempts and rejects an unproven producer id
   expect(()=>bundle(directory,{count:2,shards:[1,2]},{...env,GITHUB_RUN_ATTEMPT:'3'},{...attempts,'shard-2':'1'})).toThrow();
   expect(()=>bundle(directory,{count:2,shards:[1,2]},env,{...attempts,'shard-2':'3'})).toThrow();
  }finally{rmSync(directory,{recursive:true,force:true});}
+});
+
+it.each(['merge_group','workflow_dispatch'])('requires a successful selected compilation proof on %s',event=>{
+ const needs={...Object.fromEntries(dependencies.slice(1).map(k=>[k,{result:'success'}])),'base-compile':{result:'success'}};
+ expect(()=>assertPrerequisites(needs,event)).not.toThrow();
+ for(const result of ['failure','cancelled','skipped',undefined])expect(()=>assertPrerequisites({...needs,'base-compile':{result}},event)).toThrow();
+ expect(()=>assertPrerequisites({...needs,extra:{result:'success'}},event)).toThrow();
+});
+
+it.each(['merge_group','workflow_dispatch'])('inherits actual %s context and rejects old producer topology',event=>{
+ vi.stubEnv('GITHUB_EVENT_NAME',event);
+ try{
+  const needs=Object.fromEntries(['base-compile','base-api-plan','base-api-shards','base-api-exclusive'].map(name=>[name,{result:'success'}]));
+  expect(()=>assertPrerequisites(needs)).not.toThrow();
+  expect(()=>assertPrerequisites(good())).toThrow('INCOMPLETE_BASE_PREREQUISITES');
+ }finally{vi.unstubAllEnvs();}
 });

@@ -178,19 +178,12 @@ def main():
     elif args.operation=='plan':
         event=os.environ['GITHUB_EVENT_NAME'];branch=os.environ['GITHUB_REF_NAME']
         build_only=os.environ.get('BUILD_ONLY')=='true'
-        need(event=='push' and branch=='develop' or event=='workflow_dispatch' and (branch in ('main','develop','main-us') or build_only),'RELEASE_EVENT_NOT_ALLOWED')
-        expected={'develop':'devapp','main':'cn','main-us':'us'}.get(branch)
         requested=os.environ.get('TARGET_ENVIRONMENT') or 'auto'
-        if event=='push':
-            target=expected
-        elif expected:
-            need(requested in ('auto',expected),'BRANCH_ENVIRONMENT_MISMATCH')
-            target=expected
-        else:
-            # Non-release branches are diagnostic builds only, never host deployments.
-            target=requested
+        need(event=='workflow_dispatch' and os.environ.get('GITHUB_REF_TYPE','branch')=='branch','RELEASE_EVENT_NOT_ALLOWED')
+        expected={'develop':'devapp','main':'cn','main-us':'us'}.get(branch)
+        target=expected if requested=='auto' else requested
         need(target in ('devapp','cn','us'),'INVALID_ENVIRONMENT')
-        existing=os.environ.get('EXISTING_TAG','') if event=='workflow_dispatch' else ''
+        existing=os.environ.get('EXISTING_TAG','')
         tag=existing or release_tag(args.source,os.environ['GITHUB_RUN_ID'],os.environ['GITHUB_RUN_ATTEMPT'])
         need(TAG.fullmatch(tag),'INVALID_RELEASE_TAG')
         selected=os.environ.get('BUILD_SERVICE') or 'all'

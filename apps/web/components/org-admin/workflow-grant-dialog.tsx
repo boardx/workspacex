@@ -1,13 +1,14 @@
 "use client";
 
 import { workflowDisplayName } from "@/lib/workflow-display-copy";
+import { useI18n } from "@/lib/i18n/provider";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { CAP_LEVEL, capabilityCopy } from "@/lib/workflow-capability-grant-copy";
+import { capabilityLevelCopy, capabilityCopy } from "@/lib/workflow-capability-grant-copy";
 import type { SideEffectCap } from "@/lib/live-workflow-capability-grants";
 import { covers, type CapabilityRow } from "./workflow-grant-model";
 
@@ -27,12 +28,13 @@ export function WorkflowGrantDialog({
   onCancel: () => void;
   onConfirm: (level: Level) => void;
 }) {
+  const { locale, t } = useI18n();
   const initial: Level = row ? (row.blocked.length > 0 ? toLevel(row.requiredMax) : toLevel(row.current)) : "read";
   const [level, setLevel] = React.useState<Level>(initial);
   React.useEffect(() => setLevel(initial), [row?.category, initial]);
 
   if (!row) return null;
-  const copy = capabilityCopy(row.category);
+  const copy = capabilityCopy(row.category, locale);
   const current = toLevel(row.current);
   const unchanged = level === current && row.grant.configured === (level !== "read");
   const revoking = level === "read";
@@ -41,16 +43,16 @@ export function WorkflowGrantDialog({
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open && !busy) onCancel(); }}>
-      <DialogContent className="max-w-lg" data-testid="workflow-grant-dialog" closeTestId="workflow-grant-dialog-close">
+      <DialogContent className="max-w-lg overflow-y-auto" data-testid="workflow-grant-dialog" closeTestId="workflow-grant-dialog-close">
         <DialogHeader>
-          <DialogTitle className="text-16 font-semibold">调整「{copy.label}」权限</DialogTitle>
+          <DialogTitle className="text-16 font-semibold">{t("workflowGrants.dialogTitle", { label: copy.label })}</DialogTitle>
           <DialogDescription className="text-12 text-muted-foreground">
-            {copy.allows} 这项设置对本组织所有使用它的工作流同时生效。
+            {copy.allows} {t("workflowGrants.dialogHint")}
           </DialogDescription>
         </DialogHeader>
 
         <fieldset className="flex flex-col gap-2">
-          <legend className="mb-1 text-12 font-medium">权限等级</legend>
+          <legend className="mb-1 text-12 font-medium">{t("workflowGrants.levels")}</legend>
           {LEVELS.map((l) => (
             <label
               key={l}
@@ -71,46 +73,46 @@ export function WorkflowGrantDialog({
               />
               <span className="flex flex-col gap-0.5">
                 <span className="text-13 font-medium">
-                  {CAP_LEVEL[l].label}
-                  {l === current ? <span className="ml-2 text-11 font-normal text-muted-foreground">当前</span> : null}
+                  {capabilityLevelCopy(l, locale).label}
+                  {l === current ? <span className="ml-2 text-11 font-normal text-muted-foreground">{t("workflowGrants.current")}</span> : null}
                   {l !== "read" && row.uses.some((u) => u.requiredCap === l) ? (
                     <span className="ml-2 text-11 font-normal text-muted-foreground" data-testid={`workflow-grant-level-needed-by-${l}`}>
-                      {row.uses.filter((u) => u.requiredCap === l).map((u) => `「${workflowDisplayName(u.workflowKey, u.title)}」`).join("")}需要
+                      {t("workflowGrants.neededBy", { titles: row.uses.filter((u) => u.requiredCap === l).map((u) => t("workflowGrants.workflowQuote", { title: workflowDisplayName(u.workflowKey, u.title, locale) })).join(t("workflowGrants.neededSeparator")) })}
                     </span>
                   ) : null}
                 </span>
-                <span className="text-12 text-muted-foreground">{CAP_LEVEL[l].description}</span>
+                <span className="text-12 text-muted-foreground">{capabilityLevelCopy(l, locale).description}</span>
               </span>
             </label>
           ))}
         </fieldset>
 
         <div className="flex flex-col gap-1.5 rounded-control bg-muted p-3 text-12" data-testid="workflow-grant-impact">
-          <p className="font-medium">确认后的影响</p>
+          <p className="font-medium">{t("workflowGrants.impact")}</p>
           {unblocked.length > 0 ? (
-            <p>可以继续运行：{unblocked.map((u) => workflowDisplayName(u.workflowKey, u.title)).join("、")}</p>
+            <p>{t("workflowGrants.unblocked", { titles: unblocked.map((u) => workflowDisplayName(u.workflowKey, u.title, locale)).join(t("workflowGrants.listSeparator")) })}</p>
           ) : null}
           {stillBlocked.length > 0 ? (
             <p className="text-destructive">
-              会在对应步骤暂停，等待管理员授权：{stillBlocked.map((u) => workflowDisplayName(u.workflowKey, u.title)).join("、")}
+              {t("workflowGrants.stillBlocked", { titles: stillBlocked.map((u) => workflowDisplayName(u.workflowKey, u.title, locale)).join(t("workflowGrants.listSeparator")) })}
             </p>
           ) : (
-            <p className="text-muted-foreground">所有用到这项能力的工作流都能正常完成。</p>
+            <p className="text-muted-foreground">{t("workflowGrants.allReady")}</p>
           )}
-          <p className="text-muted-foreground">每次调整都会记入下方的变更记录。</p>
+          <p className="text-muted-foreground">{t("workflowGrants.auditHint")}</p>
         </div>
 
         {error ? <p role="alert" className="text-12 text-destructive">{error}</p> : null}
 
-        <DialogFooter className="flex justify-end gap-2">
-          <Button variant="outline" onClick={onCancel} disabled={busy} data-testid="workflow-grant-cancel">取消</Button>
+        <DialogFooter className="flex flex-wrap justify-end gap-2">
+          <Button variant="outline" onClick={onCancel} disabled={busy} data-testid="workflow-grant-cancel">{t("workflowGrants.cancel")}</Button>
           <Button
             variant={revoking ? "destructive" : "primary"}
             disabled={busy || unchanged}
             onClick={() => onConfirm(level)}
             data-testid="workflow-grant-confirm"
           >
-            {busy ? "正在保存…" : unchanged ? "等级未改变" : revoking ? "确认撤销，恢复只读" : `确认授予「${CAP_LEVEL[level].label}」`}
+            {busy ? t("workflowGrants.saving") : unchanged ? t("workflowGrants.unchanged") : revoking ? t("workflowGrants.confirmRevoke") : t("workflowGrants.confirmGrant", { level: capabilityLevelCopy(level, locale).label })}
           </Button>
         </DialogFooter>
       </DialogContent>

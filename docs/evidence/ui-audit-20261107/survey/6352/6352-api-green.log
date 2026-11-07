@@ -1,0 +1,9 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/api
+
+ ✓ tests/survey/survey-attachment-metadata.test.ts (1 test) 8ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  03:38:28
+   Duration  2.78s (transform 602ms, setup 0ms, collect 653ms, tests 8ms, environment 0ms, prepare 1.21s)

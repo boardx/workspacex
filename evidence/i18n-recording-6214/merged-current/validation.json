@@ -1,0 +1,252 @@
+{
+  "web-type": {
+    "name": "web-type",
+    "command": [
+      "pnpm",
+      "--filter",
+      "web",
+      "typecheck"
+    ],
+    "source": "026d8dcac5c044fcafa8b5c33a5d633b346223b6",
+    "exitCode": 0,
+    "seconds": 38.849,
+    "rawLogLocalPath": "/tmp/6214-current-web-type.log",
+    "rawLogSha256": "cd5788cc155241ad0932956ca7dd287ae173e2f213993b615bdafdcb93bc7ce4",
+    "receiptPath": "web-type.txt",
+    "receiptSha256": "a33cb97200ea3996660a3c0e4d08a349cf90f9a92df56e97f369dbc90851fac3",
+    "receiptNormalization": "trailing blank EOF only; original rawLogSha256 retained"
+  },
+  "focused": {
+    "name": "focused",
+    "command": [
+      "pnpm",
+      "--filter",
+      "web",
+      "exec",
+      "vitest",
+      "run",
+      "tests/e2e/personal-realtime-transcription-smoke.test.ts",
+      "tests/lib/boardx-realtime-asr-client.test.ts",
+      "tests/lib/i18n-resources.test.ts",
+      "tests/lib/live-personal-transcriptions.test.ts",
+      "tests/lib/realtime-asr-flow.test.ts",
+      "tests/lib/realtime-reconnect.test.ts",
+      "tests/recording/live-recording-capture.test.ts",
+      "tests/ui/audio-input-i18n.test.tsx",
+      "tests/ui/create-transcription-focus.test.tsx",
+      "tests/ui/personal-transcription-history.test.tsx",
+      "tests/ui/realtime-transcription-history.test.tsx",
+      "tests/ui/realtime-transcription-workspace.test.tsx",
+      "tests/ui/recording-controller-i18n.test.tsx",
+      "tests/ui/recording-journey-i18n.test.tsx",
+      "tests/ui/recording-project-i18n.test.tsx"
+    ],
+    "source": "026d8dcac5c044fcafa8b5c33a5d633b346223b6",
+    "exitCode": 0,
+    "seconds": 32.359,
+    "rawLogLocalPath": "/tmp/6214-current-focused.log",
+    "rawLogSha256": "2f9115d8be0ae08a2e8b5164f86ca72229286fb2809b446c510c8121beab19bd",
+    "receiptPath": "focused.txt",
+    "receiptSha256": "798ba6d2ac968418679bd925414d6f6bf4e7519acc112538647c60312c347243",
+    "receiptNormalization": "trailing blank EOF only; original rawLogSha256 retained",
+    "environment": {
+      "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+    },
+    "testFiles": 15,
+    "testsPassed": 208
+  },
+  "copy-values": {
+    "name": "copy-values",
+    "command": [
+      "env",
+      "TSX_TSCONFIG_PATH=apps/web/tsconfig.json",
+      "pnpm",
+      "exec",
+      "tsx",
+      "evidence/i18n-recording-6214/compare-copy-source.ts"
+    ],
+    "source": "026d8dcac5c044fcafa8b5c33a5d633b346223b6",
+    "exitCode": 0,
+    "seconds": 1.366,
+    "rawLogLocalPath": "/tmp/6214-current-copy-values.log",
+    "rawLogSha256": "16d19bb518cc37122bee15c51c5bc9685768e39e1556e08bafc7d6663f3a678c",
+    "receiptPath": "copy-values.txt",
+    "receiptSha256": "16d19bb518cc37122bee15c51c5bc9685768e39e1556e08bafc7d6663f3a678c",
+    "receiptNormalization": "trailing blank EOF only; original rawLogSha256 retained"
+  },
+  "eslint": {
+    "name": "eslint",
+    "command": [
+      "pnpm",
+      "--filter",
+      "web",
+      "exec",
+      "eslint",
+      "components/chat/chat-composer-pickers.tsx",
+      "components/rec/create-transcription-dialog.tsx",
+      "components/rec/delete-transcription-dialog.tsx",
+      "components/rec/edit-transcription-dialog.tsx",
+      "components/rec/live-transcript.tsx",
+      "components/rec/quote-annotate.tsx",
+      "components/rec/realtime-transcription-workspace.tsx",
+      "components/rec/rec-prep.tsx",
+      "components/rec/rec-process.tsx",
+      "components/rec/rec-verify.tsx",
+      "components/rec/recording-project-display.ts",
+      "components/rec/retention-panel.tsx",
+      "components/rec/right-rail.tsx",
+      "components/rec/speaker-assign.tsx",
+      "components/rec/transcription-history.tsx",
+      "components/rec/use-recording-notice.ts",
+      "components/studio/studio-history.tsx",
+      "e2e/i18n-recording-journey.spec.ts",
+      "lib/i18n/messages/en.ts",
+      "lib/i18n/messages/zh-CN.ts",
+      "lib/i18n/namespaces/audio-input.ts",
+      "lib/i18n/namespaces/recording-project.ts",
+      "lib/i18n/namespaces/recording.ts",
+      "lib/i18n/namespaces/studio-history.ts",
+      "lib/mock/rec-v2.ts",
+      "lib/mock/rec.ts",
+      "lib/recording-display-copy.ts",
+      "playwright.fullstack-smoke.config.ts",
+      "tests/ui/audio-input-i18n.test.tsx",
+      "tests/ui/recording-controller-i18n.test.tsx",
+      "tests/ui/recording-journey-i18n.test.tsx",
+      "tests/ui/recording-project-i18n.test.tsx"
+    ],
+    "source": "026d8dcac5c044fcafa8b5c33a5d633b346223b6",
+    "exitCode": 0,
+    "seconds": 2.432,
+    "rawLogLocalPath": "/tmp/6214-current-eslint.log",
+    "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "receiptPath": "eslint.txt",
+    "receiptSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "receiptNormalization": "trailing blank EOF only; original rawLogSha256 retained"
+  },
+  "init": {
+    "name": "init",
+    "command": [
+      "./init.sh"
+    ],
+    "source": "026d8dcac5c044fcafa8b5c33a5d633b346223b6",
+    "exitCode": 0,
+    "seconds": 3.029,
+    "rawLogLocalPath": "/tmp/6214-current-init.log",
+    "rawLogSha256": "b9454ea9b0cef337e754f5577a3ea517168d367f1dafc79e9a75b55ad28d998d",
+    "receiptPath": "init.txt",
+    "receiptSha256": "b9454ea9b0cef337e754f5577a3ea517168d367f1dafc79e9a75b55ad28d998d",
+    "receiptNormalization": "trailing blank EOF only; original rawLogSha256 retained"
+  },
+  "testid": {
+    "name": "testid",
+    "command": [
+      "pnpm",
+      "run",
+      "lint:e2e-testid-gate"
+    ],
+    "source": "026d8dcac5c044fcafa8b5c33a5d633b346223b6",
+    "exitCode": 0,
+    "seconds": 3.565,
+    "rawLogLocalPath": "/tmp/6214-current-testid.log",
+    "rawLogSha256": "d0b0e21e9d2645255cb5d00e9319ca125bff2f19b436ecf01fa4e01876360423",
+    "receiptPath": "testid.txt",
+    "receiptSha256": "d0b0e21e9d2645255cb5d00e9319ca125bff2f19b436ecf01fa4e01876360423",
+    "receiptNormalization": "trailing blank EOF only; original rawLogSha256 retained"
+  },
+  "wiring": {
+    "name": "wiring",
+    "command": [
+      "pnpm",
+      "run",
+      "lint:ui-wiring"
+    ],
+    "source": "026d8dcac5c044fcafa8b5c33a5d633b346223b6",
+    "exitCode": 0,
+    "seconds": 3.48,
+    "rawLogLocalPath": "/tmp/6214-current-wiring.log",
+    "rawLogSha256": "91143fee075e07c8c5577e08efa1fd2dd6d135cbb61bcd82a8e9e8c189b533e8",
+    "receiptPath": "wiring.txt",
+    "receiptSha256": "91143fee075e07c8c5577e08efa1fd2dd6d135cbb61bcd82a8e9e8c189b533e8",
+    "receiptNormalization": "trailing blank EOF only; original rawLogSha256 retained"
+  },
+  "withdrawal": {
+    "name": "withdrawal",
+    "command": [
+      "node",
+      "apps/web/scripts/lint-withdrawal-flow.mjs"
+    ],
+    "source": "026d8dcac5c044fcafa8b5c33a5d633b346223b6",
+    "exitCode": 0,
+    "seconds": 0.239,
+    "rawLogLocalPath": "/tmp/6214-current-withdrawal.log",
+    "rawLogSha256": "664bad759228cadabfbe3d406308f181b45d4d1b105b0f3b285083bdcc4a74ea",
+    "receiptPath": "withdrawal.txt",
+    "receiptSha256": "664bad759228cadabfbe3d406308f181b45d4d1b105b0f3b285083bdcc4a74ea",
+    "receiptNormalization": "trailing blank EOF only; original rawLogSha256 retained"
+  },
+  "vitest-reachability": {
+    "name": "vitest-reachability",
+    "command": [
+      "pnpm",
+      "run",
+      "lint:vitest-config-reachability"
+    ],
+    "source": "026d8dcac5c044fcafa8b5c33a5d633b346223b6",
+    "exitCode": 0,
+    "seconds": 3.301,
+    "rawLogLocalPath": "/tmp/6214-current-vitest-reachability.log",
+    "rawLogSha256": "81e4cc456301c57df79f7dd2e5e5859c7aa8d9f2e64b11355570bd874082d671",
+    "receiptPath": "vitest-reachability.txt",
+    "receiptSha256": "81e4cc456301c57df79f7dd2e5e5859c7aa8d9f2e64b11355570bd874082d671",
+    "receiptNormalization": "trailing blank EOF only; original rawLogSha256 retained"
+  },
+  "spec-gate": {
+    "name": "spec-gate",
+    "command": [
+      "pnpm",
+      "run",
+      "lint:spec-gate-coverage"
+    ],
+    "source": "026d8dcac5c044fcafa8b5c33a5d633b346223b6",
+    "exitCode": 0,
+    "seconds": 32.774,
+    "rawLogLocalPath": "/tmp/6214-current-spec-gate.log",
+    "rawLogSha256": "5609ec931e8c47fa5c17c2fc1584841dbb586fa2179223398c9b4813fde5a3a3",
+    "receiptPath": "spec-gate.txt",
+    "receiptSha256": "5609ec931e8c47fa5c17c2fc1584841dbb586fa2179223398c9b4813fde5a3a3",
+    "receiptNormalization": "trailing blank EOF only; original rawLogSha256 retained"
+  },
+  "browser-list": {
+    "name": "browser-list",
+    "command": [
+      "pnpm",
+      "exec",
+      "tsx",
+      ".harness/scripts/with-test-isolation.ts",
+      "--",
+      "pnpm",
+      "--filter",
+      "web",
+      "exec",
+      "playwright",
+      "test",
+      "--config",
+      "playwright.fullstack-smoke.config.ts",
+      "--project=seeded",
+      "e2e/i18n-recording-journey.spec.ts",
+      "--workers=1",
+      "--retries=0",
+      "--max-failures=1",
+      "--list"
+    ],
+    "source": "026d8dcac5c044fcafa8b5c33a5d633b346223b6",
+    "exitCode": 0,
+    "seconds": 1.924,
+    "rawLogLocalPath": "/tmp/6214-current-browser-list.log",
+    "rawLogSha256": "0d4e31ddfe2cb2462b827a554a774006a9e857f168720ca8f4c062f28430b9ed",
+    "receiptPath": "browser-list.txt",
+    "receiptSha256": "0d4e31ddfe2cb2462b827a554a774006a9e857f168720ca8f4c062f28430b9ed",
+    "receiptNormalization": "trailing blank EOF only; original rawLogSha256 retained"
+  }
+}

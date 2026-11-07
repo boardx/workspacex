@@ -1,0 +1,47 @@
+{
+  "pr": 6252,
+  "publishedHead": "a9830b4d8bb04a792a19d056b6f0111bd96e8a2a",
+  "actualMergeCommit": "a00287a86c411c13148294cc2ed4379852949c5d",
+  "actualMergedAt": "2026-11-05T01:57:57Z",
+  "issue6200ClosedAt": "2026-11-05T01:57:59Z",
+  "runtime": {
+    "runId": 41934076836,
+    "attempt": 1,
+    "head": "8fa189cba35dbbaf9e83ea383fc03d2a83757e79",
+    "originalCasesPassed": 7,
+    "caseRetries": 0,
+    "authorIndividuallyViewedPng": 17,
+    "safeRuntimeReceiptSha256": "1056b3ad80cedd64423381049729d25e1562f60f97c20143735a40e9f401dd50",
+    "reviewReportSha256": "ba5e68f33402c52089e3d23a6f639f8ac3e850c9926cf89adb591870e9cf30c4",
+    "scope": "Original7/17 corresponding unchanged scenes; acceptedfailurecontrols have focused provider/neighbor evidence, not extra browser coverage"
+  },
+  "publicEvidence": [
+    "https://github.com/boardx/workspacex/pull/6252#issuecomment-6645960487",
+    "https://github.com/boardx/workspacex/pull/6252#issuecomment-6646428946",
+    "https://github.com/boardx/workspacex/issues/6133#issuecomment-6648187985"
+  ],
+  "postMergeOwnCleanup": {
+    "pr": 6252,
+    "mergedAt": "2026-11-05T01:57:57Z",
+    "mergeCommit": "a00287a86c411c13148294cc2ed4379852949c5d",
+    "scope": "wsx-f1bc3a79cfba60bac5d8",
+    "containers": 0,
+    "volumes": 0,
+    "listeners": {
+      "pg": 0,
+      "redis": 0,
+      "api": 0,
+      "web": 0,
+      "sandbox": 0,
+      "model": 0,
+      "deep-agent": 0,
+      "asr": 0,
+      "vision": 0,
+      "loopback-sandbox": 0,
+      "mail": 0
+    },
+    "allZero": true,
+    "newProjectSourceWindowCreatedServices": false
+  },
+  "stageBoundary": "Delivered Chat batch does not itself complete B3; canonical stage closure matrix identifies remaining6260, with main final stage review. Overall counts live only in6133."
+}

@@ -26,50 +26,11 @@ import { cn } from "@/lib/utils";
  *   全仓当前没有跨线程/长期记忆机制（已 grep 全仓确认零命中），如实显示「仅本对话」。
  */
 
-export interface TaskTemplate {
-  readonly id: string;
-  readonly label: string;
-  readonly goal: string;
-  /** 卡片左侧图标徽标里的单字标签（视觉分类用，不承载任何判据文案）。 */
-  readonly badge: string;
-  /** 徽标底色 + 前景色的语义 token 对（U5a 只允许语义色，见 `lint-design.sh`）。 */
-  readonly badgeTone: "accent" | "warning-tint" | "ai-tint";
-}
-
-/**
- * 判据逐字点名的四类任务模板。`goal` 是模板被点击后真的填进输入框的文本——
- * 不是发送，是填进去（判据 TW-P0-1②反伪造条款：点了没反应/不影响输入框的按钮判 0）。
- */
-export const TASK_WORKBENCH_TEMPLATES: readonly TaskTemplate[] = [
-  {
-    id: "chat-task-workbench-template-research",
-    label: "调研市场并产出带来源的报告",
-    goal: "帮我调研一下当前市场情况，产出一份带引用来源的调研报告。",
-    badge: "研",
-    badgeTone: "accent",
-  },
-  {
-    id: "chat-task-workbench-template-reading",
-    label: "阅读材料整理决策建议",
-    goal: "帮我阅读我上传的材料，整理出可执行的决策建议。",
-    badge: "读",
-    badgeTone: "warning-tint",
-  },
-  {
-    id: "chat-task-workbench-template-planning",
-    label: "需求拆成计划并生成项目产物",
-    goal: "帮我把这个需求拆成一份可执行的计划，并生成相应的项目产物。",
-    badge: "拆",
-    badgeTone: "accent",
-  },
-  {
-    id: "chat-task-workbench-template-analysis",
-    label: "分析数据发现异常并制图",
-    goal: "帮我分析这份数据，找出其中的异常点，并生成图表。",
-    badge: "析",
-    badgeTone: "ai-tint",
-  },
-];
+export type { TaskTemplate } from "@/lib/chat-task-templates";
+export { TASK_WORKBENCH_TEMPLATES } from "@/lib/chat-task-templates";
+import type { TaskTemplate } from "@/lib/chat-task-templates";
+import { localizedTaskTemplates } from "@/lib/i18n/chat-task-copy";
+import { useI18n } from "@/lib/i18n/provider";
 
 /** 徽标底色/前景色 → 类名，避免四处重复拼字符串（U5a：只用语义 token）。 */
 const BADGE_TONE_CLASSES: Record<TaskTemplate["badgeTone"], string> = {
@@ -96,26 +57,28 @@ export function TaskWorkbenchEmptyState({
   /** 项目内对话：「项目」标签写「本项目对话」，不能再说「个人对话」。 */
   inProject?: boolean;
 }): JSX.Element {
+  const { locale, t } = useI18n();
   return (
     <div
       data-testid="copilotkit-v2-empty"
       className="flex min-h-full flex-col items-center justify-center gap-4 px-4 py-4 text-center sm:px-6"
     >
       {/*
+        #6068：仅调整注释，验证小范围回归的真实队列链路。
         两级视觉层次（大标题 + 小字说明），对齐参照图。`data-testid` 挂在外层
         wrapper 上而不是单个 <p>——TW-P0-1① 的判据（`chat-task-workbench-empty-state.spec.ts`）
         只断言这个锚点的 innerText 同时包含「计划」「确认」两个词，不要求它们落在
         同一个文本节点，拆分展示不影响这条判据。文案本身一字未改。
       */}
       <div className="flex flex-col items-center gap-2" data-testid="chat-task-workbench-goal-headline">
-        <p className="max-w-xl text-24 sm:text-30 font-semibold tracking-tight text-card-foreground">今天，想完成什么？</p>
+        <p className="max-w-xl text-24 sm:text-30 font-semibold tracking-tight text-card-foreground">{t("chatEntry.headline")}</p>
         <p className="max-w-lg text-14 leading-relaxed text-muted-foreground">
-          描述目标，Agent 会先提出计划，得到确认后再执行。也可以拖入文件作为这轮对话的附件，或点麦克风语音输入。
+          {t("chatEntry.hint")}
         </p>
       </div>
       {briefing}
       <div className="grid w-full max-w-xl grid-cols-2 gap-x-3">
-        {TASK_WORKBENCH_TEMPLATES.map((template) => (
+        {localizedTaskTemplates(locale).map((template) => (
           <button
             key={template.id}
             type="button"
@@ -141,27 +104,27 @@ export function TaskWorkbenchEmptyState({
           className="rounded-pill border border-border-subtle bg-card px-2.5 py-1 text-10 text-muted-foreground"
           data-testid="chat-task-workbench-context-chip-project"
         >
-          项目：{inProject ? "本项目对话" : "个人对话"}
+          {t(inProject ? "chatEntry.project" : "chatEntry.personal")}
         </span>
         <span
           className="rounded-pill border border-border-subtle bg-card px-2.5 py-1 text-10 text-muted-foreground"
           data-testid="chat-task-workbench-context-chip-materials"
           data-source="live"
         >
-          材料 {materialsCount}
+          {t("chatEntry.materials", { count: materialsCount })}
         </span>
         <span
           className="rounded-pill border border-border-subtle bg-card px-2.5 py-1 text-10 text-muted-foreground"
           data-testid="chat-task-workbench-context-chip-skills"
           data-source="live"
         >
-          技能 {skillsCount}
+          {t("chatEntry.skills", { count: skillsCount })}
         </span>
         <span
           className="rounded-pill border border-border-subtle bg-card px-2.5 py-1 text-10 text-muted-foreground"
           data-testid="chat-task-workbench-context-chip-memory"
         >
-          记忆范围：仅本对话
+          {t("chatEntry.memory")}
         </span>
       </div>
     </div>

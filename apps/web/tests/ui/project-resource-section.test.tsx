@@ -153,4 +153,12 @@ describe("B2-S2 研究洞察 › 项目资源子页", () => {
     const post = fetchMock.mock.calls.find(([, init]) => init?.method === "POST")!;
     expect(JSON.parse(String(post[1]!.body))).toEqual({ projectId: "p1", kind: "interview", resourceId: "i2" });
   });
+  it("renders the canonical interview status as a localized label", async () => {
+    stubFetch((url)=>url.pathname==="/projects/p1/resources"?json({...RESOURCES,items:[{...item("interview","i1","采购访谈"),status:"completed"}]}):json({},500));
+    render(<TabResearch view="observer" sub="itv" projectId="p1"/>);
+    await screen.findByTestId("project-resource-i1");
+    expect(screen.getByText("已完成")).toBeVisible();
+    expect(screen.queryByText("completed")).toBeNull();
+  });
+
 });

@@ -8,7 +8,7 @@ const attachment={id:'attachment',filename:'notes.txt',mime:'text/plain',bytes:2
 it('a persisted attachment credit failure remains visible with the uploaded file and ownerless admin guidance',()=>{
  render(<><MessageAttachments threadId="thread" attachments={[attachment]}/><CreditConsumptionNotice/></>);
  expect(screen.getByRole('button',{name:/notes.txt/})).toBeTruthy();expect(screen.getByText(/额度不足，附件尚未完成内容解析/)).toBeTruthy();fireEvent.click(screen.getByRole('button',{name:'查看处理指引'}));
- expect(screen.getByRole('alert').textContent).toContain('计费账户');expect(screen.queryByRole('link',{name:'前往充值'})).toBeNull();
+ expect(screen.getByRole('alert').textContent).toContain('成员月度额度不足');expect(screen.getByRole('alert').textContent).toContain('组织管理员');expect(screen.getByRole('link',{name:'查看账户额度'}).getAttribute('href')).toBe('/billing');
 });
 it('accounting outage gives no misleading personal recharge action',()=>{
  render(<MessageAttachments threadId="thread" attachments={[{...attachment,extractionError:'credit_accounting_unavailable'}]}/>);

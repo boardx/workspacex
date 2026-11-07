@@ -1,0 +1,32 @@
+{
+  "name": "post-fixture-list-1",
+  "command": [
+    "pnpm",
+    "exec",
+    "tsx",
+    ".harness/scripts/with-test-isolation.ts",
+    "--",
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "playwright",
+    "test",
+    "--config",
+    "playwright.fullstack-smoke.config.ts",
+    "--project=seeded",
+    "e2e/i18n-survey-journey.spec.ts",
+    "--workers=1",
+    "--retries=0",
+    "--max-failures=1",
+    "--reporter=list,json",
+    "--list"
+  ],
+  "source": "72b0dd34a7e1e03338c43635743dc4fc50d1cb79",
+  "exitCode": 0,
+  "seconds": 2.63,
+  "rawLogSha256": "480d02ea866e4b5784092a24a91a938c6a994bc3d1b05de6e924f048080d5e30",
+  "sourceAfter": "72b0dd34a7e1e03338c43635743dc4fc50d1cb79",
+  "sourceStable": true,
+  "environment": {}
+}

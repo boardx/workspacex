@@ -1,0 +1,19 @@
+{
+  "name": "green-package",
+  "command": [
+    "pnpm",
+    "--filter",
+    "@repo/contracts",
+    "test",
+    "--bail=1",
+    "--maxWorkers=1",
+    "--minWorkers=1"
+  ],
+  "source": "89745fd03525e4422b8d6c638b018488eacaddc0",
+  "exitCode": 1,
+  "seconds": 9.057,
+  "rawLogSha256": "df1b0605023c4909c9e59479bff88625ce948e6a2be265934bc8455e87006441",
+  "environment": {},
+  "testsExecuted": 0,
+  "classification": "pnpm test alias rejected worker flags before execution; not a valid test result. Corrected with explicit run test, same Vitest arguments."
+}

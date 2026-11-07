@@ -67,7 +67,7 @@ export function selectImageProvider(env: NodeJS.ProcessEnv = process.env,account
     // `BailianImageProvider` 同时是 `ModelCallPort`（图片生成 agent 走那条），这里只
     // 取它的 `generateImage`，`modelRef` 用配置里的模型名——与改动前 `kernel.module.ts`
     // 里那行逐字相同的形状，不是新写的绑定方式。
-    return { choice: "bailian", provider: { modelRef: bailian.modelId, generateImage: p.generateImage.bind(p) } };
+    return { choice: "bailian", provider: { modelRef: bailian.modelId, resolveRequest:p.resolveRequest.bind(p), generateImage: p.generateImage.bind(p) } };
   };
 
   if (requested === "openai") return openaiReady ? makeOpenAi() : null;

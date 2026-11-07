@@ -10,6 +10,7 @@ import { resolve } from "node:path";
 import { createServer } from "node:net";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { billingCredits as billing } from "@repo/contracts";
+import { PERSONAL_PRICE_CATALOG } from "../../src/domain/billing/personal-price-catalog";
 import { notifyFixture } from "./wechat-notify-fixture";
 import { user, org } from "./order-fixture";
 import { asOwner } from "../support/db";
@@ -22,7 +23,7 @@ let closed = false;
 let spawnError: Error | undefined;
 let output = "";
 const webRoot = resolve(import.meta.dirname, "../../../web");
-const evidence = resolve(webRoot, "../../phases/phase-21-billing-payment/sprints/sprint-06/evidence/actual-glue");
+const evidence = process.env.BILLING_BROWSER_EVIDENCE_DIR ?? resolve(webRoot, "../../phases/phase-21-billing-payment/sprints/sprint-06/evidence/actual-glue");
 const port = Number(process.env.WORKSPACEX_WEB_PORT);
 const origin = `http://127.0.0.1:${port}`;
 const realNow = Date.now.bind(Date);
@@ -87,7 +88,9 @@ async function openCashier(page: Page) {
   await page.route(url => url.origin === origin && url.pathname === "/__fullstack_api/identity/me", route => route.fulfill({ json: { org: { id: org, name: "Isolated billing acceptance", kind: "organization", team: null, modelPolicy: "any", avatarUrl: null }, orgRole: "admin", teamId: null, projectRole: null, groupId: null, displayName: "Isolated payer", avatarUrl: null } }));
   await page.goto(`${origin}/billing`);
   await page.getByTestId("rail-profile-menu").click();
-  await page.getByTestId("billing-menu-purchase").click();
+  expect(await page.getByTestId("billing-menu-purchase").count()).toBe(0);
+  await page.getByTestId("personal-menu-billing").click();
+  await page.getByRole("button",{name:"购买 credit",exact:true}).click();
   await expect.poll(() => page.getByTestId("billing-cashier-dialog").count()).toBe(1);
 }
 async function createFromUi(page: Page, aged = false): Promise<Order> {
@@ -103,6 +106,7 @@ async function createFromUi(page: Page, aged = false): Promise<Order> {
     const created = await response; expect(created.status()).toBe(201);
     order = billing.operations.createPaymentOrder.out.parse(await created.json()).order;
   } finally { if (aged) vi.useRealTimers(); }
+  if(order.expiredAt===null)throw Error("pending_order_expiry_required");
   expect(Date.now()).toBeGreaterThanOrEqual(before);
   if (aged) { expect(Date.parse(order.createdAt)).toBe(before - 16 * 60000); expect(Date.parse(order.expiredAt)).toBeLessThan(before); }
   else { expect(Date.parse(order.createdAt)).toBeGreaterThanOrEqual(before); expect(Date.parse(order.expiredAt)).toBeGreaterThan(realNow()); }
@@ -128,7 +132,7 @@ async function sourceAccounting(orderNo: string) {
 beforeAll(async () => {
   if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error("Run through the standard test isolation wrapper with WORKSPACEX_WEB_PORT");
   mkdirSync(evidence, { recursive: true }); await assertAllocatedPortFree();
-  fixture = await notifyFixture(false, { platformVerification: false }); await fixture.reset();
+  fixture = await notifyFixture(false, { platformVerification: true }); await fixture.reset();
   const require = createRequire(resolve(webRoot, "package.json"));
   const env: NodeJS.ProcessEnv = { ...process.env, NEXT_DIST_DIR: ".next-billing-cashier-glue", NEXT_PUBLIC_API_URL: "/__fullstack_api", FULLSTACK_E2E_API_ORIGIN: fixture.base };
   // The web test process never needs payment credentials, including any host configuration.
@@ -243,7 +247,7 @@ it("buys again after confirmed success without reloading or replaying the first 
   await expect.poll(()=>page.getByTestId("billing-success-badge").count(),{timeout:15000}).toBe(1);
   await expect.poll(()=>page.getByTestId("billing-updated-balance").textContent()).toContain("1320");
   await page.getByTestId("billing-cashier-dialog").getByRole("button",{name:"关闭",exact:true}).click();
-  await page.getByRole("button",{name:"购买额度",exact:true}).click();
+  await page.getByRole("button",{name:"购买 credit",exact:true}).click();
   await expect.poll(()=>page.getByTestId("billing-success-badge").count()).toBe(1);
   expect(f.state.calls).toBe(1);
   await page.getByTestId("billing-buy-again").click();
@@ -288,15 +292,17 @@ it("retries an explicit Native rejection only on user action with no fake persis
  writeFileSync(resolve(evidence,"upstream-retry-receipt.json"),JSON.stringify({failureStatus:502,code:"wechat_upstream_failed",ordersAfterFailure:0,qrAfterFailure:false,retryExplicit:true,billingHttpIntercepted:false,nativeRequests:2,signedNativeRequests:2,successfulOrderNo:order.orderNo,balance:1320,ledgerRows:2,productionMerchantAccepted:false},null,2));
 },120000);
 
-it("buys the reference one-yuan package and cancels through real UI/API/merchant/PG",async()=>{
+it("buys the current CNY package and cancels through real UI/API/merchant/PG",async()=>{
  const page=await browser!.newPage({viewport:{width:1280,height:900}});
  await openCashier(page);
- await page.locator('input[type="radio"][value="pkg-cn-100"]').check();
+ const product=PERSONAL_PRICE_CATALOG.cn.find(item=>item.kind==="credit_topup"&&item.credits===10000)!;
+ expect(await page.locator('input[type="radio"][value="pkg-cn-100"]').count()).toBe(0);
+ await page.locator(`input[type="radio"][value="${product.sku}"]`).check();
  const created=page.waitForResponse(r=>new URL(r.url()).pathname==="/__fullstack_api/billing/orders"&&r.request().method()==="POST");
  await page.getByTestId("billing-generate-qr").click();
  const response=await created;expect(response.status()).toBe(201);
  const {order}=billing.operations.createPaymentOrder.out.parse(await response.json());
- expect(order).toMatchObject({amountFen:100,baseCredits:100,bonusCredits:0});
+ expect(order).toMatchObject({packageId:product.sku,currency:product.currency,amountFen:product.amountMinor,baseCredits:10000,bonusCredits:0});
  await page.getByTestId("billing-cancel-order").waitFor();
  const canceled=page.waitForResponse(r=>new URL(r.url()).pathname.endsWith(`/billing/orders/${order.orderNo}/cancel`));
  await page.getByTestId("billing-cancel-order").click();
@@ -306,8 +312,40 @@ it("buys the reference one-yuan package and cancels through real UI/API/merchant
  expect(fixture!.state.closeRequests).toBe(1);
  const facts=await sourceAccounting(order.orderNo);
  expect(facts.order.status).toBe("CLOSED");expect(facts.ledger).toEqual([]);expect(facts.receipts).toEqual([]);
- await page.screenshot({path:resolve(evidence,"customer-cancel-one-yuan.png"),fullPage:true});
+ await page.screenshot({path:resolve(evidence,"customer-cancel-current-package.png"),fullPage:true});
  await page.getByTestId("billing-regenerate").click();
- await page.locator('input[type="radio"][value="pkg-cn-100"]').waitFor();
+ await page.locator(`input[type="radio"][value="${product.sku}"]`).waitFor();
  await page.close();
+},120000);
+it("unifies purchased monthly personal and enterprise credits through real billing and usage pages",async()=>{
+ const f=fixture!,page=await browser!.newPage({viewport:{width:1280,height:1000}});
+ await openCashier(page);const order=await createFromUi(page);const notice=f.notice(order.orderNo);
+ expect((await f.post(notice.body,notice.headers)).status).toBe(200);
+ await expect.poll(()=>page.getByTestId("billing-success-badge").count()).toBe(1);
+ const {verifyCreditSubscriptionBrowser}=await import("./credit-subscription-browser");
+ await verifyCreditSubscriptionBrowser(f,page,origin,evidence);
+},120000);
+
+it("buys WeChat monthly pass through real QR and signed callback with replay-safe permanent balance",async()=>{
+ const f=fixture!,page=await browser!.newPage({viewport:{width:1280,height:1000}});
+ await asOwner(c=>c.query("INSERT INTO credit_wallets(owner_type,owner_id,balance) VALUES('user',$1,7)",[user]));
+ await page.addInitScript(({userId,orgId})=>{localStorage.setItem("wsx.sessionToken","f04-user");localStorage.setItem("wsx.session",JSON.stringify({version:1,userId,orgs:[orgId],currentOrgId:orgId,expiresAt:"2099-01-01T00:00:00Z"}));},{userId:user,orgId:org});
+ await page.route(url=>url.origin===origin&&url.pathname==="/__fullstack_api/identity/me",route=>route.fulfill({json:{org:{id:org,name:"Monthly acceptance",kind:"organization",team:null,modelPolicy:"any",avatarUrl:null},orgRole:"admin",teamId:null,projectRole:null,groupId:null,displayName:"Isolated payer",avatarUrl:null}}));
+ await page.goto(`${origin}/billing`);
+ const responsePromise=page.waitForResponse(r=>new URL(r.url()).pathname==="/__fullstack_api/billing/subscription/upgrade-link"&&r.request().method()==="POST");
+ await page.getByRole("button",{name:"购买月度套餐",exact:true}).click();
+ const created=await responsePromise;expect(created.status()).toBe(201);expect(created.request().postDataJSON()).toMatchObject({provider:"wechat"});
+ await expect.poll(()=>page.getByRole("img",{name:"月度套餐微信支付二维码"}).count()).toBe(1);
+ const order=(await asOwner(c=>c.query("SELECT order_id,session_ref FROM billing_monthly_orders WHERE user_id=$1 AND provider='wechat' ORDER BY created_at DESC LIMIT 1",[user]))).rows[0]!;
+ expect(order.session_ref).toMatch(/^bm/);
+ const notice=f.notice(order.session_ref,{transaction_id:`wx_${order.session_ref}`,amount:{total:18000,payer_total:18000,currency:"CNY"}});
+ f.state.paidMonthly.set(order.session_ref,notice.payment);
+ expect((await f.post(notice.body,notice.headers)).status).toBe(200);
+ expect((await f.post(notice.body,notice.headers)).status).toBe(200);
+ await expect.poll(()=>page.getByTestId("billing-subscription-status").textContent(),{timeout:15000}).toBe("Pro · 使用中");
+ await expect.poll(()=>page.getByRole("progressbar",{name:"本期剩余 credit"}).getAttribute("value")).toBe("20000");
+ await expect.poll(()=>page.getByTestId("billing-wallet-balance").textContent()).toBe("7 credit");
+ const wallet=(await asOwner(c=>c.query("SELECT balance FROM credit_wallets WHERE owner_id=$1",[user]))).rows[0]!;expect(Number(wallet.balance)).toBe(20007);
+ const periods=(await asOwner(c=>c.query("SELECT * FROM credit_subscription_periods WHERE wallet_id IN(SELECT wallet_id FROM credit_wallets WHERE owner_id=$1)",[user]))).rows;expect(periods).toHaveLength(1);
+ await page.screenshot({path:resolve(evidence,"wechat-monthly-success.png"),fullPage:true});
 },120000);

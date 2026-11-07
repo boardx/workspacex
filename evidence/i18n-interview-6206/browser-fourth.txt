@@ -1,0 +1,27 @@
+[stack-admission] load1=2.14 cores=10 perCore=0.21 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw18qfbr-734cf467-4af46ed22f56 db=wsx_4af46ed22f564c79739e compose=wsx-4af46ed22f564c79739e pg=20138 redis=21138 api=24138 web=25138 sandbox=26138 model=27138 deep-agent=28138 asr=29138 vision=30138 loopback-sandbox=31138 mail=19138
+[WebServer] (node:45588) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45589) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45595) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45596) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[intermediate output omitted; full log SHA-256 in validation.json]
+  1 passed (4.0m)
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:46528) [DEP0060] DeprecationWarning: The `util._extend` API is deprecated. Please use Object.assign() instead.
+[WebServer] (node:45813) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.
+[WebServer] {"level":"error","msg":"http exception","traceId":"5de54023-ecf5-41b6-8469-160628c92d51","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at ExpertAvatarPreferenceController.scope (/Users/shenyangjun/boardx/workspacex/apps/api/src/interface/controllers/expert-avatar-preference.controller.ts:30:72)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async ExpertAvatarPreferenceController.read (/Users/shenyangjun/boardx/workspacex/apps/api/src/interface/controllers/expert-avatar-preference.controller.ts:49:19)"}}
+[WebServer] {"level":"error","msg":"http exception","traceId":"f1a23c96-9459-43d2-bab6-6a3c1c578fdc","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at ExpertAvatarPreferenceController.scope (/Users/shenyangjun/boardx/workspacex/apps/api/src/interface/controllers/expert-avatar-preference.controller.ts:30:72)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async ExpertAvatarPreferenceController.read (/Users/shenyangjun/boardx/workspacex/apps/api/src/interface/controllers/expert-avatar-preference.controller.ts:49:19)"}}
+  ✓  1 [seeded] › e2e/i18n-interview-journey.spec.ts:8:5 › interview locale preserves the real private-profile, canonical six-step and history journey (9.7s)
+
+  1 passed (4.0m)
+[timing] pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded e2e/i18n-interview-journey.spec.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：4m3s
+  清理：1s
+  总计：4m4s

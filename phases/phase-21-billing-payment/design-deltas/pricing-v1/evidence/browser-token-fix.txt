@@ -1,0 +1,14 @@
+
+Running 5 tests using 1 worker
+
+(node:7910) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:7910) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 e2e/pricing-preview.browser.ts:16:5 › responsive account and purchase UI has no horizontal overflow (4.1s)
+  ✓  2 e2e/pricing-preview.browser.ts:29:5 › regional monthly and annual prices, renewal and channel visibility (4.9s)
+  ✓  3 e2e/pricing-preview.browser.ts:54:5 › Team separates seats used and purchased, prorates and explains expiry (3.5s)
+  ✓  4 e2e/pricing-preview.browser.ts:75:5 › Enterprise upgrade confirmation, grant validation and visible result (3.5s)
+  ✓  5 e2e/pricing-preview.browser.ts:94:5 › all seven review states are reachable and failures recover (4.3s)
+
+  5 passed (40.1s)

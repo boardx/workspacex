@@ -1,0 +1,33 @@
+Command: WORKSPACEX_WEB_TEST_MAX_WORKERS=1 pnpm --filter web exec vitest run tests/ui/admin-member-quotas-i18n.test.tsx
+Exit: 1
+ FAIL  tests/ui/admin-member-quotas-i18n.test.tsx > localizes quota header without replacing raw identity, refetching or inventing a null percentage
+TestingLibraryElementError: Unable to find an element with the text: Organization monthly budget is not set. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+ FAIL  tests/ui/admin-member-quotas-i18n.test.tsx > keeps actual zero as a configured quota and skips quota reads in the platform header
+Error: expect(element).toHaveTextContent()
+ FAIL  tests/ui/admin-member-quotas-i18n.test.tsx > keeps card/list selection and emits no change just for a locale update
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "List"
+ FAIL  tests/ui/admin-member-quotas-i18n.test.tsx > renders English quota cards, preserves raw names and distinguishes unallocated from zero
+Error: expect(element).toHaveTextContent()
+ FAIL  tests/ui/admin-member-quotas-i18n.test.tsx > retains an edited member draft across locale switches and submits the original truncated numeric payload
+Error: expect(element).toHaveTextContent()
+ FAIL  tests/ui/admin-member-quotas-i18n.test.tsx > retranslates validation without losing the numeric draft or submitting invalid values
+Error: expect(element).toHaveTextContent()
+ FAIL  tests/ui/admin-member-quotas-i18n.test.tsx > keeps actionable server remaining quota details localized and hides private raw errors
+Error: expect(element).toHaveTextContent()
+ FAIL  tests/ui/admin-member-quotas-i18n.test.tsx > preserves pending organization budget edits through locale updates and retranslates the resulting notice
+Error: expect(element).toHaveTextContent()
+ FAIL  tests/ui/admin-member-quotas-i18n.test.tsx > explains budget-below-allocated in the current language without altering the server detail
+Error: expect(element).toHaveTextContent()
+ FAIL  tests/ui/admin-member-quotas-i18n.test.tsx > shows localized absent-organization and read failures without making locale a read trigger
+TestingLibraryElementError: Unable to find an element with the text: No organization selected.. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+ FAIL  tests/ui/admin-member-quotas-i18n.test.tsx > localizes invitation summary and status while preserving authored email/inviter and avoiding reload
+Error: expect(element).toHaveTextContent()
+ FAIL  tests/ui/admin-member-quotas-i18n.test.tsx > retains pending resend identity and one-time raw activation URL while feedback follows locale
+Error: expect(element).toHaveTextContent()
+ FAIL  tests/ui/admin-member-quotas-i18n.test.tsx > localizes denied invitation visibility without pretending an unread list is empty
+Error: expect(element).toHaveTextContent()
+ FAIL  tests/ui/admin-member-quotas-i18n.test.tsx > preserves private-layer counts and raw access-log references while translating only the boundary explanation
+Error: expect(element).toHaveTextContent()
+ Test Files  1 failed (1)
+      Tests  14 failed (14)
+   Duration  6.22s (transform 1.07s, setup 159ms, collect 1.79s, tests 3.33s, environment 755ms, prepare 47ms)

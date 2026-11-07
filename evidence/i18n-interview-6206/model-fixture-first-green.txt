@@ -1,0 +1,64 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/apps/api
+
+ ❯ tests/itv/loopback-interview-workflow.test.ts (6 tests | 1 failed) 30ms
+   × explicit interview test-model fixture contract > does not intercept ordinary chat or unknown interview operations 6ms
+     → expected '## 研究目标\n\n受控测试提案：核对需求中的实际行为及其约束，研究问题…' to be null
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/loopback-interview-workflow.test.ts > explicit interview test-model fixture contract > does not intercept ordinary chat or unknown interview operations
+AssertionError: expected '## 研究目标\n\n受控测试提案：核对需求中的实际行为及其约束，研究问题…' to be null
+
+- Expected: 
+null
+
++ Received: 
+"## 研究目标
+
+受控测试提案：核对需求中的实际行为及其约束，研究问题须由人工审阅。
+
+## 访谈对象与专家类型
+
+建议招募需求涉及的执行者及协作角色，具体身份与人数待人工确认。
+
+## 研究范围
+
+依据输入需求比较实际场景，地区、时间窗、排除范围均待确认。
+
+## 成功标准
+
+收集可比较的具体案例与反例，不以证实预设结论作为成功标准。
+
+## 研究建议
+
+1. 请受访者回溯最近一次相关经历的具体时间线，区分回忆与可核对记录。
+2. 对比不同角色在相同场景中的约束，寻找可以交叉核对的行为材料。
+3. 主动追问与初步假设不一致的案例，记录差异和仍需验证的信息。
+
+## 待验证假设
+
+待验证：角色之间可能存在不同约束，需要寻找相反案例并比较解释。
+
+## 适用边界
+
+这是显式回环模型的确定性测试提案，不是真实模型质量证据；回忆与口述为自报材料，模拟画像不能替代真人证据。"
+
+ ❯ tests/itv/loopback-interview-workflow.test.ts:22:134
+     20|   expect(loopbackInterviewWorkflow("Chat assistant",context("generate_…
+     21|   expect(loopbackInterviewWorkflow(system,context("unknown_operation",…
+     22|   expect(loopbackInterviewWorkflow(system,context("unknown_operation",…
+       |                                                                                                                                      ^
+     23|   expect(loopbackInterviewWorkflow(system,"操作：generate_analysis")).…
+     24|  });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 5 passed (6)
+   Start at  03:48:16
+   Duration  1.50s (transform 854ms, setup 0ms, collect 1.29s, tests 30ms, environment 0ms, prepare 41ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.interview-markdown-unit.config.ts tests/itv/loopback-interview-workflow.test.ts

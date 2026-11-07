@@ -1,4 +1,9 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
+import { LanguageSwitcher } from "@/components/shell/language-switcher";
+import { displaySurveyRuntimeError } from "@/lib/survey/display-runtime-error";
+import { displaySurveyMessage, type SurveyDisplayMessage } from "@/lib/survey/display-message";
+import { displaySurveyAnswerMessage } from "@/lib/survey/display-answer-message";
 import * as React from "react";
 import type { survey } from "@repo/contracts";
 import {
@@ -22,12 +27,13 @@ type Published = {
   successMessageMarkdown?: string;
 };
 export function PublicSurveyForm({ token }: { token: string }) {
+  const { t, locale } = useI18n();
   const [data, setData] = React.useState<Published | null>(null);
   const [answers, setAnswers] = React.useState<
     Record<string, SurveyAnswerValue>
   >({});
   const [errors, setErrors] = React.useState<Record<string, string[]>>({});
-  const [error, setError] = React.useState("");
+  const [error, setError] = React.useState<Error | SurveyDisplayMessage | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [uploading, setUploading] = React.useState(0);
   const [done, setDone] = React.useState(false);
@@ -47,7 +53,7 @@ export function PublicSurveyForm({ token }: { token: string }) {
         if (active) { setData(value); setDone(!!value.alreadySubmitted); }
       })
       .catch((e) => {
-        if (active) setError((e as Error).message);
+        if (active) setError(e instanceof Error ? e : { key: "survey.runtimeError.network" });
       });
     return () => {
       active = false;
@@ -116,7 +122,7 @@ export function PublicSurveyForm({ token }: { token: string }) {
     setErrors(next);
     const first = Object.keys(next)[0];
     if (first) {
-      setError("请检查标记的必答题或格式错误，已填写的内容会保留。");
+      setError({ key: "survey.public.checkAnswers" });
       const targetPage = pages.findIndex((items) =>
         items.some((q) => q.id === first),
       );
@@ -134,7 +140,7 @@ export function PublicSurveyForm({ token }: { token: string }) {
       });
       return false;
     }
-    setError("");
+    setError(null);
     return true;
   }
   async function submit(event: React.FormEvent) {
@@ -142,7 +148,7 @@ export function PublicSurveyForm({ token }: { token: string }) {
     if (locked.current || uploading || !data || !validate(visible)) return;
     locked.current = true;
     setBusy(true);
-    setError("");
+    setError(null);
     try {
       const ids = new Set(
         visible
@@ -168,7 +174,7 @@ export function PublicSurveyForm({ token }: { token: string }) {
       );
       setDone(true);
     } catch (err) {
-      setError((err as Error).message);
+      setError(err instanceof Error ? err : { key: "survey.public.submitFailed" });
     } finally {
       locked.current = false;
       setBusy(false);
@@ -177,30 +183,25 @@ export function PublicSurveyForm({ token }: { token: string }) {
   return (
     <main className="min-h-screen bg-muted px-4 py-10">
       <div className="mx-auto max-w-2xl rounded-xl border border-border bg-card p-6 sm:p-10">
-        <h1 className="text-24 font-semibold">{data?.title ?? "问卷"}</h1>
+        <div className="mb-4 flex justify-end"><LanguageSwitcher /></div>
+        <h1 className="text-24 font-semibold">{data?.title ?? t("survey.public.title")}</h1>
         {error && (
           <p role="alert" className="mt-4 text-12 text-destructive">
-            {error}
+            {error instanceof Error ? displaySurveyRuntimeError(error, t, locale) : displaySurveyMessage(error, t, locale)}
           </p>
         )}
         {done ? (
           <section role="status" className="py-12 text-center text-16">
-            <SurveySuccessMarkdown markdown={data?.successMessageMarkdown ?? '提交成功，感谢您的参与。'}/>
+            <SurveySuccessMarkdown markdown={data?.successMessageMarkdown ?? t("survey.public.success")}/>
           </section>
         ) : data ? (
           <form noValidate onSubmit={(event) => void submit(event)}>
             <p className="mb-8 mt-3 text-12 text-muted-foreground">
-              匿名填写 ·{" "}
-              {
-                visible.filter(
-                  (q) => q.type !== "description" && q.type !== "page_break",
-                ).length
-              }{" "}
-              道题 · 标记 * 的题目为必答
+              {t("survey.public.intro", { count: visible.filter(q => q.type !== "description" && q.type !== "page_break").length })}
             </p>
             {pages.length > 1 && (
               <p className="mb-4 text-12" aria-live="polite">
-                第 {currentPage + 1} / {pages.length} 页
+                {t("survey.public.page", { page: currentPage + 1, count: pages.length })}
               </p>
             )}
             <fieldset disabled={busy} className="space-y-8">
@@ -210,7 +211,7 @@ export function PublicSurveyForm({ token }: { token: string }) {
                   question={question}
                   shuffleSeed={submissionId}
                   value={answers[question.id]}
-                  errors={errors[question.id]}
+                  errors={errors[question.id]?.map(message => displaySurveyAnswerMessage(question, message, t))}
                   upload={upload}
                   removeUpload={removeUpload}
                   onChange={(value) => {
@@ -229,7 +230,7 @@ export function PublicSurveyForm({ token }: { token: string }) {
                     variant="outline"
                     onClick={() => setPage(currentPage - 1)}
                   >
-                    上一页
+                    {t("survey.public.previous")}
                   </Button>
                 )}
                 {currentPage < pages.length - 1 ? (
@@ -242,18 +243,18 @@ export function PublicSurveyForm({ token }: { token: string }) {
                         setPage(currentPage + 1);
                     }}
                   >
-                    下一页
+                    {t("survey.public.next")}
                   </Button>
                 ) : (
                   <Button type="submit" disabled={busy || !!uploading}>
-                    {busy ? "正在提交…" : "提交答卷"}
+                    {busy ? t("survey.public.submitting") : t("survey.public.submit")}
                   </Button>
                 )}
               </div>
             </fieldset>
           </form>
         ) : !error ? (
-          <p className="py-8">正在加载…</p>
+          <p className="py-8">{t("survey.public.loading")}</p>
         ) : null}
       </div>
     </main>

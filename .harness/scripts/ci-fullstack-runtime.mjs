@@ -33,8 +33,8 @@ export function runtimeCommand(geometry, sticky = false, directory = false, core
   }
   if (coreLoop) return ['pnpm', 'run', 'verify:core-loop'];
   if (directory) return ['pnpm', 'run', 'verify:digital-directory-cards'];
-  if (sticky) return ['pnpm', '--filter', 'web', 'exec', 'playwright', 'test', '--config', 'playwright.chat-sticky-browser.config.ts'];
-  return geometry ? ['pnpm', '--filter', 'web', 'run', 'e2e:trace-geometry'] : ['pnpm', 'run', 'verify:fullstack-smoke'];
+  if (sticky) return ['pnpm', '--filter', 'web', 'exec', 'playwright', 'test', '--config', 'playwright.chat-sticky-browser.config.ts', '--max-failures=1'];
+  return geometry ? ['pnpm', '--filter', 'web', 'run', 'e2e:trace-geometry', '--max-failures=1'] : ['pnpm', 'run', 'verify:fullstack-smoke'];
 }
 
 export function assertRuntimeCommand(mode, argv) {

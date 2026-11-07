@@ -1,37 +1,32 @@
+# Full regression only: reusable by hourly acceptance, also available manually.
 name: Billing cashier real integration
 on:
-  workflow_dispatch:
-  pull_request:
-    paths:
-      - 'apps/api/src/billing.module.ts'
-      - 'apps/api/src/application/billing/**'
-      - 'apps/api/src/domain/billing/**'
-      - 'apps/api/src/infrastructure/billing/**'
-      - 'apps/api/src/interface/controllers/billing*'
-      - 'apps/api/src/interface/middleware/billing*'
-      - 'apps/api/src/interface/filters/all-exceptions.filter.ts'
-      - 'apps/api/migrations/*billing*'
-      - 'apps/api/tests/billing/**'
-      - 'apps/api/tests/support/**'
-      - 'apps/api/vitest.billing-cashier.config.ts'
-      - 'apps/web/e2e/billing-subscription-live.spec.ts'
-      - 'apps/web/app/billing/**'
-      - 'apps/web/components/billing/**'
-      - 'apps/web/components/shell/personal-menu.tsx'
-      - 'apps/web/components/session/**'
-      - 'apps/web/lib/api-client.ts'
-      - 'apps/web/next.config.mjs'
-      - 'packages/contracts/src/billing*'
-      - 'package.json'
-      - 'pnpm-lock.yaml'
-      - '.github/workflows/billing-cashier-glue.yml'
+  workflow_dispatch: null
+  workflow_call: {}
 permissions:
   contents: read
 concurrency:
-  group: billing-cashier-glue-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: billing-cashier-glue-full-${{ github.run_id }}
+  cancel-in-progress: false
+  queue: single
 jobs:
+  scope:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.scope.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - id: scope
+        run: echo 'changed=true' >> "$GITHUB_OUTPUT"
   billing-cashier-glue:
+    needs: scope
+    if: needs.scope.outputs.changed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -46,7 +41,7 @@ jobs:
       - name: Install the API driver's matching Chromium
         run: pnpm --filter api exec playwright install --with-deps chromium
       - name: Real Next / Billing API / PostgreSQL / signed merchant and callback
-        run: pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run --config vitest.billing-cashier.config.ts
+        run: pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run --config vitest.billing-cashier.config.ts --bail=1
       - name: Preserve integration evidence, including failures
         if: always()
         uses: actions/upload-artifact@v6
@@ -55,4 +50,6 @@ jobs:
           path: |
             phases/phase-21-billing-payment/sprints/sprint-06/evidence/actual-glue/
             apps/api/test-results/billing-stripe/
+            apps/api/tests/test-results/personal-stripe-pricing/
+            phases/phase-21-billing-payment/design-deltas/personal-payments/evidence/real-browser/
           if-no-files-found: warn

@@ -1,0 +1,65 @@
+{
+  "baseHead": "8fa189cba35dbbaf9e83ea383fc03d2a83757e79",
+  "accepted": "fe372fa38c851cea8a896abac8e6fb0bd94c8b0b",
+  "currentSourceHashes": {
+    "apps/web/components/chat/copilotkit-v2-panel-body.tsx": "7a413861e73e084af74517d0cf791f1c3bffa14c124d429a4956ae5828a0c494",
+    "apps/web/components/chat/copilotkit-v2-panel-view.tsx": "533c38675e51d60376884454e731ac0b4c0e8ea24bbd363ee342543dcabdee07",
+    "apps/web/components/chat/workbench/run-trace-panel.tsx": "b6ef663aaba05e8da0f0f492e0624f70a653414cd1b597c80d9ba16d9680f892",
+    "apps/web/lib/i18n/namespaces/chat-trace.ts": "deb4d9e1d4ebf847462af92547477dfaefa6a24463532d2e8513d30c17e6bd46",
+    "apps/web/tests/ui/i18n-chat-failure-controls.test.tsx": "f1eef7c406fc196fbabac0fdc403a246b24dc52e61f3f8e103cd2727e4651bb8"
+  },
+  "attempts": [
+    {
+      "phase": "provider-red",
+      "exitCode": 1,
+      "casesFailed": 4,
+      "durationSeconds": 4.12,
+      "reason": "Missing English owned failure controls",
+      "logSha256": "048bf95e3a9582b44f3924aa27584524e23d492c3b80ea5629300779dd004efa"
+    },
+    {
+      "phase": "neighbors",
+      "exitCode": 0,
+      "files": 5,
+      "passed": 30,
+      "durationSeconds": 19.41,
+      "logSha256": "11c78284799aaf92d59a522da2c7f9843547ae66103c567434e2b9287fb0af01",
+      "boundary": "Before later test-only exact option correction"
+    },
+    {
+      "phase": "type-first",
+      "exitCode": 2,
+      "reason": "Four new-test unsupported ByRoleOptions exact properties",
+      "logSha256": "8d8f742365e17503c57bbba7ee168297f431935e35f9e5ff7382c3314e75c3ef",
+      "lintNotStarted": true
+    },
+    {
+      "phase": "type-covering",
+      "exitCode": 0,
+      "logSha256": "e9b019d37db080d36b121892b06e0818b37e0b4f08f68f45cd0110befa237e7e"
+    },
+    {
+      "phase": "lint-covering",
+      "exitCode": 0,
+      "paths": 5,
+      "diagnostics": 0,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "phase": "provider-covering",
+      "exitCode": 0,
+      "passed": 4,
+      "durationSeconds": 3.27,
+      "logSha256": "98494a0710db5dd45a120d4482016c2c8b697d6ae478d6ce1b68632a4bf5fd75"
+    }
+  ],
+  "correction": "Four anchored accessible-name regex queries covered by canonicaltype0/scopedlint0/provider4PASS; original30PASS remains separate full-neighbor run.",
+  "privateLogs": "/tmp/chat6252-accepted-fe372-private",
+  "browserBoundary": "No new browser executed; original seven at8fa and17authorQA only corresponding unchanged scenes",
+  "boundedReview": {
+    "path": "evidence/i18n-chat-workspace-6200/task5-accepted-fe372-delta-review.md",
+    "sha256": "c8a5f286e7946597abf6d6f00ea3030ada0ce7ca629d7f71614f78e3a82ba0cd",
+    "verdict": "STATIC CLEAN/no actionable i18n P1/P2",
+    "reviewedSourcesEqualCurrent": true
+  }
+}

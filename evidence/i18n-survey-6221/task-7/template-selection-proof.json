@@ -1,0 +1,32 @@
+{
+  "source": "62c7637b3dcb0497db4f479c8dbddd5ef4c74167",
+  "titles": [
+    "survey template locale preserves real CAS saves, independent copies, report bindings, undo and raw JSON exports"
+  ],
+  "project": "seeded",
+  "cases": 1,
+  "files": 1,
+  "innerCommand": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "playwright",
+    "test",
+    "--config",
+    "playwright.fullstack-smoke.config.ts",
+    "--project=seeded",
+    "e2e/i18n-survey-journey.spec.ts",
+    "--workers=1",
+    "--retries=0",
+    "--max-failures=1",
+    "--grep",
+    "(?:survey template locale preserves real CAS saves, independent copies, report bindings, undo and raw JSON exports)$",
+    "--reporter=list,json"
+  ],
+  "caseTimeoutMs": 180000,
+  "worker": 1,
+  "retries": 0,
+  "maxFailures": 1,
+  "selectionOnlyNotRuntimePass": true
+}

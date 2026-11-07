@@ -30,7 +30,7 @@ export function changedPaths({
   base=process.env.CI_SCOPE_BASE_SHA??'',
   git=args=>execFileSync('git',args,{encoding:'utf8'}),
 }={}){
-  if(event==='workflow_dispatch' || (event==='push' && !['refs/heads/develop','refs/heads/main'].includes(ref)))return null;
+  if(event==='schedule' || event==='workflow_dispatch' || (event==='push' && !['refs/heads/develop','refs/heads/main'].includes(ref)))return null;
   if(!['pull_request','merge_group','push'].includes(event))throw new Error(`Unsupported CI event: ${event}`);
   if(!shaPattern.test(base) || /^0+$/.test(base))throw new Error('Missing valid CI change-scope base SHA');
   git(['cat-file','-e',`${base}^{commit}`]);

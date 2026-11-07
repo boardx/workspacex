@@ -1,0 +1,16 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/apps/api
+
+[db-isolation] db=wsx_35c23b19c1d24cbfe0e8 capacity=100 current=7 required=32
+stdout | tests/billing/enterprise-grant.pg.test.ts
+[enterprise-fixture-retention] immutable financial rows retained only for these owned IDs until isolated DB destruction ["enterprise-6108-fe9a579b-d5fe-44e4-8e5d-7634dfced14a","enterprise-6108-fe9a579b-d5fe-44e4-8e5d-7634dfced14a-other"]
+
+ ✓ tests/billing/enterprise-grant.pg.test.ts (8 tests | 7 skipped) 819ms
+   ✓ owner tenant teardown preserves immutable financial history and cannot restore deleted organization rights 392ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 7 skipped (8)
+   Start at  15:31:32
+   Duration  2.39s (transform 457ms, setup 10ms, collect 188ms, tests 819ms, environment 0ms, prepare 72ms)
+
+[db-isolation] db=wsx_35c23b19c1d24cbfe0e8 peak_connections=4

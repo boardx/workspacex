@@ -1,0 +1,7 @@
+Actual predecessor: PR6098 merged 2026-11-01T21:24:25Z, commit d886e24310ae50e8f7c6a74bbceb87c052514025. Issue6090 closed by PR.
+Observed commands in this session, before final docs-only update:
+git diff --quiet 48e04b39c668b15cd16bdba4e4f6967a9df5dd87 origin/develop -> exit 0 (origin/develop=d886e24310ae50e8f7c6a74bbceb87c052514025)
+git rebase --onto origin/develop 48e04b39c668b15cd16bdba4e4f6967a9df5dd87 worker/cn-us-annual-credits -> exit 0, four commits replayed
+rebased head: 85fee5c6f0ec39c9af17f411ba81dbe71ba1b10f
+git diff --exit-code b766a58ccbf9b14dcccaf6e1a47c086f3b5ea2db HEAD -> exit 0, empty output (identical full source tree)
+Previous refreshed-provider-60, refreshed-pg-45, refreshed-types-lint-7 and migration-scope-green apply to this identical tree; they were not rerun just to replace commit IDs. Final docs, exact-SHA independent review and normal push/CI remain separate steps.

@@ -1,0 +1,25 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/api
+
+ ❯ tests/identity/activity-display.test.ts (11 tests | 1 failed) 13ms
+   × rejects an unsupported presentation version as a contract validation 400 3ms
+     → expected ZodError: [
+  {
+    "received": "structur… { …(3) } to be an instance of ContractValidationError
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/identity/activity-display.test.ts > rejects an unsupported presentation version as a contract validation 400
+AssertionError: expected ZodError: [
+  {
+    "received": "structur… { …(3) } to be an instance of ContractValidationError
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 10 passed (11)
+   Start at  03:58:46
+   Duration  1.84s (transform 899ms, setup 0ms, collect 1.66s, tests 13ms, environment 0ms, prepare 48ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.identity-display-unit.config.ts

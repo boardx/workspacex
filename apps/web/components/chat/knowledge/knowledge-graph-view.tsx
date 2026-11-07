@@ -2,6 +2,9 @@
 
 import * as React from "react";
 import dynamic from "next/dynamic";
+import { KgObjectKind } from "@repo/contracts/chat-knowledge-graph";
+import { useI18n } from "@/lib/i18n/provider";
+import { graphObjectKindLabel, graphTriStateLabel } from "@/lib/knowledge-graph-copy";
 import { Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,17 +15,11 @@ import {
 } from "@/lib/knowledge-graph-view";
 import type { ThreadKnowledge } from "@/lib/knowledge-graph-api";
 
-const KnowledgeGraphCanvas = dynamic(() => import("./knowledge-graph-canvas"), {
-  ssr: false,
-  loading: () => (
-    <div
-      className="grid h-[520px] w-full place-items-center rounded-lg border border-dashed border-border text-11 text-muted-foreground"
-      data-testid="kg-graph-loading"
-    >
-      图加载中…
-    </div>
-  ),
-});
+function GraphLoading() {
+  const { t } = useI18n();
+  return <div className="grid h-[520px] w-full place-items-center rounded-lg border border-dashed border-border text-11 text-muted-foreground" data-testid="kg-graph-loading">{t("chatKnowledge.graph.loading")}</div>;
+}
+const KnowledgeGraphCanvas = dynamic(() => import("./knowledge-graph-canvas"), { ssr: false, loading: GraphLoading });
 
 const CLUSTER_TONE: Record<KnowledgeGraphCluster["tone"], string> = {
   object: "border-border bg-card text-background-foreground",
@@ -43,6 +40,7 @@ export function KnowledgeGraphView({
   data: ThreadKnowledge;
   onOpenClaim?: (claimId: string) => void;
 }) {
+  const { t, locale } = useI18n();
   const nodeCount = graphNodeCount(data);
   const [forceExpand, setForceExpand] = React.useState(false);
   const oversize = nodeCount > KG_GRAPH_VIEW_MAX_NODES && !forceExpand;
@@ -57,10 +55,10 @@ export function KnowledgeGraphView({
       >
         <Layers aria-hidden className="h-8 w-8 text-muted-foreground" />
         <p className="text-12 text-background-foreground">
-          本会话有 {nodeCount} 个节点，超过一次可展示的 {KG_GRAPH_VIEW_MAX_NODES} 个
+          {t("chatKnowledge.graph.oversize", { count: nodeCount, limit: KG_GRAPH_VIEW_MAX_NODES })}
         </p>
         <p className="max-w-xs text-11 text-muted-foreground">
-          已按类型折叠为 {clusters.length} 个簇以保证不卡顿。可以切回列表逐条查看，或强制展开（可能较慢）。
+          {t("chatKnowledge.graph.clusters", { count: clusters.length })}
         </p>
         <ul className="flex max-w-sm flex-wrap justify-center gap-2" data-testid="kg-graph-clusters">
           {clusters.map((c) => (
@@ -70,13 +68,16 @@ export function KnowledgeGraphView({
               data-count={c.count}
               className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-11 ${CLUSTER_TONE[c.tone]}`}
             >
-              <span>{c.label}</span>
+              <span>{c.variant === "claim" && c.tone !== "object" ? graphTriStateLabel(c.tone, locale) : (() => {
+                const kind = KgObjectKind.safeParse(c.key.slice("object-".length));
+                return kind.success ? graphObjectKindLabel(kind.data, locale) : c.label;
+              })()}</span>
               <span className="rounded-control bg-muted px-1.5 py-0.5 text-10 text-muted-foreground">{c.count}</span>
             </li>
           ))}
         </ul>
         <Button size="sm" variant="outline" data-testid="kg-graph-force-expand" onClick={() => setForceExpand(true)}>
-          仍然展开全部
+          {t("chatKnowledge.graph.expandAll")}
         </Button>
       </div>
     );

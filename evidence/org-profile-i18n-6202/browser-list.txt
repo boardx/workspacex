@@ -1,0 +1,14 @@
+[heavy-e2e-lock] 排到了，等了 0s
+[stack-admission] load1=3.94 cores=10 perCore=0.39 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw0zta58-60c94e74-9b13355193fd db=wsx_9b13355193fdf5d6b31a compose=wsx-9b13355193fdf5d6b31a pg=20313 redis=21313 api=24313 web=25313 sandbox=26313 model=27313 deep-agent=28313 asr=29313 vision=30313 loopback-sandbox=31313 mail=19313
+Listing tests:
+  [seeded-github-import] › entity-localization.spec.ts:21:5 › organization profile preserves authored data and enforces real grant and memory permissions across locales
+Total: 1 test in 1 file
+[timing] pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded-github-import --no-deps --workers=1 --grep organization profile preserves authored data and enforces real grant and memory permissions across locales --list
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：2s
+  清理：0s
+  总计：2s

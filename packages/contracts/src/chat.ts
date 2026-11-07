@@ -1568,6 +1568,8 @@ export const ChatAsrDraftServerFrame = z.discriminatedUnion("type", [
  * INVALID_FRAME：客户端帧不合契约。
  */
 export const RealtimeDigitalHumanErrorReason = z.enum([
+  "CREDIT_REQUIRED",
+  "CREDIT_ACCOUNTING_UNAVAILABLE",
   "NOT_CONFIGURED",
   "AGENT_UNAVAILABLE",
   "THREAD_UNAVAILABLE",
@@ -1618,7 +1620,7 @@ export const streamOperations = {
       z.object({ type: z.literal("assistant.transcript"), text: z.string(), final: z.boolean(), responseId: z.string().optional() }).strict(),
       z.object({ type: z.literal("assistant.audio"), audio: z.string(), responseId: z.string().optional() }).strict(),
       z.object({ type: z.literal("assistant.audio_done"), responseId: z.string().optional() }).strict(),
-      z.object({ type: z.literal("session.error"), reason: RealtimeDigitalHumanErrorReason, message: z.string() }).strict(),
+      z.object({ type: z.literal("session.error"), reason: RealtimeDigitalHumanErrorReason, message: z.string(), credit: CreditRequiredBody.optional() }).strict(),
       /** Chat 宿主：一轮转写已作为普通消息落进线程（挂断后线程里能看到整段对话）。 */
       z.object({ type: z.literal("turn.persisted"), role: z.enum(["user", "assistant"]), messageId: z.string() }).strict(),
       z.object({ type: z.literal("session.closed") }).strict(),

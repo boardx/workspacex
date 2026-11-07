@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 const source = readFileSync(new URL("../../src/infrastructure/agent/resolve-official-role-skill-refs.ts", import.meta.url), "utf8");
 describe("official coordinate resolver permission exemption", () => {
@@ -16,5 +16,33 @@ describe("official coordinate resolver permission exemption", () => {
     expect(source).toContain('row?.published && row.channel === "verified"');
     expect(source).toContain('reason: row?.published ? "awaiting_verification" : "missing_version"');
     expect(source).toContain("const coordinates = agent.authoredSkillBindings");
+  });
+});
+
+describe("verified bilingual official package coordinate resolution", () => {
+  it("uses the same reviewed direct Skill slots as the exact legacy official package", async () => {
+    const { buildOfficialAgentRolePack } = await import("../../src/domain/agent/official-role-packs");
+    const { buildLocalizedOfficialPack } = await import("../../src/domain/localization/authored-display-metadata");
+    const { resolveOfficialRoleSkillRefs } = await import("../../src/infrastructure/agent/resolve-official-role-skill-refs");
+    const session = { query: vi.fn(async () => ({ rows: [] })) };
+    const legacy = await resolveOfficialRoleSkillRefs(session,"organization",buildOfficialAgentRolePack());
+    const localized = await resolveOfficialRoleSkillRefs(session,"organization",buildLocalizedOfficialPack());
+    expect(legacy.size).toBe(7);
+    for (const role of legacy.values()) expect(role.pending.length).toBeGreaterThan(0);
+    expect(localized).toEqual(legacy);
+  });
+  it("does not trust another valid metadata envelope just because it reuses the official coordinates", async () => {
+    const { buildLocalizedOfficialPack } = await import("../../src/domain/localization/authored-display-metadata");
+    const { verifyOfficialAgentStarterPack } = await import("../../src/domain/agent/starter-pack");
+    const { sha256 } = await import("../../src/domain/skill/starter-pack");
+    const { resolveOfficialRoleSkillRefs } = await import("../../src/infrastructure/agent/resolve-official-role-skill-refs");
+    const { packDigest: _digest,...unsigned } = buildLocalizedOfficialPack();
+    unsigned.agents[0]!.localization.translations.en!.name = "Different authored envelope";
+    const pack = { ...unsigned,packDigest: sha256(JSON.stringify(unsigned)) };
+    verifyOfficialAgentStarterPack(pack,pack);
+    const session = { query: vi.fn(async () => ({ rows: [] })) };
+    const result = await resolveOfficialRoleSkillRefs(session,"organization",pack);
+    expect(session.query).not.toHaveBeenCalled();
+    for (const role of result.values()) expect(role).toEqual({ pins: [],pending: [] });
   });
 });

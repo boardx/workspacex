@@ -1,0 +1,59 @@
+
+> web@0.1.0 test /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+> vitest run "tests/ui/copilotkit-v2-message-identity-replacement.test.tsx"
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+
+ ❯ tests/ui/copilotkit-v2-message-identity-replacement.test.tsx (10 tests | 2 failed) 65ms
+   × useChatMessageIdentity：assistant_message_replaced > does not resurrect withdrawn bubbles from completion caches (empty snapshot: false) 34ms
+     → expected [ { id: 'prior-turn', …(2) }, …(2) ] to deeply equal [ { id: 'prior-turn', …(2) } ]
+   × useChatMessageIdentity：assistant_message_replaced > does not resurrect withdrawn bubbles from completion caches (empty snapshot: true) 7ms
+     → expected [ { id: 'prior-turn', …(2) }, …(2) ] to deeply equal [ { id: 'prior-turn', …(2) } ]
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/copilotkit-v2-message-identity-replacement.test.tsx > useChatMessageIdentity：assistant_message_replaced > does not resurrect withdrawn bubbles from completion caches (empty snapshot: false)
+ FAIL  tests/ui/copilotkit-v2-message-identity-replacement.test.tsx > useChatMessageIdentity：assistant_message_replaced > does not resurrect withdrawn bubbles from completion caches (empty snapshot: true)
+AssertionError: expected [ { id: 'prior-turn', …(2) }, …(2) ] to deeply equal [ { id: 'prior-turn', …(2) } ]
+
+- Expected
++ Received
+
+  Array [
+    Object {
+      "content": "保留上一轮",
+      "id": "prior-turn",
+      "role": "assistant",
+    },
++   Object {
++     "content": "旧计划",
++     "id": "thread-3069:1:assistant",
++     "role": "assistant",
++   },
++   Object {
++     "content": "重复旧答案",
++     "id": "stream-second",
++     "role": "assistant",
++   },
+  ]
+
+ ❯ tests/ui/copilotkit-v2-message-identity-replacement.test.tsx:72:51
+     70|       }, messages: emptySnapshot ? [] : [prior, first, second] });
+     71|     });
+     72|     expect(hook.current.projectMessages([prior])).toEqual([prior]);
+       |                                                   ^
+     73|     expect(hook.current.isSettledMessageId(second.id)).toBe(false);
+     74|     act(() => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 8 passed (10)
+   Start at  03:24:37
+   Duration  2.16s (transform 121ms, setup 176ms, collect 166ms, tests 65ms, environment 940ms, prepare 143ms)
+
+/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  web@0.1.0 test: `vitest run "tests/ui/copilotkit-v2-message-identity-replacement.test.tsx"`
+Exit status 1

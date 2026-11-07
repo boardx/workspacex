@@ -24,12 +24,13 @@ vi.mock("@/components/session/session-provider", () => ({
   useOptionalSession: () => ({ session: { currentOrgId: "org-1" } }),
 }));
 
+import type { ProjectListItem } from "@/lib/live-projects";
 import { ProjectsScreen } from "@/components/projects/projects-screen";
 
 afterEach(() => { cleanup(); listProjects.mockReset(); });
 
-const proj = (name: string, tags: string[] = []) => ({
-  id: `p-${name}`, name, tags, updatedAt: "2026-09-23T00:00:00Z", stage: null, summary: null,
+const proj = (name: string, tags: string[] = []): ProjectListItem => ({
+  id: `p-${name}`, name, tags, kind: "general", status: "active", readOnlyReason: null,
 });
 
 describe("项目页空状态", () => {

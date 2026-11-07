@@ -46,9 +46,9 @@ import { join } from 'node:path';
 import { parse } from 'yaml';
 
 describe('workflow and executable reuse contract', () => {
-  const workflow = parse(readFileSync(new URL('../../.github/workflows/harness-verify.yml', import.meta.url), 'utf8'));
-  it.each(Object.keys(LANES))('%s guards all heavy work and preserves failed reuse', lane => {
-    const job = workflow.jobs[lane];
+  const workflow = parse(readFileSync(new URL('../../.github/workflows/harness-acceptance.yml', import.meta.url), 'utf8'));
+  it.each([...Object.keys(LANES).filter(lane=>!['full-regression-core','chat-read'].includes(lane)).map(lane => [lane, workflow])])('%s guards all heavy work and preserves failed reuse', (lane, laneWorkflow) => {
+    const job = laneWorkflow.jobs[lane];
     expect(job.concurrency['cancel-in-progress']).toBe(false);
     expect(job.concurrency.queue).toBe('max');
     expect(job.concurrency.group).toContain('github.sha');
@@ -61,6 +61,13 @@ describe('workflow and executable reuse contract', () => {
     for (const name of [...LANES[lane].execute, LANES[lane].upload]) expect(job.steps.filter((s: {name?: string}) => s.name === name)).toHaveLength(1);
     expect(job.steps.at(-1).run).toContain('ci-lane-dedup.mjs verdict');
     expect(job.steps.at(-1).if).toBe("always() && steps.dedup.outputs.run == 'false'");
+  });
+  it.each(['full-regression-core','chat-read'])('%s verifies current producers without historical reuse',lane=>{
+    const job=workflow.jobs[lane];
+    expect(job.needs.length).toBeGreaterThan(1);
+    expect(JSON.stringify(job)).not.toContain('ci-lane-dedup.mjs');
+    expect(job.steps.some((s:any)=>s.id==='dedup')).toBe(false);
+    expect(JSON.stringify(job)).toContain(lane==='chat-read'?'chat-prerequisites':'ci-targeted-routing.mjs base');
   });
   it.each(['failure', '', 'unknown'])('reused %s cannot turn green', result => {
     const run = spawnSync(process.execPath, [new URL('./ci-lane-dedup.mjs', import.meta.url).pathname, 'verdict'], { env: { ...process.env, CI_SOURCE_RESULT: result } });

@@ -33,13 +33,11 @@ test('manual build requires exact source and develop workflow; no PR or tag writ
 
 test('one producer is reused; no deployment or alternate build is introduced', () => {
   const workflow = parse(readFileSync('.github/workflows/shared-release-images.yml', 'utf8'));
-  assert.deepEqual(workflow.on.workflow_run.workflows, ['backend-gates']);
-  assert.deepEqual(workflow.on.workflow_run.branches, ['develop']);
+  assert.deepEqual(Object.keys(workflow.on), ['workflow_dispatch']);
   assert.equal(workflow.jobs.build.uses, './.github/workflows/build-cn-release-artifacts.yml');
   assert.equal(workflow.jobs.build.with.source_branch, 'develop');
   assert.equal(workflow.jobs.build.with.release_sha, '${{ needs.admit.outputs.source_sha }}');
-  assert.match(workflow.jobs.admit.if, /WSX_SHARED_IMAGES_ENABLED/);
-  assert.match(workflow.jobs.admit.if, /conclusion == 'success'/);
+  assert.equal(workflow.jobs.admit.if, "github.event_name == 'workflow_dispatch'");
   assert.deepEqual(Object.keys(workflow.jobs).sort(), ['admit', 'build']);
   const producer = parse(readFileSync('.github/workflows/build-cn-release-artifacts.yml', 'utf8'));
   assert.equal(producer.on.workflow_call.inputs.source_branch.default, 'main');
@@ -63,4 +61,19 @@ test('manual and automatic builds recheck the latest backend attempt read-only',
   }
   await assert.rejects(() => admitSharedImageSource('workflow_run', { workflow_run: good }, repo,
     'refs/heads/develop', api({ ...good, run_attempt: 3 })), /SHARED_IMAGE/);
+});
+
+test('manual diagnostic builds use the committed source event rather than an old push green',async()=>{
+ const {admitSharedImageSource,readSourceEvent}=await import('./shared-image-source.mjs');
+ const policy=(value:unknown)=>new Response(JSON.stringify({type:'file',path:'.harness/config/ci-check-policy.json',encoding:'base64',content:Buffer.from(JSON.stringify(value)).toString('base64')}));
+ assert.equal(await readSourceEvent(repo,sha,'example',async()=>policy({sourceVerificationEvent:'merge_group'})),'merge_group');
+ assert.equal(await readSourceEvent(repo,sha,'example',async()=>policy({version:4})),'push');
+ await assert.rejects(()=>readSourceEvent(repo,sha,'example',async()=>policy({sourceVerificationEvent:'unknown'})),/POLICY/);
+ await assert.rejects(()=>readSourceEvent(repo,sha,'example',async()=>new Response('',{status:404})),/POLICY/);
+ const queued={...completed().workflow_run,event:'merge_group',head_branch:`gh-readonly-queue/develop/pr-2-${sha}`,id:12,workflow_id:9,run_attempt:2};
+ const api=(current:unknown)=>async(path:string)=>path.includes('/workflows/backend-gates.yml')?{id:9,path:'.github/workflows/backend-gates.yml',state:'active'}:path.includes('/runs?')?{total_count:1,workflow_runs:[queued]}:current;
+ const manual={inputs:{source_sha:sha}};
+ assert.equal(await admitSharedImageSource('workflow_dispatch',manual,repo,'refs/heads/develop',api(queued),'merge_group'),sha);
+ await assert.rejects(()=>admitSharedImageSource('workflow_dispatch',manual,repo,'refs/heads/develop',api({...queued,event:'push',head_branch:'develop'}),'merge_group'),/SHARED_IMAGE/);
+ await assert.rejects(()=>admitSharedImageSource('workflow_dispatch',manual,repo,'refs/heads/develop',api({...queued,conclusion:'failure'}),'merge_group'),/SHARED_IMAGE/);
 });

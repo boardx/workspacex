@@ -1,0 +1,7 @@
+Source:6205source4aa shard2job126173873145/run41708729893
+Raw log SHA256:37e81c2e3e4d076faa65cc5b33c142099aedc62526f17fd40cd41134a0f19eab
+2026-11-03T20:07:22.5240773Z [command]/usr/bin/git -c protocol.version=2 fetch --prune --no-recurse-submodules origin +refs/heads/*:refs/remotes/origin/* +refs/tags/*:refs/tags/* +c5164a314a0f156460a1599042dd30c2e57f51c1:refs/remotes/pull/6205/merge
+2026-11-03T20:18:58.4529498Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/6205/merge
+2026-11-03T20:19:33.1732179Z Done in 14s
+2026-11-03T20:22:28.2572217Z ##[group]Run pnpm --filter api exec vitest run --shard=2/8 --bail=1
+2026-11-03T20:27:33.5223100Z ##[error]The operation was canceled.

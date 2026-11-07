@@ -20,6 +20,26 @@ export async function submitWorkbenchRun(page: Page, apiPrefix: "" | "/__fullsta
   return {runId,resultMessageId:result.resultMessageId};
 }
 export async function selectWorkbenchAgent(page:Page,agentId:string):Promise<void>{
-  await page.getByTestId("chat-task-workbench-capability-picker").click();
-  await page.locator(`[data-testid="chat-task-workbench-capability-card"][data-agent-id="${agentId}"]`).click();
+  const picker = page.getByTestId("chat-task-workbench-capability-picker");
+  const popover = page.getByTestId("chat-task-workbench-capability-popover");
+  const card = page.getByTestId("chat-task-workbench-capability-card")
+    .and(page.locator(`[data-agent-id=${JSON.stringify(agentId)}]`));
+  await picker.click();
+  await expect(card).toBeEnabled();
+  const sheet = await popover.getAttribute("data-layout") === "sheet";
+  // Directory/official-role responses can insert rows between pointer positioning
+  // and pointerup. Keyboard activation follows the actual option, not old pixels.
+  await page.mouse.move(0, 0);
+  await card.press("Enter");
+  if (sheet) {
+    await page.getByTestId("chat-task-workbench-capability-detail-choose").click();
+  }
+  await expect(popover).not.toBeVisible();
+  await expect(picker).toHaveAttribute("data-auto-match", "false");
+  // A closed menu alone also describes an outside click. Reopen and verify the
+  // exact id; another selected agent must not satisfy this precondition.
+  await picker.click();
+  await expect(card).toHaveAttribute("aria-selected", "true");
+  await page.keyboard.press("Escape");
+  await expect(popover).not.toBeVisible();
 }

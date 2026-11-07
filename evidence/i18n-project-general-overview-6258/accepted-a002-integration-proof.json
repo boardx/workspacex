@@ -1,0 +1,19 @@
+{
+  "head": "b730bb12459c1563fe1e30cdddba248985fb13da",
+  "accepted": "a00287a86c411c13148294cc2ed4379852949c5d",
+  "driverCheckpoint": "d4a8f45e2aac196eca2596f48cb92a9fb9fcdbdd",
+  "normalMergeExit": 0,
+  "mergeHadConflicts": false,
+  "protectedPaths": 16,
+  "other14ProtectedBytesEqual": true,
+  "expectedRegistryDeltas": [
+    "apps/web/lib/i18n/messages/en.ts",
+    "apps/web/lib/i18n/messages/zh-CN.ts"
+  ],
+  "registryProof": {
+    "apps/web/lib/i18n/messages/en.ts": "actual accepted bytes + only own import/spread",
+    "apps/web/lib/i18n/messages/zh-CN.ts": "actual accepted bytes + only own import/spread"
+  },
+  "bothParentsAncestors": true,
+  "all10CodeHashesStillMatch": true
+}

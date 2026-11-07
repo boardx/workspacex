@@ -1,0 +1,13 @@
+[stack-admission] load1=2.64 cores=10 perCore=0.26 running=0/2
+[test-isolation] id=run-mvzst89r-92a4355d-6e499f9336a0 db=wsx_6e499f9336a0aa1f1e95 compose=wsx-6e499f9336a0aa1f1e95 pg=20739 redis=21739 api=24739 web=25739 sandbox=26739 model=27739 deep-agent=28739 asr=29739 vision=30739 loopback-sandbox=31739 mail=19739
+Listing tests:
+  [seeded] › i18n-project-list.spec.ts:24:5 › project list locale preserves real creation, tags and archive/restore state across reload
+  [seeded] › i18n-project-list.spec.ts:91:5 › non-lead creation is refused by the real API and has localized recoverable feedback
+Total: 2 tests in 1 file
+[timing] pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts e2e/i18n-project-list.spec.ts --project=seeded --workers=1 --list
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：4s
+  清理：0s
+  总计：4s

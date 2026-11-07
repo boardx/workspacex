@@ -16,8 +16,9 @@ describe("F04 real Native order HTTP and PostgreSQL", () => {
   it("creates a persisted PENDING order from server snapshot and a verified QR", async () => {
     const response = await f.create(); expect(response.status).toBe(201);
     const { order } = operations.createPaymentOrder.out.parse(await response.json());
+    const expiredAt=order.expiredAt;if(expiredAt===null)throw Error("pending_order_expiry_required");
     expect(order).toMatchObject({ ownerId: user, status: "PENDING", amountFen: 9900, baseCredits: 1200, bonusCredits: 120, currency: "CNY", qrCodeUrl: "weixin://wxpay/bizpayurl?pr=f04fixture", paidAt: null });
-    expect(Date.parse(order.expiredAt) - Date.parse(order.createdAt)).toBe(900000);
+    expect(Date.parse(expiredAt) - Date.parse(order.createdAt)).toBe(900000);
     expect(f.state.signedRequests).toBe(1);
     expect(f.state.requests[0]).toMatchObject({ appid: "wx-f04-fixture", mchid: "1900000001", out_trade_no: order.orderNo, amount: { total: 9900, currency: "CNY" }, notify_url: "https://billing.example.test/api/billing/webhooks/wechat", time_expire: order.expiredAt });
     const row = await asOwner(c => c.query("SELECT created_by,amount_fen,qr_code_url FROM billing_orders WHERE order_no=$1", [order.orderNo]));

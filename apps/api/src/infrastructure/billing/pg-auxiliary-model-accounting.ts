@@ -1,3 +1,4 @@
+import {CreditRequiredReason} from "@repo/contracts/billing-consumption";
 import {PgCreditConsumption} from './pg-credit-consumption';
 import {randomUUID,createHash} from 'node:crypto';
 import {z} from 'zod';
@@ -13,11 +14,12 @@ export class PgAuxiliaryModelAccounting {
  constructor(private readonly db:DatabasePort){}
  private denied(orgId:OrgId){return new CreditConsumptionError('credit_accounting_unavailable','team',orgId,'auxiliary_usage_ownership_denied');}
  async open(orgId:OrgId,userId:string,pinnedModelId:string){const id=randomUUID(),model=pinnedModelId==='deep-agent'?((process.env.KERNEL_DEEP_AGENT_MODEL_ID??'').trim()||'qwen-plus'):pinnedModelId,provider=(process.env.KERNEL_MODEL_PROVIDER??'').trim();if(!model||!provider)throw this.denied(orgId);await this.db.withTenant(orgId,s=>s.query('INSERT INTO auxiliary_model_operations(id,org_id,user_id,model_provider,model_id) VALUES($1,$2,$3,$4,$5)',[id,orgId,userId,provider,model]));return {orgId:String(orgId),operationId:id};}
- async failure(orgId:OrgId,id:string,code:'credit_required'|'credit_accounting_unavailable'){
+ async failure(orgId:OrgId,id:string,code:'credit_required'|'credit_accounting_unavailable',reason?:unknown){
   const row=await this.db.withTenant(orgId,async s=>(await s.query<{user_id:string}>('SELECT user_id FROM auxiliary_model_operations WHERE org_id=$1 AND id=$2',[orgId,id])).rows[0]);
   if(!row)throw this.denied(orgId);
   const payer=await new PgCreditConsumption(this.db).resolvePayer(orgId,row.user_id);
-  return new CreditConsumptionError(code,payer.ownerType,payer.ownerId);
+  const validated=CreditRequiredReason.safeParse(reason);
+  return new CreditConsumptionError(code,payer.ownerType,payer.ownerId,undefined,code==='credit_required'&&validated.success?validated.data:undefined);
  }
  async close(orgId:OrgId,id:string){await this.db.withTenant(orgId,s=>s.query('UPDATE auxiliary_model_operations SET closed_at=COALESCE(closed_at,now()) WHERE org_id=$1 AND id=$2',[orgId,id]));}
  private async request(orgId:OrgId,operationId:string,requestId:string){return this.db.withTenant(orgId,async s=>{const row=(await s.query<Request>(`SELECT (o.closed_at IS NULL AND o.active_until>now()) AS active,r.operation_id,o.user_id,r.model_id,r.model_provider,r.started_at FROM auxiliary_model_requests r JOIN auxiliary_model_operations o ON o.org_id=r.org_id AND o.id=r.operation_id WHERE r.org_id=$1 AND r.operation_id=$2 AND r.request_id=$3`,[orgId,operationId,requestId])).rows[0];if(!row)throw this.denied(orgId);return row;});}

@@ -1,5 +1,22 @@
+import {PRODUCT_CONFIGURATION_SQL} from "./product-catalog-configuration";
+import {PERSONAL_CREDIT_TERM_SQL} from "./personal-credit-term-sql";
+import {STRIPE_CREDIT_SQL} from "./stripe-credit-sql";
+import {MONTHLY_PASS_SQL} from "./monthly-pass-sql";
+import {CREDIT_PERIOD_GRANT_SQL} from "./credit-period-sql";
+import {PERSONAL_CHECKOUT_SQL} from "./personal-checkout-sql";
+import {PERSONAL_PAYMENT_SQL} from "./personal-payment-sql";
+import {PERSONAL_PAYMENT_RECOVERY_SQL} from "./personal-payment-recovery-sql";
 /** Single-source global billing statements for verified receipts, Stripe subscription synchronization and order expiry. No caller-supplied SQL is admitted. */
 export const BILLING_GLOBAL_SQL = Object.freeze({
+  teamDueOrgs: "SELECT org_id FROM billing_team_due_orgs($1,$2,$3)",
+  teamPurchaseOrg: "SELECT billing_team_purchase_org($1) AS org_id",
+  ...CREDIT_PERIOD_GRANT_SQL,
+  ...PERSONAL_CHECKOUT_SQL,
+  ...PERSONAL_PAYMENT_SQL,
+  ...PERSONAL_PAYMENT_RECOVERY_SQL,
+  ...PERSONAL_CREDIT_TERM_SQL,
+  ...Object.fromEntries(Object.entries(PRODUCT_CONFIGURATION_SQL).map(([key,value])=>[`configuredCatalog${key}`,value])),
+  ...MONTHLY_PASS_SQL,
   stripeEventLock: "SELECT pg_advisory_xact_lock(hashtextextended($1,0))",
   stripeUserLock: "SELECT pg_advisory_xact_lock(hashtextextended($1,0))",
   stripeIntentOwner: "SELECT user_id FROM billing_purchase_intents WHERE intent_hash=$1",
@@ -7,7 +24,7 @@ export const BILLING_GLOBAL_SQL = Object.freeze({
   stripeApply: "SELECT billing_apply_stripe_event($1,$2,$3,$4,$5::jsonb,$6) AS result",
   closeExpiredOrders: `WITH due AS (
     SELECT order_no FROM billing_orders
-    WHERE status='PENDING' AND created_at<=now()-interval '15 minutes' AND expired_at<=now()
+    WHERE provider='wechat' AND status='PENDING' AND created_at<=now()-interval '15 minutes' AND expired_at<=now()
     ORDER BY expired_at,order_no LIMIT 100 FOR UPDATE SKIP LOCKED
   ) UPDATE billing_orders o SET status='CLOSED',closed_at=now()
     FROM due WHERE o.order_no=due.order_no AND o.status='PENDING' RETURNING o.order_no`,
@@ -38,7 +55,7 @@ export const BILLING_GLOBAL_SQL = Object.freeze({
   dueReceipts: "SELECT provider_event_id FROM billing_payment_receipts WHERE state='pending' AND retry_at<=now() ORDER BY retry_at,received_at LIMIT 10",
   rejectEvent: "INSERT INTO billing_webhook_events(provider,provider_event_id,order_no,signature_verified,result) VALUES('wechat',$1,$2,$3,'rejected')"
 });
-const allowed = new Set<string>(Object.values(BILLING_GLOBAL_SQL));
+const allowed = new Set<string>([...Object.values(BILLING_GLOBAL_SQL),...Object.values(STRIPE_CREDIT_SQL)]);
 export function assertBillingGlobalStatement(sql: string): void {
   if (!allowed.has(sql)) throw new Error("billing_global_sql_outside_boundary");
 }

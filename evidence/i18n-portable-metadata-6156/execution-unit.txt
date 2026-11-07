@@ -1,0 +1,11 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/api
+
+[db-isolation] selection is DB-free (tests/support/db-free-tests.ts); skipping database setup
+ ✓ tests/localization/portable-source-definition.test.ts (6 tests) 10ms
+ ✓ tests/localization/portable-pack-integrity.test.ts (4 tests) 131ms
+
+ Test Files  2 passed (2)
+      Tests  10 passed (10)
+   Start at  09:23:42
+   Duration  2.24s (transform 967ms, setup 11ms, collect 1.47s, tests 141ms, environment 0ms, prepare 88ms)

@@ -5,10 +5,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useOptionalSession } from "@/components/session/session-provider";
-import { ApiError } from "@/lib/api-client";
+import { describeFailure } from "@/lib/design-failure";
+import { memberRoleLabel } from "@/lib/admin-member-copy";
+import { useI18n } from "@/lib/i18n/provider";
 import { getUsageReport, listOrgMembers, listLimitEvents, type GetUsageReportOut, type ListLimitEventsOut } from "@/lib/live-org-admin";
 import { queryProvenance, type ProvenanceEvent } from "@/lib/live-provenance";
-import { PROVENANCE_EVENT_LABEL } from "@/lib/provenance-labels";
+import { provenanceEventLabel } from "@/lib/provenance-labels";
 
 /**
  * #1182 起总览屏三格接真后端；2026-08-30 起「异常待处理」也接上（F162 `listLimitEvents`
@@ -65,18 +67,6 @@ type Loaded = {
   readonly names: ReadonlyMap<string, { displayName: string; orgRole: string }>;
 };
 
-const ORG_ROLE_LABEL: Record<string, string> = {
-  admin: "管理员", lead: "负责人", consultant: "顾问", compliance: "合规",
-};
-
-/** 触顶动作的中文标签 —— 与 `usage-monitor-tab.tsx` 同源于契约枚举 `LimitAction`。 */
-const ACTION_LABEL: Record<string, string> = {
-  warn: "预警", degrade: "已降级", block: "已拒绝", require_approval: "待批准",
-};
-
-/** 千分位。`Intl` 而不是自己写正则——同一个格式在别处也是这么出的。 */
-const fmt = new Intl.NumberFormat("zh-CN");
-
 export function OverviewLive() {
   const orgId = useOptionalSession()?.session?.currentOrgId ?? null;
   // `key={orgId}` 是这里的重点：见上方文件头注「为什么用 key 而不是 effect 清空」。
@@ -88,10 +78,16 @@ export function OverviewLive() {
  * 初始 state 永远是全 `null`（「还没有任何数据」），不存在跨组织残留的可能。
  */
 function OverviewLiveInner({ orgId }: { orgId: string | null }) {
+  const { t, locale } = useI18n();
+  const fmt = new Intl.NumberFormat(locale);
+  const ACTION_LABEL: Record<string, string> = {
+    warn: t("aiUsage.warning"), degrade: t("aiUsage.degraded"),
+    block: t("aiUsage.blocked"), require_approval: t("aiUsage.awaitingApproval"),
+  };
   const [data, setData] = React.useState<Loaded | null>(null);
-  const [error, setError] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<{ cause: unknown } | null>(null);
   const [limitEvents, setLimitEvents] = React.useState<ListLimitEventsOut["events"] | null>(null);
-  const [limitError, setLimitError] = React.useState<string | null>(null);
+  const [limitError, setLimitError] = React.useState<{ cause: unknown } | null>(null);
 
   React.useEffect(() => {
     if (!orgId) return; // 初始 state 已经是全空（见上），没有请求要发。
@@ -113,7 +109,7 @@ function OverviewLiveInner({ orgId }: { orgId: string | null }) {
         });
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof ApiError ? (err.reasonCode ?? `http_${err.status}`) : String(err));
+          setError({ cause: err });
         }
       }
     })();
@@ -129,7 +125,7 @@ function OverviewLiveInner({ orgId }: { orgId: string | null }) {
         if (!cancelled) setLimitEvents(out.events);
       } catch (err) {
         if (!cancelled) {
-          setLimitError(err instanceof ApiError ? (err.reasonCode ?? `http_${err.status}`) : String(err));
+          setLimitError({ cause: err });
         }
       }
     })();
@@ -144,53 +140,52 @@ function OverviewLiveInner({ orgId }: { orgId: string | null }) {
       <section className="grid grid-cols-1 gap-3 md:grid-cols-3" data-testid="admin-overview-live-metrics">
         <MetricCard
           testid="admin-overview-metric-tokens"
-          label="本月 token 消耗"
+          label={t("adminOverview.tokens")}
           value={data ? fmt.format(data.usage.totalTokens) : null}
-          foot={data ? `${fmt.format(data.usage.callCount)} 次调用 · 其中 ${fmt.format(data.usage.failedCallCount)} 次失败` : null}
-          error={error}
+          foot={data ? t("adminOverview.calls", { calls: fmt.format(data.usage.callCount), failed: fmt.format(data.usage.failedCallCount) }) : null}
+          error={error !== null}
         />
         <MetricCard
           testid="admin-overview-metric-members"
-          label="活跃成员"
-          value={data ? `${fmt.format(data.usage.activeMemberCount)} 人` : null}
+          label={t("aiUsage.activeMembers")}
+          value={data ? t("adminOverview.people", { count: fmt.format(data.usage.activeMemberCount) }) : null}
           // 说清楚它是什么，否则「活跃成员 3 人」会被读成「组织只有 3 个人」。
-          foot="本月有过调用的人数，不是成员总数"
-          error={error}
+          foot={t("adminOverview.activeFoot")}
+          error={error !== null}
         />
         <MetricCard
           testid="admin-overview-metric-anomaly"
-          label="限额事件"
-          value={limitEvents ? `${fmt.format(limitEvents.length)} 项` : null}
+          label={t("adminOverview.limitEvents")}
+          value={limitEvents ? t("adminOverview.items", { count: fmt.format(limitEvents.length) }) : null}
           foot={
             limitEvents
               ? blockingCount !== null && blockingCount > 0
-                ? `其中 ${blockingCount} 项已阻断/降级`
-                : "近期没有被拒绝或降级的调用"
+                ? t("adminOverview.blocked", { count: fmt.format(blockingCount) })
+                : t("adminOverview.noBlocked")
               : null
           }
-          error={limitError}
+          error={limitError !== null}
         />
       </section>
 
       {/* ── 限额事件（F162 真数据；不是 phase-03 F15 的异常检测） ── */}
       <section className="flex flex-col gap-2" data-testid="admin-overview-anomalies">
         <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-14 font-semibold">限额事件</h2>
-          <Badge tone="outline" data-testid="admin-overview-anomalies-live">真数据</Badge>
+          <h2 className="text-14 font-semibold">{t("adminOverview.limitEvents")}</h2>
           <span className="text-11 text-muted-foreground">
-            组织自设的限额规则被触发时留下的记录；识别越权调用等异常模式的能力尚未落地（phase-03）。
+            {t("adminOverview.limitHint")}
           </span>
         </div>
         <Card>
           <CardContent className="flex flex-col gap-2 pt-4">
             {limitError && (
               <p className="text-12 text-muted-foreground" data-testid="admin-overview-anomalies-load-failed">
-                读不到限额事件（{limitError}）。这里不退回演示数据——假的异常记录会被当成真的处置依据。
+                {t("adminOverview.limitFailure", { error: describeFailure(limitError.cause, locale) })}
               </p>
             )}
             {limitEvents?.length === 0 && (
               <p className="text-12 text-muted-foreground" data-testid="admin-overview-anomalies-empty">
-                近期没有任何限额规则被触发。
+                {t("aiUsage.noLimitRulesTriggeredRecently")}
               </p>
             )}
             {(limitEvents ?? []).slice(0, 5).map((ev, i) => (
@@ -202,11 +197,11 @@ function OverviewLiveInner({ orgId }: { orgId: string | null }) {
                   </Badge>
                   <div className="min-w-0 flex-1">
                     <p className="text-12 leading-relaxed">
-                      {ev.subjectRef} 触顶：观测 {fmt.format(ev.observedTokens)} / 上限 {fmt.format(ev.thresholdTokens)}
+                      {t("aiUsage.limitReached", { subject: ev.subjectRef, observed: fmt.format(ev.observedTokens), threshold: fmt.format(ev.thresholdTokens) })}
                     </p>
                     <p className="font-mono text-10 text-muted-foreground">
-                      {new Date(ev.occurredAt).toLocaleString("zh-CN")}
-                      {ev.ruleId === "" ? " · 规则已删除" : ` · 规则 ${ev.ruleId.slice(0, 8)}`}
+                      {new Date(ev.occurredAt).toLocaleString(locale)}
+                      {ev.ruleId === "" ? t("aiUsage.ruleDeleted") : t("aiUsage.ruleRef", { id: ev.ruleId.slice(0, 8) })}
                     </p>
                   </div>
                 </div>
@@ -219,7 +214,7 @@ function OverviewLiveInner({ orgId }: { orgId: string | null }) {
                 className="self-start text-11 text-primary transition-colors duration-base hover:underline"
                 data-testid="admin-overview-anomalies-more"
               >
-                查看全部 {fmt.format(limitEvents.length)} 项 → 成员配额 · 限额策略
+                {t("adminOverview.moreLimits", { count: fmt.format(limitEvents.length) })}
               </a>
             )}
           </CardContent>
@@ -229,19 +224,18 @@ function OverviewLiveInner({ orgId }: { orgId: string | null }) {
       {/* ── 活动流 ── */}
       <section className="flex flex-col gap-2" data-testid="admin-overview-activity">
         <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-14 font-semibold">活动流</h2>
-          <Badge tone="outline" data-testid="admin-overview-activity-live">真数据</Badge>
+          <h2 className="text-14 font-semibold">{t("adminOverview.activityStream")}</h2>
         </div>
         <Card>
           <CardContent className="flex flex-col pt-2">
             {error && (
               <p className="py-2 text-12 text-muted-foreground" data-testid="admin-overview-load-failed">
-                读不到审计流（{error}）。这里不退回演示数据——假的活动流会被当成真的审计记录。
+                {t("adminOverview.auditFailure", { error: describeFailure(error.cause, locale) })}
               </p>
             )}
             {data?.events.length === 0 && (
               <p className="py-2 text-12 text-muted-foreground" data-testid="admin-overview-activity-empty">
-                这个组织还没有任何审计事件。
+                {t("adminOverview.auditEmpty")}
               </p>
             )}
             {(data?.events ?? []).map((e, i) => {
@@ -253,11 +247,11 @@ function OverviewLiveInner({ orgId }: { orgId: string | null }) {
                       {who?.displayName ?? e.actorId}
                     </span>
                     <Badge tone="outline" className="shrink-0">
-                      {who ? (ORG_ROLE_LABEL[who.orgRole] ?? who.orgRole) : "已不在组织"}
+                      {who ? memberRoleLabel(who.orgRole, t) : t("adminOverview.leftOrg")}
                     </Badge>
-                    <span className="min-w-0 flex-1 text-12">{PROVENANCE_EVENT_LABEL[e.type]}</span>
+                    <span className="min-w-0 flex-1 text-12">{provenanceEventLabel(e.type, locale)}</span>
                     <span className="shrink-0 text-11 text-muted-foreground">
-                      {new Date(e.at).toLocaleString("zh-CN")}
+                      {new Date(e.at).toLocaleString(locale)}
                     </span>
                   </div>
                   {i < (data?.events.length ?? 0) - 1 && <Separator />}
@@ -272,14 +266,14 @@ function OverviewLiveInner({ orgId }: { orgId: string | null }) {
 }
 
 function MetricCard(props: {
-  testid: string; label: string; value: string | null; foot: string | null; error: string | null;
+  testid: string; label: string; value: string | null; foot: string | null; error: boolean;
 }) {
+  const { t } = useI18n();
   return (
     <Card data-testid={props.testid}>
       <CardContent className="flex flex-col gap-1.5 pt-4">
         <div className="flex items-center gap-1.5">
           <span className="text-12 text-muted-foreground">{props.label}</span>
-          <Badge tone="outline">真数据</Badge>
         </div>
         <span className="text-24 font-semibold tracking-tight">
           {/* 读不到时显示 —— 而不是 0。「查询失败」与「本月真的是 0」是两件事，

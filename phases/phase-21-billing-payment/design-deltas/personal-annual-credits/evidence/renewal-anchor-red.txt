@@ -1,0 +1,43 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+ ❯ tests/billing/personal-credit-calendar.test.ts (6 tests | 1 failed) 34ms
+   × keeps the original purchase day across monthly and annual renewal boundaries 20ms
+     → expected [ { index: +0, …(2) } ] to deeply equal [ { index: +0, …(2) } ]
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/personal-credit-calendar.test.ts > keeps the original purchase day across monthly and annual renewal boundaries
+AssertionError: expected [ { index: +0, …(2) } ] to deeply equal [ { index: +0, …(2) } ]
+
+- Expected
++ Received
+
+  Array [
+    Object {
+-     "end": 2027-03-31T12:00:00.000Z,
++     "end": 2027-02-28T12:00:00.000Z,
+      "index": 0,
+-     "start": 2027-02-28T12:00:00.000Z,
++     "start": 2027-01-31T12:00:00.000Z,
+    },
+  ]
+
+ ❯ tests/billing/personal-credit-calendar.test.ts:42:77
+     40| it("keeps the original purchase day across monthly and annual renewal …
+     41|   const jan = date("2027-01-31T12:00:00.000Z");
+     42|   expect(paidCreditWindows(jan,"month",date("2027-02-28T12:00:00.000Z"…
+       |                                                                             ^
+     43|   const leap = date("2024-02-29T06:07:08.009Z");
+     44|   const renewed = paidCreditWindows(leap,"year",date("2025-03-29T06:07…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 5 passed (6)
+   Start at  22:59:18
+   Duration  769ms (transform 95ms, setup 0ms, collect 85ms, tests 34ms, environment 0ms, prepare 206ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.billing-provider.config.ts tests/billing/personal-credit-calendar.test.ts

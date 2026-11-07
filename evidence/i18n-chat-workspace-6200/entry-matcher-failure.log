@@ -1,0 +1,32 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/ui/thread-card-button.test.tsx (8 tests) 242ms
+ ❯ tests/ui/i18n-chat-entry.test.tsx (5 tests | 1 failed) 178ms
+   × prefills the authored English goal exactly once only on explicit template selection 95ms
+     → Invalid Chai property: toHaveBeenCalledExactlyOnceWith
+ ✓ tests/ui/chat-task-workbench-empty-state.test.tsx (2 tests) 125ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/i18n-chat-entry.test.tsx > prefills the authored English goal exactly once only on explicit template selection
+Error: Invalid Chai property: toHaveBeenCalledExactlyOnceWith
+ ❯ tests/ui/i18n-chat-entry.test.tsx:37:16
+     35|   expect(research.getAttribute("data-testid")).toBe("chat-task-workben…
+     36|   fireEvent.click(research);
+     37|   expect(select).toHaveBeenCalledExactlyOnceWith("Research the current…
+       |                ^
+     38| });
+     39|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 2 passed (3)
+      Tests  1 failed | 14 passed (15)
+   Start at  01:11:09
+   Duration  4.92s (transform 897ms, setup 285ms, collect 1.92s, tests 545ms, environment 1.51s, prepare 128ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/i18n-chat-entry.test.tsx tests/ui/chat-task-workbench-empty-state.test.tsx tests/ui/thread-card-button.test.tsx --maxWorkers=1 --minWorkers=1

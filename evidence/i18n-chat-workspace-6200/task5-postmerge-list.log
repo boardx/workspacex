@@ -1,0 +1,21 @@
+$ pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.chat-read.config.ts --project=chat-read e2e/i18n-chat-workspace.spec.ts --list --workers=1 --retries=0 --max-failures=1 --reporter=json --output=/tmp/chat6200-task5-postmerge-source-private/output
+[heavy-e2e-lock] 排到了，等了 0s
+[stack-admission] load1=5.09 cores=10 perCore=0.51 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw252m10-cb7fa4c6-da850e767d1f db=wsx_da850e767d1fc03eb7c1 compose=wsx-da850e767d1fc03eb7c1 pg=20078 redis=21078 api=24078 web=25078 sandbox=26078 model=27078 deep-agent=28078 asr=29078 vision=30078 loopback-sandbox=31078 mail=19078
+Listing tests:
+  [chat-read] › i18n-chat-workspace.spec.ts:36:7 › personal sidebar and unsent raw draft survive locale changes at 1280
+  [chat-read] › i18n-chat-workspace.spec.ts:36:7 › personal sidebar and unsent raw draft survive locale changes at 375
+  [chat-read] › i18n-chat-workspace.spec.ts:101:5 › active canonical run retains identity, raw draft, selected inspector tab and persisted reply across locale/reload
+  [chat-read] › i18n-chat-workspace.spec.ts:160:5 › material upload, inline preview and enlarged download retain original bytes across locale changes
+  [chat-read] › i18n-chat-workspace.spec.ts:213:5 › permission dialog locale switch and Escape submit no decision; explicit once resumes the same canonical run
+  [chat-read] › i18n-chat-workspace.spec.ts:266:5 › project thread preserves canonical scope, raw project name and return target across locales
+  [chat-read] › i18n-chat-workspace.spec.ts:301:5 › different seeded principal receives real private-thread 404 and locale changes never grant send access
+Total: 7 tests in 1 file
+[timing] pnpm --filter web exec playwright test --config playwright.chat-read.config.ts --project=chat-read e2e/i18n-chat-workspace.spec.ts --list --workers=1 --retries=0 --max-failures=1 --reporter=json --output=/tmp/chat6200-task5-postmerge-source-private/output
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1s
+  清理：0s
+  总计：1s

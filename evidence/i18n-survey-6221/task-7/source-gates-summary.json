@@ -1,0 +1,95 @@
+{
+  "source": "fda71b3eacd39c379a0d3043207e6db4a63d1ffa",
+  "unitSource": "28b4d40ff8682b92ac1edbccbd48f5a823e4a7ca",
+  "productAndUnitBlobsUnchangedSince668Pass": true,
+  "changedSinceUnit": [
+    "apps/web/e2e/i18n-survey-journey.spec.ts",
+    "evidence/i18n-survey-6221/task-7/README.md",
+    "evidence/i18n-survey-6221/task-7/green-omissions-affected.json",
+    "evidence/i18n-survey-6221/task-7/green-survey-omissions.json",
+    "evidence/i18n-survey-6221/task-7/omissions-static.json"
+  ],
+  "checks": [
+    {
+      "name": "web-type-final",
+      "exitCode": 0,
+      "seconds": 79.284,
+      "rawLogSha256": "cd5788cc155241ad0932956ca7dd287ae173e2f213993b615bdafdcb93bc7ce4"
+    },
+    {
+      "name": "api-type-final",
+      "exitCode": 0,
+      "seconds": 72.752,
+      "rawLogSha256": "c85dd5417e6c07523da56cbe1648802ed8f3a8e14ba018603dd453cb69188f89"
+    },
+    {
+      "name": "web-scoped-lint-final",
+      "exitCode": 0,
+      "seconds": 4.908,
+      "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "api-canonical-lint-final",
+      "exitCode": 0,
+      "seconds": 14.279,
+      "rawLogSha256": "bec54dca66cfe1860202e7ca53ce5de4c56f58bea852a2de1dcb59754035c18a"
+    },
+    {
+      "name": "init-final",
+      "exitCode": 0,
+      "seconds": 11.031,
+      "rawLogSha256": "b9454ea9b0cef337e754f5577a3ea517168d367f1dafc79e9a75b55ad28d998d"
+    },
+    {
+      "name": "raw-error-final",
+      "exitCode": 0,
+      "seconds": 0.431,
+      "rawLogSha256": "e5614a8f4e5f17c20fdbf687464d8550fcde1cb9c71d845534d6efb78e158339"
+    },
+    {
+      "name": "error-gate-selftest-final",
+      "exitCode": 0,
+      "seconds": 12.052,
+      "rawLogSha256": "af5fce15400079366bbf3ac3eea4208cf4d80d2b29678ac0f3bb615c0d5cdcb8"
+    },
+    {
+      "name": "testid-final",
+      "exitCode": 0,
+      "seconds": 3.559,
+      "rawLogSha256": "a08ee5142204ca89faf4f0e0b279d7651f4fcc61b6e522b648a9e2fc25a868c9"
+    },
+    {
+      "name": "wiring-final",
+      "exitCode": 0,
+      "seconds": 3.016,
+      "rawLogSha256": "4c253a8712c7e44f913adc38e0dcea6bb75496b0908082a8e80c24acca703a52"
+    },
+    {
+      "name": "vitest-reach-final",
+      "exitCode": 0,
+      "seconds": 2.936,
+      "rawLogSha256": "81e4cc456301c57df79f7dd2e5e5859c7aa8d9f2e64b11355570bd874082d671"
+    },
+    {
+      "name": "fullspec-final",
+      "exitCode": 0,
+      "seconds": 44.438,
+      "rawLogSha256": "4f62616754bad932e8052ae4db8993372ec15f93fc3752ffe3485fd17175254e"
+    },
+    {
+      "name": "secret-scan-final",
+      "exitCode": 0,
+      "seconds": 9.565,
+      "rawLogSha256": "501bb010d0ded97b8d12cf7910e4bc2fde79f015a2029a8d2f5cea07eb844346"
+    },
+    {
+      "name": "browser-list-first",
+      "exitCode": 0,
+      "seconds": 3.595,
+      "rawLogSha256": "ccbce78597b434d594a4676614e857373be0d01587e71bb35a82ba182172f35e"
+    }
+  ],
+  "ownCleanupZero": true,
+  "browserExecuted": false,
+  "scope": "Canonical current-source gates and precise discovery only; real browser, final review, source CI and delivery remain pending."
+}

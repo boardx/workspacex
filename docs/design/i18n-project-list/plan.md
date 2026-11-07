@@ -1,0 +1,10 @@
+# Project list localization — #6160 / B2
+
+Scope: /projects list, card/list layout, search/tags, archive/recover confirmation, general-project create dialog and reusable CreateProjectForm (also used by the general inline /project/new form). Shared tag primitives and dialog close get only display-copy localization. ResourceCard has no intrinsic user-facing copy requiring changes. Preserve actual request paths/payloads, current-org source, roles, project/tag strings, query/filter/draft state, IME/dedupe/commit semantics, focus and retry.
+
+1. Red real components: live locale switches preserve list/search/selected tags and do not refetch; duplicate-tag notice retranslates; archive failure retranslates; create denied/HTTP/unknown feedback retranslates while retaining original name and payload.
+2. Typed project-list and shared-tags resources, render-time display helpers, raw failure state. Reuse existing HTTP failure locale support. Legacy default Chinese label records become projections of canonical dictionary values, while migrated consumers pass current locale to pure display helpers.
+3. Existing project/list/create/tag/dialog/menu regressions and keys. Browser/API/DB create through list modal, reload persists raw name, language flip and list/cards/narrow width, consultant rejected, no API enum changes. Reuse existing registered fullstack project suite; exact --list before execution, one worker and machine window serialized with phase three.
+4. Static gates, independent exact-SHA review, durable evidence, normal push and one develop PR; continue final-head CI/reviewThreads through authorized coordinator merge.
+
+Explicit boundary: project workspace tabs, workshop wizard, mock entry consent/join/group and preview/experimental routes remain uncovered. This does not mark all 137 baseline routes complete. Audit ledger records slices with issue/PR links; live merge state stays authoritative on GitHub. Update stale module knowledge from current project contract and PG create implementation without changing policies.

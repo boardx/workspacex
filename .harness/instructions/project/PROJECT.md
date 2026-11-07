@@ -7,7 +7,10 @@
 
 ## 身份
 - GitHub org/repo：`boardx/workspacex`。
-- 开发集成默认：以最新 `origin/develop` 为基线，PR 目标显式设为 `develop`（2026-10-27 人类指令）；仅在人类另有明确要求时使用其它目标分支。该约定不等同于修改 GitHub 仓库的 default branch 设置。
+- 开发集成默认：以最新 `origin/develop` 为基线，PR 目标显式设为 `develop`（2026-10-27 人类指令）；所有开发改动只合入 `develop`；自动代码检测仅在目标为 `develop` 的 PR/merge_group 与 `develop` push 上执行（2026-10-30 人类指令）。`main` / `main-us` 直接同步已验证的同一 `develop` SHA，不再创建同步 merge commit 或重复运行代码检测；镜像仅由 develop 构建一次，CN/US 发布引用相同 immutable tag/digest，不分别重建；生产部署的环境、迁移、健康和浏览器验收继续执行。该约定不等同于修改 GitHub 仓库的 default branch 设置。
+- 发布触发：所有环境及官网、开发者门户、协调网关均由 `workflow_dispatch` 手动发布；合并 / push 只运行代码检查，不自动构建发布镜像或部署（2026-11-03 人类指令）。
+  2026-11-03 人类补充（#6187）：devapp/CN/US 共用一套手动发布流程。显式选择任一环境后，不填 tag 则为所选分支冻结的 exact SHA 构建唯一 run-attempt tag 后部署；填 tag 则复用原镜像、不重建。分支只决定 auto 的默认环境，不限制显式目标。发布不再另行等待 Devapp 专用历史 CI 准入；PR 代码检查保留，所有环境共用镜像身份、配置、备份、迁移记录、服务就绪与失败恢复。代码检查及完整功能回归在 GitHub 处理，服务器不重复执行浏览器业务测试。
+
 - 同步配置：`.harness/config/github-sync.yaml` 的 `repo` 字段要与此处一致
 
 ## 部署面

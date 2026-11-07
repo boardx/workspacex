@@ -1,0 +1,44 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts
+
+ ✓ tests/billing-pricing.test.ts (7 tests) 19ms
+ ❯ tests/billing-team-catalog-design.test.ts (14 tests | 1 failed) 21ms
+   × retains the existing personal catalog shape and validation 8ms
+     → expected true to be false // Object.is equality
+ ✓ tests/billing-team-history-design.test.ts (15 tests) 19ms
+ ✓ tests/billing-team-quote-design.test.ts (20 tests) 21ms
+ ✓ tests/billing-team-design.test.ts (33 tests) 21ms
+ ✓ tests/billing-team-entitlement-design.test.ts (26 tests) 27ms
+ ✓ tests/billing-team-purchase-design.test.ts (22 tests) 28ms
+ ↓ tests/billing-team-operations-design.test.ts (11 tests)
+ ↓ tests/billing-team-platform-design.test.ts (8 tests)
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing-team-catalog-design.test.ts > retains the existing personal catalog shape and validation
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/billing-team-catalog-design.test.ts:34:117
+     32|  expect(PricingCatalog.parse(personal)).toEqual(personal);
+     33|  expect(PricingCatalog.safeParse({...personal,orgId:"org-a"}).success)…
+     34|  expect(PricingCatalog.safeParse({...personal,products:[{...personal.p…
+       |                                                                                                                     ^
+     35|  for(const patch of [{market:"us"},{products:[personal.products[0],per…
+     36|   expect(PricingCatalog.safeParse({...personal,...patch}).success).toB…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 6 passed | 2 skipped (15)
+      Tests  1 failed | 136 passed (156)
+   Start at  16:27:25
+   Duration  733ms (transform 659ms, setup 0ms, collect 1.82s, tests 156ms, environment 2ms, prepare 1.68s)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run billing --bail=1

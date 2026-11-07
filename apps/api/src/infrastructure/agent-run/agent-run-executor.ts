@@ -299,7 +299,7 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
      * `withoutRunLease`：kick 常在**某条 run 的执行栈里**被调用（#3445 已授权工具续跑、
      * AG05 `start_workflow` 结果交回——两处都是 requeue 之后立刻 kick）。那个栈处在
      * `withRunLease` 的 AsyncLocalStorage 里，而 `PgDatabase.inTx` 对**每个**事务都按
-     * 当前租约做围栏（`lease_epoch=$3 ... FOR UPDATE`）。不脱离的话，这次后台 tick 会
+     * 当前租约做围栏（`lease_epoch=$3 ... FOR NO KEY UPDATE`）。不脱离的话，这次后台 tick 会
      * 继承调用方那条 run 的旧 epoch：`claimQueued` 把 run 领回 running（epoch+1）并在
      * 自己的新租约里跑完续跑 → `writeback_pending`；随后本 tick 的 `writeBackPendingRuns`
      * 又回到继承来的旧 epoch 围栏下 ⇒ `RunLeaseLostError` ⇒ 整个 tick 被下面的 catch

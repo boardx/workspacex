@@ -1,0 +1,13 @@
+
+> @repo/api@0.0.0 test:identity-display-unit /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/api
+> vitest run --config vitest.identity-display-unit.config.ts
+
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/api
+
+ ✓ tests/identity/activity-display.test.ts (11 tests) 15ms
+
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+   Start at  00:42:33
+   Duration  3.46s (transform 1.59s, setup 0ms, collect 3.09s, tests 15ms, environment 0ms, prepare 118ms)

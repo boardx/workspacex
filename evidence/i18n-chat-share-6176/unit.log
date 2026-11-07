@@ -1,0 +1,14 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/ui/chat-code-fence.test.tsx (14 tests) 289ms
+ ✓ tests/ui/chat-share-i18n.test.tsx (8 tests) 603ms
+ ✓ tests/ui/chat-public-share.test.tsx (8 tests) 728ms
+   ✓ waits for preview, then publishes only on explicit confirmation 342ms
+ ✓ tests/lib/i18n-resources.test.ts (5 tests) 71ms
+
+ Test Files  4 passed (4)
+      Tests  35 passed (35)
+   Start at  12:07:59
+   Duration  14.51s (transform 2.34s, setup 2.31s, collect 5.77s, tests 1.69s, environment 3.30s, prepare 391ms)

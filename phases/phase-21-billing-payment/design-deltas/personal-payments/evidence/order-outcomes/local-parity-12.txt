@@ -1,0 +1,12 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/local-runtime
+
+ ✓ test/no-egress-endpoints.test.ts (3 tests) 5ms
+ ✓ test/parity.test.ts (5 tests) 479ms
+   ✓ local/cloud env parity > classifies every environment variable the API reads 333ms
+ ✓ test/inherited-parity-env.test.ts (4 tests) 113ms
+
+ Test Files  3 passed (3)
+      Tests  12 passed (12)
+   Start at  05:32:07
+   Duration  1.15s (transform 74ms, setup 0ms, collect 99ms, tests 597ms, environment 0ms, prepare 138ms)

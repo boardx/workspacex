@@ -1,0 +1,12 @@
+[
+  {
+    "method": "PATCH",
+    "url": "http://127.0.0.1:25830/__fullstack_api/organizations/org-entity-locale-wx-62ac14eb-0edd8dfeb709/token-quotas/user-entity-locale-member-wx-62ac14eb-0edd8dfeb709",
+    "status": 409,
+    "body": {
+      "error": "conflict",
+      "traceId": "c098e5d1-2bc0-4b41-aadf-b2801da7d066",
+      "reasonCode": "QUOTA_OVERALLOCATED"
+    }
+  }
+]

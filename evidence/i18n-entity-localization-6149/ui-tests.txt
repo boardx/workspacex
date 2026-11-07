@@ -1,0 +1,17 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/web
+
+ ✓ tests/lib/entity-localization.test.ts (4 tests) 11ms
+ ✓ tests/ui/entity-localization-editor.test.tsx (5 tests) 418ms
+ ✓ tests/ui/entity-localization-directory-cache.test.tsx (3 tests) 195ms
+ ✓ tests/ui/entity-localization-directory.test.tsx (1 test) 294ms
+ ✓ tests/ui/skill-catalog-live.test.tsx (15 tests) 643ms
+ ✓ tests/ui/work-skill-catalog.test.tsx (15 tests) 1284ms
+   ✓ WS05 Work Skill 目录屏 > 领域筛选、通道切换、显示已废弃、搜索都进入请求参数 329ms
+
+ Test Files  6 passed (6)
+      Tests  43 passed (43)
+   Start at  04:58:19
+   Duration  5.27s (transform 2.01s, setup 1.62s, collect 7.71s, tests 2.85s, environment 6.53s, prepare 815ms)
+

@@ -1,4 +1,6 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import * as React from "react";
 import { Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { StateShell } from "@/components/state/state-shell";
@@ -15,6 +17,8 @@ import {
   login,
   requestPasswordReset,
 } from "@/lib/auth";
+import { apiRequest } from "@/lib/api-client";
+import { auth as AuthContract } from "@repo/contracts";
 import { useSession } from "@/components/session/session-provider";
 import { sanitizeReturnTo } from "@/lib/return-to";
 
@@ -38,9 +42,10 @@ import { sanitizeReturnTo } from "@/lib/return-to";
  * "再加一条别的文案"这个动作在代码里显眼——多一条按邮箱变化的文案，
  * 就等于把枚举信道从界面这一侧重新开出来。
  */
-const RESET_RETRY_COPY = "重置服务暂时不可用，请稍后重试";
+
 
 export function LoginForm({ state, next }: { state: UiState; next?: string }) {
+  const { t } = useI18n();
   const session = useSession();
   // SSR controls must not accept edits before React can preserve their values.
   const [hydrated, setHydrated] = React.useState(false);
@@ -49,7 +54,16 @@ export function LoginForm({ state, next }: { state: UiState; next?: string }) {
   const [submitting, setSubmitting] = React.useState(false);
   const [email, setEmail] = React.useState(state === "invalid" ? LOGIN_BRAND.sampleEmail : "");
   const [password, setPassword] = React.useState(state === "invalid" ? "••••••••" : "");
-  const [loginError, setLoginError] = React.useState<string | null>(null);
+  const [loginError, setLoginError] = React.useState<MessageKey | null>(null);
+  const [verificationNeeded, setVerificationNeeded] = React.useState(false);
+  const [resending, setResending] = React.useState(false);
+  const [resendCooling, setResendCooling] = React.useState(false);
+  const [resendStatus, setResendStatus] = React.useState<MessageKey | null>(null);
+  React.useEffect(() => {
+    if (!resendCooling) return;
+    const timer = window.setTimeout(() => setResendCooling(false), AuthContract.AUTH_POLICY.resendCooldownSeconds * 1000);
+    return () => window.clearTimeout(timer);
+  }, [resendCooling]);
   const [forgot, setForgot] = React.useState(false);
   const [resetSent, setResetSent] = React.useState(false);
   const [resetEmail, setResetEmail] = React.useState("");
@@ -74,12 +88,11 @@ export function LoginForm({ state, next }: { state: UiState; next?: string }) {
           data-testid="login-forgot-back"
           className="inline-flex items-center gap-1 self-start text-12 text-muted-foreground transition-colors duration-200 hover:text-background-foreground"
         >
-          <ArrowLeft aria-hidden className="h-3.5 w-3.5" /> 返回登录
-        </button>
+          <ArrowLeft aria-hidden className="h-3.5 w-3.5" /> {t("ui.backToSignIn")}</button>
         <div className="flex flex-col gap-1">
-          <h2 className="text-18 font-semibold">找回密码</h2>
+          <h2 className="text-18 font-semibold">{t("ui.resetPassword")}</h2>
           <p className="text-13 text-muted-foreground">
-            输入工作邮箱，我们将发送一次性重置链接（{AUTH_POLICY.resetLinkHours} 小时内有效）。
+            {t("auth.resetDescription", { hours: AUTH_POLICY.resetLinkHours })}
           </p>
         </div>
         {resetSent ? (
@@ -88,15 +101,14 @@ export function LoginForm({ state, next }: { state: UiState; next?: string }) {
             data-testid="login-forgot-sent"
             className="flex flex-col gap-1 rounded-md border border-border bg-muted p-3"
           >
-            <p className="text-13 font-medium">若该邮箱已注册，重置邮件已发出。</p>
+            <p className="text-13 font-medium">{t("ui.ifThisEmailIsRegisteredAResetEmailHasBeenSent")}</p>
             <p className="text-12 text-muted-foreground">
-              重置成功后，旧密码与所有已登录设备将失效。
-            </p>
+              {t("ui.resettingYourPasswordSignsOutAllDevicesAndInvalidatesYourOldPassword")}</p>
           </div>
         ) : (
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="login-reset-email">工作邮箱</Label>
+              <Label htmlFor="login-reset-email">{t("ui.workEmail")}</Label>
               <Input
                 id="login-reset-email"
                 type="email"
@@ -128,16 +140,15 @@ export function LoginForm({ state, next }: { state: UiState; next?: string }) {
               }}
               data-testid="login-forgot-submit"
             >
-              {resetSubmitting ? "正在发送…" : "发送重置链接"}
+              {resetSubmitting ? t("ui.sending") : t("ui.sendResetLink")}
             </Button>
             {resetFailed ? (
               <p data-testid="login-forgot-error" className="text-12 text-destructive">
-                {RESET_RETRY_COPY}
+                {t("ui.passwordResetIsUnavailablePleaseTryAgainLater")}
               </p>
             ) : null}
             <p className="text-11 text-muted-foreground">
-              重发冷却 60 秒 · 每日上限 5 次。
-            </p>
+              {t("ui.waitSecondsBetweenRequestsLimitPerDay")}</p>
           </div>
         )}
       </div>
@@ -147,7 +158,7 @@ export function LoginForm({ state, next }: { state: UiState; next?: string }) {
   const form = (
     <div className="flex flex-col gap-5" data-testid="login-form">
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="login-email">工作邮箱</Label>
+        <Label htmlFor="login-email">{t("ui.workEmail")}</Label>
         <Input
           id="login-email"
           type="email"
@@ -160,21 +171,20 @@ export function LoginForm({ state, next }: { state: UiState; next?: string }) {
       </div>
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between">
-          <Label htmlFor="login-password">密码</Label>
+          <Label htmlFor="login-password">{t("ui.password")}</Label>
           <button
             type="button"
             onClick={() => setForgot(true)}
             data-testid="login-forgot-link"
             className="text-12 text-brand-ink underline-offset-4 transition-colors duration-base hover:underline"
           >
-            忘记密码？
-          </button>
+            {t("ui.forgotPassword")}</button>
         </div>
         <div className="relative">
           <Input
             id="login-password"
             type={showPwd ? "text" : "password"}
-            placeholder="至少 12 位"
+            placeholder={t("ui.atLeastCharacters")}
             value={password}
             onChange={(e) => setPassword(e.currentTarget.value)}
             className="pr-10"
@@ -185,7 +195,7 @@ export function LoginForm({ state, next }: { state: UiState; next?: string }) {
             type="button"
             onClick={() => setShowPwd((v) => !v)}
             aria-pressed={showPwd}
-            aria-label={showPwd ? "隐藏密码" : "显示密码"}
+            aria-label={showPwd ? t("ui.hidePassword") : t("ui.showPassword")}
             data-testid="login-password-toggle"
             className="absolute inset-y-0 right-0 inline-flex items-center px-3 text-muted-foreground transition-colors duration-base hover:text-background-foreground"
           >
@@ -203,6 +213,8 @@ export function LoginForm({ state, next }: { state: UiState; next?: string }) {
           if (!hydrated || submitting) return;
           setSubmitting(true);
           setLoginError(null);
+          setVerificationNeeded(false);
+          setResendStatus(null);
           try {
             const out = await login(email, password);
             await session.startSession(out);
@@ -218,32 +230,56 @@ export function LoginForm({ state, next }: { state: UiState; next?: string }) {
             // 解释了为什么展开它们不重开 I-1 堵的枚举通道）。只有真正的传输层/
             // 依赖故障（`AUTH_SERVICE_UNAVAILABLE`、非 JSON 响应等）才落进兜底文案。
             if (isLoginRejected(e)) {
-              setLoginError("邮箱或密码不正确");
+              setLoginError("ui.incorrectEmailOrPassword");
             } else if (isEmailNotVerified(e)) {
-              setLoginError("邮箱尚未验证，请查收验证邮件后再登录");
+              setVerificationNeeded(true);
+              setLoginError("ui.verifyYourEmailBeforeSigningInPleaseCheckYourInbox");
             } else if (isAccountLocked(e)) {
               setLoginError(
-                `尝试次数过多，账号已临时锁定，请 ${AUTH_POLICY.lockDurationMinutes} 分钟后再试`,
+                "auth.locked",
               );
             } else {
-              setLoginError("登录服务暂时不可用，请稍后重试");
+              setLoginError("ui.signInIsUnavailablePleaseTryAgainLater");
             }
             setSubmitting(false);
           }
         }}
       >
-        {submitting ? "正在进入…" : "登录"}
+        {submitting ? t("ui.signingIn") : t("ui.signIn")}
       </Button>
       {loginError !== null ? (
         <p data-testid="login-error" className="text-12 text-destructive">
-          {loginError}
+          {t(loginError, { minutes: AUTH_POLICY.lockDurationMinutes })}
         </p>
       ) : null}
+
+      {verificationNeeded && (
+        <div className="flex flex-col gap-2">
+          <Button variant="outline" data-testid="login-verification-resend" disabled={submitting || resending || resendCooling}
+            onClick={async () => {
+              if (resending || resendCooling) return;
+              setResending(true);
+              setResendStatus(null);
+              try {
+                await apiRequest(AuthContract.operations.resendEmailVerification.path, {
+                  method: "POST", sessionToken: null, body: { email, password },
+                });
+                setResendCooling(true);
+                setResendStatus("ui.requestSubmittedCheckYourInboxForTheVerificationEmailOrTryAgainLater");
+              } catch (error) {
+                setResendStatus(isAccountLocked(error) ? "ui.tooManyAttemptsPleaseTryAgainLater" : isLoginRejected(error) ? "ui.incorrectEmailOrPasswordCheckYourDetailsAndTryAgain" : "ui.couldNotSendTheVerificationEmailPleaseTryAgainLater");
+              } finally { setResending(false); }
+            }}>
+            {resending ? t("ui.submitting") : resendCooling ? t("auth.resendWait", { seconds: AuthContract.AUTH_POLICY.resendCooldownSeconds }) : t("ui.resendVerificationEmail")}
+          </Button>
+          {resendStatus && <p role="status" className="text-12 text-muted-foreground">{t(resendStatus)}</p>}
+        </div>
+      )}
 
       {/* ── 分隔 · 第三方（D-02：保留视觉位但 disabled，phase-1 只走邮箱 + 密码）── */}
       <div className="flex items-center gap-3 py-1">
         <Separator className="flex-1" />
-        <span className="text-11 text-muted-foreground">其他登录方式 · 即将开放</span>
+        <span className="text-11 text-muted-foreground">{t("ui.otherSignInOptionsComingSoon")}</span>
         <Separator className="flex-1" />
       </div>
       <div className="grid grid-cols-3 gap-2" data-testid="login-providers">
@@ -252,10 +288,10 @@ export function LoginForm({ state, next }: { state: UiState; next?: string }) {
             key={p.id}
             variant="outline"
             disabled
-            title="即将开放"
+            title={t("ui.comingSoon")}
             data-testid={`login-provider-${p.id}`}
           >
-            {p.label}
+            {p.id === "feishu" ? t("auth.feishu") : p.label}
           </Button>
         ))}
       </div>
@@ -274,19 +310,17 @@ export function LoginForm({ state, next }: { state: UiState; next?: string }) {
         data-testid="login-signup-paths"
       >
         <p className="text-13 text-muted-foreground">
-          还没有账号？开一个新组织，成为首位管理员 ·{" "}
+          {t("ui.newHereCreateAnOrganizationAsItsFirstAdministrator")}{" "}
           <button
             type="button"
             onClick={() => window.location.assign("/auth/register")}
             data-testid="login-create-org"
             className="font-medium text-brand-ink underline-offset-4 transition-colors duration-base motion-reduce:transition-none hover:underline"
           >
-            创建组织
-          </button>
+            {t("ui.createOrganization")}</button>
         </p>
         <p className="text-12 text-muted-foreground" data-testid="login-invited-hint">
-          被邀请加入已有组织？请打开管理员发给你的激活链接设置密码，本页无法自行注册加入组织；
-          链接失效请联系管理员重发。
+          {t("auth.invited")}
         </p>
       </div>
     </div>
@@ -297,14 +331,14 @@ export function LoginForm({ state, next }: { state: UiState; next?: string }) {
       state={state}
       className="flex flex-col gap-4"
       skeletonRows={4}
-      emptyHint="这个环境还没有账号——可直接创建首位管理员，无需邀请码"
-      errors={{ form: "邮箱或密码不正确" }}
-      depFailure={{ what: "认证 / 邮件服务暂时不可用，已保留你填的邮箱，可安全重试" }}
+      emptyHint={t("ui.noAccountsYetCreateTheFirstAdministratorWithoutAnInvitationCode")}
+      errors={{ form: t("ui.incorrectEmailOrPassword") }}
+      depFailure={{ what: t("ui.authenticationOrEmailIsUnavailableYourEmailHasBeenKeptSoYouCanRetry") }}
       denial={{
         layer: "organization",
-        reason: "该账号已被停用或已从组织移除，请联系组织管理员",
+        reason: t("ui.thisAccountIsDisabledOrNoLongerAMemberContactYourOrganizationAdministrator"),
       }}
-      successMessage="登录成功，正在进入「全部项目」…"
+      successMessage={t("ui.signedInOpeningYourWorkspace")}
     >
       {form}
     </StateShell>

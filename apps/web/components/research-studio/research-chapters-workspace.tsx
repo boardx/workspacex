@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
 
 import * as React from "react";
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
@@ -14,6 +15,7 @@ export function ResearchChaptersWorkspace({ runtime, disabled, onSave, onNext, o
   runtime: GuidedResearchRuntime; disabled: boolean; onSave: (value: Outline) => void;
   onOptimize: (value: Outline) => void; onNext?: () => void; onBack?: () => void; onDirtyChange?: (dirty: boolean) => void;
 }) {
+  const { t } = useI18n();
   const [chapters, setChapters] = React.useState(runtime.outline);
   const [selectedId, setSelectedId] = React.useState(runtime.outline.find((chapter) => chapter.enabled)?.id);
   const previous = React.useRef(runtime.outline);
@@ -42,8 +44,8 @@ export function ResearchChaptersWorkspace({ runtime, disabled, onSave, onNext, o
   }
   return <section className="space-y-4" data-testid="research-chapters-workspace">
     <div className="grid items-start gap-4 rounded-xl border bg-card p-5 md:grid-cols-[minmax(12rem,1fr)_minmax(0,2fr)]">
-      <nav aria-label="报告章节" className="space-y-4">
-        <h2 className="text-lg font-bold">报告章节</h2>
+      <nav aria-label={t("research.chapters.heading")} className="space-y-4">
+        <h2 className="text-lg font-bold">{t("research.chapters.heading")}</h2>
         <ol className="list-none space-y-2">{enabled.map((chapter, position) => <li key={chapter.id}>
           <Button variant="ghost" aria-pressed={chapter.id === selected?.id} disabled={disabled} onClick={() => setSelectedId(chapter.id)} className={`h-auto w-full justify-start whitespace-normal text-left ${chapter.id === selected?.id ? "bg-muted" : ""}`}>
             {position + 1}. {researchPlanTitle(chapter.title)}
@@ -51,24 +53,24 @@ export function ResearchChaptersWorkspace({ runtime, disabled, onSave, onNext, o
           {chapter.subsections?.length ? <ol className="ml-4 mt-1 list-none space-y-1 text-sm text-muted-foreground">{chapter.subsections.map((sub, subIndex) => <li key={sub.id}>{position + 1}.{subIndex + 1} <span>{researchPlanTitle(sub.title)}</span></li>)}</ol> : null}
         </li>)}</ol>
         <Button variant="outline" disabled={disabled || chapters.length >= 30} onClick={() => {
-          const id = crypto.randomUUID(); setChapters((items) => [...items, { id, title: "新章节", enabled: true, order: items.length, questions: researchQuestionsForTitle("新章节") }]); setSelectedId(id);
-        }}><Plus className="mr-2 size-4" />新增章节</Button>
+          const id = crypto.randomUUID(); setChapters((items) => [...items, { id, title: t("research.chapters.newTitle"), enabled: true, order: items.length, questions: researchQuestionsForTitle("新章节") }]); setSelectedId(id);
+        }}><Plus className="mr-2 size-4" />{t("research.chapters.add")}</Button>
       </nav>
       {selected && <article className="space-y-4" data-testid="research-selected-chapter">
-        <div className="flex items-center justify-between gap-3"><h3 className="font-semibold">第 {index + 1} 章</h3><div className="flex gap-1">
-          <Button size="icon" variant="ghost" aria-label="章节上移" disabled={disabled || index <= 0} onClick={() => move(-1)}><ArrowUp className="size-4" /></Button>
-          <Button size="icon" variant="ghost" aria-label="章节下移" disabled={disabled || index >= enabled.length - 1} onClick={() => move(1)}><ArrowDown className="size-4" /></Button>
-          <Button size="icon" variant="ghost" aria-label="删除章节" disabled={disabled || enabled.length <= 1} onClick={() => setChapters((items) => items.filter((item) => item.id !== selected.id).map((item, order) => ({ ...item, order })))}><Trash2 className="size-4" /></Button>
+        <div className="flex items-center justify-between gap-3"><h3 className="font-semibold">{t("research.chapters.number", { number: index + 1 })}</h3><div className="flex gap-1">
+          <Button size="icon" variant="ghost" aria-label={t("research.chapters.up")} disabled={disabled || index <= 0} onClick={() => move(-1)}><ArrowUp className="size-4" /></Button>
+          <Button size="icon" variant="ghost" aria-label={t("research.chapters.down")} disabled={disabled || index >= enabled.length - 1} onClick={() => move(1)}><ArrowDown className="size-4" /></Button>
+          <Button size="icon" variant="ghost" aria-label={t("research.chapters.delete")} disabled={disabled || enabled.length <= 1} onClick={() => setChapters((items) => items.filter((item) => item.id !== selected.id).map((item, order) => ({ ...item, order })))}><Trash2 className="size-4" /></Button>
         </div></div>
-        <label className="block space-y-2 text-sm font-medium">章节标题<Input aria-label="章节标题" value={selected.title} maxLength={200} disabled={disabled} onChange={(event) => patch({ title: event.target.value })} /></label>
+        <label className="block space-y-2 text-sm font-medium">{t("research.chapters.title")}<Input aria-label={t("research.chapters.title")} value={selected.title} maxLength={200} disabled={disabled} onChange={(event) => patch({ title: event.target.value })} /></label>
         <ol className="list-none space-y-3">{selected.subsections?.map((sub, subIndex) => <li key={sub.id} className="flex items-center gap-2">
           <span className="shrink-0 text-sm text-muted-foreground">{index + 1}.{subIndex + 1}</span>
-          <Input aria-label={`小章节 ${index + 1}.${subIndex + 1}`} value={sub.title} maxLength={200} disabled={disabled} onChange={(event) => patch({ subsections: selected.subsections!.map((item) => item.id === sub.id ? { ...item, title: event.target.value } : item) })} />
-          <Button size="icon" variant="ghost" aria-label={`删除小章节 ${index + 1}.${subIndex + 1}`} disabled={disabled} onClick={() => { const remaining = selected.subsections!.filter((item) => item.id !== sub.id); patch({ subsections: remaining.length ? remaining : undefined }); }}><Trash2 className="size-4" /></Button>
+          <Input aria-label={t("research.chapters.subsection", { number: `${index + 1}.${subIndex + 1}` })} value={sub.title} maxLength={200} disabled={disabled} onChange={(event) => patch({ subsections: selected.subsections!.map((item) => item.id === sub.id ? { ...item, title: event.target.value } : item) })} />
+          <Button size="icon" variant="ghost" aria-label={t("research.chapters.deleteSubsection", { number: `${index + 1}.${subIndex + 1}` })} disabled={disabled} onClick={() => { const remaining = selected.subsections!.filter((item) => item.id !== sub.id); patch({ subsections: remaining.length ? remaining : undefined }); }}><Trash2 className="size-4" /></Button>
         </li>)}</ol>
-        <Button variant="outline" disabled={disabled || (selected.subsections?.length ?? 0) >= 8} onClick={() => patch({ subsections: [...(selected.subsections ?? []), { id: crypto.randomUUID(), title: "新小章节", questions: researchQuestionsForTitle("新小章节") }] })}><Plus className="mr-2 size-4" />新增小章节</Button>
+        <Button variant="outline" disabled={disabled || (selected.subsections?.length ?? 0) >= 8} onClick={() => patch({ subsections: [...(selected.subsections ?? []), { id: crypto.randomUUID(), title: t("research.chapters.newSubsectionTitle"), questions: researchQuestionsForTitle("新小章节") }] })}><Plus className="mr-2 size-4" />{t("research.chapters.addSubsection")}</Button>
       </article>}
     </div>
-    <WorkflowActionBar placement="footer">{onBack && <WorkflowActionButton variant="outline" disabled={disabled || changed} onClick={onBack}>上一步</WorkflowActionButton>}{changed && <WorkflowActionButton variant="primary" disabled={disabled || !valid} onClick={() => onSave(prepareResearchOutline(chapters, runtime.outline))}>保存章节结构</WorkflowActionButton>}{onNext && <WorkflowActionButton variant="primary" disabled={disabled || changed} onClick={onNext}>下一步：生成报告</WorkflowActionButton>}</WorkflowActionBar>
+    <WorkflowActionBar placement="footer">{onBack && <WorkflowActionButton variant="outline" disabled={disabled || changed} onClick={onBack}>{t("research.previous")}</WorkflowActionButton>}{changed && <WorkflowActionButton variant="primary" disabled={disabled || !valid} onClick={() => onSave(prepareResearchOutline(chapters, runtime.outline))}>{t("research.chapters.save")}</WorkflowActionButton>}{onNext && <WorkflowActionButton variant="primary" disabled={disabled || changed} onClick={onNext}>{t("research.chapters.next")}</WorkflowActionButton>}</WorkflowActionBar>
   </section>;
 }

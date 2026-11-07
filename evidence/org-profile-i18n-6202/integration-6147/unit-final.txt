@@ -1,0 +1,27 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/web
+
+ ✓ tests/agent-kernel/tool-permission-card.test.tsx (14 tests) 343ms
+ ✓ tests/ui/knowledge-extraction-toggle.test.tsx (2 tests) 399ms
+   ✓ 组织级记忆抽取开关 > deploymentCapable=false：说明部署没有开启、开关禁用、点了不发请求 350ms
+ ✓ tests/ui/org-profile-i18n.test.tsx (10 tests) 762ms
+ ✓ tests/ui/org-admin-screen-admin-nav.test.tsx (1 test) 287ms
+ ✓ tests/ui/org-admin-members-reviewer-function.test.tsx (4 tests) 226ms
+ ✓ tests/ui/org-admin-members-org-role.test.tsx (4 tests) 257ms
+ ✓ tests/ui/home-config-admin-v2.test.tsx (19 tests) 768ms
+ ✓ tests/ui/org-admin-role-scope.test.tsx (7 tests) 1076ms
+   ✓ org-admin 组织级屏不再挂项目角色视角切换器 > ① members / activate / boundary 三屏隐藏「视角」行，改显组织级说明 406ms
+ ✓ tests/lib/i18n-resources.test.ts (5 tests) 84ms
+ ✓ tests/ui/org-home-config-i18n.test.tsx (17 tests) 2517ms
+   ✓ switches all tabs without replacing authored inputs, selected tab or config read 1299ms
+   ✓ saves original fields and stable settings once and retranslates saved feedback 429ms
+ ✓ tests/ui/org-admin-invite-form-novalidate.test.tsx (1 test) 47ms
+ ✓ tests/lib/home-theme.test.ts (4 tests) 6ms
+ ✓ tests/lib/home-config-v2.test.ts (23 tests) 12ms
+
+ Test Files  13 passed (13)
+      Tests  111 passed (111)
+   Start at  09:01:40
+   Duration  8.61s (transform 7.09s, setup 4.44s, collect 33.48s, tests 6.78s, environment 18.92s, prepare 1.43s)
+

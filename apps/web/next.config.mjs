@@ -30,12 +30,17 @@ if (existsSync(monacoVsSrc) && !existsSync(monacoVsDest)) {
 }
 
 /** @type {import('next').NextConfig} */
-export default {
+const nextConfig = {
   reactStrictMode: true,
   // Serve original images without the optional sharp/libvips optimizer.
   images: { unoptimized: true },
   // Only release images use a traced runtime; dev/e2e keep their current output.
-  ...(process.env.WORKSPACEX_RELEASE_BUILD === "1" ? { output: "standalone" } : {}),
+  ...(process.env.WORKSPACEX_RELEASE_BUILD === "1" ? {
+    output: "standalone",
+    // E2E fixtures reference server workspaces absent from the Web builder.
+    // Development/CI still typecheck the full tsconfig.json, including tests.
+    typescript: { tsconfigPath: "tsconfig.release.json" },
+  } : {}),
   /**
    * ⚠ 2026-08-18 实测（真栈 + 真实百炼 `qwen3.8-max` 跑 pptx skill 试跑）：
    * Next 的 rewrite 代理**默认 30s 就掐断连接**（`proxyTimeout` 未配时的内建默认），
@@ -320,6 +325,10 @@ export default {
        *   `/admin/skills/starter-pack-imports`）。⛔ 哪天有了，必须同时补裸路径那一条——
        *   `:path*` 匹配不到没有后缀的那一条，这个坑本文件上面已经栽过三次。
        */
+      // Display metadata has an independent administrator read/write surface.
+      // Keep both exact paths; never proxy the frontend /admin/:module pages.
+      { source: `${prefix}/admin/entity-display-updates`, destination: `${apiOrigin}/admin/entity-display-updates` },
+      { source: `${prefix}/admin/entity-display-updates/:path*`, destination: `${apiOrigin}/admin/entity-display-updates/:path*` },
       { source: `${prefix}/admin/skills/:path*`, destination: `${apiOrigin}/admin/skills/:path*` },
       { source: `${prefix}/admin/agents/:path*`, destination: `${apiOrigin}/admin/agents/:path*` },
       // #552：双重门禁的三条路径（`/skill-versions/:versionId/security-scan|submit|review`）。
@@ -633,6 +642,9 @@ export default {
       // `/chat/:path*`（#2021）与 `/workflows`（#3492）两次同型事故）。缺任一条 =
       // 同源代理部署下被 Next 接住返回 404 HTML（`lint-rewrite-coverage --strict` 实测抓到）。
       { source: `${prefix}/billing/config`, destination: `${apiOrigin}/billing/config` },
+      { source: `${prefix}/billing/catalog`, destination: `${apiOrigin}/billing/catalog` },
+      { source: `${prefix}/billing/checkout`, destination: `${apiOrigin}/billing/checkout` },
+      { source: `${prefix}/billing/subscription/entitlement`, destination: `${apiOrigin}/billing/subscription/entitlement` },
       { source: `${prefix}/billing/consumption/settings`, destination: `${apiOrigin}/billing/consumption/settings` },
       { source: `${prefix}/billing/packages`, destination: `${apiOrigin}/billing/packages` },
       { source: `${prefix}/billing/orders`, destination: `${apiOrigin}/billing/orders` },
@@ -640,11 +652,19 @@ export default {
       { source: `${prefix}/billing/orders/:orderNo/cancel`, destination: `${apiOrigin}/billing/orders/:orderNo/cancel` },
       { source: `${prefix}/billing/orders/:orderNo/mock-paid`, destination: `${apiOrigin}/billing/orders/:orderNo/mock-paid` },
       { source: `${prefix}/billing/wallet`, destination: `${apiOrigin}/billing/wallet` },
+      { source: `${prefix}/billing/organizations/:orgId/catalog`, destination: `${apiOrigin}/billing/organizations/:orgId/catalog` },
+      { source: `${prefix}/billing/organizations/:orgId/entitlement`, destination: `${apiOrigin}/billing/organizations/:orgId/entitlement` },
+      { source: `${prefix}/billing/organizations/:orgId/quotes`, destination: `${apiOrigin}/billing/organizations/:orgId/quotes` },
+      { source: `${prefix}/billing/organizations/:orgId/checkout`, destination: `${apiOrigin}/billing/organizations/:orgId/checkout` },
+      { source: `${prefix}/billing/organizations/:orgId/purchases/:purchaseRef`, destination: `${apiOrigin}/billing/organizations/:orgId/purchases/:purchaseRef` },
+      { source: `${prefix}/billing/usage`, destination: `${apiOrigin}/billing/usage` },
+      { source: `${prefix}/billing/usage/calls`, destination: `${apiOrigin}/billing/usage/calls` },
       { source: `${prefix}/billing/transactions`, destination: `${apiOrigin}/billing/transactions` },
       { source: `${prefix}/billing/admin/wallets/:ownerType/:ownerId`, destination: `${apiOrigin}/billing/admin/wallets/:ownerType/:ownerId` },
       { source: `${prefix}/billing/admin/credits/grant`, destination: `${apiOrigin}/billing/admin/credits/grant` },
       { source: `${prefix}/billing/org-settings/:orgId`, destination: `${apiOrigin}/billing/org-settings/:orgId` },
       { source: `${prefix}/billing/subscription`, destination: `${apiOrigin}/billing/subscription` },
+      { source: `${prefix}/billing/subscription/history`, destination: `${apiOrigin}/billing/subscription/history` },
       { source: `${prefix}/billing/subscription/upgrade-link`, destination: `${apiOrigin}/billing/subscription/upgrade-link` },
       { source: `${prefix}/billing/subscription/management-link`, destination: `${apiOrigin}/billing/subscription/management-link` },
       { source: `${prefix}/billing/webhooks/wechat`, destination: `${apiOrigin}/billing/webhooks/wechat` },
@@ -660,3 +680,5 @@ export default {
     return { beforeFiles: [...chatV2BranchRewrites, ...projectsApiRewrites], afterFiles };
   },
 };
+
+export default nextConfig;

@@ -1,0 +1,789 @@
+{
+  "metadataVersion": "2.0.0",
+  "skills": {
+    "S003": {
+      "en": {
+        "name": "Enterprise Search"
+      },
+      "zh-CN": {
+        "name": "企业内部检索"
+      }
+    },
+    "S005": {
+      "en": {
+        "name": "Meeting Prep"
+      },
+      "zh-CN": {
+        "name": "会前准备"
+      }
+    },
+    "S006": {
+      "en": {
+        "name": "Meeting Summary"
+      },
+      "zh-CN": {
+        "name": "会议纪要"
+      }
+    },
+    "S007": {
+      "en": {
+        "name": "Status Update"
+      },
+      "zh-CN": {
+        "name": "状态更新"
+      }
+    },
+    "S008": {
+      "en": {
+        "name": "Competitive Analysis"
+      },
+      "zh-CN": {
+        "name": "竞争分析"
+      }
+    },
+    "S009": {
+      "en": {
+        "name": "Customer Research"
+      },
+      "zh-CN": {
+        "name": "客户研究"
+      }
+    },
+    "S010": {
+      "en": {
+        "name": "Risk Assessment"
+      },
+      "zh-CN": {
+        "name": "风险评估"
+      }
+    },
+    "S011": {
+      "en": {
+        "name": "Root Cause Analysis"
+      },
+      "zh-CN": {
+        "name": "根因分析"
+      }
+    },
+    "S012": {
+      "en": {
+        "name": "Decision Brief"
+      },
+      "zh-CN": {
+        "name": "决策简报"
+      }
+    },
+    "S013": {
+      "en": {
+        "name": "Scenario Analysis"
+      },
+      "zh-CN": {
+        "name": "情景分析"
+      }
+    },
+    "S014": {
+      "en": {
+        "name": "Document Review"
+      },
+      "zh-CN": {
+        "name": "文档评审"
+      }
+    },
+    "S015": {
+      "en": {
+        "name": "Response Drafting"
+      },
+      "zh-CN": {
+        "name": "回复起草"
+      }
+    },
+    "S016": {
+      "en": {
+        "name": "Knowledge Capture"
+      },
+      "zh-CN": {
+        "name": "知识捕获"
+      }
+    },
+    "S017": {
+      "en": {
+        "name": "Task Extraction"
+      },
+      "zh-CN": {
+        "name": "任务抽取"
+      }
+    },
+    "S018": {
+      "en": {
+        "name": "Process Mapping"
+      },
+      "zh-CN": {
+        "name": "现状流程测绘"
+      }
+    },
+    "S019": {
+      "en": {
+        "name": "SOP Authoring"
+      },
+      "zh-CN": {
+        "name": "标准作业程序编写"
+      }
+    },
+    "S020": {
+      "en": {
+        "name": "Executive Briefing"
+      },
+      "zh-CN": {
+        "name": "高管简报成文"
+      }
+    },
+    "S021": {
+      "en": {
+        "name": "Customer Intelligence"
+      },
+      "zh-CN": {
+        "name": "客户情报"
+      }
+    },
+    "S022": {
+      "en": {
+        "name": "Account Tiering"
+      },
+      "zh-CN": {
+        "name": "客户分层"
+      }
+    },
+    "S023": {
+      "en": {
+        "name": "Account Planning"
+      },
+      "zh-CN": {
+        "name": "账户计划"
+      }
+    },
+    "S024": {
+      "en": {
+        "name": "Prospecting"
+      },
+      "zh-CN": {
+        "name": "拓客名单构建"
+      }
+    },
+    "S025": {
+      "en": {
+        "name": "Lead Triage"
+      },
+      "zh-CN": {
+        "name": "线索分诊"
+      }
+    },
+    "S026": {
+      "en": {
+        "name": "Outreach"
+      },
+      "zh-CN": {
+        "name": "外联触达序列起草"
+      }
+    },
+    "S027": {
+      "en": {
+        "name": "Meeting Scheduling"
+      },
+      "zh-CN": {
+        "name": "约会排期"
+      }
+    },
+    "S028": {
+      "en": {
+        "name": "Sales Call Summary"
+      },
+      "zh-CN": {
+        "name": "销售通话纪要"
+      }
+    },
+    "S029": {
+      "en": {
+        "name": "Opportunity Update"
+      },
+      "zh-CN": {
+        "name": "商机字段更新"
+      }
+    },
+    "S030": {
+      "en": {
+        "name": "Pipeline Review"
+      },
+      "zh-CN": {
+        "name": "管道评审"
+      }
+    },
+    "S031": {
+      "en": {
+        "name": "Forecasting"
+      },
+      "zh-CN": {
+        "name": "销售预测"
+      }
+    },
+    "S032": {
+      "en": {
+        "name": "Close Plan"
+      },
+      "zh-CN": {
+        "name": "成交计划"
+      }
+    },
+    "S033": {
+      "en": {
+        "name": "Renewal Radar"
+      },
+      "zh-CN": {
+        "name": "续约雷达"
+      }
+    },
+    "S034": {
+      "en": {
+        "name": "CRM Hygiene"
+      },
+      "zh-CN": {
+        "name": "CRM 数据卫生审计"
+      }
+    },
+    "S035": {
+      "en": {
+        "name": "Customer Health"
+      },
+      "zh-CN": {
+        "name": "客户健康度"
+      }
+    },
+    "S036": {
+      "en": {
+        "name": "Proposal Builder"
+      },
+      "zh-CN": {
+        "name": "商务方案 / 建议书构建"
+      }
+    },
+    "S061": {
+      "en": {
+        "name": "Product Discovery"
+      },
+      "zh-CN": {
+        "name": "产品探索"
+      }
+    },
+    "S062": {
+      "en": {
+        "name": "User Interview Planning"
+      },
+      "zh-CN": {
+        "name": "用户访谈规划"
+      }
+    },
+    "S063": {
+      "en": {
+        "name": "Research Synthesis"
+      },
+      "zh-CN": {
+        "name": "研究综合"
+      }
+    },
+    "S064": {
+      "en": {
+        "name": "Problem Framing"
+      },
+      "zh-CN": {
+        "name": "问题框定"
+      }
+    },
+    "S065": {
+      "en": {
+        "name": "Opportunity Mapping"
+      },
+      "zh-CN": {
+        "name": "机会地图"
+      }
+    },
+    "S066": {
+      "en": {
+        "name": "Product Brainstorming"
+      },
+      "zh-CN": {
+        "name": "产品头脑风暴"
+      }
+    },
+    "S067": {
+      "en": {
+        "name": "PRD / Spec Writing"
+      },
+      "zh-CN": {
+        "name": "PRD / 需求规格撰写"
+      }
+    },
+    "S068": {
+      "en": {
+        "name": "Prioritization"
+      },
+      "zh-CN": {
+        "name": "优先级排序"
+      }
+    },
+    "S069": {
+      "en": {
+        "name": "Roadmap Planning"
+      },
+      "zh-CN": {
+        "name": "路线图规划"
+      }
+    },
+    "S070": {
+      "en": {
+        "name": "Sprint Planning"
+      },
+      "zh-CN": {
+        "name": "冲刺计划"
+      }
+    },
+    "S071": {
+      "en": {
+        "name": "Experiment Design"
+      },
+      "zh-CN": {
+        "name": "实验设计"
+      }
+    },
+    "S072": {
+      "en": {
+        "name": "Metrics Review"
+      },
+      "zh-CN": {
+        "name": "指标复盘"
+      }
+    },
+    "S073": {
+      "en": {
+        "name": "Product Launch"
+      },
+      "zh-CN": {
+        "name": "产品发布就绪与分级"
+      }
+    },
+    "S074": {
+      "en": {
+        "name": "User Activation"
+      },
+      "zh-CN": {
+        "name": "用户激活"
+      }
+    },
+    "S075": {
+      "en": {
+        "name": "Design Critique"
+      },
+      "zh-CN": {
+        "name": "设计评审意见"
+      }
+    },
+    "S076": {
+      "en": {
+        "name": "Design Handoff"
+      },
+      "zh-CN": {
+        "name": "设计交付给开发"
+      }
+    },
+    "S141": {
+      "en": {
+        "name": "Project Planning"
+      },
+      "zh-CN": {
+        "name": "立项受理与项目章程"
+      }
+    },
+    "S142": {
+      "en": {
+        "name": "Work Item Management"
+      },
+      "zh-CN": {
+        "name": "工作项管理"
+      }
+    },
+    "S143": {
+      "en": {
+        "name": "Status Reporting"
+      },
+      "zh-CN": {
+        "name": "基线偏差状态汇报"
+      }
+    },
+    "S144": {
+      "en": {
+        "name": "Capacity Planning"
+      },
+      "zh-CN": {
+        "name": "容量规划"
+      }
+    },
+    "S145": {
+      "en": {
+        "name": "Change Request"
+      },
+      "zh-CN": {
+        "name": "变更请求"
+      }
+    },
+    "S148": {
+      "en": {
+        "name": "Process Documentation"
+      },
+      "zh-CN": {
+        "name": "流程说明文档"
+      }
+    },
+    "S153": {
+      "en": {
+        "name": "Meeting Facilitation"
+      },
+      "zh-CN": {
+        "name": "会议主持与引导"
+      }
+    },
+    "S154": {
+      "en": {
+        "name": "Execution Plan"
+      },
+      "zh-CN": {
+        "name": "执行计划"
+      }
+    },
+    "S155": {
+      "en": {
+        "name": "Business Review"
+      },
+      "zh-CN": {
+        "name": "经营复盘"
+      }
+    },
+    "S156": {
+      "en": {
+        "name": "Continuous Improvement"
+      },
+      "zh-CN": {
+        "name": "持续改进"
+      }
+    },
+    "S157": {
+      "en": {
+        "name": "Data Exploration"
+      },
+      "zh-CN": {
+        "name": "数据探索"
+      }
+    },
+    "S158": {
+      "en": {
+        "name": "Data Validation"
+      },
+      "zh-CN": {
+        "name": "数据校验"
+      }
+    },
+    "S160": {
+      "en": {
+        "name": "SQL Query"
+      },
+      "zh-CN": {
+        "name": "SQL 查询"
+      }
+    },
+    "S161": {
+      "en": {
+        "name": "Statistical Analysis"
+      },
+      "zh-CN": {
+        "name": "统计分析"
+      }
+    },
+    "S162": {
+      "en": {
+        "name": "KPI Design"
+      },
+      "zh-CN": {
+        "name": "KPI 体系设计"
+      }
+    },
+    "S164": {
+      "en": {
+        "name": "Data Visualization"
+      },
+      "zh-CN": {
+        "name": "数据可视化"
+      }
+    },
+    "S167": {
+      "en": {
+        "name": "Market Sizing"
+      },
+      "zh-CN": {
+        "name": "市场规模测算"
+      }
+    },
+    "S168": {
+      "en": {
+        "name": "Trend Analysis"
+      },
+      "zh-CN": {
+        "name": "趋势分析"
+      }
+    },
+    "S169": {
+      "en": {
+        "name": "Knowledge Synthesis"
+      },
+      "zh-CN": {
+        "name": "知识综合 / 跨来源知识结构化"
+      }
+    },
+    "S170": {
+      "en": {
+        "name": "Scientific Research Planning"
+      },
+      "zh-CN": {
+        "name": "科学研究规划"
+      }
+    },
+    "S171": {
+      "en": {
+        "name": "Evidence Review"
+      },
+      "zh-CN": {
+        "name": "证据评审"
+      }
+    },
+    "S172": {
+      "en": {
+        "name": "Data Storytelling"
+      },
+      "zh-CN": {
+        "name": "数据叙事"
+      }
+    },
+    "S177": {
+      "en": {
+        "name": "Incident Response"
+      },
+      "zh-CN": {
+        "name": "事件响应"
+      }
+    },
+    "S179": {
+      "en": {
+        "name": "Technical Documentation"
+      },
+      "zh-CN": {
+        "name": "技术文档"
+      }
+    },
+    "S187": {
+      "en": {
+        "name": "Support Triage"
+      },
+      "zh-CN": {
+        "name": "支持分诊"
+      }
+    },
+    "S188": {
+      "en": {
+        "name": "Draft Support Response"
+      },
+      "zh-CN": {
+        "name": "支持回复起草"
+      }
+    },
+    "S189": {
+      "en": {
+        "name": "Customer Escalation"
+      },
+      "zh-CN": {
+        "name": "客户升级"
+      }
+    },
+    "S190": {
+      "en": {
+        "name": "Knowledge Base Article"
+      },
+      "zh-CN": {
+        "name": "知识库文章"
+      }
+    },
+    "S191": {
+      "en": {
+        "name": "QBR Preparation"
+      },
+      "zh-CN": {
+        "name": "季度业务回顾准备"
+      }
+    },
+    "S192": {
+      "en": {
+        "name": "Renewal Risk"
+      },
+      "zh-CN": {
+        "name": "续约风险挽留方案"
+      }
+    },
+    "S193": {
+      "en": {
+        "name": "Voice of Customer"
+      },
+      "zh-CN": {
+        "name": "客户声音"
+      }
+    },
+    "S194": {
+      "en": {
+        "name": "Support Operations"
+      },
+      "zh-CN": {
+        "name": "支持运营"
+      }
+    },
+    "S195": {
+      "en": {
+        "name": "Strategy Review"
+      },
+      "zh-CN": {
+        "name": "战略复盘"
+      }
+    },
+    "S196": {
+      "en": {
+        "name": "Board Meeting Preparation"
+      },
+      "zh-CN": {
+        "name": "董事会会议准备"
+      }
+    },
+    "S197": {
+      "en": {
+        "name": "Decision Logging"
+      },
+      "zh-CN": {
+        "name": "决策记账"
+      }
+    },
+    "S198": {
+      "en": {
+        "name": "OKR Alignment"
+      },
+      "zh-CN": {
+        "name": "OKR 对齐"
+      }
+    },
+    "S199": {
+      "en": {
+        "name": "Business Model Analysis"
+      },
+      "zh-CN": {
+        "name": "商业模式分析"
+      }
+    }
+  },
+  "agents": {
+    "D001": {
+      "en": {
+        "name": "Executive / Strategy Partner"
+      },
+      "zh-CN": {
+        "name": "高管与战略伙伴"
+      }
+    },
+    "D002": {
+      "en": {
+        "name": "Research & Knowledge Analyst"
+      },
+      "zh-CN": {
+        "name": "研究与知识分析师"
+      }
+    },
+    "D003": {
+      "en": {
+        "name": "Product Manager"
+      },
+      "zh-CN": {
+        "name": "产品经理"
+      }
+    },
+    "D005": {
+      "en": {
+        "name": "Sales Representative"
+      },
+      "zh-CN": {
+        "name": "销售代表"
+      }
+    },
+    "D006": {
+      "en": {
+        "name": "Customer Success Specialist"
+      },
+      "zh-CN": {
+        "name": "客户成功专员"
+      }
+    },
+    "D007": {
+      "en": {
+        "name": "Project / Operations Manager"
+      },
+      "zh-CN": {
+        "name": "项目与运营经理"
+      }
+    },
+    "D011": {
+      "en": {
+        "name": "Design Thinking Expert"
+      },
+      "zh-CN": {
+        "name": "设计思维专家"
+      }
+    }
+  },
+  "packages": {
+    "work-customer-success": {
+      "baseVersion": "1.0.0",
+      "baseDigest": "478ada1df43b41b272efaf5103d33902c78158509e319d518dee9c7524c937c2"
+    },
+    "work-discovery-execution": {
+      "baseVersion": "1.2.0",
+      "baseDigest": "9672d8cb453afd4b61b6eda0fb1365bdaedee20853f2600d466d2ce2e2b86313"
+    },
+    "work-engineering": {
+      "baseVersion": "1.0.0",
+      "baseDigest": "8a132ec3d768e7a333f820f5103c9fc533404718370679c389d7fa1b5a1d9a8c"
+    },
+    "work-executive": {
+      "baseVersion": "1.0.0",
+      "baseDigest": "87e55517983c06aa91e3b4512362140e88d706013a069e982c0719b4f526e69f"
+    },
+    "work-operations": {
+      "baseVersion": "1.0.0",
+      "baseDigest": "da1cd5e6411d76ecdb5227b7319a00f771cb448ab0f35b67300ba914d29f9282"
+    },
+    "work-product": {
+      "baseVersion": "1.0.0",
+      "baseDigest": "9b32089b5d1bad6d7e31f9f04c8e88e6ef1fb8ae658c7f98288c294a570c5cad"
+    },
+    "work-research": {
+      "baseVersion": "1.0.0",
+      "baseDigest": "1282bb212f195830483209be67aba99e1811bad0fc68bd35be6ccd3956d87b55"
+    },
+    "work-resolution": {
+      "baseVersion": "1.0.0",
+      "baseDigest": "737dc7b572f29f8eb97e5e9bd83b29ad18a4ca60e9ff1b0224d1abfa6007ced0"
+    },
+    "work-sales": {
+      "baseVersion": "1.1.0",
+      "baseDigest": "a0096612295d1aba84db3052fdc40030d1b81f55eed6665d33040784545f0e8d"
+    }
+  }
+}

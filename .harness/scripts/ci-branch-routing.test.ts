@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parse } from 'yaml';
 import { describe, expect, it } from 'vitest';
@@ -13,17 +13,55 @@ const probe = (eventName: string, branch: string) => ({
 });
 
 describe('develop integration routing preserves trusted deployment boundaries', () => {
-  it.each(['harness-verify', 'backend-gates', 'board-acceptance', 'skill-files-e2e'])(
-    '%s verifies pushes to develop and retains legacy main validation', name => {
-      for (const branch of ['develop', 'main']) {
-        expect(workflow(name).on.push.branches).toContain(branch);
-      }
-    },
-  );
+  it('limits all ordinary development PR triggers to develop', () => {
+    for (const file of readdirSync(resolve(root, '.github/workflows')).filter(f => f.endsWith('.yml'))) {
+      const w = workflow(file.replace(/\.yml$/, ''));
+      if (!Object.hasOwn(w.on, 'pull_request')) continue;
+      // Exact historical labeled operations are operational evidence, not code CI.
+      if (['cn-exact-f0eb-preflight.yml', 'preserve-cn-f0eb-originals.yml'].includes(file)) continue;
+      expect(w.on.pull_request?.branches, file).toEqual(['develop']);
+    }
+  });
 
-  it('requires DCO for develop and both production synchronization PRs', () => {
-    for (const branch of ['develop', 'main', 'main-cn', 'main-us']) {
-      expect(triggerAdmits(workflow('dco').on, probe('pull_request', branch)).admits).toBe(true);
+  it('never runs automatic code CI on production synchronization branches or tags', () => {
+    const deployment = new Set(['deploy-home.yml', 'deploy-devportal.yml', 'deploy-coord-gateway.yml']);
+    for (const file of readdirSync(resolve(root, '.github/workflows')).filter(f => f.endsWith('.yml'))) {
+      const w = workflow(file.replace(/\.yml$/, ''));
+      if (!Object.hasOwn(w.on, 'push') || deployment.has(file)) continue;
+      expect(w.on.push?.branches, file).toEqual(['develop']);
+      expect(w.on.push?.tags, file).toBeUndefined();
+      for (const branch of ['main', 'main-us', 'main-cn', 'worker/example'])
+        expect(triggerAdmits(w.on, probe('push', branch)).admits, file + ':' + branch).toBe(false);
+    }
+  });
+
+  it.each(['harness-verify'])('limits %s merge groups to develop', name => {
+    expect(workflow(name).on.merge_group.branches).toEqual(['develop']);
+    expect(workflow(name).on.push).toBeUndefined();
+  });
+
+  it('keeps production deployment separate from development validation', () => {
+    const gateway = workflow('deploy-coord-gateway');
+    const admit = (expr: string, event: string, branch: string) => new Function('github', `return (${expr});`)({event_name:event,ref:`refs/heads/${branch}`});
+    expect(gateway.jobs.validate.env).toBeUndefined();
+    for (const event of ['push', 'pull_request']) expect(admit(gateway.jobs.validate.if,event,'develop')).toBe(true);
+    expect(admit(gateway.jobs.validate.if,'push','main')).toBe(false);
+    expect(admit(gateway.jobs.deploy.if,'push','main')).toBe(false);
+    expect(admit(gateway.jobs.deploy.if,'workflow_dispatch','main')).toBe(true);
+    for (const branch of ['develop','main-us']) expect(admit(gateway.jobs.deploy.if,'push',branch)).toBe(false);
+    expect(gateway.concurrency.group).toContain("github.ref == 'refs/heads/main'");
+    expect(gateway.concurrency.group).toContain('coord-validation-');
+    expect(gateway.concurrency['cancel-in-progress']).toBe(false);
+    for (const [name, steps] of [
+      ['deploy-home', ['Static gates','Deployment failure and rollback contracts','China package language and landing-page contracts']],
+      ['deploy-devportal', ['Typecheck / lint / test']],
+    ] as const) {
+      const w=workflow(name);
+      expect(w.on.push).toBeUndefined();
+      expect(w.on.workflow_dispatch).toBeDefined();
+      expect(w.jobs.deploy.if).toContain("github.event_name == 'workflow_dispatch'");
+      expect(w.jobs.deploy.if).toContain("github.ref == 'refs/heads/main'");
+      for (const stepName of steps) expect(w.jobs.validate.steps.find((s: any)=>s.name===stepName).if).toBe("github.event_name == 'pull_request'");
     }
   });
 
@@ -35,14 +73,23 @@ describe('develop integration routing preserves trusted deployment boundaries', 
     expect(() => changedPaths({ ...input, git: () => { throw new Error('missing object'); } })).toThrow('missing object');
   });
 
-  it('only develop can automatically enter the Devapp writer', () => {
+  it('only explicit manual dispatch can enter the release planner', () => {
     const release = workflow('image-release');
     expect(workflow('backend-gates').jobs.deploy).toBeUndefined();
     const admitted = (event: string, branch: string) => new Function('github', 'inputs', `return (${release.jobs.plan.if});`)(
-      {event_name:event,ref:`refs/heads/${branch}`},{build_only:false});
-    expect(admitted('push','develop')).toBe(true);
+      {event_name:event,ref:`refs/heads/${branch}`,ref_type:'branch'},{build_only:false});
+    expect(admitted('push','develop')).toBe(false);
+    expect(admitted('workflow_dispatch','develop')).toBe(true);
     for(const branch of ['main','main-cn','main-us','feature/untrusted']) expect(admitted('push',branch)).toBe(false);
     for(const event of ['pull_request','merge_group']) expect(admitted(event,'develop')).toBe(false);
     expect(release.jobs.deploy.concurrency['cancel-in-progress']).toBe(false);
   });
+});
+
+it('converges PR and queue lightweight verdicts separately from hourly complete regression',()=>{
+ const merge=workflow('harness-verify'),acceptance=workflow('harness-acceptance');expect(merge.on.pull_request.branches).toEqual(['develop']);expect(merge.on.merge_group.branches).toEqual(['develop']);
+ const queue=merge.jobs['queue-ready'];expect(queue.if).toBe("always() && (github.event_name == 'merge_group' || !cancelled())");expect(queue.needs).toEqual(['verify-control-plane','verify-affected','verify-full-compile','merge-gate','backend-required']);expect(queue['continue-on-error']).toBeUndefined();expect(queue.steps.at(-1)).toMatchObject({run:'node .harness/scripts/ci-lightweight.mjs queue',env:{CI_QUEUE_NEEDS:'${{ toJSON(needs) }}'}});
+ for(const name of ['backend-gates','harness-acceptance','board-acceptance','skill-files-e2e']){const w=workflow(name);expect(w.on.merge_group).toBeUndefined();expect(w.on.pull_request).toBeUndefined();}
+ expect(acceptance.on.schedule).toEqual([{cron:'17 * * * *'}]);expect(acceptance.jobs['devportal-browser'].steps.some((step:any)=>step.name==='E2E (repeatable local gateway fixture)')).toBe(true);
+ expect(Object.keys(workflow('ci-pr-queue-plan').on)).toEqual(['workflow_dispatch']);expect(acceptance.jobs['queue-ready']).toBeUndefined();
 });

@@ -1,0 +1,7 @@
+Source: GitHub Actions job126174296929, native candidate1d05f47893d551a7bd11ecaf5bdcf96e6bed8ce6
+Raw log SHA256: 027d48fccfac1b92102061b5d76ac2fc1d5dfd7060337de8234dccbb64d0ff63
+2026-11-03T20:08:08.0410969Z ##[group]Run actions/checkout@v5
+2026-11-03T20:08:08.3924599Z [command]/usr/bin/git -c protocol.version=2 fetch --prune --no-recurse-submodules origin +refs/heads/*:refs/remotes/origin/* +refs/tags/*:refs/tags/*
+2026-11-03T20:22:21.1491705Z From https://github.com/boardx/workspacex
+2026-11-03T20:23:07.7430529Z Done in 18.4s
+2026-11-03T20:23:07.9225275Z ##[error]The operation was canceled.

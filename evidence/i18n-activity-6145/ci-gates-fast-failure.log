@@ -1,0 +1,18 @@
+gates-fast	契约单源 / 洋葱分层	﻿2026-11-02T20:06:16.4288933Z ##[group]Run node .harness/scripts/lint-contract-source.mjs
+gates-fast	契约单源 / 洋葱分层	2026-11-02T20:06:16.4289539Z ^[[36;1mnode .harness/scripts/lint-contract-source.mjs^[[0m
+gates-fast	契约单源 / 洋葱分层	2026-11-02T20:06:16.4290079Z ^[[36;1mnode .harness/scripts/lint-arch-deps.mjs apps/api/src^[[0m
+gates-fast	契约单源 / 洋葱分层	2026-11-02T20:06:16.4290681Z ^[[36;1m# 2026-09-22：本地版↔在线版能力差异矩阵的落地门控。矩阵只被界面读就会变成装饰，^[[0m
+gates-fast	契约单源 / 洋葱分层	2026-11-02T20:06:16.4291082Z ^[[36;1m# 而这类漂移的代价是「界面说不可用、后端照旧出网」（实测：本地版声明不出网，^[[0m
+gates-fast	契约单源 / 洋葱分层	2026-11-02T20:06:16.4291661Z ^[[36;1m# `selectImageProvider` 却返回 bailian 指向公网 DashScope）。^[[0m
+gates-fast	契约单源 / 洋葱分层	2026-11-02T20:06:16.4292191Z ^[[36;1mnode .harness/scripts/lint-edition-capabilities.mjs^[[0m
+gates-fast	契约单源 / 洋葱分层	2026-11-02T20:06:16.4312284Z shell: /usr/bin/bash -e {0}
+gates-fast	契约单源 / 洋葱分层	2026-11-02T20:06:16.4312780Z env:
+gates-fast	契约单源 / 洋葱分层	2026-11-02T20:06:16.4313157Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+gates-fast	契约单源 / 洋葱分层	2026-11-02T20:06:16.4313596Z ##[endgroup]
+gates-fast	契约单源 / 洋葱分层	2026-11-02T20:06:17.1492737Z ✗ [drift] apps/web/lib/generated/identity.mock.ts does not match the contract
+gates-fast	契约单源 / 洋葱分层	2026-11-02T20:06:17.1519624Z     Either it was hand-edited, or the contract changed and was not regenerated.
+gates-fast	契约单源 / 洋葱分层	2026-11-02T20:06:17.1520816Z     Fix: pnpm --filter @repo/contracts gen:mock, and commit the output with it.
+gates-fast	契约单源 / 洋葱分层	2026-11-02T20:06:44.9471836Z
+gates-fast	契约单源 / 洋葱分层	2026-11-02T20:06:44.9473358Z ❌ 1 violation(s). The contract is the single source -- the same fact in two places always drifts (ADR-020).
+gates-fast	契约单源 / 洋葱分层	2026-11-02T20:06:44.9474751Z scanned-dirs=apps/web/lib,apps/api/src
+gates-fast	契约单源 / 洋葱分层	2026-11-02T20:06:44.9550815Z ##[error]Process completed with exit code 1.

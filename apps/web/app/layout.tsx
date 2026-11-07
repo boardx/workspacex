@@ -1,3 +1,4 @@
+import { readLocale } from "@/lib/i18n/server";
 import type { Metadata } from "next";
 import "@fontsource-variable/noto-sans-sc";
 import "@fontsource-variable/jetbrains-mono";
@@ -41,16 +42,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
    * 人类 2026-09-22 的原话是「整个界面需要有明显的变化」——一行 `text-10` 的说明条
    * （改动前顶栏那条，且 <lg 直接隐藏）不算。
    */
+  const locale = readLocale();
   const edition = readDeploymentEdition();
   const cloudUrl = readCloudUrl();
   return (
-    <html lang="zh-CN" data-edition={edition} suppressHydrationWarning>
+    <html lang={locale} data-edition={edition} suppressHydrationWarning>
       <head>
         {/* 主题阻塞脚本：早于 hydration 执行，读 localStorage 定初始 `.dark`，避免刷新闪烁。 */}
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }} />
       </head>
       <body className={`${fonts.variables} font-sans antialiased`}>
-        <Providers edition={edition} cloudUrl={cloudUrl}>{children}</Providers>
+        <Providers locale={locale} edition={edition} cloudUrl={cloudUrl}>{children}</Providers>
       </body>
     </html>
   );

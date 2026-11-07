@@ -5,121 +5,78 @@ on:
       rounds:
         description: Ten complete regressions use this single immutable checkout
         type: choice
-        options: ['1', '10']
+        options: [ '1', '10' ]
         default: '1'
       lane:
         description: Targeted repairs run in four independent VMs; all preserves full regression
         type: choice
-        options: ['all', 'targeted', 'linux-application-recovery-complete', 'linux-six-business', 'linux-boundary-reap']
+        options: [ 'all', 'release', 'targeted', 'linux-application-recovery-complete', 'linux-six-business', 'linux-boundary-reap' ]
         default: 'all'
       mode:
         description: Development retains known clean business failures; never final acceptance
         type: choice
-        options: ['acceptance', 'development']
+        options: [ 'acceptance', 'development' ]
         default: 'acceptance'
       seed:
         description: Integer base seed for isolated fault fixtures
         type: string
         default: '0'
-  pull_request:
-    paths:
-      - 'scripts/cn-release-*.py'
-      - 'scripts/cn-hk-*.py'
-      - 'scripts/cn_candidate*.py'
-      - 'scripts/cn_image*.py'
-      - 'scripts/cn_archive*.py'
-      - 'scripts/bounded_workers.py'
-      - 'scripts/cn_release_simulation_domain.py'
-      - '.harness/scripts/vm/cn-runtime-continuation/**'
-      - '.harness/scripts/vm/cn-release-advance.py'
-      - 'tests/test_cn_release_*.py'
-      - 'tests/test_cn_candidate_*.py'
-      - 'tests/test_cn_image*.py'
-      - 'tests/test_cn_archive*.py'
-      - 'tests/test_release_failure_matrix.py'
-      - 'tests/test_cn_hk*.py'
-      - 'tests/cn_hk_performance_linux.py'
-      - 'tests/cn_release_simulation_domain_linux.py'
-      - 'tests/cn_release_postgres_linux.py'
-      - 'tests/cn_release_postgres_lifecycle_linux.py'
-      - 'tests/fixtures/cn-postgres-lifecycle/**'
-      - 'tests/cn_release_storage_linux.py'
-      - 'tests/cn_release_api_startup_linux.py'
-      - 'tests/cn_release_docker_cleanup_linux.py'
-      - 'tests/cn_release_boundary_reap_linux.py'
-      - 'tests/cn_release_api_outer_recovery_linux.py'
-      - 'tests/cn_release_postclear_recovery_linux.py'
-      - 'tests/fixtures/cn-postclear-recovery/**'
-      - 'tests/cn_release_application_recovery_linux.py'
-      - 'tests/fixtures/cn-application-recovery/**'
-      - 'tests/cn_release_six_business_linux.py'
-      - 'tests/cn_release_six_cleanup_linux.py'
-      - 'scripts/cn-release-six-port-lease.ts'
-      - 'tests/fixtures/cn-six-business/**'
-      - 'apps/web/e2e/cn-release-six-business.spec.ts'
-      - 'apps/web/playwright.cn-six-business.config.ts'
-      - 'tests/cn_release_migration_guard_linux.py'
-      - 'tests/cn_release_migration_terminal_linux.py'
-      - 'tests/cn_release_migration_owner_linux.py'
-      - 'tests/fixtures/cn-migration-owner/**'
-      - 'tests/cn_release_fsync_linux.py'
-      - 'tests/fixtures/cn-storage-fsync/**'
-      - 'tests/cn_release_readiness_linux.py'
-      - 'packages/cloud-deploy/src/cn-release-readiness-dispatch.ts'
-      - 'packages/cloud-deploy/test/cn-release-readiness-dispatch.test.ts'
-      - 'tests/fixtures/cn-api-startup/**'
-      - 'apps/api/docker/postgres-age/Dockerfile'
-      - 'apps/api/src/main.ts'
-      - 'apps/api/scripts/migrator.ts'
-      - 'apps/api/migrations/**'
-      - 'pnpm-lock.yaml'
-      - 'package.json'
-      - 'tests/cn_release_private_fixture.py'
-      - 'tests/cn_release_browser_linux.py'
-      - 'tests/cn_release_cgroup_linux.py'
-      - 'tests/cn-release-business-*.ts'
-      - 'scripts/cn-release-business-*.ts'
-      - 'scripts/build-cn-business-runtime.cjs'
-      - 'scripts/aliyun-release-auth.py'
-      - 'scripts/harden-aliyun-action.py'
-      - 'scripts/cloud-build-only.py'
-      - 'scripts/diagnose-cn-agent-postbuild.py'
-      - 'tests/test_cn_formal_*.py'
-      - 'tests/test_cn_repeated_layers.py'
-      - 'tests/test_cn_exact_source_admission.py'
-      - 'tests/test_cn_agent_postbuild_diagnostic.py'
-      - 'tests/test_cloud_build_only.py'
-      - 'tests/test_aliyun_release_auth.py'
-      - 'tests/test_auth_action_hardening.py'
-      - 'tests/test_cn_main_registration.py'
-      - 'tests/fixtures/cn-postgres-isolation/**'
-      - 'tests/fixtures/cn-promotion-recovery/**'
-      - 'docs/operations/cn-release-simulation-matrix.json'
-      - 'docs/operations/cn-release-simulation-defects.json'
-      - 'docs/operations/cn-release-simulation-invariants.json'
-      - 'docs/operations/cn-release-independent-review-*.json'
-      - '.github/workflows/cn-release-simulation.yml'
+  workflow_call:
+    inputs:
+      rounds:
+        type: string
+        default: "1"
+        required: false
+      lane:
+        type: string
+        default: all
+        required: false
+      mode:
+        type: string
+        default: acceptance
+        required: false
+      seed:
+        type: string
+        default: "0"
+        required: false
 permissions:
   contents: read
 jobs:
-  simulation:
-    strategy:
-      fail-fast: false
-      matrix:
-        suite: ${{ fromJSON(inputs.lane == 'targeted' && '["release","linux-api-outer-recovery","linux-application-recovery-complete","linux-six-business"]' || inputs.lane == 'linux-application-recovery-complete' && '["linux-application-recovery-complete"]' || inputs.lane == 'linux-six-business' && '["linux-six-business"]' || inputs.lane == 'linux-boundary-reap' && '["linux-boundary-reap"]' || '["all"]') }}
+  plan:
     runs-on: ubuntu-24.04
-    timeout-minutes: 300
+    timeout-minutes: 5
+    outputs:
+      suites: ${{ steps.plan.outputs.suites }}
+      split: ${{ steps.plan.outputs.split }}
     steps:
-      - name: Reject partial ten-round requests before setup
+      - uses: actions/checkout@v5
+        with: { ref: '${{ github.sha }}', persist-credentials: false }
+      - name: Resolve fixed single-round workflow plan
+        id: plan
         env:
           LANE: ${{ inputs.lane || 'all' }}
           ROUNDS: ${{ inputs.rounds || '1' }}
+          MODE: ${{ inputs.mode || 'acceptance' }}
         run: |
-          case "$LANE" in all|targeted|linux-application-recovery-complete|linux-six-business|linux-boundary-reap) ;; *) echo CI_FIXED_LANE_REQUIRED >&2; exit 1 ;; esac
-          if [ "$LANE" != all ] && [ "$ROUNDS" = 10 ]; then
-            echo 'CI_TEN_ALL_REQUIRED' >&2
-            exit 1
-          fi
+          python3 -I -B - <<'PYPLAN'
+          import importlib.util,json,os
+          spec=importlib.util.spec_from_file_location('sim','scripts/cn-release-simulation.py')
+          sim=importlib.util.module_from_spec(spec);spec.loader.exec_module(sim)
+          plan=sim.workflow_plan(os.environ['LANE'],int(os.environ['ROUNDS']),os.environ['MODE'])
+          with open(os.environ['GITHUB_OUTPUT'],'a') as output:
+              output.write('suites='+json.dumps(plan['suites'])+'\n')
+              output.write('split='+str(plan['split']).lower()+'\n')
+          PYPLAN
+  simulation:
+    needs: plan
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: ${{ fromJSON(needs.plan.outputs.suites) }}
+      max-parallel: 2
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    steps:
       - uses: actions/checkout@v5
         with:
           ref: ${{ github.sha }}
@@ -179,13 +136,26 @@ jobs:
           echo "CN_ARCHIVE_TEST_RUNTIME=$RUNNER_TEMP/cn-fixture" >> "$GITHUB_ENV"
           python3 -m venv "$RUNNER_TEMP/cn-test-sdk"
           "$RUNNER_TEMP/cn-test-sdk/bin/pip" install --disable-pip-version-check oss2==2.19.1 alibabacloud-credentials==0.3.6 aliyun-python-sdk-core==2.16.0 aliyun-python-sdk-sts==3.1.2
+      - name: Bound Linux terminal delegation diagnostics before release-only measurement
+        if: matrix.suite == 'release'
+        timeout-minutes: 1
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -m 700 "$RUNNER_TEMP/cn-terminal-home"
+          set +e
+          timeout --signal=TERM --kill-after=2s 25s sudo -n env -i PATH="$PATH" HOME="$RUNNER_TEMP/cn-terminal-home" LANG=C.UTF-8 PYTHONDONTWRITEBYTECODE=1 GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_TERMINAL_PROMPT=0 "$RUNNER_TEMP/cn-test-sdk/bin/python" -I -B -c 'import faulthandler,sys,unittest;sys.path.insert(0,"tests");faulthandler.dump_traceback_later(15);suite=unittest.defaultTestLoader.loadTestsFromName("test_cn_release_terminal_delegation.TerminalTests");result=unittest.TextTestRunner(verbosity=2).run(suite);sys.exit(not result.wasSuccessful())' > "$RUNNER_TEMP/cn-terminal-diagnostic.log" 2>&1
+          status=$?
+          set -e
+          cat "$RUNNER_TEMP/cn-terminal-diagnostic.log"
+          exit "$status"
       - name: Run production-code fixture suites with bounded logs
         env:
           ROUNDS: ${{ inputs.rounds || '1' }}
           SEED: ${{ inputs.seed || '0' }}
           MODE: ${{ inputs.mode || 'acceptance' }}
           SUITE: ${{ matrix.suite }}
-          WORKERS: ${{ matrix.suite == 'all' && '3' || '1' }}
+          WORKERS: ${{ (matrix.suite == 'all' || matrix.suite == 'remaining') && '3' || '1' }}
         run: 'sudo -n env -i PATH="$PATH" CN_ARCHIVE_TEST_NODE="$CN_ARCHIVE_TEST_NODE" CN_ARCHIVE_TEST_RUNTIME="$CN_ARCHIVE_TEST_RUNTIME" NODE_PATH="$NODE_PATH" CN_TEST_PLAYWRIGHT="$CN_TEST_PLAYWRIGHT" CN_TEST_CHROMIUM="$CN_TEST_CHROMIUM" GITHUB_ACTIONS=true CN_API_STARTUP_PG_IMAGE="$CN_API_STARTUP_PG_IMAGE" CN_SIX_REDIS_IMAGE="$CN_SIX_REDIS_IMAGE" GITHUB_RUN_ID="$GITHUB_RUN_ID" GITHUB_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" GITHUB_WORKSPACE="$GITHUB_WORKSPACE" RUNNER_TEMP="$RUNNER_TEMP" "$RUNNER_TEMP/cn-test-sdk/bin/python" -I -B scripts/cn-release-simulation-ci.py --sha "$GITHUB_SHA" --rounds "$ROUNDS" --seed "$SEED" --suite "$SUITE" --workers "$WORKERS" --mode "$MODE"'
       - name: Export bounded reports for the unprivileged artifact uploader
         if: always()
@@ -206,6 +176,8 @@ jobs:
             ${{ runner.temp }}/cn-simulation-artifacts/fullstack-install.log
             ${{ runner.temp }}/cn-simulation-artifacts/round-*/*.json
             ${{ runner.temp }}/cn-simulation-artifacts/round-*/*.log
+            ${{ runner.temp }}/cn-simulation-artifacts/round-*/*.jsonl
+            ${{ runner.temp }}/cn-terminal-diagnostic.log
             ${{ runner.temp }}/cn-simulation-artifacts/round-*/api-container-owner/owner.json
             ${{ runner.temp }}/cn-simulation-artifacts/round-*/api-container-owner/api-create-intent.json
             ${{ runner.temp }}/cn-simulation-artifacts/round-*/api-container-owner/api-create-receipt.json
@@ -221,3 +193,41 @@ jobs:
             ${{ runner.temp }}/cn-simulation-artifacts/round-*/six-kill-control-owner/*.json
           retention-days: 7
           if-no-files-found: warn
+
+  aggregate:
+    name: ${{ needs.plan.outputs.split == 'true' && 'simulation (all)' || 'split-aggregation (not selected)' }}
+    needs: [ plan, simulation ]
+    if: always() && needs.plan.outputs.split == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Require both producer jobs to succeed
+        env:
+          RESULT: ${{ needs.simulation.result }}
+        run: test "$RESULT" = success
+      - uses: actions/checkout@v5
+        with: { ref: '${{ github.sha }}', fetch-depth: 0, persist-credentials: false }
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: cn-simulation-${{ github.run_id }}-${{ github.run_attempt }}-release
+          path: ${{ runner.temp }}/cn-split-parts/release
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: cn-simulation-${{ github.run_id }}-${{ github.run_attempt }}-remaining
+          path: ${{ runner.temp }}/cn-split-parts/remaining
+      - name: Reconcile exact complete suite and case inventories
+        env:
+          SEED: ${{ inputs.seed || '0' }}
+        run: python3 -I -B scripts/cn-release-simulation-aggregate.py --parts "$RUNNER_TEMP/cn-split-parts" --output "$RUNNER_TEMP/cn-split-combined" --sha "$GITHUB_SHA" --run-id "$GITHUB_RUN_ID" --attempt "$GITHUB_RUN_ATTEMPT" --seed "$SEED"
+      - name: Retain combined report without widening acceptance
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: cn-simulation-${{ github.run_id }}-${{ github.run_attempt }}-combined
+          path: ${{ runner.temp }}/cn-split-combined
+          retention-days: 7
+          if-no-files-found: warn
+concurrency:
+  group: cn-release-simulation-full-${{ github.run_id }}
+  cancel-in-progress: false
+  queue: single

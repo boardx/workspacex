@@ -1,0 +1,32 @@
+{
+  "source": "232421f2a9ff9bdfaaf020b3c3f943c08eabff0a",
+  "titles": [
+    "survey locale preserves real author publishing, anonymous file submission, review, report and PostgreSQL identities"
+  ],
+  "project": "seeded",
+  "cases": 1,
+  "files": 1,
+  "innerCommand": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "playwright",
+    "test",
+    "--config",
+    "playwright.fullstack-smoke.config.ts",
+    "--project=seeded",
+    "e2e/i18n-survey-journey.spec.ts",
+    "--workers=1",
+    "--retries=0",
+    "--max-failures=1",
+    "--grep",
+    "(?:survey locale preserves real author publishing, anonymous file submission, review, report and PostgreSQL identities)$",
+    "--reporter=list,json"
+  ],
+  "caseTimeoutMs": 180000,
+  "worker": 1,
+  "retries": 0,
+  "maxFailures": 1,
+  "selectionOnlyNotRuntimePass": true
+}

@@ -2,6 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
+import { createOwnedSurvey, createSurveyOrganization, ownedSurveyApi, ownedSurveyIdentity, surveyAccountFixture, switchSurveyOrganization } from "./support/survey-owned-organization";
 
 const TEMPLATE_TITLE = "会议反馈调查";
 
@@ -227,23 +228,35 @@ test('紧凑问卷输入与发布设置在桌面平板手机保持可操作',asy
 
 test('R1 问卷体验：空列表单一主入口与创建键盘校验',async({page},testInfo)=>{
  test.setTimeout(120000);
+ const fixture=surveyAccountFixture();
+ try {
+ const account=fixture.seed();
  const identityResponse=page.waitForResponse(response=>new URL(response.url()).pathname.endsWith('/identity/me')&&response.request().method()==='GET');
- await loginAsAdmin(page);
+ await page.goto('/login');
+ await page.getByTestId('login-email').fill(account.email);
+ await page.getByTestId('login-password').fill(account.password);
+ await page.getByTestId('login-submit').click();
+ await expect(page).toHaveURL(/\/home$/);
  // Read a fresh authenticated response after login navigation; Chromium may release
  // response bodies from the old document during that navigation.
- const token=await page.evaluate(()=>localStorage.getItem('wsx.sessionToken'));expect(token).toBeTruthy();
- const identity=await page.request.get((await identityResponse).url(),{headers:{Authorization:`Bearer ${token}`}});expect(identity.ok()).toBeTruthy();
- const authenticated=await identity.json() as {org:{id:string};orgRole:string};
- expect(authenticated.org.id).toBe(FULLSTACK_E2E.orgId);expect(authenticated.orgRole).toBe('admin');
- // Earlier tests create surveys in this same ephemeral organization. Reset through
- // the real UI only inside the standard local isolated stack, never on a live host.
- expect(process.env.WORKSPACEX_ISOLATION_ID).toBeTruthy();expect(new URL(page.url()).hostname).toBe('127.0.0.1');
+ const identityUrl=(await identityResponse).url(),api=ownedSurveyApi(page,identityUrl);
+ const authenticated=await ownedSurveyIdentity(page,identityUrl,account.orgId) as {org:{id:string};orgRole:string};
+ expect(authenticated.org.id).toBe(account.orgId);expect(authenticated.orgRole).toBe('admin');
+ // Never delete the shared org's surveys: another worker may be publishing them.
+ // Keep a foreign sentinel, and exercise the real delete UI on our own survey only.
+ const foreign=await createOwnedSurvey(page,identityUrl,`R1 foreign sentinel ${testInfo.testId}`);
+ const foreignBefore=await api(`/surveys/${foreign.id}`);
+ const ownedOrg=await createSurveyOrganization(page,identityUrl);
+ expect(ownedOrg).not.toBe(authenticated.org.id);
+ const ownedIdentity=await ownedSurveyIdentity(page,identityUrl,ownedOrg);
+ expect(ownedIdentity.org.id).toBe(ownedOrg);expect(ownedIdentity.orgRole).toBe('admin');
+ const owned=await createOwnedSurvey(page,identityUrl,'R1 owned deletion fixture');
  const loaded=page.waitForResponse(response=>/\/surveys$/.test(response.url())&&response.request().method()==='GET');
  await page.goto('/studio/survey');const response=await loaded;expect(response.ok()).toBeTruthy();
  // The observed GET can belong to the document replaced by goto. Read its URL
  // through the authenticated request context, whose body survives navigation.
- const list=await page.request.get(response.url(),{headers:{Authorization:`Bearer ${token}`}});expect(list.ok()).toBeTruthy();
- const surveys=await list.json() as {id:string}[];
+ const surveys=await api('/surveys') as {id:string}[];
+ expect(surveys.map(survey=>survey.id)).toEqual([owned.id]);
  for(const survey of surveys){
    const card=page.getByTestId(`survey-card-${survey.id}`);await card.getByRole('button',{name:/更多操作：/}).click();
    page.once('dialog',dialog=>dialog.accept());
@@ -270,6 +283,9 @@ test('R1 问卷体验：空列表单一主入口与创建键盘校验',async({pa
  await expect(page).toHaveURL(/\/studio\/survey\/new\/import\?draft=/);
  await expect(page.getByLabel('问卷需求')).toBeVisible();
  await page.screenshot({path:testInfo.outputPath('r1-created-ai-entry.png'),fullPage:true});
+ await switchSurveyOrganization(page,identityUrl,authenticated.org.id);
+ expect(await api(`/surveys/${foreign.id}`)).toEqual(foreignBefore);
+ } finally { try { await page.close(); } finally { fixture.cleanup(); } }
 });
 
 test('R1 问卷体验：读取失败后直接重选同一文件保留原文',async({page},testInfo)=>{

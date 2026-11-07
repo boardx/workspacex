@@ -1,14 +1,14 @@
 import { createCipheriv, randomBytes, randomUUID, sign, type KeyObject } from "node:crypto";
 import { registerBillingRawBodyParser } from "../../src/interface/middleware/billing-raw-body-parser";
 import type { Request, Response } from "express";
-import { orderFixture } from "./order-fixture";
+import { orderFixture, type BillingFixtureOptions } from "./order-fixture";
 import { asOwner } from "../support/db";
 
 export interface ReceiptWorker {
   runOnce(): Promise<void>;
   onModuleDestroy(): Promise<void>;
 }
-export async function notifyFixture(background = false, options: { platformVerification?: boolean } = {}) {
+export async function notifyFixture(background = false, options: BillingFixtureOptions = {}) {
   const network = { dropAck: false };
   const base = await orderFixture(app => {
     const server = app.getHttpAdapter().getInstance();
@@ -25,6 +25,11 @@ export async function notifyFixture(background = false, options: { platformVerif
     await asOwner(async c => {
       if ((await c.query("SELECT to_regclass('billing_payment_receipts') AS t")).rows[0]?.t) await c.query("DELETE FROM billing_payment_receipts WHERE provider_event_id LIKE 'f05-%'");
       await c.query("DELETE FROM billing_webhook_events WHERE provider_event_id LIKE 'f05-%' OR provider_event_id LIKE 'security:wechat:%'");
+      await c.query("DELETE FROM billing_payment_conflicts WHERE user_id IN ($1,$2)",["f04-order-user","f04-order-other"]);
+      await c.query("DELETE FROM billing_monthly_orders WHERE user_id IN ($1,$2)",["f04-order-user","f04-order-other"]);
+      await c.query("DELETE FROM billing_subscriptions WHERE user_id IN ($1,$2)",["f04-order-user","f04-order-other"]);
+      await c.query("DELETE FROM credit_consumption_requests WHERE user_id LIKE 'f04-order-%'");
+      await c.query("DELETE FROM credit_subscription_periods WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_id LIKE 'f04-order-%')");
       await c.query("DELETE FROM credit_transactions WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_id LIKE 'f04-order-%')");
       await c.query("DELETE FROM credit_wallets WHERE owner_id LIKE 'f04-order-%'");
       await c.query("DROP TRIGGER IF EXISTS f05_ledger_fault ON credit_transactions");

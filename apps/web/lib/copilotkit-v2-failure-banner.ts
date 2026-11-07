@@ -68,8 +68,8 @@ export function isRunSucceededWithOutput(view: {
  * 这一轮**完成了**、中途**确实出过错**、上面的结果**可以用**——并且它不带重试入口
  * （重试一条已经成功的 run 只会浪费一次真实模型调用）。
  */
-export const RUN_RECOVERED_NOTICE =
-  "这一轮已经完成，中途有步骤出错但已经恢复，上面的结果可以正常使用。";
+export { RUN_RECOVERED_NOTICE } from "./chat-runtime-labels";
+import { RUN_RECOVERED_NOTICE } from "./chat-runtime-labels";
 
 /**
  * run 的权威视图 → 横幅正文。**两条路径共用这一个函数**：失败当场（`onError` 补读之后）

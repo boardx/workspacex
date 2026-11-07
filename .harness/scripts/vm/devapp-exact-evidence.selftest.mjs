@@ -1,9 +1,10 @@
 import {test} from 'node:test';
+import { SOURCE_VERIFICATION_PROFILES } from '../ci-devapp-integration-gate.mjs';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {generateKeyPairSync,verify} from 'node:crypto';
 import {dispatchAndWait,terminal,identity,authorizeParent,requireCandidateCI,waitCandidateCI} from './devapp-exact-evidence.mjs';
-import {validateCoordination,signedDevapp,authorizeCandidate,boundedEnvelope,DEVAPP_EVIDENCE_MAX_BYTES,trustedGitHubCli} from './devapp-runtime-identity.mjs';
+import {CANDIDATE_SOURCE_VERIFICATION_PROFILES,CANDIDATE_INTEGRATION_WORKFLOWS,validateCoordination,signedDevapp,authorizeCandidate,boundedEnvelope,DEVAPP_EVIDENCE_MAX_BYTES,trustedGitHubCli} from './devapp-runtime-identity.mjs';
 const source='a'.repeat(40),attempt='gha-10-2',ref='refs/heads/main-cn',requestId='12345678-1234-1234-1234-123456789abc',title=`devapp-exact:${attempt}:${requestId}`;
 const run=()=>({id:12,run_attempt:1,head_sha:source,path:'.github/workflows/real-model-chat-evidence.yml',display_title:title,event:'workflow_dispatch',repository:{full_name:'boardx/workspacex'},head_repository:{full_name:'boardx/workspacex'},status:'completed',conclusion:'success',created_at:'2026-10-01T00:01:00Z'});
 const parent=()=>({...run(),id:10,run_attempt:2,path:'.github/workflows/devapp-exact-source.yml',status:'in_progress',head_branch:'main-cn'});
@@ -11,11 +12,13 @@ const jobs=()=>[{name:'deploy',run_id:10,head_sha:source,status:'in_progress',st
 const raw=()=>({run:run(),coordination:{source,attempt,requestId,parentId:10,parentAttempt:2,runId:12,runAttempt:1}});
 const target={source,path:run().path,title};
 function ciRead(p){
- const backend=p.includes('backend-gates.yml')||/\/22(?:\/|$)/.test(p),id=backend?22:21,workflow=backend?'backend-gates.yml':'harness-verify.yml';
- if(!p.includes('/workflows/')&&!/\/(21|22)(?:\/|$)/.test(p))return undefined;
- const r={...run(),id,head_branch:'main',event:'push',path:'.github/workflows/'+workflow};
+ if(p.includes('/contents/.github/workflows/harness-verify.yml?ref='))return {type:'file',path:'.github/workflows/harness-verify.yml',encoding:'base64',content:Buffer.from('jobs:\n  verify-control-plane:\n  verify-affected:\n  verify-full-compile:\n').toString('base64')};
+ if(p.includes('/contents/.harness/config/ci-check-policy.json?ref='))return {type:'file',path:'.harness/config/ci-check-policy.json',encoding:'base64',content:Buffer.from('{}').toString('base64')};
+ const backend=p.includes('backend-gates.yml')||/\/22(?:\/|$)/.test(p),acceptance=p.includes('harness-acceptance.yml')||/\/23(?:\/|$)/.test(p),id=backend?22:acceptance?23:21,workflow=backend?'backend-gates.yml':acceptance?'harness-acceptance.yml':'harness-verify.yml';
+ if(!p.includes('/workflows/')&&!/\/(21|22|23)(?:\/|$)/.test(p))return undefined;
+ const r={...run(),id,head_branch:'develop',event:'push',path:'.github/workflows/'+workflow};
  if(p.includes('/runs?'))return {total_count:1,workflow_runs:[r]};
- if(p.includes('/jobs?')){const names=backend?['gates-fast','gates-test (1)','gates-test (2)','gates-runtime','e2e-core-loop','native-document-chain','native-runtime-lane']:['verify-control-plane','verify-affected','verify-full-compile','full-regression-core','e2e-full'];return {total_count:names.length,jobs:names.map(name=>({name,run_id:id,head_sha:source,status:'completed',conclusion:'success'}))};}
+ if(p.includes('/jobs?')){const names=backend?['gates-fast','gates-test (1)','gates-test (2)','gates-runtime','e2e-core-loop','native-document-chain','native-runtime-lane']:acceptance?['verify-full-compile','full-regression-core','e2e-full']:['verify-control-plane','verify-affected'];return {total_count:names.length,jobs:names.map(name=>({name,run_id:id,head_sha:source,status:'completed',conclusion:'success'}))};}
  return r;
 }
 test('validates bounded exact identities and rejects mutable/unsafe inputs',()=>{assert.deepEqual(identity(source,attempt,ref),{source,attempt,ref});for(const args of [['main',attempt,ref],[source,'gha-1-1'.repeat(20),ref],[source,attempt,'refs/heads/a..b'],[source,attempt,'main-cn']])assert.throws(()=>identity(...args));});
@@ -45,10 +48,12 @@ test('signs only after independent terminal re-read; no key request on rejected 
 });
 test('installed single-source CI gate requires harness plus backend and every matrix shard',async()=>{
  const api=async(_m,p)=>ciRead('repos/boardx/workspacex/'+p);
- assert.deepEqual(await requireCandidateCI(api,source),{'harness-verify.yml':21,'backend-gates.yml':22});
- for(const failure of ['harness-source','backend-failed','backend-shard-skipped','backend-missing-native']){
+ assert.deepEqual(await requireCandidateCI(api,source),{'harness-verify.yml':21,'harness-acceptance.yml':23,'backend-gates.yml':22});
+ for(const failure of ['harness-source','acceptance-failed','acceptance-missing-core','backend-failed','backend-shard-skipped','backend-missing-native']){
   await assert.rejects(requireCandidateCI(async(_m,p)=>{const result=ciRead('repos/boardx/workspacex/'+p);
    if(failure==='harness-source'&&p.includes('/21/')&&result.jobs)result.jobs[0].head_sha='b'.repeat(40);
+   if(failure==='acceptance-failed'&&p.includes('harness-acceptance.yml'))result.workflow_runs[0].conclusion='failure';
+   if(failure==='acceptance-missing-core'&&p.includes('/23/')&&result.jobs)result.jobs=result.jobs.filter(j=>j.name!=='full-regression-core');
    if(failure==='backend-failed'&&p.includes('backend-gates.yml'))result.workflow_runs[0].conclusion='failure';
    if(failure==='backend-shard-skipped'&&p.includes('/22/')&&result.jobs)result.jobs.find(j=>j.name==='gates-test (2)').conclusion='skipped';
    if(failure==='backend-missing-native'&&p.includes('/22/')&&result.jobs)result.jobs=result.jobs.filter(j=>j.name!=='native-runtime-lane');
@@ -95,7 +100,16 @@ for(const signal of ['SIGTERM','SIGINT','SIGHUP'])test('real signing supervisor 
  const parent=cp.spawn(process.execPath,['--input-type=module','-e',code],{stdio:['ignore','pipe','pipe']});let output='';parent.stdout.on('data',b=>output+=b);const completion=new Promise(resolve=>parent.once('close',resolve));
  try{
   const deadline=Date.now()+5000;while(!fs.existsSync(ready)&&Date.now()<deadline)await new Promise(r=>setTimeout(r,10));assert.ok(fs.existsSync(ready));const childPid=Number(fs.readFileSync(ready,'utf8'));
-  parent.kill(signal);assert.equal(await completion,3);assert.equal(output,'');assert.equal(fs.existsSync(owned),false);assert.throws(()=>process.kill(childPid,0));
+  parent.kill(signal);assert.equal(await completion,3);assert.equal(output,'');assert.equal(fs.existsSync(owned),false);
+  // A process exit/stdio close can precede the kernel's final PID removal.
+  // Observe termination rather than assuming kill(pid, 0) must fail immediately.
+  const reapedBy=Date.now()+1000;
+  let gone=false;
+  while(Date.now()<reapedBy){
+   try{process.kill(childPid,0);}catch(error){if(error.code==='ESRCH'){gone=true;break;}throw error;}
+   await new Promise(resolve=>setTimeout(resolve,10));
+  }
+  assert.ok(gone,'signing worker must be reaped after supervisor termination');
  }finally{if(parent.exitCode===null)parent.kill('SIGKILL');fs.rmSync(directory,{recursive:true,force:true});}
 });
 
@@ -205,19 +219,80 @@ test('CI green cannot continue if desired ref drifts during the final gate read'
  await assert.rejects(waitCandidateCI(ports));assert.equal(ports.result().writes,0);assert.equal(ports.result().sleeps,0);
 });
 
-test('CI wait rejects malformed non-main run identities before treating main run as missing',async()=>{
+test('CI wait rejects malformed non-develop run identities before treating develop run as missing',async()=>{
  for(const change of [{repository:{full_name:'foreign/repo'}},{head_repository:{full_name:'foreign/repo'}},{path:'.github/workflows/foreign.yml'},{id:0},{run_attempt:0}]){
   const ports=waitingCI('pending'),read=ports.api;
-  ports.api=async(m,p)=>{const value=await read(m,p);if(value.workflow_runs)for(const r of value.workflow_runs)Object.assign(r,{head_branch:'develop'},change);return value;};
+  ports.api=async(m,p)=>{const value=await read(m,p);if(value.workflow_runs)for(const r of value.workflow_runs)Object.assign(r,{head_branch:'main'},change);return value;};
   await assert.rejects(waitCandidateCI(ports));assert.equal(ports.result().sleeps,0);assert.equal(ports.result().writes,0);
  }
 });
-test('CI wait permits legitimate non-main history while waiting for exact main CI',async()=>{
+test('CI wait permits legitimate non-develop history while waiting for exact develop CI',async()=>{
  const ports=waitingCI('pending'),read=ports.api;let turn=0;const sleep=ports.sleep;
  ports.sleep=async ms=>{turn++;await sleep(ms);};
  ports.api=async(m,p)=>{const value=await read(m,p);if(value.workflow_runs){
-  if(turn===0)for(const r of value.workflow_runs)Object.assign(r,{head_branch:'develop',status:'completed',conclusion:'failure'});
-  else{value.workflow_runs.push({...value.workflow_runs[0],id:1,head_branch:'develop',status:'completed',conclusion:'failure'});value.total_count++;}
+  if(turn===0)for(const r of value.workflow_runs)Object.assign(r,{head_branch:'main',status:'completed',conclusion:'failure'});
+  else{value.workflow_runs.push({...value.workflow_runs[0],id:1,head_branch:'main',status:'completed',conclusion:'failure'});value.total_count++;}
  }return value;};
  await waitCandidateCI(ports);assert.equal(ports.result().sleeps,1);assert.equal(ports.result().writes,0);
+});
+
+test('candidate CI accepts only develop producer and rejects main-only or foreign evidence',async()=>{
+ for(const branch of ['main','main-us','feature/foreign'])await assert.rejects(requireCandidateCI(async(_m,p)=>{const value=ciRead('repos/boardx/workspacex/'+p);if(value.workflow_runs)for(const r of value.workflow_runs)r.head_branch=branch;return value;},source));
+});
+test('develop CI never borrows an old green attempt when the newest run fails or reruns',async()=>{
+ for(const mode of ['new-failed-run','changed-attempt'])await assert.rejects(requireCandidateCI(async(_m,p)=>{
+  const value=ciRead('repos/boardx/workspacex/'+p);
+  if(mode==='new-failed-run'&&value.workflow_runs){value.workflow_runs.push({...value.workflow_runs[0],id:value.workflow_runs[0].id+100,conclusion:'failure'});value.total_count++;}
+  if(mode==='changed-attempt'&&p==='actions/runs/21')value.run_attempt++;
+  return value;
+ },source));
+});
+
+
+function queueCIRead(p,mutation=''){
+ const result=ciRead('repos/boardx/workspacex/'+p);
+ if(p.includes('contents/')){result.content=Buffer.from(JSON.stringify({sourceVerificationEvent:mutation==='bad-mode'?'pull_request':'merge_group'})).toString('base64');return result;}
+ const runs=result.workflow_runs??(result.jobs?[]:[result]);
+ for(const r of runs){r.event=mutation==='wrong-event'?'push':'merge_group';r.head_branch=mutation==='wrong-branch'?'gh-readonly-queue/main/pr-1-'+source:'gh-readonly-queue/develop/pr-1-'+source;if(mutation==='wrong-source')r.head_sha='b'.repeat(40);}
+ if(result.jobs){
+  const backend=p.includes('/22/'),acceptance=p.includes('/23/');
+  const checks=CANDIDATE_SOURCE_VERIFICATION_PROFILES.merge_group[backend?2:acceptance?1:0].checks;
+  const names=backend?[...checks,'gates-test (1)','gates-test (2)','native-document-chain','native-runtime-lane']:checks;
+  result.jobs=names.map(name=>({name,run_id:backend?22:acceptance?23:21,head_sha:source,status:'completed',conclusion:'success'}));result.total_count=result.jobs.length;
+  if(mutation==='missing')result.jobs.pop();
+  if(mutation==='skipped')result.jobs[0].conclusion='skipped';
+ }
+ if(mutation==='truncated'&&result.workflow_runs)result.total_count++;
+ if(mutation==='rerun'&&!result.workflow_runs&&!result.jobs)result.run_attempt++;
+ return result;
+}
+test('source committed queue policy requires exact candidate evidence from all three workflows',async()=>{
+ const calls=[];const result=await requireCandidateCI(async(_m,p)=>{calls.push(p);return queueCIRead(p);},source);
+ assert.equal(result['harness-acceptance.yml'],23);
+ assert.equal(calls[0],`contents/.harness/config/ci-check-policy.json?ref=${source}`);
+ assert.ok(calls.filter(p=>p.includes('/runs?')).every(p=>p.includes('event=merge_group')));
+});
+for(const mutation of ['bad-mode','wrong-event','wrong-branch','wrong-source','missing','skipped','truncated','rerun'])test('queue source rejects '+mutation,async()=>{
+ await assert.rejects(requireCandidateCI(async(_m,p)=>queueCIRead(p,mutation),source));
+});
+
+test('standalone installed source profiles match shared integration policy',()=>assert.deepEqual(CANDIDATE_SOURCE_VERIFICATION_PROFILES,SOURCE_VERIFICATION_PROFILES));
+
+test('exact source workflow distinguishes pre-split push evidence',async()=>{
+ const result=await requireCandidateCI(async(_m,p)=>{
+  const value=ciRead('repos/boardx/workspacex/'+p);
+  if(p.includes('contents/.github/workflows/'))value.content=Buffer.from('jobs:\n  verify-control-plane:\n  verify-affected:\n  verify-full-compile:\n  full-regression-core:\n  e2e-full:\n').toString('base64');
+  if(p.includes('/21/')&&value.jobs){for(const name of ['verify-full-compile','full-regression-core','e2e-full'])value.jobs.push({...value.jobs[0],name});value.total_count=value.jobs.length;}
+  return value;
+ },source);
+ assert.deepEqual(Object.keys(result),['harness-verify.yml','backend-gates.yml']);
+});
+for(const kind of ['unavailable','malformed','partial'])test('source workflow discovery rejects '+kind,async()=>{
+ await assert.rejects(requireCandidateCI(async(_m,p)=>{
+  if(p.includes('contents/.github/workflows/')){
+   if(kind==='unavailable')throw Error('unavailable');
+   return {type:'file',path:'.github/workflows/harness-verify.yml',encoding:'base64',content:Buffer.from(kind==='partial'?'  verify-control-plane:\n  verify-affected:\n  verify-full-compile:\n  e2e-full:\n':'bad yaml').toString('base64')};
+  }
+  return ciRead('repos/boardx/workspacex/'+p);
+ },source));
 });

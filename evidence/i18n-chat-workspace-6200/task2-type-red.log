@@ -1,0 +1,22 @@
+
+> web@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+> tsc --noEmit
+
+components/chat/copilotkit-v2-panel-body.tsx(48,15): error TS2300: Duplicate identifier 'LocalSuggestionChip'.
+components/chat/copilotkit-v2-panel-body.tsx(57,15): error TS2300: Duplicate identifier 'LocalSuggestionChip'.
+components/chat/copilotkit-v2-panel-body.tsx(60,10): error TS2300: Duplicate identifier 'useAsrDraft'.
+components/chat/copilotkit-v2-panel-body.tsx(66,10): error TS2300: Duplicate identifier 'useAsrDraft'.
+tests/chat-agent-name-i18n.test.ts(6,27): error TS2345: Argument of type '{ name: string; catalogSource: "official"; avatar: { kind: "illustration"; key: string; alt: string; }; }' is not assignable to parameter of type 'NamedAgent'.
+  The types of 'avatar.key' are incompatible between these types.
+    Type 'string' is not assignable to type '"person-1" | "person-2" | "person-3" | "person-4" | "person-5" | "person-6" | "person-7" | "person-8" | "person-9" | "person-10" | "person-11" | "person-12" | "person-13" | "person-14" | ... 70 more ... | "dh-60-sustainability-esg-analyst"'.
+tests/chat-agent-name-i18n.test.ts(8,27): error TS2345: Argument of type '{ name: string; catalogSource: "official"; avatar: { kind: "illustration"; key: string; alt: string; }; }' is not assignable to parameter of type 'NamedAgent'.
+  The types of 'avatar.key' are incompatible between these types.
+    Type 'string' is not assignable to type '"person-1" | "person-2" | "person-3" | "person-4" | "person-5" | "person-6" | "person-7" | "person-8" | "person-9" | "person-10" | "person-11" | "person-12" | "person-13" | "person-14" | ... 70 more ... | "dh-60-sustainability-esg-analyst"'.
+tests/chat-agent-name-i18n.test.ts(11,77): error TS2322: Type '{ kind: "illustration"; key: string; alt: string; }' is not assignable to type '{ kind: "illustration"; key: "person-1" | "person-2" | "person-3" | "person-4" | "person-5" | "person-6" | "person-7" | "person-8" | "person-9" | "person-10" | "person-11" | "person-12" | ... 72 more ... | "dh-60-sustainability-esg-analyst"; alt: string; }'.
+  Types of property 'key' are incompatible.
+    Type 'string' is not assignable to type '"person-1" | "person-2" | "person-3" | "person-4" | "person-5" | "person-6" | "person-7" | "person-8" | "person-9" | "person-10" | "person-11" | "person-12" | "person-13" | "person-14" | ... 70 more ... | "dh-60-sustainability-esg-analyst"'.
+tests/ui/i18n-chat-attachment-preview.test.tsx(11,93): error TS2322: Type 'void' is not assignable to type 'never'.
+tests/ui/i18n-chat-realtime-session.test.tsx(14,95): error TS2322: Type 'void' is not assignable to type 'never'.
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  web@0.1.0 typecheck: `tsc --noEmit`
+Exit status 2
