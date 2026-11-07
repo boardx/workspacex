@@ -1,0 +1,14 @@
+{
+  "source": "24654a6200dec8be1270b1eb3e708744b22379f0",
+  "sourceFileSha256": "8a6f63e8805dff666616c0e3446f307a1b0d7e6063071bc5ae9d71b3270795a1",
+  "command": [
+    "/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/deep-agent-service/.venv/bin/python",
+    "-m",
+    "pytest",
+    "tests/golden/test_tc5_checkpoint_kill_recovery.py",
+    "-v"
+  ],
+  "exitCode": 0,
+  "postgres": "16-alpine",
+  "sharedEnvironmentPython": true
+}

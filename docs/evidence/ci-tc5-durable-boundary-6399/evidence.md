@@ -1,0 +1,9 @@
+# Explicit committed checkpoint barrier for TC5 (#6399)
+
+CI run42398917990/job128482258757 on PR6374 head53f345 failed at the unchanged durable restart assertion: latest cold get_state could apply pending writes, while selecting its checkpoint ID explicitly returned values without the second tool request.
+
+This separate repair reuses the exact TC5 file blob already present in PR6374 head24654a6200dec8be1270b1eb3e708744b22379f0 (introduced by external c993ab34e64cbf13a20fa030d542da7411f2d092). It does not duplicate the alternative local bd31 implementation or overwrite the existing PR. The latest reader is closed before a second fresh reader selects the candidate ID and rechecks the complete original predicate. Top-level/configurable keys are preserved, and pending task results never substitute for committed values. SIGKILL, ledger, restart/time-travel and original timeout assertions remain intact.
+
+Independent source review accepted the exact24654a-versus4a68 TC5 diff. A separate actual24654a archive run using an owned Postgres16-alpine container and existing Python3.13.7 environment passed the complete TC5 file5/5 in3.75s, including real SIGKILL/restart/side-effect ledger/time travel. Source-file SHA256:8a6f63e8805dff666616c0e3446f307a1b0d7e6063071bc5ae9d71b3270795a1. The container tc5-24654a-pg was removed. The new regression explicitly refuses the old pending-writes ID and accepts only a later independently readable durable ID; input config is not mutated.
+
+Integration base0e4f3c9536cb1dd67a538cccf1c5ee123eabc9c6 has identical original TC5/worker/lock/dependency definition blobs to the failure/test base. This candidate copies the tested24654a TC5 blob byte-for-byte, plus provenance and test evidence. No runtime/workflow/policy changes. Local PG proof is not LinuxCI, new-head CI or full-regression success. After this independent PR merges, PR6374 should have no remaining TC5 content difference against develop.
