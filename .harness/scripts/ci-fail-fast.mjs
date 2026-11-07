@@ -1,3 +1,4 @@
+import {rejectQueueCandidate} from './ci-queue-reject.mjs';
 import {readFileSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
 
@@ -18,7 +19,7 @@ function identity(event,repository,allowed){
  return {...run,repoId:repo.id,repository};
 }
 function current(run,target){
- if(run?.id!==target.id||run.workflow_id!==target.workflow_id||run.head_sha!==target.head_sha||run.name!==target.name||run.event!==target.event||run.repository?.id!==target.repoId||run.repository.full_name!==target.repository)throw Error('FAIL_FAST_TARGET_CHANGED');
+ if(run?.id!==target.id||run.workflow_id!==target.workflow_id||run.head_sha!==target.head_sha||run.name!==target.name||run.event!==target.event||run.head_branch!==target.head_branch||run.repository?.id!==target.repoId||run.repository.full_name!==target.repository)throw Error('FAIL_FAST_TARGET_CHANGED');
  if(run.run_attempt!==target.run_attempt)return 'superseded';
  if(run.status==='completed')return 'completed';
  if(!['queued','in_progress','waiting','pending','requested'].includes(run.status))throw Error('INVALID_FAIL_FAST_RUN_STATUS');
@@ -48,6 +49,11 @@ export async function supervise({event,repository,allowed=watchedWorkflows(),rea
    const before=current(await read(path,{fresh:true}),target);
    if(before!=='running')return {status:before,runId:target.id,attempt:target.run_attempt};
    if(now()>=deadline)throw Error('FAIL_FAST_MONITOR_TIMEOUT');
+   await rejectQueueCandidate({target,failed,read,write,revalidate:async()=>current(await read(path,{fresh:true}),target)==='running'});
+   if(target.event==='merge_group'&&target.name==='harness-acceptance'){
+    const latest=current(await read(path,{fresh:true}),target);
+    if(latest!=='running')return {status:latest,runId:target.id,attempt:target.run_attempt};
+   }
    const response=await write(`${path}/cancel`);
    if(response.status===409){
     const raced=current(await read(path,{fresh:true}),target);
@@ -64,11 +70,11 @@ export async function supervise({event,repository,allowed=watchedWorkflows(),rea
 export function createGitHubApi({token,fetchImpl=fetch}){
  if(!token)throw Error('FAIL_FAST_TOKEN_REQUIRED');
  const cache=new Map();
- const request=async(path,method='GET',fresh=false)=>{
+ const request=async(path,method='GET',fresh=false,body)=>{
   const previous=cache.get(path),headers={Authorization:`Bearer ${token}`,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'};
   if(method==='GET'&&!fresh&&previous)headers['If-None-Match']=previous.etag;
   if(method==='GET'&&fresh)headers['Cache-Control']='no-cache';
-  const response=await fetchImpl(`https://api.github.com/${path}`,{method,headers,redirect:'error',signal:AbortSignal.timeout(15000)});
+  const response=await fetchImpl(`https://api.github.com/${path}`,{method,headers:{...headers,...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{}),redirect:'error',signal:AbortSignal.timeout(15000)});
   if(method==='POST'){cache.delete(path.replace(/\/cancel$/,''));return {status:response.status};}
   if(response.status===304){
    if(!previous||fresh)throw Error('FAIL_FAST_UNEXPECTED_304');
@@ -79,7 +85,7 @@ export function createGitHubApi({token,fetchImpl=fetch}){
   if(etag)cache.set(path,{etag,data:structuredClone(data)});else cache.delete(path);
   return data;
  };
- return {read:(path,{fresh=false}={})=>request(path,'GET',fresh),write:path=>request(path,'POST')};
+ return {read:(path,{fresh=false}={})=>request(path,'GET',fresh),write:(path,body)=>request(path,'POST',false,body)};
 }
 async function main(){
  if(process.env.GITHUB_EVENT_NAME!=='workflow_run'||!process.env.GH_TOKEN)throw Error('TRUSTED_WORKFLOW_RUN_REQUIRED');
