@@ -1,0 +1,15 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/research-project-entry-6344/apps/web
+
+ ✓ tests/ui/guided-research-flow.test.tsx (21 tests) 2310ms
+   ✓ guided research session routing and lifecycle > preserves an unsent assistant message when leaving is cancelled 441ms
+   ✓ guided research session routing and lifecycle > guards browser history navigation while an assistant message is unsent 450ms
+ ✓ tests/ui/research-project-entry-chain.test.tsx (6 tests) 927ms
+   ✓ keeps the project through actual home create link false/+0, association, study and return 523ms
+
+ Test Files  2 passed (2)
+      Tests  27 passed (27)
+   Start at  06:26:30
+   Duration  14.54s (transform 3.68s, setup 523ms, collect 7.26s, tests 3.24s, environment 2.41s, prepare 280ms)
+

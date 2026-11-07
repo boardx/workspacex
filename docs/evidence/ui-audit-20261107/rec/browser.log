@@ -1,0 +1,1 @@
+PASS: real Chromium fake media → actual startCapture PCM → 8s auto-stop → WAV playback → close cleanup; tracks ended; no network/ASR requests. Synthetic audio validates lifecycle, not human ASR accuracy.

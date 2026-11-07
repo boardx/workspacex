@@ -1,3 +1,5 @@
+import { forgetResearchMemory, getResearchMemoryScope } from "@/lib/guided-research-memory";
+import ResearchPage from "@/app/research/page";
 import * as React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -207,4 +209,40 @@ describe("guided research session routing and lifecycle", () => {
     fireEvent.click(screen.getByRole("button", { name: "返回研究列表" }));
     expect(navigate).toHaveBeenCalledWith("home", undefined);
   });
+});
+
+// Exercise legacy URL parsing together with the real authorized-runtime renderer.
+function renderLegacySession(flow?: string) {
+ forgetResearchMemory("grs-live", getResearchMemoryScope());
+ const page = ResearchPage({ searchParams: { session: "grs-live", ...(flow ? { flow } : {}) } });
+ return render(<GuidedResearchFlow step={page.props.flow} sessionId={page.props.guidedSessionId} />);
+}
+it("fresh session-only legacy link restores the failed research runtime and its source gap", async () => {
+ const state = runtimeFixture("research");
+ state.errorCode = "RESEARCH_SOURCES_REQUIRED"; state.busy = false; state.sources = [];
+ state.tasks = [{ ...state.tasks[0]!, status: "pending", attempts: 0, errorCode: null }];
+ vi.mocked(getResearchRuntime).mockResolvedValue(state);
+ renderLegacySession();
+ expect(await screen.findByTestId("research-flow-search")).toBeInTheDocument();
+ // Route restoration uses this PR's existing source policy; materials is covered by #6372.
+ expect(await screen.findByRole("alert")).toHaveTextContent(/本次材料不足|请先添加至少一个真实来源/);
+ expect(screen.queryByTestId("research-flow-brief")).toBeNull();
+ expect(executeResearchRuntime).not.toHaveBeenCalled();
+});
+it.each(["brief", "outline", "report"] as const)("session-only link resumes actual %s instead of assuming a stage", async node => {
+ vi.mocked(getResearchRuntime).mockResolvedValue(runtimeFixture(node));
+ renderLegacySession();
+ expect(await screen.findByTestId(`research-flow-${node}`)).toBeInTheDocument();
+});
+it("session-only link follows busy research even with queued tasks", async () => {
+ const state = runtimeFixture("research"); state.busy = true; state.leaseUntil = "2099-01-01T00:00:00.000Z";
+ state.tasks = [{ ...state.tasks[0]!, status: "pending", attempts: 0, errorCode: null }];
+ vi.mocked(getResearchRuntime).mockResolvedValue(state);
+ renderLegacySession();
+ expect(await screen.findByTestId("research-step-loading")).toBeInTheDocument();
+});
+it.each([["brief", "brief"], ["outline", "outline"], ["report", "report"]] as const)("explicit legacy %s retains the requested browsing stage", async (flow, node) => {
+ vi.mocked(getResearchRuntime).mockResolvedValue(runtimeFixture("report"));
+ renderLegacySession(flow);
+ expect(await screen.findByTestId(`research-flow-${node}`)).toBeInTheDocument();
 });

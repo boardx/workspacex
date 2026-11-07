@@ -1,14 +1,13 @@
+# Full regression only: hourly frozen develop and explicit manual runs. Never a merge-queue gate.
 # Complete integration evidence for the exact develop commit; optional lanes remain manual.
 name: harness-acceptance
 on:
-  merge_group:
-    branches: [develop]
   workflow_dispatch:
     inputs:
       verification_lane:
         description: "all 完整验证；base 完整基础门禁；chat-refresh 仅手动窄诊断，不声明完整 E2E 通过"
         type: choice
-        options: [all, base, chat-refresh]
+        options: [ all, base, chat-refresh ]
         default: all
       fresh_run:
         description: "重新执行，忽略同 SHA 已有验证证据"
@@ -35,6 +34,8 @@ on:
         description: "跑 Chat 路径覆盖车道（chat-path-coverage，矩阵里此前零覆盖的那批路径）"
         type: boolean
         default: false
+  schedule:
+    - cron: 17 * * * *
 
 permissions:
   contents: read
@@ -42,18 +43,19 @@ permissions:
   pull-requests: read
   issues: read
 concurrency:
-  group: harness-acceptance-${{ github.ref }}-${{ github.run_id }}
+  group: ${{ github.event_name == 'schedule' && 'harness-acceptance-hourly' || format('harness-acceptance-manual-{0}', github.run_id) }}
   cancel-in-progress: false
-  queue: max
+  queue: single
 env:
-  CI_SCOPE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+  CI_SCOPE_BASE_SHA: ${{ github.sha }}
+  CI_FRESH_RUN: "true"
 
 jobs:
   doc-smoke-scope:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-doc-smoke-scope' || 'doc-smoke-scope' }}
     if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (always() && !cancelled())
     runs-on: ubuntu-latest
-    permissions: {contents: read}
+    permissions: { contents: read }
     timeout-minutes: 10
     outputs:
       full: ${{ steps.scope.outputs.full }}
@@ -61,26 +63,33 @@ jobs:
       plan_digest: ${{ steps.regression.outputs.plan_digest }}
     steps:
       - uses: actions/checkout@v5
-        with: {fetch-depth: 0, persist-credentials: false}
+        with:
+          fetch-depth: 0
+          persist-credentials: false
       - id: scope
         run: node .harness/scripts/ci-doc-smoke-scope.mjs
-
       - id: preflight
         run: node .harness/scripts/ci-targeted-ui.mjs --preflight
       - uses: pnpm/action-setup@v4.4.0
         if: steps.preflight.outputs.candidate == 'true'
       - uses: actions/setup-node@v5
         if: steps.preflight.outputs.candidate == 'true'
-        with: {node-version-file: .nvmrc, cache: pnpm}
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
       - run: pnpm install --frozen-lockfile
         if: steps.preflight.outputs.candidate == 'true'
       - id: regression
-        run: node .harness/scripts/ci-targeted-ui.mjs "$RUNNER_TEMP/regression/plan.json"
+        run: |-
+          mkdir -p "$RUNNER_TEMP/regression"
+          node .harness/scripts/ci-targeted-ui.mjs --full "$RUNNER_TEMP/regression/plan.json"
       - uses: actions/upload-artifact@v6
         with:
           name: regression-plan-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/regression/plan.json
           if-no-files-found: error
+    needs:
+      - freeze-source
 
   # ADR-106 batch-1/6（#1277）：原 `verify` job 是一条顺序链——控制平面静态检查
   # （doctor/lint doctor/harness 自测，全部毫秒级、不碰 DB）与"受影响模块
@@ -109,32 +118,17 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4.4.0
-        if: github.event_name == 'workflow_dispatch'
       - uses: actions/setup-node@v5
-        if: github.event_name == 'workflow_dispatch'
         with:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-        if: github.event_name == 'workflow_dispatch'
-      # 见上：先 build，让 Next.js 生成 .next/types/**，typecheck 才有得可查。
       - name: 全仓编译（build）
-        if: github.event_name == 'workflow_dispatch'
         run: pnpm turbo run build
       - name: 全仓 typecheck + lint
-        if: github.event_name == 'workflow_dispatch'
         run: pnpm turbo run typecheck lint
-      - name: Prepare queue compile runtime
-        if: github.event_name == 'merge_group'
-        uses: actions/setup-node@v5
-        with:
-          node-version-file: .nvmrc
-          package-manager-cache: false
-      - name: Require exact queue compile evidence
-        if: github.event_name == 'merge_group'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: node .harness/scripts/ci-queue-ready.mjs --compile
+    needs:
+      - freeze-source
 
   # 机械合并门禁（#956）——2026-08-11 20:33 CST 事故：`pr-queue` 在 20:32 仍把
   # #954/#943/#922 裁成 WAITING_REVIEW/MERGE_BLOCKED，repo owner（有 admin bypass
@@ -157,8 +151,9 @@ jobs:
   board-smoke:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-board-smoke' || 'board-smoke' }}
     timeout-minutes: 30
-    needs: [doc-smoke-scope]
-    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((always() && !cancelled() && ((github.event_name != 'schedule' || github.event.schedule == '0 * * * *') && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && (github.event_name != 'pull_request' || needs.doc-smoke-scope.outputs.full != 'false')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
+    needs:
+      - doc-smoke-scope
+    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((always() && !cancelled() && (true && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && (github.event_name != 'pull_request' || needs.doc-smoke-scope.outputs.full != 'false')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
     runs-on: ubuntu-latest
     outputs:
       verdict: ${{ steps.smoke-verdict.outputs.verdict }}
@@ -177,7 +172,7 @@ jobs:
         id: dedup
         env:
           GH_TOKEN: ${{ github.token }}
-          CI_FRESH_RUN: ${{ inputs.fresh_run }}
+          CI_FRESH_RUN: ${{ github.event_name == 'schedule' || inputs.fresh_run }}
         run: node .harness/scripts/ci-lane-dedup.mjs
       - uses: pnpm/action-setup@v4.4.0
         if: steps.dedup.outputs.run == 'true'
@@ -226,8 +221,9 @@ jobs:
   directory-smoke:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-directory-smoke' || 'directory-smoke' }}
     timeout-minutes: 30
-    needs: [doc-smoke-scope]
-    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((always() && !cancelled() && ((github.event_name != 'schedule' || github.event.schedule == '0 * * * *') && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && (github.event_name != 'pull_request' || needs.doc-smoke-scope.outputs.full != 'false')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
+    needs:
+      - doc-smoke-scope
+    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((always() && !cancelled() && (true && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && (github.event_name != 'pull_request' || needs.doc-smoke-scope.outputs.full != 'false')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
     runs-on: ubuntu-latest
     outputs:
       verdict: ${{ steps.smoke-verdict.outputs.verdict }}
@@ -246,7 +242,7 @@ jobs:
         id: dedup
         env:
           GH_TOKEN: ${{ github.token }}
-          CI_FRESH_RUN: ${{ inputs.fresh_run }}
+          CI_FRESH_RUN: ${{ github.event_name == 'schedule' || inputs.fresh_run }}
         run: node .harness/scripts/ci-lane-dedup.mjs
       - uses: pnpm/action-setup@v4.4.0
         if: steps.dedup.outputs.run == 'true'
@@ -294,8 +290,9 @@ jobs:
 
   fullstack-smoke:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-fullstack-smoke' || 'fullstack-smoke' }}
-    needs: [doc-smoke-scope]
-    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((always() && !cancelled() && ((github.event_name != 'schedule' || github.event.schedule == '0 * * * *') && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && (github.event_name != 'pull_request' || needs.doc-smoke-scope.outputs.full != 'false')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
+    needs:
+      - doc-smoke-scope
+    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((always() && !cancelled() && (true && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && (github.event_name != 'pull_request' || needs.doc-smoke-scope.outputs.full != 'false')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
     runs-on: ubuntu-latest
     outputs:
       verdict: ${{ steps.smoke-verdict.outputs.verdict }}
@@ -318,7 +315,7 @@ jobs:
         id: dedup
         env:
           GH_TOKEN: ${{ github.token }}
-          CI_FRESH_RUN: ${{ inputs.fresh_run }}
+          CI_FRESH_RUN: ${{ github.event_name == 'schedule' || inputs.fresh_run }}
         run: node .harness/scripts/ci-lane-dedup.mjs
       - uses: pnpm/action-setup@v4.4.0
         if: steps.dedup.outputs.run == 'true'
@@ -401,7 +398,8 @@ jobs:
   base-api-plan:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-base-api-plan' || 'base-api-plan' }}
     if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
-    needs: [doc-smoke-scope]
+    needs:
+      - doc-smoke-scope
     runs-on: ubuntu-latest
     timeout-minutes: 15
     outputs:
@@ -432,7 +430,9 @@ jobs:
 
   base-api-shards:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-base-api-shards' || 'base-api-shards' }} (${{ matrix.shard }})
-    needs: [base-api-plan, doc-smoke-scope]
+    needs:
+      - base-api-plan
+      - doc-smoke-scope
     if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -440,6 +440,7 @@ jobs:
       fail-fast: true # Stop remaining shards after the first failure.
       matrix:
         shard: ${{ fromJSON(needs.base-api-plan.outputs.shards) }}
+      max-parallel: 4
     env:
       WORKSPACEX_DB: wsx_base_${{ github.run_id }}_${{ github.run_attempt }}_shard_${{ matrix.shard }}
       API_EVIDENCE: phases/phase-01-run-a-project/evidence/ci/api/shard-${{ matrix.shard }}
@@ -481,7 +482,10 @@ jobs:
 
   base-api-exclusive:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-base-api-exclusive' || 'base-api-exclusive' }}
-    needs: [base-api-plan, base-api-shards, doc-smoke-scope]
+    needs:
+      - base-api-plan
+      - base-api-shards
+      - doc-smoke-scope
     if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -530,15 +534,16 @@ jobs:
     outputs:
       count: ${{ steps.plan.outputs.count }}
       shards: ${{ steps.plan.outputs.shards }}
-    needs: [doc-smoke-scope]
+    needs:
+      - doc-smoke-scope
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
-        with: {fetch-depth: 0}
+        with: { fetch-depth: 0 }
       - uses: pnpm/action-setup@v4.4.0
       - uses: actions/setup-node@v5
-        with: {node-version-file: .nvmrc, cache: pnpm}
+        with: { node-version-file: .nvmrc, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - id: plan
         run: node .harness/scripts/ci-web-shards.mjs --plan
@@ -556,19 +561,22 @@ jobs:
   web-test-shards:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-web-test-shards' || 'web-test-shards' }} (${{ matrix.shard }})
     if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
-    needs: [web-test-plan, doc-smoke-scope]
+    needs:
+      - web-test-plan
+      - doc-smoke-scope
     strategy:
       fail-fast: true
       matrix:
         shard: ${{ fromJSON(needs.web-test-plan.outputs.shards) }}
+      max-parallel: 2
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
-        with: {fetch-depth: 0}
+        with: { fetch-depth: 0 }
       - uses: pnpm/action-setup@v4.4.0
       - uses: actions/setup-node@v5
-        with: {node-version-file: .nvmrc, cache: pnpm}
+        with: { node-version-file: .nvmrc, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter web exec playwright install --with-deps chromium
       - name: Execute actual isolated shard
@@ -593,15 +601,16 @@ jobs:
     outputs:
       count: ${{ steps.plan.outputs.count }}
       shards: ${{ steps.plan.outputs.shards }}
-    needs: [doc-smoke-scope]
+    needs:
+      - doc-smoke-scope
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
-        with: {fetch-depth: 0}
+        with: { fetch-depth: 0 }
       - uses: pnpm/action-setup@v4.4.0
       - uses: actions/setup-node@v5
-        with: {node-version-file: .nvmrc, cache: pnpm}
+        with: { node-version-file: .nvmrc, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - id: plan
         run: node .harness/scripts/ci-chat-shards.mjs --plan
@@ -619,19 +628,22 @@ jobs:
   chat-test-shards:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-chat-test-shards' || 'chat-test-shards' }} (${{ matrix.shard }})
     if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base') && needs.chat-test-plan.result == 'success') && needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
-    needs: [chat-test-plan, doc-smoke-scope]
+    needs:
+      - chat-test-plan
+      - doc-smoke-scope
     strategy:
       fail-fast: true
       matrix:
         shard: ${{ fromJSON(needs.chat-test-plan.outputs.shards) }}
+      max-parallel: 1
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
-        with: {fetch-depth: 0}
+        with: { fetch-depth: 0 }
       - uses: pnpm/action-setup@v4.4.0
       - uses: actions/setup-node@v5
-        with: {node-version-file: .nvmrc, cache: pnpm}
+        with: { node-version-file: .nvmrc, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter web exec playwright install --with-deps chromium
       - name: Execute actual isolated shard
@@ -666,11 +678,11 @@ jobs:
             apps/web/e2e/__evidence__/chat-refresh-diagnostics/
           if-no-files-found: warn
 
-
   base-package-tests:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-base-package-tests' || 'base-package-tests' }}
     if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((always() && !cancelled() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base'))) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
-    needs: [doc-smoke-scope]
+    needs:
+      - doc-smoke-scope
     runs-on: ubuntu-latest
     timeout-minutes: 90
     concurrency:
@@ -746,10 +758,10 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
-        with: {fetch-depth: 0}
+        with: { fetch-depth: 0 }
       - uses: pnpm/action-setup@v4.4.0
       - uses: actions/setup-node@v5
-        with: {node-version-file: .nvmrc, cache: pnpm}
+        with: { node-version-file: .nvmrc, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - name: Require single authoritative control-plane producer
         env:
@@ -761,11 +773,24 @@ jobs:
           else
             pnpm run verify:harness:raw
           fi
+    needs:
+      - freeze-source
 
   full-regression-core:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-full-regression-core' || 'full-regression-core' }}
     if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (always() && !cancelled() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base')))
-    needs: [base-compile, base-api-plan, base-api-shards, base-api-exclusive, base-package-tests, base-control-plane, web-test-plan, web-test-shards, doc-smoke-scope, targeted-ui-unit, targeted-ui-browser]
+    needs:
+      - base-compile
+      - base-api-plan
+      - base-api-shards
+      - base-api-exclusive
+      - base-package-tests
+      - base-control-plane
+      - web-test-plan
+      - web-test-shards
+      - doc-smoke-scope
+      - targeted-ui-unit
+      - targeted-ui-browser
     outputs:
       verification_mode: ${{ steps.route.outputs.mode }}
       plan_digest: ${{ steps.route.outputs.plan_digest }}
@@ -773,10 +798,13 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
-        with: {fetch-depth: 0}
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4.4.0
       - uses: actions/setup-node@v5
-        with: {node-version-file: .nvmrc, cache: pnpm}
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
       - run: pnpm install --frozen-lockfile
       - id: route
         name: Require the complete active regression route
@@ -811,7 +839,6 @@ jobs:
           name: phase-01-e2e-full-evidence-${{ github.run_id }}
           path: phases/phase-01-run-a-project/evidence/ci/
           if-no-files-found: error
-
       - uses: actions/upload-artifact@v6
         if: always() && needs.doc-smoke-scope.outputs.mode == 'targeted-ui'
         with:
@@ -822,15 +849,18 @@ jobs:
   chat-read:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-chat-read' || 'chat-read' }}
     if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((always() && !cancelled() && ((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base'))) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
-    needs: [chat-test-plan, chat-test-shards, doc-smoke-scope]
+    needs:
+      - chat-test-plan
+      - chat-test-shards
+      - doc-smoke-scope
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
-        with: {fetch-depth: 0}
+        with: { fetch-depth: 0 }
       - uses: pnpm/action-setup@v4.4.0
       - uses: actions/setup-node@v5
-        with: {node-version-file: .nvmrc, cache: pnpm}
+        with: { node-version-file: .nvmrc, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - name: Require complete chat producer outcomes
         env:
@@ -844,7 +874,8 @@ jobs:
   self-service-profile:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-self-service-profile' || 'self-service-profile' }}
     if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui')
-    needs: [doc-smoke-scope]
+    needs:
+      - doc-smoke-scope
     runs-on: ubuntu-latest
     timeout-minutes: 20
     concurrency:
@@ -858,7 +889,7 @@ jobs:
         id: dedup
         env:
           GH_TOKEN: ${{ github.token }}
-          CI_FRESH_RUN: ${{ inputs.fresh_run }}
+          CI_FRESH_RUN: ${{ github.event_name == 'schedule' || inputs.fresh_run }}
         run: node .harness/scripts/ci-lane-dedup.mjs
       - uses: pnpm/action-setup@v4.4.0
         if: steps.dedup.outputs.run == 'true'
@@ -898,7 +929,16 @@ jobs:
   e2e-full:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-e2e-full' || 'e2e-full' }}
     if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && ((always() && !cancelled() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full))) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base'))
-    needs: [fullstack-smoke, directory-smoke, board-smoke, full-regression-core, chat-read, self-service-profile, doc-smoke-scope, targeted-ui-unit, targeted-ui-browser]
+    needs:
+      - fullstack-smoke
+      - directory-smoke
+      - board-smoke
+      - full-regression-core
+      - chat-read
+      - self-service-profile
+      - doc-smoke-scope
+      - targeted-ui-unit
+      - targeted-ui-browser
     outputs:
       verification_mode: ${{ steps.route.outputs.mode }}
       plan_digest: ${{ steps.route.outputs.plan_digest }}
@@ -906,12 +946,15 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
-        with: {fetch-depth: 0}
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4.4.0
         if: needs.doc-smoke-scope.outputs.mode == 'targeted-ui'
       - uses: actions/setup-node@v5
         if: needs.doc-smoke-scope.outputs.mode == 'targeted-ui'
-        with: {node-version-file: .nvmrc, cache: pnpm}
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
       - run: pnpm install --frozen-lockfile
         if: needs.doc-smoke-scope.outputs.mode == 'targeted-ui'
       - id: route
@@ -940,7 +983,7 @@ jobs:
         id: dedup
         env:
           GH_TOKEN: ${{ github.token }}
-          CI_FRESH_RUN: ${{ inputs.fresh_run }}
+          CI_FRESH_RUN: ${{ github.event_name == 'schedule' || inputs.fresh_run }}
         run: node .harness/scripts/ci-lane-dedup.mjs
       - uses: pnpm/action-setup@v4.4.0
         if: steps.dedup.outputs.run == 'true'
@@ -970,6 +1013,8 @@ jobs:
         env:
           CI_SOURCE_RESULT: ${{ steps.dedup.outputs.result }}
         run: node .harness/scripts/ci-lane-dedup.mjs verdict
+    needs:
+      - freeze-source
 
   chat-task-workbench:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-chat-task-workbench' || 'chat-task-workbench' }}
@@ -988,7 +1033,7 @@ jobs:
         id: dedup
         env:
           GH_TOKEN: ${{ github.token }}
-          CI_FRESH_RUN: ${{ inputs.fresh_run }}
+          CI_FRESH_RUN: ${{ github.event_name == 'schedule' || inputs.fresh_run }}
         run: node .harness/scripts/ci-lane-dedup.mjs
       - uses: pnpm/action-setup@v4.4.0
         if: steps.dedup.outputs.run == 'true'
@@ -1016,38 +1061,22 @@ jobs:
         env:
           CI_SOURCE_RESULT: ${{ steps.dedup.outputs.result }}
         run: node .harness/scripts/ci-lane-dedup.mjs verdict
-
-  queue-ready:
-    name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-queue-ready' || 'queue-ready' }}
-    if: always() && !cancelled() && github.event_name == 'merge_group'
-    needs: [e2e-full, full-regression-core]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-        with: {fetch-depth: 0}
-      - uses: actions/setup-node@v5
-        with:
-          node-version-file: .nvmrc
-          package-manager-cache: false
-      - name: Require complete candidate regression
-        env:
-          CI_SCOPE_BASE_SHA: ${{ github.event.merge_group.base_sha }}
-          GH_TOKEN: ${{ github.token }}
-          CI_QUEUE_NEEDS: ${{ toJSON(needs) }}
-        run: node .harness/scripts/ci-queue-ready.mjs
+    needs:
+      - freeze-source
 
   targeted-ui-unit:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-targeted-ui-unit' || 'targeted-ui-unit' }}
     if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (needs.doc-smoke-scope.outputs.mode == 'targeted-ui')
-    needs: doc-smoke-scope
+    needs:
+      - doc-smoke-scope
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v5
-        with: {fetch-depth: 0}
+        with: { fetch-depth: 0 }
       - uses: pnpm/action-setup@v4.4.0
       - uses: actions/setup-node@v5
-        with: {node-version-file: .nvmrc, cache: pnpm}
+        with: { node-version-file: .nvmrc, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - name: Execute actual web-unit selection
         env:
@@ -1067,15 +1096,16 @@ jobs:
   targeted-ui-browser:
     name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh' && 'diagnostic-skipped-targeted-ui-browser' || 'targeted-ui-browser' }}
     if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'chat-refresh') && (needs.doc-smoke-scope.outputs.mode == 'targeted-ui')
-    needs: doc-smoke-scope
+    needs:
+      - doc-smoke-scope
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v5
-        with: {fetch-depth: 0}
+        with: { fetch-depth: 0 }
       - uses: pnpm/action-setup@v4.4.0
       - uses: actions/setup-node@v5
-        with: {node-version-file: .nvmrc, cache: pnpm}
+        with: { node-version-file: .nvmrc, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter web exec playwright install --with-deps chromium
       - name: Execute actual selected UI browser tests
@@ -1099,7 +1129,6 @@ jobs:
           path: apps/web/test-results/
           if-no-files-found: warn
 
-
   chat-refresh-diagnostic:
     # Explicit manual experiment only. Not a required lane or a full-regression verdict.
     if: github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'chat-refresh'
@@ -1107,10 +1136,10 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v5
-        with: {fetch-depth: 0, persist-credentials: false}
+        with: { fetch-depth: 0, persist-credentials: false }
       - uses: pnpm/action-setup@v4.4.0
       - uses: actions/setup-node@v5
-        with: {node-version-file: .nvmrc, cache: pnpm}
+        with: { node-version-file: .nvmrc, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter web exec playwright install --with-deps chromium
       - name: One isolated Linux refresh observation with original concurrent scenarios
@@ -1136,3 +1165,218 @@ jobs:
             apps/web/test-results/chat-read/
           if-no-files-found: error
           retention-days: 7
+    needs:
+      - freeze-source
+  freeze-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      sha: ${{ steps.freeze.outputs.sha }}
+      frozen_at: ${{ steps.freeze.outputs.frozen_at }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - id: freeze
+        run: node .harness/scripts/ci-lightweight.mjs frozen-develop
+  backend-full:
+    needs:
+      - freeze-source
+      - full-regression-core
+    uses: ./.github/workflows/backend-gates.yml
+    secrets: inherit
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    with:
+      api_source: acceptance-base
+      api_source_sha: ${{ needs.freeze-source.outputs.sha }}
+  board-full:
+    needs:
+      - freeze-source
+      - e2e-full
+      - backend-full
+    uses: ./.github/workflows/board-acceptance.yml
+    secrets: inherit
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+  skill-full:
+    needs:
+      - freeze-source
+      - board-full
+    uses: ./.github/workflows/skill-files-e2e.yml
+    secrets: inherit
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+  billing-full:
+    needs:
+      - freeze-source
+      - skill-full
+    uses: ./.github/workflows/billing-cashier-glue.yml
+    secrets: inherit
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+  hourly-full-result:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    if: always() && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full))
+    needs:
+      - freeze-source
+      - e2e-full
+      - backend-full
+      - board-full
+      - skill-full
+      - billing-full
+      - organization-create
+      - hourly-cn-content-sync-tests
+      - hourly-cn-release-simulation
+      - hourly-local-windows
+      - hourly-whiteboard-outbox-browser
+      - hourly-self-host-upgrade-drill
+      - hourly-minimal-docker-release-test
+      - hourly-unified-release-tests
+      - hourly-web-only-release-tests
+      - hourly-native-cwd-probe
+      - hourly-home-gates
+      - hourly-archive-bridge-tests
+      - devportal-browser
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - env:
+          CI_FULL_NEEDS: ${{ toJSON(needs) }}
+        run: node .harness/scripts/ci-hourly-result.mjs
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: hourly-full-receipt-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/hourly-full/receipt.json
+          if-no-files-found: error
+  organization-create:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+      - run: pnpm --filter web exec playwright test --config playwright.organization-create.config.ts --max-failures=1
+      - name: Verify research route continuity with controlled HTTP
+        run: pnpm --filter web exec playwright test --config e2e/research-route-continuity.config.ts --max-failures=1
+      - name: Upload research route fixture screenshots and traces
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: research-route-continuity-api-fixture-${{ github.run_id }}
+          path: docs/evidence/research-route-5969/browser-results/
+      - name: Upload organization creation fixture screenshots
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: organization-create-api-fixture-${{ github.run_id }}
+          path: evidence/org-create-5494/*.png
+    needs:
+      - freeze-source
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+  hourly-cn-content-sync-tests:
+    needs:
+      - freeze-source
+      - billing-full
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    uses: ./.github/workflows/cn-content-sync-tests.yml
+  hourly-cn-release-simulation:
+    needs:
+      - freeze-source
+      - hourly-cn-content-sync-tests
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    uses: ./.github/workflows/cn-release-simulation.yml
+  hourly-local-windows:
+    needs:
+      - freeze-source
+      - hourly-cn-release-simulation
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    uses: ./.github/workflows/local-windows.yml
+  hourly-whiteboard-outbox-browser:
+    needs:
+      - freeze-source
+      - hourly-local-windows
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    uses: ./.github/workflows/whiteboard-outbox-browser.yml
+  hourly-self-host-upgrade-drill:
+    needs:
+      - freeze-source
+      - hourly-whiteboard-outbox-browser
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    uses: ./.github/workflows/self-host-upgrade-drill.yml
+  hourly-minimal-docker-release-test:
+    needs:
+      - freeze-source
+      - hourly-self-host-upgrade-drill
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    uses: ./.github/workflows/minimal-docker-release-test.yml
+  hourly-unified-release-tests:
+    needs:
+      - freeze-source
+      - hourly-minimal-docker-release-test
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    uses: ./.github/workflows/unified-release-tests.yml
+  hourly-web-only-release-tests:
+    needs:
+      - freeze-source
+      - hourly-unified-release-tests
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    uses: ./.github/workflows/web-only-release-tests.yml
+  hourly-native-cwd-probe:
+    needs:
+      - freeze-source
+      - hourly-web-only-release-tests
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    uses: ./.github/workflows/native-cwd-probe.yml
+  hourly-home-gates:
+    needs:
+      - freeze-source
+      - hourly-native-cwd-probe
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    uses: ./.github/workflows/home-gates.yml
+  hourly-archive-bridge-tests:
+    needs:
+      - freeze-source
+      - hourly-home-gates
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    uses: ./.github/workflows/archive-bridge-tests.yml
+  devportal-browser:
+    needs:
+      - freeze-source
+      - hourly-archive-bridge-tests
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'all' && inputs.run_e2e_full)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4.4.0
+      - name: Setup Node (read .nvmrc)
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile --filter @repo/devportal...
+      - name: Verify artifact identity and workflow contracts
+        run: node --test .github/scripts/devportal-artifact.test.mjs
+      - name: Typecheck / lint / test
+        run: pnpm --filter @repo/devportal run typecheck && pnpm --filter @repo/devportal run lint && pnpm --filter @repo/devportal run test
+      - name: Install Playwright Chromium
+        run: pnpm --filter @repo/devportal exec playwright install --with-deps chromium
+      - name: E2E (repeatable local gateway fixture)
+        run: pnpm --filter @repo/devportal run e2e

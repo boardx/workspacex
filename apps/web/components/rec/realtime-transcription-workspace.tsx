@@ -12,6 +12,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { LocalMicrophoneCheck } from "./local-microphone-check";
 import { MicDevicePicker } from "@/components/chat/chat-composer-pickers";
 import type { AudioInputDevice } from "@/lib/live-recording";
 import type { RealtimeAsrStreamState } from "@/lib/realtime-asr.types";
@@ -63,6 +64,12 @@ export function RealtimeTranscriptionWorkspace({
   const { t } = useI18n();
   const recording = reconnecting || streamState === "recording" || streamState === "stopping" || session.status === "recording";
   const busy = streamState === "connecting" || streamState === "stopping";
+  const [checkingMic, setCheckingMic] = React.useState(false);
+  React.useEffect(() => { if (recording || busy) setCheckingMic(false); }, [recording, busy]);
+  const selectedDevice = devices.find((device) => device.deviceId === selectedDeviceId);
+  const inputDeviceName = selectedDeviceId === null
+    ? devices.find((device) => device.deviceId === "default")?.label || t("rec.micCheck.defaultUnknown")
+    : selectedDevice?.label || t("rec.micCheck.unknown");
   const [renaming, setRenaming] = React.useState(false);
   const [nameDraft, setNameDraft] = React.useState(session.name);
   const [nameError, setNameError] = React.useState<MessageKey | null>(null);
@@ -192,7 +199,9 @@ export function RealtimeTranscriptionWorkspace({
           </div>
           <div className="flex w-full flex-wrap items-center gap-3 md:w-auto md:justify-end">
             <MicDevicePicker devices={devices} selectedDeviceId={selectedDeviceId}
-              disabled={recording || busy} onSelect={onSelectDevice} testIdPrefix="rec" side="down" iconOnly />
+              disabled={recording || busy} onSelect={onSelectDevice} testIdPrefix="rec" side="down" />
+            <p data-testid="rec-input-device-name" className="w-full break-words text-12 text-muted-foreground">{t("rec.micCheck.device", { name: inputDeviceName })}</p>
+            <Button type="button" size="sm" variant="outline" disabled={recording || busy || checkingMic} onClick={() => setCheckingMic(true)}>{t("rec.micCheck.open")}</Button>
             <div className="flex items-end gap-0.5" role="meter" aria-label={t("rec.workspace.level")}
               aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(inputLevel * 100)}
               data-testid="rec-live-input-level">
@@ -214,7 +223,7 @@ export function RealtimeTranscriptionWorkspace({
               className="w-full sm:ml-auto sm:w-auto"
               type="button"
               variant="primary"
-              disabled={streamState === "stopping" || renaming || (editing && !canStop)}
+              disabled={streamState === "stopping" || renaming || checkingMic || (editing && !canStop)}
               aria-describedby={editing && !canStop ? "rec-edit-capture-hint" : undefined}
               loading={streamState === "stopping"}
               onClick={canStop ? onStop : onStart}
@@ -223,6 +232,8 @@ export function RealtimeTranscriptionWorkspace({
             </WorkflowActionButton>
           </div>
         </header>
+
+        {checkingMic && !recording && !busy && <LocalMicrophoneCheck key={session.sessionId} deviceId={selectedDeviceId} onClose={() => setCheckingMic(false)} />}
 
         {editing && !canStop && <p id="rec-edit-capture-hint" className="text-12 text-muted-foreground">{t("rec.workspace.editCaptureHint")}</p>}
         {returnBlocked && <p id="rec-return-hint" className="text-12 text-muted-foreground">{returnHint}</p>}

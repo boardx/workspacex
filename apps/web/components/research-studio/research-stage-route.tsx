@@ -1,5 +1,6 @@
 "use client";
 
+import { withProjectId } from "@/components/project/project-links";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getGuidedResearchSession } from "@/lib/guided-research-api";
@@ -25,5 +26,5 @@ export function ResearchStageRoute({ sessionId, stage }: { sessionId: string; st
     return () => { active = false; };
   }, [sessionId, cacheScope, stage, loadAttempt]);
   const researchName = metadata?.sessionId === sessionId && metadata.scope === cacheScope ? metadata.title : readResearchMemory(sessionId, cacheScope)?.name;
-  return <GuidedResearchLive sessionId={sessionId} researchName={researchName} onLoadRetry={() => setLoadAttempt((attempt) => attempt + 1)} visualStage={stage} initialNode={RESEARCH_STAGE_NODES[stage]} onBack={() => router.push("/research")} />;
+  return <GuidedResearchLive sessionId={sessionId} researchName={researchName} onLoadRetry={() => setLoadAttempt((attempt) => attempt + 1)} visualStage={stage} initialNode={RESEARCH_STAGE_NODES[stage]} onBack={() => router.push(withProjectId("/research", new URLSearchParams(window.location.search).get("projectId")))} />;
 }

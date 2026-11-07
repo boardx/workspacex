@@ -5,101 +5,40 @@ on:
       rounds:
         description: Ten complete regressions use this single immutable checkout
         type: choice
-        options: ['1', '10']
+        options: [ '1', '10' ]
         default: '1'
       lane:
         description: Targeted repairs run in four independent VMs; all preserves full regression
         type: choice
-        options: ['all', 'release', 'targeted', 'linux-application-recovery-complete', 'linux-six-business', 'linux-boundary-reap']
+        options: [ 'all', 'release', 'targeted', 'linux-application-recovery-complete', 'linux-six-business', 'linux-boundary-reap' ]
         default: 'all'
       mode:
         description: Development retains known clean business failures; never final acceptance
         type: choice
-        options: ['acceptance', 'development']
+        options: [ 'acceptance', 'development' ]
         default: 'acceptance'
       seed:
         description: Integer base seed for isolated fault fixtures
         type: string
         default: '0'
-  pull_request:
-    branches: [develop]
-    paths:
-      - 'scripts/cn-release-*.py'
-      - 'scripts/cn-hk-*.py'
-      - 'scripts/cn_candidate*.py'
-      - 'scripts/cn_image*.py'
-      - 'scripts/cn_archive*.py'
-      - 'scripts/bounded_workers.py'
-      - 'scripts/cn_release_simulation_domain.py'
-      - '.harness/scripts/vm/cn-runtime-continuation/**'
-      - '.harness/scripts/vm/cn-release-advance.py'
-      - 'tests/test_cn_release_*.py'
-      - 'tests/test_cn_candidate_*.py'
-      - 'tests/test_cn_image*.py'
-      - 'tests/test_cn_archive*.py'
-      - 'tests/test_release_failure_matrix.py'
-      - 'tests/test_cn_hk*.py'
-      - 'tests/cn_hk_performance_linux.py'
-      - 'tests/cn_release_simulation_domain_linux.py'
-      - 'tests/cn_release_postgres_linux.py'
-      - 'tests/cn_release_postgres_lifecycle_linux.py'
-      - 'tests/fixtures/cn-postgres-lifecycle/**'
-      - 'tests/cn_release_storage_linux.py'
-      - 'tests/cn_release_api_startup_linux.py'
-      - 'tests/cn_release_docker_cleanup_linux.py'
-      - 'tests/cn_release_boundary_reap_linux.py'
-      - 'tests/cn_release_api_outer_recovery_linux.py'
-      - 'tests/cn_release_postclear_recovery_linux.py'
-      - 'tests/fixtures/cn-postclear-recovery/**'
-      - 'tests/cn_release_application_recovery_linux.py'
-      - 'tests/fixtures/cn-application-recovery/**'
-      - 'tests/cn_release_six_business_linux.py'
-      - 'tests/cn_release_six_cleanup_linux.py'
-      - 'scripts/cn-release-six-port-lease.ts'
-      - 'tests/fixtures/cn-six-business/**'
-      - 'apps/web/e2e/cn-release-six-business.spec.ts'
-      - 'apps/web/playwright.cn-six-business.config.ts'
-      - 'tests/cn_release_migration_guard_linux.py'
-      - 'tests/cn_release_migration_terminal_linux.py'
-      - 'tests/cn_release_migration_owner_linux.py'
-      - 'tests/fixtures/cn-migration-owner/**'
-      - 'tests/cn_release_fsync_linux.py'
-      - 'tests/fixtures/cn-storage-fsync/**'
-      - 'tests/cn_release_readiness_linux.py'
-      - 'packages/cloud-deploy/src/cn-release-readiness-dispatch.ts'
-      - 'packages/cloud-deploy/test/cn-release-readiness-dispatch.test.ts'
-      - 'tests/fixtures/cn-api-startup/**'
-      - 'apps/api/docker/postgres-age/Dockerfile'
-      - 'apps/api/src/main.ts'
-      - 'apps/api/scripts/migrator.ts'
-      - 'apps/api/migrations/**'
-      - 'pnpm-lock.yaml'
-      - 'package.json'
-      - 'tests/cn_release_private_fixture.py'
-      - 'tests/cn_release_browser_linux.py'
-      - 'tests/cn_release_cgroup_linux.py'
-      - 'tests/cn-release-business-*.ts'
-      - 'scripts/cn-release-business-*.ts'
-      - 'scripts/build-cn-business-runtime.cjs'
-      - 'scripts/aliyun-release-auth.py'
-      - 'scripts/harden-aliyun-action.py'
-      - 'scripts/cloud-build-only.py'
-      - 'scripts/diagnose-cn-agent-postbuild.py'
-      - 'tests/test_cn_formal_*.py'
-      - 'tests/test_cn_repeated_layers.py'
-      - 'tests/test_cn_exact_source_admission.py'
-      - 'tests/test_cn_agent_postbuild_diagnostic.py'
-      - 'tests/test_cloud_build_only.py'
-      - 'tests/test_aliyun_release_auth.py'
-      - 'tests/test_auth_action_hardening.py'
-      - 'tests/test_cn_main_registration.py'
-      - 'tests/fixtures/cn-postgres-isolation/**'
-      - 'tests/fixtures/cn-promotion-recovery/**'
-      - 'docs/operations/cn-release-simulation-matrix.json'
-      - 'docs/operations/cn-release-simulation-defects.json'
-      - 'docs/operations/cn-release-simulation-invariants.json'
-      - 'docs/operations/cn-release-independent-review-*.json'
-      - '.github/workflows/cn-release-simulation.yml'
+  workflow_call:
+    inputs:
+      rounds:
+        type: string
+        default: "1"
+        required: false
+      lane:
+        type: string
+        default: all
+        required: false
+      mode:
+        type: string
+        default: acceptance
+        required: false
+      seed:
+        type: string
+        default: "0"
+        required: false
 permissions:
   contents: read
 jobs:
@@ -134,6 +73,7 @@ jobs:
       fail-fast: false
       matrix:
         suite: ${{ fromJSON(needs.plan.outputs.suites) }}
+      max-parallel: 2
     runs-on: ubuntu-24.04
     timeout-minutes: 300
     steps:
@@ -256,7 +196,7 @@ jobs:
 
   aggregate:
     name: ${{ needs.plan.outputs.split == 'true' && 'simulation (all)' || 'split-aggregation (not selected)' }}
-    needs: [plan, simulation]
+    needs: [ plan, simulation ]
     if: always() && needs.plan.outputs.split == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -287,3 +227,7 @@ jobs:
           path: ${{ runner.temp }}/cn-split-combined
           retention-days: 7
           if-no-files-found: warn
+concurrency:
+  group: cn-release-simulation-full-${{ github.run_id }}
+  cancel-in-progress: false
+  queue: single

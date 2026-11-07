@@ -1,15 +1,14 @@
+# Full regression only: reusable by hourly acceptance, also available manually.
 name: Billing cashier real integration
 on:
-  workflow_dispatch:
-  pull_request:
-    branches: [develop]
-  merge_group:
-    branches: [develop]
+  workflow_dispatch: null
+  workflow_call: {}
 permissions:
   contents: read
 concurrency:
-  group: billing-cashier-glue-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: billing-cashier-glue-full-${{ github.run_id }}
+  cancel-in-progress: false
+  queue: single
 jobs:
   scope:
     runs-on: ubuntu-latest
@@ -17,15 +16,14 @@ jobs:
       changed: ${{ steps.scope.outputs.changed }}
     steps:
       - uses: actions/checkout@v5
-        with: {fetch-depth: 0}
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           package-manager-cache: false
       - id: scope
-        env:
-          CI_SCOPE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
-        run: node .harness/scripts/ci-billing-scope.mjs
+        run: echo 'changed=true' >> "$GITHUB_OUTPUT"
   billing-cashier-glue:
     needs: scope
     if: needs.scope.outputs.changed == 'true'

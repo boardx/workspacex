@@ -1,0 +1,81 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+
+ ❯ tests/ui/research-new-project-context.test.tsx (1 test | 1 failed) 1039ms
+   × project research creation > links created session before navigating and preserves project context 1038ms
+     → expected "spy" to be called with arguments: [ { projectId: 'prj-a', …(2) } ]
+
+Received:
+
+
+
+Number of calls: 0
+
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<div>[39m
+        [36m<button>[39m
+          [0mback[0m
+        [36m</button>[39m
+        [36m<button>[39m
+          [0mcreate[0m
+        [36m</button>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</body>[39m
+[36m</html>[39m
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/research-new-project-context.test.tsx > project research creation > links created session before navigating and preserves project context
+AssertionError: expected "spy" to be called with arguments: [ { projectId: 'prj-a', …(2) } ]
+
+Received:
+
+
+
+Number of calls: 0
+
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<div>[39m
+        [36m<button>[39m
+          [0mback[0m
+        [36m</button>[39m
+        [36m<button>[39m
+          [0mcreate[0m
+        [36m</button>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</body>[39m
+[36m</html>[39m
+ ❯ tests/ui/research-new-project-context.test.tsx:12:42
+     10|  it('links created session before navigating and preserves project con…
+     11|   render(<ResearchNewRoute />); fireEvent.click(screen.getByText('crea…
+     12|   await waitFor(() => expect(mocks.link).toHaveBeenCalledWith({ projec…
+       |                                          ^
+     13|   expect(mocks.push).toHaveBeenCalledWith('/research/grs-a/topic?proje…
+     14|   fireEvent.click(screen.getByText('back'));
+ ❯ runWithExpensiveErrorDiagnosticsDisabled ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  03:23:59
+   Duration  11.52s (transform 55ms, setup 160ms, collect 76ms, tests 1.04s, environment 9.95s, prepare 58ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/research-new-project-context.test.tsx

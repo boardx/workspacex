@@ -39,8 +39,8 @@ describe('every required queue check has exactly one reachable candidate produce
   const w=load();
   if(mode==='trigger')delete w['harness-verify'].on.merge_group;
   if(mode==='filter')w['harness-verify'].on.merge_group.paths=['docs/**'];
-  if(mode==='condition')w['backend-gates'].jobs['gates-runtime'].if="github.event_name == 'pull_request'";
-  if(mode==='dependency')delete w['backend-gates'].jobs['api-test-plan'];
+  if(mode==='condition')w['harness-verify'].jobs['backend-required'].if="github.event_name == 'pull_request'";
+  if(mode==='dependency')delete w['harness-verify'].jobs['verify-affected'];
   if(mode==='checkout')w['harness-verify'].jobs['verify-full-compile'].steps[0].with={ref:'${{ github.event.pull_request.head.sha }}'};
   if(mode==='duplicate')w['backend-gates'].jobs['verify-affected']=structuredClone(w['harness-verify'].jobs['verify-affected']);
   expect(defects(w).length).toBeGreaterThan(0);

@@ -26,7 +26,7 @@ describe('partition commands and isolated CI producers', () => {
 });
 
 
-it('runs broad smoke only at the queue/manual acceptance producer, retaining actual verdicts',()=>{
+it('runs broad smoke only at the hourly/manual acceptance producer, retaining actual verdicts',()=>{
  const automatic=parse(readFileSync('.github/workflows/harness-verify.yml','utf8'));
  for(const name of ['board-smoke','directory-smoke','fullstack-smoke']){
   expect(automatic.jobs[name]).toBeUndefined();
@@ -35,7 +35,7 @@ it('runs broad smoke only at the queue/manual acceptance producer, retaining act
   expect(workflow.jobs['e2e-full'].needs).toContain(name);
  }
  expect(workflow.on.pull_request).toBeUndefined();
- expect(workflow.on.merge_group.branches).toEqual(['develop']);
+ expect(workflow.on.merge_group).toBeUndefined();expect(workflow.on.schedule).toEqual([{cron:'17 * * * *'}]);
  expect(workflow.on.workflow_dispatch).toBeDefined();
- expect(automatic.jobs['targeted-ui-browser']).toBeDefined();
+ expect(automatic.jobs['targeted-ui-browser']).toBeUndefined();
 });
