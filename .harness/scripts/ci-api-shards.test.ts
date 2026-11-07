@@ -22,8 +22,8 @@ describe('API isolated shard coverage',()=>{
   const plan=shardPlan(policy),test=workflow.jobs['gates-test'];
   expect(plan.shards).toEqual(Array.from({length:plan.count},(_,i)=>i+1));
   expect(test.needs).toBe('api-test-plan');
-  expect(test.strategy.matrix.shard).toBe('${{ fromJSON(needs.api-test-plan.outputs.shards) }}');
-  expect(test.timeoutMinutes??test['timeout-minutes']).toBe(20);
+  expect(test.strategy.matrix.shard).toBe("${{ fromJSON(github.event_name == 'merge_group' && '[1]' || needs.api-test-plan.outputs.shards) }}");
+  expect(test.timeoutMinutes??test['timeout-minutes']).toBe("${{ github.event_name == 'merge_group' && 45 || 20 }}");
   expect(test.strategy['fail-fast']).toBe(true);
   expect(test.env.WORKSPACEX_DB).toBe('wsx_ci_${{ github.run_id }}_test_${{ matrix.shard }}');
   const command=test.steps.find((step:any)=>step.run?.includes('vitest run')).run;
@@ -32,7 +32,7 @@ describe('API isolated shard coverage',()=>{
   expect(read('../../apps/api/vitest.config.ts')).toMatch(/minWorkers:\s*1/);
   expect(workflow.jobs['gates-fast'].steps.some((step:any)=>step.run==='node .harness/scripts/ci-api-shards.mjs --verify')).toBe(true);
   for(const lane of ['native-document-chain','native-runtime-lane','gates-runtime','prototype-audit','design-loop-e2e'])expect(workflow.jobs['backend-required'].needs).toContain(lane);
-  expect(test.steps.find((step:any)=>step.name==='清掉本次运行的数据库').if).toBe('always()');
+  expect(test.steps.find((step:any)=>step.name==='清掉本次运行的数据库').if).toBe("always() && github.event_name != 'merge_group'");
  });
  it.each([{schemaVersion:1,count:0},{schemaVersion:1,count:1.5},{schemaVersion:1,count:33},{schemaVersion:2,count:8},{schemaVersion:1,count:8,extra:true}])('rejects invalid policy %j',(input)=>expect(()=>shardPlan(input)).toThrow());
  it('accepts a disjoint exact full union',()=>expect(assertCoverage(['a','b','c'],[['b'],['a','c']]).counts).toEqual([1,2]));

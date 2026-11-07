@@ -201,15 +201,19 @@ jobs:
         run: node .harness/scripts/ci-targeted-ui.mjs ${{ github.event_name != 'pull_request' && '--full' || '' }}
 
 
+  # Queue candidates execute default API partitions once in harness-acceptance.
+  # This matrix becomes one fail-closed evidence verifier on that exact SHA.
+  # Evidence must all come from the current attempt; partial producer retries
+  # require a complete acceptance rerun rather than mixing earlier artifacts.
   gates-test:
     needs: api-test-plan
     runs-on: ubuntu-latest
     if: (github.event_name != 'pull_request' || needs.api-test-plan.outputs.mode == 'full') && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
-    timeout-minutes: 20
+    timeout-minutes: ${{ github.event_name == 'merge_group' && 45 || 20 }}
     strategy:
       fail-fast: true # Stop remaining shards after the first failure.
       matrix:
-        shard: ${{ fromJSON(needs.api-test-plan.outputs.shards) }}
+        shard: ${{ fromJSON(github.event_name == 'merge_group' && '[1]' || needs.api-test-plan.outputs.shards) }}
     env:
       # 分片间必须各自独立的库名，同一 run_id 下多个 job 并发起，不加 shard 索引
       # 会撞库名——`WORKSPACEX_DB` 是隔离边界，见 #538。
@@ -228,23 +232,33 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
 
+      - name: Verify sole queue API producer
+        if: github.event_name == 'merge_group'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node .harness/scripts/ci-queue-api.mjs
+
       - uses: astral-sh/setup-uv@v7.0.0
+        if: github.event_name != 'merge_group'
         with:
           version: "0.12.5"
       - name: Install locked Python runtime for cross-language API integration tests
+        if: github.event_name != 'merge_group'
         working-directory: apps/deep-agent-service
         run: uv sync --frozen --extra dev
 
       # 先把容器拉起来，让镜像拉取有自己的一步、日志好读。每个 shard 是独立
       # runner，天然有自己的 docker daemon，容器之间不会互相干扰。
       - name: 起 postgres
+        if: github.event_name != 'merge_group'
         run: docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel up -d postgres
 
       - name: "单元与集成测试（含 RLS、两层交集、契约响应校验）—— shard ${{ matrix.shard }}/${{ needs.api-test-plan.outputs.count }}"
+        if: github.event_name != 'merge_group'
         run: pnpm --filter api exec vitest run --shard=${{ matrix.shard }}/${{ needs.api-test-plan.outputs.count }} --bail=1
 
       - name: 清掉本次运行的数据库
-        if: always()
+        if: always() && github.event_name != 'merge_group'
         run: |
           docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel exec -T postgres \
             psql -U postgres -d postgres -c "DROP DATABASE IF EXISTS ${WORKSPACEX_DB} WITH (FORCE)" || true
