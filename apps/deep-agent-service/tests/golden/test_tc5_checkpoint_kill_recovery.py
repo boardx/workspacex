@@ -94,36 +94,9 @@ def _completed_first_step_only(messages) -> bool:  # noqa: ANN001
 def _wait_for_ready(proc: subprocess.Popen, ready: Path, open_cold_reader, config) -> str:  # noqa: ANN001
     """Latch the durable pre-kill boundary, read the way a RESTARTED service reads it.
 
-    ## Why `open_cold_reader` is a factory and not one long-lived graph (issue #2983)
-
-    LangGraph defaults to async durability: entering step_two does NOT prove the earlier
-    checkpoint committed, so the parent has to confirm the boundary out of the database
-    over its own connection rather than trusting the child's progress.
-
-    The subtlety that made this test flaky is *which* reader does that confirming. A graph
-    instance that is polled in a loop accumulates DeltaChannel history in process. That
-    warm history lets it hydrate messages whose versions it has seen before -- while the
-    `checkpoint_id` it reports for the same read can still be the PREVIOUS checkpoint.
-    Pairing those two -- values a warm reader reconstructed, id of an older checkpoint --
-    produces a boundary that only that one process can see. §② below then re-reads that id
-    from a fresh graph (a restarted service has no such history) and the `step_two` request
-    is simply not there, so `_completed_first_step_only` turns false and the assertion at
-    the durable boundary fails.
-
-    Measured on real Postgres, 72 runs under load (6 concurrent, 12 CPU hogs on 4 cores):
-
-    | reader | boundary correct | id matches a cold read |
-    |---|---|---|
-    | warm graph, polled in a loop | 72/72 values | **68/72** -- 4 latched the older id |
-    | fresh graph per poll (this fn) | 72/72 | 72/72 |
-
-    So each poll opens a NEW saver + graph: no in-process history, values and id come from
-    the same cold reconstruction, and what this function returns is by construction what a
-    restarted service can read back. That is strictly STRONGER than what the old code
-    asserted -- it is the durability claim D4 is about -- not a relaxation of it.
-
-    The cold read is only attempted once `ready` exists, so the fast path (the worker has
-    not reached step_two yet) still costs nothing but a `Path.exists()`.
+    Each poll uses a fresh graph. A latest-state read can still include pending writes
+    absent from the checkpoint identified by its config (LangGraph 1.2.11). Independently
+    read that exact ID with another cold graph before treating it as a durable boundary.
     """
     deadline = time.monotonic() + READY_TIMEOUT_SECONDS
     while time.monotonic() < deadline:
@@ -138,7 +111,18 @@ def _wait_for_ready(proc: subprocess.Popen, ready: Path, open_cold_reader, confi
             with open_cold_reader() as cold_graph:
                 state = cold_graph.get_state(config)
                 if _completed_first_step_only(state.values.get("messages", [])):
-                    return state.config["configurable"]["checkpoint_id"]
+                    checkpoint_id = state.config["configurable"]["checkpoint_id"]
+                else:
+                    checkpoint_id = None
+            if checkpoint_id is not None:
+                exact_config = {
+                    **config,
+                    "configurable": {**config["configurable"], "checkpoint_id": checkpoint_id},
+                }
+                with open_cold_reader() as exact_graph:
+                    exact_state = exact_graph.get_state(exact_config)
+                    if _completed_first_step_only(exact_state.values.get("messages", [])):
+                        return checkpoint_id
             time.sleep(0.05)
             continue
         time.sleep(0.05)
@@ -206,7 +190,7 @@ def test_checkpoint_barrier_reads_cold_every_poll_and_never_reuses_a_reader(tmp_
         AIMessage(content="", tool_calls=[{"id": "s2", "name": "step_two", "args": {}}]),
     ]
     # Poll 1 and 2 see nothing durable yet; poll 3 does. Each poll is a distinct reader.
-    reads = iter([(incomplete, "cp-1"), (incomplete, "cp-2"), (complete, "cp-3")])
+    reads = iter([(incomplete, "cp-1"), (incomplete, "cp-2"), (complete, "cp-3"), (complete, "cp-3")])
     opened: list[str] = []
     live: list[str] = []
 
@@ -228,8 +212,36 @@ def test_checkpoint_barrier_reads_cold_every_poll_and_never_reuses_a_reader(tmp_
         SimpleNamespace(poll=lambda: None), ready, open_cold_reader,
         {"configurable": {"thread_id": "t"}},
     )
-    assert opened == ["cp-1", "cp-2", "cp-3"], f"每次轮询都要开一个新 reader，实际 {opened}"
+    assert opened == ["cp-1", "cp-2", "cp-3", "cp-3"], f"每次轮询都要开一个新 reader，实际 {opened}"
     assert got == "cp-3", "返回的 id 必须来自「值满足谓词」的那一次读，不是别的读"
+
+
+
+def test_checkpoint_barrier_rejects_latest_pending_writes_until_exact_id_is_durable(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from langchain_core.messages import AIMessage, ToolMessage
+
+    ready = tmp_path / "ready.flag"
+    ready.touch()
+    monkeypatch.setattr(time, "sleep", lambda _: None)
+    incomplete = [ToolMessage(content="step one done", tool_call_id="s1")]
+    complete = incomplete + [AIMessage(content="", tool_calls=[{"id": "s2", "name": "step_two", "args": {}}])]
+    configs = []
+    snapshots = iter([(complete, "old"), (incomplete, "old"), (complete, "durable"), (complete, "durable")])
+
+    @contextlib.contextmanager
+    def open_cold_reader():
+        messages, checkpoint_id = next(snapshots)
+        def get_state(config):
+            configs.append(config)
+            return SimpleNamespace(values={"messages": messages}, config={"configurable": {"checkpoint_id": checkpoint_id}})
+        yield SimpleNamespace(get_state=get_state)
+
+    config = {"configurable": {"thread_id": "t", "checkpoint_ns": ""}}
+    assert _wait_for_ready(SimpleNamespace(poll=lambda: None), ready, open_cold_reader, config) == "durable"
+    assert configs == [config, {"configurable": {**config["configurable"], "checkpoint_id": "old"}},
+                       config, {"configurable": {**config["configurable"], "checkpoint_id": "durable"}}]
+    assert "checkpoint_id" not in config["configurable"]
 
 
 def test_tc5_sigkill_midrun_then_resume_and_time_travel(tmp_path, evidence):  # noqa: ANN001, ANN201
