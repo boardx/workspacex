@@ -14,6 +14,8 @@ async function select(page: Page, id: string, connector = id === edgeId) {
   await expect(row).toHaveAttribute('aria-pressed', 'true');
   if (!connector) {
     await expect(page.getByTestId('board-thinking-editor')).toBeVisible();
+    // Visibility precedes the editor's deferred animation-frame focus.
+    await expect(page.getByTestId('board-thinking-editor')).toBeFocused();
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('board-thinking-editor')).toBeHidden();
   }
