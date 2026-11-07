@@ -17,12 +17,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: develop
           fetch-depth: 0
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -44,7 +44,7 @@ jobs:
           candidate=$(node -p 'JSON.parse(require("fs").readFileSync(process.env.RUNNER_TEMP+"/batch-receipt.json")).candidate.commit')
           git update-ref refs/heads/batch-pilot-artifact "$candidate"
           git bundle create "$RUNNER_TEMP/batch-candidate.bundle" refs/heads/batch-pilot-artifact
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: batch-integration-receipt-${{ github.run_id }}
           path: |
