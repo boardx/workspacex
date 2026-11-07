@@ -28,7 +28,7 @@ it("creates project-scoped identity metadata and saves the research body only as
   render(<InterviewCreatePage projectId="project-night" />); enterDemand();
   expect(screen.queryByRole("button", { name: "保存草稿" })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "下一步：确认分析" }));
-  await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/itv/new-source-7/analysis"));
+  await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/itv/new-source-7/analysis?projectId=project-night"));
   expect(mocks.create).toHaveBeenCalledWith({ name: "夜班研究", tags: [], scope: { kind: "project", projectId: "project-night", researchProjectId: null }, requestId: expect.any(String) });
   const metadata = mocks.create.mock.calls[0]![0];
   expect(Object.keys(metadata).sort()).toEqual(["name", "requestId", "scope", "tags"]);
@@ -57,7 +57,7 @@ it("retry after failed analysis keeps the same interview and confirmed original 
   expect(mocks.push).not.toHaveBeenCalled();
   await waitFor(() => expect(screen.getByRole("button", { name: "下一步：确认分析" })).toBeEnabled());
   fireEvent.click(screen.getByRole("button", { name: "下一步：确认分析" }));
-  await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/itv/new-source-7/analysis"));
+  await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/itv/new-source-7/analysis?projectId=project-night"));
   expect(mocks.create).toHaveBeenCalledTimes(1);
   expect(mocks.saveInterviewMarkdown).toHaveBeenCalledTimes(1);
   expect(mocks.confirmInterviewMarkdown).toHaveBeenCalledTimes(1);

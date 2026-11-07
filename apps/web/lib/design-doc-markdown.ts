@@ -121,6 +121,12 @@ export function buildDesignDocMarkdown(project: DesignProject, now: Date = new D
    */
   lines.push(translate(locale, "designDocument.exportedAt", { v0: localTimeStamp(now) }), "");
   lines.push(translate(locale, "designDocument.problemAndGoals"), "", project.problem.trim() === "" ? translate(locale, "designDocument.notWrittenYet") : project.problem, "");
+  // Legacy projects may already contain only the last AI edit summary. The
+  // first persisted user request remains authoritative source material.
+  const originalRequest = project.chat.find((turn) => turn.role === "user" && turn.text.trim())?.text.trim();
+  if (originalRequest && !project.problem.includes(originalRequest)) {
+    lines.push(`${translate(locale, "designDocument.requester")}：`, "", ...originalRequest.split("\n").map((line) => `> ${line}`), "");
+  }
   if (project.pushNote?.trim()) lines.push(translate(locale, "designDocument.developmentHandoffNotes"), "", project.pushNote, "");
   lines.push(translate(locale, "designDocument.acceptanceCriteria"), "");
   if (project.criteria.length === 0) lines.push(translate(locale, "designDocument.noneYet"));

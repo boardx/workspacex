@@ -1,0 +1,43 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/research-project-entry-6344/apps/web
+
+ ❯ tests/ui/research-project-entry-chain.test.tsx (5 tests | 4 failed) 1014ms
+   × keeps the project through actual home create link false/+0, association, study and return 498ms
+     → expected null to be 'project-entry' // Object.is equality
+   × keeps the project through actual home create link false/1, association, study and return 111ms
+     → expected null to be 'project-entry' // Object.is equality
+   × keeps the project through actual home create link true/+0, association, study and return 277ms
+     → expected null to be 'project-entry' // Object.is equality
+   × keeps the project through actual home create link true/1, association, study and return 67ms
+     → expected null to be 'project-entry' // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/research-project-entry-chain.test.tsx > keeps the project through actual home create link false/+0, association, study and return
+ FAIL  tests/ui/research-project-entry-chain.test.tsx > keeps the project through actual home create link false/1, association, study and return
+ FAIL  tests/ui/research-project-entry-chain.test.tsx > keeps the project through actual home create link true/+0, association, study and return
+ FAIL  tests/ui/research-project-entry-chain.test.tsx > keeps the project through actual home create link true/1, association, study and return
+AssertionError: expected null to be 'project-entry' // Object.is equality
+
+- Expected: 
+"project-entry"
+
++ Received: 
+null
+
+ ❯ tests/ui/research-project-entry-chain.test.tsx:32:87
+     30|  expect(links).toHaveLength(2);
+     31|  const url=follow(links[index]!);
+     32|  expect(url.pathname).toBe('/research/new');expect(url.searchParams.ge…
+       |                                                                                       ^
+     33|  home.unmount();
+     34|  const entry=render(<ResearchNewRoute/>);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 1 passed (5)
+   Start at  06:24:15
+   Duration  17.60s (transform 7.27s, setup 598ms, collect 11.75s, tests 1.01s, environment 2.93s, prepare 177ms)
+

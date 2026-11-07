@@ -50,10 +50,6 @@ it('omits broad PR duplicates while queue/manual retain complete smoke coverage'
  }
  for(const name of ['verify-control-plane','verify-affected','verify-full-compile','organization-create','merge-gate','full-regression-core','e2e-full'])expect(JSON.stringify(jobs[name]??acceptance[name])).not.toContain('needs.doc-smoke-scope.outputs.full');
 });
-it('keeps the classification parent reachable for post-merge full coverage auditing',()=>{
- const jobs=parse(readFileSync('.github/workflows/harness-verify.yml','utf8')).jobs;
- for(const eventName of ['pull_request','push','merge_group','schedule']){
-  const expression=jobs['doc-smoke-scope'].if.replaceAll('inputs.verification_lane',"'all'");
-  expect(evaluateIf(expression,{id:eventName,eventName,ref:'refs/heads/develop',baseBranch:'develop',label:eventName})).toBe(true);
- }
+it('retains hourly full classification behind the frozen source guard',()=>{
+ const w=parse(readFileSync('.github/workflows/harness-acceptance.yml','utf8'));const scope=w.jobs['doc-smoke-scope'];expect(scope.needs).toEqual(['freeze-source']);expect(JSON.stringify(scope)).toContain('ci-targeted-ui.mjs --full');expect(w.on.merge_group).toBeUndefined();
 });

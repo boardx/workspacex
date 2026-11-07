@@ -3,6 +3,8 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createSurveyQuestion } from "@repo/contracts/survey-question-types";
 import { type SurveyRuntime } from "@repo/contracts/survey-runtime";
 import { SurveyDraftCopy } from "@/components/survey/live/survey-draft-copy";
+const link = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/live-project-resources", () => ({ linkProjectResource: link }));
 const request = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/survey/runtime-client", () => ({ surveyRequest: request }));
 const original = {
@@ -35,4 +37,24 @@ it("retains the original and allows an explicit retry when creation fails", asyn
   expect(await screen.findByRole("alert")).toHaveTextContent("暂时不可用");
   expect(onCreated).not.toHaveBeenCalled();
   expect(screen.getByRole("button", { name: "确认创建新草稿" })).toBeEnabled();
+});
+
+it("links a copied draft to the current project before navigating", async () => {
+ const onCreated=vi.fn(); request.mockResolvedValueOnce({id:"new-draft"}); link.mockResolvedValueOnce({});
+ render(<SurveyDraftCopy runtime={original} projectId="project-1" onCreated={onCreated}/>);
+ fireEvent.click(screen.getByRole("button",{name:"复制为新草稿"}));
+ fireEvent.click(screen.getByRole("button",{name:"确认创建新草稿"}));
+ await waitFor(()=>expect(onCreated).toHaveBeenCalledWith("new-draft"));
+ expect(link).toHaveBeenCalledWith({projectId:"project-1",kind:"survey",resourceId:"new-draft"});
+});
+it("retries a failed project link without creating another draft",async()=>{
+ const onCreated=vi.fn(); request.mockResolvedValueOnce({id:'one-draft'});
+ link.mockRejectedValueOnce(new Error('关联失败')).mockResolvedValueOnce({});
+ render(<SurveyDraftCopy runtime={original} projectId="project-1" onCreated={onCreated}/>);
+ fireEvent.click(screen.getByRole('button',{name:'复制为新草稿'}));
+ fireEvent.click(screen.getByRole('button',{name:'确认创建新草稿'}));
+ expect(await screen.findByRole('alert')).toHaveTextContent('关联失败');
+ fireEvent.click(screen.getByRole('button',{name:'确认创建新草稿'}));
+ await waitFor(()=>expect(onCreated).toHaveBeenCalledWith('one-draft'));
+ expect(request).toHaveBeenCalledTimes(1);
 });

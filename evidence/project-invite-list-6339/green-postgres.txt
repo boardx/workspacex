@@ -1,0 +1,17 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/2e5d/workspacex/apps/api
+
+[db-isolation] db=wsx_invited_project_6339_green capacity=100 current=6 required=32
+ ✓ tests/project/project-invitations-pg.test.ts (17 tests) 24227ms
+   ✓ PgProjectInvitationRepository（真实 PG） > 重发：60 秒冷却、最多 5 次；轮换令牌后旧令牌与「从未存在」不可分辨；过期 / 撤销后不可重发 417ms
+   ✓ PgProjectInvitationRepository（真实 PG） > 每日上限：按项目、24 小时窗口；整批超限整体拒绝、一条都不建；窗口过去后恢复 409ms
+ ✓ tests/project/list-projects-readonly-visible.test.ts (5 tests) 1353ms
+ ✓ tests/project/list-projects-flat.test.ts (6 tests) 1358ms
+ ✓ tests/project/list-projects-repo-shape.test.ts (4 tests) 4ms
+
+ Test Files  4 passed (4)
+      Tests  32 passed (32)
+   Start at  23:43:20
+   Duration  33.75s (transform 1.83s, setup 32ms, collect 3.58s, tests 26.94s, environment 1ms, prepare 292ms)
+
+[db-isolation] db=wsx_invited_project_6339_green peak_connections=4

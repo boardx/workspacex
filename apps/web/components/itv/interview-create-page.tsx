@@ -1,4 +1,5 @@
 "use client";
+import { withProjectId } from "@/components/project/project-links";
 import * as React from "react";
 import { chatFileUpload } from "@repo/contracts";
 import { useRouter } from "next/navigation";
@@ -42,15 +43,15 @@ export function InterviewCreatePage({ projectId = null }: { projectId?: string |
       if (!source.states.some((state) => state.documentId === doc.documentId && ["confirmed", "completed"].includes(state.status))) source = await confirmInterviewMarkdown(id, "intake", { expectedVersion: source.version, expectedDocumentVersion: doc.version });
       setIntakeConfirmed(true);
       if (!source.documents.some((item) => item.step === "analysis")) await generateInterviewMarkdown(id, "analysis", { expectedVersion: source.version, expectedDocumentVersion: 0 });
-      router.push(`/itv/${encodeURIComponent(id)}/analysis`);
+      router.push(withProjectId(`/itv/${encodeURIComponent(id)}/analysis`, projectId));
     } catch { setError("保存或分析未完成，当前 Markdown 已保留；再次尝试会恢复同一访谈，不会重复创建。"); }
     finally { setPending(false); }
   }
   return <main className="min-h-screen bg-background p-6 lg:p-10"><div className="mx-auto max-w-[1440px]">
-    <div className="mb-6"><InterviewWorkbenchHeader name="新建访谈" tags={[]} steps={INTERVIEW_WORKBENCH_STEPS} activeStep="intake" status="尚未保存" version={1} topic={null} onStepChange={(step) => { if (step !== "intake") setError("请先保存并确认研究需求，后续步骤不会提前执行。"); }} onReturnToList={() => { if (!markdown.trim() || window.confirm("当前需求尚未保存，确定返回列表吗？")) router.push("/itv"); }} /></div>
+    <div className="mb-6"><InterviewWorkbenchHeader name="新建访谈" tags={[]} steps={INTERVIEW_WORKBENCH_STEPS} activeStep="intake" status="尚未保存" version={1} topic={null} onStepChange={(step) => { if (step !== "intake") setError("请先保存并确认研究需求，后续步骤不会提前执行。"); }} onReturnToList={() => { if (!markdown.trim() || window.confirm("当前需求尚未保存，确定返回列表吗？")) router.push(withProjectId("/itv", projectId)); }} /></div>
     <label className="mb-5 block text-sm font-medium">访谈名称<input className="mt-2 block w-full max-w-xl rounded-lg border border-input bg-background px-4 py-3" maxLength={100} value={name} disabled={pending || Boolean(createdId.current)} onChange={(event) => setName(event.target.value)} /></label>
     {error && <p role="alert" className="mb-4 text-sm text-destructive">{error}</p>}
-    {intakeConfirmed && createdId.current && <div className="mb-4 flex items-center gap-3"><p className="text-sm text-muted-foreground">需求已确认并保存，原文只读。修改请进入工作台创建新修订。</p><Button variant="outline" onClick={() => router.push(`/itv/${encodeURIComponent(createdId.current!)}/intake`)}>进入已保存访谈</Button></div>}
+    {intakeConfirmed && createdId.current && <div className="mb-4 flex items-center gap-3"><p className="text-sm text-muted-foreground">需求已确认并保存，原文只读。修改请进入工作台创建新修订。</p><Button variant="outline" onClick={() => router.push(withProjectId(`/itv/${encodeURIComponent(createdId.current!)}/intake`, projectId))}>进入已保存访谈</Button></div>}
     <InterviewIntakeStep readOnly={intakeConfirmed} voiceSessionToken={getStoredSessionToken() ?? undefined} markdown={markdown} onChange={setMarkdown} pending={pending} onImportFile={importInterviewTextFile} onUploadFile={async (file) => {
       if (file.size > chatFileUpload.ATTACHMENT_SYNC_EXTRACTION_MAX_BYTES) throw new Error("研究文件不能超过同步提取上限");
       const id = await ensureIdentity();

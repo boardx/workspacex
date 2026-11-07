@@ -159,6 +159,11 @@ export class SurveyAttachmentController {
       await run(() => this.service.publicContent(token, session, q, id)),
     );
   }
+  @Get("/surveys/:id/responses/:responseId/attachments/:attachmentId/metadata")
+  async metadata(@CurrentPrincipal() p: Principal, @Param("id") survey: string, @Param("responseId") response: string, @Param("attachmentId") id: string) {
+    assertPrincipal(p);
+    return run(() => this.service.ownerMetadata(p.orgId, survey, p.userId, response, id));
+  }
   @Get("/surveys/:id/responses/:responseId/attachments/:attachmentId/content")
   async content(
     @CurrentPrincipal() p: Principal,

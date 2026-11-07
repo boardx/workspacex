@@ -1,17 +1,9 @@
 name: Minimal Docker release integration
 
 on:
-  pull_request:
-    branches: [develop]
-    paths:
-      - scripts/minimal-docker-release.py
-      - tests/test_minimal_docker_release*.py
-      - scripts/schema-restore-rehearsal.py
-      - tests/test_schema_restore_rehearsal*.py
-      - deploy/examples/minimal-*.json
-      - .github/workflows/minimal-docker-release-test.yml
   workflow_dispatch:
 
+  workflow_call: {}
 permissions:
   contents: read
 
@@ -46,3 +38,7 @@ jobs:
             ${{ runner.temp }}/minimal-release-real/after-recovery/receipt.json
           retention-days: 1
           if-no-files-found: warn
+concurrency:
+  group: minimal-docker-release-test-full-${{ github.run_id }}
+  cancel-in-progress: false
+  queue: single

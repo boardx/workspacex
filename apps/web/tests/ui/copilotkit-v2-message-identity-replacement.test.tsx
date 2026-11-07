@@ -54,6 +54,37 @@ function fakeAgent(): {
 }
 
 describe("useChatMessageIdentity：assistant_message_replaced", () => {
+  it.each([false, true])("does not resurrect withdrawn bubbles from completion caches (empty snapshot: %s)", (emptySnapshot) => {
+    const { agent, emit, endText, finish } = fakeAgent();
+    const { result: hook } = renderHook(() => useChatMessageIdentity(agent));
+    const prior = { id: "prior-turn", role: "assistant" as const, content: "保留上一轮" };
+    const first = { id: STREAM_ID, role: "assistant" as const, content: "旧计划" };
+    const second: Message = { id: "stream-second", role: "assistant", content: "重复旧答案" };
+    act(() => {
+      endText(prior.id, prior.content, [prior]);
+      endText(first.id, first.content, [prior, first]);
+      endText(second.id, second.content, [prior, first, second]);
+      emit({ event: {
+        name: AGUI_ASSISTANT_MESSAGE_REPLACED_EVENT_NAME,
+        value: { replacedMessageIds: [first.id, second.id], replacementMessageId: first.id },
+      }, messages: emptySnapshot ? [] : [prior, first, second] });
+    });
+    expect(hook.current.projectMessages([prior])).toEqual([prior]);
+    expect(hook.current.isSettledMessageId(second.id)).toBe(false);
+    act(() => {
+      endText(first.id, '{"ok":true}', [prior, { ...first, content: '{"ok":true}' }]);
+      emit({ event: {
+        name: AGUI_CHAT_MESSAGE_ID_EVENT_NAME,
+        value: { streamingMessageId: first.id, chatMessageId: PERSISTED_ID },
+      }, messages: [] });
+    });
+    const expected = [prior, { ...first, content: '{"ok":true}' }];
+    expect(hook.current.projectMessages([])).toEqual(expected);
+    expect(finish([])?.messages).toEqual(expected);
+    expect(hook.current.projectMessages([...expected, { id: "next-question", role: "user" as const, content: "下一轮" }]))
+      .toEqual([...expected, { id: "next-question", role: "user", content: "下一轮" }]);
+  });
+
   it("撤回帧把作废气泡从消息列表里移除（以订阅者 mutation 的形式返回）", () => {
     const { agent, emit } = fakeAgent();
     renderHook(() => useChatMessageIdentity(agent));

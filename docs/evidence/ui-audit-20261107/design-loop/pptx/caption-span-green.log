@@ -1,0 +1,11 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+
+ ✓ tests/ui/prototype-pptx-export.test.ts (8 tests) 2258ms
+   ✓ buildPrototypePptx > 一页一张：三页进三页出；字是文本、表格是表格、图表是原生图表；备注进演讲者备注 2018ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  04:03:34
+   Duration  49.92s (transform 22.98s, setup 3.13s, collect 36.00s, tests 2.26s, environment 1ms, prepare 1.86s)

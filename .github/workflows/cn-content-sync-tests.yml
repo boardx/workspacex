@@ -1,26 +1,7 @@
 name: CN deterministic content synchronization tests
 on:
-  pull_request:
-    branches: [develop]
-    paths:
-      - 'apps/api/scripts/platform-content-release*'
-      - 'apps/api/scripts/platform-schema-readback*'
-      - 'apps/api/vitest.platform-content-release.config.ts'
-      - 'scripts/cn-content-sync/**'
-      - 'scripts/cn-release-mvp*'
-      - 'scripts/cn-release-approval-plan.py'
-      - 'scripts/cn-release-orchestrate.py'
-      - 'scripts/cn-release-installation-closure.py'
-      - 'scripts/cn-release-fixed-driver.py'
-      - 'scripts/cn-release-stage-router.py'
-      - 'scripts/cn-release-stage-contract.py'
-      - 'scripts/cn-hk-*'
-      - 'tests/test_cn_mvp*'
-      - 'tests/test_cn_release_approval_plan.py'
-      - 'tests/test_cn_hk*'
-      - '.github/workflows/cn-content-sync-tests.yml'
-      - '.github/workflows/cn-release-mvp*.yml'
   workflow_dispatch:
+  workflow_call: {}
 permissions:
   contents: read
 jobs:
@@ -64,3 +45,7 @@ jobs:
       - name: Clean only this test stack
         if: always()
         run: docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel down --volumes --remove-orphans
+concurrency:
+  group: cn-content-sync-tests-full-${{ github.run_id }}
+  cancel-in-progress: false
+  queue: single

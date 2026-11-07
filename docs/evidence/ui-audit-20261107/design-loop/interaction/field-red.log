@@ -1,0 +1,36 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+
+ ❯ tests/ui/prototype-table-interactions.test.tsx (2 tests | 1 failed) 119ms
+   × filters only the type column, ignores unrelated selects and traps modal focus 10ms
+     → expected 'none' to be '' // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/prototype-table-interactions.test.tsx > filters only the type column, ignores unrelated selects and traps modal focus
+AssertionError: expected 'none' to be '' // Object.is equality
+
+- Expected
++ Received
+
++ none
+
+ ❯ tests/ui/prototype-table-interactions.test.tsx:30:34
+     28|   const rows = document.querySelectorAll<HTMLElement>("tbody tr");
+     29|   expect(rows[0]!.style.display).toBe("none");
+     30|   expect(rows[1]!.style.display).toBe("");
+       |                                  ^
+     31|   const sort = document.querySelector('select[aria-label="排序"]') as …
+     32|   sort.value = "按名称"; sort.dispatchEvent(new Event("change", { bubb…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  03:53:57
+   Duration  2.38s (transform 76ms, setup 207ms, collect 27ms, tests 119ms, environment 957ms, prepare 250ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/prototype-table-interactions.test.tsx

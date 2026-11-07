@@ -1,7 +1,7 @@
 /**
  * `ProjectResourcePort` 的 PostgreSQL 实现（项目中枢 B2-S1，#4425；#4615 W2 扩到六类）。
  *
- * 读侧一条 UNION ALL 把六类资源合成一个形状：问卷 / 深度研究 / 个人转写 / 白板 / 设计经 `project_resource_links`
+ * 读侧先用 UNION ALL 把六类资源合成一个形状；Markdown 访谈复用当前修订进度，旧状态仅作回退：问卷 / 深度研究 / 个人转写 / 白板 / 设计经 `project_resource_links`
  * JOIN 各自的表（资源被删后链接行悬空 ⇒ JOIN 自然过滤掉）；访谈见下。全部 `withTenant` + 每条谓词带 `org_id`，
  * 返回 `guard({kind:"project"})`——披露由用例拿 `authorize()` 的决策解开。
  *
@@ -18,6 +18,7 @@
  * 投影那一列的唯一写者是 `interview_attachment_project_projection()`，这里不抢），于是访谈自己的可见性谓词
  * 与项目资源视图对「它属于哪个项目」给出同一个答案。
  */
+import { readInterviewMarkdownProgress } from "../interview/interview-markdown-history";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import type {
   LinkResourceOutcome,
@@ -121,19 +122,19 @@ export class PgProjectResourceRepository implements ProjectResourcePort {
       const found = await s.query<{ id: string }>(`SELECT id FROM projects WHERE id = $1 AND org_id = $2`, [projectId, orgId]);
       if (found.rows[0] === undefined) return guard(ref, null);
       const r = await s.query<ResourceSqlRow>(LIST_SQL, [orgId, projectId]);
-      return guard(
-        ref,
-        r.rows.map((row) => ({
-          kind: row.kind,
-          id: row.id,
-          // 问卷标题住在 jsonb 里；理论上非空（契约 `title: min(1)`），落库前的旧文档兜一个空串。
-          title: row.title ?? "",
-          ownerUserId: row.owner_user_id,
-          status: row.status,
-          updatedAt: row.updated_at.toISOString(),
-          linkedAt: row.linked_at.toISOString(),
-        })),
-      );
+      const items: ProjectResourceRow[] = [];
+      for (const row of r.rows) {
+        let status = row.status;
+        if (row.kind === "interview" && status !== "archived") {
+          const progress = await readInterviewMarkdownProgress(s, orgId, row.id);
+          if (progress) status = progress.status;
+        }
+        items.push({
+          kind: row.kind, id: row.id, title: row.title ?? "", ownerUserId: row.owner_user_id,
+          status, updatedAt: row.updated_at.toISOString(), linkedAt: row.linked_at.toISOString(),
+        });
+      }
+      return guard(ref, items);
     });
   }
 

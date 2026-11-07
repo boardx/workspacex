@@ -1,0 +1,59 @@
+
+> web@0.1.0 test /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+> vitest run "tests/ui/board-header-rename.test.tsx"
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+
+ ❯ tests/ui/board-header-rename.test.tsx (3 tests | 1 failed) 735ms
+   ✓ cancels Escape followed by blur without saving 427ms
+   × does not commit a partially composed IME title on Enter 116ms
+     → expected "spy" to not be called at all, but actually been called 1 times
+
+Received:
+
+  1st spy call:
+
+    Array [
+      "正在组合的中文名称",
+    ]
+
+
+Number of calls: 1
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/board-header-rename.test.tsx > does not commit a partially composed IME title on Enter
+AssertionError: expected "spy" to not be called at all, but actually been called 1 times
+
+Received:
+
+  1st spy call:
+
+    Array [
+      "正在组合的中文名称",
+    ]
+
+
+Number of calls: 1
+
+ ❯ tests/ui/board-header-rename.test.tsx:27:19
+     25|  const input=open();input.focus();fireEvent.change(input,{target:{valu…
+     26|  fireEvent.keyDown(input,{key:'Enter',isComposing:true,keyCode:229});
+     27|  expect(save).not.toHaveBeenCalled();
+       |                   ^
+     28| });
+     29|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+   Start at  04:30:06
+   Duration  9.89s (transform 3.59s, setup 293ms, collect 5.65s, tests 735ms, environment 1.57s, prepare 377ms)
+
+/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  web@0.1.0 test: `vitest run "tests/ui/board-header-rename.test.tsx"`
+Exit status 1

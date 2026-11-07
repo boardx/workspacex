@@ -1,0 +1,22 @@
+lib/prototype-table-interactions.ts(19,96): error TS2345: Argument of type '(this: undefined, select: HTMLSelectElement) => { select: HTMLSelectElement; column: string; index: number; }[] | { select: HTMLSelectElement; column: null; index: number; }[]' is not assignable to parameter of type '(this: undefined, value: HTMLSelectElement, index: number, array: HTMLSelectElement[]) => { select: HTMLSelectElement; column: string; index: number; } | readonly { ...; }[]'.
+  Type '{ select: HTMLSelectElement; column: string; index: number; }[] | { select: HTMLSelectElement; column: null; index: number; }[]' is not assignable to type '{ select: HTMLSelectElement; column: string; index: number; } | readonly { select: HTMLSelectElement; column: string; index: number; }[]'.
+    Type '{ select: HTMLSelectElement; column: null; index: number; }[]' is not assignable to type '{ select: HTMLSelectElement; column: string; index: number; } | readonly { select: HTMLSelectElement; column: string; index: number; }[]'.
+      Type '{ select: HTMLSelectElement; column: null; index: number; }[]' is not assignable to type 'readonly { select: HTMLSelectElement; column: string; index: number; }[]'.
+        Type '{ select: HTMLSelectElement; column: null; index: number; }' is not assignable to type '{ select: HTMLSelectElement; column: string; index: number; }'.
+          Types of property 'column' are incompatible.
+            Type 'null' is not assignable to type 'string'.
+lib/prototype-table-interactions.ts(37,123): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(predicate: (value: unknown, index: number, array: unknown[]) => value is unknown, thisArg?: any): this is S[]', gave the following error.
+    Argument of type '({ select, column, index }: { select: any; column: any; index: any; }) => boolean' is not assignable to parameter of type '(value: unknown, index: number, array: unknown[]) => value is unknown'.
+      Types of parameters '__0' and 'value' are incompatible.
+        Type 'unknown' is not assignable to type '{ select: any; column: any; index: any; }'.
+  Overload 2 of 2, '(predicate: (value: unknown, index: number, array: unknown[]) => unknown, thisArg?: any): boolean', gave the following error.
+    Argument of type '({ select, column, index }: { select: any; column: any; index: any; }) => boolean' is not assignable to parameter of type '(value: unknown, index: number, array: unknown[]) => unknown'.
+      Types of parameters '__0' and 'value' are incompatible.
+        Type 'unknown' is not assignable to type '{ select: any; column: any; index: any; }'.
+lib/prototype-table-interactions.ts(49,21): error TS2345: Argument of type '({ select }: { select: any; }) => any' is not assignable to parameter of type '(value: unknown, index: number, array: unknown[]) => void'.
+  Types of parameters '__0' and 'value' are incompatible.
+    Type 'unknown' is not assignable to type '{ select: any; }'.
+undefined
+/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 2: tsc --noEmit --strict --skipLibCheck --target ES2022 --lib ES2022,DOM --types react lib/prototype-table-interactions.ts

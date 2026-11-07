@@ -1,14 +1,14 @@
+# Full regression only: reusable by hourly acceptance, also available manually.
 name: Board acceptance lanes
 on:
-  merge_group:
-    branches: [develop]
-  pull_request:
-    branches: [develop]
+  workflow_dispatch: null
+  workflow_call: {}
 permissions:
   contents: read
 concurrency:
-  group: board-acceptance-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: board-acceptance-full-${{ github.run_id }}
+  cancel-in-progress: false
+  queue: single
 jobs:
   scope:
     runs-on: ubuntu-latest
@@ -16,11 +16,10 @@ jobs:
       board: ${{ steps.changes.outputs.board }}
     steps:
       - uses: actions/checkout@v5
-        with: {fetch-depth: 0}
+        with:
+          fetch-depth: 0
       - id: changes
-        env:
-          CI_SCOPE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
-        run: node .harness/scripts/ci-change-scope.mjs board >> "$GITHUB_OUTPUT"
+        run: echo 'board=true' >> "$GITHUB_OUTPUT"
   journeys:
     needs: scope
     if: needs.scope.outputs.board == 'true'
@@ -28,7 +27,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
-        with: {fetch-depth: 0}
+        with: { fetch-depth: 0 }
       - uses: pnpm/action-setup@v4.4.0
       - uses: actions/setup-node@v5
         with:
@@ -55,7 +54,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
-        with: {fetch-depth: 0}
+        with: { fetch-depth: 0 }
       - uses: pnpm/action-setup@v4.4.0
       - uses: actions/setup-node@v5
         with:
@@ -82,7 +81,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
-        with: {fetch-depth: 0}
+        with: { fetch-depth: 0 }
       - uses: pnpm/action-setup@v4.4.0
       - uses: actions/setup-node@v5
         with:
@@ -112,7 +111,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
-        with: {fetch-depth: 0}
+        with: { fetch-depth: 0 }
       - uses: pnpm/action-setup@v4.4.0
       - uses: actions/setup-node@v5
         with:
@@ -139,7 +138,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
-        with: {fetch-depth: 0}
+        with: { fetch-depth: 0 }
       - uses: pnpm/action-setup@v4.4.0
       - uses: actions/setup-node@v5
         with:
@@ -166,7 +165,7 @@ jobs:
     timeout-minutes: 75
     steps:
       - uses: actions/checkout@v5
-        with: {fetch-depth: 0}
+        with: { fetch-depth: 0 }
       - uses: pnpm/action-setup@v4.4.0
       - uses: actions/setup-node@v5
         with:
