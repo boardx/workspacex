@@ -1,0 +1,117 @@
+{
+  "logicalCases": 6,
+  "passed": 6,
+  "cases": [
+    {
+      "name": "oldwww",
+      "input": "https://www.boardx.com.cn/",
+      "js": false,
+      "status": 200,
+      "finalUrl": "https://workspacex.cn/",
+      "icp": "粤ICP备2021115740号-2",
+      "href": "https://beian.miit.gov.cn/",
+      "canonical": "https://workspacex.cn/",
+      "mobileVisible": true,
+      "pass": true,
+      "evidence": "browser-final-results.json",
+      "browserResolver": "normal"
+    },
+    {
+      "name": "oldroot",
+      "input": "https://boardx.com.cn/",
+      "js": false,
+      "status": 200,
+      "finalUrl": "https://workspacex.cn/",
+      "icp": "粤ICP备2021115740号-2",
+      "href": "https://beian.miit.gov.cn/",
+      "canonical": "https://workspacex.cn/",
+      "mobileVisible": true,
+      "pass": true,
+      "evidence": "browser-final-results.json",
+      "browserResolver": "normal"
+    },
+    {
+      "name": "oldroot",
+      "input": "https://boardx.com.cn/",
+      "js": true,
+      "status": 200,
+      "finalUrl": "https://workspacex.cn/",
+      "icp": "粤ICP备2021115740号-2",
+      "href": "https://beian.miit.gov.cn/",
+      "canonical": "https://workspacex.cn/",
+      "mobileVisible": true,
+      "pass": true,
+      "evidence": "browser-final-results.json",
+      "browserResolver": "normal"
+    },
+    {
+      "name": "primary",
+      "input": "https://workspacex.cn/",
+      "js": false,
+      "status": 200,
+      "finalUrl": "https://workspacex.cn/",
+      "icp": "粤ICP备2021115740号-2",
+      "href": "https://beian.miit.gov.cn/",
+      "canonical": "https://workspacex.cn/",
+      "mobileVisible": true,
+      "pass": true,
+      "evidence": "browser-primary-ipv4-results.json",
+      "browserResolver": "observed-ESA-IPv4"
+    },
+    {
+      "name": "primary",
+      "input": "https://workspacex.cn/",
+      "js": true,
+      "status": 200,
+      "finalUrl": "https://workspacex.cn/",
+      "icp": "粤ICP备2021115740号-2",
+      "href": "https://beian.miit.gov.cn/",
+      "canonical": "https://workspacex.cn/",
+      "mobileVisible": true,
+      "pass": true,
+      "evidence": "browser-primary-ipv4-results.json",
+      "browserResolver": "observed-ESA-IPv4"
+    },
+    {
+      "name": "oldwww",
+      "input": "https://www.boardx.com.cn/",
+      "js": true,
+      "status": 200,
+      "finalUrl": "https://workspacex.cn/",
+      "icp": "粤ICP备2021115740号-2",
+      "href": "https://beian.miit.gov.cn/",
+      "canonical": "https://workspacex.cn/",
+      "mobileVisible": true,
+      "pass": true,
+      "evidence": "browser-www-ipv4-results.json",
+      "browserResolver": "observed-ESA-IPv4"
+    }
+  ],
+  "initialNetworkFailures": [
+    {
+      "name": "primary",
+      "input": "https://workspacex.cn/",
+      "js": false,
+      "error": "TimeoutError: page.goto: Timeout 45000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"https://workspacex.cn/\", waiting until \"commit\"\u001b[22m\n",
+      "evidence": "browser-final-results.json",
+      "browserResolver": "normal"
+    },
+    {
+      "name": "primary",
+      "input": "https://workspacex.cn/",
+      "js": true,
+      "error": "TimeoutError: page.goto: Timeout 45000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"https://workspacex.cn/\", waiting until \"commit\"\u001b[22m\n",
+      "evidence": "browser-final-results.json",
+      "browserResolver": "normal"
+    },
+    {
+      "name": "oldwww",
+      "input": "https://www.boardx.com.cn/",
+      "js": true,
+      "error": "TimeoutError: page.goto: Timeout 45000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"https://www.boardx.com.cn/\", waiting until \"commit\"\u001b[22m\n",
+      "evidence": "browser-final-results.json",
+      "browserResolver": "normal"
+    }
+  ],
+  "note": "IPv4 retries are browser-process-only; normal public DNS/HTTP checks were separately successful with certificate validation."
+}

@@ -1,0 +1,18 @@
+{
+  "observedAt": "2026-10-30T02:45:41.366587+00:00",
+  "environmentId": "ccarenv_b64_Y2NhcmVudl8yNDRiYWRhYThiYWM4MTkxYWY3NzZmODU1MmIxYzk1MQ",
+  "observationsCurrent": true,
+  "networkPolicy": "unrestricted/enforced",
+  "secrets": [],
+  "runtimeVariables": [],
+  "outboundIdentities": [],
+  "aliyunCliAvailable": false,
+  "esaCliAvailable": false,
+  "publicationAttempted": false,
+  "dnsMutated": false,
+  "currentProviderBinding": "unreadable without existing authorization",
+  "currentProviderVersion": "unreadable without existing authorization",
+  "historicalVersionOnly": "1793182357164195675",
+  "bootstrap": "./init.sh quick path passed, exit 0, pnpm 9.15; optional canvas build reported missing pixman-1; Node24 vs repo22; full verification not run",
+  "coordination": "harness tick blocked: COORD_GATEWAY_URL absent; readiness command succeeded"
+}
