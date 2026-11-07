@@ -50,27 +50,27 @@ it('keeps a live orphan observable until owned cleanup terminates it',async()=>{
   await new Promise<void>(resolve=>parent.once('exit',()=>resolve()));
   pid=Number(readFileSync(marker,'utf8'));
   writeFileSync(join(dir,'service-launcher.jsonl'),JSON.stringify({event:'child-start',scopeHash:scope,ownerPid:parent.pid,pgid:pid})+'\n');
-  expect(owner.processActive(pid)).toBe(true);
-  expect(owner.processActive(-pid)).toBe(true);
+  expect(owner.alive(pid)).toBe(true);
+  expect(owner.alive(-pid)).toBe(true);
   expect(owner.remaining(dir,scope).groups).toContain(pid);
   await owner.cleanupOwned(dir,scope,()=>{});
-  expect(owner.processActive(pid)).toBe(false);
+  expect(owner.alive(pid)).toBe(false);
   expect(owner.remaining(dir,scope).groups).toEqual([]);
  }finally{if(pid)try{process.kill(-pid,'SIGKILL');}catch{}rmSync(dir,{recursive:true,force:true});}
 },10000);
 
 it.skipIf(process.platform!=='linux')('does not declare unreadable process state terminated',()=>{
  const fs=require('node:fs');const read=vi.spyOn(fs,'readFileSync').mockImplementation(()=>{throw Object.assign(new Error('denied'),{code:'EACCES'});});
- try{expect(owner.processActive(process.pid)).toBe(true);expect(owner.processActive(-process.pid)).toBe(true);}finally{read.mockRestore();}
+ try{expect(owner.alive(process.pid)).toBe(true);expect(owner.alive(-process.pid)).toBe(true);}finally{read.mockRestore();}
 });
 
 it.skipIf(process.platform!=='linux')('keeps a live PID and uncertain group alive when stat temporarily returns ENOENT',()=>{
  const fs=require('node:fs');const read=vi.spyOn(fs,'readFileSync').mockImplementation(()=>{throw Object.assign(new Error('stat raced'),{code:'ENOENT'});});
- try{expect(owner.processActive(process.pid)).toBe(true);expect(owner.processActive(-process.pid)).toBe(true);}finally{read.mockRestore();}
+ try{expect(owner.alive(process.pid)).toBe(true);expect(owner.alive(-process.pid)).toBe(true);}finally{read.mockRestore();}
 });
 it.skipIf(process.platform!=='linux')('confirms a genuinely exited PID gone with ESRCH after missing stat',async()=>{
  const child=spawn(process.execPath,['-e','process.exit(0)'],{stdio:'ignore'});await new Promise<void>(resolve=>child.once('exit',()=>resolve()));
  expect(()=>process.kill(child.pid!,0)).toThrow(expect.objectContaining({code:'ESRCH'}));
  const fs=require('node:fs');const read=vi.spyOn(fs,'readFileSync').mockImplementation(()=>{throw Object.assign(new Error('gone'),{code:'ENOENT'});});
- try{expect(owner.processActive(child.pid)).toBe(false);}finally{read.mockRestore();}
+ try{expect(owner.alive(child.pid)).toBe(false);}finally{read.mockRestore();}
 });

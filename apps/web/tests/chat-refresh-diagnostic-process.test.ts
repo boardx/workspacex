@@ -7,7 +7,7 @@ import {fileURLToPath} from 'node:url';
 import {expect,it} from 'vitest';
 const launcher=fileURLToPath(new URL('../e2e/support/chat-refresh-diagnostic-server.mjs',import.meta.url));
 const pause=(ms:number)=>new Promise(r=>setTimeout(r,ms));
-const alive: (pid:number)=>boolean = createRequire(import.meta.url)('../e2e/support/chat-refresh-owned-process.cjs').processActive;
+const alive: (pid:number)=>boolean = createRequire(import.meta.url)('../e2e/support/chat-refresh-owned-process.cjs').alive;
 async function until(check:()=>boolean,budget=6000){const deadline=Date.now()+budget;while(!check()){if(Date.now()>deadline)throw new Error('owned fixture cleanup deadline');await pause(20);}}
 // Synthetic child processes only: no DB, Docker, browser, application or network connection.
 for(const mode of ['normal','SIGTERM','SIGHUP','SIGQUIT','uncaught','wrapper-uncaught'] as const)it(`terminates owned grandchild after ${mode}`,async()=>{

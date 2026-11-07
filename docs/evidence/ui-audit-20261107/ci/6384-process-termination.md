@@ -9,3 +9,9 @@ Base: develop cdfdb8e728824e09857d02fa19b33c0d6ae166ac. Actual original targeted
 An initial review blocked ENOENT handling that could misclassify a live PID under an unreadable proc view. That candidate was not pushed; the final fallback and counterexamples close the finding. Separate reviewer independently accepted the final R2 patch. Raw local evidence: /tmp/process-lifecycle-cdfdb8/{red-tests.log,red-proc-node22.log,green-r2.log,handoff-6384.md}. Initial image-default Node24 scratch output and marker-race run are not counted as CI-exact success.
 
 This PR is independent of OOXML issue6383 and queued PR6336: no changes to their branches, runtime/workflow feature, product UI or model behavior. Required final-head and merge-group CI remain mandatory.
+
+## Static wrapper consumer regression and correction
+
+Final-head CI exposed another real integration constraint: the existing conservative chat-production wrapper recognizer requires an allowed top-level const-arrow alive binding and shorthand module exports. The initial function declaration, top-level signalAlive and processActive alias made the wrapper opaque and removed its Playwright invocation edge from spec coverage.
+
+Restore the original allowed declaration/export shape (signalAlive is local to alive), and update only test consumers to the shorthand exported alive. Process/proc/kill0 semantics, timeouts and negative controls are unchanged. No gate allowlist, exemption or wrapper recognizer was modified. The actual existing pure chat-production-gate suite passed41/41, including real-helper transparency and original rejection controls; the probe again returns transparent=true and the original Playwright chat-read command. Same locked image/Node22 process suites passed16/16 again. Local evidence: gate-structure-green.log, probe-r3.log, green-r3.log in /tmp/process-lifecycle-cdfdb8. Final exact-head and merge-group CI must pass again; the earlier control-plane failure is retained as history.

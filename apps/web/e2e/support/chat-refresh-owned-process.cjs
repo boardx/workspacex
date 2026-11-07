@@ -7,8 +7,8 @@ const valid=n=>Number.isSafeInteger(n)&&n>1;
 // Linux PID 1 may not reap orphaned children. Z/X entries cannot execute or
 // keep service sockets open, but kill(pid, 0) (including a process group) still sees them.
 // This proves termination, not waitpid/reaping; unreadable state stays conservative.
-const signalAlive=id=>{try{process.kill(id,0);return true;}catch(e){return e.code!=='ESRCH';}};
-function alive(id){
+const alive=id=>{
+ const signalAlive=id=>{try{process.kill(id,0);return true;}catch(e){return e.code!=='ESRCH';}};
  if(process.platform!=='linux')return signalAlive(id);
  const read=pid=>{
   const stat=fs.readFileSync(`/proc/${pid}/stat`,'utf8');
@@ -24,7 +24,7 @@ function alive(id){
   }
   return false;
  }catch{return true;}
-}
+};
 function signal(id,value){try{process.kill(id,value);}catch(e){if(e.code!=='ESRCH')throw Error('owned_process_signal_failed');}}
 function starts(directory,scope){
  const rows=[];
@@ -73,7 +73,7 @@ async function runOwned(command,args,options){
 function claimDist(output){if(fs.existsSync(output))throw Error('fresh isolated production dist required');fs.mkdirSync(output,{mode:0o700});return fs.lstatSync(output);}
 const comparisonExitCode=result=>result.interrupted?(result.code||1):result.code;
 const scenarioArguments=argv=>{if(!Array.isArray(argv)||!argv.length||argv.some(a=>typeof a!=='string'))throw Error('explicit original Playwright arguments required');return [...argv];};
-module.exports={processActive:alive,scenarioArguments,scopeHash,starts,remaining,cleanupOwned,killRecorded,runOwned,claimDist,comparisonExitCode};
+module.exports={scenarioArguments,scopeHash,starts,alive,remaining,cleanupOwned,killRecorded,runOwned,claimDist,comparisonExitCode};
 if(require.main===module){
  const directory=path.resolve('apps/web/e2e/__evidence__/chat-refresh-diagnostics');
  const entry=fs.readFileSync(path.join(directory,'production-build.jsonl'),'utf8').split('\n').filter(Boolean).map(JSON.parse).filter(r=>r.event==='comparison-start').at(-1);
