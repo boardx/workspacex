@@ -75,7 +75,9 @@ import { existsSync, readFileSync } from "node:fs";
 import { readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { ciJobCommands } from "./lib/ci-job-conditions.mjs";
+import { ciJobCommands,readWorkflows } from "./lib/ci-job-conditions.mjs";
+import {CURRENT_POLICY} from "./lib/ci-check-policy.mjs";
+import {scheduledJobLabels} from "./lib/ci-hourly-reachability.mjs";
 import { chatProductionInvocations } from "./lib/chat-production-gate.mjs";
 
 const REPO_ROOT = fileURLToPath(new URL("../..", import.meta.url));
@@ -700,7 +702,7 @@ export function specsMatchedBy({ pkgDir, configPath, projects = [] }) {
  * 尤其是 `covered-but-exempt` 与两种陈旧豁免，它们在真实仓库里（希望）永远不出现，
  * 而「永远不出现的分支」正是最容易写错又永远测不到的那种。
  */
-export function classifySpecs({ population, coveredBy, exemptions, conditionalExemptions = [] }) {
+export function classifySpecs({ population, coveredBy, exemptions, conditionalExemptions = [], policy=CURRENT_POLICY }) {
   const exemptBySpec = new Map(exemptions.map((e) => [e.spec, e]));
   const conditionalBySpec = new Map(conditionalExemptions.map((e) => [e.spec, e]));
 
@@ -719,8 +721,9 @@ export function classifySpecs({ population, coveredBy, exemptions, conditionalEx
       verdict = exemption || conditionalExemption ? "covered-but-exempt" : "covered";
       reason = (exemption ?? conditionalExemption)?.reason;
     } else if (conditionalBy.length > 0) {
-      verdict = conditionalExemption ? "conditional-exempt" : "conditionally-covered";
-      reason = conditionalExemption?.reason;
+      const hourly=policy.version===5&&coverage.some(c=>c.hourlyFull===true);
+      verdict = conditionalExemption||hourly ? "conditional-exempt" : "conditionally-covered";
+      reason = conditionalExemption?.reason??(hourly?"Policy v5 (#6397): registered hourly full regression on frozen develop; not premerge coverage or executed success.":undefined);
     } else {
       verdict = exemption ? "exempt" : "unrun";
       reason = exemption?.reason;
@@ -749,11 +752,12 @@ export function classifySpecs({ population, coveredBy, exemptions, conditionalEx
 export function auditSpecGateCoverage() {
   const population = allSpecFiles();
   const invoked = resolveInvokedConfigs();
+  const hourly=scheduledJobLabels(new Map(readWorkflows().map(w=>[w.file,w.document])),CURRENT_POLICY);
   const coveredBy = new Map(population.map((spec) => [spec, []]));
   for (const config of invoked) {
     for (const spec of specsMatchedBy(config)) {
       if (coveredBy.has(spec)) {
-        coveredBy.get(spec).push({ configPath: config.configPath, unconditional: config.unconditional });
+        coveredBy.get(spec).push({ configPath: config.configPath, unconditional: config.unconditional,hourlyFull:config.via.some(v=>hourly.has(v)) });
       }
     }
   }
@@ -829,7 +833,7 @@ function main() {
     process.exit(1);
   }
   console.log(
-    "\n✅ 每一条 spec 都已被某个**无条件** CI job 的 --project 跑到（或有署名豁免）——" +
+    "\n✅ 每一条 spec 都注册了 CI --project 链路或明确条件豁免；v5 hourly 注册不等于合入前覆盖或本趟执行——" +
       // 迭代 24：这句话原文是「注册 ≠ 本趟执行」，那是闭包还停在 config 粒度时的如实免责。
       // 现在 `--project` 已经接进闭包，"注册了但那条命令不跑它"会红，所以这句改成说现在的事实。
       "闭包已收紧到 project 粒度；仍未接进来的是 -g/--grep 过滤（本仓 CI 命令目前不用）",

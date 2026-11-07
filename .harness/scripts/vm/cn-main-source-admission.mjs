@@ -9,6 +9,7 @@ import { parse as parseYaml } from '../vendor/yaml-2.9.0/parser.mjs';
 import { parsePolicy } from '../lib/ci-check-policy.mjs';
 import { shardPlan } from '../ci-api-shards.mjs';
 const shardHelperSha256=createHash('sha256').update(readFileSync(new URL('../ci-api-shards.mjs',import.meta.url))).digest('hex');
+function lightweightHelperHash(){try{return createHash('sha256').update(readFileSync(new URL('../ci-lightweight.mjs',import.meta.url))).digest('hex')}catch{fail('MAIN_SOURCE_LIGHTWEIGHT_HELPER_UNAVAILABLE')}}
 const sha=/^[a-f0-9]{40}$/;
 const fail=code=>{throw new Error(code)};
 
@@ -41,7 +42,7 @@ const ready=(checks,policy)=>{const v=classifyChecks(checks,policy);return !v.bl
 function queueEvidence(source,repository,pr,facts) {
  const runs=facts.queueRuns,checks=facts.queueChecks,deadline=Date.parse(pr.merged_at);
  if(facts.sourceCommit.parents?.length!==2||!Array.isArray(runs)||!runs.length||!Array.isArray(checks)||!checks.length)fail('MAIN_SOURCE_QUEUE_PROOF');
- const paths=new Set(['.github/workflows/harness-verify.yml','.github/workflows/backend-gates.yml','.github/workflows/harness-acceptance.yml']);
+ const paths=new Set(facts.sourcePolicy?.version===5?['.github/workflows/harness-verify.yml']:['.github/workflows/harness-verify.yml','.github/workflows/backend-gates.yml','.github/workflows/harness-acceptance.yml']);
  const ids=new Set(),workflows=new Set();
  for(const run of runs){
   if(!Number.isSafeInteger(run.id)||ids.has(run.id)||workflows.has(run.workflow_id)||!Number.isSafeInteger(run.workflow_id)||!Number.isSafeInteger(run.check_suite_id)||run.event!=='merge_group'||run.head_sha!==source||run.repository?.full_name!==repository||!paths.has(run.path)||!new RegExp(`^gh-readonly-queue/${pr.base.ref}/pr-${pr.number}-[a-f0-9]{7,40}$`).test(run.head_branch)||(!Number.isSafeInteger(run.run_attempt)||run.run_attempt<1)||run.status!=='completed'||run.conclusion!=='success'||!Number.isFinite(Date.parse(run.run_started_at??run.created_at))||!Number.isFinite(Date.parse(run.updated_at)))fail('MAIN_SOURCE_QUEUE_RUN');
@@ -61,6 +62,7 @@ export function validateMainSourceAdmission(source,repository,facts) {
  if(!sha.test(head)||!Number.isSafeInteger(pr.number)||pr.number<=0||!Number.isFinite(Date.parse(pr.merged_at)))fail('MAIN_SOURCE_PR_IDENTITY');
  if(!Array.isArray(parents)||![1,2].includes(parents.length)||parents.some(p=>!sha.test(p))||(parents.length===2&&parents[1]!==head)||facts.mergeTree!==facts.sourceCommit.tree?.sha||!sha.test(facts.mergeTree))fail('MAIN_SOURCE_TREE');
  const policy=parsePolicy(facts.mergeParentPolicy);
+ if(policy.version>=5&&facts.sourcePolicy?.version<5)fail('MAIN_SOURCE_POLICY_DOWNGRADE');
  const queued=pr.merged_by?.login==='github-merge-queue'||facts.sourcePolicy?.sourceVerificationEvent==='merge_group';
  const queueChecks=queued?queueEvidence(source,repository,pr,facts):null;
  const historical=queueChecks??facts.prChecks;
@@ -78,6 +80,19 @@ export function validateMainSourceAdmission(source,repository,facts) {
  checks.push(...(facts.sourcePolicy.sourceVerificationEvent==='merge_group'?[]:facts.sourceStatuses).map(s=>commitStatusToObservation({context:s.context,state:s.state,createdAt:s.created_at})));
  // Older sources encode runtime obligations in deploy; validation-only workflows
  // keep the same closure in backend-required. A malformed deploy cannot fall back.
+ const runtimePolicy=parsePolicy(facts.sourcePolicy);
+ let obligations;
+ if(runtimePolicy.version===5){
+  const workflow=facts.validationWorkflow,jobs=workflow?.jobs;
+  const required=runtimePolicy.requiredChecks;
+  if(!jobs||workflow.name!=='harness-verify'||JSON.stringify(workflow.on?.pull_request?.branches)!==JSON.stringify(['develop'])||JSON.stringify(workflow.on?.merge_group?.branches)!==JSON.stringify(['develop'])||facts.sourceLightweightHelperSha256!==lightweightHelperHash())fail('MAIN_SOURCE_LIGHTWEIGHT_OBLIGATIONS');
+  for(const name of required){const job=jobs[name];if(!job||job.name||job.strategy||job['continue-on-error']||!Array.isArray(job.steps)||job.steps.some(step=>step['continue-on-error'])||name!=='queue-ready'&&job.if!==undefined)fail('MAIN_SOURCE_LIGHTWEIGHT_OBLIGATIONS')}
+  const queue=jobs['queue-ready'];
+  if(queue.if!=="always() && (github.event_name == 'merge_group' || !cancelled())"||JSON.stringify(queue.needs)!==JSON.stringify(runtimePolicy.aggregates['queue-ready'])||!queue.steps.some(step=>step.run==='node .harness/scripts/ci-lightweight.mjs queue'&&step.env?.CI_QUEUE_NEEDS==='${{ toJSON(needs) }}'))fail('MAIN_SOURCE_LIGHTWEIGHT_OBLIGATIONS');
+  const compile=jobs['verify-full-compile'].steps.map(step=>step.run).filter(Boolean);
+  if(JSON.stringify(compile)!==JSON.stringify(['pnpm install --frozen-lockfile','pnpm turbo run build','pnpm turbo run typecheck lint'])||!jobs['verify-affected'].steps.some(step=>step.run==='node .harness/scripts/ci-lightweight.mjs units'))fail('MAIN_SOURCE_LIGHTWEIGHT_OBLIGATIONS');
+  obligations=required;
+ }else{
  const jobs=facts.deploymentWorkflow?.jobs;
  const aggregate=jobs&&(Object.hasOwn(jobs,'deploy')?jobs.deploy:jobs['backend-required']);
  const deployNeeds=aggregate?.needs;
@@ -92,10 +107,12 @@ export function validateMainSourceAdmission(source,repository,facts) {
   if(typeof condition!=='string'||condition.trim()!=="github.event_name == 'push' && github.ref == 'refs/heads/develop' && needs.gates-fast.outputs.skip_devapp != 'true'")fail('MAIN_SOURCE_INTEGRATION_GATE_SCOPE');
   return false;
  });
- const runtimePolicy=parsePolicy(facts.sourcePolicy);
- const obligations=[...new Set([...runtimePolicy.requiredChecks.filter(n=>n!=='merge-gate'&&!runtimePolicy.aggregates[n]),...Object.values(runtimePolicy.aggregates).flat(),...sourceDeployNeeds])];
+
+ obligations=[...new Set([...runtimePolicy.requiredChecks.filter(n=>n!=='merge-gate'&&!runtimePolicy.aggregates[n]),...Object.values(runtimePolicy.aggregates).flat(),...sourceDeployNeeds])];
+
+ }
  let dynamicShardPlan=null;
- const runtimeChecks=obligations.flatMap(name=>{const job=facts.deploymentWorkflow.jobs[name],matrix=job?.strategy?.matrix;if(!matrix)return [job?.name??name];const keys=Object.keys(matrix);if(keys.length!==1||keys[0]!=='shard'||job.name)fail('MAIN_SOURCE_MATRIX_OBLIGATIONS');let shards=matrix.shard;
+ const runtimeChecks=obligations.flatMap(name=>{const job=(runtimePolicy.version===5?facts.validationWorkflow:facts.deploymentWorkflow).jobs[name],matrix=job?.strategy?.matrix;if(!matrix)return [job?.name??name];const keys=Object.keys(matrix);if(keys.length!==1||keys[0]!=='shard'||job.name)fail('MAIN_SOURCE_MATRIX_OBLIGATIONS');let shards=matrix.shard;
   if(typeof shards==='string') {
    const planJob=facts.deploymentWorkflow.jobs['api-test-plan'];
    if(name!=='gates-test'||shards!=='${{ fromJSON(needs.api-test-plan.outputs.shards) }}'||job.needs!=='api-test-plan'||planJob?.outputs?.shards!=='${{ steps.plan.outputs.shards }}'||planJob?.outputs?.count!=='${{ steps.plan.outputs.count }}'||!verifiedApiPlanner(planJob,facts.deploymentWorkflow)||facts.sourceShardHelperSha256!==shardHelperSha256)fail('MAIN_SOURCE_DYNAMIC_SHARD_CLOSURE');
@@ -104,7 +121,7 @@ export function validateMainSourceAdmission(source,repository,facts) {
   if(!Array.isArray(shards)||!shards.length||new Set(shards).size!==shards.length||shards.some(n=>!Number.isSafeInteger(n)||n<1))fail('MAIN_SOURCE_MATRIX_OBLIGATIONS');return shards.map(n=>`${name} (${n})`)});
  if(dynamicShardPlan)runtimeChecks.push('api-test-plan');
  if(!ready(checks,{...runtimePolicy,requiredChecks:runtimeChecks}))fail('MAIN_SOURCE_RUNTIME_CI');
- return {rawEvidenceSha256:rawEvidenceHash(facts),dynamicShardPlan,sourceShardPolicy:dynamicShardPlan?facts.sourceShardPolicy:null,sourceShardHelperSha256:dynamicShardPlan?facts.sourceShardHelperSha256:null,historicalRuns:historical.filter(c=>Date.parse(c.started_at)<=Date.parse(pr.merged_at)).sort((a,b)=>a.id-b.id).map(c=>({id:c.id,name:c.name,headSha:c.head_sha,status:c.status,conclusion:c.conclusion,startedAt:c.started_at,completedAt:c.completed_at})),historicalStatuses:facts.prStatuses.filter(c=>Date.parse(c.created_at)<=Date.parse(pr.merged_at)).sort((a,b)=>a.id-b.id).map(c=>({id:c.id,context:c.context,state:c.state,createdAt:c.created_at,url:c.url})),runtimeStatuses:facts.sourceStatuses.slice().sort((a,b)=>String(a.context).localeCompare(String(b.context))).map(c=>({id:c.id,context:c.context,state:c.state,createdAt:c.created_at,url:c.url})),policySha256:createHash('sha256').update(JSON.stringify({historical:policy,runtime:runtimePolicy})).digest('hex'),mergeChecks:reconstructMergeTimeChecks(observations,pr.merged_at).sort((a,b)=>a.name.localeCompare(b.name)),runtimeChecks:runtimeEvidence.filter(c=>runtimeChecks.includes(c.name)).map(c=>({id:c.id,name:c.name,conclusion:c.conclusion})).sort((a,b)=>a.name.localeCompare(b.name)),sourceSha:source,prNumber:pr.number,prHeadSha:head,mergeParentSha:parents[0],mergeTree:facts.mergeTree,mergedAt:pr.merged_at};
+ return {...(runtimePolicy.version===5?{verificationMode:'lightweight',fullRegression:false}:{}),rawEvidenceSha256:rawEvidenceHash(facts),dynamicShardPlan,sourceShardPolicy:dynamicShardPlan?facts.sourceShardPolicy:null,sourceShardHelperSha256:dynamicShardPlan?facts.sourceShardHelperSha256:null,historicalRuns:historical.filter(c=>Date.parse(c.started_at)<=Date.parse(pr.merged_at)).sort((a,b)=>a.id-b.id).map(c=>({id:c.id,name:c.name,headSha:c.head_sha,status:c.status,conclusion:c.conclusion,startedAt:c.started_at,completedAt:c.completed_at})),historicalStatuses:facts.prStatuses.filter(c=>Date.parse(c.created_at)<=Date.parse(pr.merged_at)).sort((a,b)=>a.id-b.id).map(c=>({id:c.id,context:c.context,state:c.state,createdAt:c.created_at,url:c.url})),runtimeStatuses:facts.sourceStatuses.slice().sort((a,b)=>String(a.context).localeCompare(String(b.context))).map(c=>({id:c.id,context:c.context,state:c.state,createdAt:c.created_at,url:c.url})),policySha256:createHash('sha256').update(JSON.stringify({historical:policy,runtime:runtimePolicy})).digest('hex'),mergeChecks:reconstructMergeTimeChecks(observations,pr.merged_at).sort((a,b)=>a.name.localeCompare(b.name)),runtimeChecks:runtimeEvidence.filter(c=>runtimeChecks.includes(c.name)).map(c=>({id:c.id,name:c.name,conclusion:c.conclusion})).sort((a,b)=>a.name.localeCompare(b.name)),sourceSha:source,prNumber:pr.number,prHeadSha:head,mergeParentSha:parents[0],mergeTree:facts.mergeTree,mergedAt:pr.merged_at};
 }
 export function collectMainSourceAdmission(repository,source,{gh,pages,git}) {
  if(repository!=='boardx/workspacex'||!sha.test(source))fail('MAIN_SOURCE_INPUT');
@@ -120,6 +137,8 @@ export function collectMainSourceAdmission(repository,source,{gh,pages,git}) {
  const currentMain=gh(`${prefix}/git/ref/heads/main`).object?.sha;
  if(!sha.test(currentMain))fail('MAIN_SOURCE_IDENTITY');
  const comparison=gh(`${prefix}/compare/${source}...${currentMain}`);
+ const sourcePolicy=JSON.parse(git(['show',`${source}:.harness/config/ci-check-policy.json`]));
+ const lightweight=sourcePolicy.version===5?{validationWorkflow:parseYaml(git(['show',`${source}:.github/workflows/harness-verify.yml`])),sourceLightweightHelperSha256:createHash('sha256').update(git(['show',`${source}:.harness/scripts/ci-lightweight.mjs`])).digest('hex')}:{};
  const deploymentWorkflow=parseYaml(git(['show',`${source}:.github/workflows/backend-gates.yml`]));
  const dynamic=Object.values(deploymentWorkflow.jobs??{}).some(j=>typeof j.strategy?.matrix?.shard==='string');
  const shardClosure=dynamic?{sourceShardPolicy:JSON.parse(git(['show',`${source}:.harness/api-test-shards.json`])),sourceShardHelperSha256:createHash('sha256').update(git(['show',`${source}:.harness/scripts/ci-api-shards.mjs`])).digest('hex')}:{};
@@ -129,7 +148,7 @@ export function collectMainSourceAdmission(repository,source,{gh,pages,git}) {
  const queueJobUrls=new Set(queueJobs.map(j=>j.html_url));
  const queueChecks=queueRuns.length?pages(`${prefix}/commits/${source}/check-runs?filter=all`,'check_runs').filter(c=>queueSuites.has(c.check_suite?.id)&&queueJobUrls.has(c.details_url)):[];
  for(const run of queueRuns){const current=gh(`${prefix}/actions/runs/${run.id}`);if(JSON.stringify(canonical(current))!==JSON.stringify(canonical(run)))fail('MAIN_SOURCE_QUEUE_RUN_CHANGED')}
- return {...(queueRuns.length?{queueRuns,queueChecks}:{}),...shardClosure,sourcePolicy:JSON.parse(git(['show',`${source}:.harness/config/ci-check-policy.json`])),deploymentWorkflow,sourceCommit,associatedPrs:[pr],mergeTree,mainContainsSource:['ahead','identical'].includes(comparison.status),mergeParentPolicy:JSON.parse(git(['show',`${parent}:.harness/config/ci-check-policy.json`])),prChecks:pages(`${prefix}/commits/${head}/check-runs?filter=all`,'check_runs'),prStatuses:pages(`${prefix}/commits/${head}/statuses`),sourceChecks:pages(`${prefix}/commits/${source}/check-runs?filter=latest`,'check_runs'),sourceStatuses:pages(`${prefix}/commits/${source}/statuses`)};
+ return {...lightweight,...(queueRuns.length?{queueRuns,queueChecks}:{}),...shardClosure,sourcePolicy:JSON.parse(git(['show',`${source}:.harness/config/ci-check-policy.json`])),deploymentWorkflow,sourceCommit,associatedPrs:[pr],mergeTree,mainContainsSource:['ahead','identical'].includes(comparison.status),mergeParentPolicy:JSON.parse(git(['show',`${parent}:.harness/config/ci-check-policy.json`])),prChecks:pages(`${prefix}/commits/${head}/check-runs?filter=all`,'check_runs'),prStatuses:pages(`${prefix}/commits/${head}/statuses`),sourceChecks:pages(`${prefix}/commits/${source}/check-runs?filter=latest`,'check_runs'),sourceStatuses:pages(`${prefix}/commits/${source}/statuses`)};
 }
 
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){

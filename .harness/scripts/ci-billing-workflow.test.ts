@@ -1,14 +1,14 @@
 import {readFileSync} from 'node:fs';
 import {parse} from 'yaml';
 import {expect,it} from 'vitest';
-it('routes billing candidate and PR coverage through a fail-closed scope without changing financial producer',()=>{
+it('moves actual financial producer to hourly/manual full coverage without candidate execution',()=>{
  const w=parse(readFileSync('.github/workflows/billing-cashier-glue.yml','utf8'));
- expect(Object.keys(w.on).sort()).toEqual(['merge_group','pull_request','workflow_dispatch']);
- for(const event of ['merge_group','pull_request'])expect(w.on[event]).toEqual({branches:['develop']});
+ expect(Object.keys(w.on).sort()).toEqual(['workflow_call','workflow_dispatch']);
+ for(const event of ['merge_group','pull_request'])expect(w.on[event]).toBeUndefined();
  expect(w.permissions).toEqual({contents:'read'});
  expect(w.jobs.scope.outputs.changed).toBe('${{ steps.scope.outputs.changed }}');
  expect(w.jobs.scope.steps[0].with['fetch-depth']).toBe(0);
- expect(w.jobs.scope.steps.at(-1)).toMatchObject({run:'node .harness/scripts/ci-billing-scope.mjs',env:{CI_SCOPE_BASE_SHA:'${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}'}});
+ expect(w.jobs.scope.steps.at(-1).run).toBe("echo 'changed=true' >> \"$GITHUB_OUTPUT\"");const full=parse(readFileSync('.github/workflows/harness-acceptance.yml','utf8'));expect(full.jobs['billing-full'].uses).toBe('./.github/workflows/billing-cashier-glue.yml');expect(full.jobs['hourly-full-result'].needs).toContain('billing-full');
  const job=w.jobs['billing-cashier-glue'];
  expect(job.needs).toBe('scope');expect(job.if).toBe("needs.scope.outputs.changed == 'true'");
  expect(job.steps.filter((s:any)=>s.run).map((s:any)=>s.run)).toEqual(['pnpm install --frozen-lockfile','pnpm --filter api exec playwright install --with-deps chromium','pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run --config vitest.billing-cashier.config.ts --bail=1']);

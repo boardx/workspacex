@@ -135,7 +135,7 @@ const BLOCKING_MERGE_STATES = new Set(["DIRTY", "BLOCKED", "UNKNOWN", "HAS_HOOKS
  * 门禁静默失效"），改完这行再确认转绿——不是先改代码再回头补测试。
  */
 export const REQUIRED_CHECKS: readonly string[] = CURRENT_POLICY.requiredChecks;
-export interface CheckPolicy { version: number; requiredChecks: readonly string[]; deferredChecks?: readonly string[]; independentChecks?: readonly string[]; aggregates?: Record<string, readonly string[]>; }
+export interface CheckPolicy { version: number; requiredChecks: readonly string[]; deferredChecks?: readonly string[]; independentChecks?: readonly string[]; aggregates?: Record<string, readonly string[]>; mergeVerificationMode?: 'lightweight'; fullRegression?: {workflowPath:string;events:readonly string[];cron:string;coverage:string}; }
 
 /**
  * 2026-08-16（人类第二次裁决，同一天）：独立 approve 检查（"verdict label 必须
@@ -236,8 +236,8 @@ export function classifyChecks(checks: RequiredCheck[], policy: CheckPolicy = CU
   const changes: string[] = [];
   const waitingCi: string[] = [];
   const advisories: string[] = [];
-  const deferred = [3, 4].includes(policy.version) ? new Set(policy.deferredChecks ?? []) : new Set<string>();
-  const independent = new Set(policy.version === 4 ? policy.independentChecks ?? [] : []);
+  const deferred = [3, 4, 5].includes(policy.version) ? new Set(policy.deferredChecks ?? []) : new Set<string>();
+  const independent = new Set([4, 5].includes(policy.version) ? policy.independentChecks ?? [] : []);
   const required = new Set<string>(policy.requiredChecks);
   for (const name of independent) if (!validIndependentCheck(name, policy)) blocked.push(`invalid independent check ${name}`);
   const seen = new Set<string>();
