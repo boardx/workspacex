@@ -1,6 +1,6 @@
 import {createHash} from 'node:crypto';
 import {parse as parseYaml} from 'yaml';
-import {mkdtempSync,writeFileSync,rmSync,readFileSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,realpathSync,writeFileSync,rmSync,readFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {spawnSync} from 'node:child_process';
@@ -104,4 +104,14 @@ it('retains historical all-backend-shards source admission without queue consume
 it('rejects missing queue verifier and stale producer attempt evidence',()=>{
  const missing=queueApiFacts();missing.queueChecks=missing.queueChecks.filter((c:any)=>c.name!=='gates-test (1)');expect(()=>validateMainSourceAdmission(source,repo,missing)).toThrow();
  const stale=queueApiFacts();stale.queueRuns[1].run_attempt=2;stale.queueRuns[1].run_started_at='2026-10-01T00:01:30Z';expect(()=>validateMainSourceAdmission(source,repo,stale)).toThrow();
+});
+it('executes queue source admission in a clean offline CLI runtime with the complete file closure',()=>{
+ const runtime=mkdtempSync(join(tmpdir(),'queue-api-clean-admission-'));
+ try{
+  for(const rel of ['.harness/scripts/vm/cn-main-source-admission.mjs','.harness/scripts/ci-api-shards.mjs','.harness/scripts/ci-queue-api.mjs','.harness/scripts/ci-base-api.mjs','.harness/scripts/lib/pr-queue.ts','.harness/scripts/lib/pr-green.ts','.harness/scripts/lib/merge-queue.ts','.harness/scripts/lib/ci-check-policy.mjs','.harness/config/ci-check-policy.json','.harness/scripts/vendor/yaml-2.9.0/parser.mjs','.github/workflows/backend-gates.yml','.github/workflows/harness-acceptance.yml']){mkdirSync(join(runtime,rel,'..'),{recursive:true});writeFileSync(join(runtime,rel),readFileSync(rel));}
+  const input=join(runtime,'facts.json');writeFileSync(input,JSON.stringify(queueApiFacts()));
+  const run=()=>spawnSync(process.execPath,['--experimental-strip-types',realpathSync(join(runtime,'.harness/scripts/vm/cn-main-source-admission.mjs')),source,repo,input],{cwd:runtime,encoding:'utf8',env:{...process.env,NODE_PATH:''},timeout:30000});
+  const green=run();expect(green.status,green.stderr).toBe(0);expect(green.stdout).toContain('CN_MAIN_SOURCE_ADMISSION_JSON=');
+  rmSync(join(runtime,'.harness/scripts/ci-queue-api.mjs'));const red=run();expect(red.status).toBe(1);expect(red.stdout).not.toContain('CN_MAIN_SOURCE_ADMISSION_JSON=');
+ }finally{rmSync(runtime,{recursive:true,force:true});}
 });
