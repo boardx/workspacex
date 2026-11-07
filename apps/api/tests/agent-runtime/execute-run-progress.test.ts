@@ -13,7 +13,7 @@
  * `ModelCallProgressEvent` correctly. See `ModelCallProgressEvent`'s own doc comment in
  * `ports.ts` and issue #742's comment thread for that unverified half.
  */
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { toOrgId } from "../../src/domain/org-id";
 import { executeQueuedRuns, type ExecuteAgentRunDeps } from "../../src/application/agent-run/execute-run";
 import type {
@@ -605,4 +605,48 @@ it("an introduction explicitly referring to earlier conversation retains its con
   expect(read).toHaveBeenCalledOnce();
   expect(received?.history).toContainEqual({ role: "user", content: "先前业务上下文" });
   expect(received?.excludedTools).toBeUndefined();
+});
+
+afterEach(() => vi.unstubAllGlobals());
+
+it.each([false,true])('binds real native approval SSE through existing host inheritance=%s', async inherited => {
+ const {readFileSync}=await import('node:fs');
+ const {DeepAgentModelProvider}=await import('../../src/infrastructure/agent-run/deep-agent-model-provider');
+ const {toolArgumentsDigest}=await import('../../src/application/agent-run/tool-arguments-digest');
+ const fixture=JSON.parse(readFileSync(new URL('../fixtures/report-native-approval.json',import.meta.url),'utf8'));
+ const sse=fixture.events.map((event:any)=>`event: ${event.event}\ndata: ${JSON.stringify(event.data)}\n\n`).join('');
+ let streams=0;
+ vi.stubGlobal('fetch',vi.fn(async(url:string,init?:RequestInit)=>{
+  if(url.endsWith('/stream')){streams++;return new Response(sse,{headers:{'content-type':'text/event-stream'}});}
+  if(url.endsWith('/state'))return new Response(JSON.stringify(fixture.state));
+  if(url.endsWith('/threads'))return new Response(JSON.stringify({thread_id:'report-approval-thread'}));
+  if(url.endsWith('/runs')&&init?.method==='POST')return new Response(JSON.stringify({run_id:fixture.run.run_id}));
+  if(url.includes('/runs/'))return new Response(JSON.stringify({status:'interrupted'}));
+  return new Response(JSON.stringify({thread_id:'report-approval-thread',status:'interrupted'}));
+ }));
+ const provider=new DeepAgentModelProvider({baseUrl:'http://native-fixture.invalid',timeoutMs:1000,pollIntervalMs:1,streamEnabled:true});
+ const completion=await provider.completeWithProgress({modelProvider:'deep-agent',modelId:'controlled',system:'',user:'export saved report'},async()=>{},async()=>{});
+ expect(streams).toBeGreaterThan(0);
+ expect(completion.interrupted).toMatchObject({toolName:'execute',toolCallId:'render-report-1',toolArgsDigest:toolArgumentsDigest({command:'cd /workspace && node gen.js'})});
+ const pin={versionId:'official-pdf',stableName:'pdf-create',name:'PDF',content:'---\nrisk_level: L0\n---\nPDF Skill'};
+ const run=baseRun({skillVersionIds:inherited?[pin.versionId]:[]}); const store=fakeStore(run,inherited?[pin]:[]);
+ store.readToolCallAttributionSteps=async()=>inherited?[{toolName:'read_file',toolArgsSummary:JSON.stringify({file_path:'/skills/pdf-create/SKILL.md'})}]:[];
+ let runStatus="running";
+ const {PgAgentRunRepository}=await import('../../src/infrastructure/agent-run/pg-agent-run-repository');
+ const query=vi.fn(async(sql:string,_params?:readonly unknown[])=>{
+   runStatus=sql.includes("status='queued'")?'queued':sql.includes("status='awaiting_tool_permission'")?'awaiting_tool_permission':runStatus;
+   return {rows:[{id:run.runId}]};
+ });
+ const repo=new PgAgentRunRepository({withTenant:async(_org:unknown,work:any)=>work({query})} as never);
+ store.markAwaitingToolPermission=vi.fn((org,id,pending)=>repo.markAwaitingToolPermission(org,id,pending));
+ store.requeueAuthorizedToolCall=vi.fn((org,id,pending)=>repo.requeueAuthorizedToolCall(org,id,pending));
+ await executeQueuedRuns(deps(store,{complete:async()=>completion}),{orgId:ORG});
+ expect(inherited?store.requeueAuthorizedToolCall:store.markAwaitingToolPermission).toHaveBeenCalledWith(ORG,run.runId,expect.objectContaining({toolName:'execute',toolCallId:'render-report-1',toolArgsDigest:completion.interrupted!.toolArgsDigest}));
+ expect(inherited?store.markAwaitingToolPermission:store.requeueAuthorizedToolCall).not.toHaveBeenCalled();
+ expect(store.failedWith).toBeNull(); expect(store.output).toBeNull();
+ expect(runStatus).toBe(inherited?'queued':'awaiting_tool_permission');
+ const [sql,params]=query.mock.calls[0]!;
+ expect(sql).toContain("status='running'"); expect(sql).toContain('pending_tool_call_id=$6'); expect(sql).toContain('pending_tool_args_digest=$7');
+ expect(params).toMatchObject({0:ORG,1:run.runId,5:'render-report-1',6:completion.interrupted!.toolArgsDigest});
+ vi.unstubAllGlobals();
 });

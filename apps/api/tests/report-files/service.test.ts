@@ -111,3 +111,13 @@ it('invalidates proven corrupt cached bytes so a subsequent request can recover,
  const recovered=await f.service.start(f.actor,{...f.request,requestId:'5cd11bc4-bc03-4c39-ad14-c290a6074d9a'});
  expect(recovered.status).toBe('succeeded');expect(f.runtime.accept).toHaveBeenCalledTimes(2);
 });
+it('keeps the same report job and native run across approval waiting and verified completion', async () => {
+ const f=fixture();
+ f.runtime.read.mockResolvedValueOnce({status:'pending',execution:{runId:'real-run-1',threadId:'thr-1',status:'awaiting_tool_permission'}} as never);
+ const waiting=await f.service.start(f.actor,f.request);
+ expect(waiting).toMatchObject({status:'running',execution:{runId:'real-run-1',threadId:'thr-1',status:'awaiting_tool_permission'}});
+ const resumed=await f.service.status(f.actor,waiting.id);
+ expect(resumed).toMatchObject({id:waiting.id,status:'succeeded'});
+ expect(f.records.get(waiting.id)?.runId).toBe('real-run-1');
+ expect(f.runtime.accept).toHaveBeenCalledTimes(1); expect(f.store.insert).toHaveBeenCalledTimes(1);
+});

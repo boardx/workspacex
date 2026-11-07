@@ -16,7 +16,7 @@ export const ToolExecutionCheckInput = z.object({
   permissionRequestId: z.string().uuid().optional(), toolCallId: z.string().min(1).optional(), toolArgs: z.record(z.string(), z.unknown()).optional(),
 }).strict();
 export const ToolExecutionCheckOutput = z.discriminatedUnion("allowed", [
-  z.object({ allowed: z.literal(true), reportFile:ReportFileArtifactPolicy.optional() }),
+  z.object({ allowed: z.literal(true), approvedOnce: z.literal(true).optional(), reportFile:ReportFileArtifactPolicy.optional() }),
   z.object({ allowed: z.literal(false), reason: z.enum(["run_unavailable", "cancel_requested", "lease_lost", "attempt_stale", "skill_not_mounted", "approval_required","report_output_published","report_output_mismatch"]),reportFile:ReportFileArtifactPolicy.optional() }),
 ]);
 export const CancelRunOutput = z.object({ runId: z.string(), status: z.enum(["cancel_requested", "cancelled"]), childCancellation: ChildCancellationStatus.optional() }).strict();

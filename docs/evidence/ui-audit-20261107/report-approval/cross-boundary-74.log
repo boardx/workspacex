@@ -1,0 +1,39 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/api
+
+ ✓ tests/agent-runtime/execute-run-progress.test.ts (38 tests) 507ms
+   ✓ binds real native approval SSE through existing host inheritance=false 461ms
+ ✓ tests/report-files/service.test.ts (12 tests) 38ms
+ ✓ tests/agent-run/parent-run-control-unit.test.ts (10 tests) 12ms
+stderr | tests/agent-run/tool-approval-resume-security.test.ts > does not execute original edited-away args under an existing run grant
+[tool-approval] once refused: digest_mismatch
+
+stderr | tests/agent-run/tool-approval-resume-security.test.ts > does not execute original edited-away args under an existing standing grant
+[tool-approval] once refused: digest_mismatch
+
+stderr | tests/agent-run/tool-approval-resume-security.test.ts > fails closed if resume marker is omitted despite a run grant
+[tool-approval] once refused: missing_binding
+
+stderr | tests/agent-run/tool-approval-resume-security.test.ts > fails closed if resume marker is omitted despite a standing grant
+[tool-approval] once refused: missing_binding
+
+stderr | tests/agent-run/tool-approval-resume-security.test.ts > fails closed if resume marker is stale despite a run grant
+[tool-approval] once refused: permission_mismatch
+
+stderr | tests/agent-run/tool-approval-resume-security.test.ts > fails closed if resume marker is stale despite a standing grant
+[tool-approval] once refused: permission_mismatch
+
+stderr | tests/agent-run/tool-approval-resume-security.test.ts > fails closed when same-tool pending call omits call ID under run grant
+[tool-approval] once refused: missing_binding
+
+stderr | tests/agent-run/tool-approval-resume-security.test.ts > fails closed when same-tool pending call omits call ID under standing grant
+[tool-approval] once refused: missing_binding
+
+ ✓ tests/agent-run/tool-approval-resume-security.test.ts (13 tests) 12ms
+ ✓ tests/agent-run/tool-approval-replay.test.ts (1 test) 4ms
+
+ Test Files  5 passed (5)
+      Tests  74 passed (74)
+   Start at  05:34:47
+   Duration  6.02s (transform 2.65s, setup 0ms, collect 3.88s, tests 574ms, environment 1ms, prepare 370ms)
+

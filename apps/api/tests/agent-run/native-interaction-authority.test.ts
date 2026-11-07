@@ -74,7 +74,7 @@ it.each([
  for(const override of [{toolArgs:original},{toolCallId:"other"},{permissionRequestId:"00000000-0000-4000-8000-000000000000"},{attemptId:"native-parent:old"},{orgId:toOrgId(OTHER)}]){
   expect((await authority.check({...exact,...override})).allowed).toBe(false);
  }
- expect(await authority.check(exact)).toEqual({allowed:true});expect(await authority.check(exact)).toEqual({allowed:true});
+ expect(await authority.check(exact)).toEqual({allowed:true,approvedOnce:true});expect(await authority.check(exact)).toEqual({allowed:true,approvedOnce:true});
  await asApp(ORG,c=>c.query("UPDATE agent_runs SET cancel_requested_at=now() WHERE org_id=$1 AND id='native-parent'",[ORG]));
  expect(await authority.check(exact)).toEqual({allowed:false,reason:"cancel_requested"});
 });
