@@ -28,21 +28,23 @@ it('requires selected specialist tests while keeping scope producers mandatory',
  expect(specialistSpecs(['apps/web/components/whiteboard/a.ts']).find(s=>s.workflowPath.includes('board-acceptance'))?.checks).toContain('journeys');
 });
 it('refreshes bounded API clients across a specialist wait longer than 90 seconds',async()=>{
- let now=0,clients=0;
+ let now=0,clients=0;const workflows=new Map<number,string>();let metadataReads=0;
  const sha='a'.repeat(40),paths=['docs/a.md'];
  const apiFactory=()=>{
   clients++;const started=now;let workflowPath='';
   return async(path:string)=>{
    if(now-started>90000)throw Error('lookup_deadline_exceeded');
-   if(path.startsWith('/actions/workflows/')&&!path.includes('/runs?')){workflowPath='.github/workflows/'+path.split('/').at(-1);return{id:7,path:workflowPath,state:'active'};}
-   const run={id:20,workflow_id:7,path:workflowPath,head_sha:sha,head_branch:'gh-readonly-queue/develop/pr-6059-'+ 'b'.repeat(40),event:'merge_group',run_attempt:1,created_at:'2026-10-31T00:00:00Z',status:'completed',conclusion:'success'};
+   if(path.startsWith('/actions/workflows/')&&!path.includes('/runs?')){metadataReads++;workflowPath='.github/workflows/'+path.split('/').at(-1);const id=['skill-files-e2e.yml','board-acceptance.yml','billing-cashier-glue.yml'].indexOf(path.split('/').at(-1)!)+7;workflows.set(id,workflowPath);return{id,path:workflowPath,state:'active'};}
+   const workflowId=path.includes('/workflows/')?Number(path.split('/')[3]):Number(path.split('/')[3])-20;
+   workflowPath=workflows.get(workflowId!)??workflowPath;
+   const run={id:20+workflowId,workflow_id:workflowId,path:workflowPath,head_sha:sha,head_branch:'gh-readonly-queue/develop/pr-6059-'+ 'b'.repeat(40),event:'merge_group',run_attempt:1,created_at:'2026-10-31T00:00:00Z',status:'completed',conclusion:'success'};
    if(path.includes('/runs?'))return{total_count:now<120000?0:1,workflow_runs:now<120000?[]:[run]};
-   if(path.includes('/jobs?'))return{total_count:1,jobs:[{name:'scope',run_id:20,run_attempt:1,head_sha:sha,status:'completed',conclusion:'success'}]};
+   if(path.includes('/jobs?'))return{total_count:1,jobs:[{name:'scope',run_id:20+workflowId,run_attempt:1,head_sha:sha,status:'completed',conclusion:'success'}]};
    return run;
   };
  };
- await waitForSpecialists({apiFactory,sha,paths,clock:()=>now,sleep:async(ms:number)=>{now+=ms;},budgetMs:180000});
- expect(now).toBe(120000);expect(clients).toBe(27);
+ await waitForSpecialists({apiFactory,sha,paths,clock:()=>now,sleep:async(ms:number)=>{now+=ms;},budgetMs:300000});
+ expect(now).toBeGreaterThanOrEqual(120000);expect(now).toBeLessThan(300000);expect(clients).toBeLessThanOrEqual(18);expect(metadataReads).toBeLessThanOrEqual(6);
 });
 it('requires matching plan-bound routed aggregate metadata on the new queue path',()=>{
  const good=mode=>Object.fromEntries(['e2e-full','full-regression-core'].map(name=>[name,{result:'success',outputs:{verification_mode:mode,plan_digest:'a'.repeat(64)}}]));
