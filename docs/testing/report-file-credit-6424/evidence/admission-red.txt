@@ -1,0 +1,45 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/api
+
+ ❯ tests/report-files/service.test.ts (17 tests | 1 failed | 16 skipped) 65ms
+   × retains a typed Credit admission refusal before a run was accepted without guessing from arbitrary exceptions 63ms
+     → expected { id: 'job-1', source: { …(4) }, …(4) } to match object { status: 'failed', …(2) }
+(8 matching properties omitted from actual)
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/report-files/service.test.ts > retains a typed Credit admission refusal before a run was accepted without guessing from arbitrary exceptions
+AssertionError: expected { id: 'job-1', source: { …(4) }, …(4) } to match object { status: 'failed', …(2) }
+(8 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  Object {
+-   "creditFailure": Object {
+-     "ownerId": "user-1",
+-     "rechargePath": "/billing?purchase=1",
+-   },
+-   "errorCode": "CREDIT_REQUIRED",
++   "errorCode": "GENERATION_FAILED",
+    "status": "failed",
+  }
+
+ ❯ tests/report-files/service.test.ts:183:15
+    181|   f.runtime.accept.mockRejectedValue(new CreditConsumptionError('credi…
+    182|   const job = await f.service.start(f.actor, f.request);
+    183|   expect(job).toMatchObject({ status: 'failed', errorCode: 'CREDIT_REQ…
+       |               ^
+    184|   expect(f.runtime.accept).toHaveBeenCalledTimes(1);
+    185|   expect(f.runtime.download).not.toHaveBeenCalled();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 16 skipped (17)
+   Start at  18:43:21
+   Duration  11.10s (transform 5.83s, setup 0ms, collect 9.86s, tests 65ms, environment 0ms, prepare 458ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.report-files-unit.config.ts tests/report-files/service.test.ts -t before a run was accepted

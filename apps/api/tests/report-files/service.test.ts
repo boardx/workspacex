@@ -121,3 +121,116 @@ it('keeps the same report job and native run across approval waiting and verifie
  expect(f.records.get(waiting.id)?.runId).toBe('real-run-1');
  expect(f.runtime.accept).toHaveBeenCalledTimes(1); expect(f.store.insert).toHaveBeenCalledTimes(1);
 });
+
+it('persists actor-bound Credit guidance while repeat status reads never dispatch another conversion', async () => {
+  const f = fixture();
+  const creditFailure = { code: 'credit_required', ownerType: 'user', ownerId: f.actor.userId, rechargePath: '/billing?purchase=1' };
+  f.runtime.read.mockResolvedValue({ status: 'failed', errorCode: 'CREDIT_REQUIRED', creditFailure,
+    execution: { runId: 'real-run-1', threadId: 'thr-1', status: 'failed' } } as never);
+  const first = await f.service.start(f.actor, f.request);
+  expect(first).toMatchObject({ status: 'failed', errorCode: 'CREDIT_REQUIRED', creditFailure });
+  expect(await f.service.status(f.actor, first.id)).toMatchObject({ creditFailure });
+  expect(f.runtime.accept).toHaveBeenCalledTimes(1);
+  expect(f.runtime.download).not.toHaveBeenCalled();
+});
+
+it('recovers typed guidance for a historical generic failure by reading the existing run only', async () => {
+  const f = fixture();
+  f.runtime.read.mockResolvedValue({ status: 'failed' } as never);
+  const first = await f.service.start(f.actor, f.request);
+  expect(first).toMatchObject({ errorCode: 'GENERATION_FAILED' });
+  const creditFailure = { code: 'credit_required', ownerType: 'user', ownerId: f.actor.userId, rechargePath: '/billing?purchase=1' };
+  f.runtime.read.mockResolvedValue({ status: 'failed', errorCode: 'CREDIT_REQUIRED', creditFailure } as never);
+  expect(await f.service.status(f.actor, first.id)).toMatchObject({ errorCode: 'CREDIT_REQUIRED', creditFailure });
+  expect(f.runtime.accept).toHaveBeenCalledTimes(1);
+});
+it('historical failures never resurrect a conversion or expose stale foreign payer metadata', async () => {
+  const f = fixture();
+  f.runtime.read.mockResolvedValue({ status: 'failed' } as never);
+  const first = await f.service.start(f.actor, f.request);
+  f.runtime.read.mockResolvedValue({ status: 'pending' } as never);
+  expect(await f.service.status(f.actor, first.id)).toMatchObject({ status: 'failed', errorCode: 'GENERATION_FAILED' });
+  const record = f.records.get(first.id)!;
+  f.records.set(first.id, { ...record, job: { ...record.job, errorCode: 'CREDIT_REQUIRED', creditFailure: { code: 'credit_required', ownerType: 'user', ownerId: 'foreign', rechargePath: '/billing?purchase=1' } } } as never);
+  const sanitized = await f.service.status(f.actor, first.id);
+  expect(sanitized).toMatchObject({ errorCode: 'CREDIT_ACCOUNTING_UNAVAILABLE' });
+  expect(sanitized).not.toHaveProperty('creditFailure');
+  expect(f.runtime.accept).toHaveBeenCalledTimes(1);
+});
+it('controller status serialization retains guidance while actor and report permissions remain enforced', async () => {
+  const { ReportFilesController } = await import('../../src/interface/controllers/report-files.controller');
+  const { ReportFileJob } = await import('@repo/contracts/report-files');
+  const f = fixture();
+  const creditFailure = { code: 'credit_required', ownerType: 'user', ownerId: f.actor.userId, rechargePath: '/billing?purchase=1' };
+  f.runtime.read.mockResolvedValue({ status: 'failed', errorCode: 'CREDIT_REQUIRED', creditFailure } as never);
+  const first = await f.service.start(f.actor, f.request);
+  const id = '00000000-0000-4000-8000-000000000001';
+  f.records.set(id, f.records.get(first.id)!);
+  const controller = new ReportFilesController(f.service);
+  expect(ReportFileJob.parse(JSON.parse(JSON.stringify(await controller.status(f.actor, id))))).toMatchObject({ creditFailure });
+  await expect(controller.status({ ...f.actor, userId: 'other-user' }, id)).rejects.toMatchObject({ status: 404 });
+  await expect(controller.status({ ...f.actor, orgId: toOrgId('other-org') }, id)).rejects.toMatchObject({ status: 404 });
+  f.setSnapshot({ bindingKey: 'revoked-source' });
+  await expect(controller.status(f.actor, id)).rejects.toMatchObject({ status: 409 });
+  expect(f.runtime.accept).toHaveBeenCalledTimes(1);
+});
+
+it('retains a typed Credit admission refusal before a run was accepted without guessing from arbitrary exceptions', async () => {
+  const { CreditConsumptionError } = await import('../../src/application/billing/credit-consumption');
+  const f = fixture();
+  f.runtime.accept.mockRejectedValue(new CreditConsumptionError('credit_required', 'user', f.actor.userId));
+  const job = await f.service.start(f.actor, f.request);
+  expect(job).toMatchObject({ status: 'failed', errorCode: 'CREDIT_REQUIRED', creditFailure: { ownerId: f.actor.userId, rechargePath: '/billing?purchase=1' } });
+  expect(f.runtime.accept).toHaveBeenCalledTimes(1);
+  expect(f.runtime.download).not.toHaveBeenCalled();
+});
+
+it('restoring a queued export with no accepted run is observation only, never initialization', async () => {
+  const f = fixture(); const first = await f.service.start(f.actor, f.request);
+  const { runId: _discarded, ...record } = f.records.get(first.id)!;
+  f.records.set(first.id, { ...record, job: { id: first.id, source: first.source, format: first.format, createdAt: first.createdAt, status: 'queued' } });
+  f.runtime.accept.mockClear(); f.store.claim.mockClear(); f.runtime.read.mockClear();
+  expect(await f.service.status(f.actor, first.id, { observeOnly: true })).toMatchObject({ status: 'queued' });
+  expect(f.runtime.accept).not.toHaveBeenCalled(); expect(f.store.claim).not.toHaveBeenCalled(); expect(f.runtime.read).not.toHaveBeenCalled();
+});
+
+it('real HTTP status restoration survives app restart with authority checks and no new conversion', async () => {
+  const { Module } = await import('@nestjs/common');
+  const { NestFactory, APP_GUARD } = await import('@nestjs/core');
+  const { ReportFilesController } = await import('../../src/interface/controllers/report-files.controller');
+  const { REPORT_FILE_SERVICE } = await import('../../src/application/report-files/service');
+  const { PrincipalGuard } = await import('../../src/interface/guards/principal.guard');
+  const { PRINCIPAL_RESOLVER_PORT } = await import('../../src/application/ports/principal-resolver.port');
+  const { ReportFileJob } = await import('@repo/contracts/report-files');
+  const f = fixture();
+  const creditFailure = { code: 'credit_required', ownerType: 'user', ownerId: f.actor.userId, rechargePath: '/billing?purchase=1' };
+  f.runtime.read.mockResolvedValue({ status: 'failed', errorCode: 'CREDIT_REQUIRED', creditFailure } as never);
+  const first = await f.service.start(f.actor, f.request);
+  const id = '00000000-0000-4000-8000-000000000001'; f.records.set(id, f.records.get(first.id)!);
+  f.runtime.accept.mockClear();
+  for (let restart = 0; restart < 2; restart++) {
+    class Fixture {}
+    Module({ controllers: [ReportFilesController], providers: [
+      { provide: REPORT_FILE_SERVICE, useValue: f.service },
+      { provide: PRINCIPAL_RESOLVER_PORT, useValue: { resolve: async (headers: Record<string,string>) => {
+        const user = headers.authorization?.replace('Bearer ', '');
+        return user === 'owner' ? f.actor : user === 'peer' ? { ...f.actor, userId: 'peer' }
+          : user === 'foreign' ? { ...f.actor, orgId: toOrgId('foreign-org') } : null;
+      } } }, { provide: APP_GUARD, useClass: PrincipalGuard },
+    ] })(Fixture);
+    const app = await NestFactory.create(Fixture, { logger: false, abortOnError: false });
+    await app.listen(0, '127.0.0.1');
+    try {
+      const address = app.getHttpServer().address();
+      if (!address || typeof address === 'string') throw new Error('missing fixture address');
+      const url = `http://127.0.0.1:${address.port}/report-files/${id}?observeOnly=true`;
+      expect((await fetch(url)).status).toBe(401);
+      for (const user of ['peer', 'foreign']) expect((await fetch(url, { headers: { authorization: `Bearer ${user}` } })).status).toBe(404);
+      const response = await fetch(url, { headers: { authorization: 'Bearer owner' } });
+      expect(response.status).toBe(200);
+      expect(ReportFileJob.parse(await response.json())).toMatchObject({ creditFailure });
+      expect((await fetch(url.replace('observeOnly=true', 'observeOnly=false'), { headers: { authorization: 'Bearer owner' } })).status).toBe(400);
+    } finally { await app.close(); }
+  }
+  expect(f.runtime.accept).not.toHaveBeenCalled(); expect(f.runtime.download).not.toHaveBeenCalled();
+});

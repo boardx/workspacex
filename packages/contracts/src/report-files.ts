@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { AgentRunStatus } from './wave2-runtime';
+import { CreditRequiredBody } from './billing-consumption';
 
 /** Existing product Skill identities and their requested file representations. */
 export const REPORT_FILE_FORMATS = {
@@ -18,6 +19,7 @@ export const ReportFileRequest = z.object({
   source: ReportFileSource, format: ReportFileFormat, requestId: z.string().uuid(),
 }).strict();
 export const ReportFileErrorCode = z.enum([
+  'CREDIT_REQUIRED', 'CREDIT_ACCOUNTING_UNAVAILABLE',
   'REPORT_NOT_FOUND', 'REPORT_UNAVAILABLE', 'REPORT_CHANGED', 'IDEMPOTENCY_CONFLICT',
   'SKILL_UNAVAILABLE', 'MODEL_UNAVAILABLE', 'SANDBOX_UNAVAILABLE', 'SANDBOX_TIMEOUT',
   'SCRIPT_FAILED_AFTER_RETRIES', 'INVALID_FILE', 'STORAGE_UNAVAILABLE', 'GENERATION_FAILED',
@@ -33,9 +35,12 @@ const base = z.object({ id: z.string().min(1), source: ReportFileSource, format:
 export const ReportFileJob = z.discriminatedUnion('status', [
   base.extend({ status: z.literal('queued') }).strict(),
   base.extend({ status: z.literal('running') }).strict(),
-  base.extend({ status: z.literal('failed'), errorCode: ReportFileErrorCode }).strict(),
+  base.extend({ status: z.literal('failed'), errorCode: ReportFileErrorCode, creditFailure: CreditRequiredBody.optional() }).strict(),
   base.extend({ status: z.literal('succeeded'), skill: ReportFileSkillPin, file: ReportGeneratedFile }).strict(),
 ]).superRefine((job, ctx) => {
+  if (job.status === 'failed' && job.creditFailure && job.errorCode !== 'CREDIT_REQUIRED') {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Credit guidance requires an authoritative Credit refusal' });
+  }
   if (job.status !== 'succeeded') return;
   const expected = REPORT_FILE_FORMATS[job.format];
   if (job.file.mediaType !== expected.mediaType || !job.file.filename.endsWith(expected.extension) || job.skill.stableName !== expected.skillStableName) {
@@ -43,9 +48,11 @@ export const ReportFileJob = z.discriminatedUnion('status', [
   }
 });
 export const ReportFileSourceInfo = ReportFileSource.extend({ title: z.string().min(1).max(300), notices: z.array(z.string().max(4000)).max(256) }).strict();
+/** Browser restoration observes existing work; it cannot initialize or wake execution. */
+export const ReportFileStatusQuery = z.object({ observeOnly: z.literal('true').optional() }).strict();
 export const operations = {
   source: { method: 'GET', path: '/report-files/sources/:kind/:id' },
   generate: { method: 'POST', path: '/report-files' },
-  status: { method: 'GET', path: '/report-files/:jobId' },
+  status: { method: 'GET', path: '/report-files/:jobId', query: ReportFileStatusQuery },
   download: { method: 'GET', path: '/report-files/:jobId/download' },
 } as const;

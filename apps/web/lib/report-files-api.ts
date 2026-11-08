@@ -10,8 +10,8 @@ export async function getReportFileSource(source: Pick<ReportFileSource, 'kind' 
 export async function generateReportFile(source: ReportFileSource, format: ReportFileFormat, requestId: string, signal?: AbortSignal) {
   return ReportFileJob.parse(await apiRequest('/report-files', { method: 'POST', body: ReportFileRequest.parse({ source, format, requestId }), signal }));
 }
-export async function getReportFileJob(id: string, signal?: AbortSignal) {
-  return ReportFileJob.parse(await apiRequest(`/report-files/${encodeURIComponent(id)}`, { signal }));
+export async function getReportFileJob(id: string, signal?: AbortSignal, options?: { observeOnly?: boolean }) {
+  return ReportFileJob.parse(await apiRequest(`/report-files/${encodeURIComponent(id)}${options?.observeOnly ? "?observeOnly=true" : ""}`, { signal }));
 }
 export async function downloadReportFile(job: ReportFileJobState, signal?: AbortSignal): Promise<void> {
   if (job.status !== 'succeeded') throw new Error('REPORT_UNAVAILABLE');
