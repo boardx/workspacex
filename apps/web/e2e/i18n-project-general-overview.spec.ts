@@ -1,3 +1,4 @@
+import { setShellLocale } from "./shell-locale";
 import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { project as C, chat as Chat, whiteboard as W } from "@repo/contracts";
@@ -47,7 +48,7 @@ function monitor(page: Page, id: string) {
   return { calls, stop: () => page.off("request", listener) };
 }
 async function locale(page: Page, value: "en" | "zh-CN") {
-  await page.getByTestId("language-switcher").selectOption(value);
+  await setShellLocale(page, value);
   await expect(page.getByTestId("project-general-overview-head")).toContainText(value === "en" ? "Project members" : "项目成员");
 }
 async function pictures(page: Page, name: string) {
@@ -109,7 +110,7 @@ test("project overview independent real nonmember receives the existing access d
     await deniedPage.goto(overviewHref(project.id)); const denied = await response; expect(denied.status()).toBe(403); expect(await denied.json()).toMatchObject({ reasonCode: "NO_PROJECT_ROLE" });
     const observed = monitor(deniedPage, project.id); await deniedPage.setViewportSize({ width: 375, height: 900 });
     for (const language of ["zh-CN", "en"] as const) {
-      await deniedPage.getByTestId("language-switcher").selectOption(language);
+      await setShellLocale(deniedPage, language);
       await expect(deniedPage.getByTestId("project-access-denied")).toContainText(language === "en" ? "You are not in this project yet" : "你还不在这个项目里");
       await expect(deniedPage.getByTestId("project-general-overview")).toHaveCount(0); await expect(deniedPage.getByTestId("project-title")).not.toHaveText(project.name);
       await deniedPage.screenshot({ path: test.info().outputPath(`overview-real-denied-375-${language}.png`), fullPage: true });

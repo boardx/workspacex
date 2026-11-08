@@ -14,3 +14,7 @@ Validation (2026-11-08):
 - Updated existing authenticated locale E2E callers to use account menus; full authenticated backend suites were not run locally.
 
 The coordinator tick could not run because COORD_GATEWAY_URL is not configured. Readiness was inspected; this is a direct user UI request outside its queue. No database, authorization, API or deployment change.
+
+## Review follow-up: locale selector inventory
+
+Reviewed all remaining `language-switcher` calls under e2e. Project workbench/list/general overview, profile, organization/platform admin, entity localization and denied model-test module calls now use `setShellLocale`. Remaining native select calls belong to login/auth entry, `/home` helper tabs (including cross-tab locale changes while a modal is open), public survey and public share pages, which own their LanguageSwitcher outside AppShell. Those independent selectors are retained. No business assertions were removed.
