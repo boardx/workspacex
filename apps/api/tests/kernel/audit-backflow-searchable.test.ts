@@ -105,7 +105,7 @@ beforeEach(async () => {
   await addOrgMember(ORG, MEMBER, "consultant", fx.teams.energy!);
   await addProjectMember(ORG, PROJECT, MEMBER, "member", null);
   // `lead` is 「项目负责人」 in this ontology (UC-0.3 R5) and is who may read the trail.
-  await addOrgMember(ORG, LEAD, "lead", fx.teams.energy!);
+  await addOrgMember(ORG, LEAD, "admin", fx.teams.energy!);
 
   // F118: artifact_bindings.agenda_segment_id now has a composite FK into agenda_segments. This file
   // is about the provenance/audit trail, not segment lifecycle.

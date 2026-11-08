@@ -84,7 +84,7 @@ const body = (orgRole: string) => ({ orgId: ORG, userId: MEMBER, orgRole }) as n
 
 describe("setOrgMemberRole —— 授权面", () => {
   it("非本组织成员 → 403 NO_ORG_MEMBERSHIP，库里没变", async () => {
-    await expect(controller.setMemberRole(ORG, MEMBER, body("lead"), principal(OUTSIDER))).rejects.toMatchObject(
+    await expect(controller.setMemberRole(ORG, MEMBER, body("admin"), principal(OUTSIDER))).rejects.toMatchObject(
       new ForbiddenException({ reasonCode: "NO_ORG_MEMBERSHIP" }),
     );
     expect(await roleOf(MEMBER)).toBe("consultant");
@@ -100,17 +100,17 @@ describe("setOrgMemberRole —— 授权面", () => {
 });
 
 describe("setOrgMemberRole —— 写路径", () => {
-  it("管理员把顾问改成项目负责人 → 真的落库，响应带前值，写一条 role-changed 审计", async () => {
-    const out = await controller.setMemberRole(ORG, MEMBER, body("lead"), principal(ADMIN));
-    expect(out).toEqual({ userId: MEMBER, orgRole: "lead", previousOrgRole: "consultant" });
-    expect(await roleOf(MEMBER)).toBe("lead");
+  it("管理员把普通成员改成管理员 → 真的落库，响应带前值，写一条 role-changed 审计", async () => {
+    const out = await controller.setMemberRole(ORG, MEMBER, body("admin"), principal(ADMIN));
+    expect(out).toEqual({ userId: MEMBER, orgRole: "admin", previousOrgRole: "consultant" });
+    expect(await roleOf(MEMBER)).toBe("admin");
     expect(provenance.append).toHaveBeenCalledTimes(1);
     expect(vi.mocked(provenance.append).mock.calls[0]?.[0]).toMatchObject({
       orgId: ORG,
       type: "role-changed",
       actorId: ADMIN,
       target: { kind: "membership", id: `${ORG}:${MEMBER}` },
-      detail: { layer: "organization", from: "consultant", to: "lead", self: false },
+      detail: { layer: "organization", from: "consultant", to: "admin", self: false },
     });
   });
 
@@ -140,12 +140,12 @@ describe("setOrgMemberRole —— 写路径", () => {
     expect(await roleOf(MEMBER)).toBe("admin");
 
     const out = await controller.setMemberRole(
-      ORG, ADMIN, { orgId: ORG, userId: ADMIN, orgRole: "lead" } as never, principal(ADMIN),
+      ORG, ADMIN, { orgId: ORG, userId: ADMIN, orgRole: "consultant" } as never, principal(ADMIN),
     );
-    expect(out).toEqual({ userId: ADMIN, orgRole: "lead", previousOrgRole: "admin" });
-    expect(await roleOf(ADMIN)).toBe("lead");
+    expect(out).toEqual({ userId: ADMIN, orgRole: "consultant", previousOrgRole: "admin" });
+    expect(await roleOf(ADMIN)).toBe("consultant");
     expect(vi.mocked(provenance.append).mock.calls[1]?.[0]).toMatchObject({
-      detail: { from: "admin", to: "lead", self: true },
+      detail: { from: "admin", to: "consultant", self: true },
     });
   });
 

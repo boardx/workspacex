@@ -66,7 +66,7 @@ export async function seedExportFixture(opts: {
   await seedOrg({ orgId: opts.realOrg, projectId: `${opts.realOrg}-p` });
   await addOrgMember(opts.localOrg, owner, "admin", null);
   await addOrgMember(opts.realOrg, owner, "consultant", null);
-  await addOrgMember(opts.realOrg, colleague, "lead", null);
+  await addOrgMember(opts.realOrg, colleague, "admin", null);
 
   const store = new FsObjectStore(opts.objectRoot);
   const artifactIds: string[] = [];

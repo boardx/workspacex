@@ -146,7 +146,7 @@ beforeEach(async () => {
       `org ${ORG}`,
     ]),
   );
-  await addOrgMember(ORG, LEAD, "lead", null);
+  await addOrgMember(ORG, LEAD, "admin", null);
   // BP-08：一条真实蓝本行，供「蓝本是可选参数」那条用例的 stub 解析绑定
   // （`blueprint_bindings.blueprint_id` 有外键，不能指向一个不存在的行）。
   await asApp(ORG, (c) =>

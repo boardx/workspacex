@@ -62,7 +62,7 @@ beforeEach(async () => {
     c.query("INSERT INTO groups (id, org_id, project_id, name) VALUES ($1,$2,$3,$4)", [GROUP, ORG, PROJECT, "A 组"]),
   );
 
-  await addOrgMember(ORG, FACILITATOR, "lead", null);
+  await addOrgMember(ORG, FACILITATOR, "admin", null);
   await addOrgMember(ORG, MEMBER, "consultant", null);
   await addProjectMember(ORG, PROJECT, FACILITATOR, "facilitator", GROUP);
   await addProjectMember(ORG, PROJECT, MEMBER, "member", GROUP);

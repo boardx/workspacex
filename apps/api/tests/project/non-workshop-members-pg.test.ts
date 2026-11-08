@@ -70,7 +70,7 @@ beforeEach(async () => {
     await c.query("INSERT INTO workshops (id, org_id) VALUES ($1, $2)", [WORKSHOP, ORG]);
   });
   for (const u of [OWNER, COLLAB, COLLEAGUE]) await addOrgMember(ORG, u, "consultant", null);
-  await addOrgMember(ORG, LEAD, "lead", null);
+  await addOrgMember(ORG, LEAD, "admin", null);
   await addCredential(OWNER, `${OWNER}@x.test`, "负责人甲");
   // 另一租户：它自己的容器，用来证明 org_id 谓词 + RLS 生效。
   await seedOrg({ orgId: OTHER, projectId: OTHER_RESEARCH, projectKind: "general", groupNames: [] });

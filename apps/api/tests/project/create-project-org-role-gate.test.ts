@@ -97,7 +97,7 @@ beforeEach(async () => {
   await asApp(ORG, (c) =>
     c.query("INSERT INTO organizations (id, name, kind) VALUES ($1,$2,'organization')", [ORG, `org ${ORG}`]),
   );
-  for (const role of IdentityContract.OrgRole.options) {
+  for (const role of IdentityContract.AssignableOrgRole.options) {
     await addOrgMember(ORG, userFor(role), role, null);
   }
 }, HOOK_TIMEOUT_MS);
@@ -105,14 +105,13 @@ beforeEach(async () => {
 describe("#608（覆盖 U-4 裁 A）：`lead` 与 `admin` 能创建，另两种不能", () => {
   it("四种组织角色逐个试，恰好 `lead` / `admin` 通过，其余一律 ORG_ROLE_INSUFFICIENT", async () => {
     // 非空转：遍历的是契约的闭集本身。加第五种角色，本条自动覆盖它。
-    expect(IdentityContract.OrgRole.options.length).toBe(4);
+    expect(IdentityContract.AssignableOrgRole.options.length).toBe(2);
 
     const verdicts: Record<string, string> = {};
-    for (const role of IdentityContract.OrgRole.options) {
+    for (const role of IdentityContract.AssignableOrgRole.options) {
       verdicts[role] = await reasonOf(submit(userFor(role)));
     }
     expect(verdicts).toEqual({
-      lead: "NO_ERROR",
       // 🔴 2026-08-06 人类裁决（#608）把这一格从 `ORG_ROLE_INSUFFICIENT` 翻成 `NO_ERROR`。
       //    U-4 裁 A 原本的理由（管理员的权是治理不是参与，D-18 同向）没有被否定，
       //    被否定的是它的**代价**：`bootstrapFirstUser` 只产 `admin`，且全仓没有任何
@@ -122,7 +121,6 @@ describe("#608（覆盖 U-4 裁 A）：`lead` 与 `admin` 能创建，另两种�
       admin: "NO_ERROR",
       // 反向的一半：不许退化成「谁都能建」。这两格红了，说明放宽放过头了。
       consultant: "ORG_ROLE_INSUFFICIENT",
-      compliance: "ORG_ROLE_INSUFFICIENT",
     });
   });
 
@@ -146,11 +144,11 @@ describe("#608（覆盖 U-4 裁 A）：`lead` 与 `admin` 能创建，另两种�
   });
 
   it("纯判断那一层单独也说同一句话（domain 不依赖库）", () => {
-    const ALLOWED = ["lead", "admin"] as const;
+    const ALLOWED = ["admin"] as const;
     for (const role of ALLOWED) expect(canCreateProject(role), role).toBe(true);
     // 遍历契约闭集取补集：加第五种角色时，它默认落在「必须为假」这一侧，
     // 而不是悄悄被放行——这正是不写排除式判据的那条理由的测试面。
-    for (const role of IdentityContract.OrgRole.options.filter((r) => !(ALLOWED as readonly string[]).includes(r))) {
+    for (const role of IdentityContract.AssignableOrgRole.options.filter((r) => !(ALLOWED as readonly string[]).includes(r))) {
       expect(canCreateProject(role), role).toBe(false);
     }
     expect(canCreateProject(null)).toBe(false);
@@ -159,12 +157,12 @@ describe("#608（覆盖 U-4 裁 A）：`lead` 与 `admin` 能创建，另两种�
 
 describe("INVALID_KIND：三值闭集之外直接拒", () => {
   it("`delivery`（被否决的 Q-12 候选 A 里的那个值）拿到 INVALID_KIND", async () => {
-    expect(await reasonOf(submit(userFor("lead"), { kind: "delivery" }))).toBe("INVALID_KIND");
+    expect(await reasonOf(submit(userFor("admin"), { kind: "delivery" }))).toBe("INVALID_KIND");
   });
 
   it("三个合法值都不会撞上这个码（防「什么都判非法」）", async () => {
     for (const kind of ProjectContract.ProjectKind.options) {
-      expect(await reasonOf(submit(userFor("lead"), { kind, name: `k-${kind}` })), kind).toBe("NO_ERROR");
+      expect(await reasonOf(submit(userFor("admin"), { kind, name: `k-${kind}` })), kind).toBe("NO_ERROR");
     }
   });
 
@@ -193,7 +191,7 @@ describe("AUTH_SERVICE_UNAVAILABLE：判定服务不可用一律拒绝，不得�
     const r = await reasonOf(
       createProject(
         { repo, identity: broken },
-        { orgId: toOrgId(ORG), actorId: userFor("lead"), name: "断线", kind: "workshop", blueprintVersionId: null },
+        { orgId: toOrgId(ORG), actorId: userFor("admin"), name: "断线", kind: "workshop", blueprintVersionId: null },
       ),
     );
     expect(r).toBe("AUTH_SERVICE_UNAVAILABLE");
@@ -206,22 +204,22 @@ describe("AUTH_SERVICE_UNAVAILABLE：判定服务不可用一律拒绝，不得�
 
 describe("🔴 Q-4②（2026-08-16 人类裁决推翻）：创建者**自动**获得项目最高权限角色", () => {
   it("建完之后 `project_memberships` 里多了一行 facilitator（is_host=true）", async () => {
-    const out = await submit(userFor("lead"));
+    const out = await submit(userFor("admin"));
     const rows = await asApp(ORG, async (c) =>
       (await c.query<{ user_id: string; project_role: string; is_host: boolean }>(
         "SELECT user_id, project_role, is_host FROM project_memberships WHERE project_id = $1",
         [out.id],
       )).rows,
     );
-    expect(rows).toEqual([{ user_id: userFor("lead"), project_role: "facilitator", is_host: true }]);
+    expect(rows).toEqual([{ user_id: userFor("admin"), project_role: "facilitator", is_host: true }]);
   });
 
   it("正向断言：创建者立刻以自己的身份判权，走项目层放行", async () => {
-    const out = await submit(userFor("lead"));
+    const out = await submit(userFor("admin"));
     const d = await authorize(
       { repo: identity, ids },
       {
-        userId: userFor("lead"),
+        userId: userFor("admin"),
         orgId: toOrgId(ORG),
         projectId: out.id,
         object: { kind: "project", id: out.id },
@@ -231,7 +229,7 @@ describe("🔴 Q-4②（2026-08-16 人类裁决推翻）：创建者**自动**�
     expect(d.allowed).toBe(true);
     // 组织层照样过——现在项目层**也**过了，不再需要区分。
     expect(d.orgLayer.passed).toBe(true);
-    expect(d.orgLayer.role).toBe("lead");
+    expect(d.orgLayer.role).toBe("admin");
     expect(d.projectLayer?.passed).toBe(true);
     expect(d.reasonCode).toBeNull();
   });
@@ -242,7 +240,7 @@ describe("🔴 Q-4②（2026-08-16 人类裁决推翻）：创建者**自动**�
     //   一个**没有**参与创建的人来验证「后补的角色」这条路径，否则 `addProjectMember`
     //   会撞上创建时已写的那一行，报 `project_memberships_pkey` 唯一约束冲突——
     //   那是实现细节的巧合撞车，不是这条测试想验证的东西。
-    const out = await submit(userFor("lead"));
+    const out = await submit(userFor("admin"));
     const other = "u-f117-added-facilitator";
     // `decide()` 的组织层要求 `org.role !== null`（I-11 之前那一关）——这个人必须先
     // 在组织里有一行，才轮到项目层的 facilitator 角色说话。用 `consultant`（本文件

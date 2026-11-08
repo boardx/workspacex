@@ -58,7 +58,7 @@ beforeEach(async () => {
   await seedOrg({ orgId: ORG, projectId: "unused-seed-project" });
   await asApp(ORG, (c) => c.query("DELETE FROM projects WHERE id = 'unused-seed-project'"));
 
-  await addOrgMember(ORG, LEAD, "lead", null);
+  await addOrgMember(ORG, LEAD, "admin", null);
   await addOrgMember(ORG, MEMBER, "consultant", null);
   await addOrgMember(ORG, OTHER_MEMBER, "consultant", null);
 }, HOOK_TIMEOUT_MS);

@@ -48,7 +48,7 @@
  * 同样不列：它只有一个结构上无法登录的维护身份，不是人。
  */
 import { z } from "zod";
-import { OrgRole } from "./identity";
+import { AssignableOrgRole, OrgRole } from "./identity";
 
 /* ─────────────────────────── 读模型 ─────────────────────────── */
 
@@ -177,7 +177,7 @@ export const operations = {
   setPlatformMemberOrgRole: {
     method: "PATCH",
     path: "/platform/members/:userId/organizations/:orgId/role",
-    in: z.object({ userId: z.string(), orgId: z.string(), orgRole: OrgRole }).strict(),
+    in: z.object({ userId: z.string(), orgId: z.string(), orgRole: AssignableOrgRole }).strict(),
     out: z
       .object({
         userId: z.string(),

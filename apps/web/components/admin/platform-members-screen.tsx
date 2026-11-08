@@ -1,4 +1,5 @@
 "use client";
+import { AssignableOrgRole } from "@repo/contracts/identity";
 import * as React from "react";
 import { Globe, RefreshCw, ShieldCheck, UserCog } from "lucide-react";
 import { AdminScreen } from "./admin-screen";
@@ -346,7 +347,7 @@ function MembershipRow({
       <div className="ml-auto w-40 max-w-full">
         <PopoverSelect
           value={membership.orgRole}
-          options={(["consultant", "lead", "compliance", "admin"] as const).map((id) => ({ id, label: t(`role.${id}`) }))}
+          options={AssignableOrgRole.options.map((id) => ({ id, label: t(`role.${id}`) }))}
           onSelect={(id) => void handleSelect(id)}
           disabled={busy}
           testid={`${testid}-role`}

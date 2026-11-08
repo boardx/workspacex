@@ -65,7 +65,7 @@ beforeEach(async () => {
   // members of the same real organization the owner also belongs to, so "they have no
   // relationship" is not what is doing the work here.
   await addOrgMember(REAL_ORG, ADMIN, "admin", null);
-  await addOrgMember(REAL_ORG, COMPLIANCE, "compliance", null);
+  await addOrgMember(REAL_ORG, COMPLIANCE, "consultant", null);
   await addOrgMember(REAL_ORG, OWNER, "consultant", null);
 
   await addContentItem({

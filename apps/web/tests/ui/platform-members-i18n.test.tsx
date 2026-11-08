@@ -96,7 +96,7 @@ describe("platform members complete localization", () => {
     expect(screen.getByTestId(roleId())).toHaveAccessibleName(new RegExp(rawOrg.replace(/[{}]/g, "\\$&")));
     expect(screen.getByTestId("admin-platform-members-list")).toHaveTextContent(new Date(roster.members[1].createdAt).toLocaleDateString("zh-CN"));
     switchTo("en");
-    for (const role of ["consultant", "lead", "compliance", "admin"] as const) expect(screen.getByRole("option", { name: translate("en", `role.${role}`) })).toBeTruthy();
+    for (const role of ["consultant", "admin"] as const) expect(screen.getByRole("option", { name: translate("en", `role.${role}`) })).toBeTruthy();
     expect(requests()).toEqual([{ path: "/platform/members", method: "GET", body: undefined }]);
   });
 
@@ -107,31 +107,31 @@ describe("platform members complete localization", () => {
     switchTo("zh-CN"); expect(loading).toHaveAccessibleName(/加载/);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     await act(async () => list.resolve(json(roster)));
-    expect(await screen.findByTestId(roleId())).toHaveTextContent("顾问");
+    expect(await screen.findByTestId(roleId())).toHaveTextContent("成员");
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("preserves a pending PATCH and only updates its returned membership without restarting the 4000ms notice", async () => {
     const pending = deferred(); route(() => pending.promise); show();
     await screen.findByTestId(roleId());
-    await choose("lead");
+    await choose("admin");
     vi.useFakeTimers();
     expect(screen.getByTestId(roleId())).toHaveAttribute("aria-disabled", "true");
     switchTo("zh-CN"); fireEvent.click(screen.getByTestId(roleId()));
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    await act(async () => pending.resolve(json({ userId: "target", orgId: "a", orgRole: "lead", previousOrgRole: "consultant" })));
+    await act(async () => pending.resolve(json({ userId: "target", orgId: "a", orgRole: "admin", previousOrgRole: "consultant" })));
     await flush();
-    expect(screen.getByTestId(roleId())).toHaveTextContent("项目负责人");
+    expect(screen.getByTestId(roleId())).toHaveTextContent("管理员");
     expect(screen.getByTestId(roleId("b"))).toHaveTextContent("管理员");
     expect(screen.getByTestId("admin-platform-members-banner")).toHaveTextContent(`${rawName} · ${rawOrg}`);
     act(() => vi.advanceTimersByTime(2000)); switchTo("en");
     expect(screen.getByTestId("admin-platform-members-banner")).toHaveAttribute("role", "status");
-    expect(screen.getByTestId("admin-platform-members-banner")).toHaveTextContent("Consultant → Project lead");
+    expect(screen.getByTestId("admin-platform-members-banner")).toHaveTextContent("Member → Administrator");
     act(() => vi.advanceTimersByTime(1999)); expect(screen.getByTestId("admin-platform-members-banner")).toBeTruthy();
     act(() => vi.advanceTimersByTime(1)); expect(screen.queryByTestId("admin-platform-members-banner")).toBeNull();
     expect(requests()).toEqual([
       { path: "/platform/members", method: "GET", body: undefined },
-      { path: "/platform/members/target/organizations/a/role", method: "PATCH", body: { userId: "target", orgId: "a", orgRole: "lead" } },
+      { path: "/platform/members/target/organizations/a/role", method: "PATCH", body: { userId: "target", orgId: "a", orgRole: "admin" } },
     ]);
   });
 
@@ -153,14 +153,14 @@ describe("platform members complete localization", () => {
 
   it.each([
     ["LAST_ADMIN", 409, /last.*administrator/i, /最后.*管理员/, "b", "consultant"],
-    ["MEMBER_NOT_FOUND", 404, /membership.*(no longer|exist)|no longer.*member/i, /成员.*不存在/, "a", "lead"],
-    ["NOT_PLATFORM_SUPERUSER", 403, /platform superuser.*platform administrator|platform administrator.*platform superuser/i, /平台.*管理员/, "a", "lead"],
+    ["MEMBER_NOT_FOUND", 404, /membership.*(no longer|exist)|no longer.*member/i, /成员.*不存在/, "a", "admin"],
+    ["NOT_PLATFORM_SUPERUSER", 403, /platform superuser.*platform administrator|platform administrator.*platform superuser/i, /平台.*管理员/, "a", "admin"],
   ] as const)("retranslates PATCH %s with next steps and preserves the existing role", async (reasonCode, status, english, chinese, org, next) => {
     route(() => json({ reasonCode }, status)); show(); await choose(next, org);
     const error = await screen.findByTestId(`${roleId(org)}-error`);
     expect(error).toHaveAttribute("role", "alert"); expect(error).toHaveTextContent(english);
     switchTo("zh-CN"); expect(error).toHaveTextContent(chinese);
-    expect(screen.getByTestId(roleId(org))).toHaveTextContent(org === "b" ? "管理员" : "顾问");
+    expect(screen.getByTestId(roleId(org))).toHaveTextContent(org === "b" ? "管理员" : "成员");
     expect(fetchMock).toHaveBeenCalledTimes(2); expect(screen.queryByTestId("admin-platform-members-banner")).toBeNull();
   });
 
@@ -192,7 +192,7 @@ describe("platform members complete localization", () => {
     route(); fetchMock.mockImplementationOnce(() => Promise.resolve(json(data))); show();
     expect(await screen.findByTestId("admin-platform-member-target-admin-badge")).toHaveTextContent(/platform administrator/i);
     expect(screen.queryByTestId("admin-platform-member-target-admin-toggle")).toBeNull();
-    await choose("lead"); await waitFor(() => expect(screen.getByTestId(roleId())).toHaveTextContent("Project lead"));
+    await choose("admin"); await waitFor(() => expect(screen.getByTestId(roleId())).toHaveTextContent("Administrator"));
   });
 
   it("shows ordinary organization administrator roster denial, never empty or retry", async () => {
@@ -221,12 +221,12 @@ describe("platform members complete localization", () => {
 
   it.each(["network", "unknown"])("hides %s mutation diagnostics and retranslates an actionable failure", async (kind) => {
     route(() => kind === "network" ? Promise.reject(new Error("PRIVATE_STACK_xyz")) : json({ reasonCode: "PRIVATE_STACK_xyz", message: "PRIVATE_STACK_xyz" }, 503));
-    show(); await choose("lead"); const error = await screen.findByTestId(`${roleId()}-error`);
+    show(); await choose("admin"); const error = await screen.findByTestId(`${roleId()}-error`);
     expect(error).toHaveTextContent(/failed|try again|unavailable/i); expect(error).not.toHaveTextContent("PRIVATE_STACK_xyz");
     switchTo("zh-CN");
     expect(error).toHaveTextContent(kind === "network" ? /请求没成功/ : /服务器出错/);
     expect(error).toHaveTextContent(/稍后再试/);
     expect(error).not.toHaveTextContent("PRIVATE_STACK_xyz");
-    expect(screen.getByTestId(roleId())).toHaveTextContent("顾问"); expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId(roleId())).toHaveTextContent("成员"); expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

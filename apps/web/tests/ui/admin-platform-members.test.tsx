@@ -97,7 +97,7 @@ describe("PlatformMembersScreen", () => {
     expect(screen.queryByTestId("admin-platform-member-u-linke-superuser")).toBeNull();
 
     expect(screen.getByTestId("admin-platform-member-u-linke-org-org-a-name")).toHaveTextContent("远洋咨询");
-    expect(screen.getByTestId("admin-platform-member-u-linke-org-org-a-role")).toHaveTextContent("顾问");
+    expect(screen.getByTestId("admin-platform-member-u-linke-org-org-a-role")).toHaveTextContent("成员");
     expect(screen.getByTestId("admin-platform-member-u-linke-org-org-b-role")).toHaveTextContent("管理员");
   });
 
@@ -128,16 +128,16 @@ describe("PlatformMembersScreen", () => {
 
     const trigger = await screen.findByTestId("admin-platform-member-u-linke-org-org-a-role");
     fireEvent.click(trigger);
-    fireEvent.click(await screen.findByTestId("admin-platform-member-u-linke-org-org-a-role-option-lead"));
+    fireEvent.click(await screen.findByTestId("admin-platform-member-u-linke-org-org-a-role-option-admin"));
 
-    await waitFor(() => expect(trigger).toHaveTextContent("项目负责人"));
-    expect(screen.getByTestId("admin-platform-members-banner")).toHaveTextContent("林可 · 远洋咨询：顾问 → 项目负责人");
+    await waitFor(() => expect(trigger).toHaveTextContent("管理员"));
+    expect(screen.getByTestId("admin-platform-members-banner")).toHaveTextContent("林可 · 远洋咨询：成员 → 管理员");
     // 另一条成员身份（北极星 · 管理员）不受影响。
     expect(screen.getByTestId("admin-platform-member-u-linke-org-org-b-role")).toHaveTextContent("管理员");
 
     const call = fetchMock.mock.calls.find((c) => c[1]?.method === "PATCH");
     expect(String(call?.[0])).toContain("/platform/members/u-linke/organizations/org-a/role");
-    expect(JSON.parse(String(call?.[1]?.body))).toEqual({ userId: "u-linke", orgId: "org-a", orgRole: "lead" });
+    expect(JSON.parse(String(call?.[1]?.body))).toEqual({ userId: "u-linke", orgId: "org-a", orgRole: "admin" });
   });
 
   it("409 LAST_ADMIN → 行内说清下一步，下拉值不变", async () => {

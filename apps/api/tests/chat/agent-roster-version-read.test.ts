@@ -121,7 +121,7 @@ afterAll(async () => {
 beforeEach(async () => {
   await resetOrgs(ORG);
   await seedOrg({ orgId: ORG, projectId: PROJECT, groupNames: [] });
-  await addOrgMember(ORG, FACILITATOR, "lead", null);
+  await addOrgMember(ORG, FACILITATOR, "admin", null);
   await addProjectMember(ORG, PROJECT, FACILITATOR, "facilitator", null);
   await addChatThread({
     orgId: ORG, id: THREAD, projectId: PROJECT,
