@@ -64,6 +64,23 @@ describe("LiveSurveyLibrary", () => {
     // 统计并入标准卡片的副标题：「N 个题目 · M 份答卷（有效 K）」，有效数口径不变
     expect(await screen.findByTestId("survey-card-survey-1")).toHaveTextContent("有效 2");
   });
+  it("keeps report navigation outside the resource collection", async () => {
+    request.mockResolvedValueOnce([survey()]);
+    render(<LiveSurveyLibrary />);
+    const card = await screen.findByTestId("survey-card-survey-1");
+    const report = screen.getByRole("link", { name: /创建报告/ });
+    expect(report).toHaveAttribute("href", "/studio/survey?tab=reports");
+    expect(card.parentElement).not.toContainElement(report);
+  });
+
+  it.each(["collecting", "closed", "unknown_future_state"])("does not invent a draft badge for %s without publication", async (status) => {
+    request.mockResolvedValueOnce([survey({ status, publication: null })]);
+    render(<LiveSurveyLibrary />);
+    await screen.findByTestId("survey-card-survey-1");
+    expect(screen.queryByTestId("survey-status-survey-1")).toBeNull();
+    expect(screen.queryByText("草稿")).toBeNull();
+  });
+
   it("shows real survey status and routes collecting surveys to response review", async () => {
     request.mockResolvedValueOnce([survey()]);
     render(<LiveSurveyLibrary />);

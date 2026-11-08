@@ -81,6 +81,17 @@ beforeEach(() => {
 });
 
 describe("F168 guided research home live data", () => {
+  it("keeps creation in the header for both empty and populated history", async () => {
+    const change = vi.fn();
+    render(<GuidedResearchFlow step="home" onStepChange={change} />);
+    const empty = await screen.findByTestId("research-history-empty");
+    expect(empty.querySelector("a,button")).toBeNull();
+    expect(screen.queryByTestId("research-create-card")).toBeNull();
+    fireEvent.click(screen.getByTestId("research-create"));
+    expect(screen.getByTestId("research-create")).toHaveAttribute("href", "/research/new");
+    expect(change).not.toHaveBeenCalled();
+  });
+
   it("enters intake directly without a metadata dialog or stale creation draft", () => {
     const onStepChange = vi.fn();
     render(<GuidedResearchFlow step="home" onStepChange={onStepChange} />);
@@ -246,7 +257,8 @@ describe("F168 guided research home live data", () => {
     render(<GuidedResearchFlow step="home" onStepChange={vi.fn()} />);
 
     const page = screen.getByTestId("research-home-page");
-    expect(page).toHaveClass("max-w-screen-2xl", "px-4", "py-4");
+    expect(page).toHaveClass("max-w-7xl", "p-4");
+    expect(screen.queryByTestId("research-create-card")).toBeNull();
     expect(await screen.findByTestId("research-history-grs-style")).toHaveClass("rounded-card", "hover:border-input", "h-full");
   });
 

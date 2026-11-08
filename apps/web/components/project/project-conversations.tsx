@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
 import { SectionTitle } from "./parts";
-import { ProjectContentCard, CONTENT_GRID_CLASS } from "./project-content-card";
+import { UpdatedAt } from "./project-resource-meta";
+import { ResourceGrid } from "@/components/ui/resource-card";
+import { ProjectContentCard } from "./project-content-card";
 import { ApiError, getStoredSessionToken } from "@/lib/api-client";
 import { httpFailureText } from "@/lib/http-failure-text";
 import { listThreads, createProjectThread, getThread, setThreadVisibility, type ListThreadsOut } from "@/lib/live-chat";
@@ -30,7 +32,7 @@ type ShareScope = (typeof SHARE_SCOPES)[number];
 /** 一键新建的默认标题——与个人线程的服务端默认名同字，用户进线程后可改。 */
 export const DEFAULT_PROJECT_THREAD_TITLE = "新对话";
 
-export function ProjectConversations({ projectId, canWrite }: { projectId: string; canWrite: boolean }) {
+export function ProjectConversations({ projectId, canWrite, embedded = false }: { projectId: string; canWrite: boolean; embedded?: boolean }) {
   const router = useRouter();
   const [data, setData] = React.useState<ListThreadsOut | null>(null);
   const [loading, setLoading] = React.useState(false);
@@ -85,8 +87,8 @@ export function ProjectConversations({ projectId, canWrite }: { projectId: strin
   const cards = data?.groups.flatMap((g) => g.cards.map((c) => ({ group: g.label, ...c }))) ?? [];
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-4 p-6" data-testid="project-conversations">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 p-4 sm:p-6" data-testid="project-conversations">
+      {!embedded && <div className="flex flex-wrap items-center gap-2">
         <SectionTitle meta="本项目里的对话：成员按可见范围各看各的" className="mb-0">对话</SectionTitle>
         <span className="flex-1" />
         {canWrite && (
@@ -94,7 +96,7 @@ export function ProjectConversations({ projectId, canWrite }: { projectId: strin
             <Plus aria-hidden className="h-3.5 w-3.5" />在本项目中新建对话
           </Button>
         )}
-      </div>
+      </div>}
 
       {shareError !== null && (
         <p className="text-12 text-destructive" data-testid="project-conversations-share-error">{shareError}</p>
@@ -116,7 +118,7 @@ export function ProjectConversations({ projectId, canWrite }: { projectId: strin
           {data.groups.filter((g) => g.cards.length > 0).map((g) => (
             <section key={g.label}>
               <h3 className="mb-1.5 px-1 text-11 font-medium uppercase tracking-wide text-muted-foreground">{g.label}</h3>
-              <ul className={CONTENT_GRID_CLASS}>
+              <ResourceGrid as="ul">
                 {g.cards.map((c) => (
                   <li key={c.id}>
                     <ProjectContentCard
@@ -126,7 +128,7 @@ export function ProjectConversations({ projectId, canWrite }: { projectId: strin
                       icon={MessagesSquare}
                       title={c.title}
                       typeLabel="对话"
-                      meta={c.subtitle}
+                      meta={<UpdatedAt iso={c.lastActivityAt} />}
                       footer={
                         <>
                           {canWrite ? (
@@ -147,7 +149,7 @@ export function ProjectConversations({ projectId, canWrite }: { projectId: strin
                     />
                   </li>
                 ))}
-              </ul>
+              </ResourceGrid>
             </section>
           ))}
         </div>

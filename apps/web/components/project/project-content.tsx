@@ -2,7 +2,7 @@
 import { CONTENT_FILTERS, type ContentFilter } from "@/lib/project-content-filters";
 import type { Locale } from "@/lib/i18n/locale";
 import { translate } from "@/lib/i18n/messages";
-import { formatRelativeTime } from "@/lib/home-format";
+import { UpdatedAt } from "./project-resource-meta";
 import * as React from "react";
 import { useI18n } from "@/lib/i18n/provider";
 import { projectContentFilterEn } from "@/lib/i18n/namespaces/project-resources";
@@ -12,7 +12,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui/menu";
 import { SectionTitle } from "./parts";
-import { ProjectContentCard, CONTENT_GRID_CLASS } from "./project-content-card";
+import { ResourceGrid } from "@/components/ui/resource-card";
+import { ProjectContentCard } from "./project-content-card";
 import { ProjectConversations, DEFAULT_PROJECT_THREAD_TITLE } from "./project-conversations";
 import {
   ProjectResourceSection, RESOURCE_KIND_TO_SUB, projectResourceHref, projectResourceIcon,
@@ -29,7 +30,7 @@ import { cn } from "@/lib/utils";
  *
  * 类型筛选：全部 / 对话 / 白板 / 访谈 / 问卷 / 研究 / 转写 / 设计，另有「文件」直达 `/projects/<id>/files`。
  *   - 「全部」= 对话（`listThreads`）+ 挂在项目上的资源（`listProjectResources`）按最近更新合并；
- *   - 选了某一类 = 复用既有的 `ProjectConversations` / `ProjectResourceSection`（各自带新建 / 关联 / 移出）。
+ *   - 选了某一类 = 复用既有的 `ProjectConversations` / `ProjectResourceSection`（嵌入时由外层统一新建 / 关联，卡内保留移出）。
  * 右上「新建 ▾」「关联已有 ▾」：新建对话直接建线程进入；白板 / 设计就地创建并挂到本项目；其余类型去对应
  * Studio（带 `?projectId=`）。关联已有 = 切到该类型并展开它的候选面板。
  * 筛选键与研究洞察子导航同一套（`sub=conv|survey|itv|research|transcript|whiteboard|design`），
@@ -52,6 +53,7 @@ export interface ContentEntry {
   updatedAt: string;
   href: string;
   resourceKind: ProjectResourceKind | null;
+  status?: string | null;
 }
 
 /**
@@ -90,7 +92,7 @@ export function useProjectContentIndex(projectId: string) {
     }
     for (const it of resources?.items ?? []) {
       out.push({
-        type: RESOURCE_KIND_TO_SUB[it.kind], id: it.id, title: it.title, updatedAt: it.updatedAt, resourceKind: it.kind,
+        type: RESOURCE_KIND_TO_SUB[it.kind], id: it.id, title: it.title, updatedAt: it.updatedAt, resourceKind: it.kind, status: it.status,
         href: projectResourceHref(it.kind, it.id, projectId),
       });
     }
@@ -132,9 +134,10 @@ export function ProjectContent({ projectId, canWrite, sub = null }: {
   const [createError, setCreateError] = React.useState<{ cause: unknown } | null>(null);
   const index = useProjectContentIndex(projectId);
 
-  React.useEffect(() => { setFilter(resolveContentFilter(sub)); }, [sub]);
+  React.useEffect(() => { setLinkRequest(null); setFilter(resolveContentFilter(sub)); }, [sub]);
 
   async function createNew(kind: Exclude<ContentFilter, "all">) {
+    if (!canWrite) return;
     setCreating(true); setCreateError(null);
     try {
       if (kind === "conv") {
@@ -160,7 +163,7 @@ export function ProjectContent({ projectId, canWrite, sub = null }: {
         <div className="flex flex-wrap items-center gap-2">
           <SectionTitle className="mb-0" meta={t("projectResources.contentDescription")}>{t("projectResources.contentHeading")}</SectionTitle>
           <span className="flex-1" />
-          {canWrite && (
+          {canWrite && filter !== "conv" && (
             <Menu>
               <MenuTrigger asChild>
                 <Button size="sm" variant="outline" data-testid="project-content-link-menu">
@@ -168,7 +171,7 @@ export function ProjectContent({ projectId, canWrite, sub = null }: {
                 </Button>
               </MenuTrigger>
               <MenuContent align="end">
-                {LINKABLE_FILTERS.map((f) => (
+                {LINKABLE_FILTERS.filter((f) => filter === "all" || f.key === filter).map((f) => (
                   <MenuItem key={f.key} onSelect={() => requestLink(f.key)} data-testid={`project-content-link-${f.key}`}>
                     {contentFilterLabel(f.key, locale)}
                   </MenuItem>
@@ -184,7 +187,7 @@ export function ProjectContent({ projectId, canWrite, sub = null }: {
                 </Button>
               </MenuTrigger>
               <MenuContent align="end">
-                {TYPE_FILTERS.map((f) => (
+                {TYPE_FILTERS.filter((f) => filter === "all" || f.key === filter).map((f) => (
                   <MenuItem key={f.key} onSelect={() => void createNew(f.key)} data-testid={`project-content-new-${f.key}`}>
                     {contentFilterLabel(f.key, locale)}
                   </MenuItem>
@@ -209,7 +212,7 @@ export function ProjectContent({ projectId, canWrite, sub = null }: {
                 type="button"
                 role="tab"
                 aria-selected={active}
-                onClick={() => setFilter(f.key)}
+                onClick={() => { setLinkRequest(null); setFilter(f.key); }}
                 data-testid={`project-content-filter-${f.key}`}
                 className={cn(
                   "inline-flex h-7 items-center gap-1 rounded-full border px-3 text-12 transition-colors duration-base",
@@ -236,14 +239,15 @@ export function ProjectContent({ projectId, canWrite, sub = null }: {
       </div>
 
       {filter === "all" ? (
-        <AllContentList index={index} canWrite={canWrite} creating={creating} onCreate={(k) => void createNew(k)} />
+        <AllContentList index={index} canWrite={canWrite} />
       ) : filter === "conv" ? (
-        <ProjectConversations projectId={projectId} canWrite={canWrite} />
+        <ProjectConversations projectId={projectId} canWrite={canWrite} embedded />
       ) : (
         <ProjectResourceSection
           key={`${filter}-${linkRequest?.kind === filter ? linkRequest.nonce : 0}`}
           projectId={projectId}
           kind={filter}
+          embedded
           canWrite={canWrite}
           initialLinkOpen={linkRequest?.kind === filter}
           onChanged={() => void index.reload()}
@@ -253,9 +257,8 @@ export function ProjectContent({ projectId, canWrite, sub = null }: {
   );
 }
 
-function AllContentList({ index, canWrite, creating, onCreate }: {
+function AllContentList({ index, canWrite }: {
   index: ReturnType<typeof useProjectContentIndex>; canWrite: boolean;
-  creating: boolean; onCreate: (kind: Exclude<ContentFilter, "all">) => void;
 }) {
   const { locale, t } = useI18n();
   return (
@@ -281,19 +284,10 @@ function AllContentList({ index, canWrite, creating, onCreate }: {
             {t("projectResources.contentEmptyDescription")}
             {canWrite ? t("projectResources.contentEmptyLink") : t("projectResources.sentenceEnd")}
           </p>
-          {canWrite && (
-            <div className="flex items-center gap-2">
-              <Button size="sm" variant="primary" disabled={creating} onClick={() => onCreate("whiteboard")} data-testid="project-content-empty-new-whiteboard">
-                <Plus aria-hidden className="h-3.5 w-3.5" />{t("projectResources.newWhiteboard")}
-              </Button>
-              <Button size="sm" variant="outline" disabled={creating} onClick={() => onCreate("conv")} data-testid="project-content-empty-new-conv">
-                <Plus aria-hidden className="h-3.5 w-3.5" />{t("projectResources.newConversation")}
-              </Button>
-            </div>
-          )}
+
         </Card>
       ) : (
-        <ul className={CONTENT_GRID_CLASS} data-testid="project-content-list">
+        <ResourceGrid as="ul" data-testid="project-content-list">
           {index.entries.map((e) => (
             <li key={`${e.type}-${e.id}`}>
               <ProjectContentCard
@@ -302,27 +296,19 @@ function AllContentList({ index, canWrite, creating, onCreate }: {
                 icon={e.resourceKind ? projectResourceIcon(e.resourceKind) : MessagesSquare}
                 title={e.title}
                 typeLabel={contentTypeLabel(e.type, locale)}
+                resourceKind={e.resourceKind ?? undefined}
+                status={e.status}
                 meta={<UpdatedAt iso={e.updatedAt} />}
               />
             </li>
           ))}
-        </ul>
+        </ResourceGrid>
       )}
     </div>
   );
 }
 
-/** 「更新于 3 分钟前」——悬停显示精确日期；解析不了时间就退回原来的日期文本。 */
-export function UpdatedAt({ iso }: { iso: string }): JSX.Element {
-  const { locale, t } = useI18n();
-  const rel = formatRelativeTime(iso, undefined, locale);
-  return <time dateTime={iso} title={formatDate(iso, locale)}>{t("projectResources.updated", { date: rel ?? formatDate(iso, locale) })}</time>;
-}
-
-export function formatDate(iso: string, locale?: Locale): string {
-  const t = Date.parse(iso);
-  return Number.isNaN(t) ? iso : new Date(t).toLocaleDateString(locale);
-}
+export { UpdatedAt, formatDate } from "./project-resource-meta";
 
 /** 项目内对话线程的链接（同 `project-conversations.tsx` 的 `threadHref`）：chat 壳层用 `?projectId` 把线程列表限定到本项目。 */
 function projectThreadHref(threadId: string, projectId: string): string {

@@ -346,8 +346,8 @@ describe("#4615 通用项目的工作台", () => {
     renderWorkbench("content");
     const empty = await screen.findByTestId("project-content-empty");
     expect(empty).toHaveTextContent("还没有内容——新建一块白板或一段对话");
-    expect(screen.getByTestId("project-content-empty-new-whiteboard")).toBeInTheDocument();
-    expect(screen.getByTestId("project-content-empty-new-conv")).toBeInTheDocument();
+    expect(screen.queryByTestId("project-content-empty-new-whiteboard")).toBeNull();
+    expect(screen.queryByTestId("project-content-empty-new-conv")).toBeNull();
     expect(screen.getByTestId("project-content-new-menu")).toBeInTheDocument();
   });
 
@@ -359,12 +359,43 @@ describe("#4615 通用项目的工作台", () => {
     expect(await screen.findByTestId("project-resource-sv1")).toBeInTheDocument();
   });
 
+  it.each(["whiteboard", "design", "survey", "itv", "research", "transcript", "conv"])("内容 · %s：只保留外层工具栏，操作限定当前类型", async (kind) => {
+    getProjectOverview.mockResolvedValue(overviewOf("general"));
+    renderWorkbench("content", kind);
+    await waitFor(() => expect(screen.getByTestId("project-content")).toHaveAttribute("data-filter", kind));
+    expect(screen.queryByTestId("project-resources-new")).toBeNull();
+    expect(screen.queryByTestId("project-resources-link-open")).toBeNull();
+    expect(screen.queryByTestId("project-conversations-new")).toBeNull();
+    fireEvent.pointerDown(await screen.findByTestId("project-content-new-menu"), { button: 0, ctrlKey: false });
+    expect(await screen.findByTestId(`project-content-new-${kind}`)).toBeInTheDocument();
+    expect(screen.queryAllByTestId(/^project-content-new-(?!menu)/)).toHaveLength(1);
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+    if (kind === "conv") {
+      expect(screen.queryByTestId("project-content-link-menu")).toBeNull();
+    } else {
+      fireEvent.pointerDown(screen.getByTestId("project-content-link-menu"), { button: 0, ctrlKey: false });
+      expect(await screen.findByTestId(`project-content-link-${kind}`)).toBeInTheDocument();
+      expect(screen.queryAllByTestId(/^project-content-link-(?!menu)/)).toHaveLength(1);
+    }
+  });
+
+  it("keeps all write entries hidden for an observer in the shared toolbar", async () => {
+    getProjectOverview.mockResolvedValue(overviewOf("general"));
+    render(<I18nProvider initialLocale="zh-CN"><ProjectWorkbench uiState="default" tab="content" view="observer" sub="survey" qs={{}} projectId="p-rp" /></I18nProvider>);
+    await screen.findByTestId("project-resource-sv1");
+    expect(screen.queryByTestId("project-content-new-menu")).toBeNull();
+    expect(screen.queryByTestId("project-content-link-menu")).toBeNull();
+    expect(screen.queryByTestId("project-resources-new")).toBeNull();
+    expect(screen.queryByTestId("project-resource-more-sv1")).toBeNull();
+  });
+
   it("内容 · 白板：「在本项目中新建白板」就地创建 → 挂到本项目 → 进入白板", async () => {
     getProjectOverview.mockResolvedValue(overviewOf("general"));
     createBoard.mockResolvedValue({ id: "wb-new" });
     linkProjectResource.mockResolvedValue({ linked: true });
     renderWorkbench("content", "whiteboard");
-    fireEvent.click(await screen.findByTestId("project-resources-new"));
+    fireEvent.pointerDown(await screen.findByTestId("project-content-new-menu"), { button: 0, ctrlKey: false });
+    fireEvent.click(await screen.findByTestId("project-content-new-whiteboard"));
     await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/studio/board/wb-new?projectId=p-rp"));
     expect(createBoard).toHaveBeenCalledWith(expect.objectContaining({ name: "未命名白板" }));
     expect(linkProjectResource).toHaveBeenCalledWith({ projectId: "p-rp", kind: "whiteboard", resourceId: "wb-new" });
@@ -384,11 +415,28 @@ describe("#4615 通用项目的工作台", () => {
     expect(await screen.findByTestId("project-resources-link-ds2")).toBeInTheDocument();
     expect(screen.queryByTestId("project-resources-link-ds1")).toBeNull();
 
-    fireEvent.pointerDown(screen.getByTestId("project-content-new-menu"), { button: 0, ctrlKey: false });
+    fireEvent.pointerDown(await screen.findByTestId("project-content-new-menu"), { button: 0, ctrlKey: false });
     fireEvent.click(await screen.findByTestId("project-content-new-design"));
     await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/studio/design-workbench/ds-new?projectId=p-rp"));
     expect(createDesignProject).toHaveBeenCalledWith({ name: "未命名设计", template: "ui" });
     expect(linkProjectResource).toHaveBeenCalledWith({ projectId: "p-rp", kind: "design", resourceId: "ds-new" });
+  });
+
+  it("consumes a closed association intent when changing content filters", async () => {
+    getProjectOverview.mockResolvedValue(overviewOf("general"));
+    listDesignProjects.mockResolvedValue({ items: [] });
+    render(<React.StrictMode><I18nProvider initialLocale="zh-CN"><ProjectWorkbench uiState="default" tab="content" view="facilitator" sub={null} qs={{}} projectId="p-rp" /></I18nProvider></React.StrictMode>);
+    await screen.findByTestId("project-content-list");
+    fireEvent.pointerDown(screen.getByTestId("project-content-link-menu"), { button: 0, ctrlKey: false });
+    fireEvent.click(await screen.findByTestId("project-content-link-design"));
+    await screen.findByTestId("project-resources-link-panel");
+    fireEvent.click(screen.getByTestId("project-resources-link-close"));
+    fireEvent.click(screen.getByTestId("project-content-filter-whiteboard"));
+    fireEvent.click(screen.getByTestId("project-content-filter-design"));
+    expect(screen.queryByTestId("project-resources-link-panel")).toBeNull();
+    fireEvent.pointerDown(screen.getByTestId("project-content-link-menu"), { button: 0, ctrlKey: false });
+    fireEvent.click(await screen.findByTestId("project-content-link-design"));
+    expect(await screen.findByTestId("project-resources-link-panel")).toBeVisible();
   });
 
   it("大脑：项目大脑面板 + 证据列表；证据引用链接 ?tab=research&sub=sources 落到这里", async () => {

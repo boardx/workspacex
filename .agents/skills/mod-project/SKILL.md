@@ -57,6 +57,7 @@ description: >
 3. 交付：真栈 e2e 证据 + 反证；`verify --sprint` 门控；PR 写清对上述不变量的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-11-09：项目内容的子列表嵌入时由外层工具栏持有新建/关联入口，独立使用仍保留自己的工具栏；关联意图在切换筛选后消费，权限降级立即关闭选择器。列表几何复用 `apps/web/components/ui/resource-card.tsx` 的 ResourceGrid，避免按内容宽度居中导致全部与类型筛选卡片错位。参见 issue #6442。
 - 2026-11-07: Shared UI status types must depend directly on canonical contracts, not API adapters with mock imports: lint-ui-wiring follows type-only edges too. Derive interview status from interview.DigitalInterviewStatus and keep project reachability clean without exemptions (issue #6377 / PR #6378).
 
 - 2026-11-06：项目列表的成员入列必须按 `projects.kind` 读取对应身份表：工作坊用 `project_memberships`，通用项目用 `general_project_members`。邀请接受已经持久化后一律不靠前端缓存补列表；仅查询前者会导致协作者能进工作台、返回列表却消失。两支都限定 actor + project + org，保留管理段去重和只读标注；真实邀请→独立数据库读→列表、浏览器返回/刷新/新会话回归见 issue #6339。

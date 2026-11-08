@@ -113,6 +113,20 @@ describe("B2-S2 研究洞察 › 项目资源子页", () => {
     expect(JSON.parse(String(post![1]!.body))).toEqual({ projectId: "p1", kind: "survey", resourceId: "s2" });
   });
 
+  it("revokes an open association picker immediately when write permission is lost", async () => {
+    const fetchMock = stubFetch((url) => url.pathname === "/projects/p1/resources" ? json(RESOURCES) : url.pathname === "/surveys" ? json([{ id: "s2", title: "候选", updatedAt: "2026-09-26T01:00:00.000Z" }]) : json({}, 500));
+    const view = render(<TabResearch view="facilitator" sub="survey" projectId="p1" />);
+    await screen.findByTestId("project-resource-s1");
+    fireEvent.click(screen.getByTestId("project-resources-link-open"));
+    await screen.findByTestId("project-resources-link-s2");
+    view.rerender(<TabResearch view="observer" sub="survey" projectId="p1" />);
+    expect(screen.queryByTestId("project-resources-link-panel")).toBeNull();
+    expect(screen.queryByTestId("project-resources-link-open")).toBeNull();
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(0);
+    view.rerender(<TabResearch view="facilitator" sub="survey" projectId="p1" />);
+    expect(screen.queryByTestId("project-resources-link-panel")).toBeNull();
+  });
+
   it("移出项目向 DELETE /projects/p1/resources/survey/s1 发请求；#4615 起访谈也可关联 / 移出", async () => {
     const fetchMock = stubFetch((url, init) => {
       if (init?.method === "DELETE") return json({ removed: true });

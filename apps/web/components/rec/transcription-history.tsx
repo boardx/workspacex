@@ -1,8 +1,9 @@
 "use client";
+import { RESOURCE_GRID_CLASS, RESOURCE_PAGE_CLASS } from "@/components/ui/resource-card";
 
 import * as React from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { Clock3, MoreHorizontal, Pencil, Plus, Square, Trash2 } from "lucide-react";
+import { Clock3, MoreHorizontal, Pencil, Square, Trash2 } from "lucide-react";
 import { WorkflowActionButton } from "@/components/research-studio/research-workflow-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -418,8 +419,8 @@ export function TranscriptionHistory({ uiState, projectId = null, initialCreateO
   }
 
   return (
-    <section ref={historyRef} data-testid="rec-history-page" className="min-h-full bg-background px-4 py-4 md:px-6">
-      <div className="mx-auto flex w-full max-w-screen-xl flex-col gap-4 md:gap-6">
+    <section ref={historyRef} data-testid="rec-history-page" className="min-h-full bg-background">
+      <div className={`${RESOURCE_PAGE_CLASS} flex flex-col gap-4`}>
         <ProjectBreadcrumb projectId={projectId} sub="transcript" className="" />
         <StudioHistoryHeader business={t("rec.business")} title={t("rec.history.title")} description={t("rec.history.description")} count={items.length} countTestId="rec-history-count" createTestId="rec-create-open" onCreate={openCreate} />
         <StudioHistoryFilters business={t("rec.businessPlural")} prefix="rec-history" tags={tags} selectedTags={activeTag === undefined ? [] : [activeTag]} onTagsChange={(next) => setActiveTag(next[0])} tagMode="single" query={query} onQueryChange={setQuery} sort={sort} onSortChange={setSort} />
@@ -432,7 +433,6 @@ export function TranscriptionHistory({ uiState, projectId = null, initialCreateO
           filtered={activeTag !== undefined || !!query.trim()}
           onRetry={() => { setListRevision((current) => current + 1); focusSearch(); }}
           onClearFilters={() => { setQuery(""); setActiveTag(undefined); focusSearch(); }}
-          onCreate={openCreate}
           onOpen={(item) => void openTranscription(item)}
           onEdit={setEditItem}
           onStop={(item) => void stopLegacyTranscription(item)}
@@ -478,14 +478,13 @@ function streamErrorKey(reason: string): MessageKey {
 }
 
 function HistoryState({
-  uiState, items, filtered, onRetry, onClearFilters, onCreate, onOpen, onEdit, onStop, onDelete,
+  uiState, items, filtered, onRetry, onClearFilters, onOpen, onEdit, onStop, onDelete,
 }: {
   uiState: UiState;
   filtered: boolean;
   onRetry: () => void;
   onClearFilters: () => void;
   items: readonly TranscriptionHistoryItem[];
-  onCreate: React.MouseEventHandler<HTMLButtonElement>;
   onOpen: (item: TranscriptionHistoryItem) => void;
   onEdit: (item: TranscriptionHistoryItem) => void;
   onStop: (item: TranscriptionHistoryItem) => void;
@@ -494,7 +493,7 @@ function HistoryState({
   const { t } = useI18n();
   if (uiState === "loading") {
     return (
-      <div data-testid="loading" className="grid animate-pulse grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div data-testid="loading" className={`${RESOURCE_GRID_CLASS} animate-pulse`}>
         {Array.from({ length: 8 }).map((_, index) => <div key={index} className="h-40 rounded-lg bg-muted" />)}
       </div>
     );
@@ -512,12 +511,12 @@ function HistoryState({
       <div data-testid="rec-history-empty" className="flex min-h-48 flex-col items-center justify-center gap-3 rounded-lg bg-card p-4 text-center">
         <Clock3 aria-hidden className="h-8 w-8 text-muted-foreground" />
         <div><p className="text-14 font-medium">{filtered ? t("rec.history.noMatch") : t("rec.history.empty")}</p><p className="mt-1 text-12 text-muted-foreground">{filtered ? t("rec.history.adjust") : t("rec.history.begin")}</p></div>
-        {filtered ? <WorkflowActionButton variant="outline" onClick={onClearFilters}>{t("rec.history.clear")}</WorkflowActionButton> : <WorkflowActionButton variant="primary" onClick={onCreate}><Plus aria-hidden className="h-4 w-4" />{t("rec.create.title")}</WorkflowActionButton>}
+        {filtered ? <WorkflowActionButton variant="outline" onClick={onClearFilters}>{t("rec.history.clear")}</WorkflowActionButton> : null}
       </div>
     );
   }
   return (
-    <div data-testid="rec-history-grid" className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <div data-testid="rec-history-grid" className={RESOURCE_GRID_CLASS}>
       {items.map((item) => <HistoryCard key={item.id} item={item} onOpen={onOpen} onEdit={onEdit} onStop={onStop} onDelete={onDelete} />)}
     </div>
   );
@@ -539,7 +538,7 @@ function HistoryCard({
       status={<Badge tone={item.status === "recording" ? "warning" : item.status === "failed" ? "danger" : "neutral"}>{item.status === "recording" ? t("rec.history.recording") : item.status === "failed" ? t("rec.history.failed") : item.duration === "00:00" ? t("rec.history.pending") : t("rec.history.resume")}</Badge>}
       description={t("rec.history.personal")} tags={item.tags}
       metadata={<><span>{item.duration}</span><time dateTime={item.updatedAt}>{new Intl.DateTimeFormat(locale, { year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(item.updatedAt))}</time></>}
-      primaryAction={<WorkflowActionButton data-testid={`rec-history-open-${item.id}`} variant="outline" onClick={() => onOpen(item)}>{t("rec.history.open")}</WorkflowActionButton>}
+      primaryAction={<WorkflowActionButton data-testid={`rec-history-open-${item.id}`} variant="primary" onClick={() => onOpen(item)}>{t("rec.history.open")}</WorkflowActionButton>}
       management={
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild><Button data-testid={`rec-history-more-${item.id}`} size="icon" variant="ghost" aria-label={t("rec.history.more", { name: item.title })}><MoreHorizontal aria-hidden className="h-4 w-4" /></Button></DropdownMenu.Trigger>

@@ -1,4 +1,5 @@
 "use client";
+import { RESOURCE_GRID_CLASS, RESOURCE_PAGE_CLASS } from "@/components/ui/resource-card";
 
 import * as React from "react";
 import Link from "next/link";
@@ -19,6 +20,7 @@ import { ResourceCard, ResourceCardTags } from "@/components/ui/resource-card";
 import { ProjectBreadcrumb, withProjectId } from "@/components/project/project-breadcrumb";
 import { linkProjectResource } from "@/lib/live-project-resources";
 import { hasPendingAiImport } from "@/lib/survey/pending-ai-import";
+import { surveyAuthoringStatusMessageKey } from "@/lib/survey/status-copy";
 import { surveyPath } from "@/lib/survey/paths";
 import { encodeSurveyCreationDraft } from "@/lib/survey/creation-draft";
 import { CreateSurveyDialog } from "./create-survey-dialog";
@@ -29,13 +31,14 @@ import { displaySurveyMessage, surveyErrorMessage, type SurveyDisplayMessage } f
 function statusFor(item: SurveyRuntime) {
   if (item.publication?.status === "collecting") return { key: "survey.library.statusPublished", tone: "success" } as const;
   if (item.publication) return { key: "survey.library.statusStopped", tone: "warning" } as const;
-  return { key: item.status === "ready" ? "survey.library.statusReady" : "survey.library.statusDraft", tone: "info" } as const;
+  const key = surveyAuthoringStatusMessageKey(item.status);
+  return key ? { key, tone: "info" } as const : null;
 }
 
 function LibraryLoading() {
   const { t } = useI18n();
   return (
-    <div role="status" aria-label={t("survey.library.loading")} data-testid="survey-library-loading" className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+    <div role="status" aria-label={t("survey.library.loading")} data-testid="survey-library-loading" className={RESOURCE_GRID_CLASS}>
       <span className="sr-only">{t("survey.library.loading")}</span>
       {Array.from({ length: 4 }).map((_, index) => (
         <div key={index} className="animate-pulse rounded-card border border-border bg-card p-4 shadow-sm">
@@ -52,6 +55,7 @@ function LibraryLoading() {
 function SurveyStatus({ item }: { item: SurveyRuntime }) {
   const { t } = useI18n();
   const status = statusFor(item);
+  if (!status) return null;
   const tone = status.tone === "success" ? "success" : status.tone === "warning" ? "warning" : "primary";
   return <Badge tone={tone} data-testid={`survey-status-${item.id}`}>{t(status.key)}</Badge>;
 }
@@ -75,7 +79,7 @@ function SurveyCard({
       testId={`survey-card-${item.id}`}
       title={
         <Link
-          className="block truncate transition-colors hover:text-muted-foreground"
+          className="block break-words transition-colors hover:text-muted-foreground"
           href={withProjectId(`/studio/survey/${item.id}`, projectId)}
           onClick={(event) => { event.preventDefault(); onOpen(item); }}
         >
@@ -172,7 +176,7 @@ export function LiveSurveyLibrary({ projectId = null, initialCreateOpen = false 
   };
 
   return (
-    <main className="mx-auto max-w-screen-2xl space-y-7 p-5 sm:p-7 lg:p-10">
+    <main className={`${RESOURCE_PAGE_CLASS} space-y-6`}>
       <ProjectBreadcrumb projectId={projectId} sub="survey" className="" />
       <header className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
         <div>
@@ -211,7 +215,7 @@ export function LiveSurveyLibrary({ projectId = null, initialCreateOpen = false 
           </div>}
           {busy && <LibraryLoading />}
           {!busy && !error && (
-            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            <div className={RESOURCE_GRID_CLASS}>
               {visibleItems.map((item) => (
                 <SurveyCard
                   key={item.id}
@@ -223,16 +227,17 @@ export function LiveSurveyLibrary({ projectId = null, initialCreateOpen = false 
                   onResponses={(value) => router.push(withProjectId(surveyPath(value.id, "responses"), projectId))}
                 />
               ))}
-              {items.length > 0 && !filtering && (
-                <aside className="relative min-h-64 overflow-hidden rounded-xl border border-border bg-card p-5 shadow-sm">
-                  <div className="relative z-10 max-w-md">
-                    <p className="inline-flex rounded-full bg-muted px-3 py-1 text-11 text-muted-foreground">{t("survey.library.optionalReport")}</p>
-                    <h2 className="mt-3 text-18 font-semibold">{t("survey.library.designReport")}</h2>
-                    <Link href="/studio/survey?tab=reports" className="mt-5 inline-flex items-center gap-2 rounded-control border border-border px-4 py-2 text-13 font-medium transition-colors hover:bg-muted">{t("survey.library.createReport")}<ArrowRight aria-hidden="true" className="h-4 w-4" /></Link>
-                  </div>
-                </aside>
-              )}
             </div>
+          )}
+
+          {!busy && !error && items.length > 0 && !filtering && (
+            <aside className="relative overflow-hidden rounded-xl border border-border bg-card p-5 shadow-sm">
+              <div className="relative z-10 max-w-md">
+                <p className="inline-flex rounded-full bg-muted px-3 py-1 text-11 text-muted-foreground">{t("survey.library.optionalReport")}</p>
+                <h2 className="mt-3 text-18 font-semibold">{t("survey.library.designReport")}</h2>
+                <Link href="/studio/survey?tab=reports" className="mt-5 inline-flex items-center gap-2 rounded-control border border-border px-4 py-2 text-13 font-medium transition-colors hover:bg-muted">{t("survey.library.createReport")}<ArrowRight aria-hidden="true" className="h-4 w-4" /></Link>
+              </div>
+            </aside>
           )}
 
           {!busy && !error && items.length > 0 && visibleItems.length === 0 && (

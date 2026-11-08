@@ -1,4 +1,5 @@
 "use client";
+import { RESOURCE_GRID_CLASS, RESOURCE_PAGE_CLASS } from "@/components/ui/resource-card";
 import { useI18n } from "@/lib/i18n/provider";
 import { WorkflowActionButton } from "./research-workflow-actions";
 
@@ -346,7 +347,7 @@ function ResearchHome({ onNavigate, projectId = null }: { onNavigate: (step: Gui
   const visible = (history ?? []).filter(item => guidedResearchMatchesHomeFilter(item, statusFilter) && matchesTags(item.tags, selectedTags) &&
     matchesQuery(query, [item.title, item.brief.goal], item.tags))
     .sort((a, b) => (Date.parse(b.updatedAt) - Date.parse(a.updatedAt)) * (sort === "recent" ? 1 : -1));
-  return <section data-testid="research-home-page" data-reference-layout="research-list" className="mx-auto flex w-full max-w-screen-2xl flex-col gap-4 px-4 py-4 lg:px-6">
+  return <section data-testid="research-home-page" data-reference-layout="research-list" className={`${RESOURCE_PAGE_CLASS} flex flex-col gap-4`}>
     <header className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
       <div className="min-w-0 space-y-2">
         <div className="flex items-baseline gap-2"><h1 className="text-30 font-semibold tracking-tight">{t("research.home.title")}</h1>{history && <span className="text-sm text-muted-foreground">{t("research.home.count", { count: history.length })}</span>}</div>
@@ -358,10 +359,10 @@ function ResearchHome({ onNavigate, projectId = null }: { onNavigate: (step: Gui
     {history && history.length > 0 && <details><summary className="cursor-pointer text-sm text-muted-foreground">{t("research.home.statusFilter")}</summary><div className="mt-3"><GuidedResearchHomeSummary sessions={history} selectedFilter={statusFilter} onFilterChange={setStatusFilter} /></div></details>}
     {notice && <p role="status" data-testid="research-history-saved" className="text-12 text-success">{t(notice === "updated" ? "research.home.updated" : "research.home.removed")}</p>}
     <section className="space-y-3" data-testid="research-history" aria-label={t("research.home.history")}>
-      {history === null && !loadFailed && <div data-testid="research-history-loading" className="grid animate-pulse gap-5 md:grid-cols-2 xl:grid-cols-3">{[1,2,3,4].map(key => <div key={key} className="h-64 rounded-lg bg-muted" />)}</div>}
+      {history === null && !loadFailed && <div data-testid="research-history-loading" className={`${RESOURCE_GRID_CLASS} animate-pulse`}>{[1,2,3,4].map(key => <div key={key} className="h-64 rounded-lg bg-muted" />)}</div>}
       {loadFailed && <div role="alert" data-testid="research-history-error" className="rounded-lg border border-destructive p-6 text-12 text-destructive">{t("research.home.loadFailed")}<Button variant="outline" className="ml-3" onClick={() => setRevision(value => value + 1)}>{t("ui.retry")}</Button></div>}
-      {history && visible.length === 0 && !loadFailed && <div data-testid="research-history-empty" className="flex min-h-64 flex-col items-center justify-center gap-4 rounded-lg border border-dashed p-6 text-center text-12 text-muted-foreground"><p>{t(history.length ? statusFilter ? "research.home.noStatusMatches" : "research.home.noMatches" : "research.home.empty")}</p>{statusFilter || selectedTags.length > 0 || query.trim() ? <Button variant="outline" onClick={() => { setStatusFilter(undefined); setSelectedTags([]); setQuery(""); }}>{t(statusFilter ? "research.home.clearStatus" : "research.home.clearFilters")}</Button> : <Button variant="primary" asChild><a href={createHref} onClick={startResearch}>{t("research.home.create")}</a></Button>}</div>}
-      {!loadFailed && visible.length > 0 && <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">{visible.map(item => { const presentation = guidedResearchHomePresentation(item, locale); return <ResearchHistoryCard key={item.sessionId} testId={`research-history-${item.sessionId}`} title={item.title}
+      {history && visible.length === 0 && !loadFailed && <div data-testid="research-history-empty" className="flex min-h-64 flex-col items-center justify-center gap-4 rounded-lg border border-dashed p-6 text-center text-12 text-muted-foreground"><p>{t(history.length ? statusFilter ? "research.home.noStatusMatches" : "research.home.noMatches" : "research.home.empty")}</p>{statusFilter || selectedTags.length > 0 || query.trim() ? <Button variant="outline" onClick={() => { setStatusFilter(undefined); setSelectedTags([]); setQuery(""); }}>{t(statusFilter ? "research.home.clearStatus" : "research.home.clearFilters")}</Button> : null}</div>}
+      {!loadFailed && visible.length > 0 && <div className={RESOURCE_GRID_CLASS}>{visible.map(item => { const presentation = guidedResearchHomePresentation(item, locale); return <ResearchHistoryCard key={item.sessionId} testId={`research-history-${item.sessionId}`} title={item.title}
         status={<Badge tone={presentation.statusTone}>{presentation.statusLabel}</Badge>}
         description={item.brief.goal} tags={item.tags}
         metadata={<><span>{t("research.sources.count", { count: item.sourceCount })}</span><time>{t("research.home.updatedAt", { date: new Date(item.updatedAt).toLocaleDateString(locale) })}</time></>}
@@ -370,7 +371,7 @@ function ResearchHome({ onNavigate, projectId = null }: { onNavigate: (step: Gui
           onSave={async draft => { await updateGuidedResearchMetadata(item.sessionId, { title: draft.name, tags: [...draft.tags] }); setNotice("updated"); setRevision(value => value + 1); }}
           onDelete={async () => { await deleteGuidedResearchSession(item.sessionId); setHistory(current => current?.filter(row => row.sessionId !== item.sessionId) ?? null); setNotice("removed"); }} />}>
         <GuidedResearchCardProgress session={item} />
-      </ResearchHistoryCard>; })}<Button asChild variant="outline" className="h-auto min-h-36 flex-col gap-2 border-dashed p-4"><a href={createHref} data-testid="research-create-card" onClick={startResearch}><Plus className="size-6" aria-hidden /><span>{t("research.home.create")}</span></a></Button></div>}
+      </ResearchHistoryCard>; })}</div>}
     </section>
   </section>;
 }

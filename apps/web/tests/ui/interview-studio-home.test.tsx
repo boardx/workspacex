@@ -115,7 +115,7 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
   it("uses the shared Studio list-page density and tag treatment", async () => {
     render(<InterviewStudioHome initialTab="history" />);
 
-    expect(screen.getByTestId("itv-home-page")).toHaveClass("max-w-screen-2xl");
+    expect(screen.getByTestId("itv-home-page")).toHaveClass("max-w-7xl");
     const card = await screen.findByTestId("itv-history-card-itv-1");
     // PAPER 标准 ResourceCard：圆角、悬停边框反馈、整格等高，保留真实操作入口。
     expect(card).toHaveClass("rounded-card", "hover:border-input", "h-full");
@@ -580,7 +580,10 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
     const view = render(<InterviewStudioHome />);
     const empty = await screen.findByTestId("itv-history-empty");
     expect(empty).toHaveTextContent("还没有访谈");
-    expect(within(empty).getByRole("button", { name: "新建访谈" })).toHaveClass("bg-primary");
+    expect(within(empty).queryByRole("button", { name: "新建访谈" })).toBeNull();
+    expect(screen.getAllByRole("button", { name: "新建访谈" })).toHaveLength(1);
+    fireEvent.click(screen.getByTestId("itv-create"));
+    expect(await screen.findByTestId("itv-create-name")).toBeVisible();
     expect(screen.getByText("共 0 次访谈")).toBeVisible();
     view.unmount();
     render(<InterviewStudioHome />);

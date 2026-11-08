@@ -1,4 +1,5 @@
 'use client';
+import { RESOURCE_GRID_CLASS, RESOURCE_PAGE_CLASS } from "@/components/ui/resource-card";
 import { ResourceCard, ResourceCardTags } from '@/components/ui/resource-card';
 import { FormEvent, useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import Link from 'next/link';
@@ -159,9 +160,9 @@ export function WhiteboardLibrary() {
   };
   const dialogDuplicate = dialog?.action === 'duplicate' ? pendingDuplicates.current.get(dialog.board.id) : undefined;
 
-  return <main data-testid="whiteboard-library" className="min-h-full bg-background px-4 py-8 md:px-8 lg:px-12">
-    <div className="mx-auto w-full max-w-7xl space-y-7">
-      <header className="flex flex-wrap items-end gap-4"><div className="min-w-0 flex-1"><p className="mb-1 text-12 font-medium uppercase tracking-[0.16em] text-muted-foreground">Visual workspace</p><h1 className="text-32 font-semibold tracking-tight">Board</h1><p className="mt-1 text-14 text-muted-foreground">把想法、关系和团队协作放在同一个无限画布。</p></div><Button ref={createInput} type="button" data-testid="board-create" variant="primary" className="min-h-11" disabled={busy} onClick={() => setShowCreate(true)}><Plus className="mr-1 size-4" aria-hidden />新建白板</Button></header>
+  return <main data-testid="whiteboard-library" className="min-h-full bg-background">
+    <div className={`${RESOURCE_PAGE_CLASS} space-y-6`}>
+      <header className="flex flex-wrap items-end gap-4"><div className="min-w-0 flex-1"><h1 className="text-30 font-semibold tracking-tight">Board</h1><p className="mt-1 text-14 text-muted-foreground">把想法、关系和团队协作放在同一个无限画布。</p></div><Button ref={createInput} type="button" data-testid="board-create" variant="primary" disabled={busy} onClick={() => setShowCreate(true)}><Plus className="mr-1 size-4" aria-hidden />新建白板</Button></header>
       {error && <div data-testid={error.kind === 'invalid' ? 'err-board-form' : RESERVED_STATE_TESTID[error.kind]} role="alert" className="flex items-center justify-between rounded-control bg-destructive p-3 text-13 text-destructive-foreground"><span>{error.message}</span><Button size="icon" variant="ghost" aria-label="关闭错误" onClick={() => setError(null)}><X className="size-4" /></Button></div>}
       {listError && <div data-testid="board-list-error" role="alert" className="flex flex-wrap items-center justify-between gap-2 rounded-control bg-destructive p-3 text-13 text-destructive-foreground"><span>{listError.message}</span><Button data-testid="board-list-retry" variant="outline" onClick={() => setReloadBoards(value => value + 1)}>重试加载白板</Button></div>}
       {tagError && <div data-testid="board-tags-error" role="alert" className="flex flex-wrap items-center justify-between gap-2 rounded-control border border-border p-3 text-13"><span>标签暂时无法加载，白板列表仍可使用。</span><Button data-testid="board-tags-retry" variant="outline" onClick={() => setReloadTags(value => value + 1)}>重试标签</Button></div>}
@@ -179,14 +180,14 @@ export function WhiteboardLibrary() {
       </section>
       {(loadingBoards || busy) && <p data-testid={RESERVED_STATE_TESTID.loading} role="status" className="py-4 text-center text-14 text-muted-foreground">正在同步白板…</p>}
       {loaded && !loadingBoards && !listError && items.length === 0 && <section data-testid={RESERVED_STATE_TESTID.empty} className="rounded-container border border-dashed border-border py-20 text-center"><h2 className="text-20 font-semibold">{archiveFilter === 'archived' ? '没有已归档的白板' : '从第一块白板开始'}</h2><p className="mt-2 text-14 text-muted-foreground">{query || selectedTags.length || untagged ? '调整搜索或标签筛选以查看其他结果。' : '新建后会直接进入全屏编辑器。'}</p></section>}
-      {items.length > 0 && <div aria-busy={loadingBoards} className={view === 'grid' ? 'grid gap-4 sm:grid-cols-2 xl:grid-cols-3' : 'grid gap-3'}>{items.map(board => <ResourceCard
+      {items.length > 0 && <div aria-busy={loadingBoards} className={view === 'grid' ? RESOURCE_GRID_CLASS : 'grid gap-3'}>{items.map(board => <ResourceCard
         key={board.id}
         testId={`board-card-${board.id}`}
         media={<BoardThumbnail boardId={board.id} name={board.name} revisionHint={`${board.updatedAt}:${reloadBoards}`} queue={thumbnailQueue} />}
         titleHref={EDITOR_PATH(board.id)}
         titleLinkTestId={`board-open-${board.id}`}
         title={board.name}
-        subtitle={`${board.archived ? '已归档 · ' : ''}${new Intl.DateTimeFormat('zh-CN', { month: 'short', day: 'numeric' }).format(new Date(board.updatedAt))}更新 · ${board.role === 'owner' ? '所有者' : board.role === 'editor' ? '编辑者' : '查看者'}`}
+        meta={`${board.archived ? '已归档 · ' : ''}${new Intl.DateTimeFormat('zh-CN', { month: 'short', day: 'numeric' }).format(new Date(board.updatedAt))}更新 · ${board.role === 'owner' ? '所有者' : board.role === 'editor' ? '编辑者' : '查看者'}`}
         menu={<BoardCardMenu board={board} disabled={busy || loadingBoards} onAction={(action, trigger) => openAction(board, action, trigger)} />}
         tags={<ResourceCardTags tags={[...new Set(board.tagIds.map(id => tags.find(tag => tag.id === id)?.name ?? '未知标签'))]} />}
       />)}</div>}

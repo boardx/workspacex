@@ -3,6 +3,7 @@ import * as React from "react";
 import { type LucideIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useI18n } from "@/lib/i18n/provider";
+import { surveyAuthoringStatusMessageKey } from "@/lib/survey/status-copy";
 import { interviewStatusMessageKey } from "@/lib/interview-status-copy";
 import type { ProjectResourceKind } from "@/lib/live-project-resources";
 import { ResourceCard } from "@/components/ui/resource-card";
@@ -34,12 +35,11 @@ export function ProjectContentCard({
   footer?: React.ReactNode;
 }) {
   const { t } = useI18n();
-  const statusKey = status && resourceKind === "interview" ? interviewStatusMessageKey(status) : null;
-  const statusLabel = resourceKind === "interview" ? statusKey ? t(statusKey) : null : status;
+  const statusKey = status ? resourceKind === "interview" ? interviewStatusMessageKey(status) : resourceKind === "survey" ? surveyAuthoringStatusMessageKey(status) : null : null;
+  const statusLabel = statusKey ? t(statusKey) : resourceKind === "interview" || resourceKind === "survey" ? null : status;
   return (
     <ResourceCard
       testId={cardTestId}
-      density="compact"
       titleHref={href}
       titleLinkTestId={linkTestId}
       title={title}
@@ -56,6 +56,3 @@ export function ProjectContentCard({
     />
   );
 }
-
-/** 卡片网格：手机 1 列 / 平板 2 列 / 桌面 3 列。 */
-export const CONTENT_GRID_CLASS = "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3";
