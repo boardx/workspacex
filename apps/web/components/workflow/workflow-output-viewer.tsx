@@ -22,6 +22,8 @@ import {
 import { evidenceSourceLabel, humaniseMetricName, humaniseOutputText, isInternalMetricId } from "@/lib/workflow-output-display";
 import { workSkillDisplayName } from "@/lib/work-skill-display-copy";
 import { describeWorkflowError } from "./workflow-copy";
+import { MarkdownMessage } from "@/components/chat/markdown-message";
+import { artifactFileName } from "@/lib/chat-workbench/artifact-download";
 
 type Claim = z.infer<typeof workContent.EvidencedClaim>;
 type Output = NonNullable<WorkflowInstanceOutput["output"]>;
@@ -127,6 +129,8 @@ export function WorkflowOutputViewer({ instanceId, outputId }: WorkflowOutputVie
         </div>
       )}
 
+      {output.file && output.output?.kind === "prd" ? <SavedPrdFileView file={output.file} title={output.output.title} /> : null}
+
       {output.manualChecklist.length > 0 ? (
         <Block title="待人工核对" testId="workflow-output-checklist">
           <ul className="list-disc space-y-1 pl-5 text-13">{output.manualChecklist.map((c, i) => <li key={i}>{humaniseOutputText(c)}</li>)}</ul>
@@ -143,6 +147,24 @@ export function WorkflowOutputViewer({ instanceId, outputId }: WorkflowOutputVie
       {projection ? <Versions projection={projection} digest={output.output?.digest ?? null} evidenceRefs={collectEvidenceRefs(output)} metricIds={output.output?.kind === "prd" ? output.output.metrics.map((m) => m.name).filter(isInternalMetricId) : []} /> : null}
     </section>
   );
+}
+
+function SavedPrdFileView({ file, title }: { file: NonNullable<WorkflowInstanceOutput["file"]>; title: string }) {
+  const download = () => {
+    const url = URL.createObjectURL(new Blob([file.markdown], { type: "text/markdown;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url; link.download = artifactFileName(title);
+    document.body.appendChild(link); link.click(); link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+  return <section data-testid="workflow-saved-file" data-version-id={file.versionId} className="space-y-3 rounded-lg border bg-card p-4">
+    <p className="text-13">已保存为 Markdown 文件 · v{file.versionNumber}</p>
+    <details data-testid="workflow-saved-file-preview">
+      <summary className="cursor-pointer text-13 underline underline-offset-2">打开已保存文件</summary>
+      <div className="pt-3"><MarkdownMessage text={file.markdown} /></div>
+    </details>
+    <Button size="sm" variant="outline" onClick={download} data-testid="workflow-saved-file-download">下载 Markdown</Button>
+  </section>;
 }
 
 function Block(props: { readonly title: string; readonly testId: string; readonly children: React.ReactNode }) {

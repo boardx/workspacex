@@ -11,6 +11,7 @@ import { openEventStream, type WorkflowEventCursor } from "./event-stream";
 import { cancelInstance, resumeInstance, startInstance, type InstanceCommandDeps, type StartInstanceResponse, type StateResponse } from "./instance-commands";
 import { approveGate, denyGate, type GateDecisionResponse } from "./gate-commands";
 import { getContentInstanceOutput, type ContentInstanceOutput } from "../work-content/get-content-instance-output";
+import type { MaterializeDeps } from "../artifact/materialize-artifact";
 import { getInstanceProjection, resolveActor } from "./instance-projection";
 import {
   listMyApprovals,
@@ -36,6 +37,7 @@ const NO_TRIGGERS: WorkflowTriggerStore = { find: async () => null };
 
 export interface WorkflowRuntimeServiceDeps extends Omit<InstanceCommandDeps, "dispatcher"> {
   outputs: WorkflowStageOutputStore;
+  contentFiles?: MaterializeDeps;
   driver: WorkflowGraphDriver;
   /** 断线重连时可逐条补发的最大差距；超出先发 snapshot。 */
   replayWindow: number;
@@ -151,7 +153,7 @@ export class WorkflowRuntimeService {
 
   /** CT06 UC-WC-3（契约束 work-content `getInstanceOutput`）：可见性同 get，产出只读 persist 阶段。 */
   contentOutput(orgId: string, userId: string, instanceId: string): Promise<ContentInstanceOutput> {
-    return getContentInstanceOutput({ runtime: this, outputs: this.deps.outputs }, orgId, userId, instanceId);
+    return getContentInstanceOutput({ runtime: this, outputs: this.deps.outputs, files: this.deps.contentFiles }, orgId, userId, instanceId);
   }
 
   stream(orgId: string, userId: string, instanceId: string, lastEventId?: number): Promise<WorkflowEventCursor> {
