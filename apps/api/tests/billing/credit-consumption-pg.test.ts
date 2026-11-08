@@ -1,3 +1,5 @@
+// @global-scope-fixture table:credit_wallets: historical rows live in a transaction-owned schema rolled back in finally; modern updates use exact fixture owner and rollback.
+// @global-scope-fixture table:credit_transactions: historical inserts live only in the transaction-owned schema rolled back in finally; existing public receipt fixtures retain their original cleanup.
 import {mkdtemp,rm} from "node:fs/promises";
 import {tmpdir} from "node:os";
 import {join} from "node:path";
