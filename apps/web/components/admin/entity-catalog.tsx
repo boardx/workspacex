@@ -1,4 +1,5 @@
 "use client";
+import { capabilityCardSpec } from "./capability-card";
 
 /**
  * 后台四个能力目录（Agent / Skill / 模型 / MCP）共用的**卡片目录壳**。
@@ -132,6 +133,7 @@ export function EntityCatalog<T>({
   className,
 }: EntityCatalogProps<T>) {
   const { t } = useI18n();
+  const capabilityKind = prefix.includes("agent") ? "agent" : prefix.includes("skill") ? "skill" : null;
   const [query, setQuery] = React.useState("");
   const [activeTags, setActiveTags] = React.useState<ReadonlySet<string>>(() => new Set());
 
@@ -293,7 +295,7 @@ export function EntityCatalog<T>({
                 testId={cardTestId ? cardTestId(row) : `${prefix}-row-${key}`}
                 onClick={() => onSelect(key)}
                 selected={selected}
-                {...renderCard(row)}
+                {...(capabilityKind ? capabilityCardSpec(capabilityKind, renderCard(row)) : renderCard(row))}
               />
             );
           })}
@@ -310,6 +312,7 @@ export function EntityCatalog<T>({
           footer={detailFooter?.(selectedRow)}
         >
           {renderDetail(selectedRow)}
+          {capabilityKind ? renderCard(selectedRow).actions : null}
         </AdminDrawer>
       )}
 

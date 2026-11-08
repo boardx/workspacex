@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { ArrowUpRight, Ban, Globe, Pencil, Rocket } from "lucide-react";
@@ -92,6 +93,7 @@ export function CapabilityCatalogScreen({
   definitionsRefreshKey?: number;
 }) {
   const { session, identity } = useSession();
+  const { t } = useI18n();
   if (!session) throw new Error("CapabilityCatalogScreen requires an authenticated session");
   const orgId = session.currentOrgId;
   /**
@@ -105,7 +107,7 @@ export function CapabilityCatalogScreen({
   const query = searchParams.toString();
   const currentUrl = query === "" ? pathname : `${pathname}?${query}`;
   const editHrefFor = (id: string): string =>
-    `/platform-admin/${kind}/${id}?from=${encodeURIComponent(currentUrl)}`;
+    `${pathname.startsWith("/org-admin/") ? "/org-admin" : "/platform-admin"}/${kind}/${id}?from=${encodeURIComponent(currentUrl)}`;
   const copy = COPY[kind];
   const sourceKey = `${orgId}:${kind}`;
   const prefix = `admin-${kind}`;
@@ -250,7 +252,7 @@ export function CapabilityCatalogScreen({
       prefix={prefix}
       rootTestId={`${prefix}-catalog`}
       title={copy.title}
-      description="这里只展示可选择的目录记录；出现在目录中不代表已经具备可执行的 AgentRun 或 Skill 运行时。点卡片打开右侧面板查看与修改。"
+      description={t("aiCatalog.organizationIntro")}
       eyebrow={
         <div className="flex flex-wrap items-center gap-2 border-b border-border pb-4">
           {/* 2026-09-02 第二次裁决：AI 能力归平台后台——页头与 `admin-header.tsx` 的
@@ -409,7 +411,7 @@ function listingCardSpec({
 }): EntityCardSpec {
   return {
     title: row.name,
-    subtitle: <span className="font-mono">{row.id}</span>,
+    subtitle: prefix.includes("agent") ? "Agent" : "Skill",
     badges: (
       <>
         <Badge tone="outline">{SCOPE_LABEL[row.scope]}</Badge>
@@ -447,7 +449,7 @@ function listingCardSpec({
 function definitionCardSpec(row: AgentListRow, prefix: string): EntityCardSpec {
   return {
     leading: (
-      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted text-10 font-semibold text-muted-foreground">
+      <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-muted text-20 font-semibold text-muted-foreground">
         {row.initials}
       </span>
     ),

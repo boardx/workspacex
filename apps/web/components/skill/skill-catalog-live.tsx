@@ -129,7 +129,7 @@ export function SkillCatalogLive() {
   }
 
   // #596：身份未就绪时给加载态文案，不把 orgId 当组织名传下去（下游还单独渲染了组织 ID）。
-  return <Catalog orgId={orgId} orgName={currentOrganizationLabel(identity?.org.name)} />;
+  return <Catalog orgId={orgId} orgName={currentOrganizationLabel(identity?.org.name)} canManage={identity?.orgRole === "admin"} />;
 }
 
 /**
@@ -159,7 +159,7 @@ type DetailState =
 
 const VISIBILITY_LABEL = { "org-wide": "组织可见", "team-only": "仅本团队" } as const;
 
-function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
+function Catalog({ orgId, orgName, canManage }: { orgId: string; orgName: string; canManage: boolean }) {
   const { locale } = useI18n();
   /**
    * 「编辑源码」目的地——人类反馈（2026-08-17）：点击「编辑」应该打开一个新的界面，
@@ -175,7 +175,7 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
   const currentUrl = query === "" ? pathname : `${pathname}?${query}`;
 
   function editSourceHref(skillId: string): string {
-    return `/platform-admin/skill/${skillId}?from=${encodeURIComponent(currentUrl)}`;
+    return `${pathname.startsWith("/org-admin/") ? "/org-admin" : "/platform-admin"}/skill/${skillId}?from=${encodeURIComponent(currentUrl)}`;
   }
 
   const generation = React.useRef(0);
@@ -350,7 +350,7 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
           <Badge tone="outline">真实数据</Badge>
         </div>
       }
-      headerActions={
+      headerActions={canManage ?
         <Button
           size="sm"
           variant="primary"
@@ -361,7 +361,7 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
           data-testid="skill-create-open"
         >
           <Plus aria-hidden className="h-3.5 w-3.5" /> 新建 skill
-        </Button>
+        </Button> : null
       }
       notices={
         <>
@@ -400,7 +400,7 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
         title: localizedText(row.display, "name", row.name),
         subtitle: `${row.source} · ${VISIBILITY_LABEL[row.visibility]}`,
         badges: <Badge tone={row.status === "已启用" ? "primary" : "neutral"}>{row.status}</Badge>,
-        description: localizedText(row.display, "duty", row.duty),
+        description: isSourceFileBacked(row) ? row.taskDescription || "Skill" : localizedText(row.display, "duty", row.duty),
         // G5：`tags` 为空数组时什么都不渲染——「没打标签」不是需要向使用者解释的异常状态。
         tags: (row.tags ?? []).length > 0 ? <ResourceCardTags tags={dedupeTags(row.tags ?? [])} testId="skill-catalog-tags" /> : undefined,
         meta: (
@@ -417,10 +417,10 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
               记录，「查看契约」必 404（见上方文件头长注）——换成真实可达的
               「编辑源码」，不是两个都摆、其中一个是死路。
             */}
-            {isSourceFileBacked(row) ? (
+            {isSourceFileBacked(row) ? (canManage ?
               <Button asChild size="xs" variant="ghost" data-testid="skill-catalog-edit-source">
                 <a href={editSourceHref(row.skillId)}>编辑源码</a>
-              </Button>
+              </Button> : null
             ) : (
               <Button
                 size="xs"
@@ -456,7 +456,7 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
             <KV k="满意度" v={row.satisfaction === null ? "样本不足" : `${Math.round(row.satisfaction * 100)}%`} />
             {(row.tags ?? []).length > 0 ? <KV k="标签" v={(row.tags ?? []).join("、")} /> : null}
           </div>
-          {isSourceFileBacked(row) ? (
+          {isSourceFileBacked(row) && canManage ? (
             <div className="flex flex-col gap-2 rounded-md border border-border-subtle bg-panel p-3">
               <p className="text-11 text-muted-foreground">
                 这条 skill 的内容在源文件里（`skills` 表来源）——名称、可见范围与文件树 / 代码
@@ -485,7 +485,7 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
         </div>
       )}
     >
-      {creating ? (
+      {creating && canManage ? (
         <Modal
           title="新建 Skill"
           subtitle="两条路径：从 GitHub 导入／从市场挑一个改"

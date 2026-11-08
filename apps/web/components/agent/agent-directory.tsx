@@ -1,5 +1,6 @@
 "use client";
 
+import { Modal } from "@/components/files/overlay";
 import { ResourceCard, ResourceCardTags } from "@/components/ui/resource-card";
 import * as React from "react";
 import { useI18n } from "@/lib/i18n/provider";
@@ -52,6 +53,7 @@ export function readinessReasonText(card: Pick<AgentDirectoryCard, "readiness" |
 }
 
 function AgentCard({ card, onStartChat }: { card: AgentDirectoryCard; onStartChat: (agentId: string, prefill?: string) => void }) {
+  const [opened, setOpened] = React.useState(false);
   const name = agentDisplayName(card);
   const avatarAlt = translatedText(card.display, "avatarAlt");
   const subtitle = agentSubtitle(card);
@@ -63,8 +65,19 @@ function AgentCard({ card, onStartChat }: { card: AgentDirectoryCard; onStartCha
   const workflowsLine = workflowLabels.length > 0 ? `关联流程：${workflowLabels.join("、")}` : null;
   const examples = agentTaskExamples(card);
   return (
+    <>
     <ResourceCard
       testId={`agent-card-${card.agentId}`}
+      className="h-36 shadow-none"
+      ariaLabel={name}
+      onClick={() => setOpened(true)}
+      leading={card.avatar ? <Avatar data-testid={opened ? undefined : "agent-card-avatar"} initials={card.initials} avatarKey={card.avatar.key} tone="ai" className="h-16 w-16 text-20" /> : <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground"><Bot aria-hidden className="h-8 w-8" /></span>}
+      title={name}
+      description={<span className="line-clamp-2">{firstClause(subtitle || card.roleLabel || "Agent")}</span>}
+    />
+      {opened ? <Modal title={name} onClose={() => setOpened(false)} testid="agent-card-details" width="lg">
+    <ResourceCard
+      testId={`agent-card-detail-${card.agentId}`}
       className="shadow-none [&_h3]:text-16 [&_p]:text-14"
       ariaLabel={name}
       leading={
@@ -131,6 +144,8 @@ function AgentCard({ card, onStartChat }: { card: AgentDirectoryCard; onStartCha
         <p data-testid="agent-card-readiness-reason" title={readinessReason} className="line-clamp-2 min-h-[2rem] text-11 text-muted-foreground">{readinessReason}</p>
       ) : null}
     </ResourceCard>
+      </Modal> : null}
+    </>
   );
 }
 

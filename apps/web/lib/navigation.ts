@@ -122,27 +122,20 @@ export interface NavViewer {
 
 /** 受可见性约束的一级入口；未列出的入口对所有人一视同仁。 */
 const SCOPED_NAV_KEYS: Record<string, (viewer: NavViewer) => boolean> = {
-  // 「组织后台」= 本组织的总览/成员配额/本地组织，面向组织管理员。
-  admin: (v) => v.orgRole === "admin",
-  // 「平台后台」= 全平台账号与运营，面向平台运维（平台超管或平台管理员），与组织角色无关。
+  // Organization catalogs are discoverable by every resolved organization member.
+  admin: (v) => v.orgRole != null,
   "platform-admin": (v) => v.platformOperator === true,
-  /*
-   * ⚠ 留给人类的一个**已知取舍**（不是疏漏）：2026-09-02 的裁决把「AI 能力」六项
-   *   （Agent / 模型 / MCP / Skill / 画布模板 / 项目模板）归进了平台后台这一面，但明确
-   *   写着「数据读取与写权限没有改：目录仍按登录者所在组织走 RLS、写操作仍要组织 admin」
-   *   （见 `lib/mock/admin.ts` 的 AI 能力组注）。于是本条判据一上，**组织管理员就失去了
-   *   进入那六项的菜单入口**——路由本身没下线（敲 URL 仍可用、服务端授权面一字未改），
-   *   但界面上找不到了。
-   *   把那六项搬回组织面是一次新的信息架构决定（会与 2026-09-02 那条人类裁决打架），
-   *   agent 不自行裁；本轮先按 2026-09-20 的要求把菜单可见性修对，这条取舍记在这里。
-   */
 };
 
 /** 按当前登录者过滤一级导航（空组则整段不渲染）。渲染方一律走这里，不要各自写判断。 */
 export function navSegmentsForViewer(viewer: NavViewer): NavSegment[] {
   return NAV_SEGMENTS.map((seg) => ({
     ...seg,
-    items: seg.items.filter((item) => SCOPED_NAV_KEYS[item.key]?.(viewer) ?? true),
+    items: seg.items
+      .filter((item) => SCOPED_NAV_KEYS[item.key]?.(viewer) ?? true)
+      .map((item) => item.key === "admin" && viewer.orgRole !== "admin"
+        ? { ...item, href: "/org-admin/agent", children: undefined }
+        : item),
   })).filter((seg) => seg.items.length > 0);
 }
 
@@ -232,20 +225,7 @@ export const NAV_SEGMENTS: NavSegment[] = [
       // uiux-r4：工作流（我的运行 / 待我审批 / 运行看板）此前只有子页、主导航无入口，/workflows 本身 404。
       // 入口指 /workflows（落地即重定向到「我的运行」），子页左栏 WorkflowNav 负责三者切换。
       { key: "workflows", label: "工作流", href: "/workflows", icon: Workflow, ucRefs: [] },
-      // 束: agent-role（AG04，phase-20 work-stack-foundation）—— 成员 Agent 目录顶层路由
-      // `/agent`（与 `/skill` 平行，见 ui.md「成员目录作为新顶层路由 /agent」）。此前只有
-      // 页面本体、没有导航入口——普通成员没有可发现的方式到达（review #AG04 指出）。
-      { key: "agent-directory", label: "Agent 目录", href: "/agent", icon: Bot, ucRefs: ["phase-20-work-stack-foundation/03-agent-role"], overflow: true },
-      // 束: work-skill-catalog（WS05，phase-20 Work Stack v2）—— e2e-acceptance 复核 M1：
-      // 该屏此前只能靠敲 URL `/skill?screen=work-catalog` 进入，非管理员角色（如 consultant）
-      // 完全无路可达（后台「Skill 库与市场」挂在「组织后台」children 下，只对 orgRole===admin
-      // 可见，且指向的是旧目录屏 `?screen=catalog`，不是本束）。这里加一条面向全体成员的
-      // 一级入口，与「大脑/任务」同组、同样不做角色裁剪——WorkSkillCatalog 本身按查看者角色
-      // 渲染就绪性与通道操作（无权限不展示通道按钮，见组件内 canManageChannel 判断），菜单只
-      // 负责「找得到」，不负责授权。
-      // ucRefs 如实留空：本阶段（phase-20-work-stack-foundation）requirements 未编 uc-X-Y 号，
-      // 判据单一事实源是 `phases/phase-20-work-stack-foundation/requirements/01-skill-catalog.md#R8`。
-      { key: "work-skill-catalog", label: "Skill 库", href: "/skill?screen=work-catalog", icon: Puzzle, ucRefs: [], overflow: true },
+
     ],
   },
   {

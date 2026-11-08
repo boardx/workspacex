@@ -1,3 +1,4 @@
+import { aiCatalogAdminZhCN } from "../namespaces/ai-catalog-admin";
 import { workshopLiveZhCN } from "../namespaces/workshop-live";
 import { platformOpsStatusZhCN } from "../namespaces/platform-ops-status";
 import { modelTestbenchZhCN } from "../namespaces/model-testbench";
@@ -52,6 +53,7 @@ import { stateZhCN } from "../namespaces/state";
 import { accountEntryZhCN } from "../namespaces/account-entry";
 import { invitationEntryZhCN } from "../namespaces/invitation-entry";
 export const zhCN = {
+  ...aiCatalogAdminZhCN,
   ...workshopLiveZhCN,
   ...platformOpsStatusZhCN,
   ...modelTestbenchZhCN,

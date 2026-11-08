@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import { ResourceCard } from "@/components/ui/resource-card";
+import { capabilityCardSpec } from "@/components/admin/capability-card";
 import { useI18n } from "@/lib/i18n/provider";
 import { localizedText } from "@/lib/entity-localization";
 import { EntityLocalizationPanel } from "@/components/localization/entity-localization-editor";
@@ -318,25 +320,14 @@ function CatalogScreen() {
           </div>
         )}
         {state.status === "ready" && state.items.length > 0 && (
-          <ul className="flex flex-col gap-1.5">
+          <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {state.items.map((item) => (
               <li key={item.skillId}>
-                <button
-                  type="button"
-                  data-testid={`work-catalog-row-${item.stableId}`}
+                <ResourceCard
+                  testId={`work-catalog-row-${item.stableId}`}
                   onClick={() => openSkill(item.skillId)}
-                  className="flex w-full flex-wrap items-center gap-2 rounded-control border border-border px-3 py-2 text-left text-12 transition-colors duration-fast hover:bg-muted"
-                >
-                  <span className="font-medium" data-testid="work-catalog-row-title">{localizedText(item.display, "name", item.name)}</span>
-                  <span className="text-muted-foreground">{item.stableId}</span>
-                  <Badge tone="outline">{item.domain}</Badge>
-                  <Badge tone={CHANNEL_TONE[item.channel]} data-testid="work-catalog-channel-badge">
-                    {CHANNEL_LABEL[item.channel]}
-                  </Badge>
-                  <span className="text-muted-foreground">{RISK_LABEL[item.riskClass]}</span>
-                  <ReadinessBadge readiness={item.readiness} />
-                  <WorkGateSummaryBadge skillId={item.skillId} />
-                </button>
+                  {...capabilityCardSpec("skill", {title: localizedText(item.display, "name", item.name), titleTestId: "work-catalog-row-title", description: item.domain})}
+                />
               </li>
             ))}
           </ul>

@@ -4,6 +4,8 @@ type ItemMessages = { [K in AdminModuleKey as `adminNavigation.item.${K}`]: stri
 
 const itemsZhCN = {
   "adminNavigation.item.agent": "Agent 目录",
+  "adminNavigation.item.org-agent": "Agent 目录",
+  "adminNavigation.item.org-skill": "Skill 目录",
   "adminNavigation.item.skill": "Skill 目录",
   "adminNavigation.item.model": "模型",
   "adminNavigation.item.mcp": "MCP",
@@ -48,6 +50,8 @@ export const adminNavigationZhCN = {
 
 export const adminNavigationEn: Record<keyof typeof adminNavigationZhCN, string> = {
   "adminNavigation.item.agent": "Agent directory",
+  "adminNavigation.item.org-agent": "Agent directory",
+  "adminNavigation.item.org-skill": "Skill directory",
   "adminNavigation.item.skill": "Skill directory",
   "adminNavigation.item.model": "Models",
   "adminNavigation.item.mcp": "MCP",

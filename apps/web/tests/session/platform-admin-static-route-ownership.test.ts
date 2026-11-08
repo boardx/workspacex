@@ -10,7 +10,7 @@ it("standalone model tests retain a real page and navigation destination but nev
  expect(Object.keys(PLATFORM_ADMIN_MODULE_ROUTES).filter(key=>key in PLATFORM_ADMIN_STANDALONE_ROUTES)).toEqual([]);
 });
 it("all existing dynamic module destinations continue to generate and redirects remain explicit",()=>{
- const expected=['agent','model','mcp','members','organizations','ops-status','telemetry','feedback-drafts','inbox','design-workbench'];
+ const expected=['agent','skill','model','mcp','members','organizations','ops-status','telemetry','feedback-drafts','inbox','design-workbench'];
  expect(platformAdminModuleStaticParams().map(p=>p.module).sort()).toEqual([...expected].sort());
  expect(dynamicPage).toContain('...platformAdminModuleStaticParams()');expect(dynamicPage).toContain('...Object.keys(REDIRECTS).map');
  expect(dynamicPage).not.toMatch(/Object\.keys\(PLATFORM_ADMIN_ROUTES\)/);

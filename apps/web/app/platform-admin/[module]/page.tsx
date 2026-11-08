@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { AdminNav } from "@/components/admin/admin-nav";
-import { AgentScreen } from "@/components/admin/agent-screen";
+import { PlatformAiCatalog } from "@/components/admin/platform-ai-catalog";
 import { ModelScreen } from "@/components/admin/model-screen";
 import { McpScreen } from "@/components/admin/mcp-screen";
 import { OpsStatusScreen } from "@/components/admin/ops-status-screen";
@@ -35,7 +35,8 @@ const REDIRECTS: Partial<Record<string, string>> = {
 };
 
 const SCREENS: Partial<Record<AdminModuleKey, (p: { state: UiState }) => React.ReactNode>> = {
-  agent: AgentScreen,
+  agent: () => <PlatformAiCatalog kind="agent"/>,
+  skill: () => <PlatformAiCatalog kind="skill"/>,
   model: ModelScreen,
   mcp: McpScreen,
   platform: PlatformMembersScreen,

@@ -1,3 +1,10 @@
+import { PlatformSkillReviewController } from "./interface/controllers/platform-skill-review.controller";
+import { AI_CATALOG_ADMIN_SERVICE, AiCatalogAdminService } from "./application/ai-catalog/admin-service";
+import { AI_CATALOG_STORAGE, type AiCatalogStorage } from "./application/ai-catalog/storage-port";
+import { catalogIdempotency, catalogTargetExists, catalogAudit, catalogMarkManaged, catalogMarkPublished, catalogPublications, catalogPublicationExists, catalogEnabledOrigins, catalogLockOrganization, catalogFindEnablement, catalogRecordEnablement, catalogDefinition, catalogEntries, catalogWrite, catalogPublish, catalogDisable } from "./infrastructure/ai-catalog/catalog-storage";
+import { readPublishedCatalogAgent, copyPublishedCatalogAgent } from "./infrastructure/ai-catalog/agent-adapter";
+import { readPublishedCatalogSkill, copyPublishedCatalogSkill } from "./infrastructure/skill/ai-catalog-skill-storage";
+import { AiCatalogAdminController } from "./interface/controllers/ai-catalog-admin.controller";
 import {ORG_INVITATION_DELIVERY} from "./application/auth/org-invitation-delivery";
 import {OrgInvitationMailDelivery} from "./infrastructure/auth/org-invitation-mail-delivery";
 import { LocalizationModule } from "./localization.module";
@@ -39,7 +46,7 @@ import { AI_USAGE_REPOSITORY } from "./application/auth/ai-usage-ports";
 import { PgAiUsageRepository } from "./infrastructure/auth/pg-ai-usage-repository";
 import {enterpriseManagementControllers,enterpriseManagementProviders} from "./enterprise-management.wiring";
 import { PlatformOrganizationController } from "./interface/controllers/platform-organization.controller";
-import { PLATFORM_ORGANIZATION_REPOSITORY } from "./application/system/platform-organization-ports";
+import { PLATFORM_ORGANIZATION_REPOSITORY, type PlatformOrganizationRepository } from "./application/system/platform-organization-ports";
 import { PgPlatformOrganizationRepository } from "./infrastructure/system/pg-platform-organization-repository";
 import { platformOrgCatalogConfig } from "./infrastructure/db/pg-config";
 import { OFFICIAL_ROLE_UPGRADE_REPOSITORY } from "./application/agent-import/upgrade-official-roles";
@@ -1240,6 +1247,8 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
 @Module({
   imports: [BillingModule, IdentityPersistenceModule, LocalizationModule],
   controllers: [
+    PlatformSkillReviewController,
+    AiCatalogAdminController,
     WhiteboardFilesController,
     WorkflowRuntimeController,
     BoardRunCardsController,
@@ -1377,6 +1386,8 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     ModelController,
   ],
   providers: [
+    { provide: AI_CATALOG_ADMIN_SERVICE, useFactory: (storage: AiCatalogStorage, db: DatabasePort, identities: IdentityRepository, organizations: PlatformOrganizationRepository) => new AiCatalogAdminService(storage, db, identities, organizations), inject: [AI_CATALOG_STORAGE, DATABASE_PORT, IDENTITY_REPOSITORY, PLATFORM_ORGANIZATION_REPOSITORY] },
+    { provide: AI_CATALOG_STORAGE, useFactory: (): AiCatalogStorage => ({ catalogIdempotency, catalogTargetExists, catalogAudit, catalogMarkManaged, catalogMarkPublished, catalogPublications, catalogPublicationExists, catalogEnabledOrigins, catalogLockOrganization, catalogFindEnablement, catalogRecordEnablement, catalogDefinition, catalogEntries, catalogWrite, catalogPublish, catalogDisable, readPublishedCatalogAgent, copyPublishedCatalogAgent, readPublishedCatalogSkill, copyPublishedCatalogSkill }) },
     ...enterpriseManagementProviders,
     ...reportFileProviders,
     {provide: INTERVIEW_CUSTOM_EXPERT_LIBRARY, useFactory:(db:DatabasePort)=>new PgCustomExpertLibrary(db),inject:[DATABASE_PORT]},

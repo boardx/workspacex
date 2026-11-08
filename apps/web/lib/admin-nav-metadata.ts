@@ -38,7 +38,7 @@ export type AdminModuleKey =
   // href 仍各自是 `/org-admin/*`（不是 `/admin/org-members` 等）——这几个屏是 session
   // 驱动的真实数据页，不经过 `app/admin/[module]/page.tsx` 那套 `SCREENS`/`REDIRECTS`
   // 分发，见该文件头注对已合并模块的既有处置（`blueprint`/`skill`/`canvasadmin` 同理）。
-  | "org-members" | "org-invites" | "org-profile"
+  | "org-members" | "org-invites" | "org-profile" | "org-agent" | "org-skill"
   // 组织首页配置（ad-hoc，Refs #4634）：登录后第一落点（`/home`）的横幅/快捷入口/组织推荐，
   // 由本组织 admin 在这里配置。归在「组织」组、紧跟 `org-profile`——同样是「本组织自己的东西」，
   // 与 `org-profile` 同一个授权面（组织 admin），不是新开一面。
@@ -94,12 +94,8 @@ export interface AdminNavGroup {
 export const ADMIN_NAV: AdminNavGroup[] = [
   {
     group: AI_CAPABILITY_GROUP,
-    // 2026-09-02 人类第二次裁决（看组织后台截图后原话：「对于 AI 的能力都应该是在平台的
-    // 后台管理上，而不是组织上」）：AI 能力六项整体归**平台后台**。Agent / 模型 / MCP 的
-    // 路由随之迁到 `/platform-admin/*`（旧 `/admin/*` 重定向）；Skill / 画布模板 / 项目模板
-    // 的 href 本来就不在 `/admin` 下，只是左栏归属换了面。
-    // ⚠ 数据读取与写权限**没有改**：目录仍按当前登录者所在组织走 RLS、写操作仍要组织 admin
-    //   （`canMutate`）。这里改的是信息架构与呈现，不是授权面——授权面若要改是另一件事。
+    // Platform catalogs manage explicit organization targets and platform public sources.
+    // Organization-owned directories have separate org-agent/org-skill destinations below.
     scope: "platform",
     // ⚠ 这一组的**项集合**受 `asset-kind-nav.ts` 的双向门控约束：它必须与契约
     //   `AssetKind` 的取值集合逐个相等。删一项、多一项、或契约加了值这边没跟，都会红。
@@ -131,7 +127,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
       // `/canvas/template-admin`——见 `lib/canvas-screens.ts` 头注；旧 query 形态仍可用
       // （`app/canvas/page.tsx` 兼容重定向），但这里不该再手写它。
       { key: "agent", label: adminNavigationZhCN["adminNavigation.item.agent"], href: "/platform-admin/agent", ucRefs: ["04-agent/uc-4-1", "04-agent/uc-4-4"] },
-      { key: "skill", label: adminNavigationZhCN["adminNavigation.item.skill"], href: "/skill", ucRefs: ["03-skill/uc-3-1", "03-skill/uc-3-4"] },
+      { key: "skill", label: adminNavigationZhCN["adminNavigation.item.skill"], href: "/platform-admin/skill", ucRefs: ["03-skill/uc-3-1", "03-skill/uc-3-4"] },
       { key: "model", label: adminNavigationZhCN["adminNavigation.item.model"], href: "/platform-admin/model", ucRefs: ["20-model/uc-20-1", "20-model/uc-20-2"] },
       { key: "mcp", label: adminNavigationZhCN["adminNavigation.item.mcp"], href: "/platform-admin/mcp", ucRefs: ["21-mcp/uc-21-1", "21-mcp/uc-21-2"] },
       { key: "canvasadmin", label: adminNavigationZhCN["adminNavigation.item.canvasadmin"], href: "/canvas/template-admin", ucRefs: ["23-asset/uc-23-8", "07-canvas/uc-7-1"] },
@@ -142,6 +138,8 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     group: adminNavigationZhCN["adminNavigation.group.org"],
     scope: "org",
     items: [
+      { key: "org-agent", label: adminNavigationZhCN["adminNavigation.item.org-agent"], href: "/org-admin/agent", ucRefs: [] },
+      { key: "org-skill", label: adminNavigationZhCN["adminNavigation.item.org-skill"], href: "/org-admin/skill", ucRefs: [] },
       { key: "overview", label: adminNavigationZhCN["adminNavigation.item.overview"], href: "/admin", ucRefs: ["17-gov/uc-17-1", "17-gov/uc-17-7"] },
       // 见上方 `AdminModuleKey.org-members`/`org-invites`/`org-profile` 长注：原「组织管理」
       // 单一入口（团队/成员/邀请/组织资料四个标签页）已拆平为三个与 `overview` 同层级的项，
@@ -220,3 +218,10 @@ export const ADMIN_MODULE_META: Record<AdminModuleKey, AdminModuleMeta> = Object
   ADMIN_NAV.flatMap((g) => g.items).map((m) => [m.key, m]),
 ) as Record<AdminModuleKey, AdminModuleMeta>;
 
+/** Navigation discoverability only; every server operation enforces its own authority. */
+export function adminNavForViewer(scope: AdminScope, orgRole?: string | null): AdminNavGroup[] {
+  const groups = adminNavForScope(scope);
+  if (scope !== "org" || orgRole === undefined || orgRole === "admin") return groups;
+  return groups.map(group => ({ ...group, items: group.items.filter(item =>
+    item.key === "org-agent" || item.key === "org-skill") })).filter(group => group.items.length > 0);
+}

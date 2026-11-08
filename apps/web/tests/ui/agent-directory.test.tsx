@@ -29,6 +29,12 @@ function card(overrides: Partial<AgentDirectoryCard> & Pick<AgentDirectoryCard, 
   };
 }
 
+function openDirectoryDetails() {
+  screen.queryAllByTestId(/^agent-card-(?!detail-|avatar|tags|readiness|start|workflows|subtitle|official)/).forEach((node) => {
+    if (node.getAttribute("role") === "button") fireEvent.click(node);
+  });
+}
+
 describe("AgentDirectory（成员目录）", () => {
   it("加载中显示骨架态，随后按 roleCategory 分组渲染卡片", async () => {
     let resolveFetch!: (cards: readonly AgentDirectoryCard[]) => void;
@@ -48,10 +54,11 @@ describe("AgentDirectory（成员目录）", () => {
     expect(grid.className).toContain("md:grid-cols-2");
     expect(grid.className).toContain("xl:grid-cols-3");
     expect(screen.queryByTestId("agent-directory-group-research")).toBeNull();
-    expect(within(screen.getByTestId("agent-card-a-research")).getByText("小析")).not.toBeNull();
+    openDirectoryDetails();
+    expect(within(screen.getByTestId("agent-card-detail-a-research")).getByText("小析")).not.toBeNull();
     // 官方徽标只在 catalogSource=official 时出现
-    expect(within(screen.getByTestId("agent-card-a-research")).getByTestId("agent-card-official-badge")).not.toBeNull();
-    expect(within(screen.getByTestId("agent-card-a-sales")).queryByTestId("agent-card-official-badge")).toBeNull();
+    expect(within(screen.getByTestId("agent-card-detail-a-research")).getByTestId("agent-card-official-badge")).not.toBeNull();
+    expect(within(screen.getByTestId("agent-card-detail-a-sales")).queryByTestId("agent-card-official-badge")).toBeNull();
   });
 
   it("空结果渲染真实空态，不编造示例卡片", async () => {
@@ -87,6 +94,7 @@ describe("AgentDirectory（成员目录）", () => {
     expect(screen.getByRole("alert").textContent).toContain("网络连接出了问题");
     fireEvent.click(screen.getByRole("button", { name: "重试" }));
     await waitFor(() => expect(screen.getByTestId("agent-card-a1")).not.toBeNull());
+    openDirectoryDetails();
   });
 
   it("按分类筛选：点击分类按钮重新以 roleCategory 过滤请求", async () => {
@@ -114,9 +122,10 @@ describe("AgentDirectory（成员目录）", () => {
     ]);
     render(<AgentDirectory fetchDirectory={fetchDirectory} />);
     await waitFor(() => expect(screen.getByTestId("agent-card-a1")).not.toBeNull());
+    openDirectoryDetails();
     const avatar = screen.getByTestId("agent-card-avatar");
     expect(avatar.getAttribute("role")).toBeNull();
-    expect(within(screen.getByTestId("agent-card-a1")).getByTestId("agent-card-readiness").textContent).toBe("部分能力待开通");
+    expect(within(screen.getByTestId("agent-card-detail-a1")).getByTestId("agent-card-readiness").textContent).toBe("部分能力待开通");
   });
 
   it("avatar 为插画 key 时卡片头像渲染插画", async () => {
@@ -134,14 +143,16 @@ describe("AgentDirectory（成员目录）", () => {
     ]);
     render(<AgentDirectory fetchDirectory={fetchDirectory} />);
     await waitFor(() => expect(screen.getByTestId("agent-card-a1")).not.toBeNull());
-    expect(within(screen.getByTestId("agent-card-a1")).getByTestId("agent-card-tags")).toHaveTextContent("销售客户");
-    expect(within(screen.getByTestId("agent-card-a2")).getByTestId("agent-card-tags")).toHaveTextContent("研究");
+    openDirectoryDetails();
+    expect(within(screen.getByTestId("agent-card-detail-a1")).getByTestId("agent-card-tags")).toHaveTextContent("销售客户");
+    expect(within(screen.getByTestId("agent-card-detail-a2")).getByTestId("agent-card-tags")).toHaveTextContent("研究");
   });
 
   it("uiux-r5：无类别无标签的通用助手显示「通用」标签", async () => {
     render(<AgentDirectory fetchDirectory={vi.fn().mockResolvedValue([card({ agentId: "g1", name: "通用助手", roleCategory: null })])} />);
     await waitFor(() => expect(screen.getByTestId("agent-card-g1")).not.toBeNull());
-    expect(within(screen.getByTestId("agent-card-g1")).getByTestId("agent-card-tags")).toHaveTextContent("通用");
+    openDirectoryDetails();
+    expect(within(screen.getByTestId("agent-card-detail-g1")).getByTestId("agent-card-tags")).toHaveTextContent("通用");
   });
 
   it("uiux-r5：未就绪的卡片在行内和「开始对话」的提示里说明缺什么（销售 = CRM），就绪的没有", async () => {
@@ -150,10 +161,11 @@ describe("AgentDirectory（成员目录）", () => {
       card({ agentId: "r1", name: "小研", roleCategory: "research", readiness: "ready" }),
     ])} />);
     await waitFor(() => expect(screen.getByTestId("agent-card-s1")).not.toBeNull());
-    const sales = within(screen.getByTestId("agent-card-s1"));
+    openDirectoryDetails();
+    const sales = within(screen.getByTestId("agent-card-detail-s1"));
     expect(sales.getByTestId("agent-card-readiness-reason")).toHaveTextContent("销售类流程需接入 CRM 后开放");
     expect(sales.getByTestId("agent-card-start-chat").getAttribute("title")).toContain("CRM");
-    expect(within(screen.getByTestId("agent-card-r1")).queryByTestId("agent-card-readiness-reason")).toBeNull();
+    expect(within(screen.getByTestId("agent-card-detail-r1")).queryByTestId("agent-card-readiness-reason")).toBeNull();
   });
 
   it("rp-b2：客户成功类未就绪 ⇒ 说明缺的是工单系统（不是 CRM），且不露内部名", async () => {
@@ -161,7 +173,8 @@ describe("AgentDirectory（成员目录）", () => {
       card({ agentId: "c1", name: "客户成功专员", roleCategory: "customer_success", readiness: "unknown" }),
     ])} />);
     await waitFor(() => expect(screen.getByTestId("agent-card-c1")).not.toBeNull());
-    const cs = within(screen.getByTestId("agent-card-c1"));
+    openDirectoryDetails();
+    const cs = within(screen.getByTestId("agent-card-detail-c1"));
     expect(cs.getByTestId("agent-card-readiness-reason")).toHaveTextContent("需接入工单系统后开放");
     expect(cs.getByTestId("agent-card-readiness-reason").textContent).not.toMatch(/CRM|customer_success|ticket/i);
   });
@@ -171,7 +184,8 @@ describe("AgentDirectory（成员目录）", () => {
     const fetchDirectory = vi.fn().mockResolvedValue([card({ agentId: "a1", name: "小析", roleCategory: "research" })]);
     render(<AgentDirectory fetchDirectory={fetchDirectory} onStartChat={onStartChat} />);
     await waitFor(() => expect(screen.getByTestId("agent-card-a1")).not.toBeNull());
-    fireEvent.click(within(screen.getByTestId("agent-card-a1")).getByTestId("agent-card-start-chat"));
+    openDirectoryDetails();
+    fireEvent.click(within(screen.getByTestId("agent-card-detail-a1")).getByTestId("agent-card-start-chat"));
     expect(onStartChat).toHaveBeenCalledWith("a1");
   });
 });
@@ -217,7 +231,8 @@ describe("lib/agent-directory.ts 与真实契约对得上（stub 全局 fetch）
       }),
     ])} />);
     await waitFor(() => expect(screen.getByTestId("agent-card-d2")).not.toBeNull());
-    const el = screen.getByTestId("agent-card-d2");
+    openDirectoryDetails();
+    const el = screen.getByTestId("agent-card-detail-d2");
     expect(within(el).getByTestId("agent-card-detail-link").textContent).toBe("研究与知识分析师");
     expect(el.textContent).not.toContain("Research & Knowledge Analyst");
     expect(within(el).getByTestId("agent-card-subtitle").textContent).toContain("调研");
@@ -230,8 +245,9 @@ describe("lib/agent-directory.ts 与真实契约对得上（stub 全局 fetch）
       avatar: { kind: "illustration", key, alt: "x" },
     })))} />);
     await waitFor(() => expect(screen.getByTestId("agent-card-o0")).not.toBeNull());
+    openDirectoryDetails();
     for (let i = 0; i < keys.length; i++) {
-      const sub = within(screen.getByTestId(`agent-card-o${i}`)).getByTestId("agent-card-subtitle");
+      const sub = within(screen.getByTestId(`agent-card-detail-o${i}`)).getByTestId("agent-card-subtitle");
       expect(sub.textContent, sub.textContent ?? "").toMatch(/[。！？]$/);
       expect(sub.textContent).not.toMatch(/[；，、…]$/);
       expect(sub.className).not.toMatch(/line-clamp|truncate/);
@@ -240,7 +256,9 @@ describe("lib/agent-directory.ts 与真实契约对得上（stub 全局 fetch）
 
   it("未就绪时「开始对话」仍是主按钮（不像禁用），原因行限高保持卡片等高", async () => {
     render(<AgentDirectory fetchDirectory={vi.fn().mockResolvedValue([card({ agentId: "a1", name: "小研", roleCategory: "research", readiness: "unknown" })])} />);
-    await waitFor(() => expect(screen.getByTestId("agent-card-start-chat")).not.toBeNull());
+    await screen.findByTestId("agent-card-a1");
+    openDirectoryDetails();
+    openDirectoryDetails();
     expect(screen.getByTestId("agent-card-start-chat").className).not.toContain("bg-secondary");
     expect(screen.getByTestId("agent-card-start-chat")).not.toBeDisabled();
   });
@@ -255,11 +273,12 @@ describe("lib/agent-directory.ts 与真实契约对得上（stub 全局 fetch）
       card({ agentId: "a2", name: "小产", roleCategory: "product", workflows: [{ stableId: "W029", name: "Problem to PRD" }] }),
     ])} />);
     await waitFor(() => expect(screen.getByTestId("agent-card-a1")).not.toBeNull());
-    const line1 = within(screen.getByTestId("agent-card-a1")).getByTestId("agent-card-workflows").textContent ?? "";
+    openDirectoryDetails();
+    const line1 = within(screen.getByTestId("agent-card-detail-a1")).getByTestId("agent-card-workflows").textContent ?? "";
     expect(line1).toBe("关联流程：研究到简报、知识捕获闭环、自定义流程");
-    expect(within(screen.getByTestId("agent-card-a2")).getByTestId("agent-card-workflows").textContent).toBe("关联流程：问题定义到 PRD");
+    expect(within(screen.getByTestId("agent-card-detail-a2")).getByTestId("agent-card-workflows").textContent).toBe("关联流程：问题定义到 PRD");
     expect(line1).not.toMatch(/[A-Za-z]{3,}/);
-    const badge = within(screen.getByTestId("agent-card-a1")).getByTestId("agent-card-readiness");
+    const badge = within(screen.getByTestId("agent-card-detail-a1")).getByTestId("agent-card-readiness");
     expect(badge.className).toContain("whitespace-nowrap");
     expect(badge.className).toContain("shrink-0");
   });

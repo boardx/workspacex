@@ -171,3 +171,5 @@ MCP 接线、模型路由、context-pack、provenance；不含对话 UI 本身�
 - 2026-11-06：DeepAgents 0.7.6 的 execute ToolMessage.status 只证明 transport；须读结构化 artifact.exit_code，未知不能记成功。shell 管道需 pipefail 才能保留前段失败，但不得顺带开启 errexit；禁止安装/联网的提示注入测试只证明装配，不证明真实模型服从（issue #6322；docs/testing/cn-chat-command-outcomes-6322.md）。
 
 - 2026-11-07：native dispatch authority返回approval_required须进入既有可恢复审批中断，而不是抛通用错误终止报告。恢复节点会重放原始call，host须从持久pending call判断精确审批绑定，不能靠客户端permission marker激活校验；即使已有run/standing grant，编辑前参数也不得绕过digest。受控native Runtime SSE→provider→executor与独立安全反例见issue #6362；生产文件产出仍需单独验收。
+
+- 2026-11-08：平台管理不能复用“当前组织”假装跨组织权限；专用 PlatformOperatorGuard 路径显式绑定目标租户与真实 actor。公共内容启用复制固定发布版本到组织本地，新的公共源用 RLS 阻止直接跨组织读取。Agent 停用须同步运行时权威 `agents.status`，只改发布/目录状态仍能由聊天和工作流解析；平台编辑已发布定义须暂存新草稿并生成新不可变版本。旧 `skill_contracts` 与 wave2 `skills` 需用 entityType 区分，同 ID 不得打开或修改另一种实体；旧审核生命周期不能用 wave2 发布替代（issue #6418）。

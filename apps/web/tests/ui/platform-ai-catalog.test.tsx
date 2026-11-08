@@ -1,0 +1,215 @@
+import * as React from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import { PLATFORM_CATALOG_ORG_ID } from "@repo/contracts/ai-catalog-admin";
+const mocks = vi.hoisted(() => ({
+  allowed: true,
+  list: vi.fn(),
+  detail: vi.fn(),
+  create: vi.fn(),
+  update: vi.fn(),
+  state: vi.fn(),
+  organizations: vi.fn(),
+}));
+vi.mock("@/components/session/session-provider", () => ({
+  useSession: () => ({
+    session: { currentOrgId: "org-a", userId: "operator", sessionToken: "t" },
+  }),
+}));
+vi.mock("@/lib/live-platform-access", () => ({
+  usePlatformAccess: () => ({ platformOperator: mocks.allowed }),
+}));
+vi.mock("@/lib/live-platform-organizations", () => ({
+  listPlatformOrganizations: mocks.organizations,
+}));
+vi.mock("@/lib/ai-catalog-admin", () => ({
+  listPlatformAiCatalog: mocks.list,
+  getPlatformAiCatalogEntry: mocks.detail,
+  createPlatformAiCatalogEntry: mocks.create,
+  updatePlatformAiCatalogEntry: mocks.update,
+  setPlatformAiCatalogState: mocks.state,
+}));
+import { PlatformAiCatalog } from "@/components/admin/platform-ai-catalog";
+const row = {
+  orgId: "org-b",
+  kind: "agent" as const,
+  id: "agent-other",
+  versionId: null,
+  name: "Other organization agent",
+  description: "A concise description",
+  avatarUrl: null,
+  scope: "organization" as const,
+  published: false,
+  enabled: true,
+};
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+  mocks.allowed = true;
+});
+function setup() {
+  mocks.organizations.mockResolvedValue({
+    organizations: [{ orgId: "org-b", name: "Other organization" }],
+    nextCursor: null,
+  });
+  mocks.list.mockResolvedValue({ entries: [row], nextCursor: null });
+}
+describe("explicit platform capability target", () => {
+  it("does not fetch platform data for nonoperators", () => {
+    mocks.allowed = false;
+    render(<PlatformAiCatalog kind="agent" />);
+    expect(mocks.list).not.toHaveBeenCalled();
+    expect(screen.getByRole("status")).toBeTruthy();
+  });
+  it("requires a creation target and creates public content only under the public target", async () => {
+    setup();
+    mocks.create.mockResolvedValue({ ...row, orgId: PLATFORM_CATALOG_ORG_ID });
+    render(<PlatformAiCatalog kind="agent" />);
+    const create = screen.getByRole("button", {
+      name: "新建",
+    }) as HTMLButtonElement;
+    expect(create.disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText("管理范围"), {
+      target: { value: PLATFORM_CATALOG_ORG_ID },
+    });
+    await waitFor(() =>
+      expect(mocks.list).toHaveBeenLastCalledWith(
+        "agent",
+        PLATFORM_CATALOG_ORG_ID,
+      ),
+    );
+    fireEvent.click(create);
+    fireEvent.change(screen.getByLabelText("名称"), {
+      target: { value: "Public assistant" },
+    });
+    fireEvent.change(screen.getByLabelText("角色指令"), {
+      target: { value: "Keep this role" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存草稿" }));
+    await waitFor(() =>
+      expect(mocks.create).toHaveBeenCalledWith(PLATFORM_CATALOG_ORG_ID, {
+        kind: "agent",
+        input: {
+          name: "Public assistant",
+          description: "",
+          instructions: "Keep this role",
+          modelId: null,
+        },
+      }),
+    );
+  });
+  it("loads and preserves the real definition when editing another organization", async () => {
+    setup();
+    mocks.detail.mockResolvedValue({
+      entry: row,
+      definition: {
+        kind: "agent",
+        input: {
+          name: row.name,
+          description: row.description,
+          instructions: "Original instructions",
+          modelId: "model-b",
+        },
+      },
+    });
+    mocks.update.mockResolvedValue(row);
+    render(<PlatformAiCatalog kind="agent" />);
+    fireEvent.click(await screen.findByText(row.name));
+    fireEvent.click(screen.getByRole("button", { name: "编辑" }));
+    const field = (await screen.findByLabelText(
+      "角色指令",
+    )) as HTMLTextAreaElement;
+    expect(field.value).toBe("Original instructions");
+    fireEvent.change(screen.getByLabelText("名称"), {
+      target: { value: "Updated" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存草稿" }));
+    await waitFor(() =>
+      expect(mocks.update).toHaveBeenCalledWith(row, {
+        kind: "agent",
+        input: {
+          name: "Updated",
+          description: row.description,
+          instructions: "Original instructions",
+          modelId: "model-b",
+        },
+      }),
+    );
+  });
+  it("keeps entity identifiers and administrative controls off the card face", async () => {
+    setup();
+    render(<PlatformAiCatalog kind="agent" />);
+    await screen.findByText(row.name);
+    const card = screen.getByTestId(`platform-agent-row-org-b:agent:${row.id}`);
+    expect(within(card).queryByText(row.id)).toBeNull();
+    expect(within(card).queryByRole("button", { name: "停用" })).toBeNull();
+    fireEvent.click(card);
+    expect(screen.getByRole("button", { name: "停用" })).toBeTruthy();
+  });
+});
+
+it("shows legacy Skill contracts as explicitly read-only definitions", async () => {
+  setup();
+  const legacy = {
+    ...row,
+    kind: "skill",
+    entityType: "skill-contract",
+    id: "legacy-contract",
+    name: "Legacy contract",
+  };
+  mocks.list.mockResolvedValue({ entries: [legacy], nextCursor: null });
+  mocks.detail.mockResolvedValue({
+    entry: legacy,
+    definition: {
+      kind: "skill-contract",
+      input: {
+        name: "Legacy contract",
+        description: "Legacy instructions",
+        source: "自建",
+        status: "已启用",
+        versionId: null,
+        modelRef: null,
+        declaration: null,
+      },
+    },
+  });
+  render(<PlatformAiCatalog kind="skill" />);
+  fireEvent.click(await screen.findByText("Legacy contract"));
+  expect(screen.queryByRole("button", { name: "发布" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "停用" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "查看详情" }));
+  const editor = await screen.findByTestId("ai-catalog-editor");
+  expect(within(editor).queryByRole("button", { name: "保存草稿" })).toBeNull();
+  expect(within(editor).getByText("Legacy instructions")).toBeTruthy();
+});
+
+it("preserves the explicit organization target when organization search results change", async () => {
+  setup();
+  render(<PlatformAiCatalog kind="agent" />);
+  await screen.findByRole("option", { name: "Other organization" });
+  fireEvent.change(screen.getByLabelText("管理范围"), {
+    target: { value: "org-b" },
+  });
+  mocks.organizations.mockResolvedValue({
+    organizations: [{ orgId: "org-c", name: "Third organization" }],
+    nextCursor: null,
+  });
+  fireEvent.change(screen.getByLabelText("搜索组织"), {
+    target: { value: "Third" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "搜索" }));
+  await screen.findByRole("option", { name: "Third organization" });
+  expect((screen.getByLabelText("管理范围") as HTMLSelectElement).value).toBe(
+    "org-b",
+  );
+  expect(
+    screen.getByRole("option", { name: "Other organization" }),
+  ).toBeTruthy();
+});
