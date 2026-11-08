@@ -332,3 +332,18 @@ describe("生产侧确实有人登记在途任务", () => {
     expect(src).toMatch(/useReportShellBusy\(\s*`chat:\$\{[^}]+\}`\s*,\s*runState\.isRunning\s*\)/);
   });
 });
+
+
+describe("所有模块共用无横向顶栏的壳层", () => {
+  it("内容保留且不再挂载公共顶栏，移动端组织与账号入口仍可打开", () => {
+    render(<Shell organizations={[{ id: "o1", label: "研发一部" }]}><div>模块内容</div></Shell>);
+    expect(screen.queryByTestId("shell-topbar")).toBeNull();
+    expect(screen.getByTestId("shell-main").textContent).toContain("模块内容");
+    fireEvent.pointerDown(screen.getByTestId("org-switcher-mobile"), { button: 0 });
+    expect(screen.getByTestId("org-menu-mobile")).toBeTruthy();
+    fireEvent.keyDown(screen.getByTestId("org-menu-mobile"), { key: "Escape" });
+    fireEvent.pointerDown(screen.getByTestId("rail-profile-menu-mobile"), { button: 0 });
+    expect(screen.getByTestId("rail-personal-menu-mobile")).toBeTruthy();
+    expect(screen.getByRole("menuitemradio", { name: "English" })).toBeTruthy();
+  });
+});

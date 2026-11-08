@@ -28,8 +28,8 @@ import { PERSONAL_BILLING_ENTRY } from "@/lib/navigation";
  *     （`AppShell` 的 `identity` 直传分支）里不存在，此时不渲染这一项。
  */
 export function PersonalMenu({
-  avatarInitial, onLogout,
-}: { avatarInitial: string; onLogout?: () => void }) {
+  avatarInitial, onLogout, testIdSuffix = "",
+}: { avatarInitial: string; onLogout?: () => void; testIdSuffix?: string }) {
   const { t, locale, setLocale } = useI18n();
   const [open, setOpen] = React.useState(false);
   return (
@@ -37,11 +37,11 @@ export function PersonalMenu({
       <MenuTrigger asChild>
         <button
           type="button"
-          data-testid="rail-profile-menu"
+          data-testid={`rail-profile-menu${testIdSuffix}`}
           aria-label={t("ui.accountMenu")}
           className="mt-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent text-11 font-medium text-accent-foreground transition-all duration-base hover:bg-accent/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <span data-testid="rail-avatar" aria-hidden>{avatarInitial}</span>
+          <span data-testid={`rail-avatar${testIdSuffix}`} aria-hidden>{avatarInitial}</span>
         </button>
       </MenuTrigger>
       <MenuContent
@@ -49,7 +49,7 @@ export function PersonalMenu({
         align="end"
         sideOffset={8}
         aria-label={t("ui.accountMenu")}
-        data-testid="rail-personal-menu"
+        data-testid={`rail-personal-menu${testIdSuffix}`}
         className="w-48"
       >
         <MenuItem asChild data-testid="personal-menu-profile-item">

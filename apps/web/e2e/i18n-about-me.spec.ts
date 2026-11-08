@@ -1,3 +1,4 @@
+import { setShellLocale } from "./shell-locale";
 import { expect, test, type Response } from "@playwright/test";
 import { knowledgeGraph as C } from "@repo/contracts/chat-knowledge-graph";
 import { ABOUT_ME_E2E as F } from "./about-me-fixture";
@@ -20,13 +21,13 @@ test("About me retains a raw editing draft across languages and persists one rea
   revisePath=`${prefix}/knowledge-graph/personal/claims/${encodeURIComponent(goalId)}/revise`;
   expect(before.scope).toEqual({kind:"personal",id:F.userId}); expect(before.claims).toHaveLength(2); expect(before.claims.find(c=>c.id===goalId)?.statement).toBe(F.goalText);
   expect(overview.personalOrigins.find(o=>o.personalClaimId===goalId)?.threadTitle).toBe(F.threadTitle);
-  const panel=page.getByTestId("about-me"); const picker=page.getByTestId("shell-topbar").getByTestId("language-switcher"); await picker.selectOption("en");
+  const panel=page.getByTestId("about-me"); await setShellLocale(page, "en");
   await expect(panel.getByRole("heading",{name:"About me",exact:true})).toBeVisible();
   const goal=panel.locator(`[data-testid="about-me-item"][data-claim-id="${goalId}"]`);
   await expect(goal).toContainText(F.goalText); await expect(panel.getByTestId("about-me-goal-select")).toContainText(F.goalText);
   await expect(goal.getByTestId("brain-origin-link").first()).toHaveAttribute("href",`/chat/${encodeURIComponent(F.threadId)}?memory=${encodeURIComponent(F.sourceGoalId)}`);
   await goal.getByTestId("about-me-edit").first().click(); const input=panel.getByTestId("about-me-edit-input"); const draft="原文修改 {draft}"; await input.fill(draft); const original=await input.elementHandle();
-  const readCount=reads.length; await picker.selectOption("zh-CN"); await picker.selectOption("en");
+  const readCount=reads.length; await setShellLocale(page, "zh-CN"); await setShellLocale(page, "en");
   await expect(input).toHaveValue(draft); expect(await input.evaluate((node,old)=>node===old,original)).toBe(true); expect(reads).toHaveLength(readCount); expect(posts).toHaveLength(0);
   await input.focus(); await expect(input).toBeFocused();
   const [revision,freshResponse]=await Promise.all([page.waitForResponse(r=>new URL(r.url()).pathname===revisePath&&r.request().method()==="POST"),page.waitForResponse(responseFor(C.getPersonalKnowledge.path)),panel.getByTestId("about-me-edit-save").click()]);

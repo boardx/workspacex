@@ -20,7 +20,11 @@ const TABS = [
   { key: "me", label: "我", href: "/profile", icon: User },
 ];
 
-export function MobileTabs() {
+export function MobileTabs({ organization, account, feedback }: {
+  organization?: React.ReactNode;
+  account?: React.ReactNode;
+  feedback?: React.ReactNode;
+}) {
   const { t: translate } = useI18n();
   const pathname = usePathname();
   return (
@@ -29,6 +33,7 @@ export function MobileTabs() {
       aria-label={translate("ui.mainNavigationMobile")}
       className="flex h-14 shrink-0 items-stretch border-t border-border bg-card md:hidden"
     >
+      {organization && <div className="flex flex-1 items-center justify-center">{organization}</div>}
       {TABS.map((t) => {
         const active = pathname === t.href || pathname.startsWith(t.href + "/")
           || (t.key === "me" && (pathname === PERSONAL_BILLING_ENTRY.href || pathname.startsWith(PERSONAL_BILLING_ENTRY.href + "/")));
@@ -49,6 +54,8 @@ export function MobileTabs() {
           </Link>
         );
       })}
+      {account && <div className="flex flex-1 items-center justify-center">{account}</div>}
+      {feedback && <div className="flex flex-1 items-center justify-center">{feedback}</div>}
     </nav>
   );
 }

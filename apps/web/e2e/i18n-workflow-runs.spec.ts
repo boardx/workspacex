@@ -1,3 +1,4 @@
+import { setShellLocale } from "./shell-locale";
 import { expect, test, type Response } from "@playwright/test";
 import { workflowRuntime } from "@repo/contracts";
 import { FULLSTACK_E2E as F } from "./fullstack-smoke-fixture";
@@ -24,18 +25,17 @@ test("My runs preserves persisted raw goals and own visibility while locale chan
   expect(before.items.every((item) => item.goal === F.workflowRunsGoal)).toBe(true);
   const list = page.getByTestId("workflow-run-list");
   await expect(list.locator("li")).toHaveCount(2);
-  const picker = page.getByTestId("shell-topbar").getByTestId("language-switcher");
   const count = reads.length;
-  await picker.selectOption("en");
+  await setShellLocale(page, "en");
   await expect(page.getByTestId("workflow-page-title")).toHaveText("My runs");
   await expect(list).toContainText("Completed"); await expect(list).toContainText("Failed");
   await expect(list).toContainText(`Goal: ${F.workflowRunsGoal}`);
   await expect(list).toContainText(F.workflowRunsKey);
   await expect(list).not.toContainText("Private peer goal");
-  await picker.selectOption("zh-CN");
+  await setShellLocale(page, "zh-CN");
   await expect(page.getByTestId("workflow-page-title")).toHaveText("我的运行");
   await expect(list).toContainText("已完成"); await expect(list).toContainText("失败");
-  await picker.selectOption("en");
+  await setShellLocale(page, "en");
   expect(reads).toHaveLength(count);
   await expect(page.getByTestId("workflow-nav-back-to-project")).toHaveAttribute("href", `/projects/${encodeURIComponent(F.workflowRunsProjectId)}`);
   for (const width of [1280, 375]) {

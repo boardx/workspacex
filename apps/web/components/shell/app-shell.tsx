@@ -8,7 +8,9 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { IconRail } from "./icon-rail";
-import { TopBar } from "./top-bar";
+import { OrgMenu } from "./org-menu";
+import { PersonalMenu } from "./personal-menu";
+import { FeedbackButton } from "@/components/feedback/feedback-button";
 import { MobileTabs } from "./mobile-tabs";
 import { isLocalOrg, MOCK_ORGS, type Identity, type ProjectRole } from "@/lib/identity";
 import { EditionBanner } from "./edition-banner";
@@ -35,12 +37,11 @@ import {
  * 响应式（实测原型「同一信息架构，三栏折叠为三层」）：
  *   ≥xl  四栏全开
  *   ≥md  收起右栏（上下文包与证据栏），中栏拿到宽度
- *   <md  收起图标栏与左右栏，改用底部一级 tab；顶部条与中栏保留
+ *   <md  收起图标栏与左右栏，组织、账号与反馈入口随底部一级 tab 显示
  * 三档（375 / 768 / 1280）都不得出现横向溢出（uiux-standards U8 / UC-0.4 R12 V9）。
  *
- * ⚠ `hideRoleSwitcher`（2026-07-30）：当**本页内容区自带角色/视角切换器**时置 true，
- *   顶栏就不再渲染它自己的预览切换器——避免「同一页两套角色切换系统」。
- *   角色切换的唯一来源 = 各域内容区自带的切换器；顶栏只负责组织切换 + 上下文标签。
+ * 公共横向顶栏已移除；旧调用方的 hideTopBar / hideRoleSwitcher 参数仅保留兼容。
+ * 组织切换与语言设置由桌面侧栏、移动端底部菜单提供。
  *
  * ⚠ 「底部环境态条」（`AmbientBar`，2026-07-30 起 `shell-ambient`）已于 #752 移除：
  *   它曾是全局硬编码假数据（固定「28:14」/固定发言人/固定 agent 进度），与任何真实
@@ -60,7 +61,7 @@ export function AppShell({
   children: React.ReactNode;
   /** 本页自带角色/视角切换器时置 true，顶栏让位不再出第二套 */
   hideRoleSwitcher?: boolean;
-  /** 沉浸式工作台可隐藏横向顶栏，仅保留全局图标栏。 */
+  /** @deprecated Shared horizontal header has been removed for every module. */
   hideTopBar?: boolean;
   /** Canvas workspace: retain session gating while removing navigation chrome. */
   fullscreen?: boolean;
@@ -175,7 +176,7 @@ function SessionState({ testId, children }: { testId: string; children: React.Re
  * `window.location.assign` 那条原型分支，不是用户真正走的那条。
  */
 export function ShellChrome({
-  identity, previewRole, left, right, children, hideRoleSwitcher, hideTopBar, fullscreen,
+  identity, left, right, children, fullscreen,
   organizations, onSwitchOrganization, onLogout,
 }: {
   identity: Identity;
@@ -374,16 +375,6 @@ export function ShellChrome({
           普通 hideTopBar 保留版次信息；fullscreen 为用户明确要求的全窗口画布，隐藏全部导航占位。
         */}
         {!fullscreen && <EditionBanner />}
-        {!fullscreen && !hideTopBar && (
-          <TopBar
-            identity={identity}
-            previewRole={previewRole}
-            hideRoleSwitcher={hideRoleSwitcher}
-            organizations={effectiveOrganizations}
-            onSwitchOrganization={handleSwitchOrganization}
-            switching={switching}
-          />
-        )}
         <div className="flex min-h-0 flex-1">
           {left && !leftCollapsed && (
             <aside
@@ -477,7 +468,12 @@ export function ShellChrome({
             </button>
           )}
         </div>
-        {!fullscreen && <MobileTabs />}
+        {!fullscreen && <MobileTabs
+          organization={<OrgMenu identity={identity} organizations={effectiveOrganizations}
+            onSelect={handleSwitchOrganization} switching={switching} testIdSuffix="-mobile" />}
+          account={<PersonalMenu avatarInitial={identity.displayName.slice(0, 1)} onLogout={onLogout} testIdSuffix="-mobile" />}
+          feedback={<FeedbackButton target={{ kind: "product" }} targetLabel={null} testid="mobile-feedback" />}
+        />}
       </div>
       {/*
         切换的三段体感挂在壳层最外层，不挂在组织菜单里：菜单一点就关，
