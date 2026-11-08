@@ -1,0 +1,43 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/web
+
+ ✓ tests/ui/nav-ia-two-levels.test.tsx (15 tests) 2874ms
+   ✓ §3 渲染层：入口有且只有一处 > IconRail 只画一级项 —— 五项的 rail-* 锚点一个都不存在（不是隐藏，是压根没渲染） 2349ms
+   ✓ §3 渲染层：入口有且只有一处 > 「入口有且只有一处」在合并之后由**落点**承担：组织成员的唯一入口在成员配额屏里 428ms
+ ✓ tests/ui/nav-admin-menu-visibility.test.tsx (8 tests) 261ms
+ ❯ tests/ui/rail-more-menu.test.tsx (2 tests | 1 failed) 124ms
+   × IconRail 完整纯图标导航 > 保留的一级入口直接高亮 35ms
+     → expected null to be 'page' // Object.is equality
+ ✓ tests/ui/organization-ai-catalog-navigation.test.tsx (2 tests) 121ms
+ ✓ tests/ui/ai-catalog-admin-navigation.test.ts (3 tests) 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/rail-more-menu.test.tsx > IconRail 完整纯图标导航 > 保留的一级入口直接高亮
+AssertionError: expected null to be 'page' // Object.is equality
+
+- Expected:
+"page"
+
++ Received:
+null
+
+ ❯ tests/ui/rail-more-menu.test.tsx:49:78
+     47|       mockPath = path!;
+     48|       renderRail();
+     49|       expect(screen.getByTestId(`rail-${key}`).getAttribute("aria-curr…
+       |                                                                              ^
+     50|       cleanup();
+     51|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 4 passed (5)
+      Tests  1 failed | 29 passed (30)
+   Start at  22:21:29
+   Duration  9.23s (transform 1.91s, setup 585ms, collect 1.99s, tests 3.38s, environment 2.31s, prepare 236ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/rail-more-menu.test.tsx tests/ui/nav-admin-menu-visibility.test.tsx tests/ui/ai-catalog-admin-navigation.test.ts tests/ui/organization-ai-catalog-navigation.test.tsx tests/ui/nav-ia-two-levels.test.tsx

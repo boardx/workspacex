@@ -23,8 +23,10 @@ test("Agent 目录从组织后台入口可达", async ({ page }) => {
   await expect(navEntry).toBeInViewport();
   await navEntry.click();
 
-  const catalogEntry = page.getByRole("link", { name: /Agent 目录/ });
-  if (await catalogEntry.count()) await catalogEntry.first().click();
+  await expect(page).toHaveURL(/\/(?:admin|org-admin)(?:\/|$)/);
+  if (new URL(page.url()).pathname !== "/org-admin/agent") {
+    await page.getByTestId("admin-nav-org-agent").click();
+  }
   await expect(page).toHaveURL(/\/org-admin\/agent/);
   await expect(page.getByTestId("agent-directory")).toBeVisible();
 });

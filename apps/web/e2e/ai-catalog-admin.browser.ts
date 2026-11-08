@@ -152,6 +152,9 @@ test("organization and platform catalogs use concise cards and reachable details
   for (const kind of ["agent", "skill"] as const) {
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.goto(`/org-admin/${kind}`);
+    await expect(page.getByTestId("rail-admin")).toHaveCount(1);
+    await expect(page.getByTestId("rail-agent-directory")).toHaveCount(0);
+    await expect(page.getByTestId("rail-work-skill-catalog")).toHaveCount(0);
     await expect(
       page
         .getByText(kind === "agent" ? localAgent.name : "团队资料整理", {

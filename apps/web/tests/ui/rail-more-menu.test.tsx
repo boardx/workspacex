@@ -43,7 +43,7 @@ describe("IconRail 完整纯图标导航", () => {
   });
 
   it("保留的一级入口直接高亮", () => {
-    for (const [path, key] of [["/studio/board", "whiteboard"], ["/studio/design", "design-workbench"]]) {
+    for (const [path, key] of [["/studio/board", "whiteboard"], ["/studio/design-workbench", "design-workbench"]]) {
       mockPath = path!;
       renderRail();
       expect(screen.getByTestId(`rail-${key}`).getAttribute("aria-current")).toBe("page");
