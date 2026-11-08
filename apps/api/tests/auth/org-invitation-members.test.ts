@@ -79,7 +79,7 @@ it.each(['permanent_bounces','suppressed_recipients'] as const)('HTTP success wi
  const {CloudflareTransactionalEmailTransport}=await import('../../src/infrastructure/notifications/cloudflare-transactional-email-transport');
  const out=await inviteOrgMember({repo},{...ctx,email,orgRole:'consultant',teamId:null});
  const transport=new CloudflareTransactionalEmailTransport({accountId:'fixture',apiToken:'fixture',mailFrom:'no-reply@mail.example.test',requestTimeoutMs:1000},
-  (async()=>({ok:true,status:200,json:async()=>({success:true,result:{delivered:[email],queued:[],permanent_bounces:[],[field]:[email]}})})) as typeof fetch);
+  async()=>new Response(JSON.stringify({success:true,result:{delivered:[email],queued:[],permanent_bounces:[],[field]:[email]}}),{status:200,headers:{'Content-Type':'application/json'}}));
  const delivery=new OrgInvitationMailDelivery(repo,transport,{get:()=> 'https://app.example.test'});
  await expect(delivery.deliver({orgId:ctx.orgId,inviteId:out.inviteId,token:out.token!})).rejects.toMatchObject({reasonCode:'MAIL_UNAVAILABLE'});
  const row=await asOwner(c=>c.query('SELECT status,sent_at FROM org_invites WHERE id=$1',[out.inviteId]));
@@ -92,7 +92,7 @@ it('provider queued acceptance preserves a live invitation without claiming inbo
  const {CloudflareTransactionalEmailTransport}=await import('../../src/infrastructure/notifications/cloudflare-transactional-email-transport');
  const out=await inviteOrgMember({repo},{...ctx,email,orgRole:'consultant',teamId:null});
  const transport=new CloudflareTransactionalEmailTransport({accountId:'fixture',apiToken:'fixture',mailFrom:'no-reply@mail.example.test',requestTimeoutMs:1000},
-  (async()=>({ok:true,status:200,json:async()=>({success:true,result:{delivered:[],queued:[email],permanent_bounces:[]}})})) as typeof fetch);
+  async()=>new Response(JSON.stringify({success:true,result:{delivered:[],queued:[email],permanent_bounces:[]}}),{status:200,headers:{'Content-Type':'application/json'}}));
  await new OrgInvitationMailDelivery(repo,transport,{get:()=> 'https://app.example.test'}).deliver({orgId:ctx.orgId,inviteId:out.inviteId,token:out.token!});
  const row=await asOwner(c=>c.query('SELECT status,sent_at FROM org_invites WHERE id=$1',[out.inviteId]));
  expect(row.rows[0].status).toBe('pending');expect(row.rows[0].sent_at).not.toBeNull();

@@ -11,3 +11,5 @@
 boardx.us MX指向阿里企业邮箱；Gmail收到的邀请发件人为no-reply@mail.boardx.us。未确定这封boardx邮件究竟在发送侧被拒/抑制或在收信侧被隔离。Wrangler whoami未登录（auth token400），无可用Cloudflare日志connector；浏览器工具因当前URL不允许访问而终止，未绕过。需Cloudflare Email Sending Activity元数据（时间、收件人、messageId、status/errorCause，非正文/令牌）与必要时阿里收信追踪。不得把代码修复宣称为实际入箱问题已解决。
 
 官方响应：https://developers.cloudflare.com/api/resources/email_sending/methods/send/
+
+预推送首次发现新增集成测试的简化fetch响应TS2352；改用标准Response（不使用unknown强转）后相同48项复跑通过。继续预推送门控。
