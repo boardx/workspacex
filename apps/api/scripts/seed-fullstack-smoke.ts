@@ -48,7 +48,7 @@ const memberEmail = required("FULLSTACK_E2E_MEMBER_EMAIL");
 const memberPassword = required("FULLSTACK_E2E_MEMBER_PASSWORD");
 const memberUserId = required("FULLSTACK_E2E_MEMBER_USER_ID");
 /**
- * PJ-01 / #976: a real org `lead` -- the ONLY role allowed to create a project.
+ * PJ-01 / #976: an organization administrator for project creation (legacy fixture identifiers retained).
  * Neither the consultant nor the admin fits: `admin` is explicitly barred from creating
  * (contract U-4 ruled A, same direction as D-18 "an admin is not a superuser").
  * See the fixture for why this is a fifth account instead of a promotion of an existing one.
@@ -110,10 +110,9 @@ await addOrgMember(orgId, adminUserId, "admin", null);
 // to a separate account; never broaden the original admin's negative-test scope.
 await addOrgMember(orgId, feedbackAdminUserId, "admin", fixture.teams.fullstack ?? null);
 await addProjectMember(orgId, projectId, feedbackAdminUserId, "facilitator", null, false);
-// PJ-01 / #976: the only role `createProject` accepts. No project membership is granted --
-// "creating does not grant a project role" is a ruled invariant (Q-4②), and seeding one
-// here would erase the very edge `project-create-smoke.spec.ts` walks over.
-await addOrgMember(orgId, leadUserId, "lead", null);
+// Project-creation actor: administrator in the active two-role model.
+// Keep the existing absence of preassigned project membership for this scenario.
+await addOrgMember(orgId, leadUserId, "admin", null);
 await addOrgMember(orgId, memberUserId, "consultant", fixture.teams.fullstack ?? null);
 // #552: the security reviewer lives in the SAME team as the submitter, otherwise the
 // `team-only` Skill would be invisible to him and the assertion would go red on a 404

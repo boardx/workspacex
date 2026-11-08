@@ -85,7 +85,7 @@ beforeEach(async () => {
     c.query("INSERT INTO general_projects (id, org_id) VALUES ($1,$2)", [RESEARCH, ORG]),
   );
 
-  await addOrgMember(ORG, LEAD, "lead", null);
+  await addOrgMember(ORG, LEAD, "admin", null);
   await addOrgMember(ORG, ORG_ADMIN_NO_ROLE, "admin", null);
   await addOrgMember(ORG, CONSULTANT_NO_ROLE, "consultant", null);
   // 项目层角色叠在一个真实的组织成员身份之上，同 `create-project-org-role-gate.test.ts` /
@@ -129,7 +129,7 @@ describe("白名单四件是封闭集合，不多不少", () => {
   });
 
   it("非工作坊容器：当前议程环节与角色人数恒为 null，不是缺字段", async () => {
-    await addOrgMember(ORG, "u-f123-research-owner", "lead", null);
+    await addOrgMember(ORG, "u-f123-research-owner", "admin", null);
     // ⚠ 2026-08-01（F128）：这里**不能**再靠 `addProjectMember(ORG, RESEARCH, ...)` 满足
     // 鉴权前提——F128 把 `project_memberships` 收窄成工作坊专属机件（U-7 裁 A），
     // 往 RESEARCH 这样的非工作坊容器写一行工作坊项目成员现在被数据库复合外键

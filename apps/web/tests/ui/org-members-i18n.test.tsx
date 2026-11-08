@@ -25,11 +25,11 @@ describe("organization member and invitation localization", () => {
     vi.stubGlobal("fetch", fetch);
     bilingual(<MembersTab orgId="org-locale" isAdmin={false} />);
     const row = await screen.findByTestId("org-admin-member-u-original");
-    expect(row).toHaveTextContent("Consultant");
+    expect(row).toHaveTextContent("Member");
     expect(row).toHaveTextContent("管理员 {name} · 林可");
     expect(screen.queryByTestId("org-admin-member-u-original-org-role")).toBeNull();
     fireEvent.click(screen.getByText("Switch Chinese"));
-    expect(row).toHaveTextContent("顾问");
+    expect(row).toHaveTextContent("成员");
     expect(row).toHaveTextContent("管理员 {name} · 林可");
     expect(fetch).toHaveBeenCalledTimes(1);
   });
@@ -96,7 +96,7 @@ describe("organization member and invitation localization", () => {
     fireEvent.click(screen.getByText("Switch Chinese"));
     expect(screen.getByTestId("org-admin-member-last-admin-org-role-error")).toHaveTextContent("最后一名管理员");
     expect(picker).toHaveTextContent("管理员");
-    expect(fetch).toHaveBeenCalledTimes(3);
+    expect(fetch).toHaveBeenCalledTimes(2); // membership GET + role PATCH; retired reviewer GET is absent
     const update = fetch.mock.calls.find(([, init]) => init?.method === "PATCH");
     expect(JSON.parse(String(update?.[1]?.body))).toEqual({ orgId: "org-locale", userId: "last-admin", orgRole: "consultant" });
   });

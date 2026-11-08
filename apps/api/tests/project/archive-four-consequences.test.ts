@@ -74,7 +74,7 @@ beforeEach(async () => {
   await asApp(ORG, (c) =>
     c.query("INSERT INTO organizations (id, name, kind) VALUES ($1,$2,'organization')", [ORG, `org ${ORG}`]),
   );
-  await addOrgMember(ORG, LEAD, "lead", null);
+  await addOrgMember(ORG, LEAD, "admin", null);
 }, HOOK_TIMEOUT_MS);
 
 describe("I-P38 ③：归档不产生任何删除", () => {

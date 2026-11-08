@@ -63,7 +63,7 @@ it("distinct invitation paths compete for the final seat with atomic rollback",a
 
 it("full commercial capacity rejects project invitation activation before credentials, gift and outbox",async()=>{
  const projectId=ORG+"-general";
- await addOrgMember(ORG,"capacity-6107-full-member","compliance",null);
+ await addOrgMember(ORG,"capacity-6107-full-member","consultant",null);
  const projectUser=`capacity-6107-project-${RUN}`, outboxId=`capacity-6107-outbox-${RUN}`;
  await asApp(ORG,async c=>{
   await c.query("INSERT INTO projects(id,org_id,name,kind) VALUES($1,$2,'Capacity project','general')",[projectId,ORG]);

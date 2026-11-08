@@ -52,7 +52,7 @@ function versionWithTrappedContent(reads: string[]): BlueprintVersion {
 const baseInput = {
   orgId: toOrgId("org-1"),
   actorId: "u-1",
-  actorOrgRole: "lead" as const,
+  actorOrgRole: "admin" as const,
   blueprintId: "bp-1",
   blueprintExists: true,
   visibleToActor: true,

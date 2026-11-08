@@ -36,6 +36,8 @@ import {
 } from "@nestjs/common";
 import { orgAdmin as C } from "@repo/contracts";
 import type { z } from "zod";
+import { TRANSACTIONAL_MAIL_TRANSPORT, type TransactionalMailTransport } from "../../application/notifications/transactional-mail-ports";
+import { APP_PUBLIC_URL_PROVIDER, type AppPublicUrlProvider } from "../../application/project/project-invitation-ports";
 import { issueInviteLink } from "../../application/auth/issue-invite-link";
 import { revokeInviteLinks } from "../../application/auth/revoke-invite-links";
 import { OrgAdminError } from "../../application/auth/org-invite-errors";
@@ -82,6 +84,8 @@ export class ProjectInviteController {
     @Inject(INVITE_LINK_REPOSITORY) private readonly links: InviteLinkRepository,
     @Inject(PROJECT_MEMBERSHIP_REPOSITORY) private readonly members: ProjectMembershipRepository,
     @Inject(IDENTITY_REPOSITORY) private readonly identity: IdentityRepository,
+    @Inject(TRANSACTIONAL_MAIL_TRANSPORT) private readonly mail: TransactionalMailTransport,
+    @Inject(APP_PUBLIC_URL_PROVIDER) private readonly publicUrl: AppPublicUrlProvider,
   ) {}
 
   @Post(C.operations.issueInviteLink.path)
@@ -108,7 +112,18 @@ export class ProjectInviteController {
           validity: body.validity,
         },
       );
-      return { linkId: out.linkId, url: out.url, token: out.token, inviteCode: out.inviteCode, qrPayload: out.qrPayload };
+      let emailDelivery: "sent" | "failed" | undefined;
+      if (body.recipientEmail) {
+        try {
+          const url = new URL("/projects/join", this.publicUrl.get());
+          url.searchParams.set("t", out.token);
+          await this.mail.send({ to: body.recipientEmail, subject: "邀请你加入 WorkspaceX 项目", text: `请使用本组织账号登录后打开邀请链接加入项目：\n${url.toString()}\n此链接受所选有效期和撤销规则约束。若你不认识邀请人，请忽略本邮件。` });
+          emailDelivery = "sent";
+        } catch {
+          emailDelivery = "failed";
+        }
+      }
+      return { ...(emailDelivery ? { emailDelivery } : {}), linkId: out.linkId, url: out.url, token: out.token, inviteCode: out.inviteCode, qrPayload: out.qrPayload };
     } catch (e) {
       if (e instanceof OrgAdminError) mapAdminError(e);
       throw e;

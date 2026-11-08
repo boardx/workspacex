@@ -50,7 +50,7 @@ describe("① 引用不是深拷贝：命令里只带 blueprintVersionId，不�
       {
         orgId: toOrgId("org-1"),
         actorId: "u-1",
-        actorOrgRole: "lead",
+        actorOrgRole: "admin",
         blueprintId: "bp-1",
         blueprintExists: true,
         visibleToActor: true,
@@ -86,7 +86,7 @@ describe("② 快照不漂移：绑定之后蓝本再发布新版本，已绑定
       {
         orgId: toOrgId("org-1"),
         actorId: "u-1",
-        actorOrgRole: "lead",
+        actorOrgRole: "admin",
         blueprintId: "bp-1",
         blueprintExists: true,
         visibleToActor: true,
@@ -137,7 +137,7 @@ describe("③ 新增绑定只能挂已发布版本；已归档版本拒绝新绑
         {
           orgId: toOrgId("org-1"),
           actorId: "u-1",
-          actorOrgRole: "lead",
+          actorOrgRole: "admin",
           blueprintId: "bp-1",
           blueprintExists: true,
           visibleToActor: true,
@@ -156,7 +156,7 @@ describe("③ 新增绑定只能挂已发布版本；已归档版本拒绝新绑
         {
           orgId: toOrgId("org-1"),
           actorId: "u-1",
-          actorOrgRole: "lead",
+          actorOrgRole: "admin",
           blueprintId: "bp-1",
           blueprintExists: true,
           visibleToActor: true,
@@ -193,7 +193,7 @@ describe("③ 新增绑定只能挂已发布版本；已归档版本拒绝新绑
         {
           orgId: toOrgId("org-1"),
           actorId: "u-1",
-          actorOrgRole: "lead",
+          actorOrgRole: "admin",
           blueprintId: "bp-1",
           blueprintExists: true,
           visibleToActor: true,
@@ -212,7 +212,7 @@ describe("③ 新增绑定只能挂已发布版本；已归档版本拒绝新绑
         {
           orgId: toOrgId("org-1"),
           actorId: "u-1",
-          actorOrgRole: "lead",
+          actorOrgRole: "admin",
           blueprintId: "bp-1",
           blueprintExists: true,
           visibleToActor: true,

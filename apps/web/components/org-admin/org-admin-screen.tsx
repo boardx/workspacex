@@ -25,6 +25,7 @@ import { invalidateOrgAvatar } from "@/components/shell/org-menu";
 import { contractFieldIssues } from "@/lib/auth";
 import { buildActivationLink } from "@/lib/activation-link";
 import { type OrgRole } from "@/lib/identity";
+import { AssignableOrgRole } from "@repo/contracts/identity";
 import { auth as authContract } from "@repo/contracts";
 import { SharedInviteLinksSection, type SharedLinkReveal } from "@/components/org-admin/shared-invite-links";
 import { StandingToolGrantsSection } from "@/components/org-admin/standing-tool-grants";
@@ -35,9 +36,7 @@ import {
   setOrgMemberRole,
   updateOrganization, uploadOrgAvatar,
   inviteOrgMember, resendOrgInvite, revokeOrgInvite,
-  assignSkillReviewerFunction, revokeSkillReviewerFunction, listSkillReviewerFunctions,
   type ListOrgMembersOut, type ListOrgInvitesOut, type UpdateOrganizationOut,
-  type SkillReviewerFunctionValue,
 } from "@/lib/live-org-admin";
 
 /**
@@ -205,84 +204,6 @@ function describeFailureFor(failure: unknown, notFoundHint: string, forbiddenHin
 
 /* ═══════════════════════════════ 成员（#363，真实数据） ═══════════════════════════════ */
 
-const reviewerFunctionOptions = (t: Translator): ReadonlyArray<{ id: string; label: string }> => [
-  { id: "", label: t("orgMembers.noReviewerFunction") },
-  { id: "methodology-reviewer", label: t("orgMembers.methodologyReviewer") },
-  { id: "security-reviewer", label: t("orgMembers.securityReviewer") },
-];
-
-/**
- * issue #852 —— 「Skill 审核人职能」下拉，只在 `isAdmin` 时渲染成可操作控件。
- * 非 admin 完全看不到这一列（同 `listSkillReviewerFunctions` 契约仅 admin 可读的既定
- * 纪律：「谁能审我」不是给提交人看的信息，不只是「看得到但按不动」）。
- *
- * F06（issue #1930）—— 原生 `<select>` 改为复用既有的 `PopoverSelect`（同
- * `top-bar.tsx` 的 `OrgSwitcher`/本文件邀请表单"组织角色"下拉同一套弹层单选实现）。
- * ⚠ 不是顺手重构：原生 `<select>` 的下拉弹层是浏览器渲染的 OS 级控件，不在页面
- * DOM 事件系统内——自动化测试的合成键盘事件（CDP `Input.dispatchKeyEvent`）能让它
- * 聚焦，但不能驱动它的弹层导航（`ArrowDown`/`Enter`/`Space`/`Alt+ArrowDown` 四种
- * 序列均实测复现：焦点确认落在 select 上，值仍不变，见 issue #1930 讨论），这正是
- * F06「打开一个成员的权限设置弹层并调整」这条核心任务本身要验证的控件——用真实
- * DOM 按钮+`role=listbox` 弹层的 `PopoverSelect` 替换，让它对真实用户和自动化
- * 测试都是可键盘操作的，不是仅在人手动测试时"看起来能行"。
- */
-function ReviewerFunctionPicker({
-  orgId, userId, current, onChanged,
-}: {
-  orgId: string;
-  userId: string;
-  current: SkillReviewerFunctionValue | null;
-  onChanged: (userId: string, next: SkillReviewerFunctionValue | null) => void;
-}) {
-  const { t } = useI18n();
-  const [busy, setBusy] = React.useState(false);
-  const [error, setError] = React.useState<unknown>(null);
-
-  const handleSelect = async (id: string) => {
-    const value = id as SkillReviewerFunctionValue | "";
-    setBusy(true);
-    setError(null);
-    try {
-      if (value === "") {
-        await revokeSkillReviewerFunction(orgId, userId);
-        onChanged(userId, null);
-      } else {
-        await assignSkillReviewerFunction(orgId, userId, value);
-        onChanged(userId, value);
-      }
-    } catch (err) {
-      setError(err);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    // F15 复核（issue #1877，rev-uiux 9/10 唯一扣分项）：这个外层 wrapper 此前没有
-    // `basis-full`，375px 下与姓名/徽章挤在同一行，把姓名列压到只剩 ~70px（"SSP
-    // E2…" 都读不全）。`sm:` 断点以下让它独占一行、宽度不再被固定 `w-36` 的下拉
-    // 逼出行外——把「该省的宽度」从姓名（内容，不该被牺牲）挪到这个本来就是
-    // 固定枚举值、可以随便换行的控件上。
-    <div className="flex basis-full items-center gap-1.5 sm:basis-auto">
-      <div className="w-full sm:w-36">
-        <PopoverSelect
-          value={current ?? ""}
-          options={reviewerFunctionOptions(t)}
-          onSelect={(id) => void handleSelect(id)}
-          disabled={busy}
-          testid={`org-admin-member-${userId}-reviewer-function`}
-          ariaLabel={t("orgMembers.skillReviewerFunction")}
-        />
-      </div>
-      {error !== null && (
-        <span className="text-10 text-destructive" data-testid={`org-admin-member-${userId}-reviewer-function-error`}>
-          {error instanceof ApiError ? (error.reasonCode ?? `http_${error.status}`) : t("orgMembers.operationFailed")}
-        </span>
-      )}
-    </div>
-  );
-}
-
 /**
  * member-role-management delta（组织级）—— 「组织角色」下拉，只在 `isAdmin` 时渲染成可操作控件；
  * 非 admin 看到的仍是只读徽章（角色本身对全员可见，`listOrgMembers` 就带着它——这里不是
@@ -366,9 +287,6 @@ export function MembersTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean
   const [state, setState] = React.useState<UiState>("loading");
   const [failureMessage, setFailureMessage] = React.useState<unknown>(null);
   const [out, setOut] = React.useState<ListOrgMembersOut | null>(null);
-  // issue #852：`userId → 当前职能` 表。未列出 ⇒ 未指派。仅 admin 会真的发起这条请求
-  // ——非 admin 调用 `listSkillReviewerFunctions` 会拿到 403，这里干脆不发那次请求。
-  const [reviewerFunctions, setReviewerFunctions] = React.useState<Record<string, SkillReviewerFunctionValue>>({});
 
   const load = React.useCallback(async () => {
     setState("loading");
@@ -381,16 +299,8 @@ export function MembersTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean
       setFailureMessage(err);
       setState("dep-failed");
     }
-    if (isAdmin) {
-      try {
-        const { assignments } = await listSkillReviewerFunctions(orgId);
-        setReviewerFunctions(Object.fromEntries(assignments.map((a) => [a.userId, a.reviewerFunction])));
-      } catch {
-        // 职能名单读失败不该把整块成员列表也带走——那是另一件事的失败。
-        setReviewerFunctions({});
-      }
-    }
-  }, [orgId, isAdmin]);
+
+  }, [orgId]);
 
   React.useEffect(() => {
     void load();
@@ -413,15 +323,6 @@ export function MembersTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean
     setRoleBanner({ who, next, previous });
   };
 
-  const handleReviewerFunctionChanged = (userId: string, next: SkillReviewerFunctionValue | null) => {
-    setReviewerFunctions((prev) => {
-      if (next === null) {
-        const { [userId]: _removed, ...rest } = prev;
-        return rest;
-      }
-      return { ...prev, [userId]: next };
-    });
-  };
 
   return (
     <div className="flex flex-col gap-3 pt-3">
@@ -460,7 +361,7 @@ export function MembersTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean
                 自己撑到内容宽度，导致整行在 `flex-wrap` 下被挤到换行——角色徽章跟着
                 掉到下一行，视觉上显得七零八落。技术上没有违反任何间距/颜色规则，
                 纯粹是这一项该收缩时没收缩。加 `flex-1` 后它会先吃掉其余兄弟元素
-                （徽章/审核职能下拉/加入日期）排完后剩下的空间，多余文字交给已有的
+                （角色/加入日期）排完后剩下的空间，多余文字交给已有的
                 `truncate` 省略号处理，不再触发整行换行。
               */}
               <div className="flex min-w-0 flex-1 flex-col">
@@ -476,17 +377,6 @@ export function MembersTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean
                 </Badge>
               )}
               {m.status === "suspended" && <Badge tone="outline">{t("orgMembers.suspended")}</Badge>}
-              {/* issue #852：职能指派仅 admin 可见可改——`listSkillReviewerFunctions` 契约本身
-                  就是仅 admin 可读（同「谁能审我」不给提交人看的既定纪律），非 admin 这里
-                  不渲染任何东西，不是「看得到但按不动」。 */}
-              {isAdmin && (
-                <ReviewerFunctionPicker
-                  orgId={orgId}
-                  userId={m.userId}
-                  current={reviewerFunctions[m.userId] ?? null}
-                  onChanged={handleReviewerFunctionChanged}
-                />
-              )}
               {/* F15 复核：同上，加入日期在窄屏也让位——basis-full 独占一行，
                   sm 起再回到行尾 ml-auto 贴右对齐。 */}
               <span
@@ -749,7 +639,7 @@ export function OneTimeActivationLink({ link, onDismiss }: { link: OneTimeLink; 
 const NO_TEAM = "";
 
 const orgRoleOptions = (t: Translator): ReadonlyArray<{ id: OrgRole; label: string }> => (
-  ["consultant", "lead", "compliance", "admin"] as const
+  AssignableOrgRole.options
 ).map((r) => ({ id: r, label: t(`role.${r}`) }));
 
 // export 仅供 `tests/ui/org-admin-invite-form-novalidate.test.tsx` 机械钉 noValidate（两次复发的 bug），别在别处 import。

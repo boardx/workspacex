@@ -17,20 +17,15 @@ import * as C from "@repo/contracts/identity";
  *    切换 `?as=` 只改变本地展示，不改变服务端返回的数据，且生产构建不可达。
  */
 
-/**
- * 组织角色（[原型] 后台「成员与配额」三取值 + 裁决 D-U3 新增第四种）
- *
- * ⚠ 裁决 D-U3（2026-07-28）：**合规负责人归组织角色，不新增第三层「场景角色」**。
- * 理由：合规是**组织级职能**（对整个组织的合规负责），本来就该在这一层；
- * 而受访者已有一次性令牌身份（UC-6.3）、研究员/参与者只是引导师/组员在访谈场景下的
- * **展示别名**（不落库）。加第三层会让权限矩阵从 4×3 变成 4×3×N，测试成本不成比例。
- * ⇒ **O-03「项目角色恒为四种」得以保住。**
+/** Organization role reads retain historical wire values; active assignment options
+ * come from contracts/identity.AssignableOrgRole (administrator and member).
+ * Project roles below remain a separate scope.
  */
 export type OrgRole = z.infer<typeof C.OrgRole>;
 export const ORG_ROLE_LABEL: Record<OrgRole, string> = {
   admin: "管理员",
   lead: "项目负责人",
-  consultant: "顾问",
+  consultant: "成员",
   compliance: "合规负责人",
 };
 

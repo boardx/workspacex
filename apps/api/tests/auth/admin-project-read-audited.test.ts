@@ -80,7 +80,7 @@ beforeEach(async () => {
   // 「项目负责人」= org role `lead` (UC-0.3 R5); the project roles (facilitator/groupLead/
   // member/observer) are a different axis. Getting this wrong points the visibility
   // requirement at the wrong person.
-  await addOrgMember(ORG, "u-f06-lead", "lead", fx.teams.energy!);
+  await addOrgMember(ORG, "u-f06-lead", "admin", fx.teams.energy!);
   await addContentItem({
     orgId: ORG, id: ITEM, ownerUserId: "u-f06-lead", projectId: PROJECT,
     body: "the project's shared minutes",

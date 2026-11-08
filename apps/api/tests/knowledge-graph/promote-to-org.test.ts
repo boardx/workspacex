@@ -49,7 +49,7 @@ beforeAll(async () => {
   await resetOrgs(ORG);
   const fx = await seedOrg({ orgId: ORG, projectId: PROJECT, groupNames: ["g1"] });
   await enableExtraction(ORG);
-  await addOrgMember(ORG, "u-lead", "lead", fx.teams.energy!);
+  await addOrgMember(ORG, "u-lead", "admin", fx.teams.energy!);
   await addOrgMember(ORG, "u-admin", "admin", fx.teams.energy!);
   await addOrgMember(ORG, "u-fac", "consultant", fx.teams.energy!);
   await addOrgMember(ORG, "u-mem", "consultant", fx.teams.energy!);

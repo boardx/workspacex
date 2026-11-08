@@ -28,7 +28,7 @@
  * 本束新增的只有业务类码。
  */
 import { z } from "zod";
-import { OrgRole, PermissionReason, PermissionDecision, ProjectRole } from "./identity";
+import { AssignableOrgRole, OrgRole, PermissionReason, PermissionDecision, ProjectRole } from "./identity";
 import { AUTH_POLICY, AuthenticatedSession, EmailAddress } from "./auth";
 
 /** Canonical landing page and token parameters shared by email and browser invitation links. */
@@ -396,7 +396,7 @@ export const operations = {
     method: "POST",
     path: "/organizations/:orgId/invites",
     in: z
-      .object({ orgId: z.string(), email: EmailAddress, orgRole: OrgRole.default("consultant"), teamId: z.string() })
+      .object({ orgId: z.string(), email: EmailAddress, orgRole: AssignableOrgRole.default("consultant"), teamId: z.string() })
       .strict(),
     out: z
       .object({
@@ -808,7 +808,7 @@ export const operations = {
   setOrgMemberRole: {
     method: "PATCH",
     path: "/organizations/:orgId/members/:userId/role",
-    in: z.object({ orgId: z.string(), userId: z.string(), orgRole: OrgRole }).strict(),
+    in: z.object({ orgId: z.string(), userId: z.string(), orgRole: AssignableOrgRole }).strict(),
     out: z
       .object({
         userId: z.string(),
@@ -1086,6 +1086,8 @@ export const operations = {
         groupId: z.string().nullable(),
         identity: ParticipantIdentityChoice,
         validity: InviteLinkValidity,
+        /** Optional delivery of the same bearer link; acceptance still requires organization login. */
+        recipientEmail: z.string().trim().email().max(320).optional(),
       })
       .strict(),
     out: z
@@ -1096,6 +1098,7 @@ export const operations = {
         token: z.string().min(1),
         inviteCode: z.string().nullable(),
         qrPayload: z.string().nullable(),
+        emailDelivery: z.enum(["sent", "failed"]).optional(),
       })
       .strict(),
     err: ["NO_PROJECT_ROLE", "PROJECT_ROLE_INSUFFICIENT", "VERSION_CHANGED", "AUTH_SERVICE_UNAVAILABLE"] as const,

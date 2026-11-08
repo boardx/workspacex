@@ -289,7 +289,7 @@ export const zhCN = {
   "org.local": "本机工作区 · 只使用本地模型",
   "role.admin": "管理员",
   "role.lead": "项目负责人",
-  "role.consultant": "顾问",
+  "role.consultant": "成员",
   "role.compliance": "合规负责人",
   "role.facilitator": "引导师",
   "role.groupLead": "组长",

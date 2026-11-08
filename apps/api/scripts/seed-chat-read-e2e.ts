@@ -193,7 +193,7 @@ await asOwner(async (client) => {
 });
 
 await seedOrg({ orgId: ORG_ID, projectId: PROJECT_ID, groupNames: ["readers"] });
-await addOrgMember(ORG_ID, USER_ID, "lead", null);
+await addOrgMember(ORG_ID, USER_ID, "admin", null);
 // Only isolated fixture setup may configure this global synthetic price.
 await asOwner(session=>seedChatReadAsrCreditTariff(session,ORG_ID));
 const CANVAS_TEMPLATE_ADMIN_ID = `${USER_ID}-canvas-admin`;
@@ -603,7 +603,7 @@ await asApp(ORG_ID, async (client) => {
  *
  * `loadMountableRow` / `listAll` 对 wave2 行**恒按 `org-wide` 判定**（那两处逐字
  * 写死 `visibility: "org-wide"`，wave2 表里没有可见范围列）。本夹具的用户是
- * `addOrgMember(..., "lead", null)`、不属于任何团队，`org-wide` 对他可见 ⇒ 挂得上。
+ * `addOrgMember(..., "admin", null)`、不属于任何团队，`org-wide` 对他可见 ⇒ 挂得上。
  * 本夹具也没有 `skill-create-smoke.spec.ts` 那条「目录空态」断言需要保护
  * （那正是 `seed-fullstack-smoke.ts` 那份种子仍然留在模型 B 的理由：把它改成模型 A
  * 会让这条 skill 对管理员可见，直接打破那条反空转断言）。
@@ -762,8 +762,8 @@ for (let index = 1; index <= 30; index += 1) {
  * ## 为什么用一个**独立**的 actor，不复用 `USER_ID`
  *
  * `requireTemplateAdmin` 只放行 org admin（`canMutateCapabilities`），而 `USER_ID` 在本
- * 夹具里恒是 `addOrgMember(..., "lead", null)`——改它的角色会动到本文件其余全部用例的
- * RBAC 前提（谁能不能挂 skill/发消息全部现由 "lead" 这个角色跑），影响面远超「加一个
+ * 夹具里恒是 `addOrgMember(..., "admin", null)`——改它的角色会动到本文件其余全部用例的
+ * RBAC 前提（谁能不能挂 skill/发消息全部现由 "admin" 这个角色跑），影响面远超「加一个
  * 模板」这一件事。所以另开一个**只用于本次种子写入、从不参与登录/断言**的专属 admin，
  * 与 `backfill-canvas-builtin-templates.ts` 「找不到 admin 就抛错」不同的是——这里既然
  * 是从零建组织，直接现造一个即可，不必去库里现查。
@@ -896,7 +896,7 @@ const defaultFixture = defaultAgentE2eIdentity({ orgId: ORG_ID, userId: USER_ID,
   email: EMAIL, agentId: AGENT_ID, deepAgentId: DEEP_AGENT_ID });
 await resetOrgs(defaultFixture.orgId);
 await seedOrg({ orgId: defaultFixture.orgId, projectId: defaultFixture.projectId, groupNames: ["readers"] });
-await addOrgMember(defaultFixture.orgId, defaultFixture.userId, "lead", null);
+await addOrgMember(defaultFixture.orgId, defaultFixture.userId, "admin", null);
 await addProjectMember(defaultFixture.orgId, defaultFixture.projectId, defaultFixture.userId, "facilitator", null);
 await asOwner(async (client) => {
   await client.query("DELETE FROM credentials WHERE user_id=$1 OR email=$2", [defaultFixture.userId, defaultFixture.email]);

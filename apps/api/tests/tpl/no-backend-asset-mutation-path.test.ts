@@ -98,7 +98,7 @@ describe("② 审计：套用蓝本成功写 `套用`，且不重复计数幂等
 
     const out = await applyBlueprintUseCase(
       { repo, auditWriter },
-      { ...baseInput, actorOrgRole: "lead" },
+      { ...baseInput, actorOrgRole: "admin" },
     );
 
     expect(auditWriter.records).toHaveLength(1);
@@ -113,7 +113,7 @@ describe("② 审计：套用蓝本成功写 `套用`，且不重复计数幂等
   it("没有传 auditWriter 时套用照常成功——审计是可选依赖，不是隐藏前置条件", async () => {
     const repo = new SpyRepository();
     await expect(
-      applyBlueprintUseCase({ repo }, { ...baseInput, idempotencyKey: "idem-noaudit", actorOrgRole: "lead" }),
+      applyBlueprintUseCase({ repo }, { ...baseInput, idempotencyKey: "idem-noaudit", actorOrgRole: "admin" }),
     ).resolves.toMatchObject({ projectId: expect.any(String) });
   });
 });
@@ -133,13 +133,13 @@ describe("② 审计：三条权限/可见性判定被拒 ⇒ 写 `越权尝试`
     expect(auditWriter.records[0]!.detail).toMatchObject({ reasonCode: "NO_ORG_ROLE" });
   });
 
-  it("角色不足（非 lead，含 admin）：ROLE_INSUFFICIENT，零业务写入，审计写 `越权尝试`", async () => {
+  it("普通成员角色不足：ROLE_INSUFFICIENT，零业务写入，审计写 `越权尝试`", async () => {
     const repo = new SpyRepository();
     const auditWriter = new RecordingAuditWriter();
 
-    // ⚠ 同头注②：**连 admin 都不行**——套用蓝本的终点是建项目容器，只有 lead 能建。
+    // 普通成员不得通过套用蓝本绕过组织管理员创建权限。
     await expect(
-      applyBlueprintUseCase({ repo, auditWriter }, { ...baseInput, actorOrgRole: "admin" }),
+      applyBlueprintUseCase({ repo, auditWriter }, { ...baseInput, actorOrgRole: "consultant" }),
     ).rejects.toThrow(ApplyBlueprintError);
 
     expect(repo.calls).toBe(0);
@@ -154,7 +154,7 @@ describe("② 审计：三条权限/可见性判定被拒 ⇒ 写 `越权尝试`
     await expect(
       applyBlueprintUseCase(
         { repo, auditWriter },
-        { ...baseInput, actorOrgRole: "lead", visibleToActor: false },
+        { ...baseInput, actorOrgRole: "admin", visibleToActor: false },
       ),
     ).rejects.toThrow(ApplyBlueprintError);
 
@@ -175,7 +175,7 @@ describe("② 审计：三条权限/可见性判定被拒 ⇒ 写 `越权尝试`
     };
 
     await expect(
-      applyBlueprintUseCase({ repo: failingRepo, auditWriter }, { ...baseInput, actorOrgRole: "lead" }),
+      applyBlueprintUseCase({ repo: failingRepo, auditWriter }, { ...baseInput, actorOrgRole: "admin" }),
     ).rejects.toThrow(ApplyBlueprintError);
 
     expect(auditWriter.records).toEqual([]);

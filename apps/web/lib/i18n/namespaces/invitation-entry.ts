@@ -1,4 +1,8 @@
 export const invitationEntryZhCN = {
+  "invitation.workshopRecipient": "收件人邮箱",
+  "invitation.workshopSend": "发送邀请邮件",
+  "invitation.workshopSent": "邀请邮件已发送，请收件人使用本组织账号登录后加入。",
+  "invitation.workshopFailed": "邮件发送失败，邀请链接仍可复制；请稍后重试发送。",
   "invitation.linkReplacementPartial": "新邀请链接已创建并显示，但旧链接未能作废，请重试作废旧链接。",
   "invitation.memberRole": "普通成员",
   "invitation.ordinaryMemberNote": "邀请将通过邮件发送，受邀者以普通成员身份加入组织。",
@@ -41,6 +45,10 @@ export const invitationEntryZhCN = {
   "invitation.workspace": "进入工作台",
 } as const;
 export const invitationEntryEn: Record<keyof typeof invitationEntryZhCN, string> = {
+  "invitation.workshopRecipient": "Recipient email",
+  "invitation.workshopSend": "Send invitation email",
+  "invitation.workshopSent": "Invitation email sent. Sign in with an organization account to join.",
+  "invitation.workshopFailed": "Email could not be sent. You can still copy the invitation link or retry later.",
   "invitation.linkReplacementPartial": "The new invitation link is shown, but the old link could not be revoked. Retry revoking the old link.",
   "invitation.memberRole": "Member",
   "invitation.ordinaryMemberNote": "An invitation email will be sent. Invitees join as ordinary members.",

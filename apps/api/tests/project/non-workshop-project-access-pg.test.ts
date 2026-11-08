@@ -77,7 +77,7 @@ beforeEach(async () => {
     await c.query("INSERT INTO workshops (id, org_id) VALUES ($1, $2)", [WORKSHOP, ORG]);
   });
   for (const u of [OWNER, COLLAB, CONSULTANT]) await addOrgMember(ORG, u, "consultant", null);
-  await addOrgMember(ORG, LEAD, "lead", null);
+  await addOrgMember(ORG, LEAD, "admin", null);
   await asApp(ORG, async (c) => {
     await c.query("INSERT INTO general_project_members (user_id, project_id, org_id, role) VALUES ($1, $2, $3, 'owner')", [OWNER, RESEARCH, ORG]);
     await c.query("INSERT INTO general_project_members (user_id, project_id, org_id, role) VALUES ($1, $2, $3, 'collaborator')", [COLLAB, RESEARCH, ORG]);
