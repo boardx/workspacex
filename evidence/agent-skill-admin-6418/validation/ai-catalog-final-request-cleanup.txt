@@ -1,0 +1,14 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/web
+
+ ✓ tests/ui/platform-ai-catalog.test.tsx (6 tests) 976ms
+ ✓ tests/ui/public-ai-catalog.test.tsx (3 tests) 479ms
+   ✓ public capability enablement > keeps card minimal and enables the selected exact version only from details 384ms
+ ✓ tests/ui/organization-ai-catalog-navigation.test.tsx (2 tests) 250ms
+
+ Test Files  3 passed (3)
+      Tests  11 passed (11)
+   Start at  20:36:17
+   Duration  12.57s (transform 2.60s, setup 542ms, collect 6.19s, tests 1.71s, environment 3.10s, prepare 289ms)
+

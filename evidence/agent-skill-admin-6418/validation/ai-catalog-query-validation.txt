@@ -1,0 +1,11 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api
+
+[db-isolation] selection is DB-free (tests/support/db-free-tests.ts); skipping database setup
+ ✓ tests/ai-catalog/query-validation.test.ts (1 test) 10ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  19:40:47
+   Duration  3.71s (transform 1.25s, setup 52ms, collect 1.27s, tests 10ms, environment 0ms, prepare 293ms)
+

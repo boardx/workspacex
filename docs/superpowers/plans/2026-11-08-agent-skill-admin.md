@@ -25,28 +25,28 @@
 
 ### 1. Server administration, public publication and enablement
 Ownership: packages/contracts plus apps/api controllers/application/infrastructure/migrations/tests for new scoped catalog management. Existing platform organization and guard are single sources.
-- [ ] Trace existing entity creation/publication/import and RLS before selecting implementation; record decisions.
-- [ ] Add failing contract and real HTTP/PG tests: platform nonmember target management, ordinary platform denial, private isolation, public draft invisibility, published discovery, admin-only enable, unenabled execution denial, immutable version linkage, audit.
-- [ ] Implement bounded scoped catalog operations, public authoring/publication and persisted organization enablement using existing domain flows, keeping explicit actor and tenant.
-- [ ] Run focused isolated tests and contracts/API checks; clean exact owned containers.
+- [x] Trace existing entity creation/publication/import and RLS before selecting implementation; record decisions.
+- [x] Add contract and real HTTP/PG tests (regression failures recorded where observed): platform nonmember target management, ordinary platform denial, private isolation, public draft invisibility, published discovery, admin-only enable, unenabled execution denial, immutable version linkage, audit.
+- [x] Implement bounded scoped catalog operations, public authoring/publication and persisted organization enablement using existing domain flows, keeping explicit actor and tenant.
+- [x] Run focused isolated tests and contracts/API checks; clean exact owned containers.
 
 ### 2. Shared presentation
 Ownership: shared Agent/Skill card plus AgentDirectory, official panel, CapabilityCatalogScreen, SkillCatalogLive, WorkSkillCatalog production card renderers and focused UI tests.
-- [ ] Regression for image/name/two-line description and detail-only ID/actions.
-- [ ] Reuse ResourceCard/Avatar, same image dimensions and responsive grid; preserve task actions in detail.
-- [ ] Preserve all existing entity types, official content and failure/empty states. No global unrelated card redesign.
-- [ ] Run focused affected UI tests/typecheck.
+- [x] Regression for image/name/two-line description and detail-only ID/actions.
+- [x] Reuse ResourceCard/Avatar, same image dimensions and responsive grid; preserve task actions in detail.
+- [x] Preserve all existing entity types, official content and failure/empty states. No global unrelated card redesign.
+- [x] Run focused affected UI tests/typecheck.
 
 ### 3. Scope routes and integration
 Ownership: navigation/admin metadata, route pages, scoped administration client wrapper, i18n and scope tests (root).
-- [ ] Remove top-level Agent/Skill overflow entries; add organization and platform destinations.
-- [ ] Keep ordinary-member discoverability without exposing unrelated administrator navigation.
-- [ ] Preserve old production deep links and all Skill library/catalog/work-catalog paths.
-- [ ] Integrate explicit platform/public organization target selector and backend contract, organization public-enable controls.
-- [ ] Clear stale selected/detail state on scope change; test late response suppression.
+- [x] Remove top-level Agent/Skill overflow entries; add organization and platform destinations.
+- [x] Keep ordinary-member discoverability without exposing unrelated administrator navigation.
+- [x] Preserve old production deep links and all Skill library/catalog/work-catalog paths.
+- [x] Integrate explicit platform/public organization target selector and backend contract, organization public-enable controls.
+- [x] Clear stale selected/detail state on scope change; test late response suppression.
 
 ### 4. Evidence and delivery
-- [ ] Review exact final diff, fix findings without weakening permission tests.
-- [ ] Real browser inspect all organization/platform Agent/Skill views plus narrow viewport and detail.
-- [ ] Affected types/lint/tests and prepush checks, PR Closes6418, own CI until green.
-- [ ] Record exact validation limits, logs, screenshots and cleanup in evidence/agent-skill-admin-6418/; no production deployment claim.
+- [x] Review exact final diff, fix findings without weakening permission tests.
+- [x] Real browser inspect all organization/platform Agent/Skill views plus narrow viewport and detail.
+- [ ] Affected types/lint/tests passed before integration; post-merge/prepush checks, PR Closes6418 and CI still pending.
+- [x] Record exact validation limits, logs, screenshots and cleanup in evidence/agent-skill-admin-6418/; no production deployment claim.

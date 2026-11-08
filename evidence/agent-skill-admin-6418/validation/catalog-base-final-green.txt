@@ -1,0 +1,28 @@
+[stack-admission] load1=22.18 cores=10 perCore=2.22 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw7pk7hp-784c1915-6789e3104afc db=wsx_6789e3104afc117d871b compose=wsx-6789e3104afc117d871b pg=20808 redis=21808 api=24808 web=25808 sandbox=26808 model=27808 deep-agent=28808 asr=29808 vision=30808 loopback-sandbox=31808 mail=19808
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api
+
+[db-isolation] db=wsx_6789e3104afc117d871b capacity=100 current=6 required=32
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+{"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+{"level":"error","msg":"http exception","traceId":"f76ec6f8-4e4c-492f-b096-f81e0adc8410","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at AiCatalogAdminService.transaction (/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api/src/application/ai-catalog/admin-service.ts:42:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+ ✓ tests/ai-catalog/agent-admin-http.test.ts (6 tests | 4 skipped) 96810ms
+   ✓ editing a published Agent stages a new revision without changing the running immutable version 1802ms
+   ✓ frozen dependencies in an imported base cannot be silently dropped by an empty draft definition 539ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed | 4 skipped (6)
+   Start at  18:47:23
+   Duration  111.06s (transform 29.65s, setup 31ms, collect 5.07s, tests 96.81s, environment 0ms, prepare 218ms)
+
+[db-isolation] db=wsx_6789e3104afc117d871b peak_connections=7
+[timing] pnpm --filter @repo/api exec vitest run tests/ai-catalog/agent-admin-http.test.ts -t editing a published Agent|frozen dependencies --maxWorkers=1 --minWorkers=1 --no-file-parallelism
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1m53s
+  清理：4s
+  总计：1m57s
