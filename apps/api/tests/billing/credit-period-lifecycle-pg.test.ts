@@ -1,3 +1,7 @@
+// @global-scope-fixture table:credentials: the unique welcome replay credential and its grant exist only inside a transaction rolled back in finally.
+// @global-scope-fixture table:credit_subscription_periods: historical rows live in a transaction-owned schema rolled back in finally; regular fixture owners keep existing teardown.
+// @global-scope-fixture table:credit_transactions: historical invalid writes use savepoint rollback and the entire historical schema rolls back in finally.
+import {BILLING_ACCOUNTING_GENERATION as generation} from "../../src/domain/billing/billing-generation";
 import {afterAll, beforeAll, expect, it} from "vitest";
 import {randomUUID} from "node:crypto";
 import {ensureDatabase, migrateOnce, seedOrg, asApp, asOwner} from "../support/db";
@@ -99,6 +103,32 @@ it("replays the new migration without changing existing balances or granting aga
   const f = await fixture("migration"); await f.grant();
   const before = (await f.wallet()).wallet;
   const sql = readFileSync(new URL("../../migrations/20261030010000_credit_subscription_periods.sql", import.meta.url), "utf8");
-  await asOwner(async c => {await c.query("BEGIN"); try {await c.query(sql); await c.query(sql);} finally {await c.query("ROLLBACK");}});
+  await asOwner(async c => {await c.query("BEGIN"); try {
+    await c.query("UPDATE billing_pricing_epoch SET generation=$1,activated_at=clock_timestamp() WHERE singleton",[generation]);
+    const credential=`${prefix}-welcome-replay`;
+    await c.query("INSERT INTO credentials(user_id,email,display_name,password_hash,created_at) VALUES($1,$2,'Replay welcome','$2b$12$test-fixture-already-hashed',clock_timestamp())",[credential,`${credential}@example.test`]);
+    expect((await c.query("SELECT type FROM credit_transactions t JOIN credit_wallets w USING(wallet_id) WHERE w.owner_id=$1",[credential])).rows.some(row=>row.type==='welcome_grant')).toBe(true);
+    const modernWallet=(await c.query("SELECT * FROM public.credit_wallets WHERE owner_type='user' AND owner_id=$1",[credential])).rows;
+    const modernPeriods=(await c.query("SELECT * FROM public.credit_subscription_periods WHERE wallet_id=(SELECT wallet_id FROM public.credit_wallets WHERE owner_type='user' AND owner_id=$1)",[credential])).rows;
+    const schema=`period_replay_${randomUUID().replaceAll("-","")}`;
+    await c.query(`CREATE SCHEMA "${schema}"`);await c.query(`SET LOCAL search_path TO "${schema}",public`);
+    const core=readFileSync(new URL("../../migrations/20261001090000_billing_credits_core.sql",import.meta.url),"utf8");
+    const precision=readFileSync(new URL("../../migrations/20261022120000_credit_consumption.sql",import.meta.url),"utf8");
+    await c.query(core);await c.query(precision);await c.query(sql);
+    const wallet=(await c.query("INSERT INTO credit_wallets(owner_type,owner_id,balance) VALUES('user','historical',37) RETURNING wallet_id")).rows[0].wallet_id;
+    await c.query("INSERT INTO credit_subscription_periods(wallet_id,subscription_ref,invoice_ref,plan_ref,period_start,period_end,granted_hundredths,remaining_hundredths) VALUES($1,'s','i','p',now(),now()+interval '30 days',100,80)",[wallet]);
+    const historical=async()=>({wallets:(await c.query("SELECT * FROM credit_wallets")).rows,periods:(await c.query("SELECT * FROM credit_subscription_periods")).rows});
+    const snapshot=await historical();
+    await c.query(core);await c.query(precision);await c.query(sql);
+    expect(await historical()).toEqual(snapshot);
+    const reject=async(statement:string,args:unknown[]=[])=>{await c.query("SAVEPOINT invalid_probe");try{await expect(c.query(statement,args)).rejects.toMatchObject({code:'23514'});}finally{await c.query("ROLLBACK TO SAVEPOINT invalid_probe");}};
+    await reject("INSERT INTO credit_subscription_periods(wallet_id,subscription_ref,invoice_ref,plan_ref,period_start,period_end,granted_hundredths,remaining_hundredths) VALUES($1,'bad','bad','p',now(),now()-interval '1 day',100,80)",[wallet]);
+    await reject("INSERT INTO credit_transactions(wallet_id,type,direction,credits,balance_after,source_type,source_id) VALUES($1,'invalid',1,1,37,'payment_order','bad')",[wallet]);
+    await reject("INSERT INTO credit_transactions(wallet_id,type,direction,credits,balance_after,source_type,source_id) VALUES($1,'subscription_grant',-1,1,37,'subscription_period','bad')",[wallet]);
+    await reject("INSERT INTO credit_transactions(wallet_id,type,direction,credits,balance_after,source_type,source_id) VALUES($1,'subscription_grant',1,1,37,'admin_grant','bad-source')",[wallet]);
+    await reject("INSERT INTO credit_subscription_periods(wallet_id,subscription_ref,invoice_ref,plan_ref,period_start,period_end,granted_hundredths,remaining_hundredths) VALUES($1,'over','over','p',now(),now()+interval '1 day',100,101)",[wallet]);
+    expect((await c.query("SELECT * FROM public.credit_wallets WHERE owner_type='user' AND owner_id=$1",[credential])).rows).toEqual(modernWallet);
+    expect((await c.query("SELECT * FROM public.credit_subscription_periods WHERE wallet_id=(SELECT wallet_id FROM public.credit_wallets WHERE owner_type='user' AND owner_id=$1)",[credential])).rows).toEqual(modernPeriods);
+  } finally {await c.query("ROLLBACK");}});
   expect((await f.wallet()).wallet).toEqual(before);
 });
