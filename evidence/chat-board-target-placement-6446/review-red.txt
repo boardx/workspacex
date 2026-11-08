@@ -1,0 +1,94 @@
+[stack-admission] load1=2.09 cores=10 perCore=0.21 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw880789-9149de1d-7a1366a506d6 db=wsx_7a1366a506d613db0799 compose=wsx-7a1366a506d613db0799 pg=20813 redis=21813 api=24813 web=25813 sandbox=26813 model=27813 deep-agent=28813 asr=29813 vision=30813 loopback-sandbox=31813 mail=19813
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/2e5d/workspacex/apps/web
+
+ ❯ tests/whiteboard/chat-board-source.test.ts (3 tests | 3 failed) 5ms
+   × uses only the returned artifact and its server immutable revision 3ms
+     → createBoardHandoffSourcePreparer is not a function
+   × fails closed when readback cannot provide an immutable revision 0ms
+     → createBoardHandoffSourcePreparer is not a function
+   × retries readback of the same landed artifact rather than creating another 0ms
+     → createBoardHandoffSourcePreparer is not a function
+ ❯ tests/whiteboard/chat-board-handoff-retry.test.tsx (16 tests | 1 failed) 258ms
+   × ignores distant hidden objects when recommending the initial insertion position 16ms
+     → expected { x: 100160, y: 99925 } to deeply equal { x: -100, y: -100 }
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/whiteboard/chat-board-handoff-retry.test.tsx > ignores distant hidden objects when recommending the initial insertion position
+AssertionError: expected { x: 100160, y: 99925 } to deeply equal { x: -100, y: -100 }
+
+- Expected
++ Received
+
+  Object {
+-   "x": -100,
+-   "y": -100,
++   "x": 100160,
++   "y": 99925,
+  }
+
+ ❯ tests/whiteboard/chat-board-handoff-retry.test.tsx:124:48
+    122|  mocks.insert.mockResolvedValue({});await open();
+    123|  fireEvent.click(screen.getByTestId('chat-board-handoff-confirm'));awa…
+    124|  expect(mocks.insert.mock.calls[0]![0].offset).toEqual({x:-100,y:-100}…
+       |                                                ^
+    125| });
+    126| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  tests/whiteboard/chat-board-source.test.ts > uses only the returned artifact and its server immutable revision
+TypeError: createBoardHandoffSourcePreparer is not a function
+ ❯ tests/whiteboard/chat-board-source.test.ts:10:15
+      8|  transport.source.mockResolvedValue({immutableRevision:'artifact-v1:9'…
+      9|  const input={threadId:'thread',messageId:'message',projectId:'project…
+     10|  await expect(createBoardHandoffSourcePreparer(input)()).resolves.toEq…
+       |               ^
+     11|  expect(transport.land).toHaveBeenCalledWith('thread',{messageId:'mess…
+     12|  expect(transport.source).toHaveBeenCalledWith('thread','actual-artifa…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  tests/whiteboard/chat-board-source.test.ts > fails closed when readback cannot provide an immutable revision
+TypeError: createBoardHandoffSourcePreparer is not a function
+ ❯ tests/whiteboard/chat-board-source.test.ts:16:15
+     14| it('fails closed when readback cannot provide an immutable revision',a…
+     15|  transport.land.mockResolvedValue({artifactId:'actual-artifact'});tran…
+     16|  await expect(createBoardHandoffSourcePreparer({threadId:'thread',mess…
+       |               ^
+     17| });
+     18| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  tests/whiteboard/chat-board-source.test.ts > retries readback of the same landed artifact rather than creating another
+TypeError: createBoardHandoffSourcePreparer is not a function
+ ❯ tests/whiteboard/chat-board-source.test.ts:22:16
+     20|  transport.land.mockResolvedValue({artifactId:'actual-artifact'});
+     21|  transport.source.mockRejectedValueOnce(new Error('network')).mockReso…
+     22|  const prepare=createBoardHandoffSourcePreparer({threadId:'thread',mes…
+       |                ^
+     23|  await expect(prepare()).rejects.toThrow('network');
+     24|  await expect(prepare()).resolves.toEqual({artifactId:'actual-artifact…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+ Test Files  2 failed (2)
+      Tests  4 failed | 15 passed (19)
+   Start at  03:23:41
+   Duration  2.03s (transform 314ms, setup 284ms, collect 552ms, tests 263ms, environment 793ms, prepare 163ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/2e5d/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/whiteboard/chat-board-source.test.ts tests/whiteboard/chat-board-handoff-retry.test.tsx
+[timing] pnpm --filter web exec vitest run tests/whiteboard/chat-board-source.test.ts tests/whiteboard/chat-board-handoff-retry.test.tsx
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：3s
+  清理：0s
+  总计：3s

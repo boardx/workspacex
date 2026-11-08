@@ -1,0 +1,61 @@
+{
+  "boundary": "Generation not executed: only an assistant message was inserted into this spec-owned real thread in the isolated database. No HTTP fixtures: actual message readback, source save/readback/revision, project links, board pagination, handoffs and persistence.",
+  "scopes": [
+    {
+      "scope": "project",
+      "lang": "canvas",
+      "templateKey": "empathy",
+      "boardId": "e0472218-3f24-4e6f-b8f2-bdc3f9fe5f4b",
+      "threadId": "thr-58ac40df-32b7-45de-a432-f5a6a39841a8",
+      "messageId": "placement-source-1b9d2b99-4b27-42df-874d-4b17031393f7",
+      "generation": "not-executed",
+      "assistantHash": "4fa5ba971cdde8dc02dfe74641da1b6284d4d11c5f1d8d46e4069ef9637e3190",
+      "artifactId": "art-5fa692fa-5c6f-4558-b1cf-fa646db1e76f",
+      "sourceHash": "1459f0b39a523f1b1762351e049d980dfce532679c18e2d5f31a07f2343a3e3b",
+      "layoutHash": "layout-v1:2c8d7eff77f98330bc72bc45960e8e43fdb51c9343b1337e2ec3fcba8e651ee7",
+      "revision": {
+        "epoch": 1,
+        "seq": 2
+      },
+      "sourceRevision": "artifact-v1:1",
+      "cancelWrites": 0,
+      "sourceSaves": 1,
+      "saveIndex": 0,
+      "sourceIndex": 1,
+      "handoffIndex": 2,
+      "listReads": [
+        "http://127.0.0.1:25119/__fullstack_api/projects/project-fullstack-0n-a82a5eab-fa4125dcc1f7/resources",
+        "http://127.0.0.1:25119/__fullstack_api/projects/project-fullstack-0n-a82a5eab-fa4125dcc1f7/resources"
+      ]
+    },
+    {
+      "scope": "organization",
+      "lang": "mermaid",
+      "templateKey": null,
+      "boardId": "fa354489-a5b2-48be-9330-bc9fd176720e",
+      "threadId": "thr-e10b5ad5-c30d-45b5-be6c-25eb342c11cd",
+      "messageId": "placement-source-e9dcfd80-1b91-4198-8246-8902b54fa5b7",
+      "generation": "not-executed",
+      "assistantHash": "1085d63ca31a9d489117186316df8c05a82c421d940b932e68b0f6227cda37cf",
+      "artifactId": "art-04d0901b-34f7-47ef-9f0a-203b66daceec",
+      "sourceHash": "6281a57697565648de81876df029482b152b8493dfb340b391ee46d4e7b47c19",
+      "layoutHash": "layout-v1:ef7cd5b808218ee829fe59bfc59da5afe86325e36cf4ea5492b534a5b41c4a0d",
+      "revision": {
+        "epoch": 1,
+        "seq": 2
+      },
+      "sourceRevision": "artifact-v1:1",
+      "cancelWrites": 0,
+      "sourceSaves": 1,
+      "saveIndex": 3,
+      "sourceIndex": 4,
+      "handoffIndex": 5,
+      "listReads": [
+        "http://127.0.0.1:25119/__fullstack_api/whiteboards?archived=active&limit=30",
+        "http://127.0.0.1:25119/__fullstack_api/whiteboards?archived=active&limit=30&cursor=eyJ2IjoxLCJ1bnRhZ2dlZCI6ImZhbHNlIiwib3JnSWQiOiJvcmctZnVsbHN0YWNrLTBuLWE4MmE1ZWFiLWZhNDEyNWRjYzFmNyIsInVzZXJJZCI6InVzZXItZnVsbHN0YWNrLTBuLWE4MmE1ZWFiLWZhNDEyNWRjYzFmNyIsInF1ZXJ5IjpudWxsLCJ0YWdJZHMiOltdLCJhcmNoaXZlZCI6ImFjdGl2ZSIsImxpbWl0IjozMCwidXBkYXRlZEF0IjoiMjAyNi0xMS0wOFQyMDoyMDo0Ni45NDBaIiwiaWQiOiJjODhkNWZhYi04MjMyLTQ0OGQtOGQyNy04YmYwYzY4YmZiY2MifQ.PRXSw4AS9M7KRyRBT-DNlsE7HGMcZ8Vj0vVUlMNwF68",
+        "http://127.0.0.1:25119/__fullstack_api/whiteboards?archived=active&limit=30",
+        "http://127.0.0.1:25119/__fullstack_api/whiteboards?archived=active&limit=30&cursor=eyJ2IjoxLCJ1bnRhZ2dlZCI6ImZhbHNlIiwib3JnSWQiOiJvcmctZnVsbHN0YWNrLTBuLWE4MmE1ZWFiLWZhNDEyNWRjYzFmNyIsInVzZXJJZCI6InVzZXItZnVsbHN0YWNrLTBuLWE4MmE1ZWFiLWZhNDEyNWRjYzFmNyIsInF1ZXJ5IjpudWxsLCJ0YWdJZHMiOltdLCJhcmNoaXZlZCI6ImFjdGl2ZSIsImxpbWl0IjozMCwidXBkYXRlZEF0IjoiMjAyNi0xMS0wOFQyMDoyMDo0Ni45NDBaIiwiaWQiOiJjODhkNWZhYi04MjMyLTQ0OGQtOGQyNy04YmYwYzY4YmZiY2MifQ.PRXSw4AS9M7KRyRBT-DNlsE7HGMcZ8Vj0vVUlMNwF68"
+      ]
+    }
+  ]
+}

@@ -27,6 +27,7 @@ import { BoardCommentIndicator } from "./board-appearance-controls";
 import { fitDrawingStrokeToExtensionBudget } from "./board-drawing-budget";
 export { fitDrawingStrokeToExtensionBudget } from "./board-drawing-budget";
 import { BoardToolPopover } from "./board-tool-popover";
+import {useBoardArtifactFocus,type BoardArtifactFocusRequest} from "./use-board-artifact-focus";
 import {useBoardOrganizeFit,type BoardOrganizeFitRequest} from "./use-board-organize-fit";
 import { eraserTargetStrokeIds } from "./board-drawing-eraser";
 import { BoardDownloadControls } from "./board-download-controls";
@@ -78,7 +79,7 @@ type StructuredDraft = { objectId: string; title: string; details: string } | nu
 type PendingConnector = { objectId: string; anchor: ConnectorAnchor } | null;
 type SmartLayoutSuggestion = "grid" | "cards" | "cluster" | "journey" | "flow" | "timeline";
 const SMART_LAYOUTS: readonly [SmartLayoutSuggestion, string][] = [["grid", "Grid"], ["cards", "Cards"], ["cluster", "Cluster"], ["journey", "Journey"], ["flow", "Flow"], ["timeline", "Timeline"]];
-export interface CollaborativeThinkingEditorProps { organizeFitRequest?: BoardOrganizeFitRequest|null; dockExtension?: React.ReactNode; presentationControls?: React.ReactNode; boardId: string; clientId: string; doc: Y.Doc; readOnly: boolean; commentsReadOnly?:boolean; role?: "owner" | "editor" | "commenter" | "viewer"; title: string; status: string; syncState?: BoardSyncVisualState; syncPhase?: BoardSyncPhase; syncDetails?: string; onRetrySync?: () => void; serverRevision?:{epoch:number;seq:number}|null; lastAckSequence?:number|null; lastAckReceipt?:WhiteboardConnectionState["lastAckReceipt"]; onTitleChange?: (title: string) => void; onBack?: () => void; onImport?: () => void; onSelectionChange?: (ids: string[]) => void; onAwareness?: (cursor: Point | null, ids: string[], editingObjectId: string | null, collaboration:{viewport:{centerX:number;centerY:number;zoom:number;revision:number};presenting:boolean;followingActorId:string|null}, pointer?:{pointerType:'mouse'|'touch'|'pen';pressure:number;tiltX:number;tiltY:number;roomIdentity:null;reconnectToken:null}) => void; peers?: WhiteboardConnectionState["peers"]; currentUserId?: string; followViewport?: {x:number;y:number;zoom:number}|null; onViewportObserved?: (viewport:{x:number;y:number;zoom:number})=>void; onManualViewportChange?:()=>void; }
+export interface CollaborativeThinkingEditorProps { artifactFocus?: BoardArtifactFocusRequest|null; organizeFitRequest?: BoardOrganizeFitRequest|null; dockExtension?: React.ReactNode; presentationControls?: React.ReactNode; boardId: string; clientId: string; doc: Y.Doc; readOnly: boolean; commentsReadOnly?:boolean; role?: "owner" | "editor" | "commenter" | "viewer"; title: string; status: string; syncState?: BoardSyncVisualState; syncPhase?: BoardSyncPhase; syncDetails?: string; onRetrySync?: () => void; serverRevision?:{epoch:number;seq:number}|null; lastAckSequence?:number|null; lastAckReceipt?:WhiteboardConnectionState["lastAckReceipt"]; onTitleChange?: (title: string) => void; onBack?: () => void; onImport?: () => void; onSelectionChange?: (ids: string[]) => void; onAwareness?: (cursor: Point | null, ids: string[], editingObjectId: string | null, collaboration:{viewport:{centerX:number;centerY:number;zoom:number;revision:number};presenting:boolean;followingActorId:string|null}, pointer?:{pointerType:'mouse'|'touch'|'pen';pressure:number;tiltX:number;tiltY:number;roomIdentity:null;reconnectToken:null}) => void; peers?: WhiteboardConnectionState["peers"]; currentUserId?: string; followViewport?: {x:number;y:number;zoom:number}|null; onViewportObserved?: (viewport:{x:number;y:number;zoom:number})=>void; onManualViewportChange?:()=>void; }
 
 const stickySize = (variant: StickyVariant) => variant === "rectangle" ? { width: 240, height: 150 } : { width: 180, height: 180 };
 const FRAME_SIZE_PRESETS = [{ id: "s", label: "S", width: 640, height: 480 }, { id: "m", label: "M", width: 960, height: 640 }, { id: "l", label: "L", width: 1280, height: 800 }] as const;
@@ -95,7 +96,7 @@ function panelForFrameChoice(choice: BoardFrameChoice, mode: PanelMetadata["mode
   return { version:1, mode, autoExpand:true, clipContent:false, padding:24, gap:24, columns:template==="section"?2:template==="grid"?2:3, flowDirection:template==="timeline"?"horizontal":"vertical", shape, template };
 }
 
-export function CollaborativeThinkingEditor({ organizeFitRequest, dockExtension, presentationControls, boardId, clientId, doc, readOnly, commentsReadOnly=false, role="viewer", title, status, syncState, syncPhase, syncDetails, onRetrySync, serverRevision=null, lastAckSequence=null, lastAckReceipt=null, onTitleChange, onBack, onImport, onSelectionChange, onAwareness, peers = [], currentUserId, followViewport, onViewportObserved, onManualViewportChange }: CollaborativeThinkingEditorProps) {
+export function CollaborativeThinkingEditor({ artifactFocus, organizeFitRequest, dockExtension, presentationControls, boardId, clientId, doc, readOnly, commentsReadOnly=false, role="viewer", title, status, syncState, syncPhase, syncDetails, onRetrySync, serverRevision=null, lastAckSequence=null, lastAckReceipt=null, onTitleChange, onBack, onImport, onSelectionChange, onAwareness, peers = [], currentUserId, followViewport, onViewportObserved, onManualViewportChange }: CollaborativeThinkingEditorProps) {
   const frame=useBoardFrame();
   const centerPoint=useCallback((value:BoardViewport):Point=>boardFrameCenter(frame.size,value),[frame.size]);
   const model = useWhiteboardDocument(doc, readOnly);
@@ -114,6 +115,7 @@ export function CollaborativeThinkingEditor({ organizeFitRequest, dockExtension,
   useEffect(()=>{onViewportObserved?.({x:viewport.panX,y:viewport.panY,zoom:viewport.zoom});},[onViewportObserved,viewport.panX,viewport.panY,viewport.zoom]);
   const chromeHost=frame.ref;
   const chromeInsets=useBoardChromeInsets(chromeHost,selected.length);
+  useBoardArtifactFocus(artifactFocus,model.objects,chromeHost,setViewport,chromeInsets,JSON.stringify([boardId,currentUserId??null]),Boolean(currentUserId)&&frame.size.width>0&&frame.size.height>0);
   const organizeFitHost=useRef<HTMLDivElement>(null);
   const cancelOrganizeFit=useBoardOrganizeFit(organizeFitRequest,model.objects,organizeFitHost,setViewport,chromeInsets);
   const handleViewportChange=(next:BoardViewport,source:BoardViewportSource)=>{if(source==='pan'||source==='wheel'){cancelOrganizeFit();setFollowingActorId(null);onManualViewportChange?.();}setViewport(next);if(source!=="controlled")persistViewport(next);};

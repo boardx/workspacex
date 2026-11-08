@@ -1,0 +1,22 @@
+[stack-admission] load1=3.10 cores=10 perCore=0.31 running=0/2
+[test-isolation] id=run-mw8813yq-8e812b7c-b25213ba69a9 db=wsx_b25213ba69a986c5c5a4 compose=wsx-b25213ba69a986c5c5a4 pg=20450 redis=21450 api=24450 web=25450 sandbox=26450 model=27450 deep-agent=28450 asr=29450 vision=30450 loopback-sandbox=31450 mail=19450
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/2e5d/workspacex/apps/web
+
+ ✓ tests/whiteboard/chat-board-source.test.ts (3 tests) 6ms
+ ✓ tests/whiteboard/chat-board-handoff-retry.test.tsx (16 tests) 266ms
+ ✓ tests/ui/chat-canvas-fence-layout-source.test.tsx (5 tests) 872ms
+
+ Test Files  3 passed (3)
+      Tests  24 passed (24)
+   Start at  03:24:23
+   Duration  4.65s (transform 1.91s, setup 354ms, collect 3.18s, tests 1.14s, environment 1.30s, prepare 263ms)
+
+[timing] pnpm --filter web exec vitest run tests/whiteboard/chat-board-source.test.ts tests/whiteboard/chat-board-handoff-retry.test.tsx tests/ui/chat-canvas-fence-layout-source.test.tsx
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：6s
+  清理：0s
+  总计：6s

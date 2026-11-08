@@ -1,0 +1,40 @@
+[stack-admission] load1=4.04 cores=10 perCore=0.40 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw88eamx-7a18cb4f-53a073cacd33 db=wsx_53a073cacd33284b8da1 compose=wsx-53a073cacd33284b8da1 pg=20330 redis=21330 api=24330 web=25330 sandbox=26330 model=27330 deep-agent=28330 asr=29330 vision=30330 loopback-sandbox=31330 mail=19330
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/2e5d/workspacex/apps/web
+
+ ❯ tests/whiteboard/chat-board-source.test.ts (4 tests | 1 failed) 624ms
+   × serializes the actual rendered model to canonical source with its own fence language 619ms
+     → modelToMarkdown is not a function
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/whiteboard/chat-board-source.test.ts > serializes the actual rendered model to canonical source with its own fence language
+TypeError: modelToMarkdown is not a function
+ ❯ tests/whiteboard/chat-board-source.test.ts:32:9
+     30|  const {modelToMarkdown,templateToModel}=await import('@repo/fabric-ma…
+     31|  const diagram={kind:'flowchart' as const,direction:'TD' as const,node…
+     32|  expect(modelToMarkdown(diagram)).toBe('```mermaid\nflowchart TD\n    …
+       |         ^
+     33|  const persona=templateToModel('模板: persona\n姓名: 林可\n## 用户描述…
+     34|  const source=modelToMarkdown(persona);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 3 passed (4)
+   Start at  03:34:38
+   Duration  1.17s (transform 225ms, setup 178ms, collect 32ms, tests 624ms, environment 0ms, prepare 97ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/2e5d/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/whiteboard/chat-board-source.test.ts
+[timing] pnpm --filter web exec vitest run tests/whiteboard/chat-board-source.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：2s
+  清理：0s
+  总计：2s

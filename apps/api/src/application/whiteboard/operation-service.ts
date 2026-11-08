@@ -172,14 +172,14 @@ export class WhiteboardOperationService {
         role: snapshot.role, archived: snapshot.archived, objects });
     });
   }
-  async placementPreview(principal:Principal,boardId:string):Promise<WhiteboardPlacementPreview> {
+  async placementPreview(principal:Principal,boardId:string,appearance=false):Promise<WhiteboardPlacementPreview> {
     return this.db.withTenant(principal.orgId, async session => {
       if (!this.validator) throw new WhiteboardOperationError('DEPENDENCY_UNAVAILABLE');
       // Reuse the collaboration store's fresh membership check and locked snapshot.
       const snapshot = await this.collaboration.loadInTransaction(session, principal, boardId).catch(collaborationError);
       const objects = await this.validator.objects(snapshot.update).catch(collaborationError);
       return WhiteboardPlacementPreview.parse({boardId, revision:{epoch:snapshot.epoch,seq:snapshot.seq},
-        role:snapshot.role, archived:snapshot.archived, objects:objects.map(({id,geometry})=>({id,geometry}))});
+        role:snapshot.role, archived:snapshot.archived, objects:objects.map(({id,geometry,kind,style,hidden})=>({id,geometry,...(appearance?{appearance:{kind,style,...(hidden===undefined?{}:{hidden})}}:{})}))});
     });
   }
   async head(principal:Principal,boardId:string){return this.db.withTenant(principal.orgId,async session=>{const value=await this.audit.lockHead(session,principal,boardId);if(!value)throw new WhiteboardOperationError('NOT_FOUND');return{epoch:value.epoch,seq:value.seq,role:value.actorRole};});}

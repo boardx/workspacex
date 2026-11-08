@@ -124,10 +124,10 @@ export const RenderedDiagramLayout = z.object({
   layoutHash: z.string().regex(/^layout-v1:[a-f0-9]{64}$/),
 }).strict();
 export type RenderedDiagramLayout = z.infer<typeof RenderedDiagramLayout>;
-/** Geometry-only human placement preview; content and assets never leave the server. */
+/** Human placement preview; optional canonical appearance excludes content and assets. */
 export const WhiteboardPlacementPreview = z.object({
   boardId: BoardId, revision: Revision, role: BoardRole, archived: z.boolean(),
-  objects: z.array(z.object({id: WhiteboardObjectId, geometry: LayoutGeometry}).strict()).max(WHITEBOARD_LIMITS.objects),
+  objects: z.array(z.object({id: WhiteboardObjectId, geometry: LayoutGeometry, appearance: WhiteboardObject.innerType().pick({kind:true,style:true,hidden:true}).optional()}).strict()).max(WHITEBOARD_LIMITS.objects),
 }).strict();
 export type WhiteboardPlacementPreview = z.infer<typeof WhiteboardPlacementPreview>;
 

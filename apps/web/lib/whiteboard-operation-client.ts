@@ -15,7 +15,7 @@ export async function readBoardEvents(boardId:string,afterSeq=0,limit=100){
   const response=await boardRequest(`/v1/whiteboards/${encodeURIComponent(boardId)}/events?afterSeq=${afterSeq}&limit=${limit}`,{credentials:'include',cache:'no-store'});
   return WhiteboardEventPage.parse(response);
 }
-export async function readBoardPlacementPreview(boardId:string,signal?:AbortSignal){return WhiteboardPlacementPreview.parse(await boardRequest(`/v1/whiteboards/${encodeURIComponent(boardId)}/placement-preview`,{signal}));}
+export async function readBoardPlacementPreview(boardId:string,signal?:AbortSignal){return WhiteboardPlacementPreview.parse(await boardRequest(`/v1/whiteboards/${encodeURIComponent(boardId)}/placement-preview?appearance=1`,{signal}));}
 export async function readBoardHead(boardId:string){const response=await boardRequest(`/v1/whiteboards/${boardId}/head`,{credentials:'include',cache:'no-store'});const value=response as{epoch:number;seq:number;role:'owner'|'editor'|'viewer'};if(!Number.isSafeInteger(value.epoch)||!Number.isSafeInteger(value.seq))throw new Error('BOARD_HEAD_INVALID');return value;}
 export async function insertRenderedArtifact(input:{layout:RenderedDiagramLayout;actor?:WhiteboardOperationActor;boardId:string;boardOrgId?:string;epoch:number;seq:number;requestId:string;offset?:{x:number;y:number}}){
   if(input.actor&&input.boardOrgId)renderedLayoutToCommands(input.layout,input.actor,input.boardOrgId,input.offset);

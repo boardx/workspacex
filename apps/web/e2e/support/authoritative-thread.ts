@@ -88,8 +88,9 @@ export async function sessionHeaders(page: Page): Promise<Record<string, string>
  * 权威建线程：直接打 `mutateThread`（`op: "create"`），返回服务端分配的 threadId。
  * 不导航、不断言线程为空——那两件由 `openAuthoritativeFreshThread` 做。
  */
-export async function createThreadViaApi(page: Page): Promise<string> {
-  const response = await page.request.post("/chat/threads/mutate", {
+export async function createThreadViaApi(page: Page, apiPrefix = ""): Promise<string> {
+  // Fullstack uses a namespaced same-origin API proxy; other lanes retain their existing path.
+  const response = await page.request.post(`${apiPrefix}/chat/threads/mutate`, {
     headers: await sessionHeaders(page),
     data: {
       op: "create", projectId: null, threadId: null, groupId: null,

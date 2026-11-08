@@ -1,0 +1,23 @@
+[stack-admission] load1=3.10 cores=10 perCore=0.31 running=1/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw88isu6-a2ecc25a-c6794df7cedf db=wsx_c6794df7cedfd378e2cd compose=wsx-c6794df7cedfd378e2cd pg=20583 redis=21583 api=24583 web=25583 sandbox=26583 model=27583 deep-agent=28583 asr=29583 vision=30583 loopback-sandbox=31583 mail=19583
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/2e5d/workspacex/packages/fabric-markdown
+
+ ✓ tests/persona.test.ts (14 tests) 21ms
+ ✓ tests/templates-user.test.ts (17 tests) 24ms
+ ✓ tests/mermaid-serializer.test.ts (18 tests) 33ms
+ ✓ tests/state-sequence-serializer.test.ts (18 tests) 36ms
+
+ Test Files  4 passed (4)
+      Tests  67 passed (67)
+   Start at  03:38:09
+   Duration  2.29s (transform 484ms, setup 0ms, collect 2.03s, tests 114ms, environment 3.35s, prepare 465ms)
+
+[timing] pnpm --filter @repo/fabric-markdown exec vitest run tests/mermaid-serializer.test.ts tests/state-sequence-serializer.test.ts tests/templates-user.test.ts tests/persona.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：4s
+  清理：0s
+  总计：4s

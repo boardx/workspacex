@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/2e5d/workspacex/packages/whiteboard-core
+
+ ✓ tests/operation-ai-handoff.test.ts (11 tests) 50ms
+
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+   Start at  03:15:23
+   Duration  757ms (transform 281ms, setup 0ms, collect 369ms, tests 50ms, environment 0ms, prepare 97ms)
+

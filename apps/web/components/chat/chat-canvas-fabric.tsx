@@ -2,9 +2,9 @@
 import * as React from "react";
 import { Maximize2 } from "lucide-react";
 import { Canvas as FabricCanvas } from "fabric";
-import { markdownToCanvas, extractModel, type DiagramModel, fitToContent, wrapAsMermaidBlock, getTemplate } from "@repo/fabric-markdown";
+import { markdownToCanvas, extractModel, type DiagramModel, fitToContent, modelToMarkdown, wrapAsMermaidBlock, getTemplate } from "@repo/fabric-markdown";
 import { checkCanvasFence, type CanvasFenceLang } from "@/lib/canvas/canvas-fence";
-import { acceptsSavedCanvasSource, canvasFenceIdentity } from "@/lib/canvas/canvas-fence-identity";
+import { acceptsSavedCanvasSource, canvasFenceIdentity, tagCanvasArtifactTitle } from "@/lib/canvas/canvas-fence-identity";
 import { ensureCanvasFenceTemplate, type CanvasFenceTemplateSource } from "@/lib/canvas/fence-template-resolver";
 import { capFenceBulletsToCapacity, sectionRenderCapacities } from "@/lib/canvas/cap-fence-bullets";
 import { useOptionalSession } from "@/components/session/session-provider";
@@ -14,6 +14,7 @@ import { ChatDiagramBoardHandoff } from './chat-diagram-board-handoff';
 import { CanvasFieldCompleteness } from "./canvas-field-completeness";
 import { ChatCanvasModal } from "./chat-canvas-modal";
 import { fetchLatestSavedDiagramSource } from "@/lib/chat/diagram-readback";
+import { useBoardHandoffSource } from "@/lib/chat/board-handoff-source";
 import { useSampledFenceCode } from "@/lib/canvas/streaming-fence-sample";
 
 /**
@@ -249,6 +250,10 @@ export function ChatCanvasFabric({
     return () => io.disconnect();
   }, []);
 
+  const boardSource=React.useMemo(()=>renderedModel?modelToMarkdown(renderedModel):undefined,[renderedModel]);
+  const prepareBoardSource=useBoardHandoffSource(threadId&&messageId&&bearer!==undefined&&closed&&boardSource!==undefined
+    ?{threadId,messageId,projectId,bearer,source:boardSource,title:tagCanvasArtifactTitle('Board canvas',fenceIdentity)}:undefined);
+
   return (
     <>
       <CanvasFabricBody
@@ -269,7 +274,8 @@ export function ChatCanvasFabric({
         openMaximized={openMaximized}
         openingReadback={openingReadback}
         onRenderedModel={setRenderedModel}
-        boardHandoff={<ChatDiagramBoardHandoff model={renderedModel} artifactId={savedSource?.artifactId} sourceRevision={savedSource?.immutableRevision} orgId={orgId ?? undefined}/>}
+        boardHandoff={<ChatDiagramBoardHandoff projectId={projectId} model={closed ? renderedModel : null}
+          prepareSource={prepareBoardSource} artifactId={savedSource?.artifactId} sourceRevision={savedSource?.immutableRevision} orgId={orgId ?? undefined}/>}
       />
 
       {maximized && (
@@ -461,20 +467,22 @@ function CanvasFabricBody({
         className="flex items-center justify-between gap-2 border-b border-border-subtle bg-card px-2 py-1.5"
       >
         <Badge tone="outline">工作坊画布模板 · 只读预览</Badge>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => void openMaximized()}
-          data-testid="chat-canvas-maximize"
-          className="shrink-0"
-          aria-label="最大化并编辑此画布"
-          disabled={status.phase !== "valid" || openingReadback}
-        >
-          <Maximize2 aria-hidden className="h-3.5 w-3.5" />
-          {openingReadback ? "读取保存版…" : "最大化"}
-        </Button>
-        {boardHandoff}
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          {boardHandoff}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void openMaximized()}
+            data-testid="chat-canvas-maximize"
+            className="shrink-0"
+            aria-label="最大化并编辑此画布"
+            disabled={status.phase !== "valid" || openingReadback}
+          >
+            <Maximize2 aria-hidden className="h-3.5 w-3.5" />
+            {openingReadback ? "读取保存版…" : "最大化"}
+          </Button>
+        </div>
       </div>
 
       {status.phase === "valid" && <CanvasFieldCompleteness code={renderCode} lang={lang} />}

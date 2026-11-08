@@ -70,6 +70,9 @@ describe("#2221：内置 key 的 layoutSource 判据", () => {
     render(<MarkdownMessage text={PERSONA_FENCE} />);
     const el = await screen.findByTestId("chat-canvas-fabric");
     expect(el.getAttribute("data-template-source")).toBe("builtin");
+    const insert = screen.getByTestId("chat-diagram-insert-board");
+    const maximize = screen.getByTestId("chat-canvas-maximize");
+    expect(insert.compareDocumentPosition(maximize) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("组织真的在编辑器里自定义过 persona（layoutSource: user-edited）→ " +
