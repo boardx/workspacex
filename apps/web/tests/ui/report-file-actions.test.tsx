@@ -2,13 +2,13 @@ import { StrictMode } from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { expect, it, vi, beforeEach } from 'vitest';
 import { ReportFileActions } from '@/components/report-files/report-file-actions';
-import { generateReportFile, downloadReportFile } from '@/lib/report-files-api';
+import { generateReportFile, downloadReportFile, getReportFileJob } from '@/lib/report-files-api';
 vi.mock('@/lib/report-files-api', () => ({ generateReportFile: vi.fn(), getReportFileJob: vi.fn(), downloadReportFile: vi.fn() }));
 const source = { kind: 'interview' as const, id: 'interview-1', reportVersion: 1, reportHash: 'a'.repeat(64) };
 const success = { id: 'job-1', source, format: 'pdf' as const, createdAt: '2026-10-13T00:00:00Z', status: 'succeeded' as const,
   skill: { stableName: 'pdf-create', versionId: 'skill-v1', digest: 'b'.repeat(64) },
   file: { filename: 'report.pdf', mediaType: 'application/pdf', sizeBytes: 300, sha256: 'c'.repeat(64) } };
-beforeEach(() => vi.resetAllMocks());
+beforeEach(() => { vi.resetAllMocks(); window.sessionStorage.clear(); });
 it('invokes the product generation API and exposes download only after verified success', async () => {
   vi.mocked(generateReportFile).mockResolvedValue(success);
   render(<ReportFileActions source={source} />);
@@ -61,8 +61,9 @@ it('checks an awaiting-permission job again instead of creating another conversi
 it('retrieves a server-cached current file after remount and downloads without another click',async()=>{
  vi.mocked(generateReportFile).mockResolvedValue(success);
  const view=render(<ReportFileActions source={source}/>);fireEvent.click(screen.getByRole('button',{name:'生成 PDF'}));await screen.findByRole('button',{name:'下载 PDF'});view.unmount();
- render(<ReportFileActions source={source}/>);fireEvent.click(screen.getByRole('button',{name:'生成 PDF'}));await screen.findByRole('button',{name:'下载 PDF'});
- expect(downloadReportFile).toHaveBeenCalledTimes(2);
+ vi.mocked(getReportFileJob).mockResolvedValue(success);
+ render(<ReportFileActions source={source}/>);await screen.findByRole('button',{name:'下载 PDF'});
+ expect(generateReportFile).toHaveBeenCalledTimes(1);expect(downloadReportFile).toHaveBeenCalledTimes(1);
 });
 it('stops long polling with a resumable job instead of leaving an endless spinner',async()=>{
  const {getReportFileJob}=await import('@/lib/report-files-api');
@@ -176,4 +177,52 @@ it('does not turn a status authorization failure into a transient progress notic
   expect(screen.queryByRole('status')).not.toBeInTheDocument();
   expect(downloadReportFile).not.toHaveBeenCalled();
  } finally { view.unmount(); vi.useRealTimers(); }
+});
+
+it('shows the persisted personal Credit guidance on the report page without another dispatch', async () => {
+  const failed = { id: success.id, source, format: 'pdf', createdAt: success.createdAt, status: 'failed', errorCode: 'CREDIT_REQUIRED',
+    creditFailure: { code: 'credit_required', ownerType: 'user', ownerId: 'actor', rechargePath: '/billing?purchase=1' } };
+  vi.mocked(generateReportFile).mockResolvedValue(failed as never);
+  const view = render(<ReportFileActions source={source} />);
+  fireEvent.click(screen.getByRole('button', { name: '生成 PDF' }));
+  expect(await screen.findByText('个人 Credit 可用额度不足，请充值后手动继续。')).toBeVisible();
+  expect(screen.getByRole('link', { name: '前往充值' })).toHaveAttribute('href', '/billing?purchase=1');
+  expect(screen.queryByText('PDF：文件生成失败，请重试。')).not.toBeInTheDocument();
+  expect(generateReportFile).toHaveBeenCalledTimes(1);
+  expect(downloadReportFile).not.toHaveBeenCalled();
+  view.unmount();
+  vi.mocked(getReportFileJob).mockResolvedValue(failed as never);
+  render(<ReportFileActions source={source} />);
+  expect(await screen.findByRole('link', { name: '前往充值' })).toBeVisible();
+  expect(generateReportFile).toHaveBeenCalledTimes(1);
+});
+
+it.each(['pdf', 'docx'] as const)('accounting outages on %s never offer recharge or dispatch again on restore', async format => {
+  const job = { id: success.id, source, format, createdAt: success.createdAt, status: 'failed', errorCode: 'CREDIT_ACCOUNTING_UNAVAILABLE' };
+  vi.mocked(generateReportFile).mockResolvedValue(job as never);
+  const view = render(<ReportFileActions source={source} />);
+  fireEvent.click(screen.getByRole('button', { name: `生成 ${format === 'pdf' ? 'PDF' : 'Word'}` }));
+  expect(await screen.findByText('计费服务暂时不可用，本次请求未自动重试。请稍后重试或联系管理员。')).toBeVisible();
+  expect(screen.queryByRole('link', { name: '前往充值' })).not.toBeInTheDocument();
+  view.unmount(); vi.mocked(getReportFileJob).mockResolvedValue(job as never);
+  render(<ReportFileActions source={source} />);
+  await screen.findByText('计费服务暂时不可用，本次请求未自动重试。请稍后重试或联系管理员。');
+  expect(generateReportFile).toHaveBeenCalledTimes(1); expect(downloadReportFile).not.toHaveBeenCalled();
+});
+it('a restored job denied for a changed actor never leaks old guidance or submits a new request', async () => {
+  window.sessionStorage.setItem(`report-file-job:${JSON.stringify([source.kind,source.id,source.reportVersion,source.reportHash])}:pdf`, 'other-actor-job');
+  vi.mocked(getReportFileJob).mockRejectedValue(new Error('not visible'));
+  render(<ReportFileActions source={source} />);
+  await act(async () => {});
+  expect(getReportFileJob).toHaveBeenCalledWith('other-actor-job', expect.any(AbortSignal), { observeOnly: true });
+  expect(screen.queryByRole('link', { name: '前往充值' })).not.toBeInTheDocument();
+  expect(generateReportFile).not.toHaveBeenCalled(); expect(downloadReportFile).not.toHaveBeenCalled();
+});
+it('monthly member allowance guidance on reports does not instruct personal payment', async () => {
+  vi.mocked(generateReportFile).mockResolvedValue({ id: success.id, source, format: 'pdf', createdAt: success.createdAt, status: 'failed', errorCode: 'CREDIT_REQUIRED',
+    creditFailure: { code: 'credit_required', ownerType: 'team', ownerId: 'org', rechargePath: '/billing?ownerType=team&ownerId=org&purchase=1', reason: 'member_monthly_limit' } } as never);
+  render(<ReportFileActions source={source} />);
+  fireEvent.click(screen.getByRole('button', { name: '生成 PDF' }));
+  expect(await screen.findByText(/本月成员 Credit 额度不足/)).toBeVisible();
+  expect(screen.queryByRole('link', { name: /充值/ })).not.toBeInTheDocument();
 });

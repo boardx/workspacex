@@ -1,3 +1,5 @@
+import { ownedRunCreditFailure } from '../agent-run/run-credit-failure';
+import { reportCreditFailure } from './credit-failure';
 import { REPORT_EXPORT_RENDER_POLICY, reportDownloadFilename } from './presentation';
 import { createHash, randomUUID } from 'node:crypto';
 import { ReportFileJob, ReportFileRequest, REPORT_FILE_FORMATS, type ReportFileErrorCode } from '@repo/contracts/report-files';
@@ -59,18 +61,22 @@ export class ReportFileService {
     await this.tick(actor, record.job.id);
     return this.status(actor, record.job.id);
   }
-  async status(actor: ReportFileActor, id: string): Promise<FileJob> {
+  async status(actor: ReportFileActor, id: string, options: { observeOnly?: boolean } = {}): Promise<FileJob> {
     let record = await this.readCurrent(actor, id);
-    if (!record.runId && record.job.status !== 'failed') {
+    if (!options.observeOnly && !record.runId && record.job.status !== 'failed') {
       await this.tick(actor, id);
       record = await this.readCurrent(actor, id);
     }
-    if (!record.runId || record.job.status === 'failed' || record.job.status === 'succeeded') return ReportFileJob.parse(record.job);
-    const result = await this.deps.runtime.read(record);
+    if (!record.runId || record.job.status === 'failed' && record.job.errorCode !== 'GENERATION_FAILED' || record.job.status === 'succeeded') return ReportFileJob.parse(record.job);
+    const legacyFailure = record.job.status === 'failed';
+    const result = await this.deps.runtime.read(record, options);
+    // Historical generic failures may recover guidance, never resume or resurrect execution.
+    if (legacyFailure && (result.status !== 'failed' || !reportCreditFailure(actor, result.errorCode, result.creditFailure))) return ReportFileJob.parse(record.job);
     record = { ...record, job: ReportFileJob.parse({ ...record.job, ...(result.execution ? { execution: result.execution } : {}) }) };
     if (result.status === 'pending') return ReportFileJob.parse(record.job);
     if (result.status === 'failed') {
-      record = { ...record, job: { ...record.job, status: 'failed', errorCode: 'GENERATION_FAILED' } };
+      record = { ...record, job: { ...record.job, status: 'failed',
+        ...(reportCreditFailure(actor, result.errorCode, result.creditFailure) ?? { errorCode: 'GENERATION_FAILED' as const }) } };
     } else {
       const snapshot = await this.source(actor, record.job.source);
       this.matchRecord(snapshot, record);
@@ -83,8 +89,11 @@ export class ReportFileService {
       }
     }
     await this.readCurrent(actor, id);
-    await this.deps.store.update(record);
-    return ReportFileJob.parse(record.job);
+    if (!await this.deps.store.update(record)) {
+      // A missed CAS cannot make an in-memory failure look durably retained.
+      return ReportFileJob.parse((await this.readCurrent(actor, id)).job);
+    }
+    return ReportFileJob.parse((await this.readCurrent(actor, id)).job);
   }
   async download(actor: ReportFileActor, id: string) {
     const record = await this.readCurrent(actor, id);
@@ -111,6 +120,13 @@ export class ReportFileService {
     if (!record || record.actor.orgId !== actor.orgId || record.actor.userId !== actor.userId) throw new ReportFileError('REPORT_NOT_FOUND');
     const snapshot = await this.source(actor, record.job.source);
     this.matchRecord(snapshot, record);
+    if (record.job.status === 'failed') {
+      const failure = reportCreditFailure(actor, record.job.errorCode, record.job.creditFailure);
+      if (failure) {
+        const { creditFailure: _discarded, ...job } = record.job;
+        return { ...record, job: { ...job, ...failure } };
+      }
+    }
     return record;
   }
   private matchRequest(snapshot: ReportFileSourceSnapshot, source: FileRequest['source']) {
@@ -137,8 +153,10 @@ export class ReportFileService {
       await this.readCurrent(actor, id);
       await this.deps.store.finish(claim, { ...claim.record, ...link, job: { ...claim.record.job, status: 'running', execution: { ...link, status: 'queued' } } });
     } catch (error) {
-      const code = error instanceof ReportFileError || error instanceof ReportFileSourceError ? error.code : 'GENERATION_FAILED';
-      await this.deps.store.finish(claim, { ...claim.record, threadId, job: { ...claim.record.job, status: 'failed', errorCode: code } });
+      const failure = ownedRunCreditFailure(error, actor.userId, actor.orgId);
+      const code = failure?.code ?? (error instanceof ReportFileError || error instanceof ReportFileSourceError ? error.code : 'GENERATION_FAILED');
+      await this.deps.store.finish(claim, { ...claim.record, threadId, job: { ...claim.record.job, status: 'failed', errorCode: code,
+        ...(failure?.creditFailure ? { creditFailure: failure.creditFailure } : {}) } });
     }
   }
 }

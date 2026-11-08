@@ -37,7 +37,7 @@ export interface ReportFileJobStore {
 export interface ReportFileChatRuntime {
   pin(actor: ReportFileActor, format: FileRequest['format']): Promise<SkillPin>;
   accept(record: StoredReportFileJob, source: ReportFileSourceSnapshot, saveThread: (threadId: string) => Promise<void>): Promise<{ threadId: string; runId: string }>;
-  read(record: StoredReportFileJob): Promise<({ status: 'pending' } | { status: 'failed' } | { status: 'succeeded'; attachmentId: string; filename: string; bytes: Uint8Array }) & { execution?: NonNullable<FileJob['execution']> }>;
+  read(record: StoredReportFileJob, options?: { observeOnly?: boolean }): Promise<({ status: 'pending' } | { status: 'failed'; errorCode?: 'CREDIT_REQUIRED' | 'CREDIT_ACCOUNTING_UNAVAILABLE'; creditFailure?: Extract<FileJob, {status: 'failed'}>['creditFailure'] } | { status: 'succeeded'; attachmentId: string; filename: string; bytes: Uint8Array }) & { execution?: NonNullable<FileJob['execution']> }>;
   download(record: StoredReportFileJob): Promise<{ filename: string; mime: string; bytes: Uint8Array }>;
 }
 export interface ReportFileValidator {

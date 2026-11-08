@@ -1,0 +1,157 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/api
+
+ ❯ tests/report-files/service.test.ts (13 tests | 1 failed) 185ms
+   × persists actor-bound Credit guidance while repeat status reads never dispatch another conversion 26ms
+     → expected { id: 'job-1', source: { …(4) }, …(5) } to match object { status: 'failed', …(2) }
+(12 matching properties omitted from actual)
+ ❯ tests/report-files/credit-failure.test.ts (2 tests | 2 failed) 34ms
+   × the public report-job contract preserves the canonical Credit body 17ms
+     → [
+  {
+    "received": "CREDIT_REQUIRED",
+    "code": "invalid_enum_value",
+    "options": [
+      "REPORT_NOT_FOUND",
+      "REPORT_UNAVAILABLE",
+      "REPORT_CHANGED",
+      "IDEMPOTENCY_CONFLICT",
+      "SKILL_UNAVAILABLE",
+      "MODEL_UNAVAILABLE",
+      "SANDBOX_UNAVAILABLE",
+      "SANDBOX_TIMEOUT",
+      "SCRIPT_FAILED_AFTER_RETRIES",
+      "INVALID_FILE",
+      "STORAGE_UNAVAILABLE",
+      "GENERATION_FAILED"
+    ],
+    "path": [
+      "errorCode"
+    ],
+    "message": "Invalid enum value. Expected 'REPORT_NOT_FOUND' | 'REPORT_UNAVAILABLE' | 'REPORT_CHANGED' | 'IDEMPOTENCY_CONFLICT' | 'SKILL_UNAVAILABLE' | 'MODEL_UNAVAILABLE' | 'SANDBOX_UNAVAILABLE' | 'SANDBOX_TIMEOUT' | 'SCRIPT_FAILED_AFTER_RETRIES' | 'INVALID_FILE' | 'STORAGE_UNAVAILABLE' | 'GENERATION_FAILED', received 'CREDIT_REQUIRED'"
+  },
+  {
+    "code": "unrecognized_keys",
+    "keys": [
+      "creditFailure"
+    ],
+    "path": [],
+    "message": "Unrecognized key(s) in object: 'creditFailure'"
+  }
+]
+   × the real Chat adapter retains Credit guidance from the authorized run projection 16ms
+     → expected { status: 'failed', …(1) } to match object { status: 'failed', …(2) }
+(4 matching properties omitted from actual)
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/report-files/credit-failure.test.ts > the public report-job contract preserves the canonical Credit body
+ZodError: [
+  {
+    "received": "CREDIT_REQUIRED",
+    "code": "invalid_enum_value",
+    "options": [
+      "REPORT_NOT_FOUND",
+      "REPORT_UNAVAILABLE",
+      "REPORT_CHANGED",
+      "IDEMPOTENCY_CONFLICT",
+      "SKILL_UNAVAILABLE",
+      "MODEL_UNAVAILABLE",
+      "SANDBOX_UNAVAILABLE",
+      "SANDBOX_TIMEOUT",
+      "SCRIPT_FAILED_AFTER_RETRIES",
+      "INVALID_FILE",
+      "STORAGE_UNAVAILABLE",
+      "GENERATION_FAILED"
+    ],
+    "path": [
+      "errorCode"
+    ],
+    "message": "Invalid enum value. Expected 'REPORT_NOT_FOUND' | 'REPORT_UNAVAILABLE' | 'REPORT_CHANGED' | 'IDEMPOTENCY_CONFLICT' | 'SKILL_UNAVAILABLE' | 'MODEL_UNAVAILABLE' | 'SANDBOX_UNAVAILABLE' | 'SANDBOX_TIMEOUT' | 'SCRIPT_FAILED_AFTER_RETRIES' | 'INVALID_FILE' | 'STORAGE_UNAVAILABLE' | 'GENERATION_FAILED', received 'CREDIT_REQUIRED'"
+  },
+  {
+    "code": "unrecognized_keys",
+    "keys": [
+      "creditFailure"
+    ],
+    "path": [],
+    "message": "Unrecognized key(s) in object: 'creditFailure'"
+  }
+]
+ ❯ Object.get error [as error] ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:39:31
+ ❯ ZodEffects.parse ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:114:22
+ ❯ tests/report-files/credit-failure.test.ts:11:24
+      9| const failed = { id: 'job', source, format: 'pdf', createdAt: '2026-11…
+     10| it('the public report-job contract preserves the canonical Credit body…
+     11|   expect(ReportFileJob.parse(failed)).toMatchObject({ creditFailure });
+       |                        ^
+     12| });
+     13| it('the real Chat adapter retains Credit guidance from the authorized …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  tests/report-files/credit-failure.test.ts > the real Chat adapter retains Credit guidance from the authorized run projection
+AssertionError: expected { status: 'failed', …(1) } to match object { status: 'failed', …(2) }
+(4 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  Object {
+-   "creditFailure": Object {
+-     "code": "credit_required",
+-     "ownerId": "actor",
+-     "ownerType": "user",
+-     "rechargePath": "/billing?purchase=1",
+-   },
+-   "errorCode": "CREDIT_REQUIRED",
+    "status": "failed",
+  }
+
+ ❯ tests/report-files/credit-failure.test.ts:17:38
+     15|   const runtime = new ChatReportFileRuntime({ messages: {}, runs: {} }…
+     16|   const record = { actor: { orgId: 'org', userId: 'actor' }, runId: 'r…
+     17|   expect(await runtime.read(record)).toMatchObject({ status: 'failed',…
+       |                                      ^
+     18| });
+     19| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  tests/report-files/service.test.ts > persists actor-bound Credit guidance while repeat status reads never dispatch another conversion
+AssertionError: expected { id: 'job-1', source: { …(4) }, …(5) } to match object { status: 'failed', …(2) }
+(12 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  Object {
+-   "creditFailure": Object {
+-     "code": "credit_required",
+-     "ownerId": "user-1",
+-     "ownerType": "user",
+-     "rechargePath": "/billing?purchase=1",
+-   },
+-   "errorCode": "CREDIT_REQUIRED",
++   "errorCode": "GENERATION_FAILED",
+    "status": "failed",
+  }
+
+ ❯ tests/report-files/service.test.ts:131:17
+    129|     execution: { runId: 'real-run-1', threadId: 'thr-1', status: 'fail…
+    130|   const first = await f.service.start(f.actor, f.request);
+    131|   expect(first).toMatchObject({ status: 'failed', errorCode: 'CREDIT_R…
+       |                 ^
+    132|   expect(await f.service.status(f.actor, first.id)).toMatchObject({ cr…
+    133|   expect(f.runtime.accept).toHaveBeenCalledTimes(1);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+ Test Files  2 failed (2)
+      Tests  3 failed | 12 passed (15)
+   Start at  18:36:19
+   Duration  12.54s (transform 5.90s, setup 0ms, collect 10.36s, tests 219ms, environment 1ms, prepare 616ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.report-files-unit.config.ts tests/report-files/service.test.ts tests/report-files/credit-failure.test.ts

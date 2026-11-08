@@ -1,0 +1,36 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/api
+
+ ❯ tests/report-files/service.test.ts (20 tests | 1 failed | 19 skipped) 46ms
+   × a failed persistence CAS never returns unretained recovered Credit guidance 44ms
+     → expected { id: 'job-1', source: { …(4) }, …(6) } to match object { status: 'failed', …(1) }
+(17 matching properties omitted from actual)
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/report-files/service.test.ts > a failed persistence CAS never returns unretained recovered Credit guidance
+AssertionError: expected { id: 'job-1', source: { …(4) }, …(6) } to match object { status: 'failed', …(1) }
+(17 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  Object {
+-   "errorCode": "GENERATION_FAILED",
++   "errorCode": "CREDIT_REQUIRED",
+    "status": "failed",
+  }
+
+ ❯ tests/report-files/service.test.ts:243:52
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 19 skipped (20)
+   Start at  19:30:22
+   Duration  7.01s (transform 3.48s, setup 0ms, collect 5.84s, tests 46ms, environment 0ms, prepare 320ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.report-files-unit.config.ts tests/report-files/service.test.ts -t failed persistence CAS

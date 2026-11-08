@@ -1,3 +1,4 @@
+import { reportCreditFailure } from '../../application/report-files/credit-failure';
 import { reportFilePublication } from '../../application/report-files/publication';
 import { REPORT_FILE_FORMATS } from '@repo/contracts/report-files';
 import { listSkills } from '../../application/skill/list-skills';
@@ -69,14 +70,17 @@ export class ChatReportFileRuntime implements ReportFileChatRuntime {
     });
     return { threadId, runId: accepted.agentRunId };
   }
-  async read(record: StoredReportFileJob): ReturnType<ReportFileChatRuntime['read']> {
+  async read(record: StoredReportFileJob, options: { observeOnly?: boolean } = {}): ReturnType<ReportFileChatRuntime['read']> {
     if (!record.threadId || !record.runId) return { status: 'pending' };
     const run = await readAgentRun({ ...this.deps.messages, runs: this.deps.runs }, { ...record.actor, runId: record.runId });
     const execution = { runId: run.runId, threadId: run.threadId, status: run.status };
     if (run.threadId !== record.threadId || run.skillVersionIds.length !== 1 || run.skillVersionIds[0] !== record.skill.versionId) return { status: 'failed', execution };
-    if (run.status === 'failed' || run.status === 'cancelled') return { status: 'failed', execution };
+    if (run.status === 'failed' || run.status === 'cancelled') return { status: 'failed', execution,
+      ...(run.status === 'failed' ? reportCreditFailure(record.actor, run.error, run.creditFailure) : {}) };
+    // A historical terminal job is never a permission to revive its old run.
+    if (record.job.status === 'failed') return { status: 'pending', execution };
     if (run.status !== 'succeeded') {
-      if (run.status === 'queued') this.deps.executor.kick(record.actor.orgId);
+      if (run.status === 'queued' && !options.observeOnly) this.deps.executor.kick(record.actor.orgId);
       return { status: 'pending', execution };
     }
     if (!run.resultMessageId) return { status: 'failed', execution };
