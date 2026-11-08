@@ -17,6 +17,8 @@ import type { WorkflowStageOutputStore } from "../../application/workflow/workfl
 import { assemblePrdArtifact, prdStageOutputsFrom } from "../../domain/work-content/prd-artifact";
 import { graphRefOf, PRODUCT_LINE_WORKFLOWS } from "../../domain/work-content/product-workflow-definitions";
 import type { LinearWorkflowGraph } from "./workflow-graph-registry";
+import type { PrdFileReceipt } from "@repo/contracts/work-content";
+import type { z } from "zod";
 
 export interface ProblemToPrdGraphDeps {
   skills: ContentSkillRunnerPort;
@@ -25,7 +27,7 @@ export interface ProblemToPrdGraphDeps {
   /** 惰性取：effect-gateway 与 Runtime 一同创建，晚于图注册。 */
   effects: () => EffectGateway;
   /** 平台内部 PRD 工件写入（artifact.write 的工具体）；返回工件引用。 */
-  publishArtifact(args: { orgId: string; instanceId: string; prd: Record<string, unknown> }): Promise<{ artifactRef: string }>;
+  publishArtifact(args: { orgId: string; instanceId: string; initiatorUserId: string; prd: Record<string, unknown> }): Promise<{ artifactRef: string; file?: z.infer<typeof PrdFileReceipt> }>;
   notify(args: { orgId: string; instanceId: string; userId: string; artifactRef: string }): Promise<{ notificationId: string }>;
 }
 
@@ -91,9 +93,10 @@ function effectWork(deps: ProblemToPrdGraphDeps, stageId: "persist" | "notify"):
       const out = await deps.effects().execute(
         exec.lease,
         { ...base, effectKey: `prd-${prd.digest}`, capabilityCategory: "artifact.write", fingerprint: prd.digest, args: { prd } },
-        async (args) => deps.publishArtifact({ orgId, instanceId: exec.instanceId, prd: args.prd as Record<string, unknown> }),
+        async (args) => deps.publishArtifact({ orgId, instanceId: exec.instanceId, initiatorUserId: instance.initiatorUserId, prd: args.prd as Record<string, unknown> }),
       );
-      return { label: "W029/persist", content: { workflowId: "W029", stageId, prd, artifactRef: out.result.artifactRef } };
+      return { label: "W029/persist", content: { workflowId: "W029", stageId, prd, artifactRef: out.result.artifactRef,
+        ...(out.result.file ? { file: out.result.file } : {}) } };
     }
     const persisted = await deps.outputs.find(orgId, exec.instanceId, "persist", 1);
     const artifactRef = persisted?.content.artifactRef;

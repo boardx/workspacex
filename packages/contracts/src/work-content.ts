@@ -196,6 +196,13 @@ export const DeferredProposal = z
 
 export const WorkContentOutput = z.discriminatedUnion("kind", [ResearchBrief, DataNeedsStatement, PrdArtifact, DiscoveryArtifact]);
 
+/** W029 immutable file receipt; storage keys remain server-side. */
+export const PrdFileReceipt = z.object({
+  artifactId: z.string().min(1), versionId: z.string().min(1), versionNumber: z.number().int().positive(),
+  materializedKeys: z.array(z.string().min(1)).length(2), contentHash: Sha256Digest,
+}).strict();
+export const SavedPrdFile = PrdFileReceipt.omit({ materializedKeys: true }).extend({ markdown: z.string().min(1) });
+
 /* ── 决定卡（W011 G1 逐条 / W013 G1 三联）——在 runtime 门之上的逐条决定 ─── */
 
 export const LeadDecisionItemView = z
@@ -354,6 +361,8 @@ export const operations = {
         instanceId: z.string(),
         outcome: WorkContentOutcome,
         output: WorkContentOutput.nullable(),
+        /** Present only for file-backed W029 outputs; bytes are reopened from the immutable version. */
+        file: SavedPrdFile.optional(),
         crmItems: z.array(LeadDecisionItemView), // 非销售线为空
         manualChecklist: z.array(z.string()), // A5 / W013 决策 6
         deferredProposals: z.array(DeferredProposal),
