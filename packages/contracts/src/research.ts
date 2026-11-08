@@ -1,3 +1,4 @@
+import { CreditRequiredBody } from "./billing-consumption";
 export { researchReportPreview } from "./research-report-preview";
 import { GenerationStreamStage, GenerationStreamDelta, GenerationStreamCompleted, GenerationStreamFailed } from "./generation-stream";
 export { mapGuidedResearchCitations } from "./guided-research-citations";
@@ -1099,6 +1100,7 @@ export const GuidedResearchRuntime = z.object({
   publicationReadiness: GuidedResearchPublicationReadiness.optional(),
   legacyCheckpoint: GuidedResearchSession.nullable().optional(),
   completed: z.boolean(), busy: z.boolean(), leaseUntil: z.string().nullable(), errorCode: z.string().nullable(),
+  creditFailure: CreditRequiredBody.nullable().optional(),
   generatedNodes: z.array(ResearchNode),
   messages: z.array(z.object({ id: z.string(), node: ResearchNode, role: z.enum(["user", "assistant"]), text: z.string(), createdAt: z.string() }).strict()),
   proposal: z.object({ id: z.string(), version: z.number().int(), draft: GuidedResearchRuntimeDraft, action: z.enum(["save", "generate", "start", "retry", "confirm", "complete"]).optional() }).strict().nullable(),
@@ -1174,7 +1176,7 @@ export const GuidedResearchRuntimeCommand = z.object({
 // Progress responses never include source excerpts, messages, history or whole report bodies.
 export const GuidedResearchRuntimeProgress = GuidedResearchRuntime.pick({
   sessionId: true, version: true, revision: true, currentNode: true, availableNodes: true,
-  busy: true, leaseUntil: true, errorCode: true, completed: true, progress: true, executionGoal: true,
+  busy: true, leaseUntil: true, errorCode: true, creditFailure: true, completed: true, progress: true, executionGoal: true,
   reportTimeline: true, reportPartial: true, reportSourceAliases: true, reportQualityWarnings: true,
   planRevision: true, sourcePolicy: true, controlStatus: true, activity: true, coverage: true, conflicts: true,
   qualityScore: true, publicationReadiness: true,

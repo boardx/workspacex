@@ -1,3 +1,4 @@
+import { ownedRunCreditFailure } from "../agent-run/run-credit-failure";
 import {rethrowCreditConsumption} from "../billing/credit-consumption";
 import { reportPerformance } from "./guided-report-performance";
 import { canRecoverPartialReport, isUnresolvedPartialDraft } from "./guided-partial-report-recovery";
@@ -184,13 +185,13 @@ export class GuidedRuntimeService {
     private readonly internalSourceAccess?: GuidedInternalSourceAccessPort, private readonly debugTrace?: DebugTracePort) { this.model = withGuidedThinkingPolicy(model); this.reportModel = withGuidedThinkingPolicy(reportModel); }
   async get(actor: RuntimeActor, session: GuidedResearchSession) {
     if (actor.sessionId !== session.sessionId) throw new ResearchRuntimeError("RESEARCH_NOT_FOUND");
-    return toPublicResearchRuntime(await this.store.read(actor, initialRuntime(session)));
+    return toPublicResearchRuntime(await this.store.read(actor, initialRuntime(session)), actor.userId);
   }
   async execute(actor: RuntimeActor, session: GuidedResearchSession, command: RuntimeCommand, observer?: RuntimeObserver, traceId = command.requestId): Promise<ResearchRuntime> {
     const diagnostic: ResearchExecutionDiagnostic = { phase: "state_read", traceId };
     const publicObserver: RuntimeObserver | undefined = observer && (event => observer(
-      event.type === "snapshot" || event.type === "result" ? { ...event, state: toPublicResearchRuntime(event.state) } : event));
-    try { return toPublicResearchRuntime(await this.executeCommand(actor, session, command, publicObserver, diagnostic)); }
+      event.type === "snapshot" || event.type === "result" ? { ...event, state: toPublicResearchRuntime(event.state, actor.userId) } : event));
+    try { return toPublicResearchRuntime(await this.executeCommand(actor, session, command, publicObserver, diagnostic), actor.userId); }
     catch (error) { rethrowCreditConsumption(error); recordResearchFailure(this.debugTrace, diagnostic, actor, command, error); throw error; }
   }
   private async executeCommand(actor: RuntimeActor, session: GuidedResearchSession, command: RuntimeCommand, observer: RuntimeObserver | undefined, diagnostic: ResearchExecutionDiagnostic): Promise<ResearchRuntime> {
@@ -223,17 +224,24 @@ export class GuidedRuntimeService {
       }
     }, { requestId: command.requestId, traceId: diagnostic.traceId, observe });
     diagnostic.phase = "perform";
+    let creditError: unknown;
+    state.creditFailure = null;
     try {
       await this.perform(state, command, persist, internalSources);
       state.progress = null;
-    } catch (error) { rethrowCreditConsumption(error);
-      recordResearchFailure(this.debugTrace, diagnostic, actor, command, error, state.progress?.stage);
+    } catch (error) {
+      const credit = ownedRunCreditFailure(error, actor.userId, actor.orgId);
+      if (credit) creditError = error;
+      else recordResearchFailure(this.debugTrace, diagnostic, actor, command, error, state.progress?.stage);
       if (error instanceof ResearchRuntimeError && error.reasonCode === "RESEARCH_WORKFLOW_PAUSED") {
         state.progress = null;
       } else {
-      failActiveReportTimeline(state, error instanceof ResearchRuntimeError ? error.reasonCode : "RESEARCH_WORKFLOW_UNAVAILABLE");
+      const reason = credit?.code ?? (error instanceof ResearchRuntimeError ? error.reasonCode : "RESEARCH_WORKFLOW_UNAVAILABLE");
+      failActiveReportTimeline(state, reason);
       if (state.reportStream) state.reportStream.status = "failed";
-      state.errorCode = error instanceof ResearchRuntimeError ? error.reasonCode : "RESEARCH_WORKFLOW_UNAVAILABLE";
+      state.errorCode = reason;
+      state.creditFailure = credit?.creditFailure ?? null;
+      if (credit) state.progress = null;
       }
     }
     state.busy = false;
@@ -254,6 +262,8 @@ export class GuidedRuntimeService {
       throw error;
     }
     observe({ type: "result", state: structuredClone(state) });
+    // Only acknowledge the original refusal after fenced final persistence succeeds.
+    if (creditError) throw creditError;
     return state;
   }
   private async completeJson(state: ResearchRuntime, node: Node, system: string, context: unknown, persist: RuntimePersistence, validate?: (value: unknown) => void, parseOutput: (text: string) => unknown = extractJson, budget?: SearchBudget, admit?: (work: () => Promise<void>) => Promise<void>, check?: () => void, signal?: AbortSignal): Promise<unknown> {

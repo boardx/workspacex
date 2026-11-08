@@ -71,3 +71,10 @@ it("rejects an older durable revision even when stream sequence has not changed"
   expect(newAttempt).toHaveProperty("reportSavedChapterCount", 0);
   expect(newAttempt.reportStream?.requestId).toBe("new");
 });
+
+it("clears a previous personal payer scope from progress and patches",()=>{
+ const state={...runtimeFixture("brief"),errorCode:"CREDIT_REQUIRED",creditFailure:{code:"credit_required" as const,ownerType:"user" as const,ownerId:"owner",rechargePath:"/billing?purchase=1"}};
+ const metadata={sessionId:state.sessionId,version:state.version,revision:state.revision,busy:false,errorCode:"CREDIT_REQUIRED",creditFailure:null,stream:null} as ResearchRuntimeProgress;
+ expect(mergeResearchProgress(state,metadata).creditFailure).toBeNull();
+ expect(mergeResearchProgress(state,{type:"patch",sessionId:state.sessionId,version:state.version,revision:state.revision,changes:{creditFailure:null},removed:[]}).creditFailure).toBeNull();
+});
