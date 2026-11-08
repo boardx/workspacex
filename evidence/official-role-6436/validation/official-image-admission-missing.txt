@@ -1,0 +1,4 @@
+OFFICIAL_ROLE_PACKS_INVALID
+undefined
+/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: tsx scripts/verify-official-role-packs.ts

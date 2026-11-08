@@ -1,0 +1,24 @@
+[stack-admission] load1=5.48 cores=10 perCore=0.55 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw81l3ds-6c8d2628-def09483bc86 db=wsx_def09483bc8636a040a7 compose=wsx-def09483bc8636a040a7 pg=20611 redis=21611 api=24611 web=25611 sandbox=26611 model=27611 deep-agent=28611 asr=29611 vision=30611 loopback-sandbox=31611 mail=19611
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api
+
+[db-isolation] db=wsx_def09483bc8636a040a7 capacity=100 current=6 required=32
+ ✓ tests/agent/official-role-image-admission.test.ts (2 tests) 1591ms
+   ✓ image admission fails closed when canonical workflow assets are absent 715ms
+   ✓ image admission reads every workflow referenced by the actual shipped role pack 875ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  00:23:58
+   Duration  11.37s (transform 2.38s, setup 26ms, collect 3.36s, tests 1.59s, environment 0ms, prepare 171ms)
+
+[db-isolation] db=wsx_def09483bc8636a040a7 peak_connections=1
+[timing] pnpm --filter @repo/api exec vitest run tests/agent/official-role-image-admission.test.ts --maxWorkers=1 --minWorkers=1 --no-file-parallelism
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：12s
+  清理：1s
+  总计：13s

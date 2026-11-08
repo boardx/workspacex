@@ -372,7 +372,7 @@ import {
 } from "./application/agent-import/ports";
 import { FileAgentStarterPackSource } from "./infrastructure/agent/file-agent-starter-pack-source";
 import { PgAgentStarterImportRepository } from "./infrastructure/agent/pg-agent-starter-import-repository";
-import { FileWorkflowDefinitionStore } from "./infrastructure/agent/file-workflow-definition-store";
+import { FileWorkflowDefinitionStore, resolveWorkflowDefinitionsRoot } from "./infrastructure/agent/file-workflow-definition-store";
 import { PgOfficialAgentRolePackImportRepository } from "./infrastructure/agent/pg-official-agent-role-pack-import-repository";
 import { AgentStarterImportController } from "./interface/controllers/agent-starter-import.controller";
 import { AGENT_SKILL_PINS_REPOSITORY } from "./application/agent-skill-pins/set-agent-skill-pins";
@@ -1805,8 +1805,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
       // 才退回仓库相对路径。
       provide: WORKFLOW_DEFINITION_STORE,
       useFactory: () => new FileWorkflowDefinitionStore(
-        process.env.WORKFLOW_DEFINITIONS_ROOT?.trim()
-        || fileURLToPath(new URL("../../../requirements/work-stack-v2/workflows/", import.meta.url)),
+        resolveWorkflowDefinitionsRoot(),
       ),
     },
     {

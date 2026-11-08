@@ -1,0 +1,37 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/web
+
+ ❯ tests/ui/admin-official-digital-human.test.tsx (10 tests | 1 failed) 365ms
+   × official role card feedback > keeps category next to the name and shows pending/enabling/failed states in the card header 15ms
+     → expected false to be true // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/admin-official-digital-human.test.tsx > official role card feedback > keeps category next to the name and shows pending/enabling/failed states in the card header
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/ui/admin-official-digital-human.test.tsx:143:55
+    141|     const heading = card.querySelector("h2")!;
+    142|     const category = within(card).getByText("产品", {exact: true});
+    143|     expect(heading.parentElement?.contains(category)).toBe(true);
+       |                                                       ^
+    144|     expect(card.querySelector('[data-testid="official-role-status-D003…
+    145|     fireEvent.click(screen.getByRole("button", {name: "启用官方数字人"…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 9 passed (10)
+   Start at  00:02:29
+   Duration  4.04s (transform 1.51s, setup 167ms, collect 2.41s, tests 365ms, environment 851ms, prepare 59ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/admin-official-digital-human.test.tsx
