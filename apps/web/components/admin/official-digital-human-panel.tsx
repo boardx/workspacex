@@ -5,6 +5,7 @@ import { DisplayTranslationUpdate } from "@/components/localization/display-tran
 import { useSession } from "@/components/session/session-provider";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
+import { ApiError } from "@/lib/api-client";
 import { Badge } from "@/components/ui/badge";
 import { capabilityCardSpec } from "./capability-card";
 import { ResourceCard } from "@/components/ui/resource-card";
@@ -29,6 +30,7 @@ export function OfficialDigitalHumanPanel({ onEnabled, layout = "list" }: { onEn
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [enabling, setEnabling] = React.useState(false);
+  const [enableFailed, setEnableFailed] = React.useState(false);
   const [progress, setProgress] = React.useState<EnableProgress | null>(null);
   const [completedAction, setCompletedAction] = React.useState<"enable" | "upgrade" | null>(null);
   const [selectedUpgrades, setSelectedUpgrades] = React.useState<string[]>([]);
@@ -59,6 +61,7 @@ export function OfficialDigitalHumanPanel({ onEnabled, layout = "list" }: { onEn
     controller.current = abort;
     busy.current = true;
     setEnabling(true);
+    setEnableFailed(false);
     setError(null);
     try {
       await enableOfficialRolePack(offer, (value) => { if (alive.current) setProgress(value); }, {
@@ -69,8 +72,13 @@ export function OfficialDigitalHumanPanel({ onEnabled, layout = "list" }: { onEn
       setCompletedAction("enable");
       onEnabled();
       setTick((value) => value + 1);
-    } catch {
-      if (alive.current) setError("启用尚未完成，已完成的部分会保留。请重试继续启用。");
+    } catch (failure) {
+      if (alive.current) {
+        setEnableFailed(true);
+        setError(failure instanceof ApiError && failure.reasonCode === "UNRESOLVED_WORKFLOW_REF"
+          ? "启用失败：所需工作流尚未准备完成。请重试，已完成的部分会保留。"
+          : "启用尚未完成，已完成的部分会保留。请重试继续启用。");
+      }
     } finally {
       busy.current = false;
       if (alive.current) { setEnabling(false); setProgress(null); }
@@ -118,7 +126,10 @@ export function OfficialDigitalHumanPanel({ onEnabled, layout = "list" }: { onEn
                       title: name,
                       leading: role.avatar ? <Avatar initials={name.slice(0, 1)} avatarKey={role.avatar.key} tone="ai" className="h-16 w-16 text-20" /> : undefined,
                       description: role.roleCategory ? ROLE_CATEGORY_LABEL[role.roleCategory] : "Agent",
-                    })} />;
+                    })}
+                    description={undefined}
+                    subtitle={role.roleCategory ? ROLE_CATEGORY_LABEL[role.roleCategory] : "Agent"}
+                    badges={<Badge data-testid={`official-role-status-${role.roleRef}`} tone={enableFailed ? "danger" : "neutral"}>{enabling ? "启用中…" : enableFailed ? "启用失败" : "待启用"}</Badge>} />;
                 })}
               </div>
             ) : (

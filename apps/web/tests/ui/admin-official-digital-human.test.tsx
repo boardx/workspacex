@@ -1,6 +1,7 @@
 import * as React from "react";
+import { ApiError } from "@/lib/api-client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { OfficialDigitalHumanPanel } from "@/components/admin/official-digital-human-panel";
 import { AgentScreen } from "@/components/admin/agent-screen";
 
@@ -130,4 +131,23 @@ describe("官方角色显式选中升级",()=>{
   await screen.findByText("请联系组织管理员升级。");expect(screen.getByRole("checkbox",{name:/产品经理/})).toBeDisabled();
   expect(screen.queryByRole("button",{name:"升级所选官方数字人"})).toBeNull();expect(mocks.upgrade).not.toHaveBeenCalled();
  });
+});
+
+describe("official role card feedback", () => {
+  it("keeps category next to the name and shows pending/enabling/failed states in the card header", async () => {
+    let reject!: (error: Error) => void;
+    mocks.enable.mockImplementationOnce(() => new Promise<void>((_, failure) => { reject = failure; }));
+    render(<OfficialDigitalHumanPanel layout="cards" onEnabled={mocks.refresh} />);
+    const card = await screen.findByTestId("official-role-card-D003");
+    const heading = card.querySelector("h2")!;
+    const category = within(card).getByText("产品", {exact: true});
+    expect(heading.parentElement?.contains(category)).toBe(true);
+    expect(card.querySelector('[data-testid="official-role-status-D003"]')).toHaveTextContent("待启用");
+    fireEvent.click(screen.getByRole("button", {name: "启用官方数字人"}));
+    expect(card.querySelector('[data-testid="official-role-status-D003"]')).toHaveTextContent("启用中");
+    reject(new ApiError(422, "UNRESOLVED_WORKFLOW_REF", {}));
+    expect(await screen.findByRole("alert")).toHaveTextContent("所需工作流尚未准备完成");
+    expect(card.querySelector('[data-testid="official-role-status-D003"]')).toHaveTextContent("启用失败");
+    expect(mocks.refresh).not.toHaveBeenCalled();
+  });
 });

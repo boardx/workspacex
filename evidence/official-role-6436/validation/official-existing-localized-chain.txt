@@ -1,0 +1,44 @@
+[stack-admission] load1=3.98 cores=10 perCore=0.40 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw81ni4b-84eea079-c9068c4aae53 db=wsx_c9068c4aae537cea5806 compose=wsx-c9068c4aae537cea5806 pg=20546 redis=21546 api=24546 web=25546 sandbox=26546 model=27546 deep-agent=28546 asr=29546 vision=30546 loopback-sandbox=31546 mail=19546
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api
+
+[db-isolation] db=wsx_c9068c4aae537cea5806 capacity=100 current=6 required=32
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+{"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+ ❯ tests/agent/official-role-enable-chain-http.test.ts (2 tests | 1 failed | 1 skipped) 147664ms
+   × an organization with installed localized Skill packages can enable the current roles despite legacy dependency conflicts 75224ms
+     → expected 0 to be greater than 0
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent/official-role-enable-chain-http.test.ts > an organization with installed localized Skill packages can enable the current roles despite legacy dependency conflicts
+AssertionError: expected 0 to be greater than 0
+ ❯ tests/agent/official-role-enable-chain-http.test.ts:176:20
+    175|     headers: headers(admin, org),
+    176|   });
+    177|   expect(offerResponse.status).toBe(200);
+       |              ^
+    178|   const offer = await offerResponse.json();
+    179|   for (const pack of offer.requiredSkillPacks) {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 skipped (2)
+   Start at  00:25:51
+   Duration  157.64s (transform 27.67s, setup 26ms, collect 3.12s, tests 147.66s, environment 0ms, prepare 142ms)
+
+[db-isolation] db=wsx_c9068c4aae537cea5806 peak_connections=7
+undefined
+/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/agent/official-role-enable-chain-http.test.ts -t installed localized Skill packages --maxWorkers=1 --minWorkers=1 --no-file-parallelism
+[timing] pnpm --filter @repo/api exec vitest run tests/agent/official-role-enable-chain-http.test.ts -t installed localized Skill packages --maxWorkers=1 --minWorkers=1 --no-file-parallelism
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：2m39s
+  清理：3s
+  总计：2m42s

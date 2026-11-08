@@ -1,0 +1,27 @@
+[stack-admission] load1=4.27 cores=10 perCore=0.43 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw812wf0-6177083e-1f7044c482d6 db=wsx_1f7044c482d697892fdf compose=wsx-1f7044c482d697892fdf pg=20332 redis=21332 api=24332 web=25332 sandbox=26332 model=27332 deep-agent=28332 asr=29332 vision=30332 loopback-sandbox=31332 mail=19332
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api
+
+[db-isolation] db=wsx_1f7044c482d697892fdf capacity=100 current=6 required=32
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+{"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+{"level":"error","msg":"http exception","traceId":"b4d45cc6-6b45-438b-a18a-24047578b55f","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at AgentStarterImportController.importOfficial (/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api/src/interface/controllers/agent-starter-import.controller.ts:74:75)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+ ✓ tests/agent/official-role-enable-chain-http.test.ts (1 test) 43811ms
+   ✓ the actual shipped offer dependency chain enables localized official roles and replays safely in an existing organization 12251ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  00:09:50
+   Duration  52.00s (transform 9.84s, setup 13ms, collect 1.98s, tests 43.81s, environment 0ms, prepare 89ms)
+
+[db-isolation] db=wsx_1f7044c482d697892fdf peak_connections=6
+[timing] pnpm --filter @repo/api exec vitest run tests/agent/official-role-enable-chain-http.test.ts --maxWorkers=1 --minWorkers=1 --no-file-parallelism
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：53s
+  清理：1s
+  总计：54s

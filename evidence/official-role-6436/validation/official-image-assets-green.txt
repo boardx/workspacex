@@ -1,0 +1,28 @@
+[stack-admission] load1=7.49 cores=10 perCore=0.75 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw81h90l-63d30019-6ecd25ea26f0 db=wsx_6ecd25ea26f0aa1414b9 compose=wsx-6ecd25ea26f0aa1414b9 pg=20346 redis=21346 api=24346 web=25346 sandbox=26346 model=27346 deep-agent=28346 asr=29346 vision=30346 loopback-sandbox=31346 mail=19346
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api
+
+[db-isolation] db=wsx_6ecd25ea26f0aa1414b9 capacity=100 current=6 required=32
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+{"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+{"level":"error","msg":"http exception","traceId":"1e218f2b-b94b-4287-855b-aa3cf72da09a","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at AgentStarterImportController.importOfficial (/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api/src/interface/controllers/agent-starter-import.controller.ts:74:75)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+{"level":"error","msg":"http exception","traceId":"5b301886-952c-454c-971c-d623194de0d4","detail":{"name":"ForbiddenException","message":"Forbidden","stack":"ForbiddenException: Forbidden\n    at AgentStarterImportController.import (/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api/src/interface/controllers/agent-starter-import.controller.ts:37:91)\n    at /Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:38:29\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+ ✓ tests/agent/official-role-enable-chain-http.test.ts (1 test) 68767ms
+   ✓ the actual shipped offer dependency chain enables localized official roles and replays safely in an existing organization 21074ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  00:21:00
+   Duration  82.50s (transform 15.79s, setup 43ms, collect 4.25s, tests 68.77s, environment 0ms, prepare 169ms)
+
+[db-isolation] db=wsx_6ecd25ea26f0aa1414b9 peak_connections=6
+[timing] pnpm --filter @repo/api exec vitest run tests/agent/official-role-enable-chain-http.test.ts --maxWorkers=1 --minWorkers=1 --no-file-parallelism
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1m24s
+  清理：1s
+  总计：1m25s

@@ -1,0 +1,13 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/web
+
+ ✓ tests/ui/agent-directory.test.tsx (21 tests) 945ms
+ ✓ tests/ui/agent-detail.test.tsx (10 tests) 317ms
+ ✓ tests/ui/admin-official-digital-human.test.tsx (10 tests) 323ms
+ ✓ tests/ui/agent-directory-cards.test.tsx (8 tests) 441ms
+
+ Test Files  4 passed (4)
+      Tests  49 passed (49)
+   Start at  00:03:23
+   Duration  10.63s (transform 1.81s, setup 424ms, collect 4.56s, tests 2.03s, environment 2.76s, prepare 195ms)

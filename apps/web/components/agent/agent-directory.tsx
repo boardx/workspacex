@@ -73,7 +73,8 @@ function AgentCard({ card, onStartChat }: { card: AgentDirectoryCard; onStartCha
       onClick={() => setOpened(true)}
       leading={card.avatar ? <Avatar data-testid={opened ? undefined : "agent-card-avatar"} initials={card.initials} avatarKey={card.avatar.key} tone="ai" className="h-16 w-16 text-20" /> : <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground"><Bot aria-hidden className="h-8 w-8" /></span>}
       title={name}
-      description={<span className="line-clamp-2">{firstClause(subtitle || card.roleLabel || "Agent")}</span>}
+      subtitle={<span className="line-clamp-2">{firstClause(subtitle || card.roleLabel || "Agent")}</span>}
+      badges={<Badge tone="neutral">已启用</Badge>}
     />
       {opened ? <Modal title={name} onClose={() => setOpened(false)} testid="agent-card-details" width="lg">
     <ResourceCard

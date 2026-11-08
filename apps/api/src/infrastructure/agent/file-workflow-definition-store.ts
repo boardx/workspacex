@@ -1,6 +1,22 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { WorkflowDefinitionStore } from "../../application/agent-import/ports";
+
+/** Shared runtime/image admission root; explicit deployments retain precedence. */
+export function resolveWorkflowDefinitionsRoot(
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return (
+    env.WORKFLOW_DEFINITIONS_ROOT?.trim() ||
+    fileURLToPath(
+      new URL(
+        "../../../../../requirements/work-stack-v2/workflows/",
+        import.meta.url,
+      ),
+    )
+  );
+}
 
 /** `# W001 — Research-to-Brief` → `Research-to-Brief`. Any other first line → null (fail-soft). */
 const TITLE_LINE_RE = /^#\s*W\d{3}\s*[—-]\s*(.+?)\s*$/;
@@ -19,7 +35,9 @@ export class FileWorkflowDefinitionStore implements WorkflowDefinitionStore {
   async isRegistered(stableId: string): Promise<boolean> {
     if (!this.root) return false;
     try {
-      return readdirSync(this.root).some((name) => name.startsWith(`${stableId}-`));
+      return readdirSync(this.root).some((name) =>
+        name.startsWith(`${stableId}-`),
+      );
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
       throw error;
@@ -30,9 +48,12 @@ export class FileWorkflowDefinitionStore implements WorkflowDefinitionStore {
   async resolveName(stableId: string): Promise<string | null> {
     if (!this.root) return null;
     try {
-      const fileName = readdirSync(this.root).find((name) => name.startsWith(`${stableId}-`));
+      const fileName = readdirSync(this.root).find((name) =>
+        name.startsWith(`${stableId}-`),
+      );
       if (!fileName) return null;
-      const firstLine = readFileSync(join(this.root, fileName), "utf8").split("\n", 1)[0] ?? "";
+      const firstLine =
+        readFileSync(join(this.root, fileName), "utf8").split("\n", 1)[0] ?? "";
       const match = TITLE_LINE_RE.exec(firstLine);
       return match ? match[1]! : null;
     } catch (error) {

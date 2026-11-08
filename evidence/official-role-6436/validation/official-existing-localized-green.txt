@@ -1,0 +1,29 @@
+[stack-admission] load1=12.91 cores=10 perCore=1.29 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw81u71m-dcbc7b4a-00a4176c30c7 db=wsx_00a4176c30c7a88ceeff compose=wsx-00a4176c30c7a88ceeff pg=20900 redis=21900 api=24900 web=25900 sandbox=26900 model=27900 deep-agent=28900 asr=29900 vision=30900 loopback-sandbox=31900 mail=19900
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api
+
+[db-isolation] db=wsx_00a4176c30c7a88ceeff capacity=100 current=6 required=32
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+{"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+stdout | tests/agent/official-role-enable-chain-http.test.ts > an organization with installed localized Skill packages can enable roles through the legacy dependency request sequence
+{"fixture":"preinstalled-localized","dependencyStatusCounts":{"200":0,"201":8,"409":0}}
+
+ ✓ tests/agent/official-role-enable-chain-http.test.ts (2 tests | 1 skipped) 60745ms
+   ✓ an organization with installed localized Skill packages can enable roles through the legacy dependency request sequence 18990ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 1 skipped (2)
+   Start at  00:31:04
+   Duration  75.87s (transform 14.28s, setup 24ms, collect 4.99s, tests 60.75s, environment 0ms, prepare 238ms)
+
+[db-isolation] db=wsx_00a4176c30c7a88ceeff peak_connections=6
+[timing] pnpm --filter @repo/api exec vitest run tests/agent/official-role-enable-chain-http.test.ts -t installed localized Skill packages --maxWorkers=1 --minWorkers=1 --no-file-parallelism
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1m18s
+  清理：1s
+  总计：1m18s

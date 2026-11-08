@@ -9,6 +9,8 @@ COPY --chown=node:node patches ./patches
 COPY --chown=node:node packages ./packages
 COPY --chown=node:node skills/localizations ./skills/localizations
 COPY --chown=node:node skills/starter-packs ./skills/starter-packs
+# Official role workflow references are resolved from these canonical runtime assets.
+COPY --chown=node:node requirements/work-stack-v2/workflows ./requirements/work-stack-v2/workflows
 COPY --chown=node:node apps/api ./apps/api
 COPY --chown=node:node apps/local-asr-gateway ./apps/local-asr-gateway
 COPY --chown=node:node apps/skill-sandbox ./apps/skill-sandbox
