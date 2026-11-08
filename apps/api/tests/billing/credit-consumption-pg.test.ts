@@ -1,4 +1,5 @@
-import {nativeTariffForceReplay} from '../../src/infrastructure/db/native-tariff-force-replay';
+// @global-scope-fixture table:credit_wallets: historical rows live in a transaction-owned schema rolled back in finally; modern updates use exact fixture owner and rollback.
+// @global-scope-fixture table:credit_transactions: historical inserts live only in the transaction-owned schema rolled back in finally; existing public receipt fixtures retain their original cleanup.
 import {mkdtemp,rm} from "node:fs/promises";
 import {tmpdir} from "node:os";
 import {join} from "node:path";
@@ -41,8 +42,46 @@ it("resolves personal workspace payer from persisted kind and separates organiza
 it("settles already dispatched usage after membership revocation",async()=>{await reserve("credit-ledger-test-revoked");await asApp(org,c=>c.query("DELETE FROM org_memberships WHERE org_id=$1 AND user_id=$2",[org,user]));try{await settle("credit-ledger-test-revoked",10);await expect(reserve("credit-ledger-test-new-revoked")).rejects.toThrow("credit_payer_provenance_missing");}finally{await asApp(org,c=>c.query("INSERT INTO org_memberships(user_id,org_id,org_role) VALUES($1,$2,'admin')",[user,org]));}});
 
 it("recharges a fractional negative wallet exactly without changing order snapshots",async()=>{const no="bg20261023020000LED001",event="credit-ledger-test-payment";await asApp(org,c=>c.query("INSERT INTO billing_orders(order_no,owner_type,owner_id,created_by,package_id,amount_fen,base_credits,bonus_credits,currency,qr_code_url,expired_at) VALUES($1,'team',$2,$3,'pkg-cn-100',100,100,0,'CNY','weixin://fixture',now()+interval '15 minutes')",[no,org,user]));const credits=new PgBillingCreditingStore(db);await credits.accept({providerEventId:event,orderNo:no,appId:"test",mchId:"test",amountFen:100,currency:"CNY",transactionId:"credit-ledger-test-transaction",tradeState:"SUCCESS",paidAt:new Date().toISOString(),receiptHash:"a".repeat(64),signatureVerified:true});expect(await credits.processOne(event)).toEqual({completed:true,manual:false});expect(await wallet()).toMatchObject({balance:"99.81"});expect(await credits.processOne(event)).toEqual({completed:true,manual:false});expect(await wallet()).toMatchObject({balance:"99.81"});expect(await asApp(org,async c=>(await c.query("SELECT amount_fen,base_credits FROM billing_orders WHERE order_no=$1",[no])).rows[0])).toEqual({amount_fen:100,base_credits:100});});
-it("financial precision migration replays without altering holds and balances",async()=>{const migration=readFileSync(new URL("../../migrations/20261022120000_credit_consumption.sql",import.meta.url),"utf8");const before=await wallet();await asOwner(async c=>{await c.query("BEGIN");try{// The original tariff relation survives under its explicit legacy name; the current name is intentionally a read-only view.
-const mapped=await nativeTariffForceReplay(c,'20261022120000_credit_consumption.sql',migration,true);await c.query(mapped.sql);await c.query(mapped.sql);}finally{await c.query("ROLLBACK");}});expect(await wallet()).toEqual(before);});
+it("financial precision migration replays completely on isolated historical tables",async()=>{
+ const core=readFileSync(new URL("../../migrations/20261001090000_billing_credits_core.sql",import.meta.url),"utf8");
+ const migration=readFileSync(new URL("../../migrations/20261022120000_credit_consumption.sql",import.meta.url),"utf8");
+ const schema=`precision_history_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+ const before=await wallet();
+ await asOwner(async c=>{await c.query("BEGIN");try{
+  await c.query(`CREATE SCHEMA "${schema}"`);
+  await c.query(`SET LOCAL search_path TO "${schema}",pg_catalog`);
+  await c.query("CREATE TABLE organizations(id text PRIMARY KEY)");
+  await c.query(core);
+  await c.query("INSERT INTO credit_wallets(wallet_id,owner_type,owner_id,balance) VALUES('00000000-0000-4000-8000-000000000001','user','historical',12)");
+  await c.query(migration);
+  await c.query("UPDATE credit_wallets SET balance=12.34,held_hundredths=123 WHERE owner_id='historical'");
+  await c.query(migration);
+  expect((await c.query("SELECT balance::text,held_hundredths::text FROM credit_wallets WHERE owner_id='historical'")).rows[0]).toEqual({balance:"12.34",held_hundredths:"123"});
+  await c.query("INSERT INTO credit_transactions(wallet_id,type,direction,credits,balance_after,source_type,source_id) VALUES('00000000-0000-4000-8000-000000000001','consume',-1,0.01,12.33,'model_request','historical-consume')");
+  for(const invalid of ["UPDATE credit_transactions SET type='subscription'","UPDATE credit_transactions SET source_type='subscription_period'","UPDATE credit_transactions SET direction=1"]){
+   await c.query("SAVEPOINT invalid_history");
+   await expect(c.query(invalid)).rejects.toMatchObject({code:"23514"});
+   await c.query("ROLLBACK TO SAVEPOINT invalid_history");
+  }
+ }finally{await c.query("ROLLBACK");}});
+ expect(await wallet()).toEqual(before);
+});
+it("modern financial precision preserves balances holds and current schema constraints",async()=>{
+ await asOwner(c=>c.query("INSERT INTO credit_wallets(owner_type,owner_id) VALUES('team',$1) ON CONFLICT(owner_type,owner_id) DO NOTHING",[org]));
+ const before=await wallet();
+ const columns=await asOwner(async c=>(await c.query("SELECT table_name,column_name,data_type,numeric_precision,numeric_scale FROM information_schema.columns WHERE table_schema='public' AND ((table_name='credit_wallets' AND column_name='balance') OR (table_name='credit_transactions' AND column_name IN ('credits','balance_after'))) ORDER BY table_name,column_name")).rows);
+ expect(columns).toHaveLength(3);
+ for(const column of columns)expect(column).toMatchObject({data_type:"numeric",numeric_precision:12,numeric_scale:2});
+ await asOwner(async c=>{await c.query("BEGIN");try{
+  const constraints=async()=> (await c.query("SELECT conname,pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid IN ('public.credit_wallets'::regclass,'public.credit_transactions'::regclass) ORDER BY conrelid,conname")).rows;
+  const beforeConstraints=await constraints();
+  for(const statement of ["ALTER TABLE public.credit_wallets ALTER COLUMN balance TYPE numeric(12,2)","ALTER TABLE public.credit_transactions ALTER COLUMN credits TYPE numeric(12,2)","ALTER TABLE public.credit_transactions ALTER COLUMN balance_after TYPE numeric(12,2)"]){await c.query(statement);await c.query(statement);}
+  expect(await constraints()).toEqual(beforeConstraints);
+  await c.query("UPDATE credit_wallets SET balance=-12.34,held_hundredths=123 WHERE owner_type='team' AND owner_id=$1",[org]);
+  expect((await c.query("SELECT balance::text,held_hundredths::text FROM credit_wallets WHERE owner_type='team' AND owner_id=$1",[org])).rows[0]).toEqual({balance:"-12.34",held_hundredths:"123"});
+ }finally{await c.query("ROLLBACK");}});
+ expect(await wallet()).toEqual(before);
+});
 
 it("wallet read model exposes fractional available credits and active holds",async()=>{await reserve("credit-ledger-test-wallet-read",100);const repo=new PgBillingWalletRepository(db);expect((await repo.wallet({orgId:org,ownerType:"team",ownerId:org})).wallet).toMatchObject({balance:99.81,reservedCredits:0.1,availableBalance:99.81});await settle("credit-ledger-test-wallet-read",0);expect((await repo.wallet({orgId:org,ownerType:"team",ownerId:org})).wallet).toMatchObject({balance:99.81,reservedCredits:0,availableBalance:99.81});});
 
