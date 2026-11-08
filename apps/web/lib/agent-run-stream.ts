@@ -1,4 +1,6 @@
-import { notifyCreditFailure } from "./credit-guidance";
+import { agentRunCreditFailure, notifyCreditFailure } from "./credit-guidance";
+import type {CreditRequiredBody} from "@repo/contracts/billing-consumption";
+import type {z} from "zod";
 /**
  * #654 阶段2d —— `GET /agent-runs/:runId/stream` 的客户端薄封装。
  *
@@ -29,7 +31,7 @@ import { apiUrl, getStoredSessionToken } from "./api-client";
 export type AgentRunStreamEvent =
   | { readonly type: "delta"; readonly text: string }
   | { readonly type: "final"; readonly status: "succeeded"; readonly resultMessageId: string | null }
-  | { readonly type: "final"; readonly status: "failed"; readonly error: string | null }
+  | { readonly type: "final"; readonly status: "failed"; readonly error: string | null; readonly creditFailure?:z.infer<typeof CreditRequiredBody> }
   | { readonly type: "timeout" };
 
 function parseFrame(raw: string): AgentRunStreamEvent | null {
@@ -87,7 +89,7 @@ export async function openAgentRunStream(
       buffer = buffer.slice(boundary + 2);
       boundary = buffer.indexOf("\n\n");
       const event = parseFrame(frame);
-      if (event) { if (event.type === "final" && event.status === "failed") notifyCreditFailure({ ...event, code: event.error }); onEvent(event); }
+      if (event) { if (event.type === "final" && event.status === "failed") notifyCreditFailure(agentRunCreditFailure(event.error,event.creditFailure)); onEvent(event); }
     }
   }
 }

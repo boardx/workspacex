@@ -12,7 +12,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, StreamingResponse
 from starlette.routing import Route
 
-from deep_agent_service.self_hosted_runtime import GRAPH_IDS, NATIVE_SNAPSHOT_EVENT, Runtime, _jsonable, enter_graph, graph_config, is_native_config, production_runtime
+from deep_agent_service.self_hosted_runtime import GRAPH_IDS, NATIVE_SNAPSHOT_EVENT, Runtime, _jsonable, enter_graph, graph_config, is_native_config, production_runtime, public_run_error
 
 
 def _wire(value: Any) -> Any: return _jsonable(value)
@@ -121,7 +121,7 @@ def create_app(runtime: Runtime | None = None) -> Starlette:
 
     async def read_run(request: Request):
         row = await rt(request).ledger.get_run(request.path_params["thread_id"], request.path_params["run_id"])
-        return JSONResponse({k: _wire(v) for k, v in row.items()} if row else {"detail": "not found"}, status_code=200 if row else 404)
+        return JSONResponse({k: _wire(public_run_error(v) if k == "error" else v) for k, v in row.items()} if row else {"detail": "not found"}, status_code=200 if row else 404)
 
     async def state(request: Request):
         thread_id = request.path_params["thread_id"]

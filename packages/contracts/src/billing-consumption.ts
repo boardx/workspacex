@@ -2,9 +2,9 @@ import {z} from "zod";
 import {PricingCatalog} from "./billing-pricing";
 import {BillingOwnerType} from "./billing-credits";
 
-export const CREDIT_ADMISSION_POLICY="personal_nonnegative_enterprise_overdraft" as const;
+export const CREDIT_ADMISSION_POLICY="enterprise_member_allowance_then_personal_strict" as const;
 /** Legacy flag is retained for compatibility/audit; the fixed policy governs every new request. */
-export const CreditConsumptionSettings=z.object({creditPreflightEnabled:z.boolean(),admissionPolicy:z.literal(CREDIT_ADMISSION_POLICY).optional()}).strict();
+export const CreditConsumptionSettings=z.object({creditPreflightEnabled:z.boolean(),admissionPolicy:z.enum([CREDIT_ADMISSION_POLICY,"personal_nonnegative_enterprise_overdraft"]).optional()}).strict();
 export const CreditConsumptionErrorCode=z.enum(["credit_required","credit_accounting_unavailable"]);
 export const CreditRequiredReason=z.enum(["member_monthly_limit"]);
 export type CreditRequiredReason=z.infer<typeof CreditRequiredReason>;

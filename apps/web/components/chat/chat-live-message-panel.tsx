@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import {AgentRunCreditFailure} from "@/components/chat/agent-run-credit-failure";
 import {
   ArrowDown, Bot, Check, Copy, Loader2, Mic, MoreHorizontal, Paperclip, RefreshCw, Send, UserRound, Wrench,
 } from "lucide-react";
@@ -1414,10 +1415,10 @@ export function ChatLiveMessagePanel({
                       className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-2"
                       data-testid="chat-run-process-failure"
                     >
-                      <p className="text-11 text-destructive" title={runObservation.view.error ?? undefined}>
+                      {runObservation.view.error !== "CREDIT_REQUIRED" && runObservation.view.error !== "CREDIT_ACCOUNTING_UNAVAILABLE" && <p className="text-11 text-destructive" title={runObservation.view.error ?? undefined}>
                         {describeAgentRunFailure(runObservation.view.error, runObservation.view.failureReason ?? null)}
-                      </p>
-                      {runObservation.view.error === "CREDIT_REQUIRED" || runObservation.view.error === "CREDIT_ACCOUNTING_UNAVAILABLE" ? <p className="text-12">请确认计费账户或联系管理员，任务不会自动重试。</p> : <Button
+                      </p>}
+                      {runObservation.view.error === "CREDIT_REQUIRED" || runObservation.view.error === "CREDIT_ACCOUNTING_UNAVAILABLE" ? <AgentRunCreditFailure error={runObservation.view.error} creditFailure={runObservation.view.creditFailure}/> : <Button
                         size="xs"
                         variant="outline"
                         data-testid="chat-run-process-failure-retry"

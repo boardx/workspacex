@@ -1,5 +1,5 @@
 import { AGENT_RUN_ERROR_TEXT, AGENT_RUN_FAILURE_REASON_TEXT } from "./agent-run-error-labels";
-import { notifyCreditFailure } from "./credit-guidance";
+import { agentRunCreditFailure, notifyCreditFailure } from "./credit-guidance";
 /**
  * #435 —— AgentRun 只读轮询的真实 API 薄封装。
  *
@@ -132,7 +132,7 @@ export async function getAgentRun(
     wave2Runtime.operations.getAgentRun.path.replace(":runId", encodeURIComponent(runId)),
     { method: "GET", sessionToken, signal },
   );
-  if (view.status === "failed") notifyCreditFailure({ code: view.error });
+  if (view.status === "failed") notifyCreditFailure(agentRunCreditFailure(view.error,view.creditFailure));
   return view;
 }
 

@@ -1,4 +1,4 @@
-import {assertMemberCreditQuota} from "./member-credit-quota";
+import {assertMemberCreditQuota,enterpriseCreditPlan} from "./member-credit-quota";
 import {resolveNativeCreditTariff} from './resolve-native-credit-tariff';
 import {lockTeamFinancialOwner} from "./team-financial-owner";
 import {prepareTeamCreditAdmission} from "./team-credit-admission";
@@ -22,13 +22,14 @@ export class PgCreditConsumption {
  private async payer(s:TenantSession,orgId:OrgId,userId:string):Promise<Payer>{
   const row=(await s.query<{kind:string}>(`SELECT o.kind FROM organizations o JOIN org_memberships m ON m.org_id=o.id WHERE o.id=$1 AND m.user_id=$2`,[orgId,userId])).rows[0];
   if(!row)throw new CreditConsumptionError("credit_accounting_unavailable","team",orgId,"credit_payer_provenance_missing");
-  return isLocalOrg(row.kind)?{ownerType:"user",ownerId:userId}:{ownerType:"team",ownerId:orgId};
+  return !isLocalOrg(row.kind)&&await enterpriseCreditPlan(s,orgId)?{ownerType:"team",ownerId:orgId}:{ownerType:"user",ownerId:userId};
  }
  private error(p:Payer,message:string,code:"credit_required"|"credit_accounting_unavailable"="credit_accounting_unavailable"){return new CreditConsumptionError(code,p.ownerType,p.ownerId,message);}
  async reserveInSession(s:TenantSession,orgId:OrgId,input:Start):Promise<void>{
-  let p=await this.payer(s,orgId,input.userId);const at=this.clock();
+  const at=this.clock();
   // Every financial path takes the organization before wallets, including personal fallback.
-  await lockTeamFinancialOwner(s,orgId);
+  if(!await lockTeamFinancialOwner(s,orgId))throw new CreditConsumptionError("credit_accounting_unavailable","team",orgId,"credit_organization_not_writable");
+  let p=await this.payer(s,orgId,input.userId);
   const immutable={orgId,userId:input.userId,runId:input.runId,modelProvider:input.modelProvider,modelId:input.modelId,executionAttemptId:input.executionAttemptId,projectId:input.projectId,threadId:input.threadId??null,agentId:input.agentId??null,callPurpose:input.callPurpose??null};
   const old=(await s.query<Request>("SELECT * FROM credit_consumption_requests WHERE request_id=$1",[input.requestId])).rows[0];
   if(old){
@@ -43,7 +44,7 @@ export class PgCreditConsumption {
   }
   const loadWallet=async (payer:Payer)=>{
    await s.query(`INSERT INTO credit_wallets(owner_type,owner_id) VALUES($1,$2) ON CONFLICT(owner_type,owner_id) DO NOTHING`,[payer.ownerType,payer.ownerId]);
-   const wallet=(await s.query<{wallet_id:string;balance:string;held_hundredths:string;unbounded_requests:string}>(`SELECT wallet_id,balance::text,held_hundredths::text,unbounded_requests::text FROM credit_wallets WHERE owner_type=$1 AND owner_id=$2 FOR UPDATE`,[payer.ownerType,payer.ownerId])).rows[0]!;
+   const wallet=(await s.query<{wallet_id:string;balance:string;held_hundredths:string;remaining_held_hundredths:string;unbounded_requests:string}>(`SELECT wallet_id,balance::text,held_hundredths::text,remaining_held_hundredths::text,unbounded_requests::text FROM credit_wallets WHERE owner_type=$1 AND owner_id=$2 FOR UPDATE`,[payer.ownerType,payer.ownerId])).rows[0]!;
    await normalizeCreditPeriods(s,wallet.wallet_id,at);
    wallet.balance=(await s.query<{balance:string}>("SELECT balance::text FROM credit_wallets WHERE wallet_id=$1",[wallet.wallet_id])).rows[0]!.balance;
    return wallet;
@@ -82,7 +83,20 @@ export class PgCreditConsumption {
   if(reserved>limit)throw this.error(p,"credit_request_bound_unrepresentable");
   const hasTokenBound=extended.maximumTokens!=null||admission?.maximum_tokens!=null;
   const hasCreditBound=(native!==undefined||hasTokenBound)&&(!extended.tokenBoundRequired||hasTokenBound);
-  if(p.ownerType==="team")reserved=await assertMemberCreditQuota(s,orgId,input.userId,reserved,hasCreditBound);
+  if(p.ownerType==="team"){
+   try { reserved=await assertMemberCreditQuota(s,orgId,input.userId,reserved,hasCreditBound); }
+   catch(error){
+    if(!(error instanceof CreditConsumptionError)||error.code!=="credit_required"||error.reason!=="member_monthly_limit")throw error;
+    p={ownerType:"user",ownerId:input.userId};
+    await grantDuePersonalTerms(s,p.ownerId);wallet=await loadWallet(p);
+   }
+  }
+  if(p.ownerType==="user"){
+   const available=creditHundredths(wallet.balance)-BigInt(wallet.remaining_held_hundredths);
+   if(BigInt(wallet.unbounded_requests)>0n||available<=0n||(hasCreditBound&&reserved>available))throw this.error(p,"insufficient_credit","credit_required");
+   // Unknown-cost requests hold remaining spending capacity, never fabricated usage.
+   if(!hasCreditBound)reserved=available;
+  }
   const inserted=await s.query(`INSERT INTO credit_consumption_requests(request_id,org_id,user_id,wallet_id,model_provider,model_id,run_id,start_facts,reserved_hundredths,tariff_version,native_unit,native_quantum,native_rate) VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,$10,$11,$12,$13) ON CONFLICT(request_id) DO NOTHING RETURNING request_id`,[input.requestId,orgId,input.userId,wallet.wallet_id,input.modelProvider,input.modelId,input.runId,facts({...immutable,maximumTokenBound:extended.maximumTokens??null,nativeMaximumBound:extended.nativeMaximum??null,tokenBoundRequired:extended.tokenBoundRequired??false}),reserved.toString(),version,native?.unit??null,quantum?.toString()??null,rate?.toString()??null]);
   if(!inserted.rows.length)throw this.error(p,"credit_start_replay_mismatch");
   await s.query("UPDATE credit_wallets SET held_hundredths=held_hundredths+$2,unbounded_requests=unbounded_requests+$3 WHERE wallet_id=$1",[wallet.wallet_id,reserved.toString(),reserved===0n?1:0]);

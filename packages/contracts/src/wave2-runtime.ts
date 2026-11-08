@@ -1,3 +1,4 @@
+import {CreditRequiredBody} from "./billing-consumption";
 import { ChildCancellationStatus } from "./run-control";
 /**
  * Signed Wave 2 runtime delta (#409 / PR #426).
@@ -560,6 +561,7 @@ export const AgentRunStep = z.object({
 }).strict();
 
 export const AgentRunView = z.object({
+  creditFailure: CreditRequiredBody.optional(),
   recoveryDiagnostic: z.string().max(256).nullable().optional(),
   cancelRequestedAt: z.string().nullable().optional(),
   childCancellation: ChildCancellationStatus.optional(),

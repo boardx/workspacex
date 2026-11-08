@@ -1,3 +1,4 @@
+import {creditFailureForViewer} from "./run-credit-failure";
 /**
  * `readAgentRun` -- the authorized read behind `GET /agent-runs/:runId` (delta §5).
  *
@@ -83,5 +84,5 @@ export async function readAgentRun(
     }
   }
 
-  return disclosed.payload;
+  return creditFailureForViewer(disclosed.payload,input.userId);
 }

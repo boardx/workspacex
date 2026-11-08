@@ -88,7 +88,7 @@ describe("计费六表结构", () => {
       "order_no", "owner_id", "owner_type", "package_id", "paid_at", "provider", "qr_code_url", "status", "stripe_session_ref",
     ]);
     expect(await columns("credit_wallets")).toEqual([
-      "balance", "held_hundredths", "owner_id", "owner_type", "total_granted", "total_purchased", "unbounded_requests", "updated_at", "wallet_id",
+      "balance", "held_hundredths", "owner_id", "owner_type", "remaining_held_hundredths", "total_granted", "total_purchased", "unbounded_requests", "updated_at", "wallet_id",
     ]);
     expect(await columns("credit_transactions")).toEqual([
       "balance_after", "created_at", "credits", "direction", "operator_id", "reason",

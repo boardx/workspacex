@@ -1,3 +1,4 @@
+import {BILLING_ACCOUNTING_GENERATION as generation} from "../../src/domain/billing/billing-generation";
 import {BailianVisionExtractor} from "../../src/infrastructure/chat/bailian-vision-extractor";
 // @global-scope-fixture table:credit_wallets: team fixture wallet and transactions are explicitly removed in afterAll.
 import {createServer,type Server} from 'node:http';
@@ -16,7 +17,7 @@ const personal=toOrgId('credit-model-pg-personal');
 let server:Server,baseUrl:string,dispatches=0;
 const policy=(enabled:boolean)=>asApp(org,s=>s.query('UPDATE credit_consumption_settings SET credit_preflight_enabled=$1 WHERE singleton',[enabled]));
 beforeAll(async()=>{
- ensureDatabase();await migrateOnce();await seedOrg({orgId:org,projectId:'credit-model-pg-project'});
+ ensureDatabase();await migrateOnce();await seedOrg({orgId:org,projectId:'credit-model-pg-project'});await asOwner(c=>c.query("INSERT INTO organization_plans(org_id,plan,version,updated_by,billing_generation) VALUES($1,'enterprise',1,$2,$3)",[org,user,generation]));
  await seedOrg({orgId:personal,kind:'personal-local',ownerUserId:user,projectId:'credit-model-pg-personal-project'});
  await asApp(personal,s=>s.query("INSERT INTO org_memberships(org_id,user_id,org_role) VALUES($1,$2,'admin')",[personal,user]));
  await asApp(org,s=>s.query("INSERT INTO org_memberships(org_id,user_id,org_role) VALUES($1,$2,'admin')",[org,user]));
@@ -52,7 +53,7 @@ it('the actual enterprise VLM HTTP boundary admits zero and consumes reported to
  expect(balance).toEqual({balance:'9.98'});expect(dispatches).toBe(before+2);
 });
 
-it('personal debt prevents actual HTTP while zero admits one complete paid request',async()=>{
+it('personal debt and zero prevent actual HTTP; sufficient verified capacity admits one request',async()=>{
  const usage=new PgTokenUsageRepository(db);
  const model=creditModelGateway(new ConfiguredModelProvider({provider:'credit-loopback',baseUrl,apiKey:['local','fixture'].join('-'),timeoutMs:2000,streamEnabled:false,visionModelIds:new Set(),thinkingDisableModelIds:new Set(),bailianExtensionsEnabled:false}),db,usage);
  const call=()=>withCreditSubject({orgId:personal,userId:user},()=>model.complete({modelProvider:'credit-loopback',modelId:'test-model',system:'system',user:'question'}));
@@ -60,8 +61,9 @@ it('personal debt prevents actual HTTP while zero admits one complete paid reque
  const before=dispatches;await policy(false);
  await expect(call()).rejects.toMatchObject({code:'credit_required',ownerType:'user',ownerId:user});expect(dispatches).toBe(before);
  await asApp(personal,s=>s.query("UPDATE credit_wallets SET balance=0 WHERE owner_type='user' AND owner_id=$1",[user]));
+ await expect(call()).rejects.toMatchObject({code:'credit_required'});expect(dispatches).toBe(before);
+ await asApp(personal,s=>s.query("UPDATE credit_wallets SET balance=100 WHERE owner_type='user' AND owner_id=$1",[user]));
  expect(await call()).toMatchObject({tokens:11});expect(dispatches).toBe(before+1);
- await expect(call()).rejects.toMatchObject({code:'credit_required'});expect(dispatches).toBe(before+1);
 });
 
 it('pre-dispatch observer rejection releases each hold and keeps the typed refusal',async()=>{

@@ -1,3 +1,4 @@
+import {BILLING_ACCOUNTING_GENERATION as generation} from "../../src/domain/billing/billing-generation";
 import {randomUUID} from "node:crypto";
 import {beforeAll,afterAll,expect,it} from "vitest";
 import {ensureDatabase,migrateOnce,seedOrg,addOrgMember,asOwner,resetOrgs} from "../support/db";
@@ -8,7 +9,7 @@ import {PgTokenUsageRepository} from "../../src/infrastructure/auth/pg-token-usa
 import {toOrgId} from "../../src/domain/org-id";
 const org=toOrgId(`team-meter-lock-${randomUUID().slice(0,8)}`),user=`${org}-user`,db=new PgDatabase(appConfig());
 beforeAll(async()=>{
- ensureDatabase();await migrateOnce();await seedOrg({orgId:org,kind:"organization",projectId:`${org}-project`});await addOrgMember(org,user,"admin",null);
+ ensureDatabase();await migrateOnce();await seedOrg({orgId:org,kind:"organization",projectId:`${org}-project`});await asOwner(c=>c.query("INSERT INTO organization_plans(org_id,plan,version,updated_by,billing_generation) VALUES($1,'enterprise',1,$2,$3)",[org,user,generation]));await addOrgMember(org,user,"admin",null);
  await asOwner(c=>c.query("UPDATE billing_pricing_epoch SET generation=NULL,activated_at=NULL WHERE singleton=true"));
 });
 afterAll(async()=>{

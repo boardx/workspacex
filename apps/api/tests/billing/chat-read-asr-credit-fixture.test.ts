@@ -1,3 +1,4 @@
+// @global-scope-fixture table:credit_wallets: speaker is the existing controlled microphone fixture; no production account is used.
 import {afterAll,beforeAll,expect,it} from "vitest";
 import {seedChatReadAsrCreditTariff} from "../../scripts/chat-read-asr-credit-fixture";
 import {PgTokenUsageRepository} from "../../src/infrastructure/auth/pg-token-usage-repository";
@@ -6,7 +7,7 @@ import {appConfig} from "../../src/infrastructure/db/pg-config";
 import {toOrgId} from "../../src/domain/org-id";
 import {addOrgMember,asApp,asOwner,ensureDatabase,migrateOnce,resetOrgs,seedOrg} from "../support/db";
 const org=toOrgId("chat-read-asr-credit-fixture"),other=toOrgId("chat-read-asr-credit-other");let db:PgDatabase;
-beforeAll(async()=>{await ensureDatabase();await migrateOnce();await resetOrgs(org,other);await seedOrg({orgId:org,projectId:org+"-p"});await seedOrg({orgId:other,projectId:other+"-p"});await addOrgMember(org,"speaker","consultant",null);db=new PgDatabase(appConfig());});
+beforeAll(async()=>{await ensureDatabase();await migrateOnce();await resetOrgs(org,other);await seedOrg({orgId:org,projectId:org+"-p"});await seedOrg({orgId:other,projectId:other+"-p"});await addOrgMember(org,"speaker","consultant",null);await asOwner(c=>c.query("INSERT INTO credit_wallets(owner_type,owner_id,balance) VALUES('user','speaker',10) ON CONFLICT(owner_type,owner_id) DO UPDATE SET balance=10"));db=new PgDatabase(appConfig());});
 afterAll(async()=>{await db?.close();await resetOrgs(org,other);});
 it("requires the explicit controlled tenant and cannot be enabled from a foreign fixture tenant",async()=>{
  await expect(db.withTenant(org,s=>seedChatReadAsrCreditTariff(s,org,{}))).rejects.toThrow("FIXTURE_SCOPE_REQUIRED");

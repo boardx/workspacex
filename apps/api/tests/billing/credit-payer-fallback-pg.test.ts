@@ -42,9 +42,9 @@ it("uses the authenticated initiator's personal wallet when the organization has
  await reserve(unpaid,"unpaid");await settle(unpaid,"unpaid");await settle(unpaid,"unpaid");
  expect(await owner("unpaid")).toMatchObject({owner_type:"user",owner_id:user,state:"settled"});expect(await balance("user",user)).toBe(19999);expect(await balance("user",other)).toBe(30000);
 });
-it("keeps a funded licensed organization first and freezes its payer across later exhaustion",async()=>{
+it("keeps non-enterprise personal payer fixed across later Team wallet changes",async()=>{
  await reserve(team,"team-first");await asOwner(c=>c.query("UPDATE credit_wallets SET balance=-2 WHERE owner_type='team' AND owner_id=$1",[team]));await reserve(team,"team-first");await settle(team,"team-first");
- expect(await owner("team-first")).toMatchObject({owner_type:"team",owner_id:team});expect(await balance("team",team)).toBe(-3);expect(await balance("user",user)).toBe(20000);
+ expect(await owner("team-first")).toMatchObject({owner_type:"user",owner_id:user});expect(await balance("team",team)).toBe(-2);expect(await balance("user",user)).toBe(19999);
 });
 it("falls back from exhausted Team and never changes the persisted payer after it is funded",async()=>{
  await asOwner(c=>c.query("UPDATE credit_wallets SET balance=-2 WHERE owner_type='team' AND owner_id=$1",[team]));await reserve(team,"personal-first");await asOwner(c=>c.query("UPDATE credit_wallets SET balance=10 WHERE owner_type='team' AND owner_id=$1",[team]));await reserve(team,"personal-first");await settle(team,"personal-first");
@@ -53,19 +53,21 @@ it("falls back from exhausted Team and never changes the persisted payer after i
 it("preserves legal Enterprise overdraft even when personal funds are negative",async()=>{
  await asOwner(c=>c.query("UPDATE credit_wallets SET balance=-2 WHERE (owner_type='team' AND owner_id=$1) OR (owner_type='user' AND owner_id=$2)",[enterprise,user]));await reserve(enterprise,"enterprise");await settle(enterprise,"enterprise");expect(await owner("enterprise")).toMatchObject({owner_type:"team",owner_id:enterprise});expect(await balance("team",enterprise)).toBe(-3);expect(await balance("user",user)).toBe(-2);
 });
-it("allows personal zero and in-flight completion, then refuses the next request when both cannot pay",async()=>{
- await asOwner(c=>c.query("UPDATE credit_wallets SET balance=0 WHERE owner_type='user' AND owner_id=$1",[user]));await reserve(unpaid,"zero");await settle(unpaid,"zero");await expect(reserve(unpaid,"negative")).rejects.toMatchObject({code:"credit_required",ownerType:"user",ownerId:user});expect(await balance("user",user)).toBe(-1);
+it("refuses personal zero before dispatch without a debit",async()=>{
+ await asOwner(c=>c.query("UPDATE credit_wallets SET balance=0 WHERE owner_type='user' AND owner_id=$1",[user]));
+ await expect(reserve(unpaid,"zero")).rejects.toMatchObject({code:"credit_required",ownerType:"user",ownerId:user});
+ expect(await owner("zero")).toBeUndefined();expect(await balance("user",user)).toBe(0);
 });
 it("serializes two organizations sharing one personal wallet and rejects foreign replay",async()=>{
  await Promise.all([reserve(unpaid,"parallel-a"),reserve(second,"parallel-b")]);await Promise.all([settle(unpaid,"parallel-a"),settle(second,"parallel-b")]);expect(await balance("user",user)).toBe(19998);
  await expect(db.withTenant(unpaid,s=>credits.reserveInSession(s,unpaid,{...input("parallel-a"),userId:other}))).rejects.toBeTruthy();expect(await balance("user",other)).toBe(30000);
 });
 
-it("falls back at zero Team balance but fails closed for an untrusted generation",async()=>{
+it("non-enterprise payer remains personal regardless of stale Team subscription metadata",async()=>{
  await asOwner(c=>c.query("UPDATE credit_wallets SET balance=0 WHERE owner_type='team' AND owner_id=$1",[team]));
  await reserve(team,"team-zero");expect(await owner("team-zero")).toMatchObject({owner_type:"user",owner_id:user});
  await asOwner(c=>c.query("UPDATE organization_plans SET billing_generation='untrusted' WHERE org_id=$1",[team]));
- try{await expect(reserve(team,"bad-generation")).rejects.toMatchObject({code:"credit_accounting_unavailable"});expect(await owner("bad-generation")).toBeUndefined();expect(await balance("user",user)).toBe(20000);}
+ try{await reserve(team,"bad-generation");expect(await owner("bad-generation")).toMatchObject({owner_type:"user",owner_id:user});expect(await balance("user",user)).toBe(20000);}
  finally{await asOwner(c=>c.query("UPDATE organization_plans SET billing_generation=$2 WHERE org_id=$1",[team,generation]));}
 });
 it("keeps Enterprise organization ownership even before a wallet exists",async()=>{

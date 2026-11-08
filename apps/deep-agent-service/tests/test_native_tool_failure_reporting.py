@@ -127,3 +127,89 @@ def test_platform_invariant_failures_still_stop_the_run():
     )
     with pytest.raises(ToolAuthorityError):
         graph.invoke({"messages": [{"role": "user", "content": "go"}]})
+
+
+@pytest.mark.parametrize("code", ["credit_required", "credit_accounting_unavailable"])
+@pytest.mark.parametrize("asynchronous", [False, True])
+def test_credit_refusal_crosses_real_native_retry_stack_once(code, asynchronous):
+    import asyncio
+    from deep_agent_service.model_request_accounting import CreditRuntimeUsageError
+    from deep_agent_service.self_hosted_runtime import credit_failure_projection
+
+    calls = []
+    refusal = CreditRuntimeUsageError({"code": code, "ownerType": "user", "ownerId": "requester"})
+
+    @tool("wx_credit_probe")
+    def credit_probe(payload: str) -> str:
+        """Probe an authoritative billing refusal without provider dispatch."""
+        calls.append(payload)
+        raise refusal
+
+    adapter = sandbox()
+    try:
+        graph = create_native_graph(
+            model(
+                AIMessage(content="", tool_calls=[{"id": "credit-1", "name": "wx_credit_probe", "args": {"payload": "x"}}]),
+                AIMessage(content="must not resume after billing refusal"),
+            ),
+            sandbox=adapter, pinned_skills=[], tool_authority=FakeAuthority(), interrupt_on={},
+            tools=[credit_probe],
+        )
+        with pytest.raises(CreditRuntimeUsageError) as failure:
+            inputs = {"messages": [{"role": "user", "content": "transcribe"}]}
+            if asynchronous:
+                asyncio.run(graph.ainvoke(inputs))
+            else:
+                graph.invoke(inputs)
+        assert failure.value is refusal
+        assert calls == ["x"], "authoritative Credit refusals must never retry the physical tool call"
+        assert credit_failure_projection(failure.value)["message"] == code
+    finally:
+        adapter._client.close()
+
+
+@pytest.mark.parametrize("code", ["credit_required", "credit_accounting_unavailable", None])
+def test_audio_callback_through_native_graph_preserves_credit_boundary(monkeypatch, code):
+    import asyncio
+    import json
+    import httpx
+    from deep_agent_service import standard_audio_tools as audio
+    from deep_agent_service.model_request_accounting import CreditRuntimeUsageError
+    from test_standard_audio_tools import runtime
+
+    requests = []
+    def respond(request):
+        if request.url.path.endswith("/interjections/poll"):
+            return httpx.Response(200, json={"interjections": []})
+        requests.append(request)
+        body = {"code": code, "ownerType": "user", "ownerId": "requester"} if code else {}
+        return httpx.Response(402 if code == "credit_required" else 503,
+                             stream=httpx.ByteStream(json.dumps(body).encode()))
+
+    original = httpx.AsyncClient
+    monkeypatch.setattr(audio.httpx, "AsyncClient", lambda **kwargs:
+                        original(transport=httpx.MockTransport(respond), **kwargs))
+    adapter = sandbox()
+    audio_tool = audio.audio_transcribe_tool()
+    graph = create_native_graph(
+        model(AIMessage(content="", tool_calls=[{"id": "audio-credit", "name": audio_tool.name,
+                                                "args": {"attachmentId": "original"}}]),
+              AIMessage(content="unknown outcome reported")),
+        sandbox=adapter, pinned_skills=[], tool_authority=FakeAuthority(), interrupt_on={}, tools=[audio_tool],
+    )
+    try:
+        invoke = graph.ainvoke({"messages": [{"role": "user", "content": "transcribe"}]}, runtime().config)
+        if code:
+            with pytest.raises(CreditRuntimeUsageError) as failure:
+                asyncio.run(invoke)
+            assert failure.value.payload["code"] == code
+        else:
+            result = asyncio.run(invoke)
+            failed = [m for m in result["messages"] if isinstance(m, ToolMessage) and m.tool_call_id == "audio-credit"]
+            assert len(failed) == 1 and failed[0].status == "error"
+            assert "Do not resubmit automatically" in str(failed[0].content)
+            assert result["messages"][-1].content == "unknown outcome reported"
+        assert len(requests) == 1
+        assert requests[0].url.path.endswith("/audio-transcribe")
+    finally:
+        adapter._client.close()

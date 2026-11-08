@@ -1,3 +1,4 @@
+import {BILLING_ACCOUNTING_GENERATION as generation} from "../../src/domain/billing/billing-generation";
 import {afterAll, beforeAll, expect, it} from "vitest";
 import {randomUUID} from "node:crypto";
 import {mkdtemp, rm} from "node:fs/promises";
@@ -21,6 +22,7 @@ beforeAll(async () => {
   await seedOrg({orgId: other, projectId: `${other}-project`});
   await asApp(org, async c => {
     await c.query("INSERT INTO org_memberships(user_id,org_id,org_role) VALUES($1,$2,'admin')", [user, org]);
+    await c.query("INSERT INTO organization_plans(org_id,plan,version,updated_by,billing_generation) VALUES($1,'enterprise',1,$2,$3)",[org,user,generation]);
     await c.query("INSERT INTO credit_wallets(owner_type,owner_id) VALUES('team',$1)", [org]);
   });
 });

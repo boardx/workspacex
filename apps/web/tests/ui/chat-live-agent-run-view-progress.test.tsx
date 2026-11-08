@@ -5,7 +5,7 @@
  * 这里只钉住：非终态渲染按钮、终态不渲染、点击不报错（真的调用了滚动）。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 
 const { listMessages, createMessage, getAgentRun, openAgentRunStream, openAsrDraftStream } = vi.hoisted(() => ({
   listMessages: vi.fn(),
@@ -141,4 +141,27 @@ describe("ChatLiveMessagePanel — D10「查看进度」（issue #2280）", () =
     await flushMicrotasks();
     expect(screen.queryByText("暂停")).toBeNull();
   });
+  it("refreshes a persisted personal Credit failure into an inline recharge action without resubmitting", async () => {
+    vi.useFakeTimers();
+    const history={messages:[{id:"m-1",authorKind:"human",authorId:"u",agentId:null,text:"original",clientMessageId:null,agentRunId:"run-1",replyToMessageId:null,createdAt:"2026-01-01T00:00:00.000Z"}],nextCursor:null};
+    listMessages.mockReset().mockResolvedValue(history);
+    getAgentRun.mockResolvedValue(agentRunView({status:"failed",error:"CREDIT_REQUIRED",creditFailure:{code:"credit_required",ownerType:"user",ownerId:"u",rechargePath:"/billing?purchase=1"}}));
+    const props={threadId:"t",bearer:"b",agents,archived:false,canLandArtifacts:false};
+    const first=render(<ChatLiveMessagePanel {...props}/>);
+    await flushMicrotasks();await act(async()=>{await vi.advanceTimersByTimeAsync(1_000);});await flushMicrotasks();
+    expect(within(screen.getByTestId("chat-run-process-failure")).getByRole("link",{name:"前往充值"})).toHaveAttribute("href","/billing?purchase=1");
+    expect(screen.queryByTestId("chat-run-process-failure-retry")).toBeNull();
+    first.unmount();render(<ChatLiveMessagePanel {...props}/>);
+    await flushMicrotasks();await act(async()=>{await vi.advanceTimersByTimeAsync(1_000);});await flushMicrotasks();
+    expect(within(screen.getByTestId("chat-run-process-failure")).getByRole("link",{name:"前往充值"})).toHaveAttribute("href","/billing?purchase=1");
+    expect(createMessage).not.toHaveBeenCalled();
+  });
+  it("persisted accounting failure has no recharge or retry action even with stale scope", async () => {
+    getAgentRun.mockResolvedValue(agentRunView({status:"failed",error:"CREDIT_ACCOUNTING_UNAVAILABLE",creditFailure:{code:"credit_required",ownerType:"user",ownerId:"u",rechargePath:"/billing?purchase=1"}}));
+    await submit();await act(async()=>{await vi.advanceTimersByTimeAsync(1_000);});await flushMicrotasks();
+    const failed=screen.getByTestId("chat-run-process-failure");
+    expect(within(failed).queryByRole("link")).toBeNull();
+    expect(screen.queryByTestId("chat-run-process-failure-retry")).toBeNull();
+  });
+
 });

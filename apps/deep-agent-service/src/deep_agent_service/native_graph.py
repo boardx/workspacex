@@ -246,8 +246,13 @@ def _retry_policy(previous):
       · 都不是 ⇒ 交回官方 `ToolRetryMiddleware` 原本的判据。
     """
     from .standard_web_tools import StandardWebError
+    from .model_request_accounting import CreditRuntimeUsageError
 
     def decide(error):
+        # Authoritative billing refusals must reach the durable run failure path,
+        # without retrying or degrading into a recoverable tool-result message.
+        if isinstance(error, CreditRuntimeUsageError):
+            return False
         if isinstance(error, StandardWebError):
             return getattr(error, 'retryable', False)
         if isinstance(error, _never_retry()):

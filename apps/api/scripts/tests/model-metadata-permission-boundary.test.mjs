@@ -23,3 +23,8 @@ for(const [path,rule] of rules){
   assert(verifyWorkbenchBoundaries(file=>read(file)+(file===path?suffix:''),tables).some(f=>f.startsWith(path+':')));
  });
 }
+test('auxiliary guidance cannot restore a current-plan payer guess alongside valid ownership checks',()=>{
+ const path='src/infrastructure/billing/pg-auxiliary-model-accounting.ts';
+ const altered=read(path)+'\nnew PgCreditConsumption(this.db).resolvePayer(orgId,row.user_id);';
+ assert(verifyWorkbenchBoundaries(file=>file===path?altered:read(file),tables).some(f=>f.startsWith(path+':')));
+});

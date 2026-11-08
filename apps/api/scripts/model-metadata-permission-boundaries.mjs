@@ -10,7 +10,8 @@ export const modelMetadataPermissionBoundaries=new Map([
  }],
   ["src/infrastructure/billing/pg-auxiliary-model-accounting.ts", {
     tables:["auxiliary_model_operations","auxiliary_model_requests"],
-    reason:"#5894: private auxiliary operation/request rows contain only server-created payer identity, pinned model, finite expiry, immutable request hash/cap and timestamps. They contain no prompt, response or Artifact content and create no formal agent run/chat. Trusted gateway principal creates the owner; authenticated private callback resolves that persisted operation under tenant RLS, never a body-supplied payer. New starts require active operation and exact model/body binding; terminal receipts only resolve an admitted request, including after closure. Financial resolvePayer rechecks same-org membership and selects the wallet. private-auxiliary-credit-pg.test.ts proves zero HTTP at zero credit, actual reported usage debit/replay, foreign tenant/missing user refusal, changed body/model denial and closure/expiry fences. This exception is invalid if metadata expands to content or any listed authority/immutability check disappears.",
+    forbids:[/\.resolvePayer\s*\(/],
+    reason:"#5894: private auxiliary operation/request rows contain only server-created payer identity, pinned model, finite expiry, immutable request hash/cap and timestamps. They contain no prompt, response or Artifact content and create no formal agent run/chat. Trusted gateway principal creates the owner; authenticated private callback resolves that persisted operation under tenant RLS, never a body-supplied payer. New starts require active operation and exact model/body binding; terminal receipts only resolve an admitted request, including after closure. Physical admission rechecks same-org membership at the canonical reservation entry. Failure guidance binds the actual private payer to the persisted operation user/org; missing legacy identity is never inferred from the current plan. private-auxiliary-credit-pg.test.ts proves dispatch refusal when personal credit cannot cover the request, actual reported usage debit/replay, foreign tenant/missing user refusal, changed body/model denial and closure/expiry fences. This exception is invalid if metadata expands to content or any listed authority/immutability check disappears.",
     checks:[
       [null,exact("this.db.withTenant(orgId")],
       [null,exact("WHERE org_id=$1 AND id=$2 FOR UPDATE")],
@@ -18,7 +19,10 @@ export const modelMetadataPermissionBoundaries=new Map([
       [null,exact("stored.body_hash!==createHash('sha256').update(input.serializedBody).digest('hex')||stored.output_cap!==input.outputTokenLimit||stored.operation_id!==id")],
       [null,exact("if(!row.active||row.model_id!==input.modelId")],
       [null,exact("WHERE r.org_id=$1 AND r.operation_id=$2 AND r.request_id=$3")],
-      [null,exact("new PgCreditConsumption(this.db).resolvePayer(orgId,row.user_id)")],
+      [null,exact("if(admittedPayer&&!((admittedPayer.ownerType==='user'&&admittedPayer.ownerId===row.user_id)||(admittedPayer.ownerType==='team'&&admittedPayer.ownerId===orgId)))throw this.denied(orgId)")],
+      [null,exact("const payer=admittedPayer??(code==='credit_required'&&validated.success?{ownerType:'team' as const,ownerId:orgId}:undefined)")],
+      [null,exact("if(!payer)return new CreditConsumptionError('credit_accounting_unavailable','team',orgId,'auxiliary_credit_payer_unconfirmed')")],
+      ["src/infrastructure/billing/credit-model-gateway.ts",exact("error.creditReason,error.creditPayer")],
       ["src/infrastructure/billing/credit-model-gateway.ts",exact("scope.userId !== userId")],
       ["src/interface/controllers/auxiliary-model-usage.controller.ts",exact("!timingSafeEqual(expected,actual)")],
       ["tests/billing/private-auxiliary-credit-pg.test.ts",exact("private credit refusal restores trusted recharge guidance, never matching arbitrary vendor text")],

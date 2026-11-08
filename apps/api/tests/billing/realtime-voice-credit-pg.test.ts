@@ -39,6 +39,7 @@ beforeAll(async()=>{
 beforeEach(async()=>{
  team=toOrgId(prefix+"-team-"+randomUUID().slice(0,8));teams.push(team);
  await seedOrg({orgId:team,projectId:team+"-p"});await addOrgMember(team,user,"admin",null);
+ await asApp(team,c=>c.query("INSERT INTO organization_plans(org_id,plan,version,updated_by,billing_generation) VALUES($1,'enterprise',1,$2,$3)",[team,user,generation]));
  await asApp(team,c=>c.query("INSERT INTO credit_wallets(owner_type,owner_id,balance) VALUES('team',$1,-1)",[team]));
 });
 afterAll(async()=>{for(const c of clients)c.terminate();for(const p of providers)p.terminate();await new Promise<void>(r=>gateway.close(()=>r()));await new Promise<void>(r=>server.close(()=>r()));await new Promise<void>(r=>upstream.close(()=>r()));await asOwner(async c=>{await c.query("DELETE FROM credit_consumption_requests WHERE org_id=ANY($1::text[])",[[personal,...teams]]);await c.query("DELETE FROM organizations WHERE id=ANY($1::text[])",[[personal,...teams]]);await c.query("DELETE FROM credit_transactions WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_id=ANY($1::text[]))",[[user,...teams]]);await c.query("DELETE FROM credit_wallets WHERE owner_id=ANY($1::text[])",[[user,...teams]]);});await db.close();if(directory)await rm(directory,{recursive:true,force:true});});
@@ -52,10 +53,10 @@ it("rejects personal debt before opening any provider WebSocket",async()=>{
  const {frames}=await connect();await expect.poll(()=>frames.some(x=>x.type==="session.error")).toBe(true);
  expect(frames.find(x=>x.type==="session.error")).toMatchObject({reason:"CREDIT_REQUIRED",credit:{code:"credit_required",ownerType:"user",ownerId:user}});expect(providers).toHaveLength(0);
 });
-it("bills cumulative provider response usage once, completes into debt and blocks a new connection",async()=>{
- await asApp(personal,c=>c.query("UPDATE credit_wallets SET balance=0 WHERE owner_id=$1",[user]));const {client,frames}=await connect();await expect.poll(()=>frames.some(x=>x.type==="session.ready")).toBe(true);const socket=providers.at(-1)!;
- done(socket,"response-1",1);await expect.poll(()=>balance(personal,user)).toBe("-0.01");done(socket,"response-1",1);done(socket,"response-2",9);done(socket,"response-3",1);
- await expect.poll(()=>balance(personal,user)).toBe("-0.02");const count=providers.length;const next=await connect();await expect.poll(()=>next.frames.some(x=>x.reason==="CREDIT_REQUIRED")).toBe(true);expect(providers).toHaveLength(count);
+it("bills cumulative provider response usage once, stops at depletion and blocks a new connection",async()=>{
+ await asApp(personal,c=>c.query("UPDATE credit_wallets SET balance=0.02 WHERE owner_id=$1",[user]));const {client,frames}=await connect();await expect.poll(()=>frames.some(x=>x.type==="session.ready")).toBe(true);const socket=providers.at(-1)!;
+ done(socket,"response-1",1);await expect.poll(()=>balance(personal,user)).toBe("0.01");done(socket,"response-1",1);done(socket,"response-2",9);done(socket,"response-3",1);
+ await expect.poll(()=>balance(personal,user)).toBe("0.00");const count=providers.length;const next=await connect();await expect.poll(()=>next.frames.some(x=>x.reason==="CREDIT_REQUIRED")).toBe(true);expect(providers).toHaveLength(count);
  client.send(JSON.stringify({type:"session.stop"}));await expect.poll(()=>client.readyState).toBe(WebSocket.CLOSED);
  await expect.poll(async()=>(await asApp(personal,c=>c.query("SELECT count(*)::int AS count,sum(tokens_total)::text AS tokens FROM token_usage_events WHERE org_id=$1",[personal]))).rows[0]).toEqual({count:1,tokens:"11"});
  expect((await asApp(personal,c=>c.query("SELECT state,debited_hundredths::text AS debit FROM credit_consumption_requests WHERE org_id=$1",[personal]))).rows).toEqual([{state:"settled",debit:"2"}]);
@@ -106,11 +107,10 @@ it.each(["disconnect","stop"] as const)("settles a confirmed nondispatch and rel
  }finally{release();holdStart=null;}
 });
 
-it("stops explicit Enterprise voice at actual monthly usage and resumes after an administrator adjustment",async()=>{
+it("keeps exhausted Enterprise session payer fixed, admits next session personally, then honors adjusted quota",async()=>{
  const priorEpoch=await asOwner(async c=>(await c.query('SELECT generation,activated_at FROM billing_pricing_epoch WHERE singleton')).rows[0]);
  await asOwner(c=>c.query('UPDATE billing_pricing_epoch SET generation=$1,activated_at=clock_timestamp() WHERE singleton',[generation]));
  try{
- await asApp(team,c=>c.query("INSERT INTO organization_plans(org_id,plan,version,updated_by,billing_generation) VALUES($1,'enterprise',1,$2,$3)",[team,user,generation]));
  const quotas=new PgMemberCreditQuotaRepository(db);await quotas.setCreditQuota(team,user,1,user);
  const {client,frames}=await connect("team");await expect.poll(()=>frames.some(x=>x.type==="session.ready")).toBe(true);
  done(providers.at(-1)!,"member-limit",1000);
@@ -119,10 +119,31 @@ it("stops explicit Enterprise voice at actual monthly usage and resumes after an
  expect(await balance(team,team)).toBe("-2.00");
  await expect.poll(async()=>(await asApp(team,c=>c.query("SELECT state,debited_hundredths::text AS debit FROM credit_consumption_requests WHERE org_id=$1",[team]))).rows[0]).toEqual({state:"settled",debit:"100"});
  const before=providers.length,blocked=await connect("team");
- await expect.poll(()=>blocked.frames.some(x=>(x.credit as {reason?:string}|undefined)?.reason==="member_monthly_limit")).toBe(true);expect(providers).toHaveLength(before);
+ await expect.poll(()=>blocked.frames.some(x=>x.reason==="CREDIT_REQUIRED"&&(x.credit as {ownerType?:string}|undefined)?.ownerType==="user")).toBe(true);expect(providers).toHaveLength(before);
+ await asApp(team,c=>c.query("UPDATE credit_wallets SET balance=1 WHERE owner_type='user' AND owner_id=$1",[user]));
+ const personalNext=await connect("team");await expect.poll(()=>personalNext.frames.some(x=>x.type==="session.ready")).toBe(true);
+ done(providers.at(-1)!,"personal-after-quota",100);
+ await expect.poll(()=>balance(team,user)).toBe("0.90");
+ personalNext.client.send(JSON.stringify({type:"session.stop"}));await expect.poll(()=>personalNext.client.readyState).toBe(WebSocket.CLOSED);
+ expect(await balance(team,team)).toBe("-2.00");
+ expect((await asApp(team,c=>c.query("SELECT w.owner_type,w.owner_id,r.state FROM credit_consumption_requests r JOIN credit_wallets w USING(wallet_id) WHERE r.org_id=$1 ORDER BY r.created_at DESC LIMIT 1",[team]))).rows[0]).toEqual({owner_type:"user",owner_id:user,state:"settled"});
  await quotas.setCreditQuota(team,user,2,user);
  const resumed=await connect("team");await expect.poll(()=>resumed.frames.some(x=>x.type==="session.ready")).toBe(true);
  done(providers.at(-1)!,"resumed-no-cost",0);resumed.client.send(JSON.stringify({type:"session.stop"}));
  await expect.poll(()=>resumed.client.readyState).toBe(WebSocket.CLOSED);
  }finally{await asOwner(c=>c.query('UPDATE billing_pricing_epoch SET generation=$1,activated_at=$2 WHERE singleton',[priorEpoch.generation,priorEpoch.activated_at]));}
+});
+
+it("stops personal voice after committed depletion without reconnecting or losing overshoot",async()=>{
+ await asApp(personal,c=>c.query("UPDATE credit_wallets SET balance=0.01 WHERE owner_id=$1",[user]));
+ const {client,frames}=await connect();await expect.poll(()=>frames.some(x=>x.type==='session.ready')).toBe(true);
+ const opened=providers.length,socket=providers.at(-1)!;
+ done(socket,'personal-depletion',1000);
+ await expect.poll(()=>frames.some(x=>x.reason==='CREDIT_REQUIRED')).toBe(true);
+ expect(frames.find(x=>x.reason==='CREDIT_REQUIRED')).toMatchObject({credit:{ownerType:'user',ownerId:user}});
+ await expect.poll(()=>client.readyState).toBe(WebSocket.CLOSED);
+ expect(await balance(personal,user)).toBe('-0.99');
+ expect(providers).toHaveLength(opened);
+ const next=await connect();await expect.poll(()=>next.frames.some(x=>x.reason==='CREDIT_REQUIRED')).toBe(true);
+ expect(providers).toHaveLength(opened);
 });
