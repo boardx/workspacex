@@ -14,10 +14,11 @@ export class PgAuxiliaryModelAccounting {
  constructor(private readonly db:DatabasePort){}
  private denied(orgId:OrgId){return new CreditConsumptionError('credit_accounting_unavailable','team',orgId,'auxiliary_usage_ownership_denied');}
  async open(orgId:OrgId,userId:string,pinnedModelId:string){const id=randomUUID(),model=pinnedModelId==='deep-agent'?((process.env.KERNEL_DEEP_AGENT_MODEL_ID??'').trim()||'qwen-plus'):pinnedModelId,provider=(process.env.KERNEL_MODEL_PROVIDER??'').trim();if(!model||!provider)throw this.denied(orgId);await this.db.withTenant(orgId,s=>s.query('INSERT INTO auxiliary_model_operations(id,org_id,user_id,model_provider,model_id) VALUES($1,$2,$3,$4,$5)',[id,orgId,userId,provider,model]));return {orgId:String(orgId),operationId:id};}
- async failure(orgId:OrgId,id:string,code:'credit_required'|'credit_accounting_unavailable',reason?:unknown){
+ async failure(orgId:OrgId,id:string,code:'credit_required'|'credit_accounting_unavailable',reason?:unknown,admittedPayer?:{ownerType:'user'|'team';ownerId:string}){
   const row=await this.db.withTenant(orgId,async s=>(await s.query<{user_id:string}>('SELECT user_id FROM auxiliary_model_operations WHERE org_id=$1 AND id=$2',[orgId,id])).rows[0]);
   if(!row)throw this.denied(orgId);
-  const payer=await new PgCreditConsumption(this.db).resolvePayer(orgId,row.user_id);
+  if(admittedPayer&&!((admittedPayer.ownerType==='user'&&admittedPayer.ownerId===row.user_id)||(admittedPayer.ownerType==='team'&&admittedPayer.ownerId===orgId)))throw this.denied(orgId);
+  const payer=admittedPayer??await new PgCreditConsumption(this.db).resolvePayer(orgId,row.user_id);
   const validated=CreditRequiredReason.safeParse(reason);
   return new CreditConsumptionError(code,payer.ownerType,payer.ownerId,undefined,code==='credit_required'&&validated.success?validated.data:undefined);
  }

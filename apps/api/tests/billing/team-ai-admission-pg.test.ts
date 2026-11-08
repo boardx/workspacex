@@ -37,8 +37,8 @@ afterAll(async()=>{await asOwner(async c=>{
  for(const t of ["billing_team_receipts","billing_team_terms","billing_team_purchases","billing_team_quotes","org_commercial_licenses"])await c.query(`DELETE FROM ${t} WHERE org_id=$1`,[org]);
  await c.query("UPDATE billing_pricing_epoch SET generation=NULL,activated_at=NULL WHERE singleton=true");
 });await db.close();});
-it("uses personal fallback at Team expiry and refuses personal debt; admitted Team replay and receipt still finish",async()=>{
- const id=`ai-${randomUUID()}`;await reserve(id);at=expired;
+it("non-enterprise paid Team uses personal payer before and after expiry; admitted receipts still finish",async()=>{
+ const id=`ai-${randomUUID()}`;await asOwner(c=>c.query("INSERT INTO credit_wallets(owner_type,owner_id,balance) VALUES('user',$1,1)",[user]));await reserve(id);at=expired;
  await asOwner(c=>c.query("INSERT INTO credit_wallets(owner_type,owner_id,balance) VALUES('user',$1,-1) ON CONFLICT(owner_type,owner_id) DO UPDATE SET balance=-1",[user]));
  await expect(reserve(`expired-${randomUUID()}`)).rejects.toMatchObject({code:"credit_required",ownerType:"user",ownerId:user});
  await expect(reserve(id)).resolves.toBeUndefined();
@@ -55,6 +55,7 @@ it("active Enterprise still passes the same request/receipt accounting after the
 
 it("preserves the default personal request path without requiring a Team license",async()=>{
  await seedOrg({orgId:local,kind:"personal-local",ownerUserId:localUser,projectId:`${local}-project`});await addOrgMember(local,localUser,"admin",null);
+ await asOwner(c=>c.query("INSERT INTO credit_wallets(owner_type,owner_id,balance) VALUES('user',$1,1)",[localUser]));
  const id=`personal-${randomUUID()}`,request={...input(id),userId:localUser};
  await expect(db.withTenant(local,s=>accounting.reserveInSession(s,local,request))).resolves.toBeUndefined();
  await db.withTenant(local,s=>accounting.settleInSession(s,local,{eventId:id,userId:localUser,runId:null,modelProvider:"test",modelId:"test-model",tokensTotal:0,promptTokens:0,completionTokens:0,totalSource:"reported",outcome:"succeeded"}));

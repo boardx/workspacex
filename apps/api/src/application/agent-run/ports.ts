@@ -1241,6 +1241,8 @@ export class ModelCallError extends Error {
     /** Exact adapter-owned content rejection; never permission to retry or change providers. */
     readonly contentRejection?: "content-policy",
     readonly creditReason?: import("@repo/contracts/billing-consumption").CreditRequiredReason,
+    /** Private accounting identity; public adapters must validate against the owned operation. */
+    readonly creditPayer?: {ownerType:"user"|"team";ownerId:string},
   ) {
     super(code);
     this.name = "ModelCallError";

@@ -57,9 +57,9 @@ async function fixture(suffix: string, permanent = 7) {
     const row = (await s.query<{wallet_id: string}>("SELECT wallet_id FROM credit_wallets WHERE owner_type='user' AND owner_id=$1 FOR UPDATE", [userId])).rows[0]!;
     await helpers.normalizeCreditPeriods(s, row.wallet_id, new Date(periodEnd.getTime() + 1));
   });
-  const consume = async (tokens: number) => {
+  const consume = async (tokens: number, maximumTokens=tokens) => {
     const id = `${userId}-${randomUUID()}`;
-    await db.withTenant(context, s => consumption.reserveInSession(s, context, {requestId: id, userId, runId: null, modelProvider: "test", modelId: "period-model", executionAttemptId: null, projectId: null, startedAt: new Date().toISOString(), maximumTokens: tokens}));
+    await db.withTenant(context, s => consumption.reserveInSession(s, context, {requestId: id, userId, runId: null, modelProvider: "test", modelId: "period-model", executionAttemptId: null, projectId: null, startedAt: new Date().toISOString(), maximumTokens}));
     await db.withTenant(context, s => consumption.settleInSession(s, context, {eventId: id, userId, runId: null, modelProvider: "test", modelId: "period-model", tokensTotal: tokens, promptTokens: tokens, completionTokens: 0, totalSource: "reported", outcome: "succeeded"}));
   };
   return {userId, input, wallet, grant, expire, consume, helpers};
@@ -80,7 +80,7 @@ it("expires only unused monthly credits once and preserves permanent funds", asy
 });
 it("preserves debt through expiry and a partial recharge", async () => {
   const f = await fixture("debt", 2);
-  await f.grant(); await f.consume(20_005_000);
+  await f.grant(); await f.consume(20_005_000,20_000_000);
   expect((await f.wallet()).wallet).toMatchObject({balance: -3, permanentBalance: -3, subscriptionCredits: 0, subscriptionExpiresAt: f.input.periodEnd.toISOString()});
   await asApp(org, c => c.query("UPDATE credit_wallets SET balance=balance+2 WHERE owner_type='user' AND owner_id=$1", [f.userId]));
   await f.expire();

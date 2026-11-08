@@ -16,6 +16,7 @@ export class RealtimeVoiceAccounting{
  private startedAt=new Date().toISOString();private admitted=false;private dispatched=false;private uncertain=false;private failed=false;
  private readonly known=new Map<string,Counters>();private readonly unknown=new Set<string>();private readonly active=new Set<string>();
  private totals:Counters={total:0,input:0,output:0,failed:false};private serial:Promise<void>=Promise.resolve();private finishing:Promise<void>|null=null;
+ private continuationFailure:CreditConsumptionError|null=null;
  private session:RealtimeVoiceSession|null=null;private admitting:Promise<void>|null=null;
  constructor(private readonly meter:TokenUsageMeterPort,private readonly principal:Principal,private readonly model:string){}
  private error(){return new CreditConsumptionError("credit_accounting_unavailable","user",this.principal.userId,"realtime_usage_unconfirmed");}
@@ -48,7 +49,12 @@ export class RealtimeVoiceAccounting{
     output:this.totals.output===null||output===null?null:this.totals.output+output,failed:this.failed};
    if(!Number.isSafeInteger(this.totals.total)){this.uncertain=true;throw this.error();}
    await this.meter.record(this.principal.orgId,this.receipt(`response:${createHash("sha256").update(id).digest("hex")}`,false,true));
-   await this.meter.assertCreditContinuation?.(this.principal.orgId,this.principal.userId,this.requestId);
+   try{await this.meter.assertCreditContinuation?.(this.principal.orgId,this.principal.userId,this.requestId);}
+   catch(error){
+    // The receipt above committed. A policy stop does not make its measured usage unknown.
+    if(error instanceof CreditConsumptionError&&error.code==='credit_required')this.continuationFailure=error;
+    throw error;
+   }
   });return this.serial;
  }
  private receipt(id:string,final:boolean,confirmed:boolean):TokenUsageRecord{
@@ -59,7 +65,7 @@ export class RealtimeVoiceAccounting{
  }
  finish(aborted=false):Promise<void>{
   if(this.finishing)return this.finishing;
-  this.finishing=(this.admitting??Promise.resolve()).catch(()=>undefined).then(()=>this.serial.catch(error=>{if(!(error instanceof CreditConsumptionError&&error.reason==="member_monthly_limit"))this.uncertain=true;})).then(async()=>{
+  this.finishing=(this.admitting??Promise.resolve()).catch(()=>undefined).then(()=>this.serial.catch(error=>{if(this.continuationFailure===null||error!==this.continuationFailure)this.uncertain=true;})).then(async()=>{
    if(!this.admitted)return;this.failed ||= aborted;
    const confirmed=!this.dispatched||(!this.uncertain&&this.unknown.size===0&&this.active.size===0&&this.known.size>0);
    await this.meter.record(this.principal.orgId,this.receipt("session-final",true,confirmed));

@@ -1,3 +1,4 @@
+import {rethrowCreditConsumption} from '../../application/billing/credit-consumption';
 import {timingSafeEqual} from 'node:crypto';
 import {Body,Controller,Headers,HttpCode,Inject,Param,Post,UnauthorizedException,ServiceUnavailableException,BadRequestException} from '@nestjs/common';
 import {AudioTranscribeInvocation} from '@repo/contracts/standard-audio-tools';
@@ -16,6 +17,6 @@ export class StandardAudioController {
   if(!this.service)throw new ServiceUnavailableException('audio_transcription_unavailable');
   const {orgId,attemptId,leaseEpoch,bindingId,toolCallId,permissionRequestId,toolArgs}=parsed.data;
   try{return await this.service.transcribe({orgId:toOrgId(orgId),parentRunId:runId,attemptId,leaseEpoch,bindingId,toolCallId,permissionRequestId},toolArgs);}
-  catch{throw new ServiceUnavailableException('audio_transcription_failed_no_result_confirmed');}
+  catch(error){rethrowCreditConsumption(error);throw new ServiceUnavailableException('audio_transcription_failed_no_result_confirmed');}
  }
 }

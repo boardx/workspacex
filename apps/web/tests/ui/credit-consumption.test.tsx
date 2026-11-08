@@ -1,3 +1,4 @@
+import {CREDIT_ADMISSION_POLICY} from "@repo/contracts/billing-consumption";
 import * as React from "react";
 import { afterEach, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -7,9 +8,9 @@ import { notifyCreditFailure } from "@/lib/credit-guidance";
 import { apiRequest } from "@/lib/api-client";
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 it("explains the fixed personal and enterprise admission policy without offering the legacy bypass switch", async () => {
- vi.stubGlobal("fetch",vi.fn().mockResolvedValue(new Response(JSON.stringify({creditPreflightEnabled:false,admissionPolicy:"personal_nonnegative_enterprise_overdraft"}))));
+ vi.stubGlobal("fetch",vi.fn().mockResolvedValue(new Response(JSON.stringify({creditPreflightEnabled:false,admissionPolicy:CREDIT_ADMISSION_POLICY}))));
  render(<ConsumptionSettingsPanel />);
- expect(await screen.findByText(/个人账户余额低于 0 时不能发起新请求/)).toBeTruthy();
+ expect(await screen.findByText(/企业组织先使用成员月度额度，不足时整次新请求改用个人 Credit/)).toBeTruthy();
  expect(screen.queryByRole("switch")).toBeNull();
 });
 it("HTTP credit rejection preserves draft and offers scoped recharge without retry", async () => {
