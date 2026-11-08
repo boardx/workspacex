@@ -1,12 +1,12 @@
 import * as React from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { orgAdmin } from "@repo/contracts";
 import { ApiError } from "@/lib/api-client";
 import { I18nProvider } from "@/lib/i18n/provider";
-const state = vi.hoisted(() => ({ token: null as string | null, request: vi.fn(), start: vi.fn() }));
+const state = vi.hoisted(() => ({ token: null as string | null, request: vi.fn(), start: vi.fn(), logout: vi.fn() }));
 vi.mock("@/lib/api-client", async (original) => ({ ...await original<typeof import("@/lib/api-client")>(), apiRequest: state.request, getStoredSessionToken: () => state.token }));
-vi.mock("@/components/session/session-provider", () => ({ useSession: () => ({ session: null, startSession: state.start }) }));
+vi.mock("@/components/session/session-provider", () => ({ useSession: () => ({ session: null, startSession: state.start, logout: state.logout }) }));
 import { InviteActivation } from "@/components/entry/invite-activation";
 import { LinkActivation } from "@/components/entry/link-activation";
 const enteredText = "original-input-phrase";
@@ -22,8 +22,8 @@ function fill(kind: "single" | "shared") {
   fireEvent.change(screen.getByTestId(`${prefix}-pwd`), { target: { value: enteredText } });
   return prefix;
 }
-beforeEach(() => { state.token = null; state.request.mockReset(); state.start.mockReset(); localStorage.clear(); });
-afterEach(cleanup);
+beforeEach(() => { state.token = null; state.request.mockReset(); state.start.mockReset(); state.logout.mockReset(); localStorage.clear(); });
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 for (const kind of ["single", "shared"] as const) {
   it(`${kind}: preserves original credentials, claims and stored invalid-link failure across locale changes`, async () => {
     state.request.mockRejectedValueOnce(new ApiError(400, "INVITE_NOT_FOUND", {}));
@@ -75,4 +75,33 @@ it("preserves existing-account invitation mode and original session token while 
   locale("zh-CN");
   expect(screen.getByText(/服务暂时不可用/)).toBeTruthy();
   expect(state.request).toHaveBeenCalledTimes(1);
+
+});
+
+it("valid invitation account mismatch offers account switching instead of expiry", async () => {
+  state.token = "existing-account-session";
+  state.request.mockRejectedValue(new ApiError(400, "INVITE_ACCOUNT_MISMATCH", {}));
+  show("single");
+  fireEvent.submit(screen.getByTestId("activate-form"));
+  expect(await screen.findByText(/current signed-in account does not match/i)).toBeTruthy();
+  expect(screen.queryByText(/This invitation link is invalid or no longer valid/)).toBeNull();
+  expect(screen.getByTestId("activate-switch-account")).toHaveTextContent("Switch account and continue");
+  locale("zh-CN");
+  expect(screen.getByText(/当前登录账号与受邀邮箱不一致/)).toBeTruthy();
+  expect(state.request).toHaveBeenCalledTimes(1);
+  const navigate = vi.fn();
+  vi.stubGlobal("location", { ...window.location, assign: navigate });
+  let finishLogout!: () => void;
+  state.logout.mockImplementation(() => new Promise<void>(resolve => { finishLogout = resolve; }));
+  fireEvent.click(screen.getByTestId("activate-switch-account"));
+  expect(state.logout).toHaveBeenCalledTimes(1);
+  expect(navigate).not.toHaveBeenCalled();
+  finishLogout();
+  await waitFor(() => expect(navigate).toHaveBeenCalledTimes(1));
+  const login = new URL(navigate.mock.calls[0]![0], "https://app.example.test");
+  expect(login.pathname).toBe("/login");
+  const invitation = new URL(login.searchParams.get("next")!, login.origin);
+  expect(invitation.pathname).toBe("/auth/activate");
+  expect(Object.fromEntries(invitation.searchParams)).toEqual({ t: "original-invite", ...claims });
+  expect(state.start).not.toHaveBeenCalled();
 });

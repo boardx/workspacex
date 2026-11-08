@@ -1,0 +1,22 @@
+[stack-admission] load1=3.09 cores=10 perCore=0.31 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw82r4hd-15ec8817-bd7d6a2c3b7b db=wsx_bd7d6a2c3b7b1ae5acea compose=wsx-bd7d6a2c3b7b1ae5acea pg=20004 redis=21004 api=24004 web=25004 sandbox=26004 model=27004 deep-agent=28004 asr=29004 vision=30004 loopback-sandbox=31004 mail=19004
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/2e5d/workspacex/apps/api
+
+[db-isolation] db=wsx_bd7d6a2c3b7b1ae5acea capacity=100 current=6 required=32
+ ✓ tests/auth/member-invite-activation.test.ts (16 tests) 25061ms
+
+ Test Files  1 passed (1)
+      Tests  16 passed (16)
+   Start at  00:56:40
+   Duration  32.21s (transform 1.50s, setup 15ms, collect 2.05s, tests 25.06s, environment 0ms, prepare 86ms)
+
+[db-isolation] db=wsx_bd7d6a2c3b7b1ae5acea peak_connections=4
+[timing] pnpm --filter @repo/api exec vitest run tests/auth/member-invite-activation.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：33s
+  清理：1s
+  总计：34s

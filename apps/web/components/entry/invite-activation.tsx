@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AuthShell } from "@/components/entry/auth-shell";
+import { useSession } from "@/components/session/session-provider";
 import { useInvitationSession, INVITATION_COMPLETION_KEYS, type InvitationCompletion } from "./use-invitation-session";
 
 type ActivateOut = typeof orgAdmin.operations.activateOrgMember.out._output;
@@ -48,9 +49,12 @@ export function InviteActivation({
   const [error, setError] = React.useState<ActivationFailure | null>(null);
   const [done, setDone] = React.useState<InvitationCompletion | null>(null);
   const completeSession = useInvitationSession();
+  const currentSession = useSession();
 
   const hasSession = getStoredSessionToken() !== null;
-  const loginUrl = `/login?next=${encodeURIComponent(`/auth/activate?t=${encodeURIComponent(token ?? "")}`)}`;
+  const returnQuery = new URLSearchParams({ t: token ?? "" });
+  for (const [key, value] of Object.entries(claims ?? {})) if (value !== undefined) returnQuery.set(key, value);
+  const loginUrl = `/login?next=${encodeURIComponent(`/auth/activate?${returnQuery.toString().replaceAll("+", "%20")}`)}`;
 
   if (!token) {
     return (
@@ -171,6 +175,21 @@ export function InviteActivation({
               <CircleAlert aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               {t(error.message, error.params)}
             </p>
+            {error.kind === "account-mismatch" && (
+              <Button type="button" variant="outline" disabled={submitting} data-testid="activate-switch-account"
+                onClick={async () => {
+                  setSubmitting(true);
+                  try {
+                    await currentSession.logout();
+                    window.location.assign(loginUrl);
+                  } catch {
+                    setError({ kind: "unavailable", message: UNAVAILABLE_MESSAGE });
+                    setSubmitting(false);
+                  }
+                }}>
+                {t("invitation.switchAccount")}
+              </Button>
+            )}
             {error.kind === "unavailable" && (
               <>
               <a className="text-primary underline" href={loginUrl}>{t("invitation.loginRecovery")}</a>
@@ -225,7 +244,7 @@ function Card({ children }: { children: React.ReactNode }) {
 }
 
 /** Unavailable responses can arrive after commit; provide retry and password-login recovery. */
-type ActivationFailure = { kind: "unavailable" | "terminal"; message: MessageKey; params?: MessageParams };
+type ActivationFailure = { kind: "unavailable" | "terminal" | "account-mismatch"; message: MessageKey; params?: MessageParams };
 
 function describeActivationFailure(err: unknown): ActivationFailure {
   const issues = contractFieldIssues(err);
@@ -236,6 +255,9 @@ function describeActivationFailure(err: unknown): ActivationFailure {
     };
   }
   if (err instanceof ApiError) {
+    if (err.reasonCode === "INVITE_ACCOUNT_MISMATCH") {
+      return { kind: "account-mismatch", message: "invitation.accountMismatch" };
+    }
     if (err.reasonCode === "INVITE_ALREADY_MEMBER") {
       return { kind: "terminal", message: "invitation.alreadyMember" };
     }

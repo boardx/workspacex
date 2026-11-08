@@ -288,6 +288,27 @@ describe("② 激活：入场即带组织角色 + 团队", () => {
     expect(cred.rows[0].email_verified_at).not.toBeNull();
   });
 
+  it("valid-token account mismatch is recoverable; consumed and expired tokens remain indistinguishable", async () => {
+    await asOwner(c => c.query(`INSERT INTO credentials (user_id,email,display_name,password_hash,email_verified_at)
+      VALUES ($1,$2,$3,$4,now())`, ["u-f10-mismatch", "mismatch@f10main.test", "other", fakeHasher.canned]));
+    const invited = await invite();
+    const sessions = fakeSessions();
+    const acceptWrong = (token: string) => activateOrgMember(
+      { repo, hasher: fakeHasher, sessions, tokens: fakeTokens() },
+      { token, mode: "existing-account", profile: null, existingUserId: "u-f10-mismatch", untrustedClaims: NO_CLAIMS });
+    await expect(acceptWrong(invited.token!)).rejects.toMatchObject({ reasonCode: "INVITE_ACCOUNT_MISMATCH" });
+    expect(sessions.issued).toHaveLength(0);
+    expect((await readInvite(invited.inviteId)).status).toBe("pending");
+    const live = await asOwner(c => c.query("SELECT consumed_at FROM org_invite_tokens WHERE token=$1", [invited.token]));
+    expect(live.rows[0].consumed_at).toBeNull();
+    await activate(invited.token!);
+    await expect(acceptWrong(invited.token!)).rejects.toMatchObject({ reasonCode: "INVITE_NOT_FOUND" });
+    await expect(acceptWrong("absent-token")).rejects.toMatchObject({ reasonCode: "INVITE_NOT_FOUND" });
+    const expired = await invite({ email: "expired-mismatch@f10main.test" });
+    await asOwner(c => c.query("UPDATE org_invite_tokens SET expires_at=now()-interval '1 second' WHERE token=$1", [expired.token]));
+    await expect(acceptWrong(expired.token!)).rejects.toMatchObject({ reasonCode: "INVITE_NOT_FOUND" });
+  });
+
   it("已有账号分支：不新建凭据，只加一条成员关系（O-12 一人多组织）", async () => {
     // 这个人已经有账号了（比如他在别的组织里）。
     await asOwner((c) =>
