@@ -14,7 +14,7 @@ vi.mock("@/components/chat/chat-live-message-panel",async()=>{
 });
 vi.mock("@/components/feedback/feedback-button",()=>({FeedbackButton:()=>null}));
 import { ChatSkillMountPanel } from "@/components/chat/chat-skill-mount-panel";
-beforeEach(()=>{listMounts.mockReset();mount.mockReset();listSkills.mockReset();});
+beforeEach(()=>{vi.stubGlobal("ResizeObserver",class {observe(){} unobserve(){} disconnect(){}});listMounts.mockReset();mount.mockReset();listSkills.mockReset();});
 function SwitchLanguage(){const {setLocale}=useI18n();return <button onClick={()=>setLocale("zh-CN")}>switch language</button>;}
 it("searches manually opened skills by task description, clears no-match, and mounts the selected identity", async () => {
   const rows = [
@@ -43,15 +43,20 @@ it("searches manually opened skills by task description, clears no-match, and mo
   await waitFor(() => expect(mount).toHaveBeenCalledWith("thread", undefined, { skillIds: ["slides"], expectedVersion: "fingerprint" }, "fixture"));
 });
 
-it("keeps source maintenance instructions out of the task choice and offers them in details", async () => {
+it("omits missing descriptions and source maintenance instructions entirely", async () => {
   const duty = "这个 skill 的内容是文件形式（导入 / 由文件浏览器维护），不是声明式契约表单——查看/编辑源码请点卡片上的「编辑源码」。";
   listMounts.mockResolvedValue({ temporary: [], version: "fingerprint" });
   listSkills.mockResolvedValue([skills.SkillListItem.parse({ skillId: "file", name: "文档理解", duty, status: "已启用", source: "自建", visibility: "org-wide", currentVersionId: "version-file", satisfaction: null })]);
   render(<I18nProvider initialLocale="zh-CN"><ChatSkillMountPanel variant="composer" mentionQuery="" threadId="thread" orgId="org" bearer="fixture" /></I18nProvider>);
   const option = await screen.findByTestId("chat-skill-mount-option-file");
   expect(option).not.toHaveTextContent("声明式契约");
-  expect(screen.getByText("技术说明").closest("details")).not.toHaveAttribute("open");
-  expect(screen.getByText(duty).closest("details")).toBeTruthy();
+  expect(option).toHaveTextContent("文档理解");
+  expect(screen.queryByText("这个 skill 还没有填写说明")).toBeNull();
+  expect(screen.queryByText("技术说明")).toBeNull();
+  expect(screen.queryByText(duty)).toBeNull();
+  fireEvent.focus(option);
+  expect(option).not.toHaveAttribute("aria-describedby");
+  expect(screen.queryByRole("tooltip")).toBeNull();
 });
 
 it("localizes the live picker without refetching on locale change or changing the mount command",async()=>{
@@ -89,7 +94,10 @@ it('shows authored skill names and published descriptions and searches their pur
  listMounts.mockResolvedValue({temporary:[],version:'fingerprint'});listSkills.mockResolvedValue([row]);mount.mockResolvedValue(undefined);
  render(<I18nProvider initialLocale="zh-CN"><ChatSkillMountPanel threadId="thread-kb" orgId="org-kb" bearer="fixture" variant="composer" mentionQuery="可检索"/></I18nProvider>);
  const option=await screen.findByTestId('chat-skill-mount-option-skill-kb');
- expect(option.textContent).toContain('知识库文章');expect(option.textContent).toContain(row.taskDescription);
+ expect(option.textContent).toBe('知识库文章');
+ expect(screen.queryByText(row.taskDescription!)).toBeNull();
+ fireEvent.focus(option);
+ expect(await screen.findByTestId('chat-skill-description-skill-kb')).toHaveTextContent(row.taskDescription!);
  expect(option.textContent).not.toContain('S190');expect(option.textContent).not.toContain('还没有填写说明');
  fireEvent.click(option);await waitFor(()=>expect(mount).toHaveBeenCalledWith('thread-kb',undefined,{skillIds:['skill-kb'],expectedVersion:'fingerprint'},'fixture'));
 });

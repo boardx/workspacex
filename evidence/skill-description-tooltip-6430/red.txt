@@ -1,0 +1,60 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/2e5d/workspacex/apps/web
+
+ ❯ tests/ui/i18n-chat-skill-mount.test.tsx (5 tests | 2 failed) 633ms
+   ✓ searches manually opened skills by task description, clears no-match, and mounts the selected identity 448ms
+   × omits missing descriptions and source maintenance instructions entirely 40ms
+     → expected <span …(1)></span> to be null
+   × shows authored skill names and published descriptions and searches their purpose 15ms
+     → expected '知识库文章将已解决的问题整理成可检索的帮助文章' to be '知识库文章' // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/i18n-chat-skill-mount.test.tsx > omits missing descriptions and source maintenance instructions entirely
+AssertionError: expected <span …(1)></span> to be null
+
+- Expected: 
+null
+
++ Received: 
+<span
+  class="line-clamp-1 text-10 text-muted-foreground"
+>
+  这个 skill 还没有填写说明
+</span>
+
+ ❯ tests/ui/i18n-chat-skill-mount.test.tsx:54:50
+     52|   expect(option).not.toHaveTextContent("声明式契约");
+     53|   expect(option).toHaveTextContent("文档理解");
+     54|   expect(screen.queryByText("这个 skill 还没有填写说明")).toBeNull();
+       |                                                  ^
+     55|   expect(screen.queryByText("技术说明")).toBeNull();
+     56|   expect(screen.queryByText(duty)).toBeNull();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/ui/i18n-chat-skill-mount.test.tsx > shows authored skill names and published descriptions and searches their purpose
+AssertionError: expected '知识库文章将已解决的问题整理成可检索的帮助文章' to be '知识库文章' // Object.is equality
+
+Expected: "知识库文章"
+Received: "知识库文章将已解决的问题整理成可检索的帮助文章"
+
+ ❯ tests/ui/i18n-chat-skill-mount.test.tsx:97:29
+     95|  render(<I18nProvider initialLocale="zh-CN"><ChatSkillMountPanel threa…
+     96|  const option=await screen.findByTestId('chat-skill-mount-option-skill…
+     97|  expect(option.textContent).toBe('知识库文章');
+       |                             ^
+     98|  expect(screen.queryByText(row.taskDescription!)).toBeNull();
+     99|  fireEvent.focus(option);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 3 passed (5)
+   Start at  20:46:20
+   Duration  12.51s (transform 3.68s, setup 364ms, collect 5.81s, tests 633ms, environment 3.32s, prepare 220ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/2e5d/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/i18n-chat-skill-mount.test.tsx

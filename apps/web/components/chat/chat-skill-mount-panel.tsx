@@ -16,6 +16,7 @@ import { getAgentDirectoryProfile } from "@/lib/agent-directory";
 import { listSkills, type SkillListItem } from "@/lib/live-skill";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { skillPickerDisplay } from "@/lib/skill-picker-display";
 import { skillTaskDescription } from "@/lib/skill-task-description";
@@ -526,31 +527,35 @@ export function ChatSkillMountPanel({
           {t("chatSkills.noMatch", { query: mentionQuery ?? search })}
         </span>
       ) : headless ? (
-        // 竖排列表：名字 + 真实 `duty`（与「浏览 skill」页同一字段），选错了才知道是什么的
-        // 横排小按钮不适合"敲 / 快速挑"这个场景（2026-08-30 人类反馈）。
-        <div className="min-h-0 overflow-y-auto overscroll-contain" data-testid="chat-skill-mount-options">
-          {visiblePool.map((item) => (
-            <div key={item.skillId}>
-            <button
-              type="button"
-              disabled={pending || cleaning || Boolean(actingAgentId && !roleScope?.versions.get(item.skillId)?.has(item.currentVersionId ?? ""))}
-              data-testid={`chat-skill-mount-option-${item.skillId}`}
-              onClick={() => void mount(item.skillId)}
-              className="flex w-full min-w-0 flex-col items-start gap-0.5 rounded-md px-2 py-1.5 text-left transition-colors duration-fast hover:bg-muted disabled:text-disabled-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <span className="max-w-full truncate text-11 font-medium text-card-foreground">{item.name}</span>
-              {actingAgentId && !roleScope?.versions.get(item.skillId)?.has(item.currentVersionId ?? "") ? <span className="text-10 text-muted-foreground">{t("chatSkills.pinned")}</span> : null}
-              <span className="line-clamp-1 text-10 text-muted-foreground">
-                {skillTaskDescription(item) || t("chatSkills.noDescription")}
-              </span>
-            </button>
-            {!skillTaskDescription(item) && item.duty.trim() ? <details className="px-2 pb-1 text-10 text-muted-foreground">
-              <summary className="cursor-pointer">{t("chatSkills.technicalDetails")}</summary>
-              <p className="mt-1 break-words">{item.duty}</p>
-            </details> : null}
-            </div>
-          ))}
-        </div>
+        // 列表只显示名字；真实用途仅在 hover / focus 提示中展示。
+        <TooltipProvider delayDuration={300}>
+          <div className="min-h-0 overflow-y-auto overscroll-contain" data-testid="chat-skill-mount-options">
+            {visiblePool.map((item) => {
+              const description = skillTaskDescription(item);
+              const option = (
+              <button
+                key={item.skillId}
+                type="button"
+                disabled={pending || cleaning || Boolean(actingAgentId && !roleScope?.versions.get(item.skillId)?.has(item.currentVersionId ?? ""))}
+                data-testid={`chat-skill-mount-option-${item.skillId}`}
+                onClick={() => void mount(item.skillId)}
+                className="flex w-full min-w-0 flex-col items-start gap-0.5 rounded-md px-2 py-1.5 text-left transition-colors duration-fast hover:bg-muted disabled:text-disabled-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <span className="max-w-full truncate text-11 font-medium text-card-foreground">{item.name}</span>
+                {actingAgentId && !roleScope?.versions.get(item.skillId)?.has(item.currentVersionId ?? "") ? <span className="text-10 text-muted-foreground">{t("chatSkills.pinned")}</span> : null}
+              </button>
+              );
+              return description ? (
+                <Tooltip key={item.skillId}>
+                  <TooltipTrigger asChild>{option}</TooltipTrigger>
+                  <TooltipContent side="right" className="break-words" data-testid={`chat-skill-description-${item.skillId}`}>
+                    {description}
+                  </TooltipContent>
+                </Tooltip>
+              ) : option;
+            })}
+          </div>
+        </TooltipProvider>
       ) : (
         visiblePool.map((item) => (
           <Button
