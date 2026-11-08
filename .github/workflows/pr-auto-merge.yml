@@ -4,8 +4,8 @@ on:
     branches: [develop]
     types: [opened, reopened, synchronize, ready_for_review, edited]
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
+  pull-requests: read
 jobs:
   enable:
     if: github.event.pull_request.draft == false
@@ -13,10 +13,16 @@ jobs:
     timeout-minutes: 3
     steps:
       # No checkout: privileged metadata operation never executes candidate code.
+      # Use the existing external credential so queue admission can trigger Actions.
       - name: Enable native auto-merge with exact head protection
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.WSX_PR_AUTOMERGE_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_HEAD: ${{ github.event.pull_request.head.sha }}
           GH_REPO: ${{ github.repository }}
-        run: gh pr merge "$PR_NUMBER" --auto --merge --match-head-commit "$PR_HEAD" --repo "$GH_REPO"
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::WSX_PR_AUTOMERGE_TOKEN is not configured"
+            exit 1
+          fi
+          gh pr merge "$PR_NUMBER" --auto --merge --match-head-commit "$PR_HEAD" --repo "$GH_REPO"
