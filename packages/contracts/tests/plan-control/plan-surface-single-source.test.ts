@@ -201,3 +201,21 @@ describe("真值表：计划区每一种账本形状该长什么样，逐格钉�
     }
   });
 });
+
+
+describe("inline chat plan owns passive display", () => {
+  it.each(["executing", "done", "cancelled"] as const)("hides the duplicate panel for %s", (phase) => {
+    expect(derivePlanSurface(base({ preferInlinePlan: true, phase, runStatus: phase === "executing" ? "running" : phase === "done" ? "succeeded" : "cancelled", stepCount: 3, progressCompleted: 1, progressTotal: 3 })).kind).not.toBe("panel");
+  });
+  it.each([
+    { phase: "planning", gateRequired: true },
+    { phase: "failed" },
+    { paused: true },
+    { pauseRequested: true },
+    { pendingApplyAtNextRun: true },
+    { orphanedConstraintCount: 1 },
+    { hasActionError: true },
+  ] as const)("retains actionable controls: %j", (overrides) => {
+    expect(derivePlanSurface(base({ preferInlinePlan: true, phase: "executing", runStatus: "running", stepCount: 3, ...overrides })).kind).toBe("panel");
+  });
+});

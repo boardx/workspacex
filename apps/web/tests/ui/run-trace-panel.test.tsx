@@ -144,3 +144,19 @@ describe("run trace disclosure", () => {
   });
 
 });
+
+
+it("keeps the inline plan without a duplicate recent-actions list, and retains expandable execution details", () => {
+  const events: ExecutionEvent[] = [
+    { ...base, seq: 1, kind: "status", status: "running" },
+    { ...base, seq: 2, kind: "tool_start", toolCallId: "plan", toolName: "write_todos", args: { todos: [{ content: "生成报告", status: "in_progress" }] } },
+    { ...base, seq: 3, kind: "tool_end", toolCallId: "plan", toolName: "write_todos", result: "ok", ok: true },
+    { ...base, seq: 4, kind: "tool_start", toolCallId: "read", toolName: "read_file", args: { path: "guide.md" } },
+  ];
+  render(<RunTracePanel runId="run-1" events={events} />);
+  expect(screen.getByTestId("run-trace-plan")).toBeVisible();
+  expect(screen.queryByTestId("run-trace-live-preview")).toBeNull();
+  fireEvent.click(screen.getByTestId("run-trace-toggle"));
+  expect(screen.getByTestId("run-trace-body")).toBeVisible();
+  expect(screen.getAllByTestId("run-trace-entry")).toHaveLength(2);
+});

@@ -229,7 +229,7 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
           renderStepDetail={(todo) => <PlanStepActionList todo={todo} actions={stepActions.get(todo.content.trim()) ?? []} openWhenActive={false} />} />
       </div>
     ) : null}
-    {!expanded && <RunTraceLivePreview entries={entries} active={active} hasAssistantText={hasAssistantText} />}
+    {!expanded && !showPlanHere && <RunTraceLivePreview entries={entries} active={active} hasAssistantText={hasAssistantText} />}
     <div id={id} hidden={!expanded} role="region" aria-label={t("chatTrace.region")} data-testid="run-trace-body" className="mb-2 ml-4 border-l border-border-subtle pl-4">
       <ol className="space-y-3 py-3">
         {rows.map((row) => row.kind === "tool-group"
