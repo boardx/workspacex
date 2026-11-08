@@ -18,7 +18,7 @@ test("题目原位编辑后真实保存并在刷新后恢复显示", async ({ pa
   await expect(titleButton).toBeVisible();
   await expect(canvas.getByRole("textbox", { name: "问题内容", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "单选", exact: true })).not.toHaveCSS("background-color", "rgb(32, 31, 29)");
-  for (const area of [page.getByRole("navigation", { name: "问卷工作流" }), page.getByTestId("survey-designer-outline"), page.getByTestId("survey-designer-settings")]) {
+  for (const area of [page.getByRole("navigation", { name: "问卷工作流" }), page.getByTestId("survey-designer-toolbox"), page.getByTestId("survey-designer-settings")]) {
     for (const button of await area.getByRole("button").all()) {
       await expect(button).not.toHaveCSS("background-color", "rgb(32, 31, 29)");
     }
