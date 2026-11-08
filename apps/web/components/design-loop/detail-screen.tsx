@@ -447,9 +447,12 @@ export function DesignDetailScreen({
    * 与节点动作共用 `runNodeOps`：同一条 patchPrototype，同一套失败提示。
    */
   const pageCount = project?.frames.length ?? 0;
-  const addPage = () => void runNodeOps(
-    [{ op: "addScreen", at: frame + 1, frame: `新页面 ${pageCount + 1}` }], "加一页",
-  ).then(() => setFrame(frame + 1));
+  const addPage = () => {
+    const at = Math.min(frame + 1, pageCount);
+    void runNodeOps(
+      [{ op: "addScreen", at, frame: `新页面 ${pageCount + 1}` }], "加一页",
+    ).then(applied => { if (applied) setFrame(at); });
+  };
   const duplicatePage = () => {
     const root = project?.prototype[frame];
     void runNodeOps(

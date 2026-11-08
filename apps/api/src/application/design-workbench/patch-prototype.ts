@@ -82,7 +82,9 @@ export async function patchPrototype(
   const current = await deps.projects.get(input.projectId);
   if (current === null) throw new DesignProjectNotFoundError();
   if (current.ownerId !== input.ownerId) throw new DesignProjectNotOwnerError();
-  if (current.prototype.length === 0) throw new PrototypePatchRejectedError("NO_PROTOTYPE", "project has no prototype yet");
+  const first = input.ops[0];
+  const createsFirstScreen = current.frames.length === 0 && first?.op === "addScreen" && first.at === 0;
+  if (current.prototype.length === 0 && !createsFirstScreen) throw new PrototypePatchRejectedError("NO_PROTOTYPE", "project has no prototype yet");
 
   // 迭代 11：patch 作用在**屏**上（`setLinks` 改的是屏级 links，且删节点要让指向它的 link 失效）。
   let next: readonly { readonly root?: designPrototype.PrototypeNode; readonly links?: readonly designPrototype.PrototypeLink[] }[];
