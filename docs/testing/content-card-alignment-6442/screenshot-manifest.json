@@ -1,0 +1,213 @@
+{
+  "rawScreenshots": [
+    {
+      "path": "/tmp/ui-consistency-20261109/01-project-survey-dark.png",
+      "sha256": "d6a5953a888e6631c243e834dadb070ecc732ac63cdb67b9820d956d2332bf42"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/02-project-new-menu.png",
+      "sha256": "c4c726bf649883f25e5c44bc9972b3e1074b92bcdd54e056d6d5ea17aea9265e"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/03-project-all-dark.png",
+      "sha256": "98d0cb14c9ad84f7db4209b10cda49cb11171695e5408f45e63ded9e2883762c"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/04-project-chat-empty.png",
+      "sha256": "7e39718b9c9f23552b7a963da98d3cde401a9cfbed3043826676198090f1669f"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/05-project-board-empty.png",
+      "sha256": "6c4b621a2971bdf77d2b063d995e2294ffa8be4616f489a4fe766f39843d0a20"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/06-project-interview-empty.png",
+      "sha256": "75c1b73e82f649e0030682576bda14fd98d6e87335331f9ce2485f3d3b4df95e"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/07-project-research-empty.png",
+      "sha256": "ad8ca361e93b3351ef0857ce26613ac513093182419663e5ce8a696df4664828"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/08-project-transcription-empty.png",
+      "sha256": "85f7606c386cd12082ae039e699f295b943a4163e2e227cfb287abb93766105a"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/09-project-design-empty.png",
+      "sha256": "4c7dac2015969048f8964df1b815c01673337a98440d2904f3838121b5c0dda5"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/10-project-associate-survey-inline.png",
+      "sha256": "c2304c75b8b24938ee8a438adccdec6590c4413dffa6bebd356ac4f372c9b667"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/11-light-theme-menu.png",
+      "sha256": "0f8ccdf77d21078aca12f89fdef6d87ae1a3524fb8ae531bbac7a6d2bc56a0ba"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/12-project-survey-light.png",
+      "sha256": "fbc1e258452a5a0860f9d050edad19f506f222e27918203b70be04613328ad8f"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/13-project-survey-375x784-light.png",
+      "sha256": "b1f9a6772ba677b330d84f638a8572ca9578ec8a63eca512eba1dd56940ad274"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/14-project-survey-375x812-light.png",
+      "sha256": "30187104fa1b9f4909b4b2aadeb99def42dac2abe81449ef597d9950e6e49e97"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/15-project-new-menu-375-light.png",
+      "sha256": "6711893ddf758a6f714c1271ef1e0e0bcda5f3d96f0c7695acebeda684fba827"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/16-project-card-menu-375-light.png",
+      "sha256": "002bb738378644f316c7cfbe93a49514e0fb5e02e5ba447dd4e15a940e9996ba"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/17-project-survey-375x812-dark.png",
+      "sha256": "a9c85ac54c57ed3b91c51e72cbf22324332b287aae80d0176055377735313379"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/18-library-board-dark.png",
+      "sha256": "59be4afb3434b472e36924238d219c2e84ab5dee4bf58c0ba95222a2b499ef79"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/19-library-survey-populated-dark.png",
+      "sha256": "5aa08308055d8d661a41d61619329c9e23a3cbdb46304739eac521a7559e6eab"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/20-survey-create-choice-dialog.png",
+      "sha256": "d23e3daa3786472ab3ec83954c8df81b54b8a03da3312651c2aca3f450e70528"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/after-01-project-all-light.png",
+      "sha256": "bd793fe77e96432b588d31bae312318c66e03f4538550c6ae8f957359aaf82c6"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/after-02-project-survey-light.png",
+      "sha256": "d6d8cf755c084d19e6719bcc839017b9c7ebcdb67ee542bdd86d20dda9bf5c1c"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/after-03-library-interview-light.png",
+      "sha256": "c40f6adb22a3dfaecaa9b00258323e096a2aea19601fcbfce73d2d88bb439802"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/after-04-library-rec-light.png",
+      "sha256": "da15b0081afec827039b062b6a5cf87ea8368ed96763ac735926f7d896659f80"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/after-05-library-research-light.png",
+      "sha256": "3f7c9977c56203d0bffeb263477f564b9708fc06fc0d20bf3eb599734355aff4"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/after-06-library-survey-light.png",
+      "sha256": "1f53010c759cce3db1f0ad019f26cfe44507ceec9265bc949ffdc88481397dff"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/after-07-library-board-light.png",
+      "sha256": "10174e30838f4bd2d98caa1233a6b797bfc3a09d5fd905bd242f037194db3ddc"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/after-08-library-design-light.png",
+      "sha256": "57ff3f26b8995e15de82c1f4dc43a142f7f8667063d9ce092b346da0bff27384"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/after-09-project-survey-session-fixed-light.png",
+      "sha256": "a8cc58ad94c317747031084be39a0983016642752b013624c700d0b6b154322f"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/after-10-project-survey-associate-open-light.png",
+      "sha256": "4b0cdae57021bdaa91b662a3a705cd31a0ca395c20979809ecc301026b9da34b"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/after-11-project-survey-picker-open-light.png",
+      "sha256": "3615c88347bb64a49bf629bb520fb0ffbca9ff5c39eaddd552ab5c5b17183b36"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/after-12-project-chat-light.png",
+      "sha256": "c1cadf8715600eb90e53fcc3a56a87f8cb725fd145425f6a880f1d8950edf125"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/after-13-project-board-light.png",
+      "sha256": "910fb014c960e08706869b9ae5a44268159fd450f930d15d3884c6b6463c49de"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/after-14-project-interview-light.png",
+      "sha256": "f8e5a448d5c00e63ee7e20e467bcc8ff9b7a009c28d933e92720ab638d7de219"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/after-15-project-research-light.png",
+      "sha256": "17f22d51197ec5d90df6f43693ce1ed449f170622550c61e340b47f85643f716"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/after-16-project-rec-light.png",
+      "sha256": "f7052804b21914635bc56ac0c6383721732ceefcfa18175428e8b18af922bdc0"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/after-17-project-design-light.png",
+      "sha256": "c3fc96fa16be40c9ced65bb5dfb6ce3c0c0d97281f3acb0ffb0baab6935b8407"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/after-18-project-picker-fixed-light.png",
+      "sha256": "fb4f92deb23b3b3748f64ec6796e4ddf58c5275f61466157d7af0091b3835c8c"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/after-19-project-observer-light.png",
+      "sha256": "013a9e3bde011985a47c4e96ebccbfa812f41e34714f3bbd9f73f3b529dc5a9a"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/after-20-project-survey-dark.png",
+      "sha256": "051d0783a675e1e9acfe145ffcfa21c4da860f4b7d79dae6ff2e01514e2f7e95"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/after-21-project-survey-375x812-dark.png",
+      "sha256": "5b93e4c411b9af6a1bdbd9a8d9a6b282dee252101b9a6a0846178dc6253968da"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/after-22-project-survey-375x812-light.png",
+      "sha256": "742cb531277e1f20468ca346dc9a98caf8bbf95b15170bad80fb58bd507db630"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/after-23-design-375-scroll-light.png",
+      "sha256": "7e4578dbc07512ebcff6681e8efd533ec29dc25146f22e997ebcaaf377ff7768"
+    },
+    {
+      "path": "/tmp/ui-consistency-20261109/after-24-library-board-heading-light.png",
+      "sha256": "10b07c5d6ab5933cc540f08af5f4f0ce407d09533086ebdff34b1074afc59a83"
+    }
+  ],
+  "committedCrops": [
+    {
+      "file": "project-picker-desktop.png",
+      "source": "after-18-project-picker-fixed-light.png",
+      "crop": {
+        "x": 0,
+        "y": 180,
+        "width": 3400,
+        "height": 1800
+      }
+    },
+    {
+      "file": "project-survey-mobile-dark.png",
+      "source": "after-21-project-survey-375x812-dark.png",
+      "crop": {
+        "x": 682,
+        "y": 308,
+        "width": 750,
+        "height": 1624
+      }
+    },
+    {
+      "file": "board-library-desktop.png",
+      "source": "after-24-library-board-heading-light.png",
+      "crop": {
+        "x": 0,
+        "y": 180,
+        "width": 3200,
+        "height": 1800
+      }
+    }
+  ],
+  "note": "Crops remove unrelated browser chrome/DevTools only; source product pixels are not composed or retouched. Raw capture file suffixes do not assert codec."
+}

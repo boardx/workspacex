@@ -10,8 +10,10 @@ import type { SurveyRuntime } from "@repo/contracts/survey-runtime";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui/menu";
-import { ProjectContentCard, CONTENT_GRID_CLASS } from "./project-content-card";
+import { ResourceGrid } from "@/components/ui/resource-card";
+import { ProjectContentCard } from "./project-content-card";
 import { SectionTitle } from "./parts";
+import { UpdatedAt, formatDate } from "./project-resource-meta";
 import { withProjectId, type ProjectResearchSub } from "./project-breadcrumb";
 import { ApiError, getStoredSessionToken } from "@/lib/api-client";
 import { httpFailureText } from "@/lib/http-failure-text";
@@ -163,10 +165,12 @@ export function describeProjectResourceFailure(e: unknown, locale: Locale = "zh-
   return describeFailure(e, locale);
 }
 
-export function ProjectResourceSection({ projectId, kind, canWrite, initialLinkOpen = false, onChanged }: {
+export function ProjectResourceSection({ projectId, kind, canWrite, initialLinkOpen = false, embedded = false, onChanged }: {
   projectId: string; kind: ProjectResearchSub; canWrite: boolean;
   /** 挂载即展开「关联已有」面板（通用项目「内容」tab 顶部的「关联已有 ▾」选了这一类）。 */
   initialLinkOpen?: boolean;
+  /** The parent content toolbar owns creation and linking when embedded. */
+  embedded?: boolean;
   /** 挂上 / 移出成功后回调（「内容」tab 据此刷新各类计数）。 */
   onChanged?: () => void;
 }) {
@@ -179,6 +183,8 @@ export function ProjectResourceSection({ projectId, kind, canWrite, initialLinkO
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<{ cause: unknown } | null>(null);
   const [linkOpen, setLinkOpen] = React.useState(false);
+  const initialLinkConsumed = React.useRef(false);
+  const previousKind = React.useRef(kind);
   const [candidates, setCandidates] = React.useState<ResourceCandidate[] | null>(null);
   const [candidatesError, setCandidatesError] = React.useState<{ cause: unknown } | null>(null);
   const [busyId, setBusyId] = React.useState<string | null>(null);
@@ -200,13 +206,25 @@ export function ProjectResourceSection({ projectId, kind, canWrite, initialLinkO
 
   React.useEffect(() => { void load(); }, [load]);
   React.useEffect(() => {
-    setLinkOpen(false); setCandidates(null); setActionError(null);
-    if (initialLinkOpen && canWrite) void openLink();
+    if (previousKind.current !== kind) {
+      previousKind.current = kind;
+      initialLinkConsumed.current = false;
+      setLinkOpen(false); setCandidates(null); setActionError(null);
+    }
+    if (!canWrite) {
+      initialLinkConsumed.current = true;
+      setLinkOpen(false); setCandidates(null);
+      return;
+    }
+    if (initialLinkOpen && !initialLinkConsumed.current) {
+      initialLinkConsumed.current = true;
+      void openLink();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在切换类型 / 重新要求展开时重置
-  }, [kind, initialLinkOpen]);
+  }, [kind, initialLinkOpen, canWrite]);
 
   async function createHere() {
-    if (!meta.create) return;
+    if (!canWrite || !meta.create) return;
     setCreating(true); setActionError(null);
     try {
       const href = await startNewProjectResource(kind, projectId);
@@ -219,7 +237,7 @@ export function ProjectResourceSection({ projectId, kind, canWrite, initialLinkO
   }
 
   async function openLink() {
-    if (!meta.candidates) return;
+    if (!canWrite || !meta.candidates) return;
     setLinkOpen(true); setCandidates(null); setCandidatesError(null);
     try {
       setCandidates(await meta.candidates());
@@ -229,6 +247,7 @@ export function ProjectResourceSection({ projectId, kind, canWrite, initialLinkO
   }
 
   async function link(resourceId: string) {
+    if (!canWrite) return;
     setBusyId(resourceId); setActionError(null);
     try {
       await linkProjectResource({ projectId, kind: meta.resourceKind as ProjectLinkableResourceKind, resourceId });
@@ -242,6 +261,7 @@ export function ProjectResourceSection({ projectId, kind, canWrite, initialLinkO
   }
 
   async function unlink(resourceId: string) {
+    if (!canWrite) return;
     setBusyId(resourceId); setActionError(null);
     try {
       await unlinkProjectResource({ projectId, kind: meta.resourceKind as ProjectLinkableResourceKind, resourceId });
@@ -259,8 +279,8 @@ export function ProjectResourceSection({ projectId, kind, canWrite, initialLinkO
   const Icon = meta.icon;
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-4 p-6" data-testid="project-resources" data-kind={meta.resourceKind}>
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 p-4 sm:p-6" data-testid="project-resources" data-kind={meta.resourceKind}>
+      {!embedded && <div className="flex flex-wrap items-center gap-2">
         <SectionTitle meta={t(meta.meta)} className="mb-0">{label}</SectionTitle>
         <span className="flex-1" />
         {canWrite && linkable && (
@@ -280,13 +300,13 @@ export function ProjectResourceSection({ projectId, kind, canWrite, initialLinkO
             <Plus aria-hidden className="h-3.5 w-3.5" />{creating ? t("projectResources.creating", { label }) : t("projectResources.new", { label })}
           </Button>
         )}
-      </div>
+      </div>}
 
       {actionError !== null && (
         <p className="text-11 text-destructive" data-testid="project-resources-action-error">{describeFailure(actionError.cause, locale)}</p>
       )}
 
-      {linkOpen && (
+      {canWrite && linkOpen && (
         <Card>
           <div className="flex flex-col gap-2 p-4" data-testid="project-resources-link-panel">
             <div className="flex items-center gap-2">
@@ -341,7 +361,7 @@ export function ProjectResourceSection({ projectId, kind, canWrite, initialLinkO
           </p>
         </Card>
       ) : (
-        <ul className={CONTENT_GRID_CLASS} data-testid="project-resources-list">
+        <ResourceGrid as="ul" data-testid="project-resources-list">
           {items.map((it) => (
             <li key={it.id}>
               <ProjectContentCard
@@ -352,7 +372,7 @@ export function ProjectResourceSection({ projectId, kind, canWrite, initialLinkO
                 typeLabel={label}
                 status={it.status}
                 resourceKind={it.kind}
-                meta={t("projectResources.itemMeta", { updated: formatDate(it.updatedAt, locale), linked: formatDate(it.linkedAt, locale) })}
+                meta={<UpdatedAt iso={it.updatedAt} />}
                 menu={canWrite && linkable ? (
                   <Menu>
                     <MenuTrigger asChild>
@@ -370,15 +390,10 @@ export function ProjectResourceSection({ projectId, kind, canWrite, initialLinkO
               />
             </li>
           ))}
-        </ul>
+        </ResourceGrid>
       )}
     </div>
   );
-}
-
-function formatDate(iso: string, locale?: Locale): string {
-  const t = Date.parse(iso);
-  return Number.isNaN(t) ? iso : new Date(t).toLocaleDateString(locale);
 }
 
 function describeFailure(e: unknown, locale: Locale = "zh-CN"): string {

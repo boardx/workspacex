@@ -1,4 +1,5 @@
 "use client";
+import { RESOURCE_GRID_CLASS, RESOURCE_PAGE_CLASS } from "@/components/ui/resource-card";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui/menu";
 import * as React from "react";
 import { TagInput, commitDraft } from "@/components/ui/tag-input";
@@ -154,7 +155,7 @@ export function DesignWorkbenchHome({
 
   if (state === "loading" || (state === "default" && load.kind === "loading")) {
     return (
-      <div className="grid grid-cols-1 gap-3 p-6 sm:grid-cols-2 lg:grid-cols-3" data-testid="loading">
+      <div className={`${RESOURCE_PAGE_CLASS} ${RESOURCE_GRID_CLASS}`} data-testid="loading">
         {[0, 1, 2, 3, 4, 5].map((n) => (
           <div key={n} className="h-32 animate-pulse rounded-card bg-muted" />
         ))}
@@ -302,9 +303,9 @@ export function DesignWorkbenchHome({
   }
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto" data-testid="design-workbench">
-      <div className="border-b border-border px-6 py-4">
-        <h1 className="text-20 font-semibold tracking-tight">{t("workbenchHome.title")}</h1>
+    <div className={`${RESOURCE_PAGE_CLASS} flex min-h-full flex-col`} data-testid="design-workbench">
+      <div className="border-b border-border pb-4">
+        <h1 className="text-30 font-semibold tracking-tight">{t("workbenchHome.title")}</h1>
         {/*
           * 迭代 23：这句话原文是「**从模板起一个设计**，或把收件箱里的反馈深化成方案」——
           * 而三张模板卡片在迭代 13 就删掉了（理由见下面那段注释）。**首屏第一句话在指一条
@@ -377,7 +378,7 @@ export function DesignWorkbenchHome({
        */}
 
       {/* 我的设计项目 */}
-      <div className="flex flex-wrap items-center justify-between gap-2 px-6 pt-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 py-4">
         <h2 className="text-14 font-semibold">
           {t("workbenchHome.myProjects")}
           {refreshing && load.kind === "ready" && (
@@ -417,7 +418,7 @@ export function DesignWorkbenchHome({
       </div>
 
       {vocabulary.length > 0 && (
-        <div className="px-6 pt-2" data-testid="workbench-tag-filter">
+        <div className="pb-4" data-testid="workbench-tag-filter">
           <TagFilterBar
             tags={vocabulary.map((tag) => ({ tag }))}
             selected={selectedTags}
@@ -478,7 +479,7 @@ export function DesignWorkbenchHome({
           </div>
         )
       ) : (
-        <div className="grid grid-cols-1 gap-3 p-6 sm:grid-cols-2 lg:grid-cols-3" data-testid="workbench-grid">
+        <div className={RESOURCE_GRID_CLASS} data-testid="workbench-grid">
           {items.map((p) => (
             <ProjectCard
               key={p.id}
@@ -527,7 +528,8 @@ function ProjectCard({
       testId={`project-card-${project.id}`}
       title={project.name}
       /* 「2026/9/23」是机器时间：他要判断的是「这是不是我刚才那个」。同 `human-time.ts` 单源。 */
-      subtitle={t("workbenchHome.cardSubtitle", { template: projectTemplateDisplayLabel(project.template, locale), time: humanTime(project.updatedAt) })}
+      subtitle={projectTemplateDisplayLabel(project.template, locale)}
+      meta={<time dateTime={project.updatedAt}>{humanTime(project.updatedAt)}</time>}
       badges={
         <>
           {project.linkedFeedbackId !== null && <LinkBadge text={t("inbox.fromFeedback")} testid={`project-link-${project.id}`} />}

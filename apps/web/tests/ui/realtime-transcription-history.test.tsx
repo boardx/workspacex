@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { RecApp } from "@/components/rec/rec-app";
 import { mockIdentity } from "@/lib/identity";
 
@@ -134,6 +134,15 @@ function renderHistory() {
 }
 
 describe("实时转录历史工作台", () => {
+  it("keeps one header creation entry when history is empty", async () => {
+    api.list.mockResolvedValueOnce({ items: [], nextCursor: null });
+    renderHistory();
+    const empty = await screen.findByTestId("rec-history-empty");
+    expect(within(empty).queryAllByRole("button")).toHaveLength(0);
+    fireEvent.click(screen.getByTestId("rec-create-open"));
+    expect(await screen.findByTestId("rec-create-dialog")).toBeVisible();
+  });
+
   it("does not move focus when an in-flight history request finishes", async () => {
     let finishList: (result: { items: readonly typeof EUROPE[]; nextCursor: null }) => void = () => undefined;
     api.list.mockImplementationOnce(() => new Promise((resolve) => { finishList = resolve; }));

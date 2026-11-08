@@ -23,6 +23,15 @@ import { cn } from "@/lib/utils";
  * ⚠ 只管版式：状态怎么算、菜单里有什么、点了去哪，全部由调用方传入——本组件不认识任何一种
  *   业务对象。`layout="list"` 是项目页的列表视图（操作列靠右），其余页面用默认的网格版式。
  */
+/** Shared responsive geometry for resource collections, including project content. */
+export const RESOURCE_PAGE_CLASS = "mx-auto w-full max-w-7xl p-4 sm:p-6";
+
+export const RESOURCE_GRID_CLASS = "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3";
+
+export function ResourceGrid({ as: Tag = "div", className, ...props }: React.HTMLAttributes<HTMLElement> & { as?: "div" | "ul" }) {
+  return <Tag {...props} className={cn(RESOURCE_GRID_CLASS, className)} />;
+}
+
 const INTERACTIVE = 'button, a, input, select, textarea, label, [role="menuitem"], [role="checkbox"], [data-card-stop]';
 
 export function ResourceCard({
@@ -96,7 +105,7 @@ export function ResourceCard({
             <div className="flex min-w-0 items-start gap-3">
               {leading ? <div className="shrink-0">{leading}</div> : null}
               <div className="flex min-w-0 flex-col gap-1">
-                <Heading className={cn("font-semibold tracking-tight", titleHref === undefined && "truncate", compact ? "text-13" : "text-14")} data-testid={titleTestId}>
+                <Heading className={cn("line-clamp-2 break-words font-semibold tracking-tight", compact ? "text-13" : "text-14")} data-testid={titleTestId}>
                   {titleHref !== undefined ? (
                     <Link
                       href={titleHref}
@@ -120,7 +129,7 @@ export function ResourceCard({
           {description ? <div className={cn("text-12 leading-relaxed text-muted-foreground", compact ? "line-clamp-2" : "line-clamp-2")}>{description}</div> : null}
           {tags}
           {children}
-          {meta ? <div className="flex flex-wrap items-center justify-between gap-2 text-11 text-muted-foreground">{meta}</div> : null}
+          {meta ? <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-2 text-11 text-muted-foreground">{meta}</div> : null}
         </div>
         {actions ? <div className={cn("flex flex-wrap items-center gap-2", list ? "shrink-0" : "mt-auto pt-1", lift)}>{actions}</div> : null}
       </CardContent>
@@ -152,7 +161,7 @@ export function ResourceCard({
           if (e.target !== e.currentTarget) return;
           if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); }
         }}
-        className={cn("cursor-pointer", focusRing, shell)}
+        className={cn(cardSurface, "cursor-pointer", focusRing, shell)}
       >
         {body}
       </Card>

@@ -1,4 +1,5 @@
 "use client";
+import { RESOURCE_GRID_CLASS, RESOURCE_PAGE_CLASS } from "@/components/ui/resource-card";
 import { interviewCategoryText } from "@/lib/interview-category-text";
 import { useI18n } from "@/lib/i18n/provider";
 import { INTERVIEW_STATUS_LABEL } from "@/lib/interview-status-copy";
@@ -136,7 +137,7 @@ export function InterviewStudioHome({
 
   return (
     <main className="min-w-0 flex-1 overflow-y-auto bg-background">
-      <div data-testid="itv-home-page" className="mx-auto w-full max-w-screen-2xl px-4 py-4 md:px-6 lg:px-8">
+      <div data-testid="itv-home-page" className={RESOURCE_PAGE_CLASS}>
         <ProjectBreadcrumb projectId={projectId} sub="itv" className="mb-3" />
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
@@ -164,7 +165,7 @@ export function InterviewStudioHome({
           <TabsContent value="history" aria-label={t("itv.history")} className="pt-4">
             <StudioHistoryFilters business={t("itv.history.business")} prefix="itv-history" tags={availableTags} selectedTags={selectedTags} onTagsChange={setSelectedTags} query={query} onQueryChange={setQuery} sort={sort} onSortChange={setSort} />
             {notice && <p role="status" data-testid="itv-history-saved" className="mt-4 text-12 text-success">{t("itv.saved")}</p>}
-            <div className="mt-4"><HistoryContent state={history.kind === "ready" ? { kind: "ready", items: visibleHistoryItems } : history} onChanged={refreshHistory} onCreate={createInterview} filtered={Boolean(query.trim() || selectedTags.length > 0)} onClearFilters={() => { setQuery(""); setSelectedTags([]); }} onRetry={() => setRevision(value => value + 1)} /></div>
+            <div className="mt-4"><HistoryContent state={history.kind === "ready" ? { kind: "ready", items: visibleHistoryItems } : history} onChanged={refreshHistory} filtered={Boolean(query.trim() || selectedTags.length > 0)} onClearFilters={() => { setQuery(""); setSelectedTags([]); }} onRetry={() => setRevision(value => value + 1)} /></div>
           </TabsContent>
         ) : (
           <TabsContent value="experts" aria-label={t("itv.experts")} className="pt-4">
@@ -248,13 +249,13 @@ function FilterButton({ active, onClick, children }: {
   );
 }
 
-function HistoryContent({ state, onChanged, onCreate, filtered, onClearFilters, onRetry }: { state: LoadState<DigitalInterviewHistoryRow>; onChanged: () => void; onCreate: () => void; filtered: boolean; onClearFilters: () => void; onRetry: () => void }) {
+function HistoryContent({ state, onChanged, filtered, onClearFilters, onRetry }: { state: LoadState<DigitalInterviewHistoryRow>; onChanged: () => void; filtered: boolean; onClearFilters: () => void; onRetry: () => void }) {
   const { t } = useI18n();
   if (state.kind === "loading") return <StatePanel>{t("itv.history.loading")}</StatePanel>;
   if (state.kind === "error") return <StatePanel testId="itv-history-error"><p>{t("itv.history.error")}</p><ActionButton variant="outline" className="mt-4" onClick={onRetry}>{t("itv.history.retry")}</ActionButton></StatePanel>;
-  if (state.items.length === 0) return <StatePanel testId="itv-history-empty"><p>{filtered ? t("itv.history.filterEmpty") : t("itv.history.empty")}</p>{filtered ? <ActionButton variant="outline" className="mt-4" onClick={onClearFilters}>{t("itv.clearFilters")}</ActionButton> : <ActionButton variant="primary" className="mt-4" onClick={onCreate}><Plus className="size-4" aria-hidden />{t("itv.new")}</ActionButton>}</StatePanel>;
+  if (state.items.length === 0) return <StatePanel testId="itv-history-empty"><p>{filtered ? t("itv.history.filterEmpty") : t("itv.history.empty")}</p>{filtered ? <ActionButton variant="outline" className="mt-4" onClick={onClearFilters}>{t("itv.clearFilters")}</ActionButton> : null}</StatePanel>;
   return (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+    <div className={RESOURCE_GRID_CLASS}>
       {state.items.map((item) => <HistoryCard key={item.interviewId} item={item} onChanged={onChanged} />)}
     </div>
   );
@@ -299,7 +300,7 @@ function ExpertContent({ state, preview = false, filtered, onRetry, onClearFilte
   if (state.kind === "error") return <StatePanel testId="itv-experts-error"><p>{t("itv.experts.error")}</p><ActionButton variant="outline" className="mt-4" onClick={onRetry}>{t("itv.experts.retry")}</ActionButton></StatePanel>;
   if (state.items.length === 0) return <StatePanel testId="itv-experts-empty"><p>{filtered ? t("itv.experts.filterEmpty") : t("itv.experts.empty")}</p>{filtered && <ActionButton variant="outline" className="mt-4" onClick={onClearFilters}>{t("itv.experts.viewAll")}</ActionButton>}</StatePanel>;
   return (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+    <div className={RESOURCE_GRID_CLASS}>
       {state.items.map((expert) => (
         <ResourceCard
           key={expert.expertId}

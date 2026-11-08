@@ -1,4 +1,5 @@
 "use client";
+import { RESOURCE_GRID_CLASS, RESOURCE_PAGE_CLASS } from "@/components/ui/resource-card";
 import * as React from "react";
 import { useI18n } from "@/lib/i18n/provider";
 import { translate } from "@/lib/i18n/messages";
@@ -121,7 +122,7 @@ export function ProjectsScreen() {
 
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8 sm:px-8 lg:px-12 lg:py-10" data-testid="projects-screen">
+    <div className={`${RESOURCE_PAGE_CLASS} flex flex-col gap-6`} data-testid="projects-screen">
       <header className="flex flex-col gap-1.5">
         <h1 className="text-30 font-semibold leading-tight tracking-tight">{t("ui.projects")}</h1>
         <p className="text-13 text-muted-foreground">
@@ -251,7 +252,7 @@ export function ProjectsScreen() {
           )}
         </div>
       ) : viewMode === "card" ? (
-        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2" data-testid="projects-list">
+        <ul className={RESOURCE_GRID_CLASS} data-testid="projects-list">
           {visible.map((p) => (
             <ProjectRealCard key={p.id} project={p} orgId={orgId} layout="card" onChanged={() => void refresh(orgId)} />
           ))}
