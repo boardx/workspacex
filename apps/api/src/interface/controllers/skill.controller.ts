@@ -89,6 +89,7 @@ function toListItem(row: SkillContractRow) {
     skillId: row.skillId,
     name: row.name,
     duty: row.duty,
+    ...(row.taskDescription !== undefined ? { taskDescription: row.taskDescription } : {}),
     source: row.source,
     status: row.status,
     visibility: row.visibility,

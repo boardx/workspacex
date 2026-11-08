@@ -17,6 +17,7 @@ import { listSkills, type SkillListItem } from "@/lib/live-skill";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { skillPickerDisplay } from "@/lib/skill-picker-display";
 import { skillTaskDescription } from "@/lib/skill-task-description";
 import { FeedbackButton } from "@/components/feedback/feedback-button";
 import { describeMessageFailure } from "@/lib/live-chat";
@@ -156,7 +157,7 @@ export function ChatSkillMountPanel({
       listSkills(orgId), actingAgentId ? getAgentDirectoryProfile(actingAgentId) : Promise.resolve(null),
     ]);
     if (liveScope.current !== key) return;
-    const enabled = items.filter((item) => item.status === "已启用");
+    const enabled = items.filter((item) => item.status === "已启用").map(skillPickerDisplay);
     const versions = new Map<string, Set<string>>();
     const addVersion = (skillId: string, versionId: string) => {
       const pinned = versions.get(skillId) ?? new Set<string>();

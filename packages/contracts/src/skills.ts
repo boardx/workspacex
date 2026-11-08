@@ -371,6 +371,7 @@ export const SkillListItem = z
     skillId: z.string(),
     name: z.string(),
     duty: z.string(),
+    taskDescription: z.string().optional(),
     source: SkillSource,
     status: SkillStatus,
     visibility: z.enum(["org-wide", "team-only"]),
