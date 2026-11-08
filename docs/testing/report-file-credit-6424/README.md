@@ -26,3 +26,17 @@ The pre-existing CJK PDF layout case requires `WX_PDF_LAYOUT_CJK_FONT`; absent t
 Local final regression (2026-11-08): API 74 passed, 1 existing font-dependent case not run; web 27 passed. API lint and web scoped ESLint exited 0; web TypeScript exited 0. Final TypeScript/baseline results and exact-head CI are recorded in the PR.
 
 Upgrade boundary: the previous UI did not retain job IDs. Only known historical job IDs can recover generic-failure guidance; this change does not discover all old failures by report source, and must not regenerate merely to manufacture a notice. New job IDs are remembered for subsequent reloads.
+
+## Real PostgreSQL terminal-retention review follow-up
+
+Independent PR review found that the existing store only updated `state=running`, so historical failed-job recovery could return an unpersisted body. The service mock had hidden this limitation. A valid real PostgreSQL counterexample failed twice on the old store (`false` instead of successful retention); a service CAS-miss counterexample also failed. Earlier FK/incorrect-helper fixture failures are not product RED, and a subsequent SQL-parenthesis implementation error is not counted as the old defect.
+
+The store now atomically enriches only an already-failed `GENERATION_FAILED` row into a typed Credit failure under org/actor/job/run/thread/request/binding/render/source/format fences. It patches only the existing job's errorCode and canonical creditFailure. Table status, attempts, leases, identifiers and all other metadata are unchanged; the original running-row transition remains. The service reads authorized stored state after update, including a missed CAS, never returning an unretained in-memory candidate.
+
+```sh
+pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter @repo/api exec vitest run tests/report-files/credit-failure.db.test.ts
+```
+
+This owned real PostgreSQL lane passed 4 cases with peak 3 connections, and its stack was released by the wrapper. It covers store reconstruction/read, cross-actor/org and changed identity rejection, concurrency with exactly one winner, complete nonfailure metadata/lease/attempt preservation, no successful-output downgrade, and continued normal running-to-failed persistence. Pure report regression after the fix: 75 passed, 1 pre-existing font-dependent case unrun. Web27 remains unchanged by this backend-only increment. Actual native file generation is still not production-accepted.
+
+Baseline quick-run boundary: the earlier full gate ended40/46 successful with an API PostgreSQL connection interruption and an unrelated supervisor failure. The latter also failed on the exact base's source/test import closure; isolated candidate retry passed5/5. These observations remain recorded in PR triage, not rewritten as full-gate success or a proven environment cause. Normal pre-push and exact-head CI are separate evidence.

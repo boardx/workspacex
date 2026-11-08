@@ -102,10 +102,23 @@ export class PgReportFileJobStore implements ReportFileJobStore {
       [actor.orgId, actor.userId, job.id, claim.leaseToken, threadId])).rows.length === 1);
   }
   async update(record: StoredReportFileJob) {
+    const job = ReportFileJob.parse(record.job);
+    const enriching = job.status === 'failed' && (job.errorCode === 'CREDIT_REQUIRED' || job.errorCode === 'CREDIT_ACCOUNTING_UNAVAILABLE');
+    const failure = enriching && job.status === 'failed'
+      ? { errorCode: job.errorCode, ...(job.creditFailure ? { creditFailure: job.creditFailure } : {}) } : {};
     return this.db.withTenant(record.actor.orgId, async session => (await session.query(
-      `UPDATE report_skill_file_jobs SET metadata=$4::jsonb,state=$5
-       WHERE org_id=$1 AND actor_user_id=$2 AND id=$3 AND metadata->>'runId'=$6 AND state='running' RETURNING id`,
-      [record.actor.orgId, record.actor.userId, record.job.id, JSON.stringify(record), record.job.status, record.runId])).rows.length === 1);
+      `UPDATE report_skill_file_jobs SET
+       metadata=CASE WHEN state='failed' THEN jsonb_set(metadata,'{job}',((metadata->'job') - 'creditFailure') || $8::jsonb) ELSE $4::jsonb END,
+       state=$5
+       WHERE org_id=$1 AND actor_user_id=$2 AND id=$3 AND metadata->>'runId'=$6
+       AND (state='running' OR ($7::boolean AND state='failed'
+        AND metadata#>>'{job,status}'='failed' AND metadata#>>'{job,errorCode}'='GENERATION_FAILED'
+        AND metadata->>'threadId'=($4::jsonb->>'threadId')
+        AND request_id::text=($4::jsonb->>'requestId')
+        AND metadata->>'bindingKey'=($4::jsonb->>'bindingKey') AND metadata->>'renderHash'=($4::jsonb->>'renderHash')
+        AND metadata#>'{job,source}'=($4::jsonb#>'{job,source}') AND metadata#>>'{job,format}'=($4::jsonb#>>'{job,format}')))
+       RETURNING id`,
+      [record.actor.orgId, record.actor.userId, job.id, JSON.stringify({...record,job}), job.status, record.runId, enriching, JSON.stringify(failure)])).rows.length === 1);
   }
   async invalidateFile(record: StoredReportFileJob) {
     if(record.job.status!=='succeeded')return false;

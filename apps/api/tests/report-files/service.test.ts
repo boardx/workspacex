@@ -129,7 +129,9 @@ it('persists actor-bound Credit guidance while repeat status reads never dispatc
     execution: { runId: 'real-run-1', threadId: 'thr-1', status: 'failed' } } as never);
   const first = await f.service.start(f.actor, f.request);
   expect(first).toMatchObject({ status: 'failed', errorCode: 'CREDIT_REQUIRED', creditFailure });
+  f.runtime.read.mockClear(); f.runtime.read.mockRejectedValue(new Error('Chat read unavailable after retention'));
   expect(await f.service.status(f.actor, first.id)).toMatchObject({ creditFailure });
+  expect(f.runtime.read).not.toHaveBeenCalled();
   expect(f.runtime.accept).toHaveBeenCalledTimes(1);
   expect(f.runtime.download).not.toHaveBeenCalled();
 });
@@ -233,4 +235,14 @@ it('real HTTP status restoration survives app restart with authority checks and 
     } finally { await app.close(); }
   }
   expect(f.runtime.accept).not.toHaveBeenCalled(); expect(f.runtime.download).not.toHaveBeenCalled();
+});
+
+it('a failed persistence CAS never returns unretained recovered Credit guidance', async () => {
+  const f = fixture(); f.runtime.read.mockResolvedValue({ status:'failed' } as never);
+  const first = await f.service.start(f.actor,f.request);
+  f.runtime.read.mockResolvedValue({status:'failed',errorCode:'CREDIT_REQUIRED',creditFailure:{code:'credit_required',ownerType:'user',ownerId:f.actor.userId,rechargePath:'/billing?purchase=1'}} as never);
+  f.store.update.mockResolvedValue(false);
+  expect(await f.service.status(f.actor,first.id)).toMatchObject({status:'failed',errorCode:'GENERATION_FAILED'});
+  expect((await f.service.status(f.actor,first.id))).not.toHaveProperty('creditFailure');
+  expect(f.runtime.accept).toHaveBeenCalledTimes(1);
 });

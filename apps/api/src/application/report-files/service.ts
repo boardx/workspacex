@@ -89,8 +89,11 @@ export class ReportFileService {
       }
     }
     await this.readCurrent(actor, id);
-    await this.deps.store.update(record);
-    return ReportFileJob.parse(record.job);
+    if (!await this.deps.store.update(record)) {
+      // A missed CAS cannot make an in-memory failure look durably retained.
+      return ReportFileJob.parse((await this.readCurrent(actor, id)).job);
+    }
+    return ReportFileJob.parse((await this.readCurrent(actor, id)).job);
   }
   async download(actor: ReportFileActor, id: string) {
     const record = await this.readCurrent(actor, id);

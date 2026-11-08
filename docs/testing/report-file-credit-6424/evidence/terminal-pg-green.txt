@@ -1,0 +1,26 @@
+[stack-admission] load1=10.67 cores=10 perCore=1.07 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw7rjpxh-1cd746f9-f51abc98a931 db=wsx_f51abc98a9310d5b833b compose=wsx-f51abc98a9310d5b833b pg=20136 redis=21136 api=24136 web=25136 sandbox=26136 model=27136 deep-agent=28136 asr=29136 vision=30136 loopback-sandbox=31136 mail=19136
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/api
+
+[db-isolation] db=wsx_f51abc98a9310d5b833b capacity=100 current=6 required=32
+ ✓ tests/report-files/credit-failure.db.test.ts (4 tests) 86855ms
+   ✓ the actual PostgreSQL store retains recovered Credit guidance on an already-failed generic job 4422ms
+   ✓ terminal enrichment cannot resurrect work, overwrite another outcome, or cross actor/run/source fences 4686ms
+   ✓ concurrent terminal enrichment has one winner and leaves all nonfailure fields untouched 1611ms
+   ✓ successful output is never downgraded and an active run still persists a typed failure normally 1873ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  19:43:00
+   Duration  105.75s (transform 4.74s, setup 30ms, collect 6.68s, tests 86.85s, environment 0ms, prepare 180ms)
+
+[db-isolation] db=wsx_f51abc98a9310d5b833b peak_connections=3
+[timing] pnpm --filter @repo/api exec vitest run tests/report-files/credit-failure.db.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1m49s
+  清理：3s
+  总计：1m52s
