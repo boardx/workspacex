@@ -118,7 +118,7 @@ export type ActivateOrgInviteResult =
    * 分开就是把「这个组织存在吗」做成一个探测器（V10）。与 `InviteCodeInvalidError`
    * 同一条理由，同一种取舍。
    */
-  | { readonly ok: false; readonly reason: "not-found" | "already-member" | "quota-exhausted" };
+  | { readonly ok: false; readonly reason: "not-found" | "already-member" | "account-mismatch" | "quota-exhausted" };
 
 /* ─────────────────── 重发 / 撤销（#363：契约里有、路由上没有） ─────────────────── */
 

@@ -113,6 +113,7 @@ export async function activateOrgMember(
   });
 
   if (!result.ok) {
+    if (result.reason === "account-mismatch") throw new OrgAdminError("INVITE_ACCOUNT_MISMATCH");
     if (result.reason === "quota-exhausted") throw new OrgAdminError("QUOTA_EXHAUSTED");
     // ⚠ 四种失效一个码（V10）。`already-member` 是另一回事：它要引导用户去登录，
     // 而且它不泄露任何「这个组织存在吗」之外的信息——调用者手里本来就有一枚有效令牌。

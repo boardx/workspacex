@@ -72,6 +72,7 @@ class Rollback extends Error {
     readonly reason:
       | "duplicate"
       | "already-member"
+      | "account-mismatch"
       | "not-found"
       | "quota-exhausted"
       | "self-review"
@@ -297,7 +298,7 @@ export class PgOrgInviteRepository implements OrgInviteRepository, OrgInvitation
       const grant = await this.db.withoutTenant((s) => this.activateAll(s, input));
       return { ok: true, grant };
     } catch (e) {
-      if (e instanceof Rollback && (e.reason === "not-found" || e.reason === "already-member" || e.reason === "quota-exhausted")) {
+      if (e instanceof Rollback && (e.reason === "not-found" || e.reason === "already-member" || e.reason === "account-mismatch" || e.reason === "quota-exhausted")) {
         return { ok: false, reason: e.reason };
       }
       throw e;
@@ -357,7 +358,8 @@ export class PgOrgInviteRepository implements OrgInviteRepository, OrgInvitation
 
     if (input.existingUserId !== null) {
       const credential = await s.query<{email: string}>("SELECT email FROM credentials WHERE user_id=$1", [input.existingUserId]);
-      if (credential.rows[0]?.email !== invite.email) throw new Rollback("not-found");
+      if (!credential.rows[0]) throw new Rollback("not-found");
+      if (credential.rows[0].email !== invite.email) throw new Rollback("account-mismatch");
       const existing = await s.query("SELECT 1 FROM org_memberships WHERE org_id=$1 AND user_id=$2", [orgId,input.existingUserId]);
       if (existing.rows.length) throw new Rollback("already-member");
     }

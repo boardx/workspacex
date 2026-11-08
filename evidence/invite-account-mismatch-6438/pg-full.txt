@@ -1,0 +1,38 @@
+[stack-admission] load1=4.60 cores=10 perCore=0.46 running=0/2
+[test-isolation] id=run-mw83fary-ef306c2b-e63a67da79c8 db=wsx_e63a67da79c8c685a29c compose=wsx-e63a67da79c8c685a29c pg=20354 redis=21354 api=24354 web=25354 sandbox=26354 model=27354 deep-agent=28354 asr=29354 vision=30354 loopback-sandbox=31354 mail=19354
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/2e5d/workspacex/apps/api
+
+[db-isolation] db=wsx_e63a67da79c8c685a29c capacity=100 current=6 required=32
+ ✓ tests/auth/member-invite-activation.test.ts (16 tests) 34326ms
+   ✓ ① 管理员邀请：待激活行按服务端指派的角色与团队落库 > 邮箱规范化后落库，等待真实邮件投递时 sent_at 为空 316ms
+   ✓ ① 管理员邀请：待激活行按服务端指派的角色与团队落库 > V7 越权：顾问调用一律拒，且**没有留下任何邀请行** 422ms
+   ✓ ① 管理员邀请：待激活行按服务端指派的角色与团队落库 > requesting admin creates an ordinary pending invitation, without review 305ms
+   ✓ ① 管理员邀请：待激活行按服务端指派的角色与团队落库 > 幂等重放：同 (org, email, 角色, 团队) 再提交返回既有 inviteId，不新建行、不再吐令牌 330ms
+   ✓ ① 管理员邀请：待激活行按服务端指派的角色与团队落库 > a requested role change still replays the same ordinary-member invitation 377ms
+   ✓ ② 激活：入场即带组织角色 + 团队 > 激活前 NO_ORG_MEMBERSHIP；激活后本团队 allowed、别的团队 denied 381ms
+   ✓ ② 激活：入场即带组织角色 + 团队 > 账号建在邀请行记录的邮箱上，且**直接是已验证的**（O-28 ⑤：点链接即证明邮箱所有权） 551ms
+   ✓ ② 激活：入场即带组织角色 + 团队 > valid-token account mismatch is recoverable; consumed and expired tokens remain indistinguishable 777ms
+   ✓ ② 激活：入场即带组织角色 + 团队 > 已有账号分支：不新建凭据，只加一条成员关系（O-12 一人多组织） 503ms
+   ✓ ② 激活：入场即带组织角色 + 团队 > I-1 幂等重放：同一 token 第二次调用是 INVITE_NOT_FOUND，**不是「已激活成功」** 618ms
+   ✓ ② 激活：入场即带组织角色 + 团队 > V10 四种失效返回同一个码：不存在 / 已过期 / 已核销 / 已撤销 555ms
+   ✓ ③ ALLOWLIST 例外的前提：邀请行的内容不出仓储 > activate() 的返回值只有授予值这五个键 431ms
+   ✓ ③ ALLOWLIST 例外的前提：邀请行的内容不出仓储 > 反证：把 email 加进返回值，上一条当场红 369ms
+   ✓ invitation session delivery (#3600) > concurrent/replayed single-use activation delivers only one bearer with the granted org and standard TTL 596ms
+   ✓ invitation session delivery (#3600) > session-store failure leaves the created account recoverable but cannot replay the consumed invitation 440ms
+ ✓ tests/auth/org-invitation-members.test.ts (7 tests) 2472ms
+   ✓ delivers through transactional mail and records provider acceptance without exposing the token to administrators 638ms
+
+ Test Files  2 passed (2)
+      Tests  23 passed (23)
+   Start at  01:15:28
+   Duration  51.77s (transform 2.75s, setup 31ms, collect 5.54s, tests 36.80s, environment 0ms, prepare 209ms)
+
+[db-isolation] db=wsx_e63a67da79c8c685a29c peak_connections=4
+[timing] pnpm --filter @repo/api exec vitest run tests/auth/member-invite-activation.test.ts tests/auth/org-invitation-members.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：53s
+  清理：1s
+  总计：54s

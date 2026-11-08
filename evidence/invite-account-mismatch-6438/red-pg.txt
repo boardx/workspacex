@@ -1,0 +1,54 @@
+[stack-admission] load1=3.31 cores=10 perCore=0.33 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw82ore2-0b578868-0b477e8a23d0 db=wsx_0b477e8a23d0db2b39d3 compose=wsx-0b477e8a23d0db2b39d3 pg=20826 redis=21826 api=24826 web=25826 sandbox=26826 model=27826 deep-agent=28826 asr=29826 vision=30826 loopback-sandbox=31826 mail=19826
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/2e5d/workspacex/apps/api
+
+[db-isolation] db=wsx_0b477e8a23d0db2b39d3 capacity=100 current=6 required=32
+ ❯ tests/auth/member-invite-activation.test.ts (16 tests | 1 failed) 23332ms
+   × ② 激活：入场即带组织角色 + 团队 > valid-token account mismatch is recoverable; consumed and expired tokens remain indistinguishable 201ms
+     → expected OrgAdminError: INVITE_NOT_FOUND { …(1) } to match object { Object (reasonCode) }
+(1 matching property omitted from actual)
+   ✓ ② 激活：入场即带组织角色 + 团队 > V10 四种失效返回同一个码：不存在 / 已过期 / 已核销 / 已撤销 348ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/auth/member-invite-activation.test.ts > ② 激活：入场即带组织角色 + 团队 > valid-token account mismatch is recoverable; consumed and expired tokens remain indistinguishable
+AssertionError: expected OrgAdminError: INVITE_NOT_FOUND { …(1) } to match object { Object (reasonCode) }
+(1 matching property omitted from actual)
+
+- Expected
++ Received
+
+- Object {
+-   "reasonCode": "INVITE_ACCOUNT_MISMATCH",
++ OrgAdminError {
++   "reasonCode": "INVITE_NOT_FOUND",
+  }
+
+ ❯ tests/auth/member-invite-activation.test.ts:299:5
+    297|       { repo, hasher: fakeHasher, sessions, tokens: fakeTokens() },
+    298|       { token, mode: "existing-account", profile: null, existingUserId…
+    299|     await expect(acceptWrong(invited.token!)).rejects.toMatchObject({ …
+       |     ^
+    300|     expect(sessions.issued).toHaveLength(0);
+    301|     expect((await readInvite(invited.inviteId)).status).toBe("pending"…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 15 passed (16)
+   Start at  00:54:49
+   Duration  29.80s (transform 1.30s, setup 9ms, collect 1.79s, tests 23.33s, environment 0ms, prepare 52ms)
+
+[db-isolation] db=wsx_0b477e8a23d0db2b39d3 peak_connections=4
+undefined
+/Users/shenyangjun/.codex/worktrees/2e5d/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/auth/member-invite-activation.test.ts
+[timing] pnpm --filter @repo/api exec vitest run tests/auth/member-invite-activation.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：31s
+  清理：1s
+  总计：32s

@@ -26,7 +26,7 @@ it('creates an immediately usable ordinary invitation even when a legacy client 
 it('rejects another authenticated account without consuming the personal invitation',async()=>{
  const out=await inviteOrgMember({repo},{...ctx,email,orgRole:'consultant',teamId:null});
  const deps={repo,hasher:fakeHasher,sessions:fakeSessions(),tokens:fakeTokens()};
- await expect(activateOrgMember(deps,{token:out.token!,mode:'existing-account',profile:null,existingUserId:other,untrustedClaims:NO_CLAIMS})).rejects.toMatchObject({reasonCode:'INVITE_NOT_FOUND'});
+ await expect(activateOrgMember(deps,{token:out.token!,mode:'existing-account',profile:null,existingUserId:other,untrustedClaims:NO_CLAIMS})).rejects.toMatchObject({reasonCode:'INVITE_ACCOUNT_MISMATCH'});
  const accepted=await activateOrgMember(deps,{token:out.token!,mode:'existing-account',profile:null,existingUserId:member,untrustedClaims:NO_CLAIMS});expect(accepted.userId).toBe(member);expect(accepted.orgRole).toBe('consultant');
 });
 it('accepts a shared invitation with an existing authenticated account only once',async()=>{

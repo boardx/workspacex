@@ -166,6 +166,8 @@ export const OrgAdminError = z.enum([
    */
   "INVITE_NOT_FOUND",
   "INVITE_ALREADY_MEMBER",
+  /** Valid live invitation, but the authenticated account has a different email. No recipient details are returned. */
+  "INVITE_ACCOUNT_MISMATCH",
   /** 并发：两名管理员同时邀同一邮箱，**恰好一条成功**（I-5），第二路收到它 */
   "INVITE_DUPLICATE",
   /** 管理员邀请待另一名管理员批准，**此时链接尚未签发** */
@@ -536,7 +538,7 @@ export const operations = {
         session: AuthenticatedSession,
       })
       .strict(),
-    err: ["INVITE_NOT_FOUND", "INVITE_ALREADY_MEMBER", "QUOTA_EXHAUSTED", "VERSION_CHANGED", "AUTH_SERVICE_UNAVAILABLE"] as const,
+    err: ["INVITE_NOT_FOUND", "INVITE_ALREADY_MEMBER", "INVITE_ACCOUNT_MISMATCH", "QUOTA_EXHAUSTED", "VERSION_CHANGED", "AUTH_SERVICE_UNAVAILABLE"] as const,
   },
 
   /* ══ 一.二、组织共享邀请链接（shared-invite-links delta，人类 2026-08-13 三条拍板）══
@@ -715,7 +717,7 @@ export const operations = {
     in: z.object({ token: z.string().min(1) }).strict(),
     out: z.object({ userId: z.string(), orgId: z.string(), orgRole: OrgRole, teamId: z.string(),
       sessionId: z.string(), session: AuthenticatedSession }).strict(),
-    err: ["INVITE_NOT_FOUND", "INVITE_ALREADY_MEMBER", "QUOTA_EXHAUSTED", "AUTH_SERVICE_UNAVAILABLE"] as const,
+    err: ["INVITE_NOT_FOUND", "INVITE_ALREADY_MEMBER", "INVITE_ACCOUNT_MISMATCH", "QUOTA_EXHAUSTED", "AUTH_SERVICE_UNAVAILABLE"] as const,
   },
   acceptOrgInviteLink: {
     method: "POST", path: "/org-invites/accept-via-link",
