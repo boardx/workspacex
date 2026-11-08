@@ -650,3 +650,19 @@ it.each([false,true])('binds real native approval SSE through existing host inhe
  expect(params).toMatchObject({0:ORG,1:run.runId,5:'render-report-1',6:completion.interrupted!.toolArgsDigest});
  vi.unstubAllGlobals();
 });
+
+it.each([
+ ['personal','CREDIT_REQUIRED',{ownerType:'user',ownerId:'user-1'},'user'],
+ ['foreign','CREDIT_REQUIRED',{ownerType:'user',ownerId:'other'},undefined],
+ ['legacy','CREDIT_REQUIRED',undefined,undefined],
+ ['unavailable','CREDIT_ACCOUNTING_UNAVAILABLE',undefined,undefined],
+] as const)('persists trusted main-run credit failure for %s without retry',async(label,code,payer,expectedOwner)=>{
+ const store=fakeStore(baseRun());const failed=vi.fn(async(..._args:Parameters<AgentRunStore["failRun"]>)=>{});store.failRun=failed;
+ const complete=vi.fn(async()=>{throw new ModelCallError(code,'private_credit_refusal',undefined,undefined,undefined,undefined,payer);});
+ await executeQueuedRuns(deps(store,{complete}),{orgId:ORG});
+ expect(complete).toHaveBeenCalledTimes(1);expect(failed).toHaveBeenCalledTimes(1);
+ const args=failed.mock.calls[0] as unknown as unknown[];
+ expect(args[2]).toBe(label==='foreign'?'CREDIT_ACCOUNTING_UNAVAILABLE':code);
+ if(expectedOwner)expect(args[4]).toEqual({code:'credit_required',ownerType:'user',ownerId:'user-1',rechargePath:'/billing?purchase=1'});
+ else expect(args[4]).toBeUndefined();
+});

@@ -84,7 +84,7 @@ export function creditModelGateway(model: ModelCallPort, db: DatabasePort, meter
     const bound=await bind(input);
     try{return await work(bound);}catch(error){
       if(bound.auxiliaryModelOperation && error instanceof ModelCallError && (error.code==='CREDIT_REQUIRED'||error.code==='CREDIT_ACCOUNTING_UNAVAILABLE')){
-        throw await new PgAuxiliaryModelAccounting(db).failure(bound.auxiliaryModelOperation.orgId as OrgId,bound.auxiliaryModelOperation.operationId,error.code==='CREDIT_REQUIRED'?'credit_required':'credit_accounting_unavailable',error.creditReason);
+        throw await new PgAuxiliaryModelAccounting(db).failure(bound.auxiliaryModelOperation.orgId as OrgId,bound.auxiliaryModelOperation.operationId,error.code==='CREDIT_REQUIRED'?'credit_required':'credit_accounting_unavailable',error.creditReason,error.creditPayer);
       }
       throw error;
     }finally{if(bound.auxiliaryModelOperation)await new PgAuxiliaryModelAccounting(db).close(bound.auxiliaryModelOperation.orgId as OrgId,bound.auxiliaryModelOperation.operationId);}

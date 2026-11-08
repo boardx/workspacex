@@ -515,6 +515,18 @@ describe("appendProjectChat", () => {
     await expect(listPrototypeVersions(deps(repo), { projectId: "nope" })).rejects.toBeInstanceOf(DesignProjectNotFoundError);
   });
 
+  it("空设计的首屏插入实际经过服务端并持久化用户版本", async () => {
+    const repo = new FakeDesignProjectRepo();
+    repo.seed(designProjectRow({ id: "dp-empty", ownerId: "u-1", frames: [], prototype: [], frameLinks: [], frameNotes: [] }));
+    await expect(patchPrototype(deps(repo), { projectId: "dp-empty", ownerId: "u-2", ops: [{ op: "addScreen", at: 0, frame: "首屏" }] })).rejects.toBeInstanceOf(DesignProjectNotOwnerError);
+    await expect(patchPrototype(deps(repo), { projectId: "dp-empty", ownerId: "u-1", ops: [{ op: "addScreen", at: 1, frame: "越界" }] })).rejects.toMatchObject({ reason: "NO_PROTOTYPE" });
+    expect(repo.versions).toHaveLength(0);
+    const out = await patchPrototype(deps(repo), { projectId: "dp-empty", ownerId: "u-1", ops: [{ op: "addScreen", at: 0, frame: "首屏" }] });
+    expect(out.project.frames).toEqual(["首屏"]);
+    expect((await repo.get("dp-empty"))?.frames).toEqual(["首屏"]);
+    expect(repo.versions.map(v => v.source)).toEqual(["user"]);
+  });
+
   it("迭代 5 patchPrototype：owner 直接改 ⇒ 同一条 applyPrototypePatch、记 user 版本；未知 id ⇒ PROTOTYPE_PATCH_REJECTED 带 detail；没原型 ⇒ 拒；非 owner ⇒ 403", async () => {
     const repo = new FakeDesignProjectRepo();
     repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1", frames: ["页"], prototype: [{ id: "n1", type: "stack", children: [{ id: "n2", type: "button", props: { label: "发送" } }] }] }));

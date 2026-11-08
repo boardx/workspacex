@@ -5,6 +5,7 @@ from pathlib import Path
 from urllib.parse import quote, urlsplit
 import httpx
 from jsonschema import Draft7Validator, FormatChecker
+from deep_agent_service.model_request_accounting import CreditRuntimeUsageError, reject_credit_response
 from langchain.tools import ToolRuntime
 from langchain_core.tools import StructuredTool
 
@@ -29,12 +30,16 @@ async def _parse(runtime,args):
         async with asyncio.timeout(deadline):
             async with httpx.AsyncClient(timeout=deadline,follow_redirects=False,trust_env=False) as client:
                 async with client.stream('POST',url,headers={'x-deep-agent-internal-key':callback['key'],'accept-encoding':'identity'},json=body) as response:
-                    if response.status_code!=200 or response.headers.get('content-encoding','identity')!='identity':raise ValueError()
+                    if response.headers.get('content-encoding','identity')!='identity':raise ValueError()
                     data=bytearray()
                     async for chunk in response.aiter_raw():
                         if len(data)+len(chunk)>_SCHEMA['limits']['responseBytes']:raise ValueError()
                         data.extend(chunk)
+                    if response.status_code!=200:
+                        reject_credit_response(httpx.Response(response.status_code,content=bytes(data)))
+                        raise ValueError()
                     result=json.loads(data);_V['output'].validate(result);return result
+    except CreditRuntimeUsageError:raise
     except Exception:raise StandardAudioError('Audio transcription failed, mode is unsupported, or outcome is unknown. Do not resubmit automatically.') from None
 
 def audio_transcribe_tool():

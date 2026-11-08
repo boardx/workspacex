@@ -54,6 +54,43 @@ def graph_stream_modes(request: dict[str, Any]) -> list[str]:
     return list(dict.fromkeys(modes))
 
 
+def credit_failure_projection(error: Exception) -> dict[str, str] | None:
+    # Exact local type and stable codes only; never serialize exception text, balances, or provider details.
+    from deep_agent_service.model_request_accounting import CreditRuntimeUsageError
+    if not isinstance(error, CreditRuntimeUsageError):
+        return None
+    code = error.payload.get("code")
+    if code not in ("credit_required", "credit_accounting_unavailable"):
+        return None
+    result = {"error": "CreditRuntimeUsageError", "message": code}
+    if code == "credit_required" and error.payload.get("ownerType") in ("user", "team") and isinstance(error.payload.get("ownerId"), str) and error.payload["ownerId"]:
+        result.update(ownerType=error.payload["ownerType"], ownerId=error.payload["ownerId"])
+    if code == "credit_required" and error.payload.get("reason") == "member_monthly_limit":
+        result["reason"] = "member_monthly_limit"
+    return result
+
+
+def public_run_error(value: Any) -> Any:
+    """The existing durable error column stores only an allowlisted JSON projection.
+
+    Legacy class-only failures remain legacy failures; they do not prove insufficient credit.
+    """
+    if not isinstance(value, str):
+        return value
+    try:
+        body = json.loads(value)
+    except (ValueError, TypeError):
+        return value
+    if not isinstance(body, dict) or body.get("error") != "CreditRuntimeUsageError" or body.get("message") not in ("credit_required", "credit_accounting_unavailable"):
+        return value
+    result = {"error": body["error"], "message": body["message"]}
+    if body["message"] == "credit_required" and body.get("ownerType") in ("user", "team") and isinstance(body.get("ownerId"), str) and body["ownerId"]:
+        result.update(ownerType=body["ownerType"], ownerId=body["ownerId"])
+    if body["message"] == "credit_required" and body.get("reason") == "member_monthly_limit":
+        result["reason"] = "member_monthly_limit"
+    return result
+
+
 class Ledger(Protocol):
     async def prepare(self) -> None: ...
     async def create_thread(self, thread_id: str, if_exists: str) -> bool: ...
@@ -386,7 +423,11 @@ class Runtime:
         except asyncio.CancelledError:
             return
         except Exception as error:
-            await self.ledger.update_run(run_id, "error", type(error).__name__)
+            failure = credit_failure_projection(error)
+            # Durable polling and replaying SSE expose the same safe failure after restart.
+            await self.ledger.update_run(run_id, "error", json.dumps(failure) if failure else type(error).__name__)
+            if failure:
+                await self.ledger.append_event(run_id, "error", failure)
             await self.ledger.append_event(run_id, "metadata", {"status": "error"})
         finally:
             await self._release_graph(run_id)

@@ -1,3 +1,4 @@
+import {BILLING_ACCOUNTING_GENERATION as generation} from "../../src/domain/billing/billing-generation";
 import {beforeAll,afterAll,expect,it} from "vitest";
 import {randomUUID} from "node:crypto";
 import {ensureDatabase,migrateOnce,seedOrg,addOrgMember,asApp,asOwner} from "../support/db";
@@ -14,8 +15,8 @@ let db:PgDatabase,meter:PgTokenUsageRepository,repo:PgAiUsageRepository,identity
 const query=C.Query.parse({start:new Date(Date.now()-3600000).toISOString(),end:new Date(Date.now()+3600000).toISOString(),timezone:"Etc/UTC",limit:2});
 // @global-scope-fixture table:credit_wallets: exact random fixture owner wallets are removed with their financial rows at teardown.
 beforeAll(async()=>{ensureDatabase();await migrateOnce();db=new PgDatabase(appConfig());meter=new PgTokenUsageRepository(db);repo=new PgAiUsageRepository(db);identity=new PgIdentityRepository(db);
- for(const [i,org]of orgs.entries()){await seedOrg({orgId:org,projectId:org+"-p",...(i===0?{kind:"personal-local",ownerUserId:user}:{})});await addOrgMember(org,i===3?other:user,"admin",null);if(i>0&&i<3)await addOrgMember(org,other,"consultant",null);}
- await asApp(orgs[0]!,c=>c.query("INSERT INTO credit_wallets(owner_type,owner_id,balance) VALUES('user',$1,1)",[user]));
+ for(const [i,org]of orgs.entries()){await seedOrg({orgId:org,projectId:org+"-p",...(i===0?{kind:"personal-local",ownerUserId:user}:{})});await addOrgMember(org,i===3?other:user,"admin",null);if(i>0&&i<3)await addOrgMember(org,other,"consultant",null);if(i>0)await asApp(org,c=>c.query("INSERT INTO organization_plans(org_id,plan,version,updated_by,billing_generation) VALUES($1,'enterprise',1,$2,$3)",[org,user,generation]));}
+ await asApp(orgs[0]!,c=>c.query("INSERT INTO credit_wallets(owner_type,owner_id,balance) VALUES('user',$1,100),('user',$2,100)",[user,other]));
  for(const [i,org]of orgs.entries())for(const [j,tokens]of [1,11].entries()){
   const actor=i===3?other:user,id=prefix+`-${i}-${j}`;
   await meter.startRequest(org,{requestId:id,userId:actor,runId:null,callPurpose:"auxiliary",executionAttemptId:null,projectId:null,modelProvider:"test",modelId:"voice",startedAt:new Date().toISOString(),maximumTokens:1000});
@@ -25,7 +26,7 @@ beforeAll(async()=>{ensureDatabase();await migrateOnce();db=new PgDatabase(appCo
  const id=prefix+"-unknown";await meter.startRequest(orgs[1]!,{requestId:id,userId:user,runId:null,callPurpose:"auxiliary",executionAttemptId:null,projectId:null,modelProvider:"test",modelId:"unknown",startedAt:new Date().toISOString()});
  await meter.record(orgs[1]!,{eventId:id,userId:user,runId:null,modelProvider:"test",modelId:"unknown",tokensTotal:0,promptTokens:null,completionTokens:null,totalSource:"unknown",outcome:"failed"});
 });
-afterAll(async()=>{await asOwner(async c=>{await c.query("DELETE FROM credit_consumption_requests WHERE org_id=ANY($1::text[])",[orgs]);await c.query("DELETE FROM organizations WHERE id=ANY($1::text[])",[orgs]);await c.query("DELETE FROM credit_transactions WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_id=ANY($1::text[]))",[[user,...orgs]]);await c.query("DELETE FROM credit_wallets WHERE owner_id=ANY($1::text[])",[[user,...orgs]]);});await db.close();});
+afterAll(async()=>{await asOwner(async c=>{await c.query("DELETE FROM credit_consumption_requests WHERE org_id=ANY($1::text[])",[orgs]);await c.query("DELETE FROM organizations WHERE id=ANY($1::text[])",[orgs]);await c.query("DELETE FROM credit_transactions WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_id=ANY($1::text[]))",[[user,other,...orgs]]);await c.query("DELETE FROM credit_wallets WHERE owner_id=ANY($1::text[])",[[user,other,...orgs]]);});await db.close();});
 it("uses per-request settled debit, distinguishes actor/payer and leaves unknown usage pending",async()=>{
  const out=await repo.summary(orgs[1]!,query);expect(out.current).toMatchObject({creditHundredths:"3",pendingCreditCalls:1});
  const calls=await repo.calls(orgs[1]!,{...query,limit:10,asOf:out.asOf});

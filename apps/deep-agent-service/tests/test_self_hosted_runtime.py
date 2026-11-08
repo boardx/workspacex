@@ -377,3 +377,50 @@ async def test_graph_registration_precedes_publication_and_rolls_back_on_failure
     with pytest.raises(RuntimeError, match='ledger rejected publication'):
         await runtime.create_run('thread', {'input': {}})
     assert runtime._graphs == {} and closed == [True]
+
+@pytest.mark.anyio
+@pytest.mark.parametrize('code,reason', [('credit_required', None), ('credit_required', 'member_monthly_limit'), ('credit_accounting_unavailable', None)])
+async def test_credit_refusal_survives_stream_poll_and_runtime_restart_without_private_details(code, reason):
+    from deep_agent_service.model_request_accounting import CreditRuntimeUsageError
+    payload = {'code': code, 'ownerType': 'user', 'ownerId': 'owned-user', 'secret': 'never-export'}
+    if reason: payload['reason'] = reason
+    class RefusedGraph(FakeGraph):
+        async def ainvoke(self, payload, config):
+            raise CreditRuntimeUsageError(globals_payload)
+    globals_payload = payload
+    ledger = MemoryLedger()
+    runtime = Runtime(ledger, lambda *_: RefusedGraph())
+    app = create_app(runtime)
+    expected = {'error': 'CreditRuntimeUsageError', 'message': code}
+    if code == 'credit_required': expected.update(ownerType='user', ownerId='owned-user')
+    if reason: expected['reason'] = reason
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://runtime') as client:
+            await client.post('/threads', json={'thread_id': 'credit-refusal'})
+            created = await client.post('/threads/credit-refusal/runs', json={'input': {}})
+            run_id = created.json()['run_id']
+            await asyncio.gather(*list(runtime.tasks.values()))
+            path = f'/threads/credit-refusal/runs/{run_id}'
+            polled = await client.get(path)
+            assert polled.json()['error'] == expected
+            stream = await client.get(path + '/stream')
+            assert 'event: error' in stream.text
+            assert 'never-export' not in stream.text + polled.text
+    restarted = create_app(Runtime(ledger, lambda *_: RefusedGraph()))
+    async with restarted.router.lifespan_context(restarted):
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=restarted), base_url='http://runtime') as client:
+            assert (await client.get(path)).json()['error'] == expected
+
+def test_credit_projection_requires_real_type_and_only_decodes_allowlisted_durable_codes():
+    import json
+    from deep_agent_service.self_hosted_runtime import credit_failure_projection, public_run_error
+    from deep_agent_service.model_request_accounting import CreditRuntimeUsageError
+    FakeCreditError = type('CreditRuntimeUsageError', (RuntimeError,), {})
+    assert credit_failure_projection(FakeCreditError('credit_required')) is None
+    assert credit_failure_projection(RuntimeError('credit_required')) is None
+    assert credit_failure_projection(CreditRuntimeUsageError({'code': 'provider_secret'})) is None
+    assert public_run_error('CreditRuntimeUsageError') == 'CreditRuntimeUsageError'
+    encoded = json.dumps({'error': 'CreditRuntimeUsageError', 'message': 'credit_required', 'ownerId': 'owned-user', 'reason': 'provider_secret'})
+    assert public_run_error(encoded) == {'error': 'CreditRuntimeUsageError', 'message': 'credit_required'}
+    invalid = json.dumps({'error': 'ValueError', 'message': 'credit_required'})
+    assert public_run_error(invalid) == invalid

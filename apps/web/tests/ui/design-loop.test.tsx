@@ -1862,9 +1862,16 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
       // "Found multiple elements"，所以先切单页。
       await screen.findByTestId("design-detail-view-single");
       fireEvent.click(screen.getByTestId("design-detail-view-single"));
-      await screen.findByTestId("design-detail-phone-tree");
+      if (proj().frames.length > 0) await screen.findByTestId("design-detail-phone-tree");
       return posted;
     };
+
+    it("空设计在位置零创建第一页", async () => {
+      const posted = await mount(() => project({ id: "p1", frames: [], frameLinks: [], prototype: [] }));
+      await clickMore("design-detail-page-add");
+      await waitFor(() => expect(posted).toHaveLength(1));
+      expect(posted[0]!.ops).toEqual([{ op: "addScreen", at: 0, frame: "新页面 1" }]);
+    });
 
     it("加页：插在**当前页之后**，不是追加到末尾", async () => {
       const posted = await mount();

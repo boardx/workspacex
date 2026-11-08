@@ -120,13 +120,13 @@ it("concurrent duplicate registration creates only one account and one gift",asy
   expect(rows).toEqual([{balance:"1000.00",total_granted:1000}]);
 });
 
-async function consume(f:Awaited<ReturnType<typeof account>>,tokens:number){
+async function consume(f:Awaited<ReturnType<typeof account>>,tokens:number,maximumTokens=tokens){
   const meter=new PgCreditConsumption(db),id=`${f.userId}-${randomUUID()}`;
-  await db.withTenant(f.org,s=>meter.reserveInSession(s,f.org,{requestId:id,userId:f.userId,runId:null,modelProvider:"test",modelId:"welcome-test",executionAttemptId:null,projectId:null,startedAt:new Date().toISOString(),maximumTokens:tokens}));
+  await db.withTenant(f.org,s=>meter.reserveInSession(s,f.org,{requestId:id,userId:f.userId,runId:null,modelProvider:"test",modelId:"welcome-test",executionAttemptId:null,projectId:null,startedAt:new Date().toISOString(),maximumTokens}));
   await db.withTenant(f.org,s=>meter.settleInSession(s,f.org,{eventId:id,userId:f.userId,runId:null,modelProvider:"test",modelId:"welcome-test",tokensTotal:tokens,promptTokens:tokens,completionTokens:0,totalSource:"reported",outcome:"succeeded"}));
 }
 it("welcome consumption can overdraw an admitted request and expiry preserves the debt",async()=>{
-  const f=await account("debt");await consume(f,1005000);
+  const f=await account("debt");await consume(f,1005000,1000000);
   expect((await f.wallet()).wallet).toMatchObject({balance:-5,permanentBalance:-5,subscriptionCredits:0});
   const [period]=await f.periods();
   expect(await db.withTenant(f.org,s=>readWelcomeCreditGrant(s,f.userId,period.period_end))).toMatchObject({status:"expired",grant:{remainingCredits:0}});

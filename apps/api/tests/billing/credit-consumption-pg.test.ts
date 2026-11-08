@@ -1,4 +1,6 @@
-import {nativeTariffForceReplay} from '../../src/infrastructure/db/native-tariff-force-replay';
+// @global-scope-fixture table:credit_wallets: historical rows live in a transaction-owned schema rolled back in finally; modern updates use exact fixture owner and rollback.
+// @global-scope-fixture table:credit_transactions: historical inserts live only in the transaction-owned schema rolled back in finally; existing public receipt fixtures retain their original cleanup.
+import {BILLING_ACCOUNTING_GENERATION as generation} from "../../src/domain/billing/billing-generation";
 import {mkdtemp,rm} from "node:fs/promises";
 import {tmpdir} from "node:os";
 import {join} from "node:path";
@@ -21,7 +23,7 @@ const reserve=(id:string,n=100)=>db.withTenant(org,s=>store.reserveInSession(s,o
 const settle=(id:string,n=11)=>db.withTenant(org,s=>store.settleInSession(s,org,usage(id,n)));
 const policy=(enabled:boolean)=>asApp(org,c=>c.query("UPDATE credit_consumption_settings SET credit_preflight_enabled=$1 WHERE singleton",[enabled]));
 const wallet=()=>asApp(org,async c=>(await c.query("SELECT balance::text,held_hundredths::text FROM credit_wallets WHERE owner_type='team' AND owner_id=$1",[org])).rows[0]);
-beforeAll(async()=>{ensureDatabase();await migrateOnce();await seedOrg({orgId:org,projectId:"credit-ledger-test-project"});await asApp(org,c=>c.query("INSERT INTO org_memberships(user_id,org_id,org_role) VALUES($1,$2,'admin')",[user,org]));await policy(false);});
+beforeAll(async()=>{ensureDatabase();await migrateOnce();await seedOrg({orgId:org,projectId:"credit-ledger-test-project"});await asApp(org,c=>c.query("INSERT INTO org_memberships(user_id,org_id,org_role) VALUES($1,$2,'admin')",[user,org]));await asApp(org,c=>c.query("INSERT INTO organization_plans(org_id,plan,version,updated_by,billing_generation) VALUES($1,'enterprise',1,$2,$3)",[org,user,generation]));await policy(false);});
 afterAll(async()=>{await policy(false);await asOwner(async c=>{await c.query("DELETE FROM credit_global_native_tariffs WHERE model_provider=$1 AND model_id=$2",["test","test-model"]);await c.query("DELETE FROM credit_consumption_requests WHERE org_id=$1",[org]);});await db.close();});
 it("rounds every request up in exact hundredths",()=>{expect([0,1,10,11,1000].map(tokenCreditHundredths)).toEqual([0n,1n,1n,2n,100n]);});
 it("OFF records debt, replay debits once, mismatched receipt rejected",async()=>{await reserve("credit-ledger-test-debt");await settle("credit-ledger-test-debt");await settle("credit-ledger-test-debt");expect(await wallet()).toMatchObject({balance:"-0.02",held_hundredths:"0"});await expect(settle("credit-ledger-test-debt",12)).rejects.toThrow("credit_receipt_replay_mismatch");});
@@ -36,21 +38,61 @@ it("unknown receipt keeps its hold and later authoritative reconciliation charge
 it("requires trusted membership and rejects payer-model replays",async()=>{await expect(db.withTenant(org,s=>store.reserveInSession(s,org,{...start("credit-ledger-test-no-user"),userId:"outsider"}))).rejects.toThrow("credit_payer_provenance_missing");await reserve("credit-ledger-test-replay");await expect(db.withTenant(org,s=>store.reserveInSession(s,org,{...start("credit-ledger-test-replay"),modelId:"another"}))).rejects.toThrow("credit_start_replay_mismatch");await settle("credit-ledger-test-replay",0);});
 it("prices native units explicitly and refuses unpriced calls without fake token usage",async()=>{const n={...start("credit-ledger-test-native"),nativeMaximum:{unit:"image" as const,quantity:2n},callPurpose:"native-image" as const};await expect(db.withTenant(org,s=>store.reserveInSession(s,org,n))).rejects.toThrow("credit_native_tariff_missing");await asOwner(c=>c.query("INSERT INTO credit_global_native_tariffs(model_provider,model_id,unit,quantum,hundredths_per_quantum,version) VALUES('test','test-model','image',1,15,'native-v1')"));await db.withTenant(org,s=>store.reserveInSession(s,org,n));await db.withTenant(org,s=>store.settleInSession(s,org,{...usage(n.requestId,0),totalSource:"not-applicable",nativeUsage:{unit:"image" as const,quantity:1n,source:"reported"}}));expect(await wallet()).toMatchObject({balance:"-0.18",held_hundredths:"0"});});
 
-it("resolves personal workspace payer from persisted kind and separates organization funds",async()=>{const personal=toOrgId("credit-ledger-test-personal");await seedOrg({orgId:personal,kind:"personal-local",ownerUserId:user,projectId:"credit-ledger-test-personal-project"});await asApp(personal,c=>c.query("INSERT INTO org_memberships(user_id,org_id,org_role) VALUES($1,$2,'admin') ON CONFLICT DO NOTHING",[user,personal]));await db.withTenant(personal,s=>store.reserveInSession(s,personal,start("credit-ledger-test-personal-call")));await db.withTenant(personal,s=>store.settleInSession(s,personal,usage("credit-ledger-test-personal-call",1000)));expect(await asApp(personal,async c=>(await c.query("SELECT balance::text FROM credit_wallets WHERE owner_type='user' AND owner_id=$1",[user])).rows[0])).toEqual({balance:"-1.00"});expect(await wallet()).toMatchObject({balance:"-0.18"});await asOwner(c=>c.query("DELETE FROM credit_consumption_requests WHERE org_id=$1",[personal]));});
+it("resolves personal workspace payer from persisted kind and separates organization funds",async()=>{const personal=toOrgId("credit-ledger-test-personal");await seedOrg({orgId:personal,kind:"personal-local",ownerUserId:user,projectId:"credit-ledger-test-personal-project"});await asApp(personal,c=>c.query("INSERT INTO org_memberships(user_id,org_id,org_role) VALUES($1,$2,'admin') ON CONFLICT DO NOTHING",[user,personal]));await asApp(personal,c=>c.query("INSERT INTO credit_wallets(owner_type,owner_id,balance) VALUES('user',$1,1) ON CONFLICT(owner_type,owner_id) DO UPDATE SET balance=1",[user]));await db.withTenant(personal,s=>store.reserveInSession(s,personal,start("credit-ledger-test-personal-call")));await db.withTenant(personal,s=>store.settleInSession(s,personal,usage("credit-ledger-test-personal-call",1000)));expect(await asApp(personal,async c=>(await c.query("SELECT balance::text FROM credit_wallets WHERE owner_type='user' AND owner_id=$1",[user])).rows[0])).toEqual({balance:"0.00"});expect(await wallet()).toMatchObject({balance:"-0.18"});await asOwner(c=>c.query("DELETE FROM credit_consumption_requests WHERE org_id=$1",[personal]));});
 
 it("settles already dispatched usage after membership revocation",async()=>{await reserve("credit-ledger-test-revoked");await asApp(org,c=>c.query("DELETE FROM org_memberships WHERE org_id=$1 AND user_id=$2",[org,user]));try{await settle("credit-ledger-test-revoked",10);await expect(reserve("credit-ledger-test-new-revoked")).rejects.toThrow("credit_payer_provenance_missing");}finally{await asApp(org,c=>c.query("INSERT INTO org_memberships(user_id,org_id,org_role) VALUES($1,$2,'admin')",[user,org]));}});
 
 it("recharges a fractional negative wallet exactly without changing order snapshots",async()=>{const no="bg20261023020000LED001",event="credit-ledger-test-payment";await asApp(org,c=>c.query("INSERT INTO billing_orders(order_no,owner_type,owner_id,created_by,package_id,amount_fen,base_credits,bonus_credits,currency,qr_code_url,expired_at) VALUES($1,'team',$2,$3,'pkg-cn-100',100,100,0,'CNY','weixin://fixture',now()+interval '15 minutes')",[no,org,user]));const credits=new PgBillingCreditingStore(db);await credits.accept({providerEventId:event,orderNo:no,appId:"test",mchId:"test",amountFen:100,currency:"CNY",transactionId:"credit-ledger-test-transaction",tradeState:"SUCCESS",paidAt:new Date().toISOString(),receiptHash:"a".repeat(64),signatureVerified:true});expect(await credits.processOne(event)).toEqual({completed:true,manual:false});expect(await wallet()).toMatchObject({balance:"99.81"});expect(await credits.processOne(event)).toEqual({completed:true,manual:false});expect(await wallet()).toMatchObject({balance:"99.81"});expect(await asApp(org,async c=>(await c.query("SELECT amount_fen,base_credits FROM billing_orders WHERE order_no=$1",[no])).rows[0])).toEqual({amount_fen:100,base_credits:100});});
-it("financial precision migration replays without altering holds and balances",async()=>{const migration=readFileSync(new URL("../../migrations/20261022120000_credit_consumption.sql",import.meta.url),"utf8");const before=await wallet();await asOwner(async c=>{await c.query("BEGIN");try{// The original tariff relation survives under its explicit legacy name; the current name is intentionally a read-only view.
-const mapped=await nativeTariffForceReplay(c,'20261022120000_credit_consumption.sql',migration,true);await c.query(mapped.sql);await c.query(mapped.sql);}finally{await c.query("ROLLBACK");}});expect(await wallet()).toEqual(before);});
+it("financial precision migration replays completely on isolated historical tables",async()=>{
+ const core=readFileSync(new URL("../../migrations/20261001090000_billing_credits_core.sql",import.meta.url),"utf8");
+ const migration=readFileSync(new URL("../../migrations/20261022120000_credit_consumption.sql",import.meta.url),"utf8");
+ const schema=`precision_history_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+ const before=await wallet();
+ await asOwner(async c=>{await c.query("BEGIN");try{
+  await c.query(`CREATE SCHEMA "${schema}"`);
+  await c.query(`SET LOCAL search_path TO "${schema}",pg_catalog`);
+  await c.query("CREATE TABLE organizations(id text PRIMARY KEY)");
+  await c.query(core);
+  await c.query("INSERT INTO credit_wallets(wallet_id,owner_type,owner_id,balance) VALUES('00000000-0000-4000-8000-000000000001','user','historical',12)");
+  await c.query(migration);
+  await c.query("UPDATE credit_wallets SET balance=12.34,held_hundredths=123 WHERE owner_id='historical'");
+  await c.query(migration);
+  expect((await c.query("SELECT balance::text,held_hundredths::text FROM credit_wallets WHERE owner_id='historical'")).rows[0]).toEqual({balance:"12.34",held_hundredths:"123"});
+  await c.query("INSERT INTO credit_transactions(wallet_id,type,direction,credits,balance_after,source_type,source_id) VALUES('00000000-0000-4000-8000-000000000001','consume',-1,0.01,12.33,'model_request','historical-consume')");
+  for(const invalid of ["UPDATE credit_transactions SET type='subscription'","UPDATE credit_transactions SET source_type='subscription_period'","UPDATE credit_transactions SET direction=1"]){
+   await c.query("SAVEPOINT invalid_history");
+   await expect(c.query(invalid)).rejects.toMatchObject({code:"23514"});
+   await c.query("ROLLBACK TO SAVEPOINT invalid_history");
+  }
+ }finally{await c.query("ROLLBACK");}});
+ expect(await wallet()).toEqual(before);
+});
+it("modern financial precision preserves balances holds and current schema constraints",async()=>{
+ await asOwner(c=>c.query("INSERT INTO credit_wallets(owner_type,owner_id) VALUES('team',$1) ON CONFLICT(owner_type,owner_id) DO NOTHING",[org]));
+ const before=await wallet();
+ const columns=await asOwner(async c=>(await c.query("SELECT table_name,column_name,data_type,numeric_precision,numeric_scale FROM information_schema.columns WHERE table_schema='public' AND ((table_name='credit_wallets' AND column_name='balance') OR (table_name='credit_transactions' AND column_name IN ('credits','balance_after'))) ORDER BY table_name,column_name")).rows);
+ expect(columns).toHaveLength(3);
+ for(const column of columns)expect(column).toMatchObject({data_type:"numeric",numeric_precision:12,numeric_scale:2});
+ await asOwner(async c=>{await c.query("BEGIN");try{
+  const constraints=async()=> (await c.query("SELECT conname,pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid IN ('public.credit_wallets'::regclass,'public.credit_transactions'::regclass) ORDER BY conrelid,conname")).rows;
+  const beforeConstraints=await constraints();
+  for(const statement of ["ALTER TABLE public.credit_wallets ALTER COLUMN balance TYPE numeric(12,2)","ALTER TABLE public.credit_transactions ALTER COLUMN credits TYPE numeric(12,2)","ALTER TABLE public.credit_transactions ALTER COLUMN balance_after TYPE numeric(12,2)"]){await c.query(statement);await c.query(statement);}
+  expect(await constraints()).toEqual(beforeConstraints);
+  await c.query("UPDATE credit_wallets SET balance=-12.34,held_hundredths=123 WHERE owner_type='team' AND owner_id=$1",[org]);
+  expect((await c.query("SELECT balance::text,held_hundredths::text FROM credit_wallets WHERE owner_type='team' AND owner_id=$1",[org])).rows[0]).toEqual({balance:"-12.34",held_hundredths:"123"});
+ }finally{await c.query("ROLLBACK");}});
+ expect(await wallet()).toEqual(before);
+});
 
 it("wallet read model exposes fractional available credits and active holds",async()=>{await reserve("credit-ledger-test-wallet-read",100);const repo=new PgBillingWalletRepository(db);expect((await repo.wallet({orgId:org,ownerType:"team",ownerId:org})).wallet).toMatchObject({balance:99.81,reservedCredits:0.1,availableBalance:99.81});await settle("credit-ledger-test-wallet-read",0);expect((await repo.wallet({orgId:org,ownerType:"team",ownerId:org})).wallet).toMatchObject({balance:99.81,reservedCredits:0,availableBalance:99.81});});
 
-it("enterprise requests continue while unknown prior usage awaits authoritative reconciliation",async()=>{
+it("next physical request uses personal capacity while team unknown usage remains held",async()=>{
  await policy(false);const id="credit-ledger-test-unbounded";
  await db.withTenant(org,s=>store.reserveInSession(s,org,{...start(id),maximumTokens:null}));
  await db.withTenant(org,s=>store.settleInSession(s,org,{...usage(id,0),totalSource:"unknown",promptTokens:null,completionTokens:null}));
- await policy(true);await reserve("credit-ledger-test-after-enable",10);await settle("credit-ledger-test-after-enable",0);
+ await asApp(org,c=>c.query("UPDATE credit_wallets SET balance=1 WHERE owner_type='user' AND owner_id=$1",[user]));
+ await policy(true);await reserve("credit-ledger-test-after-enable",10);
+ expect((await asApp(org,async c=>(await c.query("SELECT w.owner_type FROM credit_consumption_requests r JOIN credit_wallets w USING(wallet_id) WHERE r.request_id=$1",["credit-ledger-test-after-enable"])).rows[0])).owner_type).toBe("user");await settle("credit-ledger-test-after-enable",0);
  await store.reconcile(org,usage(id,10));await policy(false);
 });
 

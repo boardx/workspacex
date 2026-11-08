@@ -20,3 +20,16 @@ def test_failure_has_no_retry_or_vendor_secret(monkeypatch,status,body):
  with pytest.raises(audio.StandardAudioError) as error:asyncio.run(audio._parse(runtime(),args()))
  assert 'service-secret' not in str(error.value);assert len(seen)==1
  assert json.loads(seen[0].content)['toolCallId']=='actual-call'
+
+@pytest.mark.parametrize('code', ['credit_required', 'credit_accounting_unavailable'])
+def test_audio_preserves_authoritative_credit_rejection_without_retry(monkeypatch, code):
+ from deep_agent_service.model_request_accounting import CreditRuntimeUsageError
+ seen=[]
+ def handle(request):
+  seen.append(request)
+  return httpx.Response(402 if code=='credit_required' else 503, stream=httpx.ByteStream(json.dumps({'code':code,'ownerType':'user','ownerId':'owned-user'}).encode()))
+ original=httpx.AsyncClient
+ monkeypatch.setattr(audio.httpx,'AsyncClient',lambda **kwargs:original(transport=httpx.MockTransport(handle),**kwargs))
+ with pytest.raises(CreditRuntimeUsageError) as failure:asyncio.run(audio._parse(runtime(),args()))
+ assert failure.value.payload['code']==code
+ assert len(seen)==1

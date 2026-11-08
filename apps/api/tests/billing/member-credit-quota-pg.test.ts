@@ -29,6 +29,7 @@ beforeAll(async()=>{
   await c.query("INSERT INTO org_memberships(org_id,user_id,org_role) VALUES($1,$2,'admin')",[org,user]);
   await c.query("INSERT INTO organization_plans(org_id,plan,version,updated_by,billing_generation) VALUES($1,'enterprise',1,$2,$3)",[org,user,generation]);
  });
+ await asOwner(c=>c.query("UPDATE credit_wallets SET balance=0 WHERE owner_type='user' AND owner_id=$1",[user]));
 },180000);
 afterAll(async()=>{await db.close();if(originalEpoch)await asOwner(c=>c.query('UPDATE billing_pricing_epoch SET generation=$1,activated_at=$2 WHERE singleton',[originalEpoch!.generation,originalEpoch!.activated_at]));console.info('[member-credit-fixture-retention]',JSON.stringify({org,other,user}));});
 it('defaults existing members without writing quota or wallet funds; applies to new members',async()=>{
@@ -81,7 +82,7 @@ it('admits one unbounded voice/multimodal call, holds remaining allowance, and r
  expect(results.filter(r=>r.status==='fulfilled')).toHaveLength(1);
  const id=results[0]!.status==='fulfilled'?'voice':'multimodal';
  expect((await repo.readCreditQuotas(org)).members.find(m=>m.userId===user)).toMatchObject({usedCredits:1,heldCredits:1});
- await expect(reserve('parallel',1)).rejects.toMatchObject({reason:'member_monthly_limit'});
+ await expect(reserve('parallel',1)).rejects.toMatchObject({code:'credit_required',ownerType:'user'});
  await settle(id,0);
  expect((await repo.readCreditQuotas(org)).members.find(m=>m.userId===user)).toMatchObject({usedCredits:1,heldCredits:0});
  await unbounded('voice-cap');
@@ -89,11 +90,12 @@ it('admits one unbounded voice/multimodal call, holds remaining allowance, and r
  await settle('voice-cap',1100);
  await expect(db.withTenant(org,s=>assertMemberCreditContinuation(s,org,user,`${prefix}-voice-cap`))).rejects.toMatchObject({code:'credit_required',reason:'member_monthly_limit'});
  expect((await repo.readCreditQuotas(org)).members.find(m=>m.userId===user)).toMatchObject({usedCredits:2.1,heldCredits:0});
- await expect(unbounded('exhausted')).rejects.toMatchObject({reason:'member_monthly_limit'});
- await repo.setCreditQuota(org,user,0,user);await expect(unbounded('disabled')).rejects.toMatchObject({reason:'member_monthly_limit'});
+ await expect(unbounded('exhausted')).rejects.toMatchObject({code:'credit_required',ownerType:'user'});
+ await repo.setCreditQuota(org,user,0,user);await expect(unbounded('disabled')).rejects.toMatchObject({code:'credit_required',ownerType:'user'});
 });
 
-it('excludes unconfigured and personal-local workspaces without changing their consumption',async()=>{
+it('unconfigured and personal-local workspaces use funded personal Credit',async()=>{
+ await asOwner(c=>c.query("UPDATE credit_wallets SET balance=3000 WHERE owner_type='user' AND owner_id=$1",[user]));
  await asApp(other,c=>c.query("INSERT INTO org_memberships(org_id,user_id,org_role) VALUES($1,$2,'admin')",[other,user]));
  const personal=toOrgId(`${prefix}-personal`);await seedOrg({orgId:personal,kind:'personal-local',ownerUserId:user,projectId:`${personal}-project`});
  await asApp(personal,async c=>{
@@ -108,7 +110,8 @@ it('excludes unconfigured and personal-local workspaces without changing their c
   await db.withTenant(context,s=>store.settleInSession(s,context,{eventId:`${prefix}-${suffix}`,userId:user,runId:null,modelProvider:'test',modelId:'test',tokensTotal:0,promptTokens:0,completionTokens:0,totalSource:'reported',outcome:'succeeded'}));
  }
 });
-it('excludes a real paid Team subscription and preserves concurrent unknown-cost admission',async()=>{
+it('paid non-enterprise Team uses one exclusive unknown-cost personal reservation',async()=>{
+ await asOwner(c=>c.query("UPDATE credit_wallets SET balance=3000 WHERE owner_type='user' AND owner_id=$1",[user]));
  const priorEpoch=await asOwner(async c=>(await c.query('SELECT generation,activated_at FROM billing_pricing_epoch WHERE singleton')).rows[0]);
  await asOwner(c=>c.query('UPDATE billing_pricing_epoch SET generation=$1,activated_at=clock_timestamp() WHERE singleton',[generation]));
  try{
@@ -124,8 +127,10 @@ it('excludes a real paid Team subscription and preserves concurrent unknown-cost
   await expect(repo.setCreditQuota(team,user,1,user)).rejects.toBeInstanceOf(EnterpriseCreditPlanRequired);
   await expect(db.withTenant(team,s=>store.reserveInSession(s,team,start('paid-team-unrestricted',2000000)))).resolves.toBeUndefined();
   await db.withTenant(team,s=>store.settleInSession(s,team,{eventId:`${prefix}-paid-team-unrestricted`,userId:user,runId:null,modelProvider:'test',modelId:'test',tokensTotal:0,promptTokens:0,completionTokens:0,totalSource:'reported',outcome:'succeeded'}));
-  await Promise.all(['unknown-a','unknown-b'].map(id=>db.withTenant(team,s=>store.reserveInSession(s,team,{...start(id),maximumTokens:null}))));
-  for(const id of ['unknown-a','unknown-b'])await db.withTenant(team,s=>store.settleInSession(s,team,{eventId:`${prefix}-${id}`,userId:user,runId:null,modelProvider:'test',modelId:'test',tokensTotal:0,promptTokens:0,completionTokens:0,totalSource:'reported',outcome:'succeeded'}));
+  const unknown=await Promise.allSettled(['unknown-a','unknown-b'].map(id=>db.withTenant(team,s=>store.reserveInSession(s,team,{...start(id),maximumTokens:null}))));
+  expect(unknown.filter(x=>x.status==='fulfilled')).toHaveLength(1);
+  const admitted=unknown[0]!.status==='fulfilled'?'unknown-a':'unknown-b';
+  for(const id of [admitted])await db.withTenant(team,s=>store.settleInSession(s,team,{eventId:`${prefix}-${id}`,userId:user,runId:null,modelProvider:'test',modelId:'test',tokensTotal:0,promptTokens:0,completionTokens:0,totalSource:'reported',outcome:'succeeded'}));
  }finally{
   await asOwner(c=>c.query('UPDATE billing_pricing_epoch SET generation=$1,activated_at=$2 WHERE singleton',[priorEpoch.generation,priorEpoch.activated_at]));
  }
