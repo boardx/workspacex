@@ -117,7 +117,7 @@ function SurveyCard({
 }
 
 /** 项目入口保留 projectId；问卷数据和操作均来自正式 API。 */
-export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | null }) {
+export function LiveSurveyLibrary({ projectId = null, initialCreateOpen = false }: { projectId?: string | null; initialCreateOpen?: boolean }) {
   const { t, locale } = useI18n();
   const router = useRouter();
   const [items, setItems] = React.useState<SurveyRuntime[]>([]);
@@ -125,7 +125,7 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
   const [error, setError] = React.useState<SurveyDisplayMessage | null>(null);
   const [query, setQuery] = React.useState("");
   const [selectedTags, setSelectedTags] = React.useState<readonly string[]>([]);
-  const [creating, setCreating] = React.useState(false);
+  const [creating, setCreating] = React.useState(initialCreateOpen);
   const createControl = React.useRef<HTMLButtonElement>(null);
   const searchControl = React.useRef<HTMLInputElement>(null);
   const refreshing = React.useRef(false);

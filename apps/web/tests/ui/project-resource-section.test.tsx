@@ -47,7 +47,7 @@ describe("B2-S2 研究洞察 › 项目资源子页", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it.each([
-    ["survey", "s1", "/studio/survey/s1?projectId=p1", "/studio/survey/new?projectId=p1"],
+    ["survey", "s1", "/studio/survey/s1?projectId=p1", "/studio/survey?create=1&projectId=p1"],
     ["research", "g1", "/research?session=g1&projectId=p1", "/research?flow=home&projectId=p1"],
     ["itv", "i1", "/itv/i1/setup?projectId=p1", "/itv?create=1&projectId=p1"],
     ["transcript", "t1", "/rec?session=t1&projectId=p1", "/rec?create=1&projectId=p1"],
