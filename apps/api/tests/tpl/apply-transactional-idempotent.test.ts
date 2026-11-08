@@ -76,7 +76,7 @@ class FakeApplyBlueprintRepository implements ApplyBlueprintRepository {
 const baseInput = {
   orgId: toOrgId("org-1"),
   actorId: "u-1",
-  actorOrgRole: "lead" as const,
+  actorOrgRole: "admin" as const,
   blueprintId: "bp-1",
   blueprintExists: true,
   visibleToActor: true,
@@ -175,7 +175,7 @@ describe("权限与资源门槛（先于事务发生，事务性写入不应因�
     expect(repo.committedRows.length).toBe(0);
   });
 
-  it("consultant 角色 ⇒ ROLE_INSUFFICIENT（只有 lead 能套用蓝本建项目，同 F17）", async () => {
+  it("consultant 角色 ⇒ ROLE_INSUFFICIENT（只有组织管理员能套用蓝本建项目）", async () => {
     const repo = new FakeApplyBlueprintRepository();
     try {
       await applyBlueprintUseCase(
@@ -190,12 +190,12 @@ describe("权限与资源门槛（先于事务发生，事务性写入不应因�
     expect(repo.committedRows.length).toBe(0);
   });
 
-  it("admin 角色同样不能套用蓝本建项目（U-4 裁 A 的同一条边）", async () => {
+  it.each(["lead", "compliance"] as const)("历史 %s 角色不能套用蓝本建项目", async (actorOrgRole) => {
     const repo = new FakeApplyBlueprintRepository();
     try {
       await applyBlueprintUseCase(
         { repo },
-        { ...baseInput, actorOrgRole: "admin", idempotencyKey: "admin-role" },
+        { ...baseInput, actorOrgRole, idempotencyKey: "retired-role" },
       );
       throw new Error("should have thrown");
     } catch (err) {
