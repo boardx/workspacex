@@ -15,7 +15,7 @@ beforeAll(async()=>{
  ensureDatabase();ensureRedis();await migrateOnce();
  vi.stubEnv("NODE_ENV","test");vi.stubEnv("MAIL_OUTBOX_WORKER_ENABLED","0");vi.stubEnv("KERNEL_QUIET","1");
  await seedOrg({orgId:org,projectId:`${org}-p`,seatQuota:0});
- const roles=["admin","lead","consultant","compliance","consultant"];
+ const roles=["admin","consultant","consultant","consultant","consultant"];
  for(const [n,role] of roles.entries())await addOrgMember(org,`${org}-member-${n}`,role,null);
  originalEpoch=await asOwner(async c=>(await c.query<{generation:string|null;activated_at:Date|null}>("SELECT generation,activated_at FROM billing_pricing_epoch WHERE singleton=true")).rows[0]);
  await asOwner(c=>c.query("UPDATE billing_pricing_epoch SET generation=$1,activated_at=now() WHERE singleton=true",[BILLING_ACCOUNTING_GENERATION]));

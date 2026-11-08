@@ -89,7 +89,7 @@ beforeEach(async () => {
   // 「项目负责人」 is the ORG role `lead` in this ontology (UC-0.3 R5) -- the project roles
   // are facilitator / groupLead / member / observer. Getting this wrong would point the
   // visibility requirement at the wrong person entirely.
-  await addOrgMember(ORG, "u-lead", "lead", fx.teams.energy!);
+  await addOrgMember(ORG, "u-lead", "admin", fx.teams.energy!);
   await addOrgMember(ORG, "u-consultant", "consultant", fx.teams.energy!);
   await addContentItem({
     orgId: ORG, id: ITEM, ownerUserId: "u-lead", projectId: PROJECT,

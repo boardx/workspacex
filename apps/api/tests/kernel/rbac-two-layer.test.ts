@@ -75,11 +75,11 @@ describe("AC1: org role and project role do not substitute for each other", () =
     expect(d.reasonCode).toBe("ADMIN_NOT_SUPERUSER");
   });
 
-  it("a compliance officer is on the same footing as an admin here (D-U3)", async () => {
-    await addOrgMember(ORG, "u-comp", "compliance", fx.teams.energy!);
+  it("a former compliance member has ordinary-member project denial", async () => {
+    await addOrgMember(ORG, "u-comp", "consultant", fx.teams.energy!);
     const d = await call("u-comp", "read.allHands", { projectId: PROJECT });
     expect(d.allowed).toBe(false);
-    expect(d.reasonCode).toBe("ADMIN_NOT_SUPERUSER");
+    expect(d.reasonCode).toBe("NO_PROJECT_ROLE");
   });
 
   it("an ordinary consultant with no project role gets NO_PROJECT_ROLE, not the admin code", async () => {

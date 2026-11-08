@@ -10,7 +10,7 @@ import { defineConfig } from "vitest/config";
  */
 export default defineConfig({
   test: {
-    include: ["tests/billing/member-credit-quota-replay-pg.test.ts", "tests/recording/personal-transcription-persistence.test.ts", "tests/billing/native-credit-tariff-pg.test.ts", "tests/billing/global-native-force-replay-pg.test.ts"],
+    include: ["tests/org-admin/active-org-role-migration.test.ts", "tests/billing/member-credit-quota-replay-pg.test.ts", "tests/recording/personal-transcription-persistence.test.ts", "tests/billing/native-credit-tariff-pg.test.ts", "tests/billing/global-native-force-replay-pg.test.ts"],
     fileParallelism: false,
     globalSetup: ["tests/support/db-global-setup.ts"],
     env: {

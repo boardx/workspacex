@@ -71,7 +71,7 @@ beforeEach(async () => {
   // seedOrg 建了一个默认项目，本文件不需要它——每条用例自己建需要的容器。
   await asApp(ORG, (c) => c.query("DELETE FROM projects WHERE id = 'unused-seed-project'"));
 
-  await addOrgMember(ORG, LEAD, "lead", null);
+  await addOrgMember(ORG, LEAD, "admin", null);
   await addOrgMember(ORG, MEMBER_ONLY, "consultant", null);
 }, HOOK_TIMEOUT_MS);
 

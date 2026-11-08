@@ -260,7 +260,7 @@ describe("V3（UC-2）无权限角色被拒绝，且先于任何存在性判断"
   });
 
   it("V3-CP 反证：把角色判定改回『管理员或合规官都算审计角色』，`compliance` 会被误放行——证明当前实现没有这么做", async () => {
-    await addOrgMember(ORG, "u-f15-compliance", "compliance", null);
+    await addOrgMember(ORG, "u-f15-compliance", "consultant", null);
     const runId = randomUUID();
     await seedRun(runId);
     await expect(getRunTranscript(

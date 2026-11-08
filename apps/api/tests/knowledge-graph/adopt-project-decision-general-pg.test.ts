@@ -30,7 +30,7 @@ beforeAll(async () => {
   await resetOrgs(ORG);
   await seedOrg({ orgId: ORG, projectId: WORKSHOP });
   for (const u of ["u-owner", "u-collab", "u-out", "u-ws-mem", "u-ws-obs"]) await addOrgMember(ORG, u, "consultant", null);
-  await addOrgMember(ORG, "u-lead", "lead", null);
+  await addOrgMember(ORG, "u-lead", "admin", null);
   await addProjectMember(ORG, WORKSHOP, "u-ws-mem", "member", null);
   await addProjectMember(ORG, WORKSHOP, "u-ws-obs", "observer", null);
   await asApp(ORG, async (c) => {

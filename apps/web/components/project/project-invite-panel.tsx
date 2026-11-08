@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import { Copy } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,8 @@ import {
  * ⚠ 链接只以令牌拼成（`buildProjectInviteLink`），不读服务端的原型路径 `url`。
  */
 export function ProjectInvitePanel({ projectId }: { projectId: string }) {
+  const { t } = useI18n();
+  const [recipientEmail, setRecipientEmail] = React.useState("");
   const [identity, setIdentity] = React.useState<ParticipantIdentityChoice>("member");
   const [validity, setValidity] = React.useState<InviteLinkValidity>("7d");
   const [busy, setBusy] = React.useState(false);
@@ -34,11 +37,12 @@ export function ProjectInvitePanel({ projectId }: { projectId: string }) {
 
   const link = issued && typeof window !== "undefined" ? buildProjectInviteLink(issued.token, window.location.origin) : null;
 
-  async function issue() {
+  async function issue(sendEmail = false) {
     setBusy(true); setError(null); setRevoked(null); setCopyState("idle");
     try {
-      const out = await issueProjectInviteLink({ projectId, kind: "main", groupId: null, identity, validity });
+      const out = await issueProjectInviteLink({ projectId, kind: "main", groupId: null, identity, validity, ...(sendEmail ? { recipientEmail: recipientEmail.trim() } : {}) });
       setIssued(out);
+      if (out.emailDelivery === "failed") setError(t("invitation.workshopFailed"));
     } catch (e) {
       setError(describeFailure(e));
     } finally {
@@ -102,6 +106,14 @@ export function ProjectInvitePanel({ projectId }: { projectId: string }) {
             </Button>
           </div>
 
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="flex flex-col gap-1 text-10 text-muted-foreground">
+              <span>{t("invitation.workshopRecipient")}</span>
+              <Input type="email" value={recipientEmail} onChange={(e) => setRecipientEmail(e.target.value)} aria-label={t("invitation.workshopRecipient")} data-testid="project-invite-email" />
+            </label>
+            <Button size="sm" disabled={busy || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail.trim())} onClick={() => void issue(true)} data-testid="project-invite-send-email">{t("invitation.workshopSend")}</Button>
+          </div>
+          {issued?.emailDelivery === "sent" && <p role="status" data-testid="project-invite-email-sent">{t("invitation.workshopSent")}</p>}
           {link && issued && (
             <div className="flex flex-col gap-1.5 rounded-lg border border-primary/40 bg-primary/5 p-3" data-testid="project-invite-link-block">
               <p className="text-11">

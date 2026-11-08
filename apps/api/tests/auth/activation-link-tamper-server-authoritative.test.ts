@@ -119,6 +119,18 @@ async function membershipsOfUser(userId: string, orgId: string) {
 }
 
 describe("篡改链接里的身份参数：实际授予恒为服务端记录值", () => {
+  it.each(["lead", "compliance"])("legacy %s link claims grant the migrated authoritative ordinary role", async (orgRole) => {
+    // The migration normalizes the authoritative invitation row; outstanding links
+    // can still carry their historical role without restoring its privileges.
+    const invited = await inviteConsultant(`legacy-${orgRole}@f10tamper.test`);
+    const out = await activateWith(invited.token!, { orgId: ORG, orgRole, teamId: fixture.teams.energy! });
+    expect(out.orgRole).toBe("consultant");
+    expect(out.tamperRecorded).toBe(true);
+    const rows = await membershipsOfUser(out.userId, ORG);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].org_role).toBe("consultant");
+  });
+
   it("🔴 把 role 改成 admin、team 改成别的组、org 改成别的组织 —— 三样全部无效", async () => {
     const invited = await inviteConsultant("mallory@f10tamper.test");
 

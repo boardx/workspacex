@@ -235,6 +235,8 @@ export const LOCAL_RUNTIME_STARTUP_HINT =
 export const ModelPolicy = z.enum(["any", "self-hosted-only"]);
 
 /** 四种。`compliance` 由 D-U3 新增——合规是**组织级职能**，不是第三层「场景角色」 */
+/** Active organization roles accepted by role assignment APIs; OrgRole retains historical read compatibility. */
+export const AssignableOrgRole = z.enum(["admin", "consultant"]);
 export const OrgRole = z.enum(["admin", "lead", "consultant", "compliance"]);
 
 /**

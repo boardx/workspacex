@@ -13,9 +13,9 @@ afterEach(() => {
 });
 
 describe("DEV_MODE_ACCOUNTS", () => {
-  it("有且仅有一个账号对应每一个 OrgRole——4 个,不多不少", () => {
+  it("有且仅有一个账号对应每种可分配组织角色——管理员和成员", () => {
     const roles = DEV_MODE_ACCOUNTS.map((a) => a.role).sort();
-    expect(roles).toEqual([...identity.OrgRole.options].sort());
+    expect(roles).toEqual([...identity.AssignableOrgRole.options].sort());
   });
 
   it("每个账号都通过 schema 校验（邮箱格式、密码长度、role 属于契约枚举）", () => {

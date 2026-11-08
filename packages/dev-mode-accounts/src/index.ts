@@ -6,16 +6,9 @@
  * agent 跑 e2e 时经常卡在"账号"本身：临时建账号互相踩踏（并发 worker 用同一账号登录会被
  * `kick-device-invalidates-session` 互踢，见 `apps/web/e2e/fullstack-smoke-fixture.ts` 的
  * 账号拆分注释）、密码要现记、角色边界靠每个 spec 自己重新猜。这个包只做一件事：
- * 给一份**固定、少量、覆盖全部 4 种 `OrgRole`** 的预设账号表，账号本身随 repo 一起提交，
- * 谁都能读、谁都能用同一份认知。
- *
- * ## 为什么只有 4 个，且与 `OrgRole` 一一对应
- *
- * `OrgRole`（`@repo/contracts` `identity.OrgRole`）恰好 4 个值：admin / lead / consultant /
- * compliance，这是契约层已经封死的枚举，本文件不重新发明角色概念，只是给每一种角色配一个
- * "拿来就能登录"的账号。需要更细的场景（团队隔离、并发 worker 互不冲突、某个 feature 专属的
- * 反证账号）仍然应该走 `apps/web/e2e/fullstack-smoke-fixture.ts` 那条按 scope 现造账号的路——
- * 这里的 4 个账号是"日常验证功能可用性"用的，不是要取代已有的按 feature 隔离的种子夹具。
+ * 给一份固定、覆盖两种可分配组织角色（管理员、成员）的预设账号表。
+ * 角色集合来自 identity.AssignableOrgRole；项目角色与历史组织角色不在此建新账号。
+ * 需要独立并发身份的 E2E 仍使用按 feature 隔离的种子夹具。
  *
  * ## 不是第二条登录路径
  *
@@ -39,16 +32,16 @@ export const DEV_MODE_ORG_NAME = "Dev Mode Org";
 export const DEV_MODE_ENABLED_ENV = "WORKSPACEX_DEV_MODE";
 
 export const DevModeAccountSchema = z.object({
-  role: identity.OrgRole,
+  role: identity.AssignableOrgRole,
   email: z.string().email(),
   password: z.string().min(12),
   displayName: z.string().min(1),
 });
 export type DevModeAccount = z.infer<typeof DevModeAccountSchema>;
-export type DevModeOrgRole = z.infer<typeof identity.OrgRole>;
+export type DevModeOrgRole = z.infer<typeof identity.AssignableOrgRole>;
 
 /**
- * 固定预设账号,一个 `OrgRole` 一个,邮箱/密码写死并随 repo 提交——
+ * 固定预设账号,一个可分配组织角色一个,邮箱/密码写死并随 repo 提交——
  * 只在非 production 且显式打开 `WORKSPACEX_DEV_MODE=1` 时才会被种进库或被拿来登录,
  * 因此把密码提交进代码库不是泄露风险(参照 `fullstack-smoke-fixture.ts` 里已有的
  * 硬编码测试密码,同一约定)。
@@ -61,22 +54,10 @@ export const DEV_MODE_ACCOUNTS: readonly DevModeAccount[] = Object.freeze([
     displayName: "Dev Mode Admin",
   },
   {
-    role: "lead",
-    email: "dev-mode-lead@workspacex.test",
-    password: "DevMode-Lead-Preset-2026!",
-    displayName: "Dev Mode Lead",
-  },
-  {
     role: "consultant",
     email: "dev-mode-consultant@workspacex.test",
     password: "DevMode-Consultant-Preset-2026!",
-    displayName: "Dev Mode Consultant",
-  },
-  {
-    role: "compliance",
-    email: "dev-mode-compliance@workspacex.test",
-    password: "DevMode-Compliance-Preset-2026!",
-    displayName: "Dev Mode Compliance",
+    displayName: "Dev Mode Member",
   },
 ]);
 

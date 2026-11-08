@@ -289,7 +289,7 @@ export const en: Record<keyof typeof zhCN, string> = {
   "org.local": "Local workspace · Local models only",
   "role.admin": "Administrator",
   "role.lead": "Project lead",
-  "role.consultant": "Consultant",
+  "role.consultant": "Member",
   "role.compliance": "Compliance lead",
   "role.facilitator": "Facilitator",
   "role.groupLead": "Group lead",

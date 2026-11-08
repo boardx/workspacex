@@ -122,7 +122,7 @@ beforeEach(async () => {
     await asApp(org, (c) =>
       c.query("INSERT INTO organizations (id, name, kind) VALUES ($1,$2,'organization')", [org, `org ${org}`]),
     );
-    await addOrgMember(org, lead, "lead", null);
+    await addOrgMember(org, lead, "admin", null);
     // BP-08：stub 解析出的 blueprintId 必须对应一条真实 `blueprints` 行——
     // `blueprint_bindings.blueprint_id` 有外键，否则 submit() 会在写绑定这一步
     // 因 23503 被翻译成 INITIALIZATION_FAILED，而本文件测的是指纹判据，不是这个。
@@ -134,7 +134,7 @@ beforeEach(async () => {
     );
   }
   // 同一个人也是 ORG_B 的 lead —— 「换组织」那条边界要能单独动一个分量。
-  await addOrgMember(ORG_B, LEAD, "lead", null);
+  await addOrgMember(ORG_B, LEAD, "admin", null);
 }, HOOK_TIMEOUT_MS);
 
 describe("重复提交", () => {
@@ -205,7 +205,7 @@ describe("判据的边界：五个分量各改一个，都必须建出**新的**
   it("🔴 发起人不同 ⇒ 另一个 lead 提交**逐字相同**的请求，拿到的是新容器", async () => {
     // 这一条同时是 `lint-permission-paths` 白名单那条豁免的载荷断言：
     // 本文件在库里只可能读回**自己**提交过的那次请求的回声。
-    await addOrgMember(ORG, "u-f117-idem-lead-2", "lead", null);
+    await addOrgMember(ORG, "u-f117-idem-lead-2", "admin", null);
     const a = await submit();
     const b = await submit({ actorId: "u-f117-idem-lead-2" });
     expect(b.id).not.toBe(a.id);

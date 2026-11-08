@@ -193,7 +193,7 @@ await asOwner(async (client) => {
 });
 
 await seedOrg({ orgId: ORG_ID, projectId: PROJECT_ID, groupNames: ["readers"] });
-await addOrgMember(ORG_ID, USER_ID, "lead", null);
+await addOrgMember(ORG_ID, USER_ID, "admin", null);
 // Only isolated fixture setup may configure this global synthetic price.
 await asOwner(session=>seedChatReadAsrCreditTariff(session,ORG_ID));
 const CANVAS_TEMPLATE_ADMIN_ID = `${USER_ID}-canvas-admin`;
@@ -896,7 +896,7 @@ const defaultFixture = defaultAgentE2eIdentity({ orgId: ORG_ID, userId: USER_ID,
   email: EMAIL, agentId: AGENT_ID, deepAgentId: DEEP_AGENT_ID });
 await resetOrgs(defaultFixture.orgId);
 await seedOrg({ orgId: defaultFixture.orgId, projectId: defaultFixture.projectId, groupNames: ["readers"] });
-await addOrgMember(defaultFixture.orgId, defaultFixture.userId, "lead", null);
+await addOrgMember(defaultFixture.orgId, defaultFixture.userId, "admin", null);
 await addProjectMember(defaultFixture.orgId, defaultFixture.projectId, defaultFixture.userId, "facilitator", null);
 await asOwner(async (client) => {
   await client.query("DELETE FROM credentials WHERE user_id=$1 OR email=$2", [defaultFixture.userId, defaultFixture.email]);

@@ -122,15 +122,15 @@ describe("setPlatformMemberOrgRole", () => {
   const body = (orgId: string, userId: string, orgRole: string) => ({ orgId, userId, orgRole }) as never;
 
   it("正式组织：真的落库，响应带前值，审计写进目标组织并标 via: platform", async () => {
-    const out = await controller.setOrgRole(MEMBER, ORG, body(ORG, MEMBER, "lead"), principal);
-    expect(out).toEqual({ userId: MEMBER, orgId: ORG, orgRole: "lead", previousOrgRole: "consultant" });
-    expect(await roleOf(ORG, MEMBER)).toBe("lead");
+    const out = await controller.setOrgRole(MEMBER, ORG, body(ORG, MEMBER, "admin"), principal);
+    expect(out).toEqual({ userId: MEMBER, orgId: ORG, orgRole: "admin", previousOrgRole: "consultant" });
+    expect(await roleOf(ORG, MEMBER)).toBe("admin");
     expect(vi.mocked(provenance.append).mock.calls[0]?.[0]).toMatchObject({
       orgId: ORG,
       type: "role-changed",
       actorId: OPS,
       target: { kind: "membership", id: `${ORG}:${MEMBER}` },
-      detail: { layer: "organization", via: "platform", from: "consultant", to: "lead" },
+      detail: { layer: "organization", via: "platform", from: "consultant", to: "admin" },
     });
   });
 

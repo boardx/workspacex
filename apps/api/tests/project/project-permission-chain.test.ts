@@ -13,7 +13,8 @@
  *
  * 反证意识：每一条「拒绝」都在对应的「放行」旁边——只测放行，一个对谁都放行的实现全绿。
  */
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { TRANSACTIONAL_MAIL_TRANSPORT, type TransactionalMailTransport } from "../../src/application/notifications/transactional-mail-ports";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import {
   addOrgMember, addProjectMember, ensureDatabase, migrateOnce, resetOrgs, seedOrg,
@@ -75,6 +76,37 @@ beforeEach(async () => {
 }, 60_000);
 
 describe("R6 权限闭环：受邀才能进 → 进了才看得见 → 分享由创建者 / 引导师决定", () => {
+  it("workshop email transport, tenant denial, failure and copy-token acceptance", async () => {
+    const transport = app.get<TransactionalMailTransport>(TRANSACTIONAL_MAIL_TRANSPORT);
+    const send = vi.spyOn(transport, "send").mockResolvedValue({});
+    const input = { projectId: PROJECT, kind: "main", groupId: null, identity: "member", validity: "7d", recipientEmail: "invitee@example.com" };
+    const previousUrl = process.env.APP_PUBLIC_URL;
+    process.env.APP_PUBLIC_URL = "https://app.example.com";
+    try {
+      const denied = await post("u-new", `/projects/${PROJECT}/invite-links`, input);
+      expect(denied.status).toBe(403);
+      const crossTenant = await post("u-fac", `/projects/${PROJECT}/invite-links`, input, "different-org");
+      expect(crossTenant.status).toBe(403);
+      expect(send).not.toHaveBeenCalled();
+      const delivered = await post("u-fac", `/projects/${PROJECT}/invite-links`, input);
+      expect(delivered.status).toBe(201);
+      const delivery = await delivered.json() as { token: string; emailDelivery: string };
+      expect(delivery.emailDelivery).toBe("sent");
+      expect(send).toHaveBeenCalledWith(expect.objectContaining({ to: input.recipientEmail, text: expect.stringContaining(`/projects/join?t=${delivery.token}`) }));
+      send.mockRejectedValueOnce(new Error("provider-private"));
+      const failed = await post("u-fac", `/projects/${PROJECT}/invite-links`, input);
+      const copy = await failed.json() as { token: string; emailDelivery: string };
+      expect(copy.emailDelivery).toBe("failed");
+      const accepted = await post("u-new", "/project-invites/accept", { token: copy.token });
+      expect(accepted.ok).toBe(true);
+      expect(await accepted.json()).toMatchObject({ projectId: PROJECT, projectRole: "member", alreadyMember: false });
+    } finally {
+      send.mockRestore();
+      if (previousUrl === undefined) delete process.env.APP_PUBLIC_URL;
+      else process.env.APP_PUBLIC_URL = previousUrl;
+    }
+  }, 60_000);
+
   it("整条链", async () => {
     // ① 非成员：处处被挡，且挡的是服务端
     const overview0 = await get("u-new", `/projects/${PROJECT}/overview`);

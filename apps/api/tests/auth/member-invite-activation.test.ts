@@ -202,7 +202,7 @@ describe("① 管理员邀请：待激活行按服务端指派的角色与团队
 
   it("a requested role change still replays the same ordinary-member invitation", async () => {
     const first = await invite();
-    const replay = await invite({ orgRole: "lead" });
+    const replay = await invite({ orgRole: "admin" });
     expect(replay.inviteId).toBe(first.inviteId);
     expect(replay.tokenIssued).toBe(false);
     expect(replay.token).toBeNull();

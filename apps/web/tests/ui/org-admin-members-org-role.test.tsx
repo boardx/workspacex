@@ -59,34 +59,34 @@ describe("MembersTab —— 组织角色调整", () => {
     render(<MembersTab orgId="org-mrm" isAdmin={false} />);
 
     const row = await screen.findByTestId("org-admin-member-u-linke");
-    expect(row).toHaveTextContent("顾问");
+    expect(row).toHaveTextContent("成员");
     expect(screen.queryByTestId("org-admin-member-u-linke-org-role")).toBeNull();
   });
 
-  it("admin：下拉初始值来自 GET 响应（顾问 / 管理员各自正确）", async () => {
+  it("admin：下拉初始值来自 GET 响应（成员 / 管理员各自正确）", async () => {
     fetchMock.mockImplementation(routed());
     render(<MembersTab orgId="org-mrm" isAdmin={true} />);
 
     await waitFor(() => {
-      expect(screen.getByTestId("org-admin-member-u-linke-org-role")).toHaveTextContent("顾问");
+      expect(screen.getByTestId("org-admin-member-u-linke-org-role")).toHaveTextContent("成员");
       expect(screen.getByTestId("org-admin-member-u-admin-org-role")).toHaveTextContent("管理员");
     });
   });
 
-  it("admin：选「项目负责人」真的发 PATCH，body 正确，行就地更新并出现前值 → 新值", async () => {
+  it("admin：选「管理员」真的发 PATCH，body 正确，行就地更新并出现前值 → 新值", async () => {
     fetchMock.mockImplementation(routed());
     render(<MembersTab orgId="org-mrm" isAdmin={true} />);
 
     const trigger = await screen.findByTestId("org-admin-member-u-linke-org-role");
     fireEvent.click(trigger);
-    fireEvent.click(await screen.findByTestId("org-admin-member-u-linke-org-role-option-lead"));
+    fireEvent.click(await screen.findByTestId("org-admin-member-u-linke-org-role-option-admin"));
 
-    await waitFor(() => expect(trigger).toHaveTextContent("项目负责人"));
-    expect(screen.getByTestId("org-admin-member-role-banner")).toHaveTextContent("林可：顾问 → 项目负责人");
+    await waitFor(() => expect(trigger).toHaveTextContent("管理员"));
+    expect(screen.getByTestId("org-admin-member-role-banner")).toHaveTextContent("林可：成员 → 管理员");
 
     const call = fetchMock.mock.calls.find((c) => c[1]?.method === "PATCH");
     expect(String(call?.[0])).toContain("/organizations/org-mrm/members/u-linke/role");
-    expect(JSON.parse(String(call?.[1]?.body))).toEqual({ orgId: "org-mrm", userId: "u-linke", orgRole: "lead" });
+    expect(JSON.parse(String(call?.[1]?.body))).toEqual({ orgId: "org-mrm", userId: "u-linke", orgRole: "admin" });
   });
 
   it("admin：服务端 409 LAST_ADMIN → 行内说清下一步，下拉值不变", async () => {

@@ -123,15 +123,15 @@ describe("AC1 / D-18: on the real read path, an admin is not a superuser", () =>
     expect(parsed.success ? null : parsed.error.issues, JSON.stringify(body)).toBeNull();
   });
 
-  it("a compliance officer is refused too, and is refused the audit exemption as well", async () => {
-    await addOrgMember(ORG, "u-compliance", "compliance", fx.teams.energy!);
+  it("a former compliance member is refused content and the audit exemption", async () => {
+    await addOrgMember(ORG, "u-compliance", "consultant", fx.teams.energy!);
     expect((await read("u-compliance")).status).toBe(403);
     // D-U3 gives compliance the audit CHAIN, and says in the same breath that this does
     // not confer project content read. So `purpose: "audit"` buys them nothing -- the one
     // place where compliance and admin genuinely differ.
     const audit = await read("u-compliance", { purpose: "audit" });
     expect(audit.status).toBe(403);
-    expect(((await audit.json()) as { reasonCode: string }).reasonCode).toBe("ADMIN_NOT_SUPERUSER");
+    expect(((await audit.json()) as { reasonCode: string }).reasonCode).toBe("NO_PROJECT_ROLE");
   });
 
   it("an admin WITH a project role reads normally -- the org role was never the problem", async () => {
