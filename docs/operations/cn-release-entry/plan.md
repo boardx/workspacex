@@ -1,7 +1,7 @@
 # Fixed-request CN release plan
 
 Canonical plan and seven-step diagram for request `01a0ffe2-1628-7388-8735-7dd051b70032`.
-Updated 2026-11-07 UTC for the PR #5810 review-state receipt (issue #5809). This reuses the existing persistent entry plan location;
+Updated 2026-11-08 UTC for the PR #5810 closed-without-merge receipt (issue #5809). This reuses the existing persistent entry plan location;
 previous entries described other candidates/host sessions and do not authorize this request.
 No matching fixed-request A0–A6 diagram was found in the existing entry documentation;
 the seven labels below come from the user's explicit task, not inferred production evidence.
@@ -23,7 +23,7 @@ flowchart TD
   A5[A5 部署切流：image-only仍需前序门禁]
   A6[A6 最终业务验收：待真实证据]
   B0[构建成功；候选执行窗口已于11:48:36UTC过期]
-  K0[工具包上传及安装：未开始]
+  K0[工具包上传及安装：未开始；工具 PR 5810 已关闭未合并]
   I0[应用镜像上传生产：未开始]
   C0[普通BC发布已批；纯云传输契约及现场证据未闭环]
   C0 -.-> A0
@@ -642,3 +642,44 @@ This update changes only this plan's date and the review-status record. It perfo
 production invocation, deployment, migration, permission change, restore, cleanup or
 cancellation. The existing distinction between tested tool code, installed toolkit,
 transferred application images and accepted production behavior remains in force.
+
+
+## PR closure status receipt (2026-11-08 UTC)
+
+[PR #5810](https://github.com/boardx/workspacex/pull/5810) was **closed without merge**
+at **2026-11-08T01:24:21Z**. The
+[closure explanation](https://github.com/boardx/workspacex/pull/5810#issuecomment-6715585264)
+identifies it as an obsolete implementation for the fixed historical BC candidate and explicitly
+does not claim that A0–A6 passed. This supersedes the earlier observation of an open PR; it does
+not reopen, merge or delete the preserved branch, nor establish that the user stopped this release.
+
+At this observation, the PR and retained branch still pointed to
+**`f85669e6bdef33cf7cbddafb03107b09ead7b4df`**, unchanged from the previous monitoring baseline.
+GitHub reported `merged=false`, `merged_at=null`, `mergeable=false` and
+`mergeable_state=dirty`. Exact-head reads returned **0 check runs, 0 commit statuses and 0
+Actions workflow runs**; the combined status was `pending`, not a passed test.
+Sources: [closure event](https://api.github.com/repos/boardx/workspacex/issues/events/35469685346),
+[exact-head checks](https://api.github.com/repos/boardx/workspacex/commits/f85669e6bdef33cf7cbddafb03107b09ead7b4df/check-runs),
+[exact-head statuses](https://api.github.com/repos/boardx/workspacex/commits/f85669e6bdef33cf7cbddafb03107b09ead7b4df/status)
+and [exact-head Actions inventory](https://api.github.com/repos/boardx/workspacex/actions/runs?head_sha=f85669e6bdef33cf7cbddafb03107b09ead7b4df&per_page=100).
+This documentation follow-up creates a later documentation head; those observations are not
+automatically attributed to that new head. The older code-review and 242-test receipts remain
+evidence only for their named `b7076b5` source, not this monitoring baseline or production.
+
+The original task's accessible latest recorded turn remains interrupted. Its visible historical
+messages announce an intended read-only reconciliation/retry, but provide no subsequent actual
+invocation, lock, capacity or running-version receipt. The visible old record could be reread;
+later on-site history was not obtained and cannot be reconstructed from source files or PR status.
+Accordingly, the historical zero-production-call record is not a new live observation, and no
+new production execution or acceptance is established by this check.
+
+**Production remains NO-GO.** The candidate window is still expired. B0 remains historically
+green; C0, toolkit upload/install K0, application-image upload I0 and A0–A6 remain gray.
+K0 now notes the tool PR's closed/unmerged state without treating tool development as installation.
+No step becomes yellow, green or acceptance-purple because a PR was reviewed or closed.
+The same original seven stages and complete final business-acceptance scope remain required.
+
+This update changes only this plan's material status record and K0 diagram label. It performs no
+build, toolkit installation, image transfer, production invocation, deployment, migration,
+permission change, restore, cleanup or cancellation. Closing the tool PR is neither production
+completion nor an instruction to stop the release monitor.
