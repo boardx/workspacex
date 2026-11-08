@@ -1,0 +1,270 @@
+TAP version 13
+# Subtest: delivered
+ok 1 - delivered
+  ---
+  duration_ms: 8.599166
+  type: 'test'
+  ...
+# Subtest: queued
+ok 2 - queued
+  ---
+  duration_ms: 0.696583
+  type: 'test'
+  ...
+# Subtest: optional-id
+not ok 3 - optional-id
+  ---
+  duration_ms: 5.582958
+  type: 'test'
+  location: '/private/tmp/wsx6439-mail-patch-1oitywjg/recipient-response.test.ts:1:1274'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly deep-equal:
+    + actual - expected
+    
+    + {}
+    - {
+    -   providerMessageId: '<provider-id@example.test>'
+    - }
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+    providerMessageId: '<provider-id@example.test>'
+  actual:
+  operator: 'deepStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (/private/tmp/wsx6439-mail-patch-1oitywjg/recipient-response.test.ts:14:30)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: empty-suppression
+ok 4 - empty-suppression
+  ---
+  duration_ms: 1.001875
+  type: 'test'
+  ...
+# Subtest: foreign-recipient
+not ok 5 - foreign-recipient
+  ---
+  duration_ms: 1.472666
+  type: 'test'
+  location: '/private/tmp/wsx6439-mail-patch-1oitywjg/recipient-response.test.ts:1:2850'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected rejection.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  stack: |-
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: bounce
+not ok 6 - bounce
+  ---
+  duration_ms: 0.433417
+  type: 'test'
+  location: '/private/tmp/wsx6439-mail-patch-1oitywjg/recipient-response.test.ts:1:2850'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected rejection.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  stack: |-
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: bounce-overrides-delivered
+not ok 7 - bounce-overrides-delivered
+  ---
+  duration_ms: 0.522875
+  type: 'test'
+  location: '/private/tmp/wsx6439-mail-patch-1oitywjg/recipient-response.test.ts:1:2850'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected rejection.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  stack: |-
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: suppression
+not ok 8 - suppression
+  ---
+  duration_ms: 0.511667
+  type: 'test'
+  location: '/private/tmp/wsx6439-mail-patch-1oitywjg/recipient-response.test.ts:1:2850'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected rejection.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  stack: |-
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: suppression-overrides-delivered
+not ok 9 - suppression-overrides-delivered
+  ---
+  duration_ms: 3.661292
+  type: 'test'
+  location: '/private/tmp/wsx6439-mail-patch-1oitywjg/recipient-response.test.ts:1:2850'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected rejection.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  stack: |-
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: success-without-result
+not ok 10 - success-without-result
+  ---
+  duration_ms: 3.295458
+  type: 'test'
+  location: '/private/tmp/wsx6439-mail-patch-1oitywjg/recipient-response.test.ts:1:2850'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected rejection.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  stack: |-
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: null-envelope
+not ok 11 - null-envelope
+  ---
+  duration_ms: 0.90225
+  type: 'test'
+  location: '/private/tmp/wsx6439-mail-patch-1oitywjg/recipient-response.test.ts:1:2850'
+  failureType: 'testCodeFailure'
+  error: |-
+    The validation function is expected to return "true". Received false
+    
+    Caught error:
+    
+    TypeError: Cannot read properties of null (reading 'success')
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  stack: |-
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: null-result
+not ok 12 - null-result
+  ---
+  duration_ms: 0.628041
+  type: 'test'
+  location: '/private/tmp/wsx6439-mail-patch-1oitywjg/recipient-response.test.ts:1:2850'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected rejection.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  stack: |-
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: missing-queued
+not ok 13 - missing-queued
+  ---
+  duration_ms: 0.252958
+  type: 'test'
+  location: '/private/tmp/wsx6439-mail-patch-1oitywjg/recipient-response.test.ts:1:2850'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected rejection.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  stack: |-
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: malformed-delivered
+not ok 14 - malformed-delivered
+  ---
+  duration_ms: 0.309292
+  type: 'test'
+  location: '/private/tmp/wsx6439-mail-patch-1oitywjg/recipient-response.test.ts:1:2850'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected rejection.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  stack: |-
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: malformed-bounces
+not ok 15 - malformed-bounces
+  ---
+  duration_ms: 0.164584
+  type: 'test'
+  location: '/private/tmp/wsx6439-mail-patch-1oitywjg/recipient-response.test.ts:1:2850'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected rejection.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  stack: |-
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: malformed-suppression
+not ok 16 - malformed-suppression
+  ---
+  duration_ms: 0.155792
+  type: 'test'
+  location: '/private/tmp/wsx6439-mail-patch-1oitywjg/recipient-response.test.ts:1:2850'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected rejection.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  stack: |-
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: no-target
+not ok 17 - no-target
+  ---
+  duration_ms: 0.245958
+  type: 'test'
+  location: '/private/tmp/wsx6439-mail-patch-1oitywjg/recipient-response.test.ts:1:2850'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected rejection.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  stack: |-
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: duplicate-target
+not ok 18 - duplicate-target
+  ---
+  duration_ms: 0.150917
+  type: 'test'
+  location: '/private/tmp/wsx6439-mail-patch-1oitywjg/recipient-response.test.ts:1:2850'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected rejection.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  stack: |-
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: contradictory-target
+not ok 19 - contradictory-target
+  ---
+  duration_ms: 0.151833
+  type: 'test'
+  location: '/private/tmp/wsx6439-mail-patch-1oitywjg/recipient-response.test.ts:1:2850'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected rejection.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  stack: |-
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+1..19
+# tests 19
+# suites 0
+# pass 3
+# fail 16
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 968.30675

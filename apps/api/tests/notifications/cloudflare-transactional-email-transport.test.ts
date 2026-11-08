@@ -41,7 +41,7 @@ describe("CloudflareTransactionalEmailTransport", () => {
       capturedUrl = url;
       capturedBody = JSON.parse(init?.body as string);
       capturedHeaders = init?.headers as Record<string, string>;
-      return jsonResponse({ success: true });
+      return jsonResponse({ success: true, result: { delivered: ["user@example.com"], queued: [], permanent_bounces: [] } });
     }) as typeof fetch;
 
     const transport = new CloudflareTransactionalEmailTransport(fakeConfig(), fakeFetch);
@@ -101,6 +101,51 @@ describe("CloudflareTransactionalEmailTransport", () => {
     await expect(transport.send({ to: "a@b.com", subject: "s", text: "t" })).rejects.toBeInstanceOf(
       TransactionalMailError,
     );
+  });
+
+  const recipient = "target@example.test";
+  const accepted = (overrides: Record<string, unknown> = {}) => ({ delivered: [recipient], queued: [], permanent_bounces: [], ...overrides });
+  const message = { to: recipient, subject: "Private subject", text: "https://example.test/auth/activate?t=private-bearer" };
+  const sendResponse = (body: unknown) => new CloudflareTransactionalEmailTransport(
+    fakeConfig(), (async () => jsonResponse(body)) as typeof fetch,
+  ).send(message);
+
+  it.each([
+    ["delivered", accepted()],
+    ["queued", accepted({ delivered: [], queued: [recipient] })],
+    ["optional empty suppression metadata", accepted({ suppressed_recipients: [] })],
+  ])("accepts the exact recipient as %s without promising inbox placement", async (_name, result) => {
+    await expect(sendResponse({ success: true, result })).resolves.toEqual({});
+  });
+
+  it("passes through an available provider message ID, while older responses need no ID", async () => {
+    await expect(sendResponse({ success: true, result: accepted({ message_id: "<provider-id@example.test>" }) }))
+      .resolves.toEqual({ providerMessageId: "<provider-id@example.test>" });
+    await expect(sendResponse({ success: true, result: accepted() })).resolves.toEqual({});
+  });
+
+  const rejectedResponses: Array<[string, unknown, string]> = [
+    ["foreign recipient", { success: true, result: accepted({ delivered: ["other@example.test"] }) }, "provider_invalid_response"],
+    ["permanent bounce", { success: true, result: accepted({ delivered: [], permanent_bounces: [recipient] }) }, "provider_permanent_bounce"],
+    ["bounce overrides delivered", { success: true, result: accepted({ permanent_bounces: [recipient] }) }, "provider_permanent_bounce"],
+    ["suppressed recipient", { success: true, result: accepted({ delivered: [], suppressed_recipients: [recipient] }) }, "provider_suppressed"],
+    ["suppression overrides delivered", { success: true, result: accepted({ suppressed_recipients: [recipient] }) }, "provider_suppressed"],
+    ["success alone", { success: true }, "provider_invalid_response"],
+    ["null envelope", null, "provider_invalid_response"],
+    ["null result", { success: true, result: null }, "provider_invalid_response"],
+    ["missing queued", { success: true, result: { delivered: [recipient], permanent_bounces: [] } }, "provider_invalid_response"],
+    ["malformed delivered", { success: true, result: accepted({ delivered: [1] }) }, "provider_invalid_response"],
+    ["malformed bounce", { success: true, result: accepted({ permanent_bounces: "private-provider-response" }) }, "provider_invalid_response"],
+    ["malformed suppression", { success: true, result: accepted({ suppressed_recipients: null }) }, "provider_invalid_response"],
+    ["no target", { success: true, result: accepted({ delivered: [] }) }, "provider_invalid_response"],
+    ["duplicate target", { success: true, result: accepted({ delivered: [recipient, recipient] }) }, "provider_invalid_response"],
+    ["target both delivered and queued", { success: true, result: accepted({ queued: [recipient] }) }, "provider_invalid_response"],
+  ];
+  it.each(rejectedResponses)("rejects %s without leaking request/provider content", async (_name, response, category) => {
+    const error = await sendResponse(response).catch((failure: unknown) => failure);
+    expect(error).toBeInstanceOf(TransactionalMailError);
+    expect(error).toMatchObject({ category });
+    expect(String(error)).not.toMatch(/target@example|private-bearer|private-provider-response|Private subject/);
   });
 
   describe("transactionalMailConfig", () => {

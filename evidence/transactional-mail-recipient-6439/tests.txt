@@ -1,0 +1,25 @@
+[stack-admission] load1=4.55 cores=10 perCore=0.45 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw83ppjd-533cf96f-57de05e29bcb db=wsx_57de05e29bcb58e5ad03 compose=wsx-57de05e29bcb58e5ad03 pg=20290 redis=21290 api=24290 web=25290 sandbox=26290 model=27290 deep-agent=28290 asr=29290 vision=30290 loopback-sandbox=31290 mail=19290
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/2e5d/workspacex/apps/api
+
+[db-isolation] db=wsx_57de05e29bcb58e5ad03 capacity=100 current=6 required=32
+ ✓ tests/auth/org-invitation-members.test.ts (10 tests) 19502ms
+   ✓ delivers through transactional mail and records provider acceptance without exposing the token to administrators 321ms
+ ✓ tests/notifications/cloudflare-transactional-email-transport.test.ts (29 tests) 25ms
+ ✓ tests/notifications/cloudflare-api-base-url.test.ts (9 tests) 7ms
+
+ Test Files  3 passed (3)
+      Tests  48 passed (48)
+   Start at  01:23:33
+   Duration  26.90s (transform 1.29s, setup 30ms, collect 1.70s, tests 19.53s, environment 1ms, prepare 235ms)
+
+[db-isolation] db=wsx_57de05e29bcb58e5ad03 peak_connections=4
+[timing] pnpm --filter @repo/api exec vitest run tests/notifications/cloudflare-transactional-email-transport.test.ts tests/notifications/cloudflare-api-base-url.test.ts tests/auth/org-invitation-members.test.ts --maxWorkers=1 --minWorkers=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：28s
+  清理：1s
+  总计：28s

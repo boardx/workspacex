@@ -73,3 +73,30 @@ it('serializes concurrent shared acceptance and spends only one use',async()=>{
  const results=await Promise.all([links.activate(input),links.activate(input)]);expect(results.every(r=>r.ok)).toBe(true);
  const rows=await asOwner(c=>c.query('SELECT used_count FROM org_invite_links WHERE id=$1',[out.linkId]));expect(rows.rows[0].used_count).toBe(1);
 });
+
+it.each(['permanent_bounces','suppressed_recipients'] as const)('HTTP success with recipient %s records failed delivery and invalidates its bearer',async(field)=>{
+ const {OrgInvitationMailDelivery}=await import('../../src/infrastructure/auth/org-invitation-mail-delivery');
+ const {CloudflareTransactionalEmailTransport}=await import('../../src/infrastructure/notifications/cloudflare-transactional-email-transport');
+ const out=await inviteOrgMember({repo},{...ctx,email,orgRole:'consultant',teamId:null});
+ const transport=new CloudflareTransactionalEmailTransport({accountId:'fixture',apiToken:'fixture',mailFrom:'no-reply@mail.example.test',requestTimeoutMs:1000},
+  async()=>new Response(JSON.stringify({success:true,result:{delivered:[email],queued:[],permanent_bounces:[],[field]:[email]}}),{status:200,headers:{'Content-Type':'application/json'}}));
+ const delivery=new OrgInvitationMailDelivery(repo,transport,{get:()=> 'https://app.example.test'});
+ await expect(delivery.deliver({orgId:ctx.orgId,inviteId:out.inviteId,token:out.token!})).rejects.toMatchObject({reasonCode:'MAIL_UNAVAILABLE'});
+ const row=await asOwner(c=>c.query('SELECT status,sent_at FROM org_invites WHERE id=$1',[out.inviteId]));
+ expect(row.rows[0]).toMatchObject({status:'send-failed',sent_at:null});
+ await expect(activateOrgMember({repo,hasher:fakeHasher,sessions:fakeSessions(),tokens:fakeTokens()},
+  {token:out.token!,mode:'existing-account',profile:null,existingUserId:member,untrustedClaims:NO_CLAIMS})).rejects.toMatchObject({reasonCode:'INVITE_NOT_FOUND'});
+});
+it('provider queued acceptance preserves a live invitation without claiming inbox delivery',async()=>{
+ const {OrgInvitationMailDelivery}=await import('../../src/infrastructure/auth/org-invitation-mail-delivery');
+ const {CloudflareTransactionalEmailTransport}=await import('../../src/infrastructure/notifications/cloudflare-transactional-email-transport');
+ const out=await inviteOrgMember({repo},{...ctx,email,orgRole:'consultant',teamId:null});
+ const transport=new CloudflareTransactionalEmailTransport({accountId:'fixture',apiToken:'fixture',mailFrom:'no-reply@mail.example.test',requestTimeoutMs:1000},
+  async()=>new Response(JSON.stringify({success:true,result:{delivered:[],queued:[email],permanent_bounces:[]}}),{status:200,headers:{'Content-Type':'application/json'}}));
+ await new OrgInvitationMailDelivery(repo,transport,{get:()=> 'https://app.example.test'}).deliver({orgId:ctx.orgId,inviteId:out.inviteId,token:out.token!});
+ const row=await asOwner(c=>c.query('SELECT status,sent_at FROM org_invites WHERE id=$1',[out.inviteId]));
+ expect(row.rows[0].status).toBe('pending');expect(row.rows[0].sent_at).not.toBeNull();
+ const accepted=await activateOrgMember({repo,hasher:fakeHasher,sessions:fakeSessions(),tokens:fakeTokens()},
+  {token:out.token!,mode:'existing-account',profile:null,existingUserId:member,untrustedClaims:NO_CLAIMS});
+ expect(accepted.userId).toBe(member);
+});

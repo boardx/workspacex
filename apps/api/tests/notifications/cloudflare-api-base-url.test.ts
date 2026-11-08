@@ -64,7 +64,7 @@ describe("两个 transport 的配置都带上并守住同一条规则", () => {
     let url = "";
     const fakeFetch = (async (u: string) => {
       url = u;
-      return { ok: true, status: 200, json: async () => ({ success: true }) } as Response;
+      return { ok: true, status: 200, json: async () => ({ success: true, result: { delivered: ["a@b.test"], queued: [], permanent_bounces: [] } }) } as Response;
     }) as typeof fetch;
     const config = transactionalMailConfig(env({
       NODE_ENV: "test",
