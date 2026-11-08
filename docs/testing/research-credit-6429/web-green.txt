@@ -1,0 +1,35 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/web
+
+ ✓ tests/ui/guided-research-live.test.tsx (27 tests) 20566ms
+   ✓ live research workspace > preserves a goal-prefix name with unknown provenance instead of guessing it is automatic 2032ms
+   ✓ live research workspace > shows a readable reason for each failed search without restoring plan cards 859ms
+   ✓ live research workspace > restores server drafts and lets confirmation perform required generation 433ms
+   ✓ live research workspace > includes current editor changes when confirming the brief 813ms
+   ✓ live research workspace > keeps the import page focused on the brief without secondary Markdown controls 386ms
+   ✓ live research workspace > serializes slow polls and stops after receiving the terminal snapshot 320ms
+   ✓ live research workspace > keeps a newer collaborator snapshot when an older command response arrives late 717ms
+   ✓ live research workspace > sends session and version bound chat and applies the persisted proposal by id 1580ms
+   ✓ live research workspace > shows search URLs and retries failed tasks without source management controls 1007ms
+   ✓ live research workspace > does not announce search running for 'terminal materials failure' 328ms
+   ✓ live research workspace > offers a durable resume action for a previously paused research session 431ms
+   ✓ research request recovery > retries initial loading without leaving the session 463ms
+   ✓ research request recovery > preserves the editor on conflict and lets the user resume against the latest version 2814ms
+   ✓ research request recovery > requires a successful recovery read before submitting again, and can adopt the server draft 1804ms
+   ✓ research request recovery > does not leak a failed request or retained draft into a different session 1214ms
+   ✓ keeps recovered edits when an abandoned execution lease has expired 1133ms
+   ✓ restores the historical chapters route into report execution without clearing retrieved sources 349ms
+   ✓ does not carry an expanded legacy chapter editor into a different report session 1005ms
+   ✓ refresh retains correct Credit guidance: '个人 Credit 可用额度不足' 377ms
+   ✓ refresh retains correct Credit guidance: '组织可用额度不足' 311ms
+   ✓ refresh retains correct Credit guidance: '本月成员 Credit 额度不足' 667ms
+   ✓ refresh retains correct Credit guidance: '计费服务暂时不可用' 346ms
+   ✓ refresh retains correct Credit guidance: 'Credit 余额或成员月度额度不足' 425ms
+ ✓ tests/ui/guided-research-progress.test.ts (9 tests) 37ms
+
+ Test Files  2 passed (2)
+      Tests  36 passed (36)
+   Start at  20:44:03
+   Duration  78.35s (transform 21.05s, setup 3.13s, collect 34.68s, tests 20.60s, environment 10.89s, prepare 1.50s)
+

@@ -1,3 +1,4 @@
+import { rethrowCreditConsumption } from "../billing/credit-consumption";
 import { scopedSupplementQueries } from "./guided-supplement-task-scope";
 import { fairTaskWork } from "./guided-task-work";
 import { createHash, randomUUID } from "node:crypto";
@@ -137,6 +138,7 @@ export async function executeTaskPipeline(state: ResearchRuntime, persist: Runti
     await save();
   };
   const taskError = (error: unknown) => {
+    rethrowCreditConsumption(error);
     const code = error instanceof ResearchRuntimeError ? error.reasonCode : "RESEARCH_SEARCH_UNAVAILABLE";
     return isRecoverableSearchFailure(code) ? "RESEARCH_SEARCH_UNAVAILABLE" : code;
   };

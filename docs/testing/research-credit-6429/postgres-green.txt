@@ -1,0 +1,26 @@
+[stack-admission] load1=6.81 cores=10 perCore=0.68 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw7tnzs9-45910e2f-0a9623ad0acb db=wsx_0a9623ad0acbfab365f0 compose=wsx-0a9623ad0acbfab365f0 pg=20693 redis=21693 api=24693 web=25693 sandbox=26693 model=27693 deep-agent=28693 asr=29693 vision=30693 loopback-sandbox=31693 mail=19693
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/api
+
+[db-isolation] db=wsx_0a9623ad0acbfab365f0 capacity=100 current=6 required=32
+ ✓ tests/research/guided-credit-finalization.db.test.ts (4 tests) 144912ms
+   ✓ actual PostgreSQL finalizes credit_required and a restarted runtime replays without dispatch 4736ms
+   ✓ actual PostgreSQL finalizes credit_accounting_unavailable and a restarted runtime replays without dispatch 2974ms
+   ✓ stale request cannot release a newer live lease or mark its command done 3038ms
+   ✓ stale version cannot release a newer live lease or mark its command done 1643ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  20:42:18
+   Duration  181.52s (transform 6.96s, setup 98ms, collect 10.81s, tests 144.91s, environment 0ms, prepare 411ms)
+
+[db-isolation] db=wsx_0a9623ad0acbfab365f0 peak_connections=3
+[timing] pnpm --filter @repo/api exec vitest run tests/research/guided-credit-finalization.db.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：3m4s
+  清理：3s
+  总计：3m8s

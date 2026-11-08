@@ -1,4 +1,6 @@
 "use client";
+import { CreditFailureDetails } from "@/components/billing/credit-consumption-notice";
+import { agentRunCreditFailure, creditGuidance } from "@/lib/credit-guidance";
 import { isUnstartedResearch } from "@/lib/guided-research-bootstrap";
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -512,6 +514,7 @@ function GuidedResearchLiveSession({ sessionId, researchName, onBack, onLoadRetr
   const validDraft = Boolean(draft && C.GuidedResearchRuntimeDraft.safeParse(draft).success);
   if (!state || state.sessionId !== sessionId) return <GuidedResearchSixStepShell current={routeStage ?? "import"} available={[]} onBack={onBack} onNavigate={() => undefined} main={<div role="status" className="p-4">{t(error ?? "research.session.restoring")}{error && <Button variant="outline" onClick={() => { setLoadAttempt((attempt) => attempt + 1); onLoadRetry?.(); }}>{t("research.session.retryLoad")}</Button>}</div>} />;
   const latestRecoveryDraft = recovery?.synchronized ? draftOf(state, recovery.node) : null;
+  const creditNotice = creditGuidance(agentRunCreditFailure(state.errorCode, state.creditFailure));
   const proposal = !state.busy && !state.errorCode && state.proposal?.version === state.version && state.proposal.draft.node === node ? state.proposal : null;
   const proposalEdited = Boolean(proposal && JSON.stringify(draft) !== JSON.stringify(proposal.draft));
   const displayReport = draft?.node === "report" ? draft.value : state.report;
@@ -581,7 +584,8 @@ return <GuidedResearchSixStepShell researchName={guidedResearchHeading(state, re
         {recovery.draft && <Button variant="outline" disabled={!recovery.synchronized || processing || !state.availableNodes.includes(recovery.node)} onClick={() => finishRecovery(true)}>{node === "report" ? t("research.recovery.editContent") : t("research.recovery.editDraft")}</Button>}
       </div>
     </div></details>}
-    {(error || (node === state.currentNode && state.errorCode)) && <p role="alert" className="text-12 text-destructive">{state.sourcePolicy?.mode === "materials" && state.errorCode === "RESEARCH_SOURCES_REQUIRED" ? "本次材料不足以支持研究结论。当前已保留材料范围，未联网补充；请补充可核验材料后继续。" : t(error ?? errors[state.errorCode!] ?? "research.error.previous")}</p>}
+    {creditNotice && <CreditFailureDetails notice={creditNotice} />}
+    {!creditNotice && (error || (node === state.currentNode && state.errorCode)) && <p role="alert" className="text-12 text-destructive">{state.sourcePolicy?.mode === "materials" && state.errorCode === "RESEARCH_SOURCES_REQUIRED" ? "本次材料不足以支持研究结论。当前已保留材料范围，未联网补充；请补充可核验材料后继续。" : t(error ?? errors[state.errorCode!] ?? "research.error.previous")}</p>}
     {!readingReport && node !== "research" && state.legacyCheckpoint && <details className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-12 text-muted-foreground"><summary>{t("research.legacy.heading")}</summary><p className="mt-2">{t("research.legacy.status", { status: t(state.legacyCheckpoint.status === "completed" ? "ui.completed" : "ui.inProgress") })}</p><p>{t("research.legacy.topic", { topic: state.legacyCheckpoint.brief.topic })}</p><ul>{state.legacyCheckpoint.directions.versions.at(-1)?.items.map((item) => <li key={item.id}>{item.title}：{item.description}</li>)}</ul><ul>{state.legacyCheckpoint.outline.versions.at(-1)?.items.map((item) => <li key={item.id}>{item.title}：{item.questions.join("；")}</li>)}</ul></details>}
     {expired && !recovery && !error && !state.errorCode && <p role="alert" className="text-12 text-destructive">{t("research.live.interrupted")}</p>}
         {reportVisible && !processing && !readingReport && <GuidedResearchEvidenceWarning state={state} />}
