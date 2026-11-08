@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, within, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CreateSurveyDialog } from "@/components/survey/live/create-survey-dialog";
+import SurveyPage from "@/app/studio/survey/page";
 import { LiveSurveyLibrary } from "@/components/survey/live/survey-library";
 
 const request = vi.hoisted(() => vi.fn());
@@ -264,3 +265,14 @@ describe("template load cancellation", () => {
     expect(request).toHaveBeenCalledTimes(2);
   });
 });
+
+ it("opens the shared creation choices immediately for a project creation entry without creating a survey", async () => {
+ request.mockResolvedValue([]);
+ render(<SurveyPage searchParams={{projectId:"p1",create:"1"}} />);
+ expect(await screen.findByRole('dialog')).toBeInTheDocument();
+ expect(screen.getByText('空白创建')).toBeInTheDocument();
+ expect(screen.getByText('AI 导入创建')).toBeInTheDocument();
+ expect(screen.getByText('从模板创建')).toBeInTheDocument();
+ expect(request.mock.calls.every(([path])=>path==='/surveys')).toBe(true);
+ expect(push).not.toHaveBeenCalled();
+ });

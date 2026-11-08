@@ -43,3 +43,5 @@ description: 问卷创建、模板、题目编辑、发布、填写和结果分�
 
 谁修改本模块，谁在 PR 中追加可验证经验；不删除旧条目，推翻时注明替代来源。
 - 2026-10-13：问卷 AI 导入可复用 `InterviewVoiceInput`，将 `onPreview` 仅投影到需求框，`onAppend` 落定后以函数式更新追加原文，`onBusyChange` 同时门控生成与文件/录音选择；不需要另造 ASR 或修改 proposal API。证据：issue #5660、`survey-inline-voice.test.tsx` 与 `survey-complete-flow.spec.ts` 的 inline 录音/保存链；受控浏览器音频与回环 ASR 不等于真人供应商证据。
+
+- #6420：项目新建问卷入口使用 `/studio/survey?create=1&projectId=…`，由问卷页面打开组织同款创建方式弹窗；不能直接跳 `/studio/survey/new` 而跳过方式选择。验证：project-resource-section 与 survey-live-library 的真实页面初始化回归。

@@ -57,7 +57,7 @@ const KIND_META: Record<ProjectResearchSub, {
     resourceKind: "survey",
     icon: ClipboardList,
     meta: "projectResources.meta.survey",
-    newHref: "/studio/survey/new",
+    newHref: "/studio/survey?create=1",
     detailHref: (id) => `/studio/survey/${encodeURIComponent(id)}`,
     candidates: async () => (await surveyRequest<SurveyRuntime[]>("/surveys"))
       .map((s) => ({ id: s.id, title: s.title, updatedAt: s.updatedAt })),
