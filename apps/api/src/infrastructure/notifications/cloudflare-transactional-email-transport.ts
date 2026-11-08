@@ -90,6 +90,30 @@ export function lazyTransactionalMailConfig(
 // 错误类挪到了端口层（调用方按类别映射契约码时只能依赖端口）；这里 re-export 保持既有 import 路径可用。
 export { TransactionalMailError };
 
+/** The REST envelope can succeed while this recipient bounced or was suppressed.
+ * This mirrors verification mail's recipient checks without changing that auth path.
+ * Queued means provider acceptance, never confirmed inbox placement. */
+function recipientDeliveryResult(body: unknown, recipient: string): TransactionalMailResult {
+  const invalid = (): never => { throw new TransactionalMailError("provider_invalid_response"); };
+  const strings = (value: unknown): value is string[] => Array.isArray(value) && value.every((item) => typeof item === "string");
+  if (typeof body !== "object" || body === null) return invalid();
+  const envelope = body as { success?: unknown; result?: unknown };
+  if (envelope.success !== true || typeof envelope.result !== "object" || envelope.result === null) return invalid();
+  const result = envelope.result as Record<string, unknown>;
+  if (!strings(result.permanent_bounces)) return invalid();
+  if (result.permanent_bounces.includes(recipient)) throw new TransactionalMailError("provider_permanent_bounce");
+  // Older REST responses omit suppression metadata. When present, it must be valid.
+  if (result.suppressed_recipients !== undefined) {
+    if (!strings(result.suppressed_recipients)) return invalid();
+    if (result.suppressed_recipients.includes(recipient)) throw new TransactionalMailError("provider_suppressed");
+  }
+  if (!strings(result.delivered) || !strings(result.queued)) return invalid();
+  if ([...result.delivered, ...result.queued].filter((value) => value === recipient).length !== 1) return invalid();
+  return typeof result.message_id === "string" && result.message_id.trim().length > 0
+    ? { providerMessageId: result.message_id }
+    : {};
+}
+
 export class CloudflareTransactionalEmailTransport implements TransactionalMailTransport {
   constructor(
     private readonly config: TransactionalMailConfig,
@@ -160,11 +184,8 @@ export class CloudflareTransactionalEmailTransport implements TransactionalMailT
       if (!response.ok) {
         throw new TransactionalMailError(`provider_http_${response.status}`);
       }
-      const body = (await response.json().catch(() => ({}))) as { success?: boolean };
-      if (body.success !== true) {
-        throw new TransactionalMailError("provider_invalid_response");
-      }
-      return {};
+      const body: unknown = await response.json().catch(() => null);
+      return recipientDeliveryResult(body, message.to);
     };
     try {
       return await Promise.race([operation(), timedOut]);

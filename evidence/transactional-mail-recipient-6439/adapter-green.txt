@@ -1,0 +1,124 @@
+TAP version 13
+# Subtest: delivered
+ok 1 - delivered
+  ---
+  duration_ms: 4.736334
+  type: 'test'
+  ...
+# Subtest: queued
+ok 2 - queued
+  ---
+  duration_ms: 1.164625
+  type: 'test'
+  ...
+# Subtest: optional-id
+ok 3 - optional-id
+  ---
+  duration_ms: 0.435625
+  type: 'test'
+  ...
+# Subtest: empty-suppression
+ok 4 - empty-suppression
+  ---
+  duration_ms: 0.600458
+  type: 'test'
+  ...
+# Subtest: foreign-recipient
+ok 5 - foreign-recipient
+  ---
+  duration_ms: 2.487333
+  type: 'test'
+  ...
+# Subtest: bounce
+ok 6 - bounce
+  ---
+  duration_ms: 0.839792
+  type: 'test'
+  ...
+# Subtest: bounce-overrides-delivered
+ok 7 - bounce-overrides-delivered
+  ---
+  duration_ms: 1.653417
+  type: 'test'
+  ...
+# Subtest: suppression
+ok 8 - suppression
+  ---
+  duration_ms: 0.473709
+  type: 'test'
+  ...
+# Subtest: suppression-overrides-delivered
+ok 9 - suppression-overrides-delivered
+  ---
+  duration_ms: 4.796459
+  type: 'test'
+  ...
+# Subtest: success-without-result
+ok 10 - success-without-result
+  ---
+  duration_ms: 2.869334
+  type: 'test'
+  ...
+# Subtest: null-envelope
+ok 11 - null-envelope
+  ---
+  duration_ms: 0.608292
+  type: 'test'
+  ...
+# Subtest: null-result
+ok 12 - null-result
+  ---
+  duration_ms: 0.340416
+  type: 'test'
+  ...
+# Subtest: missing-queued
+ok 13 - missing-queued
+  ---
+  duration_ms: 0.577083
+  type: 'test'
+  ...
+# Subtest: malformed-delivered
+ok 14 - malformed-delivered
+  ---
+  duration_ms: 0.507375
+  type: 'test'
+  ...
+# Subtest: malformed-bounces
+ok 15 - malformed-bounces
+  ---
+  duration_ms: 0.208792
+  type: 'test'
+  ...
+# Subtest: malformed-suppression
+ok 16 - malformed-suppression
+  ---
+  duration_ms: 0.20775
+  type: 'test'
+  ...
+# Subtest: no-target
+ok 17 - no-target
+  ---
+  duration_ms: 0.29
+  type: 'test'
+  ...
+# Subtest: duplicate-target
+ok 18 - duplicate-target
+  ---
+  duration_ms: 0.194125
+  type: 'test'
+  ...
+# Subtest: contradictory-target
+ok 19 - contradictory-target
+  ---
+  duration_ms: 0.336375
+  type: 'test'
+  ...
+1..19
+# tests 19
+# suites 0
+# pass 19
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 911.402042
