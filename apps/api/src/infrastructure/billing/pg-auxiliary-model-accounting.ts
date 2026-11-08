@@ -1,5 +1,4 @@
 import {CreditRequiredReason} from "@repo/contracts/billing-consumption";
-import {PgCreditConsumption} from './pg-credit-consumption';
 import {randomUUID,createHash} from 'node:crypto';
 import {z} from 'zod';
 import {AuxiliaryModelAdmission,AuxiliaryModelStart,AuxiliaryModelTerminal} from '@repo/contracts/auxiliary-model-accounting';
@@ -18,8 +17,11 @@ export class PgAuxiliaryModelAccounting {
   const row=await this.db.withTenant(orgId,async s=>(await s.query<{user_id:string}>('SELECT user_id FROM auxiliary_model_operations WHERE org_id=$1 AND id=$2',[orgId,id])).rows[0]);
   if(!row)throw this.denied(orgId);
   if(admittedPayer&&!((admittedPayer.ownerType==='user'&&admittedPayer.ownerId===row.user_id)||(admittedPayer.ownerType==='team'&&admittedPayer.ownerId===orgId)))throw this.denied(orgId);
-  const payer=admittedPayer??await new PgCreditConsumption(this.db).resolvePayer(orgId,row.user_id);
   const validated=CreditRequiredReason.safeParse(reason);
+  // A stable member-quota refusal identifies this operation's organization. Other
+  // legacy errors cannot reconstruct their admitted wallet from today's plan.
+  const payer=admittedPayer??(code==='credit_required'&&validated.success?{ownerType:'team' as const,ownerId:orgId}:undefined);
+  if(!payer)return new CreditConsumptionError('credit_accounting_unavailable','team',orgId,'auxiliary_credit_payer_unconfirmed');
   return new CreditConsumptionError(code,payer.ownerType,payer.ownerId,undefined,code==='credit_required'&&validated.success?validated.data:undefined);
  }
  async close(orgId:OrgId,id:string){await this.db.withTenant(orgId,s=>s.query('UPDATE auxiliary_model_operations SET closed_at=COALESCE(closed_at,now()) WHERE org_id=$1 AND id=$2',[orgId,id]));}

@@ -245,7 +245,7 @@ export class AgentRunController {
       } else if (outcome.kind === "paused" || outcome.kind === "cancelled") {
         write({ type: "final", status: outcome.kind });
       } else if (outcome.kind === "failed") {
-        write({ type: "final", status: "failed", error: outcome.error });
+        write({ type: "final", status: "failed", error: outcome.error,...(outcome.creditFailure?{creditFailure:outcome.creditFailure}:{}) });
       } else {
         write({ type: "timeout" });
       }

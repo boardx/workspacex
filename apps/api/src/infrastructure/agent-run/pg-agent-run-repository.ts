@@ -1,3 +1,6 @@
+import {CreditRequiredBody} from "@repo/contracts/billing-consumption";
+import {ownedRunCreditFailure} from "../../application/agent-run/run-credit-failure";
+import {CreditConsumptionError} from "../../application/billing/credit-consumption";
 import { SkillActivityFact } from "@repo/contracts/skill-activity";
 import { resolveReportFilePolicyProject } from '../report-files/pg-report-file-policy-project';
 import { DEFAULT_STALE_RUNNING_THRESHOLD_MS } from "../../application/agent-run/ports";
@@ -62,6 +65,7 @@ interface RunRow {
   recovery_diagnostic?: string | null;
   /** issue #3211 ①：终态失败成因（有界枚举，见契约 `AgentRunFailureReason`）。 */
   failure_reason?: string | null;
+  credit_failure?:unknown;
   cancel_requested_at?: Date | null;
   id: string; thread_id: string; project_id: string; input_message_id: string;
   agent_id: string; agent_version_id: string; skill_version_ids: unknown;
@@ -637,12 +641,20 @@ export class PgAgentRunRepository implements AgentRunStore {
 
   // issue #3211 ①：`reason` 是「为什么」，与 `code`「哪一类终态」正交。缺席写 NULL——
   // 老调用点不写理由时，界面回落到只按 code 说话，与改动前逐字相同。
-  async failRun(orgId: OrgId, runId: string, code: RunFailureCode, reason?: RunFailureReason): Promise<void> {
+  async failRun(orgId: OrgId, runId: string, code: RunFailureCode, reason?: RunFailureReason, creditFailure?:RunProjection["creditFailure"]): Promise<void> {
     await this.db.withTenant(orgId, async (s) => {
+      let safe:RunProjection['creditFailure'];
+      if(creditFailure){
+       if(code!=='CREDIT_REQUIRED')throw new Error('invalid_run_credit_failure');
+       const value=CreditRequiredBody.parse(creditFailure);
+       const row=(await s.query<{user_id:string}>(`SELECT m.author_id AS user_id FROM agent_runs r JOIN chat_messages m ON m.org_id=r.org_id AND m.id=r.input_message_id WHERE r.org_id=$1 AND r.id=$2`,[orgId,runId])).rows[0];
+       const bound=ownedRunCreditFailure(new CreditConsumptionError('credit_required',value.ownerType,value.ownerId,undefined,value.reason),row?.user_id,orgId);
+       if(!bound?.creditFailure){code='CREDIT_ACCOUNTING_UNAVAILABLE';}else safe=bound.creditFailure;
+      }
       await s.query(
-        `UPDATE agent_runs SET status='failed', error_code=$3, failure_reason=$4, ended_at=now()
+        `UPDATE agent_runs SET status='failed', error_code=$3, failure_reason=$4, credit_failure=$5::jsonb, ended_at=now()
           WHERE org_id=$1 AND id=$2 AND status NOT IN ('succeeded','failed','cancelled')`,
-        [orgId, runId, code, reason ?? null],
+        [orgId, runId, code, reason ?? null,safe?JSON.stringify(safe):null],
       );
     });
   }
@@ -1138,7 +1150,7 @@ export class PgAgentRunRepository implements AgentRunStore {
       const run = await s.query<RunRow>(
         `SELECT r.id, r.thread_id, t.project_id, r.input_message_id, r.agent_id,
                 r.agent_version_id, r.skill_version_ids, r.model_provider, r.model_id,
-                r.status, r.error_code, r.failure_reason, r.created_at, r.cancel_requested_at, r.recovery_diagnostic, reply.id AS result_message_id,
+                r.status, r.error_code, r.failure_reason,r.credit_failure, r.created_at, r.cancel_requested_at, r.recovery_diagnostic, reply.id AS result_message_id,
                 r.pending_tool_name, r.pending_args_summary, r.pending_permission_request_id, r.pending_interrupt,
                 r.permission_decision_count, r.last_permission_decision,
                 r.pending_decision, r.pending_edited_args, r.resolved_approvals
@@ -1191,7 +1203,9 @@ export class PgAgentRunRepository implements AgentRunStore {
       return { row, steps: steps.rows };
     });
     if (found === null) return null;
+    const parsedCredit=CreditRequiredBody.safeParse(found.row.credit_failure);
     const projection: RunProjection = {
+      ...(found.row.status==='failed'&&found.row.error_code==='CREDIT_REQUIRED'&&parsedCredit.success?{creditFailure:parsedCredit.data}:{}),
       runId: found.row.id,
       threadId: found.row.thread_id,
       inputMessageId: found.row.input_message_id,

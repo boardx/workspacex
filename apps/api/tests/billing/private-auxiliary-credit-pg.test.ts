@@ -28,7 +28,7 @@ it('expired operation cannot admit a new physical request',async()=>{const op=aw
 it('refuses an operation with no persisted payer membership',async()=>{const op=await usage.open(org,'absent-actor','private-model');await expect(usage.admit(org,op.operationId,request(randomUUID(),op.operationId))).rejects.toMatchObject({code:'credit_accounting_unavailable'});});
 
 it('private credit refusal restores trusted recharge guidance, never matching arbitrary vendor text',async()=>{
- const refusal=new ModelCallError('CREDIT_REQUIRED','private_credit_required');
+ const refusal=new ModelCallError('CREDIT_REQUIRED','private_credit_required',undefined,undefined,undefined,undefined,{ownerType:'team',ownerId:org});
  const run=(error:ModelCallError)=>withCreditSubject({orgId:org,userId:user},()=>creditModelGateway({supportsRequestAccounting:()=>true,complete:async()=>{throw error;}},db,{record:async()=>{}}).complete({modelProvider:'deep-agent',modelId:'private-model',system:'system',user:'trial'}));
  await expect(run(refusal)).rejects.toMatchObject({code:'credit_required',ownerType:'team',ownerId:org,rechargePath:`/billing?ownerType=team&ownerId=${org}&purchase=1`});
  const arbitrary=new ModelCallError('MODEL_CALL_FAILED','credit_required');await expect(run(arbitrary)).rejects.toBe(arbitrary);

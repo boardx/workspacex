@@ -28,7 +28,7 @@ export class PgCreditConsumption {
  async reserveInSession(s:TenantSession,orgId:OrgId,input:Start):Promise<void>{
   const at=this.clock();
   // Every financial path takes the organization before wallets, including personal fallback.
-  await lockTeamFinancialOwner(s,orgId);
+  if(!await lockTeamFinancialOwner(s,orgId))throw new CreditConsumptionError("credit_accounting_unavailable","team",orgId,"credit_organization_not_writable");
   let p=await this.payer(s,orgId,input.userId);
   const immutable={orgId,userId:input.userId,runId:input.runId,modelProvider:input.modelProvider,modelId:input.modelId,executionAttemptId:input.executionAttemptId,projectId:input.projectId,threadId:input.threadId??null,agentId:input.agentId??null,callPurpose:input.callPurpose??null};
   const old=(await s.query<Request>("SELECT * FROM credit_consumption_requests WHERE request_id=$1",[input.requestId])).rows[0];

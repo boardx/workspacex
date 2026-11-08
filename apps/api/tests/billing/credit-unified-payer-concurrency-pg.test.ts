@@ -193,3 +193,25 @@ it.each(['membership','organization'] as const)('revoked %s stops continuation w
   await asOwner(c=>boundary==='membership'?c.query("INSERT INTO org_memberships(org_id,user_id,org_role) VALUES($1,$2,'admin')",[unpaid,user]):c.query("UPDATE organizations SET status='active',disabled_at=NULL,retention_until=NULL WHERE id=$1",[unpaid]));
  }
 });
+
+it("disabled organization cannot create a new personal reservation",async()=>{
+ await reserve(unpaid,'already-dispatched');
+ await asOwner(c=>c.query("UPDATE organizations SET status='disabled',disabled_at=now(),retention_until=now()+interval '30 days' WHERE id=$1",[unpaid]));
+ try{
+  await expect(reserve(unpaid,'disabled-new')).rejects.toMatchObject({code:'credit_accounting_unavailable'});
+  expect(await owner('disabled-new')).toBeUndefined();
+  await settle(unpaid,'already-dispatched');
+  expect(await owner('already-dispatched')).toMatchObject({state:'settled',owner_type:'user',owner_id:user});
+ }finally{await asOwner(c=>c.query("UPDATE organizations SET status='active',disabled_at=NULL,retention_until=NULL WHERE id=$1",[unpaid]));}
+});
+it("row security off refuses filtered backfill visibility without bypass",async()=>{
+ await reserve(unpaid,'visibility');
+ const role=await db.withTenant(unpaid,async s=>(await s.query<{rolbypassrls:boolean}>("SELECT rolbypassrls FROM pg_roles WHERE rolname=current_user")).rows[0]);
+ expect(role?.rolbypassrls).toBe(false);
+ const table=await asOwner(async c=>(await c.query("SELECT relforcerowsecurity FROM pg_class WHERE oid='public.credit_consumption_requests'::regclass")).rows[0]);
+ expect(table.relforcerowsecurity).toBe(true);
+ await expect(db.withTenant(unpaid,async s=>{
+  await s.query("SET LOCAL row_security=off");
+  await s.query("SELECT SUM(GREATEST(reserved_hundredths-COALESCE(debited_hundredths,0),0)) FROM public.credit_consumption_requests WHERE state<>'settled'");
+ })).rejects.toMatchObject({code:'42501'});
+});

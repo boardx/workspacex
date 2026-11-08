@@ -9,3 +9,7 @@ it('auxiliary refusal uses the actual personal fallback payer, not a new organiz
 it.each([{ownerType:'user',ownerId:'other-user'},{ownerType:'team',ownerId:'other-org'}] as const)('rejects a private payer outside the owned operation: %s',async payer=>{
  await expect(new PgAuxiliaryModelAccounting(db as never).failure(toOrgId('owned-org'),'op','credit_required',undefined,payer)).rejects.toMatchObject({code:'credit_accounting_unavailable'});
 });
+it('legacy private errors without payer identity never infer a recharge account from the current plan',async()=>{
+ const failure=await new PgAuxiliaryModelAccounting(db as never).failure(toOrgId('owned-org'),'op','credit_required');
+ expect(failure).toMatchObject({code:'credit_accounting_unavailable'});
+});

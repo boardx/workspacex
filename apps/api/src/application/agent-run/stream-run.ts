@@ -53,7 +53,7 @@ export interface StreamRunInput {
 export type StreamRunOutcome =
   | { readonly kind: "paused" | "cancelled" }
   | { readonly kind: "succeeded"; readonly resultMessageId: string | null }
-  | { readonly kind: "failed"; readonly error: string | null }
+  | { readonly kind: "failed"; readonly error: string | null;readonly creditFailure?: import("./ports").RunProjection["creditFailure"] }
   | { readonly kind: "timeout" };
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
@@ -101,7 +101,7 @@ export async function streamAgentRunDeltas(
     }
     if (projection.status === "failed") {
       await flushRemainingDeltas();
-      return { kind: "failed", error: projection.error };
+      return { kind: "failed", error: projection.error,...(projection.creditFailure?{creditFailure:projection.creditFailure}:{}) };
     }
     await sleep(pollIntervalMs);
   }

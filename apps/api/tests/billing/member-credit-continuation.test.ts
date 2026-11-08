@@ -1,4 +1,3 @@
-import {BILLING_ACCOUNTING_GENERATION as requireGeneration} from "../../src/domain/billing/billing-generation";
 import {it,expect,vi} from 'vitest';
 import {RealtimeVoiceAccounting} from '../../src/application/chat/realtime-voice-accounting';
 import {CreditConsumptionError} from '../../src/application/billing/credit-consumption';
@@ -32,7 +31,7 @@ it('preserves only allowlisted monthly-limit reasons across authenticated privat
  expect(()=>throwPrivateCreditFailure({error:'CreditRuntimeUsageError',message:'credit_required',reason:'member_monthly_limit'})).toThrow(expect.objectContaining({creditReason:'member_monthly_limit'}));
 });
 it('auxiliary reconstruction preserves validated reason with canonical payer',async()=>{
- const query=vi.fn(async(sql:string)=>({rows:sql.includes('auxiliary_model_operations')?[{user_id:'user'}]:sql.includes('organization_plans')?[{kind:'organization',plan:'enterprise',billing_generation:requireGeneration}]:[{kind:'organization'}]}));
+ const query=vi.fn(async()=>({rows:[{user_id:'user'}]}));
  const db={withTenant:async(_org:unknown,work:(s:unknown)=>unknown)=>work({query})} as unknown as DatabasePort;
  const billing=new PgAuxiliaryModelAccounting(db);
  expect(await billing.failure(principal.orgId,'operation','credit_required','member_monthly_limit')).toMatchObject({ownerType:'team',ownerId:'org',reason:'member_monthly_limit'});

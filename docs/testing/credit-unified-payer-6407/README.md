@@ -30,9 +30,9 @@ flowchart TD
   class S2 tested
   %% evidence S2: Final isolated payer/concurrency matrix: 15 passed
   class S3 tested
-  %% evidence S3: Typed runtime/audio, policy-stop finalization and UI verification passed
+  %% evidence S3: Main-run persistence + real HTTP polling/SSE and restart/viewer isolation:48 passed; public/UI and persisted Panel recovery verified
   class S4 tested
-  %% evidence S4: Final API TypeScript and reviewed lint exit 0; runtime53, PG authority15 and integrated WS verified
+  %% evidence S4: Ordinary API and web TypeScript exit0, API lint exit0, real network48/runtime59/UI38 and admission17 passed
   class S5 todo
 ```
 
@@ -64,3 +64,11 @@ Latest evidence:
 - Finalization counterexamples: 2 failed before the fix; final focused unit suite 7 passed, including `null` receipt rejection remaining unknown.
 - Full billing discovery run earlier: 109 files, 820 passed / 36 failed / 3 skipped, plus a failed fixture setup. This is retained as a diagnostic run, not a passing claim. Rule-conflicting expectations were updated with explicit Enterprise or funded personal fixtures. Independent baseline historical replay and global catalog pollution repairs are tracked in PR #6413 and issue #6414.
 - Normal mixed-version compatibility preserves old gross accounting and maintains the additive projection. Old admission code still follows its old product policy until all instances run the new code; the new strict admission guarantee applies to the updated entry point.
+
+Independent review reopened transport/UI integration: the main public Chat run previously retained only the Credit error code. Persisted, requester-bound `creditFailure` must survive polling, restart, and public SSE; another viewer must not receive the requester's personal recharge action. Poll/SSE UI counterexamples initially failed 3 cases and now pass alongside existing notice regressions; backend persistence and public projection validation remain in progress. Accounting outages ignore stale recharge metadata, legacy ownerless failures never invent a payer, and monthly-limit stops never become a payment instruction.
+
+The public-run review gap is now verified in the ordinary shared environment without test-only aliases: 6 PostgreSQL/real-HTTP projection cases plus 42 executor cases passed. Real `AgentRunController` and `PrincipalGuard` serve polling and SSE before and after app restart; requester guidance persists, authorized coworkers retain visibility without personal scope, anonymous reads return 401, and observer calls dispatch no model or executor. The actual Chat panel recovers the inline personal recharge entry from persisted messages after remount without resubmission. API runtime regression including legacy failure-call compatibility: 59 passed.
+
+Admission now rejects a non-writable organization directly at the canonical entry. The migration schema-qualifies its locks and uses `SET LOCAL row_security=off` as a fail-closed visibility assertion, not a privilege bypass: an actual role without BYPASSRLS is rejected with 42501 instead of silently backfilling from tenant-filtered rows. The final 17-case admission matrix passed; incurred receipts still settle after disablement. The migration runner executes each file inside BEGIN/COMMIT with rollback on failure; production role readiness remains a release check, not a claim made by these tests.
+
+Final auxiliary compatibility check no longer reconstructs a payer from the current plan when a legacy private error lacks wallet identity. Only an explicitly bound payer, or the stable organization monthly-limit reason, can produce scoped guidance; otherwise accounting identity is unconfirmed and no recharge instruction is produced. The added counterexample failed before the fix; final runtime suite 60 passed and real auxiliary PostgreSQL suite 5 passed. Final API and web TypeScript checks exited 0.

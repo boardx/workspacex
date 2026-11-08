@@ -1,11 +1,14 @@
+const creditAdmissionZh = "企业组织先使用成员月度额度，不足时整次新请求改用个人 Credit；其他组织直接使用个人 Credit。个人可用额度不足时不发起请求。已发起请求保持原付款方，按实际用量结算。";
+const creditAdmissionEn = "Enterprise organizations use member monthly allowance first; insufficient allowance routes the entire new request to personal Credit. Other organizations use personal Credit directly. Insufficient personal capacity blocks dispatch. Started requests keep their payer and settle actual usage.";
+
 export const platformOpsStatusZhCN = {
   "platformOps.consumption.readFailed": "暂时无法读取消费设置，请重试。",
   "platformOps.consumption.saved": "设置已保存，仅对新的模型调用生效。",
   "platformOps.consumption.saveFailed": "设置未保存，仍沿用上次确认的状态。",
   "platformOps.consumption.label": "模型消费设置",
   "platformOps.consumption.title": "模型消费设置 · 整个部署",
-  "platformOps.consumption.fixedPolicy": "企业组织先使用成员月度额度，不足时整次新请求改用个人 Credit；其他组织直接使用个人 Credit。个人可用额度不足时不发起请求。已发起请求保持原付款方，按实际用量结算。",
-  "platformOps.consumption.policy": "开启后，调用模型前必须有足够可用额度；额度不足时引导充值。关闭后仍记录用量与扣费，不足部分记录为待结算欠额。仅平台管理员可以修改。",
+  "platformOps.consumption.fixedPolicy": creditAdmissionZh,
+  "platformOps.consumption.policy": `${creditAdmissionZh}此历史开关不会绕过固定准入规则。`,
   "platformOps.consumption.loading": "正在读取设置…",
   "platformOps.consumption.toggle": "使用模型前验证可用额度",
   "platformOps.consumption.saving": "正在保存…",
@@ -150,8 +153,8 @@ export const platformOpsStatusEn: Record<keyof typeof platformOpsStatusZhCN, str
   "platformOps.consumption.saveFailed": "Settings were not saved. The last confirmed state still applies.",
   "platformOps.consumption.label": "Model consumption settings",
   "platformOps.consumption.title": "Model consumption settings · Entire deployment",
-  "platformOps.consumption.fixedPolicy": "Enterprise organizations use member monthly allowance first; insufficient allowance routes the entire new request to personal Credit. Other organizations use personal Credit directly. Insufficient personal capacity blocks dispatch. Started requests keep their payer and settle actual usage.",
-  "platformOps.consumption.policy": "When enabled, sufficient available credit is required before calling a model; insufficient credit prompts a top-up. When disabled, usage and charges are still recorded, and any shortfall is recorded as unsettled debt. Only platform administrators can change this.",
+  "platformOps.consumption.fixedPolicy": creditAdmissionEn,
+  "platformOps.consumption.policy": `${creditAdmissionEn} This legacy switch cannot bypass the fixed admission policy.`,
   "platformOps.consumption.loading": "Loading settings…",
   "platformOps.consumption.toggle": "Check available credit before using a model",
   "platformOps.consumption.saving": "Saving…",

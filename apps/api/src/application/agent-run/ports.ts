@@ -309,6 +309,7 @@ export interface RunDelta {
 
 /** What `GET /agent-runs/:runId` projects, once the requester has been cleared. */
 export interface RunProjection {
+  readonly creditFailure?: z.infer<typeof import("@repo/contracts/billing-consumption").CreditRequiredBody>;
   /** issue #3211 ①：终态失败的成因枚举；非失败或读不到时 `null`。 */
   readonly failureReason?: RunFailureReason | null;
   readonly recoveryDiagnostic?: string | null;
@@ -550,7 +551,7 @@ export interface AgentRunStore {
    * issue #3211 ①：`reason` 是**为什么**（有界枚举，见契约 `AgentRunFailureReason`），
    * 与 `code`（哪一类终态）是两件事。缺省不写 —— 老调用点行为不变。
    */
-  failRun(orgId: OrgId, runId: string, code: RunFailureCode, reason?: RunFailureReason): Promise<void>;
+  failRun(orgId: OrgId, runId: string, code: RunFailureCode, reason?: RunFailureReason, creditFailure?: RunProjection["creditFailure"]): Promise<void>;
 
   /**
    * DA-07b：running → awaiting_tool_permission，同时落等待裁决的工具摘要。

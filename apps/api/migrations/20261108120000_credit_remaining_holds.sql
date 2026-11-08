@@ -1,5 +1,6 @@
 -- Additive occupancy: legacy gross holds and receipt semantics remain unchanged.
-LOCK TABLE credit_wallets, credit_consumption_requests IN ACCESS EXCLUSIVE MODE NOWAIT;
+SET LOCAL row_security=off;
+LOCK TABLE public.credit_wallets, public.credit_consumption_requests IN ACCESS EXCLUSIVE MODE NOWAIT;
 ALTER TABLE public.credit_wallets ADD COLUMN IF NOT EXISTS remaining_held_hundredths bigint NOT NULL DEFAULT 0 CHECK(remaining_held_hundredths>=0);
 CREATE OR REPLACE FUNCTION public.kernel_credit_remaining_hold_delta() RETURNS trigger
 LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog,public,pg_temp AS $$
