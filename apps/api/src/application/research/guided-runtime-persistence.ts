@@ -21,7 +21,7 @@ export function toPublicResearchRuntime(state: unknown, viewerUserId?: string) {
   const input = state as Record<string, unknown>;
   const result = C.GuidedResearchRuntime.parse(Object.fromEntries(C.GuidedResearchRuntime.keyof().options.map(key => [key, input[key]])));
   if (result.creditFailure) {
-    const filtered = creditFailureForViewer({ status: result.busy ? "running" : "failed", error: result.errorCode ?? undefined, creditFailure: result.creditFailure }, viewerUserId ?? "");
+    const filtered = creditFailureForViewer({ status: result.busy ? "running" : "failed", error: result.errorCode, creditFailure: result.creditFailure }, viewerUserId ?? "");
     result.creditFailure = filtered.creditFailure ?? null;
   }
   return result;
