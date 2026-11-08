@@ -275,7 +275,7 @@ export const en: Record<keyof typeof zhCN, string> = {
   "navigation.templates": "Templates",
   "navigation.skills": "Skills and marketplace",
   "navigation.agent-runtime": "Agent runtime",
-  "navigation.org-admin": "Organization admin",
+  "navigation.org-admin": "Organization",
   "navigation.asset-governance": "Asset Governance",
   "navigation.agent-interrupts": "Agent Interrupts",
   "navigation.plan-control": "Plan Control",
