@@ -1,0 +1,20 @@
+{
+  "desktop": {
+    "popupOpens": true,
+    "searchFilters": true,
+    "selectionCloses": true,
+    "focusedQuestion": "outline-2",
+    "overflow": false,
+    "reorderFirst": "outline-2",
+    "undoFirst": "outline-1",
+    "questionCount": 16
+  },
+  "mobile": {
+    "width": 375,
+    "popupLeft": 16,
+    "popupRight": 359,
+    "overflow": false,
+    "escapeFocus": "题目大纲"
+  },
+  "boundary": "Real local browser against temporary preview with 16 synthetic questions; no API writes or production acceptance."
+}
