@@ -2,7 +2,7 @@ name: Enable protected PR auto-merge
 on:
   pull_request_target:
     branches: [develop]
-    types: [opened, reopened, synchronize, ready_for_review]
+    types: [opened, reopened, synchronize, ready_for_review, edited]
 permissions:
   contents: write
   pull-requests: write
