@@ -83,3 +83,13 @@ it("retranslates a persisted mount-list permission failure without issuing anoth
   expect(listMounts).toHaveBeenCalledTimes(reads);
   expect(mount).not.toHaveBeenCalled();
 });
+
+it('shows authored skill names and published descriptions and searches their purpose',async()=>{
+ const row=skills.SkillListItem.parse({skillId:'skill-kb',name:'S190',duty:'以文件形式管理',taskDescription:'将已解决的问题整理成可检索的帮助文章',status:'已启用',source:'自建',visibility:'org-wide',currentVersionId:'version-kb',satisfaction:null});
+ listMounts.mockResolvedValue({temporary:[],version:'fingerprint'});listSkills.mockResolvedValue([row]);mount.mockResolvedValue(undefined);
+ render(<I18nProvider initialLocale="zh-CN"><ChatSkillMountPanel threadId="thread-kb" orgId="org-kb" bearer="fixture" variant="composer" mentionQuery="可检索"/></I18nProvider>);
+ const option=await screen.findByTestId('chat-skill-mount-option-skill-kb');
+ expect(option.textContent).toContain('知识库文章');expect(option.textContent).toContain(row.taskDescription);
+ expect(option.textContent).not.toContain('S190');expect(option.textContent).not.toContain('还没有填写说明');
+ fireEvent.click(option);await waitFor(()=>expect(mount).toHaveBeenCalledWith('thread-kb',undefined,{skillIds:['skill-kb'],expectedVersion:'fingerprint'},'fixture'));
+});

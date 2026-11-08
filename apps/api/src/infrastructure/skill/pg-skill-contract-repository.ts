@@ -322,11 +322,14 @@ export class ScopedPgSkillContractRepository
       // PLATFORM_ORG_ID` 的行里，任何组织都要能在自己的目录里看到它们，不需要
       // 逐个导入（RLS 侧的对应放行是 `skill_versions_platform_read` 等四条
       // `_platform_read` 策略）。
-      const wave2Rows = await s.query<{ id: string; name: string; org_id: string; stable_name: string | null; current_version_id: string | null }>(
+      const wave2Rows = await s.query<{ id: string; name: string; org_id: string; stable_name: string | null; task_description: string | null; current_version_id: string | null }>(
         `SELECT sk.id, sk.name, sk.org_id, sk.stable_name,
+                (SELECT sv.manifest->>'description' FROM skill_versions sv
+                  WHERE sv.skill_id=sk.id AND sv.org_id=sk.org_id AND sv.published
+                  ORDER BY sv.created_at DESC, sv.id DESC LIMIT 1) AS task_description,
                 (SELECT sv.id FROM skill_versions sv
                   WHERE sv.skill_id = sk.id AND sv.org_id = sk.org_id AND sv.published
-                  ORDER BY sv.created_at DESC LIMIT 1) AS current_version_id
+                  ORDER BY sv.created_at DESC, sv.id DESC LIMIT 1) AS current_version_id
            FROM skills sk
           WHERE (sk.org_id = $1 OR sk.org_id = $2) AND sk.status = 'enabled'
           ORDER BY sk.created_at DESC, sk.id`,
@@ -356,6 +359,7 @@ export class ScopedPgSkillContractRepository
         tags: [],
       }),
       // backlog E6：只有平台行带 stable_name，前端据此按 `skill-entry-points.ts` 分入口。
+      taskDescription: raw.task_description ?? undefined,
       platformStableName: raw.org_id === PLATFORM_ORG_ID ? raw.stable_name : null,
       }));
       return [...fromContracts, ...fromWave2];
@@ -473,7 +477,7 @@ export class ScopedPgSkillContractRepository
         `SELECT sk.id, sk.name,
                 (SELECT sv.id FROM skill_versions sv
                   WHERE sv.skill_id = sk.id AND sv.org_id = sk.org_id AND sv.published
-                  ORDER BY sv.created_at DESC LIMIT 1) AS current_version_id
+                  ORDER BY sv.created_at DESC, sv.id DESC LIMIT 1) AS current_version_id
            FROM skills sk
           WHERE (sk.org_id = $1 OR sk.org_id = $3) AND sk.id = $2 AND sk.status = 'enabled'`,
         [orgId, skillId, PLATFORM_ORG_ID],
