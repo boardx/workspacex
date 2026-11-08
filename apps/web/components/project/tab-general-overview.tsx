@@ -3,6 +3,8 @@ import * as React from "react";
 import { useI18n } from "@/lib/i18n/provider";
 import Link from "next/link";
 import { Brain, MessageSquarePlus, Users, UserPlus, Workflow } from "lucide-react";
+import { ModuleEntryCard, ModuleEntryGrid } from "@/components/ui/module-entry-card";
+import { QUICK_ACTION_CATALOG } from "@/lib/home-config-catalog";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
@@ -111,21 +113,17 @@ export function TabGeneralOverview({ projectId, tabHref }: {
         {contentError !== null && (
           <p className="mb-2 text-12 text-destructive" data-testid="project-general-overview-content-error">{contentError}</p>
         )}
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" data-testid="project-general-overview-counts">
-          {CONTENT_FILTERS.filter((f) => f.key !== "all").map((f) => (
-            <Link
-              key={f.key}
-              href={tabHref("content", f.key)}
-              data-testid={`project-general-overview-count-${f.key}`}
-              className="flex items-baseline justify-between rounded-lg border border-border bg-card px-3 py-2.5 transition-colors duration-base hover:border-primary"
-            >
-              <span className="text-12 text-muted-foreground">{contentTypeLabel(f.key as Exclude<typeof f.key, "all">, locale)}</span>
-              <span className="font-mono text-16 font-semibold">
-                {index.ready ? index.counts[f.key as Exclude<typeof f.key, "all">] : "—"}
-              </span>
-            </Link>
-          ))}
-        </div>
+        <ModuleEntryGrid testId="project-general-overview-counts">
+          {CONTENT_FILTERS.filter((f) => f.key !== "all").map((f) => {
+            const key = f.key as Exclude<typeof f.key, "all">;
+            const actionKey = key === "conv" ? "chat" : key === "whiteboard" ? "board" : key === "itv" ? "interview" : key === "transcript" ? "recording" : key;
+            const Icon = QUICK_ACTION_CATALOG[actionKey].icon;
+            return <ModuleEntryCard key={key} href={tabHref("content", key)}
+              testId={`project-general-overview-count-${key}`} label={contentTypeLabel(key, locale)}
+              icon={<Icon aria-hidden className="h-4 w-4" />} description={t("projectOverview.moduleHint", { type: contentTypeLabel(key, locale) })}
+              count={index.ready ? index.counts[key] : "—"} />;
+          })}
+        </ModuleEntryGrid>
       </section>
 
       <section>

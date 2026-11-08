@@ -15,6 +15,8 @@ import { cn } from "@/lib/utils";
 import { ChatCard, InterviewCard, ProjectCard, ResearchCard, SurveyCard } from "./home-work-cards";
 import type { HomeProject, HomeTasks, Load, useHomeWork } from "./use-home-work";
 
+import { ModuleEntryCard, ModuleEntryGrid } from "@/components/ui/module-entry-card";
+
 const TILE =
   "group flex flex-col gap-2 rounded-card border border-border-subtle bg-card p-4 shadow-sm transition-shadow duration-fast hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
@@ -40,20 +42,12 @@ export function QuickActionsGrid({ actions }: { actions: HomeConfig["quickAction
     .map((a) => ({ key: a.key, ...QUICK_ACTION_CATALOG[a.key] }));
   if (items.length === 0) return null;
   return (
-    <section aria-label={t("ui.quickActions")} className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 13rem), 1fr))" }} data-testid="home-quick-actions">
+    <ModuleEntryGrid label={t("ui.quickActions")} testId="home-quick-actions">
       {items.map(({ key, href, icon: Icon }) => (
-        <Link key={key} href={href} data-testid={`home-quick-action-${key}`} className={cn(TILE, "relative min-h-24 gap-1 pl-14")}>
-          <span className="absolute left-4 top-4 flex h-7 w-7 items-center justify-center rounded-control bg-muted text-muted-foreground">
-            <Icon aria-hidden className="h-4 w-4" />
-          </span>
-          <span className="flex items-center gap-1 text-13 font-medium text-card-foreground">
-            {t(`action.${key}.label`)}
-            <ArrowRight aria-hidden className="h-3 w-3 text-muted-foreground transition-transform duration-fast group-hover:translate-x-0.5" />
-          </span>
-          <span className="text-12 text-muted-foreground">{t(`action.${key}.description`)}</span>
-        </Link>
+        <ModuleEntryCard key={key} href={href} testId={`home-quick-action-${key}`}
+          icon={<Icon aria-hidden className="h-4 w-4" />} label={t(`action.${key}.label`)} description={t(`action.${key}.description`)} />
       ))}
-    </section>
+    </ModuleEntryGrid>
   );
 }
 
