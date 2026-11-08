@@ -55,10 +55,11 @@ function renderRail() {
 const trigger = () => screen.getByTestId("task-notifications-trigger");
 
 beforeEach(() => {
+  vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
   request.mockReset(); push.mockReset();
   sessionValue.current = { session: { sessionToken: "token" } };
 });
-afterEach(() => cleanup());
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe("#3246 铃铛在图标导航栏里", () => {
   it("trigger 落在 rail-bottom 里、在反馈按钮之前，且不在中段滚动区（不会随目的地列表滚走）", async () => {
@@ -82,11 +83,12 @@ describe("#3246 铃铛在图标导航栏里", () => {
     expect(trigger().getAttribute("aria-current")).toBeNull();
   });
 
-  it("沿用导航项的「图标 + 中文标签」体例，且未读为 0 时图标仍在、只是不显角标", async () => {
+  it("沿用导航项的纯图标体例，且未读为 0 时图标仍在、只是不显角标", async () => {
     serve([], 0);
     renderRail();
     await waitFor(() => expect(trigger()).toHaveAccessibleName("任务提醒，0 条未读"));
-    expect(trigger()).toHaveTextContent("提醒");
+    expect(trigger()).toHaveTextContent("");
+    expect(trigger().querySelector("svg")).not.toBeNull();
     // 入口稳定：0 未读时按钮仍在 DOM 里，只有角标消失。
     expect(screen.queryByTestId("task-notifications-badge")).toBeNull();
 
