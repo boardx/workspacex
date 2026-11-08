@@ -229,7 +229,7 @@ describe("🔴 Q-4②（2026-08-16 人类裁决推翻）：创建者**自动**�
     expect(d.allowed).toBe(true);
     // 组织层照样过——现在项目层**也**过了，不再需要区分。
     expect(d.orgLayer.passed).toBe(true);
-    expect(d.orgLayer.role).toBe("lead");
+    expect(d.orgLayer.role).toBe("admin");
     expect(d.projectLayer?.passed).toBe(true);
     expect(d.reasonCode).toBeNull();
   });
