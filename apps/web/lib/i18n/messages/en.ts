@@ -1,3 +1,6 @@
+import { orgOverviewRedesignEn } from "../namespaces/org-overview-redesign";
+import { orgPeopleRedesignEn } from "../namespaces/org-people-redesign";
+import { orgControlsRedesignEn } from "../namespaces/org-controls-redesign";
 import { workshopLiveEn } from "../namespaces/workshop-live";
 import { platformOpsStatusEn } from "../namespaces/platform-ops-status";
 import { modelTestbenchEn } from "../namespaces/model-testbench";
@@ -53,6 +56,9 @@ import type { zhCN } from "./zh-CN";
 import { accountEntryEn } from "../namespaces/account-entry";
 import { invitationEntryEn } from "../namespaces/invitation-entry";
 export const en: Record<keyof typeof zhCN, string> = {
+  ...orgOverviewRedesignEn,
+  ...orgPeopleRedesignEn,
+  ...orgControlsRedesignEn,
   ...workshopLiveEn,
   ...platformOpsStatusEn,
   ...modelTestbenchEn,

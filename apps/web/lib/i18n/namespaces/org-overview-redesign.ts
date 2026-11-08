@@ -1,0 +1,16 @@
+export const orgOverviewRedesignZhCN = { "orgOverviewRedesign.intro":"查看组织成员、使用情况和最近活动。",
+ 'orgOverviewRedesign.members':'组织成员','orgOverviewRedesign.membersHint':'当前组织的已加入成员',
+ 'orgOverviewRedesign.settings':'组织设置','orgOverviewRedesign.modelUsage':'模型用量分布','orgOverviewRedesign.modelHint':'按所选窗口内的真实 Token 用量汇总',
+ 'orgOverviewRedesign.usagePeriod':'用量统计窗口','orgOverviewRedesign.tokens':'{period} Token 消耗','orgOverviewRedesign.activeHint':'{period}有过调用的成员，不是成员总数',
+ 'orgOverviewRedesign.noModels':'这个时间窗口还没有模型调用记录。','orgOverviewRedesign.model':'模型','orgOverviewRedesign.tokenCount':'Token 用量','orgOverviewRedesign.share':'占比',
+ 'orgOverviewRedesign.recentActivity':'最近活动','orgOverviewRedesign.time':'时间','orgOverviewRedesign.operation':'操作','orgOverviewRedesign.operator':'操作人','orgOverviewRedesign.identity':'角色',
+ 'orgOverviewRedesign.viewUsage':'查看用量详情','orgOverviewRedesign.refresh':'刷新',
+} as const;
+export const orgOverviewRedesignEn = { "orgOverviewRedesign.intro":"Manage organization members, usage and recent activity.",
+ 'orgOverviewRedesign.members':'Organization members','orgOverviewRedesign.membersHint':'Members who have joined this organization',
+ 'orgOverviewRedesign.settings':'Organization settings','orgOverviewRedesign.modelUsage':'Model usage distribution','orgOverviewRedesign.modelHint':'Actual Token usage within the selected window',
+ 'orgOverviewRedesign.usagePeriod':'Usage window','orgOverviewRedesign.tokens':'Token usage · {period}','orgOverviewRedesign.activeHint':'Members who made calls {period}, rather than total membership',
+ 'orgOverviewRedesign.noModels':'No model calls in this time window yet.','orgOverviewRedesign.model':'Model','orgOverviewRedesign.tokenCount':'Token usage','orgOverviewRedesign.share':'Share',
+ 'orgOverviewRedesign.recentActivity':'Recent activity','orgOverviewRedesign.time':'Time','orgOverviewRedesign.operation':'Action','orgOverviewRedesign.operator':'Actor','orgOverviewRedesign.identity':'Role',
+ 'orgOverviewRedesign.viewUsage':'View usage details','orgOverviewRedesign.refresh':'Refresh',
+} as const;

@@ -1,14 +1,16 @@
 "use client";
 import * as React from "react";
-import { TrendingUp, ShieldAlert } from "lucide-react";
+import { Activity, BarChart3, Clock3, ShieldAlert, Users } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { OrganizationSection, OrganizationStatCard } from "@/components/org-admin/organization-content";
+import { OverviewUsageDistribution } from "./overview-usage-distribution";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { describeFailure } from "@/lib/design-failure";
 import { memberRoleLabel } from "@/lib/admin-member-copy";
 import { useI18n } from "@/lib/i18n/provider";
-import { getUsageReport, listOrgMembers, listLimitEvents, type GetUsageReportOut, type ListLimitEventsOut } from "@/lib/live-org-admin";
+import { getUsageReport, listOrgMembers, listLimitEvents, type GetUsageReportOut, type ListLimitEventsOut, type UsageWindowKey } from "@/lib/live-org-admin";
 import { queryProvenance, type ProvenanceEvent } from "@/lib/live-provenance";
 import { provenanceEventLabel } from "@/lib/provenance-labels";
 
@@ -80,6 +82,9 @@ export function OverviewLive() {
 function OverviewLiveInner({ orgId }: { orgId: string | null }) {
   const { t, locale } = useI18n();
   const fmt = new Intl.NumberFormat(locale);
+  const [usageWindow, setUsageWindow] = React.useState<UsageWindowKey>("month");
+  const [refreshKey, setRefreshKey] = React.useState(0);
+  const period = t(usageWindow === "today" ? "aiUsage.today" : usageWindow === "week" ? "aiUsage.thisWeek" : "aiUsage.thisMonth");
   const ACTION_LABEL: Record<string, string> = {
     warn: t("aiUsage.warning"), degrade: t("aiUsage.degraded"),
     block: t("aiUsage.blocked"), require_approval: t("aiUsage.awaitingApproval"),
@@ -92,10 +97,11 @@ function OverviewLiveInner({ orgId }: { orgId: string | null }) {
   React.useEffect(() => {
     if (!orgId) return; // 初始 state 已经是全空（见上），没有请求要发。
     let cancelled = false;
+    setData(null); setError(null);
     void (async () => {
       try {
         const [usage, provenance, members] = await Promise.all([
-          getUsageReport(orgId, "month"),
+          getUsageReport(orgId, usageWindow),
           queryProvenance(orgId, 20),
           listOrgMembers(orgId),
         ]);
@@ -114,7 +120,7 @@ function OverviewLiveInner({ orgId }: { orgId: string | null }) {
       }
     })();
     return () => { cancelled = true; };
-  }, [orgId]);
+  }, [orgId, usageWindow, refreshKey]);
 
   React.useEffect(() => {
     if (!orgId) return;
@@ -137,10 +143,12 @@ function OverviewLiveInner({ orgId }: { orgId: string | null }) {
   return (
     <>
       {/* ── 三块真指标 ── */}
-      <section className="grid grid-cols-1 gap-3 md:grid-cols-3" data-testid="admin-overview-live-metrics">
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" data-testid="admin-overview-live-metrics">
+        <MetricCard testid="admin-overview-metric-total-members" label={t("orgOverviewRedesign.members")} value={data ? fmt.format(data.names.size) : null} foot={t("orgOverviewRedesign.membersHint")} error={error !== null} icon={Users}/>
         <MetricCard
           testid="admin-overview-metric-tokens"
-          label={t("adminOverview.tokens")}
+          label={usageWindow === "month" ? t("adminOverview.tokens") : t("orgOverviewRedesign.tokens",{period})}
+          icon={BarChart3}
           value={data ? fmt.format(data.usage.totalTokens) : null}
           foot={data ? t("adminOverview.calls", { calls: fmt.format(data.usage.callCount), failed: fmt.format(data.usage.failedCallCount) }) : null}
           error={error !== null}
@@ -148,14 +156,16 @@ function OverviewLiveInner({ orgId }: { orgId: string | null }) {
         <MetricCard
           testid="admin-overview-metric-members"
           label={t("aiUsage.activeMembers")}
+          icon={Activity}
           value={data ? t("adminOverview.people", { count: fmt.format(data.usage.activeMemberCount) }) : null}
           // 说清楚它是什么，否则「活跃成员 3 人」会被读成「组织只有 3 个人」。
-          foot={t("adminOverview.activeFoot")}
+          foot={usageWindow === "month" ? t("adminOverview.activeFoot") : t("orgOverviewRedesign.activeHint",{period})}
           error={error !== null}
         />
         <MetricCard
           testid="admin-overview-metric-anomaly"
           label={t("adminOverview.limitEvents")}
+          icon={ShieldAlert}
           value={limitEvents ? t("adminOverview.items", { count: fmt.format(limitEvents.length) }) : null}
           foot={
             limitEvents
@@ -167,6 +177,8 @@ function OverviewLiveInner({ orgId }: { orgId: string | null }) {
           error={limitError !== null}
         />
       </section>
+
+      <OverviewUsageDistribution usage={data?.usage ?? null} error={error !== null} window={usageWindow} onWindowChange={setUsageWindow} onRefresh={()=>setRefreshKey(value=>value+1)}/>
 
       {/* ── 限额事件（F162 真数据；不是 phase-03 F15 的异常检测） ── */}
       <section className="flex flex-col gap-2" data-testid="admin-overview-anomalies">
@@ -221,72 +233,16 @@ function OverviewLiveInner({ orgId }: { orgId: string | null }) {
         </Card>
       </section>
 
-      {/* ── 活动流 ── */}
-      <section className="flex flex-col gap-2" data-testid="admin-overview-activity">
-        <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-14 font-semibold">{t("adminOverview.activityStream")}</h2>
-        </div>
-        <Card>
-          <CardContent className="flex flex-col pt-2">
-            {error && (
-              <p className="py-2 text-12 text-muted-foreground" data-testid="admin-overview-load-failed">
-                {t("adminOverview.auditFailure", { error: describeFailure(error.cause, locale) })}
-              </p>
-            )}
-            {data?.events.length === 0 && (
-              <p className="py-2 text-12 text-muted-foreground" data-testid="admin-overview-activity-empty">
-                {t("adminOverview.auditEmpty")}
-              </p>
-            )}
-            {(data?.events ?? []).map((e, i) => {
-              const who = data?.names.get(e.actorId);
-              return (
-                <div key={e.id} data-testid={`admin-activity-${e.id}`}>
-                  <div className="flex items-baseline gap-3 py-2">
-                    <span className="w-20 shrink-0 truncate text-12 font-medium" title={e.actorId}>
-                      {who?.displayName ?? e.actorId}
-                    </span>
-                    <Badge tone="outline" className="shrink-0">
-                      {who ? memberRoleLabel(who.orgRole, t) : t("adminOverview.leftOrg")}
-                    </Badge>
-                    <span className="min-w-0 flex-1 text-12">{provenanceEventLabel(e.type, locale)}</span>
-                    <span className="shrink-0 text-11 text-muted-foreground">
-                      {new Date(e.at).toLocaleString(locale)}
-                    </span>
-                  </div>
-                  {i < (data?.events.length ?? 0) - 1 && <Separator />}
-                </div>
-              );
-            })}
-          </CardContent>
-        </Card>
-      </section>
+      <OrganizationSection title={<span className="flex items-center gap-2"><Clock3 aria-hidden className="h-4 w-4"/>{t("orgOverviewRedesign.recentActivity")}</span>} testId="admin-overview-activity">
+        {error && <p className="p-5 text-12 text-muted-foreground" data-testid="admin-overview-load-failed">{t("adminOverview.auditFailure",{error:describeFailure(error.cause,locale)})}</p>}
+        {!data && !error && <div className="h-32 animate-pulse bg-muted/30" data-testid="admin-overview-activity-loading"/>}
+        {data?.events.length === 0 && <p className="p-5 text-13 text-muted-foreground" data-testid="admin-overview-activity-empty">{t("adminOverview.auditEmpty")}</p>}
+        {data && data.events.length>0 && <div className="overflow-x-auto"><table className="w-full text-left text-13"><thead className="border-b border-border bg-muted/40 text-12 text-muted-foreground"><tr><th className="whitespace-nowrap px-5 py-3 font-medium">{t("orgOverviewRedesign.time")}</th><th className="px-5 py-3 font-medium">{t("orgOverviewRedesign.operation")}</th><th className="px-5 py-3 font-medium">{t("orgOverviewRedesign.operator")}</th><th className="px-5 py-3 font-medium">{t("orgOverviewRedesign.identity")}</th></tr></thead><tbody className="divide-y divide-border">{data.events.map(e=>{const who=data.names.get(e.actorId);return <tr key={e.id} data-testid={`admin-activity-${e.id}`} className="transition-colors hover:bg-muted/20"><td className="whitespace-nowrap px-5 py-4 text-12 text-muted-foreground">{new Date(e.at).toLocaleString(locale)}</td><td className="px-5 py-4">{provenanceEventLabel(e.type,locale)}</td><td className="max-w-xs break-words px-5 py-4 font-medium" title={e.actorId}>{who?.displayName??e.actorId}</td><td className="whitespace-nowrap px-5 py-4"><Badge tone="outline">{who?memberRoleLabel(who.orgRole,t):t("adminOverview.leftOrg")}</Badge></td></tr>;})}</tbody></table></div>}
+      </OrganizationSection>
     </>
   );
 }
 
-function MetricCard(props: {
-  testid: string; label: string; value: string | null; foot: string | null; error: boolean;
-}) {
-  const { t } = useI18n();
-  return (
-    <Card data-testid={props.testid}>
-      <CardContent className="flex flex-col gap-1.5 pt-4">
-        <div className="flex items-center gap-1.5">
-          <span className="text-12 text-muted-foreground">{props.label}</span>
-        </div>
-        <span className="text-24 font-semibold tracking-tight">
-          {/* 读不到时显示 —— 而不是 0。「查询失败」与「本月真的是 0」是两件事，
-              显示 0 会让一次故障看起来像一个平静的月份。 */}
-          {props.error ? "—" : (props.value ?? "…")}
-        </span>
-        {props.foot && (
-          <span className="inline-flex items-center gap-1 text-11 text-muted-foreground">
-            <TrendingUp aria-hidden className="h-3 w-3" />
-            {props.foot}
-          </span>
-        )}
-      </CardContent>
-    </Card>
-  );
+function MetricCard(props: {testid:string;label:string;value:string|null;foot:string|null;error:boolean;icon?:typeof Users}) {
+ return <OrganizationStatCard testId={props.testid} label={props.label} value={props.error?"—":(props.value??"…")} description={props.foot} icon={props.icon}/>;
 }

@@ -3,6 +3,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import * as React from "react";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
+import { OrganizationPageHeader } from "@/components/org-admin/organization-content";
 import { AdminScreen } from "./admin-screen";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -32,6 +33,7 @@ export function MembersScreen({ state }: { state: UiState }) {
 
   return (
     <AdminScreen
+      contentHeader={<OrganizationPageHeader title={t("adminMemberQuotas.quota")} description={t("orgControlsRedesign.quotaIntro")} />}
       state={state}
       moduleLabel={t("adminMemberQuotas.quota")}
       title={t("adminMemberQuotas.membersTitle")}

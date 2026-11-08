@@ -55,6 +55,21 @@ beforeEach(() => {
 });
 
 describe("工作流权限授予页", () => {
+  it("能力搜索与真实阻断筛选显示无匹配状态且不修改授权", async()=>{
+    api.listWorkflowCapabilityGrants.mockResolvedValue(data());
+    render(<OrgAdminWorkflowGrantsPage />);
+    await screen.findByTestId("workflow-grant-row-artifact.write");
+    fireEvent.change(screen.getByLabelText("搜索能力"),{target:{value:"no capability"}});
+    expect(screen.getByText("没有匹配记录")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("搜索能力"),{target:{value:"保存产出文档"}});
+    fireEvent.change(screen.getByLabelText("状态"),{target:{value:"ready"}});
+    expect(screen.queryByTestId("workflow-grant-row-artifact.write")).toBeNull();
+    fireEvent.change(screen.getByLabelText("状态"),{target:{value:"blocked"}});
+    expect(screen.getByTestId("workflow-grant-row-artifact.write")).toBeTruthy();
+    expect(api.setWorkflowCapabilityGrant).not.toHaveBeenCalled();
+    expect(api.revokeWorkflowCapabilityGrant).not.toHaveBeenCalled();
+  });
+
   it("渲染：每项能力有中文名称与说明、当前等级、用到它的工作流；摘要提示会暂停；无变更记录时有空态", async () => {
     api.listWorkflowCapabilityGrants.mockResolvedValue(data());
     render(<OrgAdminWorkflowGrantsPage />);
@@ -62,7 +77,7 @@ describe("工作流权限授予页", () => {
     expect(row.textContent).toContain("保存产出文档");
     expect(row.textContent).toContain("文件库");
     expect(within(row).getByTestId("workflow-grant-current").textContent).toBe("当前：只读（默认）");
-    expect(row.textContent).toContain("问题定义到 PRD");
+    expect(row.textContent).toContain("详情");
     expect(screen.getByTestId("workflow-grants-summary").textContent).toContain("有 1 个会因权限不足在中途暂停");
     expect(screen.getByTestId("workflow-grants-audit-empty")).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/capability_exceeds|NOT_ORG_ADMIN/);
@@ -78,12 +93,12 @@ describe("工作流权限授予页", () => {
     render(<OrgAdminWorkflowGrantsPage />);
     const row = await screen.findByTestId("workflow-grant-row-artifact.write");
     expect(within(row).getByTestId("workflow-grant-edit").textContent).toBe("调整权限");
-    expect(within(row).getByTestId("workflow-grant-use-artifact.write-W029").textContent).toContain("需要「可写入」");
-    expect(within(row).getByTestId("workflow-grant-use-artifact.write-W032").textContent).toContain("需要「可对外发送」");
-    const shortfall = within(row).getByTestId("workflow-grant-shortfall").textContent ?? "";
-    expect(shortfall).toContain("1 个工作流会在对应步骤暂停");
-    // 需求只以标签呈现一次，说明文字不再逐条复述
-    expect(shortfall).not.toContain("路线图评审");
+    fireEvent.click(within(row).getByRole("button", {name:"详情"}));
+    const details = await screen.findByRole("dialog");
+    expect(details.textContent).toContain("问题定义到 PRD");
+    expect(details.textContent).toContain("需要「可对外发送」");
+    fireEvent.click(within(details).getByTestId("dialog-close"));
+    await waitFor(()=>expect(screen.queryByRole("dialog")).toBeNull());
     fireEvent.click(screen.getByTestId("workflow-grants-tab-workflow"));
     expect(screen.getByTestId("workflow-grants-workflow-W029").textContent).toContain("保存产出文档需要「可写入」，当前「可写入」");
     expect(screen.getByTestId("workflow-grants-workflow-W032").textContent).toContain("保存产出文档需要「可对外发送」，当前「可写入」");

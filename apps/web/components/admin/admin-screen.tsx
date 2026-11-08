@@ -30,8 +30,9 @@ import type { UiState } from "@/lib/ui-state";
  */
 export function AdminScreen({
   state, moduleLabel, title, intro, children,
-  emptyHint, errors, depFailure, denialReason, successMessage, noticeOverride, liveBacked, hideOrgIdentity, titleAside,
+  emptyHint, errors, depFailure, denialReason, successMessage, noticeOverride, liveBacked, hideOrgIdentity, titleAside, contentHeader,
 }: {
+  contentHeader?: React.ReactNode;
   state: UiState;
   moduleLabel: string;
   title: string;
@@ -59,8 +60,8 @@ export function AdminScreen({
   titleAside?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-5 p-6">
-      <AdminHeader moduleLabel={moduleLabel} hideOrgIdentity={hideOrgIdentity} />
+    <div className={contentHeader ? "mx-auto flex min-w-0 w-full max-w-screen-2xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-8" : "flex flex-col gap-5 p-6"}>
+      {contentHeader ?? <><AdminHeader moduleLabel={moduleLabel} hideOrgIdentity={hideOrgIdentity} />
 
       <div className="flex items-start justify-between gap-4">
         <div className="flex flex-col gap-1">
@@ -69,6 +70,8 @@ export function AdminScreen({
         </div>
         {titleAside !== undefined && <div className="shrink-0">{titleAside}</div>}
       </div>
+
+      </>}
 
       {liveBacked ? null : (noticeOverride ?? <SampleConfigNotice />)}
 
