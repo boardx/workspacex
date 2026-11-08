@@ -12,7 +12,6 @@ import { PersonalMenu } from "./personal-menu";
 import { cn } from "@/lib/utils";
 import { FeedbackButton } from "@/components/feedback/feedback-button";
 import { RailNotifications } from "./rail-notifications";
-import { RailMoreMenu } from "./rail-more-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 /**
@@ -84,15 +83,8 @@ export function IconRail({
         rail 分三段——① 顶部组织菜单（shrink-0，永远可见）② 中段一级导航（min-h-0 +
         flex-1 + overflow-y-auto，高度不够时在段内滚动，滚动条隐藏、上下留渐隐提示）
         ③ 底部反馈 + 个人菜单（shrink-0，永远钉在左下角，rubric 硬性锚点）。
-        再配一档紧凑模式：视口高度 ≤ 640px 时隐藏分组标题与图标下方文字（`max-h` 媒体查询
-        arbitrary variant），只留图标，让更多项在不滚动时可见。文字隐藏后的可见名称由
-        `components/ui/tooltip.tsx`（Radix，hover / 键盘 focus 双触发）补——不用原生
-        `title`：它不响应键盘焦点。同时每个入口带 `focus-visible` 焦点环（ring-inset，
-        避免被滚动容器裁掉）+ `aria-label`，rev-feature 2026-09-02 复核要求。
-        ⚠ 2026-09-30 人类直接要求「只把最重要的显示出来，其余通过 3 点菜单加载」：
-        `NavItem.overflow` 的入口不再常驻，收进 `RailMoreMenu`（栏内的「更多」）。每个入口
-        只在一处渲染（栏内或菜单内），所以仍守 #593 的一级/二级分界，没有入口在两处出现。
-        分组小标题也不再占栏内纵向空间：栏内用一条细分隔线区分五段，标题只在三点菜单里出现。
+        所有一级入口始终显示纯图标，不再收进「更多」。名称由 aria-label 和
+        Radix tooltip 提供，hover / 键盘 focus 均可触发。保持焦点环在滚动区内。
       */}
       <div className="mb-2 shrink-0" data-testid="rail-top">
         <OrgMenu
@@ -109,8 +101,8 @@ export function IconRail({
         className="scrollbar-none flex min-h-0 w-full flex-1 flex-col items-center overflow-y-auto overscroll-contain [mask-image:linear-gradient(to_bottom,transparent,black_10px,black_calc(100%-10px),transparent)]"
       >
       {segments.map((seg, i) => {
-        const pinned = seg.items.filter((item) => item.overflow !== true);
-        if (pinned.length === 0) return null;
+        const items = seg.items;
+        if (items.length === 0) return null;
         return (
           <div
             key={seg.label ?? `seg-${String(i)}`}
@@ -121,8 +113,9 @@ export function IconRail({
               i > 0 && "mt-2 border-t border-border-subtle pt-1",
             )}
           >
-            {pinned.map((item) => {
-              const active = pathname === item.href || pathname.startsWith(item.href + "/");
+            {items.map((item) => {
+              const itemPath = item.href.split("?")[0]!;
+              const active = pathname === itemPath || pathname.startsWith(itemPath + "/");
               const Icon = item.icon;
               return (
                 <Tooltip key={item.key}>
@@ -133,20 +126,17 @@ export function IconRail({
                       aria-current={active ? "page" : undefined}
                       aria-label={item.label}
                       className={cn(
-                        "mt-1.5 flex w-14 shrink-0 flex-col items-center gap-1 rounded-md py-1.5 transition-all duration-base",
+                        "mt-1 flex h-9 w-14 shrink-0 items-center justify-center rounded-md transition-colors duration-base",
                         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
-                        "[@media(max-height:640px)]:mt-1 [@media(max-height:640px)]:gap-0 [@media(max-height:640px)]:py-1",
                         active
                           ? "bg-accent text-accent-foreground"
                           : "text-muted-foreground hover:bg-muted hover:text-background-foreground",
                       )}
                     >
                       <Icon aria-hidden className="h-[18px] w-[18px]" />
-                      <span className="text-10 [@media(max-height:640px)]:hidden">{item.label}</span>
                     </Link>
                   </TooltipTrigger>
-                  {/* 只在紧凑模式（文字已隐藏）时有信息量；高视口下文字本身可见，气泡是噪音 */}
-                  <TooltipContent side="right" data-testid={`rail-tooltip-${item.key}`} className="[@media(min-height:641px)]:hidden">
+                  <TooltipContent side="right" data-testid={`rail-tooltip-${item.key}`}>
                     {item.label}
                   </TooltipContent>
                 </Tooltip>
@@ -155,11 +145,6 @@ export function IconRail({
           </div>
         );
       })}
-      </div>
-
-      {/* 「更多」钉在滚动区外：短视口下中段滚动，三点菜单永远够得着 */}
-      <div className="mt-1 flex w-full shrink-0 flex-col items-center">
-        <RailMoreMenu segments={segments} pathname={pathname} />
       </div>
 
       {/*
@@ -191,7 +176,6 @@ export function IconRail({
           target={{ kind: "product" }}
           targetLabel={null}
           variant="rail"
-          className="[@media(max-height:640px)]:mt-1 [@media(max-height:640px)]:gap-0 [@media(max-height:640px)]:py-1 [@media(max-height:640px)]:[&>span]:hidden"
         />
 
       {/*

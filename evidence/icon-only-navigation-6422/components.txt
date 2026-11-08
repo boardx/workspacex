@@ -1,0 +1,32 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/2e5d/workspacex/apps/web
+
+ ✓ tests/ui/sidebar-brand-header.test.tsx (3 tests) 1059ms
+   ✓ SidebarBrandHeader（issue #2631 items 3/4） > 渲染带可访问名「WorkspaceX」的品牌 logo 877ms
+ ✓ tests/ui/task-notifications.test.tsx (2 tests) 1444ms
+   ✓ global notification center > lists server-pushed task and email notices, opens the thread and marks it read 389ms
+   ✓ global notification center > shows nothing from a previous session token 1023ms
+ ✓ tests/ui/task-notifications-popover.test.tsx (6 tests) 1804ms
+   ✓ #3223 通知收成图标 + 角标，正文只在弹层里 > 未读 > 0 时侧边栏不平铺任何通知正文，点开图标才出列表 1107ms
+ ✓ tests/ui/schedule-notifications.test.tsx (3 tests) 1856ms
+   ✓ server backed schedule notices on existing task surface > shows fixed failure facts and only removes them after durable read acknowledgment 1750ms
+ ✓ tests/ui/task-notifications-i18n.test.tsx (3 tests) 1995ms
+   ✓ translates category labels and aria counts while preserving original titles without repeating requests 1429ms
+   ✓ translates scheduled failure codes and sends the unchanged fact ID on explicit acknowledgment 475ms
+ ✓ tests/ui/notification-click-destination.test.tsx (3 tests) 2513ms
+   ✓ #3311 点一条通知，用户必须知道自己被带到哪儿了 > ① 有对话可去：路由落到该对话，且弹层关闭（不是那行凭空消失） 1507ms
+   ✓ #3311 点一条通知，用户必须知道自己被带到哪儿了 > ② 没有对话可去：不许伪装成可点条目——点正文不读掉它，标已读得是用户显式点的按钮 311ms
+   ✓ #3311 点一条通知，用户必须知道自己被带到哪儿了 > ③ 待办通知（等待你授权工具）点开只是去办，不许当场被消费掉 693ms
+ ✓ tests/ui/rail-more-menu.test.tsx (2 tests) 879ms
+   ✓ IconRail 完整纯图标导航 > 全部有权一级入口直接唯一显示，文字只通过可访问名称和提示提供 615ms
+ ✓ tests/ui/rail-notifications-placement.test.tsx (5 tests) 1788ms
+   ✓ #3246 铃铛在图标导航栏里 > trigger 落在 rail-bottom 里、在反馈按钮之前，且不在中段滚动区（不会随目的地列表滚走） 479ms
+   ✓ #3246 铃铛在图标导航栏里 > 沿用导航项的纯图标体例，且未读为 0 时图标仍在、只是不显角标 821ms
+   ✓ #3246 铃铛在图标导航栏里 > 三件功能都在新位置可达：未读计数 / 全部标为已读 / 最近已读；a11y 契约随之搬过来 406ms
+
+ Test Files  8 passed (8)
+      Tests  27 passed (27)
+   Start at  18:26:47
+   Duration  20.88s (transform 8.78s, setup 9.57s, collect 76.33s, tests 13.34s, environment 32.01s, prepare 5.05s)
+

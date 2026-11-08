@@ -4,6 +4,7 @@ import * as React from "react";
 import { MessageSquarePlus } from "lucide-react";
 import { useOptionalFeedback } from "./feedback-provider";
 import type { FeedbackTarget } from "@/lib/live-feedback";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 /**
@@ -32,7 +33,7 @@ export function FeedbackButton({
 }: {
   target: FeedbackTarget;
   targetLabel: string | null;
-  /** `icon` = 只有图标（消息头/紧凑列表里）；`rail` = 图标+文字（导航图标栏那一列） */
+  /** `icon` = 只有图标（消息头/紧凑列表里）；`rail` = 导航图标与提示（导航图标栏那一列） */
   variant?: "icon" | "rail";
   className?: string;
   testid?: string;
@@ -48,22 +49,27 @@ export function FeedbackButton({
 
   if (variant === "rail") {
     return (
-      <button
-        type="button"
-        onClick={() => feedback.openFeedback({ target, targetLabel })}
-        data-testid={testid ?? "rail-feedback"}
-        aria-label={label}
-        title={label}
-        className={cn(
-          "mt-1.5 flex w-14 flex-col items-center gap-1 rounded-md py-1.5 text-muted-foreground transition-all duration-200",
-          "hover:bg-muted hover:text-background-foreground",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          className,
-        )}
-      >
-        <MessageSquarePlus aria-hidden className="h-4 w-4" />
-        <span className="text-10">{t("feedback.short")}</span>
-      </button>
+      <TooltipProvider delayDuration={300}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={() => feedback.openFeedback({ target, targetLabel })}
+              data-testid={testid ?? "rail-feedback"}
+              aria-label={label}
+              className={cn(
+                "mt-1 flex h-9 w-14 items-center justify-center rounded-md text-muted-foreground transition-all duration-base",
+                "hover:bg-muted hover:text-background-foreground",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                className,
+              )}
+            >
+              <MessageSquarePlus aria-hidden className="h-4 w-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right">{label}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     );
   }
 

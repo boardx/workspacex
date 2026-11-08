@@ -25,7 +25,7 @@ it("translates category labels and aria counts while preserving original titles 
   request.mockImplementation(async (path: string) => path === "/notifications" ? { notifications: notices, unreadCount: 3 } : { notifications: [] });
   show();
   await waitFor(() => expect(screen.getByTestId("task-notifications-trigger")).toHaveAccessibleName("Notifications, 3 unread"));
-  expect(screen.getByText("Alerts")).toBeTruthy();
+  expect(screen.getByTestId("task-notifications-trigger").querySelector("svg")).not.toBeNull();
   fireEvent.click(screen.getByTestId("task-notifications-trigger"));
   expect(screen.getByRole("dialog", { name: "Notifications" })).toBeTruthy();
   for (const kind of ["Task", "Email", "System"]) expect(screen.getByText(`[${kind}]`)).toBeTruthy();

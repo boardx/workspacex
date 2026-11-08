@@ -12,13 +12,12 @@ import { test, expect, type Page } from "@playwright/test";
  *   3. 每一个一级入口都可达（滚到它就在视口内）；
  *   4. 键盘 Tab / Shift+Tab 走遍入口：焦点元素自动滚入视口、有可见焦点环（浅色 + 深色）；
  *      Enter 真的导航；
- *   5. 紧凑模式（≤ 640）：文字隐藏、键盘 focus 弹出 tooltip；高视口：文字可见；
+ *   5. 所有高度纯图标，hover / focus 显示 tooltip；
  *   6. 底部个人菜单在最矮视口也能打开且弹层在视口内。
  * 最后一条是反证：把中段的 overflow 撤掉，头像就掉出视口——证明上面的断言不是空转。
  */
 const WIDTH = 1200;
 const HEIGHTS = [380, 500, 640, 900] as const;
-const COMPACT_MAX = 640;
 
 async function gotoRail(page: Page, height: number) {
   await page.setViewportSize({ width: WIDTH, height });
@@ -63,8 +62,8 @@ test.describe("IconRail 短视口三段布局", () => {
       const scroll = page.getByTestId("rail-scroll");
       const links = page.locator('[data-testid="rail-scroll"] a[data-testid^="rail-"]');
       const count = await links.count();
-      // 2026-09-30：低频入口收进「更多」三点菜单，栏内常驻 7 项（首页/对话/项目/研究/访谈/大脑/任务）
-      expect(count).toBeGreaterThanOrEqual(7);
+      // 所有有权一级入口直接出现在栏内，包括原收纳入口。
+      expect(count).toBeGreaterThanOrEqual(14);
       for (let i = 0; i < count; i++) {
         await links.nth(i).scrollIntoViewIfNeeded();
         await expect(links.nth(i)).toBeInViewport();
@@ -123,53 +122,43 @@ test.describe("IconRail 短视口三段布局", () => {
       await page.waitForURL((u) => u.pathname === href, { timeout: 30_000 });
     });
 
-    test(`高度 ${height}px：${height <= COMPACT_MAX ? "紧凑模式——文字隐藏、focus 弹 tooltip" : "常规模式——文字可见、无 tooltip"}`, async ({ page }) => {
+    test(`高度 ${height}px：纯图标、hover 和键盘 focus 均显示提示`, async ({ page }, testInfo) => {
       await gotoRail(page, height);
       const chat = page.getByTestId("rail-chat");
-      const label = chat.locator("span");
+      await expect(chat).toHaveText("");
+      await expect(chat).toHaveAttribute("aria-label", "对话");
+      await chat.hover();
+      await expect(page.getByTestId("rail-tooltip-chat")).toBeVisible();
+      await expect(page.getByTestId("rail-tooltip-chat")).toHaveText("对话");
+      await page.mouse.move(WIDTH - 10, 10);
       await chat.focus();
-      if (height <= COMPACT_MAX) {
-        await expect(label).toBeHidden();
-        await expect(chat).toHaveAttribute("aria-label", "对话");
-        await expect(page.getByTestId("rail-tooltip-chat")).toBeVisible();
-        await expect(page.getByTestId("rail-tooltip-chat")).toHaveText("对话");
-      } else {
-        await expect(label).toBeVisible();
-        await expect(label).toHaveText("对话");
-        await expect(page.getByTestId("rail-tooltip-chat")).toBeHidden();
+      await expect(page.getByTestId("rail-tooltip-chat")).toBeVisible();
+      await expect(page.getByTestId("rail-more")).toHaveCount(0);
+      if (height === 900) await page.screenshot({ path: testInfo.outputPath("icon-only-navigation.png") });
+      for (const key of ["whiteboard", "recording", "survey", "design-workbench", "feedback-drafts", "agent-directory", "work-skill-catalog"]) {
+        const link = page.getByTestId(`rail-${key}`);
+        await link.scrollIntoViewIfNeeded();
+        await expect(link).toBeInViewport();
+        await expect(link).toHaveText("");
       }
     });
   }
 
   test("最矮视口 380px：底部个人菜单能打开，弹层整个在视口内", async ({ page }) => {
     await gotoRail(page, 380);
-    await page.getByTestId("rail-profile-menu").dispatchEvent("pointerdown", { button: 0 });
+    await page.getByTestId("rail-profile-menu").click();
     const menu = page.getByTestId("rail-personal-menu");
     await expect(menu).toBeVisible();
     inViewport(await menu.boundingBox(), 380);
     await expect(page.getByTestId("personal-menu-profile")).toBeVisible();
   });
 
-  test("最矮视口 380px：「更多」三点菜单钉在滚动区外，能打开，弹层整个在视口内且收纳的入口都在", async ({ page }) => {
-    await gotoRail(page, 380);
-    const more = page.getByTestId("rail-more");
-    await expect(more).toBeInViewport();
-    await more.click();
-    const menu = page.getByTestId("rail-more-menu");
-    await expect(menu).toBeVisible();
-    inViewport(await menu.boundingBox(), 380);
-    for (const key of ["whiteboard", "recording", "survey", "design-workbench", "feedback-drafts", "agent-directory", "work-skill-catalog"]) {
-      await expect(menu.getByTestId(`rail-${key}`)).toHaveCount(1);
-    }
-  });
-
-  test("反证：还原修复前布局（中段不滚动 + 文字不隐藏）后头像掉出 380px 视口——断言不是空转", async ({ page }) => {
+  test("反证：还原修复前布局（中段不滚动）后头像掉出 380px 视口——断言不是空转", async ({ page }) => {
     await gotoRail(page, 380);
     inViewport(await page.getByTestId("rail-profile-menu").boundingBox(), 380);
     await page.addStyleTag({
       content: [
         '[data-testid="rail-scroll"]{overflow:visible!important;flex:none!important;min-height:auto!important}',
-        '[data-testid="rail-scroll"] span{display:inline!important}',
       ].join("\n"),
     });
     const box = await page.getByTestId("rail-profile-menu").boundingBox();

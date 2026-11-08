@@ -256,6 +256,31 @@ describe("FB-2 反馈弹层（采集侧）", () => {
     expect(screen.queryByTestId("orphan-feedback")).toBeNull();
   });
 
+  it("standalone rail supplies tooltip context and opens feedback", async () => {
+    // jsdom has no layout observer; keep the real Radix provider and tooltip behavior.
+    vi.stubGlobal("ResizeObserver", class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    });
+    render(
+      <FeedbackProvider>
+        <FeedbackButton target={{ kind: "product" }} targetLabel={null} variant="rail" testid="standalone-rail" />
+      </FeedbackProvider>,
+    );
+    const button = screen.getByTestId("standalone-rail");
+    expect(button).toHaveAccessibleName();
+    act(() => button.focus());
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(button.getAttribute("aria-label")!);
+    fireEvent.click(button);
+    expect(screen.getByTestId("feedback-dialog")).toBeVisible();
+  });
+
+  it("standalone rail stays absent without feedback context", () => {
+    render(<FeedbackButton target={{ kind: "product" }} targetLabel={null} variant="rail" testid="orphan-rail" />);
+    expect(screen.queryByTestId("orphan-rail")).toBeNull();
+  });
+
   it("⑥ 反证：有 Provider 时它确实渲染（否则上一条靠「永远不渲染」平凡通过）", () => {
     render(
       <FeedbackProvider>
