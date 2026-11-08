@@ -30,6 +30,7 @@ import { auth as authContract } from "@repo/contracts";
 import { SharedInviteLinksSection, type SharedLinkReveal } from "@/components/org-admin/shared-invite-links";
 import { StandingToolGrantsSection } from "@/components/org-admin/standing-tool-grants";
 import { KnowledgeExtractionToggleSection } from "@/components/org-admin/knowledge-extraction-toggle";
+import { OrganizationContent, OrganizationPageHeader, OrganizationStatCard } from "./organization-content";
 import { cn } from "@/lib/utils";
 import {
   listOrgMembers, listOrgInvites,
@@ -103,13 +104,10 @@ function OrgAdminShell({
 }) {
   return (
     <AppShell previewRole={null} left={<AdminNav active={active} />}>
-      <div className="mx-auto flex max-w-2xl flex-col gap-6 p-6" data-testid="org-admin-screen">
-        <div className="flex items-center gap-2">
-          <Icon aria-hidden className="h-5 w-5 text-muted-foreground" />
-          <h1 className="text-16 font-semibold tracking-tight">{title}</h1>
-        </div>
+      <OrganizationContent testId="org-admin-screen">
+        <OrganizationPageHeader title={title} icon={Icon} />
         {children}
-      </div>
+      </OrganizationContent>
     </AppShell>
   );
 }
@@ -283,10 +281,16 @@ function OrgRolePicker({
 
 /** 导出供测试直接渲染，不必连 `useSession` 一起 mock 出整个 `OrgAdminScreen`。 */
 export function MembersTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean }) {
+  return <MembersTabContent key={orgId} orgId={orgId} isAdmin={isAdmin} />;
+}
+function MembersTabContent({ orgId, isAdmin }: { orgId: string; isAdmin: boolean }) {
   const { t, locale } = useI18n();
   const [state, setState] = React.useState<UiState>("loading");
   const [failureMessage, setFailureMessage] = React.useState<unknown>(null);
   const [out, setOut] = React.useState<ListOrgMembersOut | null>(null);
+  const [query, setQuery] = React.useState("");
+  const [roleFilter, setRoleFilter] = React.useState("all");
+  const [statusFilter, setStatusFilter] = React.useState("all");
 
   const load = React.useCallback(async () => {
     setState("loading");
@@ -324,6 +328,12 @@ export function MembersTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean
   };
 
 
+  const filteredMembers = (out?.members ?? []).filter(m => (!query || `${m.displayName} ${m.email}`.toLowerCase().includes(query.toLowerCase())) && (roleFilter === "all" || m.orgRole === roleFilter) && (statusFilter === "all" || m.status === statusFilter));
+  const [page, setPage] = React.useState(1);
+  React.useEffect(() => setPage(1), [query, roleFilter, statusFilter, orgId]);
+  const pages = Math.max(1, Math.ceil(filteredMembers.length / 10));
+  const currentPage = Math.min(page, pages);
+  React.useEffect(() => setPage(previous => Math.min(previous, pages)), [pages]);
   return (
     <div className="flex flex-col gap-3 pt-3">
       {/*
@@ -346,15 +356,33 @@ export function MembersTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean
           {t("orgMembers.organizationRoleUpdated")}{t("orgMembers.roleChange", { name: roleBanner.who, previous: t(`role.${roleBanner.previous}`), next: t(`role.${roleBanner.next}`) })}
         </div>
       ) : null}
+      {out && <>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <OrganizationStatCard label={t("orgMembers.members")} value={out.members.length} />
+          <OrganizationStatCard label={t("role.admin")} value={out.members.filter(m => m.orgRole === "admin").length} />
+          <OrganizationStatCard label={t("orgMembers.suspended")} value={out.members.filter(m => m.status === "suspended").length} />
+        </div>
+        <div className="flex flex-wrap gap-3 rounded-xl border border-border bg-card p-4">
+          <Input className="min-w-0 flex-1" aria-label={t("orgPeople.searchMembers")} placeholder={t("orgPeople.searchMembers")} value={query} onChange={e => setQuery(e.target.value)} />
+          <select className="rounded-md border border-border bg-background px-3 text-13" aria-label={t("orgMembers.organizationRole")} value={roleFilter} onChange={e => setRoleFilter(e.target.value)}>
+            <option value="all">{t("orgPeople.allRoles")}</option>{orgRoleOptions(t).map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+          </select>
+          <select className="rounded-md border border-border bg-background px-3 text-13" aria-label={t("orgPeople.status")} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+            <option value="all">{t("orgPeople.allStatuses")}</option><option value="active">{t("orgPeople.active")}</option><option value="suspended">{t("orgMembers.suspended")}</option>
+          </select>
+        </div>
+      </>}
       <StateShell
         state={state}
         emptyHint={t("orgMembers.thisOrganizationHasNoOtherMembers")}
         depFailure={{ what: failureMessage !== null ? describeFailureFor(failureMessage, t("orgMembers.organizationUnavailable"), t("orgMembers.memberListForbidden"), t) : t("orgMembers.theMemberListIsTemporarilyUnavailable"), retry: load }}
       >
-        <ul className="flex flex-col divide-y divide-border rounded-lg border border-border" data-testid="org-admin-member-list">
-          {out?.members.map((m) => (
-            <li key={m.userId} className="flex flex-wrap items-center gap-2 px-3 py-2" data-testid={`org-admin-member-${m.userId}`}>
-              <Avatar initials={m.displayName.slice(0, 1)} size="sm" />
+        <div className="overflow-x-auto rounded-xl border border-border bg-card">
+        <div className="hidden grid-cols-[minmax(200px,1fr)_160px_120px_160px] gap-4 border-b border-border bg-muted/30 px-5 py-3 text-12 text-muted-foreground sm:grid" aria-hidden="true"><span>{t("orgMembers.members")}</span><span>{t("orgMembers.organizationRole")}</span><span>{t("orgPeople.status")}</span><span>{t("orgMembers.joined")}</span></div>
+        <ul className="flex flex-col divide-y divide-border" data-testid="org-admin-member-list">
+          {filteredMembers.slice((currentPage - 1) * 10, currentPage * 10).map((m) => (
+            <li key={m.userId} className="flex flex-wrap items-center gap-4 px-5 py-4 sm:grid sm:grid-cols-[minmax(200px,1fr)_160px_120px_160px]" data-testid={`org-admin-member-${m.userId}`}>
+              <div className="flex min-w-0 items-center gap-3"><Avatar initials={m.displayName.slice(0, 1)} size="sm" />
               {/*
                 F15 复核发现（issue #1877）：这个 flex 子项此前没有 `flex-1`，长显示名
                 （如种子数据里的 "SSP E2E Org Admin Keyboard Target"）在窄视口下会把
@@ -368,6 +396,7 @@ export function MembersTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean
                 <span className="truncate text-13 font-medium" data-testid={`org-admin-member-${m.userId}-name`}>{m.displayName}</span>
                 <span className="truncate text-10 text-muted-foreground">{m.email}</span>
               </div>
+              </div>
               {/* member-role-management delta：admin 看到的是可改的下拉，其他人看到只读徽章。 */}
               {isAdmin ? (
                 <OrgRolePicker orgId={orgId} userId={m.userId} current={m.orgRole} onChanged={handleOrgRoleChanged} />
@@ -376,7 +405,7 @@ export function MembersTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean
                   {t(`role.${m.orgRole}`)}
                 </Badge>
               )}
-              {m.status === "suspended" && <Badge tone="outline">{t("orgMembers.suspended")}</Badge>}
+              <span><Badge tone={m.status === "suspended" ? "outline" : "neutral"}>{m.status === "suspended" ? t("orgMembers.suspended") : t("orgPeople.active")}</Badge></span>
               {/* F15 复核：同上，加入日期在窄屏也让位——basis-full 独占一行，
                   sm 起再回到行尾 ml-auto 贴右对齐。 */}
               <span
@@ -386,7 +415,10 @@ export function MembersTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean
                 {new Date(m.joinedAt).toLocaleDateString(locale)} {t("orgMembers.joined")}</span>
             </li>
           ))}
+          {filteredMembers.length === 0 && <li className="p-8 text-center text-13 text-muted-foreground">{t("orgPeople.noMatches")}</li>}
         </ul>
+        </div>
+        <PeoplePagination page={currentPage} pages={pages} onChange={setPage} />
       </StateShell>
     </div>
   );
@@ -790,8 +822,8 @@ function InviteRow({
   }
 
   return (
-    <li className="flex flex-col gap-2 px-3 py-2" data-testid={`org-admin-invite-${invite.inviteId}`}>
-      <div className="flex flex-wrap items-center gap-2">
+    <li className="flex flex-col gap-3 px-5 py-4" data-testid={`org-admin-invite-${invite.inviteId}`}>
+      <div className="grid items-center gap-4 xl:grid-cols-[minmax(160px,1fr)_140px_minmax(100px,1fr)_140px_170px]">
         <span className="truncate text-13 font-medium">{invite.email}</span>
         <Badge tone={invite.status === "pending" ? "warning" : invite.status === "used" ? "primary" : invite.status === "revoked" ? "outline" : "danger"}>
           {inviteStatusLabel(invite.status, t)}
@@ -862,7 +894,10 @@ function InviteRow({
   );
 }
 
-function InvitesTab({
+function InvitesTab(props: React.ComponentProps<typeof InvitesTabContent>) {
+  return <InvitesTabContent key={props.orgId} {...props} />;
+}
+function InvitesTabContent({
   orgId, isAdmin, oneTimeLink, onOneTimeLink, sharedLinkReveal, onSharedLinkReveal,
 }: {
   orgId: string;
@@ -912,8 +947,27 @@ function InvitesTab({
     return () => clearTimeout(t);
   }, [banner]);
 
+  const [inviteQuery, setInviteQuery] = React.useState("");
+  const [inviteStatus, setInviteStatus] = React.useState("all");
+  const filteredInvites = (out?.invites ?? []).filter(inv => inv.email.toLowerCase().includes(inviteQuery.toLowerCase()) && (inviteStatus === "all" || inv.status === inviteStatus));
+  const [page, setPage] = React.useState(1);
+  React.useEffect(() => setPage(1), [inviteQuery, inviteStatus, orgId]);
+  const pages = Math.max(1, Math.ceil(filteredInvites.length / 10));
+  const currentPage = Math.min(page, pages);
+  React.useEffect(() => setPage(previous => Math.min(previous, pages)), [pages]);
   return (
     <div className="flex flex-col gap-3 pt-3">
+      {out && <div className="grid gap-4 sm:grid-cols-3">
+        <OrganizationStatCard label={t("orgMembers.invitations")} value={out.invites.length} />
+        <OrganizationStatCard label={t("orgMembers.pendingAcceptance")} value={out.invites.filter(i => i.status === "pending").length} />
+        <OrganizationStatCard label={t("orgMembers.used")} value={out.invites.filter(i => i.status === "used").length} />
+      </div>}
+      <div className="flex flex-wrap gap-3 rounded-xl border border-border bg-card p-4">
+        <Input className="min-w-0 flex-1" aria-label={t("orgPeople.searchMembers")} placeholder={t("orgPeople.searchMembers")} value={inviteQuery} onChange={e => setInviteQuery(e.target.value)} />
+        <select className="rounded-md border border-border bg-background px-3 text-13" aria-label={t("orgPeople.status")} value={inviteStatus} onChange={e => setInviteStatus(e.target.value)}>
+          <option value="all">{t("orgPeople.allStatuses")}</option>{Object.entries(INVITE_STATUS_KEYS).map(([status, key]) => <option key={status} value={status}>{t(key)}</option>)}
+        </select>
+      </div>
       <p className="text-11 text-muted-foreground">
         {t("orgMembers.sentInvitationsAndTheirStatusOnlyOrganizationAdministratorsCan")}</p>
 
@@ -954,8 +1008,8 @@ function InvitesTab({
         depFailure={{ what: failureMessage !== null ? describeFailureFor(failureMessage, t("orgMembers.organizationUnavailable"), t("orgMembers.inviteListForbidden"), t) : t("orgMembers.theInvitationListIsTemporarilyUnavailable"), retry: load }}
         denial={{ layer: "organization", reason: t("orgMembers.onlyOrganizationAdministratorsCanViewInvitationsYouAreNot") }}
       >
-        <ul className="flex flex-col divide-y divide-border rounded-lg border border-border" data-testid="org-admin-invite-list">
-          {out?.invites.map((inv) => (
+        <ul className="flex flex-col divide-y divide-border rounded-xl border border-border bg-card" data-testid="org-admin-invite-list">
+          {filteredInvites.slice((currentPage - 1) * 10, currentPage * 10).map((inv) => (
             <InviteRow
               key={inv.inviteId}
               orgId={orgId}
@@ -967,7 +1021,9 @@ function InvitesTab({
               onFailed={(text) => setBanner({ tone: "error", text })}
             />
           ))}
+          {filteredInvites.length === 0 && <li className="p-8 text-center text-13 text-muted-foreground">{t("orgPeople.noMatches")}</li>}
         </ul>
+        <PeoplePagination page={currentPage} pages={pages} onChange={setPage} />
       </StateShell>
       {isAdmin && (
         <SharedInviteLinksSection
@@ -1123,7 +1179,7 @@ function OrgProfileTab({ orgId }: { orgId: string }) {
         successMessage={t("state.saved")}
       >
         <div className="flex flex-col gap-6">
-          <div className="flex items-center gap-3 rounded-lg border border-border bg-panel p-3" data-testid="org-admin-avatar-block">
+          <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-6" data-testid="org-admin-avatar-block">
             {avatarSrc ? (
               // eslint-disable-next-line @next/next/no-img-element -- 组织头像来自后端 object store，非 Next 静态资源
               <img
@@ -1135,7 +1191,9 @@ function OrgProfileTab({ orgId }: { orgId: string }) {
             ) : (
               <Avatar initials={(profile?.name ?? t("ui.organization")).slice(0, 1)} size="lg" />
             )}
-            <div className="flex flex-col gap-1">
+            <div className="flex min-w-0 flex-col gap-2">
+              <h2 className="truncate text-24 font-semibold">{profile?.name}</h2>
+              {profile?.description && <p className="text-13 text-muted-foreground">{profile.description}</p>}
               <input
                 ref={fileInputRef}
                 type="file"
@@ -1169,7 +1227,8 @@ function OrgProfileTab({ orgId }: { orgId: string }) {
             </div>
           </div>
 
-          <form className="flex flex-col gap-4" onSubmit={handleSave} data-testid="org-admin-profile-form">
+          <form className="flex flex-col gap-6 rounded-xl border border-border bg-card p-6" onSubmit={handleSave} data-testid="org-admin-profile-form">
+            <h2 className="border-b border-border pb-4 text-16 font-semibold">{t("orgPeople.basicSettings")}</h2>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="org-admin-name">{t("orgProfile.name")}</Label>
               <Input
@@ -1204,7 +1263,7 @@ function OrgProfileTab({ orgId }: { orgId: string }) {
               </p>
             </div>
 
-            <div>
+            <div className="flex justify-end border-t border-border pt-5">
               <Button
                 type="submit"
                 variant="primary"
@@ -1220,4 +1279,9 @@ function OrgProfileTab({ orgId }: { orgId: string }) {
       </StateShell>
     </div>
   );
+}
+
+function PeoplePagination({page, pages, onChange}: {page: number; pages: number; onChange: (page: number) => void}) {
+  const {t} = useI18n();
+  return <nav aria-label={t("orgPeople.pagination")} className="flex items-center justify-end gap-3 py-3 text-13"><Button variant="outline" size="sm" disabled={page <= 1} onClick={() => onChange(page - 1)}>{t("orgPeople.previous")}</Button><span>{page} / {pages}</span><Button variant="outline" size="sm" disabled={page >= pages} onClick={() => onChange(page + 1)}>{t("orgPeople.next")}</Button></nav>;
 }

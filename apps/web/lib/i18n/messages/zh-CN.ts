@@ -1,3 +1,6 @@
+import { orgOverviewRedesignZhCN } from "../namespaces/org-overview-redesign";
+import { orgPeopleRedesignZhCN } from "../namespaces/org-people-redesign";
+import { orgControlsRedesignZhCN } from "../namespaces/org-controls-redesign";
 import { workshopLiveZhCN } from "../namespaces/workshop-live";
 import { platformOpsStatusZhCN } from "../namespaces/platform-ops-status";
 import { modelTestbenchZhCN } from "../namespaces/model-testbench";
@@ -52,6 +55,10 @@ import { stateZhCN } from "../namespaces/state";
 import { accountEntryZhCN } from "../namespaces/account-entry";
 import { invitationEntryZhCN } from "../namespaces/invitation-entry";
 export const zhCN = {
+  ...orgOverviewRedesignZhCN,
+  ...orgPeopleRedesignZhCN,
+  ...orgControlsRedesignZhCN,
+
   ...workshopLiveZhCN,
   ...platformOpsStatusZhCN,
   ...modelTestbenchZhCN,

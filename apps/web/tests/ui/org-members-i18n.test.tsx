@@ -34,6 +34,45 @@ describe("organization member and invitation localization", () => {
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
+  it("combines search, role and status filters without fetching again", async () => {
+    const fetch = vi.fn().mockResolvedValue(json({ members: [
+      { userId: "one", displayName: "Alice", email: "alice@example.test", orgRole: "admin", joinedAt: "2026-01-03", status: "active" },
+      { userId: "two", displayName: "Bob", email: "bob@example.test", orgRole: "consultant", joinedAt: "2026-01-04", status: "suspended" },
+    ] }));
+    vi.stubGlobal("fetch", fetch);
+    bilingual(<MembersTab orgId="org-filter" isAdmin={false} />);
+    await screen.findByTestId("org-admin-member-one");
+    fireEvent.change(screen.getByLabelText("Search name or email"), { target: { value: "bob@" } });
+    expect(screen.queryByTestId("org-admin-member-one")).toBeNull();
+    expect(screen.getByTestId("org-admin-member-two")).toBeVisible();
+    fireEvent.change(screen.getByLabelText("Status"), { target: { value: "active" } });
+    expect(screen.queryByTestId("org-admin-member-two")).toBeNull();
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("paginates actual records and resets filters to page one with an explicit no-match state", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json({members: Array.from({length: 11}, (_, i) => ({userId: `page-${i}`, displayName: `Person ${i}`, email: `person${i}@example.test`, orgRole: "consultant", joinedAt: "2026-01-03", status: "active"}))})));
+    bilingual(<MembersTab orgId="org-pages" isAdmin={false} />);
+    await screen.findByTestId("org-admin-member-page-0");
+    expect(screen.queryByTestId("org-admin-member-page-10")).toBeNull();
+    fireEvent.click(screen.getByRole("button", {name: "Next"}));
+    expect(screen.getByTestId("org-admin-member-page-10")).toBeVisible();
+    fireEvent.change(screen.getByLabelText("Search name or email"), {target: {value: "missing"}});
+    expect(screen.getByText("No matching records")).toBeVisible();
+    expect(screen.getByRole("button", {name: "Previous"})).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Search name or email"), {target: {value: "person0@"}});
+    expect(screen.getByTestId("org-admin-member-page-0")).toBeVisible();
+  });
+
+  it("isolates member statistics and records when the organization changes to a forbidden tenant", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(json({members:[{userId:"old-user",displayName:"Old tenant",email:"old@example.test",orgRole:"admin",joinedAt:"2026-01-01",status:"active"}]})).mockResolvedValueOnce(json({error:"forbidden"},403)));
+    const view=render(<I18nProvider initialLocale="en"><MembersTab orgId="org-a" isAdmin={false}/></I18nProvider>);
+    await screen.findByTestId("org-admin-member-old-user");
+    view.rerender(<I18nProvider initialLocale="en"><MembersTab orgId="org-b" isAdmin={false}/></I18nProvider>);
+    expect(screen.queryByTestId("org-admin-member-old-user")).toBeNull();
+    await waitFor(()=>expect(screen.queryByLabelText("Search name or email")).toBeNull());
+  });
+
   it("submits original email and role keys from an English invitation form", async () => {
     const fetch = vi.fn().mockResolvedValue(json({ inviteId: "inv-locale", activationToken: "token-original", status: "pending", quotaReserved: 1, tokenIssued: true }));
     vi.stubGlobal("fetch", fetch);

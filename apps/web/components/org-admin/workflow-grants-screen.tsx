@@ -20,6 +20,9 @@ import { findBuiltinWorkflow, workflowDisplayName } from "@/lib/workflow-display
 import { WorkflowGrantDialog } from "./workflow-grant-dialog";
 import { capabilityRows, workflowRows, type CapabilityRow } from "./workflow-grant-model";
 
+import { OrganizationContent, OrganizationPageHeader, OrganizationStatCard } from "./organization-content";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+
 type View = "capability" | "workflow";
 
 /**
@@ -40,6 +43,9 @@ export function WorkflowGrantsScreen() {
   const [state, setState] = React.useState<UiState>("loading");
   const [failure, setFailure] = React.useState<unknown>(null);
   const [data, setData] = React.useState<WorkflowCapabilityGrantsOut | null>(null);
+  const [status, setStatus] = React.useState("all");
+  const [query, setQuery] = React.useState("");
+  const [details, setDetails] = React.useState<CapabilityRow | null>(null);
   const [view, setView] = React.useState<View>("capability");
   const [focusWorkflow, setFocusWorkflow] = React.useState<string | null>(null);
   const [editing, setEditing] = React.useState<CapabilityRow | null>(null);
@@ -105,6 +111,7 @@ export function WorkflowGrantsScreen() {
 
   const caps = data ? capabilityRows(data) : [];
   const flows = data ? workflowRows(data) : [];
+  const filteredCaps = caps.filter(row=>status==="all"||(status==="blocked"?row.blocked.length>0:row.blocked.length===0)).filter(row=>capabilityCopy(row.category,locale).label.toLowerCase().includes(query.toLowerCase()));
   const blockedFlows = flows.filter((f) => !f.ready).length;
   const focused = focusWorkflow ? resolveFocus(flows, focusWorkflow) : null;
 
@@ -113,6 +120,7 @@ export function WorkflowGrantsScreen() {
       <StateShell state={state} skeletonRows={4} depFailure={{ what: state === "dep-failed" ? describeWorkflowGrantFailure(failure, locale) : t("workflowGrants.unavailable"), retry: () => void load() }}>
         {data ? (
           <div className="flex flex-col gap-6">
+            <div className="grid gap-4 sm:grid-cols-3"><OrganizationStatCard label={t("orgControlsRedesign.capabilities")} value={caps.length} /><OrganizationStatCard label={t("orgControlsRedesign.workflows")} value={flows.length} /><OrganizationStatCard label={t("workflowGrants.blocked")} value={blockedFlows} /></div>
             <div
               data-testid="workflow-grants-summary"
               className={cn(
@@ -178,9 +186,11 @@ export function WorkflowGrantsScreen() {
                 {caps.length === 0 ? (
                   <p className="text-12 text-muted-foreground" data-testid="workflow-grants-empty">{t("workflowGrants.empty")}</p>
                 ) : (
-                  <ul className="flex flex-col gap-3">
-                    {caps.map((row) => <CapabilityCard key={row.category} row={row} onEdit={() => { setDialogError(null); setNotice(null); setEditing(row); }} />)}
-                  </ul>
+                  <div className="overflow-x-auto rounded-xl border border-border">
+                    <input value={query} onChange={e=>setQuery(e.target.value)} aria-label={t("orgControlsRedesign.searchCapabilities")} placeholder={t("orgControlsRedesign.searchCapabilities")} className="m-4 min-w-0 max-w-full rounded-md border border-input bg-background px-3 py-2 text-14" />
+                    <select value={status} onChange={e=>setStatus(e.target.value)} aria-label={t("orgControlsRedesign.status")} className="m-4 min-w-0 max-w-full rounded-md border border-input bg-background px-3 py-2 text-14"><option value="all">{t("orgControlsRedesign.all")}</option><option value="ready">{t("workflowGrants.ready")}</option><option value="blocked">{t("workflowGrants.blocked")}</option></select>
+                    <table className="w-full text-left text-13"><thead className="bg-muted text-muted-foreground"><tr><th className="px-4 py-3">{t("workflowGrants.capability")}</th><th className="px-4 py-3">{t("orgControlsRedesign.status")}</th><th className="px-4 py-3">{t("orgControlsRedesign.workflows")}</th><th className="px-4 py-3">{t("orgControlsRedesign.actions")}</th></tr></thead><tbody>{filteredCaps.map(row=><tr key={row.category} data-testid={`workflow-grant-row-${row.category}`} className="border-t border-border"><td className="px-4 py-4"><p className="font-medium">{capabilityCopy(row.category,locale).label}</p><p className="mt-1 text-12 text-muted-foreground">{capabilityCopy(row.category,locale).allows}</p></td><td className="px-4 py-4"><Badge data-testid="workflow-grant-current">{t("workflowGrants.currentLevel",{level:capabilityLevelCopy(row.current,locale).label})}</Badge></td><td className="px-4 py-4">{row.uses.length}</td><td className="px-4 py-4"><div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={()=>setDetails(row)}>{t("orgControlsRedesign.details")}</Button><Button size="sm" data-testid="workflow-grant-edit" onClick={()=>{setDialogError(null);setNotice(null);setEditing(row);}}>{t(row.current!=="read"&&row.current!=="none"?"workflowGrants.adjust":"workflowGrants.grant")}</Button></div></td></tr>)}{filteredCaps.length===0&&<tr><td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">{t("orgControlsRedesign.noMatches")}</td></tr>}</tbody></table>
+                  </div>
                 )}
               </section>
             ) : (
@@ -232,65 +242,9 @@ export function WorkflowGrantsScreen() {
         ) : null}
       </StateShell>
 
+      <Dialog open={details!==null} onOpenChange={open=>{if(!open)setDetails(null);}}><DialogContent className="inset-y-0 left-auto right-0 h-dvh max-h-dvh w-full max-w-xl translate-x-0 translate-y-0 overflow-y-auto rounded-none"><DialogTitle className="pr-8 text-24 font-semibold">{details ? capabilityCopy(details.category,locale).label : ""}</DialogTitle>{details&&<><p className="text-13 text-muted-foreground">{capabilityCopy(details.category,locale).allows}</p><h3 className="text-16 font-semibold">{t("workflowGrants.uses")}</h3><ul className="space-y-3">{details.uses.map(u=><li key={u.workflowId} className="rounded-lg border border-border p-4"><p className="font-medium">{workflowDisplayName(u.workflowKey,u.title,locale)}</p><p className="mt-1 text-12 text-muted-foreground">{t("workflowGrants.requires",{level:capabilityLevelCopy(u.requiredCap,locale).label})}</p></li>)}</ul><AuditTrail entries={data?.audit.filter(e=>e.capabilityCategory===details.category)??[]} me={me} names={memberNames}/></>}</DialogContent></Dialog>
       <WorkflowGrantDialog row={editing} busy={busy} error={dialogError === null ? null : describeWorkflowGrantFailure(dialogError.raw, locale)} onCancel={() => setEditing(null)} onConfirm={(l) => void confirm(l)} />
     </GrantsShell>
-  );
-}
-
-function CapabilityCard({ row, onEdit }: { row: CapabilityRow; onEdit: () => void }) {
-  const { locale, t } = useI18n();
-  const copy = capabilityCopy(row.category, locale);
-  const needsGrant = row.blocked.length > 0;
-  const granted = row.current !== "read" && row.current !== "none";
-  // 已授予过（哪怕仍有工作流要更高等级）一律叫「调整权限」；从未授予才叫「授予权限」。
-  const cta = granted ? t("workflowGrants.adjust") : t("workflowGrants.grant");
-  return (
-    <li data-testid={`workflow-grant-row-${row.category}`} className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex min-w-0 flex-col gap-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-14 font-semibold">{copy.label}</h3>
-            <Badge tone={granted ? "primary" : "neutral"} data-testid="workflow-grant-current">
-              {t("workflowGrants.currentLevel", { level: capabilityLevelCopy(row.current, locale).label })}
-            </Badge>
-          </div>
-          <p className="text-12 text-muted-foreground">{copy.allows}</p>
-        </div>
-        <Button
-          size="sm"
-          variant={needsGrant ? "primary" : "outline"}
-          onClick={onEdit}
-          data-testid="workflow-grant-edit"
-          aria-label={t("workflowGrants.editLabel", { action: cta, label: copy.label })}
-        >
-          {cta}
-        </Button>
-      </div>
-      <div className="flex flex-col gap-1 text-12">
-        <p className="text-muted-foreground">{t("workflowGrants.uses")}</p>
-        <ul className="flex flex-wrap gap-1.5">
-          {row.uses.map((u) => {
-            const blocked = row.blocked.includes(u);
-            return (
-              <li key={u.workflowId} data-testid={`workflow-grant-use-${row.category}-${u.workflowId}`}>
-                <span className={cn("inline-flex items-center gap-1 rounded-control border px-2 py-0.5",
-                  blocked ? "border-warning bg-warning-tint text-warning-tint-foreground" : "border-border")}>
-                  {blocked ? <CircleAlert aria-hidden className="h-3 w-3" /> : <CheckCircle2 aria-hidden className="h-3 w-3 text-success" />}
-                  {workflowDisplayName(u.workflowKey, u.title, locale)}
-                  <span className="text-muted-foreground">{t("workflowGrants.requires", { level: capabilityLevelCopy(u.requiredCap, locale).label })}</span>
-                  <span className="sr-only">{blocked ? t("workflowGrants.blockedSr") : t("workflowGrants.readySr")}</span>
-                </span>
-              </li>
-            );
-          })}
-        </ul>
-        {needsGrant ? (
-          <p className="text-warning-tint-foreground" data-testid="workflow-grant-shortfall">
-            {t("workflowGrants.shortfall", { level: capabilityLevelCopy(row.current, locale).label, count: row.blocked.length })}
-          </p>
-        ) : null}
-      </div>
-    </li>
   );
 }
 
@@ -306,7 +260,7 @@ function AuditTrail({ entries, me, names }: { entries: readonly WorkflowCapabili
         <p className="text-12 text-muted-foreground" data-testid="workflow-grants-audit-empty">{t("workflowGrants.auditEmpty")}</p>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-border">
-          <table className="w-full text-left text-12">
+          <table className="w-full min-w-max text-left text-12">
             <thead className="bg-muted text-muted-foreground">
               <tr>
                 <th scope="col" className="px-3 py-2 font-medium">{t("workflowGrants.time")}</th>
@@ -339,18 +293,10 @@ function GrantsShell({ children }: { children: React.ReactNode }) {
   const { t } = useI18n();
   return (
     <AppShell previewRole={null} left={<AdminNav active="workflow-grants" />}>
-      <div className="mx-auto flex max-w-3xl flex-col gap-6 p-6" data-testid="workflow-grants-screen">
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <KeyRound aria-hidden className="h-5 w-5 text-muted-foreground" />
-            <h1 className="text-16 font-semibold tracking-tight">{t("workflowGrants.title")}</h1>
-          </div>
-          <p className="text-12 text-muted-foreground">
-            {t("workflowGrants.intro")}
-          </p>
-        </div>
+      <OrganizationContent testId="workflow-grants-screen">
+        <OrganizationPageHeader title={t("workflowGrants.title")} description={t("workflowGrants.intro")} icon={KeyRound}/>
         {children}
-      </div>
+      </OrganizationContent>
     </AppShell>
   );
 }

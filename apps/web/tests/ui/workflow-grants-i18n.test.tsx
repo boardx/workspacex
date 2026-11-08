@@ -39,7 +39,12 @@ afterEach(() => { cleanup(); window.history.replaceState(null, "", "/"); });
 it("renders English capability view, keeps authored workflow text and switches without refetch", async () => {
   render(<Page />); const row = await screen.findByTestId("workflow-grant-row-artifact.write");
   expect(screen.getByRole("heading", { name: "Workflow permissions" })).toBeVisible();
-  expect(row).toHaveTextContent("Save output documents"); expect(row).toHaveTextContent("Problem to PRD"); expect(row).toHaveTextContent("团队原文 {count}");
+  expect(row).toHaveTextContent("Save output documents");
+  fireEvent.click(within(row).getByRole("button",{name:"Details"}));
+  const details=screen.getByRole("dialog");
+  expect(details).toHaveTextContent("Problem to PRD"); expect(details).toHaveTextContent("团队原文 {count}");
+  expect(api.setWorkflowCapabilityGrant).not.toHaveBeenCalled(); expect(api.revokeWorkflowCapabilityGrant).not.toHaveBeenCalled();
+  fireEvent.click(within(details).getByTestId("dialog-close"));
   expect(screen.getByRole("tab", { name: "By capability" })).toHaveAttribute("aria-selected", "true");
   expect(screen.getByTestId("workflow-grants-summary")).toHaveTextContent("2");
   expect(screen.getByTestId("workflow-grants-audit-empty")).toHaveTextContent("No workflow permission changes yet");
