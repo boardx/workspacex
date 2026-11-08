@@ -1,3 +1,4 @@
+import { setShellLocale } from "./shell-locale";
 import { evaluateSurveyForPublish } from "@repo/contracts/survey-publish-readiness";
 import { expect, test, type Page, type Locator, type Route, type TestInfo } from "@playwright/test";
 import { createHash, randomUUID } from "node:crypto";
@@ -78,7 +79,7 @@ async function holdResponse(page: Page, path: string) {
 async function languageTab(page: Page) {
     const other = await page.context().newPage();
     await other.goto("/studio/survey");
-    return { language: async (locale: "en" | "zh-CN") => { await other.getByTestId("language-switcher").first().selectOption(locale); await expect(page.locator("html")).toHaveAttribute("lang", locale); }, close: () => other.close() };
+    return { language: async (locale: "en" | "zh-CN") => { await setShellLocale(other, locale); await expect(page.locator("html")).toHaveAttribute("lang", locale); }, close: () => other.close() };
 }
 /** Inspect actual downloaded OOXML independently of the browser document builder. */
 function zipText(bytes: Buffer, entry: string): string {

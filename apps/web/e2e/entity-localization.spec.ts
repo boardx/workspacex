@@ -1,3 +1,4 @@
+import { setShellLocale } from "./shell-locale";
 import { randomUUID } from "node:crypto";
 import { expect, test, type Page, type Request } from "@playwright/test";
 import { ENTITY_LOCALIZATION_E2E, PLATFORM_MEMBERS_E2E, TELEMETRY_HISTORY_E2E } from "./entity-localization-fixture";
@@ -181,7 +182,7 @@ test("administration quotas retain drafts and canonical writes while usage prese
       expect((await member.request.patch(memberPath, { headers: memberHeaders, data: { orgId, userId, monthlyLimit: 1 } })).status()).toBe(403);
       expect((await member.request.patch(budgetPath, { headers: memberHeaders, data: { orgId, monthlyBudget: 1 } })).status()).toBe(403);
       expect((await member.request.post(rulesPath, { headers: memberHeaders, data: { orgId, scopeKind: "member", scopeRef: userId, modelId: null, windowKind: "day", thresholdTokens: 1, action: "warn", degradeToModelId: null } })).status()).toBe(403);
-      await member.goto("/admin/members"); await member.getByTestId("language-switcher").first().selectOption("en"); await expect(member.getByTestId("admin-quota-load-failed")).toContainText("Could not load quota data");
+      await member.goto("/admin/members"); await setShellLocale(member, "en"); await expect(member.getByTestId("admin-quota-load-failed")).toContainText("Could not load quota data");
       await expect(member.getByTestId("admin-quota-load-failed")).toContainText("You do not have permission to perform this action.");
       await expect(member.getByTestId("admin-quota-load-failed")).not.toContainText("Your session has expired");
       await member.setViewportSize({ width: 375, height: 900 }); await member.screenshot({ path: testInfo.outputPath("member-quotas-denied-en-375.png"), fullPage: true });
@@ -229,7 +230,7 @@ test("organization profile preserves authored data and enforces real grant and m
   await expect(page.getByRole("switch")).toBeVisible();
   const reads = [profileReads, grantReads, settingReads];
   expect(reads.every(count => count > 0)).toBe(true);
-  await page.getByTestId("language-switcher").first().selectOption("en");
+  await setShellLocale(page, "en");
   await expect(page.getByRole("heading", { name: "Organization profile", exact: true })).toBeVisible();
   await expect(page.getByLabel("Organization name", { exact: true })).toHaveValue(name);
   await expect(page.getByLabel("Organization description", { exact: true })).toHaveValue(description);
@@ -241,17 +242,17 @@ test("organization profile preserves authored data and enforces real grant and m
   expect(saveResponse.status()).toBe(200);
   expect(saveResponse.request().postDataJSON()).toEqual({ orgId: ENTITY_LOCALIZATION_E2E.orgId, name, description });
   await expect(page.getByTestId("saved")).toHaveText("Saved");
-  await page.getByTestId("language-switcher").first().selectOption("zh-CN");
+  await setShellLocale(page, "zh-CN");
   await expect(page.getByTestId("saved")).toHaveText("已保存");
-  await page.getByTestId("language-switcher").first().selectOption("en");
+  await setShellLocale(page, "en");
   // Real server byte validation; switching language retranslates the retained error.
   const rejected = page.waitForResponse(response => response.request().method() === "POST" && new URL(response.url()).pathname === `${profilePath}/avatar`);
   await page.getByTestId("org-admin-avatar-file-input").setInputFiles({ name: "invalid.png", mimeType: "image/png", buffer: Buffer.from("not image bytes") });
   expect((await rejected).ok()).toBe(false);
   await expect(page.getByTestId("org-admin-avatar-error")).toContainText("file content does not match");
-  await page.getByTestId("language-switcher").first().selectOption("zh-CN");
+  await setShellLocale(page, "zh-CN");
   await expect(page.getByTestId("org-admin-avatar-error")).toContainText("文件内容与声明的图片格式不符");
-  await page.getByTestId("language-switcher").first().selectOption("en");
+  await setShellLocale(page, "en");
   const png = await page.evaluate(() => {
     const canvas = document.createElement("canvas"); canvas.width = 16; canvas.height = 16;
     canvas.getContext("2d")!.fillRect(0, 0, 16, 16);
@@ -277,7 +278,7 @@ test("organization profile preserves authored data and enforces real grant and m
     const deniedGrants = member.waitForResponse(response => response.request().method() === "GET" && new URL(response.url()).pathname === grantsPath);
     await member.goto("/org-admin/profile");
     expect((await deniedProfile).status()).toBe(403); expect((await deniedGrants).status()).toBe(403);
-    await member.getByTestId("language-switcher").first().selectOption("en");
+    await setShellLocale(member, "en");
     await expect(member.getByTestId("org-admin-profile-form")).toHaveCount(0);
     await expect(member.getByTestId("denied").filter({ hasText: "Only organization administrators can edit the organization profile." }).getByTestId("denied-layer")).toHaveText("Organization restriction: Only organization administrators can edit the organization profile. You are not an administrator in this organization.");
     await expect(member.getByTestId("standing-tool-grants").getByTestId("denied-layer")).toHaveText("Organization restriction: Only organization administrators can view and revoke standing tool grants.");
@@ -286,7 +287,7 @@ test("organization profile preserves authored data and enforces real grant and m
     expect((await member.request.put(settingPath, { headers: memberHeaders, data: { enabled: !setting.orgEnabled } })).status()).toBe(403);
     expect((await member.request.delete(`${grantsPath}/${grant!.grantId}`, { headers: memberHeaders })).status()).toBe(403);
     await member.screenshot({ path: testInfo.outputPath("org-profile-member-denied-en.png"), fullPage: true });
-    await member.getByTestId("language-switcher").first().selectOption("zh-CN");
+    await setShellLocale(member, "zh-CN");
     await expect(member.getByTestId("standing-tool-grants").getByTestId("denied-layer")).toHaveText("组织层限制：只有组织管理员可以查看和撤销长期工具授权。");
   } finally { await memberContext.close(); }
 
@@ -363,7 +364,7 @@ test("admin authors display copy; members switch language; clearing keeps origin
   await page.getByTestId("entity-localization-summary").fill("Translated display summary only");
   await editor.getByRole("button", { name: "保存译文", exact: true }).click();
   await expect(editor.getByRole("status")).toHaveText("译文已保存");
-  await page.getByTestId("language-switcher").selectOption("en");
+  await setShellLocale(page, "en");
   await expect(row.getByTestId("work-catalog-row-title")).toHaveText(translatedName);
   await expect(page.getByTestId("work-skill-detail")).toContainText("Translated display summary only");
   await page.screenshot({ path: testInfo.outputPath("admin-translation.png"), fullPage: true });
@@ -375,7 +376,7 @@ test("admin authors display copy; members switch language; clearing keeps origin
     const memberHeaders = await authorization(member);
     expect((await member.request.get(adminPath, { headers: memberHeaders })).status()).toBe(403);
     await member.goto("/skill?screen=work-catalog");
-    await member.getByTestId("language-switcher").selectOption("en");
+    await setShellLocale(member, "en");
     await member.getByTestId("work-catalog-search").fill(translatedName);
     const memberRow = member.getByTestId("work-catalog-row-S157");
     await expect(memberRow).toHaveCount(1);
@@ -384,7 +385,7 @@ test("admin authors display copy; members switch language; clearing keeps origin
     await expect(member.getByTestId("entity-localization-toggle")).toHaveCount(0);
     await member.screenshot({ path: testInfo.outputPath("member-translation.png"), fullPage: true });
     await member.getByTestId("work-catalog-search").fill(original.source.fields.name);
-    await member.getByTestId("language-switcher").selectOption("zh-CN");
+    await setShellLocale(member, "zh-CN");
     await expect(member.getByTestId("work-catalog-row-S157").getByTestId("work-catalog-row-title")).toHaveText(original.source.fields.name);
   } finally { await memberContext.close(); }
 
@@ -427,7 +428,7 @@ test("an installed organization explicitly updates authored titles without chang
   }));
   const rolesBefore = await exported();
   await page.goto("/agent");
-  await page.getByTestId("language-switcher").selectOption("en");
+  await setShellLocale(page, "en");
   await page.getByTestId("agent-directory-enable-official").click();
   const update = page.getByTestId("display-translation-update");
   await expect(update).toBeVisible();
@@ -443,13 +444,13 @@ test("an installed organization explicitly updates authored titles without chang
     const member = await memberContext.newPage(); await login(member,false);
     const memberHeaders = await authorization(member);
     expect((await member.request.get("/__fullstack_api/admin/entity-display-updates/offer",{ headers: memberHeaders })).status()).toBe(403);
-    await member.goto("/agent"); await member.getByTestId("language-switcher").selectOption("en");
+    await member.goto("/agent"); await setShellLocale(member, "en");
     await expect(member.getByTestId("agent-directory")).toContainText("Product Manager");
     await expect(member.getByTestId("agent-directory-enable-official")).toHaveCount(0);
     await member.goto("/skill?screen=work-catalog");
     await member.getByTestId("work-catalog-search").fill(manualName);
     await expect(member.getByTestId("work-catalog-row-S003").getByTestId("work-catalog-row-title")).toHaveText(manualName);
-    await member.getByTestId("language-switcher").selectOption("zh-CN");
+    await setShellLocale(member, "zh-CN");
     await member.getByTestId("work-catalog-search").fill("企业内部检索");
     await expect(member.getByTestId("work-catalog-row-S003").getByTestId("work-catalog-row-title")).toHaveText("企业内部检索");
     await member.screenshot({ path: testInfo.outputPath("authored-member-zh.png"),fullPage: true });
@@ -481,7 +482,7 @@ test("organization members and invitations retain source data across locales", a
   expect(activationUrl.pathname).toBe("/auth/activate");
   expect(activationUrl.searchParams.get("t")).toBeTruthy();
   await expect(page.getByText(email, { exact: true })).toBeVisible();
-  await page.getByTestId("language-switcher").first().selectOption("zh-CN");
+  await setShellLocale(page, "zh-CN");
   await expect(page.getByRole("heading", { name: "邀请", exact: true })).toBeVisible();
   await expect(page.getByText(email, { exact: true })).toBeVisible();
   await expect(page.getByTestId("org-admin-invite-link-block")).toHaveCount(0);
@@ -504,7 +505,7 @@ test("organization members and invitations retain source data across locales", a
     const rowId = await row.getAttribute("data-testid");
     expect(rowId).toBeTruthy();
     const userId = rowId!.replace("org-admin-member-", "");
-    await page.getByTestId("language-switcher").first().selectOption("en");
+    await setShellLocale(page, "en");
     const rolePicker = page.getByTestId(`org-admin-member-${userId}-org-role`);
     await expect(rolePicker).toHaveText(/Consultant/);
     await rolePicker.click();
@@ -535,9 +536,9 @@ test("organization members and invitations retain source data across locales", a
     await expect(page.getByTestId("org-admin-shared-link-block")).toBeVisible();
     const sharedUrl = await page.getByTestId("org-admin-shared-link-url").inputValue();
     expect(sharedUrl).toContain("lt=");
-    await page.getByTestId("language-switcher").first().selectOption("zh-CN");
+    await setShellLocale(page, "zh-CN");
     await expect(page.getByTestId("org-admin-shared-link-url")).toHaveValue(sharedUrl);
-    await page.getByTestId("language-switcher").first().selectOption("en");
+    await setShellLocale(page, "en");
     await page.getByTestId(`org-admin-shared-link-${shared.linkId}-revoke`).click();
     const revoked = page.waitForResponse((r) => r.request().method() === "POST" && r.url().includes(`/invite-links/${shared.linkId}/revoke`));
     await page.getByTestId(`org-admin-shared-link-${shared.linkId}-revoke-confirm-yes`).click();
@@ -565,14 +566,14 @@ test("shared admin sidebars retain routes, scope and live counts across locale c
   await page.goto("/org-admin/members");
   await countReady;
   await expect(page.getByTestId("org-admin-member-list")).toBeVisible();
-  await page.getByTestId("language-switcher").first().selectOption("zh-CN");
+  await setShellLocale(page, "zh-CN");
   const nav = page.getByTestId("admin-nav");
   const members = page.getByTestId("admin-nav-org-members");
   await expect(nav).toHaveAttribute("data-admin-scope", "org");
   await expect(nav).toHaveAccessibleName("组织后台模块");
   await expect(members).toHaveAttribute("aria-current", "page");
   const readsBeforeLocale = countReads;
-  await page.getByTestId("language-switcher").first().selectOption("en");
+  await setShellLocale(page, "en");
   await expect(nav).toHaveAccessibleName("Organization admin modules");
   await expect(members).toHaveText(/^Members\s*—$/);
   await expect(page.getByTestId("admin-nav-org-members-count")).toHaveAccessibleName("Members count unavailable");
@@ -601,7 +602,7 @@ test("shared admin sidebars retain routes, scope and live counts across locale c
   await expect(page.getByTestId("admin-nav")).toBeVisible();
   await expect(page.getByTestId("admin-nav-agent")).toHaveAttribute("href", "/platform-admin/agent");
   await page.screenshot({ path: testInfo.outputPath("admin-nav-platform-en-820.png"), fullPage: true });
-  await page.getByTestId("language-switcher").first().selectOption("zh-CN");
+  await setShellLocale(page, "zh-CN");
   await expect(page.getByTestId("admin-nav")).toHaveAccessibleName("平台后台模块");
   await expect(page.getByTestId("admin-nav-agent-count")).toHaveText(agentCount ?? "");
   await expect(page.getByTestId("admin-nav-mcp-count")).toHaveAccessibleName("MCP 计数暂不可用");
@@ -768,9 +769,9 @@ test("organization home configuration preserves drafts, real previews and recomm
   expect((await rejected).ok()).toBe(false);
   await expect(page.getByTestId("home-config-banner-upload-error")).toContainText("Only PNG, JPEG, and WebP images are supported.");
   const postsBeforeLocale = bannerPosts;
-  await page.getByTestId("language-switcher").first().selectOption("zh-CN");
+  await setShellLocale(page, "zh-CN");
   await expect(page.getByTestId("home-config-banner-upload-error")).not.toContainText("Only PNG");
-  await page.getByTestId("language-switcher").first().selectOption("en");
+  await setShellLocale(page, "en");
   await expect(page.getByTestId("home-config-banner-upload-error")).toContainText("Only PNG");
   expect(bannerPosts).toBe(postsBeforeLocale);
   const uploaded = page.waitForResponse(response => response.request().method() === "POST" && new URL(response.url()).pathname === bannerPath);
@@ -796,8 +797,8 @@ test("organization home configuration preserves drafts, real previews and recomm
   await page.getByTestId("home-config-recommendation-note-skill-" + skill!.skillId).fill(skillNote);
   const readsBeforeLocale = { ...reads };
   expect(Object.values(readsBeforeLocale).every(count => count > 0)).toBe(true);
-  await page.getByTestId("language-switcher").first().selectOption("zh-CN");
-  await page.getByTestId("language-switcher").first().selectOption("en");
+  await setShellLocale(page, "zh-CN");
+  await setShellLocale(page, "en");
   await expect(page.getByTestId("home-config-tab-content")).toHaveAttribute("aria-selected", "true");
   await expect(agentChoice).toHaveText("Added · " + agent!.name); await expect(agentChoice).toBeDisabled();
   await expect(skillChoice).toHaveText("Added · " + skill!.name); await expect(skillChoice).toBeDisabled();
@@ -860,9 +861,9 @@ test("organization home configuration preserves drafts, real previews and recomm
   });
   expect(payload.quickActions.find(item => item.key === "chat")?.enabled).toBe(false);
   await expect(page.getByTestId("home-config-preview-status")).toHaveText("Saved");
-  await page.getByTestId("language-switcher").first().selectOption("zh-CN");
+  await setShellLocale(page, "zh-CN");
   await expect(page.getByTestId("home-config-preview-status")).toHaveText("已保存");
-  await page.getByTestId("language-switcher").first().selectOption("en");
+  await setShellLocale(page, "en");
   await page.reload(); await expect(page.getByTestId("home-config-title")).toHaveValue(title);
   const persisted = homeConfig.HomeConfig.parse(await (await page.request.get(homePath, { headers })).json());
   expect(persisted).toMatchObject({ title, bannerHeadline: headline, bannerTagline: tagline, bannerColor: primary, themeColors: { primary } });
@@ -878,7 +879,7 @@ test("organization home configuration preserves drafts, real previews and recomm
     const forbidden = await member.request.put(homePath, { headers: memberHeaders, data: { ...payload, title: "Unauthorized edit" } });
     expect(forbidden.status()).toBe(403);
     expect(homeConfig.HomeConfig.parse(await (await page.request.get(homePath, { headers })).json())).toEqual(persisted);
-    await member.goto("/org-admin/home-config"); await member.getByTestId("language-switcher").first().selectOption("en");
+    await member.goto("/org-admin/home-config"); await setShellLocale(member, "en");
     await expect(member.getByTestId("home-config-screen").getByRole("alert")).toContainText("Only organization administrators can configure the home page.");
     await expect(member.getByTestId("home-config-form")).toHaveCount(0);
     await member.screenshot({ path: testInfo.outputPath("home-config-member-denied.png"), fullPage: true });
@@ -918,13 +919,13 @@ test("workflow grant management persists canonical permissions and audit across 
   await expect(focused).toBeFocused();
   const countsBeforeLocale = [reads, writes];
   expect(reads).toBeGreaterThan(0);
-  await page.getByTestId("language-switcher").first().selectOption("en");
+  await setShellLocale(page, "en");
   await expect(page.getByRole("heading", { name: "Workflow permissions", exact: true })).toBeVisible();
   await expect(focused).toContainText("Problem to PRD");
   await expect(page.getByTestId("workflow-grants-tab-workflow")).toHaveAttribute("aria-selected", "true");
-  await page.getByTestId("language-switcher").first().selectOption("zh-CN");
+  await setShellLocale(page, "zh-CN");
   await expect(focused).toContainText("问题定义到 PRD");
-  await page.getByTestId("language-switcher").first().selectOption("en");
+  await setShellLocale(page, "en");
   expect([reads, writes]).toEqual(countsBeforeLocale);
   const revealDialogFooter = async () => {
     const modal = page.getByTestId("workflow-grant-dialog");
@@ -983,9 +984,9 @@ test("workflow grant management persists canonical permissions and audit across 
   expect(WG.operations.setWorkflowCapabilityGrant.out.parse(await granted.json())).toMatchObject({ capabilityCategory: "artifact.write", configured: true, authorized: true, sideEffectCap: "write" });
   await expect(dialog).toBeHidden();
   await expect(page.getByTestId("workflow-grants-notice")).toContainText("Granted");
-  await page.getByTestId("language-switcher").first().selectOption("zh-CN");
+  await setShellLocale(page, "zh-CN");
   await expect(page.getByTestId("workflow-grants-notice")).toContainText("已授予「保存产出文档」可写入权限");
-  await page.getByTestId("language-switcher").first().selectOption("en");
+  await setShellLocale(page, "en");
   const persisted = await read();
   expect(persisted.grants.find(grant => grant.capabilityCategory === "artifact.write")).toMatchObject({ configured: true, sideEffectCap: "write" });
   const grantEvent = persisted.audit.find(event => !beforeGrantEventIds.has(event.eventId) && event.capabilityCategory === "artifact.write" && event.action === "granted" && event.fromCap === "read" && event.toCap === "write" && event.actorId === ENTITY_LOCALIZATION_E2E.adminUserId);
@@ -1035,10 +1036,10 @@ test("workflow grant management persists canonical permissions and audit across 
     let memberReads = 0;
     member.on("request", request => { if (request.method() === "GET" && new URL(request.url()).pathname === listPath) memberReads++; });
     await member.goto("/org-admin/workflow-grants");
-    await member.getByTestId("language-switcher").first().selectOption("en");
+    await setShellLocale(member, "en");
     await expect(member.getByTestId("denied-layer")).toContainText("Only organization administrators");
     await member.screenshot({ path: testInfo.outputPath("workflow-grants-member-denied-375.png") });
-    await member.getByTestId("language-switcher").first().selectOption("zh-CN");
+    await setShellLocale(member, "zh-CN");
     await expect(member.getByTestId("denied-layer")).toContainText("仅组织管理员");
     expect(memberReads).toBe(0);
     const afterDenied = await read();
@@ -1196,7 +1197,7 @@ test("platform members preserve locale continuity and real superuser operator bo
     const operatorHeaders = await authorization(operator);
     const operatorRead = await operator.request.get(listPath, { headers: operatorHeaders }); expect(operatorRead.status()).toBe(200);
     expect(targetFrom(PM.operations.listPlatformMembers.out.parse(await operatorRead.json())).platformAdmin).toBe(true);
-    await operator.goto("/platform-admin/members"); await operator.getByTestId("language-switcher").first().selectOption("en");
+    await operator.goto("/platform-admin/members"); await setShellLocale(operator, "en");
     await expect(operator.getByTestId(memberId(fixture.targetId))).toContainText("Platform administrator");
     await expect(operator.locator('[data-testid$="-admin-toggle"]')).toHaveCount(0);
     const operatorChanged = operator.waitForResponse(response => response.request().method() === "PATCH" && new URL(response.url()).pathname === rolePath(fixture.targetId, fixture.orgAId));
@@ -1233,7 +1234,7 @@ test("platform members preserve locale continuity and real superuser operator bo
     const ordinaryHeaders = await authorization(ordinary);
     const ordinaryRead = await ordinary.request.get(listPath, { headers: ordinaryHeaders }); expect(ordinaryRead.status()).toBe(403);
     expect(PM.PlatformMembersError.parse((await ordinaryRead.json()).reasonCode)).toBe("NOT_PLATFORM_SUPERUSER");
-    await ordinary.goto("/platform-admin/members"); await ordinary.getByTestId("language-switcher").first().selectOption("en");
+    await ordinary.goto("/platform-admin/members"); await setShellLocale(ordinary, "en");
     await expect(ordinary.getByTestId("admin-platform-members-forbidden")).toContainText("this does not mean data is missing");
     await expect(ordinary.getByTestId("admin-platform-members-empty")).toHaveCount(0);
     await expect(ordinary.getByTestId("admin-platform-members-failed")).toHaveCount(0);
@@ -1400,7 +1401,7 @@ test("platform telemetry preserves independent consent and original history acro
     expect(await response.json()).toMatchObject({ reasonCode: "NOT_PLATFORM_SUPERUSER" });
     expect((await readSettings()).consent).toEqual(before); await assertHistory();
     await actorPage.goto("/platform-admin/telemetry");
-    await actorPage.getByTestId("language-switcher").first().selectOption("en");
+    await setShellLocale(actorPage, "en");
     for (const id of ["admin-telemetry-failed", "admin-telemetry-last-failed"]) {
       await expect(actorPage.getByTestId(id)).toContainText("Only platform operators");
       await expect(actorPage.getByTestId(id)).toContainText("Your current account is not a platform operator");
@@ -1456,7 +1457,7 @@ test("platform telemetry preserves independent consent and original history acro
     T.operations.getLastTelemetryReport.out.parse(operatorRawHistory);
     expect(JSON.stringify(operatorRawHistory)).toBe(originalHistory);
     await operator.goto("/platform-admin/telemetry");
-    await operator.getByTestId("language-switcher").first().selectOption("en");
+    await setShellLocale(operator, "en");
     await assertConsent(operator); await toggleOne(operator, "health", operatorHeaders);
     await capture(operator, "operator-en", "admin-telemetry-consent");
     const ordinary = await ordinaryContext.newPage(); await login(ordinary, true);

@@ -1,3 +1,4 @@
+import { setShellLocale } from "./shell-locale";
 /**
  * #638 —— 用户个人资料自助服务，真实浏览器验收
  * （`phases/phase-01-run-a-project/design-deltas/self-service-profile/verification.md`
@@ -98,7 +99,7 @@ test.describe.serial("用户个人资料自助服务", () => {
     const newDisplayName = "SSP E2E Admin 改名后";
     await page.getByTestId("profile-display-name-input").fill(newDisplayName);
     // Locale is presentation state: preserve a pending edit, then save through the real API.
-    await page.getByTestId("language-switcher").first().selectOption("en");
+    await setShellLocale(page, "en");
     await expect(page.getByRole("heading", { name: "Profile", exact: true })).toBeVisible();
     await expect(page.getByLabel("Display name", { exact: true })).toHaveValue(newDisplayName);
     await expect(page.getByRole("button", { name: "Change avatar" })).toBeVisible();
@@ -134,7 +135,7 @@ test.describe.serial("用户个人资料自助服务", () => {
       await page.screenshot({ path: test.info().outputPath(`profile-en-${width}.png`) });
     }
     await page.setViewportSize({ width: 1280, height: 900 });
-    await page.getByTestId("language-switcher").first().selectOption("zh-CN");
+    await setShellLocale(page, "zh-CN");
     await expect(page.getByRole("heading", { name: "个人资料", exact: true })).toBeVisible();
 
     /* ── 1b. 活动记录非空：改名写的 provenance 事件真的能读回来（迭代 4） ───── */
@@ -168,9 +169,9 @@ test.describe.serial("用户个人资料自助服务", () => {
     const invalidVersionResponse = await page.request.get(invalidVersionUrl.toString(), { headers: { authorization: authorization! } });
     expect(invalidVersionResponse.status()).toBe(400);
 
-    await page.getByTestId("language-switcher").first().selectOption("en");
+    await setShellLocale(page, "en");
     await expect(activityItems.first()).toContainText(`Display name changed to "${newDisplayName}"`);
-    await page.getByTestId("language-switcher").first().selectOption("zh-CN");
+    await setShellLocale(page, "zh-CN");
     await expect(activityItems.first()).toContainText(`显示名改为"${newDisplayName}"`);
 
 

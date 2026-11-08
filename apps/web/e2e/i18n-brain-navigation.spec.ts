@@ -1,3 +1,4 @@
+import { setShellLocale } from "./shell-locale";
 import { expect, test, type Response } from "@playwright/test";
 import { knowledgeGraph as C } from "@repo/contracts/chat-knowledge-graph";
 import { FULLSTACK_E2E as F } from "./fullstack-smoke-fixture";
@@ -13,15 +14,15 @@ test("brain shell and session/shared views retain real empty API state across lo
  expect(personalResponse.status()).toBe(200); expect(overviewResponse.status()).toBe(200);
  const personal=C.getPersonalKnowledge.out.parse(await personalResponse.json()); const overview=C.getBrainOverview.out.parse(await overviewResponse.json());
  expect(personal.claims).toHaveLength(0); expect(personal.scope).toEqual({kind:"personal",id:F.brainUserId}); expect(overview.threads).toHaveLength(0);
- const picker=page.getByTestId("shell-topbar").getByTestId("language-switcher"); await picker.selectOption("en");
+ await setShellLocale(page, "en");
  await expect(page.getByRole("heading",{name:"Brain",exact:true})).toBeVisible(); await page.getByTestId("brain-tab-sessions").click();
  await expect(page.getByTestId("brain-sessions")).toContainText("No conversation memories yet");
- const count=reads.length; await picker.selectOption("zh-CN"); await expect(page.getByTestId("brain-tab-sessions")).toHaveAttribute("data-state","active"); await picker.selectOption("en"); expect(reads).toHaveLength(count);
+ const count=reads.length; await setShellLocale(page, "zh-CN"); await expect(page.getByTestId("brain-tab-sessions")).toHaveAttribute("data-state","active"); await setShellLocale(page, "en"); expect(reads).toHaveLength(count);
  await page.getByTestId("brain-tab-shared").click();
  const [orgResponse]=await Promise.all([page.waitForResponse(responseFor(C.getOrgKnowledge.path)),page.getByRole("button",{name:"View organization memory"}).click()]);
  expect(orgResponse.status()).toBe(200); const org=C.getOrgKnowledge.out.parse(await orgResponse.json());
  for(const claim of org.claims) await expect(page.getByTestId("brain-org-content")).toContainText(claim.statement);
- const orgCount=reads.length; await picker.selectOption("zh-CN"); await picker.selectOption("en"); expect(reads).toHaveLength(orgCount);
+ const orgCount=reads.length; await setShellLocale(page, "zh-CN"); await setShellLocale(page, "en"); expect(reads).toHaveLength(orgCount);
  for(const width of [1280,375]) {
   await page.setViewportSize({width,height:1000});
   for(const element of [page.getByTestId("brain-tabs"),page.getByTestId("brain-tab-personal"),page.getByTestId("brain-tab-sessions"),page.getByTestId("brain-tab-shared"),page.getByRole("button",{name:"View organization memory"})]) {

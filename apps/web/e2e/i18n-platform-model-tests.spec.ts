@@ -1,3 +1,4 @@
+import { setShellLocale } from "./shell-locale";
 /** Actual historical API prerequisite only: no UI paid start, vendor invocation,
  * financial reservation, receipt, settlement or configured-form native claim.
  */
@@ -263,7 +264,7 @@ test("model testbench preserves actual unavailable-adapter history across locale
     const ordinary = await ordinaryContext.newPage(); observe(ordinary);
     const ordinaryHeaders = await login(ordinary, "ordinary");
     await deniedApi(ordinary, ordinaryHeaders, 403); await enter(ordinary, true);
-    await ordinary.getByTestId("language-switcher").first().selectOption("en");
+    await setShellLocale(ordinary, "en");
     await expect(ordinary.getByTestId("err-test")).toHaveText(permissionCopy);
     await capture(ordinary, "ordinary-403-en", ordinary.getByTestId("err-test"));
 
@@ -281,7 +282,7 @@ test("model testbench preserves actual unavailable-adapter history across locale
     const foreignHeaders = await login(foreign, "target");
     await deniedApi(foreign, foreignHeaders, 404);
     await enter(foreign); await chooseOrg(foreign);
-    await foreign.getByTestId("language-switcher").first().selectOption("en");
+    await setShellLocale(foreign, "en");
     await recovery(foreign).fill(testId); await nativeRead(foreign, recoverButton(foreign), 404);
     await expect(foreign.getByTestId("err-test")).toHaveText(missingCopy);
     await expect(recovery(foreign)).toHaveValue(testId);

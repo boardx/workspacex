@@ -1,3 +1,4 @@
+import { setShellLocale } from "./shell-locale";
 import { expect, test } from "@playwright/test";
 import { createHash, randomUUID } from "node:crypto";
 import { interviewMarkdown as C } from "@repo/contracts";
@@ -25,7 +26,7 @@ test("interview locale preserves the real private-profile, canonical six-step an
   const headers = { authorization: `Bearer ${token}` };
   const languagePage = await context.newPage();
   await languagePage.goto("/itv");
-  const language = async (locale: "en" | "zh-CN") => { await languagePage.getByTestId("language-switcher").first().selectOption(locale); };
+  const language = async (locale: "en" | "zh-CN") => { await setShellLocale(languagePage, locale); };
   const capture = async (name: string, workflow = false) => {
     for (const width of [375, 1280]) {
       await page.setViewportSize({ width, height: 900 });

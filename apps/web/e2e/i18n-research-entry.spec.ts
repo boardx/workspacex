@@ -1,3 +1,4 @@
+import { setShellLocale } from "./shell-locale";
 import { expect, test } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { research as C } from "@repo/contracts";
@@ -27,7 +28,7 @@ test("research locale preserves the real intake, plan, saved report and history 
   const languagePage = await context.newPage();
   await languagePage.goto("/research");
   const language = async (locale: "en" | "zh-CN") => {
-    await languagePage.getByTestId("language-switcher").first().selectOption(locale);
+    await setShellLocale(languagePage, locale);
   };
   const screenshot = async (name: string) => {
     for (const width of [375, 1280]) {
@@ -203,7 +204,7 @@ test("research query assistant locale preserves canonical intents, pending draft
   await languagePage.goto("/research");
   const panel = page.getByTestId("guided-research-six-step-assistant");
   const language = async (locale: "en" | "zh-CN") => {
-    await languagePage.getByTestId("language-switcher").first().selectOption(locale);
+    await setShellLocale(languagePage, locale);
     await expect(panel.getByRole("heading", { name: locale === "en" ? "Research skill assistant" : "研究 Skill 助手", exact: true })).toBeVisible();
   };
   const input = page.getByTestId("research-skill-input");
@@ -372,9 +373,9 @@ test("research query confirmation locale preserves the single real creation requ
     if (!pendingRequest) throw new Error("Expected one held creation request");
     const submitted = structuredClone(pendingRequest);
     expect(submitted.brief.goal).toBe(rawGoal);
-    await languagePage.getByTestId("language-switcher").first().selectOption("zh-CN");
+    await setShellLocale(languagePage, "zh-CN");
     await expect(page.getByRole("status").filter({ hasText: /^正在分析研究需求…$/ })).toBeVisible();
-    await languagePage.getByTestId("language-switcher").first().selectOption("en");
+    await setShellLocale(languagePage, "en");
     await expect(pending).toBeVisible();
     expect(requests).toEqual([submitted]);
     for (const width of [375, 1280]) {

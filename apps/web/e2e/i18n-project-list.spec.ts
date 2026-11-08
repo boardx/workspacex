@@ -1,3 +1,4 @@
+import { setShellLocale } from "./shell-locale";
 import { expect, test, type Page } from "@playwright/test";
 import { project as C } from "@repo/contracts";
 import { parseCreatedProject } from "./project-create-contract";
@@ -53,11 +54,11 @@ test("project list locale preserves real creation, tags and archive/restore stat
   await page.getByTestId("projects-search").fill(name);
   await page.getByTestId("projects-view-toggle-list").click();
   const beforeLocale = reads;
-  await page.getByTestId("language-switcher").first().selectOption("zh-CN");
+  await setShellLocale(page, "zh-CN");
   await expect(page.getByRole("heading", { name: "项目", exact: true })).toBeVisible();
   await expect(page.getByTestId("projects-search")).toHaveValue(name);
   await expect(page.getByTestId("projects-view-toggle-list")).toHaveAttribute("aria-pressed", "true");
-  await page.getByTestId("language-switcher").first().selectOption("en");
+  await setShellLocale(page, "en");
   await expect(page.getByTestId(`${prefix}-status`)).toHaveText("Active");
   expect(reads).toBe(beforeLocale);
   await page.getByTestId(`${prefix}-tag-add`).click();
@@ -90,7 +91,7 @@ test("project list locale preserves real creation, tags and archive/restore stat
     expect(response.ok()).toBe(true);
     await expect(page.getByTestId(`${prefix}-status`)).toHaveText(archived ? "Active" : "Archived");
   }
-  await page.getByTestId("language-switcher").first().selectOption("zh-CN");
+  await setShellLocale(page, "zh-CN");
   await expect(page.getByTestId(`${prefix}-name`)).toHaveText(name);
   await expect(page.getByTestId(`${prefix}-status`)).toHaveText("进行中");
   expect(errors).toEqual([]);

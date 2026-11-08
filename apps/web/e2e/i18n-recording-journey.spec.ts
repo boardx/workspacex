@@ -1,3 +1,4 @@
+import { setShellLocale } from "./shell-locale";
 import { expect, test } from "@playwright/test";
 import { createHash, randomUUID } from "node:crypto";
 import { FULLSTACK_E2E as F } from "./fullstack-smoke-fixture";
@@ -32,7 +33,7 @@ test("recording locale preserves real capture, final persistence, edits and hist
   const headers = { authorization: `Bearer ${token}` };
   const languagePage = await context.newPage();
   await languagePage.goto("/rec");
-  const language = async (locale: "en" | "zh-CN") => { await languagePage.getByTestId("language-switcher").first().selectOption(locale); };
+  const language = async (locale: "en" | "zh-CN") => { await setShellLocale(languagePage, locale); };
   const capture = async (name: string) => {
     for (const width of [375, 1280]) {
       await page.setViewportSize({ width, height: 900 });
@@ -148,7 +149,7 @@ test("recording project previews retain routing and edited controls in both loca
   test.setTimeout(120_000);
   await page.goto("/login"); await page.getByTestId("language-switcher").selectOption("en"); await page.getByTestId("login-email").fill(F.email); await page.getByTestId("login-password").fill(F.password); await page.getByTestId("login-submit").click(); await expect(page).toHaveURL(/\/home$/);
   const localePage = await context.newPage(); await localePage.goto("/rec");
-  const change = async (locale: "en" | "zh-CN") => { await localePage.getByTestId("language-switcher").first().selectOption(locale); };
+  const change = async (locale: "en" | "zh-CN") => { await setShellLocale(localePage, locale); };
   for (const screen of ["prep", "process", "verify", "live", "assign", "annotate", "retention"] as const) {
     await page.goto(`/rec?mode=project&carrier=interview&as=facilitator&projectId=${F.projectId}&screen=${screen}`);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();

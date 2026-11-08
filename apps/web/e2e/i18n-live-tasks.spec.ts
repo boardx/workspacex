@@ -1,10 +1,11 @@
+import { setShellLocale } from "./shell-locale";
 import { expect, test, type Page, type Response } from "@playwright/test";
 import { board } from "@repo/contracts";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 function apiPath(url: string) { return new URL(url).pathname.replace(/^\/__fullstack_api/, ""); }
 function isResponse(response: Response, path: string, method: string) { return new URL(response.url()).pathname.startsWith("/__fullstack_api/") && apiPath(response.url()) === path && response.request().method() === method; }
 async function language(page: Page, locale: "en" | "zh-CN") {
-  await page.getByTestId("shell-topbar").getByTestId("language-switcher").selectOption(locale);
+  await setShellLocale(page, locale);
   await expect(page.locator("html")).toHaveAttribute("lang", locale);
 }
 
