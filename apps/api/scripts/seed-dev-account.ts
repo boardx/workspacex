@@ -15,8 +15,8 @@
  * 默认建 admin 是为了让「建一个能真实登录的账号」这句脚本头描述名副其实——
  * 账号建出来就该能走完常见的写路径，而不是先踩一遍权限坑再去改代码。
  * 如果只需要 list-projects.ts 那种「看得见组织下全部容器但改不了」的场景
- * （历史上 org_role=lead 的用途），传 SEED_ORG_ROLE=lead 显式要回来；
- * 非 admin/lead 的值直接报错退出，不做静默兜底。
+ * ，传 SEED_ORG_ROLE=consultant 创建普通成员；
+ * 非可分配组织角色的值直接报错退出，不做静默兜底。
  *
  * 幂等：邮箱已存在的账号直接跳过，不覆盖——避免误跑把已经在用的密码冲掉。
  *
@@ -27,6 +27,7 @@
  *
  * SEED_PASSWORD 没有默认值——不传就报错退出，不会意外用可猜测的默认密码建账号。
  */
+import { AssignableOrgRole } from "@repo/contracts/identity";
 import { migrationConfig } from "../src/infrastructure/db/pg-config";
 import { PgDatabase } from "../src/infrastructure/db/pg-database";
 import { BcryptPasswordHasher } from "../src/infrastructure/auth/bcrypt-password-hasher";
@@ -38,16 +39,11 @@ function req(name: string): string {
   return v;
 }
 
-const VALID_ORG_ROLES = new Set(["admin", "lead"]);
-
-function seedOrgRole(): "admin" | "lead" {
-  const v = process.env.SEED_ORG_ROLE ?? "admin";
-  if (!VALID_ORG_ROLES.has(v)) {
-    throw new Error(
-      `invalid SEED_ORG_ROLE "${v}"，只接受 admin 或 lead（默认 admin）`,
-    );
-  }
-  return v as "admin" | "lead";
+function seedOrgRole() {
+  const value = process.env.SEED_ORG_ROLE ?? "admin";
+  const role = AssignableOrgRole.safeParse(value);
+  if (!role.success) throw new Error(`invalid SEED_ORG_ROLE; accepted roles: ${AssignableOrgRole.options.join(", ")}`);
+  return role.data;
 }
 
 const email = normalizeEmail(req("SEED_EMAIL"));

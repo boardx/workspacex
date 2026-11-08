@@ -22,7 +22,7 @@ for (const account of [a, MODE_EVAL.member, MODE_EVAL.outsider]) {
 }
 for (const [orgId, local] of [[MODE_EVAL.cloudOrgId, false], [MODE_EVAL.localOrgId, true]] as const) {
   await seedOrg({ orgId, projectId: `${orgId}-project`, ...(local ? { kind: "personal-local", ownerUserId: a.userId } : {}) });
-  await addOrgMember(orgId, a.userId, "lead", null);
+  await addOrgMember(orgId, a.userId, "admin", null);
   await addProjectMember(orgId, `${orgId}-project`, a.userId, "facilitator", null, true);
   if (!local) {
     await addOrgMember(orgId, MODE_EVAL.member.userId, "consultant", null);
