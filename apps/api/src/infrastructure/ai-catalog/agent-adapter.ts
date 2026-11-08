@@ -197,7 +197,9 @@ export async function publishCatalogAgent(
           semanticLabel: `catalog-revision-${randomUUID()}`,
           frozenRoleFromVersionId: pending.base_version_id,
         }
-      : {}),
+      : sourceModel && current.published_version_id
+        ? { semanticLabel: `catalog-enable-upgrade-${randomUUID()}` }
+        : {}),
   });
   if (pending)
     await s.query(
@@ -249,12 +251,67 @@ export async function copyPublishedCatalogAgent(
     ].every((v) => Array.isArray(v) && v.length === 0)
   )
     throw new Error("CATALOG_DEPENDENCIES_REQUIRE_INSTALLATION");
-  const created = await createCatalogAgent(s, orgId, actorId, {
-    name: String(row.name),
-    description: String(row.role ?? ""),
-    instructions: String(row.frozen_instructions),
-    modelId: row.frozen_model_id === null ? null : String(row.frozen_model_id),
-  });
+  const previous = (
+    await s.query<{ local_id: string; local_version_id: string }>(
+      `SELECT local_id,local_version_id FROM ai_catalog_enablements WHERE org_id=$1 AND kind='agent' AND origin_id=$2 ORDER BY enabled_at DESC,origin_version_id DESC LIMIT 1`,
+      [orgId, String(row.id)],
+    )
+  ).rows[0];
+  let created: { id: string };
+  if (previous) {
+    const local = (
+      await s.query<{
+        id: string;
+        status: string;
+        published_version_id: string;
+        clean: boolean;
+        pending: boolean;
+      }>(
+        `SELECT a.id,a.status,a.published_version_id,
+      (a.publish_state='运行中' AND a.instructions IS NOT DISTINCT FROM v.instructions
+       AND a.model_id IS NOT DISTINCT FROM v.model_id AND a.avatar IS NOT DISTINCT FROM v.avatar
+       AND a.role_category IS NOT DISTINCT FROM v.role_category
+       AND a.workflow_allowlist IS NOT DISTINCT FROM v.workflow_allowlist
+       AND a.delegation_policy IS NOT DISTINCT FROM v.delegation_policy
+       AND a.escalation_policy IS NOT DISTINCT FROM v.escalation_policy
+       AND a.kpi IS NOT DISTINCT FROM v.kpi AND a.tags IS NOT DISTINCT FROM v.tags
+       AND a.skill_mounts='[]'::jsonb AND a.tool_whitelist='[]'::jsonb) AS clean,
+       EXISTS(SELECT 1 FROM ai_catalog_agent_drafts d WHERE d.org_id=a.org_id AND d.agent_id=a.id) AS pending
+       FROM agents a JOIN agent_versions v ON v.org_id=a.org_id AND v.agent_id=a.id AND v.id=$3
+       WHERE a.org_id=$1 AND a.id=$2 FOR UPDATE OF a`,
+        [orgId, previous.local_id, previous.local_version_id],
+      )
+    ).rows[0];
+    if (
+      !local ||
+      local.status !== "enabled" ||
+      local.published_version_id !== previous.local_version_id ||
+      !local.clean ||
+      local.pending
+    )
+      throw new Error("CATALOG_VERSION_CONFLICT");
+    await s.query(
+      `UPDATE agents SET name=$3,role=$4,role_label=$5,instructions=$6,model_id=$7,publish_state='草稿',updated_at=now() WHERE org_id=$1 AND id=$2`,
+      [
+        orgId,
+        local.id,
+        String(row.name),
+        String(row.role ?? ""),
+        String(row.role ?? "").slice(0, 100) || String(row.name),
+        String(row.frozen_instructions),
+        row.frozen_model_id === null ? null : String(row.frozen_model_id),
+      ],
+    );
+    created = { id: local.id };
+  } else {
+    created = await createCatalogAgent(s, orgId, actorId, {
+      name: String(row.name),
+      description: String(row.role ?? ""),
+      instructions: String(row.frozen_instructions),
+      modelId:
+        row.frozen_model_id === null ? null : String(row.frozen_model_id),
+    });
+  }
   await s.query(
     "UPDATE agents SET avatar=$3::jsonb,role_category=$4 WHERE org_id=$1 AND id=$2",
     [

@@ -1,0 +1,46 @@
+[stack-admission] load1=3.43 cores=10 perCore=0.34 running=0/2
+[test-isolation] id=run-mw7vw340-1dba2d65-fcfcdd7e7a82 db=wsx_fcfcdd7e7a82e2f02dfb compose=wsx-fcfcdd7e7a82e2f02dfb pg=20206 redis=21206 api=24206 web=25206 sandbox=26206 model=27206 deep-agent=28206 asr=29206 vision=30206 loopback-sandbox=31206 mail=19206
+[catalog-review-prepare] ensureDatabase=4077ms
+[catalog-review-prepare] migrateOnceTotal=19205ms
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api
+
+[db-isolation] db=wsx_fcfcdd7e7a82e2f02dfb capacity=100 current=6 required=32
+ ❯ tests/skill/ai-catalog-skill-storage.test.ts (4 tests | 1 failed | 3 skipped) 496ms
+   × editing a multifile Skill preserves supporting bytes and full manifest without mutating the original 51ms
+     → expected [ 'SKILL.md' ] to deeply equal [ 'SKILL.md', 'scripts/data.bin' ]
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/skill/ai-catalog-skill-storage.test.ts > editing a multifile Skill preserves supporting bytes and full manifest without mutating the original
+AssertionError: expected [ 'SKILL.md' ] to deeply equal [ 'SKILL.md', 'scripts/data.bin' ]
+
+- Expected
++ Received
+
+  Array [
+    "SKILL.md",
+-   "scripts/data.bin",
+  ]
+
+ ❯ tests/skill/ai-catalog-skill-storage.test.ts:100:77
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 3 skipped (4)
+   Start at  21:44:54
+   Duration  1.79s (transform 272ms, setup 8ms, collect 120ms, tests 496ms, environment 0ms, prepare 55ms)
+
+[db-isolation] db=wsx_fcfcdd7e7a82e2f02dfb peak_connections=2
+undefined
+/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/skill/ai-catalog-skill-storage.test.ts -t editing a multifile --maxWorkers=1 --minWorkers=1 --no-file-parallelism
+[timing] bash -c pnpm --filter @repo/api exec tsx tests/support/prepare-catalog-review.ts && pnpm --filter @repo/api exec vitest run tests/skill/ai-catalog-skill-storage.test.ts -t "editing a multifile" --maxWorkers=1 --minWorkers=1 --no-file-parallelism
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：23s
+  清理：1s
+  总计：23s

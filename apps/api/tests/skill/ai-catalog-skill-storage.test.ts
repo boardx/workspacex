@@ -8,6 +8,7 @@ import {
   resetOrgs,
 } from "../support/db";
 import {
+  appendCatalogSkillDraft,
   createCatalogSkill,
   publishCatalogSkill,
   readPublishedCatalogSkill,
@@ -87,4 +88,15 @@ it('legacy contract remains discoverable with typed readonly detail and other te
  expect(Detail.parse({entry:legacy,definition:detail}).definition).toMatchObject({kind:'skill-contract',input:{name:'Legacy contract',status:'草稿',declaration:{promptTemplate:'Actual prompt',fallbackDeclaration:'Fallback'}}});
  const other='org-catalog-legacy-other';await seedOrg({orgId:other,projectId:`${other}-p`});
  try{expect(await asApp(other,s=>catalogEntries(s,ORG,'skill',100,0))).toHaveLength(0);}finally{await resetOrgs(other);}
+});
+
+it("editing a multifile Skill preserves supporting bytes and full manifest without mutating the original",async()=>{
+ const root=Buffer.from('# Imported root');const supporting=Buffer.from([0,255,7,42]);
+ const hash=(b:Buffer)=>createHash('sha256').update(b).digest('hex');
+ const manifest={description:'Original',tools:['python'],nested:{entry:'scripts/run.py'},permissions:{network:false}};
+ const original=await asApp(ORG,s=>copyPublishedCatalogSkill(s,ORG,'author',{id:'multifile-origin',versionId:'multifile-v1',name:'Multifile Skill',stableName:'multifile',semanticLabel:'v1',digest:hash(root),manifest,files:[{path:'SKILL.md',content:root,mediaType:'text/markdown',digest:hash(root)},{path:'scripts/data.bin',content:supporting,mediaType:'application/octet-stream',digest:hash(supporting)}]}));
+ const revision=await asApp(ORG,s=>appendCatalogSkillDraft(s,ORG,'editor',original.id,{name:'Updated multifile',stableName:'ignored',description:'Updated',content:'# Edited root'}));
+ const read=(version:string)=>asApp(ORG,s=>s.query<{manifest:typeof manifest;path:string;content:Buffer;media_type:string;digest:string}>(`SELECT v.manifest,f.path,f.content,f.media_type,f.digest FROM skill_versions v JOIN skill_version_files f ON f.version_id=v.id AND f.org_id=v.org_id WHERE v.org_id=$1 AND v.id=$2 ORDER BY f.path`,[ORG,version]));
+ const next=await read(revision.versionId);expect(next.rows.map(r=>r.path).sort()).toEqual(['SKILL.md','scripts/data.bin']);expect(next.rows.find(r=>r.path==='scripts/data.bin')).toMatchObject({content:supporting,media_type:'application/octet-stream',digest:hash(supporting)});expect(next.rows.find(r=>r.path==='SKILL.md')?.manifest).toMatchObject({...manifest,description:'Updated',catalogName:'Updated multifile'});expect(next.rows.find(r=>r.path==='SKILL.md')?.content.toString()).toBe('# Edited root');
+ const previous=await read(original.versionId);expect(previous.rows.find(r=>r.path==='SKILL.md')?.manifest).toEqual(manifest);expect(previous.rows.find(r=>r.path==='SKILL.md')?.content.equals(root)).toBe(true);expect(previous.rows.find(r=>r.path==='scripts/data.bin')?.content.equals(supporting)).toBe(true);
 });

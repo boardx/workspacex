@@ -1,0 +1,51 @@
+[stack-admission] load1=2.52 cores=10 perCore=0.25 running=0/2
+[test-isolation] id=run-mw7wlc5c-f1d435de-51e8a2da9637 db=wsx_51e8a2da9637afb7735a compose=wsx-51e8a2da9637afb7735a pg=20538 redis=21538 api=24538 web=25538 sandbox=26538 model=27538 deep-agent=28538 asr=29538 vision=30538 loopback-sandbox=31538 mail=19538
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api
+
+[db-isolation] db=wsx_51e8a2da9637afb7735a capacity=100 current=6 required=32
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+{"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+{"level":"error","msg":"http exception","traceId":"ef03abb7-5303-44f1-b936-edea970026f1","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at AiCatalogAdminService.transaction (/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api/src/application/ai-catalog/admin-service.ts:48:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+ ❯ tests/ai-catalog/agent-admin-http.test.ts (7 tests | 1 failed | 6 skipped) 27089ms
+   × enabling a newer public Agent version upgrades the same local identity and rejects a private fork or disabled installation 147ms
+     → expected 409 to be 201 // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ai-catalog/agent-admin-http.test.ts > enabling a newer public Agent version upgrades the same local identity and rejects a private fork or disabled installation
+AssertionError: expected 409 to be 201 // Object.is equality
+
+- Expected
++ Received
+
+- 201
++ 409
+
+ ❯ tests/ai-catalog/agent-admin-http.test.ts:559:25
+    557|   const v2 = await sourcePublish("Published public v2");
+    558|   const second = await enable(v2.versionId, "upgrade-agent-v2");
+    559|   expect(second.status).toBe(201);
+       |                         ^
+    560|   const upgraded = await second.json();
+    561|   expect(upgraded.id).toBe(installed.id);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 6 skipped (7)
+   Start at  22:04:12
+   Duration  33.43s (transform 7.01s, setup 8ms, collect 1.87s, tests 27.09s, environment 0ms, prepare 52ms)
+
+[db-isolation] db=wsx_51e8a2da9637afb7735a peak_connections=7
+undefined
+/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ai-catalog/agent-admin-http.test.ts -t enabling a newer public Agent version --maxWorkers=1 --minWorkers=1 --no-file-parallelism
+[timing] pnpm --filter @repo/api exec vitest run tests/ai-catalog/agent-admin-http.test.ts -t enabling a newer public Agent version --maxWorkers=1 --minWorkers=1 --no-file-parallelism
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：34s
+  清理：1s
+  总计：35s

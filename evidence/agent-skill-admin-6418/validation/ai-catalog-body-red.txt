@@ -1,0 +1,40 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api
+
+[db-isolation] selection is DB-free (tests/support/db-free-tests.ts); skipping database setup
+ ❯ tests/ai-catalog/body-limit.test.ts (2 tests | 2 failed) 39ms
+   × accepts a valid large Skill over HTTP POST /platform/organizations/org-demo/ai-catalog 26ms
+     → expected 413 to be 200 // Object.is equality
+   × accepts a valid large Skill over HTTP PATCH /platform/organizations/org-demo/ai-catalog/skill/example 4ms
+     → expected 413 to be 200 // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ai-catalog/body-limit.test.ts > accepts a valid large Skill over HTTP POST /platform/organizations/org-demo/ai-catalog
+ FAIL  tests/ai-catalog/body-limit.test.ts > accepts a valid large Skill over HTTP PATCH /platform/organizations/org-demo/ai-catalog/skill/example
+AssertionError: expected 413 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 413
+
+ ❯ tests/ai-catalog/body-limit.test.ts:19:92
+     17| const send = (method: string, path: string, body: string) => fetch(bas…
+     18| it.each(paths)("accepts a valid large Skill over HTTP %s %s", async (m…
+     19|   expect((await send(method!, path!, JSON.stringify(payload("x".repeat…
+       |                                                                                            ^
+     20| });
+     21|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed (2)
+   Start at  21:47:17
+   Duration  793ms (transform 281ms, setup 7ms, collect 191ms, tests 39ms, environment 0ms, prepare 50ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ai-catalog/body-limit.test.ts

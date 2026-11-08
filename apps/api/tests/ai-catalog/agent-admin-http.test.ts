@@ -513,3 +513,107 @@ it("frozen dependencies in an imported base cannot be silently dropped by an emp
 function baseUrl(path: string, id: string) {
   return `${base}${path}/agent/${id}`;
 }
+it("enabling a newer public Agent version upgrades the same local identity and rejects a private fork or disabled installation", async () => {
+  const path = `/platform/organizations/${PUBLIC}/ai-catalog`;
+  const content = {
+    ...input,
+    name: "Upgradeable public Agent",
+    instructions: "Published public v1",
+  };
+  const created = await call(OPS, path, { kind: "agent", input: content });
+  expect(created.status).toBe(201);
+  const source = await created.json();
+  async function sourcePublish(instructions: string) {
+    if (instructions !== content.instructions) {
+      const edit = await fetch(base + `${path}/agent/${source.id}`, {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+          "x-kernel-test-principal": `${OPS}:${ORG}`,
+        },
+        body: JSON.stringify({
+          kind: "agent",
+          input: { ...content, instructions },
+        }),
+      });
+      expect(edit.status).toBe(200);
+    }
+    const r = await call(OPS, `${path}/agent/${source.id}/publish`, {});
+    expect(r.status).toBe(201);
+    return r.json();
+  }
+  async function enable(versionId: string, key: string) {
+    return call(ADMIN, `/organizations/${ORG}/public-ai-catalog/enable`, {
+      kind: "agent",
+      id: source.id,
+      versionId,
+      idempotencyKey: key,
+    });
+  }
+  const v1 = await sourcePublish(content.instructions);
+  const first = await enable(v1.versionId, "upgrade-agent-v1");
+  expect(first.status).toBe(201);
+  const installed = await first.json();
+  const v2 = await sourcePublish("Published public v2");
+  const second = await enable(v2.versionId, "upgrade-agent-v2");
+  expect(second.status).toBe(201);
+  const upgraded = await second.json();
+  expect(upgraded.id).toBe(installed.id);
+  expect(upgraded.versionId).not.toBe(installed.versionId);
+  const snapshots = await asApp(ORG, (s) =>
+    s.query<{ id: string; instructions: string }>(
+      "SELECT id,instructions FROM agent_versions WHERE org_id=$1 AND agent_id=$2",
+      [ORG, installed.id],
+    ),
+  );
+  expect(snapshots.rows).toEqual(
+    expect.arrayContaining([
+      { id: installed.versionId, instructions: content.instructions },
+      { id: upgraded.versionId, instructions: "Published public v2" },
+    ]),
+  );
+  const reader = new PgPublishedAgentReader(
+    app.get<DatabasePort>(DATABASE_PORT),
+  );
+  expect(
+    (await reader.resolvePublished(toOrgId(ORG), installed.id))?.agentVersionId,
+  ).toBe(upgraded.versionId);
+  const fork = await fetch(
+    base + `/platform/organizations/${ORG}/ai-catalog/agent/${installed.id}`,
+    {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+        "x-kernel-test-principal": `${OPS}:${ORG}`,
+      },
+      body: JSON.stringify({
+        kind: "agent",
+        input: { ...content, instructions: "My private pending draft" },
+      }),
+    },
+  );
+  expect(fork.status).toBe(200);
+  const v3 = await sourcePublish("Published public v3");
+  const rejected = await enable(v3.versionId, "upgrade-agent-v3-fork");
+  expect(rejected.status).toBe(409);
+  expect(await rejected.json()).toMatchObject({
+    reasonCode: "CATALOG_VERSION_CONFLICT",
+  });
+  expect(
+    (await reader.resolvePublished(toOrgId(ORG), installed.id))?.agentVersionId,
+  ).toBe(upgraded.versionId);
+  expect(
+    (
+      await call(
+        OPS,
+        `/platform/organizations/${ORG}/ai-catalog/agent/${installed.id}/disable`,
+        {},
+      )
+    ).status,
+  ).toBe(201);
+  const disabled = await enable(v3.versionId, "upgrade-agent-v3-disabled");
+  expect(disabled.status).toBe(409);
+  expect(await disabled.json()).toMatchObject({
+    reasonCode: "CATALOG_VERSION_CONFLICT",
+  });
+});

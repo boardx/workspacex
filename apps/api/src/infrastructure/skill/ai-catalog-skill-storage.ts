@@ -1,5 +1,6 @@
 /** Storage primitives for explicitly authorized catalog operations. Caller owns authorization and transaction. */
 import { createHash, randomUUID } from "node:crypto";
+import { manifestDigestOf } from "../../application/skill-import/import-skill-from-url";
 import type { TenantSession } from "../../application/ports/database.port";
 import { PLATFORM_ORG_ID } from "../../domain/org-id";
 
@@ -42,6 +43,14 @@ export async function appendCatalogSkillDraft(
     [id, orgId],
   );
   if (!found.rows.length) throw new Error("CATALOG_NOT_FOUND");
+  const previous = (await s.query<{id:string;manifest:unknown}>(
+    "SELECT id,manifest FROM skill_versions WHERE org_id=$1 AND skill_id=$2 ORDER BY created_at DESC,id DESC LIMIT 1",[orgId,id])).rows[0];
+  const manifest = previous?.manifest ?? {};
+  if(typeof manifest!=="object"||Array.isArray(manifest))throw new Error("CATALOG_VERSION_CONFLICT");
+  const supporting = previous ? (await s.query<{path:string;digest:string}>(
+    "SELECT path,digest FROM skill_version_files WHERE org_id=$1 AND version_id=$2 AND path <> 'SKILL.md' ORDER BY path",[orgId,previous.id])).rows : [];
+  const rootDigest=digest(input.content);
+  const contentDigest=supporting.length?manifestDigestOf([...supporting,{path:"SKILL.md",digest:rootDigest}]):rootDigest;
   const count = await s.query<{ n: string }>(
     "SELECT count(*)::text AS n FROM skill_versions WHERE skill_id=$1 AND org_id=$2",
     [id, orgId],
@@ -56,8 +65,8 @@ export async function appendCatalogSkillDraft(
       orgId,
       id,
       semanticLabel,
-      digest(input.content),
-      JSON.stringify({ description: input.description, catalogName:input.name }),
+      contentDigest,
+      JSON.stringify({ ...manifest, description: input.description, catalogName:input.name }),
       actorId,
     ],
   );
@@ -66,6 +75,8 @@ export async function appendCatalogSkillDraft(
     VALUES($1,$2,'SKILL.md',$3,'text/markdown',$4)`,
     [orgId, versionId, Buffer.from(input.content), digest(input.content)],
   );
+  if(previous)await s.query(`INSERT INTO skill_version_files(org_id,version_id,path,content,media_type,digest)
+    SELECT org_id,$3,path,content,media_type,digest FROM skill_version_files WHERE org_id=$1 AND version_id=$2 AND path <> 'SKILL.md'`,[orgId,previous.id,versionId]);
   return { id, versionId };
 }
 

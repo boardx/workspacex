@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api
+
+[db-isolation] selection is DB-free (tests/support/db-free-tests.ts); skipping database setup
+ ✓ tests/ai-catalog/body-limit.test.ts (4 tests) 267ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  21:49:46
+   Duration  1.13s (transform 251ms, setup 8ms, collect 348ms, tests 267ms, environment 0ms, prepare 49ms)
