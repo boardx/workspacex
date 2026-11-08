@@ -19,8 +19,8 @@ for (const isAdmin of [true, false]) {
     expect(fetchMock.mock.calls.every(call => !String(call[0]).includes("skill-reviewer"))).toBe(true);
     if (isAdmin) {
       fireEvent.click(screen.getByTestId("org-admin-member-u-member-org-role"));
-      expect(screen.getAllByRole("option").map(option => option.textContent)).toEqual(expect.arrayContaining(["成员", "管理员"]));
-      expect(screen.getAllByRole("option")).toHaveLength(2);
+      expect(screen.getAllByRole("option").filter(option => option.getAttribute("aria-selected") !== null).map(option => option.textContent)).toEqual(expect.arrayContaining(["成员", "管理员"]));
+      expect(screen.getAllByRole("option").filter(option => option.getAttribute("aria-selected") !== null)).toHaveLength(2);
     } else {
       expect(screen.queryByTestId("org-admin-member-u-member-org-role")).toBeNull();
     }

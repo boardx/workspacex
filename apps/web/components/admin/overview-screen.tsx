@@ -1,7 +1,9 @@
 "use client";
 import { useI18n } from "@/lib/i18n/provider";
 import { translate } from "@/lib/i18n/messages";
-import { Download, FileBarChart } from "lucide-react";
+import Link from "next/link";
+import { OrganizationPageHeader } from "@/components/org-admin/organization-content";
+import { Building2, Download, FileBarChart, Settings } from "lucide-react";
 import { AdminScreen } from "./admin-screen";
 import { OverviewLive } from "./overview-live";
 import { FirstValueFunnelPanel } from "./first-value-funnel-panel";
@@ -46,6 +48,7 @@ export function OverviewScreen({ state }: { state: UiState }) {
   const { t } = useI18n();
   return (
     <AdminScreen
+      contentHeader={<OrganizationPageHeader title={t("adminOverview.title")} description={t("orgOverviewRedesign.intro")} icon={Building2} actions={<Link href="/org-admin/profile" className="inline-flex items-center gap-2 rounded-control border border-border bg-card px-3 py-2 text-12 font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Settings aria-hidden className="h-4 w-4"/>{t("orgOverviewRedesign.settings")}</Link>}/>}
       state={state}
       moduleLabel={t("adminOverview.module")}
       title={t("adminOverview.title")}

@@ -47,3 +47,25 @@ it('ordinary scoped wallet errors retain their original recharge action',()=>{
  fireEvent(window,new CustomEvent('workspacex:credit-failure',{detail:{code:'credit_required',ownerType:'team',ownerId:'org',rechargePath:'/billing?ownerType=team&ownerId=org&purchase=1'}}));
  expect(screen.getByRole('link',{name:'为组织充值'})).toHaveAttribute('href','/billing?ownerType=team&ownerId=org&purchase=1');
 });
+it('keeps enterprise budget unlimited and filters actual member usage',async()=>{
+ show();await screen.findByTestId('member-credit-usage-u');
+ expect(screen.getByText('Unlimited')).toBeTruthy();
+ expect(screen.getByText('984.45')).toBeTruthy();
+ expect(screen.getByRole('progressbar')).toHaveAttribute('value','15.55');
+ fireEvent.change(screen.getByLabelText('Search members by name or email'),{target:{value:'missing'}});
+ expect(screen.queryByTestId('member-credit-usage-u')).toBeNull();
+ fireEvent.change(screen.getByLabelText('Search members by name or email'),{target:{value:'alice@example'}});
+ expect(screen.getByTestId('member-credit-usage-u')).toBeTruthy();
+ fireEvent.change(screen.getByLabelText('Status'),{target:{value:'exhausted'}});
+ expect(screen.queryByTestId('member-credit-usage-u')).toBeNull();
+});
+it('paginates members and resets to matching results after filtering',async()=>{
+ api.getMemberCreditQuotas.mockResolvedValue({...snapshot,members:Array.from({length:11},(_,i)=>({...snapshot.members[0],userId:`u${i}`,displayName:`Member ${i}`,email:`member${i}@test.invalid`}))});
+ show();await screen.findByTestId('member-credit-usage-u0');
+ expect(screen.queryByTestId('member-credit-usage-u10')).toBeNull();
+ fireEvent.click(screen.getByRole('button',{name:'Next'}));
+ expect(screen.getByTestId('member-credit-usage-u10')).toBeTruthy();
+ fireEvent.change(screen.getByLabelText('Search members by name or email'),{target:{value:'member0@'}});
+ expect(screen.getByTestId('member-credit-usage-u0')).toBeTruthy();
+ expect(screen.queryByRole('button',{name:'Next'})).toBeNull();
+});

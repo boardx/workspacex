@@ -1,6 +1,6 @@
-import { BadRequestException, Body, ConflictException, Controller, Get, Inject, NotFoundException, Param, Post, Res, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, Body, ConflictException, Controller, Get, Inject, NotFoundException, Param, Post, Query, Res, ServiceUnavailableException } from '@nestjs/common';
 import type { Response } from 'express';
-import { ReportFileRequest, ReportFileSourceKind, ReportFileSourceInfo, operations } from '@repo/contracts/report-files';
+import { ReportFileRequest, ReportFileSourceKind, ReportFileSourceInfo, ReportFileStatusQuery, operations } from '@repo/contracts/report-files';
 import type { Principal } from '../../domain/principal';
 import { assertPrincipal } from '../../domain/principal';
 import { CurrentPrincipal } from '../current-principal.decorator';
@@ -33,9 +33,10 @@ export class ReportFilesController {
     return this.invoke(() => this.service.start(actor, parsed.data));
   }
   @Get(operations.status.path)
-  async status(@CurrentPrincipal() principal: Principal, @Param('jobId') id: string) {
+  async status(@CurrentPrincipal() principal: Principal, @Param('jobId') id: string, @Query() raw: unknown = {}) {
+    const parsed = ReportFileStatusQuery.safeParse(raw); if (!parsed.success) throw new BadRequestException();
     const actor = this.actor(principal); if (!/^[a-f0-9-]{36}$/i.test(id)) throw new BadRequestException();
-    return this.invoke(() => this.service.status(actor, id));
+    return this.invoke(() => this.service.status(actor, id, { observeOnly: parsed.data.observeOnly === 'true' }));
   }
   @Get(operations.download.path)
   async download(@CurrentPrincipal() principal: Principal, @Param('jobId') id: string, @Res() response: Response) {

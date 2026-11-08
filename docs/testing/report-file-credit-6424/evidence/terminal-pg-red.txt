@@ -1,0 +1,69 @@
+[stack-admission] load1=7.07 cores=10 perCore=0.71 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw7rakmz-732d6da4-af3e0a2fc528 db=wsx_af3e0a2fc52818219212 compose=wsx-af3e0a2fc52818219212 pg=20639 redis=21639 api=24639 web=25639 sandbox=26639 model=27639 deep-agent=28639 asr=29639 vision=30639 loopback-sandbox=31639 mail=19639
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/api
+
+[db-isolation] db=wsx_af3e0a2fc52818219212 capacity=100 current=6 required=32
+ ❯ tests/report-files/credit-failure.db.test.ts (2 tests | 2 failed) 59821ms
+   × the actual PostgreSQL store retains recovered Credit guidance on an already-failed generic job 743ms
+     → expected false to be true // Object.is equality
+   × terminal enrichment cannot resurrect work, overwrite another outcome, or cross actor/run/source fences 961ms
+     → expected false to be true // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/report-files/credit-failure.db.test.ts > the actual PostgreSQL store retains recovered Credit guidance on an already-failed generic job
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/report-files/credit-failure.db.test.ts:23:114
+     21| it('the actual PostgreSQL store retains recovered Credit guidance on a…
+     22|  const old=await seed();const creditFailure={code:'credit_required' as…
+     23|  expect(await store.update({...old,job:{...old.job,status:'failed',err…
+       |                                                                                                                  ^
+     24|  const restarted=await new PgReportFileJobStore(db).get(actor,id);
+     25|  expect(restarted?.job).toMatchObject({status:'failed',errorCode:'CRED…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/report-files/credit-failure.db.test.ts > terminal enrichment cannot resurrect work, overwrite another outcome, or cross actor/run/source fences
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/report-files/credit-failure.db.test.ts:35:39
+     33|  expect(await store.update({...enriched,job:{...enriched.job,source:{.…
+     34|  expect(await store.update({...old,job:{id:old.job.id,source:old.job.s…
+     35|  expect(await store.update(enriched)).toBe(true);
+       |                                       ^
+     36|  expect(await store.update({...old,job:{...old.job,status:'failed',err…
+     37|  expect((await store.get(actor,id))?.job).toMatchObject({status:'faile…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed (2)
+   Start at  19:35:52
+   Duration  76.32s (transform 4.22s, setup 40ms, collect 6.62s, tests 59.82s, environment 0ms, prepare 203ms)
+
+[db-isolation] db=wsx_af3e0a2fc52818219212 peak_connections=3
+undefined
+/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/report-files/credit-failure.db.test.ts
+[timing] pnpm --filter @repo/api exec vitest run tests/report-files/credit-failure.db.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1m18s
+  清理：1s
+  总计：1m19s

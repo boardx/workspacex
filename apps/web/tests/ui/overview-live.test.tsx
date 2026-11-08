@@ -12,7 +12,7 @@
  *   取错了源当场红。文案断言留在原处，但它只是文案。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 const getUsageReport = vi.fn();
 const listOrgMembers = vi.fn();
@@ -239,4 +239,17 @@ describe("限额事件（F162 真数据；PR #2425 独立审查补的正向断�
     expect(screen.queryByTestId("admin-overview-anomaly-ev-before-logout")).toBeNull();
     expect(screen.queryByTestId("admin-overview-anomalies-empty")).toBeNull();
   });
+});
+
+
+it("shows membership separately and changes the actual usage window", async () => {
+ arrange();
+ getUsageReport.mockImplementation(async (_org, window) => ({window,totalTokens:window==="week"?20:100,callCount:1,failedCallCount:0,activeMemberCount:2,models:["model-a"],rows:[],distribution:[{modelId:"model-a",tokens:window==="week"?20:100,share:1}]}));
+ render(<OverviewLive/>);
+ await waitFor(()=>expect(screen.getByTestId("admin-overview-metric-total-members").textContent).toContain("5"));
+ expect(screen.getByTestId("admin-overview-model-usage").textContent).toContain("model-a");
+ fireEvent.click(screen.getByRole("button",{name:/^本周$/}));
+ await waitFor(()=>expect(getUsageReport).toHaveBeenCalledWith("org-1","week"));
+ await waitFor(()=>expect(screen.getByTestId("admin-overview-metric-tokens").textContent).toContain("20"));
+ expect(screen.getByRole("button",{name:/^本周$/})).toHaveAttribute("aria-pressed","true");
 });

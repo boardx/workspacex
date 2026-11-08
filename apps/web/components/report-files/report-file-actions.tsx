@@ -2,10 +2,13 @@
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useLayoutEffect, useRef, useState } from 'react';
+import { CreditFailureDetails } from '@/components/billing/credit-consumption-notice';
+import { agentRunCreditFailure, creditGuidance } from '@/lib/credit-guidance';
 import { ApiError } from '@/lib/api-client';
 import { WorkflowActionButton } from '@/components/research-studio/research-workflow-actions';
 import { generateReportFile, getReportFileJob, downloadReportFile, type ReportFileSource, type ReportFileFormat, type ReportFileJobState } from '@/lib/report-files-api';
 const MAX_STATUS_POLLS = 150;
+function rememberedJobKey(sourceKey: string, format: string) { return `report-file-job:${sourceKey}:${format}`; }
 const labels: Record<ReportFileFormat, string> = { pdf: 'PDF', docx: 'Word' };
 type State = { job?: ReportFileJobState; pending?: boolean; error?: MessageKey; notice?: MessageKey };
 function delay(signal: AbortSignal) {
@@ -29,6 +32,20 @@ export function ReportFileActions({ source, disabled = false }: { source: Report
     const activeControllers = controllers.current;
     lifecycle.generation++;
     activeControllers.forEach(controller => controller.abort()); activeControllers.clear(); setStates({});
+    // Only cache an opaque ID. Every restored status read rechecks server actor/source authority.
+    const generation = lifecycle.generation;
+    for (const format of Object.keys(labels) as ReportFileFormat[]) {
+      let id: string | null = null;
+      try { id = window.sessionStorage.getItem(rememberedJobKey(sourceKey, format)); } catch { /* Storage is optional. */ }
+      if (!id) continue;
+      const controller = new AbortController(); activeControllers.set(format, controller);
+      void getReportFileJob(id, controller.signal, { observeOnly: true }).then(job => {
+        if (generation !== lifecycle.generation || controller.signal.aborted) return;
+        if (JSON.stringify([job.source.kind, job.source.id, job.source.reportVersion, job.source.reportHash]) !== sourceKey || job.format !== format) return;
+        setStates(prev => ({ ...prev, [format]: { job, ...(job.status === 'failed' ? { error: job.errorCode === 'REPORT_CHANGED' ? 'reportFiles.changed' as const : 'reportFiles.failed' as const } : {}) } }));
+      }).catch(() => { /* A denied/transient restored read never dispatches a new conversion. */ })
+        .finally(() => { if (activeControllers.get(format) === controller) activeControllers.delete(format); });
+    }
     return () => { lifecycle.generation++; activeControllers.forEach(controller => controller.abort()); activeControllers.clear(); };
   }, [sourceKey, disabled]);
   async function act(format: ReportFileFormat) {
@@ -36,7 +53,10 @@ export function ReportFileActions({ source, disabled = false }: { source: Report
     const generation = epoch.current.generation;
     const controller = new AbortController(); controllers.current.set(format, controller);
     const current = () => generation === epoch.current.generation && !controller.signal.aborted;
-    const update = (state: State) => { if (current()) setStates(prev => ({ ...prev, [format]: state })); };
+    const update = (state: State) => { if (current()) {
+      if (state.job) { try { window.sessionStorage.setItem(rememberedJobKey(sourceKey, format), state.job.id); } catch { /* Storage is optional. */ } }
+      setStates(prev => ({ ...prev, [format]: state }));
+    } };
     update({ ...states[format], pending: true, error: undefined });
     let job = states[format]?.job;
     try {
@@ -78,6 +98,11 @@ export function ReportFileActions({ source, disabled = false }: { source: Report
     })}</div>
     {Object.entries(states).filter(([, state]) => state.job?.execution?.status === 'awaiting_tool_permission').map(([format, state]) => <p role="status" key={format} className="text-12 text-muted-foreground">{t("reportFiles.permission", { format: labels[format as ReportFileFormat] })}<a className="underline" href={`/chat/${encodeURIComponent(state.job!.execution!.threadId)}`} target="_blank" rel="noopener noreferrer">{t("reportFiles.continue")}</a></p>)}
     {Object.entries(states).filter(([, state]) => state.notice).map(([format, state]) => <p role="status" key={format} className="text-12 text-muted-foreground">{labels[format as ReportFileFormat]}：{t(state.notice!)}</p>)}
-    {Object.entries(states).filter(([, state]) => state.error).map(([format, state]) => <p role="alert" key={format} className="text-12 text-destructive">{labels[format as ReportFileFormat]}：{t(state.error!)}</p>)}
+    {Object.entries(states).filter(([, state]) => state.error).map(([format, state]) => {
+      const notice = state.job?.status === 'failed' ? creditGuidance(agentRunCreditFailure(state.job.errorCode, state.job.creditFailure)) : null;
+      return notice ? <div role="alert" key={format} className="space-y-2" data-testid={`report-credit-guidance-${format}`}>
+        <p className="text-12">{labels[format as ReportFileFormat]}</p><CreditFailureDetails notice={notice} />
+      </div> : <p role="alert" key={format} className="text-12 text-destructive">{labels[format as ReportFileFormat]}：{t(state.error!)}</p>;
+    })}
   </div>;
 }
