@@ -1,0 +1,304 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/2e5d/workspacex/apps/web
+
+ ❯ tests/ui/rail-more-menu.test.tsx (2 tests | 2 failed) 114ms
+   × IconRail 完整纯图标导航 > 全部有权一级入口直接唯一显示，文字只通过可访问名称和提示提供 78ms
+     → expected '首页' to be '' // Object.is equality
+   × IconRail 完整纯图标导航 > 原收纳入口直接高亮，含 query 的 Skill 入口也能识别当前路径 35ms
+     → Unable to find an element by: [data-testid="rail-whiteboard"]
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<nav[39m
+      [33maria-label[39m=[32m"主导航"[39m
+      [33mclass[39m=[32m"flex h-full min-h-0 w-rail min-w-rail shrink-0 flex-col items-center gap-1 border-r border-border bg-rail py-3.5"[39m
+      [33mdata-testid[39m=[32m"shell-rail"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"mb-2 shrink-0"[39m
+        [33mdata-testid[39m=[32m"rail-top"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33maria-expanded[39m=[32m"false"[39m
+          [33maria-haspopup[39m=[32m"menu"[39m
+          [33maria-label[39m=[32m"组织菜单，当前：远洋新能源"[39m
+          [33mclass[39m=[32m"flex h-8 w-8 items-center justify-center overflow-hidden rounded-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring hover:scale-105 bg-inverse text-14 font-semibold text-inverse-foreground hover:bg-inverse/90"[39m
+          [33mdata-state[39m=[32m"closed"[39m
+          [33mdata-testid[39m=[32m"org-switcher"[39m
+          [33mid[39m=[32m"radix-:rf:"[39m
+          [33mtitle[39m=[32m"远洋新能源"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+          [36m>[39m
+            [0m远[0m
+          [36m</span>[39m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"scrollbar-none flex min-h-0 w-full flex-1 flex-col items-center overflow-y-auto overscroll-contain [mask-image:linear-gradient(to_bottom,transparent,black_10px,black_calc(100%-10px),transparent)]"[39m
+        [33mdata-testid[39m=[32m"rail-scroll"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex w-full shrink-0 flex-col items-center"[39m
+          [33mdata-segment[39m=[32m"top"[39m
+        [36m>[39m
+          [36m<a[39m
+            [33maria-label[39m=[32m"首页"[39m
+            [33mclass[39m=[32m"mt-1.5 flex w-14 shrink-0 flex-col items-center gap-1 rounded-md py-1.5 transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring [@media(max-height:640px)]:mt-1 [@media(max-height:640px)]:gap-0 [@media(max-height:640px)]:py-1 text-muted-foreground hover:bg-muted hover:text-background-foreground"[39m
+            [33mdata-state[39m=[32m"closed"[39m
+            [33mdata-testid[39m=[32m"rail-home"[39m
+            [33mhref[39m=[32m"/home"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-house h-[18px] w-[18px]"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-10 [@media(max-height:640px)]:hidden"[39m
+            [36m>[39m
+              [0m首页[0m
+            [36m</span>[39m
+          [36m</a>[39m
+          [36m<a[39m
+            [33maria-label[39m=[32m"对话"[39m
+            [33mclass[39m=[32m"mt-1.5 flex w-14 shrink-0 flex-col items-center gap-1 rounded-md py-1.5 transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring [@media(max-height:640px)]:mt-1 [@media(max-height:640px)]:gap-0 [@media(max-height:640px)]:py-1 text-muted-foreground hover:bg-muted hover:text-background-foreground"[39m
+            [33mdata-state[39m=[32m"closed"[39m
+            [33mdata-testid[39m=[32m"rail-chat"[39m
+            [33mhref[39m=[32m"/chat"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-messages-square h-[18px] w-[18px]"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M14 9a2 2 0 0 1-2 2H6l-4 4V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-10 [@media(max-height:640px)]:hidden"[39m
+            [36m>[39m
+              [0m对话[0m
+            [36m</span>[39m
+          [36m</a>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex w-full shrink-0 flex-col items-center mt-2 border-t border-border-subtle pt-1"[39m
+          [33mdata-segment[39m=[32m"编排"[39m
+        [36m>[39m
+          [36m<a[39m
+            [33maria-label[39m=[32m"项目"[39m
+            [33mclass[39m=[32m"mt-1.5 flex w-14 shrink-0 flex-col items-center gap-1 rounded-md py-1.5 transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring [@media(max-height:640px)]:mt-1 [@media(max-height:640px)]:gap-0 [@media(max-height:640px)]:py-1 text-muted-foreground hover:bg-muted hover:text-background-foreground"[39m
+            [33mdata-state[39m=[32m"closed"[39m
+            [33mdata-testid[39m=[32m"rail-projects"[39m
+            [33mhref[39m=[32m"/projects"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-folder-kanban h-[18px] w-[18px]"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round...
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/rail-more-menu.test.tsx > IconRail 完整纯图标导航 > 全部有权一级入口直接唯一显示，文字只通过可访问名称和提示提供
+AssertionError: expected '首页' to be '' // Object.is equality
+
+- Expected
++ Received
+
++ 首页
+
+ ❯ tests/ui/rail-more-menu.test.tsx:35:32
+     33|       expect(screen.getAllByTestId(`rail-${item.key}`)).toHaveLength(1…
+     34|       expect(link.getAttribute("aria-label")).toBeTruthy();
+     35|       expect(link.textContent).toBe("");
+       |                                ^
+     36|       expect(link.querySelector("svg")).not.toBeNull();
+     37|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/ui/rail-more-menu.test.tsx > IconRail 完整纯图标导航 > 原收纳入口直接高亮，含 query 的 Skill 入口也能识别当前路径
+TestingLibraryElementError: Unable to find an element by: [data-testid="rail-whiteboard"]
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<nav[39m
+      [33maria-label[39m=[32m"主导航"[39m
+      [33mclass[39m=[32m"flex h-full min-h-0 w-rail min-w-rail shrink-0 flex-col items-center gap-1 border-r border-border bg-rail py-3.5"[39m
+      [33mdata-testid[39m=[32m"shell-rail"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"mb-2 shrink-0"[39m
+        [33mdata-testid[39m=[32m"rail-top"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33maria-expanded[39m=[32m"false"[39m
+          [33maria-haspopup[39m=[32m"menu"[39m
+          [33maria-label[39m=[32m"组织菜单，当前：远洋新能源"[39m
+          [33mclass[39m=[32m"flex h-8 w-8 items-center justify-center overflow-hidden rounded-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring hover:scale-105 bg-inverse text-14 font-semibold text-inverse-foreground hover:bg-inverse/90"[39m
+          [33mdata-state[39m=[32m"closed"[39m
+          [33mdata-testid[39m=[32m"org-switcher"[39m
+          [33mid[39m=[32m"radix-:rf:"[39m
+          [33mtitle[39m=[32m"远洋新能源"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+          [36m>[39m
+            [0m远[0m
+          [36m</span>[39m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"scrollbar-none flex min-h-0 w-full flex-1 flex-col items-center overflow-y-auto overscroll-contain [mask-image:linear-gradient(to_bottom,transparent,black_10px,black_calc(100%-10px),transparent)]"[39m
+        [33mdata-testid[39m=[32m"rail-scroll"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex w-full shrink-0 flex-col items-center"[39m
+          [33mdata-segment[39m=[32m"top"[39m
+        [36m>[39m
+          [36m<a[39m
+            [33maria-label[39m=[32m"首页"[39m
+            [33mclass[39m=[32m"mt-1.5 flex w-14 shrink-0 flex-col items-center gap-1 rounded-md py-1.5 transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring [@media(max-height:640px)]:mt-1 [@media(max-height:640px)]:gap-0 [@media(max-height:640px)]:py-1 text-muted-foreground hover:bg-muted hover:text-background-foreground"[39m
+            [33mdata-state[39m=[32m"closed"[39m
+            [33mdata-testid[39m=[32m"rail-home"[39m
+            [33mhref[39m=[32m"/home"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-house h-[18px] w-[18px]"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-10 [@media(max-height:640px)]:hidden"[39m
+            [36m>[39m
+              [0m首页[0m
+            [36m</span>[39m
+          [36m</a>[39m
+          [36m<a[39m
+            [33maria-label[39m=[32m"对话"[39m
+            [33mclass[39m=[32m"mt-1.5 flex w-14 shrink-0 flex-col items-center gap-1 rounded-md py-1.5 transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring [@media(max-height:640px)]:mt-1 [@media(max-height:640px)]:gap-0 [@media(max-height:640px)]:py-1 text-muted-foreground hover:bg-muted hover:text-background-foreground"[39m
+            [33mdata-state[39m=[32m"closed"[39m
+            [33mdata-testid[39m=[32m"rail-chat"[39m
+            [33mhref[39m=[32m"/chat"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-messages-square h-[18px] w-[18px]"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M14 9a2 2 0 0 1-2 2H6l-4 4V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-10 [@media(max-height:640px)]:hidden"[39m
+            [36m>[39m
+              [0m对话[0m
+            [36m</span>[39m
+          [36m</a>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex w-full shrink-0 flex-col items-center mt-2 border-t border-border-subtle pt-1"[39m
+          [33mdata-segment[39m=[32m"编排"[39m
+        [36m>[39m
+          [36m<a[39m
+            [33maria-label[39m=[32m"项目"[39m
+            [33mclass[39m=[32m"mt-1.5 flex w-14 shrink-0 flex-col items-center gap-1 rounded-md py-1.5 transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring [@media(max-height:640px)]:mt-1 [@media(max-height:640px)]:gap-0 [@media(max-height:640px)]:py-1 text-muted-foreground hover:bg-muted hover:text-background-foreground"[39m
+            [33mdata-state[39m=[32m"closed"[39m
+            [33mdata-testid[39m=[32m"rail-projects"[39m
+            [33mhref[39m=[32m"/projects"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-folder-kanban h-[18px] w-[18px]"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round...
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/rail-more-menu.test.tsx:47:21
+     45|       mockPath = path!;
+     46|       renderRail();
+     47|       expect(screen.getByTestId(`rail-${key}`).getAttribute("aria-curr…
+       |                     ^
+     48|       cleanup();
+     49|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed (2)
+   Start at  18:20:05
+   Duration  6.67s (transform 2.43s, setup 192ms, collect 4.70s, tests 114ms, environment 1.09s, prepare 163ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/2e5d/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/rail-more-menu.test.tsx

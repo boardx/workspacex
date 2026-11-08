@@ -1,0 +1,12 @@
+[WebServer] (node:98851) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:98857) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 1 test using 1 worker
+
+(node:302) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [chromium] › e2e/icon-rail-short-viewport.spec.ts:43:9 › IconRail 短视口三段布局 › 高度 380px：只有中段滚动，头像/组织菜单固定可见，每个入口可达 (28.9s)
+
+  1 passed (1.3m)

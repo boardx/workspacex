@@ -1,0 +1,54 @@
+[WebServer] (node:96141) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:96147) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 14 tests using 1 worker
+
+(node:96309) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘   1 [chromium] › e2e/icon-rail-short-viewport.spec.ts:43:9 › IconRail 短视口三段布局 › 高度 380px：只有中段滚动，头像/组织菜单固定可见，每个入口可达 (32.1s)
+(node:96897) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   2 [chromium] › e2e/icon-rail-short-viewport.spec.ts:85:9 › IconRail 短视口三段布局 › 高度 380px：键盘 Tab / Shift+Tab 走遍入口，焦点可见且自动滚入视口，Enter 导航 (8.0s)
+  ✓   3 [chromium] › e2e/icon-rail-short-viewport.spec.ts:125:9 › IconRail 短视口三段布局 › 高度 380px：纯图标、hover 和键盘 focus 均显示提示 (5.5s)
+  ✓   4 [chromium] › e2e/icon-rail-short-viewport.spec.ts:43:9 › IconRail 短视口三段布局 › 高度 500px：只有中段滚动，头像/组织菜单固定可见，每个入口可达 (3.2s)
+  ✓   5 [chromium] › e2e/icon-rail-short-viewport.spec.ts:85:9 › IconRail 短视口三段布局 › 高度 500px：键盘 Tab / Shift+Tab 走遍入口，焦点可见且自动滚入视口，Enter 导航 (5.1s)
+  ✓   6 [chromium] › e2e/icon-rail-short-viewport.spec.ts:125:9 › IconRail 短视口三段布局 › 高度 500px：纯图标、hover 和键盘 focus 均显示提示 (3.0s)
+  ✓   7 [chromium] › e2e/icon-rail-short-viewport.spec.ts:43:9 › IconRail 短视口三段布局 › 高度 640px：只有中段滚动，头像/组织菜单固定可见，每个入口可达 (2.9s)
+  ✓   8 [chromium] › e2e/icon-rail-short-viewport.spec.ts:85:9 › IconRail 短视口三段布局 › 高度 640px：键盘 Tab / Shift+Tab 走遍入口，焦点可见且自动滚入视口，Enter 导航 (4.3s)
+  ✓   9 [chromium] › e2e/icon-rail-short-viewport.spec.ts:125:9 › IconRail 短视口三段布局 › 高度 640px：纯图标、hover 和键盘 focus 均显示提示 (3.1s)
+  ✓  10 [chromium] › e2e/icon-rail-short-viewport.spec.ts:43:9 › IconRail 短视口三段布局 › 高度 900px：只有中段滚动，头像/组织菜单固定可见，每个入口可达 (2.8s)
+  ✓  11 [chromium] › e2e/icon-rail-short-viewport.spec.ts:85:9 › IconRail 短视口三段布局 › 高度 900px：键盘 Tab / Shift+Tab 走遍入口，焦点可见且自动滚入视口，Enter 导航 (4.5s)
+  ✓  12 [chromium] › e2e/icon-rail-short-viewport.spec.ts:125:9 › IconRail 短视口三段布局 › 高度 900px：纯图标、hover 和键盘 focus 均显示提示 (4.0s)
+  ✓  13 [chromium] › e2e/icon-rail-short-viewport.spec.ts:147:7 › IconRail 短视口三段布局 › 最矮视口 380px：底部个人菜单能打开，弹层整个在视口内 (2.7s)
+  ✓  14 [chromium] › e2e/icon-rail-short-viewport.spec.ts:156:7 › IconRail 短视口三段布局 › 反证：还原修复前布局（中段不滚动）后头像掉出 380px 视口——断言不是空转 (2.8s)
+
+
+  1) [chromium] › e2e/icon-rail-short-viewport.spec.ts:43:9 › IconRail 短视口三段布局 › 高度 380px：只有中段滚动，头像/组织菜单固定可见，每个入口可达 
+
+    Test timeout of 30000ms exceeded.
+
+    Error: page.goto: Test timeout of 30000ms exceeded.
+    Call log:
+      - navigating to "http://localhost:3197/kitchen-sink", waiting until "load"
+
+
+      22 | async function gotoRail(page: Page, height: number) {
+      23 |   await page.setViewportSize({ width: WIDTH, height });
+    > 24 |   await page.goto("/kitchen-sink");
+         |              ^
+      25 |   await expect(page.getByTestId("shell-rail")).toBeVisible();
+      26 | }
+      27 |
+        at gotoRail (/Users/shenyangjun/.codex/worktrees/2e5d/workspacex/apps/web/e2e/icon-rail-short-viewport.spec.ts:24:14)
+        at /Users/shenyangjun/.codex/worktrees/2e5d/workspacex/apps/web/e2e/icon-rail-short-viewport.spec.ts:44:7
+
+    Error Context: test-results/icon-rail-short-viewport-I-bf659-x：只有中段滚动，头像-组织菜单固定可见，每个入口可达-chromium/error-context.md
+
+  1 failed
+    [chromium] › e2e/icon-rail-short-viewport.spec.ts:43:9 › IconRail 短视口三段布局 › 高度 380px：只有中段滚动，头像/组织菜单固定可见，每个入口可达 
+  13 passed (1.9m)
+undefined
+/Users/shenyangjun/.codex/worktrees/2e5d/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: playwright test icon-rail-short-viewport.spec.ts --workers=1
