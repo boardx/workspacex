@@ -1,0 +1,8 @@
+file:///tmp/verify.mjs:5
+for(const id of ids) {if(!await store.isRegistered(id)||!await store.resolveName(id))throw new Error('OFFICIAL_WORKFLOW_ASSET_UNREADABLE');}
+                                                                                           ^
+
+Error: OFFICIAL_WORKFLOW_ASSET_UNREADABLE
+    at file:///tmp/verify.mjs:5:92
+
+Node.js v22.23.3
