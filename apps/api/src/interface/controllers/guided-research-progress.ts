@@ -11,7 +11,7 @@ export function runtimeProgress(state: ResearchRuntime, requestId?: string, offs
   return C.GuidedResearchRuntimeProgress.parse({
     sessionId: state.sessionId, version: state.version, revision: state.revision,
     currentNode: state.currentNode, availableNodes: state.availableNodes,
-    busy: state.busy, leaseUntil: state.leaseUntil, errorCode: state.errorCode,
+    busy: state.busy, leaseUntil: state.leaseUntil, errorCode: state.errorCode, creditFailure: state.creditFailure,
     completed: state.completed, progress: state.progress, reportTimeline: state.reportTimeline, executionGoal: state.executionGoal,
     planRevision: state.planRevision, controlStatus: state.controlStatus, activity: state.activity,
     reportSavedChapterCount: state.reportCheckpoint?.chapters.length ?? 0,

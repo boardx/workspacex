@@ -279,3 +279,23 @@ it("does not carry an expanded legacy chapter editor into a different report ses
   expect(screen.queryByTestId("research-chapters-workspace")).not.toBeInTheDocument();
   expect(executeResearchRuntime).not.toHaveBeenCalled();
 });
+
+// Durable refusal recovery uses the existing shared guidance and never submits work.
+it.each([
+  {code:"CREDIT_REQUIRED",body:{code:"credit_required",ownerType:"user",ownerId:"owner",rechargePath:"/billing?purchase=1"},text:"个人 Credit 可用额度不足",link:"前往充值",href:"/billing?purchase=1"},
+  {code:"CREDIT_REQUIRED",body:{code:"credit_required",ownerType:"team",ownerId:"org",rechargePath:"/billing?ownerType=team&ownerId=org&purchase=1"},text:"组织可用额度不足",link:"为组织充值",href:"/billing?ownerType=team&ownerId=org&purchase=1"},
+  {code:"CREDIT_REQUIRED",body:{code:"credit_required",ownerType:"team",ownerId:"org",rechargePath:"/billing?ownerType=team&ownerId=org&purchase=1",reason:"member_monthly_limit"},text:"本月成员 Credit 额度不足",link:null,href:null},
+  {code:"CREDIT_ACCOUNTING_UNAVAILABLE",body:null,text:"计费服务暂时不可用",link:null,href:null},
+  {code:"CREDIT_REQUIRED",body:null,text:"Credit 余额或成员月度额度不足",link:"查看账户额度",href:"/billing"},
+])("refresh retains correct Credit guidance: $text",async ({code,body,text,link,href})=>{
+ vi.mocked(getResearchRuntime).mockResolvedValue({...initial,errorCode:code,creditFailure:body} as GuidedResearchRuntime);
+ const first=render(<GuidedResearchLive sessionId="session-live" onBack={vi.fn()} />);
+ expect(await screen.findByText(new RegExp(text))).toBeInTheDocument();
+ if(link)expect(screen.getByRole("link",{name:link})).toHaveAttribute("href",href);
+ else expect(screen.queryByRole("link",{name:/充值/})).not.toBeInTheDocument();
+ first.unmount();
+ render(<GuidedResearchLive sessionId="session-live" onBack={vi.fn()} />);
+ expect(await screen.findByText(new RegExp(text))).toBeInTheDocument();
+ expect(executeResearchRuntime).not.toHaveBeenCalled();
+ expect(screen.queryByText(/服务端仍在处理/)).not.toBeInTheDocument();
+});

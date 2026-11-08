@@ -260,6 +260,7 @@ describe("live survey trusted publishing", () => {
     expect(client.request).toHaveBeenCalledTimes(1);
     expect(client.request).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ method: "POST" }), expect.anything());
     fireEvent.click(screen.getByRole("button", { name: "定位并修复：修复题目配置" }));
+    fireEvent.click(screen.getByRole("button", { name: "题目大纲" }));
     expect(screen.getByRole("button", { name: "选择题目 2：Image question" })).toHaveAttribute("aria-current", "true");
   });
 
@@ -289,6 +290,7 @@ describe("live survey trusted publishing", () => {
     expect(client.request).toHaveBeenLastCalledWith("/surveys/survey-1/publish", { method: "POST", body: { expectedVersion: 4 } }, expect.anything());
     expect(screen.getByRole("button", { name: /1\. 设计问卷/ })).toHaveAttribute("aria-current", "step");
     fireEvent.click(screen.getByRole("button", { name: "定位并修复：修复条件显示或跳转规则" }));
+    fireEvent.click(screen.getByRole("button", { name: "题目大纲" }));
     expect(screen.getByRole("button", { name: "选择题目 2：补充原因" })).toHaveAttribute("aria-current", "true");
   });
 

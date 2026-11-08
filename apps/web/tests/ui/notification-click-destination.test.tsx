@@ -56,10 +56,11 @@ async function openPanel(notifications: ReturnType<typeof notice>[]) {
 }
 
 beforeEach(() => {
+  vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
   request.mockReset(); push.mockReset();
   sessionValue.current = { session: { sessionToken: "token" } };
 });
-afterEach(() => cleanup());
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe("#3311 点一条通知，用户必须知道自己被带到哪儿了", () => {
   it("① 有对话可去：路由落到该对话，且弹层关闭（不是那行凭空消失）", async () => {

@@ -76,14 +76,6 @@ export interface NavItem {
    * 在标签下方，不是塞进徽标 tooltip 里——要看得见，不是要 hover 才知道。
    */
   prototypeNote?: string;
-  /**
-   * 图标栏收纳（2026-09-30 人类直接要求：「只把最重要的显示出来，其余的通过 3 点菜单来加载」）。
-   * `true` = 不常驻图标栏，收进栏里的「更多」三点菜单；不写 = 常驻。
-   * 每个入口**只在一处**渲染（栏内或菜单内，绝不两处都有），所以不违反 #593 的一级/二级
-   * 机械分界，也不违反「同一入口不许两个位置」。收纳与否是展示层的取舍，不是权限，也不是
-   * 路由变动——`lint-nav-reachability` 看的是本文件里这些条目本身，不受影响。
-   */
-  overflow?: boolean;
 }
 
 export interface NavSegment {
@@ -177,7 +169,7 @@ export const NAV_SEGMENTS: NavSegment[] = [
     label: "STUDIO",
     items: [
       // #3902: 独立白板入口，不替代后台画布模板管理。
-      { key: "whiteboard", label: "Board", href: "/studio/board", icon: Shapes, ucRefs: [], overflow: true, isPrototype: true },
+      { key: "whiteboard", label: "Board", href: "/studio/board", icon: Shapes, ucRefs: [], isPrototype: true },
       // 束: research（研究 Studio · M24）—— 重指到本束现行屏 /research（顶层）。
       //   旧值 /studio/research 渲染的是 UC-0.2 Context Pack（语义不同），二者共用一条路由
       //   是 requirements/24-research/OPEN-QUESTIONS.md 的 Q-2（阻塞级·未裁）。此处只做**最小可逆**
@@ -187,8 +179,8 @@ export const NAV_SEGMENTS: NavSegment[] = [
       // 束: interview —— 重指到 v2 现行屏 /itv（label/icon 不变，像素不变；旧 /studio/interview 已重定向）
       { key: "interview", label: "访谈", href: "/itv", icon: Mic, ucRefs: ["06-itv/uc-6-1", "06-itv/uc-6-3"] },
       // 束: recording —— 现场录音转写，此前只能敲 /rec
-      { key: "recording", label: "录音", href: "/rec", icon: AudioLines, ucRefs: ["05-rec/uc-5-1", "05-rec/uc-5-2"], overflow: true },
-      { key: "survey", label: "问卷", href: "/studio/survey", icon: ClipboardList, ucRefs: ["12-survey/uc-12-1"], overflow: true },
+      { key: "recording", label: "录音", href: "/rec", icon: AudioLines, ucRefs: ["05-rec/uc-5-1", "05-rec/uc-5-2"] },
+      { key: "survey", label: "问卷", href: "/studio/survey", icon: ClipboardList, ucRefs: ["12-survey/uc-12-1"] },
       // 束: canvas —— 2026-08-09 人类裁决：移出一级，见下方「治理 → 后台 children」处的 canvas 条目。
       //   本文件自己的权威注释早已记录矛盾：measured 序列把「原型」摆在 STUDIO 一级，
       //   但同一份原型的设计说明逐字写着「画布从议程进，不占一级」。这次以后者为准。
@@ -202,7 +194,7 @@ export const NAV_SEGMENTS: NavSegment[] = [
       //   `DesignWorkbenchHome`）；`AdminNav` 里 `/platform-admin/design-workbench`
       //   本身不下线，平台运维仍从后台管理它——STUDIO 这条是新增的独立入口，不是去重场景，
       //   因此不适用本文件其余条目「同一事实只留一个入口」的先例。
-      { key: "design-workbench", label: "设计", href: "/studio/design-workbench", icon: PencilRuler, ucRefs: ["17-gov/uc-17-8"], overflow: true },
+      { key: "design-workbench", label: "设计", href: "/studio/design-workbench", icon: PencilRuler, ucRefs: ["17-gov/uc-17-8"] },
       // 束: feedback-drafts —— issue #3339 人类反馈：反馈草稿此前只挂在「平台后台」
       //   （`/platform-admin/feedback-drafts`），但草稿的 API/契约本就是「owner 私有」
       //   （`packages/contracts/src/feedback-loop.ts` 头注），后端从未有 admin-only
@@ -211,7 +203,7 @@ export const NAV_SEGMENTS: NavSegment[] = [
       //   不套 `AdminNav`，复用同一个真栈组件 `DesignLoopDraftsScreen`），让全体终端用户
       //   都能新建/保存/修改自己的草稿。`AdminNav` 里 `/platform-admin/feedback-drafts`
       //   本身不下线，平台运维仍从后台看全部草稿——这条是新增的独立入口，不是去重场景。
-      { key: "feedback-drafts", label: "反馈草稿", href: "/studio/feedback-drafts", icon: MessageSquareWarning, ucRefs: ["17-gov/uc-17-8"], overflow: true },
+      { key: "feedback-drafts", label: "反馈草稿", href: "/studio/feedback-drafts", icon: MessageSquareWarning, ucRefs: ["17-gov/uc-17-8"] },
     ],
   },
   {
@@ -225,6 +217,7 @@ export const NAV_SEGMENTS: NavSegment[] = [
       // uiux-r4：工作流（我的运行 / 待我审批 / 运行看板）此前只有子页、主导航无入口，/workflows 本身 404。
       // 入口指 /workflows（落地即重定向到「我的运行」），子页左栏 WorkflowNav 负责三者切换。
       { key: "workflows", label: "工作流", href: "/workflows", icon: Workflow, ucRefs: [] },
+      // Agent/Skill catalogs enter through organization/platform administration.
 
     ],
   },

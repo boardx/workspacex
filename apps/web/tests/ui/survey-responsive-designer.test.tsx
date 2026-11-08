@@ -90,9 +90,9 @@ it("opens mobile outline/settings on demand without duplicating question content
     return <SurveyQuestionEditor studioLayout questions={questions} onChange={setQuestions} />;
   }
   render(<Designer />);
-  fireEvent.click(screen.getByRole("button", { name: "打开题目大纲" }));
+  fireEvent.click(screen.getByRole("button", { name: "题目大纲" }));
   fireEvent.click(within(screen.getByRole("dialog", { name: "题目大纲" })).getByRole("button", { name: "选择题目 2：第二题" }));
-  fireEvent.click(screen.getByRole("button", { name: "关闭" }));
+  expect(screen.queryByRole("dialog", { name: "题目大纲" })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "打开题目设置" }));
   const settings = screen.getByRole("dialog", { name: "题目设置" });
   expect(within(settings).queryByRole("textbox", { name: "问题内容" })).not.toBeInTheDocument();
@@ -105,7 +105,8 @@ it("shows the prototype's question toolbox in the desktop designer", () => {
   render(<SurveyQuestionEditor studioLayout questions={[]} onChange={vi.fn()} />);
   expect(screen.getByRole("heading", { name: "题型工具箱" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /^单选$/ })).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "题目大纲" })).toBeInTheDocument();
+  expect(screen.queryByRole("heading", { name: "题目大纲" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "题目大纲" })).toBeInTheDocument();
   expect(screen.getByRole("region", { name: "问卷设计画布" })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "收起实时预览" })).not.toBeInTheDocument();
 });
@@ -164,7 +165,7 @@ it("keeps desktop side panels fixed and makes the center canvas the primary scro
   render(<SurveyQuestionEditor studioLayout questions={[createSurveyQuestion("short", "q1", 1)]} onChange={vi.fn()} />);
   expect(matchMedia).toHaveBeenCalledWith("(max-width: 1023px)");
   expect(screen.getByTestId("survey-designer-grid")).toHaveClass("lg:h-full", "lg:overflow-hidden");
-  expect(screen.getByTestId("survey-designer-outline")).toHaveClass("lg:h-full");
+  expect(screen.getByTestId("survey-designer-toolbox")).toHaveClass("lg:h-full");
   expect(screen.getByTestId("survey-designer-settings")).toHaveClass("lg:h-full");
   expect(screen.getByTestId("survey-designer-canvas-scroll")).toHaveClass("lg:h-full", "lg:overflow-y-auto");
 });
@@ -227,7 +228,8 @@ it("searches and reorders long questionnaires from the outline", () => {
     return <SurveyQuestionEditor studioLayout questions={questions} onChange={setQuestions} />;
   }
   render(<Designer />);
-  const outline = screen.getByTestId("survey-designer-outline");
+  fireEvent.click(screen.getByRole("button", { name: "题目大纲" }));
+  const outline = screen.getByRole("dialog", { name: "题目大纲" });
   const search = within(outline).getByRole("searchbox", { name: "搜索题目" });
   fireEvent.change(search, { target: { value: "城市" } });
   expect(within(outline).getByRole("button", { name: "选择题目 2：居住城市" })).toBeInTheDocument();
@@ -284,19 +286,24 @@ it("preserves undo and redo through schema-normalized autosave but resets on gen
     </>;
   }
   render(<DesignerWithAutosave />);
+  const expectCount = (count: number) => {
+    fireEvent.click(screen.getByRole("button", { name: "题目大纲" }));
+    expect(screen.getByText(`题目目录 · ${count}`)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "关闭" }));
+  };
   fireEvent.click(screen.getByRole("button", { name: /^新增题目$/ }));
-  expect(screen.getByText("题目目录 · 2")).toBeInTheDocument();
+  expectCount(2);
   expect(screen.getByRole("button", { name: "撤销最近修改" })).toBeEnabled();
   fireEvent.click(screen.getByRole("button", { name: "撤销最近修改" }));
-  expect(screen.getByText("题目目录 · 1")).toBeInTheDocument();
+  expectCount(1);
   expect(screen.getByRole("button", { name: "重做最近修改" })).toBeEnabled();
   fireEvent.click(screen.getByRole("button", { name: "重做最近修改" }));
-  expect(screen.getByText("题目目录 · 2")).toBeInTheDocument();
+  expectCount(2);
   expect(screen.getByRole("button", { name: "撤销最近修改" })).toBeEnabled();
   fireEvent.click(screen.getByRole("button", { name: /^新增题目$/ }));
-  expect(screen.getByText("题目目录 · 3")).toBeInTheDocument();
+  expectCount(3);
   fireEvent.click(screen.getByRole("button", { name: "撤销最近修改" }));
-  expect(screen.getByText("题目目录 · 2")).toBeInTheDocument();
+  expectCount(2);
   expect(screen.getByRole("button", { name: "撤销最近修改" })).toBeEnabled();
   expect(screen.getByRole("button", { name: "重做最近修改" })).toBeEnabled();
   fireEvent.click(screen.getByRole("button", { name: "加载远端更改" }));
@@ -315,6 +322,7 @@ it("preserves manual selection and consecutive edits after a repair target is se
   render(<Designer />);
   const settings = screen.getByRole("region", { name: "题目设置" });
   expect(within(settings).getByRole("combobox", { name: "题型" })).toHaveValue("image_single");
+  fireEvent.click(screen.getByRole("button", { name: "题目大纲" }));
   fireEvent.click(screen.getByRole("button", { name: "选择题目 2：另一图片题" }));
   const canvas = screen.getByRole("region", { name: "问卷设计画布" });
   fireEvent.click(within(canvas).getByText("编辑题目内容"));

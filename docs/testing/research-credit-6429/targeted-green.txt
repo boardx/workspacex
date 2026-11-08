@@ -1,0 +1,28 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/api
+
+ ✓ tests/research/guided-search-recovery.test.ts (68 tests) 798ms
+ ✓ tests/research/guided-three-step.test.ts (53 tests) 7198ms
+   ✓ three visible stages with durable composite execution > automatically delivers a formal Chinese report with honest search limitations 410ms
+   ✓ three visible stages with durable composite execution > automatically delivers a formal English report with honest search limitations 322ms
+   ✓ retains report gates on retry (task loses evidence=false, quality rejects=false, valid negative=false, empty chapter=false) 1065ms
+   ✓ retains report gates on generate_report (task loses evidence=false, quality rejects=false, valid negative=false, empty chapter=false) 365ms
+   ✓ retains report gates on retry (task loses evidence=true, quality rejects=false, valid negative=false, empty chapter=false) 302ms
+   ✓ retains report gates on generate_report (task loses evidence=true, quality rejects=false, valid negative=false, empty chapter=false) 363ms
+   ✓ retains report gates on retry (task loses evidence=true, quality rejects=true, valid negative=false, empty chapter=false) 452ms
+   ✓ retains report gates on generate_report (task loses evidence=true, quality rejects=true, valid negative=false, empty chapter=false) 405ms
+   ✓ retains report gates on retry (task loses evidence=true, quality rejects=false, valid negative=false, empty chapter=true) 337ms
+   ✓ retains report gates on generate_report (task loses evidence=true, quality rejects=false, valid negative=false, empty chapter=true) 365ms
+ ✓ tests/research/guided-runtime-delta.test.ts (26 tests) 910ms
+   ✓ strips cache hints from command execution and returns only changed fields 689ms
+ ✓ tests/research/guided-runtime-orchestration.test.ts (12 tests) 219ms
+ ✓ tests/research/guided-progressive-candidates.test.ts (23 tests) 191ms
+ ✓ tests/research/guided-credit-finalization.test.ts (17 tests) 607ms
+   ✓ controller projections keep personal scope private, including knownFields=false 468ms
+ ✓ tests/research/guided-negative-screen-cache-pipeline.test.ts (2 tests) 78ms
+
+ Test Files  7 passed (7)
+      Tests  201 passed (201)
+   Start at  20:51:04
+   Duration  21.93s (transform 2.53s, setup 0ms, collect 9.23s, tests 10.00s, environment 2ms, prepare 902ms)
+

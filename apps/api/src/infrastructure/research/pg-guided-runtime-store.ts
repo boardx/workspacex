@@ -66,6 +66,7 @@ export class PgGuidedRuntimeStore implements GuidedRuntimeStore {
       state.busy = true;
       state.leaseUntil = new Date(Date.now() + 600000).toISOString();
       state.errorCode = null;
+      state.creditFailure = null;
       await tx.query(`UPDATE guided_research_runtime SET state=$3::jsonb,active_request_id=$4,
         requests=requests || jsonb_build_object($4::text,$5::jsonb) WHERE org_id=$1 AND session_id=$2`,
       [actor.orgId,actor.sessionId,JSON.stringify(state),command.requestId,JSON.stringify({hash,done:false})]);

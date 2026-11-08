@@ -15,6 +15,7 @@ import {
 } from "@repo/contracts/survey-question-types";
 import { surveyQuestionsContentSignature } from "@repo/contracts/survey-source";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { moveItem } from "@/lib/survey/report-template";
@@ -69,6 +70,9 @@ export function SurveyQuestionEditor({
   const [id, setId] = React.useState(questions[0]?.id);
   const [picking, setPicking] = React.useState(false);
   const [search, setSearch] = React.useState("");
+  const [outlineOpen, setOutlineOpen] = React.useState(false);
+  const outlineSelection = React.useRef<string | null>(null);
+  const canvasRef = React.useRef<HTMLElement>(null);
   const [outlineSearch, setOutlineSearch] = React.useState("");
   const [undoStack, setUndoStack] = React.useState<SurveyWorkflowQuestion[][]>([]);
   const [redoStack, setRedoStack] = React.useState<SurveyWorkflowQuestion[][]>([]);
@@ -339,11 +343,57 @@ export function SurveyQuestionEditor({
       </div>
     );
   }
+  const outlineContent = <div className="min-w-0 space-y-4" data-testid="survey-question-outline">
+          {!studioLayout && <h2 className="text-14 font-semibold">{t("survey.design.outline")}</h2>}
+          <p className="text-12 text-muted-foreground">{t("survey.design.outlineCount", { count: questions.length })}</p>
+          <Input type="search" aria-label={t("survey.design.searchQuestions")} placeholder={t("survey.design.searchQuestionsHint")} value={outlineSearch} onChange={(event) => setOutlineSearch(event.target.value)} />
+          <ol className="space-y-1">
+            {outlineQuestions.map((q) => {
+              const questionIndex = questions.findIndex((item) => item.id === q.id);
+              return <li key={q.id} className="flex items-center gap-1">
+                <button
+                  type="button"
+                  aria-label={t("survey.design.selectQuestion", { index: q.order, title: q.title || t("survey.design.untitledQuestion") })}
+                  aria-current={q.id === question?.id ? "true" : undefined}
+                  onClick={() => {
+                    setId(q.id);
+                    setPendingType(undefined);
+                    if (studioLayout) { outlineSelection.current = q.id; setOutlineOpen(false); }
+                  }}
+                  className={`min-w-0 flex-1 break-words rounded-md p-3 text-left text-12 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${q.id === question?.id ? "bg-accent" : "hover:bg-muted"}`}
+                >
+                  {q.type === "page_break" ? t("survey.design.sectionPrefix") : `${q.order}. `}
+                  {q.title || t("survey.design.untitledQuestion")}
+                </button>
+                {studioLayout && !locked && <div className="flex shrink-0">
+                  <Button type="button" size="xs" variant="ghost" aria-label={t("survey.design.moveQuestionUp", { title: q.title || t("survey.design.untitledQuestion") })} disabled={questionIndex === 0} onClick={() => { change(moveItem(questions, questionIndex, -1)); setId(q.id); }}><ArrowUp aria-hidden="true" className="h-3.5 w-3.5" /></Button>
+                  <Button type="button" size="xs" variant="ghost" aria-label={t("survey.design.moveQuestionDown", { title: q.title || t("survey.design.untitledQuestion") })} disabled={questionIndex === questions.length - 1} onClick={() => { change(moveItem(questions, questionIndex, 1)); setId(q.id); }}><ArrowDown aria-hidden="true" className="h-3.5 w-3.5" /></Button>
+                </div>}
+              </li>;
+            })}
+          </ol>
+  </div>;
   return (
     <div className={studioLayout ? "flex min-h-0 flex-col gap-4 p-5 lg:h-full lg:overflow-hidden" : "space-y-5 p-5"}>
       <div className={`flex flex-wrap items-center justify-between gap-3 ${studioLayout ? "shrink-0" : ""}`}>
 
         <div className="flex flex-wrap gap-2">
+          {studioLayout && <Dialog open={outlineOpen} onOpenChange={setOutlineOpen}>
+            <DialogTrigger asChild><Button type="button" variant="secondary" disabled={disabled} aria-expanded={outlineOpen}>
+              <ListOrdered aria-hidden="true" className="h-4 w-4" />{t("survey.design.outline")}
+            </Button></DialogTrigger>
+            <DialogContent className="max-h-[80dvh] max-w-lg overflow-y-auto" onCloseAutoFocus={(event) => {
+              const selected = outlineSelection.current;
+              outlineSelection.current = null;
+              if (!selected) return;
+              const target = Array.from(canvasRef.current?.querySelectorAll<HTMLElement>("[data-survey-question-id]") ?? []).find(item => item.dataset.surveyQuestionId === selected);
+              if (target) { event.preventDefault(); target.scrollIntoView?.({ block: "center" }); target.focus({ preventScroll: true }); }
+            }}>
+              <DialogTitle>{t("survey.design.outline")}</DialogTitle>
+              <DialogDescription>{t("survey.design.panelHint")}</DialogDescription>
+              <fieldset disabled={disabled} className="min-w-0">{outlineContent}</fieldset>
+            </DialogContent>
+          </Dialog>}
           {studioLayout && !locked && (
             <>
               <Button type="button" variant="secondary" onClick={() => { setTrialPage(0); setTrialMode(true); }}>
@@ -385,8 +435,8 @@ export function SurveyQuestionEditor({
         data-testid={studioLayout ? "survey-designer-grid" : undefined}
         className={`grid min-w-0 gap-4 ${studioLayout && preview ? "lg:h-full lg:min-h-0 lg:flex-1 lg:grid-cols-[16rem_minmax(0,1fr)_18rem] lg:overflow-hidden xl:grid-cols-[16rem_minmax(0,1fr)_20rem]" : preview ? "xl:grid-cols-[16rem_minmax(0,1fr)_minmax(0,1fr)]" : "lg:grid-cols-[16rem_minmax(0,1fr)]"}`}
       >
-        <ResponsiveDesignerPanel title={t("survey.design.outline")} enabled={studioLayout} disabled={disabled}>
-        <aside data-testid={studioLayout ? "survey-designer-outline" : undefined} aria-label={t("survey.design.outline")} className="min-w-0 space-y-5 rounded-lg border border-border bg-card p-4 lg:h-full lg:overflow-y-auto">
+        <ResponsiveDesignerPanel title={t(studioLayout ? "survey.design.toolbox" : "survey.design.outline")} enabled={studioLayout} disabled={disabled}>
+        <aside data-testid={studioLayout ? "survey-designer-toolbox" : undefined} aria-label={t(studioLayout ? "survey.design.toolbox" : "survey.design.outline")} className="min-w-0 space-y-5 rounded-lg border border-border bg-card p-4 lg:h-full lg:overflow-y-auto">
           {studioLayout && !locked && <section aria-label={t("survey.design.toolbox")} className="space-y-3">
             <div className="flex items-start justify-between gap-2"><h2 className="text-14 font-semibold">{t("survey.design.toolbox")}</h2><Button type="button" size="sm" variant="ghost" onClick={() => add("short")}>{t("survey.design.addQuestion")}</Button></div>
             {Array.from(new Set(SURVEY_QUESTION_TYPES.map(item => item.category))).map(group => <div key={group}>
@@ -406,33 +456,7 @@ export function SurveyQuestionEditor({
               </div>
             </div>)}
           </section>}
-          <h2 className="text-14 font-semibold">{t("survey.design.outline")}</h2>
-          <p className="text-12 text-muted-foreground">{t("survey.design.outlineCount", { count: questions.length })}</p>
-          <Input type="search" aria-label={t("survey.design.searchQuestions")} placeholder={t("survey.design.searchQuestionsHint")} value={outlineSearch} onChange={(event) => setOutlineSearch(event.target.value)} />
-          <ol className="space-y-1">
-            {outlineQuestions.map((q) => {
-              const questionIndex = questions.findIndex((item) => item.id === q.id);
-              return <li key={q.id} className="flex items-center gap-1">
-                <button
-                  type="button"
-                  aria-label={t("survey.design.selectQuestion", { index: q.order, title: q.title || t("survey.design.untitledQuestion") })}
-                  aria-current={q.id === question?.id ? "true" : undefined}
-                  onClick={() => {
-                    setId(q.id);
-                    setPendingType(undefined);
-                  }}
-                  className={`min-w-0 flex-1 break-words rounded-md p-3 text-left text-12 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${q.id === question?.id ? "bg-accent" : "hover:bg-muted"}`}
-                >
-                  {q.type === "page_break" ? t("survey.design.sectionPrefix") : `${q.order}. `}
-                  {q.title || t("survey.design.untitledQuestion")}
-                </button>
-                {studioLayout && !locked && <div className="flex shrink-0">
-                  <Button type="button" size="xs" variant="ghost" aria-label={t("survey.design.moveQuestionUp", { title: q.title || t("survey.design.untitledQuestion") })} disabled={questionIndex === 0} onClick={() => { change(moveItem(questions, questionIndex, -1)); setId(q.id); }}><ArrowUp aria-hidden="true" className="h-3.5 w-3.5" /></Button>
-                  <Button type="button" size="xs" variant="ghost" aria-label={t("survey.design.moveQuestionDown", { title: q.title || t("survey.design.untitledQuestion") })} disabled={questionIndex === questions.length - 1} onClick={() => { change(moveItem(questions, questionIndex, 1)); setId(q.id); }}><ArrowDown aria-hidden="true" className="h-3.5 w-3.5" /></Button>
-                </div>}
-              </li>;
-            })}
-          </ol>
+          {!studioLayout && outlineContent}
           {!locked && !studioLayout && (
             <div className="mt-4 flex flex-wrap gap-2">
               <Button type="button" onClick={() => setPicking(!picking)}>
@@ -692,7 +716,7 @@ export function SurveyQuestionEditor({
         </section>
         </ResponsiveDesignerPanel>
         {preview && !overviewFirst && (
-          <aside data-testid={studioLayout ? "survey-designer-canvas-scroll" : undefined} aria-label={t("survey.design.livePreview")} className={`min-w-0 space-y-4 bg-muted/30 ${studioLayout ? 'lg:order-2 lg:h-full lg:overflow-y-auto' : 'rounded-lg border border-border bg-card p-4'}`}>
+          <aside ref={canvasRef} data-testid={studioLayout ? "survey-designer-canvas-scroll" : undefined} aria-label={t("survey.design.livePreview")} className={`min-w-0 space-y-4 bg-muted/30 ${studioLayout ? 'lg:order-2 lg:h-full lg:overflow-y-auto' : 'rounded-lg border border-border bg-card p-4'}`}>
             <div role="region" aria-label={t("survey.design.designCanvas")} className="space-y-4">
             {studioLayout && <h2 className="sr-only">{t("survey.design.designCanvas")}</h2>}
             <div className="sticky top-0 z-10 flex justify-center gap-2 bg-card p-2">
@@ -734,7 +758,7 @@ export function SurveyQuestionEditor({
                         {t("survey.design.chapterCount", { count: questions.filter((item) => item.chapterId === q.chapterId).length })}
                       </span>
                     </div>}
-                  <section onClick={studioLayout ? () => { setId(q.id); setPendingType(undefined); } : undefined} className={studioLayout ? `group border px-4 py-5 transition-colors sm:px-8 ${q.id === question?.id ? "border-ring" : "border-transparent hover:border-border"}` : ""}>
+                  <section data-survey-question-id={studioLayout ? q.id : undefined} tabIndex={studioLayout ? -1 : undefined} onClick={studioLayout ? () => { setId(q.id); setPendingType(undefined); } : undefined} className={studioLayout ? `group border px-4 py-5 transition-colors sm:px-8 ${q.id === question?.id ? "border-ring" : "border-transparent hover:border-border"}` : ""}>
                     {studioLayout && <div className="mb-2 flex items-start gap-2">
                       <span aria-hidden="true" className="min-w-4 shrink-0 pt-2 text-destructive">{q.required ? "*" : ""}</span>
                       <span className="shrink-0 whitespace-nowrap pt-2 text-16 font-semibold tabular-nums">{String(questionIndex + 1).padStart(2, "0")}</span>

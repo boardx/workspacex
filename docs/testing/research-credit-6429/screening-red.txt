@@ -1,0 +1,227 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/api
+
+ ❯ tests/research/guided-credit-finalization.test.ts (17 tests | 1 failed) 712ms
+   ✓ controller projections keep personal scope private, including knownFields=false 579ms
+   × source-screening Credit refusal stops the pipeline instead of entering recoverable search retries 37ms
+     → promise resolved "{ sessionId: 'credit-research', …(44) }" instead of rejecting
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/research/guided-credit-finalization.test.ts > source-screening Credit refusal stops the pipeline instead of entering recoverable search retries
+AssertionError: promise resolved "{ sessionId: 'credit-research', …(44) }" instead of rejecting
+
+- Expected
++ Received
+
+- [Error: rejected promise]
++ Object {
++   "activity": Array [
++     Object {
++       "executionVersion": 0,
++       "id": "a680607f-d903-4fb3-8398-cec1b0fe5915",
++       "occurredAt": "2026-11-08T12:49:06.991Z",
++       "sequence": 1,
++       "stage": "searching",
++       "status": "started",
++       "summary": "按来源策略开始检索",
++       "taskId": null,
++     },
++   ],
++   "availableNodes": Array [
++     "brief",
++     "directions",
++     "outline",
++     "research",
++   ],
++   "brief": Object {
++     "focus": "Policy",
++     "goal": "Entry",
++     "region": "EU",
++     "timeRange": "2026",
++     "topic": "Grid",
++   },
++   "busy": false,
++   "claimEvidence": Array [],
++   "completed": false,
++   "conflicts": Array [],
++   "controlStatus": undefined,
++   "coverage": Array [
++     Object {
++       "evidenceIds": Array [],
++       "questionId": "chapter:0/question:0",
++       "reasons": Array [
++         "没有可定位的逐问题证据",
++       ],
++       "sectionId": "section",
++       "status": "missing",
++     },
++   ],
++   "creditFailure": null,
++   "currentNode": "research",
++   "directions": Array [],
++   "errorCode": "RESEARCH_SEARCH_PARTIAL_FAILURE",
++   "executionGoal": undefined,
++   "generatedNodes": Array [],
++   "intent": undefined,
++   "leaseUntil": null,
++   "legacyCheckpoint": null,
++   "messages": Array [],
++   "modelCalls": Array [
++     Object {
++       "createdAt": "2026-11-08T12:49:06.999Z",
++       "id": "7bed15f8-febb-438b-921c-460b68462a94",
++       "modelId": "test",
++       "node": "research",
++       "status": "failed",
++     },
++     Object {
++       "createdAt": "2026-11-08T12:49:07.001Z",
++       "id": "c1aa7a8d-73f6-4a87-8da2-28563810971f",
++       "modelId": "test",
++       "node": "research",
++       "status": "failed",
++     },
++     Object {
++       "createdAt": "2026-11-08T12:49:07.003Z",
++       "id": "92711452-e0e2-4e62-a661-ed86aa61f408",
++       "modelId": "test",
++       "node": "research",
++       "status": "failed",
++     },
++     Object {
++       "createdAt": "2026-11-08T12:49:07.005Z",
++       "id": "4731efaa-256c-4ffb-9f10-0e220bffd81b",
++       "modelId": "test",
++       "node": "research",
++       "status": "failed",
++     },
++     Object {
++       "createdAt": "2026-11-08T12:49:07.006Z",
++       "id": "b5878529-fc60-4f40-8311-f8fb061d7629",
++       "modelId": "test",
++       "node": "research",
++       "status": "failed",
++     },
++   ],
++   "outline": Array [
++     Object {
++       "enabled": true,
++       "id": "section",
++       "order": 0,
++       "questions": Array [
++         "Which policy?",
++       ],
++       "title": "Policy",
++     },
++   ],
++   "planRevision": undefined,
++   "progress": Object {
++     "completed": 1,
++     "executionVersion": 0,
++     "sourceCounts": Object {
++       "discovered": 1,
++       "read": 1,
++       "reading": 0,
++       "screened": 0,
++       "screening": 0,
++     },
++     "stage": "searching",
++     "total": 1,
++   },
++   "proposal": null,
++   "publicationReadiness": Object {
++     "blockers": Array [
++       "搜索未完成，报告仅为部分草稿",
++       "报告正文或执行状态尚未通过验证",
++       "报告尚未生成",
++       "核心问题覆盖不足",
++     ],
++     "evaluatedAt": "2026-11-08T12:49:07.007Z",
++     "status": "limited",
++     "warnings": Array [],
++   },
++   "qualityScore": Object {
++     "authority": null,
++     "citationCoverage": 0,
++     "crossValidation": 0,
++     "explanations": Array [
++       "引用覆盖按已回答问题计算",
++       "权威性按具有完整读取文档的来源计算",
++       "时效性按近一年检索时间计算",
++       "交叉验证按至少两个来源的问题计算",
++     ],
++     "openGapCount": 1,
++     "overall": 0,
++     "recency": null,
++   },
++   "questionEvidence": undefined,
++   "report": null,
++   "reportCheckpoint": undefined,
++   "reportDraft": undefined,
++   "reportEvidenceWarnings": undefined,
++   "reportPartial": undefined,
++   "reportPrevious": undefined,
++   "reportQualityWarnings": undefined,
++   "reportSourceAliases": undefined,
++   "reportStream": undefined,
++   "reportTimeline": undefined,
++   "researchPlan": undefined,
++   "revision": 1,
++   "sessionId": "credit-research",
++   "sourcePolicy": undefined,
++   "sourceScreenRejections": undefined,
++   "sources": Array [],
++   "tasks": Array [
++     Object {
++       "attempts": 1,
++       "errorCode": "RESEARCH_SEARCH_UNAVAILABLE",
++       "id": "task",
++       "query": "Grid policy",
++       "searchAttempts": Array [
++         Object {
++           "errorCode": "RESEARCH_SEARCH_UNAVAILABLE",
++           "query": "Grid policy",
++           "status": "failed",
++         },
++         Object {
++           "errorCode": "RESEARCH_SEARCH_UNAVAILABLE",
++           "query": "Grid EU Grid policy primary source",
++           "status": "failed",
++         },
++         Object {
++           "errorCode": "RESEARCH_SEARCH_UNAVAILABLE",
++           "query": "Grid EU Which policy?",
++           "status": "failed",
++         },
++         Object {
++           "errorCode": "RESEARCH_SEARCH_UNAVAILABLE",
++           "query": "Grid EU Policy official report",
++           "status": "failed",
++         },
++         Object {
++           "errorCode": "RESEARCH_SEARCH_UNAVAILABLE",
++           "query": "Grid EU Policy data study",
++           "status": "failed",
++         },
++       ],
++       "sectionId": "section",
++       "status": "failed",
++     },
++   ],
++   "version": 0,
++ }
+
+ ❯ tests/research/guided-credit-finalization.test.ts:140:95
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 16 passed (17)
+   Start at  20:49:02
+   Duration  4.19s (transform 2.21s, setup 0ms, collect 3.24s, tests 712ms, environment 0ms, prepare 65ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/f0e0/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.research-unit.config.ts tests/research/guided-credit-finalization.test.ts

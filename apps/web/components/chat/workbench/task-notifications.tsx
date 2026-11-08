@@ -1,6 +1,7 @@
 "use client";
 import * as React from "react";
 import {useI18n} from "@/lib/i18n/provider";
+import {Tooltip,TooltipContent,TooltipProvider,TooltipTrigger} from "@/components/ui/tooltip";
 import {Bell} from "lucide-react";
 import {Button} from "@/components/ui/button";
 import {cn} from "@/lib/utils";
@@ -17,7 +18,7 @@ export interface TaskNotificationsProps {
   /**
    * `sidebar` = 会话列表栏顶部的老位置（`px-3`、弹层贴栏宽向下展开）。
    * `rail` = 最左侧图标导航栏（issue #3246），与 `FeedbackButton` 的 rail 形态同构：
-   * 图标 + 本地化标签 + 右上角角标，弹层**向右**展开。
+   * 图标 + 悬停提示 + 右上角角标，弹层**向右**展开。
    */
   variant?:"sidebar"|"rail";
 }
@@ -29,7 +30,7 @@ export interface TaskNotificationsProps {
  * 抄一份的话夹具会永远量到"旧的正确答案"，改坏了也不红）。
  */
 export const NOTIFICATIONS_TRIGGER_CLASS={
-  rail:"mt-1.5 flex h-auto w-14 flex-col items-center gap-1 rounded-md py-1.5 text-muted-foreground [@media(max-height:640px)]:mt-1 [@media(max-height:640px)]:gap-0 [@media(max-height:640px)]:py-1",
+  rail:"mt-1 flex h-9 w-14 items-center justify-center rounded-md text-muted-foreground",
   sidebar:"h-8 w-8 p-0",
 } as const;
 export const NOTIFICATIONS_POPOVER_BASE_CLASS="absolute z-50 space-y-2 overflow-y-auto rounded-control border border-border bg-popover p-2 shadow-md";
@@ -99,23 +100,23 @@ export function TaskNotifications({sessionToken,onOpenThread,onRefresh,variant="
   // 加上定时任务收据自己的那张表。角标、无障碍名、空状态三处都读这一个 `total`。
   const total=center.unreadCount+scheduled.notices.length;
   const rail=variant==="rail";
-  return <div className={rail?"relative flex w-full flex-col items-center":"relative px-3"}
-    data-testid="task-notifications" data-variant={variant}>
+  const trigger = (
     <Button ref={triggerRef} variant="ghost" size="sm"
       className={NOTIFICATIONS_TRIGGER_CLASS[variant]}
       data-testid="task-notifications-trigger" aria-haspopup="dialog" aria-expanded={open}
       aria-controls={open?"task-notifications-popover":undefined} aria-label={t("notifications.triggerUnread",{count:total})}
       onClick={()=>{if(open)close();else setOpen(true);}}>
-      {/* 角标锚在图标上（不是整个按钮上）：rail 形态按钮下面还有一行本地化标签，
-          锚按钮会把角标甩到文字右边。两个形态共用同一个锚，不各写一套。 */}
       <span className="relative flex items-center justify-center">
         <Bell className="h-4 w-4"/>
         {total>0&&<span data-testid="task-notifications-badge" aria-hidden="true"
           className="absolute -right-2 -top-1.5 min-w-4 rounded-full bg-destructive px-1 text-10 leading-4 text-destructive-foreground">{total}</span>}
       </span>
       {/* 未读为 0 时图标仍在，只是不显角标——入口不许时有时无（#3246）。 */}
-      {rail&&<span className="text-10 [@media(max-height:640px)]:hidden">{t("notifications.rail")}</span>}
     </Button>
+  );
+  return <div className={rail?"relative flex w-full flex-col items-center":"relative px-3"}
+    data-testid="task-notifications" data-variant={variant}>
+    {rail?<TooltipProvider><Tooltip><TooltipTrigger asChild>{trigger}</TooltipTrigger><TooltipContent side="right">{t("notifications.triggerUnread",{count:total})}</TooltipContent></Tooltip></TooltipProvider>:trigger}
     {/* 角标是图形，读屏读的是上面的 aria-label；这一行只负责把变化播报出去。 */}
     <span className="sr-only" aria-live="polite" aria-atomic="true">{t("notifications.unread",{count:total})}</span>
     {open&&<div ref={popoverRef} id="task-notifications-popover" data-testid="task-notifications-popover"

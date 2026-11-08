@@ -1,0 +1,16 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/2e5d/workspacex/apps/web
+
+ ✓ tests/ui/prototype-navbar-icons.test.tsx (4 tests) 181ms
+ ✓ tests/ui/nav-admin-menu-visibility.test.tsx (8 tests) 1000ms
+   ✓ §3 组织菜单：「组织管理」只对组织管理员 > 顾问：菜单能打开（切换组织仍在），但没有 org-admin-entry 491ms
+ ✓ tests/ui/nav-ia-two-levels.test.tsx (15 tests) 12204ms
+   ✓ §3 渲染层：入口有且只有一处 > IconRail 只画一级项 —— 五项的 rail-* 锚点一个都不存在（不是隐藏，是压根没渲染） 9720ms
+   ✓ §3 渲染层：入口有且只有一处 > 「入口有且只有一处」在合并之后由**落点**承担：组织成员的唯一入口在成员配额屏里 2097ms
+
+ Test Files  3 passed (3)
+      Tests  27 passed (27)
+   Start at  18:33:47
+   Duration  23.72s (transform 11.20s, setup 3.24s, collect 26.33s, tests 13.39s, environment 11.58s, prepare 1.60s)
+

@@ -1,3 +1,4 @@
+import { ownedRunCreditFailure } from "../../application/agent-run/run-credit-failure";
 import { createResearchStreamWriter } from "./guided-research-stream-transport";
 import { acceptsResearchNdjson, researchGenerationEvents } from "./guided-research-generation-stream";
 import { createHash } from "node:crypto";
@@ -105,11 +106,13 @@ export class GuidedResearchController {
     const detach = () => { connected = false; };
     response.on("close", detach);
     let initialized = false;
+    let resultSent = false;
     let sourceCursor: string | undefined;
     let cursor: { requestId?: string; text: string } = { text: "" };
     const publicSend = researchGenerationEvents(command.requestId, event => writer.write(`${JSON.stringify(event)}\n`));
     const send = (event: import("../../application/research/guided-runtime-ports").RuntimeStreamEvent) => {
       if (!connected || response.destroyed) return;
+      if (event.type === "result") resultSent = true;
       if (unified) { publicSend(event); return; }
       // The writer bounds plaintext/compressed queues and handles disconnects.
       if (knownFields && (event.type === "snapshot" || event.type === "result")) {
@@ -153,7 +156,9 @@ export class GuidedResearchController {
     };
     const heartbeat = setInterval(() => { if (connected && !response.destroyed) writer.write(unified ? "\n" : ": keepalive\n\n"); }, 15000);
     try { await this.runtime.execute({ orgId: principal.orgId, userId: principal.userId, sessionId }, session, command, send, traceIdOf(request)); }
-    catch (error) { send({ type: "error", reasonCode: error instanceof ResearchRuntimeError ? error.reasonCode : "RESEARCH_WORKFLOW_UNAVAILABLE" }); }
+    catch (error) {
+      if (!resultSent) send({ type: "error", reasonCode: ownedRunCreditFailure(error, principal.userId, principal.orgId)?.code ?? (error instanceof ResearchRuntimeError ? error.reasonCode : "RESEARCH_WORKFLOW_UNAVAILABLE") });
+    }
     finally { clearInterval(heartbeat); response.off("close", detach); await writer.end(); }
   }
 

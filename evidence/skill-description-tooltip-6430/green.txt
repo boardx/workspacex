@@ -1,0 +1,15 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/2e5d/workspacex/apps/web
+
+ ✓ tests/lib/skill-picker-display.test.ts (2 tests) 8ms
+ ✓ tests/ui/chat-skill-mount-panel-auto-close.test.tsx (9 tests) 646ms
+ ✓ tests/ui/chat-role-skill-scope.test.tsx (12 tests) 718ms
+ ✓ tests/ui/i18n-chat-skill-mount.test.tsx (5 tests) 1194ms
+   ✓ searches manually opened skills by task description, clears no-match, and mounts the selected identity 625ms
+
+ Test Files  4 passed (4)
+      Tests  28 passed (28)
+   Start at  21:00:35
+   Duration  18.06s (transform 6.66s, setup 2.97s, collect 29.29s, tests 2.57s, environment 11.79s, prepare 1.24s)
+

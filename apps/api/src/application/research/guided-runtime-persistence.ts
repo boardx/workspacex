@@ -1,5 +1,6 @@
 import { research as C } from "@repo/contracts";
 import { GuidedEvidenceLedger, GUIDED_EVIDENCE_MATCH_LIMIT } from "./guided-evidence-ledger-record";
+import { creditFailureForViewer } from "../agent-run/run-credit-failure";
 import { z } from "zod";
 
 export const GUIDED_REPORT_EVIDENCE_CACHE_LIMIT = 512;
@@ -16,7 +17,12 @@ export const PersistedResearchRuntimeSchema = C.GuidedResearchRuntime.extend({
 }).strict();
 
 /** Positive selection from the authoritative public contract also excludes future private fields. */
-export function toPublicResearchRuntime(state: unknown) {
+export function toPublicResearchRuntime(state: unknown, viewerUserId?: string) {
   const input = state as Record<string, unknown>;
-  return C.GuidedResearchRuntime.parse(Object.fromEntries(C.GuidedResearchRuntime.keyof().options.map(key => [key, input[key]])));
+  const result = C.GuidedResearchRuntime.parse(Object.fromEntries(C.GuidedResearchRuntime.keyof().options.map(key => [key, input[key]])));
+  if (result.creditFailure) {
+    const filtered = creditFailureForViewer({ status: result.busy ? "running" : "failed", error: result.errorCode, creditFailure: result.creditFailure }, viewerUserId ?? "");
+    result.creditFailure = filtered.creditFailure ?? null;
+  }
+  return result;
 }
