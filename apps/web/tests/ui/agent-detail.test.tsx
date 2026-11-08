@@ -138,6 +138,10 @@ describe("loadAgentDetailExtras（真实端点组合）", () => {
 describe("AgentDirectory → 详情", () => {
   it("卡片名字与「查看详情」都链到 /agent/<id>", async () => {
     render(<AgentDirectory fetchDirectory={vi.fn().mockResolvedValue([card])} />);
+    const summary = await screen.findByTestId("agent-card-a-sales");
+    expect(summary).toHaveAttribute("role", "button");
+    expect(summary).toHaveAttribute("tabindex", "0");
+    fireEvent.keyDown(summary, { key: "Enter" });
     await waitFor(() => expect(screen.getByTestId("agent-card-detail-link")).toBeTruthy());
     expect(screen.getByTestId("agent-card-detail-link").getAttribute("href")).toBe("/agent/a-sales");
     expect(screen.getByTestId("agent-card-view-detail").getAttribute("href")).toBe("/agent/a-sales");

@@ -1,3 +1,4 @@
+import { registerAiCatalogBodyParsers } from "./interface/middleware/ai-catalog-body-parser";
 import {registerRuntimeAdmissionBodyParser} from "./interface/middleware/runtime-admission-body-parser";
 import { TOKEN_USAGE_METER } from "./application/agent-run/ports";
 import { registerBillingRawBodyParser } from "./interface/middleware/billing-raw-body-parser";
@@ -98,6 +99,7 @@ export async function createApp(): Promise<NestExpressApplication> {
   registerRuntimeAdmissionBodyParser(app.getHttpAdapter().getInstance());
   registerBillingRawBodyParser(app.getHttpAdapter().getInstance());
   registerGuidedResearchBodyParsers(app.getHttpAdapter().getInstance());
+  registerAiCatalogBodyParsers(app.getHttpAdapter().getInstance());
   // #3249: one bounded multi-file endpoint needs more than Express's default 100 KiB.
   // Register before Nest installs its default parser; other routes retain their limit.
   const skillFileParser = json({ limit: SKILL_FILE_EDIT_BODY_MAX_BYTES });

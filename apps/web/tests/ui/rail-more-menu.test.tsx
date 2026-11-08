@@ -14,7 +14,7 @@ import { navSegmentsForViewer } from "@/lib/navigation";
 
 const IDENTITY = { ...mockIdentity("org-yuanyang", null), orgRole: "admin" as const };
 const ORGS = MOCK_ORGS.map((o) => ({ id: o.id, label: o.name }));
-const OVERFLOW_KEYS = ["whiteboard", "recording", "survey", "design-workbench", "feedback-drafts", "agent-directory", "work-skill-catalog"];
+const OVERFLOW_KEYS = ["whiteboard", "recording", "survey", "design-workbench", "feedback-drafts"];
 
 function renderRail() {
   return render(
@@ -36,12 +36,14 @@ describe("IconRail 完整纯图标导航", () => {
       expect(link.querySelector("svg")).not.toBeNull();
     }
     for (const key of OVERFLOW_KEYS) expect(within(rail).getByTestId(`rail-${key}`)).toBeTruthy();
+    expect(screen.queryByTestId("rail-agent-directory")).toBeNull();
+    expect(screen.queryByTestId("rail-work-skill-catalog")).toBeNull();
     expect(screen.queryByTestId("rail-more")).toBeNull();
     expect(screen.queryByTestId("rail-platform-admin")).toBeNull();
   });
 
-  it("原收纳入口直接高亮，含 query 的 Skill 入口也能识别当前路径", () => {
-    for (const [path, key] of [["/studio/board", "whiteboard"], ["/skill", "work-skill-catalog"]]) {
+  it("保留的一级入口直接高亮", () => {
+    for (const [path, key] of [["/studio/board", "whiteboard"], ["/studio/design-workbench", "design-workbench"]]) {
       mockPath = path!;
       renderRail();
       expect(screen.getByTestId(`rail-${key}`).getAttribute("aria-current")).toBe("page");

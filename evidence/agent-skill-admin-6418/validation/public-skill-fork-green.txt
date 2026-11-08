@@ -1,0 +1,31 @@
+[stack-admission] load1=8.45 cores=10 perCore=0.85 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw7r7lpt-d250fe73-2dbb5619ad55 db=wsx_2dbb5619ad5596b66e2f compose=wsx-2dbb5619ad5596b66e2f pg=20993 redis=21993 api=24993 web=25993 sandbox=26993 model=27993 deep-agent=28993 asr=29993 vision=30993 loopback-sandbox=31993 mail=19993
+[catalog-review-prepare] ensureDatabase=9269ms
+[catalog-review-prepare] migrateOnceTotal=45103ms
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api
+
+[db-isolation] db=wsx_2dbb5619ad5596b66e2f capacity=100 current=6 required=32
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+{"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+{"level":"error","msg":"http exception","traceId":"04ea9b3c-c5bf-4593-b3a0-5173db7e5071","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at PlatformOperatorGuard.canActivate (/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api/src/interface/guards/platform-operator.guard.ts:40:13)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at GuardsConsumer.tryActivate (/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/guards/guards-consumer.js:16:17)\n    at canActivateFn (/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:135:33)\n    at /Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:42:31\n    at /Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"3347dc38-770c-49cd-b771-08d9c88716a6","detail":{"name":"ForbiddenException","message":"Forbidden","stack":"ForbiddenException: Forbidden\n    at AiCatalogAdminService.orgMember (/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api/src/application/ai-catalog/admin-service.ts:59:47)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at AiCatalogAdminService.enable (/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api/src/application/ai-catalog/admin-service.ts:284:5)"}}
+{"level":"error","msg":"http exception","traceId":"da3afe89-0366-4da2-9e17-4762184bef12","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at AiCatalogAdminService.transaction (/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api/src/application/ai-catalog/admin-service.ts:45:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+ ✓ tests/skill/ai-catalog-skill-http.test.ts (2 tests | 1 skipped) 36494ms
+   ✓ public Skill requires publication then administrator enablement; raw source remains tenant-hidden 1156ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 1 skipped (2)
+   Start at  19:34:24
+   Duration  39.38s (transform 18.27s, setup 30ms, collect 381ms, tests 36.49s, environment 0ms, prepare 169ms)
+
+[db-isolation] db=wsx_2dbb5619ad5596b66e2f peak_connections=7
+[timing] bash -c pnpm --filter @repo/api exec tsx tests/support/prepare-catalog-review.ts && pnpm --filter @repo/api exec vitest run tests/skill/ai-catalog-skill-http.test.ts -t "public Skill requires" --maxWorkers=1 --minWorkers=1 --no-file-parallelism
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1m32s
+  清理：1s
+  总计：1m34s

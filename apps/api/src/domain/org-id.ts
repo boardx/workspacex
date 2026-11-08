@@ -44,7 +44,8 @@ export function toOrgId(v: unknown): OrgId {
  * canvas-side check; the skill-side policies get their own check in
  * `tests/skill/platform-skills-single-source.test.ts`).
  */
-export const PLATFORM_ORG_ID = "org-platform";
+export { PLATFORM_CATALOG_ORG_ID as PLATFORM_ORG_ID } from "@repo/contracts/ai-catalog-admin";
+import { PLATFORM_CATALOG_ORG_ID as PLATFORM_ORG_ID } from "@repo/contracts/ai-catalog-admin";
 
 /** Whether this row belongs to the platform master copy (read-only to every real org). */
 export function isPlatformOwned(orgId: string): boolean {

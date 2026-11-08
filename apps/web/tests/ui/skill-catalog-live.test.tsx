@@ -24,10 +24,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
 
+const viewer = vi.hoisted(() => ({ role: "admin" }));
 vi.mock("@/components/session/session-provider", () => ({
   useSession: () => ({
     session: { currentOrgId: "org-520" },
-    identity: { org: { name: "测试组织" }, orgRole: "admin" },
+    identity: { org: { name: "测试组织" }, orgRole: viewer.role },
   }),
 }));
 
@@ -379,13 +380,14 @@ describe("#520 Skill 库屏接真实 API", () => {
       render(<SkillCatalogLive />);
       await waitFor(() => expect(screen.getByTestId("skill-catalog-list")).toBeTruthy());
 
+      fireEvent.click(screen.getByTestId("skill-catalog-row-sk-wave2"));
       const editLink = screen.getByTestId("skill-catalog-edit-source") as HTMLAnchorElement;
       // 人类反馈（2026-08-17）：「编辑」现在打开独立页面，不再是同页 query 参数深链。
       // 2026-08-30：href 带 `?from=/skill`——「返回」要回到这个屏，不是硬编码的目的地。
       expect(editLink.getAttribute("href")).toBe("/platform-admin/skill/sk-wave2?from=%2Fskill");
 
       // 普通行（未命中标记）仍然是原来的「查看契约」按钮，两者只能各出现一次。
-      expect(screen.getAllByTestId("skill-catalog-detail")).toHaveLength(1);
+      expect(screen.queryByTestId("skill-catalog-detail")).toBeNull();
       expect(screen.getAllByTestId("skill-catalog-edit-source")).toHaveLength(1);
     });
   });
@@ -419,7 +421,7 @@ describe("#520 Skill 库屏接真实 API", () => {
       await waitFor(() => expect(screen.getByTestId("skill-catalog-list")).toBeTruthy());
       expect(screen.queryByTestId("skill-detail-panel")).toBeNull();
 
-      fireEvent.click(screen.getByTestId("skill-catalog-detail"));
+      fireEvent.click(screen.getByTestId("skill-catalog-row-sk-form"));
       const panel = screen.getByTestId("skill-detail-panel");
       expect(panel.textContent).toContain("普通职责说明");
       await waitFor(() => expect(within(panel).getByTestId("skill-detail-contract")).toBeTruthy());
@@ -462,9 +464,23 @@ describe("#520 Skill 库屏接真实 API", () => {
       });
       render(<SkillCatalogLive />);
       await waitFor(() => expect(screen.getByTestId("skill-catalog-list")).toBeTruthy());
-      fireEvent.click(screen.getByTestId("skill-catalog-detail"));
+      fireEvent.click(screen.getByTestId("skill-catalog-row-sk-form"));
       await waitFor(() => expect(screen.getByTestId("skill-detail-error").textContent).toContain("SKILL_NOT_FOUND（HTTP 404）"));
       expect(screen.getByTestId("skill-detail-panel")).toBeTruthy();
     });
   });
+});
+
+
+it("ordinary members can browse the Skill library without a create action", async () => {
+  viewer.role = "consultant";
+  vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ items: [], total: 0 })));
+  try {
+    render(<SkillCatalogLive />);
+    await screen.findByTestId("skill-catalog-empty");
+    expect(screen.queryByTestId("skill-create-open")).toBeNull();
+  } finally {
+    viewer.role = "admin";
+    vi.unstubAllGlobals();
+  }
 });

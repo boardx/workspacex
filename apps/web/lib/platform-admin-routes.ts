@@ -18,6 +18,7 @@ import type { AdminModuleKey } from "@/lib/admin-nav-metadata";
 export const PLATFORM_ADMIN_MODULE_ROUTES: Record<string, AdminModuleKey> = {
   // AI 能力（2026-09-02 第二次裁决：AI 能力归平台后台）
   agent: "agent",
+  skill: "skill",
   model: "model",
   mcp: "mcp",
   // 平台 / 运营

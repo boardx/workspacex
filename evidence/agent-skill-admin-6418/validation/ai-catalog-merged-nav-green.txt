@@ -1,0 +1,17 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/web
+
+ ✓ tests/ui/nav-ia-two-levels.test.tsx (15 tests) 4117ms
+   ✓ §3 渲染层：入口有且只有一处 > IconRail 只画一级项 —— 五项的 rail-* 锚点一个都不存在（不是隐藏，是压根没渲染） 3436ms
+   ✓ §3 渲染层：入口有且只有一处 > 「入口有且只有一处」在合并之后由**落点**承担：组织成员的唯一入口在成员配额屏里 545ms
+ ✓ tests/ui/nav-admin-menu-visibility.test.tsx (8 tests) 267ms
+ ✓ tests/ui/rail-more-menu.test.tsx (2 tests) 124ms
+ ✓ tests/ui/organization-ai-catalog-navigation.test.tsx (2 tests) 344ms
+   ✓ retains the selected production directory in the URL and follows restored view props 337ms
+ ✓ tests/ui/ai-catalog-admin-navigation.test.ts (3 tests) 3ms
+
+ Test Files  5 passed (5)
+      Tests  30 passed (30)
+   Start at  22:22:12
+   Duration  10.95s (transform 2.62s, setup 516ms, collect 2.06s, tests 4.86s, environment 2.24s, prepare 265ms)

@@ -134,8 +134,10 @@ test.describe("IconRail 短视口三段布局", () => {
       await chat.focus();
       await expect(page.getByTestId("rail-tooltip-chat")).toBeVisible();
       await expect(page.getByTestId("rail-more")).toHaveCount(0);
+      await expect(page.getByTestId("rail-agent-directory")).toHaveCount(0);
+      await expect(page.getByTestId("rail-work-skill-catalog")).toHaveCount(0);
       if (height === 900) await page.screenshot({ path: testInfo.outputPath("icon-only-navigation.png") });
-      for (const key of ["whiteboard", "recording", "survey", "design-workbench", "feedback-drafts", "agent-directory", "work-skill-catalog"]) {
+      for (const key of ["whiteboard", "recording", "survey", "design-workbench", "feedback-drafts"]) {
         const link = page.getByTestId(`rail-${key}`);
         await link.scrollIntoViewIfNeeded();
         await expect(link).toBeInViewport();

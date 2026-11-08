@@ -1,0 +1,9 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/packages/contracts
+
+ ✓ tests/ai-catalog-admin.test.ts (3 tests) 7ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  20:25:29
+   Duration  1.03s (transform 179ms, setup 0ms, collect 193ms, tests 7ms, environment 0ms, prepare 253ms)

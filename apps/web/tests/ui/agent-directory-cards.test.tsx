@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { AgentDirectory } from "@/components/agent/agent-directory";
 import { AgentDirectoryWorkspace } from "@/components/agent/agent-directory-workspace";
-import AgentDirectoryPage from "@/app/agent/page";
+import AgentDirectoryPage from "@/app/org-admin/agent/page";
 import { agentTaskExamples, directoryWorkflowStatus } from "@/lib/agent-directory-tasks";
 import type { AgentDirectoryCard } from "@/lib/agent-directory";
 
@@ -26,6 +26,7 @@ vi.mock("@/lib/agent-directory", async (original) => ({
   upgradeOfficialRoleSelections: mocks.upgrade,
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mocks.push }) }));
+vi.mock("@/components/admin/admin-nav", () => ({ AdminNav: () => null }));
 vi.mock("@/components/shell/app-shell", () => ({
   AppShell: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
@@ -62,7 +63,9 @@ afterEach(() => cleanup());
 describe("selected role-card directory", () => {
   it("separates conversation from unconfirmed workflow evidence, retaining actual avatar and flow names", async () => {
     render(<AgentDirectory fetchDirectory={mocks.list} onStartChat={vi.fn()} />);
-    const card = await screen.findByTestId("agent-card-product-a");
+    const summary = await screen.findByTestId("agent-card-product-a");
+    fireEvent.click(summary);
+    const card = screen.getByTestId("agent-card-detail-product-a");
     expect(within(card).getByTestId("agent-card-conversation-status")).toHaveTextContent("对话可用");
     expect(within(card).getByTestId("agent-card-readiness")).toHaveTextContent("流程待确认");
     expect(within(card).getByTestId("agent-card-workflows")).toHaveTextContent("关联流程：问题定义到 PRD");
@@ -74,7 +77,8 @@ describe("selected role-card directory", () => {
     const agentId = "product%literal&question?";
     mocks.list.mockResolvedValue([role(agentId)]);
     render(<AgentDirectoryPage />);
-    const card = await screen.findByTestId("agent-card-" + agentId);
+    fireEvent.click(await screen.findByTestId("agent-card-" + agentId));
+    const card = screen.getByTestId("agent-card-detail-" + agentId);
     fireEvent.click(within(card).getByRole("button", { name: "起草产品需求" }));
     expect(mocks.push).toHaveBeenCalledTimes(1);
     const url = new URL(mocks.push.mock.calls[0]![0], "https://example.test");

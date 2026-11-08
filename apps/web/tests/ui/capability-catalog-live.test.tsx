@@ -121,11 +121,14 @@ describe("#406 Agent / Skill 真实组织能力目录", () => {
 
     const row = await screen.findByTestId("admin-skill-row-skill-2");
     expect(row).toHaveTextContent("Skill 真实条目 2");
-    expect(row).toHaveTextContent("仅团队可见");
-    expect(row).toHaveTextContent("已停用");
-    expect(row).toHaveTextContent("由组织管理员停用");
+    expect(row).not.toHaveTextContent("仅团队可见");
+    fireEvent.click(row);
+    const detail = screen.getByTestId("admin-skill-detail");
+    expect(detail).toHaveTextContent("仅团队可见");
+    expect(detail).toHaveTextContent("已停用");
+    expect(detail).toHaveTextContent("由组织管理员停用");
     expect(screen.getByText(/这里只展示可选择的目录记录/)).toBeInTheDocument();
-    expect(screen.queryByText(/试跑|运行中|调用量|版本/)).not.toBeInTheDocument();
+    expect(row.textContent).not.toMatch(/试跑|运行中|调用量|版本/);
   });
 
   it("读取失败显示错误而非空态，重试后才展示持久化结果", async () => {

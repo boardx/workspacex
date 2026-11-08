@@ -17,6 +17,10 @@ import { join, relative, sep } from "node:path";
 // Explicit work-eval files, not the whole `tests/work-eval/` directory: EV04's gate-status write-back
 // test lives there too and needs PostgreSQL. An entry ending in `/` is a directory prefix, otherwise a file.
 export const DB_FREE_TEST_PREFIXES = [
+  // Pure HTTP-query Zod pipes; no controller instance, database fixture or app bootstrap.
+  "tests/ai-catalog/query-validation.test.ts",
+  // Express transport only; no Nest app, tenant/database fixture or PostgreSQL.
+  "tests/ai-catalog/body-limit.test.ts",
   "tests/localization/authored-display-update-usecase.test.ts",
   "tests/localization/authored-display-fields.test.ts",
   "tests/localization/authored-display-metadata.test.ts",

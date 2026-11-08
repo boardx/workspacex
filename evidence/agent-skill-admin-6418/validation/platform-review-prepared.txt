@@ -1,0 +1,120 @@
+[stack-admission] load1=285.16 cores=10 perCore=28.52 running=1/2
+[stack-admission] 排队中：机器每核负载 28.52（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 0s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 28.13（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 5s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 27.82（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 10s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 27.73（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 15s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 27.48（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 20s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 26.90（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 25s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 26.97（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 30s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 27.37（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 35s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 27.82（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 40s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 28.80（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 45s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 29.16（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 50s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 29.43（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 55s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 29.51（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 60s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 29.53（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 65s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 29.65（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 70s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 29.77（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 75s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 29.65（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 80s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 30.11（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 85s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 30.81（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 90s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 30.97（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 95s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 31.22（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 100s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 31.90（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 106s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 32.59（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 111s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 33.68（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 116s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 34.29（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 121s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 34.13（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 126s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 32.74（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 131s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 30.74（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 136s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 28.64（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 141s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 26.52（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 146s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 24.44（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 151s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 22.50（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 156s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 20.72（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 161s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 19.11（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 166s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 17.62（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 171s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 16.23（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 176s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 14.96（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 181s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 13.79（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 186s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 12.72（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 191s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 11.73（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 196s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 10.85（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 201s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 10.01（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 206s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 9.24（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 211s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 8.57（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 216s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 7.96（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 221s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 7.36（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 226s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 6.79（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 231s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 6.30（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 236s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 5.83（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 241s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 5.40（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 246s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 5.00（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 251s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.66（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 256s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.32（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 261s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.98（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 266s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.68（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 271s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.40（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 276s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.16（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 281s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.96（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 286s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.76（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 291s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.63（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 296s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.61（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 301s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排到了，等了 306s
+[test-isolation] id=run-mw7q8s3x-369de5f1-2ffa410e0829 db=wsx_2ffa410e08294de10a6f compose=wsx-2ffa410e08294de10a6f pg=20492 redis=21492 api=24492 web=25492 sandbox=26492 model=27492 deep-agent=28492 asr=29492 vision=30492 loopback-sandbox=31492 mail=19492
+[catalog-review-prepare] ensureDatabase=23708ms
+[catalog-review-prepare] migrateOnceTotal=79027ms
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api
+
+[db-isolation] db=wsx_2ffa410e08294de10a6f capacity=100 current=6 required=32
+stdout | tests/skill/platform-skill-review-gate.test.ts
+[platform-review-setup] ensureDatabase=797ms
+
+stdout | tests/skill/platform-skill-review-gate.test.ts
+[platform-review-setup] migrateDone=867ms
+
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+{"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+stdout | tests/skill/platform-skill-review-gate.test.ts
+[platform-review-setup] kernelImported=39168ms
+[platform-review-setup] appCreated=39353ms
+
+{"level":"error","msg":"http exception","traceId":"b6e05036-ee90-4db5-a651-1a74555b0d52","detail":{"name":"UnprocessableEntityException","message":"Unprocessable Entity Exception","stack":"UnprocessableEntityException: Unprocessable Entity Exception\n    at SkillReviewActions.toHttpError (/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api/src/interface/controllers/skill-review-actions.ts:277:16)\n    at SkillReviewActions.submit (/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api/src/interface/controllers/skill-review-actions.ts:131:33)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+{"level":"error","msg":"http exception","traceId":"bbb4a1a1-bb71-43e3-ad02-a425fd387948","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at SkillReviewActions.toHttpError (/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api/src/interface/controllers/skill-review-actions.ts:270:16)\n    at SkillReviewActions.review (/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api/src/interface/controllers/skill-review-actions.ts:190:33)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+{"level":"error","msg":"http exception","traceId":"0cf2c45f-1b34-4741-8380-1d2304a1f8db","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at SkillReviewActions.toHttpError (/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api/src/interface/controllers/skill-review-actions.ts:270:16)\n    at SkillReviewActions.review (/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api/src/interface/controllers/skill-review-actions.ts:190:33)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+{"level":"error","msg":"http exception","traceId":"282476af-ec84-4383-bc9b-ce4c705dc96d","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at SkillReviewActions.toHttpError (/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api/src/interface/controllers/skill-review-actions.ts:270:16)\n    at SkillReviewActions.review (/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api/src/interface/controllers/skill-review-actions.ts:190:33)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+{"level":"info","msg":"skill.security-audit","traceId":"skill-security-audit","auditKind":"skill-gate-bypass-attempt","principalId":"u-i552-reviewer","detail":"skill-contract-38cfb513-15bd-4beb-b03e-27cc13a356cf: 草稿 → 已启用 —— 「已启用」只能由人工审核的 approve 分支或 restoreSkill 恢复产生；任何其他直达路径都是绕过双重门禁（I-23，须写安全审计）"}
+{"level":"error","msg":"http exception","traceId":"ab49c969-c1f0-47b8-a546-8a23ef860e1e","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at SkillReviewActions.toHttpError (/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api/src/interface/controllers/skill-review-actions.ts:270:16)\n    at SkillReviewActions.review (/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api/src/interface/controllers/skill-review-actions.ts:190:33)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+{"level":"error","msg":"http exception","traceId":"dc800678-5a5f-4241-bdc1-c30cde2b23b2","detail":{"name":"UnprocessableEntityException","message":"Unprocessable Entity Exception","stack":"UnprocessableEntityException: Unprocessable Entity Exception\n    at SkillReviewActions.scan (/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api/src/interface/controllers/skill-review-actions.ts:94:13)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+{"level":"error","msg":"http exception","traceId":"2fdf0863-1615-4977-9464-b6b5515d2bb3","detail":{"name":"UnprocessableEntityException","message":"Unprocessable Entity Exception","stack":"UnprocessableEntityException: Unprocessable Entity Exception\n    at SkillReviewActions.toHttpError (/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api/src/interface/controllers/skill-review-actions.ts:277:16)\n    at SkillReviewActions.submit (/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api/src/interface/controllers/skill-review-actions.ts:131:33)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+{"level":"error","msg":"http exception","traceId":"7771bcbd-bdfe-4d30-a759-5f429da134ea","detail":{"name":"NotFoundException","message":"Cannot POST /platform/organizations/org-platform-review-gate/skills/skill-contract-a232d730-9d4b-41c8-8261-bc0ec2cc6ed0/enable","stack":"NotFoundException: Cannot POST /platform/organizations/org-platform-review-gate/skills/skill-contract-a232d730-9d4b-41c8-8261-bc0ec2cc6ed0/enable\n    at callback (/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/routes-resolver.js:77:19)\n    at /Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:23\n    at Layer.handle [as handle_request] (/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/layer.js:95:5)\n    at trim_prefix (/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:328:13)\n    at /Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:286:9\n    at Function.process_params (/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:346:12)\n    at next (/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:280:10)\n    at urlencodedParser (/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/node_modules/.pnpm/body-parser@1.20.4/node_modules/body-parser/lib/types/urlencoded.js:82:7)\n    at Layer.handle [as handle_request] (/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/layer.js:95:5)\n    at trim_prefix (/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:328:13)"}}
+{"level":"error","msg":"http exception","traceId":"ebd9f9d8-93ef-461f-9977-fb1276f621ab","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at /Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api/src/application/ai-catalog/admin-service.ts:34:17\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at PgDatabase.inTx (/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api/src/infrastructure/db/pg-database.ts:75:19)\n    at AiCatalogAdminService.transaction (/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api/src/application/ai-catalog/admin-service.ts:32:14)\n    at AiCatalogAdminService.assertReviewTarget (/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api/src/application/ai-catalog/admin-service.ts:23:60)\n    at PlatformSkillReviewController.scan (/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api/src/interface/controllers/platform-skill-review.controller.ts:17:170)"}}
+{"level":"error","msg":"http exception","traceId":"0a303c99-f1fe-410c-a200-a63264597c91","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at PlatformOperatorGuard.canActivate (/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api/src/interface/guards/platform-operator.guard.ts:40:13)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at GuardsConsumer.tryActivate (/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/guards/guards-consumer.js:16:17)\n    at canActivateFn (/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:135:33)\n    at /Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:42:31\n    at /Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+ ✓ tests/skill/platform-skill-review-gate.test.ts (11 tests) 51339ms
+   ✓ #552 双重门禁：扫描 → 提交 → 第二评审人批准 > 没扫过就提交 ⇒ SECURITY_SCAN_REJECTED，且库内状态未变 604ms
+   ✓ #552 双重门禁：扫描 → 提交 → 第二评审人批准 > 扫描 pass → 提交 → **第二位**方法论审核人批准 ⇒ 库里真的变成「已启用」 1286ms
+   ✓ #552 双重门禁：扫描 → 提交 → 第二评审人批准 > 退回：待审核 → 草稿，版本状态也退回，且**不产生**已启用 705ms
+   ✓ #552 双重门禁：扫描 → 提交 → 第二评审人批准 > 🔴 提交人自己审自己 ⇒ SELF_REVIEW_FORBIDDEN，且库内状态未变、不留评审记录 1200ms
+   ✓ #552 双重门禁：扫描 → 提交 → 第二评审人批准 > 🔴 安全评审人批准 skill ⇒ REVIEWER_FUNCTION_MISMATCH，且库内状态未变（I-5/V14） 1698ms
+   ✓ #552 双重门禁：扫描 → 提交 → 第二评审人批准 > 未被指派任何职能的人也批不动（职能来自库，不是请求体） 1143ms
+   ✓ #552 双重门禁：扫描 → 提交 → 第二评审人批准 > 🔴 跳过提交直接批（草稿态）⇒ GATE_NOT_PASSED，库内状态未变 821ms
+   ✓ #552 双重门禁：扫描 → 提交 → 第二评审人批准 > 🔴 扫描判拒的版本提交不进人工门禁（提示词注入模式） 1054ms
+   ✓ #552 双重门禁：扫描 → 提交 → 第二评审人批准 > 启用路由仍然不存在（SKILLS_FORBIDDEN_ROUTES 一字未松） 763ms
+   ✓ #552 双重门禁：扫描 → 提交 → 第二评审人批准 > 详情里的门禁结论来自**真实记录**，不是硬编码的 null/false 871ms
+   ✓ platform review scope rejects personal-local targets and non-operators 1145ms
+
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+   Start at  19:13:02
+   Duration  58.45s (transform 21.61s, setup 20ms, collect 4.02s, tests 51.34s, environment 0ms, prepare 186ms)
+
+[db-isolation] db=wsx_2ffa410e08294de10a6f peak_connections=7
+[timing] bash -c pnpm --filter @repo/api exec tsx tests/support/prepare-catalog-review.ts && pnpm --filter @repo/api exec vitest run tests/skill/platform-skill-review-gate.test.ts --maxWorkers=1 --minWorkers=1 --no-file-parallelism
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：5m6s
+  命令执行：2m27s
+  清理：3s
+  总计：7m37s

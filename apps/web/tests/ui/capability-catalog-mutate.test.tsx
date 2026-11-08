@@ -286,11 +286,12 @@ describe("#458 Agent 目录写路径接到 POST /capabilities/mutate", () => {
 
     render(<AgentScreen state="default" />);
     const row = await screen.findByTestId("admin-agent-row-agent-1");
-    fireEvent.click(within(row).getByTestId("admin-agent-row-agent-1-disable"));
+    fireEvent.click(row);
+    fireEvent.click(screen.getByTestId("admin-agent-row-agent-1-disable"));
     fireEvent.click(await screen.findByTestId("admin-agent-disable-confirm"));
 
     await waitFor(() =>
-      expect(screen.getByTestId("admin-agent-row-agent-1")).toHaveTextContent("已停用"),
+      expect(screen.getByTestId("admin-agent-detail")).toHaveTextContent("已停用"),
     );
     expect(mutateCalls(calls)[0]!.body).toEqual({
       orgId: "org-458",
@@ -313,7 +314,8 @@ describe("#458 Agent 目录写路径接到 POST /capabilities/mutate", () => {
 
     render(<AgentScreen state="default" />);
     const row = await screen.findByTestId("admin-agent-row-agent-1");
-    fireEvent.click(within(row).getByTestId("admin-agent-row-agent-1-disable"));
+    fireEvent.click(row);
+    fireEvent.click(screen.getByTestId("admin-agent-row-agent-1-disable"));
     fireEvent.change(await screen.findByTestId("admin-agent-disable-mode"), {
       target: { value: "drain" },
     });
@@ -360,11 +362,12 @@ describe("#458 Agent 目录写路径接到 POST /capabilities/mutate", () => {
 
     render(<AgentScreen state="default" />);
     const row = await screen.findByTestId("admin-agent-row-agent-1");
-    fireEvent.click(within(row).getByTestId("admin-agent-row-agent-1-disable"));
+    fireEvent.click(row);
+    fireEvent.click(screen.getByTestId("admin-agent-row-agent-1-disable"));
     fireEvent.click(await screen.findByTestId("admin-agent-disable-confirm"));
 
     expect(await screen.findByTestId("admin-agent-mutate-error")).toHaveTextContent("401");
-    expect(screen.getByTestId("admin-agent-row-agent-1")).toHaveTextContent("已启用");
+    expect(screen.getByTestId("admin-agent-detail")).toHaveTextContent("已启用");
     expect(mutateCalls(calls)).toHaveLength(1);
   });
 

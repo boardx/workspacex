@@ -6,6 +6,7 @@ import { useSession } from "@/components/session/session-provider";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { capabilityCardSpec } from "./capability-card";
 import { ResourceCard } from "@/components/ui/resource-card";
 import { useI18n } from "@/lib/i18n/provider";
 import { authoredPendingRoleName, ROLE_CATEGORY_LABEL } from "@/lib/agent-directory";
@@ -112,12 +113,12 @@ export function OfficialDigitalHumanPanel({ onEnabled, layout = "list" }: { onEn
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3" data-testid="official-role-card-grid">
                 {offer.pending.map((role) => {
                   const name = authoredPendingRoleName(role.roleRef,locale,role.name);
-                  return <ResourceCard key={role.roleRef} title={name} ariaLabel={name} testId={`official-role-card-${role.roleRef}`}
-                    className="shadow-none" headingLevel={2}
-                    leading={<Avatar initials={name.slice(0, 1)} avatarKey={role.avatar?.key ?? null} tone="ai" className="h-16 w-16 text-20" />}
-                    subtitle={role.roleCategory ? ROLE_CATEGORY_LABEL[role.roleCategory] : "官方数字人"}
-                    badges={<Badge tone="neutral">待启用</Badge>}
-                    description="启用后出现在本组织目录。具体执行能力仍需核对配置和验收结果。" />;
+                  return <ResourceCard key={role.roleRef} ariaLabel={name} testId={`official-role-card-${role.roleRef}`} headingLevel={2}
+                    {...capabilityCardSpec("agent", {
+                      title: name,
+                      leading: role.avatar ? <Avatar initials={name.slice(0, 1)} avatarKey={role.avatar.key} tone="ai" className="h-16 w-16 text-20" /> : undefined,
+                      description: role.roleCategory ? ROLE_CATEGORY_LABEL[role.roleCategory] : "Agent",
+                    })} />;
                 })}
               </div>
             ) : (

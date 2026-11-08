@@ -1,3 +1,4 @@
+import { aiCatalogAdminEn } from "../namespaces/ai-catalog-admin";
 import { orgOverviewRedesignEn } from "../namespaces/org-overview-redesign";
 import { orgPeopleRedesignEn } from "../namespaces/org-people-redesign";
 import { orgControlsRedesignEn } from "../namespaces/org-controls-redesign";
@@ -56,6 +57,7 @@ import type { zhCN } from "./zh-CN";
 import { accountEntryEn } from "../namespaces/account-entry";
 import { invitationEntryEn } from "../namespaces/invitation-entry";
 export const en: Record<keyof typeof zhCN, string> = {
+  ...aiCatalogAdminEn,
   ...orgOverviewRedesignEn,
   ...orgPeopleRedesignEn,
   ...orgControlsRedesignEn,

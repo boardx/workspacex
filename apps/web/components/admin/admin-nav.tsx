@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Bot, Boxes, Cpu, Plug, Shapes, LayoutTemplate, LayoutDashboard, Users, UserCog, Mail, Lock, Globe, Settings, Activity, FileEdit, Inbox, PencilRuler, Send, Home, KeyRound } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import * as React from "react";
-import { ADMIN_NAV, ADMIN_MODULE_SCOPE, adminNavForScope, type AdminModuleKey, type AdminScope } from "@/lib/admin-nav-metadata";
+import { ADMIN_NAV, ADMIN_MODULE_SCOPE, adminNavForViewer, type AdminModuleKey, type AdminScope } from "@/lib/admin-nav-metadata";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { useLiveAdminNavCounts } from "@/lib/live-admin-nav-counts";
 import { ADMIN_NAV_TESTID } from "./asset-kind-nav";
@@ -21,6 +21,8 @@ export const adminSubNavTestId = (key: string) => `admin-sub-${key}`;
 
 const ICONS: Record<AdminModuleKey, LucideIcon> = {
   agent: Bot,
+  "org-agent": Bot,
+  "org-skill": Boxes,
   skill: Boxes,
   model: Cpu,
   mcp: Plug,
@@ -161,11 +163,11 @@ export function AdminNav({
   const { t } = useI18n();
   const session = useOptionalSession();
   const liveSources = useLiveAdminNavCounts(session?.session?.currentOrgId ?? null, ALL_NAV_KEYS);
-  const counts = resolveAdminNavCounts(countSources ?? liveSources);
   const resolvedScope: AdminScope = scope ?? ADMIN_MODULE_SCOPE[active];
+  const counts = { ...resolveAdminNavCounts(countSources ?? liveSources), ...(resolvedScope === "platform" && !countSources ? { agent: "—" as const, skill: "—" as const } : {}) };
   const scopeTitle = t(resolvedScope === "org" ? "navigation.admin" : "navigation.platform-admin");
   // 「能力域 · 全生命周期」二级组是组织后台的东西（束的现行屏全部是组织级），平台面不画。
-  const secondLevelVisible = resolvedScope === "org"
+  const secondLevelVisible = resolvedScope === "org" && (!session || session.identity?.orgRole === "admin")
     ? ADMIN_SECOND_LEVEL.filter((item) => !MERGED_SECOND_LEVEL_KEYS.has(item.key))
     : [];
   return (
@@ -179,7 +181,7 @@ export function AdminNav({
         <span className="text-13 font-semibold" data-testid="admin-nav-title">{scopeTitle}</span>
         <span className="text-11 text-muted-foreground">{t(`adminNavigation.scope.${resolvedScope}.intro`)}</span>
       </div>
-      {adminNavForScope(resolvedScope).map((group) => (
+      {adminNavForViewer(resolvedScope, session?.identity?.orgRole).map((group) => (
         <div key={group.group} className="flex flex-col gap-1">
           <span className="select-none px-1 text-10 font-medium uppercase tracking-wide text-muted-foreground">
             {adminNavigationGroupKeys[group.group] ? t(adminNavigationGroupKeys[group.group]!) : group.group}

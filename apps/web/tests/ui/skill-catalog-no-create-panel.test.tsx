@@ -53,12 +53,22 @@ describe("F192 · /skill 库屏没有「完全新建」入口", () => {
     vi.unstubAllGlobals();
   });
 
-  function install(handler: (call: { method: string; pathname: string }) => Response | Promise<Response>) {
+  function install(
+    handler: (call: {
+      method: string;
+      pathname: string;
+    }) => Response | Promise<Response>,
+  ) {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url = new URL(typeof input === "string" ? input : input.toString());
-        return handler({ method: init?.method ?? "GET", pathname: url.pathname });
+        const url = new URL(
+          typeof input === "string" ? input : input.toString(),
+        );
+        return handler({
+          method: init?.method ?? "GET",
+          pathname: url.pathname,
+        });
       }),
     );
   }
@@ -66,7 +76,9 @@ describe("F192 · /skill 库屏没有「完全新建」入口", () => {
   it("打开新建弹窗后，DOM 里不存在任何触发 createSkillDraft 的按钮/面板", async () => {
     install(() => jsonResponse({ items: [], total: 0 }));
     render(<SkillCatalogLive />);
-    await waitFor(() => expect(screen.getByTestId("skill-catalog-empty")).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByTestId("skill-catalog-empty")).toBeTruthy(),
+    );
 
     fireEvent.click(screen.getByTestId("skill-create-open"));
     const dialog = screen.getByTestId("skill-create-modal");
@@ -93,7 +105,9 @@ describe("F192 · /skill 库屏没有「完全新建」入口", () => {
   it("新建弹窗只剩两条路径（导入／市场），不再有第三条", async () => {
     install(() => jsonResponse({ items: [], total: 0 }));
     render(<SkillCatalogLive />);
-    await waitFor(() => expect(screen.getByTestId("skill-catalog-empty")).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByTestId("skill-catalog-empty")).toBeTruthy(),
+    );
 
     fireEvent.click(screen.getByTestId("skill-create-open"));
     expect(screen.getByTestId("skill-create-mode-import")).toBeTruthy();
@@ -104,10 +118,16 @@ describe("F192 · /skill 库屏没有「完全新建」入口", () => {
   it("打开新建弹窗默认落在「导入」路径上（不是一片空白，也不是仍然默认到已下线的表单）", async () => {
     install(() => jsonResponse({ items: [], total: 0 }));
     render(<SkillCatalogLive />);
-    await waitFor(() => expect(screen.getByTestId("skill-catalog-empty")).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByTestId("skill-catalog-empty")).toBeTruthy(),
+    );
 
     fireEvent.click(screen.getByTestId("skill-create-open"));
-    expect(screen.getByTestId("skill-create-mode-import").getAttribute("aria-pressed")).toBe("true");
+    expect(
+      screen
+        .getByTestId("skill-create-mode-import")
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
     expect(screen.getByTestId("skill-url-import-panel")).toBeTruthy();
   });
 
@@ -125,30 +145,45 @@ describe("F192 · /skill 库屏没有「完全新建」入口", () => {
     expect(source).not.toMatch(/\bcreateSkillDraft\(/);
   });
 
-  it("存量模型 B 行（非 wave2 标记）仍然正常显示、可点开「查看契约」——A/B 分流逻辑不变", async () => {
-    install(() =>
-      jsonResponse({
-        items: [
-          {
-            skillId: "sk-legacy-b",
-            name: "冻结前的遗留契约",
-            duty: "普通职责说明（非 wave2 标记）",
-            source: "自建",
-            status: "草稿",
-            visibility: "org-wide",
-            currentVersionId: null,
-            satisfaction: null,
-            tags: [],
-          },
-        ],
-        total: 1,
-      }),
+  it("存量模型 B 行仍可从卡片详情查看契约，保持 A/B 分流", async () => {
+    const skill = {
+      skillId: "sk-legacy-b",
+      name: "冻结前的遗留契约",
+      duty: "普通职责说明",
+      source: "自建",
+      status: "草稿",
+      visibility: "org-wide",
+      currentVersionId: null,
+      satisfaction: null,
+      tags: [],
+    };
+    install((call) =>
+      jsonResponse(
+        call.pathname === "/skills/sk-legacy-b"
+          ? {
+              skill,
+              currentVersionId: null,
+              contract: {
+                promptTemplate: "Legacy instructions",
+                inputSchema: "{}",
+                outputSchema: "{}",
+                dataScope: [],
+                fallbackDeclaration: "Keep original",
+              },
+              gateResults: {
+                securityScan: null,
+                methodologyReviewPassed: false,
+              },
+              latestTrialRun: null,
+            }
+          : { items: [skill], total: 1 },
+      ),
     );
     render(<SkillCatalogLive />);
-    await waitFor(() => expect(screen.getByTestId("skill-catalog-list")).toBeTruthy());
-
-    // 普通行走「查看契约」入口，不是「编辑源码」——WAVE2_BACKED_DUTY_MARKER 分流未变。
+    await screen.findByTestId("skill-catalog-list");
+    fireEvent.click(screen.getByTestId("skill-catalog-row-sk-legacy-b"));
     expect(screen.getAllByTestId("skill-catalog-detail")).toHaveLength(1);
     expect(screen.queryByTestId("skill-catalog-edit-source")).toBeNull();
+    await screen.findByTestId("skill-detail-contract");
   });
 });

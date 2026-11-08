@@ -1,0 +1,48 @@
+[stack-admission] load1=2.15 cores=10 perCore=0.22 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw7w86nt-5c7d1a59-9bac5c045cbd db=wsx_9bac5c045cbdf158ab0b compose=wsx-9bac5c045cbdf158ab0b pg=20228 redis=21228 api=24228 web=25228 sandbox=26228 model=27228 deep-agent=28228 asr=29228 vision=30228 loopback-sandbox=31228 mail=19228
+[catalog-review-prepare] ensureDatabase=3610ms
+[catalog-review-prepare] migrateOnceTotal=18526ms
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api
+
+[db-isolation] db=wsx_9bac5c045cbdf158ab0b capacity=100 current=6 required=32
+ ❯ tests/skill/ai-catalog-skill-storage.test.ts (4 tests | 1 failed) 888ms
+   × editing a multifile Skill preserves supporting bytes and full manifest without mutating the original 51ms
+     → expected [ 'scripts/data.bin', 'SKILL.md' ] to deeply equal [ 'SKILL.md', 'scripts/data.bin' ]
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/skill/ai-catalog-skill-storage.test.ts > editing a multifile Skill preserves supporting bytes and full manifest without mutating the original
+AssertionError: expected [ 'scripts/data.bin', 'SKILL.md' ] to deeply equal [ 'SKILL.md', 'scripts/data.bin' ]
+
+- Expected
++ Received
+
+  Array [
+-   "SKILL.md",
+    "scripts/data.bin",
++   "SKILL.md",
+  ]
+
+ ❯ tests/skill/ai-catalog-skill-storage.test.ts:100:77
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 3 passed (4)
+   Start at  21:54:17
+   Duration  3.01s (transform 1.08s, setup 7ms, collect 1.31s, tests 888ms, environment 0ms, prepare 51ms)
+
+[db-isolation] db=wsx_9bac5c045cbdf158ab0b peak_connections=2
+undefined
+/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/skill/ai-catalog-skill-storage.test.ts --maxWorkers=1 --minWorkers=1 --no-file-parallelism
+[timing] bash -c pnpm --filter @repo/api exec tsx tests/support/prepare-catalog-review.ts && pnpm --filter @repo/api exec vitest run tests/skill/ai-catalog-skill-storage.test.ts --maxWorkers=1 --minWorkers=1 --no-file-parallelism
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：23s
+  清理：1s
+  总计：24s

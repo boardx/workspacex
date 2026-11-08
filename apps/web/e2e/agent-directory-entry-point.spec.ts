@@ -1,10 +1,4 @@
-/**
- * AG04 review 指出的缺口——`/agent` 目录页此前在 `lib/navigation.ts` 里零导航入口，
- * e2e 也是零，同 testing-standards.md 点名的 Ava/Surveys/Admin 先例：「e2e 全是
- * page.goto() 直连，没人断言入口」。这里补上一条最小的真实入口可达性验证：
- * 真实登录 → 左栏导航能看到「Agent 目录」→ 点击真的落到 `/agent` 并渲染目录屏
- * （不是 goto 直连，是从产品里点出来的）。
- */
+/** Agent directory remains discoverable through organization administration. */
 import { expect, test, type Page } from "@playwright/test";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 
@@ -20,14 +14,19 @@ async function loginAsSeededUser(page: Page) {
   await expect(page).toHaveURL(/\/home$/);
 }
 
-test("Agent 目录从左栏导航可达，不是只能敲 URL 进的孤岛", async ({ page }) => {
+test("Agent 目录从组织后台入口可达", async ({ page }) => {
   await loginAsSeededUser(page);
 
-  const navEntry = page.getByTestId("rail-agent-directory");
+  await expect(page.getByTestId("rail-agent-directory")).toHaveCount(0);
+  const navEntry = page.getByTestId("rail-admin");
   await navEntry.scrollIntoViewIfNeeded();
   await expect(navEntry).toBeInViewport();
   await navEntry.click();
 
-  await expect(page).toHaveURL(/\/agent$/);
+  await expect(page).toHaveURL(/\/(?:admin|org-admin)(?:\/|$)/);
+  if (new URL(page.url()).pathname !== "/org-admin/agent") {
+    await page.getByTestId("admin-nav-org-agent").click();
+  }
+  await expect(page).toHaveURL(/\/org-admin\/agent/);
   await expect(page.getByTestId("agent-directory")).toBeVisible();
 });

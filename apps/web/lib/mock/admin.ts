@@ -549,6 +549,8 @@ export const ADMIN_NAV_COUNT_SOURCES: Record<AdminModuleKey, AdminNavCountSource
   // （"成员""邀请"背后确实是列表，但按 I-24 的既有语义，这里给的是"左栏这一项该不该
   // 显示数字"的口径，不是"这个屏内容多不多"；生产左栏 `live-admin-nav-counts.ts` 同样
   // 只认 agent/skill 两项口径明确，其余一律「—」，这里延续同一处置：抛错＝取不到）。
+  "org-agent": () => { throw new Error("catalog count unavailable"); },
+  "org-skill": () => { throw new Error("catalog count unavailable"); },
   "org-members": () => {
     throw new Error("org-members is a screen entry, not a countable list source in this mock table");
   },

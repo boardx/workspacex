@@ -1,3 +1,4 @@
+import { ErrorCode as AiCatalogErrorCode } from "@repo/contracts/ai-catalog-admin";
 import {TeamBillingHttpException} from "../controllers/team-billing-http-exception";
 import {EnterpriseHttpException,ENTERPRISE_CACHE_CONTROL} from "../controllers/enterprise-http-exception";
 import {operations as enterpriseOperations,TeamBillingErrorCode} from "@repo/contracts/billing-team";
@@ -143,6 +144,8 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string; cu
   const body = exception.getResponse();
   if (typeof body !== "object" || body === null) return {};
   const raw = (body as { reasonCode?: unknown }).reasonCode;
+  const aiCatalog = AiCatalogErrorCode.safeParse(raw);
+  if(aiCatalog.success)return {reasonCode:aiCatalog.data};
   const skillFileEdit = SkillFileEditError.safeParse(raw);
   if (skillFileEdit.success) {
     // Project only the reviewed conflict fields. SQL/debug/other exception data never leaks.

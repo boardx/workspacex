@@ -55,15 +55,21 @@ import {
 import { resolveDeepAgentModel } from "./pg-default-agent-repository";
 import { insertAgentVersionFromDraft } from "./agent-version-insert";
 
-const sha256 = (value: string): string => createHash("sha256").update(value).digest("hex");
+const sha256 = (value: string): string =>
+  createHash("sha256").update(value).digest("hex");
 
 /** ⚠ 审计可分辨性靠这个前缀，见文件头注的权宜说明。 */
 export const SELF_PUBLISH_SEMANTIC_LABEL = "自助发布-v1";
 
-export class PgSelfPublishAgentRepository implements SelfPublishAgentRepository {
+export class PgSelfPublishAgentRepository
+  implements SelfPublishAgentRepository
+{
   constructor(private readonly db: DatabasePort) {}
 
-  async findForSelfPublish(orgId: string, agentId: string): Promise<AgentDefinition | null> {
+  async findForSelfPublish(
+    orgId: string,
+    agentId: string,
+  ): Promise<AgentDefinition | null> {
     return this.db.withTenant(toOrgId(orgId), async (session) => {
       const found = await session.query<AgentDefinitionRow>(
         `SELECT ${AGENT_DEFINITION_COLUMNS}
@@ -81,6 +87,9 @@ export class PgSelfPublishAgentRepository implements SelfPublishAgentRepository 
     readonly agentId: string;
     readonly actorId: string;
     readonly now: Date;
+    readonly semanticLabel?: string;
+    readonly frozenModel?: { provider: string; modelId: string };
+    readonly frozenRoleFromVersionId?: string;
   }): Promise<{ readonly agentVersionId: string }> {
     return this.db.withTenant(toOrgId(input.orgId), async (session) => {
       // 同一事务内重新读一次并上行锁：授权与判定发生在这之前，两者之间可能有
@@ -93,28 +102,33 @@ export class PgSelfPublishAgentRepository implements SelfPublishAgentRepository 
           FOR UPDATE`,
         [input.agentId, input.orgId],
       );
-      const definition = found.rows[0] === undefined ? null : toDefinition(found.rows[0]);
-      if (definition === null) throw new Error("self_publish_agent_row_vanished");
+      const definition =
+        found.rows[0] === undefined ? null : toDefinition(found.rows[0]);
+      if (definition === null)
+        throw new Error("self_publish_agent_row_vanished");
 
       const versionId = `agent-version-${randomUUID()}`;
       const nowIso = input.now.toISOString();
       // 用户自己写的那一段，原样铸进版本。domain 门已经保证它非空白；
       // 这里再判一次是为了让"仓储被单独调用"这条路径也不会写出空指令的版本。
       const instructions = (definition.instructions ?? "").trim();
-      if (instructions === "") throw new Error("self_publish_agent_has_no_instructions");
-      const { provider, modelId } = resolveDeepAgentModel();
+      if (instructions === "")
+        throw new Error("self_publish_agent_has_no_instructions");
+      const { provider, modelId } =
+        input.frozenModel ?? resolveDeepAgentModel();
 
       await insertAgentVersionFromDraft(session, {
         versionId,
         orgId: input.orgId,
         agentId: input.agentId,
-        semanticLabel: SELF_PUBLISH_SEMANTIC_LABEL,
+        semanticLabel: input.semanticLabel ?? SELF_PUBLISH_SEMANTIC_LABEL,
         instructionDigest: sha256(instructions),
         instructions,
         skillVersionIds: [],
         modelProvider: provider,
         modelId,
         toolPolicy: [],
+        roleFromVersionId: input.frozenRoleFromVersionId,
         creatorId: input.actorId,
         at: nowIso,
       });
@@ -132,7 +146,8 @@ export class PgSelfPublishAgentRepository implements SelfPublishAgentRepository 
       RETURNING id`,
         [input.agentId, input.orgId, versionId, nowIso],
       );
-      if (updated.rows.length !== 1) throw new Error("self_publish_agent_not_draft_anymore");
+      if (updated.rows.length !== 1)
+        throw new Error("self_publish_agent_not_draft_anymore");
 
       // ③ 能力目录。`id = agentId`（见文件头注）。`scope` 恒 `org-wide`：
       //    `仅某组` 在 domain 门那一步就已经被 `AGENT_VISIBILITY_UNSUPPORTED` 拒掉，
@@ -154,11 +169,13 @@ export class PgSelfPublishAgentRepository implements SelfPublishAgentRepository 
       //    `ensureSystemAgent`，那条已经带了 `role_label`）。漏了这一列，`agents`
       //    有真实头衔而面板永远拿不到，只能悄悄回退到 `duty`——不是报错，
       //    是一个不会自己暴露的功能缺口。
-      await session.query(
+      const listing = await session.query<{ id: string }>(
         `INSERT INTO capability_listings
            (id,org_id,kind,name,abbr,duty,scope,owner_team_id,enabled,endpoint,
             role_label,role_label_needs_confirmation)
-         VALUES ($1,$2,'agent',$3,$4,$5,'org-wide',NULL,true,NULL,$6,$7)`,
+         VALUES ($1,$2,'agent',$3,$4,$5,'org-wide',NULL,true,NULL,$6,$7)
+         ${input.semanticLabel ? `ON CONFLICT(id) DO UPDATE SET name=EXCLUDED.name,abbr=EXCLUDED.abbr,duty=EXCLUDED.duty,role_label=EXCLUDED.role_label,role_label_needs_confirmation=EXCLUDED.role_label_needs_confirmation,enabled=true WHERE capability_listings.org_id=EXCLUDED.org_id AND capability_listings.kind='agent'` : ""}
+         RETURNING id`,
         [
           input.agentId,
           input.orgId,
@@ -170,6 +187,8 @@ export class PgSelfPublishAgentRepository implements SelfPublishAgentRepository 
         ],
       );
 
+      if (listing.rows.length !== 1)
+        throw new Error("catalog_agent_listing_target_mismatch");
       return { agentVersionId: versionId };
     });
   }

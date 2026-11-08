@@ -10,7 +10,7 @@
  */
 import * as React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { agentRuntime } from "@repo/contracts";
 import { SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
 
@@ -68,6 +68,7 @@ describe("「编辑」按钮是指向独立页面的链接，不是内联展开"
     vi.stubGlobal("fetch", vi.fn(async () => oneListing("skill")));
     render(<SkillScreen state="default" />);
     await waitFor(() => expect(screen.getByTestId("admin-skill-list")).toBeTruthy());
+    fireEvent.click(screen.getByTestId("admin-skill-row-skill-1"));
     const link = await screen.findByTestId("admin-skill-row-skill-1-edit");
     expect(link.getAttribute("href")).toBe("/platform-admin/skill/skill-1?from=%2Fadmin%2Fskill");
     vi.unstubAllGlobals();
@@ -87,6 +88,7 @@ describe("「编辑」按钮是指向独立页面的链接，不是内联展开"
     );
     render(<AgentScreen state="default" />);
     await waitFor(() => expect(screen.getByTestId("admin-agent-list")).toBeTruthy());
+    fireEvent.click(screen.getByTestId("admin-agent-row-agent-1"));
     const link = await screen.findByTestId("admin-agent-row-agent-1-edit");
     expect(link.getAttribute("href")).toBe("/platform-admin/agent/agent-1?from=%2Fadmin%2Fagent");
     vi.unstubAllGlobals();
@@ -98,8 +100,10 @@ describe("「编辑」按钮是指向独立页面的链接，不是内联展开"
     render(<SkillScreen state="default" />);
     await waitFor(() => expect(screen.getByTestId("admin-skill-list")).toBeTruthy());
     // 编辑按钮存在，但列表页上不应该出现内联编辑表单的字段（名称输入框）。
+    expect(screen.queryByTestId("admin-skill-row-skill-1-edit")).toBeNull();
+    fireEvent.click(screen.getByTestId("admin-skill-row-skill-1"));
     expect(screen.getByTestId("admin-skill-row-skill-1-edit")).toBeTruthy();
-    expect(screen.queryByTestId("admin-skill-row-skill-1-name")).toBeNull();
+    expect(screen.getByTestId("admin-skill-detail")).toContainElement(screen.getByTestId("admin-skill-row-skill-1-name"));
     vi.unstubAllGlobals();
   });
 });

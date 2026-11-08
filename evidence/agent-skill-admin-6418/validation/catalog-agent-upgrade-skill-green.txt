@@ -1,0 +1,28 @@
+[stack-admission] load1=5.24 cores=10 perCore=0.52 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw7wuv76-5189229f-eaaefedc02e2 db=wsx_eaaefedc02e245532a10 compose=wsx-eaaefedc02e245532a10 pg=20052 redis=21052 api=24052 web=25052 sandbox=26052 model=27052 deep-agent=28052 asr=29052 vision=30052 loopback-sandbox=31052 mail=19052
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api
+
+[db-isolation] db=wsx_eaaefedc02e245532a10 capacity=100 current=6 required=32
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+{"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+{"level":"error","msg":"http exception","traceId":"14396cef-d9c1-4223-bdcf-0c6e598032eb","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at AiCatalogAdminService.transaction (/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api/src/application/ai-catalog/admin-service.ts:45:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+{"level":"error","msg":"http exception","traceId":"1ebd9aa2-8583-4e00-9409-897928f50c16","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at AiCatalogAdminService.transaction (/Users/shenyangjun/.codex/worktrees/cn-chat-e2e-fixes/workspacex/apps/api/src/application/ai-catalog/admin-service.ts:45:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+ ✓ tests/ai-catalog/agent-admin-http.test.ts (7 tests | 6 skipped) 26394ms
+ ✓ tests/skill/ai-catalog-skill-storage.test.ts (4 tests) 1018ms
+
+ Test Files  2 passed (2)
+      Tests  5 passed | 6 skipped (11)
+   Start at  22:11:36
+   Duration  34.42s (transform 6.80s, setup 11ms, collect 2.14s, tests 27.41s, environment 0ms, prepare 104ms)
+
+[db-isolation] db=wsx_eaaefedc02e245532a10 peak_connections=7
+[timing] pnpm --filter @repo/api exec vitest run tests/ai-catalog/agent-admin-http.test.ts tests/skill/ai-catalog-skill-storage.test.ts -t enabling a newer public Agent version|^draft is invisible|^fixed snapshots copy|^legacy contract remains|^editing a multifile Skill --maxWorkers=1 --minWorkers=1 --no-file-parallelism
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：35s
+  清理：1s
+  总计：36s

@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { SkillApp } from "@/components/skill/skill-app";
 import { resolvePreviewState } from "@/lib/ui-state";
 import { resolveSkillScreen, resolveSkillView, viewToProjectRole } from "@/lib/mock/skill";
@@ -26,6 +27,12 @@ export default function SkillPage({
 }: {
   searchParams: { state?: string; as?: string; org?: string; screen?: string };
 }) {
+  if (!searchParams.state && !searchParams.as && (!searchParams.screen || ["library", "catalog", "work-catalog"].includes(searchParams.screen))) {
+    const query = new URLSearchParams();
+    if (searchParams.screen) query.set("screen", searchParams.screen);
+    if (searchParams.org) query.set("org", searchParams.org);
+    redirect(`/org-admin/skill${query.size ? `?${query}` : ""}`);
+  }
   const uiState = resolvePreviewState(searchParams.state);
   const view = resolveSkillView(searchParams.as);
   const projectRole = viewToProjectRole(view);
