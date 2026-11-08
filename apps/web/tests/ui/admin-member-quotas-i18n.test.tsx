@@ -70,7 +70,7 @@ it("renders English quota cards, preserves raw names and distinguishes unallocat
   render(<MemberQuotaTab />, { wrapper: Locale }); const live = await screen.findByTestId("admin-quota-live");
   expect(screen.getByTestId("admin-quota-card-allocated")).toHaveTextContent("Allocated quota");
   expect(screen.getByTestId("admin-quota-card-unallocated")).toHaveTextContent("—"); expect(live).toHaveTextContent("No organization budget is set");
-  const row = screen.getByTestId("admin-member-card-user-raw"); expect(row).toHaveTextContent(rawName); expect(row).toHaveTextContent("Consultant"); expect(row).toHaveTextContent("No quota allocated");
+  const row = screen.getByTestId("admin-member-card-user-raw"); expect(row).toHaveTextContent(rawName); expect(row).toHaveTextContent("Member"); expect(row).toHaveTextContent("No quota allocated");
   expect(within(row).queryByRole("progressbar")).toBeNull(); toggle(); expect(row).toHaveTextContent("未分配额度"); toggle(); expect(api.getTokenQuotas).toHaveBeenCalledTimes(1);
 });
 it.each([400_000, null])("separates the English used and available budget sentences in quota editing help (%s)", async unallocated => {
