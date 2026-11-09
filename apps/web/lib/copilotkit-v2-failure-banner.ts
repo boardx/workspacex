@@ -1,4 +1,5 @@
 "use client";
+import {readChatAgentRun as getAgentRun} from "@/lib/chat-workbench/read-chat-agent-run";
 /**
  * issue #3261 —— 「这一轮 run 为什么失败」在产品面上的**唯一**一处算法。
  *
@@ -27,7 +28,7 @@
  * 而那个 outcome 是 `failRun` 落库之后才产生的——`RUN_ERROR` 到达客户端时，
  * `failure_reason` 已经在库里。读不到时**逐字回落**到只按码说话的旧文案，不编成因。
  */
-import { getAgentRun } from "./agent-run";
+import { } from "./agent-run";
 import type { AgentRunFailureReason } from "./agent-run";
 import { describeCopilotkitV2RunError } from "./copilotkit-v2-error-copy";
 import { aguiRunError } from "@repo/contracts";

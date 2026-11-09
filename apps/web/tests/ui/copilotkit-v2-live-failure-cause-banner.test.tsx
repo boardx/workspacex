@@ -243,7 +243,7 @@ describe("issue #3261 —— 失败当场（活路径）的横幅必须说得出
      * 成因只有**一个**来源：`agent_runs` 的权威读（与恢复路径同一个）。
      * 这条断言挡住「前端自己另猜一份成因」这种假修法。
      */
-    expect(getAgentRun).toHaveBeenCalledWith(RUN_ID, "b");
+    expect(getAgentRun).toHaveBeenCalledWith(RUN_ID, "b", undefined, {notifyCredit:false});
   });
 
   it("权威读拿不到成因时，逐字回落到旧文案——不编一个成因出来", async () => {
@@ -353,7 +353,7 @@ describe("issue #3387 ① —— 有产出 + run 成功 ⇒ 不得显示失败�
     await mountAndFail();
 
     /* 权威读必须真的发生过——否则下面「没有横幅」可能只是还没来得及亮。 */
-    await waitFor(() => expect(getAgentRun).toHaveBeenCalledWith(RUN_ID, "b"));
+    await waitFor(() => expect(getAgentRun).toHaveBeenCalledWith(RUN_ID, "b", undefined, {notifyCredit:false}));
     await waitFor(() => {
       const banner = screen.queryByTestId("copilotkit-v2-error");
       expect(
