@@ -81,6 +81,24 @@ describe("A · fetchLatestSavedDiagramSource 请求序列", () => {
     });
   });
 
+  it("reload keeps two Mermaid fences original after one is transported to Board", async () => {
+    const originals = ["flowchart TD\n A[First diagram]", "flowchart TD\n B[Second diagram]"];
+    listThreadArtifacts.mockResolvedValue({items:[item({artifactId:"board-only", title:"[board-transport] Board diagram"})]});
+    getThreadArtifactSource.mockResolvedValue({markdown:originals[0],savedAt:"2026-11-09T00:00:00Z",immutableRevision:"artifact-v1:1"});
+    // Each mounted Mermaid fence uses the historical no-predicate readback path.
+    const restored = await Promise.all(originals.map(async original =>
+      (await fetchLatestSavedDiagramSource({threadId:"t",messageId:"m-1",projectId:null,bearer:"b"}))?.markdown ?? original));
+    expect(restored).toEqual(originals);
+    expect(getThreadArtifactSource).not.toHaveBeenCalled();
+  });
+
+  it("Board transport does not mask the latest ordinary saved diagram", async () => {
+    listThreadArtifacts.mockResolvedValue({items:[item({artifactId:"edited"}),item({artifactId:"board-only",title:"[board-transport] Board diagram"})]});
+    getThreadArtifactSource.mockResolvedValue({markdown:"saved edit",savedAt:"now",immutableRevision:"artifact-v1:2"});
+    expect((await fetchLatestSavedDiagramSource({threadId:"t",messageId:"m-1",projectId:null}))?.artifactId).toBe("edited");
+    expect(getThreadArtifactSource).toHaveBeenCalledWith("t","edited",null,undefined);
+  });
+
   it("无本消息的保存版 ⇒ null，且不打 source 请求", async () => {
     listThreadArtifacts.mockResolvedValue({ items: [item({ messageId: "m-other" })] });
     const saved = await fetchLatestSavedDiagramSource({

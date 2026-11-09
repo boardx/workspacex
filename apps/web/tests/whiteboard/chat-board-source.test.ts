@@ -8,7 +8,7 @@ it('uses only the returned artifact and its server immutable revision',async()=>
  transport.source.mockResolvedValue({immutableRevision:'artifact-v1:9'});
  const input={threadId:'thread',messageId:'message',projectId:'project',bearer:'fixture',source:'original source',title:'Canvas'};
  await expect(createBoardHandoffSourcePreparer(input)()).resolves.toEqual({artifactId:'actual-artifact',sourceRevision:'artifact-v1:9'});
- expect(transport.land).toHaveBeenCalledWith('thread',{messageId:'message',mode:'draft',title:'Canvas',payloadRef:'original source'},'fixture');
+ expect(transport.land).toHaveBeenCalledWith('thread',{messageId:'message',mode:'draft',title:'[board-transport] Canvas',payloadRef:'original source'},'fixture');
  expect(transport.source).toHaveBeenCalledWith('thread','actual-artifact','project','fixture');
 });
 it('fails closed when readback cannot provide an immutable revision',async()=>{

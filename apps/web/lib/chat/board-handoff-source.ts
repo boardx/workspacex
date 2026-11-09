@@ -1,3 +1,4 @@
+import { boardTransportTitle } from './board-transport-identity';
 import { useMemo } from 'react';
 import { getThreadArtifactSource, landAsArtifact } from '@/lib/live-chat';
 
@@ -9,7 +10,7 @@ export function createBoardHandoffSourcePreparer(input: SourceInput) {
   return async () => {
     if (!artifactId) {
       const landed = await landAsArtifact(input.threadId, {
-        messageId:input.messageId,mode:'draft',title:input.title,payloadRef:input.source,
+        messageId:input.messageId,mode:'draft',title:boardTransportTitle(input.title),payloadRef:input.source,
       },input.bearer);
       artifactId = landed.artifactId;
     }
