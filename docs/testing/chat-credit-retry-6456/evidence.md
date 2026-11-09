@@ -11,3 +11,7 @@ Targeted tests: actual Panel/PlanControl 61 passed, 4 existing skips; scoped not
 No backend, quota, recharge, billing admission or production configuration changed. Synthetic retry message/title pollution is tracked separately in #6457 and is not implemented here.
 
 Final checks: `pnpm --filter web typecheck` exit 0 after temporary route removal; ESLint all changed source/tests exit 0; `git diff --check` exit 0. Baseline `./init.sh` passed. `harness tick` unavailable because COORD_GATEWAY_URL is unset. No owned preview server remains.
+
+Review follow-up: live RUN_ERROR authoritative reads now return structured Credit details to the owning attempt, preserving organization recharge and member-monthly-limit guidance. Both the error bus and thrown-send callback are ownership guarded. Two actual Panel regressions cover these account-specific payloads. An initial edit accidentally referenced the send token in the event callback; tests/TSC caught it and it was removed before commit.
+
+Fixture console attribution: GET /fixture-runtime/threads was stubbed as `[]`, while CopilotKit 1.66.4 expects `{threads: []}` and passes `data.threads` to sortThreadsByRecency; undefined caused the documented `threads is not iterable` overlay. The no-Agent hint is caused by the intentional empty `/capabilities` fixture. Neither is evidence of a product exception; neither screenshot was cropped to hide it.

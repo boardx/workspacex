@@ -470,6 +470,7 @@ function useCopilotKitV2PanelController({
             setNotice({ key: "chatComposer.runtime.recovered" });
             return;
           }
+          if (outcome.creditFailure) attemptErrors.fail(attempt, outcome.creditFailure, causeRunId);
           setError(ownedRunError(outcome.text));
         });
         // issue #2797 -- 结构化上报到后端（`system-error-logs` 契约束),供巡检按
@@ -1568,9 +1569,10 @@ function useCopilotKitV2PanelController({
         void resolveLiveRunErrorOutcome({
           runId: thrownRunId, code: thrownCode, bearer: getStoredSessionToken() ?? undefined,
         }).then((outcome) => {
-          if (bannerRunRef.current !== thrownRunId) return;
+          if (bannerRunRef.current !== thrownRunId || !attemptErrors.owns(sendAttempt)) return;
           if (outcome.kind === "recovered") { setError(null); setNotice({ key: "chatComposer.runtime.recovered" }); return; }
           if (outcome.kind === "reattach_approval") { setError(null); setReattachApproval({ runId: outcome.runId }); return; }
+          if (outcome.creditFailure) attemptErrors.fail(sendAttempt, outcome.creditFailure, thrownRunId);
           setError(ownedRunError(outcome.text));
         });
         // issue #2797 -- 同上面 `onError` 订阅那条注释：结构化上报,fire-and-forget。

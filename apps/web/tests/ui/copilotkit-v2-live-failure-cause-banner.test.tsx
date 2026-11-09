@@ -439,3 +439,17 @@ it("history unknown caller text remains verbatim across locale changes without a
   expect(banner).toHaveTextContent(original);
   expect(listMessages).toHaveBeenCalledTimes(reads);
 });
+
+
+it.each([undefined, "member_monthly_limit"])("forwards authoritative live Credit guidance through owned attempt (%s)", async(reason) => {
+ const creditFailure = {code:"credit_required",ownerType:"team",ownerId:"org-1",rechargePath:"/billing?ownerType=team&ownerId=org-1&purchase=1",...(reason?{reason}:{})};
+ getAgentRun.mockResolvedValue({...AUTHORITATIVE_VIEW,error:"CREDIT_REQUIRED",creditFailure});
+ const notices:unknown[]=[];const listener=(e:Event)=>notices.push((e as CustomEvent).detail);
+ window.addEventListener("workspacex:credit-failure",listener);
+ try {
+  mount();await waitFor(()=>expect(errorBus).not.toBeNull());
+  emitRunAccepted(RUN_ID);await screen.findByTestId("copilotkit-v2-running-indicator");
+  await errorBus!.emitError({error:new Error("CREDIT_REQUIRED"),code:"agent_run_error_event",context:{source:"onRunErrorEvent",runtimeErrorCode:"CREDIT_REQUIRED"}});
+  await waitFor(()=>expect(notices).toContainEqual(expect.objectContaining({...creditFailure,noticeContext:expect.objectContaining({runId:RUN_ID})})));
+ } finally {window.removeEventListener("workspacex:credit-failure",listener);}
+});
