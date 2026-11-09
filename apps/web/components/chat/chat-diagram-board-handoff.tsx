@@ -63,7 +63,7 @@ export function ChatDiagramBoardHandoff({ model, artifactId, sourceRevision, org
     const scope=scopeKey;
     setBusy(true);
     try{
-      if(!artifactId||!sourceRevision){
+      if(prepareSource){
         if(!prepareSource||!model||!orgId)return;
         if(prepared.current?.scope!==scope)prepared.current={scope,...await prepareSource()};
         if(scope!==currentScope.current)return;
@@ -78,7 +78,7 @@ export function ChatDiagramBoardHandoff({ model, artifactId, sourceRevision, org
       if(scope!==currentScope.current)return;
       const message=error instanceof Error?error.message:'';
       if(message==='BOARD_OPERATION_CONFLICT'){attempt.current=null;setPreview(null);setNotice('白板已变化，请刷新位置预览后重新确认。');}
-      else setNotice('插入失败，请确认权限后重试；重试保留本次请求身份。');
+      else setNotice('插入失败，请重试；重试保留本次请求身份。');
     }finally{setBusy(false);}
   };
   return <>

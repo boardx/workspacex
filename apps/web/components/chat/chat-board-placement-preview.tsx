@@ -4,7 +4,7 @@ import type { WhiteboardGeometry } from '@repo/contracts/whiteboard-document';
 import type { RenderedDiagramLayout, WhiteboardPlacementPreview } from '@repo/contracts/whiteboard-operation';
 import { Button } from '@/components/ui/button';
 import { renderedDiagramObjectKind } from '@repo/whiteboard-core';
-import { insertionPlacement } from '@/lib/board-insertion-placement';
+import { insertionBounds, insertionPlacement } from '@/lib/board-insertion-placement';
 import { BoardMinimapScene } from '@/components/whiteboard/board-minimap-scene';
 import { minimapGeometry, MINIMAP_HEIGHT, MINIMAP_WIDTH, type MinimapObject } from '@/components/whiteboard/board-minimap-geometry';
 
@@ -16,8 +16,14 @@ export function ChatBoardPlacementPreview({ existing, incoming, incomingObjects 
   const visible=React.useMemo(()=>existing.filter(object=>!object.appearance?.hidden),[existing]);
   const {source,view,recommended}=React.useMemo(()=>insertionPlacement(visible.map(object=>object.geometry),incoming),[visible,incoming]);
   const objects: MinimapObject[]=visible.map(object=>({id:object.id,geometry:object.geometry,kind:object.appearance?.kind??'rectangle',style:object.appearance?.style??{}}));
+  const [settledOffset,setSettledOffset]=React.useState(offset);
+  const [dragging,setDragging]=React.useState(false);
+  React.useEffect(()=>{if(!dragging)setSettledOffset(offset);},[offset,dragging]);
+  const expanded=insertionBounds([{...view,rotation:0},{...source,x:source.x+settledOffset.x,y:source.y+settledOffset.y,rotation:0}]);
+  const padding=Math.max(expanded.width,expanded.height)*.05;
+  const extent={x:expanded.x-padding,y:expanded.y-padding,width:expanded.width+padding*2,height:expanded.height+padding*2};
   // Moving the range must not rescale the thumbnail during a gesture.
-  const map=minimapGeometry(objects,{zoom:1,panX:-view.x,panY:-view.y,fitRequest:0},{width:view.width,height:view.height});
+  const map=minimapGeometry(objects,{zoom:1,panX:-extent.x,panY:-extent.y,fitRequest:0},{width:extent.width,height:extent.height});
   const drag=React.useRef<{id:number;start:{x:number;y:number};grab:{x:number;y:number}}|null>(null);
   const scenePoint=(event:React.PointerEvent<SVGSVGElement>)=>{
     const rect=event.currentTarget.getBoundingClientRect();
@@ -25,13 +31,9 @@ export function ChatBoardPlacementPreview({ existing, incoming, incomingObjects 
     return {x:((event.clientX-rect.left)/rect.width*MINIMAP_WIDTH-map.offsetX)/map.scale,
       y:((event.clientY-rect.top)/rect.height*MINIMAP_HEIGHT-map.offsetY)/map.scale};
   };
-  const clamp=(next:{x:number;y:number})=>({
-    x:Math.max(view.x-source.x,Math.min(view.x+view.width-source.x-source.width,next.x)),
-    y:Math.max(view.y-source.y,Math.min(view.y+view.height-source.y-source.height,next.y)),
-  });
   const choose=(event:React.PointerEvent<SVGSVGElement>)=>{
     if(disabled)return;const point=scenePoint(event);if(!point)return;
-    onChange(clamp({x:point.x-source.x-source.width/2-(drag.current?.grab.x??0),y:point.y-source.y-source.height/2-(drag.current?.grab.y??0)}));
+    onChange({x:point.x-source.x-source.width/2-(drag.current?.grab.x??0),y:point.y-source.y-source.height/2-(drag.current?.grab.y??0)});
   };
   const placed: MinimapObject[]=incomingObjects.map((object,index)=>({
     id:`incoming-${index}`,kind:renderedDiagramObjectKind(object),
@@ -51,18 +53,18 @@ export function ChatBoardPlacementPreview({ existing, incoming, incomingObjects 
         const point=scenePoint(event);if(!point)return;event.preventDefault();
         const x=source.x+offset.x,y=source.y+offset.y;
         const inside=point.x>=x&&point.x<=x+source.width&&point.y>=y&&point.y<=y+source.height;
-        drag.current={id:event.pointerId,start:offset,grab:inside?{x:point.x-x-source.width/2,y:point.y-y-source.height/2}:{x:0,y:0}};
+        setDragging(true);drag.current={id:event.pointerId,start:offset,grab:inside?{x:point.x-x-source.width/2,y:point.y-y-source.height/2}:{x:0,y:0}};
         event.currentTarget.setPointerCapture?.(event.pointerId);choose(event);
       }}
       onPointerMove={event=>{if(drag.current?.id===event.pointerId)choose(event);}}
-      onPointerUp={event=>{if(drag.current?.id!==event.pointerId)return;drag.current=null;event.currentTarget.releasePointerCapture?.(event.pointerId);}}
-      onPointerCancel={()=>{if(drag.current)onChange(drag.current.start);drag.current=null;}}
-      onLostPointerCapture={()=>{drag.current=null;}}
+      onPointerUp={event=>{if(drag.current?.id!==event.pointerId)return;drag.current=null;setDragging(false);event.currentTarget.releasePointerCapture?.(event.pointerId);}}
+      onPointerCancel={()=>{if(drag.current)onChange(drag.current.start);drag.current=null;setDragging(false);}}
+      onLostPointerCapture={()=>{drag.current=null;setDragging(false);}}
       onKeyDown={event=>{
         const delta={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[event.key];
         if(!delta||disabled)return;event.preventDefault();
         const step=Math.min(view.width,view.height)/40*(event.shiftKey?5:1);
-        onChange(clamp({x:offset.x+delta[0]!*step,y:offset.y+delta[1]!*step}));
+        onChange({x:offset.x+delta[0]!*step,y:offset.y+delta[1]!*step});
       }}>
       <rect data-testid="chat-board-placement-range" x={(source.x+offset.x)*map.scale+map.offsetX} y={(source.y+offset.y)*map.scale+map.offsetY}
         width={source.width*map.scale} height={source.height*map.scale} className="fill-destructive/10 stroke-destructive"
