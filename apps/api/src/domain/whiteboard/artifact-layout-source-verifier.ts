@@ -1,6 +1,6 @@
 import { orgTemplateSpec } from '../../../../../shared/canvas/org-template-spec';
 import { canvas } from '@repo/contracts';
-import type { CanvasTemplateListing } from '../../application/canvas/template-ports';
+type CanvasTemplateListing = (typeof canvas.operations.listTemplates.out)['_output']['templates'][number];
 import { templateToModel, parseTemplateText, getTemplate, serializeTemplate } from '@repo/fabric-markdown/templates';
 import { extractMermaidBlocks } from '@repo/fabric-markdown/markdown';
 import { modelToMermaid } from '@repo/fabric-markdown/mermaid-serializer';
