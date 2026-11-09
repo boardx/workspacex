@@ -1,4 +1,7 @@
-import { templateToModel } from '@repo/fabric-markdown/templates';
+import { orgTemplateSpec } from '../../../../../shared/canvas/org-template-spec';
+import { canvas } from '@repo/contracts';
+type CanvasTemplateListing = (typeof canvas.operations.listTemplates.out)['_output']['templates'][number];
+import { templateToModel, parseTemplateText, getTemplate, serializeTemplate } from '@repo/fabric-markdown/templates';
 import { extractMermaidBlocks } from '@repo/fabric-markdown/markdown';
 import { modelToMermaid } from '@repo/fabric-markdown/mermaid-serializer';
 import type { DiagramModel, DiagramNode, DiagramEdge, Direction, EdgeKind, NodeShape } from '@repo/fabric-markdown/model';
@@ -21,7 +24,7 @@ function normalized(source:string):string{return source.replace(/\r\n/g,'\n').tr
  * its canonical source is the exact immutable fenced block. Geometry remains part of the signed
  * layout digest, while node/edge identity and content are anchored to server-read artifact bytes.
  */
-export function artifactSourceMatchesLayout(bytes:Uint8Array,layout:RenderedDiagramLayout):boolean{
+export function artifactSourceMatchesLayout(bytes:Uint8Array,layout:RenderedDiagramLayout, templates:readonly CanvasTemplateListing[]=[]):boolean{
   const text=new TextDecoder().decode(bytes);
   try { if(normalized(JSON.stringify(JSON.parse(text)))===normalized(JSON.stringify(layout)))return true; } catch { /* source markdown is the normal Chat path */ }
   const blocks=extractMermaidBlocks(text);
@@ -48,13 +51,29 @@ export function artifactSourceMatchesLayout(bytes:Uint8Array,layout:RenderedDiag
   const block=blocks[0]!;
   const expectedLang=layout.diagramKind==='persona'?'persona':layout.diagramKind==='template'?'canvas':'mermaid';
   const languageMatches=block.lang===expectedLang || (layout.diagramKind==='persona' && block.lang==='canvas');
-  if(!languageMatches || normalized(block.code)!==normalized(modelToMermaid(reconstructed)))return false;
+  if(!languageMatches)return false;
+  if(kind!=='template' && normalized(block.code)!==normalized(modelToMermaid(reconstructed)))return false;
   if(layout.diagramKind==='persona'||layout.diagramKind==='template'){
     // Template serializers intentionally ignore decorative nodes. Those nodes still
     // become visible Board content, so bind their logical text/roles to the real
     // template expansion too; otherwise arbitrary extra labels could claim provenance.
     try {
-      const expected=templateToModel(block.code,layout.diagramKind==='persona'?'persona':undefined);
+      const fenceKey=layout.diagramKind==='persona'?'persona':undefined;
+      const key=fenceKey??parseTemplateText(block.code).templateKey??'';
+      const exact=templates.filter(row=>row.key===key);
+      const builtinAlias=canvas.builtinKeyByDisplayName(key.trim());
+      const aliases=templates.filter(row=>row.displayName.trim()===key.trim()||row.title?.trim()===key.trim());
+      const aliasKeys=new Set(aliases.map(row=>row.key));
+      const candidates=exact.length?exact:builtinAlias?templates.filter(row=>row.key===builtinAlias):aliasKeys.size===1?aliases:[];
+      const row=candidates.reduce<CanvasTemplateListing|undefined>((a,b)=>!a||b.version>a.version?b:a,undefined);
+      const resolvedKey=exact.length?key:builtinAlias??row?.key??key;
+      const builtin=canvas.builtinDisplayName(resolvedKey)!==undefined;
+      if(!builtin&&!row)return false;
+      const spec=row&&(!builtin||row.layoutSource==='user-edited')?orgTemplateSpec(row,key):undefined;
+      const builtinSpec=builtin&&resolvedKey!==key?getTemplate(resolvedKey):undefined;
+      const trustedSpec=spec??(builtinSpec?{...builtinSpec,key}:undefined);
+      if(normalized(block.code)!==normalized(serializeTemplate(reconstructed,trustedSpec)))return false;
+      const expected=templateToModel(block.code,fenceKey,trustedSpec);
       if(expected.meta?.templateKey!==meta?.templateKey)return false;
       const profile=(node:DiagramNode)=>JSON.stringify({shape:node.shape,label:node.label,role:node.data?.['role']??null,key:node.data?.['key']??null,name:node.data?.['name']??null});
       if(JSON.stringify(nodes.map(profile).sort())!==JSON.stringify(expected.nodes.map(profile).sort()))return false;

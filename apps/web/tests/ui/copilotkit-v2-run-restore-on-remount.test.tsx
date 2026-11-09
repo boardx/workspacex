@@ -229,7 +229,7 @@ describe("copilotkit-v2 切会话再切回 ⇒ 未写回的 run 状态不丢失"
       expect(screen.queryByTestId("copilotkit-v2-running-indicator")).not.toBeInTheDocument();
     }, { timeout: 5000 });
     await screen.findByText("PDF 已生成，请查收。");
-    expect(getAgentRun).toHaveBeenCalledWith("run-1", "b");
+    expect(getAgentRun).toHaveBeenCalledWith("run-1", "b", undefined, {notifyCredit:false});
     // ④ 拉回来的这条消息身份可解析：`messageId` 是真实 `chat_messages.id`，不是 undefined。
     await waitFor(() => {
       const call = markdownMessageCalls.find((c) => c.text.includes("PDF 已生成"));
@@ -251,8 +251,8 @@ describe("copilotkit-v2 切会话再切回 ⇒ 未写回的 run 状态不丢失"
     // PersistedAgentFeedback 另有一次带 AbortSignal 的归属读取；恢复确认读
     // 使用 (runId, bearer) 两参数，不能把两条路径混为「所有 GET 必须为零」。
     await waitFor(() => expect(getAgentRun).toHaveBeenCalledTimes(1));
-    expect(getAgentRun).toHaveBeenCalledWith("run-1", "b", expect.any(AbortSignal));
-    expect(getAgentRun).not.toHaveBeenCalledWith("run-1", "b");
+    expect(getAgentRun).toHaveBeenCalledWith("run-1", "b", expect.any(AbortSignal), {notifyCredit:false});
+    expect(getAgentRun).not.toHaveBeenCalledWith("run-1", "b", undefined, {notifyCredit:false});
     expect(listMessages).toHaveBeenCalledTimes(1);
     expect(screen.getAllByText("PDF 已生成，请查收。")).toHaveLength(1);
     expect(sockets.length).toBe(0);

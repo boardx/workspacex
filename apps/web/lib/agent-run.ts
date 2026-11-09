@@ -127,12 +127,13 @@ export async function getAgentRun(
   runId: string,
   sessionToken?: string,
   signal?: AbortSignal,
+  options?: {notifyCredit?:boolean},
 ): Promise<AgentRunView> {
   const view = await apiRequest<AgentRunView>(
     wave2Runtime.operations.getAgentRun.path.replace(":runId", encodeURIComponent(runId)),
-    { method: "GET", sessionToken, signal },
+    { method: "GET", sessionToken, signal, notifyCredit: options?.notifyCredit },
   );
-  if (view.status === "failed") notifyCreditFailure(agentRunCreditFailure(view.error,view.creditFailure));
+  if (view.status === "failed" && options?.notifyCredit !== false) notifyCreditFailure(agentRunCreditFailure(view.error,view.creditFailure));
   return view;
 }
 

@@ -92,3 +92,15 @@ it("failed WS final-read cannot stop polling while a slow authoritative read sti
   await flush(5000);
   expect(outcomes).toEqual([{ kind: "settled", view: interrupted }]);
 });
+
+it.each(['failure','unauthorized'] as const)('#6456 old restore %s cannot settle or clear restoring for a new owner',async(kind)=>{
+ let finishA!:(v:unknown)=>void,rejectA!:(e:unknown)=>void,finishB!:(v:unknown)=>void;
+ getAgentRun.mockImplementationOnce(()=>new Promise((resolve,reject)=>{finishA=resolve;rejectA=reject})).mockImplementationOnce(()=>new Promise(resolve=>{finishB=resolve}));
+ const outcomes:RunRestoreOutcome[]=[];
+ const {result,rerender}=renderHook(({run,owner})=>useCopilotKitV2RunRestore(run,'bearer',o=>outcomes.push(o),owner),{initialProps:{run:'old-run',owner:'old-attempt'}});
+ rerender({run:'new-run',owner:'new-attempt'});
+ await act(async()=>{if(kind==='failure')finishA({runId:'old-run',status:'failed',error:'CREDIT_REQUIRED'});else{const {ApiError}=await import('@/lib/api-client');rejectA(new ApiError(401,'expired',{}));}});
+ expect(outcomes).toEqual([]);expect(result.current).toMatchObject({runId:'new-run',isRestoring:true});
+ await act(async()=>{finishB({runId:'new-run',status:'succeeded',error:null});});
+ expect(outcomes).toEqual([{kind:'settled',view:{runId:'new-run',status:'succeeded',error:null}}]);
+});

@@ -7,6 +7,7 @@ RUN corepack enable && npm_config_registry="$NPM_REGISTRY" corepack prepare pnpm
 COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json ./
 COPY --chown=node:node patches ./patches
 COPY --chown=node:node packages ./packages
+COPY --chown=node:node shared ./shared
 COPY --chown=node:node skills/localizations ./skills/localizations
 COPY --chown=node:node skills/starter-packs ./skills/starter-packs
 # Official role workflow references are resolved from these canonical runtime assets.

@@ -1,4 +1,5 @@
 "use client";
+import {readChatAgentRun as getAgentRun} from "@/lib/chat-workbench/read-chat-agent-run";
 import * as React from "react";
 import { useI18n } from "@/lib/i18n/provider";
 import Image from "next/image";
@@ -7,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { getAgentRun, isTerminalRunStatus } from "@/lib/agent-run";
+import { isTerminalRunStatus } from "@/lib/agent-run";
 import { ARTIFACT_DIFF_LINE_LIMIT, continueAgentArtifact, diffArtifactLines, fetchArtifactContent, isTextArtifact, listAgentArtifacts,
   type AgentArtifact } from "@/lib/chat-workbench/agent-artifacts";
 

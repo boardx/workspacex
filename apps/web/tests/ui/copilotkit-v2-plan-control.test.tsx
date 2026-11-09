@@ -11,7 +11,7 @@
  */
 import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, fireEvent } from "@testing-library/react";
 import type { PlanLedgerView } from "@/lib/plan-control-api";
 
 afterEach(cleanup);
@@ -916,4 +916,22 @@ it("keeps the inline plan visible after editing a proposal and starting executio
   rerender(<CopilotKitV2PlanControl threadId="thread-edit-transition" preferInlinePlan refetchSignal={1} onLivePlanChange={onLivePlanChange} />);
   await waitFor(() => expect(onLivePlanChange).toHaveBeenLastCalledWith(expect.objectContaining({ todos: expect.any(Array), expanded: false })));
   expect(screen.queryByTestId("chat-task-workbench-plan-summary")).toBeNull();
+});
+
+
+it.each(["resolve","reject"] as const)("#6456 scope-switch fences old retry %s and preserves new busy state",async(kind)=>{
+ for(const fn of Object.values(api))fn.mockReset();
+ api.fetchPlanLedger.mockResolvedValue(ledgerWithSteps({phase:"failed",failedStepId:null,steps:[],runStatus:"failed"}));
+ let doneA!:(v:unknown)=>void,failA!:(e:unknown)=>void,doneB!:(v:unknown)=>void;
+ api.retryPlanStep.mockImplementationOnce(()=>new Promise((resolve,reject)=>{doneA=resolve;failA=reject})).mockImplementationOnce(()=>new Promise(resolve=>{doneB=resolve}));
+ const completeA=vi.fn(),completeB=vi.fn(),fail=vi.fn();
+ const view=render(<CopilotKitV2PlanControl threadId="same-thread" requestScope="org-a/same-thread" onRunDispatchStart={()=>({complete:completeA,fail})}/>);
+ fireEvent.click(await screen.findByTestId("chat-task-workbench-failure-retry-step"));
+ await waitFor(()=>expect(api.retryPlanStep).toHaveBeenCalledTimes(1));
+ view.rerender(<CopilotKitV2PlanControl threadId="same-thread" requestScope="org-b/same-thread" onRunDispatchStart={()=>({complete:completeB,fail})}/>);
+ await waitFor(()=>expect(screen.getByTestId("chat-task-workbench-failure-retry-step")).not.toBeDisabled());
+ fireEvent.click(screen.getByTestId("chat-task-workbench-failure-retry-step"));await waitFor(()=>expect(api.retryPlanStep).toHaveBeenCalledTimes(2));
+ await act(async()=>{if(kind==="resolve")doneA({runId:"old-run"});else failA(new Error("old failure"));});
+ expect(completeA).not.toHaveBeenCalled();expect(fail).not.toHaveBeenCalled();expect(screen.getByTestId("chat-task-workbench-failure-retry-step")).toBeDisabled();
+ await act(async()=>{doneB({runId:"new-run"});});expect(completeB).toHaveBeenCalledWith("new-run");
 });

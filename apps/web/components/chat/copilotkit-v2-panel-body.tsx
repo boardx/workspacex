@@ -3,7 +3,8 @@ import { ownedRunError, restoredRunPhaseLabel, renderChatDisplayText, type ChatD
 import { useI18n } from "@/lib/i18n/provider";
 import { CopilotKitV2PanelView } from "./copilotkit-v2-panel-view";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { notifyCreditFailure } from "@/lib/credit-guidance";
+import { agentRunCreditFailure } from "@/lib/credit-guidance";
+import {useChatAttemptErrors} from "@/lib/chat-workbench/use-chat-attempt-errors";
 import { useChatStreamSlots } from "@/components/chat/chat-stream-slots";
 import { useChatHistoryPreview } from "@/lib/use-chat-history-preview";
 import { useComposerDraft } from "@/lib/chat-workbench/use-composer-draft";
@@ -69,7 +70,7 @@ import { createVoiceThreadLifecycle, mergePersistedVoiceTurns } from "@/componen
 
 
 
-import { getStoredSessionToken } from "@/lib/api-client";
+import { ApiError, getStoredSessionToken } from "@/lib/api-client";
 import { listThreadAttachments, type ChatAttachment, type ListThreadAttachmentsOut } from "@/lib/live-chat";
 // issue #2694 修复——`PERSONA_SUMMARY_AUTHOR_ID` 是后端/前端共认的单一事实源
 // （见 `packages/contracts/src/chat.ts` 该常量的文件头注），不在这里另写一份字面量。
@@ -256,6 +257,11 @@ function useCopilotKitV2PanelController({
    * 权威读才知道成因，这个 ref 保证那句迟到的文案只会盖回它自己那一轮的横幅。
    */
   const bannerRunRef = React.useRef<string | null>(null);
+  const attemptErrors = useChatAttemptErrors(JSON.stringify([orgId, initialChatThreadId ?? threadId]), (reason) => {
+    if (reason === "settled") setError(current => typeof current === "object" && current !== null && "kind" in current && current.kind === "owned-run-error" ? null : current);
+    else { setError(null); setNotice(null); }
+    bannerRunRef.current = null;
+  });
   /**
    * issue #3367 第 ③ 类 —— 「这条 run 其实还在等人批」这一事实的落点。
    *
@@ -407,7 +413,9 @@ function useCopilotKitV2PanelController({
             ? (errorContext as { runtimeErrorCode?: unknown }).runtimeErrorCode
             : undefined;
         const code_ = typeof runtimeCode === "string" ? runtimeCode : runError.message;
-        notifyCreditFailure({ code: code_ });
+        const attempt = attemptErrors.identity;
+        const cause = runReportContextRef.current.runId;
+        if (attempt.external || !attemptErrors.fail(attempt, {code:code_}, cause)) return;
         // issue #2779 —— 这条横幅此前把原始 code/message 完全吞掉：一旦
         // `describeCopilotkitV2RunError` 落进未登记兜底文案（"这次执行没有成功，
         // 请重试或联系管理员"），排障的人连"到底是哪个 code"都无从查起——这正是
@@ -435,7 +443,7 @@ function useCopilotKitV2PanelController({
         void resolveLiveRunErrorOutcome({
           runId: causeRunId, code: code_, bearer: getStoredSessionToken() ?? undefined,
         }).then((outcome) => {
-          if (bannerRunRef.current !== causeRunId) return;
+          if (bannerRunRef.current !== causeRunId || !attemptErrors.owns(attempt)) return;
           if (outcome.kind === "reattach_approval") {
             /*
              * issue #3367 第 ③ 类 —— 权威读确认这条 run **仍停在** `awaiting_tool_permission`
@@ -462,6 +470,7 @@ function useCopilotKitV2PanelController({
             setNotice({ key: "chatComposer.runtime.recovered" });
             return;
           }
+          if (outcome.creditFailure) attemptErrors.fail(attempt, outcome.creditFailure, causeRunId);
           setError(ownedRunError(outcome.text));
         });
         // issue #2797 -- 结构化上报到后端（`system-error-logs` 契约束),供巡检按
@@ -474,7 +483,7 @@ function useCopilotKitV2PanelController({
       },
     });
     return unsubscribe;
-  }, [copilotkit, threadId]);
+  }, [attemptErrors, copilotkit, threadId]);
 
   // DA-13 -- subscribe to the agent instance directly (not scoped to a single
   // `runAgent()` call) so a file created in one turn keeps receiving content deltas in
@@ -861,6 +870,12 @@ function useCopilotKitV2PanelController({
 
   // Restore final messages with their persisted identities; errors remain visible.
   const handleRunRestored = React.useCallback((outcome: RunRestoreOutcome) => {
+    const attempt = attemptErrors.identity;
+    if (!attemptErrors.owns(attempt)) return;
+    if (outcome.kind === "settled") {
+      if (!attemptErrors.accepts(attempt, outcome.view.runId)) return;
+      if (pendingRunId === outcome.view.runId) attemptErrors.bind(attempt, outcome.view.runId);
+    }
     if (outcome.kind === "gave-up") {
       setError(
         outcome.reason === "auth-expired"
@@ -878,9 +893,11 @@ function useCopilotKitV2PanelController({
       // issue #3211 ①：run 视图带成因，横幅就说得出「为什么」，不只是「失败了」。
       // issue #3261：这句话的算法搬进 `describeFailedRunBanner`——失败当场那条路径
       // 补完权威读之后用的是**同一个**函数，两条路径不再各算一遍。
+      attemptErrors.fail(attempt, agentRunCreditFailure(outcome.view.error, outcome.view.creditFailure), outcome.view.runId);
       bannerRunRef.current = outcome.view.runId ?? null;
       setError(ownedRunError(describeFailedRunBanner(outcome.view)));
     }
+    if (outcome.view.status === "succeeded") attemptErrors.settle(attempt, outcome.view.runId);
     let cancelled = false;
     (async () => {
       const bearer = getStoredSessionToken() ?? undefined;
@@ -942,11 +959,12 @@ function useCopilotKitV2PanelController({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agent, hydrateActiveFiles, onMessageSent, projectId, registerHydrated]);
+  }, [agent, hydrateActiveFiles, onMessageSent, projectId, registerHydrated, attemptErrors.identity, pendingRunId]);
   const runRestore = useCopilotKitV2RunRestore(
     pendingRunId,
     getStoredSessionToken() ?? undefined,
     handleRunRestored,
+    attemptErrors.identity.attempt,
   );
 
   const bindTraceMessages = runTrace.bindMessages;
@@ -1344,6 +1362,12 @@ function useCopilotKitV2PanelController({
       phase: runProgress.stage,
     };
   });
+  React.useEffect(() => {
+    const status = runTrace.liveSignal.event;
+    const token = attemptErrors.current.current;
+    if (status && !token.external && token.afterGeneration !== undefined && runTrace.liveSignal.generation > token.afterGeneration && ["queued", "running"].includes(status.status) && attemptErrors.accepts(token, status.runId)) attemptErrors.bind(token, status.runId);
+    if (status?.status === "succeeded") attemptErrors.settle(token, status.runId);
+  }, [runTrace.liveSignal, attemptErrors]);
   const cancellation = useRunCancellation(interjectionRun.runId ?? activeTrace?.[0] ?? latestCancelledRun(runTrace.events), sessionToken);
   React.useEffect(() => { if (cancellation.failure) setError(cancellation.failure); }, [cancellation.failure]);
   const restoredPhaseLabel = restoredRunPhaseLabel(runRestore.status, runRestore.isRestoring);
@@ -1448,6 +1472,7 @@ function useCopilotKitV2PanelController({
       // 附件行的 spinner/进度条同一份诚实约束（旧轨道 `ChatAttachMaterialModal`
       // 「加入这一轮」按钮同一条禁用逻辑）。
 
+      const sendAttempt = attemptErrors.begin(false, runTrace.liveSignal.generation);
       const acceptedBefore = acceptedRunEpoch.current;
       sendFailedRef.current = false; setRecoveryDiagnostic(null);
       setError(null);
@@ -1527,6 +1552,7 @@ function useCopilotKitV2PanelController({
         // issue #2779 —— 同上面 `onError` 订阅那条注释：只补诊断日志，不改用户可见
         // 文案。这条分支此前把 `e` 完全丢弃，落进通用兜底文案时排障者连原始异常
         // 是什么都看不到。
+        if (!attemptErrors.owns(sendAttempt)) return;
         console.error("[copilotkit-v2] runAgent() threw", e);
         const thrownCode = e instanceof Error ? e.message : "COPILOTKIT_RUNTIME_RUN_FAILED";
         setError(ownedRunError(describeCopilotkitV2RunError(thrownCode)));
@@ -1543,9 +1569,10 @@ function useCopilotKitV2PanelController({
         void resolveLiveRunErrorOutcome({
           runId: thrownRunId, code: thrownCode, bearer: getStoredSessionToken() ?? undefined,
         }).then((outcome) => {
-          if (bannerRunRef.current !== thrownRunId) return;
+          if (bannerRunRef.current !== thrownRunId || !attemptErrors.owns(sendAttempt)) return;
           if (outcome.kind === "recovered") { setError(null); setNotice({ key: "chatComposer.runtime.recovered" }); return; }
           if (outcome.kind === "reattach_approval") { setError(null); setReattachApproval({ runId: outcome.runId }); return; }
+          if (outcome.creditFailure) attemptErrors.fail(sendAttempt, outcome.creditFailure, thrownRunId);
           setError(ownedRunError(outcome.text));
         });
         // issue #2797 -- 同上面 `onError` 订阅那条注释：结构化上报,fire-and-forget。
@@ -1553,7 +1580,7 @@ function useCopilotKitV2PanelController({
         return acceptedRunEpoch.current > acceptedBefore;
       }
     },
-    [agent, copilotkit, inputDraft, setInputDraft, attach, attachmentThreadId, onMessageSent, acceptedRunEpoch, projectId, resolveAttachmentThreadId, realtimeContext, sendIsBlocked, scrollMessagesToBottom],
+    [attemptErrors, runTrace.liveSignal.generation, agent, copilotkit, inputDraft, setInputDraft, attach, attachmentThreadId, onMessageSent, acceptedRunEpoch, projectId, resolveAttachmentThreadId, realtimeContext, sendIsBlocked, scrollMessagesToBottom],
 
   );
 
@@ -1870,6 +1897,19 @@ function useCopilotKitV2PanelController({
     setInputDraft,
     setLivePlan,
     setMountedSkillsCount,
+    beginRunDispatch: () => {
+      const token = attemptErrors.begin(true);
+      setPendingRunId(null);
+      return {
+        complete: (runId: string) => { if (attemptErrors.bind(token, runId)) setPendingRunId(runId); },
+        fail: (failure: unknown) => {
+          if (!attemptErrors.owns(token)) return;
+          const code = failure instanceof ApiError ? failure.reasonCode : null;
+          attemptErrors.fail(token, failure instanceof ApiError ? failure.raw : {code});
+          setError(ownedRunError(describeCopilotkitV2RunError(code ?? "PLAN_ACTION_FAILED")));
+        },
+      };
+    },
     setPendingRunId,
     setPlanStepRecoveryOffered,
     setQueuedReply,

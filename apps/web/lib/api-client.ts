@@ -152,6 +152,7 @@ export class ApiError extends Error {
 }
 
 export interface ApiRequestOptions {
+  readonly notifyCredit?: boolean;
   /** Optional local response-contract check; does not change the request. */
   readonly expectedStatus?: number;
   /**
@@ -271,7 +272,7 @@ export async function apiRequest<T>(path: string, opts: ApiRequestOptions = {}):
 
   if (!res.ok) {
     const reasonCode = extractReasonCode(json);
-    notifyCreditFailure(json);
+    if (opts.notifyCredit !== false) notifyCreditFailure(json);
     throw new ApiError(res.status, reasonCode, json);
   }
   if (opts.expectedStatus !== undefined && res.status !== opts.expectedStatus) {
