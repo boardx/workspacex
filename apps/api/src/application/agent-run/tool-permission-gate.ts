@@ -43,7 +43,7 @@ import type { RestorableInterrupt } from "@repo/contracts/agent-interrupts";
 import type { OrgId } from "../../domain/org-id";
 import { classifyToolCallRisk, type SkillRiskEntry } from "../../domain/agent-run/skill-risk-level";
 import {
-  DOCUMENT_GENERATION_AUTO_APPROVE_GRANT_ADDRESS, NATIVE_L2_MANIFEST_TOOL_NAME, resolveDocumentGenerationGrantAddress,
+  DOCUMENT_GENERATION_AUTO_APPROVE_DISABLED_ADDRESS, NATIVE_L2_MANIFEST_TOOL_NAME, resolveDocumentGenerationGrantAddress,
 } from "../../domain/agent-run/document-generation-skills";
 import type { ExecuteAgentRunDeps } from "./execute-run";
 import { record } from "./record-run-step";
@@ -173,8 +173,8 @@ export async function handleInterruptedToolCall(
    * 有三条路径：
    *   1. #3590：已钉住的 L0 文档 skill 派生 execute 且命中严格命令 allowlist，
    *      继承父调用的 L0 安全边界；
-   *   2. composer 开关（`DOCUMENT_GENERATION_AUTO_APPROVE_GRANT_ADDRESS` 这条组织级
-   *      standing grant）打开 —— 全程零确认；
+   *   2. scoped document auto-approval defaults on unless the organization has
+   *      DOCUMENT_GENERATION_AUTO_APPROVE_DISABLED_ADDRESS;
    *   3. 用户此前已经对**同一个 skill**批过"本次 run 内都允许"/"以后都允许"
    *      （`hasGrant(..., grantAddress)`，地址已经按 skill 收紧，不会跨 skill 泄漏）。
    * 归因不成立（`grantAddress === null`）⇒ 一律退回裸 `interrupted.toolName` 寻址，
@@ -192,8 +192,10 @@ export async function handleInterruptedToolCall(
   const grantAddress = resolveDocumentGenerationGrantAddress(
     interrupted.toolName, interrupted.skillStableName, skillRisks, priorToolCallSteps, interrupted.argsSummary,
   );
+  // Default on only for attributed document calls; unavailable policy storage fails closed.
   const documentGenerationAutoApproved = grantAddress !== null
-    && (await deps.toolPermissionGrants?.hasGrant(orgId, runId, DOCUMENT_GENERATION_AUTO_APPROVE_GRANT_ADDRESS) ?? false);
+    && deps.toolPermissionGrants !== undefined
+    && !(await deps.toolPermissionGrants.hasGrant(orgId, runId, DOCUMENT_GENERATION_AUTO_APPROVE_DISABLED_ADDRESS));
   /*
    * issue #3590 —— 锁定 L0 文档 skill 派生出来的原生 execute 继承父调用的安全边界。
    *

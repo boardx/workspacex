@@ -178,4 +178,5 @@ chat 只负责把执行状态（含工具调用）渲染出来、把用户输入
 
 - 2026-11-08：聊天技能选择器的 Work Skill 编号须复用 work-skill-display-copy 的作者名称；用途描述读取已发布 manifest，不能把用于源码编辑入口识别的 duty 维护标记改掉。通过可选 taskDescription 随同原有授权目录返回，候选搜索与已选标签共用只读展示投影，保留稳定 ID/版本/挂载命令（#6408，docs/evidence/chat-skill-display-6408/README.md）。
 
+- 2026-11-09 (#6458): Composer document approval and realtime conversation entries are temporarily commented out; scoped document approval defaults on server-side. Explicit opt-out remains org-scoped; ordinary voice input remains mounted.
 - 2026-11-09（#6456）：计划控制的 retry/confirm/resume 走服务端续跑，不经过 composer send。错误提示须在 POST 前建立组织/线程/attempt 所有权，旧 restore/HTTP 失败不可重新广播全局 Credit；成功只清理已绑定同 run 的宿主错误，保留独立取消错误。StrictMode effect 重放与延迟 POST/restore 都须用真实宿主测试覆盖。

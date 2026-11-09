@@ -36,7 +36,7 @@ import { PgAgentRunRepository } from "../../src/infrastructure/agent-run/pg-agen
 import { PgToolPermissionGrantRepository } from "../../src/infrastructure/agent-run/pg-tool-permission-grant-repository";
 import { handleInterruptedToolCall } from "../../src/application/agent-run/tool-permission-gate";
 import type { ExecuteAgentRunDeps } from "../../src/application/agent-run/execute-run";
-import { DOCUMENT_GENERATION_AUTO_APPROVE_GRANT_ADDRESS } from "../../src/domain/agent-run/document-generation-skills";
+import { DOCUMENT_GENERATION_AUTO_APPROVE_DISABLED_ADDRESS } from "../../src/domain/agent-run/document-generation-skills";
 
 const ORG = "org-doc-skill-scoped-3440";
 const org = toOrgId(ORG);
@@ -112,6 +112,7 @@ it("② (skill_name, tool_name) 寻址：批准 pdf-create 的 call_skill「本 
   const repo = new PgAgentRunRepository(db);
   const grants = new PgToolPermissionGrantRepository(db);
 
+  await grants.grantStanding(org, DOCUMENT_GENERATION_AUTO_APPROVE_DISABLED_ADDRESS, "doc-skill-user");
   // 用户第一次面对 pdf-create 的 call_skill 中断，选「本次 run 内都允许」。
   await handleInterruptedToolCall(deps(repo, grants), org, RUN,
     { toolName: "call_skill", argsSummary: "{\"skill_stable_name\":\"pdf-create\"}", skillStableName: "pdf-create" }, ledger());
@@ -123,7 +124,7 @@ it("② (skill_name, tool_name) 寻址：批准 pdf-create 的 call_skill「本 
   const granted = await asApp(ORG, async (c) => (await c.query(
     "SELECT tool_name FROM tool_permission_grants WHERE org_id=$1", [ORG],
   )).rows);
-  expect(granted, "授权必须按 (skill,tool) 收紧地址落库，不是裸 call_skill").toEqual([{ tool_name: "call_skill:pdf-create" }]);
+  expect(granted.filter((g) => g.tool_name !== DOCUMENT_GENERATION_AUTO_APPROVE_DISABLED_ADDRESS), "授权必须按 (skill,tool) 收紧地址落库，不是裸 call_skill").toEqual([{ tool_name: "call_skill:pdf-create" }]);
 
   // run 回到 running，模拟 executor 恢复执行；同一个 run 里现在轮到 docx-create 的 call_skill。
   await seedRunningRun();
@@ -137,7 +138,6 @@ it("② (skill_name, tool_name) 寻址：批准 pdf-create 的 call_skill「本 
 it("① 最多一次（真实反例，#3437）：pdf-create 被真实调用后，/workspace 下的 node assistant-capabilities.js 必须被同一次确认覆盖", async () => {
   const repo = new PgAgentRunRepository(db);
   const grants = new PgToolPermissionGrantRepository(db);
-  await grants.grantStanding(org, DOCUMENT_GENERATION_AUTO_APPROVE_GRANT_ADDRESS, "doc-skill-user");
 
   // 复刻 baseline1-timeline.json 的真实第一步：模型读 pdf-create 的 SKILL.md——这是
   // "pdf-create 被实际调用了"的信号，不是"挂载了 pdf-create"。
@@ -160,7 +160,6 @@ it("① 最多一次（真实反例，#3437）：pdf-create 被真实调用后�
 it("③(b) 调用口径安全闸：同一 run 里 pdf-create 已获批准，之后又真实调用了另一个非 L0 skill——后续 execute 依旧必须询问", async () => {
   const repo = new PgAgentRunRepository(db);
   const grants = new PgToolPermissionGrantRepository(db);
-  await grants.grantStanding(org, DOCUMENT_GENERATION_AUTO_APPROVE_GRANT_ADDRESS, "doc-skill-user");
 
   await appendToolCallStep(repo, "read_file", "{\"file_path\":\"/skills/pdf-create/SKILL.md\",\"limit\":\"1000\"}");
 
@@ -188,7 +187,6 @@ it("③(b) 调用口径安全闸：同一 run 里 pdf-create 已获批准，之�
 it("③(c) 混挂但没有被这个 run 实际调用过的其它非 L0 skill 不影响归因（解决 21-挂载假阴性）", async () => {
   const repo = new PgAgentRunRepository(db);
   const grants = new PgToolPermissionGrantRepository(db);
-  await grants.grantStanding(org, DOCUMENT_GENERATION_AUTO_APPROVE_GRANT_ADDRESS, "doc-skill-user");
 
   await appendToolCallStep(repo, "read_file", "{\"file_path\":\"/skills/pdf-create/SKILL.md\",\"limit\":\"1000\"}");
 
@@ -205,7 +203,6 @@ it("③(c) 混挂但没有被这个 run 实际调用过的其它非 L0 skill 不
 it("③(a) 清单之外仍会问：composer 开关打开，但目标 skill 不在锁定清单内——不豁免", async () => {
   const repo = new PgAgentRunRepository(db);
   const grants = new PgToolPermissionGrantRepository(db);
-  await grants.grantStanding(org, DOCUMENT_GENERATION_AUTO_APPROVE_GRANT_ADDRESS, "doc-skill-user");
 
   const outcome = await handleInterruptedToolCall(deps(repo, grants), org, RUN,
     { toolName: "call_skill", argsSummary: "{\"skill_stable_name\":\"some-other-skill\"}", skillStableName: "some-other-skill" }, ledger());
@@ -240,10 +237,22 @@ it("没有可验证 skill 来源的直接 execute 仍 fail-closed 等待 L2 审�
 it("工具历史虽触达文档 skill，但本 run 没有钉住对应 L0 版本时仍 fail-closed", async () => {
   const repo = new PgAgentRunRepository(db);
   const grants = new PgToolPermissionGrantRepository(db);
+  await grants.grantStanding(org, DOCUMENT_GENERATION_AUTO_APPROVE_DISABLED_ADDRESS, "doc-skill-user");
   await appendToolCallStep(repo, "read_file", "{\"file_path\":\"/skills/pdf-create/SKILL.md\",\"limit\":\"1000\"}");
 
   const outcome = await handleInterruptedToolCall(deps(repo, grants), org, RUN,
     { toolName: "execute", argsSummary: "{\"command\":\"cd /workspace && node gen.js\"}" }, ledger());
   expect(outcome.autoApproved).toBe(false);
   expect((await runRow()).status).toBe("awaiting_tool_permission");
+});
+
+
+it.each(["pdf-create", "docx-create", "xlsx-create", "pptx-create"])("defaults to automatic approval for %s without any stored grant", async (skillStableName) => {
+  const repo = new PgAgentRunRepository(db);
+  const grants = new PgToolPermissionGrantRepository(db);
+  expect(await grants.listStanding(org)).toEqual([]);
+  const result = await handleInterruptedToolCall(deps(repo, grants), org, RUN,
+    { toolName: "call_skill", argsSummary: JSON.stringify({ skill_stable_name: skillStableName }), skillStableName }, ledger());
+  expect(result.autoApproved).toBe(true);
+  expect((await runRow()).status).toBe("queued");
 });

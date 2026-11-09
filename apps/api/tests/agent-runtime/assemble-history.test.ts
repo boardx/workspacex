@@ -7,7 +7,8 @@
  * ——这是「默认关、生产零行为变化」的机械保证。
  */
 import { describe, expect, it, vi } from "vitest";
-import { assembleHistory, trimHistoryToBudget } from "../../src/application/agent-run/execute-run";
+import { assembleHistory } from "../../src/application/agent-run/execute-run";
+import { trimHistoryToBudget } from "../../src/application/agent-run/trim-history-to-budget";
 import type { ThreadHistoryMessage } from "../../src/application/agent-run/ports";
 
 const msg = (role: ThreadHistoryMessage["role"], content: string): ThreadHistoryMessage =>

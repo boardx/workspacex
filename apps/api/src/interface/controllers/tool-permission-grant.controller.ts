@@ -7,6 +7,7 @@ import { IDENTITY_REPOSITORY, type IdentityRepository } from "../../application/
 import {
   TOOL_PERMISSION_GRANT_STORE, type ToolPermissionGrantStore,
 } from "../../application/agent-run/tool-permission-grants";
+import { DOCUMENT_GENERATION_AUTO_APPROVE_DISABLED_ADDRESS } from "../../domain/agent-run/document-generation-skills";
 import { toOrgId } from "../../domain/org-id";
 import type { Principal } from "../../domain/principal";
 import { assertPrincipal } from "../../domain/principal";
@@ -51,7 +52,9 @@ export class ToolPermissionGrantController {
       const rows = await this.grants.listStanding(toOrgId(orgId));
       // 出门过契约的 `.strict()`：没有这一句，服务端可以发出契约没描述的字段而所有门控
       // 保持绿色——这里多一个 `run_id`/`scope` 就是在泄露另一档授权的存在。
-      return C.operations.listStandingToolGrants.out.parse(rows);
+      return C.operations.listStandingToolGrants.out.parse(
+        rows.filter((row) => row.toolName !== DOCUMENT_GENERATION_AUTO_APPROVE_DISABLED_ADDRESS),
+      );
     });
   }
 
@@ -64,6 +67,11 @@ export class ToolPermissionGrantController {
     const orgId = await this.requireOrgAdmin(principal);
     assertPrincipal(principal);
     return this.run(async () => {
+      // Policy opt-outs are not permissions; deleting one would increase authority.
+      const row = (await this.grants.listStanding(toOrgId(orgId))).find((candidate) => candidate.grantId === grantId);
+      if (!row || row.toolName === DOCUMENT_GENERATION_AUTO_APPROVE_DISABLED_ADDRESS) {
+        throw new NotFoundException({ reasonCode: "GRANT_NOT_FOUND" });
+      }
       const revoked = await this.grants.revokeStanding(toOrgId(orgId), grantId, principal.userId);
       // 不存在 / 已被另一位管理员撤销 —— 对调用方是同一件事，且都不是失败：界面
       // 重新拉一次清单即可。用 404 而不是 200，是为了不让"什么也没撤掉"看起来像撤掉了。

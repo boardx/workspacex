@@ -7,7 +7,7 @@
  * neighbour).
  */
 import { describe, expect, it } from "vitest";
-import { trimHistoryToBudget } from "../../src/application/agent-run/execute-run";
+import { trimHistoryToBudget } from "../../src/application/agent-run/trim-history-to-budget";
 import type { ThreadHistoryMessage } from "../../src/application/agent-run/ports";
 
 const msg = (role: ThreadHistoryMessage["role"], content: string): ThreadHistoryMessage =>
