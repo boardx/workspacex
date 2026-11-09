@@ -500,8 +500,7 @@ export function PopoverSelect({
           type="button" size="xs" variant="outline" data-testid={testid}
           aria-disabled={disabled}
           aria-label={t("orgMembers.currentSelection", { label: ariaLabel, value: currentLabel })}
-          onPointerDown={(event) => event.preventDefault()}
-          onClick={() => { if (!disabled) setOpen((previous) => !previous); }}
+          onPointerDown={(event) => { if (disabled) event.preventDefault(); }}
           className={cn(
             "h-8 w-full justify-between gap-1 rounded-md pl-2.5 pr-2 text-12 font-normal",
             disabled && "cursor-not-allowed bg-disabled text-disabled-foreground",

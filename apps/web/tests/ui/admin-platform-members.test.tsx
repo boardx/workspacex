@@ -127,7 +127,7 @@ describe("PlatformMembersScreen", () => {
     render(<PlatformMembersScreen state="default" />);
 
     const trigger = await screen.findByTestId("admin-platform-member-u-linke-org-org-a-role");
-    fireEvent.click(trigger);
+    fireEvent.pointerDown(trigger, {button:0,ctrlKey:false,pointerType:"mouse"});
     fireEvent.click(await screen.findByTestId("admin-platform-member-u-linke-org-org-a-role-option-admin"));
 
     await waitFor(() => expect(trigger).toHaveTextContent("管理员"));
@@ -145,7 +145,7 @@ describe("PlatformMembersScreen", () => {
     render(<PlatformMembersScreen state="default" />);
 
     const trigger = await screen.findByTestId("admin-platform-member-u-linke-org-org-b-role");
-    fireEvent.click(trigger);
+    fireEvent.pointerDown(trigger, {button:0,ctrlKey:false,pointerType:"mouse"});
     fireEvent.click(await screen.findByTestId("admin-platform-member-u-linke-org-org-b-role-option-consultant"));
 
     const error = await screen.findByTestId("admin-platform-member-u-linke-org-org-b-role-error");
