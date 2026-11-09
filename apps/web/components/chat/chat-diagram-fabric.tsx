@@ -5,7 +5,7 @@ import { Canvas as FabricCanvas } from "fabric";
 import {
   markdownToCanvas,extractModel,type DiagramModel,
   fitToContent,
-  wrapAsMermaidBlock,
+  modelToMarkdown, wrapAsMermaidBlock,
 } from "@repo/fabric-markdown";
 import { resolveDiagramType } from "@/lib/mermaid-diagram-type";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { ChatDiagramCanvasModal, type DiagramSavedSource } from "./chat-diagram-canvas-modal";
 import { fetchLatestSavedDiagramSource } from "@/lib/chat/diagram-readback";
 import { landAsArtifact, describeMessageFailure } from "@/lib/live-chat";
+import { useBoardHandoffSource } from "@/lib/chat/board-handoff-source";
 import { ChatGraphVersionHistory } from "./chat-graph-version-history";
 import { useSampledFenceCode } from "@/lib/canvas/streaming-fence-sample";
 import {ChatDiagramBoardHandoff}from'./chat-diagram-board-handoff';import{useOptionalSession}from'@/components/session/session-provider';
@@ -318,6 +319,8 @@ export function ChatDiagramFabric({
     return () => io.disconnect();
   }, []);
 
+  const prepareBoardSource=useBoardHandoffSource(canQuickSave && closed && renderedModel ? {threadId:threadId!,messageId:messageId!,projectId,bearer:bearer!,source:modelToMarkdown(renderedModel),title:'Board diagram'} : undefined);
+
   return (
     <>
       <DiagramCanvasBody
@@ -346,7 +349,8 @@ export function ChatDiagramFabric({
         canShowHistory={canQuickSave}
         onOpenHistory={() => setHistoryOpen(true)}
         onRenderedModel={setRenderedModel}
-        boardHandoff={<ChatDiagramBoardHandoff model={renderedModel} artifactId={savedSource?.artifactId} sourceRevision={savedSource?.immutableRevision} orgId={session?.session?.currentOrgId}/>}
+        boardHandoff={<ChatDiagramBoardHandoff projectId={projectId} model={closed ? renderedModel : null}
+          prepareSource={prepareBoardSource} artifactId={savedSource?.artifactId} sourceRevision={savedSource?.immutableRevision} orgId={session?.session?.currentOrgId}/>}
       />
 
       {historyOpen && threadId !== undefined && (

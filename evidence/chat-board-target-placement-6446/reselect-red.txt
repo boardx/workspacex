@@ -1,0 +1,193 @@
+[stack-admission] load1=2.53 cores=10 perCore=0.25 running=0/2
+[test-isolation] id=run-mw895ine-2bd7bf7a-7c4cd4c380a3 db=wsx_7c4cd4c380a3c3a2ef33 compose=wsx-7c4cd4c380a3c3a2ef33 pg=20987 redis=21987 api=24987 web=25987 sandbox=26987 model=27987 deep-agent=28987 asr=29987 vision=30987 loopback-sandbox=31987 mail=19987
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/2e5d/workspacex/apps/web
+
+ ❯ tests/whiteboard/chat-board-handoff-retry.test.tsx (17 tests | 1 failed) 377ms
+   × keeps the loaded placement when the current Board is selected again 121ms
+     → Unable to find an element by: [data-testid="chat-board-placement-preview"]
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mstyle[39m=[32m""[39m
+[36m>[39m
+  [36m<div>[39m
+    [36m<button[39m
+      [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+      [33mdata-testid[39m=[32m"chat-diagram-insert-board"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [0m插入 Board[0m
+    [36m</button>[39m
+    [36m<div>[39m
+      [36m<div>[39m
+        [36m<h2>[39m
+          [0m插入到 Board[0m
+        [36m</h2>[39m
+        [36m<p>[39m
+          [0m选择当前组织的白板，在概览中拖动红框确认插入位置。[0m
+        [36m</p>[39m
+        [36m<button[39m
+          [33maria-expanded[39m=[32m"false"[39m
+          [33maria-haspopup[39m=[32m"menu"[39m
+          [33maria-label[39m=[32m"目标白板"[39m
+          [33mclass[39m=[32m"inline-flex h-8 min-w-[12rem] items-center justify-between gap-2 rounded-control border border-border bg-card px-3 text-13 text-card-foreground transition-all duration-base hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground data-[state=open]:ring-2 data-[state=open]:ring-ring"[39m
+          [33mdata-state[39m=[32m"closed"[39m
+          [33mdata-testid[39m=[32m"chat-board-target"[39m
+          [33mid[39m=[32m"radix-:r12:"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m""[39m
+          [36m>[39m
+            [0mBoard[0m
+          [36m</span>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-chevron-down h-4 w-4 shrink-0 text-muted-foreground"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m6 9 6 6 6-6"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</button>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex justify-end gap-2"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0m取消[0m
+          [36m</button>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-secondary text-secondary-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+            [33mdata-testid[39m=[32m"chat-board-handoff-confirm"[39m
+            [33mdisabled[39m=[32m""[39m
+          [36m>[39m
+            [0m确认插入[0m
+          [36m</button>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/whiteboard/chat-board-handoff-retry.test.tsx > keeps the loaded placement when the current Board is selected again
+TestingLibraryElementError: Unable to find an element by: [data-testid="chat-board-placement-preview"]
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mstyle[39m=[32m""[39m
+[36m>[39m
+  [36m<div>[39m
+    [36m<button[39m
+      [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+      [33mdata-testid[39m=[32m"chat-diagram-insert-board"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [0m插入 Board[0m
+    [36m</button>[39m
+    [36m<div>[39m
+      [36m<div>[39m
+        [36m<h2>[39m
+          [0m插入到 Board[0m
+        [36m</h2>[39m
+        [36m<p>[39m
+          [0m选择当前组织的白板，在概览中拖动红框确认插入位置。[0m
+        [36m</p>[39m
+        [36m<button[39m
+          [33maria-expanded[39m=[32m"false"[39m
+          [33maria-haspopup[39m=[32m"menu"[39m
+          [33maria-label[39m=[32m"目标白板"[39m
+          [33mclass[39m=[32m"inline-flex h-8 min-w-[12rem] items-center justify-between gap-2 rounded-control border border-border bg-card px-3 text-13 text-card-foreground transition-all duration-base hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground data-[state=open]:ring-2 data-[state=open]:ring-ring"[39m
+          [33mdata-state[39m=[32m"closed"[39m
+          [33mdata-testid[39m=[32m"chat-board-target"[39m
+          [33mid[39m=[32m"radix-:r12:"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m""[39m
+          [36m>[39m
+            [0mBoard[0m
+          [36m</span>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-chevron-down h-4 w-4 shrink-0 text-muted-foreground"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m6 9 6 6 6-6"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</button>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex justify-end gap-2"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0m取消[0m
+          [36m</button>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-secondary text-secondary-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+            [33mdata-testid[39m=[32m"chat-board-handoff-confirm"[39m
+            [33mdisabled[39m=[32m""[39m
+          [36m>[39m
+            [0m确认插入[0m
+          [36m</button>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/whiteboard/chat-board-handoff-retry.test.tsx:131:16
+    129|  fireEvent.keyDown(screen.getByTestId('chat-board-target'),{key:'Enter…
+    130|  fireEvent.click(await screen.findByRole('menuitemradio',{name:'Board'…
+    131|  expect(screen.getByTestId('chat-board-placement-preview')).toBeInTheD…
+       |                ^
+    132|  expect(screen.getByTestId('chat-board-handoff-confirm')).not.toBeDisa…
+    133| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 16 passed (17)
+   Start at  03:55:48
+   Duration  1.84s (transform 292ms, setup 101ms, collect 527ms, tests 377ms, environment 499ms, prepare 66ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/2e5d/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/whiteboard/chat-board-handoff-retry.test.tsx
+[timing] pnpm --filter web exec vitest run tests/whiteboard/chat-board-handoff-retry.test.tsx
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：3s
+  清理：0s
+  总计：3s

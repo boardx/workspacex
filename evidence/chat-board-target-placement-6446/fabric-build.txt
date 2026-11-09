@@ -1,0 +1,4 @@
+
+> @repo/fabric-markdown@0.1.0 build /Users/shenyangjun/.codex/worktrees/2e5d/workspacex/packages/fabric-markdown
+> tsc -p tsconfig.build.json
+

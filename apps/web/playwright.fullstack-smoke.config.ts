@@ -351,6 +351,7 @@ export default defineConfig({
       name: "seeded",
       testMatch: [
         "fullstack-smoke.spec.ts",
+        "chat-board-target-placement.spec.ts",
         "i18n-brain-navigation.spec.ts",
         "i18n-public-design-share.spec.ts",
         "i18n-about-me.spec.ts",

@@ -16,7 +16,7 @@ const digest = (value: string | Uint8Array) => createHash('sha256').update(value
 function fixture() {
   const doc = createWhiteboardDocument();
   executeCommands(doc, [{ type: 'create', object: { id: 'note', schemaVersion: 1, kind: 'sticky',
-    geometry: { x: 10, y: 20, width: 200, height: 100, rotation: 0 }, text: 'Canonical 中文', style: {}, parentId: null, orderKey: 'a' } }], 'test');
+    geometry: { x: 10, y: 20, width: 200, height: 100, rotation: 0 }, text: 'Canonical 中文', style: {fill:'#ffee44',stroke:'#112233'}, hidden:true, parentId: null, orderKey: 'a' } }], 'test');
   const snapshot = Y.encodeStateAsUpdate(doc); doc.destroy();
   const objectKey = `whiteboards/tenants/${digest(principal.orgId).slice(0, 32)}/boards/${boardId}/epochs/3/snapshots/7.yjs`;
   const state = { enabled: true, actorOrg: principal.orgId, delegatedBy: principal.userId, scopes: ['board:read'],
@@ -76,6 +76,13 @@ describe('versioned canonical object read', () => {
     await expect(f.service.readObjects(principal, boardId, { actorId: reason === 'unknown-actor' ? 'unknown' : 'agent' })).rejects.toMatchObject({ code: 'FORBIDDEN' });
     expect(f.objects.get).not.toHaveBeenCalled(); expect(f.decode).not.toHaveBeenCalled();
   });
+  it('opts into canonical appearance without content',async()=>{
+    const f=fixture();
+    const result=await f.service.placementPreview(principal,boardId,true);
+    expect(result.objects[0]).toMatchObject({appearance:{kind:'sticky',style:{fill:'#ffee44',stroke:'#112233'},hidden:true}});
+    expect(result.revision).toEqual({epoch:3,seq:7});
+    expect(JSON.stringify(result)).not.toContain('Canonical');
+  });
   it.each(['revoked-member', 'missing', 'other-board'] as const)('does not disclose content for %s', async reason => {
     const f = fixture();
     if (reason === 'revoked-member') f.state.member = false;
@@ -125,6 +132,13 @@ describe('human geometry-only placement preview',()=>{
   it('fails closed on corrupt durable snapshot bytes',async()=>{
     const f=fixture();f.state.tampered=true;
     await expect(f.service.placementPreview(principal,boardId)).rejects.toMatchObject({code:'DEPENDENCY_UNAVAILABLE'});
+  });
+  it.each([undefined,'0','true','1'])('only explicitly opts in for query %s',async appearance=>{
+    const placementPreview=vi.fn().mockResolvedValue({});
+    const db={withTenant:async(_org:unknown,work:(session:unknown)=>Promise<unknown>)=>work({query:async()=>({rows:[{allowed:true}]})})};
+    const controller=new WhiteboardOperationController({placementPreview} as never,{} as never,{} as never,db as never);
+    await controller.placementPreview(principal,boardId,appearance);
+    expect(placementPreview).toHaveBeenCalledWith(principal,boardId,appearance==='1');
   });
   it('applies the existing objects-read rate limit',async()=>{
     const placementPreview=vi.fn();

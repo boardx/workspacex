@@ -16,6 +16,9 @@ export function verifyRenderedDiagramLayout(untrusted: unknown): Layout {
   for (const object of layout.objects) if (object.kind === 'edge' && (!object.fromSourceId || !object.toSourceId || !ids.has(object.fromSourceId) || !ids.has(object.toSourceId))) throw new Error('BOARD_ARTIFACT_DANGLING_EDGE');
   return layout;
 }
+export function renderedDiagramObjectKind(source: Pick<Layout['objects'][number], 'kind' | 'style'>): WhiteboardObject['kind'] {
+  return source.kind === 'node' && source.style.shape === 'text' ? 'text' : source.kind === 'node' && source.style.shape === 'sticky' ? 'sticky' : source.kind === 'node' && source.style.shape === 'circle' ? 'ellipse' : source.kind === 'edge' ? 'connector' : source.kind === 'group' ? 'group' : source.kind === 'image' ? 'image' : source.kind === 'unknown' ? 'extension' : 'rectangle';
+}
 export function renderedLayoutToCommands(input: unknown, actor: WhiteboardOperationActor, boardOrgId: string, offset = { x: 0, y: 0 }): WhiteboardCommand[] {
   const layout = verifyRenderedDiagramLayout(input);
   if (layout.orgId !== boardOrgId || actor.orgId !== boardOrgId || !actor.scopes.includes('artifact:read') || !actor.scopes.includes('board:write')) throw new Error('BOARD_ARTIFACT_FORBIDDEN');
@@ -37,7 +40,7 @@ export function renderedLayoutToCommands(input: unknown, actor: WhiteboardOperat
     if (source.kind === 'node' && source.style.shape !== undefined && !['rect','round','stadium','diamond','circle','participant','text','sticky'].includes(String(source.style.shape))) throw new Error('BOARD_DIAGRAM_SHAPE_UNSUPPORTED');
     const object: WhiteboardObject = {
       id: id(source.sourceId), schemaVersion: 1,
-      kind: source.kind === 'node' && source.style.shape === 'text' ? 'text' : source.kind === 'node' && source.style.shape === 'sticky' ? 'sticky' : source.kind === 'node' && source.style.shape === 'circle' ? 'ellipse' : source.kind === 'edge' ? 'connector' : source.kind === 'group' ? 'group' : source.kind === 'image' ? 'image' : source.kind === 'unknown' ? 'extension' : 'rectangle',
+      kind: renderedDiagramObjectKind(source),
       geometry: { ...source.geometry, x: source.geometry.x + offset.x, y: source.geometry.y + offset.y }, text: source.text,
       style: { fill: typeof source.style.fill === 'string' ? source.style.fill : undefined, stroke: typeof source.style.stroke === 'string' ? source.style.stroke : undefined,
         color: typeof source.style.color === 'string' ? source.style.color : undefined, fontSize: typeof source.style.fontSize === 'number' ? source.style.fontSize : undefined },

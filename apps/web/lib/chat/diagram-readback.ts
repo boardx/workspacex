@@ -8,6 +8,7 @@
  * 退回原始消息文本初始化，与今天完全一致）。任何读回失败也归入 null：读回是增强路径，
  * 失败不应该挡住「打开原始版本」这条本来就存在的路。
  */
+import { isBoardTransportTitle } from "./board-transport-identity";
 import { getThreadArtifactSource, listThreadArtifacts } from "@/lib/live-chat";
 
 export interface SavedDiagramSource {
@@ -50,7 +51,10 @@ export async function fetchLatestSavedDiagramSource(input: {
     // citations 判定投影），不是「对象存储里有源字节」——modal 保存的 draft 恒无
     // citations ⇒ hasSource 恒 false，拿它过滤会把每一条保存版都滤掉（e2e 首轮实测
     // 就是这么红的）。字节本体每次落地都有（materializeArtifact 的 content.md）。
-    const candidates = list.items.filter((i) => i.messageId === input.messageId);
+    // Board handoff snapshots contain only the selected fence. They are transport
+    // sources, never message-level diagram edits: loading one into every Mermaid
+    // fence after reload would replace unrelated diagrams (PR #6449).
+    const candidates = list.items.filter((i) => i.messageId === input.messageId && !isBoardTransportTitle(i.title));
     const candidatesToRead = input.accepts ? [...candidates].reverse() : candidates.slice(-1);
     for (const candidate of candidatesToRead) {
       try {

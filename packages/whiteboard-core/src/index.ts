@@ -124,7 +124,7 @@ export {
 export { mapImportedBoard, type ImportedBoardItem, type ImportMappingIssue, type ImportMappingOutcome, type ImportMappingResult, type ImportSource } from './import-mapping';
 export { WhiteboardOperationKernel, digestWhiteboardObject, stableBoardDigest, type BoardHead, type BoardOperationAuthorizer, type OperationIds } from './operation-kernel';
 export { WhiteboardAIProposalManager, proposalCommands } from './ai-proposal';
-export { computeRenderedLayoutHash, renderedLayoutToCommands, verifyRenderedDiagramLayout } from './artifact-handoff';
+export { computeRenderedLayoutHash, renderedLayoutToCommands, renderedDiagramObjectKind, verifyRenderedDiagramLayout } from './artifact-handoff';
 export { WhiteboardPresentationSession, type PresentationState } from './presentation';
 export {compensateWhiteboardSnapshot} from './snapshot-compensation';
 

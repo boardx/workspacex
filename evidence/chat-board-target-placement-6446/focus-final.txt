@@ -1,0 +1,21 @@
+[stack-admission] load1=3.46 cores=10 perCore=0.35 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw8a3y1w-6db79260-81c564e7e7e4 db=wsx_81c564e7e7e4c52daef3 compose=wsx-81c564e7e7e4c52daef3 pg=20287 redis=21287 api=24287 web=25287 sandbox=26287 model=27287 deep-agent=28287 asr=29287 vision=30287 loopback-sandbox=31287 mail=19287
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/2e5d/workspacex/apps/web
+
+ ✓ tests/ui/board-artifact-focus.test.tsx (7 tests) 26ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  04:22:35
+   Duration  1.32s (transform 244ms, setup 103ms, collect 334ms, tests 26ms, environment 508ms, prepare 97ms)
+
+[timing] pnpm --filter web exec vitest run tests/ui/board-artifact-focus.test.tsx
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：2s
+  清理：0s
+  总计：2s

@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
+import { BoardMinimapScene } from "@/components/whiteboard/board-minimap-scene";
 import { BoardMinimap } from "@/components/whiteboard/board-minimap";
 import { BoardViewportControls } from "@/components/whiteboard/board-viewport-controls";
 import { minimapGeometry, minimapPan } from "@/components/whiteboard/board-minimap-geometry";
@@ -50,4 +51,38 @@ it("uses the Fabric top-left rotation origin for quarter-turn bounds",()=>{
  const rotated={...object,geometry:{x:500,y:100,width:200,height:100,rotation:90}};
  const map=minimapGeometry([rotated],{zoom:1,panX:0,panY:0,fitRequest:0},{width:100,height:100});
  expect(map.scale).toBeCloseTo(216/500);expect(map.offsetX).toBeCloseTo(12);
+});
+
+it("shares real object projection and overlay layering between the navigator and placement scenes", () => {
+ const ellipse = {...object,id:"ellipse",kind:"ellipse",geometry:{...object.geometry,x:100,rotation:90},style:{}} as MinimapObject;
+ const hidden = {...object,id:"hidden",hidden:true};
+ const objects=[object,ellipse,hidden];
+ const map=minimapGeometry(objects,viewport,frame);
+ const pressed=vi.fn();
+ render(<><BoardMinimap objects={objects} viewport={viewport} frame={frame} onViewportChange={vi.fn()}/><BoardMinimapScene objects={objects} map={map} data-testid="placement-scene" aria-label="插入位置预览" className="placement-thumbnail" onPointerDown={pressed}><rect data-testid="placement-overlay" x={12} y={24} width={40} height={30}/></BoardMinimapScene></>);
+ const navigator=screen.getByTestId("board-minimap");
+ const placement=screen.getByTestId("placement-scene");
+ const navigatorRects=Array.from(navigator.querySelectorAll("rect")).slice(0,-1);
+ const placementRects=Array.from(placement.querySelectorAll("rect")).slice(0,-1);
+ expect(placementRects).toHaveLength(2);
+ expect(placementRects.map(rect=>rect.outerHTML)).toEqual(navigatorRects.map(rect=>rect.outerHTML));
+ expect(placementRects[0]).toHaveAttribute("fill","#ffeeaa");
+ expect(placementRects[0]).toHaveAttribute("transform",`rotate(45 ${object.geometry.x*map.scale+map.offsetX} ${object.geometry.y*map.scale+map.offsetY})`);
+ expect(placementRects[1]).toHaveAttribute("rx","20");
+ expect(placementRects[1]).toHaveAttribute("fill","#a1a1aa");
+ expect(placementRects[1]).toHaveAttribute("stroke","#a1a1aa");
+ expect(placement.lastElementChild).toBe(screen.getByTestId("placement-overlay"));
+ expect(placement).toHaveAttribute("viewBox","0 0 240 160");
+ expect(placement).toHaveAttribute("preserveAspectRatio","none");
+ expect(placement).toHaveAccessibleName("插入位置预览");
+ expect(placement).toHaveClass("placement-thumbnail");
+ fireEvent.pointerDown(placement,{pointerId:1,button:0});
+ expect(pressed).toHaveBeenCalledOnce();
+});
+it("shows the shared empty scene when every object is hidden and retains overlay children", () => {
+ const objects=[{...object,hidden:true}];
+ render(<BoardMinimapScene objects={objects} map={minimapGeometry(objects,viewport,frame)} data-testid="empty-placement"><rect data-testid="empty-overlay"/></BoardMinimapScene>);
+ expect(screen.getByText("空白画布")).toBeVisible();
+ expect(screen.getByTestId("empty-placement").querySelectorAll("rect")).toHaveLength(1);
+ expect(screen.getByTestId("empty-overlay")).toBeVisible();
 });

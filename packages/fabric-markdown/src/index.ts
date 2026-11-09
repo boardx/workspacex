@@ -94,7 +94,11 @@ export function canvasToMarkdown(
   originalMarkdown?: string,
   blockIndex = 0,
 ): string {
-  const model = extractModel(canvas);
+  return modelToMarkdown(extractModel(canvas), originalMarkdown, blockIndex);
+}
+
+/** Serialize an already-rendered model without re-extracting or re-laying out geometry. */
+export function modelToMarkdown(model: DiagramModel, originalMarkdown?: string, blockIndex = 0): string {
   const code = modelToMermaid(model);
   const lang =
     model.kind === 'template'

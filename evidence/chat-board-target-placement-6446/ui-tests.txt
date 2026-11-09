@@ -1,0 +1,49 @@
+[stack-admission] load1=2.96 cores=10 perCore=0.30 running=1/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw8a11ne-a6eb13c9-61a97844a9a1 db=wsx_61a97844a9a1af30502e compose=wsx-61a97844a9a1af30502e pg=20324 redis=21324 api=24324 web=25324 sandbox=26324 model=27324 deep-agent=28324 asr=29324 vision=30324 loopback-sandbox=31324 mail=19324
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/2e5d/workspacex/apps/web
+
+ ✓ tests/ui/board-persisted-viewport.test.tsx (4 tests) 37ms
+ ✓ tests/ui/board-minimap.test.tsx (7 tests) 385ms
+   ✓ opens a minimap instead of silently fitting the board, and retains explicit fit 320ms
+ ✓ tests/ui/board-artifact-focus.test.tsx (7 tests) 50ms
+ ✓ tests/whiteboard/chat-board-placement-preview.test.tsx (2 tests) 98ms
+ ✓ tests/whiteboard/chat-board-handoff-retry.test.tsx (17 tests) 1039ms
+   ✓ keeps the loaded placement when the current Board is selected again 305ms
+ ✓ tests/whiteboard/board-insertion-placement.test.ts (2 tests) 4ms
+ ✓ tests/whiteboard/chat-board-source.test.ts (4 tests) 1623ms
+   ✓ serializes the actual rendered model to canonical source with its own fence language 1615ms
+ ✓ tests/ui/chat-canvas-literal-save.test.tsx (1 test) 368ms
+   ✓ preserves literal HTML entities in saved canvas text and the close callback 367ms
+ ✓ tests/ui/chat-fabric-auto-readback-on-mount.test.tsx (5 tests) 6220ms
+   ✓ 挂载滚入视口即读回（不必先点最大化） > A · mermaid 图 · ChatDiagramFabric > 有保存版：挂载即自动查回，只读预览校验吃到的是保存版内容 5948ms
+ ✓ tests/ui/chat-fabric-preview-syncs-after-save.test.tsx (3 tests) 6361ms
+   ✓ 退出全屏后，气泡只读预览要跟着最后一次保存变（不是原地不动） > mermaid 图 · ChatDiagramFabric > 最大化→改内容→保存（本地演示）→关闭 —— 只读预览重新校验时吃到的是编辑后的内容 6057ms
+ ✓ tests/ui/chat-canvas-fence-layout-source.test.tsx (5 tests) 1683ms
+   ✓ #2221：内置 key 的 layoutSource 判据 > 组织库里有 persona 行，但 layoutSource 是 builtin-derived（backfill 默认值）→ 仍用内置原生几何，不当作已自定义（这正是 #2221 之前的 bug：以前『有行就当自定义』） 661ms
+   ✓ #2221：内置 key 的 layoutSource 判据 > 同一 key 多版本，只有最高版本是 user-edited 时才采用它；最高版本若是 builtin-derived 则不采用，即便更早的版本曾是 user-edited（判据只看『用这个模板』此刻用的是哪一行，即最高版本） 491ms
+stderr | tests/ui/chat-canvas-fence.test.tsx > 与 mermaid 图表分派互不干扰 > 同一条消息里 mermaid 图表走图表分支、画布围栏走画布分支
+[fabric-markdown] mermaid db unavailable, falling back to SVG parsing TypeError: Cannot read properties of undefined (reading 'getDiagramFromText')
+    at Module.mermaidToModel (/Users/shenyangjun/.codex/worktrees/2e5d/workspacex/packages/fabric-markdown/src/mermaid-parser.ts:1108:73)
+    at Module.markdownToCanvas (/Users/shenyangjun/.codex/worktrees/2e5d/workspacex/packages/fabric-markdown/src/index.ts:77:13)
+
+ ✓ tests/ui/chat-canvas-fence.test.tsx (16 tests) 2949ms
+   ✓ 工作坊画布模板围栏在 chat 里被渲染（不再是代码块） > 模板库读取未完成时，画布外壳出现不代表来源已解析 877ms
+   ✓ 工作坊画布模板围栏在 chat 里被渲染（不再是代码块） > 内置 key 会查一次组织模板库（判断是否被自定义过）；没有自定义行时仍用原生几何——#2221 回归钉子：组织库里没有该 key 的自定义行时，不能因为「查了」就误判成已自定义 302ms
+   ✓ 组织自建模板 → 自动布局 > 查到组织模板 → 生成几何并渲染，标记来源为 org-generated 368ms
+   ✓ 组织自建模板 → 自动布局 > 一条消息里多个围栏只打一次 GET（列表有缓存） 549ms
+
+ Test Files  12 passed (12)
+      Tests  73 passed (73)
+   Start at  04:20:19
+   Duration  11.93s (transform 6.46s, setup 5.32s, collect 21.92s, tests 20.82s, environment 17.48s, prepare 2.04s)
+
+[timing] pnpm --filter web exec vitest run tests/ui/board-artifact-focus.test.tsx tests/ui/board-persisted-viewport.test.tsx tests/whiteboard/chat-board-source.test.ts tests/whiteboard/board-insertion-placement.test.ts tests/ui/board-minimap.test.tsx tests/whiteboard/chat-board-placement-preview.test.tsx tests/whiteboard/chat-board-handoff-retry.test.tsx tests/ui/chat-canvas-literal-save.test.tsx tests/ui/chat-fabric-auto-readback-on-mount.test.tsx tests/ui/chat-fabric-preview-syncs-after-save.test.tsx tests/ui/chat-canvas-fence-layout-source.test.tsx tests/ui/chat-canvas-fence.test.tsx
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：13s
+  清理：0s
+  总计：13s
