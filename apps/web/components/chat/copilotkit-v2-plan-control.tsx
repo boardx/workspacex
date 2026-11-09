@@ -186,6 +186,7 @@ function PlanControlSession(
   const { locale, t } = useI18n();
   const { ledger, refetch } = usePlanLedgerPolling(threadId, projectId);
   const [editing, setEditing] = React.useState(false);
+
   const [busy, setBusy] = React.useState(false);
   const [actionErrorCode, setActionErrorCode] = React.useState<string | null>(null);
   // Pause state comes only from the durable ledger, including after refresh.
@@ -309,8 +310,11 @@ function PlanControlSession(
    * 重新声明到第二处。宿主只许 `switch (surface.kind)`。
    * 由 `.harness/scripts/lint-plan-surface-single-source.test.ts` 机械门控。
    */
+  React.useEffect(() => { setEditing(false); }, [ledger?.phase]);
   const surface = ledger === null ? { kind: "hidden" as const, pinIndicator: false } : derivePlanSurface({
     preferInlinePlan,
+    canEditPlan: canWrite,
+    editing,
     phase: ledger.phase,
     runStatus: ledger.runStatus,
     stepCount: ledger.steps.length,
@@ -457,6 +461,7 @@ function PlanControlSession(
    */
   if (surface.kind === "hidden") return null;
   if (surface.kind === "indicator-only") return indicator;
+  if (surface.kind === "edit-entry") return <Button size="xs" variant="outline" data-testid={PLAN_CONTROL_EDIT_TOGGLE_TESTID} onClick={() => { setEditing(true); setCollapsed(false); }}><Pencil aria-hidden className="h-3 w-3" />{t("chatPlanControl.editPlan")}</Button>;
 
   // issue #2999 —— run 结束（done/cancelled）后**保留只读账本**，不再整块 return null。
   //

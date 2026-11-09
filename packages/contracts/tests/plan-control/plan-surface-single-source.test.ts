@@ -219,3 +219,11 @@ describe("inline chat plan owns passive display", () => {
     expect(derivePlanSurface(base({ preferInlinePlan: true, phase: "executing", runStatus: "running", stepCount: 3, ...overrides })).kind).toBe("panel");
   });
 });
+
+it('keeps only an edit entry for writable executing inline plans until editing starts', () => {
+ const input: PlanSurfaceInput={preferInlinePlan:true,canEditPlan:true,phase:'executing',runStatus:'running',stepCount:3,gateRequired:false,pendingApplyAtNextRun:false,orphanedConstraintCount:0,paused:false,pauseRequested:false,progressCompleted:1,progressTotal:3,hasActionError:false};
+ expect(derivePlanSurface(input).kind).toBe('edit-entry');
+ expect(derivePlanSurface({...input,editing:true}).kind).toBe('panel');
+ expect(derivePlanSurface({...input,canEditPlan:false}).kind).toBe('hidden');
+ expect(derivePlanSurface({...input,phase:'done',runStatus:'succeeded'}).kind).toBe('hidden');
+});

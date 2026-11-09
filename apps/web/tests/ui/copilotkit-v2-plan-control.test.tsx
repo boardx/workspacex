@@ -880,6 +880,14 @@ it("suppresses the passive bottom summary when this run already has an inline pl
 });
 
 
+it("keeps executing inline plans editable without a duplicate passive summary", async () => {
+  api.fetchPlanLedger.mockResolvedValue(ledgerWithSteps({ phase: "executing", runStatus: "running", activeRunId: "run-edit-entry", gate: { required: false, reason: "no-plan" } }));
+  render(<CopilotKitV2PlanControl threadId="thread-edit-entry" preferInlinePlan />);
+  fireEvent.click(await screen.findByTestId(PLAN_CONTROL_EDIT_TOGGLE_TESTID));
+  expect(screen.getByTestId(PLAN_CONTROL_EDIT_TOGGLE_TESTID)).toHaveTextContent("完成编辑");
+  expect(screen.getAllByTestId("chat-task-workbench-plan-step-delete").length).toBeGreaterThan(0);
+});
+
 it("does not bring the duplicate summary back after completion with unfinished ledger steps", async () => {
   api.fetchPlanLedger.mockResolvedValue(ledgerWithSteps({ phase: "done", runStatus: "succeeded", activeRunId: null }));
   const onLivePlanChange = vi.fn();
