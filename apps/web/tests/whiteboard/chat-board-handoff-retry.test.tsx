@@ -133,3 +133,16 @@ it('keeps the loaded placement when the current Board is selected again',async()
  expect(screen.getByTestId('chat-board-placement-preview')).toBeInTheDocument();
  expect(screen.getByTestId('chat-board-handoff-confirm')).not.toBeDisabled();
 });
+
+it('prepares canonical transport even when a saved editing artifact exists',async()=>{
+ const prepare=vi.fn().mockResolvedValue({artifactId:'canonical',sourceRevision:'artifact-v1:2'});
+ mocks.insert.mockResolvedValue({});
+ render(<ChatDiagramBoardHandoff model={model} orgId="org" artifactId="saved-noncanonical" sourceRevision="artifact-v1:1" prepareSource={prepare}/>);
+ fireEvent.click(screen.getByTestId('chat-diagram-insert-board'));
+ await waitFor(()=>expect(screen.getByTestId('chat-board-handoff-confirm')).not.toBeDisabled());
+ expect(prepare).not.toHaveBeenCalled();
+ fireEvent.click(screen.getByTestId('chat-board-handoff-confirm'));
+ await screen.findByText('已插入目标白板');
+ expect(prepare).toHaveBeenCalledTimes(1);
+ expect(mocks.insert.mock.calls[0]![0].layout).toMatchObject({artifactId:'canonical',sourceRevision:'artifact-v1:2'});
+});
