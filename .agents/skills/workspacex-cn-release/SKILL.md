@@ -183,3 +183,14 @@ provisioning is a separate authorization boundary. The preparation and recovery
 limits are recorded in `docs/evidence/cn-image-tariff-6314/preparation.md`;
 runtime-environment and image-activation CLI regressions cover this failure before
 release. These tests do not constitute production activation or generation proof.
+
+### Retention must follow unified publication state (#6472)
+
+After adoption, legacy `current.json` is historical: retention must use the same
+atomic `config/versions.json` current/previous object as unified publication.
+A daily timer can trigger and still fail closed with runtime drift; inspect its
+last exit status, not just enabled/next-run state. Keep the canonical lock,
+matching successful attempt, live container identity and all container references
+before deleting old scoped images without force. Never use blanket system/volume
+prune to recover a full disk. Devapp incident evidence and boundaries:
+`docs/testing/devapp-image-retention-6472/README.md`.
