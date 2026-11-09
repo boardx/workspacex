@@ -130,6 +130,8 @@ export interface CopilotKitV2PlanControlProps {
    * （`useCopilotKitV2RunRestore`）去判断它现在是什么状态。本组件不判断、不猜测。
    */
   readonly onRunDispatched?: (runId: string) => void;
+  readonly onRunDispatchStart?: () => {complete:(runId:string)=>void;fail:(error:unknown)=>void};
+  readonly requestScope?: string;
   /**
    * 「这一轮失败的**步骤级**恢复入口此刻在本面板里给出了吗」——`PlanFailureRecovery`
    * 的渲染事实，原样回传给宿主，供它决定自己那条失败横幅还要不要再给一个重试。
@@ -181,14 +183,17 @@ export function CopilotKitV2PlanControl(props: CopilotKitV2PlanControlProps): Re
 }
 
 function PlanControlSession(
-  { threadId, projectId, canWrite = true, refetchSignal, onRunDispatched, onStepRecoveryOfferedChange, onLivePlanChange, preferInlinePlan = false }: CopilotKitV2PlanControlProps,
+  { threadId, projectId, canWrite = true, refetchSignal, onRunDispatched, onRunDispatchStart, requestScope, onStepRecoveryOfferedChange, onLivePlanChange, preferInlinePlan = false }: CopilotKitV2PlanControlProps,
 ): React.JSX.Element | null {
+  const actionEpoch=React.useRef(0);
+  const latestThread=React.useRef(requestScope ?? threadId);latestThread.current=requestScope ?? threadId;
   const { locale, t } = useI18n();
   const { ledger, refetch } = usePlanLedgerPolling(threadId, projectId);
   const [editing, setEditing] = React.useState(false);
 
   const [busy, setBusy] = React.useState(false);
   const [actionErrorCode, setActionErrorCode] = React.useState<string | null>(null);
+  React.useEffect(() => { actionEpoch.current += 1; setBusy(false); setActionErrorCode(null); }, [requestScope, threadId]);
   // Pause state comes only from the durable ledger, including after refresh.
   // issue #2451 —— `refetchSignal` 每变一次（父组件的 `RUN_ERROR` 订阅触发），立刻
   // 抢一次 refetch，并把这次报错标成"最近报错"；同样在离开 executing 态时清掉——
@@ -248,24 +253,31 @@ function PlanControlSession(
    */
   async function runAction(action: () => Promise<unknown>, dispatchesRun = false): Promise<boolean> {
     if (!canWrite) return false;
+    const completeDispatch = dispatchesRun ? onRunDispatchStart?.() : undefined;
+    const actionThread = requestScope ?? threadId;
+    const epoch = ++actionEpoch.current;
+    const currentAction = () => latestThread.current === actionThread && actionEpoch.current === epoch;
     setBusy(true);
     setActionErrorCode(null);
     try {
       const result = await action();
+      if (!currentAction()) return false;
       if (dispatchesRun) {
         const dispatchedRunId = (result as { runId?: unknown } | null | undefined)?.runId;
-        if (typeof dispatchedRunId === "string" && dispatchedRunId !== "") onRunDispatched?.(dispatchedRunId);
+        if (typeof dispatchedRunId === "string" && dispatchedRunId !== "") { completeDispatch?.complete(dispatchedRunId); if (!completeDispatch) onRunDispatched?.(dispatchedRunId); }
       }
       await refetch();
       return true;
     } catch (e) {
+      if (!currentAction()) return false;
+      completeDispatch?.fail(e);
       // PLAN_REVISION_CHANGED 等错误：立即重取最新账本，让用户在新版本基础上重试，
       // 不是把陈旧的本地状态继续晾在界面上。
       setActionErrorCode(planControlErrorCode(e) ?? "PLAN_ACTION_FAILED");
       await refetch();
       return false;
     } finally {
-      setBusy(false);
+      if (currentAction()) setBusy(false);
     }
   }
 
@@ -402,20 +414,20 @@ function PlanControlSession(
       }
       /* 这一支恢复的是**停住的那条 run**（`decidePermissionRequest`），runId 我们
          手上就有，不依赖返回体——如实上报同一条 run。 */
-      void runAction(async () => { await confirmProposedPlan(runId, requestId); return { runId }; }, true);
+      void runAction(async () => { await (onRunDispatchStart ? confirmProposedPlan(runId, requestId, "once", {notifyCredit:false}) : confirmProposedPlan(runId, requestId)); return { runId }; }, true);
       return;
     }
-    void runAction(() => confirmPlan(tid, { basedOnRevision: revision }, projectId), true);
+    void runAction(() => onRunDispatchStart ? confirmPlan(tid, { basedOnRevision: revision }, projectId, {notifyCredit:false}) : confirmPlan(tid, { basedOnRevision: revision }, projectId), true);
   };
   const handlePause = (): void => {
     void runAction(() => pausePlanRun(tid, projectId));
   };
   const handleResume = (): void => {
-    void runAction(() => resumePlanRun(tid, projectId), true);
+    void runAction(() => onRunDispatchStart ? resumePlanRun(tid, projectId, {notifyCredit:false}) : resumePlanRun(tid, projectId), true);
   };
   // issue #3132 —— `planStepId === null` = 重试整轮任务（这条 run 从未产出过计划步骤）。
   const handleRetryStep = (planStepId: string | null): void => {
-    void runAction(() => retryPlanStep(tid, { planStepId }, projectId), true);
+    void runAction(() => onRunDispatchStart ? retryPlanStep(tid, { planStepId }, projectId, {notifyCredit:false}) : retryPlanStep(tid, { planStepId }, projectId), true);
   };
   // issue #3132 —— 「修改输入」在有计划时是进编辑态；**没有计划步骤时编辑态是空的**，
   // 那就成了点了没有任何效果的假按钮。无计划时改为把焦点交回 composer，让用户就地

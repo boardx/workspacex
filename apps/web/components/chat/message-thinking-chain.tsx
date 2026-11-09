@@ -1,6 +1,7 @@
 "use client";
+import {readChatAgentRun as getAgentRun} from "@/lib/chat-workbench/read-chat-agent-run";
 import * as React from "react";
-import { getAgentRun, type AgentRunView } from "@/lib/agent-run";
+import { type AgentRunView } from "@/lib/agent-run";
 import { AgentToolChain } from "@/components/chat/agent-tool-chain";
 import { AgentPlanPanel } from "@/components/chat/agent-plan-panel";
 

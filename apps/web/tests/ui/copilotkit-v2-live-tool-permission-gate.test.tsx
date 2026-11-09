@@ -102,6 +102,10 @@ import { SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
 import { CopilotKitV2AgentSelectionProvider } from "@/lib/copilotkit-v2-agent-selection";
 import { CopilotKitV2Panel } from "@/components/chat/copilotkit-v2-panel";
 
+import {CreditConsumptionNotice} from "@/components/billing/credit-consumption-notice";
+
+const {independentError}=vi.hoisted(()=>({independentError:{value:null as string|null}}));
+vi.mock("@/lib/chat-workbench/use-run-cancellation",()=>({useRunCancellation:()=>({failure:independentError.value,requested:false,canCancel:false,cancel:vi.fn(),childNotice:null})}));
 const THREAD_ID = "thr-gate";
 const RUN_ID = "run-gate-1";
 const PERMISSION_REQUEST_ID = "11111111-2222-4333-8444-666666666666";
@@ -193,6 +197,7 @@ const AFTER_RUN_STARTED = [
 ];
 
 beforeEach(() => {
+  independentError.value=null;
   vi.clearAllMocks();
   agents = {};
   vi.stubGlobal("WebSocket", SilentWebSocket);
@@ -350,4 +355,39 @@ describe("issue #3416 —— 「重试任务」起的 run（不经过 AG-UI 事�
       expect(String(decided)).toContain(RETRY_RUN_ID);
     });
   });
+});
+
+
+describe("#6456 actual plan retry credit lifecycle",()=>{
+ it.each(["succeeded","failed"] as const)("retires old composer/credit errors before retry dispatch and projects %s only",async(status)=>{
+  fetchPlanLedger.mockResolvedValue({...FAILED_LEDGER as object,errorCode:"CREDIT_REQUIRED"});
+  listMessages.mockResolvedValue({messages:AFTER_RUN_STARTED,nextCursor:null});
+  getAgentRun.mockImplementation(async(runId:string)=>({...AWAITING,runId,status:runId===RETRY_RUN_ID?status:"failed",error:runId===RETRY_RUN_ID&&status==="succeeded"?null:"CREDIT_REQUIRED",pendingApproval:null,creditFailure:{code:"credit_required",ownerType:runId===RETRY_RUN_ID?"team":"user",ownerId:runId===RETRY_RUN_ID?"org-1":"u",rechargePath:runId===RETRY_RUN_ID?"/billing?ownerType=team&ownerId=org-1&purchase=1":"/billing?purchase=1"}}));
+  let resolve!:(v:{runId:string;auditEventId:string})=>void;
+  retryPlanStep.mockImplementation(()=>new Promise(r=>{resolve=r}));
+  render(<CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}><CopilotKitV2AgentSelectionProvider><CreditConsumptionNotice/><CoreProbe/><CopilotKitV2Panel chatThreadId={THREAD_ID} archived={false} canGeneratePersona={false}/></CopilotKitV2AgentSelectionProvider></CopilotKit>);
+  expect(await screen.findByTestId("copilotkit-v2-error")).toBeVisible();
+  expect(await screen.findByRole("link",{name:"前往充值"})).toBeVisible();
+  fireEvent.click(await screen.findByTestId("chat-task-workbench-failure-retry-step"));
+  await waitFor(()=>expect(retryPlanStep).toHaveBeenCalled());
+  expect(screen.queryByTestId("copilotkit-v2-error")).toBeNull();expect(screen.queryByRole("link",{name:"前往充值"})).toBeNull();
+  if(status==="succeeded")fetchPlanLedger.mockResolvedValue({...FAILED_LEDGER as object,phase:"idle",runStatus:"succeeded",errorCode:null});
+  await act(async()=>{resolve({runId:RETRY_RUN_ID,auditEventId:"audit"});});
+  await waitFor(()=>expect(getAgentRun).toHaveBeenCalledWith(RETRY_RUN_ID,"b",undefined,{notifyCredit:false}));
+  if(status==="succeeded"){await waitFor(()=>expect(screen.queryByTestId("copilotkit-v2-error")).toBeNull());expect(screen.queryByRole("link",{name:"为组织充值"})).toBeNull();}
+  else{expect(await screen.findByTestId("copilotkit-v2-error")).toBeVisible();expect(await screen.findByRole("link",{name:"为组织充值"})).toBeVisible();}
+  expect(screen.getByText("帮我查一下最新的行业数据")).toBeVisible();
+ });
+});
+
+it("#6456 retry success does not swallow an independent cancellation error",async()=>{
+ fetchPlanLedger.mockResolvedValue({...FAILED_LEDGER as object,errorCode:"CREDIT_REQUIRED"});listMessages.mockResolvedValue({messages:AFTER_RUN_STARTED,nextCursor:null});
+ let finishRun!:(v:unknown)=>void;
+ getAgentRun.mockImplementation(async(runId:string)=>runId===RETRY_RUN_ID?await new Promise(resolve=>{finishRun=resolve}):{...AWAITING,runId,status:"failed",pendingApproval:null,error:"CREDIT_REQUIRED"});
+ retryPlanStep.mockImplementation(async()=>{independentError.value="停止请求未能确认，请重试。";return {runId:RETRY_RUN_ID,auditEventId:"a"};});
+ render(<CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}><CopilotKitV2AgentSelectionProvider><CreditConsumptionNotice/><CoreProbe/><CopilotKitV2Panel chatThreadId={THREAD_ID} archived={false} canGeneratePersona={false}/></CopilotKitV2AgentSelectionProvider></CopilotKit>);
+ await screen.findByTestId("copilotkit-v2-error");fireEvent.click(await screen.findByTestId("chat-task-workbench-failure-retry-step"));
+ await waitFor(()=>expect(finishRun).toBeTypeOf("function"));expect(screen.getByTestId("copilotkit-v2-error")).toHaveTextContent("停止请求未能确认");
+ await act(async()=>{finishRun({...AWAITING,runId:RETRY_RUN_ID,status:"succeeded",error:null,pendingApproval:null});});
+ expect(screen.getByTestId("copilotkit-v2-error")).toHaveTextContent("停止请求未能确认");
 });

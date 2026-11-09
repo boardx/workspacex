@@ -1,4 +1,5 @@
 "use client";
+import {readChatAgentRun as getAgentRun} from "@/lib/chat-workbench/read-chat-agent-run";
 import * as React from "react";
 import { useI18n } from "@/lib/i18n/provider";
 import { translate } from "@/lib/i18n/messages";
@@ -6,7 +7,7 @@ import type { Locale } from "@/lib/i18n/locale";
 import { CALL_SKILL_TOOL_NAME } from "@/lib/agent-run-phase";
 import { RestoredInterruptForm } from "./restored-interrupt-form";
 import { agentInterrupts, planPermissions, wave2Runtime } from "@repo/contracts";
-import { getAgentRun, type AgentRunView } from "@/lib/agent-run";
+import { type AgentRunView } from "@/lib/agent-run";
 import { apiRequest } from "@/lib/api-client";
 import { InterruptDecisionDialog } from "./interrupt-decision-dialog";
 import { useDialogReturnFocus } from "./use-dialog-return-focus";

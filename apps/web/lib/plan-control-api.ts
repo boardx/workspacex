@@ -85,10 +85,10 @@ export async function removePlanConstraint(
 export type ConfirmPlanOutput = z.infer<typeof planControl.confirmPlan.out>;
 
 export async function confirmPlan(
-  threadId: string, input: { basedOnRevision: number }, projectId?: string | null,
+  threadId: string, input: { basedOnRevision: number }, projectId?: string | null, options?:{notifyCredit?:boolean},
 ): Promise<ConfirmPlanOutput> {
   const raw = await apiRequest<unknown>(`/plan-control/threads/${threadId}/confirm`, {
-    method: "POST", body: input, query: { projectId: projectId ?? undefined },
+    notifyCredit: options?.notifyCredit, method: "POST", body: input, query: { projectId: projectId ?? undefined },
   });
   return planControl.confirmPlan.out.parse(raw);
 }
@@ -107,13 +107,13 @@ export async function confirmPlan(
  * `decideToolPermission → approveAndRequeue → Command(resume=...)` 链路，一条新边都不加。
  */
 export async function confirmProposedPlan(
-  runId: string, permissionRequestId: string, decision: "once" | "deny" = "once",
+  runId: string, permissionRequestId: string, decision: "once" | "deny" = "once", options?:{notifyCredit?:boolean},
 ): Promise<{ runId: string; permissionRequestId: string }> {
   const raw = await apiRequest<unknown>(
     planPermissions.operations.decidePermissionRequest.path
       .replace(":runId", encodeURIComponent(runId))
       .replace(":permissionRequestId", encodeURIComponent(permissionRequestId)),
-    { method: "POST", body: { decision } },
+    { notifyCredit: options?.notifyCredit, method: "POST", body: { decision } },
   );
   return planPermissions.operations.decidePermissionRequest.out.parse(raw);
 }
@@ -127,8 +127,8 @@ export async function pausePlanRun(threadId: string, projectId?: string | null):
 
 export type ResumePlanRunOutput = z.infer<typeof planControl.resumePlanRun.out>;
 
-export async function resumePlanRun(threadId: string, projectId?: string | null): Promise<ResumePlanRunOutput> {
-  const raw = await apiRequest<unknown>(`/plan-control/threads/${threadId}/runs/resume`, { method: "POST", query: { projectId: projectId ?? undefined } });
+export async function resumePlanRun(threadId: string, projectId?: string | null, options?:{notifyCredit?:boolean}): Promise<ResumePlanRunOutput> {
+  const raw = await apiRequest<unknown>(`/plan-control/threads/${threadId}/runs/resume`, { notifyCredit: options?.notifyCredit, method: "POST", query: { projectId: projectId ?? undefined } });
   return planControl.resumePlanRun.out.parse(raw);
 }
 
@@ -136,10 +136,10 @@ export type RetryPlanStepOutput = z.infer<typeof planControl.retryPlanStep.out>;
 
 export async function retryPlanStep(
   // issue #3132 —— `planStepId: null` = 重试整轮任务（失败的 run 没有计划步骤时）。
-  threadId: string, input: { planStepId: string | null }, projectId?: string | null,
+  threadId: string, input: { planStepId: string | null }, projectId?: string | null, options?:{notifyCredit?:boolean},
 ): Promise<RetryPlanStepOutput> {
   const raw = await apiRequest<unknown>(`/plan-control/threads/${threadId}/steps/retry`, {
-    method: "POST", body: input, query: { projectId: projectId ?? undefined },
+    notifyCredit: options?.notifyCredit, method: "POST", body: input, query: { projectId: projectId ?? undefined },
   });
   return planControl.retryPlanStep.out.parse(raw);
 }

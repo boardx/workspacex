@@ -1,4 +1,5 @@
 "use client";
+import {readChatAgentRun as getAgentRun} from "@/lib/chat-workbench/read-chat-agent-run";
 /**
  * issue #3261 —— 「这一轮 run 为什么失败」在产品面上的**唯一**一处算法。
  *
@@ -27,7 +28,7 @@
  * 而那个 outcome 是 `failRun` 落库之后才产生的——`RUN_ERROR` 到达客户端时，
  * `failure_reason` 已经在库里。读不到时**逐字回落**到只按码说话的旧文案，不编成因。
  */
-import { getAgentRun } from "./agent-run";
+import { agentRunCreditFailure, creditGuidance } from "./credit-guidance";
 import type { AgentRunFailureReason } from "./agent-run";
 import { describeCopilotkitV2RunError } from "./copilotkit-v2-error-copy";
 import { aguiRunError } from "@repo/contracts";
@@ -95,7 +96,7 @@ export function describeFailedRunBanner(view: FailedRunFacts, fallbackCode?: str
  */
 export type LiveRunErrorOutcome =
   /** 显示这句横幅（第 ① / ② 类，以及第 ③ 类核实不通过时的 fail-closed 回落）。 */
-  | { readonly kind: "banner"; readonly text: string }
+  | { readonly kind: "banner"; readonly text: string; readonly creditFailure?: unknown }
   /** 第 ③ 类且**权威读确认**这条 run 仍有一条待批请求 ⇒ 重挂审批卡，不显示错误。 */
   | { readonly kind: "reattach_approval"; readonly runId: string }
   /**
@@ -159,7 +160,8 @@ export async function resolveLiveRunErrorOutcome(params: {
         : banner(codeOnly);
     }
     if (view.status !== "failed") return banner(codeOnly);
-    return banner(describeFailedRunBanner(view, code));
+    const creditFailure = agentRunCreditFailure(view.error, view.creditFailure);
+    return { kind: "banner", text: describeFailedRunBanner(view, code), ...(creditGuidance(creditFailure) ? {creditFailure} : {}) };
   } catch {
     // 读不到就如实退回旧文案：这条路径已经在报一个失败了，不该再叠一个失败上去。
     return banner(codeOnly);

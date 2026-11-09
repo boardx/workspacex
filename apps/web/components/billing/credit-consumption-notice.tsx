@@ -1,6 +1,7 @@
 "use client";
 import * as React from "react";
-import { creditGuidance, CREDIT_FAILURE_EVENT, type CreditGuidance } from "@/lib/credit-guidance";
+import { CREDIT_FAILURE_EVENT, type CreditGuidance } from "@/lib/credit-guidance";
+import {CHAT_CREDIT_ATTEMPT_EVENT,emptyCreditNotice,reduceCreditNotice,type CreditAttemptEvent} from "@/lib/chat-credit-attempt";
 import { Button } from "@/components/ui/button";
 /** Shared copy and validated action for the persistent run row and transient notice. */
 export function CreditFailureDetails({notice,onDismiss}:{notice:CreditGuidance;onDismiss?:()=>void}) {
@@ -11,8 +12,14 @@ export function CreditFailureDetails({notice,onDismiss}:{notice:CreditGuidance;o
  </>;
 }
 export function CreditConsumptionNotice() {
- const [notice,setNotice]=React.useState<CreditGuidance|null>(null);
- React.useEffect(()=>{const listener=(event:Event)=>setNotice(creditGuidance((event as CustomEvent).detail));window.addEventListener(CREDIT_FAILURE_EVENT,listener);return()=>window.removeEventListener(CREDIT_FAILURE_EVENT,listener);},[]);
+ const [state,dispatch]=React.useReducer(reduceCreditNotice,emptyCreditNotice);
+ React.useEffect(()=>{
+  const failure=(event:Event)=>dispatch({type:'failure',raw:(event as CustomEvent).detail});
+  const lifecycle=(event:Event)=>dispatch({type:'lifecycle',detail:(event as CustomEvent<CreditAttemptEvent>).detail});
+  window.addEventListener(CREDIT_FAILURE_EVENT,failure);window.addEventListener(CHAT_CREDIT_ATTEMPT_EVENT,lifecycle);
+  return()=>{window.removeEventListener(CREDIT_FAILURE_EVENT,failure);window.removeEventListener(CHAT_CREDIT_ATTEMPT_EVENT,lifecycle);};
+ },[]);
+ const notice=state.notice;
  if (!notice) return null;
- return <aside role="alert" aria-label="模型使用提示" className="fixed bottom-6 right-6 z-50 max-w-md space-y-3 rounded-card border border-border bg-card p-4 shadow-lg"><CreditFailureDetails notice={notice} onDismiss={()=>setNotice(null)}/></aside>;
+ return <aside role="alert" aria-label="模型使用提示" className="fixed bottom-6 right-6 z-50 max-w-md space-y-3 rounded-card border border-border bg-card p-4 shadow-lg"><CreditFailureDetails notice={notice} onDismiss={()=>dispatch({type:"dismiss"})}/></aside>;
 }

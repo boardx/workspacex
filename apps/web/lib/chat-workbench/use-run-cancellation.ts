@@ -1,8 +1,9 @@
 "use client";
+import {readChatAgentRun as getAgentRun} from "@/lib/chat-workbench/read-chat-agent-run";
 import * as React from "react";
 import { CancelRunOutput } from "@repo/contracts/run-control";
 import { apiRequest } from "@/lib/api-client";
-import { getAgentRun, type AgentRunView } from "@/lib/agent-run";
+import { type AgentRunView } from "@/lib/agent-run";
 type Snapshot = { source: string; requested: boolean; parentStopped: boolean; child: AgentRunView["childCancellation"]; failure: string | null };
 export function useRunCancellation(runId: string | null, bearer: string | null) {
   const source = JSON.stringify([runId, bearer]);

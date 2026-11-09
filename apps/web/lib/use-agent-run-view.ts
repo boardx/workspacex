@@ -1,6 +1,7 @@
 "use client";
+import {readChatAgentRun as getAgentRun} from "@/lib/chat-workbench/read-chat-agent-run";
 import * as React from "react";
-import { getAgentRun, type AgentRunView } from "./agent-run";
+import { type AgentRunView } from "./agent-run";
 
 /**
  * uiux-r3 #4.3 / #4.5 —— 一条助手回合「属于哪条 run」之后，身份行与升级留痕都要读那条 run 的
