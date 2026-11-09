@@ -80,10 +80,10 @@ describe("F12 · org-admin / canvas 微交互一致性 —— 已修复案例回
     expect(chip).toMatch(/focus-visible:/);
   });
 
-  it("org-admin-screen.tsx：下拉 listbox 选项按钮补齐 focus-visible", () => {
+  it("org-admin-screen.tsx：下拉菜单选项补齐 focus-visible", () => {
     const src = read("components/org-admin/org-admin-screen.tsx");
-    // 选项按钮的 className 数组紧跟在 role="option" 声明之后。
-    const win = windowAround(src, 'role="option"');
+    // 共享菜单选项的局部皮肤保留交互反馈。
+    const win = windowAround(src, '<DropdownMenuRadioItem');
     expect(win).toMatch(/hover:/);
     expect(win).toMatch(/focus-visible:/);
     expect(win).toMatch(/transition-colors/);

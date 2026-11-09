@@ -16,6 +16,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { StateShell, type UiState } from "@/components/state/state-shell";
@@ -488,96 +489,45 @@ export function PopoverSelect({
 }) {
   const { t } = useI18n();
   const [open, setOpen] = React.useState(false);
-  const containerRef = React.useRef<HTMLDivElement>(null);
-  const triggerRef = React.useRef<HTMLButtonElement>(null);
   const currentLabel = options.find((o) => o.id === value)?.label ?? value;
 
-  // F06（issue #1930）—— 关闭弹层时把焦点带回触发按钮（Esc / 选中选项两条路径），
-  // 不让它落到 <body>：选中的选项按钮随弹层一起卸载，浏览器默认行为会把焦点丢到
-  // <body>，这正是 R6「关键节点 focus 环可见」要防的坑——键盘用户选完一项之后
-  // 应该能立刻继续 Tab/操作，而不是先要重新找回焦点在哪。外点关闭不在此列：
-  // 那种情况下用户的焦点意图本来就是点到的那个别的元素，不应该被强行拽回来。
-  const closeAndRefocus = React.useCallback(() => {
-    setOpen(false);
-    triggerRef.current?.focus();
-  }, []);
-
-  React.useEffect(() => {
-    if (!open) return;
-    function onPointerDown(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
-    }
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") closeAndRefocus();
-    }
-    document.addEventListener("mousedown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open, closeAndRefocus]);
-
+  // Portalled, collision-aware content escapes the members table's scroll clipping.
+  // aria-disabled preserves trigger focus while a role update is pending (#1930).
   return (
-    <div ref={containerRef} className="relative">
-      {/*
-        * ⚠ 不用原生 `disabled`——原生 disabled 的按钮在被禁用的瞬间会被浏览器强制
-        * blur（disabled 元素不能持有焦点），如果这一刻正好是这个按钮自己持有焦点
-        * （典型场景：刚选完一个选项、`assignSkillReviewerFunction` 请求还在飞行中、
-        * `busy=true`），焦点会被弹到 <body>——同上面 `closeAndRefocus` 想防的是
-        * 同一类问题，只是触发路径不同（那个防的是"选项按钮卸载"，这个防的是"触发
-        * 按钮被禁用"）。改用 `aria-disabled` + 手动拦截 `onClick`，按钮始终可持有
-        * 焦点，语义仍然是"当前不可操作"。
-        */}
-      <Button
-        ref={triggerRef}
-        type="button"
-        size="xs"
-        variant="outline"
-        data-testid={testid}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-disabled={disabled}
-        aria-label={t("orgMembers.currentSelection", { label: ariaLabel, value: currentLabel })}
-        onClick={() => { if (!disabled) setOpen((v) => !v); }}
-        className={cn(
-          "h-8 w-full justify-between gap-1 rounded-md pl-2.5 pr-2 text-12 font-normal",
-          disabled && "cursor-not-allowed bg-disabled text-disabled-foreground",
-        )}
-      >
-        <span className="truncate">{currentLabel}</span>
-        <ChevronDown aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />
-      </Button>
-      {open && (
-        <div
-          role="listbox"
-          aria-label={ariaLabel}
-          data-testid={`${testid}-listbox`}
-          className="absolute left-0 top-9 z-20 max-h-56 w-full min-w-40 overflow-y-auto rounded-lg border border-border bg-popover p-1 shadow-md"
+    <DropdownMenu open={open} onOpenChange={(next) => { if (!disabled || !next) setOpen(next); }} modal={false}>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button" size="xs" variant="outline" data-testid={testid}
+          aria-disabled={disabled}
+          aria-label={t("orgMembers.currentSelection", { label: ariaLabel, value: currentLabel })}
+          onPointerDown={(event) => event.preventDefault()}
+          onClick={() => { if (!disabled) setOpen((previous) => !previous); }}
+          className={cn(
+            "h-8 w-full justify-between gap-1 rounded-md pl-2.5 pr-2 text-12 font-normal",
+            disabled && "cursor-not-allowed bg-disabled text-disabled-foreground",
+          )}
         >
-          {options.map((o) => (
-            <button
-              key={o.id}
-              type="button"
-              role="option"
-              aria-selected={o.id === value}
-              data-testid={`${testid}-option-${o.id}`}
-              onClick={() => {
-                onSelect(o.id);
-                closeAndRefocus();
-              }}
-              className={[
-                "flex w-full items-center gap-2 truncate rounded-md px-2 py-1.5 text-left text-12 transition-colors duration-200 hover:bg-muted",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
-                o.id === value ? "text-primary" : "text-popover-foreground",
-              ].join(" ")}
+          <span className="truncate">{currentLabel}</span>
+          <ChevronDown aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="start" sideOffset={4} collisionPadding={8}
+        aria-label={ariaLabel} data-testid={`${testid}-listbox`}
+        className="max-h-[min(14rem,var(--radix-dropdown-menu-content-available-height))] min-w-40 w-[var(--radix-dropdown-menu-trigger-width)] overflow-y-auto"
+      >
+        <DropdownMenuRadioGroup value={value} onValueChange={(id) => { if (!disabled) onSelect(id); }}>
+          {options.map((option) => (
+            <DropdownMenuRadioItem
+              key={option.id} value={option.id} data-testid={`${testid}-option-${option.id}`}
+              className="text-12 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
             >
-              {o.label}
-            </button>
+              {option.label}
+            </DropdownMenuRadioItem>
           ))}
-        </div>
-      )}
-    </div>
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

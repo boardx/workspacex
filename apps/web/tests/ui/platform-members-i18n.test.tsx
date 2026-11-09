@@ -90,13 +90,13 @@ describe("platform members complete localization", () => {
 
   it("switches an open role popover and dates without losing its selection or making any request", async () => {
     route(); show(); fireEvent.click(await screen.findByTestId(roleId()));
-    expect(screen.getByRole("option", { name: translate("en", "role.consultant") })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("menuitemradio", { name: translate("en", "role.consultant") })).toHaveAttribute("aria-checked", "true");
     switchTo("zh-CN");
-    expect(screen.getByRole("option", { name: translate("zh-CN", "role.consultant") })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("menuitemradio", { name: translate("zh-CN", "role.consultant") })).toHaveAttribute("aria-checked", "true");
     expect(screen.getByTestId(roleId())).toHaveAccessibleName(new RegExp(rawOrg.replace(/[{}]/g, "\\$&")));
     expect(screen.getByTestId("admin-platform-members-list")).toHaveTextContent(new Date(roster.members[1].createdAt).toLocaleDateString("zh-CN"));
     switchTo("en");
-    for (const role of ["consultant", "admin"] as const) expect(screen.getByRole("option", { name: translate("en", `role.${role}`) })).toBeTruthy();
+    for (const role of ["consultant", "admin"] as const) expect(screen.getByRole("menuitemradio", { name: translate("en", `role.${role}`) })).toBeTruthy();
     expect(requests()).toEqual([{ path: "/platform/members", method: "GET", body: undefined }]);
   });
 
