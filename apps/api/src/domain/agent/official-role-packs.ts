@@ -22,6 +22,7 @@
  * 对象的键序规范成 schema 声明顺序，后续任何一次重新校验（`verifyOfficialAgentStarterPack`）算出
  * 的 `unsigned` JSON 与这里算出来的逐字节相同，摘要因此总能对上（不用手工追踪 JSON 键序）。
  */
+import { DEFAULT_TEXT_MODEL_ID } from "../model/default-text-model";
 import { createHash } from "node:crypto";
 import type { z } from "zod";
 import { agentRole, wave2Runtime } from "@repo/contracts";
@@ -47,7 +48,8 @@ export const OFFICIAL_AGENT_ROLE_PACK_ID = "official-digitalhuman-roles";
  */
 /** 1.6.0：中文角色作者化与矩阵直接技能坐标；历史版本内容不可变。 */
 /** 1.7.0：D011虚拟教授与画布工作方式；旧签名包保持不可变。 */
-export const OFFICIAL_AGENT_ROLE_PACK_VERSION = "1.7.0";
+/** 1.8.0: replace the retired default text-model binding. */
+export const OFFICIAL_AGENT_ROLE_PACK_VERSION = "1.8.0";
 
 /** Skill 起步包坐标（`skills/starter-packs/<packId>/<packVersion>.json`）。 */
 export interface OfficialRoleSkillPackRef { readonly packId: string; readonly packVersion: string }
@@ -303,7 +305,7 @@ function buildUnsignedEntry(seed: RoleEntrySeed): UnsignedOfficialEntry {
     skillVersions: [],
     authoredSkillBindings: OFFICIAL_ROLE_SKILL_COORDINATES[seed.roleRef as keyof typeof OFFICIAL_ROLE_SKILL_COORDINATES].map((coordinate) => ({ stableId: coordinate.stableId, stableName: coordinate.stableName, contentDigest: coordinate.digest })),
     modelProvider: "dashscope",
-    modelId: "qwen-plus",
+    modelId: DEFAULT_TEXT_MODEL_ID,
     toolPolicy: [...seed.toolPolicy],
     roleRef: seed.roleRef,
     roleLabel: seed.roleLabel,

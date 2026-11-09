@@ -9,7 +9,7 @@ const call = {
   workflowId: "W029", stageId: "frame", skillId: "S064", skillVersion: "1.0.0",
   input: { problem: "导入失败" }, prior: {},
 };
-const agents = { agentVersionModel: async () => ({ modelProvider: "dashscope", modelId: "qwen-plus" }) };
+const agents = { agentVersionModel: async () => ({ modelProvider: "dashscope", modelId: "qwen3.8-max" }) };
 
 describe("workflow executes pinned Skill instructions", () => {
   it("loads only tenant-scoped executable definitions behind Workflow admission", () => {

@@ -1700,7 +1700,7 @@ function sleep(ms: number): Promise<void> {
 
 /**
  * 数字人能力（决策 B，见 `application/agent-run/capability-runtime-routing.ts`）：一个钉住
- * 具体模型（如 `qwen-plus`）的 run 经本运行时执行时，把那个模型 id 交给内核按次覆盖
+ * 具体模型（如 `qwen3.8-max`）的 run 经本运行时执行时，把那个模型 id 交给内核按次覆盖
  * （`configurable.model_id`，内核侧 `PinnedModelMiddleware`）。原生 deep-agent run 的
  * `modelId` 恒是路由标签 `"deep-agent"` ⇒ 不送，内核用自己的默认模型——与此前逐字相同。
  */

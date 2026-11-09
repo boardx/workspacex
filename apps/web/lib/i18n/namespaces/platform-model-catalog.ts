@@ -112,7 +112,7 @@ const copy = {
   "disable.interruptPlaceholder": ["例如：疑似凭据泄漏，安全事件，立即切断。", "e.g. suspected secret exposure; security incident requiring immediate cutoff."],
   "disable.drainPlaceholder": ["例如：新版本已上线，旧版下线，放行进行中的调用跑完。", "e.g. a new version is live; retire the old version and let in-flight calls finish."],
   "core.title": ["组织核心模型", "Organization core model"],
-  "core.intro": ["仅新默认助手调用继承核心模型；已运行任务与其他 Agent 的显式模型选择保持不变。", "Only new default-assistant calls inherit the core model. Running tasks and explicit model choices by other Agents remain unchanged."],
+  "core.intro": ["所有普通对话数字人的新任务统一使用组织核心模型；历史任务保留原模型记录，图片生成与深度研究使用各自的专用模型。", "All new ordinary-conversation Agent tasks use the organization core model. Historical tasks retain their model records; image generation and deep research use their specialized models."],
   "core.warning": ["保存选择不会测试模型或启用供应商。目录收录不代表账号可用，费用与安全上限继续生效。", "Saving the selection does not test a model or enable a provider. Catalog inclusion does not establish account availability; cost and safety limits still apply."],
   "core.loading": ["正在读取当前组织的配置与可用候选…", "Reading the current organization's configuration and available candidates…"],
   "core.adminError": ["仅当前组织管理员可以设置核心模型。", "Only current organization administrators can set the core model."],

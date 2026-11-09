@@ -1,6 +1,6 @@
 /**
- * 数字人能力（人类决策 B）：钉 dashscope / qwen-plus 的官方数字人形状 Agent，带 Workflow 白名单 ⇒
- * run 经 deep-agent 运行时执行（ModelCallInput.modelProvider = deep-agent，modelId 仍是钉住的 qwen-plus），
+ * 数字人能力（人类决策 B）：钉 dashscope / qwen3.8-max 的官方数字人形状 Agent，带 Workflow 白名单 ⇒
+ * run 经 deep-agent 运行时执行（ModelCallInput.modelProvider = deep-agent，modelId 仍是钉住的 qwen3.8-max），
  * `start_workflow` 走既有网关：白名单内 ⇒ 建实例；白名单外 ⇒ 友好的 workflow_not_allowed。
  * 普通 Agent（无白名单、无 Skill）⇒ 路由不变。库里的钉住事实（model_provider）不改。
  * 真 PostgreSQL + 真 createApp() 的 WF03 运行时 + 真 executeQueuedRuns；唯一替身是模型端口。
@@ -76,7 +76,7 @@ async function insertDashscopeAgent(agentId: string, allowlist: readonly string[
       `INSERT INTO agent_versions
         (id,org_id,agent_id,semantic_label,instruction_digest,instructions,skill_version_ids,
          model_provider,model_id,tool_policy,creator_id,created_at,published_at,catalog_source,workflow_allowlist)
-       VALUES ($1,$2,$3,$1,$4,'角色','{}'::text[],'dashscope','qwen-plus','[]'::jsonb,$5,now(),now(),'official',$6)`,
+       VALUES ($1,$2,$3,$1,$4,'角色','{}'::text[],'dashscope','qwen3.8-max','[]'::jsonb,$5,now(),now(),'official',$6)`,
       [versionId, ORG, agentId, "d".repeat(64), WF03_ADMIN, [...allowlist]],
     );
     await c.query("UPDATE agents SET published_version_id=$1 WHERE id=$2 AND org_id=$3", [versionId, agentId, ORG]);
@@ -90,7 +90,7 @@ async function seedQueuedRun(id: string, agentId: string, runSkillVersionIds: re
   await asApp(ORG, (c) => c.query(
     `INSERT INTO agent_runs (id, org_id, thread_id, input_message_id, agent_id, agent_version_id,
        skill_version_ids, model_provider, model_id, status)
-     VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,'dashscope','qwen-plus','queued')`,
+     VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,'dashscope','qwen3.8-max','queued')`,
     [id, ORG, thread, `${id}-in`, agentId, `${agentId}-v1`, JSON.stringify(runSkillVersionIds)]));
 }
 
@@ -115,11 +115,11 @@ async function agentRequestsWorkflow(runId: string, workflowId: string, input: R
   await executeQueuedRuns(deps(), { orgId: ORG });
   if ((await runRow(runId)).status === "queued") await executeQueuedRuns(deps(), { orgId: ORG });
   expect({ n: calls.length, row: await runRow(runId) }, JSON.stringify({ row: await runRow(runId), logs })).toMatchObject({ n: 2 });
-  for (const c of calls) expect({ p: c.modelProvider, m: c.modelId }, "经 deep-agent 运行时、模型仍是钉住的 qwen-plus").toEqual({ p: "deep-agent", m: "qwen-plus" });
+  for (const c of calls) expect({ p: c.modelProvider, m: c.modelId }, "经 deep-agent 运行时、模型仍是钉住的 qwen3.8-max").toEqual({ p: "deep-agent", m: "qwen3.8-max" });
   const resume = calls[1]!.resume as { decision: string; editedAction: { name: string; argsJson: string } };
   expect(resume).toMatchObject({ decision: "edit", editedAction: { name: "start_workflow" } });
   const row = await runRow(runId);
-  expect(row).toMatchObject({ status: "writeback_pending", model_provider: "dashscope", model_id: "qwen-plus" });
+  expect(row).toMatchObject({ status: "writeback_pending", model_provider: "dashscope", model_id: "qwen3.8-max" });
   return (JSON.parse(resume.editedAction.argsJson) as { outcome: Outcome }).outcome;
 }
 
@@ -160,7 +160,7 @@ afterAll(async () => {
 });
 
 describe("数字人能力（决策 B）：dashscope 钉住 + 白名单 ⇒ deep-agent 运行时", () => {
-  it("白名单内（D003→W027）：经 deep-agent 运行时、模型 qwen-plus，建出实例", async () => {
+  it("白名单内（D003→W027）：经 deep-agent 运行时、模型 qwen3.8-max，建出实例", async () => {
     const before = await instanceIds();
     await seedQueuedRun("run-dh-hit", D003);
     const outcome = await agentRequestsWorkflow("run-dh-hit", "W027");
@@ -200,13 +200,13 @@ describe("数字人能力（决策 B）：dashscope 钉住 + 白名单 ⇒ deep-
     expect(launchable.has("W011")).toBe(false);
   });
 
-  it("普通 Agent（无白名单、无 Skill）：路由不变，仍以 dashscope / qwen-plus 调用", async () => {
+  it("普通 Agent（无白名单、无 Skill）：路由不变，仍以 dashscope / qwen3.8-max 调用", async () => {
     calls.length = 0;
     script = [{ text: "你好。" }];
     await seedQueuedRun("run-dh-plain", PLAIN);
     await executeQueuedRuns(deps(), { orgId: ORG });
     expect(calls).toHaveLength(1);
-    expect({ p: calls[0]!.modelProvider, m: calls[0]!.modelId }).toEqual({ p: "dashscope", m: "qwen-plus" });
+    expect({ p: calls[0]!.modelProvider, m: calls[0]!.modelId }).toEqual({ p: "dashscope", m: "qwen3.8-max" });
   });
 
   it("回归（core-loop 8b）：普通 Agent 的 run 并入了组织已启用 Skill ⇒ 仍不改道；写回后线程里恰好 human + agent 各一条", async () => {
@@ -221,7 +221,7 @@ describe("数字人能力（决策 B）：dashscope 钉住 + 白名单 ⇒ deep-
     await executeQueuedRuns(deps(), { orgId: ORG });
     await writeBackPendingRuns(deps() as never, { orgId: ORG });
     expect(calls).toHaveLength(1);
-    expect({ p: calls[0]!.modelProvider, m: calls[0]!.modelId }).toEqual({ p: "dashscope", m: "qwen-plus" });
+    expect({ p: calls[0]!.modelProvider, m: calls[0]!.modelId }).toEqual({ p: "dashscope", m: "qwen3.8-max" });
     expect((await runRow("run-dh-orgskill")).status).toBe("succeeded");
     const msgs = await asApp(ORG, async (c) => (await c.query<{ author_kind: string; body: string }>(
       "SELECT author_kind, body FROM chat_messages WHERE org_id=$1 AND thread_id=$2 ORDER BY created_at, id", [ORG, "thread-run-dh-orgskill"])).rows);

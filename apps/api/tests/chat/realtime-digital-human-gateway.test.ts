@@ -458,7 +458,7 @@ describe("WS /chat/realtime-digital-human — Chat 语音模式", () => {
       KERNEL_MODEL_BASE_URL: "https://workspace.maas.aliyuncs.com/compatible-mode/v1",
       KERNEL_MODEL_API_KEY: config.apiKey,
       KERNEL_OMNI_REALTIME_MODEL: "wrong-omni-model",
-      KERNEL_MODEL_NAME: "qwen-plus",
+      KERNEL_MODEL_NAME: "qwen3.8-max",
       KERNEL_ASR_MODEL: "qwen3-asr-flash-realtime",
     }), baseUrl: config.baseUrl };
     expect(config.model).toBe("qwen3.8-omni-flash-realtime");

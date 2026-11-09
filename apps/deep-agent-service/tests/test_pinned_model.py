@@ -34,8 +34,8 @@ def test_no_model_id_passes_request_through():
 
 
 def test_same_model_id_passes_request_through():
-    req = _Req(_M("qwen-plus"))
-    assert _run({"configurable": {"model_id": "qwen-plus"}}, req) is req
+    req = _Req(_M("qwen3.8-max"))
+    assert _run({"configurable": {"model_id": "qwen3.8-max"}}, req) is req
 
 
 def test_pinned_model_id_overrides_model(monkeypatch, tmp_path):
@@ -44,9 +44,9 @@ def test_pinned_model_id_overrides_model(monkeypatch, tmp_path):
     monkeypatch.setenv("KERNEL_MODEL_BASE_URL", "http://127.0.0.1:9/v1")
     monkeypatch.setenv("KERNEL_MODEL_API_KEY", "k")
     harness._pinned_models.clear()
-    out = _run({"configurable": {"model_id": "qwen-plus"}}, _Req(_M("qwen-max")))
+    out = _run({"configurable": {"model_id": "qwen3.8-max"}}, _Req(_M("qwen-max")))
     assert out[0] == "overridden"
-    assert out[1]["model"].model_name == "qwen-plus"
+    assert out[1]["model"].model_name == "qwen3.8-max"
 
 
 def test_outside_runnable_context_passes_through():

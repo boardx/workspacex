@@ -4,7 +4,7 @@ import { DEEP_AGENT_PROVIDER_NAME, type AgentRunStore, type ClaimedAgentRun, typ
 /**
  * 数字人能力（人类决策 B）—— 带工具型能力的 Agent 走 deep-agent 运行时，底层 LLM 仍是它钉住的模型。
  *
- * 官方数字人（`official-role-packs.ts`）钉 `dashscope / qwen-plus`。chat provider
+ * 官方数字人（`official-role-packs.ts`）钉 `dashscope / qwen3.8-max`。chat provider
  * （`ConfiguredModelProvider`）没有工具调用（#741），于是 `start_workflow` 与挂载 Skill 在聊天里
  * 永远用不上。工具调用、中断（`interrupted`）与 HITL resume 只在 deep-agent 运行时里存在。
  *
@@ -16,7 +16,7 @@ import { DEEP_AGENT_PROVIDER_NAME, type AgentRunStore, type ClaimedAgentRun, typ
  *      （`message-roundtrip.ts` 的 `resolveRunSkillVersionIds`），于是只要组织里启用过任何一个 Skill，
  *      每个普通 Agent 都会被改道——core-loop 8b 的回环 Agent 就是这样被换了运行时、回复不再出自
  *      它钉住的 provider。判据只取钉住版本快照（不可变），resume / 恢复重算结论不变。
- * 两条都满足 ⇒ 本次执行视作 `deep-agent` run，`modelId` 保持钉住值（`qwen-plus`），由
+ * 两条都满足 ⇒ 本次执行视作 `deep-agent` run，`modelId` 保持钉住值（`qwen3.8-max`），由
  * `DeepAgentModelProvider` 以 `configurable.model_id` 交给内核按次覆盖模型。
  * 其它一切（普通 Agent、本就是 deep-agent 的 run、研究/图片 provider）原样返回——同一个对象。
  *

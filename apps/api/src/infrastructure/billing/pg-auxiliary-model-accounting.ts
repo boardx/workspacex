@@ -1,3 +1,4 @@
+import { DEFAULT_TEXT_MODEL_ID } from "../../domain/model/default-text-model";
 import {CreditRequiredReason} from "@repo/contracts/billing-consumption";
 import {randomUUID,createHash} from 'node:crypto';
 import {z} from 'zod';
@@ -12,7 +13,7 @@ type Request={active:boolean;body_hash:string;output_cap:number;operation_id:str
 export class PgAuxiliaryModelAccounting {
  constructor(private readonly db:DatabasePort){}
  private denied(orgId:OrgId){return new CreditConsumptionError('credit_accounting_unavailable','team',orgId,'auxiliary_usage_ownership_denied');}
- async open(orgId:OrgId,userId:string,pinnedModelId:string){const id=randomUUID(),model=pinnedModelId==='deep-agent'?((process.env.KERNEL_DEEP_AGENT_MODEL_ID??'').trim()||'qwen-plus'):pinnedModelId,provider=(process.env.KERNEL_MODEL_PROVIDER??'').trim();if(!model||!provider)throw this.denied(orgId);await this.db.withTenant(orgId,s=>s.query('INSERT INTO auxiliary_model_operations(id,org_id,user_id,model_provider,model_id) VALUES($1,$2,$3,$4,$5)',[id,orgId,userId,provider,model]));return {orgId:String(orgId),operationId:id};}
+ async open(orgId:OrgId,userId:string,pinnedModelId:string){const id=randomUUID(),model=pinnedModelId==='deep-agent'?((process.env.KERNEL_DEEP_AGENT_MODEL_ID??'').trim()||DEFAULT_TEXT_MODEL_ID):pinnedModelId,provider=(process.env.KERNEL_MODEL_PROVIDER??'').trim();if(!model||!provider)throw this.denied(orgId);await this.db.withTenant(orgId,s=>s.query('INSERT INTO auxiliary_model_operations(id,org_id,user_id,model_provider,model_id) VALUES($1,$2,$3,$4,$5)',[id,orgId,userId,provider,model]));return {orgId:String(orgId),operationId:id};}
  async failure(orgId:OrgId,id:string,code:'credit_required'|'credit_accounting_unavailable',reason?:unknown,admittedPayer?:{ownerType:'user'|'team';ownerId:string}){
   const row=await this.db.withTenant(orgId,async s=>(await s.query<{user_id:string}>('SELECT user_id FROM auxiliary_model_operations WHERE org_id=$1 AND id=$2',[orgId,id])).rows[0]);
   if(!row)throw this.denied(orgId);

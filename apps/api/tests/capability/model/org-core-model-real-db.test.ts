@@ -1,3 +1,6 @@
+import {randomUUID} from "node:crypto";
+import {addChatThread} from "../../support/chat-db";
+import {PgChatMessageCommandRepository} from "../../../src/infrastructure/chat/pg-chat-message-command-repository";
 import {afterAll,beforeAll,beforeEach,describe,expect,it} from "vitest";
 import {toOrgId} from "../../../src/domain/org-id";
 import type {IdentityRepository} from "../../../src/application/identity/ports";
@@ -25,6 +28,27 @@ describe("real DB core model selection boundaries",()=>{
   expect(await repo.read(toOrgId(ORG))).toMatchObject({version:1,selection:binding});
   const rows=await asApp(ORG,c=>c.query("SELECT version,config_revision FROM organization_core_model_changes WHERE org_id=$1",[ORG]));
   expect(rows.rows).toEqual([{version:1,config_revision:binding.configRevision}]);
+ });
+ it("one database change redirects all new ordinary-agent runs while replay keeps the accepted snapshot",async()=>{
+  await repo.set(toOrgId(ORG),input);
+  const thread="thread-core-switch";
+  await addChatThread({orgId:ORG,id:thread,projectId:"project-core-real",createdBy:"fixture-admin",visibilityScope:"plenary"});
+  const chat=new PgChatMessageCommandRepository(db,{resolve:async()=>binding});
+  const message=(agentId:string)=>({projectId:"project-core-real",threadId:thread,actorId:"fixture-admin",clientMessageId:randomUUID(),text:"hello",selectedAgentId:agentId,messageId:randomUUID(),runId:randomUUID(),snapshot:{agentId,agentVersionId:`version-${agentId}`,skillVersionIds:[],modelProvider:"retired-provider",modelId:"retired-model",instructions:"fixture"}});
+  const first=message("first-digital-human");
+  await chat.accept(toOrgId(ORG),first);
+  const nextBinding={...binding,runtimeModelId:"qwen3.8-max",modelProvider:"next-text-provider",configRevision:"next-price",privateConnectionId:"next-connection"};
+  const nextRepo=new PgOrgCoreModelRepository(db,{resolve:async()=>nextBinding},()=>({findOrgMembership:async()=>({orgRole:"admin"})}) as unknown as IdentityRepository);
+  await nextRepo.set(toOrgId(ORG),{...input,expectedVersion:1,reason:"Switch every ordinary digital human"});
+  const switchedChat=new PgChatMessageCommandRepository(db,{resolve:async()=>nextBinding});
+  const second=message("second-digital-human");
+  await switchedChat.accept(toOrgId(ORG),second);
+  await switchedChat.accept(toOrgId(ORG),first);
+  const runs=await asApp(ORG,c=>c.query("SELECT r.id,r.model_provider,r.model_id,s.selection_version FROM agent_runs r JOIN agent_run_core_model_snapshots s ON s.run_id=r.id AND s.org_id=r.org_id WHERE r.org_id=$1 ORDER BY s.selection_version",[ORG]));
+  expect(runs.rows).toEqual([
+   {id:first.runId,model_provider:binding.modelProvider,model_id:binding.runtimeModelId,selection_version:1},
+   {id:second.runId,model_provider:nextBinding.modelProvider,model_id:nextBinding.runtimeModelId,selection_version:2},
+  ]);
  });
  it("two concurrent writes at the same version cannot both succeed",async()=>{
   const writes=await Promise.allSettled([repo.set(toOrgId(ORG),input),repo.set(toOrgId(ORG),input)]);

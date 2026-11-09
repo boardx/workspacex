@@ -37,7 +37,7 @@ class ScriptedChatModel(BaseChatModel):
     bound_tool_choice: Any = None
     calls: list[dict[str, Any]] = []
     # issue #2417 重做：devapp 走的是 DashScope（阿里云百炼）OpenAI 兼容模式的
-    # qwen-plus——事故排查阶段一度怀疑 provider 拒绝具名 tool_choice 是根因（后被
+    # qwen3.8-max——事故排查阶段一度怀疑 provider 拒绝具名 tool_choice 是根因（后被
     # 真实容器日志排除，见 harness.py 头注），但"provider 拒绝这次强制调用"仍是
     # `PlanFirstToolChoiceMiddleware` 该兜底的一类真实场景。设为 True 时，`_generate`
     # 在收到具名 tool_choice（"auto"/"any"/"none" 之外）时不接管输出、而是抛异常，

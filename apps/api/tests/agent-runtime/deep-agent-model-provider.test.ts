@@ -107,7 +107,7 @@ describe("DeepAgentModelProvider.complete", () => {
 
     const result = await provider().complete({
       modelProvider: DEEP_AGENT_PROVIDER_NAME,
-      modelId: "m1",
+      modelId: "qwen3.8-max",
       system: "你是通用助手。技能A：画图。",
       user: "画一个流程图",
       history: [{ role: "user", content: "上一轮消息" }],
@@ -121,9 +121,10 @@ describe("DeepAgentModelProvider.complete", () => {
     const body = capturedRunBodies[0] as {
       assistant_id: string;
       input: { messages: { role: string; content: string; id: string }[] };
-      config: { configurable: { org_skills: { stable_name: string; name: string; content: string }[] } };
+      config: { configurable: { model_id: string; org_skills: { stable_name: string; name: string; content: string }[] } };
     };
     expect(body.assistant_id).toBe("Deep Agent");
+    expect(body.config.configurable.model_id).toBe("qwen3.8-max");
     // issue #2836：每条消息带 `wsx-turn:<runId>:<slot>` id，远端 TurnWindowMiddleware
     // 靠它识别"本轮"并删掉上一轮以前的累积。前缀字面量与 harness.py 逐字相同。
     expect(body.input.messages).toEqual([

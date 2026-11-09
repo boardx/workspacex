@@ -132,7 +132,7 @@ function writeAgentPack(input: {
     instructionDigest: input.instructionDigestOverride ?? sha256(instructions),
     skillVersions: input.skillVersions,
     modelProvider: "dashscope",
-    modelId: "qwen-plus",
+    modelId: "qwen3.8-max",
     toolPolicy: input.toolPolicy ?? [],
   };
   const unsigned = { schemaVersion: 1, packId, packVersion, agents: [agent] };
@@ -354,7 +354,7 @@ describe("explicit Skills-first Agent import", () => {
     expect(durable.version.instruction_digest).toBe(sha256(durable.version.instructions));
     expect(durable.version.skill_version_ids).toEqual([skill.versionId]);
     expect(durable.version.model_provider).toBe("dashscope");
-    expect(durable.version.model_id).toBe("qwen-plus");
+    expect(durable.version.model_id).toBe("qwen3.8-max");
     expect(durable.version.tool_policy).toEqual([]);
     expect(durable.provenance).toMatchObject({ pack_id: AGENT_PACK_ID, pack_version: PACK_VERSION });
 

@@ -208,7 +208,7 @@ describe("F06: 开关", () => {
     expect(readKgExtractionModelConfig({ KERNEL_MODEL_PROVIDER: "dashscope", KG_EXTRACTION_ENABLED: "0" }).enabled).toBe(true);
     expect(readKgExtractionModelConfig({}).enabled).toBe(false);
     expect(readKgExtractionModelConfig({ KG_EXTRACTION_ENABLED: "1" }).enabled).toBe(false);
-    expect(readKgExtractionModelConfig({ KERNEL_MODEL_PROVIDER: "x", KERNEL_KG_EXTRACTION_MODEL_ID: "qwen-plus" }).modelId).toBe("qwen-plus");
+    expect(readKgExtractionModelConfig({ KERNEL_MODEL_PROVIDER: "x", KERNEL_KG_EXTRACTION_MODEL_ID: "qwen3.8-max" }).modelId).toBe("qwen3.8-max");
   });
 });
 

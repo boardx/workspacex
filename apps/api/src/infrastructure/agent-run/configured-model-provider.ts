@@ -101,7 +101,7 @@ export interface ConfiguredModelProviderConfig {
    * 只有 `thinkingDisableModelIds` 一个维度不够：那只声明了"这个 modelId 支持关闭
    * thinking"，没有回答"这个部署配的端点是不是百炼"——一个复用本类（通用 OpenAI
    * 兼容 adapter）但指向别的厂商/自托管端点的部署，即使调用时传的 modelId 字符串
-   * 恰好复用了 `qwen-plus`/`qwen3.7-plus` 这两个名字（例如自建的开源同名模型），也
+   * 恰好复用了 `qwen3.8-max`/`qwen3.7-plus` 这两个名字（例如自建的开源同名模型），也
    * 不该被发送这个陌生字段。
    *
    * 默认值：`baseUrl` 命中 `dashscope.aliyuncs.com`（`bailian-image-provider.ts` /
@@ -215,7 +215,7 @@ function isBailianBaseUrl(baseUrl: string): boolean {
  * #2504 —— `KERNEL_MODEL_THINKING_DISABLE_IDS`（逗号分隔）→ 非流式请求里允许带
  * `enable_thinking: false` 的 modelId 集合。
  *
- * ⚠ 默认值 `qwen-plus,qwen3.7-plus`（+2026-09-06 的 `qwen3.8-max`）是**这个仓库自己已经在用**的 Bailian 混合思考
+ * ⚠ 默认值 `qwen3.7-plus,qwen3.8-max`是**这个仓库自己已经在用**的 Bailian 混合思考
  * 模型 id（`deep_agent_service/model.py` 的 `DEFAULT_MODEL_ID`、
  * `simulate-template-run.ts`/`suggest-template-sections.ts`/
  * `guided-*-generator.ts` 的 `modelId` 常量），不是凭空猜的——两者都是"混合模型"
@@ -230,7 +230,7 @@ function readThinkingDisableModelIds(env: NodeJS.ProcessEnv): ReadonlySet<string
   // 2026-09-06 —— 补 `qwen3.8-max`：devapp 实际部署的 deep-agent 模型（见 `model.py`
   // `_DEFAULT_THINKING_DISABLE_MODEL_IDS` 旁注），百炼文档列为混合思考、默认开 thinking。
   // 两边默认值必须逐字相同（`apps/deep-agent-service/tests/test_model.py` 机械比对）。
-  const raw = env.KERNEL_MODEL_THINKING_DISABLE_IDS ?? "qwen-plus,qwen3.7-plus,qwen3.8-max";
+  const raw = env.KERNEL_MODEL_THINKING_DISABLE_IDS ?? "qwen3.7-plus,qwen3.8-max";
   return new Set(raw.split(",").map((v) => v.trim()).filter((v) => v !== ""));
 }
 
@@ -464,7 +464,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
    * ## `enable_thinking: false`（非流式时）—— #2504
    *
    * ⚠ 这个部署配的是通义千问（阿里云百炼，`baseUrl`/`apiKey` 见本文件头注）。Qwen3 系
-   * 模型（`qwen-plus`/`qwen3.x-plus` 等，见各调用点的 `modelId` 常量）**缺省开启深度
+   * 模型（`qwen3.8-max`/`qwen3.x-plus` 等，见各调用点的 `modelId` 常量）**缺省开启深度
    * 思考**：模型在给出最终答案前先生成一段隐藏的 reasoning，而 `complete()` 恒为
    * `stream: false`（本文件头注「The request shape」），调用方要等整段思考 + 正文都
    * 生成完才拿到响应——2026-09-02 用户反馈：提交一个信息量较大的 pptx 任务，等了
@@ -491,7 +491,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
    *   2. `config.bailianExtensionsEnabled` —— **endpoint** 维度："这个部署配的 baseUrl
    *      真的是百炼"，不是复用本类（通用 OpenAI-compatible adapter）指向别的厂商/
    *      自托管端点、只是恰好也用了同一个 modelId 字符串。
-   * 只判一维不够：只看 modelId，一个复用了 `qwen-plus` 这个名字的非百炼自托管端点也会
+   * 只判一维不够：只看 modelId，一个复用了 `qwen3.8-max` 这个名字的非百炼自托管端点也会
    * 被发送这个陌生字段；只看 endpoint，百炼里的 `thinking-only` 模型（只能思考、不能关）
    * 收到 `enable_thinking: false` 会被拒绝、不是被忽略。两维都不满足 ⇒ 完全不带这个
    * 字段，请求体与本次修复之前逐字节相同。

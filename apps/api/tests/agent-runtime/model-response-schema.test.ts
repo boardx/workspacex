@@ -74,7 +74,7 @@ describe("trusted per-call strict schema capability", () => {
     ["https://llm-fixture.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1", "qwen3.8-max"],
     ["https://llm-fixture.cn-beijing.maas.aliyuncs.com/other/v1", "qwen3.8-max"],
     ["https://llm-fixture.cn-beijing.maas.aliyuncs.com.attacker.example/compatible-mode/v1", "qwen3.8-max"],
-    [supported, "qwen-plus"], ["https://example.org/compatible-mode/v1", "qwen3.8-max"],
+    [supported, "unsupported-schema-model"], ["https://example.org/compatible-mode/v1", "qwen3.8-max"],
   ])("does not infer schema capability for %s / %s", async (baseUrl, modelId) => {
     expect(await call(baseUrl, modelId)).not.toHaveProperty("response_format");
   });

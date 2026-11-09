@@ -76,7 +76,7 @@ async function publishAgent(): Promise<void> {
     await c.query(
       `INSERT INTO chat_wave2_fixture.agent_versions
          (id, org_id, agent_id, skill_version_ids, model_provider, model_id, published_at)
-       VALUES ($1,$2,$3,$4::jsonb,'dashscope','qwen-plus',now())`,
+       VALUES ($1,$2,$3,$4::jsonb,'dashscope','qwen3.8-max',now())`,
       [AGENT_VERSION, ORG, AGENT, JSON.stringify(SKILLS)]);
   });
 }

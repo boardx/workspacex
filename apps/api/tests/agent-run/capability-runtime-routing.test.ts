@@ -7,7 +7,7 @@ import { kernelServedProviders } from "../../src/infrastructure/agent-run/loopba
 import { toOrgId } from "../../src/domain/org-id";
 
 const ORG = toOrgId("org-x");
-const base = { runId: "r1", modelProvider: "dashscope", modelId: "qwen-plus", skillVersionIds: [] as string[] } as unknown as ClaimedAgentRun;
+const base = { runId: "r1", modelProvider: "dashscope", modelId: "qwen3.8-max", skillVersionIds: [] as string[] } as unknown as ClaimedAgentRun;
 const store = (allowlist: string[] | null, agentPinnedSkillCount = 0): AgentRunStore => ({
   readRunWorkflowContext: async () => allowlist === null ? null
     : { agentId: "a", agentVersionId: "v", workflowAllowlist: allowlist, requesterUserId: null, agentPinnedSkillCount },
@@ -17,7 +17,7 @@ const served: ModelCallPort = { complete: async () => ({ text: "" }), servesViaK
 describe("routeCapabilityRun（数字人能力，决策 B）", () => {
   it("dashscope + 白名单 ⇒ deep-agent，模型保持钉住值", async () => {
     const run = await routeCapabilityRun({ model: served, runs: store(["W027"]) }, ORG, base);
-    expect({ p: run.modelProvider, m: run.modelId }).toEqual({ p: "deep-agent", m: "qwen-plus" });
+    expect({ p: run.modelProvider, m: run.modelId }).toEqual({ p: "deep-agent", m: "qwen3.8-max" });
   });
   it("dashscope + Agent 版本自己钉了 Skill ⇒ deep-agent", async () => {
     const run = await routeCapabilityRun({ model: served, runs: store([], 1) }, ORG, { ...base, skillVersionIds: ["s1"] });
@@ -45,7 +45,7 @@ describe("routeCapabilityRun（数字人能力，决策 B）", () => {
   });
   it("pinnedModelConfig：路由标签 deep-agent 不送，具体模型送 model_id", () => {
     expect(pinnedModelConfig({ modelId: "deep-agent" })).toEqual({});
-    expect(pinnedModelConfig({ modelId: "qwen-plus" })).toEqual({ model_id: "qwen-plus" });
+    expect(pinnedModelConfig({ modelId: "qwen3.8-max" })).toEqual({ model_id: "qwen3.8-max" });
   });
   it("kernelServedProviders：deep-agent 端口不可用（base url 为空）⇒ 空集 ⇒ 不改路由，走旧的 dashscope 路径", async () => {
     expect([...kernelServedProviders("dashscope", ["x"], "")]).toEqual([]);

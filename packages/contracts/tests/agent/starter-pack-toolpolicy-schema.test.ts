@@ -13,7 +13,7 @@ const entry = (toolPolicy: unknown) => ({
   instructionDigest: "a".repeat(64),
   skillVersions: [],
   modelProvider: "dashscope",
-  modelId: "qwen-plus",
+  modelId: "qwen3.8-max",
   toolPolicy,
 });
 
