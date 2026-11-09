@@ -216,7 +216,7 @@ export function SurveyQuestionEditor({
             {t("survey.design.exitTrial")}
           </Button>
         </div>
-        <div className="mx-auto w-full max-w-4xl flex-1 overflow-y-auto bg-background px-5 py-7">
+        <div className="mx-auto w-full max-w-4xl flex-1 overflow-y-auto survey-scrollbar bg-background px-5 py-7">
           <div className="mx-auto max-w-2xl space-y-7">
             <header className="border-b border-border pb-6 text-center">
               <h1 className="text-24 font-semibold tracking-tight">{surveyTitle || t("survey.design.untitledSurvey")}</h1>
@@ -382,7 +382,7 @@ export function SurveyQuestionEditor({
             <DialogTrigger asChild><Button type="button" variant="secondary" disabled={disabled} aria-expanded={outlineOpen}>
               <ListOrdered aria-hidden="true" className="h-4 w-4" />{t("survey.design.outline")}
             </Button></DialogTrigger>
-            <DialogContent className="max-h-[80dvh] max-w-lg overflow-y-auto" onCloseAutoFocus={(event) => {
+            <DialogContent className="max-h-[80dvh] max-w-lg overflow-y-auto survey-scrollbar" onCloseAutoFocus={(event) => {
               const selected = outlineSelection.current;
               outlineSelection.current = null;
               if (!selected) return;
@@ -436,7 +436,7 @@ export function SurveyQuestionEditor({
         className={`grid min-w-0 gap-4 ${studioLayout && preview ? "lg:h-full lg:min-h-0 lg:flex-1 lg:grid-cols-[16rem_minmax(0,1fr)_18rem] lg:overflow-hidden xl:grid-cols-[16rem_minmax(0,1fr)_20rem]" : preview ? "xl:grid-cols-[16rem_minmax(0,1fr)_minmax(0,1fr)]" : "lg:grid-cols-[16rem_minmax(0,1fr)]"}`}
       >
         <ResponsiveDesignerPanel title={t(studioLayout ? "survey.design.toolbox" : "survey.design.outline")} enabled={studioLayout} disabled={disabled}>
-        <aside data-testid={studioLayout ? "survey-designer-toolbox" : undefined} aria-label={t(studioLayout ? "survey.design.toolbox" : "survey.design.outline")} className="min-w-0 space-y-5 rounded-lg border border-border bg-card p-4 lg:h-full lg:overflow-y-auto">
+        <aside data-testid={studioLayout ? "survey-designer-toolbox" : undefined} aria-label={t(studioLayout ? "survey.design.toolbox" : "survey.design.outline")} className="min-w-0 space-y-5 rounded-lg border border-border bg-card p-4 lg:h-full lg:overflow-y-auto survey-scrollbar">
           {studioLayout && !locked && <section aria-label={t("survey.design.toolbox")} className="space-y-3">
             <div className="flex items-start justify-between gap-2"><h2 className="text-14 font-semibold">{t("survey.design.toolbox")}</h2><Button type="button" size="sm" variant="ghost" onClick={() => add("short")}>{t("survey.design.addQuestion")}</Button></div>
             {Array.from(new Set(SURVEY_QUESTION_TYPES.map(item => item.category))).map(group => <div key={group}>
@@ -492,7 +492,7 @@ export function SurveyQuestionEditor({
         </aside>
         </ResponsiveDesignerPanel>
         <ResponsiveDesignerPanel title={t("survey.design.settings")} enabled={studioLayout} disabled={disabled}>
-        <section data-testid={studioLayout ? "survey-designer-settings" : undefined} aria-label={t("survey.design.settings")} className={`min-w-0 space-y-4 ${studioLayout && preview ? 'lg:order-3 lg:h-full lg:overflow-y-auto' : ''}`}>
+        <section data-testid={studioLayout ? "survey-designer-settings" : undefined} aria-label={t("survey.design.settings")} className={`min-w-0 space-y-4 ${studioLayout && preview ? 'lg:order-3 lg:h-full lg:overflow-y-auto survey-scrollbar' : ''}`}>
           {locked && (
             <p className="rounded-md bg-muted p-3 text-12">
               {t("survey.design.publishedLocked")}
@@ -716,7 +716,7 @@ export function SurveyQuestionEditor({
         </section>
         </ResponsiveDesignerPanel>
         {preview && !overviewFirst && (
-          <aside ref={canvasRef} data-testid={studioLayout ? "survey-designer-canvas-scroll" : undefined} aria-label={t("survey.design.livePreview")} className={`min-w-0 space-y-4 bg-muted/30 ${studioLayout ? 'lg:order-2 lg:h-full lg:overflow-y-auto' : 'rounded-lg border border-border bg-card p-4'}`}>
+          <aside ref={canvasRef} data-testid={studioLayout ? "survey-designer-canvas-scroll" : undefined} aria-label={t("survey.design.livePreview")} className={`min-w-0 space-y-4 bg-muted/30 ${studioLayout ? 'lg:order-2 lg:h-full lg:overflow-y-auto survey-scrollbar' : 'rounded-lg border border-border bg-card p-4'}`}>
             <div role="region" aria-label={t("survey.design.designCanvas")} className="space-y-4">
             {studioLayout && <h2 className="sr-only">{t("survey.design.designCanvas")}</h2>}
             <div className="sticky top-0 z-10 flex justify-center gap-2 bg-card p-2">
