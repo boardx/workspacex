@@ -28,6 +28,8 @@ description: 问卷创建、模板、题目编辑、发布、填写和结果分�
 
 ## 踩坑与经验（append-only）
 
+- 2026-11-09：设计器滚动条用 globals.css 的 survey-scrollbar scoped utility，透明轨道与主题滑块保留原生滚动；forced-colors 回退系统配色。不要全局隐藏滚动条。验证见 docs/testing/survey-scrollbar-6452/README.md（#6452）。
+
 - 2026-09-26：遗留结构化问卷在读取时只引导一次 Markdown source；已经发布的快照不回填 sourceSnapshot。证据：`apps/api/tests/survey/survey-source-lifecycle.test.ts` 的 legacy-publication 回归。
 - 2026-09-28：应用 AI Markdown 提案时，未生成的既有标签也必须保留在 canonical Markdown 中；只保留 React draft 元数据会在保存/刷新后丢失。证据：`apps/web/tests/ui/survey-live-workspace.test.tsx` 的 AI tag-preserving save 与 `apps/web/e2e/survey-complete-flow.spec.ts`（#4451）。
 - 2026-09-28：带 base64 文件的 JSON 请求要按共享 envelope 上限注册专用 parser；默认 JSON parser 会在文件大小校验前拒绝合法输入。证据：`apps/api/tests/survey/survey-source-http.test.ts` 的 proposal envelope 回归（#4451）。
