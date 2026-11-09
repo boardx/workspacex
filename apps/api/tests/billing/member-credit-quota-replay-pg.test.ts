@@ -29,7 +29,7 @@ it.each([1,2])('forced direct application %s preserves zero/custom overrides and
  const members=(await repo.readCreditQuotas(org)).members;
  expect(members.find(m=>m.userId===`${org}-zero`)).toMatchObject({monthlyLimit:0,overridden:true});
  expect(members.find(m=>m.userId===`${org}-custom`)).toMatchObject({monthlyLimit:2500,overridden:true});
- expect(members.find(m=>m.userId===`${org}-default`)).toMatchObject({monthlyLimit:1000,overridden:false});
+ expect(members.find(m=>m.userId===`${org}-default`)).toMatchObject({monthlyLimit:5000,overridden:false});
  const policy=await asOwner(async c=>(await c.query("SELECT count(*)::int AS n FROM pg_policy WHERE polrelid='member_credit_quota'::regclass AND polname='member_credit_quota_tenant'")).rows[0]);
  expect(policy.n).toBe(1);
  const index=await asOwner(async c=>(await c.query("SELECT count(*)::int AS n FROM pg_indexes WHERE schemaname='public' AND indexname='credit_consumption_member_holds'")).rows[0]);

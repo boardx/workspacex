@@ -1,6 +1,6 @@
 import {z} from 'zod';
 /** A monthly spending cap, never a wallet grant. Overrides persist between UTC calendar months. */
-export const DEFAULT_MEMBER_MONTHLY_CREDITS=1000;
+export const DEFAULT_MEMBER_MONTHLY_CREDITS=5000;
 export const MemberMonthlyCreditLimit=z.number().int().min(0).max(2147483647);
 export const SetMemberCreditQuota=z.object({monthlyLimit:MemberMonthlyCreditLimit}).strict();
 export const MemberCreditQuotaSnapshot=z.object({

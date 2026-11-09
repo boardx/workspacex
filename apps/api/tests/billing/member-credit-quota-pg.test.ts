@@ -33,16 +33,16 @@ beforeAll(async()=>{
 },180000);
 afterAll(async()=>{await db.close();if(originalEpoch)await asOwner(c=>c.query('UPDATE billing_pricing_epoch SET generation=$1,activated_at=$2 WHERE singleton',[originalEpoch!.generation,originalEpoch!.activated_at]));console.info('[member-credit-fixture-retention]',JSON.stringify({org,other,user}));});
 it('defaults existing members without writing quota or wallet funds; applies to new members',async()=>{
- const first=await repo.readCreditQuotas(org);expect(first.members[0]).toMatchObject({monthlyLimit:1000,overridden:false,usedCredits:0});
+ const first=await repo.readCreditQuotas(org);expect(first.members[0]).toMatchObject({monthlyLimit:5000,overridden:false,usedCredits:0});
  expect(await asApp(org,async c=>(await c.query('SELECT count(*)::int AS n FROM member_credit_quota WHERE org_id=$1',[org])).rows[0].n)).toBe(0);
  expect(await asApp(org,async c=>(await c.query("SELECT count(*)::int AS n FROM credit_wallets WHERE owner_type='team' AND owner_id=$1",[org])).rows[0].n)).toBe(0);
  const newcomer=`${prefix}-new`;await asApp(org,async c=>{
   await c.query("INSERT INTO credentials(user_id,email,display_name,password_hash) VALUES($1,$2,'New member','$2b$12$test-fixture-already-hashed')",[newcomer,`${newcomer}@example.test`]);
   await c.query("INSERT INTO org_memberships(org_id,user_id,org_role) VALUES($1,$2,'consultant')",[org,newcomer]);
- });expect((await repo.readCreditQuotas(org)).members.find(m=>m.userId===newcomer)).toMatchObject({monthlyLimit:1000,overridden:false});
+ });expect((await repo.readCreditQuotas(org)).members.find(m=>m.userId===newcomer)).toMatchObject({monthlyLimit:5000,overridden:false});
  const guest=`${prefix}-guest`;
  await asApp(org,c=>c.query("INSERT INTO org_memberships(org_id,user_id,org_role) VALUES($1,$2,'consultant')",[org,guest]));
- expect((await repo.readCreditQuotas(org)).members.find(m=>m.userId===guest)).toMatchObject({displayName:guest,email:'',monthlyLimit:1000,overridden:false});
+ expect((await repo.readCreditQuotas(org)).members.find(m=>m.userId===guest)).toMatchObject({displayName:guest,email:'',monthlyLimit:5000,overridden:false});
  await repo.setCreditQuota(org,guest,42,user);
  expect((await repo.readCreditQuotas(org)).members.find(m=>m.userId===guest)).toMatchObject({monthlyLimit:42,overridden:true});
 });
@@ -148,7 +148,7 @@ it('requires the current canonical Enterprise generation before showing or editi
   await expect(repo.setCreditQuota(stale,user,0,user)).rejects.toBeInstanceOf(EnterpriseCreditPlanRequired);
  }
  await asApp(stale,c=>c.query('UPDATE organization_plans SET billing_generation=$2 WHERE org_id=$1',[stale,generation]));
- expect((await repo.readCreditQuotas(stale)).members[0]).toMatchObject({monthlyLimit:1000,overridden:false});
+ expect((await repo.readCreditQuotas(stale)).members[0]).toMatchObject({monthlyLimit:5000,overridden:false});
  await repo.setCreditQuota(stale,user,0,user);
  expect((await repo.readCreditQuotas(stale)).members[0]).toMatchObject({monthlyLimit:0,overridden:true});
 });
