@@ -215,8 +215,10 @@ test('project and organization Board targets · real placement handoff, cancel a
       await expect(page).toHaveURL(new RegExp(`/studio/board/${board.id}(?:\\?|$)`));await expect(page.getByTestId('board-fabric-surface')).toBeVisible({timeout:30_000});
       const insertedIds=committed.objects.filter(object=>!original.get(board.id)!.objects.some(old=>old.id===object.id)).map(object=>object.id);
       await expectInsertedContentVisible(page,insertedIds);
-      await expect(page.getByRole('button',{name:new RegExp(label)})).toBeVisible();
-      await page.reload();await expect(page.getByRole('button',{name:new RegExp(label)})).toBeVisible({timeout:30_000});
+      await expect(page.getByRole('button',{name:new RegExp(label)})).toHaveCount(lang==='canvas'?6:1);
+      for(const object of await page.getByRole('button',{name:new RegExp(label)}).all())await expect(object).toBeVisible();
+      await page.reload();await expect(page.getByRole('button',{name:new RegExp(label)})).toHaveCount(lang==='canvas'?6:1,{timeout:30_000});
+      for(const object of await page.getByRole('button',{name:new RegExp(label)}).all())await expect(object).toBeVisible();
       await expectInsertedContentVisible(page,insertedIds);
       expect((await read(board.id)).objects).toEqual(committed.objects);
       const boardPath=info.outputPath(`placement-${scope}-board-after-reload.png`);await page.screenshot({path:boardPath,fullPage:false});
