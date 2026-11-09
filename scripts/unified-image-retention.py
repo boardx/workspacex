@@ -35,7 +35,7 @@ def plan(config, versions, containers, images, now):
     keep = set(current['images'].values()) | set(previous['images'].values())
     keep.update(row['Image'] for row in containers)
     for service in services:
-        matches = [row for row in containers if row['Config'].get('Labels', {}).get('com.docker.compose.project') == config['project'] and row['Config'].get('Labels', {}).get('com.docker.compose.service') == service and row['State']['Running']]
+        matches = [row for row in containers if (row['Config'].get('Labels') or {}).get('com.docker.compose.project') == config['project'] and (row['Config'].get('Labels') or {}).get('com.docker.compose.service') == service and row['State']['Running']]
         need(len(matches) == 1 and matches[0]['Image'] == current['images'][service], 'RUNTIME_DRIFT')
     prefix = config['registryPrefix'].rstrip('/') + '/'
     candidates = []

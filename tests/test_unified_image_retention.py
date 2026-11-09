@@ -27,6 +27,10 @@ class Retention(unittest.TestCase):
     def test_current_previous_and_all_containers_are_protected(self):
         self.containers.append({'Image': 'stopped', 'Config': {'Labels': {}}, 'State': {'Running': False}})
         self.assertEqual(self.plan([self.image(x) for x in ('current', 'rollback', 'stopped')])[1], [])
+    def test_unrelated_null_labels_still_protects_container_image(self):
+        self.containers.append({'Image':'unlabeled','Config':{'Labels':None},'State':{'Running':False}})
+        self.assertEqual(self.plan([self.image('unlabeled')])[1], [])
+        self.assertEqual(self.plan([self.image()])[1][0]['id'], 'old')
     def test_foreign_mixed_untagged_and_young_not_deleted(self):
         images = [self.image(refs=['foreign/api:old']), self.image(refs=['registry/team/api:old', 'foreign/api:old']), self.image(refs=[]), self.image(created='2026-11-08T12:00:00Z')]
         self.assertEqual(self.plan(images)[1], [])
