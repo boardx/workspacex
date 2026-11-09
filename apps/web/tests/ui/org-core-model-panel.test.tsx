@@ -14,13 +14,13 @@ const selection=Binding.parse({modelId:available.modelId,modelProvider:available
 afterEach(()=>{cleanup();vi.resetAllMocks();vi.unstubAllGlobals();});
 function fixture(state:OrgCoreModelState=empty,candidates:OrgCoreModelCandidate[]=[available,unavailable]){mocks.get.mockResolvedValue(state);mocks.candidates.mockResolvedValue(candidates);return render(<OrgCoreModelPanel orgId="current-org"/>);}
 async function chooseDraft(){fireEvent.click(await screen.findByRole("button",{name:"选择 Verified Model"}));fireEvent.change(screen.getByLabelText("变更理由（写入审计）"),{target:{value:"approved business choice"}});}
-it("loading and unconfigured are distinct; no default model or supplier call is invented",async()=>{
+it("loading and system-default state are distinct; custom selection is optional",async()=>{
  let resolve!:(value:unknown)=>void;mocks.get.mockImplementation(()=>new Promise(ok=>{resolve=ok;}));mocks.candidates.mockResolvedValue([available]);render(<OrgCoreModelPanel orgId="current-org"/>);
- expect(screen.getByTestId("loading")).toBeInTheDocument();expect(screen.queryByText("核心模型未配置")).not.toBeInTheDocument();await act(async()=>resolve(empty));
- expect(await screen.findByText("核心模型未配置")).toBeInTheDocument();expect(screen.getByRole("button",{name:"选择 Verified Model"})).toHaveAttribute("aria-pressed","false");expect(screen.getByRole("button",{name:"保存核心模型选择"})).toBeDisabled();expect(mocks.set).not.toHaveBeenCalled();
- expect(screen.getByText(/仅新默认助手调用继承/)).toBeInTheDocument();expect(screen.getByText(/保存选择不会测试模型或启用供应商/)).toBeInTheDocument();
+ expect(screen.getByTestId("loading")).toBeInTheDocument();expect(screen.queryByText("使用系统默认模型（未自定义）")).not.toBeInTheDocument();await act(async()=>resolve(empty));
+ expect(await screen.findByText("使用系统默认模型（未自定义）")).toBeInTheDocument();expect(screen.getByRole("button",{name:"选择 Verified Model"})).toHaveAttribute("aria-pressed","false");expect(screen.getByRole("button",{name:"保存核心模型选择"})).toBeDisabled();expect(mocks.set).not.toHaveBeenCalled();
+ expect(screen.getByText(/新任务默认使用系统配置的模型/)).toBeInTheDocument();expect(screen.getByText(/保存选择不会测试模型或启用供应商/)).toBeInTheDocument();
 });
-it("empty verified pool offers a next step and cannot save",async()=>{fixture(empty,[]);expect(await screen.findByTestId("empty")).toHaveTextContent("组织正式模型准入");expect(screen.getByRole("button",{name:"保存核心模型选择"})).toBeDisabled();});
+it("empty verified pool offers a next step and cannot save",async()=>{fixture(empty,[]);expect(await screen.findByTestId("empty")).toHaveTextContent("默认使用系统模型，无需配置模型池");expect(screen.getByRole("button",{name:"保存核心模型选择"})).toBeDisabled();});
 it("unavailable models are disabled; explicit verified selection saves only model, version and audit reason",async()=>{
  fixture();expect(await screen.findByRole("button",{name:"选择 Unavailable Model"})).toBeDisabled();mocks.set.mockResolvedValue({version:1,selection,updatedBy:"org-admin",reason:"approved business choice"});await chooseDraft();fireEvent.click(screen.getByRole("button",{name:"保存核心模型选择"}));
  await waitFor(()=>expect(mocks.set).toHaveBeenCalledWith({expectedVersion:0,modelId:available.modelId,reason:"approved business choice"}));expect(await screen.findByText("核心模型选择已保存，变更理由已记录。")).toBeInTheDocument();expect(screen.getByText("最近修改人：org-admin")).toBeInTheDocument();
@@ -29,7 +29,7 @@ it("changed deployed binding is explicitly unavailable without silently replacin
  fixture({version:2,selection:{...selection,configRevision:"obsolete"},updatedBy:"admin",reason:"prior decision"});expect(await screen.findByText(/当前配置不可用，或部署配置已变化/)).toBeInTheDocument();expect(screen.getByRole("button",{name:"保存核心模型选择"})).toBeDisabled();expect(mocks.set).not.toHaveBeenCalled();
 });
 it.each([new Error("offline"),new ApiError(403,"NOT_ORG_ADMIN",null),new ApiError(401,"UNAUTHORIZED",null)])("read failure does not masquerade as unconfigured",async cause=>{
- mocks.get.mockRejectedValue(cause);mocks.candidates.mockResolvedValue([available]);render(<OrgCoreModelPanel orgId="current-org"/>);expect(await screen.findByRole("alert")).toBeInTheDocument();expect(screen.queryByText("核心模型未配置")).not.toBeInTheDocument();expect(screen.queryByRole("button",{name:"保存核心模型选择"})).not.toBeInTheDocument();
+ mocks.get.mockRejectedValue(cause);mocks.candidates.mockResolvedValue([available]);render(<OrgCoreModelPanel orgId="current-org"/>);expect(await screen.findByRole("alert")).toBeInTheDocument();expect(screen.queryByText("使用系统默认模型（未自定义）")).not.toBeInTheDocument();expect(screen.queryByRole("button",{name:"保存核心模型选择"})).not.toBeInTheDocument();
 });
 it("version conflict blocks save, then refresh adopts latest version while preserving choice and reason",async()=>{
  fixture();await chooseDraft();mocks.set.mockRejectedValueOnce(new ApiError(409,"VERSION_CHANGED",null));fireEvent.click(screen.getByRole("button",{name:"保存核心模型选择"}));expect(await screen.findByRole("alert")).toHaveTextContent("配置已被其他管理员修改");expect(screen.getByRole("button",{name:"保存核心模型选择"})).toBeDisabled();
@@ -43,11 +43,11 @@ it("withdrawn candidate retains draft but cannot save after refresh",async()=>{
  fixture();await chooseDraft();mocks.candidates.mockResolvedValue([{...available,available:false,reason:"DEPLOYMENT_CHANGED"}]);fireEvent.click(screen.getByRole("button",{name:"刷新配置与候选"}));expect(await screen.findByText(/草稿选择：Verified Model（当前不可用/)).toBeInTheDocument();expect(screen.getByLabelText("变更理由（写入审计）")).toHaveValue("approved business choice");expect(screen.getByRole("button",{name:"保存核心模型选择"})).toBeDisabled();
 });
 it.each(["success","failure"])("late save %s from prior organization cannot update new organization",async result=>{
- const view=fixture();await chooseDraft();let resolve!:(value:unknown)=>void,reject!:(error:unknown)=>void;mocks.set.mockImplementation(()=>new Promise((ok,fail)=>{resolve=ok;reject=fail;}));fireEvent.click(screen.getByRole("button",{name:"保存核心模型选择"}));await waitFor(()=>expect(mocks.set).toHaveBeenCalledOnce());view.rerender(<OrgCoreModelPanel orgId="new-org"/>);await screen.findByText("核心模型未配置");
- await act(async()=>{if(result==="success")resolve({version:1,selection,updatedBy:"old-org-admin",reason:"old"});else reject(new ApiError(409,"VERSION_CHANGED",null));});expect(screen.getByText("核心模型未配置")).toBeInTheDocument();expect(screen.queryByText(/最近修改人：old-org-admin/)).not.toBeInTheDocument();expect(screen.queryByRole("alert")).not.toBeInTheDocument();expect(screen.getByLabelText("变更理由（写入审计）")).toHaveValue("");
+ const view=fixture();await chooseDraft();let resolve!:(value:unknown)=>void,reject!:(error:unknown)=>void;mocks.set.mockImplementation(()=>new Promise((ok,fail)=>{resolve=ok;reject=fail;}));fireEvent.click(screen.getByRole("button",{name:"保存核心模型选择"}));await waitFor(()=>expect(mocks.set).toHaveBeenCalledOnce());view.rerender(<OrgCoreModelPanel orgId="new-org"/>);await screen.findByText("使用系统默认模型（未自定义）");
+ await act(async()=>{if(result==="success")resolve({version:1,selection,updatedBy:"old-org-admin",reason:"old"});else reject(new ApiError(409,"VERSION_CHANGED",null));});expect(screen.getByText("使用系统默认模型（未自定义）")).toBeInTheDocument();expect(screen.queryByText(/最近修改人：old-org-admin/)).not.toBeInTheDocument();expect(screen.queryByRole("alert")).not.toBeInTheDocument();expect(screen.getByLabelText("变更理由（写入审计）")).toHaveValue("");
 });
 it("late old read is ignored even if transport disregards AbortSignal",async()=>{
- let resolve!:(value:unknown)=>void;mocks.get.mockImplementationOnce(()=>new Promise(ok=>{resolve=ok;})).mockResolvedValue(empty);mocks.candidates.mockResolvedValue([available]);const view=render(<OrgCoreModelPanel orgId="old-org"/>);view.rerender(<OrgCoreModelPanel orgId="new-org"/>);await screen.findByText("核心模型未配置");await act(async()=>resolve({version:9,selection,updatedBy:"old-admin",reason:"old"}));expect(screen.getByText("配置版本 0")).toBeInTheDocument();expect(screen.queryByText("配置版本 9")).not.toBeInTheDocument();
+ let resolve!:(value:unknown)=>void;mocks.get.mockImplementationOnce(()=>new Promise(ok=>{resolve=ok;})).mockResolvedValue(empty);mocks.candidates.mockResolvedValue([available]);const view=render(<OrgCoreModelPanel orgId="old-org"/>);view.rerender(<OrgCoreModelPanel orgId="new-org"/>);await screen.findByText("使用系统默认模型（未自定义）");await act(async()=>resolve({version:9,selection,updatedBy:"old-admin",reason:"old"}));expect(screen.getByText("配置版本 0")).toBeInTheDocument();expect(screen.queryByText("配置版本 9")).not.toBeInTheDocument();
 });
 
 it("real adapter uses session-scoped routes and strict public contracts, rejecting private fields",async()=>{

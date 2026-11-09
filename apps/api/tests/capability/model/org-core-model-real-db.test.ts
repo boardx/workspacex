@@ -1,7 +1,7 @@
 import {randomUUID} from "node:crypto";
 import {addChatThread} from "../../support/chat-db";
 import {PgChatMessageCommandRepository} from "../../../src/infrastructure/chat/pg-chat-message-command-repository";
-import {afterAll,beforeAll,beforeEach,describe,expect,it} from "vitest";
+import {afterAll,afterEach,beforeAll,beforeEach,describe,expect,it,vi} from "vitest";
 import {toOrgId} from "../../../src/domain/org-id";
 import type {IdentityRepository} from "../../../src/application/identity/ports";
 import {PgOrgCoreModelRepository} from "../../../src/infrastructure/model/pg-org-core-model-repository";
@@ -70,4 +70,19 @@ describe("real DB core model selection boundaries",()=>{
   await resetOrgs(ORG);
   expect((await asOwner(c=>c.query("SELECT * FROM organization_core_model_changes WHERE org_id=$1",[ORG]))).rows).toEqual([]);
  });
+});
+
+
+afterEach(()=>vi.unstubAllEnvs());
+it("empty organization model pool uses system configuration for new runs and preserves replay",async()=>{
+ await resetOrgs(ORG);await seedOrg({orgId:ORG,projectId:"project-core-real"});
+ const thread="system-default-thread";await addChatThread({orgId:ORG,id:thread,projectId:"project-core-real",createdBy:"fixture-admin",visibilityScope:"plenary"});
+ const resolve=vi.fn(async()=>{throw new Error("No custom model should be resolved");});
+ const chat=new PgChatMessageCommandRepository(db,{resolve});
+ const message=(id:string)=>({projectId:"project-core-real",threadId:thread,actorId:"fixture-admin",clientMessageId:randomUUID(),text:"hello",selectedAgentId:id,messageId:randomUUID(),runId:randomUUID(),snapshot:{agentId:id,agentVersionId:`version-${id}`,skillVersionIds:[],modelProvider:"old-provider",modelId:"retired-model",instructions:"fixture"}});
+ vi.stubEnv("KERNEL_DEFAULT_AGENT_MODEL_ID","qwen3.8-max");const first=message("ordinary-one");await chat.accept(toOrgId(ORG),first);
+ vi.stubEnv("KERNEL_DEFAULT_AGENT_MODEL_ID","system-next-model");await chat.accept(toOrgId(ORG),first);const second=message("ordinary-two");await chat.accept(toOrgId(ORG),second);
+ const rows=await asApp(ORG,c=>c.query("SELECT id,model_provider,model_id FROM agent_runs WHERE org_id=$1",[ORG]));
+ expect(rows.rows).toEqual(expect.arrayContaining([{id:first.runId,model_provider:"deep-agent",model_id:"qwen3.8-max"},{id:second.runId,model_provider:"deep-agent",model_id:"system-next-model"}]));
+ expect(rows.rows).toHaveLength(2);expect(resolve).not.toHaveBeenCalled();
 });
