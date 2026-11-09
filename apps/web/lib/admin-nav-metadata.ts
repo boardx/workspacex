@@ -138,12 +138,12 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     group: adminNavigationZhCN["adminNavigation.group.org"],
     scope: "org",
     items: [
+      { key: "overview", label: adminNavigationZhCN["adminNavigation.item.overview"], href: "/admin", ucRefs: ["17-gov/uc-17-1", "17-gov/uc-17-7"] },
       { key: "org-agent", label: adminNavigationZhCN["adminNavigation.item.org-agent"], href: "/org-admin/agent", ucRefs: [] },
       { key: "org-skill", label: adminNavigationZhCN["adminNavigation.item.org-skill"], href: "/org-admin/skill", ucRefs: [] },
-      { key: "overview", label: adminNavigationZhCN["adminNavigation.item.overview"], href: "/admin", ucRefs: ["17-gov/uc-17-1", "17-gov/uc-17-7"] },
       // 见上方 `AdminModuleKey.org-members`/`org-invites`/`org-profile` 长注：原「组织管理」
       // 单一入口（团队/成员/邀请/组织资料四个标签页）已拆平为三个与 `overview` 同层级的项，
-      // 紧跟在总览后面——没有"团队"这一项（issue #2615 裁决②：团队是项目里的概念）。
+      // 位于同一组织导航列表——没有"团队"这一项（issue #2615 裁决②：团队是项目里的概念）。
       { key: "org-members", label: adminNavigationZhCN["adminNavigation.item.org-members"], href: "/org-admin/members", ucRefs: ["01-auth/uc-1-4", "17-gov/uc-17-1"] },
       { key: "org-invites", label: adminNavigationZhCN["adminNavigation.item.org-invites"], href: "/org-admin/invites", ucRefs: ["01-auth/uc-1-4", "17-gov/uc-17-1"] },
       { key: "org-profile", label: adminNavigationZhCN["adminNavigation.item.org-profile"], href: "/org-admin/profile", ucRefs: ["01-auth/uc-1-4", "17-gov/uc-17-1"] },
