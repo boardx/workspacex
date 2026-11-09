@@ -20,10 +20,12 @@ export default defineConfig({ resolve:{alias:{
   '@repo/contracts/report-files':resolve(__dirname,'../../packages/contracts/src/report-files.ts'),
   '@repo/contracts/work-eval':resolve(__dirname,'../../packages/contracts/src/work-eval.ts'),
   '@repo/contracts/interview-markdown-report-review':resolve(__dirname,'../../packages/contracts/src/interview-markdown-report-review.ts'),
-  '@repo/contracts':resolve(__dirname,'../../packages/contracts/src/index.ts'),
+  // Let package exports resolve the root and every contract subpath; a root prefix alias
+  // to index.ts rewrites new subpaths into index.ts/<name> and breaks collection.
   '@repo/whiteboard-core':resolve(__dirname,'../../packages/whiteboard-core/src/index.ts'),
 }},test: {
   include: [
+    'tests/whiteboard/org-template-source.test.ts',
     'tests/whiteboard/connector-portable-independent.test.ts',
     'tests/whiteboard/file-assets.test.ts',
     'tests/whiteboard/file-multipart-http.test.ts',

@@ -66,8 +66,8 @@
 import { getTemplate, registerTemplate } from "@repo/fabric-markdown";
 import { canvas } from "@repo/contracts";
 import { listCanvasTemplates, type CanvasTemplate } from "@/lib/live-canvas";
-import { buildAutoTemplateSpec } from "./auto-template-layout";
-import { buildExplicitTemplateSpec, hasPlacedSection } from "./explicit-template-layout";
+import { orgTemplateSpec } from "../../../../shared/canvas/org-template-spec";
+
 
 export type CanvasFenceTemplateSource = "builtin" | "org-generated";
 
@@ -254,37 +254,7 @@ async function resolveByKey(input: {
     // 预览画，真实 chat 渲染这里从没把它们传给 spec——用户填了页脚、画布上没有。
     // 标题与 chat 模拟（`template-simulate-dialog.tsx`：`title || templateKey`）
     // 同一判据：填了纸面标题用标题，没填退回显示名。
-    const framing = { displayName: row.title || row.displayName, footer: row.footer };
-    const { spec } = hasPlacedSection(row.sections)
-      ? buildExplicitTemplateSpec({
-        key,
-        ...framing,
-        gridCols: row.gridCols ?? canvas.DEFAULT_GRID_COLS,
-        // 行数同理（issue #3358 第 8 项）：编辑器现在能把一张模板存成 16 行，
-        // 这里若仍然吃缺省的 8 行，同一份 `layout.row/h` 在真实 chat 里指的是
-        // 纸面上另一个位置——列数那条链刚修过的同一个 bug，换成纵轴。
-        gridRows: row.gridRows ?? canvas.DEFAULT_GRID_ROWS,
-        sections: row.sections
-          .filter((s) => s.layout != null)
-          .map((s) => (
-            {
-              sectionId: s.sectionId, name: s.name, layout: s.layout!, type: s.type,
-              content: s.content, color: s.color, fontSize: s.fontSize, fontWeight: s.fontWeight,
-              hideFieldTitle: s.hideFieldTitle,
-              align: s.align, valign: s.valign,
-            }
-          )),
-      })
-      : buildAutoTemplateSpec({
-        key,
-        ...framing,
-        // 自动布局算法不认识「文本对象」（它没有 capacity/自动排版的概念，本就只在
-        // 拖拽版显式布局里出现）——过滤掉，不喂进一个它不懂的类型。`filter` 本身不
-        // 收窄联合类型的字面量成员，显式断言掉已经排除的那一档。
-        sections: row.sections
-          .filter((s) => s.type !== "文本对象")
-          .map((s) => ({ ...s, type: s.type as "便利贴列表" | "短文本" | "长文本" | undefined })),
-      });
+    const spec = orgTemplateSpec(row, key);
     registerTemplate(spec);
     AUTO_OWNER.set(key, owner);
   }
