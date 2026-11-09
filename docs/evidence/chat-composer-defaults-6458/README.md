@@ -19,3 +19,12 @@ Results:
 - API typecheck, API lint and Web lint/design passed. Initial Web typecheck exposed stale fabric-markdown dist missing modelToMarkdown; rebuilt the dependency, recheck required.
 - Initial UI and default-policy regression tests were observed failing before implementation.
 - Owned PostgreSQL stack chatdefaults6458 (loopback 56334) removed after tests.
+
+
+Follow-up after CI failure:
+- Merged current develop; preserved both entries in mod-chat knowledge-log conflict.
+- Baseline execute-run.ts was byte-identical on PR and develop and had 1396 lines against the existing 1393-line gate (#6460).
+- Observed the gate fail locally, then extracted the existing pure trimHistoryToBudget function verbatim into its own module. Updated its two test imports. No threshold/skip changes.
+- Thin gateway + history trim + assembly: 23 passed; independent review found no P1/P2.
+- Previous Web typecheck dependency rebuild was rechecked successfully before the original push (35/35 checks).
+- Full previously failing usage-unit lane: 70 files / 677 tests passed. Merged composer/voice UI: 29 passed. Executor is 1368 lines under the unchanged 1393 ceiling.
