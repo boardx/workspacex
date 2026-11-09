@@ -69,7 +69,8 @@ describe("authored official role identities", () => {
     expect(Object.keys(historicalOfficialRoleInstructionDigests("1.0.0"))).toHaveLength(4);
     expect(Object.keys(historicalOfficialRoleInstructionDigests("1.5.0"))).toHaveLength(7);
     expect(Object.keys(historicalOfficialRoleInstructionDigests("1.6.0"))).toHaveLength(7);
-    expect(historicalOfficialRoleInstructionDigests("1.7.0")).toEqual({});
+    expect(Object.keys(historicalOfficialRoleInstructionDigests("1.7.0"))).toHaveLength(7);
+    expect(historicalOfficialRoleInstructionDigests("unknown")).toEqual({});
     for (const role of pack.agents) {
       expect(historicalOfficialRoleInstructionDigests("1.5.0")[role.stableName]).not.toBe(role.instructionDigest);
     }
