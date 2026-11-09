@@ -16,6 +16,6 @@ Results:
 - Document policy / scoped PostgreSQL / plan-confirmation: 17 passed.
 - Generic permission scopes, decision history, native skill risk: 13 passed.
 - Composer / voice / toggle UI: 29 passed (five files).
-- API and Web typecheck, API lint, Web lint/design: passed.
+- API typecheck, API lint and Web lint/design passed. Initial Web typecheck exposed stale fabric-markdown dist missing modelToMarkdown; rebuilt the dependency, recheck required.
 - Initial UI and default-policy regression tests were observed failing before implementation.
 - Owned PostgreSQL stack chatdefaults6458 (loopback 56334) removed after tests.
