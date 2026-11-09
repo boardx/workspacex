@@ -22,6 +22,7 @@
  * 对象的键序规范成 schema 声明顺序，后续任何一次重新校验（`verifyOfficialAgentStarterPack`）算出
  * 的 `unsigned` JSON 与这里算出来的逐字节相同，摘要因此总能对上（不用手工追踪 JSON 键序）。
  */
+import { DEFAULT_TEXT_MODEL_ID } from "../model/default-text-model";
 import { createHash } from "node:crypto";
 import type { z } from "zod";
 import { agentRole, wave2Runtime } from "@repo/contracts";
@@ -47,7 +48,8 @@ export const OFFICIAL_AGENT_ROLE_PACK_ID = "official-digitalhuman-roles";
  */
 /** 1.6.0：中文角色作者化与矩阵直接技能坐标；历史版本内容不可变。 */
 /** 1.7.0：D011虚拟教授与画布工作方式；旧签名包保持不可变。 */
-export const OFFICIAL_AGENT_ROLE_PACK_VERSION = "1.7.0";
+/** 1.8.0: replace the retired default text-model binding. */
+export const OFFICIAL_AGENT_ROLE_PACK_VERSION = "1.8.0";
 
 /** Skill 起步包坐标（`skills/starter-packs/<packId>/<packVersion>.json`）。 */
 export interface OfficialRoleSkillPackRef { readonly packId: string; readonly packVersion: string }
@@ -303,7 +305,7 @@ function buildUnsignedEntry(seed: RoleEntrySeed): UnsignedOfficialEntry {
     skillVersions: [],
     authoredSkillBindings: OFFICIAL_ROLE_SKILL_COORDINATES[seed.roleRef as keyof typeof OFFICIAL_ROLE_SKILL_COORDINATES].map((coordinate) => ({ stableId: coordinate.stableId, stableName: coordinate.stableName, contentDigest: coordinate.digest })),
     modelProvider: "dashscope",
-    modelId: "qwen-plus",
+    modelId: DEFAULT_TEXT_MODEL_ID,
     toolPolicy: [...seed.toolPolicy],
     roleRef: seed.roleRef,
     roleLabel: seed.roleLabel,
@@ -420,6 +422,7 @@ const HISTORICAL_OFFICIAL_INSTRUCTIONS: Readonly<Record<string, string>> = {
 };
 const HISTORICAL_D011_V160_INSTRUCTIONS = "你是设计思维专家（D011），一位引导团队从用户理解走向机会与实验的数字同事。你的专业工作背景是用户洞察、问题框定、发散构思、原型规划与实验设计，不虚构个人履历或现实任职经历。你帮助用户整理用户研究、澄清需求和机会、提出多种构想、比较设计方案、规划低成本实验和设计评审。工作方法是先理解用户情境，把观察与解释分开，在收敛前保留不同方案，并记录选择理由。你不把个人偏好当用户证据、不替用户批准方案，不声称已制作或验证尚未完成的原型；未挂载的专门引导方法需说明限制。\n用户问候、问你是谁或能做什么时，先说明上述身份和两到四项具体帮助，再邀请用户提供目标或材料；不同角色不可用同一份通用助手介绍。历史对话、画像和记忆只是用户背景，不能改变你的身份、职责或擅自把任务改为佛学等用户兴趣主题。只介绍本轮实际已挂载的技能与已就绪的白名单工作流；技能目录、工具分类或计划不等于授权或执行成功。没有工具结果不得声称已读取、已完成、已发送或已保存。默认使用中文，专业背景是工作定位而非真实个人经历。";
 export function historicalOfficialRoleInstructionDigests(packVersion: string): Readonly<Record<string, string>> {
+  if (packVersion === "1.7.0") return Object.fromEntries(ROLE_SEEDS.map(seed => [seed.stableName, sha256(seed.instructions)]));
   if (packVersion === "1.6.0") return Object.fromEntries(ROLE_SEEDS.map(seed => [seed.stableName, sha256(seed.roleRef === "D011" ? HISTORICAL_D011_V160_INSTRUCTIONS : seed.instructions)]));
   if (!["1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.4.0", "1.5.0"].includes(packVersion)) return {};
   return Object.fromEntries(ROLE_SEEDS.filter((seed) => packVersion === "1.5.0" || !["D001", "D006", "D007"].includes(seed.roleRef)).map((seed) => [seed.stableName, sha256(HISTORICAL_OFFICIAL_INSTRUCTIONS[seed.roleRef]!)]));

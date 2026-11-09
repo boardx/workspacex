@@ -37,7 +37,7 @@ function chatFixture(stableName:string|null=DEFAULT_AGENT_STABLE_NAME,replay=fal
  const resolve=vi.fn(async()=>binding);
  return {input,query,resolve,repository:new PgChatMessageCommandRepository(db,{resolve})};
 }
-describe("new system-default run core snapshot",()=>{
+describe("organization conversation run core snapshot",()=>{
  it("freezes organization runtime model and audited binding without mutating the agent version",async()=>{
   const f=chatFixture();await f.repository.accept(orgId,f.input);
   const run=f.query.mock.calls.find(([sql])=>sql.includes("INSERT INTO agent_runs"))!;
@@ -51,11 +51,21 @@ describe("new system-default run core snapshot",()=>{
   const params=(f.query.mock.calls as unknown as [string,readonly unknown[]][]).find(([sql])=>sql.includes("INSERT INTO agent_runs"))![1];
   expect(params[7]).toBe(binding.modelProvider);expect(params[8]).toBe(binding.runtimeModelId);
  });
- it("incompatible legacy default refuses instead of changing execution runtimes",async()=>{
-  const f=chatFixture();f.input.snapshot.modelProvider="other-vendor";await expect(f.repository.accept(orgId,f.input)).rejects.toThrow("CORE_MODEL_UNAVAILABLE");
-  expect(f.query.mock.calls.some(([sql])=>sql.includes("INSERT INTO agent_runs"))).toBe(false);
+ it("ordinary agent adopts the database provider as well as its runtime model",async()=>{
+  const f=chatFixture("custom-agent");f.input.snapshot.modelProvider="other-vendor";await f.repository.accept(orgId,f.input);
+  const params=(f.query.mock.calls as unknown as [string,readonly unknown[]][]).find(([sql])=>sql.includes("INSERT INTO agent_runs"))![1];
+  expect(params[7]).toBe(binding.modelProvider);expect(params[8]).toBe(binding.runtimeModelId);
  });
- it("retains explicit pins of other published agents",async()=>{const f=chatFixture("custom-agent");await f.repository.accept(orgId,f.input);expect(f.resolve).not.toHaveBeenCalled();expect(f.query.mock.calls.some(([sql])=>sql.includes("agent_run_core_model_snapshots"))).toBe(false);});
+ it.each(["custom-agent",null])("ordinary published agent %s inherits the core selection without reimport",async stableName=>{
+  const f=chatFixture(stableName);await f.repository.accept(orgId,f.input);expect(f.resolve).toHaveBeenCalled();
+  expect(f.query.mock.calls.some(([sql])=>sql.includes("INSERT INTO agent_run_core_model_snapshots"))).toBe(true);
+ });
+ it.each(["bailian-image","open-deep-research"])("specialized provider %s retains its independent model",async provider=>{
+  const f=chatFixture("specialized");f.input.snapshot.modelProvider=provider;await f.repository.accept(orgId,f.input);
+  expect(f.resolve).not.toHaveBeenCalled();
+  const params=(f.query.mock.calls as unknown as [string,readonly unknown[]][]).find(([sql])=>sql.includes("INSERT INTO agent_runs"))![1];
+  expect(params[7]).toBe(provider);expect(params[8]).toBe(f.input.snapshot.modelId);
+ });
  it("message replay never rereads or changes a historical core selection",async()=>{const f=chatFixture(DEFAULT_AGENT_STABLE_NAME,true);await f.repository.accept(orgId,f.input);expect(f.resolve).not.toHaveBeenCalled();expect(f.query.mock.calls.some(([sql])=>sql.includes("INSERT INTO agent_runs"))).toBe(false);});
  it("revoked deployment/changed immutable price blocks a new default run",async()=>{const f=chatFixture();f.resolve.mockResolvedValue({...binding,configRevision:"new-price"});await expect(f.repository.accept(orgId,f.input)).rejects.toThrow("CORE_MODEL_UNAVAILABLE");expect(f.query.mock.calls.some(([sql])=>sql.includes("INSERT INTO agent_runs"))).toBe(false);});
 });

@@ -293,7 +293,7 @@ def test_provider_rejecting_forced_tool_choice_degrades_to_unforced_retry_not_ru
             "scenario": "provider 拒绝具名 tool_choice 强制调用时（同步 wrap_model_call），退回不强制重试一次，run 正常收尾",
             "dimensions": ["D1"],
             "not_covered_here": [
-                "真实 DashScope/qwen-plus 端点是否真的拒绝具名 tool_choice"
+                "真实 DashScope/qwen3.8-max 端点是否真的拒绝具名 tool_choice"
                 "（issue #2417 排查已确认这不是那次生产事故的直接根因，见 harness.py 头注）"
             ],
             "task_mode_marker": TASK_MODE_MARKER,
@@ -334,7 +334,7 @@ def test_provider_rejecting_forced_tool_choice_degrades_to_unforced_retry_not_ru
             ),
             "dimensions": ["D1"],
             "not_covered_here": [
-                "真实 DashScope/qwen-plus 端点是否真的拒绝具名 tool_choice"
+                "真实 DashScope/qwen3.8-max 端点是否真的拒绝具名 tool_choice"
                 "（issue #2417 排查已确认这不是那次生产事故的直接根因，见 harness.py 头注）"
             ],
             "task_mode_marker": TASK_MODE_MARKER,

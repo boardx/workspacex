@@ -67,7 +67,7 @@ async function publishAgent(opts: { enabled?: boolean; published?: boolean } = {
         `INSERT INTO chat_wave2_fixture.agent_versions
            (id, org_id, agent_id, skill_version_ids, model_provider, model_id, published_at)
          VALUES ($1,$2,$3,$4::jsonb,$5,$6,now())`,
-        [VERSION, ORG, AGENT, JSON.stringify(SKILLS), "dashscope", "qwen-plus"],
+        [VERSION, ORG, AGENT, JSON.stringify(SKILLS), "dashscope", "qwen3.8-max"],
       );
     }
   });
@@ -185,7 +185,7 @@ describe("POST /chat/threads/:threadId/messages", () => {
       agent_version_id: VERSION,
       skill_version_ids: SKILLS,
       model_provider: "dashscope",
-      model_id: "qwen-plus",
+      model_id: "qwen3.8-max",
       status: "queued",
       input_message_id: body.message.id,
       body: "Analyse this",

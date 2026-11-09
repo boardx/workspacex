@@ -294,7 +294,7 @@ test("official roles: administrator enables dependencies; member checks seven ro
         const completed = await submitWorkbenchRun(member);
         const run = wave2Runtime.AgentRunView.parse(await readApi(member, `/agent-runs/${completed.runId}`));
         expect(run).toMatchObject({ status: "succeeded", agentId: card!.agentId,
-          agentVersionId: card!.versionId, modelProvider: "dashscope", modelId: "qwen-plus", threadId });
+          agentVersionId: card!.versionId, modelProvider: "dashscope", modelId: "qwen3.8-max", threadId });
         const messages = await storedMessages(member, threadId);
         const answer = messages.find(m => m.id === completed.resultMessageId && m.authorKind === "agent" && m.agentRunId === run.runId);
         expect(messages.some(m => m.authorKind === "human" && m.text === prompt)).toBe(true);

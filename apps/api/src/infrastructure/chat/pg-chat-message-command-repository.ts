@@ -13,7 +13,8 @@ import type {
   DefaultAgentResolver, MessagePageRow, PublishedAgentReader, PublishedAgentSnapshot,
 } from "../../application/chat/message-command-ports";
 import { agentDefaults } from "@repo/contracts";
-import { DEFAULT_AGENT_STABLE_NAME } from "../../application/agent/ensure-default-agent";
+import { IMAGE_GEN_AGENT_PROVIDER } from "../../application/agent/ensure-image-gen-agent";
+import { DEEP_RESEARCH_AGENT_PROVIDER } from "../../application/agent/ensure-deep-research-agent";
 import { OrgCoreModelError,type OrgCoreModelAvailability,type OrgCoreModelState } from "../../application/model/org-core-model-ports";
 import { readOrgCoreModelIn,coreModelScopedDb,sameCoreModelBinding } from "../model/pg-org-core-model-repository";
 import { DEEP_AGENT_PROVIDER_NAME } from "../agent-run/deep-agent-model-provider";
@@ -95,11 +96,10 @@ export class PgChatMessageCommandRepository implements ChatMessageCommandReposit
           FOR UPDATE OF q`, [orgId,input.threadId,input.queuedMessageId,input.actorId,input.clientMessageId,input.text,input.selectedAgentId]);
         if (!ready.rows.length) throw new QueuedMessageNotReadyError();
       }
-      // The system default assistant inherits the organization's explicit core selection.
-      // Other published agents keep their immutable model pins. Replay returns above.
+      // All ordinary conversation agents inherit the organization's database selection.
+      // Specialized image/research runtimes retain their own model protocols. Replay returns above.
       let core:OrgCoreModelState|undefined;
-      const system=(await s.query<{stable_name:string|null}>("SELECT stable_name FROM agents WHERE org_id=$1 AND id=$2 AND published_version_id=$3 FOR SHARE",[orgId,input.snapshot.agentId,input.snapshot.agentVersionId])).rows[0];
-      if(system?.stable_name===DEFAULT_AGENT_STABLE_NAME){
+      if(input.snapshot.modelProvider!==IMAGE_GEN_AGENT_PROVIDER&&input.snapshot.modelProvider!==DEEP_RESEARCH_AGENT_PROVIDER){
         await s.query("SELECT pg_advisory_xact_lock(hashtext($1))",[String(orgId)]);
         // Personal/local containers retain their existing runtime and cannot configure this feature.
         const kind=(await s.query<{kind:string}>("SELECT kind FROM organizations WHERE id=$1",[orgId])).rows[0]?.kind;
@@ -107,7 +107,7 @@ export class PgChatMessageCommandRepository implements ChatMessageCommandReposit
           const selected=await readOrgCoreModelIn(s,orgId);
           if(selected.selection){
             const binding=await this.coreModels?.resolve(orgId,selected.selection.modelId,input.actorId,coreModelScopedDb(s,orgId));
-            if(!binding||!sameCoreModelBinding(binding,selected.selection)||(input.snapshot.modelProvider!==DEEP_AGENT_PROVIDER_NAME&&input.snapshot.modelProvider!==binding.modelProvider))throw new OrgCoreModelError("CORE_MODEL_UNAVAILABLE");
+            if(!binding||!sameCoreModelBinding(binding,selected.selection))throw new OrgCoreModelError("CORE_MODEL_UNAVAILABLE");
             core=selected;
           }
         }
@@ -127,7 +127,8 @@ export class PgChatMessageCommandRepository implements ChatMessageCommandReposit
          VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,'queued',$10)`,
         [input.runId, orgId, input.threadId, input.messageId, input.snapshot.agentId,
           input.snapshot.agentVersionId, JSON.stringify(input.snapshot.skillVersionIds),
-          input.snapshot.modelProvider, core?.selection?.runtimeModelId??input.snapshot.modelId, input.snapshot.skillScope ?? null],
+          core?.selection&&input.snapshot.modelProvider!==DEEP_AGENT_PROVIDER_NAME?core.selection.modelProvider:input.snapshot.modelProvider,
+          core?.selection?.runtimeModelId??input.snapshot.modelId, input.snapshot.skillScope ?? null],
       );
       if(core?.selection){
         const binding=core.selection;

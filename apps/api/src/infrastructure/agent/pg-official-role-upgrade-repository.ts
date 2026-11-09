@@ -42,7 +42,16 @@ async function eligible(session: TenantSession, orgId: string, pack: OfficialAge
     if (ROLE_FIELDS.some((field) => normalized(row.draft[field]) !== normalized(row.published[field]))) return false;
     // An official-looking custom import with the old text is still not an untouched official role.
     if (Object.entries(AGENT_ROLE_COLUMN_OF).some(([key,column]) => normalized(row.published[column]) !== normalized(key === "catalogSource" ? "official" : target.role[key as keyof typeof target.role]))) return false;
-    if (row.model_provider !== target.modelProvider || row.model_id !== target.modelId || (!refreshBindings && row.skill_version_ids.length !== 0) || normalized(row.published.tool_policy) !== normalized(target.toolPolicy)) return false;
+    // Historical identity is accepted only at this explicit, provenance-checked upgrade boundary.
+    // It never makes the retired model callable or changes an existing immutable version.
+    const historicalDigest = historicalOfficialRoleInstructionDigests(sourceVersion)[row.stable_name];
+    const historicalModel = row.model_provider === "dashscope" && row.model_id === "qwen-plus"
+      && historicalDigest === row.instruction_digest;
+    const preservedV17Pins = sourceVersion === "1.7.0" && row.instruction_digest === target.instructionDigest
+      && row.skill_version_ids.every(id => resolvedPins.includes(id));
+    if (row.model_provider !== target.modelProvider || (row.model_id !== target.modelId && !historicalModel)
+      || (!refreshBindings && row.skill_version_ids.length !== 0 && !preservedV17Pins)
+      || normalized(row.published.tool_policy) !== normalized(target.toolPolicy)) return false;
     return imports.rows.some((ledger) => {
       const index = ledger.result_json.agentIds.indexOf(row.id);
       return index >= 0 && ledger.result_json.versionIds[index] === row.published_version_id

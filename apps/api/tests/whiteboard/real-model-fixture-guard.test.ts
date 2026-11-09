@@ -7,9 +7,9 @@ it.each(['loopback/e2e','mock/model','fixture/model','model'])('rejects non-real
 it('rejects missing principal before any fixture writes',async()=>{const query=vi.fn(async(_sql:string)=>({rows:[]}));await expect(prepareBoardRealFixture({query} as never,{orgId:'org',userId:'user',agentId:'agent'})).rejects.toThrow('seeded principal');expect(query.mock.calls.some(([sql])=>String(sql).startsWith('INSERT'))).toBe(false);expect(query).toHaveBeenLastCalledWith('ROLLBACK');});
 it('rejects loopback source before creating actor or skill',async()=>{const query=vi.fn(async(sql:string)=>({rows:sql.includes('org_memberships')?[{user_id:'user'}]:sql.includes('JOIN agent_versions')?[{model_provider:'loopback',model_id:'e2e'}]:[]}));await expect(prepareBoardRealFixture({query} as never,{orgId:'org',userId:'user',agentId:'agent'})).rejects.toThrow('real provider');expect(query.mock.calls.some(([sql])=>sql.startsWith('INSERT'))).toBe(false);});
 it('uses published source model, immutable skill publish and a separate delegated actor',async()=>{
- const query=vi.fn(async(sql:string)=>({rows:sql.includes('org_memberships')?[{user_id:'user'}]:sql.includes('JOIN agent_versions')?[{model_provider:'dashscope',model_id:'qwen-plus'}]:sql.startsWith('SELECT published')?[{published:false}]:[]}));
+ const query=vi.fn(async(sql:string)=>({rows:sql.includes('org_memberships')?[{user_id:'user'}]:sql.includes('JOIN agent_versions')?[{model_provider:'dashscope',model_id:'qwen3.8-max'}]:sql.startsWith('SELECT published')?[{published:false}]:[]}));
  const result=await prepareBoardRealFixture({query} as never,{orgId:'org',userId:'user',agentId:'seed-agent'});
- expect(result).toMatchObject({model:'dashscope/qwen-plus',actorId:'seed-agent-board-organize',skill:'seed-agent-board-organize-skill-v1'});
+ expect(result).toMatchObject({model:'dashscope/qwen3.8-max',actorId:'seed-agent-board-organize',skill:'seed-agent-board-organize-skill-v1'});
  expect(query).toHaveBeenCalledWith('SELECT wave2_publish_skill_version($1,$2)',['org',result.skill]);
  expect(query.mock.calls.some(([sql])=>/GRANT|ALTER ROLE|UPDATE agent_versions|UPDATE skill_versions/.test(sql))).toBe(false);
  expect(query).toHaveBeenLastCalledWith('COMMIT');

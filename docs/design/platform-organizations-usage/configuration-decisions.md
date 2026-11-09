@@ -16,7 +16,7 @@
 
 ## 当前可支持候选的事实边界
 
-仓库没有全局硬编码正式模型名单；`PgModelPoolRepository.listForOrg` 和 `selectableModels` 是组织候选的权威。当前开发环境不启动数据库、不读取生产 credentials，也未从正式池取到当前可用具体名称，因此**这里没有可确认的 fallback 型号**。默认 `qwen-plus` 等代码占位或 mock/fixture 型号不能作为生产候选。启用界面应只投影正式池的 modelId/displayName、status、capabilityTags、contextWindow，经过现有可选/机密路由检查与具体 provider 能力检查；不投影 endpoint、credential 或 secret。
+仓库没有全局硬编码正式模型名单；`PgModelPoolRepository.listForOrg` 和 `selectableModels` 是组织候选的权威。当前开发环境不启动数据库、不读取生产 credentials，也未从正式池取到当前可用具体名称，因此**这里没有可确认的 fallback 型号**。默认 `qwen3.8-max` 等代码占位或 mock/fixture 型号不能作为生产候选。启用界面应只投影正式池的 modelId/displayName、status、capabilityTags、contextWindow，经过现有可选/机密路由检查与具体 provider 能力检查；不投影 endpoint、credential 或 secret。
 
 已知路由类型是现有 `RoutingModelCallPort` 注册的 configured chat、deep-agent、deep-research；类型存在不代表该部署具备相应能力、价格或费用授权。候选为空时给出可操作的未配置状态，不能自动注册/选择替代供应商。
 

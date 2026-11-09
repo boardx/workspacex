@@ -30,7 +30,7 @@ requirement -- see the PR description for what WAS and was not verified).
 `ainvoke()`（`graph.py`/`harness.py` 头注反复强调的"异步 runtime"说的是 LangGraph
 graph 这一层的 `ainvoke`/`astream`，不是这里每次模型调用是否走 SSE；此文件从未把
 `streaming=True` 传给 `ChatOpenAI`，所以打给百炼的每次请求都是 `stream: false`）。
-Qwen3 系混合思考模型（`qwen-plus`/`qwen3.x-plus`）缺省开启深度思考，非流式调用要等
+Qwen3 系混合思考模型（`qwen3.8-max`/`qwen3.x-plus`）缺省开启深度思考，非流式调用要等
 整段隐藏 reasoning + 正文都生成完才返回——与 #2504 的根因逐字相同，只是那次是
 `apps/api` 里 pptx skill 这条路径命中，这次是 deep-agent 主聊天（每一句话，不分
 任务大小）命中。
@@ -48,7 +48,7 @@ Python 进程，见本文件头注）：同样的双维门控，同样的默认�
 （不是新造一套 Python 专属的名字——运维只需要在两个容器里注入相同的值，与
 `KERNEL_MODEL_BASE_URL`/`KERNEL_MODEL_API_KEY` 同一纪律）：
   1. **model 维度** —— `KERNEL_MODEL_THINKING_DISABLE_IDS`（逗号分隔，默认
-     `qwen-plus,qwen3.7-plus,qwen3.8-max`，与 `configured-model-provider.ts` 的
+     `qwen3.7-plus,qwen3.8-max`，与 `configured-model-provider.ts` 的
      `readThinkingDisableModelIds` 默认值逐字相同）里是否包含这次实际使用的
      `model_id`；
   2. **endpoint 维度** —— `KERNEL_MODEL_BAILIAN_EXTENSIONS`（`"1"`/`"0"` 显式覆盖，
@@ -72,7 +72,7 @@ from langchain_openai import ChatOpenAI
 from deep_agent_service.credit_aware_chat_model import CreditAwareChatOpenAI
 from deep_agent_service.model_request_accounting import model_http_clients, admission_enabled
 
-DEFAULT_MODEL_ID = "qwen-plus"
+DEFAULT_MODEL_ID = "qwen3.8-max"
 
 # 2026-09-25 devapp 实测（人类原话「model call limit how it comes?」+「解决这个 bug」，
 # 三次同一个失败：`web-artifact` 技能的「隔离浏览器验收」步骤失败，界面上说
@@ -118,7 +118,7 @@ def _model_request_timeout_seconds(env: "os._Environ[str]" = os.environ) -> floa
 # 里 140 条 `"model_name":"qwen3.8-max"`），不在此前的默认集合里，于是 thinking 一直
 # 开着——百炼文档：qwen3.5/3.6/3.7/3.8 系列是混合思考模型，`enable_thinking` **默认 true**
 # （https://help.aliyun.com/zh/model-studio/deep-thinking）。把它补进默认集合。
-_DEFAULT_THINKING_DISABLE_MODEL_IDS = "qwen-plus,qwen3.7-plus,qwen3.8-max"
+_DEFAULT_THINKING_DISABLE_MODEL_IDS = "qwen3.7-plus,qwen3.8-max"
 
 # 与 `configured-model-provider.ts` 的 `isBailianBaseUrl` 判据相同的真实百炼 host。
 _BAILIAN_HOSTNAMES = frozenset({"dashscope.aliyuncs.com", "www.dashscope.aliyuncs.com"})

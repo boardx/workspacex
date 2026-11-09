@@ -1245,7 +1245,7 @@ def _prepare_pinned_model_request(request: ModelRequest) -> ModelRequest:
 
 
 class PinnedModelMiddleware(AgentMiddleware):
-    """数字人能力（决策 B）：钉住具体模型（如官方数字人的 qwen-plus）的 Agent 经本运行时执行时，
+    """数字人能力（决策 B）：钉住具体模型（如官方数字人的 qwen3.8-max）的 Agent 经本运行时执行时，
     每次模型调用换成它钉住的那个模型——同一端点，不换 provider。未送 `model_id` ⇒ 原样透传。"""
 
     def wrap_model_call(

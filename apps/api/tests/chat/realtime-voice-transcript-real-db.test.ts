@@ -58,7 +58,7 @@ async function publishedFixture(orgId = ORG, publish = true): Promise<{agentId:s
   const at = new Date().toISOString();
   await db.withTenant(toOrgId(orgId), async (session) => {
     await session.query("INSERT INTO agents (id,org_id,stable_name,name,status,creator_id,created_at,updated_at,role_label,instructions) VALUES ($1,$2,$3,$5,'enabled','u-owner',$4,$4,'产品经理','草稿背景：佛学冥想指导')", [agentId,orgId,agentId,at,`产品经理-${agentId}`]);
-    await insertAgentVersionFromDraft(session, {versionId,orgId,agentId,semanticLabel:"1.0.0",instructionDigest:createHash("sha256").update(instructions).digest("hex"),instructions,skillVersionIds:[],modelProvider:"dashscope",modelId:"qwen-plus",toolPolicy:[],creatorId:"u-owner",at});
+    await insertAgentVersionFromDraft(session, {versionId,orgId,agentId,semanticLabel:"1.0.0",instructionDigest:createHash("sha256").update(instructions).digest("hex"),instructions,skillVersionIds:[],modelProvider:"dashscope",modelId:"qwen3.8-max",toolPolicy:[],creatorId:"u-owner",at});
     if (publish) await session.query("UPDATE agents SET published_version_id=$3 WHERE id=$1 AND org_id=$2", [agentId,orgId,versionId]);
     await session.query("INSERT INTO capability_listings (id,org_id,kind,name,scope,enabled,abbr,duty) VALUES ($1,$2,'agent',$3,'org-wide',true,'PM','产品经理')", [agentId,orgId,`产品经理-${agentId}`]);
   });
@@ -76,7 +76,7 @@ describe("realtime voice transcripts (real DB)", () => {
     const newer = `rt-voice-version-${randomUUID()}`;
     const newerInstructions = `你是产品经理。新发布版本专门帮助定义实验指标。${newer}`;
     await db.withTenant(toOrgId(ORG), async (tenant) => {
-      await insertAgentVersionFromDraft(tenant, {versionId:newer,orgId:ORG,agentId:fixture.agentId,semanticLabel:"1.1.0",instructionDigest:createHash("sha256").update(newerInstructions).digest("hex"),instructions:newerInstructions,skillVersionIds:[],modelProvider:"dashscope",modelId:"qwen-plus",toolPolicy:[],creatorId:"u-owner",at:new Date().toISOString()});
+      await insertAgentVersionFromDraft(tenant, {versionId:newer,orgId:ORG,agentId:fixture.agentId,semanticLabel:"1.1.0",instructionDigest:createHash("sha256").update(newerInstructions).digest("hex"),instructions:newerInstructions,skillVersionIds:[],modelProvider:"dashscope",modelId:"qwen3.8-max",toolPolicy:[],creatorId:"u-owner",at:new Date().toISOString()});
       await tenant.query("UPDATE agents SET published_version_id=$3,instructions='仍未发布的另一个草稿' WHERE id=$1 AND org_id=$2", [fixture.agentId,ORG,newer]);
     });
     const reopened = await openRealtimeVoiceSession(deps, {orgId:toOrgId(ORG),userId:"u-owner",threadId:THREAD,agentId:fixture.agentId});

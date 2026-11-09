@@ -371,7 +371,7 @@ describe("agent tags round trip (PATCH role draft → publish → GET /agents/di
     const versionId = `agent-version-${randomUUID()}`;
     await asApp(ORG, async (client) => {
       const session = { query: (sql: string, params?: unknown[]) => client.query(sql, params) } as never;
-      await insertAgentVersionFromDraft(session, { versionId, orgId: ORG, agentId: target.agentId, semanticLabel: "1.2.1", instructionDigest: sha256("i"), instructions: "i", skillVersionIds: [], modelProvider: "dashscope", modelId: "qwen-plus", toolPolicy: [], creatorId: ADMIN, at: new Date().toISOString() });
+      await insertAgentVersionFromDraft(session, { versionId, orgId: ORG, agentId: target.agentId, semanticLabel: "1.2.1", instructionDigest: sha256("i"), instructions: "i", skillVersionIds: [], modelProvider: "dashscope", modelId: "qwen3.8-max", toolPolicy: [], creatorId: ADMIN, at: new Date().toISOString() });
       await client.query("UPDATE agents SET published_version_id = $3 WHERE id = $1 AND org_id = $2", [target.agentId, ORG, versionId]);
     });
     const card = await fetch(`${base}/agents/directory/${target.agentId}`, { headers: authFor(MEMBER) });

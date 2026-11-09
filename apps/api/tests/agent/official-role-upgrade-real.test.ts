@@ -13,12 +13,12 @@ let app:NestExpressApplication,base:string,root:string;
 const auth=(user=ADMIN,org=ORG)=>({"x-kernel-test-principal":`${user}:${org}`,"content-type":"application/json"});
 const post=(path:string,body:unknown,user=ADMIN,org=ORG)=>fetch(`${base}${path}`,{method:"POST",headers:auth(user,org),body:JSON.stringify(body)});
 const legacyInstructions="Turn discovery signals into prioritized problem statements and PRDs, keep the roadmap traceable to evidence, and hand off sprint-ready scope without silently narrowing it.";
-function legacyPack(){
+function legacyPack(version="1.5.0",modelId="qwen-plus",pins:{versionId:string;digest:string}[]=[]){
  const target=buildOfficialAgentRolePack().agents.find((a)=>a.roleRef==="D003")!;
- const entry={...target,semanticVersion:"1.5.0",instructions:legacyInstructions,instructionDigest:digest(legacyInstructions),skillVersions:[]};
+ const entry={...target,semanticVersion:version,modelId,instructions:version==="1.7.0"?target.instructions:legacyInstructions,instructionDigest:version==="1.7.0"?target.instructionDigest:digest(legacyInstructions),skillVersions:pins};
  // The historical fixture deliberately has no authored direct bindings.
  delete (entry as Record<string,unknown>).authoredSkillBindings;
- const raw=wave2Runtime.UnsignedOfficialAgentStarterPack.parse({schemaVersion:1,packId:"official-digitalhuman-roles",packVersion:"1.5.0",agents:[entry]});
+ const raw=wave2Runtime.UnsignedOfficialAgentStarterPack.parse({schemaVersion:1,packId:"official-digitalhuman-roles",packVersion:version,agents:[entry]});
  return {...raw,packDigest:digest(JSON.stringify(raw))};
 }
 beforeAll(async()=>{
@@ -33,12 +33,13 @@ afterAll(async()=>{await app?.close();await resetOrgs(ORG,OTHER);rmSync(root,{re
 beforeEach(async()=>{
  await resetOrgs(ORG,OTHER);for(const org of [ORG,OTHER]){const fixture=await seedOrg({orgId:org,projectId:`${org}-p`});await addOrgMember(org,ADMIN,"admin",fixture.teams.energy!);await addOrgMember(org,MEMBER,"consultant",fixture.teams.energy!);}
 });
-async function imported(){
- const response=await post("/admin/agents/starter-pack-imports",{packId:"official-digitalhuman-roles",packVersion:"1.5.0",idempotencyKey:randomUUID()});expect(response.status).toBe(201);
+async function imported(version="1.5.0",modelId="qwen-plus",pins:{versionId:string;digest:string}[]=[]){
+ writeFileSync(join(root,"official-digitalhuman-roles",`${version}.json`),JSON.stringify(legacyPack(version,modelId,pins)));
+ const response=await post("/admin/agents/starter-pack-imports",{packId:"official-digitalhuman-roles",packVersion:version,idempotencyKey:randomUUID()});expect(response.status).toBe(201);
  const result=await response.json() as {agentIds:string[],versionIds:string[]};return {agentId:result.agentIds[0]!,expectedPublishedVersionId:result.versionIds[0]!};
 }
 const body=(selection:{agentId:string;expectedPublishedVersionId:string})=>({expectedOrgId:ORG,packVersion:buildOfficialAgentRolePack().packVersion,selections:[selection],idempotencyKey:randomUUID()});
-async function versions(){return asApp(ORG,async(s)=>(await s.query("SELECT id,semantic_label,instructions,instruction_digest,skill_version_ids,pending_skill_bindings FROM agent_versions WHERE org_id=$1 ORDER BY id",[ORG])).rows);}
+async function versions(){return asApp(ORG,async(s)=>(await s.query("SELECT id,semantic_label,instructions,instruction_digest,skill_version_ids,pending_skill_bindings,model_provider,model_id FROM agent_versions WHERE org_id=$1 ORDER BY id",[ORG])).rows);}
 describe("official-role immutable selected upgrade: real PostgreSQL/HTTP",()=>{
  it("creates a new version, freezes pending refs honestly, preserves old version and disabled status, replays identical request",async()=>{
   const selection=await imported();const old=await versions();await asApp(ORG,s=>s.query("UPDATE agents SET status='disabled' WHERE org_id=$1 AND id=$2",[ORG,selection.agentId]));
@@ -46,10 +47,37 @@ describe("official-role immutable selected upgrade: real PostgreSQL/HTTP",()=>{
   const input=body(selection);const response=await post(agentRole.operations.upgradeOfficialRoles.path,input);expect(response.status).toBe(201);
   const upgraded=agentRole.OfficialRoleUpgradeResult.parse(await response.json());expect(upgraded.agentIds).toEqual([selection.agentId]);expect(upgraded.versionIds[0]).not.toBe(selection.expectedPublishedVersionId);
   const now=await versions();expect(now).toHaveLength(2);expect(now.find((v)=>v.id===selection.expectedPublishedVersionId)).toEqual(old[0]);
-  const latest=now.find((v)=>v.id===upgraded.versionIds[0])!;expect(latest.instructions).toContain("产品");expect(latest.skill_version_ids).toEqual([]);expect(latest.pending_skill_bindings.length).toBeGreaterThan(0);
+  const latest=now.find((v)=>v.id===upgraded.versionIds[0])!;expect(latest.model_id).toBe("qwen3.8-max");expect(old[0]!.model_id).toBe("qwen-plus");expect(latest.instructions).toContain("产品");expect(latest.skill_version_ids).toEqual([]);expect(latest.pending_skill_bindings.length).toBeGreaterThan(0);
   const agent=await asApp(ORG,async s=>(await s.query("SELECT status,published_version_id FROM agents WHERE org_id=$1 AND id=$2",[ORG,selection.agentId])).rows[0]);expect(agent.status).toBe("disabled");expect(agent.published_version_id).toBe(upgraded.versionIds[0]);
   const replay=await post(agentRole.operations.upgradeOfficialRoles.path,input);expect(replay.status).toBe(201);expect(await replay.json()).toEqual(upgraded);expect(await versions()).toHaveLength(2);
   const conflict=await post(agentRole.operations.upgradeOfficialRoles.path,{...input,selections:[{...selection,expectedPublishedVersionId:"different"}]});expect(conflict.status).toBe(409);expect(await versions()).toHaveLength(2);
+ });
+ it("upgrades previous 1.7 official roles without rewriting their retired binding",async()=>{
+  const selection=await imported("1.7.0");const original=await versions();
+  const response=await post(agentRole.operations.upgradeOfficialRoles.path,body(selection));expect(response.status).toBe(201);
+  const result=agentRole.OfficialRoleUpgradeResult.parse(await response.json());
+  const rows=await versions();expect(rows).toHaveLength(2);
+  expect(rows.find(v=>v.id===selection.expectedPublishedVersionId)).toEqual(original[0]);
+  expect(rows.find(v=>v.id===result.versionIds[0])!.model_id).toBe("qwen3.8-max");
+ });
+ it("preserves a verified existing 1.7 Skill pin during the model upgrade",async()=>{
+  expect((await post("/admin/skills/starter-pack-imports",{packId:"work-product",packVersion:"1.0.0",idempotencyKey:randomUUID()})).status).toBe(201);
+  const pin=await asApp(ORG,async s=>{
+   const row=(await s.query<{skill_id:string;version_id:string;content_digest:string}>("SELECT s.id AS skill_id,v.id AS version_id,v.content_digest FROM skills s JOIN skill_versions v ON v.skill_id=s.id AND v.org_id=s.org_id WHERE s.org_id=$1 AND s.stable_name='customer-research' AND v.published=true",[ORG])).rows[0]!;
+   await s.query("UPDATE skill_catalog_entries SET channel='verified' WHERE org_id=$1 AND skill_id=$2",[ORG,row.skill_id]);
+   return {versionId:row.version_id,digest:row.content_digest};
+  });
+  const selection=await imported("1.7.0","qwen-plus",[pin]);
+  const original=await versions();
+  const response=await post(agentRole.operations.upgradeOfficialRoles.path,body(selection));expect(response.status).toBe(201);
+  const result=agentRole.OfficialRoleUpgradeResult.parse(await response.json());
+  const rows=await versions();expect(rows.find(v=>v.id===selection.expectedPublishedVersionId)).toEqual(original[0]);
+  expect(rows.find(v=>v.id===result.versionIds[0])!.skill_version_ids).toEqual([pin.versionId]);
+ });
+ it("rejects a custom source model even with official text and import provenance",async()=>{
+  const selection=await imported("1.5.0","custom-model");const original=await versions();
+  expect((await post(agentRole.operations.upgradeOfficialRoles.path,body(selection))).status).toBe(409);
+  expect(await versions()).toEqual(original);
  });
  it("rejects stale selection, nonadmin, cross-org and custom role, with zero version writes",async()=>{
   const selection=await imported();const original=await versions();const input=body(selection);
@@ -87,7 +115,7 @@ describe("official-role immutable selected upgrade: real PostgreSQL/HTTP",()=>{
     const row=(await s.query<{skill_id:string;version_id:string}>("SELECT s.id AS skill_id,v.id AS version_id FROM skills s JOIN skill_versions v ON v.skill_id=s.id AND v.org_id=s.org_id WHERE s.org_id=$1 AND s.stable_name='customer-research' AND v.published=true",[ORG])).rows[0]!;
     await s.query("UPDATE skill_catalog_entries SET channel='verified' WHERE org_id=$1 AND skill_id=$2",[ORG,row.skill_id]);return row.version_id;
   });
-  expect((await offer()).upgrades).toContainEqual(expect.objectContaining({...current,currentVersion:"1.7.0",targetVersion:"1.7.0",readySkillCount:1}));
+  expect((await offer()).upgrades).toContainEqual(expect.objectContaining({...current,currentVersion:"1.8.0",targetVersion:"1.8.0",readySkillCount:1}));
   const request=body(current);
   expect((await post(agentRole.operations.upgradeOfficialRoles.path,request,MEMBER)).status).toBe(403);
   expect((await post(agentRole.operations.upgradeOfficialRoles.path,request,ADMIN,OTHER)).status).toBe(403);

@@ -46,7 +46,7 @@ def test_build_chat_model_defaults_model_id_when_unset(monkeypatch: pytest.Monke
 
     model = build_chat_model()
 
-    assert model.model_name == "qwen-plus"
+    assert model.model_name == "qwen3.8-max"
 
 
 # #2700 -- deep-agent 主聊天路径没有关闭 Qwen3 深度思考，非流式调用（这个文件从未把
@@ -141,7 +141,7 @@ def test_build_chat_model_does_not_disable_thinking_for_non_bailian_base_url(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """modelId 在允许集合里，但 `baseUrl` 不是真的百炼端点 ⇒ 不带这个字段——一个
-    复用了 `qwen-plus` 这个名字的非百炼端点不该被发送这个陌生扩展字段。"""
+    复用了 `qwen3.8-max` 这个名字的非百炼端点不该被发送这个陌生扩展字段。"""
     monkeypatch.setenv("KERNEL_MODEL_BASE_URL", "https://example.invalid/compatible-mode/v1")
     monkeypatch.setenv("KERNEL_MODEL_API_KEY", "test-key")
     monkeypatch.delenv("KERNEL_DEEP_AGENT_MODEL_ID", raising=False)

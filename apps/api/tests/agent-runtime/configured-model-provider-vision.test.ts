@@ -57,7 +57,7 @@ describe("supportsVision —— 能力是模型的属性，不是厂商的属性
     const { baseUrl } = await startStub();
     const p = provider(baseUrl, ["qwen-vl-max"]);
     expect(p.supportsVision("dashscope", "qwen-vl-max")).toBe(true);
-    expect(p.supportsVision("dashscope", "qwen-plus")).toBe(false);
+    expect(p.supportsVision("dashscope", "qwen3.8-max")).toBe(false);
     // 不是本部署配置的 provider ⇒ false（那次调用本来就会以 NOT_CONFIGURED 失败）。
     expect(p.supportsVision("other-vendor", "qwen-vl-max")).toBe(false);
   });

@@ -1,3 +1,4 @@
+// @global-scope-fixture table:credit_wallets: only this file's ACTOR/ORG payers; beforeEach funds them, afterAll zeros balances; receipt-linked rows remain for audit.
 /**
  * 线程自动命名叠加模型摘要（`generate-thread-title.ts`）——**真实栈**门控。
  *
@@ -128,7 +129,7 @@ async function publishAgent(): Promise<void> {
     await c.query(
       `INSERT INTO chat_wave2_fixture.agent_versions
          (id, org_id, agent_id, skill_version_ids, model_provider, model_id, published_at)
-       VALUES ($1,$2,$3,$4::jsonb,'dashscope','qwen-plus',now())`,
+       VALUES ($1,$2,$3,$4::jsonb,'dashscope','qwen3.8-max',now())`,
       [VERSION, ORG, AGENT, JSON.stringify([])]);
   });
 }
@@ -154,6 +155,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await app?.close();
+  await asOwner(c => c.query("UPDATE credit_wallets SET balance=0 WHERE (owner_type='user' AND owner_id=$1) OR (owner_type='team' AND owner_id=$2)", [ACTOR, ORG]));
   // ③ 的挂起用例故意不 respond，那条连接的 socket 因此永远打开——graceful `close()`
   // 会等它，在这里挂到 hook 超时。`closeAllConnections()`（Node ≥18.2）先把仍打开的
   // 连接砍断，`close()` 才能真的 resolve。
@@ -184,6 +186,8 @@ beforeEach(async () => {
   await resetOrgs(ORG);
   const fx = await seedOrg({ orgId: ORG, projectId: PROJECT });
   await addOrgMember(ORG, ACTOR, "consultant", fx.teams.energy!);
+  // The loopback model call still traverses real credit admission. Seed its test payers.
+  await asOwner(c => c.query("INSERT INTO credit_wallets(owner_type,owner_id,balance) VALUES('user',$1,10000),('team',$2,10000) ON CONFLICT(owner_type,owner_id) DO UPDATE SET balance=10000", [ACTOR, ORG]));
   await publishAgent();
 });
 
