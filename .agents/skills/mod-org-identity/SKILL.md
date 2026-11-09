@@ -50,6 +50,7 @@ description: >
 3. 交付：`verify --sprint` 门控；PR 描述里写清对鉴权/权限面的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-11-09：成员表的 overflow-x-auto 同时形成纵向裁切边界；绝对定位菜单提高 z-index 无效，应复用带 portal 与碰撞定位的共享浮层。保留 busy 时 aria-disabled 的焦点能力，并验证表格末行、窄屏、Esc 焦点及角色更新权限/409 不变（#6462；docs/testing/org-role-menu-6462）。
 - 2026-11-07: Guided research runtime public reason codes live in operation.err, not the older ResearchError enum. Match the canonical operation list and verify real HTTP 409 plus unknown/detail rejection (issue #6361 / PR #6372).
 - 2026-11-06：组织邀请按人类要求取消复核，新邀请固定普通成员（consultant），邮件投递使用既有事务邮件端口；已有账号用 guarded accept 路由明确确认，单人邀请必须绑定 credentials 邮箱、共享链接重复加入不重复扣使用次数。企业成员默认月度 Credit 上限独立于 Token 配额，不发放钱包资金；未知成本调用预留余额度并在真实回执后检查，不能承诺回执间绝无超额（issue #6316；evidence/org-invitation-6316/）。
 - 2026-11-06：组织导出清单须按同一应用连接的 PostgreSQL SELECT ACL 枚举可读租户表；org_id 外键不代表 app 可读，内部历史归档撤权后不得切特权账号、吞错误或伪报零行。保留普通租户表计数完整、active/disabled 管理员真实 HTTP 与跨组织归档拒读反例（issue #6290 / PR #6298）。

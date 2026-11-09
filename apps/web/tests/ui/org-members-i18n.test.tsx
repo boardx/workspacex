@@ -129,7 +129,7 @@ describe("organization member and invitation localization", () => {
     vi.stubGlobal("fetch", fetch);
     bilingual(<MembersTab orgId="org-locale" isAdmin />);
     const picker = await screen.findByTestId("org-admin-member-last-admin-org-role");
-    fireEvent.click(picker);
+    fireEvent.pointerDown(picker, {button:0,ctrlKey:false,pointerType:"mouse"});
     fireEvent.click(screen.getByTestId("org-admin-member-last-admin-org-role-option-consultant"));
     expect(await screen.findByTestId("org-admin-member-last-admin-org-role-error")).toHaveTextContent("last administrator");
     fireEvent.click(screen.getByText("Switch Chinese"));

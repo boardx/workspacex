@@ -12,7 +12,7 @@ import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
-import { MembersTab } from "@/components/org-admin/org-admin-screen";
+import { MembersTab, PopoverSelect } from "@/components/org-admin/org-admin-screen";
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -78,7 +78,7 @@ describe("MembersTab —— 组织角色调整", () => {
     render(<MembersTab orgId="org-mrm" isAdmin={true} />);
 
     const trigger = await screen.findByTestId("org-admin-member-u-linke-org-role");
-    fireEvent.click(trigger);
+    fireEvent.pointerDown(trigger, {button:0,ctrlKey:false,pointerType:"mouse"});
     fireEvent.click(await screen.findByTestId("org-admin-member-u-linke-org-role-option-admin"));
 
     await waitFor(() => expect(trigger).toHaveTextContent("管理员"));
@@ -94,7 +94,7 @@ describe("MembersTab —— 组织角色调整", () => {
     render(<MembersTab orgId="org-mrm" isAdmin={true} />);
 
     const trigger = await screen.findByTestId("org-admin-member-u-admin-org-role");
-    fireEvent.click(trigger);
+    fireEvent.pointerDown(trigger, {button:0,ctrlKey:false,pointerType:"mouse"});
     fireEvent.click(await screen.findByTestId("org-admin-member-u-admin-org-role-option-consultant"));
 
     const error = await screen.findByTestId("org-admin-member-u-admin-org-role-error");
@@ -103,4 +103,38 @@ describe("MembersTab —— 组织角色调整", () => {
     expect(trigger).toHaveTextContent("管理员");
     expect(screen.queryByTestId("org-admin-member-role-banner")).toBeNull();
   });
+});
+
+
+it("renders the bottom member menu outside the clipped member table", async () => {
+ fetchMock.mockImplementation(routed());render(<MembersTab orgId="org-mrm" isAdmin />);
+ const trigger=await screen.findByTestId("org-admin-member-u-admin-org-role");
+ fireEvent.pointerDown(trigger, {button:0,ctrlKey:false,pointerType:"mouse"});
+ const menu=await screen.findByTestId("org-admin-member-u-admin-org-role-listbox");
+ const table=screen.getByTestId("org-admin-member-list").parentElement!;
+ expect(table.contains(menu)).toBe(false);
+ fireEvent.keyDown(menu,{key:"Escape"});
+ await waitFor(()=>expect(screen.queryByTestId("org-admin-member-u-admin-org-role-listbox")).toBeNull());
+ await waitFor(()=>expect(trigger).toHaveFocus());
+});
+
+
+it("keeps a busy role trigger tabbable while rejecting keyboard activation", () => {
+ render(<PopoverSelect value="consultant" options={[{id:"consultant",label:"成员"},{id:"admin",label:"管理员"}]} onSelect={vi.fn()} disabled testid="busy-role" ariaLabel="组织角色"/>);
+ const trigger=screen.getByTestId("busy-role");trigger.focus();
+ expect(fireEvent.keyDown(trigger,{key:"Tab"})).toBe(true);
+ expect(fireEvent.keyDown(trigger,{key:"Tab",shiftKey:true})).toBe(true);
+ fireEvent.keyDown(trigger,{key:"Enter"});
+ expect(screen.queryByTestId("busy-role-listbox")).toBeNull();
+ expect(trigger).toHaveFocus();
+});
+
+
+it("closes an open menu when its trigger receives a full mouse click", async () => {
+ fetchMock.mockImplementation(routed());render(<MembersTab orgId="org-mrm" isAdmin />);
+ const trigger=await screen.findByTestId("org-admin-member-u-admin-org-role");
+ const click=()=>{fireEvent.pointerDown(trigger,{button:0,ctrlKey:false,pointerType:"mouse"});fireEvent.pointerUp(trigger,{button:0,pointerType:"mouse"});fireEvent.click(trigger);};
+ click();await screen.findByTestId("org-admin-member-u-admin-org-role-listbox");
+ click();await waitFor(()=>expect(screen.queryByTestId("org-admin-member-u-admin-org-role-listbox")).toBeNull());
+ expect(trigger).toHaveAttribute("aria-expanded","false");
 });

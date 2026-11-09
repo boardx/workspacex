@@ -51,7 +51,7 @@ function show() { return render(<I18nProvider initialLocale="en"><Language /><Pl
 const switchTo = (locale: "en" | "zh-CN") => fireEvent.click(screen.getByText(locale === "en" ? "EN test" : "ZH test"));
 const roleId = (org = "a") => `admin-platform-member-target-org-${org}-role`;
 async function choose(role: string, org = "a") {
-  fireEvent.click(await screen.findByTestId(roleId(org)));
+  fireEvent.pointerDown(await screen.findByTestId(roleId(org)), {button:0,ctrlKey:false,pointerType:"mouse"});
   fireEvent.click(await screen.findByTestId(`${roleId(org)}-option-${role}`));
 }
 function requests() { return fetchMock.mock.calls.map(([url, init]) => ({ path: new URL(String(url), "http://localhost").pathname.replace(/^\/api/, ""), method: init?.method ?? "GET", body: init?.body ? JSON.parse(String(init.body)) : undefined })); }
@@ -89,14 +89,14 @@ describe("platform members complete localization", () => {
   });
 
   it("switches an open role popover and dates without losing its selection or making any request", async () => {
-    route(); show(); fireEvent.click(await screen.findByTestId(roleId()));
-    expect(screen.getByRole("option", { name: translate("en", "role.consultant") })).toHaveAttribute("aria-selected", "true");
+    route(); show(); fireEvent.pointerDown(await screen.findByTestId(roleId()), {button:0,ctrlKey:false,pointerType:"mouse"});
+    expect(screen.getByRole("menuitemradio", { name: translate("en", "role.consultant") })).toHaveAttribute("aria-checked", "true");
     switchTo("zh-CN");
-    expect(screen.getByRole("option", { name: translate("zh-CN", "role.consultant") })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("menuitemradio", { name: translate("zh-CN", "role.consultant") })).toHaveAttribute("aria-checked", "true");
     expect(screen.getByTestId(roleId())).toHaveAccessibleName(new RegExp(rawOrg.replace(/[{}]/g, "\\$&")));
     expect(screen.getByTestId("admin-platform-members-list")).toHaveTextContent(new Date(roster.members[1].createdAt).toLocaleDateString("zh-CN"));
     switchTo("en");
-    for (const role of ["consultant", "admin"] as const) expect(screen.getByRole("option", { name: translate("en", `role.${role}`) })).toBeTruthy();
+    for (const role of ["consultant", "admin"] as const) expect(screen.getByRole("menuitemradio", { name: translate("en", `role.${role}`) })).toBeTruthy();
     expect(requests()).toEqual([{ path: "/platform/members", method: "GET", body: undefined }]);
   });
 
@@ -117,7 +117,7 @@ describe("platform members complete localization", () => {
     await choose("admin");
     vi.useFakeTimers();
     expect(screen.getByTestId(roleId())).toHaveAttribute("aria-disabled", "true");
-    switchTo("zh-CN"); fireEvent.click(screen.getByTestId(roleId()));
+    switchTo("zh-CN"); fireEvent.pointerDown(screen.getByTestId(roleId()), {button:0,ctrlKey:false,pointerType:"mouse"});
     expect(fetchMock).toHaveBeenCalledTimes(2);
     await act(async () => pending.resolve(json({ userId: "target", orgId: "a", orgRole: "admin", previousOrgRole: "consultant" })));
     await flush();
